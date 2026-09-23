@@ -30,7 +30,7 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
 
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<DispositionVisibility>(() => {
-    if (userProfile?.groupId) return 'mestre_group';
+    if (userProfile?.groupId || (userProfile as any)?.canWriteSequenciador) return 'mestre_group';
     return 'private';
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,9 +41,10 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
   const isMestreOrAdmin =
     isAdmin ||
     userProfile?.role === 'mestre' ||
-    (userProfile as any)?.dbRole === 'mestre';
+    (userProfile as any)?.dbRole === 'mestre' ||
+    Boolean((userProfile as any)?.canWriteSequenciador);
 
-  const hasGroup = Boolean(userProfile?.groupId);
+  const hasGroup = Boolean(userProfile?.groupId || (userProfile as any)?.canWriteSequenciador);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +80,13 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
       const ownerId = userProfile?.uid || currentUser?.uid || 'local';
       const authorId = ownerId;
       const authorName = userProfile?.displayName || (ownerId === 'local' ? 'Local' : 'Mestre');
-      const groupId = hasGroup ? userProfile?.groupId : null;
+      const canWrite = Boolean((userProfile as any)?.canWriteSequenciador);
+      const isSamambaiaGroup =
+        ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+        ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
+        (userProfile?.groupId && userProfile.groupId.toLowerCase().includes('samambaia')) ||
+        canWrite;
+      const groupId = isSamambaiaGroup ? 'samambaia' : (hasGroup ? userProfile?.groupId : null);
 
       await addDisposition(
         {
@@ -92,7 +99,8 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
           instruments: cleanedInstruments,
           hasToada: Boolean(hasToada),
         },
-        userProfile?.role
+        userProfile?.role,
+        canWrite
       );
 
       setName('');

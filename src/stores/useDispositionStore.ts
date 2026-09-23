@@ -36,14 +36,16 @@ export interface DispositionStoreState {
   setDispositions: (dispositions: DispositionPreset[]) => void;
   addDisposition: (
     disposition: Omit<DispositionPreset, 'id' | 'createdAt' | 'updatedAt'>,
-    userRole?: string
+    userRole?: string,
+    canWriteSequenciador?: boolean
   ) => Promise<DispositionPreset>;
   deleteDisposition: (id: string) => Promise<void>;
   syncCloudDispositions: (
     userUid: string | null,
     groupId?: string | null,
     mestreId?: string | null,
-    userRole?: string
+    userRole?: string,
+    canWriteSequenciador?: boolean
   ) => Promise<void>;
 }
 
@@ -58,7 +60,7 @@ export const useDispositionStore = create<DispositionStoreState>((set, get) => (
     set({ dispositions });
   },
 
-  addDisposition: async (presetData, userRole) => {
+  addDisposition: async (presetData, userRole, canWriteSequenciador) => {
     const now = Date.now();
     const isOfflineOrGuest = !presetData.ownerId || presetData.ownerId === 'local';
     const localId = `disp_local_${now}_${Math.random().toString(36).substring(2, 9)}`;
@@ -80,7 +82,7 @@ export const useDispositionStore = create<DispositionStoreState>((set, get) => (
     if (!isOfflineOrGuest) {
       try {
         const { saveDispositionToCloud } = await import('../cloudDispositions');
-        const cloudId = await saveDispositionToCloud(newPreset, userRole);
+        const cloudId = await saveDispositionToCloud(newPreset, userRole, canWriteSequenciador);
 
         // Mise à jour de l'ID avec l'ID Firestore
         const presetWithCloudId: DispositionPreset = {
@@ -120,13 +122,13 @@ export const useDispositionStore = create<DispositionStoreState>((set, get) => (
     }
   },
 
-  syncCloudDispositions: async (userUid, groupId, mestreId, userRole) => {
+  syncCloudDispositions: async (userUid, groupId, mestreId, userRole, canWriteSequenciador) => {
     if (!userUid || userUid === 'local') return;
 
     set({ isLoadingCloud: true });
     try {
       const { fetchCloudDispositions } = await import('../cloudDispositions');
-      const cloudDispositions = await fetchCloudDispositions(userUid, groupId, mestreId, userRole);
+      const cloudDispositions = await fetchCloudDispositions(userUid, groupId, mestreId, userRole, canWriteSequenciador);
       const currentDispositions = get().dispositions;
 
       // Fusion sans doublon : on fusionne par ID

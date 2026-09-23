@@ -26,7 +26,8 @@ export const CLOUD_DISPOSITIONS_COLLECTION = 'dispositions';
  */
 export async function saveDispositionToCloud(
   disposition: DispositionPreset,
-  userRole?: string
+  userRole?: string,
+  canWriteSequenciador?: boolean
 ): Promise<string> {
   const { id, ownerId, name, authorName, visibility, groupId, instruments, hasToada } = disposition;
 
@@ -49,14 +50,32 @@ export async function saveDispositionToCloud(
     }
   }
 
+  let effectiveGroupId = groupId ? groupId.trim() : '';
+  const isSamambaiaGroup =
+    ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
+    effectiveGroupId.toLowerCase().includes('samambaia') ||
+    effectiveGroupId.toLowerCase().includes('sammbia') ||
+    Boolean(canWriteSequenciador);
+
+  if (isSamambaiaGroup) {
+    // Normalisation canonique pour Samambaia
+    effectiveGroupId = 'samambaia';
+  } else if (effectiveGroupId) {
+    effectiveGroupId = effectiveGroupId.toLowerCase();
+  }
+
+  const defaultVis = (isSamambaiaGroup || canWriteSequenciador) ? 'mestre_group' : 'private';
+
   const payload = {
     name: name?.trim() || "Disposition Sans Nom",
     ownerId: ownerId,
     authorId: disposition.authorId || ownerId,
     uid: ownerId,
     authorName: authorName || "",
-    visibility: visibility || "private",
-    groupId: groupId && typeof groupId === 'string' && groupId.trim() !== '' ? groupId.trim() : null,
+    visibility: visibility || defaultVis,
+    groupId: effectiveGroupId || null,
+    mestreId: isSamambaiaGroup ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (disposition.mestreId || null),
     instruments: (instruments || []).map((inst) => ({
       instrumentType: inst.instrumentType,
       x: Number(inst.x),
@@ -98,7 +117,8 @@ export async function fetchCloudDispositions(
   userUid: string | null,
   groupId?: string | null,
   mestreId?: string | null,
-  userRole: string = 'visiteur'
+  userRole: string = 'visiteur',
+  canWriteSequenciador?: boolean
 ): Promise<DispositionPreset[]> {
   const dispositions: DispositionPreset[] = [];
   if (!userUid || userUid === 'local') return dispositions;
@@ -106,29 +126,36 @@ export async function fetchCloudDispositions(
   const dispositionsRef = collection(db, CLOUD_DISPOSITIONS_COLLECTION);
 
   try {
+    const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
     let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
+    const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
+    const isSamambaiaGroup = isJulian || 
+      userUid === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
+      normalizedUserGroupId.includes('samambaia') || 
+      normalizedUserGroupId.includes('sammbia') || 
+      Boolean(canWriteSequenciador);
 
-    const validGroupId = groupId && typeof groupId === 'string' && groupId.trim() !== '' ? groupId.trim() : null;
-
-    if (!myGroupMestreId && validGroupId) {
-      if (validGroupId.toLowerCase() === 'samambaia') {
-        myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-      } else {
-        try {
-          const mestreQ = query(
-            collection(db, 'users'),
-            where('groupId', 'in', Array.from(new Set([validGroupId, validGroupId.toLowerCase()]))),
-            where('role', '==', 'mestre')
-          );
-          const mestreSnap = await getDocs(mestreQ);
-          if (!mestreSnap.empty) {
-            myGroupMestreId = mestreSnap.docs[0].id;
-          }
-        } catch (e) {
-          console.warn("Impossible de résoudre le mestre pour le groupe dans fetchCloudDispositions:", e);
+    if (isSamambaiaGroup && !myGroupMestreId) {
+      myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+    } else if (!myGroupMestreId && normalizedUserGroupId) {
+      try {
+        const mestreQ = query(
+          collection(db, 'users'),
+          where('groupId', 'in', Array.from(new Set([groupId?.trim() || '', normalizedUserGroupId]))),
+          where('role', '==', 'mestre')
+        );
+        const mestreSnap = await getDocs(mestreQ);
+        if (!mestreSnap.empty) {
+          myGroupMestreId = mestreSnap.docs[0].id;
         }
+      } catch (e) {
+        console.warn("Impossible de résoudre le mestre pour le groupe dans fetchCloudDispositions:", e);
       }
     }
+
+    const groupIdVariants = isSamambaiaGroup 
+      ? ['samambaia', 'Samambaia']
+      : (groupId && groupId.trim() !== '' ? Array.from(new Set([groupId.trim(), groupId.trim().toLowerCase()])) : []);
 
     const promises: Promise<any>[] = [];
     const isSysAdmin = userRole === 'admin';
@@ -141,13 +168,13 @@ export async function fetchCloudDispositions(
       // 2. Presets globaux / publics
       promises.push(getDocs(query(dispositionsRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
 
-      // 3. Presets de groupe (uniquement si validGroupId est une chaîne valide et non vide)
-      if (validGroupId) {
+      // 3. Presets de groupe (uniquement si groupIdVariants non vide)
+      if (groupIdVariants.length > 0) {
         promises.push(
           getDocs(
             query(
               dispositionsRef,
-              where('groupId', 'in', Array.from(new Set([validGroupId, validGroupId.toLowerCase(), 'Samambaia', 'samambaia']))),
+              where('groupId', 'in', groupIdVariants),
               limit(100)
             )
           )
@@ -157,6 +184,11 @@ export async function fetchCloudDispositions(
       // 4. Presets créés par le Mestre du groupe
       if (myGroupMestreId && myGroupMestreId !== userUid) {
         promises.push(getDocs(query(dispositionsRef, where('ownerId', '==', myGroupMestreId), limit(100))));
+      }
+
+      // 5. Filet de sécurité transitoire pour les anciens presets de Bastien
+      if (isSamambaiaGroup && userUid !== 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' && myGroupMestreId !== 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2') {
+        promises.push(getDocs(query(dispositionsRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
       }
     }
 
@@ -177,11 +209,17 @@ export async function fetchCloudDispositions(
       const isAdminGlobal = data.visibility === 'admin_global';
       const isPublic = data.visibility === 'public';
       const matchesMestre = myGroupMestreId && data.ownerId === myGroupMestreId;
+      const docGroupId = (data.groupId || '').toString().toLowerCase();
       const matchesGroup =
-        validGroupId && data.groupId && String(data.groupId).toLowerCase() === validGroupId.toLowerCase();
-      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
+        Boolean(normalizedUserGroupId && docGroupId && docGroupId === normalizedUserGroupId);
+      const isSamambaiaDisp = isSamambaiaGroup && (
+        docGroupId.includes('samambaia') ||
+        data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+        data.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'
+      );
+      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup || isSamambaiaDisp);
 
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre) {
+      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre || isSamambaiaDisp) {
         dispositions.push({
           id: docSnap.id,
           name: data.name || "Disposition",
@@ -189,6 +227,7 @@ export async function fetchCloudDispositions(
           authorId: data.authorId || data.ownerId,
           authorName: data.authorName,
           groupId: data.groupId,
+          mestreId: data.mestreId,
           visibility: data.visibility || 'private',
           instruments: Array.isArray(data.instruments) ? data.instruments : [],
           hasToada: Boolean(data.hasToada),

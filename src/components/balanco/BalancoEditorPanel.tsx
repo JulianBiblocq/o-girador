@@ -53,9 +53,9 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
   // Synchronisation Cloud automatique à la connexion / changement d'utilisateur
   useEffect(() => {
     if (userProfile?.uid) {
-      syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId);
+      syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId, userProfile.canWriteSequenciador);
     }
-  }, [userProfile?.uid, userProfile?.groupId, userProfile?.role, userProfile?.mestreId, syncCloudPresets]);
+  }, [userProfile?.uid, userProfile?.groupId, userProfile?.role, userProfile?.mestreId, userProfile?.canWriteSequenciador, syncCloudPresets]);
 
   // Force le mode à ne jamais être 'off'
   const activeMode: 'maracatu' | 'custom' = globalSwing.mode === 'custom' ? 'custom' : 'maracatu';
@@ -422,7 +422,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
       try {
         const docIdToUpdate =
           isEditingExisting && !targetId.startsWith('custom-') ? targetId : undefined;
-        const cloudId = await saveBalancoToCloud(presetData, docIdToUpdate, userProfile.role);
+        const cloudId = await saveBalancoToCloud(presetData, docIdToUpdate, userProfile.role, userProfile.canWriteSequenciador);
 
         if (cloudId && cloudId !== targetId) {
           deleteLocalPreset(targetId);
@@ -545,7 +545,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
       });
       return;
     }
-    await syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId);
+    await syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId, userProfile.canWriteSequenciador);
   };
 
   return (

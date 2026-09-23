@@ -743,7 +743,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [cloudPatterns, setCloudPatterns] = useState<CloudPattern[]>([]);
   const [isSavingPattern, setIsSavingPattern] = useState(false);
   const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
-  const [savePatternVisibility, setSavePatternVisibility] = useState<CatalogVisibility>('private');
+  const isGroupMemberOrEditor = Boolean(
+    userProfile?.canWriteSequenciador ||
+    userProfile?.role === 'mestre' ||
+    (userProfile?.groupId && (userProfile.groupId.toLowerCase().includes('samambaia') || userProfile.groupId.toLowerCase().includes('sammbia')))
+  );
+  const [savePatternVisibility, setSavePatternVisibility] = useState<CatalogVisibility>(isGroupMemberOrEditor ? 'mestre_group' : 'private');
 
   useEffect(() => {
     const loadPatterns = async () => {
@@ -751,7 +756,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       setIsLoadingPatterns(true);
       try {
         const { fetchCloudPatterns } = await import('../cloudPatterns');
-        const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
+        const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null, userProfile.canWriteSequenciador);
         setCloudPatterns(patterns);
       } catch (err) {
         console.error("Error loading cloud patterns", err);
@@ -762,7 +767,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     loadPatterns();
 
     if (userProfile?.uid) {
-      syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId);
+      syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId, userProfile.canWriteSequenciador);
     }
   }, [userProfile, syncCloudPresets]);
 
@@ -819,7 +824,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       const myGroupId = userProfile.groupId || undefined;
 
       const { savePatternToCloud, fetchCloudPatterns } = await import('../cloudPatterns');
-      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, myGroupMestreId, targetDocId, userProfile.role, myGroupId);
+      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, myGroupMestreId, targetDocId, userProfile.role, myGroupId, userProfile.canWriteSequenciador);
       
       if (autoGeneratePatternAudio) {
         try {
@@ -830,7 +835,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         }
       }
 
-      const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
+      const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null, userProfile.canWriteSequenciador);
       setCloudPatterns(updatedPatterns);
 
       setSaveModalPatternId(null);
@@ -2050,7 +2055,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 className="w-full bg-[#eaddcf] border border-[#1a1a1a] p-2 text-sm font-bold text-[#1a1a1a] outline-none focus:ring-2 focus:ring-[#8b2a1a]"
               >
                 <option value="private">{lang === 'fr' ? 'Privé (Uniquement moi)' : 'Privado (Somente eu)'}</option>
-                {userProfile?.role === 'mestre' && (
+                {(userProfile?.role === 'mestre' || userProfile?.canWriteSequenciador || isGroupMemberOrEditor) && (
                   <option value="mestre_group">{lang === 'fr' ? 'Mon groupe' : 'Meu grupo'}</option>
                 )}
                 {userProfile?.role === 'admin' && (

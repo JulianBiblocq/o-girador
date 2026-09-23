@@ -22,6 +22,7 @@ export const normalizePresetName = (name: string) =>
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, groupName, canWriteSequenciador }: UseCloudPresetsProps) {
   const isSamambaia = Boolean(
     userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    userUid === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
     (groupId && (groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia'))) ||
     (groupName && (groupName.toLowerCase().includes('samambaia') || groupName.toLowerCase().includes('sammbia'))) ||
     mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||

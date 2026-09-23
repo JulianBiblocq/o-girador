@@ -327,7 +327,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               {/* 📲 PWA INSTALLATION */}
               {showInstallButton && onInstallClick && (
                 <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-                  <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                     📲 PWA
                   </span>
                   <button
@@ -345,7 +345,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
               {/* 👤 PERFIL */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                   👤 {lang === 'pt' ? 'Perfil' : 'Profil'}
                 </span>
                 <div className="flex items-center gap-2">
@@ -368,12 +368,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               {/* 📂 PROJET */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                     📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
                   </span>
                   {groupLabel && (
-                    <span className="text-[9px] font-cactus font-bold px-1.5 py-0.5 cordel-border-sm bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] flex items-center gap-1">
-                      🥁 {groupLabel}
+                    <span className="text-[9px] font-cactus font-bold px-2 py-0.5 border border-[#f4ecd8]/40 bg-black/60 text-[#f4ecd8] rounded-xs flex items-center gap-1.5 shadow-xs">
+                      <img
+                        src={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
+                        alt=""
+                        className="w-3.5 h-3.5 object-contain inline-block shrink-0"
+                      />
+                      <span>{groupLabel}</span>
                     </span>
                   )}
                 </div>
@@ -389,6 +394,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   isCloudPresetsLoading={isCloudPresetsLoading}
                   showGroupCatalogue={showGroupCatalogue}
                   groupLabel={groupLabel}
+                  groupLogo={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
                   defaultPresetId={groupDefaultPresetId}
                   canSetDefaultPreset={canSetDefaultPreset}
                   onSetDefaultPreset={handleSetDefaultPreset}
@@ -712,7 +718,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] z-[100] flex flex-col p-2 gap-3">
               {/* 👤 PERFIL */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-2">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                   👤 {lang === 'pt' ? 'Perfil' : 'Profil'}
                 </span>
                 <div className="flex items-center gap-2">
@@ -735,12 +741,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               {/* PROJET */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                     📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
                   </span>
                   {groupLabel && (
-                    <span className="text-[9px] font-cactus font-bold px-1.5 py-0.5 cordel-border-sm bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] flex items-center gap-1">
-                      🥁 {groupLabel}
+                    <span className="text-[9px] font-cactus font-bold px-2 py-0.5 border border-[#f4ecd8]/40 bg-black/60 text-[#f4ecd8] rounded-xs flex items-center gap-1.5 shadow-xs">
+                      <img
+                        src={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
+                        alt=""
+                        className="w-3.5 h-3.5 object-contain inline-block shrink-0"
+                      />
+                      <span>{groupLabel}</span>
                     </span>
                   )}
                 </div>
@@ -756,6 +767,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   isCloudPresetsLoading={isCloudPresetsLoading}
                   showGroupCatalogue={showGroupCatalogue}
                   groupLabel={groupLabel}
+                  groupLogo={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
                   defaultPresetId={groupDefaultPresetId}
                   canSetDefaultPreset={canSetDefaultPreset}
                   onSetDefaultPreset={handleSetDefaultPreset}

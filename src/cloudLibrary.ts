@@ -61,12 +61,13 @@ export async function savePresetToCloud(
   } else if (effectiveGroupId) {
     effectiveGroupId = effectiveGroupId.toLowerCase();
   }
-  
+
+  const defaultVis = (isSamambaiaGroup || canWriteSequenciador) ? 'mestre_group' : 'private';
   const docData: any = {
     name: name || "Preset Sans Nom",
     data: dataString,
     ownerId: ownerId || "",
-    visibility: visibility || "private",
+    visibility: visibility || defaultVis,
     targetUserId: targetUserId || null,
     mestreId: effectiveMestreId,
     updatedAt: Date.now()
@@ -163,6 +164,11 @@ export async function fetchCloudPresets(
           effectiveGroup, norm, ...(isSam ? ['samambaia', 'Samambaia', 'SAMAMBAIA'] : [effectiveGroup, norm])
         ]));
         queries.push(getDocs(query(presetsRef, where('groupId', 'in', groupIdVariants), limit(100))));
+
+        // Filet de sécurité transitoire pour les presets historiques orphelins de Bastien
+        if (isSam) {
+          queries.push(getDocs(query(presetsRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
+        }
       }
 
       const settled = await Promise.allSettled(queries);

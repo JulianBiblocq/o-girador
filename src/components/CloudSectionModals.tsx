@@ -76,7 +76,7 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
         tracks: sectionTracks
       };
 
-      const existingSections = await fetchCloudSections(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
+      const existingSections = await fetchCloudSections(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null, userProfile.canWriteSequenciador);
       const existingSection = existingSections.find(s => s.name.trim() === name.trim() && s.ownerId === userProfile.uid);
       let targetDocId: string | undefined = undefined;
 
@@ -102,7 +102,8 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
         userProfile.role,
         targetDocId,
         myGroupMestreId,
-        myGroupId
+        myGroupId,
+        userProfile.canWriteSequenciador
       );
 
       if (autoGenerateAudio) {
@@ -217,7 +218,7 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
 
   useEffect(() => {
     if (!userProfile) return;
-    fetchCloudSections(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null).then(data => {
+    fetchCloudSections(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null, userProfile.canWriteSequenciador).then(data => {
       setSections(data);
       setIsLoading(false);
     });

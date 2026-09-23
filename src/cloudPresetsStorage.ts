@@ -200,7 +200,8 @@ export function isPresetAuthorized(
     dataGroupIdNorm.includes('samambaia') ||
     dataGroupIdNorm.includes('sammbia') ||
     data.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+    data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    data.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'; // Filet de sécurité transitoire pour presets historiques de Bastien
 
   const matchesGroup = Boolean(
     (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||

@@ -244,10 +244,11 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         userProfile.uid,
         userProfile.groupId,
         userProfile.mestreId,
-        userProfile.role
+        userProfile.role,
+        userProfile.canWriteSequenciador
       );
     }
-  }, [userProfile?.uid, userProfile?.groupId, userProfile?.mestreId, userProfile?.role, syncCloudDispositions]);
+  }, [userProfile?.uid, userProfile?.groupId, userProfile?.mestreId, userProfile?.role, userProfile?.canWriteSequenciador, syncCloudDispositions]);
 
   // Pré-écoute unitaire d'un tambour avec son pitch actuel
   const handlePreviewDrum = (instrumentType: string) => {

@@ -252,6 +252,8 @@ window.getDocs = fbGetDocs;
 window.updateDoc = fbUpdateDoc;
 (window as any).__SEQUENCER_STORE__ = useSequencerStore;
 
+
+
 const container = document.getElementById('root')!;
 let root = (window as any).__REACT_ROOT__;
 if (!root) {

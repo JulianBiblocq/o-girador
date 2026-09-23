@@ -84,7 +84,8 @@ export interface BalancoStoreState {
     userUid: string | null,
     groupId?: string | null,
     role?: string,
-    mestreId?: string | null
+    mestreId?: string | null,
+    canWriteSequenciador?: boolean
   ) => Promise<void>;
   resolvePreset: (id?: string) => BalancoPreset;
 }
@@ -152,12 +153,12 @@ export const useBalancoStore = create<BalancoStoreState>((set, get) => ({
     }
   },
 
-  syncCloudPresets: async (userUid, groupId, role, mestreId) => {
+  syncCloudPresets: async (userUid, groupId, role, mestreId, canWriteSequenciador) => {
     if (!userUid) return;
     set({ isLoadingCloud: true });
     try {
       const { fetchCloudBalancos } = await import('../cloudBalancos');
-      const cloudPresets = await fetchCloudBalancos(userUid, groupId, role, mestreId);
+      const cloudPresets = await fetchCloudBalancos(userUid, groupId, role, mestreId, canWriteSequenciador);
       const localUsers = get().userPresets;
 
       // Fusion sans doublon : les presets cloud et locaux sont fusionnés par ID

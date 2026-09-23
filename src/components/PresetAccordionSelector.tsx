@@ -10,6 +10,7 @@ export interface PresetAccordionSelectorProps {
   isCloudPresetsLoading: boolean;
   showGroupCatalogue: boolean;
   groupLabel: string | null;
+  groupLogo?: string | null;
   defaultPresetId?: string | null;
   canSetDefaultPreset?: boolean;
   onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
@@ -27,6 +28,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   isCloudPresetsLoading = false,
   showGroupCatalogue = false,
   groupLabel,
+  groupLogo,
   defaultPresetId = null,
   canSetDefaultPreset = false,
   onSetDefaultPreset,
@@ -36,6 +38,8 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   const [isGroupOpen, setIsGroupOpen] = useState(showGroupCatalogue);
   const [isPublicOpen, setIsPublicOpen] = useState(!showGroupCatalogue);
   const [isLocalOpen, setIsLocalOpen] = useState(false);
+
+  const resolvedGroupLogo = groupLogo || '/Pictures/logo-samambaia.png';
 
   useEffect(() => {
     setIsGroupOpen(showGroupCatalogue);
@@ -87,13 +91,13 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                 }`}
               >
                 <span className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <span className="text-xs shrink-0">{icon}</span>
+                  {icon ? <span className="text-xs shrink-0">{icon}</span> : null}
                   <span className="truncate">{p.name}</span>
                 </span>
                 {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
               </button>
 
-              {/* Épingle Cactus du morceau vedette (spécifique au groupe) */}
+              {/* Épingle Cactus (Astérisque Cordel) du morceau vedette (spécifique au groupe) */}
               {isGroupList && (
                 canSetDefaultPreset ? (
                   <button
@@ -107,20 +111,26 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                         ? (isDefault ? 'Ritmo de referência ativo (clique para desafixar)' : 'Fixar como ritmo de referência do grupo')
                         : (isDefault ? 'Morceau de travail actif (cliquer pour désépingler)' : 'Épingler comme morceau de travail du groupe')
                     }
-                    className={`shrink-0 p-1 rounded transition-all cursor-pointer select-none text-sm ${
-                      isDefault
-                        ? 'opacity-100 scale-110 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]'
-                        : 'opacity-30 hover:opacity-100 hover:scale-110'
-                    }`}
+                    className="shrink-0 p-1 cursor-pointer flex items-center justify-center transition-transform hover:scale-110"
                   >
-                    🌵
+                    <span
+                      style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
+                      className={`font-cactus text-xl select-none leading-none transform transition-colors ${
+                        isDefault
+                          ? 'text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]'
+                          : 'text-[#f4ecd8]/30 hover:text-[#f4ecd8]'
+                      }`}
+                    >
+                      *
+                    </span>
                   </button>
                 ) : isDefault ? (
                   <span
                     title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
-                    className="shrink-0 text-sm select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] px-1"
+                    style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
+                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] flex items-center justify-center"
                   >
-                    🌵
+                    *
                   </span>
                 ) : null
               )}
@@ -136,11 +146,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase tracking-wider flex items-center gap-1">
+        <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wider flex items-center gap-1">
           📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
         </span>
         {currentSongTitle && (
-          <span className="text-[11px] font-cactus font-bold text-[var(--cordel-wood)] truncate">🎵 {currentSongTitle}</span>
+          <span className="text-[11px] font-cactus font-bold text-[#f4ecd8] truncate">🎵 {currentSongTitle}</span>
         )}
       </div>
 
@@ -153,13 +163,17 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
               className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
             >
               <span className="flex items-center gap-1.5 truncate">
-                <span className="text-sm leading-none">🥁</span>
+                <img
+                  src={resolvedGroupLogo}
+                  alt=""
+                  className="w-5 h-5 object-contain inline-block mr-2 shrink-0"
+                />
                 <span className="truncate">{groupTitle}</span>
                 <span className="text-[10px] opacity-60 font-sans">({privateCloudPresets.length})</span>
               </span>
               <span className="text-[9px] opacity-70 ml-1">{isGroupOpen ? '▼' : '▶'}</span>
             </button>
-            {isGroupOpen && renderPresetList(privateCloudPresets, '🥁', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)', true)}
+            {isGroupOpen && renderPresetList(privateCloudPresets, '', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)', true)}
           </div>
         )}
 
@@ -228,7 +242,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
         <option value="" disabled>{currentSongTitle || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}</option>
         {showGroupCatalogue && (
           <optgroup label={groupTitle}>
-            {privateCloudPresets.map((p) => (<option key={`og:${p.id}`} value={`cloud:${p.id}`}>🥁 {p.name}</option>))}
+            {privateCloudPresets.map((p) => (<option key={`og:${p.id}`} value={`cloud:${p.id}`}>{p.name}</option>))}
           </optgroup>
         )}
         <optgroup label={publicTitle}>
@@ -238,3 +252,4 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
     </div>
   );
 };
+

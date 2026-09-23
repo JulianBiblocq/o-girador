@@ -18,6 +18,7 @@ export interface DispositionPreset {
   authorId: string;
   authorName?: string;
   groupId?: string | null;
+  mestreId?: string | null;
   visibility: DispositionVisibility;
   instruments: PlacedInstrumentConfig[];
   hasToada?: boolean;

@@ -128,7 +128,9 @@ body {
 #header-title-text,
 #header-title-text-mobile,
 .panel-title,
-.font-cactus-display {
+.font-cactus-display,
+.font-cactus-symbol,
+.font-cactus-star {
   font-family: "Cactus", "Cinzel Decorative", "Courier New", Georgia, serif !important;
   letter-spacing: 2px;
   -webkit-font-smoothing: antialiased;

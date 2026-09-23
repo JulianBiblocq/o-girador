@@ -28,7 +28,8 @@ export const CLOUD_BALANCOS_COLLECTION = 'balancos';
 export async function saveBalancoToCloud(
   balancoData: Omit<BalancoPreset, 'id'>,
   existingDocId?: string,
-  userRole?: string
+  userRole?: string,
+  canWriteSequenciador?: boolean
 ): Promise<string> {
   const { ownerId, name, offsets, division, visibility, groupId, packId, authorName } = balancoData;
 
@@ -44,6 +45,21 @@ export async function saveBalancoToCloud(
     }
   }
 
+  let effectiveGroupId = groupId ? groupId.trim() : '';
+  const isSamambaiaGroup =
+    ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    effectiveGroupId.toLowerCase().includes('samambaia') ||
+    effectiveGroupId.toLowerCase().includes('sammbia') ||
+    Boolean(canWriteSequenciador);
+
+  if (isSamambaiaGroup) {
+    effectiveGroupId = 'samambaia';
+  } else if (effectiveGroupId) {
+    effectiveGroupId = effectiveGroupId.toLowerCase();
+  }
+
+  const defaultVis = (isSamambaiaGroup || canWriteSequenciador) ? 'mestre_group' : 'private';
+
   const payload = {
     name: name || "Balanço Sans Nom",
     offsets: offsets || [0, 8, -29, -58],
@@ -52,8 +68,8 @@ export async function saveBalancoToCloud(
     authorId: ownerId || "", // Règle de sécurité Firestore
     uid: ownerId || "",      // Règle de sécurité Firestore
     authorName: authorName || "",
-    visibility: visibility || "private",
-    groupId: groupId || null,
+    visibility: visibility || defaultVis,
+    groupId: effectiveGroupId || null,
     packId: packId || null,
     updatedAt: Date.now()
   };
@@ -78,7 +94,8 @@ export async function fetchCloudBalancos(
   userUid: string | null,
   groupId?: string | null,
   userRole: string = 'visiteur',
-  mestreId?: string | null
+  mestreId?: string | null,
+  canWriteSequenciador?: boolean
 ): Promise<BalancoPreset[]> {
   const balancos: BalancoPreset[] = [];
   if (!userUid) return balancos;
@@ -86,7 +103,18 @@ export async function fetchCloudBalancos(
   const balancosRef = collection(db, CLOUD_BALANCOS_COLLECTION);
 
   try {
+    const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
     let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
+    const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
+    const isSamambaiaGroup = isJulian || 
+      normalizedUserGroupId.includes('samambaia') || 
+      normalizedUserGroupId.includes('sammbia') || 
+      mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+      Boolean(canWriteSequenciador);
+
+    if (isJulian || isSamambaiaGroup) {
+      myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+    }
 
     if (!myGroupMestreId && groupId) {
       if (groupId.toLowerCase() === 'samambaia') {
@@ -118,16 +146,19 @@ export async function fetchCloudBalancos(
       promises.push(getDocs(query(balancosRef, where('ownerId', '==', userUid), limit(100))));
       promises.push(getDocs(query(balancosRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
 
-      if (groupId) {
-        promises.push(
-          getDocs(
-            query(
-              balancosRef,
-              where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']))),
-              limit(100)
-            )
-          )
-        );
+      const effectiveGroup = groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null);
+      if (effectiveGroup) {
+        const norm = effectiveGroup.trim().toLowerCase();
+        const isSam = norm.includes('samambaia') || norm.includes('sammbia') || canWriteSequenciador;
+        const groupIdVariants = Array.from(new Set([
+          effectiveGroup, norm, ...(isSam ? ['samambaia', 'Samambaia', 'SAMAMBAIA'] : [effectiveGroup, norm])
+        ]));
+        promises.push(getDocs(query(balancosRef, where('groupId', 'in', groupIdVariants), limit(100))));
+
+        // Filet de sécurité transitoire pour les balanços historiques orphelins de Bastien
+        if (isSam) {
+          promises.push(getDocs(query(balancosRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
+        }
       }
       if (myGroupMestreId) {
         promises.push(getDocs(query(balancosRef, where('ownerId', '==', myGroupMestreId), limit(100))));
@@ -150,12 +181,24 @@ export async function fetchCloudBalancos(
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
       const isPublic = data.visibility === 'public';
-      const matchesMestre = myGroupMestreId && data.ownerId === myGroupMestreId;
-      const matchesGroup =
-        groupId && data.groupId && String(data.groupId).toLowerCase() === String(groupId).toLowerCase();
-      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
+      const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase().trim();
+      const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase().trim();
+      
+      const isSamambaiaBalanco =
+        dataGroupIdNorm.includes('samambaia') ||
+        dataGroupIdNorm.includes('sammbia') ||
+        data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+        data.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2';
 
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre) {
+      const matchesGroup = Boolean(
+        (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
+        ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && isSamambaiaBalanco)
+      );
+      const matchesMestre = myGroupMestreId && data.ownerId === myGroupMestreId;
+      const isMemberOrEleve = userRole === 'eleve' || userRole === 'membre' || userRole === 'mestre' || userRole === 'admin';
+      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup || isSamambaiaBalanco);
+
+      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre || ((isSamambaiaGroup || isMemberOrEleve) && isSamambaiaBalanco)) {
         balancos.push({
           id: docSnap.id,
           name: data.name,
