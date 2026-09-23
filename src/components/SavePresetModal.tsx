@@ -32,11 +32,6 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
             <h2 className="text-2xl font-bold text-[#1a1a1a] uppercase leading-none mb-1">
               {lang === 'fr' ? 'Sauvegarder Preset Cloud' : 'Salvar Preset na Nuvem'}
             </h2>
-            <p className="text-sm text-[#1a1a1a]/80 font-bold">
-              {lang === 'fr' 
-                ? '🌟 En publiant dans le catalogue public, vous faites grandir la grande Roda. Partagez votre Baque avec le monde, inspirez d\'autres nations de Maracatu et gagnez des points d\'Axé pour débloquer des avantages dans la boutique !' 
-                : '🌟 Ao publicar no catálogo público, você faz a grande Roda crescer. Compartilhe seu Baque com o mundo, inspire outras nações de Maracatu e ganhe pontos de Axé para desbloquear vantagens na loja!'}
-            </p>
           </div>
           <button onClick={onClose} className="text-2xl hover:scale-110 transition-transform font-bold leading-none">
             ×
@@ -82,7 +77,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
               className="w-4 h-4 accent-[#8b2a1a]"
             />
             <label htmlFor="autoGenerateAudio" className="text-sm font-bold text-[#1a1a1a] cursor-pointer">
-              {lang === 'fr' ? 'Générer l\'aperçu audio (☁️)' : 'Gerar áudio (☁️)'}
+              {lang === 'fr' ? 'Générer l\'audio' : 'Gerar áudio'}
             </label>
           </div>
         </div>

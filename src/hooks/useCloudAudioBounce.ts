@@ -39,7 +39,9 @@ export function useCloudAudioBounce() {
       const maxTicks = beats * (96 / beatUnit);
       const ticksPerBeat = maxTicks / beats;
       
-      const durationSec = (patternData.steps.length / (maxTicks / ticksPerBeat)) * (60 / bpm) + 1.0; // +1s tail
+      const rawDurationSec = (patternData.steps.length / (maxTicks / ticksPerBeat)) * (60 / bpm) + 1.0; // +1s tail
+      let durationSec = (Number.isFinite(rawDurationSec) && rawDurationSec > 0) ? rawDurationSec : 4;
+      durationSec = Math.max(durationSec || 0, 4);
       
       // Trouver la configuration audio
       const audioConfig = instrumentAudioConfigs.find(c => c.id === patternData.instrumentId);
@@ -47,8 +49,6 @@ export function useCloudAudioBounce() {
         throw new Error(`Configuration audio introuvable pour l'instrument: ${patternData.instrumentId}`);
       }
 
-
-      
       const audioBuffer = await Tone.Offline(async (ctx) => {
         // Chargement des players
         const strokePlayers = new Map<string, Tone.Player>();
@@ -85,18 +85,26 @@ export function useCloudAudioBounce() {
             const player = new Tone.Player(encodedPath).toDestination();
             strokePlayers.set(rawStroke, player);
             
-            // @ts-ignore : On force le chargement synchrone via une promesse
-            playersToLoad.push(new Promise((resolve, reject) => {
+            playersToLoad.push(new Promise<void>((resolve) => {
+              const timeoutId = setTimeout(() => {
+                console.warn(`[Cloud Bounce] Timeout chargement sample: ${encodedPath}`);
+                resolve();
+              }, 8000);
               Tone.Buffer.load(encodedPath).then(buffer => {
+                clearTimeout(timeoutId);
                 player.buffer = new Tone.ToneAudioBuffer(buffer);
                 resolve();
-              }).catch(reject);
+              }).catch(err => {
+                clearTimeout(timeoutId);
+                console.warn(`[Cloud Bounce] Échec chargement sample ${encodedPath}, ignoré:`, err);
+                resolve();
+              });
             }));
           }
         }
         
         await Promise.all(playersToLoad);
-        
+
         // Planification
         const stepCount = patternData.steps.length;
         const resArray = Array(beats).fill(stepCount / beats);
@@ -133,13 +141,11 @@ export function useCloudAudioBounce() {
           }
         }
       }, durationSec);
-      
 
       // L'encodage MediaRecorder va jouer le buffer en temps réel (silencieusement)
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
       const webmBlob = await encoderWav(nativeBuffer);
-      
 
       let audioUrl: string | null = null;
       try {
@@ -159,16 +165,20 @@ export function useCloudAudioBounce() {
         console.warn("[Cloud Bounce] Échec mise à jour document Firestore :", docErr);
       }
       
-      setIsBouncingCloud(false);
       return audioUrl;
     } catch (err: any) {
       console.error('[Cloud Bounce] Erreur:', err);
       telemetryService.logError(err, 'useCloudAudioBounce_Pattern');
-      setBounceError(err.message || 'Erreur lors de la génération audio cloud');
-      setIsBouncingCloud(false);
+      const errorMsg = 'Échec de la génération audio';
+      setBounceError(errorMsg);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: errorMsg } }));
+      }
       return null;
+    } finally {
+      setIsBouncingCloud(false);
     }
-  }
+  };
 
   const genererEtUploaderSectionCloudBounce = async (
     sectionId: string,
@@ -179,26 +189,26 @@ export function useCloudAudioBounce() {
     setBounceError(null);
 
     try {
-
-      
       let dureeTotaleSec = 0;
       const measureStartTimes: number[] = [];
       const measureTicks: number[] = [];
       const measureBeats: number[] = [];
 
-      for (let i = 0; i < sectionData.numMeasures; i++) {
+      const effectiveBpm = (Number.isFinite(baseBpm) && baseBpm > 20) ? baseBpm : 120;
+      const numMeasures = Math.max(1, sectionData.numMeasures || 1);
+
+      for (let i = 0; i < numMeasures; i++) {
         measureStartTimes.push(dureeTotaleSec);
-        const timeSig = sectionData.timeSigs[i] || '4/4';
-        const beats = parseInt(timeSig.split('/')[0], 10);
-        const beatUnit = parseInt(timeSig.split('/')[1], 10);
-        dureeTotaleSec += (60 / baseBpm) * beats;
+        const timeSig = sectionData.timeSigs?.[i] || '4/4';
+        const beats = Math.max(1, parseInt(timeSig.split('/')[0], 10) || 4);
+        const beatUnit = Math.max(1, parseInt(timeSig.split('/')[1], 10) || 4);
+        dureeTotaleSec += (60 / effectiveBpm) * beats;
         measureBeats.push(beats);
         measureTicks.push(beats * (96 / beatUnit));
       }
-      const durationSec = dureeTotaleSec + 3.0; // tail for reverb
+      let durationSec = (Number.isFinite(dureeTotaleSec) && dureeTotaleSec > 0) ? dureeTotaleSec + 3.0 : 4; // tail for reverb
+      durationSec = Math.max(durationSec || 0, 4);
 
-
-      
       const audioBuffer = await Tone.Offline(async (ctx) => {
         const playersToLoad: Promise<void>[] = [];
         
@@ -218,7 +228,9 @@ export function useCloudAudioBounce() {
           const instrumentConf = instrumentsConfig[track.instrumentIdx];
           if (!instrumentConf) continue;
           const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
-          if (!audioConfig) continue;          // Channel setup
+          if (!audioConfig) continue;
+
+          // Channel setup
           const effectiveVol = track.id !== undefined ? getEffectiveVolume(sectionData.tracks, track.id) : (track.volumeVal ?? 100);
           const channel = new Tone.Channel({
             volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
@@ -243,7 +255,7 @@ export function useCloudAudioBounce() {
           
           // Load strokes used in this track's active patterns
           const usedStrokes = new Set<string>();
-          for (let m = 0; m < sectionData.numMeasures; m++) {
+          for (let m = 0; m < numMeasures; m++) {
             for (const pattern of track.patterns) {
               if (pattern.measureAssignments?.[m]) {
                 const activeStps = pattern.activeSteps || [];
@@ -267,11 +279,20 @@ export function useCloudAudioBounce() {
               const player = new Tone.Player(encodedPath).connect(channel);
               strokePlayers.set(rawStroke, player);
               
-              playersToLoad.push(new Promise((resolve, reject) => {
+              playersToLoad.push(new Promise<void>((resolve) => {
+                const timeoutId = setTimeout(() => {
+                  console.warn(`[Cloud Bounce] Timeout chargement sample: ${encodedPath}`);
+                  resolve();
+                }, 8000);
                 Tone.Buffer.load(encodedPath).then(buffer => {
+                  clearTimeout(timeoutId);
                   player.buffer = new Tone.ToneAudioBuffer(buffer);
                   resolve();
-                }).catch(reject);
+                }).catch(err => {
+                  clearTimeout(timeoutId);
+                  console.warn(`[Cloud Bounce] Échec chargement sample ${encodedPath}, ignoré:`, err);
+                  resolve();
+                });
               }));
             }
           }
@@ -287,7 +308,7 @@ export function useCloudAudioBounce() {
           const strokePlayers = trackPlayers.get(t);
           if (!strokePlayers) continue;
           
-          for (let m = 0; m < sectionData.numMeasures; m++) {
+          for (let m = 0; m < numMeasures; m++) {
             const measureStartTime = measureStartTimes[m];
             const beats = measureBeats[m];
             const maxTicks = measureTicks[m];
@@ -320,7 +341,7 @@ export function useCloudAudioBounce() {
                   const player = strokePlayers.get(targetKey);
                   if (player) {
                     const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
-                    const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / baseBpm);
+                    const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / effectiveBpm);
                     
                     let baseVol = pattern.volumes?.[step] ?? 80;
                     const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
@@ -338,12 +359,10 @@ export function useCloudAudioBounce() {
           }
         }
       }, durationSec);
-      
 
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
       const webmBlob = await encoderWav(nativeBuffer);
-      
 
       let audioUrl: string | null = null;
       try {
@@ -363,14 +382,18 @@ export function useCloudAudioBounce() {
         console.warn("[Cloud Bounce] Échec mise à jour document Firestore :", docErr);
       }
       
-      setIsBouncingCloud(false);
       return audioUrl;
     } catch (err: any) {
       console.error('[Cloud Bounce] Erreur:', err);
       telemetryService.logError(err, 'useCloudAudioBounce_Section');
-      setBounceError(err.message || 'Erreur lors de la génération audio cloud (Section)');
-      setIsBouncingCloud(false);
+      const errorMsg = 'Échec de la génération audio';
+      setBounceError(errorMsg);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: errorMsg } }));
+      }
       return null;
+    } finally {
+      setIsBouncingCloud(false);
     }
   };
 
@@ -408,15 +431,25 @@ export function useCloudAudioBounce() {
         loopMode: options?.loopMode ?? storeState.loopMode,
       };
 
+      const totalMeasures = Math.max(1, presetData.totalMeasures || 16);
       let expandedMeasures = getExpandedMeasures(
-        presetData.totalMeasures || 16,
+        totalMeasures,
         presetData.songSections || [],
         loopOptions
       );
 
-      if (!expandedMeasures || expandedMeasures.length === 0) {
-        const total = presetData.totalMeasures || 16;
-        expandedMeasures = Array.from({ length: total }, (_, i) => ({ baseMeasure: i, iteration: 1 }));
+      if (!expandedMeasures || !Array.isArray(expandedMeasures) || expandedMeasures.length === 0) {
+        expandedMeasures = Array.from({ length: totalMeasures }, (_, i) => ({ baseMeasure: i, iteration: 1 }));
+      } else {
+        // Validation et assainissement strict des indices par rapport au preset courant
+        expandedMeasures = expandedMeasures.map((info, idx) => ({
+          baseMeasure: (typeof info.baseMeasure === 'number' && Number.isFinite(info.baseMeasure) && info.baseMeasure >= 0 && info.baseMeasure < totalMeasures)
+            ? info.baseMeasure
+            : (idx % totalMeasures),
+          iteration: (typeof info.iteration === 'number' && Number.isFinite(info.iteration) && info.iteration > 0)
+            ? info.iteration
+            : 1
+        }));
       }
 
       // 2. Calcul précis des durées, transitions de tempo, ticks et signatures
@@ -431,15 +464,17 @@ export function useCloudAudioBounce() {
       for (let i = 0; i < expandedMeasures.length; i++) {
         measureStartTimes.push(dureeTotaleSec);
         const m = expandedMeasures[i].baseMeasure;
-        const currentMeasureBpm = (presetData.measureBpms && presetData.measureBpms[m] !== undefined)
+        const rawCurrentBpm = (presetData.measureBpms && typeof presetData.measureBpms[m] === 'number')
           ? presetData.measureBpms[m]
           : (presetData.bpm || baseBpm || 120);
+        const currentMeasureBpm = (Number.isFinite(rawCurrentBpm) && rawCurrentBpm > 20) ? rawCurrentBpm : 120;
         measureBpmsAbsolus.push(currentMeasureBpm);
 
         const nextM = (i + 1 < expandedMeasures.length) ? expandedMeasures[i + 1].baseMeasure : m;
-        const nextMeasureBpm = (presetData.measureBpms && presetData.measureBpms[nextM] !== undefined)
+        const rawNextBpm = (presetData.measureBpms && typeof presetData.measureBpms[nextM] === 'number')
           ? presetData.measureBpms[nextM]
           : currentMeasureBpm;
+        const nextMeasureBpm = (Number.isFinite(rawNextBpm) && rawNextBpm > 20) ? rawNextBpm : currentMeasureBpm;
 
         const transition = (presetData.measureBpmTransitions && presetData.measureBpmTransitions[m]) || 'immediate';
         measureBpmTransitionsAbsolus.push(transition);
@@ -447,8 +482,8 @@ export function useCloudAudioBounce() {
         const timeSigStr = (presetData.measureTimeSigs && presetData.measureTimeSigs[m]) || presetData.timeSig || '4/4';
         measureTimeSigsAbsolus.push(timeSigStr);
 
-        const beats = parseInt(timeSigStr.split('/')[0], 10) || 4;
-        const beatUnit = parseInt(timeSigStr.split('/')[1], 10) || 4;
+        const beats = Math.max(1, parseInt(timeSigStr.split('/')[0], 10) || 4);
+        const beatUnit = Math.max(1, parseInt(timeSigStr.split('/')[1], 10) || 4);
         measureBeats.push(beats);
         measureTicks.push(beats * (96 / beatUnit));
 
@@ -459,8 +494,9 @@ export function useCloudAudioBounce() {
         }
       }
 
-      // 🛡️ Queue de déclin audio systématique de 2.5 secondes (release / decay tail)
-      const durationSec = dureeTotaleSec + 2.5;
+      // 🛡️ Queue de déclin audio systématique de 2.5 secondes avec garde-fou strict
+      let durationSec = (Number.isFinite(dureeTotaleSec) && dureeTotaleSec > 0) ? dureeTotaleSec + 2.5 : 4;
+      durationSec = Math.max(durationSec || 0, 4);
 
       // 3. Dérivation des métadonnées chorégraphiques pour Dançad'Or
       const mestreSignals = storeState.mestreSignals || [];
@@ -593,11 +629,20 @@ export function useCloudAudioBounce() {
               const player = new Tone.Player(encodedPath).connect(channel);
               strokePlayers.set(rawStroke, player);
               
-              playersToLoad.push(new Promise((resolve, reject) => {
+              playersToLoad.push(new Promise<void>((resolve) => {
+                const timeoutId = setTimeout(() => {
+                  console.warn(`[Cloud Bounce] Timeout chargement sample: ${encodedPath}`);
+                  resolve();
+                }, 8000);
                 Tone.Buffer.load(encodedPath).then(buffer => {
+                  clearTimeout(timeoutId);
                   player.buffer = new Tone.ToneAudioBuffer(buffer);
                   resolve();
-                }).catch(reject);
+                }).catch(err => {
+                  clearTimeout(timeoutId);
+                  console.warn(`[Cloud Bounce] Échec chargement sample ${encodedPath}, ignoré:`, err);
+                  resolve();
+                });
               }));
             }
           }
@@ -735,14 +780,20 @@ export function useCloudAudioBounce() {
         }
       }
       
-      setIsBouncingCloud(false);
       return audioUrl;
     } catch (err: any) {
       console.error('[Cloud Bounce] Erreur:', err);
       telemetryService.logError(err, 'useCloudAudioBounce_Preset');
-      setBounceError(err.message || 'Erreur lors de la génération audio cloud (Preset)');
-      setIsBouncingCloud(false);
+      const errorMsg = 'Échec de la génération audio';
+      setBounceError(errorMsg);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app-toast', {
+          detail: { type: 'error', message: errorMsg }
+        }));
+      }
       return null;
+    } finally {
+      setIsBouncingCloud(false);
     }
   };
 

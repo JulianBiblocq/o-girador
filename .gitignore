@@ -13,3 +13,5 @@ src_backup_pre_wizard/
 scratch/
 test-results/
 playwright-report/
+o-girador-icones*
+scripts/export_icons.js
