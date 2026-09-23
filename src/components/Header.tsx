@@ -311,7 +311,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       <>
       <div
         id="top-bar"
-        className="w-full h-[56px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex items-center justify-between px-4 z-50 relative select-none shrink-0"
+        className="w-full h-[56px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex items-center justify-between px-2.5 sm:px-4 z-50 relative select-none shrink-0"
       >
         {/* Left: Hamburger menu toggle */}
         <div className="flex items-center gap-2" ref={mobileMenuRef}>
@@ -601,18 +601,18 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Center: App Title */}
-        <div className="flex flex-col items-end select-none cursor-default">
+        {/* Center: App Title (masqué sur petits smartphones < 460px pour préserver l'espace des 5 boutons d'action) */}
+        <div className="header-mobile-brand flex flex-col items-end select-none cursor-default shrink-0">
           <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1">
             O Girador
           </span>
-          <span className="text-[8px] font-bold font-sans uppercase tracking-widest opacity-80 leading-none mt-0 text-[var(--cordel-wood)]">
+          <span className="cordel-stamp-red-sm font-cactus font-bold text-[7.5px] uppercase px-1.5 py-0.5 mt-0.5 leading-tight select-none">
             Sequenciador
           </span>
         </div>
 
         {/* Right: Quick actions (View Switcher and Add Instrument) */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* RODA */}
           <button
             onClick={() => {
@@ -702,7 +702,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             >
               O Girador
             </span>
-            <span className="text-[10px] font-bold font-sans uppercase tracking-[0.2em] opacity-80 leading-none mt-0 text-[var(--cordel-wood)]">
+            <span className="cordel-stamp-red-sm font-cactus font-bold text-[9px] uppercase px-1.5 py-0.5 mt-1 leading-tight select-none">
               Sequenciador
             </span>
           </div>
