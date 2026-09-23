@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GoogleLoginButton } from './GoogleLoginButton';
+import { useAuth } from '../contexts/AuthContext';
 import { useAudioStore } from '../stores/useAudioStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
 import { audioEngine } from '../hooks/useAudioSync';
@@ -555,6 +556,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   }, [lang]);
 
+  const { currentUser, userProfile } = useAuth();
+
   const handleLanguageSelect = (newLang: 'fr' | 'pt') => {
     setCurrentLang(newLang);
     localStorage.setItem('o_gridador_lang', newLang);
@@ -562,6 +565,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       onLanguageChange(newLang);
     }
   };
+
+  // Handlers de navigation sécurisée de l'écosystème O-Girador (visiteur démo vs membre authentifié)
+  const handleLaunchOrquestrador = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const url = getEcosystemUrl('orquestrador');
+    if (currentUser) {
+      launchCrossApp(url, { appKey: 'orquestrador', appLabel: "l'Orquestrad'Or" });
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }, [currentUser]);
+
+  const handleCurrentAppClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleLaunchOrganizador = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!currentUser) {
+      window.open('https://organizador.o-girador.com/demo', '_blank', 'noopener,noreferrer');
+    } else {
+      launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: "l'Organizad'Or" });
+    }
+  }, [currentUser]);
+
+  const handleLaunchDancador = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const url = getEcosystemUrl('dancador');
+    if (currentUser) {
+      launchCrossApp(url, { appKey: 'dancador', appLabel: "le Dançad'Or" });
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }, [currentUser]);
+
+  const handleLaunchMostrador = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const rawGroupId = userProfile?.groupId?.trim()?.toLowerCase();
+    if (!currentUser || !rawGroupId) {
+      window.open('https://organizador.o-girador.com/demo?app=mostrador', '_blank', 'noopener,noreferrer');
+    } else {
+      const url = `https://mostrador.o-girador.com/${encodeURIComponent(rawGroupId)}`;
+      launchCrossApp(url, { appKey: 'mostrador', appLabel: "le Mostrad'Or" });
+    }
+  }, [currentUser, userProfile?.groupId]);
 
   useEffect(() => {
     // Préchargement immédiat et silencieux des 6 instruments de la bateria
@@ -1067,48 +1116,96 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             O GIRADOR © 2026-2027
           </div>
 
-          {/* Liens visuels avec icônes vers les autres applications de l'écosystème */}
-          <div className="flex items-center justify-center gap-4 sm:gap-6">
-            <a
-              href={getEcosystemUrl('organizador')}
-              onClick={(e) => {
-                e.preventDefault();
-                launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: "l'Organizador" });
-              }}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="O Organizador"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] cordel-wood-shadow-sm hover:scale-110 hover:border-[#8b2a1a] transition-all flex items-center justify-center cursor-pointer select-none"
-            >
-              <img src="/ecosystem/organizador.png" alt="O Organizador" className="w-full h-full object-contain rounded-full" />
-            </a>
-            <a
-              href={getEcosystemUrl('dancador')}
-              onClick={(e) => {
-                e.preventDefault();
-                launchCrossApp(getEcosystemUrl('dancador'), { appKey: 'dancador', appLabel: "le Dançad'Or" });
-              }}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="O Dançador"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] cordel-wood-shadow-sm hover:scale-110 hover:border-[#8b2a1a] transition-all flex items-center justify-center cursor-pointer select-none"
-            >
-              <img src="/ecosystem/dancador.png" alt="O Dançador" className="w-full h-full object-contain rounded-full" />
-            </a>
+          {/* Dock / barre des 5 applications de l'écosystème O-Girador */}
+          <nav aria-label={isFr ? "Écosystème O-Girador" : "Ecossistema O-Girador"} className="flex items-center justify-center gap-3 sm:gap-4 md:gap-5">
+            {/* 1. Orquestrad'Or (Hub) */}
             <a
               href={getEcosystemUrl('orquestrador')}
-              onClick={(e) => {
-                e.preventDefault();
-                launchCrossApp(getEcosystemUrl('orquestrador'), { appKey: 'orquestrador', appLabel: "l'Orquestrador" });
-              }}
+              onClick={handleLaunchOrquestrador}
               target="_blank"
               rel="noopener noreferrer"
-              title="O Orquestrador"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] cordel-wood-shadow-sm hover:scale-110 hover:border-[#8b2a1a] transition-all flex items-center justify-center cursor-pointer select-none"
+              title={isFr ? "Orquestrad'Or — Hub" : "Orquestrad'Or — Hub central"}
+              aria-label={isFr ? "Orquestrad'Or — Hub" : "Orquestrad'Or — Hub central"}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] p-0 flex items-center justify-center hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform cursor-pointer select-none"
             >
-              <img src="/ecosystem/orquestrador.png" alt="O Orquestrador" className="w-full h-full object-contain rounded-full" />
+              <img
+                src="/ecosystem/orquestrador.png"
+                alt="O Orquestrad'Or"
+                className="w-full h-full object-cover block select-none pointer-events-none"
+              />
             </a>
-          </div>
+
+            {/* 2. Séquenciad'Or (App active) */}
+            <button
+              type="button"
+              onClick={handleCurrentAppClick}
+              title={isFr ? "Séquenciad'Or (Actuel)" : "Séquenciad'Or (Atual)"}
+              aria-label={isFr ? "Séquenciad'Or (Actuel)" : "Séquenciad'Or (Atual)"}
+              aria-current="page"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#8b2a1a] ring-2 ring-[#8b2a1a] bg-[#f4ecd8] p-0 flex items-center justify-center translate-x-[1px] translate-y-[1px] shadow-none cursor-default select-none"
+            >
+              <img
+                src="/ecosystem/sequenciador.png"
+                alt="O Séquenciad'Or"
+                className="w-full h-full object-cover block select-none pointer-events-none"
+              />
+            </button>
+
+            {/* 3. Organizad'Or (Gestion d'association) */}
+            <a
+              href={!currentUser ? 'https://organizador.o-girador.com/demo' : getEcosystemUrl('organizador')}
+              onClick={handleLaunchOrganizador}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={isFr ? "Organizad'Or — Gestion d'association" : "Organizad'Or — Gestão do grupo"}
+              aria-label={isFr ? "Organizad'Or — Gestion d'association" : "Organizad'Or — Gestão do grupo"}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] p-0 flex items-center justify-center hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform cursor-pointer select-none"
+            >
+              <img
+                src="/ecosystem/organizador.png"
+                alt="O Organizad'Or"
+                className="w-full h-full object-cover block select-none pointer-events-none"
+              />
+            </a>
+
+            {/* 4. Dançad'Or (Chorégraphie & pas) */}
+            <a
+              href={getEcosystemUrl('dancador')}
+              onClick={handleLaunchDancador}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={isFr ? "Dançad'Or — Chorégraphie" : "Dançad'Or — Coreografia"}
+              aria-label={isFr ? "Dançad'Or — Chorégraphie" : "Dançad'Or — Coreografia"}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] p-0 flex items-center justify-center hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform cursor-pointer select-none"
+            >
+              <img
+                src="/ecosystem/dancador.png"
+                alt="O Dançador"
+                className="w-full h-full object-cover block select-none pointer-events-none"
+              />
+            </a>
+
+            {/* 5. Mostrad'Or (Carte / Vitrine publique) */}
+            <a
+              href={
+                !currentUser || !userProfile?.groupId
+                  ? 'https://organizador.o-girador.com/demo?app=mostrador'
+                  : `https://mostrador.o-girador.com/${encodeURIComponent(userProfile.groupId.trim().toLowerCase())}`
+              }
+              onClick={handleLaunchMostrador}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={isFr ? "Mostrad'Or — Carte & Vitrine" : "Mostrad'Or — Mapa & Vitrine"}
+              aria-label={isFr ? "Mostrad'Or — Carte & Vitrine" : "Mostrad'Or — Mapa & Vitrine"}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] p-0 flex items-center justify-center hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform cursor-pointer select-none"
+            >
+              <img
+                src="/ecosystem/mostrador.png"
+                alt="O Mostrad'Or"
+                className="w-full h-full object-cover block select-none pointer-events-none"
+              />
+            </a>
+          </nav>
 
           {/* Sélecteur bilingue discret */}
           <div className="flex items-center gap-1 font-cactus text-xs sm:text-sm">
