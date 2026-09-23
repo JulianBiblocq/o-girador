@@ -560,4 +560,29 @@ export const XiloScroll: React.FC<XiloIconProps> = ({ size = 16, className = '',
 
 export const XiloParchment = XiloScroll;
 
+// 🎏 Fanion Cordel / Décor & Papier Peint (Bandeirinhas de Cordel / São João)
+export const XiloFanion: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={`xilo-icon ${className}`} 
+    {...props}
+  >
+    {/* Cordelette légèrement cintrée / Varal cordel */}
+    <path d="M1.5,4.5 C7.5,7.2 16.5,7.2 22.5,4.5" strokeWidth="1.8" />
+    {/* Fanion gauche (queue d'aronde / duas pontas) */}
+    <path d="M3.5,5.5 L11,7.2 L11,19.5 L7.25,15 L3.5,18.5 Z" fill="currentColor" fillOpacity="0.2" strokeWidth="1.8" />
+    <path d="M7.25,8.2 L7.25,12.5" strokeWidth="1.5" />
+    {/* Fanion droit (pointe biseautée / uma ponta festonnée) */}
+    <path d="M13,7.2 L20.5,5.5 L20.5,15 L16.75,19.5 L13,15 Z" fill="currentColor" fillOpacity="0.85" strokeWidth="1.8" />
+  </svg>
+);
+
+
 

@@ -11,7 +11,8 @@ import {
   MessageSquare,
   Download,
   ExternalLink,
-  Edit3
+  Edit3,
+  HelpCircle
 } from 'lucide-react';
 import { BoutonExportDanse } from './BoutonExportDanse';
 import { AudioFader } from './AudioFader';
@@ -25,7 +26,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
-import { XiloRoda, XiloConsole, XiloTimeline, XiloSun, XiloMoon, XiloDrum } from './XiloIcons';
+import { XiloRoda, XiloConsole, XiloTimeline, XiloSun, XiloMoon, XiloDrum, XiloFanion } from './XiloIcons';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { MiniTelemetryBadge } from './TelemetryBadge';
 import { useWizardStore } from '../stores/useWizardStore';
@@ -198,29 +199,29 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const onRedo = handleRedo;
   const canRedo = tracksRedoHistory.length > 0;
   const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
-  const isSamambaia = Boolean(
-    userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    (userProfile?.groupId && (userProfile.groupId.toLowerCase().includes('samambaia') || userProfile.groupId.toLowerCase().includes('sammbia'))) ||
-    (userProfile?.groupName && (userProfile.groupName.toLowerCase().includes('samambaia') || userProfile.groupName.toLowerCase().includes('sammbia'))) ||
-    userProfile?.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    userProfile?.canWriteSequenciador
+  const isOtherDistinctGroup = Boolean(
+    userProfile?.groupId &&
+    !userProfile.groupId.toLowerCase().includes('samambaia') &&
+    !userProfile.groupId.toLowerCase().includes('sammbia')
   );
-  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || null;
+  const isSamambaia = !isOtherDistinctGroup;
+  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || 'Samambaia';
   const isPublicPreset = (p: { visibility?: string }) =>
     p.visibility === 'admin_global' || p.visibility === 'public';
   const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
   const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
-  const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || userProfile?.groupId));
+  const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia));
   
   // Morceau vedette du groupe (Épingle Cactus 🌵)
   const [groupDefaultPresetId, setGroupDefaultPresetId] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeToGroupDefaultPreset(userProfile?.groupId, (id) => {
+    const targetGroupId = userProfile?.groupId || (isSamambaia ? 'Samambaia' : null);
+    const unsub = subscribeToGroupDefaultPreset(targetGroupId, (id) => {
       setGroupDefaultPresetId(id);
     });
     return () => unsub();
-  }, [userProfile?.groupId]);
+  }, [userProfile?.groupId, isSamambaia]);
 
   const canSetDefaultPreset = Boolean(
     userProfile && (
@@ -430,7 +431,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
               {/* 📝 ÉDITION */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                   📝 {lang === 'pt' ? 'Edição' : 'Édition'}
                 </span>
                 
@@ -446,7 +447,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
               {/* 👁️ AFFICHAGE & LANGUE */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
                   👁️ {lang === 'pt' ? 'Visualização & Idioma' : 'Affichage & Langue'}
                 </span>
                 
@@ -535,8 +536,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
               {/* ❓ AIDE & COMMUNAUTÉ */}
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
-                  ❓ {lang === 'pt' ? 'Ajuda & Comunidade' : 'Aide & Communauté'}
+                <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5 shrink-0 text-[#d99b26]" /> {lang === 'pt' ? 'Ajuda & Comunidade' : 'Aide & Communauté'}
                 </span>
                 
                 <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -572,7 +573,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       }} 
                       className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer col-span-2 transition-colors"
                     >
-                      <span>🎨</span> {lang === 'pt' ? 'Papel de Parede' : 'Papier Peint'}
+                      <XiloFanion size={14} className="shrink-0" /> {lang === 'pt' ? 'Papel de Parede' : 'Papier Peint'}
                     </button>
                   )}
                 </div>
@@ -801,8 +802,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
               {/* AIDE & COMMUNAUTÉ */}
               <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-[var(--cordel-border)]/30">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
-                  ❓ {lang === 'pt' ? 'Ajuda & Comunidade' : 'Aide & Communauté'}
+                <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5 shrink-0 text-[#d99b26]" /> {lang === 'pt' ? 'Ajuda & Comunidade' : 'Aide & Communauté'}
                 </span>
                 <div className="grid grid-cols-2 gap-1.5">
                   <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer w-full transition-colors">
@@ -1015,10 +1016,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         {onOpenWallpaperModal && (
           <button
             onClick={onOpenWallpaperModal}
-            className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button w-12 h-[34px] flex items-center justify-center cursor-pointer shrink-0 text-base"
+            className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button w-12 h-[34px] flex items-center justify-center cursor-pointer shrink-0"
             title={lang === 'pt' ? "Papel de Parede Trompe-l'Œil" : "Papier Peint Trompe-l'Œil"}
           >
-            🎨
+            <XiloFanion size={18} className="shrink-0" />
           </button>
         )}
 
