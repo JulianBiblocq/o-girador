@@ -4,13 +4,15 @@ import { WallpaperPattern } from '../components/WallpaperCard';
 const WALLPAPER_STORAGE_KEY = 'ogirador-wallpaper';
 const ALL_WALLPAPER_CLASSES = ['has-wallpaper-none', 'has-wallpaper-rosace', 'has-wallpaper-damas', 'has-wallpaper-gravure'];
 
+export const DEFAULT_WALLPAPER: WallpaperPattern = 'damas';
+
 export function useWallpaper() {
   const [wallpaper, setWallpaperState] = useState<WallpaperPattern>(() => {
     const saved = localStorage.getItem(WALLPAPER_STORAGE_KEY);
     if (saved === 'none' || saved === 'rosace' || saved === 'damas' || saved === 'gravure') {
       return saved === 'rosace' ? 'gravure' : saved;
     }
-    return 'gravure'; // Par défaut : Option C (Gravure & Semis Organique)
+    return DEFAULT_WALLPAPER; // Par défaut : Option B (Treillis Maracatu Damassé)
   });
 
   const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);

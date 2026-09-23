@@ -441,6 +441,12 @@ export function useAudioSync({
     measureStartTime?: number;
     measureDuration?: number;
     targetStartTime?: number;
+    isPreRoll?: boolean;
+    preRollBeat?: number;
+    preRollMeasureIndex?: number;
+    preRollTotalMeasures?: number;
+    isPaused?: boolean;
+    isNavigation?: boolean;
   }>({
     step: 0,
     measure: 0,

@@ -77,13 +77,13 @@ test.describe("Éditeur d'instrument", () => {
 
     // 5. Copier un pattern et le coller ailleurs
     const copyPatternBtn = page.locator('button', { hasText: /Copier|Copy/i }).first();
+    const pastePatternBtn = page.locator('button', { hasText: /Coller|Paste/i }).first();
     if (await copyPatternBtn.isVisible()) {
       await copyPatternBtn.click();
       
       const varC = page.locator('button', { hasText: 'C' }).first();
       if (await varC.isVisible()) await varC.click();
       
-      const pastePatternBtn = page.locator('button', { hasText: /Coller|Paste/i }).first();
       if (await pastePatternBtn.isVisible()) await pastePatternBtn.click();
     }
 

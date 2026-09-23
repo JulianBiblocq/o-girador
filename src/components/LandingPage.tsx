@@ -901,7 +901,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       
       {/* Calque d'arrière-plan vectoriel en treillis damassé (filigrane net isolé sur GPU) */}
       <div 
-        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-damas-mask" 
+        className="fixed inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-damas-mask" 
         aria-hidden="true" 
       />
 
