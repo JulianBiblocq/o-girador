@@ -152,7 +152,18 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
 
       if (autoGenerateAudio) {
         try {
-          const audioUrl = await genererEtUploaderPresetCloudBounce(presetId, finalPresetData, finalPresetData.bpm || 100);
+          const audioUrl = await genererEtUploaderPresetCloudBounce(
+            presetId,
+            finalPresetData,
+            finalPresetData.bpm || 100,
+            {
+              tenantId: myGroupId,
+              isLoopRegionActive: storeState.isLoopRegionActive,
+              loopStartMeasure: storeState.loopStartMeasure,
+              loopEndMeasure: storeState.loopEndMeasure,
+              loopMode: storeState.loopMode
+            }
+          );
           await savePresetToCloud(
             presetName,
             finalPresetData,

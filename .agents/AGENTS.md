@@ -23,3 +23,11 @@ Si du code est généré ou modifié, ces règles doivent être strictement resp
 ## 5. Déploiement (Pense-bête)
 
 **Rappel Important** : N'oublie pas de TOUJOURS faire un build et déployer sur Firebase Hosting (via la commande `npm run deploy`) après avoir commité et pushé des modifications liées au séquenceur.
+
+---
+### 🛡️ Gouvernance Centralisée des Règles Firebase & Sécurité (Strict)
+- **Autorité unique :** Les règles d'accès (`firestore.rules` et `storage.rules`) sont exclusivement pilotées, modifiées et déployées par le projet maître (**Orchestrad'Or** / backend commun).
+- **Interdiction formelle dans cette application :** 
+  * Ne jamais créer, modifier ou valider de fichier local `firestore.rules` ou `storage.rules`.
+  * Ne jamais exécuter de commande de déploiement de règles (`firebase deploy --only firestore:rules` ou `storage` formellement proscrits).
+- **Développement client :** Les requêtes Firestore et Storage doivent impérativement s'adapter aux modèles de permissions et collections existants sans exiger d'altération des règles de sécurité depuis ce dépôt.

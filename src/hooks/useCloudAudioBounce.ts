@@ -6,11 +6,12 @@
 import { useState } from 'react';
 import * as Tone from 'tone';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc } from 'firebase/firestore';
-import { storage, db } from '../firebase/config';
+import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { storage, db, auth } from '../firebase/config';
 import { telemetryService } from '../services/telemetryService';
 import { SavedPattern, TimeSignature, SavedSectionData, Preset } from '../types';
-import { getEffectiveVolume } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveVolume } from '../stores/useSequencerStore';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 import { encoderWav } from '../utils/encodeurWav';
 const CLOUD_PATTERNS_COLLECTION = 'patterns';
 import { CLOUD_SECTIONS_COLLECTION } from '../cloudSections';
@@ -376,31 +377,120 @@ export function useCloudAudioBounce() {
   const genererEtUploaderPresetCloudBounce = async (
     presetId: string,
     presetData: Preset,
-    baseBpm: number
+    baseBpm: number,
+    options?: {
+      tenantId?: string;
+      isLoopRegionActive?: boolean;
+      loopStartMeasure?: number | null;
+      loopEndMeasure?: number | null;
+      loopMode?: 'infinite' | number;
+    }
   ): Promise<string | null> => {
     setIsBouncingCloud(true);
     setBounceError(null);
 
     try {
+      const storeState = useSequencerStore.getState();
 
-      
+      // 🛡️ Garde-fou safeTenantId : normalisation et repli robuste (ne contient jamais "undefined")
+      const userGroupId = (auth.currentUser as any)?.groupId;
+      const rawTenantId = options?.tenantId || (presetData.metadata as any)?.tenantId || userGroupId || 'global';
+      let safeTenantId = (rawTenantId || 'global').trim().toLowerCase();
+      if (!safeTenantId || safeTenantId === 'undefined' || safeTenantId === 'null') {
+        safeTenantId = 'global';
+      }
+
+      // 1. Dépliage de la structure temporelle (sections répétées, boucles finies)
+      const loopOptions = {
+        isLoopRegionActive: options?.isLoopRegionActive ?? storeState.isLoopRegionActive,
+        loopStartMeasure: options?.loopStartMeasure ?? storeState.loopStartMeasure,
+        loopEndMeasure: options?.loopEndMeasure ?? storeState.loopEndMeasure,
+        loopMode: options?.loopMode ?? storeState.loopMode,
+      };
+
+      let expandedMeasures = getExpandedMeasures(
+        presetData.totalMeasures || 16,
+        presetData.songSections || [],
+        loopOptions
+      );
+
+      if (!expandedMeasures || expandedMeasures.length === 0) {
+        const total = presetData.totalMeasures || 16;
+        expandedMeasures = Array.from({ length: total }, (_, i) => ({ baseMeasure: i, iteration: 1 }));
+      }
+
+      // 2. Calcul précis des durées, transitions de tempo, ticks et signatures
       let dureeTotaleSec = 0;
       const measureStartTimes: number[] = [];
       const measureTicks: number[] = [];
       const measureBeats: number[] = [];
+      const measureBpmsAbsolus: number[] = [];
+      const measureBpmTransitionsAbsolus: string[] = [];
+      const measureTimeSigsAbsolus: string[] = [];
 
-      for (let i = 0; i < (presetData.totalMeasures || 16); i++) {
+      for (let i = 0; i < expandedMeasures.length; i++) {
         measureStartTimes.push(dureeTotaleSec);
-        const timeSig = (presetData.measureTimeSigs || [])[i] || '4/4';
-        const beats = parseInt(timeSig.split('/')[0], 10);
-        const beatUnit = parseInt(timeSig.split('/')[1], 10);
-        dureeTotaleSec += (60 / baseBpm) * beats;
+        const m = expandedMeasures[i].baseMeasure;
+        const currentMeasureBpm = (presetData.measureBpms && presetData.measureBpms[m] !== undefined)
+          ? presetData.measureBpms[m]
+          : (presetData.bpm || baseBpm || 120);
+        measureBpmsAbsolus.push(currentMeasureBpm);
+
+        const nextM = (i + 1 < expandedMeasures.length) ? expandedMeasures[i + 1].baseMeasure : m;
+        const nextMeasureBpm = (presetData.measureBpms && presetData.measureBpms[nextM] !== undefined)
+          ? presetData.measureBpms[nextM]
+          : currentMeasureBpm;
+
+        const transition = (presetData.measureBpmTransitions && presetData.measureBpmTransitions[m]) || 'immediate';
+        measureBpmTransitionsAbsolus.push(transition);
+
+        const timeSigStr = (presetData.measureTimeSigs && presetData.measureTimeSigs[m]) || presetData.timeSig || '4/4';
+        measureTimeSigsAbsolus.push(timeSigStr);
+
+        const beats = parseInt(timeSigStr.split('/')[0], 10) || 4;
+        const beatUnit = parseInt(timeSigStr.split('/')[1], 10) || 4;
         measureBeats.push(beats);
         measureTicks.push(beats * (96 / beatUnit));
+
+        if (transition === 'immediate' || currentMeasureBpm === nextMeasureBpm) {
+          dureeTotaleSec += (60 / currentMeasureBpm) * beats;
+        } else {
+          dureeTotaleSec += (120 * beats) / (currentMeasureBpm + nextMeasureBpm);
+        }
       }
-      const durationSec = dureeTotaleSec + 3.0; // tail for reverb
 
+      // 🛡️ Queue de déclin audio systématique de 2.5 secondes (release / decay tail)
+      const durationSec = dureeTotaleSec + 2.5;
 
+      // 3. Dérivation des métadonnées chorégraphiques pour Dançad'Or
+      const mestreSignals = storeState.mestreSignals || [];
+      const measureSignals = presetData.measureSignals || storeState.measureSignals || {};
+
+      const sinaisDoMestreAbsolus: any[] = [];
+      expandedMeasures.forEach((measureInfo, absoluteIndex) => {
+        const signalId = (measureSignals as any)?.[measureInfo.baseMeasure];
+        if (signalId) {
+          const mestreSignal = mestreSignals.find((s: any) => s.id === signalId);
+          if (mestreSignal) {
+            sinaisDoMestreAbsolus.push({
+              mesure: absoluteIndex,
+              type: mestreSignal.name || 'Geste',
+              description: mestreSignal.name || '',
+              signalId: mestreSignal.id,
+              imageUrl: mestreSignal.imageUrl || null
+            });
+          }
+        }
+      });
+
+      const expandedMeasuresData = expandedMeasures.map((info, idx) => ({
+        index: idx,
+        baseMeasure: info.baseMeasure,
+        iteration: info.iteration,
+        bpm: measureBpmsAbsolus[idx],
+        timeSig: measureTimeSigsAbsolus[idx],
+        bpmTransition: measureBpmTransitionsAbsolus[idx]
+      }));
       
       const audioBuffer = await Tone.Offline(async (ctx) => {
         const playersToLoad: Promise<void>[] = [];
@@ -515,7 +605,7 @@ export function useCloudAudioBounce() {
         
         await Promise.all(playersToLoad);
         
-        // 3. Scheduling
+        // 3. Scheduling sur la timeline dépliée (expandedMeasures)
         for (let t = 0; t < (presetData.tracks || []).length; t++) {
           const track = (presetData.tracks || [])[t];
           if (track.isMute) continue;
@@ -523,11 +613,13 @@ export function useCloudAudioBounce() {
           const strokePlayers = trackPlayers.get(t);
           if (!strokePlayers) continue;
           
-          for (let m = 0; m < (presetData.totalMeasures || 16); m++) {
-            const measureStartTime = measureStartTimes[m];
-            const beats = measureBeats[m];
-            const maxTicks = measureTicks[m];
+          for (let i = 0; i < expandedMeasures.length; i++) {
+            const m = expandedMeasures[i].baseMeasure;
+            const measureStartTime = measureStartTimes[i];
+            const beats = measureBeats[i];
+            const maxTicks = measureTicks[i];
             const ticksPerBeat = maxTicks / beats;
+            const currentMeasureBpm = measureBpmsAbsolus[i];
             
             for (const pattern of track.patterns) {
               if (pattern.measureAssignments?.[m]) {
@@ -556,7 +648,7 @@ export function useCloudAudioBounce() {
                   const player = strokePlayers.get(targetKey);
                   if (player) {
                     const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
-                    const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / baseBpm);
+                    const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / currentMeasureBpm);
                     
                     let baseVol = pattern.volumes?.[step] ?? 80;
                     const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
@@ -567,7 +659,7 @@ export function useCloudAudioBounce() {
                     player.start(timeSec);
                   }
                 }
-                // Only first active pattern per measure is played (like in normal sequencer)
+                // Seul le premier motif actif par mesure est planifié
                 break;
               }
             }
@@ -592,11 +684,55 @@ export function useCloudAudioBounce() {
         audioUrl = null;
       }
 
+      // 1. Mise à jour du document dans la collection presets
       try {
         const documentRef = doc(db, 'presets', presetId);
         await updateDoc(documentRef, { audioUrl });
       } catch (docErr) {
-        console.warn("[Cloud Bounce] Échec mise à jour document Firestore :", docErr);
+        console.warn("[Cloud Bounce] Échec mise à jour document Firestore presets :", docErr);
+      }
+
+      // 2. Écriture / fusion automatique dans audio_masters (${safeTenantId}_${cleanPresetId})
+      const cleanPresetId = (presetId || '').trim();
+      if (audioUrl && cleanPresetId && cleanPresetId !== 'undefined') {
+        try {
+          const documentId = `${safeTenantId}_${cleanPresetId}`;
+          const audioMasterRef = doc(db, 'audio_masters', documentId);
+          
+          const titre = presetData.metadata?.toada || (presetData as any).name || 'Morceau sans titre';
+          const bpmPrincipal = measureBpmsAbsolus.length > 0 ? measureBpmsAbsolus[0] : (presetData.bpm || baseBpm || 120);
+
+          const payloadDanse: any = {
+            id: presetId,
+            tenantId: safeTenantId,
+            nom: titre,
+            titre: titre,
+            audioUrl: audioUrl,
+            bpm: bpmPrincipal,
+            totalMesures: expandedMeasures.length,
+            sinaisDoMestre: sinaisDoMestreAbsolus,
+            expandedMeasures: expandedMeasuresData,
+            measureBpms: measureBpmsAbsolus,
+            measureBpmTransitions: measureBpmTransitionsAbsolus,
+            measureTimeSigs: measureTimeSigsAbsolus,
+            toada: presetData.metadata?.toada || null,
+            nacao: presetData.metadata?.nacao || null,
+            compositor: presetData.metadata?.compositor || null,
+            ritmo: presetData.metadata?.ritmo || null,
+            videoUrl: (presetData.metadata as any)?.youtubeUrl || (presetData.metadata as any)?.link || null,
+            timeSig: presetData.timeSig || '4/4',
+            mestreId: (presetData.metadata as any)?.mestreId || null,
+            updatedAt: serverTimestamp()
+          };
+
+          const cleanPayload = Object.fromEntries(
+            Object.entries(payloadDanse).filter(([_, v]) => v !== undefined)
+          );
+
+          await setDoc(audioMasterRef, cleanPayload, { merge: true });
+        } catch (dancaErr) {
+          console.warn("[Cloud Bounce] Échec mise à jour audio_masters (non bloquant) :", dancaErr);
+        }
       }
       
       setIsBouncingCloud(false);

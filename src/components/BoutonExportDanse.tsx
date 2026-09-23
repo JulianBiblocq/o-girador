@@ -5,39 +5,30 @@
 
 import React, { useState } from 'react';
 import { UploadCloud, CheckCircle, Loader2 } from 'lucide-react';
-import { useAudioBounce } from '../hooks/useAudioBounce';
-import { usePublierVersDanca } from '../hooks/usePublierVersDanca';
+import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
-import { getExpandedMeasures } from '../utils/measureHelpers';
+import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { launchCrossApp } from '../utils/crossAppAuth';
 import { getEcosystemUrl } from '../constants/ecosystemUrls';
 
 /**
- * Composant de la barre d'outils permettant d'exporter la séquence 
- * vers Firebase pour l'application "O Girador Dança".
+ * Composant de la barre d'outils permettant de synchroniser la séquence 
+ * vers Firebase pour l'application "O Girador Dança" via le moteur hors-ligne unifié.
  */
 export const BoutonExportDanse: React.FC = () => {
-  const { genererBounce, estEnCalcul } = useAudioBounce();
-  const { publierMasterAudio, estEnCoursPublication } = usePublierVersDanca();
+  const { genererEtUploaderPresetCloudBounce, isBouncingCloud, bounceError } = useCloudAudioBounce();
+  const audio = useAudio();
   
-  const [statut, setStatut] = useState<'repos' | 'calcul' | 'envoi' | 'succes' | 'erreur'>('repos');
+  const [statut, setStatut] = useState<'repos' | 'calcul' | 'succes' | 'erreur'>('repos');
   const [messageErreurUI, setMessageErreurUI] = useState<string>('');
 
   // Extraction optimisée des données nécessaires du store
   const { 
     bpm, 
-    measureBpms, 
-    totalMesures, 
-    timeSig, 
     metadata, 
-    mestreSignals, 
-    songSections, 
-    measureSignals, 
-    measureTimeSigs, 
-    measureBpmTransitions,
     isLoopRegionActive,
     loopStartMeasure,
     loopEndMeasure,
@@ -45,15 +36,7 @@ export const BoutonExportDanse: React.FC = () => {
   } = useSequencerStore(
     useShallow(state => ({
       bpm: state.bpm,
-      measureBpms: state.measureBpms,
-      totalMesures: state.totalMeasures,
-      timeSig: state.timeSig,
       metadata: state.metadata,
-      mestreSignals: state.mestreSignals,
-      songSections: state.songSections,
-      measureSignals: state.measureSignals,
-      measureTimeSigs: state.measureTimeSigs,
-      measureBpmTransitions: state.measureBpmTransitions,
       isLoopRegionActive: state.isLoopRegionActive,
       loopStartMeasure: state.loopStartMeasure,
       loopEndMeasure: state.loopEndMeasure,
@@ -61,7 +44,7 @@ export const BoutonExportDanse: React.FC = () => {
     }))
   );
   
-  const { lang, alertAsync, confirmAsync } = useSequencer();
+  const { lang, confirmAsync } = useSequencer();
   const { userProfile, isAdmin } = useAuth();
 
   const gererExport = async () => {
@@ -82,94 +65,46 @@ export const BoutonExportDanse: React.FC = () => {
 
       setStatut('calcul');
       setMessageErreurUI('');
-      const blob = await genererBounce();
-      
-      setStatut('envoi');
-      const tenantId = (metadata as any)?.tenantId || userProfile?.groupId || 'tenant_local';
+
+      const tenantId = (metadata as any)?.tenantId || userProfile?.groupId || 'global';
       const titre = metadata?.toada || 'Nouvelle Toada';
-      
-      // Utiliser le titre pour le nom de fichier/document (formatage URL-safe)
       const titreFormate = titre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-      const idFallback = titreFormate ? titreFormate : `brouillon_${Date.now()}`;
-      const morceauId = (metadata as any)?.morceauId || idFallback;
-      
-      const expandedMeasures = getExpandedMeasures(totalMesures, songSections || [], {
-        isLoopRegionActive,
-        loopStartMeasure,
-        loopEndMeasure,
-        loopMode
-      });
-      const sinaisDoMestreAbsolus: any[] = [];
-      
-      expandedMeasures.forEach((measureInfo, absoluteIndex) => {
-        const signalId = measureSignals?.[measureInfo.baseMeasure];
-        if (signalId) {
-          const mestreSignal = mestreSignals?.find(s => s.id === signalId);
-          if (mestreSignal) {
-            sinaisDoMestreAbsolus.push({
-              mesure: absoluteIndex,
-              type: mestreSignal.name
-            });
-          }
-        }
-      });
-      
-      const measureBpmsAbsolus = expandedMeasures.map(measureInfo => {
-        const m = measureInfo.baseMeasure;
-        return (measureBpms && measureBpms[m] !== undefined) ? measureBpms[m] : bpm;
-      });
+      const lastPresetId = localStorage.getItem('girador_last_loaded_preset_id') || new URLSearchParams(window.location.search).get('loadPreset');
+      const rawMorceauId = (metadata as any)?.morceauId || lastPresetId || (titreFormate ? titreFormate : `brouillon_${Date.now()}`);
+      const morceauId = (rawMorceauId && rawMorceauId !== 'undefined' && rawMorceauId !== 'null') ? String(rawMorceauId).trim() : `brouillon_${Date.now()}`;
 
-      const measureBpmTransitionsAbsolus = expandedMeasures.map(measureInfo => {
-        const m = measureInfo.baseMeasure;
-        return (measureBpmTransitions && measureBpmTransitions[m] !== undefined) ? measureBpmTransitions[m] : 'immediate';
-      });
-
-      const measureTimeSigsAbsolus = expandedMeasures.map(measureInfo => (measureTimeSigs && measureTimeSigs[measureInfo.baseMeasure]) || timeSig || '4/4');
-      
-      const bpmReel = measureBpmsAbsolus.length > 0 ? measureBpmsAbsolus[0] : bpm;
-
-      // Filtrer les valeurs undefined pour Firestore
-      const payloadBrut = {
-        id: morceauId,
-        tenantId,
-        nom: titre,
-        bpm: bpmReel,
-        measureBpms: measureBpmsAbsolus,
-        measureBpmTransitions: measureBpmTransitionsAbsolus,
-        measureTimeSigs: measureTimeSigsAbsolus,
-        totalMesures: expandedMeasures.length,
-        sinaisDoMestre: sinaisDoMestreAbsolus,
-        toada: metadata?.toada,
-        nacao: metadata?.nacao,
-        compositor: metadata?.compositor,
-        ritmo: metadata?.ritmo,
-        videoUrl: metadata?.youtubeUrl || (metadata as any)?.link,
-        timeSig: timeSig,
-        mestreId: (metadata as any)?.mestreId
+      const currentPresetData = audio.getCurrentPresetData();
+      currentPresetData.metadata = {
+        ...(currentPresetData.metadata || {}),
+        toada: titre,
+        nacao: currentPresetData.metadata?.nacao || '',
+        compositor: currentPresetData.metadata?.compositor || '',
+        ritmo: currentPresetData.metadata?.ritmo || ''
       };
-      
-      const payloadPropre = Object.fromEntries(
-        Object.entries(payloadBrut).filter(([_, v]) => v !== undefined)
+
+      const audioUrl = await genererEtUploaderPresetCloudBounce(
+        morceauId,
+        currentPresetData as any,
+        bpm,
+        {
+          tenantId,
+          isLoopRegionActive,
+          loopStartMeasure,
+          loopEndMeasure,
+          loopMode
+        }
       );
 
-      await publierMasterAudio(blob, payloadPropre as any);
-      
-      setStatut('succes');
-      setTimeout(() => setStatut('repos'), 3000); // Retour au repos après 3s
-    } catch (err: any) {
-      console.error(err);
-      
-      const errMsg = err.message || '';
-      if (errMsg.includes('Erreur Audio Render')) {
-        setMessageErreurUI('Erreur Render');
-      } else if (errMsg.includes('Firebase Permission')) {
-        setMessageErreurUI('Erreur Permission');
-      } else {
-        setMessageErreurUI('Erreur Serveur');
+      if (!audioUrl) {
+        throw new Error(bounceError || (lang === 'pt' ? 'Falha ao gerar áudio' : 'Échec de génération du bounce'));
       }
 
+      setStatut('succes');
+      setTimeout(() => setStatut('repos'), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setMessageErreurUI(err.message || 'Erreur');
       setStatut('erreur');
-      alert(`[CRASH EXPORT] ${errMsg}`);
       setTimeout(() => {
         setStatut('repos');
         setMessageErreurUI('');
@@ -177,7 +112,7 @@ export const BoutonExportDanse: React.FC = () => {
     }
   };
 
-  const estOccupe = statut === 'calcul' || statut === 'envoi';
+  const estOccupe = statut === 'calcul' || isBouncingCloud;
 
   return (
     <button
@@ -191,26 +126,19 @@ export const BoutonExportDanse: React.FC = () => {
         ${statut === 'succes' ? 'bg-[#2ecc71] text-white border-[#27ae60]' : ''}
         ${statut === 'erreur' ? 'bg-[#e74c3c] text-white border-[#c0392b]' : ''}
       `}
-      title={lang === 'pt' ? "Exportar para O Girador Dança" : "Publier la séquence pour l'application O Girador Dança"}
+      title={lang === 'pt' ? "Sincronizar com O Girador Dança" : "Synchroniser vers O Girador Dança"}
     >
-      {statut === 'repos' && (
+      {statut === 'repos' && !isBouncingCloud && (
         <>
           <UploadCloud className="w-3.5 h-3.5 shrink-0" />
-          <span>{lang === 'pt' ? 'Exportar p/ Dança' : 'Publier pour la Danse'}</span>
+          <span>{lang === 'pt' ? 'Sincronizar Dança' : 'Synchroniser Danse'}</span>
         </>
       )}
       
-      {statut === 'calcul' && (
+      {(statut === 'calcul' || isBouncingCloud) && (
         <>
           <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
-          <span>{lang === 'pt' ? 'Calculando...' : 'Calcul...'}</span>
-        </>
-      )}
-
-      {statut === 'envoi' && (
-        <>
-          <UploadCloud className="w-3.5 h-3.5 shrink-0 animate-bounce" />
-          <span>{lang === 'pt' ? 'Enviando...' : 'Envoi...'}</span>
+          <span>{lang === 'pt' ? 'Sincronizando...' : 'Synchronisation...'}</span>
         </>
       )}
 
