@@ -389,14 +389,13 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   if (busPosition !== 'none' && topBusId) {
     const targetBusId = topBusId;
     const busColor = getBusColor(targetBusId, tracksMeta, instrumentsConfig);
-    const cleanHex = busColor.replace('#', '');
-    const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
-    const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
-    const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-    const bgAlpha = `rgba(${r}, ${g}, ${b}, ${isDragOver ? 0.22 : (track.isLinkFolder ? 0.14 : 0.02)})`;
     const borderWidth = isDragOver ? '5px' : '3px';
 
-    groupStyle.backgroundColor = bgAlpha;
+    if (isDragOver) {
+      groupStyle.backgroundColor = `color-mix(in srgb, var(--cordel-bg) 82%, ${busColor} 18%)`;
+      groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
+    }
+
     groupStyle.borderTop = `${borderWidth} solid ${busColor}`;
     groupStyle.borderBottom = `${borderWidth} solid ${busColor}`;
 
@@ -410,29 +409,20 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
       groupStyle.borderRight = `${borderWidth} solid ${busColor}`;
     }
-
-    if (isDragOver) {
-      groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
-    }
   } else if (track.isLinkFolder && busPosition === 'none') {
     const targetBusId = String(track.id);
     const busColor = getBusColor(targetBusId, tracksMeta, instrumentsConfig);
-    const cleanHex = busColor.replace('#', '');
-    const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
-    const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
-    const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-    const bgAlpha = `rgba(${r}, ${g}, ${b}, ${isDragOver ? 0.25 : 0.12})`;
     const borderWidth = isDragOver ? '5px' : '3px';
 
-    groupStyle.backgroundColor = bgAlpha;
+    if (isDragOver) {
+      groupStyle.backgroundColor = `color-mix(in srgb, var(--cordel-bg) 82%, ${busColor} 18%)`;
+      groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
+    }
+
     groupStyle.borderTop = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
     groupStyle.borderBottom = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
     groupStyle.borderLeft = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
     groupStyle.borderRight = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
-
-    if (isDragOver) {
-      groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
-    }
   }
 
   // Calcul du cadre de liaison de partition interne (Track Linking)

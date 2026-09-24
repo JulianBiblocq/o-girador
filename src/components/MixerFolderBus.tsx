@@ -209,19 +209,16 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const busColor = getBusColor(topBusId, tracksMeta, instrumentsConfig);
   const faderTextColor = getContrastColor(busColor);
 
-  const cleanHex = busColor.replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
-  const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
-  const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-  const bgAlphaGroup = `rgba(${r}, ${g}, ${b}, 0.14)`;
-  const bgAlphaOrphan = `rgba(${r}, ${g}, ${b}, 0.12)`;
-
   const highlightColor = busColor || 'var(--cordel-wood)';
   const borderWidth = isDragOver ? '5px' : '3px';
 
   const groupStyle: React.CSSProperties = {};
+  if (isDragOver) {
+    groupStyle.backgroundColor = `color-mix(in srgb, var(--cordel-bg) 82%, ${highlightColor} 18%)`;
+    groupStyle.boxShadow = `0 0 22px ${highlightColor}77, inset 0 0 15px ${highlightColor}22`;
+  }
+
   if (busPosition !== 'none') {
-    groupStyle.backgroundColor = isDragOver ? `rgba(${r}, ${g}, ${b}, 0.28)` : bgAlphaGroup;
     groupStyle.marginRight = '0px';
     groupStyle.borderTop = `${borderWidth} solid ${highlightColor}`;
     groupStyle.borderBottom = `${borderWidth} solid ${highlightColor}`;
@@ -238,16 +235,11 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       groupStyle.marginRight = '16px';
     }
   } else {
-    groupStyle.backgroundColor = isDragOver ? `rgba(${r}, ${g}, ${b}, 0.28)` : bgAlphaOrphan;
     groupStyle.borderTop = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
     groupStyle.borderBottom = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
     groupStyle.borderLeft = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
     groupStyle.borderRight = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
     groupStyle.marginRight = '16px';
-  }
-
-  if (isDragOver) {
-    groupStyle.boxShadow = `0 0 22px ${highlightColor}77, inset 0 0 15px ${highlightColor}22`;
   }
 
   const linkColor = busColor;
