@@ -81,6 +81,85 @@ export const sortTracksByRodaOrder = (tracksList: TrackGroup[], rodaTrackOrder?:
   });
 };
 
+/**
+ * Rendu Canvas 2D de la traînée de gouache vocale (style brosse Cordel)
+ * avec filaments latéraux et pointe biseautée d'estompe de souffle.
+ */
+export const drawGouacheRibbon = (
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  thetaStart: number,
+  thetaEnd: number,
+  thetaFilamentEnd: number,
+  color: string,
+  dScale: number
+) => {
+  if (thetaEnd <= thetaStart) return;
+
+  const mainWidth = 9 * dScale;
+  const filWidth = 1.5 * dScale;
+  const filOffset = 4 * dScale;
+
+  // 1. Micro-filaments latéraux (effet brosse sèche Cordel)
+  if (thetaFilamentEnd > thetaStart) {
+    ctx.save();
+    ctx.lineWidth = filWidth;
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.45;
+
+    // Filament intérieur (rayon - 4px)
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(1, radius - filOffset), thetaStart, thetaFilamentEnd, false);
+    ctx.stroke();
+
+    // Filament extérieur (rayon + 4px)
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + filOffset, thetaStart, thetaFilamentEnd, false);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // 2. Arc principal épais avec biseau d'estompe sur les derniers 15%
+  const totalAngle = thetaEnd - thetaStart;
+  const taperAngleSpan = totalAngle * 0.15;
+  const taperStartAngle = thetaEnd - taperAngleSpan;
+
+  // 2a. Corps principal (85% initiaux)
+  ctx.save();
+  ctx.lineWidth = mainWidth;
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 1.0;
+
+  if (taperStartAngle > thetaStart) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, thetaStart, taperStartAngle, false);
+    ctx.stroke();
+  }
+
+  // 2b. Biseau d'estompe (derniers 15% : amincissement progressif et fondu alpha vers 0)
+  const steps = 8;
+  const subSpan = taperAngleSpan / steps;
+  for (let s = 0; s < steps; s++) {
+    const a0 = taperStartAngle + s * subSpan;
+    const a1 = a0 + subSpan;
+    const progress = (s + 0.5) / steps;
+    const factor = Math.max(0, 1 - progress);
+
+    ctx.lineWidth = Math.max(0.5, mainWidth * factor);
+    ctx.globalAlpha = factor;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, a0, a1, false);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+};
+
 const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]) => {
   if (prev === next) return true;
   if (!prev || !next) return false;
@@ -1631,6 +1710,358 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
 
         const effectiveStepCount = stepAngles.length;
+
+        // ── VOIX : TRAÎNÉE DE GOUACHE (PUXADOR / CORO) & PASTILLES ÉPURÉES ──
+        const isVoiceTrack = isToada || currentInst.type === 'voice';
+
+        if (isVoiceTrack) {
+          const currentRawTracks = props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks;
+          const soloPlayId = stateVal.soloPatternPlayId;
+
+          // 1. Résolution des motifs vocaux Puxador et Coro
+          let puxPattern: Pattern | null = null;
+          let coroPattern: Pattern | null = null;
+          let puxTrackObj: TrackGroup | undefined;
+          let coroTrackObj: TrackGroup | undefined;
+
+          if (isToada) {
+            puxTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+            coroTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+            if (puxTrackObj) {
+              if (soloPlayId !== undefined && soloPlayId !== null) {
+                puxPattern = puxTrackObj.patterns.find(p => p.id === soloPlayId) || null;
+              }
+              if (!puxPattern) {
+                puxPattern = puxTrackObj.patterns.find(p => p.measureAssignments[measureIdx]) || null;
+              }
+            }
+
+            if (coroTrackObj) {
+              if (soloPlayId !== undefined && soloPlayId !== null) {
+                coroPattern = coroTrackObj.patterns.find(p => p.id === soloPlayId) || null;
+              }
+              if (!coroPattern) {
+                coroPattern = coroTrackObj.patterns.find(p => p.measureAssignments[measureIdx]) || null;
+              }
+            }
+
+            // Repli sur le motif actif si aucun enfant n'a d'assignation directe
+            if (!puxPattern && !coroPattern && activePattern) {
+              if (currentInst.id === 'coro') {
+                coroPattern = activePattern;
+              } else {
+                puxPattern = activePattern;
+              }
+            }
+          } else {
+            if (currentInst.id === 'coro') {
+              coroPattern = activePattern;
+              coroTrackObj = track;
+            } else {
+              puxPattern = activePattern;
+              puxTrackObj = track;
+            }
+          }
+
+          // 2. Extraction des pas par voix (Puxador et Coro)
+          const puxSteps: Array<{ active: boolean; note: string; syl: string; isProlongation: boolean }> = [];
+          const coroSteps: Array<{ active: boolean; note: string; syl: string; isProlongation: boolean }> = [];
+
+          const hasSeparatePatterns = Boolean(puxPattern && coroPattern);
+          const puxPlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current && puxTrackObj)
+            ? (sequencer.activeVariationsRef.current[puxTrackObj.id] || puxPattern?.activeSteps)
+            : puxPattern?.activeSteps;
+          const coroPlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current && coroTrackObj)
+            ? (sequencer.activeVariationsRef.current[coroTrackObj.id] || coroPattern?.activeSteps)
+            : coroPattern?.activeSteps;
+
+          for (let i = 0; i < effectiveStepCount; i++) {
+            let pActive = false;
+            let pNote = '';
+            let pSyl = '';
+
+            let cActive = false;
+            let cNote = '';
+            let cSyl = '';
+
+            if (hasSeparatePatterns) {
+              if (puxPattern && puxPlayingSteps) {
+                const sVal = puxPlayingSteps[i];
+                pActive = sVal !== 0 && sVal !== '0' && sVal !== '' && sVal !== undefined && sVal !== null && sVal !== '-';
+                pNote = (puxPattern.notes?.[i] || '').trim();
+                pSyl = (puxPattern.lyrics?.[i] || '').trim();
+              }
+              if (coroPattern && coroPlayingSteps) {
+                const sVal = coroPlayingSteps[i];
+                cActive = sVal !== 0 && sVal !== '0' && sVal !== '' && sVal !== undefined && sVal !== null && sVal !== '-';
+                cNote = (coroPattern.notes?.[i] || '').trim();
+                cSyl = (coroPattern.lyrics?.[i] || '').trim();
+              }
+            } else {
+              const basePat = puxPattern || coroPattern || activePattern;
+              const sVal = activePlayingSteps[i];
+              const sStr = String(Array.isArray(sVal) ? sVal[0] : sVal).toUpperCase();
+              const isRawActive = sVal !== 0 && sVal !== '0' && sVal !== '' && sVal !== undefined && sVal !== null && sVal !== '-';
+
+              if (isRawActive) {
+                const noteVal = (basePat?.notes?.[i] || '').trim();
+                const sylVal = (basePat?.lyrics?.[i] || '').trim();
+                const isCoroStep = sStr === 'C' || (currentInst.id === 'coro' && sStr !== 'P');
+
+                if (isCoroStep) {
+                  cActive = true;
+                  cNote = noteVal;
+                  cSyl = sylVal;
+                } else {
+                  pActive = true;
+                  pNote = noteVal;
+                  pSyl = sylVal;
+                }
+              }
+            }
+
+            const prevPActive = i > 0 && puxSteps[i - 1].active;
+            const prevPNote = i > 0 ? puxSteps[i - 1].note : '';
+            const isPProlongation = i > 0 && pActive && prevPActive &&
+              (pNote !== '' && prevPNote !== '' ? pNote === prevPNote : true) &&
+              (!pSyl || pSyl === '');
+
+            puxSteps.push({ active: pActive, note: pNote, syl: pSyl, isProlongation: isPProlongation });
+
+            const prevCActive = i > 0 && coroSteps[i - 1].active;
+            const prevCNote = i > 0 ? coroSteps[i - 1].note : '';
+            const isCProlongation = i > 0 && cActive && prevCActive &&
+              (cNote !== '' && prevCNote !== '' ? cNote === prevCNote : true) &&
+              (!cSyl || cSyl === '');
+
+            coroSteps.push({ active: cActive, note: cNote, syl: cSyl, isProlongation: isCProlongation });
+          }
+
+          // 3. Calcul des blocs liés (attaque initiale + prolongations tenues)
+          const getStepSpan = (sIdx: number) => {
+            if (sIdx < effectiveStepCount - 1) {
+              return stepAngles[sIdx + 1] - stepAngles[sIdx];
+            }
+            return (-Math.PI / 2 + Math.PI * 2) - stepAngles[sIdx];
+          };
+
+          // Blocs Puxador
+          const puxBlocks: Array<{ startIndex: number; endIndex: number }> = [];
+          let curPBlock: { startIndex: number; endIndex: number } | null = null;
+          for (let i = 0; i < effectiveStepCount; i++) {
+            if (puxSteps[i].active) {
+              if (puxSteps[i].isProlongation && curPBlock) {
+                curPBlock.endIndex = i;
+              } else {
+                if (curPBlock) puxBlocks.push(curPBlock);
+                curPBlock = { startIndex: i, endIndex: i };
+              }
+            } else {
+              if (curPBlock) {
+                puxBlocks.push(curPBlock);
+                curPBlock = null;
+              }
+            }
+          }
+          if (curPBlock) puxBlocks.push(curPBlock);
+
+          // Raccord de boucle 15 -> 0 pour Puxador
+          if (puxBlocks.length > 1 && puxBlocks[0].startIndex === 0 && puxBlocks[puxBlocks.length - 1].endIndex === effectiveStepCount - 1) {
+            const step0 = puxSteps[0];
+            const stepLast = puxSteps[effectiveStepCount - 1];
+            if (step0.active && stepLast.active && (!step0.syl || step0.syl === '') && (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)) {
+              puxBlocks[puxBlocks.length - 1].endIndex = effectiveStepCount - 1 + puxBlocks[0].endIndex + 1;
+              puxBlocks.shift();
+            }
+          }
+
+          // Blocs Coro
+          const coroBlocks: Array<{ startIndex: number; endIndex: number }> = [];
+          let curCBlock: { startIndex: number; endIndex: number } | null = null;
+          for (let i = 0; i < effectiveStepCount; i++) {
+            if (coroSteps[i].active) {
+              if (coroSteps[i].isProlongation && curCBlock) {
+                curCBlock.endIndex = i;
+              } else {
+                if (curCBlock) coroBlocks.push(curCBlock);
+                curCBlock = { startIndex: i, endIndex: i };
+              }
+            } else {
+              if (curCBlock) {
+                coroBlocks.push(curCBlock);
+                curCBlock = null;
+              }
+            }
+          }
+          if (curCBlock) coroBlocks.push(curCBlock);
+
+          // Raccord de boucle 15 -> 0 pour Coro
+          if (coroBlocks.length > 1 && coroBlocks[0].startIndex === 0 && coroBlocks[coroBlocks.length - 1].endIndex === effectiveStepCount - 1) {
+            const step0 = coroSteps[0];
+            const stepLast = coroSteps[effectiveStepCount - 1];
+            if (step0.active && stepLast.active && (!step0.syl || step0.syl === '') && (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)) {
+              coroBlocks[coroBlocks.length - 1].endIndex = effectiveStepCount - 1 + coroBlocks[0].endIndex + 1;
+              coroBlocks.shift();
+            }
+          }
+
+          // 4. Tracé Polyphonique par Calques Stricts :
+          //    Calque A : Traînées de gouache Puxador (#c25e38 terracotta)
+          puxBlocks.forEach(b => {
+            const thetaStart = stepAngles[b.startIndex];
+            const isWrapped = b.endIndex >= effectiveStepCount;
+            const normEnd = isWrapped ? (b.endIndex % effectiveStepCount) : b.endIndex;
+            const span = getStepSpan(normEnd);
+            const baseEnd = isWrapped ? (stepAngles[normEnd] + Math.PI * 2) : stepAngles[normEnd];
+            const thetaEnd = baseEnd + span * 0.88;
+            const thetaFilEnd = baseEnd + span * 0.75;
+            drawGouacheRibbon(ctx, centerX, centerY, tRad, thetaStart, thetaEnd, thetaFilEnd, '#c25e38', dynamicScale);
+          });
+
+          //    Calque B : Traînées de gouache Coro (#2a9d8f ciano / bleu lagon)
+          coroBlocks.forEach(b => {
+            const thetaStart = stepAngles[b.startIndex];
+            const isWrapped = b.endIndex >= effectiveStepCount;
+            const normEnd = isWrapped ? (b.endIndex % effectiveStepCount) : b.endIndex;
+            const span = getStepSpan(normEnd);
+            const baseEnd = isWrapped ? (stepAngles[normEnd] + Math.PI * 2) : stepAngles[normEnd];
+            const thetaEnd = baseEnd + span * 0.88;
+            const thetaFilEnd = baseEnd + span * 0.75;
+            drawGouacheRibbon(ctx, centerX, centerY, tRad, thetaStart, thetaEnd, thetaFilEnd, '#2a9d8f', dynamicScale);
+          });
+
+          //    Calque C : Pastilles circulaires de frappe au premier plan (uniquement attaques avec syllabes ou notes)
+          const voicePastilleRadius = 22 * dynamicScale;
+
+          for (let i = 0; i < effectiveStepCount; i++) {
+            const stepAngle = stepAngles[i];
+            const x = centerX + Math.cos(stepAngle) * tRad;
+            const y = centerY + Math.sin(stepAngle) * tRad;
+
+            const pStep = puxSteps[i];
+            const cStep = coroSteps[i];
+
+            const showPux = pStep.active && !pStep.isProlongation;
+            const showCoro = cStep.active && !cStep.isProlongation;
+
+            if (!showPux && !showCoro) {
+              // Prolongation sans syllabe ou silence : aucune pastille dessinée (ruban libéré)
+              continue;
+            }
+
+            // Décoration Playhead au pas courant
+            if (!isEco && i === currentStep) {
+              ctx.beginPath();
+              ctx.arc(x, y, voicePastilleRadius + 5, 0, Math.PI * 2);
+              ctx.strokeStyle = themeWood;
+              ctx.lineWidth = 2.5;
+              ctx.stroke();
+            }
+
+            if (showPux && showCoro) {
+              // Superposition simultanée : Pastille bicolore séparée
+              ctx.beginPath();
+              ctx.arc(x, y, voicePastilleRadius, Math.PI * 0.5, Math.PI * 1.5, false);
+              ctx.closePath();
+              ctx.fillStyle = '#c25e38';
+              ctx.fill();
+
+              ctx.beginPath();
+              ctx.arc(x, y, voicePastilleRadius, Math.PI * 1.5, Math.PI * 0.5, false);
+              ctx.closePath();
+              ctx.fillStyle = '#2a9d8f';
+              ctx.fill();
+
+              ctx.beginPath();
+              ctx.moveTo(x, y - voicePastilleRadius);
+              ctx.lineTo(x, y + voicePastilleRadius);
+              ctx.strokeStyle = themeBorder;
+              ctx.lineWidth = 1.2;
+              ctx.stroke();
+
+              ctx.beginPath();
+              ctx.arc(x, y, voicePastilleRadius, 0, Math.PI * 2);
+              ctx.strokeStyle = themeBorder;
+              ctx.lineWidth = 2.0;
+              ctx.stroke();
+
+              let pText = pStep.syl || (pStep.note ? pStep.note : 'P');
+              if (pText.endsWith('-')) pText = pText.slice(0, -1);
+              let cText = cStep.syl || (cStep.note ? cStep.note : 'C');
+              if (cText.endsWith('-')) cText = cText.slice(0, -1);
+
+              const fontSize = Math.max(8, Math.floor((Math.max(pText.length, cText.length) > 2 ? 10 : 13) * dynamicScale * 0.9));
+              ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = '#ffffff';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              if (pText && pText !== '-') ctx.fillText(pText, x - voicePastilleRadius * 0.45, y + 1.5);
+              if (cText && cText !== '-') ctx.fillText(cText, x + voicePastilleRadius * 0.45, y + 1.5);
+            } else if (showPux) {
+              // Pastille Puxador pleine (terracotta #c25e38)
+              ctx.beginPath();
+              ctx.arc(x, y, voicePastilleRadius, 0, Math.PI * 2);
+              ctx.fillStyle = '#c25e38';
+              ctx.fill();
+
+              ctx.strokeStyle = '#e9cca8';
+              ctx.lineWidth = 2.0;
+              ctx.stroke();
+
+              let text = pStep.syl || (pStep.note ? pStep.note : 'P');
+              if (text.endsWith('-')) text = text.slice(0, -1);
+
+              if (text && text !== '-') {
+                const fontSize = Math.max(10, Math.floor((text.length > 2 ? 13 : 16) * dynamicScale * 0.9));
+                ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, x, y + 1.5);
+              }
+            } else if (showCoro) {
+              // Pastille Coro pleine (bleu lagon #2a9d8f) venant recouvrir nettement le ruban sous-jacent
+              ctx.beginPath();
+              ctx.arc(x, y, voicePastilleRadius, 0, Math.PI * 2);
+              ctx.fillStyle = '#2a9d8f';
+              ctx.fill();
+
+              ctx.strokeStyle = '#b3dcd8';
+              ctx.lineWidth = 2.0;
+              ctx.stroke();
+
+              let text = cStep.syl || (cStep.note ? cStep.note : 'C');
+              if (text.endsWith('-')) text = text.slice(0, -1);
+
+              if (text && text !== '-') {
+                const fontSize = Math.max(10, Math.floor((text.length > 2 ? 13 : 16) * dynamicScale * 0.9));
+                ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, x, y + 1.5);
+              }
+            }
+          }
+
+          // Overlay du nom de piste sur le pas 0
+          if (!isEco) {
+            const x0 = centerX + Math.cos(stepAngles[0]) * tRad;
+            const y0 = centerY + Math.sin(stepAngles[0]) * tRad;
+            ctx.save();
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = themeText;
+            ctx.font = 'bold 10px serif';
+            ctx.textAlign = 'left';
+            const labelText = track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix');
+            ctx.fillText(labelText, x0 + 20, y0 + 3);
+            ctx.restore();
+          }
+
+          ctx.restore();
+          return;
+        }
 
         for (let i = 0; i < effectiveStepCount; i++) {
           const stepAngle = stepAngles[i];
