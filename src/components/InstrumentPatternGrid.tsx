@@ -2099,6 +2099,298 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => currentWindow.removeEventListener('keydown', handleGlobalKeyDown);
   }, [isMultiSelectActive, selectedStepIndices, pattern?.id, selectedVariationId, trackId, handleTrackStepValueChange, handleVariationStepValueChange, setSelectedStepIndices, currentWindow]);
 
+  // Logique de duplication du pas sélectionné vers le pas suivant (Ctrl+D / Cmd+D)
+  const handleDuplicateStep = React.useCallback(() => {
+    if (selectedStepIdx === null || pattern?.id !== selectedPatternId) return;
+    const totalSteps = pattern?.steps || 16;
+    const srcIdx = selectedStepIdx;
+    const targetIdx = srcIdx + 1;
+    if (targetIdx >= totalSteps) return;
+
+    const isVoice = instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada';
+
+    useSequencerStore.getState().pushUndoState();
+
+    if (isVoice) {
+      const srcNote = pattern.notes?.[srcIdx] || '';
+      const srcStep = pattern.activeSteps?.[srcIdx];
+      const isSrcActive = srcStep !== 0 && srcStep !== '0' && srcStep !== undefined;
+      const vocalSym = isSrcActive
+        ? srcStep
+        : (instrument?.id === 'puxador' || String(trackId) === 'puxador' ? 'P' : 'C');
+
+      useSequencerStore.getState().setTracks(prev => prev.map(t => {
+        if (t.id === trackId || String(t.id) === String(trackId)) {
+          return {
+            ...t,
+            patterns: t.patterns.map(p => {
+              if (p.id === pattern.id || String(p.id) === String(pattern.id)) {
+                const nextActiveSteps = [...p.activeSteps];
+                const nextNotes = [...(p.notes || Array(p.steps).fill(''))];
+                const nextLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+
+                if (!srcNote && !isSrcActive) {
+                  nextActiveSteps[targetIdx] = 0;
+                  nextNotes[targetIdx] = '';
+                  nextLyrics[targetIdx] = '';
+                } else {
+                  nextActiveSteps[targetIdx] = vocalSym;
+                  nextNotes[targetIdx] = srcNote;
+                  // Vider explicitement la syllabe pour déclencher immédiatement la fusion visuelle en note tenue (isProlongation)
+                  nextLyrics[targetIdx] = '';
+                }
+
+                const cloneSculpt = (val: any) => Array.isArray(val) ? [...val] : val;
+
+                const nextVols = p.volumes ? [...p.volumes] : undefined;
+                if (nextVols && p.volumes?.[srcIdx] !== undefined) {
+                  nextVols[targetIdx] = cloneSculpt(p.volumes[srcIdx]);
+                }
+                const nextDecs = p.decays ? [...p.decays] : undefined;
+                if (nextDecs && p.decays?.[srcIdx] !== undefined) {
+                  nextDecs[targetIdx] = cloneSculpt(p.decays[srcIdx]);
+                }
+                const nextMicros = p.microtimings ? [...p.microtimings] : undefined;
+                if (nextMicros && p.microtimings?.[srcIdx] !== undefined) {
+                  nextMicros[targetIdx] = cloneSculpt(p.microtimings[srcIdx]);
+                }
+
+                return {
+                  ...p,
+                  activeSteps: nextActiveSteps,
+                  notes: nextNotes,
+                  lyrics: nextLyrics,
+                  ...(nextVols ? { volumes: nextVols } : {}),
+                  ...(nextDecs ? { decays: nextDecs } : {}),
+                  ...(nextMicros ? { microtimings: nextMicros } : {})
+                };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      }));
+
+      // Audition vocale avec extinction programmée
+      if (audioEngine && srcNote && srcNote.trim() !== '') {
+        try {
+          const engine = audioEngine;
+          if (typeof engine.triggerVoiceAttackRelease === 'function') {
+            engine.triggerVoiceAttackRelease(srcNote, 0.18);
+          } else if (typeof engine.triggerVoicePitch === 'function') {
+            engine.triggerVoicePitch(srcNote, 0.8);
+          }
+          setTimeout(() => {
+            try {
+              if (typeof engine.releaseVoicePitch === 'function') {
+                engine.releaseVoicePitch(srcNote);
+              }
+            } catch (_) {}
+          }, 180);
+        } catch (_) {}
+      }
+    } else {
+      // Piste Percussive
+      const srcVal = pattern.activeSteps?.[srcIdx] ?? 0;
+      // Si le pas est scindé (Array.isArray), cloner le tuple superficiellement : [...val]
+      const targetVal = Array.isArray(srcVal) ? ([...srcVal] as [string, string]) : srcVal;
+
+      const cloneSculpt = (val: any) => Array.isArray(val) ? [...val] : val;
+
+      if (selectedVariationId) {
+        useSequencerStore.getState().setTracks(prev => prev.map(t => {
+          if (t.id === trackId || String(t.id) === String(trackId)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                if (p.id === pattern.id || String(p.id) === String(pattern.id)) {
+                  const nextVars = (p.variations || []).map(v => {
+                    if (v.id === selectedVariationId) {
+                      const nextSteps = [...(v.steps || p.activeSteps)];
+                      nextSteps[targetIdx] = targetVal;
+
+                      const srcVols = v.volumes || p.volumes;
+                      const nextVols = srcVols ? [...srcVols] : undefined;
+                      if (nextVols && srcVols?.[srcIdx] !== undefined) {
+                        nextVols[targetIdx] = cloneSculpt(srcVols[srcIdx]);
+                      }
+
+                      const srcDecs = v.decays || p.decays;
+                      const nextDecs = srcDecs ? [...srcDecs] : undefined;
+                      if (nextDecs && srcDecs?.[srcIdx] !== undefined) {
+                        nextDecs[targetIdx] = cloneSculpt(srcDecs[srcIdx]);
+                      }
+
+                      const srcMicros = v.microtimings || p.microtimings;
+                      const nextMicros = srcMicros ? [...srcMicros] : undefined;
+                      if (nextMicros && srcMicros?.[srcIdx] !== undefined) {
+                        nextMicros[targetIdx] = cloneSculpt(srcMicros[srcIdx]);
+                      }
+
+                      return {
+                        ...v,
+                        steps: nextSteps,
+                        ...(nextVols ? { volumes: nextVols } : {}),
+                        ...(nextDecs ? { decays: nextDecs } : {}),
+                        ...(nextMicros ? { microtimings: nextMicros } : {})
+                      };
+                    }
+                    return v;
+                  });
+                  return { ...p, variations: nextVars };
+                }
+                return p;
+              })
+            };
+          }
+          return t;
+        }));
+      } else {
+        useSequencerStore.getState().setTracks(prev => prev.map(t => {
+          if (t.id === trackId || String(t.id) === String(trackId)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                if (p.id === pattern.id || String(p.id) === String(pattern.id)) {
+                  const nextActiveSteps = [...p.activeSteps];
+                  nextActiveSteps[targetIdx] = targetVal;
+
+                  const nextVols = p.volumes ? [...p.volumes] : undefined;
+                  if (nextVols && p.volumes?.[srcIdx] !== undefined) {
+                    nextVols[targetIdx] = cloneSculpt(p.volumes[srcIdx]);
+                  }
+
+                  const nextDecs = p.decays ? [...p.decays] : undefined;
+                  if (nextDecs && p.decays?.[srcIdx] !== undefined) {
+                    nextDecs[targetIdx] = cloneSculpt(p.decays[srcIdx]);
+                  }
+
+                  const nextMicros = p.microtimings ? [...p.microtimings] : undefined;
+                  if (nextMicros && p.microtimings?.[srcIdx] !== undefined) {
+                    nextMicros[targetIdx] = cloneSculpt(p.microtimings[srcIdx]);
+                  }
+
+                  return {
+                    ...p,
+                    activeSteps: nextActiveSteps,
+                    ...(nextVols ? { volumes: nextVols } : {}),
+                    ...(nextDecs ? { decays: nextDecs } : {}),
+                    ...(nextMicros ? { microtimings: nextMicros } : {})
+                  };
+                }
+                return p;
+              })
+            };
+          }
+          return t;
+        }));
+      }
+
+      // Réinitialiser selectedSubIndex à null sur la cible pour sélectionner la cellule complète
+      setSelectedSubIndex(null);
+
+      // Audition percussive : audioEngine.playNote(trackId, stroke)
+      if (audioEngine && targetVal && targetVal !== 0 && targetVal !== '0') {
+        try {
+          const vol = getSculptNumber(pattern?.volumes?.[srcIdx], 100) / 100;
+          const dec = getSculptNumber(pattern?.decays?.[srcIdx], 100) / 100;
+          const stroke = Array.isArray(targetVal) ? targetVal[0] : targetVal;
+          if (stroke && stroke !== '0') {
+            audioEngine.playNote(trackId, String(stroke), Tone.now(), vol, dec);
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Mise à jour de la sélection
+    setSelectedStepIdx(targetIdx);
+    setSelectedStepIndices([targetIdx]);
+
+    // Déplacer immédiatement le focus DOM sur la cellule cible ([data-step-index="${targetIdx}"])
+    const focusTarget = () => {
+      const container = gridRef.current;
+      if (!container) return;
+      const targetCard = container.querySelector(`[data-step-index="${targetIdx}"]`) as HTMLElement | null;
+      if (!targetCard) return;
+
+      if (isVoice) {
+        const noteInput = targetCard.querySelector('.v-note') as HTMLInputElement | null;
+        if (noteInput) {
+          noteInput.focus();
+          noteInput.select();
+        } else {
+          targetCard.focus?.();
+        }
+      } else {
+        const inputEl = targetCard.tagName === 'INPUT' ? (targetCard as HTMLInputElement) : targetCard.querySelector('input');
+        if (inputEl) {
+          inputEl.focus();
+          inputEl.select();
+        } else {
+          targetCard.focus?.();
+        }
+      }
+    };
+    focusTarget();
+    requestAnimationFrame(focusTarget);
+  }, [
+    selectedStepIdx,
+    pattern,
+    selectedPatternId,
+    instrument?.type,
+    instrument?.id,
+    trackId,
+    selectedVariationId,
+    setSelectedStepIdx,
+    setSelectedStepIndices,
+    setSelectedSubIndex
+  ]);
+
+  // Écouteur global pour raccourci clavier Ctrl+D / Cmd+D avec capture prioritaire
+  useEffect(() => {
+    if (selectedStepIdx === null || pattern?.id !== selectedPatternId) return;
+
+    const handleDuplicateKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd || e.key.toLowerCase() !== 'd') return;
+
+      const activeEl = document.activeElement as HTMLElement | null;
+
+      // Garde-fou de texte : ignorer le raccourci si le focus actif se trouve dans un champ d'édition de paroles (.v-syl) avec sélection partielle
+      if (activeEl instanceof HTMLInputElement && activeEl.classList.contains('v-syl')) {
+        const selStart = activeEl.selectionStart;
+        const selEnd = activeEl.selectionEnd;
+        const valLen = activeEl.value.length;
+        const isFullySelected = selStart === 0 && selEnd === valLen && valLen > 0;
+        if (!isFullySelected) {
+          return;
+        }
+      }
+
+      // Garde-fou champ externe : ignorer si input/textarea hors de la grille
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
+        !activeEl.closest('[data-track-id]') &&
+        !activeEl.closest('[data-step-index]')
+      ) {
+        return;
+      }
+
+      // Bloquer impérativement le raccourci navigateur (favoris / bookmark)
+      e.preventDefault();
+      e.stopPropagation();
+      (e as any).stopImmediatePropagation?.();
+
+      handleDuplicateStep();
+    };
+
+    const targetWin = currentWindow || window;
+    targetWin.addEventListener('keydown', handleDuplicateKeyDown, { capture: true });
+    return () => targetWin.removeEventListener('keydown', handleDuplicateKeyDown, { capture: true });
+  }, [selectedStepIdx, pattern?.id, selectedPatternId, currentWindow, handleDuplicateStep]);
+
   // Keyboard and Copy/Paste listeners specifically related to pattern actions
   useEffect(() => {
     const handleGridShortcut = (e: Event) => {
@@ -2144,12 +2436,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             onPastePattern(activePtn.id);
           }
         }
+      } else if (key === 'd') {
+        handleDuplicateStep();
       }
     };
 
     window.addEventListener('grid-shortcut', handleGridShortcut);
     return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
-  }, [pattern, selectedPatternId, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId]);
+  }, [pattern, selectedPatternId, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId, handleDuplicateStep]);
 
   // Priorité absolue des flèches ↑ / ↓ sur le pas actif (Miroir de la molette)
   useEffect(() => {

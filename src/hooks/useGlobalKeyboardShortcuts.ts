@@ -70,7 +70,7 @@ export function useGlobalKeyboardShortcuts() {
         const isModifier = e.ctrlKey || e.metaKey;
         if (isModifier && (target?.classList.contains('step-input-cell') || activeEl?.classList.contains('step-input-cell'))) {
           const key = e.key.toLowerCase();
-          if (['z', 'y', 'a', 'x', 'c', 'v'].includes(key)) {
+          if (['z', 'y', 'a', 'x', 'c', 'v', 'd'].includes(key)) {
             // Laisser passer vers la logique ci-dessous
           } else {
             return;
@@ -191,7 +191,7 @@ export function useGlobalKeyboardShortcuts() {
           if (handleRedo) handleRedo();
           return;
         }
-        if (['a', 'x', 'c', 'v'].includes(key)) {
+        if (['a', 'x', 'c', 'v', 'd'].includes(key)) {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent('grid-shortcut', { detail: { key } }));
           return;
