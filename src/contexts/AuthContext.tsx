@@ -33,6 +33,7 @@ export interface UserProfile {
   groupName?: string;
   groupId?: string;
   isSystemAdmin?: boolean;
+  isPremium?: boolean;
 }
 
 interface AuthContextType {
@@ -45,6 +46,7 @@ interface AuthContextType {
   updateUserPreference: (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => Promise<void>;
   updateUserProfileField: (key: string, value: any) => Promise<void>;
   isAdmin: boolean;
+  hasFullPlaybackAccess: boolean;
 }
 
 const roleLevels: Record<UserRole, number> = {
@@ -60,10 +62,30 @@ export const checkIsAdmin = (profile: UserProfile | null | undefined): boolean =
   const actualRole = profile.dbRole || profile.role;
   return (
     actualRole === 'admin' ||
+    actualRole === 'super-admin' ||
     actualRole === 'mestre' ||
     actualRole === 'mestri' ||
     profile.canWriteSequenciador === true ||
     profile.isSystemAdmin === true
+  );
+};
+
+export const checkHasFullPlaybackAccess = (userProfile: UserProfile | null | undefined, isAdmin?: boolean): boolean => {
+  if (!userProfile) return false;
+  const role = (userProfile.dbRole || userProfile.role || '').toLowerCase();
+  const groupId = (userProfile.groupId || '').trim().toLowerCase();
+  return Boolean(
+    isAdmin ||
+    userProfile.isSystemAdmin ||
+    userProfile.isPremium ||
+    role === 'mestre' ||
+    role === 'mestri' ||
+    role === 'admin' ||
+    role === 'super-admin' ||
+    role === 'membre' ||
+    groupId === 'samambaia' ||
+    Boolean(userProfile.groupId) ||
+    userProfile.canWriteSequenciador
   );
 };
 
@@ -77,6 +99,7 @@ const AuthContext = createContext<AuthContextType>({
   updateUserPreference: async () => {},
   updateUserProfileField: async () => {},
   isAdmin: false,
+  hasFullPlaybackAccess: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -370,6 +393,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateUserPreference,
       updateUserProfileField,
       isAdmin: checkIsAdmin(userProfile),
+      hasFullPlaybackAccess: checkHasFullPlaybackAccess(userProfile, checkIsAdmin(userProfile)),
     }}>
       {!loading && children}
     </AuthContext.Provider>

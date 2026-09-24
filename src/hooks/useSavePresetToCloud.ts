@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, checkHasFullPlaybackAccess } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { CatalogVisibility, Preset } from '../types';
 import { useCloudAudioBounce } from './useCloudAudioBounce';
@@ -73,7 +73,7 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         );
       }
 
-      const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
+      const isFree = !checkHasFullPlaybackAccess(userProfile, isAdmin);
       if (isFree && !existingPreset) {
         const ownedCount = existingPresets.filter(p => p.ownerId === userProfile.uid).length;
         if (ownedCount >= 3 && !userProfile.email?.includes('@ogirador.com')) {

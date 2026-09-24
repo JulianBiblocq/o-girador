@@ -8,7 +8,7 @@ import React, { useState, useEffect, useMemo, lazy, Suspense, useTransition } fr
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
-import { useAuth, checkIsAdmin } from './contexts/AuthContext';
+import { useAuth, checkIsAdmin, checkHasFullPlaybackAccess } from './contexts/AuthContext';
 import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
@@ -77,15 +77,24 @@ export default function App() {
   const { hasAccess, userProfile, updateUserPreference, isAdmin } = useAuth();
 
   React.useEffect(() => {
-    const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
-    useSequencerStore.getState().setMaxMeasuresAllowed(isFree ? 30 : null);
+    const fullPlaybackAccess = checkHasFullPlaybackAccess(userProfile, isAdmin);
+    useSequencerStore.getState().setHasFullPlaybackAccess(fullPlaybackAccess);
+
+    const isFreeIndividual = !fullPlaybackAccess;
+    useSequencerStore.getState().setMaxMeasuresAllowed(isFreeIndividual ? 30 : null);
     
-    // Mode aperçu pour les visiteurs avec un lien partagé
+    // Mode aperçu pour les visiteurs avec un lien partagé : DÉSACTIVÉ si fullPlaybackAccess
     const urlParams = new URLSearchParams(window.location.search);
-    const hasPreset = !!urlParams.get('loadPreset');
-    const isPreview = hasPreset && !userProfile;
+    const hasSharedPreset = Boolean(
+      urlParams.get('loadPreset') || 
+      urlParams.get('presetId') || 
+      urlParams.get('file') || 
+      urlParams.get('sectionId') ||
+      urlParams.get('baque')
+    );
+    const isPreview = !fullPlaybackAccess && (hasSharedPreset && !userProfile);
     useSequencerStore.getState().setIsPreviewMode(isPreview);
-  }, [userProfile]);
+  }, [userProfile, isAdmin]);
 
   const [showMandatoryVisitorModal, setShowMandatoryVisitorModal] = useState(false);
 

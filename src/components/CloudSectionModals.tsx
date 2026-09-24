@@ -228,8 +228,9 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
     try {
       const data = await getCloudSectionData(sectionInfo.id);
       if (data && sequencer.handleInsertCloudSection) {
-        if (!userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin')) {
-          if (insertAtMeasure + data.numMeasures > 20) {
+        const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
+        if (!userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin' && !hasFullPlayback)) {
+          if (insertAtMeasure + data.numMeasures > 30) {
             useSequencerStore.getState().openSubscriptionModal();
             return;
           }

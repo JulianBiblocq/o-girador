@@ -2259,7 +2259,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   if (!isNaN(amount) && amount > 0) {
                     const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
                     const newTotal = Math.min(64, totalMeasures + amount);
-                    if (newTotal > 20 && !hasAccess('mestre')) {
+                    const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
+                    if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
                       useSequencerStore.getState().openSubscriptionModal();
                     } else {
                       onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
@@ -2282,7 +2283,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   if (!isNaN(amount) && amount > 0) {
                     const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
                     const newTotal = Math.min(64, totalMeasures + amount);
-                    if (newTotal > 20 && !hasAccess('mestre')) {
+                    const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
+                    if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
                       useSequencerStore.getState().openSubscriptionModal();
                     } else {
                       onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);

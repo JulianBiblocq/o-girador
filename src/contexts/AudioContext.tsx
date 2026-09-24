@@ -14,7 +14,7 @@ import { getLocalLibrary, savePresetToLibrary } from '../library';
 import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL, i18n, instrumentsConfig } from '../data';
 import { Preset, Pattern, TrackGroup, TimeSignature, MasterFX } from '../types';
 import { migrateCirclesToTracks } from '../migration';
-import { useAuth } from './AuthContext';
+import { useAuth, checkHasFullPlaybackAccess } from './AuthContext';
 // Web Audio recording variables
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
@@ -308,8 +308,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPresetLoading(true);
     try {
       sequencer.clearHistory();
-      sequencer.setLetras(p.letras || '');
-      sequencer.setMetadata(p.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' });
+      sequencer.setMetadata({
+        toada: p.metadata?.toada || '',
+        nacao: p.metadata?.nacao || '',
+        compositor: p.metadata?.compositor || '',
+        ritmo: p.metadata?.ritmo || '',
+        rhythmSignals: p.metadata?.rhythmSignals || [],
+        ...(p.metadata || {})
+      });
       
       let loadedTracks: TrackGroup[] = [];
       let loadedMeasures = p.totalMeasures || 8;
@@ -428,11 +434,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const missing = loadedTracks.map(t => t.id).filter(id => !validExisting.includes(id));
       const finalRodaOrder = [...validExisting, ...missing];
 
-      useSequencerStore.setState({ rodaTrackOrder: finalRodaOrder });
+      useSequencerStore.setState({ 
+        rodaTrackOrder: finalRodaOrder,
+        totalMeasures: loadedMeasures,
+        tracksVersion: useSequencerStore.getState().tracksVersion + 1
+      });
       useSequencerStore.getState().setTracks(loadedTracks);
       useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);
       useSequencerStore.getState().resetSpeedTrainerConfig();
-      sequencer.setTotalMeasures(loadedMeasures);
+      sequencer.setTotalMeasures(loadedMeasures, true);
       sequencer.setBpmRaw(Math.round(p.bpm || 90));
       sequencer.setTimeSig(p.timeSig || '4/4');
 
@@ -614,7 +624,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } else if (name.endsWith('.json')) {
         try {
-          const response = await fetch(`${ASSETS_BASE_URL}presets/${name}`);
+          const response = await fetch(`${ASSETS_BASE_URL}presets/${encodeURI(name)}`);
           if (!response.ok) throw new Error('Network response was not ok');
           p = await response.json();
         } catch (error) {
@@ -770,7 +780,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const name = sequencer.metadata?.toada?.trim() || 'Sem Título';
       
-      const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
+      const isFree = !checkHasFullPlaybackAccess(userProfile, isAdmin);
       if (isFree) {
         const library = await getLocalLibrary();
         const existingCount = Object.keys(library).length;

@@ -22,6 +22,8 @@ interface TransportBarProps {
   viewMode: 'roda' | 'console' | 'timeline';
 }
 
+const EMPTY_SIGNALS: any[] = [];
+
 const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -71,9 +73,10 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const [isPreRollPopupOpen, setIsPreRollPopupOpen] = React.useState(false);
   const metroContainerRef = React.useRef<HTMLDivElement>(null);
   const preRollSettings = useTransportStore((state) => state.preRollSettings);
-  const setPreRollSettings = useTransportStore((state) => state.setPreRollSettings);
-  const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
-  const mestreSignals = useSequencerStore((state) => state.mestreSignals || []);
+  const storeRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals);
+  const localRhythmSignals = storeRhythmSignals ?? EMPTY_SIGNALS;
+  const storeMestreSignals = useSequencerStore((state) => state.mestreSignals);
+  const mestreSignals = storeMestreSignals ?? EMPTY_SIGNALS;
 
 const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, image }) => {
   const [hasError, setHasError] = React.useState(false);

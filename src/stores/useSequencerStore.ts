@@ -1922,7 +1922,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   duplicateMeasurePattern: (trackId: number, srcIdx: number, targetIdx: number) => {
     if (targetIdx < 0 || targetIdx === srcIdx) return;
     const state = get();
-    if (state.maxMeasuresAllowed !== null && targetIdx >= state.maxMeasuresAllowed) {
+    if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && targetIdx >= state.maxMeasuresAllowed) {
       alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
       return;
     }
@@ -2127,7 +2127,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     if (count <= 0) return;
     const maxTargetIdx = srcIdx + count;
     const state = get();
-    if (state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
+    if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
       alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
       return;
     }
@@ -2626,7 +2626,7 @@ export interface StructureSlice {
   songMarkers: SongMarker[];
   mestreSignals: CloudRhythmSignal[];
   
-  setTotalMeasures: (val: number | ((prev: number) => number)) => void;
+  setTotalMeasures: (val: number | ((prev: number) => number), bypassLimit?: boolean) => void;
   setMaxMeasuresAllowed: (val: number | null) => void;
   setBpm: (bpm: number) => void;
   setTimeSig: (sig: TimeSignature) => void;
@@ -2681,9 +2681,9 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
  
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
-  setTotalMeasures: (updater) => set(state => {
+  setTotalMeasures: (updater, bypassLimit = false) => set(state => {
     let nextVal = typeof updater === 'function' ? updater(state.totalMeasures) : updater;
-    if (state.maxMeasuresAllowed !== null && nextVal > state.maxMeasuresAllowed) {
+    if (!bypassLimit && !state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && nextVal > state.maxMeasuresAllowed) {
       alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
       return state;
     }
@@ -2713,7 +2713,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     get().pushUndoState();
     set((state) => {
       if (val === state.totalMeasures) return state;
-      if (state.maxMeasuresAllowed !== null && val > state.totalMeasures && val > state.maxMeasuresAllowed) {
+      if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && val > state.totalMeasures && val > state.maxMeasuresAllowed) {
         alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
         return state;
       }
@@ -2809,7 +2809,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
       const totalNewMeasures = copiesCount * blockSize;
       const newTotalMeasures = Math.max(state.totalMeasures, targetIdx + totalNewMeasures);
       
-      if (state.maxMeasuresAllowed !== null && newTotalMeasures > state.maxMeasuresAllowed) {
+      if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && newTotalMeasures > state.maxMeasuresAllowed) {
         alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
         return state;
       }
@@ -3036,7 +3036,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   handleInsertMeasure: (measureIdx, amount = 1) => {
     get().pushUndoState();
     set((state) => {
-      if (state.maxMeasuresAllowed !== null && state.totalMeasures + amount > state.maxMeasuresAllowed) {
+      if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && state.totalMeasures + amount > state.maxMeasuresAllowed) {
         alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
         return state;
       }
@@ -3416,7 +3416,7 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
       
       if (end >= prev.totalMeasures) {
         const proposedTotal = end + 1;
-        if (prev.maxMeasuresAllowed !== null && proposedTotal > prev.maxMeasuresAllowed) {
+        if (!prev.hasFullPlaybackAccess && prev.maxMeasuresAllowed !== null && proposedTotal > prev.maxMeasuresAllowed) {
           alert(`Limite de ${prev.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
           return prev;
         }
@@ -3483,6 +3483,7 @@ export interface ProjectSettingsSlice {
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
+  hasFullPlaybackAccess: boolean;
   isVisitorAuthModalOpen: boolean;
   isSubscriptionModalOpen: boolean;
 
@@ -3500,6 +3501,7 @@ export interface ProjectSettingsSlice {
   decrementVocalTransposeSteps: () => void;
   toggleTracksCollapsed: () => void;
   setIsPreviewMode: (val: boolean) => void;
+  setHasFullPlaybackAccess: (val: boolean) => void;
   openVisitorAuthModal: () => void;
   closeVisitorAuthModal: () => void;
   openSubscriptionModal: () => void;
@@ -3535,6 +3537,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   vocalTransposeSteps: 0,
   isTracksCollapsed: typeof window !== 'undefined' && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768) ? false : true,
   isPreviewMode: false,
+  hasFullPlaybackAccess: false,
   isVisitorAuthModalOpen: false,
   isSubscriptionModalOpen: false,
 
@@ -3616,6 +3619,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     set({ letras: htmlArr.join('\n\n') });
   },
   setIsPreviewMode: (val) => set({ isPreviewMode: val }),
+  setHasFullPlaybackAccess: (val) => set({ hasFullPlaybackAccess: val }),
   openVisitorAuthModal: () => set({ isVisitorAuthModalOpen: true }),
   closeVisitorAuthModal: () => set({ isVisitorAuthModalOpen: false }),
   openSubscriptionModal: () => set({ isSubscriptionModalOpen: true }),

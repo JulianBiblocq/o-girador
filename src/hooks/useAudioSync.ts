@@ -2091,8 +2091,11 @@ export function useAudioSync({
       }
 
       if (Tone.Transport.state !== 'started') {
-        if (useSequencerStore.getState().isPreviewMode) {
+        if (useSequencerStore.getState().isPreviewMode && !useSequencerStore.getState().hasFullPlaybackAccess) {
           Tone.Transport.scheduleOnce((time) => {
+            // Garde-fou dynamique : si les droits ont été résolus entre-temps, on annule la coupure
+            if (useSequencerStore.getState().hasFullPlaybackAccess) return;
+
             Tone.Transport.stop(time);
             setIsPlaying(false);
             window.dispatchEvent(new CustomEvent('show-visitor-auth-mandatory'));
