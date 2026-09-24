@@ -42,7 +42,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
 import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain';
-import { useSequencerStore, getTrackSolidBlockId, TrackMeta, selectTracksMeta, getDisplayedMixerTracks } from '../stores/useSequencerStore';
+import { useSequencerStore, getTrackSolidBlockId, TrackMeta, selectTracksMeta, getDisplayedMixerTracks, getAllOrderedMixerTracks } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getMixerTheme } from '../theme';
@@ -148,6 +148,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const trackIds = useMemo(() => tracksMeta.map(t => t.id), [tracksMeta]);
   const displayedTracks = useMemo(() => getDisplayedMixerTracks(tracksMeta), [tracksMeta]);
   const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
+  const allOrderedTracks = useMemo(() => getAllOrderedMixerTracks(tracksMeta), [tracksMeta]);
+  const mixerBankOffset = useSequencerStore(state => state.mixerBankOffset);
 
   const [activeDragTrackId, setActiveDragTrackId] = React.useState<number | null>(null);
   const [activeDragWagonTracks, setActiveDragWagonTracks] = React.useState<TrackGroup[] | null>(null);
@@ -1026,6 +1028,12 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               const isWagonMember = activeGroupTrackIdsRef.current.includes(trackId);
               const isDraggingWagon = activeDragWagonTracks !== null && activeDragWagonTracks.length > 1;
 
+              const absIndex = allOrderedTracks.findIndex(t => t.id === trackId);
+              const numStr = String(absIndex >= 0 ? absIndex + 1 : index + 1).padStart(2, '0');
+              const channelOrdinal = track.isBusFolder ? `BUS ${numStr}` : numStr;
+              const isUnderMidiControl = index >= mixerBankOffset && index < mixerBankOffset + 8;
+              const midiFaderIndex = isUnderMidiControl ? index - mixerBankOffset + 1 : null;
+
               if (track.isBusFolder) {
                 if (track.isLinkFolder) {
                   return (
@@ -1033,6 +1041,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       key={trackId}
                       trackId={trackId}
                       index={index}
+                      channelOrdinal={channelOrdinal}
+                      midiFaderIndex={midiFaderIndex}
                       onOpenDetailEditor={onOpenDetailEditor}
                       onCopyPattern={handleCopyPattern}
                       onPastePattern={handlePastePattern}
@@ -1053,6 +1063,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     key={trackId}
                     trackId={trackId}
                     index={index}
+                    channelOrdinal={channelOrdinal}
+                    midiFaderIndex={midiFaderIndex}
                     isActive={isActive}
                     busPosition={busPosition}
                     linkPosition={linkPosition}
@@ -1071,6 +1083,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     key={trackId}
                     trackId={trackId}
                     index={index}
+                    channelOrdinal={channelOrdinal}
+                    midiFaderIndex={midiFaderIndex}
                     onOpenDetailEditor={onOpenDetailEditor}
                     isActive={isActive}
                     busPosition={busPosition}
@@ -1088,6 +1102,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   key={trackId}
                   trackId={trackId}
                   index={index}
+                  channelOrdinal={channelOrdinal}
+                  midiFaderIndex={midiFaderIndex}
                   onOpenDetailEditor={onOpenDetailEditor}
                   onStepTouchStart={onStepTouchStart}
                   onCopyPattern={handleCopyPattern}

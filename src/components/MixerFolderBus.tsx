@@ -35,6 +35,8 @@ interface MixerFolderBusProps {
   activeWagonSize?: number;
   isWagonMember?: boolean;
   isDraggingWagon?: boolean;
+  channelOrdinal?: string;
+  midiFaderIndex?: number | null;
 }
 
 const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
@@ -48,6 +50,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   activeWagonSize = 1,
   isWagonMember = false,
   isDraggingWagon = false,
+  channelOrdinal,
+  midiFaderIndex = null,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -380,31 +384,49 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         style={{ zIndex: isDragging ? 60 : 10 }}
       >
         {/* Outils */}
-        <div className="flex justify-between items-center w-full">
-          <div 
-            {...attributes}
-            {...listeners}
-            className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
-            title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
-          >
-            <GripHorizontal size={18} />
+        <div className="flex justify-between items-center w-full min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-0.5 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none shrink-0"
+              title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
+            >
+              <GripHorizontal size={16} />
+            </div>
+
+            {/* Numérotation ordonnée immuable */}
+            {channelOrdinal && (
+              <span className="font-mono text-[9.5px] font-bold opacity-60 tracking-tight select-none shrink-0">
+                {channelOrdinal}
+              </span>
+            )}
+
+            {/* Badge Contrôle Physique Actif [ F1 ] .. [ F8 ] */}
+            {midiFaderIndex !== null && (
+              <span className="bg-[#ea580c] text-[#f4ecd8] px-1 py-[0.5px] font-mono font-bold text-[8.5px] rounded shadow-xs select-none shrink-0 tracking-tighter">
+                F{midiFaderIndex}
+              </span>
+            )}
           </div>
           
-          <button 
-             onClick={() => setIsEditing(true)} 
-             className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-sm"
-             title={lang === 'fr' ? (track.isLinkFolder ? 'Renommer le groupe' : 'Renommer le bus') : (track.isLinkFolder ? 'Renomear o grupo' : 'Renomear o bus')}
-           >
-             <XiloChisel size={12} />
-           </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button 
+               onClick={() => setIsEditing(true)} 
+               className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
+               title={lang === 'fr' ? (track.isLinkFolder ? 'Renommer le groupe' : 'Renommer le bus') : (track.isLinkFolder ? 'Renomear o grupo' : 'Renomear o bus')}
+             >
+               <XiloChisel size={11} />
+             </button>
 
-           <button 
-             onClick={onDelete} 
-             className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
-             title={lang === 'fr' ? (track.isLinkFolder ? 'Supprimer le groupe' : 'Supprimer le bus') : (track.isLinkFolder ? 'Excluir o grupo' : 'Excluir o bus')}
-           >
-             <Trash2 size={13} />
-           </button>
+             <button 
+               onClick={onDelete} 
+               className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
+               title={lang === 'fr' ? (track.isLinkFolder ? 'Supprimer le groupe' : 'Supprimer le bus') : (track.isLinkFolder ? 'Excluir o grupo' : 'Excluir o bus')}
+             >
+               <Trash2 size={11} />
+             </button>
+          </div>
         </div>
 
         {/* Instrument Selector / Dropdown Trigger */}

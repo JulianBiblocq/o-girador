@@ -51,11 +51,15 @@ interface MixerChannelProps {
   activeWagonSize?: number;
   isWagonMember?: boolean;
   isDraggingWagon?: boolean;
+  channelOrdinal?: string;
+  midiFaderIndex?: number | null;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   trackId,
   index,
+  channelOrdinal,
+  midiFaderIndex = null,
   onOpenDetailEditor,
   onStepTouchStart,
   onCopyPattern,
@@ -597,32 +601,49 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       >
         {/* Outils */}
         <div className="flex justify-between items-center w-full">
-          <div 
-            {...attributes}
-            {...listeners}
-            className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
-            title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
-          >
-            <GripHorizontal size={18} />
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-0.5 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none shrink-0"
+              title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
+            >
+              <GripHorizontal size={16} />
+            </div>
+
+            {/* Numérotation ordonnée immuable */}
+            {channelOrdinal && (
+              <span className="font-mono text-[9.5px] font-bold opacity-60 tracking-tight select-none shrink-0">
+                {channelOrdinal}
+              </span>
+            )}
+
+            {/* Badge Contrôle Physique Actif [ F1 ] .. [ F8 ] */}
+            {midiFaderIndex !== null && (
+              <span className="bg-[#ea580c] text-[#f4ecd8] px-1 py-[0.5px] font-mono font-bold text-[8.5px] rounded shadow-xs select-none shrink-0 tracking-tighter">
+                F{midiFaderIndex}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className="flex items-center gap-1 shrink-0">
             {isChild && (
               <button 
                 onClick={handleDetachTrackClick} 
-                className="w-6 h-6 bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[#b23b25] hover:text-[#f4ecd8] text-sm"
+                className="w-5 h-5 bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[#b23b25] hover:text-[#f4ecd8] text-xs"
                 title={isBusChild
                   ? (lang === 'fr' ? `Dissocier du bus "${parentBusName}"` : `Desvincular do bus "${parentBusName}"`)
                   : (lang === 'fr' ? `Dissocier du groupe "${parentBusName}"` : `Desvincular do grupo "${parentBusName}"`)}
               >
-                <Unlink size={13} />
+                <Unlink size={11} />
               </button>
             )}
             <button 
               onClick={handleDeleteTrack} 
-              className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
+              className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
               title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : (lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa')}
             >
-              <Trash2 size={13} />
+              <Trash2 size={11} />
             </button>
           </div>
         </div>

@@ -3671,9 +3671,14 @@ export interface UISlice {
   }) => void;
   closeTimelineContextMenu: () => void;
   setActiveTimelineCell: (cell: { trackId: number; measureIdx: number } | null) => void;
+
+  mixerBankOffset: number;
+  setMixerBankOffset: (offset: number) => void;
+  shiftMixerBank: (delta: number) => void;
+  jumpMixerBank8: () => void;
 }
 
-export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set) => ({
+export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set, get) => ({
   isLinearDawDetached: false,
   isCircleSequencerDetached: false,
   isConsoleDetached: false,
@@ -3697,6 +3702,35 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   openTimelineContextMenu: (data) => set({ timelineContextMenu: data }),
   closeTimelineContextMenu: () => set({ timelineContextMenu: null }),
   setActiveTimelineCell: (cell) => set({ activeTimelineCell: cell }),
+
+  mixerBankOffset: 0,
+  setMixerBankOffset: (offset) => set({ mixerBankOffset: Math.max(0, offset) }),
+  shiftMixerBank: (delta) => {
+    const state = get();
+    const tracksMeta = selectTracksMeta(state);
+    const displayed = getDisplayedMixerTracks(tracksMeta);
+    if (displayed.length <= 8) {
+      set({ mixerBankOffset: 0 });
+      return;
+    }
+    const maxOffset = Math.max(0, displayed.length - 8);
+    const newOffset = Math.max(0, Math.min(maxOffset, state.mixerBankOffset + delta));
+    set({ mixerBankOffset: newOffset });
+  },
+  jumpMixerBank8: () => {
+    const state = get();
+    const tracksMeta = selectTracksMeta(state);
+    const displayed = getDisplayedMixerTracks(tracksMeta);
+    if (displayed.length <= 8) {
+      set({ mixerBankOffset: 0 });
+      return;
+    }
+    let newOffset = state.mixerBankOffset + 8;
+    if (newOffset >= displayed.length) {
+      newOffset = 0;
+    }
+    set({ mixerBankOffset: newOffset });
+  },
 });
 
 export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice & SpeedTrainerSlice;
@@ -4043,4 +4077,64 @@ export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] =>
 
   return ordered;
 };
+
+export const getAllOrderedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] => {
+  const visited = new Set<number>();
+  const ordered: TrackMeta[] = [];
+
+  const isRoot = (t: TrackMeta) => {
+    const isAlfSlave = t.linkedToTrackId && 
+      (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
+       instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
+       (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
+    if (isAlfSlave) return false;
+
+    if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
+      return false;
+    }
+
+    const busIdStr = t.busId;
+    if (!busIdStr) return true;
+
+    const hasParent = tracksMeta.some(p => String(p.id) === String(busIdStr));
+    return !hasParent;
+  };
+
+  const roots = tracksMeta.filter(isRoot);
+
+  const visit = (track: TrackMeta) => {
+    if (visited.has(track.id)) return;
+    visited.add(track.id);
+    ordered.push(track);
+
+    // Trouver les enfants directs (par busId ou par linkedToTrackId)
+    const children = tracksMeta.filter(t => {
+      if (visited.has(t.id)) return false;
+      const isChildByBus = t.busId && String(t.busId) === String(track.id);
+      const isChildByLink = t.linkedToTrackId && String(t.linkedToTrackId) === String(track.id);
+      return isChildByBus || isChildByLink;
+    });
+
+    // Trier les enfants : dossiers de bus/liens en premier
+    children.sort((a, b) => {
+      const aScore = a.isBusFolder ? 1 : 0;
+      const bScore = b.isBusFolder ? 1 : 0;
+      return bScore - aScore;
+    });
+
+    children.forEach(visit);
+  };
+
+  roots.forEach(visit);
+
+  // Ajouter les orphelins éventuels
+  tracksMeta.forEach(t => {
+    if (!visited.has(t.id)) {
+      ordered.push(t);
+    }
+  });
+
+  return ordered;
+};
+
 

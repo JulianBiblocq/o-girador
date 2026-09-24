@@ -101,8 +101,10 @@ export const useMidiController = () => {
         if (channel >= 0 && channel <= 7) {
           const tracksMeta = selectTracksMeta(useSequencerStore.getState());
           const displayedTracks = getDisplayedMixerTracks(tracksMeta);
-          if (!displayedTracks[channel]) return;
-          const targetTrackId = displayedTracks[channel].id;
+          const bankOffset = useSequencerStore.getState().mixerBankOffset || 0;
+          const targetTrack = displayedTracks[bankOffset + channel];
+          if (!targetTrack) return;
+          const targetTrackId = targetTrack.id;
 
           // 1. Audio bypass immédiat
           const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
@@ -140,15 +142,32 @@ export const useMidiController = () => {
         }
       }
 
+      // Anti-rebond : couper systématiquement les événements Note Off ou Note On à vélocité 0 pour les touches de transport & banques
+      const mcuAllNotes = [46, 47, 48, 49, 80, 81, 86, 88, 89, 91, 92, 93, 94, 95];
+      if ((messageType === 0x80 || (isNoteOn && velocity === 0)) && mcuAllNotes.includes(note)) {
+        return;
+      }
+
       // --- 2. COMMANDES SYSTÈME MCU (Mackie Control Universal) ---
       if (isNoteOn && velocity > 0) {
-        const mcuNotes = [80, 81, 86, 88, 89, 91, 92, 93, 94, 95];
-        if (mcuNotes.includes(note)) {
+        if (mcuAllNotes.includes(note)) {
           const now = Date.now();
           if (now - lastTransportActionTime < 250) return;
           lastTransportActionTime = now;
 
           switch (note) {
+            case 48: // Track Left (Part 2 / prev tranche)
+              useSequencerStore.getState().shiftMixerBank(-1);
+              return;
+            case 49: // Track Right (Part 1 / next tranche)
+              useSequencerStore.getState().shiftMixerBank(1);
+              return;
+            case 46: // Bank Left (-8)
+              useSequencerStore.getState().shiftMixerBank(-8);
+              return;
+            case 47: // Bank Right / Bank Jump (+8)
+              useSequencerStore.getState().jumpMixerBank8();
+              return;
             case 80: // Save
               window.dispatchEvent(new CustomEvent('open-save-modal'));
               return;
@@ -219,6 +238,25 @@ export const useMidiController = () => {
 
       // --- 3. CONTRÔLE CONTINU DU MIXEUR (FADERS & KNOBS MIDI CC) ---
       if (isCC) {
+        // Navigation banques en CC (touches 46, 47, 48, 49) avec anti-rebond
+        if ([46, 47, 48, 49].includes(note)) {
+          if (velocity === 0) return;
+          const now = Date.now();
+          if (now - lastTransportActionTime < 250) return;
+          lastTransportActionTime = now;
+
+          if (note === 48) {
+            useSequencerStore.getState().shiftMixerBank(-1);
+          } else if (note === 49) {
+            useSequencerStore.getState().shiftMixerBank(1);
+          } else if (note === 46) {
+            useSequencerStore.getState().shiftMixerBank(-8);
+          } else if (note === 47) {
+            useSequencerStore.getState().jumpMixerBank8();
+          }
+          return;
+        }
+
         // A. Faders de volume (CC 73 à 80 pour tranches 1 à 8, CC 81/82/83/85 ou CC 7 canal 8 pour Master)
         let faderIdx: number | 'master' | null = null;
         if (note >= 73 && note <= 80) {
@@ -238,8 +276,10 @@ export const useMidiController = () => {
           if (typeof faderIdx === 'number') {
             const tracksMeta = selectTracksMeta(useSequencerStore.getState());
             const displayedTracks = getDisplayedMixerTracks(tracksMeta);
-            if (!displayedTracks[faderIdx]) return;
-            const targetTrackId = displayedTracks[faderIdx].id;
+            const bankOffset = useSequencerStore.getState().mixerBankOffset || 0;
+            const targetTrack = displayedTracks[bankOffset + faderIdx];
+            if (!targetTrack) return;
+            const targetTrackId = targetTrack.id;
 
             // 1. Audio bypass immédiat
             const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
@@ -279,8 +319,10 @@ export const useMidiController = () => {
           const knobIdx = note - 16;
           const tracksMeta = selectTracksMeta(useSequencerStore.getState());
           const displayedTracks = getDisplayedMixerTracks(tracksMeta);
-          if (!displayedTracks[knobIdx]) return;
-          const targetTrackId = displayedTracks[knobIdx].id;
+          const bankOffset = useSequencerStore.getState().mixerBankOffset || 0;
+          const targetTrack = displayedTracks[bankOffset + knobIdx];
+          if (!targetTrack) return;
+          const targetTrackId = targetTrack.id;
 
           const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === targetTrackId);
           const currentPan = currentTrack?.panVal ?? currentTrack?.pan ?? 0;

@@ -36,6 +36,8 @@ interface MixerLinkedTrackProps {
   activeWagonSize?: number;
   isWagonMember?: boolean;
   isDraggingWagon?: boolean;
+  channelOrdinal?: string;
+  midiFaderIndex?: number | null;
 }
 
 const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
@@ -50,6 +52,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   activeWagonSize = 1,
   isWagonMember = false,
   isDraggingWagon = false,
+  channelOrdinal,
+  midiFaderIndex = null,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -341,16 +345,32 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         style={{ zIndex: isDragging ? 60 : 10 }}
       >
         {/* Outils */}
-        <div className="flex justify-between items-center w-full">
-          <div 
-            {...attributes}
-            {...listeners}
-            className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
-            title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
-          >
-            <GripHorizontal size={14} />
+        <div className="flex justify-between items-center w-full min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-0.5 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none shrink-0"
+              title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
+            >
+              <GripHorizontal size={14} />
+            </div>
+
+            {/* Numérotation ordonnée immuable */}
+            {channelOrdinal && (
+              <span className="font-mono text-[9.5px] font-bold opacity-60 tracking-tight select-none shrink-0">
+                {channelOrdinal}
+              </span>
+            )}
+
+            {/* Badge Contrôle Physique Actif [ F1 ] .. [ F8 ] */}
+            {midiFaderIndex !== null && (
+              <span className="bg-[#ea580c] text-[#f4ecd8] px-1 py-[0.5px] font-mono font-bold text-[8.5px] rounded shadow-xs select-none shrink-0 tracking-tighter">
+                F{midiFaderIndex}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={handleDetachTrackClick} 
               className="w-5 h-5 bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[#b23b25] hover:text-[#f4ecd8] text-[9px]"
