@@ -19,7 +19,7 @@ import { getEcosystemUrl } from '../constants/ecosystemUrls';
  * vers Firebase pour l'application "O Girador Dança" via le moteur hors-ligne unifié.
  */
 export const BoutonExportDanse: React.FC = () => {
-  const { genererEtUploaderPresetCloudBounce, isBouncingCloud, bounceError } = useCloudAudioBounce();
+  const { genererEtUploaderPresetCloudBounce, isBouncingCloud, bounceError, progress, stepLabel } = useCloudAudioBounce();
   const audio = useAudio();
   
   const [statut, setStatut] = useState<'repos' | 'calcul' | 'succes' | 'erreur'>('repos');
@@ -126,7 +126,13 @@ export const BoutonExportDanse: React.FC = () => {
         ${statut === 'succes' ? 'bg-[#2ecc71] text-white border-[#27ae60]' : ''}
         ${statut === 'erreur' ? 'bg-[#e74c3c] text-white border-[#c0392b]' : ''}
       `}
-      title={lang === 'pt' ? "Sincronizar com O Girador Dança" : "Synchroniser vers O Girador Dança"}
+      title={
+        isBouncingCloud
+          ? (stepLabel
+              ? `${stepLabel} — ${lang === 'pt' ? 'Mantenha a aba aberta no primeiro plano' : 'Veuillez laisser l\'onglet ouvert au premier plan'}`
+              : (lang === 'pt' ? 'Gravando áudio em tempo real...' : 'Enregistrement audio en direct...'))
+          : (lang === 'pt' ? "Sincronizar com O Girador Dança" : "Synchroniser vers O Girador Dança")
+      }
     >
       {statut === 'repos' && !isBouncingCloud && (
         <>
@@ -138,7 +144,7 @@ export const BoutonExportDanse: React.FC = () => {
       {(statut === 'calcul' || isBouncingCloud) && (
         <>
           <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
-          <span>{lang === 'pt' ? 'Sincronizando...' : 'Synchronisation...'}</span>
+          <span>{progress > 0 ? `${progress}%` : (lang === 'pt' ? 'Gravando...' : 'Enregistrement...')}</span>
         </>
       )}
 

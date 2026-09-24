@@ -113,6 +113,13 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
                 style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
               />
             </div>
+
+            {/* Mention d'aide tab focus */}
+            <p className="text-[10px] text-stone-600 dark:text-stone-400 italic mt-0.5 leading-tight">
+              {lang === 'fr' 
+                ? '⚠️ Veuillez laisser l\'onglet ouvert au premier plan pendant l\'enregistrement.'
+                : '⚠️ Por favor, mantenha esta aba aberta em primeiro plano durante a gravação.'}
+            </p>
           </div>
         )}
 

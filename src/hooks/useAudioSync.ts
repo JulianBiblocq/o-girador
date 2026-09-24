@@ -1107,7 +1107,7 @@ export function useAudioSync({
                 autoStopTimeoutRef.current = setTimeout(() => {
                   autoStopTimeoutRef.current = null;
                   handleStop();
-                }, 1500);
+                }, 3000);
                 return;
               } else {
                 // Live Arranger Logic (Mission 3) - Applies to both global and sub-loops
@@ -1136,7 +1136,7 @@ export function useAudioSync({
                     autoStopTimeoutRef.current = setTimeout(() => {
                       autoStopTimeoutRef.current = null;
                       handleStop();
-                    }, 1500);
+                    }, 3000);
                     return;
                   }
                 } else {
@@ -1216,7 +1216,7 @@ export function useAudioSync({
               autoStopTimeoutRef.current = setTimeout(() => {
                 autoStopTimeoutRef.current = null;
                 handleStop();
-              }, 1500);
+              }, 3000);
               return;
             } else {
               // Normal progression

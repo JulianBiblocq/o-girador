@@ -11,6 +11,8 @@ import { storage, db, auth } from '../firebase/config';
 import { telemetryService } from '../services/telemetryService';
 import { SavedPattern, TimeSignature, SavedSectionData, Preset } from '../types';
 import { useSequencerStore, getEffectiveVolume } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
+import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { encoderWav } from '../utils/encodeurWav';
 const CLOUD_PATTERNS_COLLECTION = 'patterns';
@@ -72,6 +74,7 @@ export function useCloudAudioBounce() {
   const [bounceError, setBounceError] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
   const [stepLabel, setStepLabel] = useState<string>('');
+  const audio = useAudio();
 
   const genererEtUploaderCloudBounce = async (
     patternId: string,
@@ -470,11 +473,19 @@ export function useCloudAudioBounce() {
       setStepLabel(lang === 'pt' ? pt : fr);
     };
 
-    try {
-      // Étape 1 : 10% - Préparation des échantillons
-      setStage(10, "Préparation des échantillons...", "Preparando amostras...");
+    let recorder: Tone.Recorder | null = null;
+    let progressInterval: any = null;
 
-      const storeState = useSequencerStore.getState();
+    // Sauvegarde des paramètres utilisateurs à restaurer
+    const transportState = useTransportStore.getState();
+    const prevMetro = transportState.isMetroOn;
+    const prevPreRoll = transportState.preRollSettings;
+    const storeState = useSequencerStore.getState();
+    const prevIsLooping = storeState.isLooping;
+    const prevLoopIteration = storeState.currentLoopIteration;
+
+    try {
+      setStage(5, "Initialisation de l'enregistrement...", "Inicializando gravação...");
 
       // 🛡️ Garde-fou safeTenantId : normalisation et repli robuste (ne contient jamais "undefined")
       const userGroupId = (auth.currentUser as any)?.groupId;
@@ -515,8 +526,6 @@ export function useCloudAudioBounce() {
       // 2. Calcul précis des durées, transitions de tempo, ticks et signatures
       let dureeTotaleSec = 0;
       const measureStartTimes: number[] = [];
-      const measureTicks: number[] = [];
-      const measureBeats: number[] = [];
       const measureBpmsAbsolus: number[] = [];
       const measureBpmTransitionsAbsolus: string[] = [];
       const measureTimeSigsAbsolus: string[] = [];
@@ -543,9 +552,6 @@ export function useCloudAudioBounce() {
         measureTimeSigsAbsolus.push(timeSigStr);
 
         const beats = Math.max(1, parseInt(timeSigStr.split('/')[0], 10) || 4);
-        const beatUnit = Math.max(1, parseInt(timeSigStr.split('/')[1], 10) || 4);
-        measureBeats.push(beats);
-        measureTicks.push(beats * (96 / beatUnit));
 
         if (transition === 'immediate' || currentMeasureBpm === nextMeasureBpm) {
           dureeTotaleSec += (60 / currentMeasureBpm) * beats;
@@ -554,11 +560,15 @@ export function useCloudAudioBounce() {
         }
       }
 
-      // Queue de déclin audio de 2.0 secondes
-      let durationSec = (Number.isFinite(dureeTotaleSec) && dureeTotaleSec > 0) ? dureeTotaleSec + 2.0 : 4;
-      durationSec = Math.max(durationSec || 0, 4);
+      if (isNaN(dureeTotaleSec) || !isFinite(dureeTotaleSec) || dureeTotaleSec <= 0) {
+        throw new Error(`Durée du preset invalide (${dureeTotaleSec}s)`);
+      }
 
-      // 3. Dérivation des métadonnées chorégraphiques pour Dançad'Or
+      // Queue de relâchement de 2.0 secondes pour laisser s'éteindre réverbes et résonances
+      const decayTailSec = 2.0;
+      const totalDurationSec = dureeTotaleSec + decayTailSec;
+
+      // 3. Métadonnées chorégraphiques pour Dançad'Or
       const mestreSignals = storeState.mestreSignals || [];
       const measureSignals = presetData.measureSignals || storeState.measureSignals || {};
 
@@ -588,220 +598,128 @@ export function useCloudAudioBounce() {
         bpmTransition: measureBpmTransitionsAbsolus[idx]
       }));
 
-      // Collecter tous les échantillons nécessaires pour ce preset
-      const trackStrokeFiles = new Map<number, Map<string, string>>();
-      const allRequiredFiles = new Set<string>();
-
-      for (let t = 0; t < (presetData.tracks || []).length; t++) {
-        const track = (presetData.tracks || [])[t];
-        if (track.isMute) continue;
-        const instrumentConf = instrumentsConfig[track.instrumentIdx];
-        if (!instrumentConf) continue;
-        const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
-        if (!audioConfig) continue;
-
-        const strokeFileMap = new Map<string, string>();
-        trackStrokeFiles.set(t, strokeFileMap);
-
-        const usedStrokes = new Set<string>();
-        for (let m = 0; m < (presetData.totalMeasures || 16); m++) {
-          for (const pattern of track.patterns) {
-            if (pattern.measureAssignments?.[m]) {
-              const activeStps = pattern.activeSteps || [];
-              activeStps.forEach(s => {
-                if (s !== 0 && s !== '0' && s !== '') usedStrokes.add(String(s).trim());
-              });
-            }
-          }
-        }
-
-        for (const rawStroke of usedStrokes) {
-          let normStroke = rawStroke;
-          if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentConf.id)) {
-            if (normStroke === 't' || normStroke === 'T') normStroke = 'B';
-            else if (normStroke === 'C') normStroke = 'c';
-          } else if (instrumentConf.id === 'agbe' || instrumentConf.id === 'gongue') {
-            if (normStroke === 't') normStroke = 'B';
-          }
-
-          const strokeDef = audioConfig.strokes.find(s =>
-            s.caseSensitive === false
-              ? s.symbol.toUpperCase() === normStroke.toUpperCase()
-              : s.symbol === normStroke
-          );
-
-          if (strokeDef && strokeDef.files.length > 0) {
-            const file = strokeDef.files[0];
-            strokeFileMap.set(rawStroke, file);
-            allRequiredFiles.add(file);
-          }
-        }
+      // 4. Préparation Audio : arrêt préalable, réveil du contexte et préchargement
+      if (audio.isPlaying) {
+        audio.handleStop();
+        await new Promise(r => setTimeout(r, 100));
+      } else {
+        audio.handleStop();
       }
 
-      // Préchargement en parallèle de tous les échantillons AVANT Tone.Offline
-      const loadedBuffers = new Map<string, Tone.ToneAudioBuffer>();
-      await Promise.all(
-        Array.from(allRequiredFiles).map(async (file) => {
-          const buf = await loadSampleBuffer(file);
-          if (buf) {
-            loadedBuffers.set(file, buf);
-          }
-        })
-      );
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && rawCtx.state !== 'running') {
+        try { await rawCtx.resume(); } catch (_) {}
+      }
+      if (Tone.context && Tone.context.state !== 'running') {
+        try { await Tone.context.resume(); } catch (_) {}
+      }
+      if (Tone.start) {
+        try { await Tone.start(); } catch (_) {}
+      }
+      if (audioEngine && audioEngine.bufferPool.size === 0) {
+        try { await audioEngine.loadAllSamples(); } catch (_) {}
+      }
+      if (Tone.loaded) {
+        try { await Tone.loaded(); } catch (_) {}
+      }
 
-      // Étape 2 : 30% - Rendu Offline dans Tone.js
-      setStage(30, "Génération du mixage audio...", "Gerando mixagem de áudio...");
+      // Configuration d'enregistrement : désactiver métronome & précompte pour mix propre
+      transportState.setIsMetroOn(false);
+      transportState.setPreRollSettings({ ...prevPreRoll, enabled: false });
+      storeState.setIsLooping(false);
 
-      const audioBuffer = await Tone.Offline(async (ctx) => {
-        // 1. Create Master FX
-        const eqLow = presetData.masterEQ?.low ?? 0;
-        const eqMid = presetData.masterEQ?.mid ?? 0;
-        const eqHigh = presetData.masterEQ?.high ?? 0;
-        const masterEQ = new Tone.EQ3(eqLow, eqMid, eqHigh).toDestination();
+      // Calage absolu à la mesure 0
+      try {
+        Tone.Transport.position = 0;
+        Tone.Transport.seconds = 0;
+      } catch (_) {}
+      storeState.setCurrentMeasure(0);
+      if (audioEngine) {
+        audioEngine.currentMeasure = 0;
+        audioEngine.currentStep = 0;
+        audioEngine.schedulingMeasure = 0;
+        audioEngine.schedulingStep = 0;
+      }
 
-        const revDecay = presetData.masterFX
-          ? (0.5 + 7.5 * (presetData.masterFX.reverb.time / 100))
-          : (presetData.reverbDecay ?? 2.5);
-        const masterReverbVol = presetData.masterFX
-          ? (presetData.masterFX.reverb.isMuted ? 0 : presetData.masterFX.reverb.returnVolume / 100)
-          : 0.7;
-        const masterReverbGain = new Tone.Gain(masterReverbVol).connect(masterEQ);
-        const masterReverb = new Tone.Freeverb({
-          roomSize: Math.min(0.9, revDecay / 4),
-          dampening: 3000
-        }).connect(masterReverbGain);
+      // 5. Instanciation Tone.Recorder connecté directement sur Tone.getDestination()
+      recorder = new Tone.Recorder();
+      Tone.getDestination().connect(recorder);
+      recorder.start();
 
-        const distDrive = presetData.masterFX
-          ? (presetData.masterFX.distortion.drive / 100)
-          : (presetData.masterDistortionDrive !== undefined ? presetData.masterDistortionDrive / 100 : 0.2);
-        const distVol = presetData.masterFX
-          ? (presetData.masterFX.distortion.isMuted ? 0 : presetData.masterFX.distortion.returnVolume / 100)
-          : (presetData.masterDistortion !== undefined ? presetData.masterDistortion / 100 : 0);
-        const masterDistGain = new Tone.Gain(distVol).connect(masterEQ);
-        const masterDistortion = new Tone.Distortion(distDrive).connect(masterDistGain);
+      // Démarrage de la lecture live
+      await audio.handleTogglePlay();
 
-        // 2. Process each track
-        const trackPlayers = new Map<number, Map<string, Tone.Player>>();
+      // 6. Ticker de progression en direct (10 Hz / 100ms) sans render thrashing
+      const startTime = Date.now();
+      const totalMs = totalDurationSec * 1000;
 
-        for (let t = 0; t < (presetData.tracks || []).length; t++) {
-          const track = (presetData.tracks || [])[t];
-          if (track.isMute) continue;
-          const strokeFileMap = trackStrokeFiles.get(t);
-          if (!strokeFileMap) continue;
+      progressInterval = setInterval(() => {
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        const ratio = Math.min(1, elapsedSec / totalDurationSec);
+        const currentPct = Math.min(85, Math.max(5, Math.round(ratio * 85)));
+        setProgress(currentPct);
 
-          // Channel setup
-          const effectiveVol = getEffectiveVolume(presetData.tracks || [], track.id);
-          const channel = new Tone.Channel({
-            volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
-            pan: track.panVal !== undefined ? track.panVal / 100 : (track.pan !== undefined ? track.pan / 100 : 0)
-          }).connect(masterEQ);
-
-          if (track.fxSends?.reverb) {
-            const revSend = new Tone.Gain(track.fxSends.reverb / 100).connect(masterReverb);
-            channel.connect(revSend);
-          }
-          if (track.fxSends?.distortion) {
-            const distSend = new Tone.Gain(track.fxSends.distortion / 100).connect(masterDistortion);
-            channel.connect(distSend);
-          }
-          if (track.reverbVal) {
-             const revSend = new Tone.Gain(track.reverbVal / 100).connect(masterReverb);
-             channel.connect(revSend);
-          }
-
-          const strokePlayers = new Map<string, Tone.Player>();
-          trackPlayers.set(t, strokePlayers);
-
-          for (const [rawStroke, file] of strokeFileMap.entries()) {
-            const toneBuf = loadedBuffers.get(file);
-            if (toneBuf) {
-              const player = new Tone.Player(toneBuf).connect(channel);
-              strokePlayers.set(rawStroke, player);
-            }
+        let curMeasure = 0;
+        for (let m = measureStartTimes.length - 1; m >= 0; m--) {
+          if (elapsedSec >= measureStartTimes[m]) {
+            curMeasure = m;
+            break;
           }
         }
 
-        // 3. Scheduling sur la timeline dépliée (expandedMeasures)
-        for (let t = 0; t < (presetData.tracks || []).length; t++) {
-          const track = (presetData.tracks || [])[t];
-          if (track.isMute) continue;
-          
-          const strokePlayers = trackPlayers.get(t);
-          if (!strokePlayers) continue;
-          
-          for (let i = 0; i < expandedMeasures.length; i++) {
-            const m = expandedMeasures[i].baseMeasure;
-            const measureStartTime = measureStartTimes[i];
-            const beats = measureBeats[i];
-            const maxTicks = measureTicks[i];
-            const ticksPerBeat = maxTicks / beats;
-            const currentMeasureBpm = measureBpmsAbsolus[i];
-            
-            for (const pattern of track.patterns) {
-              if (pattern.measureAssignments?.[m]) {
-                const activeStps = pattern.activeSteps || [];
-                const stepCount = activeStps.length;
-                if (stepCount === 0) break;
-
-                const resArray = Array(beats).fill(stepCount / beats);
-                
-                let stepTickAccum = 0;
-                const stepTickMap: number[] = [];
-                for (let b = 0; b < beats; b++) {
-                  const res = resArray[b] || (stepCount / beats);
-                  const tps = ticksPerBeat / res;
-                  for (let r = 0; r < res; r++) {
-                    stepTickMap.push(Math.round(stepTickAccum + r * tps));
-                  }
-                  stepTickAccum += ticksPerBeat;
-                }
-                
-                for (let step = 0; step < stepCount; step++) {
-                  const state = activeStps[step];
-                  if (!state || state === 0 || state === '0') continue;
-                  
-                  const targetKey = String(state).trim();
-                  const player = strokePlayers.get(targetKey);
-                  if (player) {
-                    const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
-                    const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / currentMeasureBpm);
-                    
-                    let baseVol = pattern.volumes?.[step] ?? 80;
-                    const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
-                    const stepVolMultiplier = baseVolNum / 100;
-                    const db = 40 * Math.log10(Math.max(0.0001, stepVolMultiplier));
-                    
-                    player.volume.setValueAtTime(db, timeSec);
-                    player.start(timeSec);
-                  }
-                }
-                // Seul le premier motif actif par mesure est planifié
-                break;
-              }
-            }
-          }
+        if (elapsedSec >= dureeTotaleSec) {
+          setStepLabel(
+            lang === 'pt'
+              ? `Finalizando ressonância... (${currentPct}%)`
+              : `Fin de résonance du mix... (${currentPct}%)`
+          );
+        } else {
+          setStepLabel(
+            lang === 'pt'
+              ? `Gravando mix ao vivo... Compasso ${curMeasure + 1}/${expandedMeasures.length} (${currentPct}%)`
+              : `Enregistrement du mix en direct... Mesure ${curMeasure + 1}/${expandedMeasures.length} (${currentPct}%)`
+          );
         }
-      }, durationSec);
+      }, 100);
 
-      // Étape 3 : 60% - Encodage WAV direct
-      setStage(60, "Encodage du fichier WAV...", "Codificando arquivo WAV...");
+      // Attente active de la durée totale (mesures + 2s de decay tail)
+      await new Promise(resolve => setTimeout(resolve, totalMs));
 
-      const nativeBuffer = audioBuffer.get();
-      if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
-      const webmBlob = await encoderWav(nativeBuffer);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
 
-      // Étape 4 : 60% -> 95% - Téléversement vers Firebase Storage
-      setStage(60, "Téléversement vers le Cloud...", "Enviando para a nuvem...");
+      // 7. Arrêt strict de l'enregistrement et récupération du Blob
+      setStage(87, "Finalisation de l'audio...", "Finalizando o áudio...");
+      try {
+        Tone.getDestination().disconnect(recorder);
+      } catch (_) {}
+      const audioBlob = await recorder.stop();
+      try {
+        recorder.dispose();
+        recorder = null;
+      } catch (_) {}
+      audio.handleStop();
 
+      // Restauration immédiate des paramètres de lecture
+      useTransportStore.getState().setIsMetroOn(prevMetro);
+      useTransportStore.getState().setPreRollSettings(prevPreRoll);
+      useSequencerStore.getState().setIsLooping(prevIsLooping);
+      useSequencerStore.getState().setCurrentLoopIteration(prevLoopIteration);
+
+      // 8. Téléversement Firebase Storage
+      setStage(88, "Téléversement vers le Cloud...", "Enviando para a nuvem...");
       let audioUrl: string | null = null;
       try {
         const storageRef = ref(storage, `bounces/presets/${presetId}.webm`);
-        const uploadTask = uploadBytesResumable(storageRef, webmBlob, { contentType: 'audio/wav' });
+        const blobType = audioBlob.type || 'audio/webm;codecs=opus';
+        const uploadTask = uploadBytesResumable(storageRef, audioBlob, { contentType: blobType });
 
         uploadTask.on('state_changed', (snapshot) => {
           if (snapshot.totalBytes > 0) {
-            const uploadPct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 35);
-            setProgress(Math.min(95, 60 + uploadPct));
+            const uploadPct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 8);
+            setProgress(Math.min(96, 88 + uploadPct));
           }
         });
 
@@ -813,24 +731,24 @@ export function useCloudAudioBounce() {
         audioUrl = null;
       }
 
-      // Étape 5 : 100% - Finalisation Firestore
-      setStage(100, "Finalisation...", "Finalizando...");
+      // 9. Double écriture Firestore résiliente
+      setStage(98, "Finalisation Firestore...", "Finalizando Firestore...");
 
-      // 1. Mise à jour du document dans la collection presets
+      // A. Collection presets
       try {
         const documentRef = doc(db, 'presets', presetId);
-        await updateDoc(documentRef, { audioUrl });
+        await setDoc(documentRef, { audioUrl, updatedAt: serverTimestamp() }, { merge: true });
       } catch (docErr) {
         console.warn("[Cloud Bounce] Échec mise à jour document Firestore presets :", docErr);
       }
 
-      // 2. Écriture / fusion automatique dans audio_masters (${safeTenantId}_${cleanPresetId})
+      // B. Collection audio_masters (Dançad'Or)
       const cleanPresetId = (presetId || '').trim();
       if (audioUrl && cleanPresetId && cleanPresetId !== 'undefined') {
         try {
           const documentId = `${safeTenantId}_${cleanPresetId}`;
           const audioMasterRef = doc(db, 'audio_masters', documentId);
-          
+
           const titre = presetData.metadata?.toada || (presetData as any).name || 'Morceau sans titre';
           const bpmPrincipal = measureBpmsAbsolus.length > 0 ? measureBpmsAbsolus[0] : (presetData.bpm || baseBpm || 120);
 
@@ -866,7 +784,8 @@ export function useCloudAudioBounce() {
           console.warn("[Cloud Bounce] Échec mise à jour audio_masters (non bloquant) :", dancaErr);
         }
       }
-      
+
+      setStage(100, "Terminé !", "Concluído!");
       return audioUrl;
     } catch (err: any) {
       console.error('[Cloud Bounce] Erreur:', err);
@@ -880,6 +799,21 @@ export function useCloudAudioBounce() {
       }
       return null;
     } finally {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+      if (recorder) {
+        try {
+          Tone.getDestination().disconnect(recorder);
+          recorder.dispose();
+        } catch (_) {}
+      }
+      // Sécurité : restaurer l'état
+      useTransportStore.getState().setIsMetroOn(prevMetro);
+      useTransportStore.getState().setPreRollSettings(prevPreRoll);
+      useSequencerStore.getState().setIsLooping(prevIsLooping);
+      useSequencerStore.getState().setCurrentLoopIteration(prevLoopIteration);
       setIsBouncingCloud(false);
     }
   };
