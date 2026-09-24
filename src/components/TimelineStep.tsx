@@ -89,7 +89,15 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       if (!currentTrack) return null;
 
       const inst = instrumentsConfig[instrumentIdx];
-      const isVoice = inst?.type === 'voice';
+      const isVoice = Boolean(
+        inst?.type === 'voice' ||
+        inst?.id === 'toada' ||
+        inst?.id === 'puxador' ||
+        inst?.id === 'coro' ||
+        currentTrack.customName === 'Toada' ||
+        currentTrack.customName === 'Puxador' ||
+        currentTrack.customName === 'Coro'
+      );
       const isLeftHanded = state.isLeftHanded || false;
 
       // Détection des types de pistes
@@ -385,8 +393,43 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         }
       }
 
+      let isProlongation = false;
+      let isFollowedByProlongation = false;
+      let syl = '';
+      let isPux = true;
+      let voiceColor = '#c25e38';
+
+      if (isVoice) {
+        const pattern = currentTrack.patterns?.[patternIdx];
+        const curVal = pattern?.activeSteps?.[stepIdx] ?? 0;
+        const curActive = curVal !== 0 && curVal !== '' && curVal !== '0' && curVal !== '-' && !((curVal as any)?.length === 0);
+        const curNote = (pattern?.notes?.[stepIdx] || '').trim();
+        const curSyl = (pattern?.lyrics?.[stepIdx] || '').trim();
+        syl = curSyl;
+
+        isPux = curVal === 'P' || inst?.id === 'puxador' || (inst?.id !== 'coro' && curVal !== 'C');
+        voiceColor = isPux ? '#c25e38' : '#2a9d8f';
+
+        if (curActive) {
+          const prevVal = stepIdx > 0 ? (pattern?.activeSteps?.[stepIdx - 1] ?? 0) : 0;
+          const prevActive = prevVal !== 0 && prevVal !== '' && prevVal !== '0' && prevVal !== '-' && !((prevVal as any)?.length === 0);
+          const prevNote = stepIdx > 0 ? (pattern?.notes?.[stepIdx - 1] || '').trim() : '';
+
+          const nextVal = (stepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.activeSteps?.[stepIdx + 1] ?? 0) : 0;
+          const nextActive = nextVal !== 0 && nextVal !== '' && nextVal !== '0' && nextVal !== '-' && !((nextVal as any)?.length === 0);
+          const nextNote = (stepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.notes?.[stepIdx + 1] || '').trim() : '';
+          const nextSyl = (stepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.lyrics?.[stepIdx + 1] || '').trim() : '';
+
+          const sameNotePrev = (curNote && prevNote === curNote) || (!curNote && !prevNote && prevVal === curVal);
+          isProlongation = Boolean(prevActive && sameNotePrev && (!curSyl || curSyl === ''));
+
+          const sameNoteNext = (curNote && nextNote === curNote) || (!curNote && !nextNote && nextVal === curVal);
+          isFollowedByProlongation = Boolean(nextActive && sameNoteNext && (!nextSyl || nextSyl === ''));
+        }
+      }
+
       // Informations complémentaires requises pour le chant ou la signature rythmique
-      const note = isVoice ? resolvedNote : '';
+      const note = isVoice ? (currentTrack.patterns?.[patternIdx]?.notes?.[stepIdx] || '') : resolvedNote;
       const timeSigStr = state.measureTimeSigs[measureIdx] || state.timeSig || '4/4';
 
       return {
@@ -406,6 +449,11 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         rightTxtColor,
         renderCas,
         isVoice,
+        isProlongation,
+        isFollowedByProlongation,
+        syl,
+        isPux,
+        voiceColor,
         note,
         timeSigStr,
       };
@@ -492,6 +540,81 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
       : 'polygon(0% 0%, 100% 0%, 50% 100%)';
     shapeBorderRadius = '0px';
+  }
+
+  // ── RENDU DÉDIÉ DES PISTES VOCALES (FUSION DES PAS TENUS PUXADOR / CORO) ──
+  if (stepData.isVoice) {
+    const hasActiveVoice = stepData.val !== 0 && stepData.val !== '' && stepData.val !== '0' && stepData.val !== '-';
+
+    if (!hasActiveVoice) {
+      return (
+        <div
+          className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
+          data-measure={measureIdx}
+          data-step={stepIdx}
+          data-track-id={trackId}
+        >
+          <div className={isTriplet || isSextuplet ? 'w-1.5 h-1.5 bg-black/20 dark:bg-white/20' : 'w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full'} />
+        </div>
+      );
+    }
+
+    const isStart = !stepData.isProlongation;
+    const isEnd = !stepData.isFollowedByProlongation;
+
+    // Coins arrondis selon début / milieu / fin de la tenue
+    const roundedClass = isStart && isEnd
+      ? 'rounded-xs'
+      : isStart
+        ? 'rounded-l-xs rounded-r-none'
+        : isEnd
+          ? 'rounded-r-xs rounded-l-none'
+          : 'rounded-none';
+
+    // Bordures horizontales sans cloisons verticales intermédiaires
+    const voiceBorderClass = isStart && isEnd
+      ? 'border border-black/30 shadow-xs'
+      : isStart
+        ? 'border-y border-l border-black/30'
+        : isEnd
+          ? 'border-y border-r border-black/30 shadow-xs'
+          : 'border-y border-black/30';
+
+    // Retrait de la bordure droite du conteneur si suivi par une prolongation pour fusionner avec la cellule suivante
+    const containerBorder = stepData.isFollowedByProlongation
+      ? 'border-r-0 -mr-px z-10'
+      : 'border-r border-[var(--cordel-border)]/10 last:border-r-0';
+
+    const displayText = stepData.syl || stepData.note || (stepData.isPux ? 'P' : 'C');
+
+    return (
+      <div
+        className={`timeline-step relative h-full flex-1 ${containerBorder} flex items-center justify-center pointer-events-none select-none overflow-hidden`}
+        data-measure={measureIdx}
+        data-step={stepIdx}
+        data-track-id={trackId}
+        data-pattern-id={patternId}
+      >
+        <div
+          className={`w-full h-3 md:h-3.5 flex items-center justify-center transition-all ${roundedClass} ${voiceBorderClass}`}
+          style={{
+            backgroundColor: stepData.voiceColor,
+            opacity: bgOpacity,
+          }}
+        >
+          {isStart && (
+            <span className="text-[7px] md:text-[8px] font-bold text-white leading-none truncate px-0.5 select-none">
+              {displayText}
+            </span>
+          )}
+          {!isStart && !uiContext.isMacro && !uiContext.isMinZoom && (
+            <span className="text-[6px] text-white/70 font-mono leading-none select-none">
+              ──
+            </span>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

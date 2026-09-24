@@ -311,15 +311,61 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                         ? (masterActivePattern?.activeSteps?.[stepIdx] ?? 0)
                         : (activePattern?.activeSteps?.[stepIdx] ?? 0);
                       const isActiveCell = val !== 0 && val !== '';
-                      const isVoice = inst.type === 'voice' || inst.id === 'toada';
+                      const isVoice = Boolean(
+                        inst.type === 'voice' ||
+                        inst.id === 'toada' ||
+                        inst.id === 'puxador' ||
+                        inst.id === 'coro' ||
+                        track.customName === 'Toada' ||
+                        track.customName === 'Puxador' ||
+                        track.customName === 'Coro'
+                      );
+
+                      const curPat = isGhostStep ? masterActivePattern : activePattern;
+                      const curSyl = (curPat?.lyrics?.[stepIdx] || '').trim();
+                      const curNote = (curPat?.notes?.[stepIdx] || '').trim();
+
+                      let isProlongation = false;
+                      let isFollowedByProlongation = false;
+                      let isPux = true;
+
+                      if (isVoice) {
+                        isPux = val === 'P' || inst.id === 'puxador' || (inst.id !== 'coro' && val !== 'C');
+
+                        if (isActiveCell) {
+                          const prevVal = stepIdx > 0 ? (curPat?.activeSteps?.[stepIdx - 1] ?? 0) : 0;
+                          const prevIsActive = prevVal !== 0 && prevVal !== '' && prevVal !== '0' && prevVal !== '-';
+                          const prevNote = stepIdx > 0 ? (curPat?.notes?.[stepIdx - 1] || '').trim() : '';
+
+                          const nextVal = (stepIdx < (curPat?.steps ?? 16) - 1) ? (curPat?.activeSteps?.[stepIdx + 1] ?? 0) : 0;
+                          const nextIsActive = nextVal !== 0 && nextVal !== '' && nextVal !== '0' && nextVal !== '-';
+                          const nextNote = (stepIdx < (curPat?.steps ?? 16) - 1) ? (curPat?.notes?.[stepIdx + 1] || '').trim() : '';
+                          const nextSyl = (stepIdx < (curPat?.steps ?? 16) - 1) ? (curPat?.lyrics?.[stepIdx + 1] || '').trim() : '';
+
+                          const sameNotePrev = (curNote && prevNote === curNote) || (!curNote && !prevNote && prevVal === val);
+                          isProlongation = Boolean(prevIsActive && sameNotePrev && (!curSyl || curSyl === ''));
+
+                          const sameNoteNext = (curNote && nextNote === curNote) || (!curNote && !nextNote && nextVal === val);
+                          isFollowedByProlongation = Boolean(nextIsActive && sameNoteNext && (!nextSyl || nextSyl === ''));
+                        }
+                      }
 
                       const visualVal = getVisualStrokeSymbol(Array.isArray(val) ? val[0] : val, isLeftHanded, inst.id);
-                      
-                      const syl = isGhostStep
-                        ? (masterActivePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''))
-                        : (activePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''));
-                      
-                      let displayVal = isVoice ? syl : (visualVal === 0 ? '' : (Array.isArray(val) ? val.map(v => getVisualStrokeSymbol(v, isLeftHanded, inst.id)).join('') : String(visualVal)));
+
+                      let displayVal = '';
+                      if (isVoice) {
+                        if (isProlongation) {
+                          displayVal = '───';
+                        } else if (curSyl) {
+                          displayVal = curSyl;
+                        } else if (curNote) {
+                          displayVal = curNote;
+                        } else if (isActiveCell) {
+                          displayVal = isPux ? 'P' : 'C';
+                        }
+                      } else {
+                        displayVal = visualVal === 0 ? '' : (Array.isArray(val) ? val.map(v => getVisualStrokeSymbol(v, isLeftHanded, inst.id)).join('') : String(visualVal));
+                      }
 
                       let bgColor = emptyStepBg;
                       let txtColor = 'rgba(26, 26, 26, 0.4)';
@@ -340,9 +386,8 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
 
                       if (isActiveCell) {
                         if (isVoice) {
-                          const voiceInst = instrumentsConfig.find(c => c.id === (val === 'P' ? 'puxador' : 'coro')) || inst;
-                          masterBg = voiceInst.color || '#f4ecd8';
-                          masterTxt = '#1a1a1a';
+                          masterBg = isPux ? '#c25e38' : '#2a9d8f';
+                          masterTxt = isProlongation ? 'rgba(255, 255, 255, 0.7)' : '#ffffff';
                         } else {
                           const primaryVal = String(visualVal);
                           masterBg = inst.colors?.[primaryVal] || inst.color || '#111';
@@ -528,8 +573,35 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                         );
                       }
 
+                      const wrapperClass = `flex items-center justify-center h-full flex-1 ${
+                        isVoice && isProlongation && indexInGroup > 0 ? '-ml-1.5 z-10' : ''
+                      }`;
+
+                      let buttonBorderStyle: any = borderStyle;
+                      let buttonBorderLeft: string | undefined = undefined;
+                      let buttonBorderRight: string | undefined = undefined;
+                      let buttonRadiusTopLeft: string | undefined = undefined;
+                      let buttonRadiusBottomLeft: string | undefined = undefined;
+                      let buttonRadiusTopRight: string | undefined = undefined;
+                      let buttonRadiusBottomRight: string | undefined = undefined;
+                      let buttonBoxShadow: string | undefined = (!isTriplet && !isSextuplet && isActiveCell) ? '1px 1px 0px rgba(0,0,0,1)' : undefined;
+
+                      if (isVoice && isActiveCell) {
+                        if (isProlongation) {
+                          buttonBorderLeft = 'none';
+                          buttonRadiusTopLeft = '0px';
+                          buttonRadiusBottomLeft = '0px';
+                        }
+                        if (isFollowedByProlongation) {
+                          buttonBorderRight = 'none';
+                          buttonRadiusTopRight = '0px';
+                          buttonRadiusBottomRight = '0px';
+                          buttonBoxShadow = 'none';
+                        }
+                      }
+
                       return (
-                        <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
+                        <div key={stepIdx} className={wrapperClass}>
                           <button
                             ref={(el) => registerStepRef(track.id, stepIdx, el)}
                             data-step-index={stepIdx}
@@ -542,9 +614,15 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                                 ? (isActiveCell ? bgColor : 'rgba(26, 26, 26, 0.12)')
                                 : (isActiveCell ? bgColor : 'transparent'),
                               color: txtColor,
-                              border: (isTriplet || isSextuplet) ? 'none' : borderStyle,
+                              border: (isTriplet || isSextuplet) ? 'none' : buttonBorderStyle,
+                              borderLeft: buttonBorderLeft,
+                              borderRight: buttonBorderRight,
                               borderRadius: (isTriplet || isSextuplet) ? '0' : '2px',
-                              boxShadow: (!isTriplet && !isSextuplet && isActiveCell) ? '1px 1px 0px rgba(0,0,0,1)' : undefined,
+                              borderTopLeftRadius: buttonRadiusTopLeft,
+                              borderBottomLeftRadius: buttonRadiusBottomLeft,
+                              borderTopRightRadius: buttonRadiusTopRight,
+                              borderBottomRightRadius: buttonRadiusBottomRight,
+                              boxShadow: buttonBoxShadow,
                               filter: (isTriplet || isSextuplet) ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
                               clipPath: isSextuplet 
                                 ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
@@ -552,7 +630,7 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                               opacity: isGhostStep ? 0.35 : 1,
                             }}
                           >
-                            <span className={isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}>
+                            <span className={`${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''} ${isVoice && isProlongation ? 'tracking-widest font-mono text-xs md:text-sm' : ''} ${isVoice && !isProlongation ? 'font-bold text-xs md:text-sm truncate px-0.5' : ''}`}>
                               {displayVal}
                             </span>
                           </button>
