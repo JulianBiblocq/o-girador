@@ -1859,8 +1859,12 @@ export function useAudioSync({
                 const decayVal = activePattern.decays?.[cellIdx] ?? 10;
                 const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                 const numSteps = getVoiceNoteStepsFromDecay(decayNum);
-                const noteDuration = (numSteps * 6) * tick96nSec;
-                playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
+                const durationSec = Math.max(0.05, numSteps * 6 * tick96nSec);
+                if (audioEngine) {
+                  audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, Math.max(0.2, Math.min(1.0, trackVolLinear)));
+                } else {
+                  playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
+                }
               }
 
               // Maintien absolu du défilement des paroles et de l'illumination visuelle des pas à 60 FPS

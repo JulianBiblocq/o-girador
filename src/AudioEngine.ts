@@ -485,19 +485,8 @@ export class AudioEngine {
       this.voiceSynth.volume.value = -6;
 
       const dest = Tone.getDestination ? Tone.getDestination() : Tone.Destination;
-      if (masterVolumeNode) {
-        try {
-          this.voiceSynth.connect(masterVolumeNode as any);
-          (this.voiceSynth as any)._connectedToMaster = true;
-        } catch (_) {}
-      } else {
-        this.voiceSynth.connect(dest as any);
-      }
-      
-      // Connexion directe parallèle à Destination pour garantir l'audition immédiate hors lecture
       try {
         this.voiceSynth.connect(dest as any);
-        (this.voiceSynth as any)._connectedToDest = true;
       } catch (_) {}
     } catch (err) {
       console.error('AudioEngine: Error initializing voiceSynth:', err);
@@ -521,11 +510,6 @@ export class AudioEngine {
 
       if (!this.voiceSynth) {
         this.initVoiceSynth();
-      } else if (masterVolumeNode && !(this.voiceSynth as any)._connectedToMaster) {
-        try {
-          this.voiceSynth.connect(masterVolumeNode as any);
-          (this.voiceSynth as any)._connectedToMaster = true;
-        } catch (_) {}
       }
 
       if (!this.voiceSynth) return;
@@ -538,6 +522,44 @@ export class AudioEngine {
       this.voiceSynth.triggerAttack(note, Tone.now(), vel);
     } catch (err) {
       console.error('AudioEngine.triggerVoicePitch error:', err);
+    }
+  }
+
+  /**
+   * Déclenche une note de synthèse vocale avec durée programmée (lecture Transport / Play)
+   */
+  public triggerVoiceAttackRelease(
+    pitch: string | number,
+    duration: number,
+    time?: number,
+    velocity: number = 0.8
+  ): void {
+    try {
+      const Tone = getTone();
+      if (!Tone) return;
+
+      if (this.audioContext.state !== 'running') {
+        this.audioContext.resume().catch(() => {});
+      }
+      if (Tone.context && Tone.context.state !== 'running') {
+        Tone.start().catch(() => {});
+      }
+
+      if (!this.voiceSynth) {
+        this.initVoiceSynth();
+      }
+
+      if (!this.voiceSynth) return;
+
+      const note = typeof pitch === 'number' && pitch <= 127
+        ? Tone.Frequency(pitch, 'midi').toNote()
+        : pitch;
+
+      const vel = Math.max(0.1, Math.min(1.0, velocity));
+      const triggerTime = time !== undefined ? time : Tone.now();
+      this.voiceSynth.triggerAttackRelease(note, duration, triggerTime, vel);
+    } catch (err) {
+      console.error('AudioEngine.triggerVoiceAttackRelease error:', err);
     }
   }
 

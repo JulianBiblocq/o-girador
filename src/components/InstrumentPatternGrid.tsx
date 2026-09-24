@@ -568,10 +568,10 @@ const VoiceStepCellComponent = ({
 }: VoiceStepCellProps) => {
   const lang = useSequencerStore(state => state.lang);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
-  const isActive = state !== 0 && state !== '';
+  const hasActiveNote = state !== 0 && state !== '0' && Boolean(note && note.trim() !== '');
   const isPux = state === 'P';
   const inst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
-  const cardBg = isActive 
+  const cardBg = hasActiveNote 
     ? (isPreRoll ? '#999999' : inst.color) 
     : (isPreRoll ? 'rgba(0, 0, 0, 0.08)' : 'transparent');
 
@@ -595,10 +595,10 @@ const VoiceStepCellComponent = ({
   };
 
   const { letter: noteLetterOnly, octave, color: noteColor } = getTransposedNoteDetails();
-  const txtColor = getContrastColor(cardBg || '#f4ecd8');
+  const txtColor = hasActiveNote ? getContrastColor(cardBg || '#f4ecd8') : '#1a1a1a';
 
   return (
-    <div className="relative" style={{ width: '56px' }}>
+    <div className="relative flex-1 min-w-0">
       {/* Axis vertical centerline (0%) behind steps */}
       <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
       
@@ -607,13 +607,12 @@ const VoiceStepCellComponent = ({
       )}
       
       <div
-        className={`v-card flex flex-col cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
+        className={`v-card flex flex-col cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 w-full ${
           isSelected
             ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
             : 'border-[#1a1a1a]'
         }`}
         style={{
-          width: '56px',
           transform: `translateX(${shiftPx}px)`,
           backgroundColor: cardBg,
         }}
@@ -2358,7 +2357,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             const preRollStepsCount = getPreRollStepsCount();
 
             const renderPreRollGroup = (group: number[], groupIdx: number) => (
-              <div key={`preroll-group-${groupIdx}`} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+              <div key={`preroll-group-${groupIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm">
                 {group.map((i) => {
                   const state = pattern?.preRollActiveSteps?.[i] ?? 0;
                   const syl = pattern?.preRollLyrics?.[i] || '';
@@ -2417,10 +2416,17 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   </span>
                 </div>
                 <div 
-                  className="step-boxes flex flex-nowrap gap-x-2 w-full overflow-x-auto justify-between p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md"
+                  className="step-boxes flex flex-col gap-1.5 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md"
                   id={`preroll-voice-${trackId}-${pattern.id}`}
                 >
-                  {preRollGroups.map((group, idx) => renderPreRollGroup(group, idx))}
+                  <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
+                    {renderPreRollGroup(preRollGroups[0], 0)}
+                    {renderPreRollGroup(preRollGroups[1], 1)}
+                  </div>
+                  <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
+                    {renderPreRollGroup(preRollGroups[2], 2)}
+                    {renderPreRollGroup(preRollGroups[3], 3)}
+                  </div>
                 </div>
               </div>
             );
@@ -2477,7 +2483,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                 ];
 
                 const renderMainGroup = (group: number[], groupIdx: number) => (
-                  <div key={`group-${m}-${groupIdx}`} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+                  <div key={`group-${m}-${groupIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm">
                     {group.map((i) => {
                       if (i >= (pattern?.steps ?? 16)) return null;
                       const state = pattern?.activeSteps?.[i];
@@ -2551,8 +2557,17 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-nowrap gap-x-2 w-full overflow-x-auto justify-between p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md">
-                      {measureGroups.map((group, idx) => renderMainGroup(group, idx))}
+                    <div className="flex flex-col gap-1.5 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md">
+                      {/* Ligne 1 : Temps 1 (pas 0 à 3) et Temps 2 (pas 4 à 7) */}
+                      <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
+                        {renderMainGroup(measureGroups[0], 0)}
+                        {renderMainGroup(measureGroups[1], 1)}
+                      </div>
+                      {/* Ligne 2 : Temps 3 (pas 8 à 11) et Temps 4 (pas 12 à 15) */}
+                      <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
+                        {renderMainGroup(measureGroups[2], 2)}
+                        {renderMainGroup(measureGroups[3], 3)}
+                      </div>
                     </div>
                   </div>
                 );

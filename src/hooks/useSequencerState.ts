@@ -1398,7 +1398,7 @@ export function useSequencerState() {
             const arrDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
             arrLyrics[stepIdx] = val;
             if (val.trim() !== '') {
-              if (copySteps[stepIdx] === 0) {
+              if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
                 const instId = instrumentsConfig[t.instrumentIdx]?.id;
                 copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
                 if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
@@ -1408,6 +1408,7 @@ export function useSequencerState() {
               }
             } else {
               copySteps[stepIdx] = 0;
+              arrNotes[stepIdx] = '';
             }
             return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes, decays: arrDecays };
           }
@@ -1431,8 +1432,16 @@ export function useSequencerState() {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            const copySteps = [...p.activeSteps];
             arrNotes[stepIdx] = val;
-            return { ...p, notes: arrNotes };
+            if (!val || val.trim() === '' || val === '0') {
+              arrNotes[stepIdx] = '';
+              copySteps[stepIdx] = 0;
+            } else if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+              const instId = instrumentsConfig[t.instrumentIdx]?.id;
+              copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+            }
+            return { ...p, activeSteps: copySteps, notes: arrNotes };
           }
           return p;
         });
@@ -1485,7 +1494,7 @@ export function useSequencerState() {
             
             arrLyrics[stepIdx] = val;
             if (val.trim() !== '') {
-              if (copySteps[stepIdx] === 0) {
+              if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
                 const instId = instrumentsConfig[t.instrumentIdx]?.id;
                 copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
                 if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
@@ -1495,6 +1504,7 @@ export function useSequencerState() {
               }
             } else {
               copySteps[stepIdx] = 0;
+              arrNotes[stepIdx] = '';
             }
             return { 
               ...p, 
@@ -1730,10 +1740,13 @@ export function useSequencerState() {
             const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
 
+            const isVoice = inst?.type === 'voice' || t.type === 'voice' || t.id === 'puxador' || t.id === 'coro' || t.id === 'toada';
+
             if (Array.isArray(stepIdx)) {
               stepIdx.forEach((idx, i) => {
                 const currentVal = Array.isArray(val) ? val[i] : val;
-                copySteps[idx] = parseVal(currentVal);
+                const parsed = parseVal(currentVal);
+                copySteps[idx] = parsed;
                 if (lyrics) {
                   const lyricVal = Array.isArray(lyrics) ? lyrics[i] : lyrics;
                   if (lyricVal !== undefined) arrLyrics[idx] = lyricVal;
@@ -1742,18 +1755,33 @@ export function useSequencerState() {
                   const noteVal = Array.isArray(notes) ? notes[i] : notes;
                   if (noteVal !== undefined) arrNotes[idx] = noteVal;
                 }
+                if (isVoice && (parsed === 0 || parsed === '0' || !parsed)) {
+                  copySteps[idx] = 0;
+                  if (!notes || (Array.isArray(notes) ? !notes[i] : !notes)) {
+                    arrNotes[idx] = '';
+                  }
+                }
               });
             } else {
+              let parsed: any;
               if (Array.isArray(val)) {
-                copySteps[stepIdx] = [String(parseVal(val[0])), String(parseVal(val[1]))];
+                parsed = [String(parseVal(val[0])), String(parseVal(val[1]))];
+                copySteps[stepIdx] = parsed;
               } else {
-                copySteps[stepIdx] = parseVal(val);
+                parsed = parseVal(val);
+                copySteps[stepIdx] = parsed;
               }
               if (lyrics !== undefined) {
                 arrLyrics[stepIdx] = Array.isArray(lyrics) ? (lyrics[0] ?? '') : lyrics;
               }
               if (notes !== undefined) {
                 arrNotes[stepIdx] = Array.isArray(notes) ? (notes[0] ?? '') : notes;
+              }
+              if (isVoice && (parsed === 0 || parsed === '0' || !parsed)) {
+                copySteps[stepIdx] = 0;
+                if (notes === undefined || notes === '') {
+                  arrNotes[stepIdx] = '';
+                }
               }
             }
             return {

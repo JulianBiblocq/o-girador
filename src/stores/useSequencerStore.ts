@@ -287,11 +287,18 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               currentActive.push(0);
             }
             if (stepIdx >= 0 && stepIdx < maxSteps) {
-              currentActive[stepIdx] = char === '0' ? 0 : char;
+              const nextVal = char === '0' ? 0 : char;
+              currentActive[stepIdx] = nextVal;
               changed = true;
+              let nextNotes = p.notes;
+              if ((nextVal === 0 || nextVal === '0') && p.notes) {
+                nextNotes = [...p.notes];
+                nextNotes[stepIdx] = '';
+              }
               return {
                 ...p,
                 activeSteps: currentActive,
+                ...(nextNotes ? { notes: nextNotes } : {})
               };
             }
           }
