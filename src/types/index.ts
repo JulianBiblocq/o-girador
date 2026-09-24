@@ -14,3 +14,4 @@ export * from './nomenclature.types';
 export * from './speedTrainer.types';
 export * from './workspaceTemplate.types';
 export * from './desktopWorkspace.types';
+export * from './trainings';

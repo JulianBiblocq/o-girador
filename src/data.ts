@@ -289,7 +289,23 @@ export const i18n = {
     speedTrainerFromMarker: "De",
     speedTrainerToMarker: "Até",
     speedTrainerMarkerStartPlaceholder: "-- Marcador inicial --",
-    speedTrainerMarkerEndPlaceholder: "-- Marcador final --"
+    speedTrainerMarkerEndPlaceholder: "-- Marcador final --",
+    speedTrainerTabFree: "Treino livre",
+    speedTrainerTabMestre: "Criar desafio (Mestre)",
+    speedTrainerChallengeTitle: "Nome do desafio",
+    speedTrainerChallengeTitlePlaceholder: "Ex: Virada - Luanda",
+    speedTrainerStagesCount: "Número de etapas",
+    speedTrainerConsolidationLaps: "Voltas de manutenção no andamento alvo",
+    speedTrainerConsolidationHelp: "Voltas no andamento máximo para validar o desafio",
+    speedTrainerSaveChallenge: "Salvar desafio para o grupo",
+    speedTrainerSavingChallenge: "Salvando...",
+    speedTrainerChallengeSaved: "Desafio salvo com sucesso no grupo!",
+    speedTrainerPreviewTitle: "Aperçu dynamique das etapas",
+    speedTrainerStage: "Etapa",
+    speedTrainerMaintenance: "Manutenção",
+    speedTrainerLaps: "volta(s)",
+    speedTrainerLoopsInterval: "a cada volta",
+    speedTrainerLoopsIntervalPlural: "a cada 2 voltas"
   },
   fr: {
     loading: "Chargement des voix...",
@@ -427,7 +443,23 @@ export const i18n = {
     speedTrainerFromMarker: "De",
     speedTrainerToMarker: "À",
     speedTrainerMarkerStartPlaceholder: "-- Repère début --",
-    speedTrainerMarkerEndPlaceholder: "-- Repère fin --"
+    speedTrainerMarkerEndPlaceholder: "-- Repère fin --",
+    speedTrainerTabFree: "Entraînement libre",
+    speedTrainerTabMestre: "Créer un entraînement (Mestre)",
+    speedTrainerChallengeTitle: "Nom du défi",
+    speedTrainerChallengeTitlePlaceholder: "Ex : Virada - Luanda",
+    speedTrainerStagesCount: "Nombre de paliers",
+    speedTrainerConsolidationLaps: "Tours de maintien à tempo max",
+    speedTrainerConsolidationHelp: "Tours à tenir au tempo cible avant validation",
+    speedTrainerSaveChallenge: "Enregistrer le défi pour le groupe",
+    speedTrainerSavingChallenge: "Enregistrement...",
+    speedTrainerChallengeSaved: "Défi enregistré avec succès pour le groupe !",
+    speedTrainerPreviewTitle: "Aperçu des paliers calculés",
+    speedTrainerStage: "Palier",
+    speedTrainerMaintenance: "Maintien",
+    speedTrainerLaps: "tour(s)",
+    speedTrainerLoopsInterval: "par tour",
+    speedTrainerLoopsIntervalPlural: "tous les 2 tours"
   }
 };
 
