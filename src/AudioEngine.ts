@@ -275,6 +275,8 @@ export class AudioEngine {
       });
     }
 
+    this.initVoiceSynth();
+
     const nativeContext =
       (audioContext as any)._nativeContext ||
       (audioContext as any).rawContext ||
@@ -484,10 +486,17 @@ export class AudioEngine {
       this.voiceSynth.maxPolyphony = 6;
       this.voiceSynth.volume.value = -6;
 
-      const dest = Tone.getDestination ? Tone.getDestination() : Tone.Destination;
+      const dest = Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination;
+      try {
+        this.voiceSynth.disconnect();
+      } catch (_) {}
       try {
         this.voiceSynth.connect(dest as any);
-      } catch (_) {}
+      } catch (_) {
+        try {
+          this.voiceSynth.toDestination();
+        } catch (_) {}
+      }
     } catch (err) {
       console.error('AudioEngine: Error initializing voiceSynth:', err);
     }
@@ -505,6 +514,9 @@ export class AudioEngine {
         this.audioContext.resume().catch(() => {});
       }
       if (Tone.context && Tone.context.state !== 'running') {
+        if (typeof (Tone.context as any).resume === 'function') {
+          (Tone.context as any).resume().catch(() => {});
+        }
         Tone.start().catch(() => {});
       }
 
@@ -542,6 +554,9 @@ export class AudioEngine {
         this.audioContext.resume().catch(() => {});
       }
       if (Tone.context && Tone.context.state !== 'running') {
+        if (typeof (Tone.context as any).resume === 'function') {
+          (Tone.context as any).resume().catch(() => {});
+        }
         Tone.start().catch(() => {});
       }
 

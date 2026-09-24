@@ -1407,8 +1407,11 @@ export function useSequencerState() {
                 arrDecays[stepIdx] = 10;
               }
             } else {
-              copySteps[stepIdx] = 0;
-              arrNotes[stepIdx] = '';
+              // Si la syllabe est effacée mais qu'une note est présente (tenue / note sans parole),
+              // on ne supprime pas la note ni l'état actif du pas.
+              if (!arrNotes[stepIdx] || arrNotes[stepIdx].trim() === '') {
+                copySteps[stepIdx] = 0;
+              }
             }
             return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes, decays: arrDecays };
           }

@@ -510,21 +510,27 @@ export const useMidiController = () => {
             targetCard = activeInput.closest('[data-step-index]') as HTMLElement | null;
           } else {
             targetCard = document.querySelector('.v-card.border-\\[\\#f1c40f\\], [data-step-type="voice"].border-\\[\\#f1c40f\\], [data-step-type="voice"][data-selected="true"]') as HTMLElement | null;
+            if (!targetCard) {
+              const selectedIdx = (seqStore as any).selectedStepIdx ?? 0;
+              targetCard = document.querySelector(`[data-step-type="voice"][data-step-index="${selectedIdx}"]`) as HTMLElement | null;
+            }
             if (targetCard) {
               stepInput = targetCard.querySelector('.v-note') as HTMLInputElement | null;
             }
           }
 
-          if (canWriteStep && targetCard && stepInput) {
+          if (canWriteStep && targetCard) {
             lastVoiceStepInputTime = now;
             const cardTrackId = targetCard.getAttribute('data-track-id');
             const cardPatternId = targetCard.getAttribute('data-pattern-id');
             const cardStepIdx = parseInt(targetCard.getAttribute('data-step-index') || '0', 10);
 
             // Mettre à jour visuellement la valeur de l'input local sans double dispatch synthétique
-            stepInput.value = noteName;
+            if (stepInput) {
+              stepInput.value = noteName;
+            }
 
-            // Mettre à jour Zustand de manière immuable et atomique
+            // Mettre à jour Zustand de manière immuable et atomique (note + rôle vocal)
             if (cardTrackId && cardPatternId) {
               const numTrackId = Number(cardTrackId);
               const numPatternId = Number(cardPatternId);
@@ -537,9 +543,7 @@ export const useMidiController = () => {
                         const notes = [...(p.notes || Array(p.steps).fill(''))];
                         notes[cardStepIdx] = noteName;
                         const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
-                        if (!activeSteps[cardStepIdx] || activeSteps[cardStepIdx] === '0' || activeSteps[cardStepIdx] === 0) {
-                          activeSteps[cardStepIdx] = voiceSymbol;
-                        }
+                        activeSteps[cardStepIdx] = voiceSymbol;
                         return { ...p, notes, activeSteps };
                       }
                       return p;
@@ -550,16 +554,23 @@ export const useMidiController = () => {
               }));
             }
 
-            // Incrémenter vers le pas suivant de manière sécurisée
-            const nextCardWrapper = targetCard.closest('.step-col')?.nextElementSibling ||
-                                    targetCard.parentElement?.nextElementSibling;
-            const nextInput = nextCardWrapper?.querySelector('.v-note') as HTMLInputElement | null;
-            if (nextInput) {
-              nextInput.focus();
-              nextInput.select();
-            } else {
-              const nextCard = nextCardWrapper?.querySelector('[data-step-index]') as HTMLElement | null;
-              if (nextCard) nextCard.click();
+            // Déplacer automatiquement la sélection / focus vers le pas suivant (stepIdx + 1)
+            const nextStepIdx = cardStepIdx + 1;
+            const nextCard = document.querySelector<HTMLElement>(`[data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
+            if (nextCard) {
+              const nextInput = nextCard.querySelector('.v-note') as HTMLInputElement | null;
+              if (nextInput) {
+                nextInput.focus();
+                nextInput.select();
+              } else {
+                nextCard.click();
+              }
+              if (typeof (seqStore as any).setSelectedStepIdx === 'function') {
+                (seqStore as any).setSelectedStepIdx(nextStepIdx);
+              }
+              if (typeof (seqStore as any).setSelectedStepIndices === 'function') {
+                (seqStore as any).setSelectedStepIndices([nextStepIdx]);
+              }
             }
           }
 

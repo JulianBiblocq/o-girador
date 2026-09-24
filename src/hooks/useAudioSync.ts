@@ -1839,31 +1839,72 @@ export function useAudioSync({
           if (stepIdx % (currentTicks / stepCount) === 0) {
             const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
             const state = activePattern.activeSteps[cellIdx];
-            if (state && state !== 0) {
+            const isActive = state !== undefined && state !== null && state !== 0 && state !== '0';
+
+            if (isActive) {
               const triggerTime = swingTime;
               const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
               const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
 
-              // Si le sample vocal existe : désactivation sélective du synthé
+              // Détection d'une prolongation (tenue de note)
+              const rawNote = activePattern.notes?.[cellIdx];
+              const noteVal = typeof rawNote === 'string' ? rawNote.trim() : '';
+              const lyrics = activePattern.lyrics || [];
+              const prevActiveState = cellIdx > 0 ? activePattern.activeSteps[cellIdx - 1] : 0;
+              const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
+              const prevRawNote = cellIdx > 0 ? activePattern.notes?.[cellIdx - 1] : '';
+              const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
+
+              const isProlongation = Boolean(
+                isActive &&
+                noteVal &&
+                prevIsActive &&
+                prevNoteVal === noteVal &&
+                (!lyrics[cellIdx] || lyrics[cellIdx].trim() === '')
+              );
+
+              // Si le sample vocal micro n'existe pas : synthèse vocale
               if (!hasVocalSample && trackVolPct > 0) {
-                const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                const noteVal = activePattern.notes?.[cellIdx] || 'C4';
-                const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                let finalNoteVal = noteVal;
-                if (transposeSteps !== 0) {
-                  try {
-                    finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                  } catch (_) {}
-                }
-                const noteFreq = noteToFrequency(finalNoteVal);
-                const decayVal = activePattern.decays?.[cellIdx] ?? 10;
-                const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
-                const numSteps = getVoiceNoteStepsFromDecay(decayNum);
-                const durationSec = Math.max(0.05, numSteps * 6 * tick96nSec);
-                if (audioEngine) {
-                  audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, Math.max(0.2, Math.min(1.0, trackVolLinear)));
-                } else {
-                  playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
+                // Si c'est une prolongation, on ne réattaque PAS (évite l'effet mitraillette)
+                if (!isProlongation && noteVal) {
+                  // Calculer le nombre de pas consécutifs tenus (attaque + prolongations)
+                  let consecutiveSteps = 1;
+                  for (let nextIdx = cellIdx + 1; nextIdx < stepCount; nextIdx++) {
+                    const nextState = activePattern.activeSteps[nextIdx];
+                    const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
+                    const nextRawNote = activePattern.notes?.[nextIdx];
+                    const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
+                    const nextSyl = lyrics[nextIdx];
+                    if (nextIsActive && nextNoteVal === noteVal && (!nextSyl || nextSyl.trim() === '')) {
+                      consecutiveSteps++;
+                    } else {
+                      break;
+                    }
+                  }
+
+                  const decayVal = activePattern.decays?.[cellIdx] ?? 10;
+                  const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
+                  const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
+                  const effectiveSteps = Math.max(consecutiveSteps, numDecaySteps);
+                  const singleStepSec = (currentTicks / stepCount) * tick96nSec;
+                  const durationSec = Math.max(0.05, effectiveSteps * singleStepSec);
+
+                  const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                  const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                  let finalNoteVal = noteVal;
+                  if (transposeSteps !== 0) {
+                    try {
+                      finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                    } catch (_) {}
+                  }
+
+                  const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
+                  if (audioEngine) {
+                    audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity);
+                  } else {
+                    const noteFreq = noteToFrequency(finalNoteVal);
+                    playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
+                  }
                 }
               }
 
@@ -2204,6 +2245,7 @@ export function useAudioSync({
 
       vocalEngineService.stopRecording();
       audioEngine?.stopAllBarulho();
+      audioEngine?.releaseVoicePitch();
       stopAllNativeOscillators();
 
       vocalEngineService.stopAllVocalPlayback();
@@ -2284,6 +2326,7 @@ export function useAudioSync({
       setSoloPatternPlayId(null);
     }
     audioEngine?.stop();
+    audioEngine?.releaseVoicePitch();
     if (audioEngine) {
       audioEngine.currentMeasure = 0;
       audioEngine.currentStep = 0;

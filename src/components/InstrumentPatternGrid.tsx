@@ -534,6 +534,9 @@ interface VoiceStepCellProps {
   onFocusStep: (index: number) => void;
   onNoteSelectorTarget: (target: { patternId: number; stepIdx: number; note: string; element: HTMLInputElement }) => void;
   onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
+  onVoiceStepClear?: (trackId: number, patternId: number, index: number) => void;
+  isProlongation?: boolean;
+  isFollowedByProlongation?: boolean;
 }
 
 const VoiceStepCellComponent = ({
@@ -564,7 +567,10 @@ const VoiceStepCellComponent = ({
   onVoiceNoteBlur,
   onFocusStep,
   onNoteSelectorTarget,
-  onVoiceNav
+  onVoiceNav,
+  onVoiceStepClear,
+  isProlongation = false,
+  isFollowedByProlongation = false
 }: VoiceStepCellProps) => {
   const lang = useSequencerStore(state => state.lang);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
@@ -597,8 +603,76 @@ const VoiceStepCellComponent = ({
   const { letter: noteLetterOnly, octave, color: noteColor } = getTransposedNoteDetails();
   const txtColor = hasActiveNote ? getContrastColor(cardBg || '#f4ecd8') : '#1a1a1a';
 
+  const handleInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    field: 'syl' | 'note'
+  ) => {
+    const input = e.currentTarget;
+
+    // 1. Touche Espace ou Touche 0 : Silence et avance au pas suivant
+    if (e.key === ' ' || e.code === 'Space' || e.key === '0') {
+      e.preventDefault();
+      onVoiceStepClear?.(trackId, patternId, i);
+      onVoiceNav(input, 'ArrowRight', field);
+      return;
+    }
+
+    // 2. Touche Backspace : Effacement atomique et recul au pas précédent
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      onVoiceStepClear?.(trackId, patternId, i);
+      onVoiceNav(input, 'ArrowLeft', field);
+      return;
+    }
+
+    // 3. Touche Suppr / Delete : Effacement atomique sur place
+    if (e.key === 'Delete') {
+      e.preventDefault();
+      onVoiceStepClear?.(trackId, patternId, i);
+      return;
+    }
+
+    // 4. Touche ArrowLeft : si curseur au début (0) ou sélection globale
+    if (e.key === 'ArrowLeft') {
+      const selStart = input.selectionStart;
+      const selEnd = input.selectionEnd;
+      const valLen = input.value.length;
+      if (selStart === 0 || (selStart === 0 && selEnd === valLen)) {
+        e.preventDefault();
+        onVoiceNav(input, 'ArrowLeft', field);
+      }
+      return;
+    }
+
+    // 5. Touche ArrowRight : si curseur à la fin ou sélection globale
+    if (e.key === 'ArrowRight') {
+      const selStart = input.selectionStart;
+      const selEnd = input.selectionEnd;
+      const valLen = input.value.length;
+      if (selStart === valLen || (selStart === 0 && selEnd === valLen)) {
+        e.preventDefault();
+        onVoiceNav(input, 'ArrowRight', field);
+      }
+      return;
+    }
+
+    // 6. Touche Tab
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      onVoiceNav(input, e.shiftKey ? 'ArrowLeft' : 'ArrowRight', field);
+      return;
+    }
+
+    // 7. Touche Enter
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onVoiceNav(input, 'ArrowRight', field);
+      return;
+    }
+  };
+
   return (
-    <div className="relative flex-1 min-w-0">
+    <div className={`relative flex-1 min-w-0 ${isProlongation && (i % 4 !== 0) ? '-ml-1 sm:-ml-2 z-10' : ''}`}>
       {/* Axis vertical centerline (0%) behind steps */}
       <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
       
@@ -611,6 +685,10 @@ const VoiceStepCellComponent = ({
           isSelected
             ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
             : 'border-[#1a1a1a]'
+        } ${
+          isProlongation ? 'border-l-0 rounded-l-none' : ''
+        } ${
+          isFollowedByProlongation ? 'border-r-0 rounded-r-none' : ''
         }`}
         style={{
           transform: `translateX(${shiftPx}px)`,
@@ -620,6 +698,7 @@ const VoiceStepCellComponent = ({
         data-pattern-id={patternId}
         data-step-index={i}
         data-step-type="voice"
+        data-selected={isSelected ? "true" : undefined}
         onTouchStart={(e) => onTouchStart?.(e, i)}
         onMouseDown={(e) => onMouseDown?.(e, i)}
         onMouseEnter={() => onMouseEnter?.(i)}
@@ -630,11 +709,9 @@ const VoiceStepCellComponent = ({
         }}
       >
         {/* Step number */}
-        <div className="text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5">
+        <div className={`text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5 ${isProlongation ? 'border-l-0' : ''}`}>
           {i + 1}
         </div>
-
-
 
         {/* Syllable input */}
         <input
@@ -652,14 +729,7 @@ const VoiceStepCellComponent = ({
               onFocusStep(i);
             }
           }}
-          onKeyDown={(e) => {
-            if (e.key === 'Tab') {
-              e.preventDefault();
-              onVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
-            } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-              onVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
-            }
-          }}
+          onKeyDown={(e) => handleInputKeyDown(e, 'syl')}
         />
 
         {/* Note input */}
@@ -691,22 +761,24 @@ const VoiceStepCellComponent = ({
                 setIsNoteFocused(true);
               }
             }}
-            onKeyDown={(e) => {
-              if (e.key === 'Tab') {
-                e.preventDefault();
-                onVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-              } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-                onVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-              }
-            }}
+            onKeyDown={(e) => handleInputKeyDown(e, 'note')}
           />
           {!isNoteFocused && (
             <span 
               className="absolute inset-0 flex items-center justify-center text-xs font-black tracking-wide pointer-events-none"
-              style={{ color: noteColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 0, 0, 0.5)' }}
+              style={{
+                color: isProlongation ? txtColor : noteColor,
+                textShadow: isProlongation ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 0, 0, 0.5)'
+              }}
             >
-              {noteLetterOnly || '-'}
-              {octave && <span className="text-[7px] align-super opacity-60 ml-0.5">{octave}</span>}
+              {isProlongation ? (
+                <span className="tracking-widest font-extrabold select-none opacity-80">───</span>
+              ) : (
+                <>
+                  {noteLetterOnly || '-'}
+                  {octave && <span className="text-[7px] align-super opacity-60 ml-0.5">{octave}</span>}
+                </>
+              )}
             </span>
           )}
         </div>
@@ -769,7 +841,9 @@ const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) 
          prev.shiftPx === next.shiftPx &&
          prev.isLinked === next.isLinked &&
          prev.volume === next.volume &&
-         prev.decay === next.decay;
+         prev.decay === next.decay &&
+         prev.isProlongation === next.isProlongation &&
+         prev.isFollowedByProlongation === next.isFollowedByProlongation;
 };
 
 const VoiceStepCell = React.memo(VoiceStepCellComponent, areVoicePropsEqual);
@@ -1703,11 +1777,37 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [isMultiSelectActive, handleStepTouchStartMulti]);
 
+  /* Voice step clear helper (Silence / Backspace / Gomme) */
+  const handleVoiceStepClear = React.useCallback((tId: number, pId: number, sIdx: number) => {
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === tId || String(t.id) === String(tId)) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === pId || String(p.id) === String(pId)) {
+              const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
+              activeSteps[sIdx] = 0;
+              const notes = [...(p.notes || Array(p.steps).fill(''))];
+              notes[sIdx] = '';
+              return { ...p, activeSteps, notes };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  }, []);
+
   const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
+    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
+      handleVoiceStepClear(trackId, pattern.id, idx);
+      return;
+    }
     if (isMultiSelectActive) {
       handleStepMouseDownMulti(e as any, idx);
     }
-  }, [isMultiSelectActive, handleStepMouseDownMulti]);
+  }, [activeTool, isMultiSelectActive, handleStepMouseDownMulti, handleVoiceStepClear, trackId, pattern.id]);
 
   const handleVoiceMouseEnter = React.useCallback((idx: number) => {
     if (isMultiSelectActive) {
@@ -2230,26 +2330,37 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   /* Voice input navigation helper */
   const handleVoiceNav = React.useCallback((el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
-    if (key === 'Tab') return;
-    const parentContainer = el.closest('.step-boxes');
-    if (!parentContainer) return;
-    const cards = Array.from(parentContainer.querySelectorAll('.v-card'));
-    const currentCard = el.closest('.v-card');
+    const currentCard = el.closest('[data-step-index]');
     if (!currentCard) return;
-    const idx = cards.indexOf(currentCard);
+    const currentIdx = parseInt(currentCard.getAttribute('data-step-index') || '0', 10);
+    const parentContainer = el.closest('[id^="detail-voice-"]') || el.closest('.step-boxes') || gridRef.current || document;
+    const totalSteps = pattern?.steps ?? 16;
 
-    if ((key === 'ArrowRight' || key === 'Enter') && idx < cards.length - 1) {
-      const nextCard = cards[idx + 1] as HTMLElement;
-      const input = nextCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement;
-      input?.focus();
-      input?.select();
-    } else if (key === 'ArrowLeft' && idx > 0) {
-      const prevCard = cards[idx - 1] as HTMLElement;
-      const input = prevCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement;
-      input?.focus();
-      input?.select();
+    let targetIdx: number | null = null;
+    if (key === 'ArrowRight' || key === 'Enter') {
+      if (currentIdx < totalSteps - 1) {
+        targetIdx = currentIdx + 1;
+      }
+    } else if (key === 'ArrowLeft') {
+      if (currentIdx > 0) {
+        targetIdx = currentIdx - 1;
+      }
     }
-  }, []);
+
+    if (targetIdx !== null) {
+      const boundedIdx = Math.max(0, Math.min(totalSteps - 1, targetIdx));
+      const targetCard = parentContainer.querySelector(`[data-step-type="voice"][data-step-index="${boundedIdx}"]`) as HTMLElement | null;
+      if (targetCard) {
+        const input = targetCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement | null;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+        setSelectedStepIdx(boundedIdx);
+        setSelectedStepIndices([boundedIdx]);
+      }
+    }
+  }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices]);
 
   const getDisplayVal = (val: string | number | [string, string] | undefined): string => {
     if (val === undefined || val === 0 || val === '0') return '';
@@ -2364,6 +2475,32 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   const note = pattern?.preRollNotes?.[i] || '';
                   const volume = pattern?.preRollVolumes?.[i] ?? 100;
                   const decay = pattern?.preRollDecays?.[i] ?? 10;
+
+                  const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
+                  const currentActive = isStepActive(state);
+                  const curNoteTrim = (note || '').trim();
+                  const prevActive = i > 0 ? isStepActive(pattern?.preRollActiveSteps?.[i - 1]) : false;
+                  const prevNote = i > 0 ? (pattern?.preRollNotes?.[i - 1] || '').trim() : '';
+                  const nextActive = i < 15 ? isStepActive(pattern?.preRollActiveSteps?.[i + 1]) : false;
+                  const nextNote = i < 15 ? (pattern?.preRollNotes?.[i + 1] || '').trim() : '';
+                  const nextSyl = i < 15 ? (pattern?.preRollLyrics?.[i + 1] || '').trim() : '';
+
+                  const isProlongation = Boolean(
+                    currentActive &&
+                    prevActive &&
+                    curNoteTrim &&
+                    prevNote === curNoteTrim &&
+                    (!syl || syl.trim() === '')
+                  );
+
+                  const isFollowedByProlongation = Boolean(
+                    currentActive &&
+                    nextActive &&
+                    curNoteTrim &&
+                    nextNote === curNoteTrim &&
+                    (!nextSyl || nextSyl === '')
+                  );
+
                   return (
                     <VoiceStepCell
                       key={`preroll-cell-${i}`}
@@ -2383,6 +2520,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       volume={volume}
                       decay={decay}
                       isPreRoll={true}
+                      isProlongation={isProlongation}
+                      isFollowedByProlongation={isFollowedByProlongation}
+                      onVoiceStepClear={handleVoiceStepClear}
                       onVoiceTypeToggle={() => {}}
                       onVoiceSylChange={handleVoicePreRollSylChange}
                       onVoiceNoteChange={handleVoicePreRollNoteChange}
@@ -2491,6 +2631,31 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const note = pattern?.notes?.[i] || '';
                       const isSelected = selectedStepIndices.includes(i);
 
+                      const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
+                      const currentActive = isStepActive(state);
+                      const curNoteTrim = (note || '').trim();
+                      const prevActive = i > 0 ? isStepActive(pattern?.activeSteps?.[i - 1]) : false;
+                      const prevNote = i > 0 ? (pattern?.notes?.[i - 1] || '').trim() : '';
+                      const nextActive = i < (pattern?.steps ?? 16) - 1 ? isStepActive(pattern?.activeSteps?.[i + 1]) : false;
+                      const nextNote = i < (pattern?.steps ?? 16) - 1 ? (pattern?.notes?.[i + 1] || '').trim() : '';
+                      const nextSyl = i < (pattern?.steps ?? 16) - 1 ? (pattern?.lyrics?.[i + 1] || '').trim() : '';
+
+                      const isProlongation = Boolean(
+                        currentActive &&
+                        prevActive &&
+                        curNoteTrim &&
+                        prevNote === curNoteTrim &&
+                        (!syl || syl.trim() === '')
+                      );
+
+                      const isFollowedByProlongation = Boolean(
+                        currentActive &&
+                        nextActive &&
+                        curNoteTrim &&
+                        nextNote === curNoteTrim &&
+                        (!nextSyl || nextSyl === '')
+                      );
+
                       // Calculate total micro-timing shift (manual + pre-calculated global swing)
                       const manualMicro = pattern?.microtimings?.[i] ?? 0;
                       const manualMicroNum = getSculptNumber(manualMicro, 0);
@@ -2518,6 +2683,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           isLinked={isLinked}
                           volume={pattern.volumes?.[i] ?? 100}
                           decay={pattern.decays?.[i] ?? 10}
+                          isProlongation={isProlongation}
+                          isFollowedByProlongation={isFollowedByProlongation}
+                          onVoiceStepClear={handleVoiceStepClear}
                           onTouchStart={handleVoiceTouchStart}
                           onMouseDown={handleVoiceMouseDown}
                           onMouseEnter={handleVoiceMouseEnter}

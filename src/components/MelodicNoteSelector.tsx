@@ -5,7 +5,7 @@
  * to input notes cleanly without manual typing.
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { audioEngine } from '../hooks/useAudioSync';
 
 interface MelodicNoteSelectorProps {
