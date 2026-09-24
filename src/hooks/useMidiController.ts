@@ -2,18 +2,51 @@ import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { audioEngine } from './useAudioSync';
 import { useMidiStore, MidiTarget, TransportAction } from '../stores/useMidiStore';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
+import { channels, busChannels, masterVolumeNode } from '../audio/effectsChain';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 
 /* CPU / Audio justification: This MIDI event listener runs outside the React render cycle (bypass).
-   Upon receiving MIDI Note On or CC messages, it accesses `useMidiStore.getState()` directly to fetch mappings and state,
-   and fires the Tone.js sample preview using `audioEngine.playNote(..., Tone.now())` or controls the Transport bar.
-   It also runs visual flash animations via GPU (WAAPI) directly targeting DOM nodes.
-   This guarantees zero React render cycles, preserving 60 FPS live play and preventing audio thread latency/jitter. */
+   Upon receiving MIDI Note On, Pitch Bend, or CC messages:
+   - Audio bypass: directly updates Tone.js Channel / Gain nodes without latency or React overhead.
+   - Visual bypass: dispatches targeted custom DOM events ('midi-fader-move', 'midi-pan-move') 
+     manipulating element styles directly (60 FPS, Zero Render Thrashing).
+   - State persistence: debounced at 50 ms before writing into global Zustand stores.
+   - MCU DAW commands: notes 80 (Save), 81 (Undo), 88 (Punch), 89 (Metro) cut off immediately. */
 let lastTransportActionTime = 0;
+const volumeDebounceTimers = new Map<number | 'master', any>();
+const panDebounceTimers = new Map<number, any>();
+
+function debouncedSaveVolume(trackId: number | 'master', val: number, audio: any) {
+  const existing = volumeDebounceTimers.get(trackId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    volumeDebounceTimers.delete(trackId);
+    if (trackId === 'master') {
+      const db = val === 0 ? -40 : -40 + (val / 100) * 46;
+      audio.setMasterVol(db);
+    } else {
+      useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
+    }
+  }, 50);
+  volumeDebounceTimers.set(trackId, timer);
+}
+
+function debouncedSavePan(trackId: number, val: number) {
+  const existing = panDebounceTimers.get(trackId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    panDebounceTimers.delete(trackId);
+    useSequencerStore.getState().setTrackPan(trackId, val);
+  }, 50);
+  panDebounceTimers.set(trackId, timer);
+}
 
 export const useMidiController = () => {
   const audio = useAudio();
@@ -56,16 +89,86 @@ export const useMidiController = () => {
       const messageType = status & 0xf0;
       const isNoteOn = messageType === 0x90;
       const isCC = messageType === 0xb0;
+      const isPitchBend = messageType === 0xe0;
 
-      // --- INTERCEPTEUR AUTO MCU (Mackie Control Universal) ---
+      // --- 1. FADERS MCU MULTICANAUX (PITCH BEND 0xE0..0xE8) ---
+      if (isPitchBend) {
+        const channel = status & 0x0f;
+        const raw14 = (velocity << 7) | note;
+        const norm0to1 = Math.max(0, Math.min(1, raw14 / 16383));
+        const volumeVal = Math.round(norm0to1 * 100);
+
+        if (channel >= 0 && channel <= 7) {
+          const tracksMeta = selectTracksMeta(useSequencerStore.getState());
+          const displayedTracks = getDisplayedMixerTracks(tracksMeta);
+          if (!displayedTracks[channel]) return;
+          const targetTrackId = displayedTracks[channel].id;
+
+          // 1. Audio bypass immédiat
+          const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
+          if (channelNode) {
+            const gain = Math.max(0.00001, volumeVal / 100);
+            const db = volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+            channelNode.volume.rampTo(db, 0.02);
+          }
+
+          // 2. DOM Direct bypass (Zero Render Thrashing 60 FPS)
+          window.dispatchEvent(new CustomEvent('midi-fader-move', {
+            detail: { targetId: targetTrackId, val: volumeVal }
+          }));
+
+          // 3. Persistance débouncée (50 ms)
+          debouncedSaveVolume(targetTrackId, volumeVal, audio);
+          return;
+        } else if (channel === 8) {
+          // Master Fader (Canal 8 en MCU)
+          // 1. Audio bypass immédiat
+          if (masterVolumeNode && masterVolumeNode.gain) {
+            const db = volumeVal === 0 ? -Infinity : -40 + (volumeVal / 100) * 46;
+            const gain = Tone.dbToGain(db);
+            masterVolumeNode.gain.rampTo(gain, 0.02);
+          }
+
+          // 2. DOM Direct bypass (Zero Render Thrashing 60 FPS)
+          window.dispatchEvent(new CustomEvent('midi-fader-move', {
+            detail: { targetId: 'master', val: volumeVal }
+          }));
+
+          // 3. Persistance débouncée (50 ms)
+          debouncedSaveVolume('master', volumeVal, audio);
+          return;
+        }
+      }
+
+      // --- 2. COMMANDES SYSTÈME MCU (Mackie Control Universal) ---
       if (isNoteOn && velocity > 0) {
-        const mcuNotes = [86, 91, 92, 93, 94, 95];
+        const mcuNotes = [80, 81, 86, 88, 89, 91, 92, 93, 94, 95];
         if (mcuNotes.includes(note)) {
           const now = Date.now();
           if (now - lastTransportActionTime < 250) return;
           lastTransportActionTime = now;
 
           switch (note) {
+            case 80: // Save
+              window.dispatchEvent(new CustomEvent('open-save-modal'));
+              return;
+            case 81: // Undo
+              if (typeof useSequencerStore.getState().handleUndo === 'function') {
+                useSequencerStore.getState().handleUndo();
+              } else if (sequencer && typeof sequencer.handleUndo === 'function') {
+                sequencer.handleUndo();
+              }
+              return;
+            case 88: { // Punch / Pre-roll
+              const cur = useTransportStore.getState().preRollSettings;
+              useTransportStore.getState().setPreRollSettings({ enabled: !cur?.enabled });
+              return;
+            }
+            case 89: { // Metro / Click
+              const cur = useTransportStore.getState().isMetroOn;
+              useTransportStore.getState().setIsMetroOn(!cur);
+              return;
+            }
             case 94: // Play
               audio.handleTogglePlay();
               return;
@@ -112,6 +215,101 @@ export const useMidiController = () => {
         state.addTransportMapping(action, { type: isCC ? 'cc' : 'note', number: note });
         state.setWaitingForTransportAction(null);
         return;
+      }
+
+      // --- 3. CONTRÔLE CONTINU DU MIXEUR (FADERS & KNOBS MIDI CC) ---
+      if (isCC) {
+        // A. Faders de volume (CC 73 à 80 pour tranches 1 à 8, CC 81/82/83/85 ou CC 7 canal 8 pour Master)
+        let faderIdx: number | 'master' | null = null;
+        if (note >= 73 && note <= 80) {
+          faderIdx = note - 73;
+        } else if (note === 7) {
+          const ch = status & 0x0f;
+          if (ch <= 7) faderIdx = ch;
+          else if (ch === 8) faderIdx = 'master';
+        } else if (note === 81 || note === 82 || note === 83 || note === 85) {
+          faderIdx = 'master';
+        }
+
+        if (faderIdx !== null) {
+          const norm0to1 = Math.max(0, Math.min(1, velocity / 127));
+          const volumeVal = Math.round(norm0to1 * 100);
+
+          if (typeof faderIdx === 'number') {
+            const tracksMeta = selectTracksMeta(useSequencerStore.getState());
+            const displayedTracks = getDisplayedMixerTracks(tracksMeta);
+            if (!displayedTracks[faderIdx]) return;
+            const targetTrackId = displayedTracks[faderIdx].id;
+
+            // 1. Audio bypass immédiat
+            const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
+            if (channelNode) {
+              const gain = Math.max(0.00001, volumeVal / 100);
+              const db = volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+              channelNode.volume.rampTo(db, 0.02);
+            }
+
+            // 2. DOM Direct bypass (Zero Render Thrashing 60 FPS)
+            window.dispatchEvent(new CustomEvent('midi-fader-move', {
+              detail: { targetId: targetTrackId, val: volumeVal }
+            }));
+
+            // 3. Persistance débouncée (50 ms)
+            debouncedSaveVolume(targetTrackId, volumeVal, audio);
+            return;
+          } else if (faderIdx === 'master') {
+            // Master Fader
+            if (masterVolumeNode && masterVolumeNode.gain) {
+              const db = volumeVal === 0 ? -Infinity : -40 + (volumeVal / 100) * 46;
+              const gain = Tone.dbToGain(db);
+              masterVolumeNode.gain.rampTo(gain, 0.02);
+            }
+
+            window.dispatchEvent(new CustomEvent('midi-fader-move', {
+              detail: { targetId: 'master', val: volumeVal }
+            }));
+
+            debouncedSaveVolume('master', volumeVal, audio);
+            return;
+          }
+        }
+
+        // B. Potentiomètres (Knobs) 1 à 8 (CC 16 à 23) -> Panoramique
+        if (note >= 16 && note <= 23) {
+          const knobIdx = note - 16;
+          const tracksMeta = selectTracksMeta(useSequencerStore.getState());
+          const displayedTracks = getDisplayedMixerTracks(tracksMeta);
+          if (!displayedTracks[knobIdx]) return;
+          const targetTrackId = displayedTracks[knobIdx].id;
+
+          const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === targetTrackId);
+          const currentPan = currentTrack?.panVal ?? currentTrack?.pan ?? 0;
+
+          let newPan = currentPan;
+          if ((velocity >= 1 && velocity <= 15) || (velocity >= 65 && velocity <= 79)) {
+            // Mode relatif MCU (data2 < 64 = droite, data2 > 64 = gauche via delta = data2 - 64)
+            const delta = velocity > 64 ? -(velocity - 64) : velocity;
+            newPan = Math.max(-100, Math.min(100, currentPan + delta * 3));
+          } else {
+            // Repli transparent mode absolu (0..127 -> -100..+100)
+            newPan = Math.round((velocity / 127) * 200 - 100);
+          }
+
+          // 1. Audio bypass immédiat
+          const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
+          if (channelNode) {
+            channelNode.pan.rampTo(newPan / 100, 0.02);
+          }
+
+          // 2. DOM Direct bypass (Zero Render Thrashing 60 FPS)
+          window.dispatchEvent(new CustomEvent('midi-pan-move', {
+            detail: { targetId: targetTrackId, val: newPan }
+          }));
+
+          // 3. Persistance débouncée (50 ms)
+          debouncedSavePan(targetTrackId, newPan);
+          return;
+        }
       }
 
       // 2. Check if waiting for midi stroke learn (only Note On, velocity > 0)
@@ -342,6 +540,10 @@ export const useMidiController = () => {
           input.onmidimessage = null;
         } catch (_) {}
       });
+      volumeDebounceTimers.forEach(t => clearTimeout(t));
+      volumeDebounceTimers.clear();
+      panDebounceTimers.forEach(t => clearTimeout(t));
+      panDebounceTimers.clear();
     };
   }, [audio, sequencer]);
 };

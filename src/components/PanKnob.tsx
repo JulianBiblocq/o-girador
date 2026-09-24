@@ -57,6 +57,20 @@ export const PanKnob: React.FC<PanKnobProps> = ({
     }
   }, [value]);
 
+  // Haute performance : Écouteur direct d'événement MIDI Pan (Bypass React & Zero Render Thrashing)
+  useEffect(() => {
+    const handleMidiPan = (e: Event) => {
+      const customEv = e as CustomEvent<{ targetId: number; val: number }>;
+      const { targetId, val } = customEv.detail || {};
+      if (targetId !== trackId) return;
+
+      updateVisuals(val);
+    };
+
+    window.addEventListener('midi-pan-move', handleMidiPan);
+    return () => window.removeEventListener('midi-pan-move', handleMidiPan);
+  }, [trackId]);
+
   const updateAudio = (val: number, force = false) => {
     const now = performance.now();
     if (!force && now - lastAudioUpdateTimeRef.current < THROTTLE_MS) {

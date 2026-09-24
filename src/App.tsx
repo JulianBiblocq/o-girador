@@ -622,6 +622,14 @@ export default function App() {
     setShowSavePresetModal(true);
   }, []);
 
+  useEffect(() => {
+    const handleOpenSaveModal = () => {
+      handleSaveToLocal();
+    };
+    window.addEventListener('open-save-modal', handleOpenSaveModal);
+    return () => window.removeEventListener('open-save-modal', handleOpenSaveModal);
+  }, [handleSaveToLocal]);
+
   const handleLoadLocalPreset = React.useCallback((name: string) => audioRef.current.handleLoadLocalPreset(name), []);
   const handleAddTrackInstrument = React.useCallback((instIdx: number) => sequencerRef.current.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure), []);
 

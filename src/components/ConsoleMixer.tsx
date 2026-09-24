@@ -42,7 +42,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
 import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain';
-import { useSequencerStore, getTrackSolidBlockId, TrackMeta, selectTracksMeta } from '../stores/useSequencerStore';
+import { useSequencerStore, getTrackSolidBlockId, TrackMeta, selectTracksMeta, getDisplayedMixerTracks } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getMixerTheme } from '../theme';
@@ -146,99 +146,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const trackIds = useMemo(() => tracksMeta.map(t => t.id), [tracksMeta]);
-  const displayedTracks = useMemo(() => {
-    // 1. Filtrer les pistes visibles dans le mixeur
-    const filtered = tracksMeta.filter(t => {
-      // Les esclaves d'Alfaias masqués de la timeline s'affichent dans le mixeur si leur dossier de liens est déplié
-      const isAlfSlave = t.linkedToTrackId && 
-        (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
-         instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
-         (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
-
-      if (isAlfSlave && t.isHidden) {
-        const parentBus = tracksMeta.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-        if (parentBus && !parentBus.isFolded) {
-          return true;
-        }
-      }
-
-      if (t.isHidden) return false;
-      if (t.busId) {
-        const parentBus = tracksMeta.find(p => String(p.id) === String(t.busId));
-        if (parentBus && parentBus.isFolded) return false;
-
-        // Sécurité récursive : si n'importe quel parent ascendant est plié
-        let currentParent = parentBus;
-        while (currentParent) {
-          if (currentParent.isFolded) return false;
-          if (currentParent.busId) {
-            currentParent = tracksMeta.find(p => String(p.id) === String(currentParent!.busId));
-          } else {
-            break;
-          }
-        }
-      }
-      return true;
-    });
-
-    // 2. Ordonner hiérarchiquement de gauche à droite
-    const visited = new Set<number>();
-    const ordered: TrackMeta[] = [];
-
-    const isRoot = (t: TrackMeta) => {
-      const isAlfSlave = t.linkedToTrackId && 
-        (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
-         instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
-         (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
-      if (isAlfSlave) return false;
-
-      if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
-        return false;
-      }
-
-      const busIdStr = t.busId;
-      if (!busIdStr) return true;
-
-      const hasParent = filtered.some(p => String(p.id) === String(busIdStr));
-      return !hasParent;
-    };
-
-    const roots = filtered.filter(isRoot);
-
-    const visit = (track: TrackMeta) => {
-      if (visited.has(track.id)) return;
-      visited.add(track.id);
-      ordered.push(track);
-
-      // Trouver les enfants directs (par busId ou par linkedToTrackId)
-      const children = filtered.filter(t => {
-        if (visited.has(t.id)) return false;
-        const isChildByBus = t.busId && String(t.busId) === String(track.id);
-        const isChildByLink = t.linkedToTrackId && String(t.linkedToTrackId) === String(track.id);
-        return isChildByBus || isChildByLink;
-      });
-
-      // Trier les enfants : dossiers de bus/liens en premier
-      children.sort((a, b) => {
-        const aScore = a.isBusFolder ? 1 : 0;
-        const bScore = b.isBusFolder ? 1 : 0;
-        return bScore - aScore;
-      });
-
-      children.forEach(visit);
-    };
-
-    roots.forEach(visit);
-
-    // Ajouter les orphelins éventuels
-    filtered.forEach(t => {
-      if (!visited.has(t.id)) {
-        ordered.push(t);
-      }
-    });
-
-    return ordered;
-  }, [tracksMeta]);
+  const displayedTracks = useMemo(() => getDisplayedMixerTracks(tracksMeta), [tracksMeta]);
   const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
 
   const [activeDragTrackId, setActiveDragTrackId] = React.useState<number | null>(null);

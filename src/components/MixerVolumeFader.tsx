@@ -276,6 +276,27 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     }
   }, [value, trackId, containerHeight]);
 
+  // Haute performance : Écouteur direct d'événement MIDI Fader (Bypass React & Zero Render Thrashing)
+  useEffect(() => {
+    const handleMidiFader = (e: Event) => {
+      const customEv = e as CustomEvent<{ targetId: number | 'master'; val: number }>;
+      const { targetId, val } = customEv.detail || {};
+      const isCurrent = isMaster ? targetId === 'master' : targetId === trackId;
+      if (!isCurrent) return;
+
+      const topPx = getTopPosition(val);
+      if (visualThumbRef.current) {
+        visualThumbRef.current.style.top = `${topPx}px`;
+      }
+      if (valueTextRef.current) {
+        valueTextRef.current.textContent = String(val);
+      }
+    };
+
+    window.addEventListener('midi-fader-move', handleMidiFader);
+    return () => window.removeEventListener('midi-fader-move', handleMidiFader);
+  }, [trackId, isMaster, travelRange, topPadding]);
+
   return (
     <div 
       ref={containerRef}
