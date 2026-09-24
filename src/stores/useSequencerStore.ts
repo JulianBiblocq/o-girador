@@ -802,11 +802,17 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       // Effectuer la suppression physique de la piste
       const remaining = updated.filter((t) => t.id !== id);
       const nextRodaOrder = sanitizeRodaTrackOrder(state.rodaTrackOrder, remaining);
+      const nextTracks = applyRadii(remaining, nextRodaOrder);
+      const nextMeta = selectTracksMeta({ ...state, tracks: nextTracks });
+      const nextDisplayed = getDisplayedMixerTracks(nextMeta);
+      const maxOffset = Math.max(0, nextDisplayed.length - 8);
+      const nextMixerBankOffset = Math.min(state.mixerBankOffset || 0, maxOffset);
 
       return { 
-        tracks: applyRadii(remaining, nextRodaOrder),
+        tracks: nextTracks,
         rodaTrackOrder: nextRodaOrder,
-        tracksVersion: state.tracksVersion + 1
+        tracksVersion: state.tracksVersion + 1,
+        mixerBankOffset: nextMixerBankOffset
       };
     });
   },
@@ -1765,10 +1771,18 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   },
 
   handleToggleFoldBus: (busId) => {
-    set((state) => ({
-      tracks: state.tracks.map((t) => String(t.id) === String(busId) ? { ...t, isFolded: !t.isFolded } : t),
-      tracksVersion: state.tracksVersion + 1
-    }));
+    set((state) => {
+      const nextTracks = state.tracks.map((t) => String(t.id) === String(busId) ? { ...t, isFolded: !t.isFolded } : t);
+      const nextMeta = selectTracksMeta({ ...state, tracks: nextTracks });
+      const nextDisplayed = getDisplayedMixerTracks(nextMeta);
+      const maxOffset = Math.max(0, nextDisplayed.length - 8);
+      const nextMixerBankOffset = Math.min(state.mixerBankOffset || 0, maxOffset);
+      return {
+        tracks: nextTracks,
+        tracksVersion: state.tracksVersion + 1,
+        mixerBankOffset: nextMixerBankOffset
+      };
+    });
   },
 
   handleToggleSequencerFoldBus: (busId) => {
@@ -3985,9 +3999,9 @@ export const getEffectiveVolume = (tracks: any[], trackId: number): number => {
 };
 
 export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] => {
-  // 1. Filtrer les pistes visibles dans le mixeur
+  // 1. Filtrer les pistes visibles dans le mixeur (Option A : exclusion totale des enfants si le parent est replié)
   const filtered = tracksMeta.filter(t => {
-    // Les esclaves d'Alfaias masqués de la timeline s'affichent dans le mixeur si leur dossier de liens est déplié
+    // Les esclaves d'Alfaias masqués de la timeline s'affichent dans le mixeur SI leur dossier de liens est déplié
     const isAlfSlave = t.linkedToTrackId && 
       (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
        instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
@@ -3998,24 +4012,39 @@ export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] =>
       if (parentBus && !parentBus.isFolded) {
         return true;
       }
+      return false;
     }
 
     if (t.isHidden) return false;
-    if (t.busId) {
-      const parentBus = tracksMeta.find(p => String(p.id) === String(t.busId));
-      if (parentBus && parentBus.isFolded) return false;
 
-      // Sécurité récursive : si n'importe quel parent ascendant est plié
-      let currentParent = parentBus;
+    // A. Filtrage récursif si la tranche appartient à un bus audio (busId)
+    if (t.busId) {
+      let currentParent = tracksMeta.find(p => String(p.id) === String(t.busId));
       while (currentParent) {
         if (currentParent.isFolded) return false;
-        if (currentParent.busId) {
-          currentParent = tracksMeta.find(p => String(p.id) === String(currentParent!.busId));
+        const nextId = currentParent.busId || currentParent.linkedToTrackId;
+        if (nextId) {
+          currentParent = tracksMeta.find(p => String(p.id) === String(nextId));
         } else {
           break;
         }
       }
     }
+
+    // B. Filtrage récursif si la tranche est attachée à un dossier de liaison (linkedToTrackId) et n'est pas le dossier racine
+    if (t.linkedToTrackId && !t.isLinkFolder) {
+      let currentLinkParent = tracksMeta.find(p => String(p.id) === String(t.linkedToTrackId));
+      while (currentLinkParent) {
+        if (currentLinkParent.isFolded) return false;
+        const nextId = currentLinkParent.linkedToTrackId || currentLinkParent.busId;
+        if (nextId) {
+          currentLinkParent = tracksMeta.find(p => String(p.id) === String(nextId));
+        } else {
+          break;
+        }
+      }
+    }
+
     return true;
   });
 

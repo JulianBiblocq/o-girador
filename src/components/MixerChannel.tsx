@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal, Trash2, Unlink } from 'lucide-react';
+import { GripHorizontal, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
@@ -23,7 +23,6 @@ import { reverbSends, distortionSends } from '../hooks/useAudioSync';
 import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
-import { XiloChisel } from './XiloIcons';
 import * as Tone from 'tone';
 import { interpolateAutomationValue } from '../utils/automationMath';
 import { getLastAudibleTick } from '../audio/visualTickBuffer';
@@ -53,6 +52,7 @@ interface MixerChannelProps {
   isDraggingWagon?: boolean;
   channelOrdinal?: string;
   midiFaderIndex?: number | null;
+  isUnderMidiControl?: boolean;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
@@ -60,6 +60,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   index,
   channelOrdinal,
   midiFaderIndex = null,
+  isUnderMidiControl = false,
   onOpenDetailEditor,
   onStepTouchStart,
   onCopyPattern,
@@ -330,26 +331,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   };
 
-  const isLinkChild = !track?.isBusFolder && !!track?.linkedToTrackId;
-  const isBusChild = !track?.isBusFolder && !!track?.busId && !isLinkChild;
-  const isChild = !track?.isBusFolder && !!(track?.busId || track?.linkedToTrackId);
-  const parentBus = isChild ? tracksMeta.find(t => String(t.id) === String(track?.busId || track?.linkedToTrackId)) : null;
-  const parentBusName = parentBus ? (parentBus.customName || (parentBus.isLinkFolder ? 'ALFAIAS' : 'Bus')) : 'Bus';
-
-  const handleDetachTrackClick = async () => {
-    if (!track) return;
-    const trackName = track.customName || getTrackDisplayName(track, tracksMeta) || currentInst?.name || (lang === 'fr' ? 'la piste' : 'a faixa');
-    const confirmMsg = isBusChild
-      ? (lang === 'fr'
-          ? `Dissocier la piste "${trackName}" du bus "${parentBusName}" ?`
-          : `Desvincular a faixa "${trackName}" do bus "${parentBusName}"?`)
-      : (lang === 'fr'
-          ? `Dissocier la piste "${trackName}" du groupe "${parentBusName}" ?`
-          : `Desvincular a faixa "${trackName}" do grupo "${parentBusName}"?`);
-    if (await sequencer.confirmAsync(confirmMsg)) {
-      useSequencerStore.getState().handleDetachTrack(track.id);
-    }
-  };
   const onVolumeChange = (val: number) => {
     useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
   };
@@ -600,7 +581,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         style={{ zIndex: 10 }}
       >
         {/* Outils */}
-        <div className="flex justify-between items-center w-full">
+        <div className="flex justify-between items-center w-full min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <div 
               {...attributes}
@@ -611,33 +592,22 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               <GripHorizontal size={16} />
             </div>
 
-            {/* Numérotation ordonnée immuable */}
+            {/* Numérotation ordonnée & Témoin Contrôleur MIDI fusionné */}
             {channelOrdinal && (
-              <span className="font-mono text-[9.5px] font-bold opacity-60 tracking-tight select-none shrink-0">
+              <span
+                className={`font-mono text-[10px] font-bold tracking-tight select-none shrink-0 transition-colors ${
+                  isUnderMidiControl
+                    ? "bg-[#ea580c] text-[#f4ecd8] px-1.5 py-0.5 rounded shadow-xs"
+                    : "text-[var(--cordel-text)]/60 px-1 py-0.5"
+                }`}
+                title={isUnderMidiControl ? (midiFaderIndex ? `Contrôle physique actif (Fader ${midiFaderIndex})` : "Contrôle physique actif") : undefined}
+              >
                 {channelOrdinal}
-              </span>
-            )}
-
-            {/* Badge Contrôle Physique Actif [ F1 ] .. [ F8 ] */}
-            {midiFaderIndex !== null && (
-              <span className="bg-[#ea580c] text-[#f4ecd8] px-1 py-[0.5px] font-mono font-bold text-[8.5px] rounded shadow-xs select-none shrink-0 tracking-tighter">
-                F{midiFaderIndex}
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {isChild && (
-              <button 
-                onClick={handleDetachTrackClick} 
-                className="w-5 h-5 bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[#b23b25] hover:text-[#f4ecd8] text-xs"
-                title={isBusChild
-                  ? (lang === 'fr' ? `Dissocier du bus "${parentBusName}"` : `Desvincular do bus "${parentBusName}"`)
-                  : (lang === 'fr' ? `Dissocier du groupe "${parentBusName}"` : `Desvincular do grupo "${parentBusName}"`)}
-              >
-                <Unlink size={11} />
-              </button>
-            )}
             <button 
               onClick={handleDeleteTrack} 
               className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
@@ -682,7 +652,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-4 h-4 object-contain flex-shrink-0" />
                 <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
               </div>
-              <XiloChisel size={10} className="opacity-70 flex-shrink-0" />
             </div>
           )}
         </div>

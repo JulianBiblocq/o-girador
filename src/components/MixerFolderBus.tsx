@@ -22,7 +22,6 @@ import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } fr
 import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
-import { XiloChisel } from './XiloIcons';
 
 interface MixerFolderBusProps {
   trackId: number;
@@ -37,6 +36,7 @@ interface MixerFolderBusProps {
   isDraggingWagon?: boolean;
   channelOrdinal?: string;
   midiFaderIndex?: number | null;
+  isUnderMidiControl?: boolean;
 }
 
 const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
@@ -52,6 +52,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   isDraggingWagon = false,
   channelOrdinal,
   midiFaderIndex = null,
+  isUnderMidiControl = false,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -395,37 +396,29 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
               <GripHorizontal size={16} />
             </div>
 
-            {/* Numérotation ordonnée immuable */}
+            {/* Numérotation ordonnée & Témoin Contrôleur MIDI fusionné */}
             {channelOrdinal && (
-              <span className="font-mono text-[9.5px] font-bold opacity-60 tracking-tight select-none shrink-0">
+              <span
+                className={`font-mono text-[10px] font-bold tracking-tight select-none shrink-0 transition-colors ${
+                  isUnderMidiControl
+                    ? "bg-[#ea580c] text-[#f4ecd8] px-1.5 py-0.5 rounded shadow-xs"
+                    : "text-[var(--cordel-text)]/60 px-1 py-0.5"
+                }`}
+                title={isUnderMidiControl ? (midiFaderIndex ? `Contrôle physique actif (Fader ${midiFaderIndex})` : "Contrôle physique actif") : undefined}
+              >
                 {channelOrdinal}
-              </span>
-            )}
-
-            {/* Badge Contrôle Physique Actif [ F1 ] .. [ F8 ] */}
-            {midiFaderIndex !== null && (
-              <span className="bg-[#ea580c] text-[#f4ecd8] px-1 py-[0.5px] font-mono font-bold text-[8.5px] rounded shadow-xs select-none shrink-0 tracking-tighter">
-                F{midiFaderIndex}
               </span>
             )}
           </div>
           
           <div className="flex items-center gap-1 shrink-0">
             <button 
-               onClick={() => setIsEditing(true)} 
-               className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
-               title={lang === 'fr' ? (track.isLinkFolder ? 'Renommer le groupe' : 'Renommer le bus') : (track.isLinkFolder ? 'Renomear o grupo' : 'Renomear o bus')}
-             >
-               <XiloChisel size={11} />
-             </button>
-
-             <button 
-               onClick={onDelete} 
-               className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
-               title={lang === 'fr' ? (track.isLinkFolder ? 'Supprimer le groupe' : 'Supprimer le bus') : (track.isLinkFolder ? 'Excluir o grupo' : 'Excluir o bus')}
-             >
-               <Trash2 size={11} />
-             </button>
+              onClick={onDelete} 
+              className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
+              title={lang === 'fr' ? (track.isLinkFolder ? 'Supprimer le groupe' : 'Supprimer le bus') : (track.isLinkFolder ? 'Excluir o grupo' : 'Excluir o bus')}
+            >
+              <Trash2 size={11} />
+            </button>
           </div>
         </div>
 
@@ -444,6 +437,11 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
           ) : (
             <div 
               onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              title={lang === 'fr' ? "Clic: plier/déplier | Double-clic: renommer" : "Clique: dobrar/desdobrar | Clique duplo: renomear"}
               className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]"
             >
               <span className="font-cactus truncate">{track.isFolded ? '▼' : '▶'} {track.customName || 'Bus'}</span>
