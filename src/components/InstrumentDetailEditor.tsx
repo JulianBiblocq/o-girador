@@ -4,7 +4,7 @@
  */
 
 import * as Tone from 'tone';
-import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack, isToadaChild, selectTracksMeta } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack, isToadaBus, isToadaChild, selectTracksMeta } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -203,6 +203,9 @@ const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   const customName = useSequencerStore(
     (state) => state.tracks.find((t) => t.id === trackId)?.customName
   );
+  const isBusFolder = useSequencerStore(
+    (state) => state.tracks.find((t) => t.id === trackId)?.isBusFolder
+  );
 
   useEffect(() => {
     if (isActive && chipRef.current) {
@@ -214,9 +217,11 @@ const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
     }
   }, [isActive]);
 
-  const tInst = instrumentsConfig[instrumentIdx];
+  const toadaConfig = instrumentsConfig.find(i => i.id === 'toada') || instrumentsConfig[12];
+  const isToada = (isBusFolder && (customName === 'Toada' || String(trackId) === 'toada')) || instrumentIdx === 12;
+  const tInst = isToada && toadaConfig ? toadaConfig : instrumentsConfig[instrumentIdx];
   const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
-  const titleText = customName || tInst?.name || 'Instrument';
+  const titleText = isToada ? 'Toada' : (customName || tInst?.name || 'Instrument');
 
   return (
     <button
@@ -307,7 +312,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const visibleTrackIds = useSequencerStore(
     useShallow((state) => {
       const list = state.tracks.filter(
-        (t) => (!t.isBusFolder || t.isLinkFolder) && !t.isHidden && !isToadaChild(t, state.tracks)
+        (t) => (isSequencerVisibleTrack(t, state.tracks) || isToadaBus(t) || t.customName === 'Toada' || t.instrumentIdx === 12)
+          && !t.isHidden
+          && !isToadaChild(t, state.tracks)
       );
       if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
         const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
@@ -381,6 +388,37 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const canPaste = !!sequencer.copiedPattern;
 
+  // Granular selection of only the current track to prevent parent-level render thrashing
+  const track = useSequencerStore(
+    React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
+  );
+
+  const isSlave = Boolean(track?.linkedToTrackId && !track?.isLinkMaster);
+  const isToada = Boolean(track && (isToadaBus(track) || track.customName === 'Toada' || track.instrumentIdx === 12));
+
+  // Si Toada est un bus folder sans patterns propres, cibler l'enfant vocal actif (Puxador ou Coro)
+  const activeVocalChildTrack = useSequencerStore(
+    React.useCallback((state) => {
+      if (!track || !isToada) return undefined;
+      const pux = state.tracks.find(t => isToadaChild(t, state.tracks) && instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = state.tracks.find(t => isToadaChild(t, state.tracks) && instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const globalSelectedId = useAudioStore.getState().selectedVocalPatternId;
+      if (globalSelectedId) {
+        if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
+        if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
+      }
+      const coroPtn = coro?.patterns.find(p => p.measureAssignments[currentMeasure]);
+      if (coroPtn) return coro;
+      const puxPtn = pux?.patterns.find(p => p.measureAssignments[currentMeasure]);
+      if (puxPtn) return pux;
+      return pux || coro || undefined;
+    }, [track, isToada, currentMeasure])
+  );
+
+  const effectiveEditTrackId = (isToada && (!track?.patterns || track.patterns.length === 0) && activeVocalChildTrack)
+    ? activeVocalChildTrack.id
+    : trackId;
+
   // Callbacks mapped directly to sequencer context actions
   const onStepValueChange = React.useCallback((
     patternId: number,
@@ -389,8 +427,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     lyrics?: string[],
     notes?: string[]
   ) => {
-    sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, val, lyrics, notes);
-  }, [trackId, sequencer]);
+    sequencer.handleTrackStepValueChange(effectiveEditTrackId, patternId, stepIdx, val, lyrics, notes);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onStepKeyDown = React.useCallback((
     patternId: number,
@@ -399,106 +437,106 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     currentVal: string,
     targetEl: HTMLInputElement
   ) => {
-    sequencer.handleTrackStepKeyDown(trackId, patternId, stepIdx, key, currentVal, targetEl);
-  }, [trackId, sequencer]);
+    sequencer.handleTrackStepKeyDown(effectiveEditTrackId, patternId, stepIdx, key, currentVal, targetEl);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVoiceTypeToggle = React.useCallback((patternId: number, stepIdx: number) => {
-    sequencer.handleVoiceTypeToggle(trackId, patternId, stepIdx);
-  }, [trackId, sequencer]);
+    sequencer.handleVoiceTypeToggle(effectiveEditTrackId, patternId, stepIdx);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVoiceSylChange = React.useCallback((patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceSylChange(trackId, patternId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleVoiceSylChange(effectiveEditTrackId, patternId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVoiceNoteChange = React.useCallback((patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceNoteChange(trackId, patternId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleVoiceNoteChange(effectiveEditTrackId, patternId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVoiceNoteBlur = React.useCallback((patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceNoteBlur(trackId, patternId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleVoiceNoteBlur(effectiveEditTrackId, patternId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onCopyPattern = sequencer.handleCopyPattern;
 
   const onPlaySoloPattern = audio.handleStartSoloPattern;
   const onStopSoloPattern = audio.handleStopSoloPattern;
 
-  // Local actions utilizing trackId
+  // Local actions utilizing effectiveEditTrackId
   const onStepsChange = React.useCallback((patternId: number, steps: number) => {
-    sequencer.handleTrackStepsChange(trackId, patternId, steps);
-  }, [trackId, sequencer]);
+    sequencer.handleTrackStepsChange(effectiveEditTrackId, patternId, steps);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onAddPattern = React.useCallback(() => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
+      if (t.id === effectiveEditTrackId) {
         const p = t.patterns[0];
         const newPattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
           name: getNextPatternName(t.patterns, undefined, lang),
-          steps: p.steps,
-          activeSteps: Array(p.steps).fill(0),
-          lyrics: Array(p.steps).fill(''),
-          notes: Array(p.steps).fill(''),
+          steps: p ? p.steps : 16,
+          activeSteps: Array(p ? p.steps : 16).fill(0),
+          lyrics: Array(p ? p.steps : 16).fill(''),
+          notes: Array(p ? p.steps : 16).fill(''),
           measureAssignments: Array(totalMeasures).fill(false),
-          volumes: Array(p.steps).fill(80),
-          decays: Array(p.steps).fill(100),
-          microtimings: Array(p.steps).fill(0),
+          volumes: Array(p ? p.steps : 16).fill(80),
+          decays: Array(p ? p.steps : 16).fill(100),
+          microtimings: Array(p ? p.steps : 16).fill(0),
           variations: [],
         };
         return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
       }
       return t;
     }));
-  }, [trackId, sequencer, totalMeasures, lang]);
+  }, [effectiveEditTrackId, sequencer, totalMeasures, lang]);
 
   const onDeletePattern = React.useCallback((patternId: number) => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId && t.patterns.length > 1) {
+      if (t.id === effectiveEditTrackId && t.patterns.length > 1) {
         const nextPatterns = t.patterns.filter(p => p.id !== patternId);
         const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
         return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
       }
       return t;
     }));
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onReorderPatternsDnd = React.useCallback((oldIndex: number, newIndex: number) => {
     if (sequencer.handleReorderPatternsDnd) {
-      sequencer.handleReorderPatternsDnd(trackId, oldIndex, newIndex);
+      sequencer.handleReorderPatternsDnd(effectiveEditTrackId, oldIndex, newIndex);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onAddPatternVariation = React.useCallback((patternId: number) => {
     if (sequencer.handleAddPatternVariation) {
-      sequencer.handleAddPatternVariation(trackId, patternId);
+      sequencer.handleAddPatternVariation(effectiveEditTrackId, patternId);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onUpdatePatternVariationProbability = React.useCallback((patternId: number, variationId: string, probability: number) => {
     if (sequencer.handleUpdatePatternVariationProbability) {
-      sequencer.handleUpdatePatternVariationProbability(trackId, patternId, variationId, probability);
+      sequencer.handleUpdatePatternVariationProbability(effectiveEditTrackId, patternId, variationId, probability);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onTogglePatternVariationFirstTimeOnly = React.useCallback((patternId: number, variationId: string, val: boolean) => {
     if (sequencer.handleTogglePatternVariationFirstTimeOnly) {
-      sequencer.handleTogglePatternVariationFirstTimeOnly(trackId, patternId, variationId, val);
+      sequencer.handleTogglePatternVariationFirstTimeOnly(effectiveEditTrackId, patternId, variationId, val);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVariationStepValueChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => {
     if (sequencer.handleVariationStepValueChange) {
-      sequencer.handleVariationStepValueChange(trackId, patternId, variationId, stepIdx, val);
+      sequencer.handleVariationStepValueChange(effectiveEditTrackId, patternId, variationId, stepIdx, val);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onDeletePatternVariation = React.useCallback((patternId: number, variationId: string) => {
     if (sequencer.handleDeletePatternVariation) {
-      sequencer.handleDeletePatternVariation(trackId, patternId, variationId);
+      sequencer.handleDeletePatternVariation(effectiveEditTrackId, patternId, variationId);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
 
   const onVolumeChange = React.useCallback((val: number) => {
@@ -514,47 +552,51 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, sequencer]);
 
   const onStepVolumeChange = React.useCallback((patternId: number, stepIdx: number | number[], val: number) => {
-    sequencer.handleTrackStepVolumeChange(trackId, patternId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleTrackStepVolumeChange(effectiveEditTrackId, patternId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onStepDecayChange = React.useCallback((patternId: number, stepIdx: number | number[], val: number) => {
-    sequencer.handleTrackStepDecayChange(trackId, patternId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleTrackStepDecayChange(effectiveEditTrackId, patternId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onStepMicrotimingChange = React.useCallback((patternId: number, stepIdx: number | number[], val: number) => {
-    sequencer.handleTrackStepMicrotimingChange(trackId, patternId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleTrackStepMicrotimingChange(effectiveEditTrackId, patternId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVariationStepVolumeChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
-    sequencer.handleVariationStepVolumeChange(trackId, patternId, variationId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleVariationStepVolumeChange(effectiveEditTrackId, patternId, variationId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVariationStepDecayChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
-    sequencer.handleVariationStepDecayChange(trackId, patternId, variationId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleVariationStepDecayChange(effectiveEditTrackId, patternId, variationId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onVariationStepMicrotimingChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
-    sequencer.handleVariationStepMicrotimingChange(trackId, patternId, variationId, stepIdx, val);
-  }, [trackId, sequencer]);
+    sequencer.handleVariationStepMicrotimingChange(effectiveEditTrackId, patternId, variationId, stepIdx, val);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onPastePattern = React.useCallback((patternId: number) => {
-    sequencer.handlePastePattern(trackId, patternId);
-  }, [trackId, sequencer]);
+    sequencer.handlePastePattern(effectiveEditTrackId, patternId);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onLoadLibraryPattern = React.useCallback((targetPatternId: number, libraryPattern: any) => {
     if (sequencer.handleLoadLibraryPattern) {
-      sequencer.handleLoadLibraryPattern(trackId, targetPatternId, libraryPattern);
+      sequencer.handleLoadLibraryPattern(effectiveEditTrackId, targetPatternId, libraryPattern);
     }
-  }, [trackId, sequencer]);
+  }, [effectiveEditTrackId, sequencer]);
 
   const onPatternNameChange = React.useCallback((patternId: number, name: string) => {
-    sequencer.handlePatternNameChange(trackId, patternId, name);
-  }, [trackId, sequencer]);
+    sequencer.handlePatternNameChange(effectiveEditTrackId, patternId, name);
+  }, [effectiveEditTrackId, sequencer]);
 
   // Dynamic Navigation callbacks sorted according to pedagogical rodaTrackOrder
   const getNavTracksList = () => {
     const state = useSequencerStore.getState();
-    const list = state.tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, state.tracks));
+    const list = state.tracks.filter(
+      (t) => (isSequencerVisibleTrack(t, state.tracks) || isToadaBus(t) || t.customName === 'Toada' || t.instrumentIdx === 12)
+        && !t.isHidden
+        && !isToadaChild(t, state.tracks)
+    );
     if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
       const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
       list.sort((a, b) => {
@@ -604,13 +646,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
   }, [trackId, setEditingTrackId]);
 
-  // Granular selection of only the current track to prevent parent-level render thrashing
-  const track = useSequencerStore(
-    React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
-  );
-
-  const isSlave = Boolean(track?.linkedToTrackId && !track?.isLinkMaster);
-
   const parentBus = useSequencerStore(
     React.useCallback(
       (state) => (isSlave && track?.linkedToTrackId ? state.tracks.find((t) => String(t.id) === String(track.linkedToTrackId) && t.isLinkFolder) : undefined),
@@ -639,8 +674,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         ? masterTrack.patterns
         : track?.patterns || [];
     }
+    if (isToada && (!track?.patterns || track.patterns.length === 0) && activeVocalChildTrack?.patterns) {
+      return activeVocalChildTrack.patterns;
+    }
     return track?.patterns || [];
-  }, [isSlave, parentBus?.patterns, masterTrack?.patterns, track?.patterns]);
+  }, [isSlave, parentBus?.patterns, masterTrack?.patterns, isToada, track?.patterns, activeVocalChildTrack?.patterns]);
 
   const activePattern = displayedPatterns.find(p => p.id === (track?.selectedPatternId ?? displayedPatterns[0]?.id));
   const hasVocalRecording = useAudioStore(
@@ -665,10 +703,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const getInstrumentLabel = useInstrumentLabel();
-  const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
+
+  const toadaConfig = instrumentsConfig.find(i => i.id === 'toada') || instrumentsConfig[12];
+  const inst = track
+    ? (isToada && toadaConfig ? toadaConfig : instrumentsConfig[track.instrumentIdx])
+    : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
   const trackDisplayName = useMemo(() => {
     if (!track || !inst) return '';
+    if (isToadaBus(track) || track.customName === 'Toada') return 'Toada';
     if (track.customName) return track.customName;
     const instName = getInstrumentLabel(track) || inst.name || 'Instrument';
     
@@ -1164,9 +1207,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
-          <span className="font-cactus font-bold text-lg tracking-wide whitespace-nowrap shrink-0">
-            {trackDisplayName}
-          </span>
+          <div className="w-[150px] min-w-[150px] shrink-0 flex items-center">
+            <span className="font-cactus font-bold text-lg tracking-wide truncate" title={trackDisplayName}>
+              {trackDisplayName}
+            </span>
+          </div>
 
           {/* Ruban de navigation rapide des pupitres */}
           <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-[190px] xs:max-w-[250px] sm:max-w-[360px] md:max-w-[480px] lg:max-w-[620px] mr-auto">
@@ -1729,7 +1774,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           })()}
 
                           <InstrumentPatternGrid
-                            trackId={track.id}
+                            trackId={effectiveEditTrackId}
                             pattern={ptn}
                             instrument={inst}
                             selectedPatternId={selectedPatternId}
@@ -1757,7 +1802,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                           {/* Variations */}
                           <PatternVariationsEditor
-                            trackId={track.id}
+                            trackId={effectiveEditTrackId}
                             lang={lang}
                             ptn={ptn}
                             inst={inst}
@@ -1803,7 +1848,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           {/* Step Sculptor Panel for this pattern */}
                           {selectedPatternId === ptn.id && selectedStepIdx !== null && (
                             <InstrumentEffects
-                              trackId={track.id}
+                              trackId={effectiveEditTrackId}
                               pattern={ptn}
                               selectedStepIdx={selectedStepIdx}
                               selectedStepIndices={selectedStepIndices}
@@ -1836,7 +1881,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 </button>
                 {canPaste && (
                   <button
-                    onClick={() => sequencer.handlePastePattern(trackId)}
+                    onClick={() => sequencer.handlePastePattern(effectiveEditTrackId)}
                     className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors"
                     title={lang === 'fr' ? 'Coller le motif copié comme nouveau motif' : 'Colar o padrão copiado como novo padrão'}
                   >
@@ -1851,7 +1896,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           {/* ─── Zone droite fixe (270px, border-l) : Panneau StrokeInspectorPanel ─── */}
           <div className="hidden lg:flex shrink-0 w-[270px] h-full flex-col overflow-hidden border-l-[3px] border-[#1a1a1a] bg-[#ece4d0]">
             <StrokeInspectorPanel
-              trackId={track.id}
+              trackId={effectiveEditTrackId}
               instrument={inst}
               lang={lang}
               isLeftHanded={isLeftHanded}
@@ -1862,7 +1907,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
         {/* ═══════════════════ PIED DE PAGE GLOBAL (Dock pleine largeur) ═══════════════════ */}
         <StrokeWritingDock
-          trackId={track.id}
+          trackId={effectiveEditTrackId}
           instrument={inst}
           lang={lang}
           isLeftHanded={isLeftHanded}
