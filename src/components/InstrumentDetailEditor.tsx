@@ -708,6 +708,45 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const inst = track
     ? (isToada && toadaConfig ? toadaConfig : instrumentsConfig[track.instrumentIdx])
     : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
+
+  // Détection granulaire du contexte vocal (Puxador / Coro / Toada)
+  const { puxTrack, coroTrack } = useSequencerStore(
+    useShallow((state) => {
+      const pux = state.tracks.find(t => 
+        instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || 
+        String(t.id) === 'puxador' || 
+        t.customName === 'Puxador'
+      );
+      const coro = state.tracks.find(t => 
+        instrumentsConfig[t.instrumentIdx]?.id === 'coro' || 
+        String(t.id) === 'coro' || 
+        t.customName === 'Coro'
+      );
+      return { puxTrack: pux, coroTrack: coro };
+    })
+  );
+
+  const isVocalContext = Boolean(
+    isToada ||
+    String(track?.id) === 'puxador' ||
+    String(track?.id) === 'coro' ||
+    String(track?.id) === 'toada' ||
+    (track as any)?.type === 'voice' ||
+    inst?.type === 'voice' ||
+    inst?.id === 'puxador' ||
+    inst?.id === 'coro' ||
+    inst?.id === 'toada' ||
+    track?.customName === 'Toada' ||
+    track?.customName === 'Puxador' ||
+    track?.customName === 'Coro'
+  );
+
+  const isCoroActive = Boolean(
+    effectiveEditTrackId === coroTrack?.id ||
+    String(track?.id) === 'coro' ||
+    inst?.id === 'coro' ||
+    track?.customName === 'Coro'
+  );
   
   const trackDisplayName = useMemo(() => {
     if (!track || !inst) return '';
@@ -1069,6 +1108,26 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
+  const handleSwitchVocalTrack = React.useCallback((targetTrack: any) => {
+    if (!targetTrack || targetTrack.id === effectiveEditTrackId) return;
+
+    // Résoudre le motif de destination (soit le motif de même index, soit patterns[0]?.id)
+    const currentPtnIdx = displayedPatterns.findIndex(p => p.id === selectedPatternId);
+    const targetPattern = (currentPtnIdx >= 0 && targetTrack.patterns?.[currentPtnIdx])
+      ? targetTrack.patterns[currentPtnIdx]
+      : (targetTrack.patterns?.[0] || null);
+
+    if (targetPattern) {
+      setSelectedPatternId(targetPattern.id);
+    }
+    setSelectedVariationId(null);
+    setSelectedStepIdx(null);
+    setSelectedStepIndices([]);
+    setSelectedSubIndex(null);
+
+    setEditingTrackId(targetTrack.id);
+  }, [effectiveEditTrackId, displayedPatterns, selectedPatternId, setEditingTrackId]);
+
   const onSelectPattern = React.useCallback((patternId: number) => {
     setSelectedPatternId(patternId);
     setSelectedVariationId(null);
@@ -1203,6 +1262,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         return;
       }
 
+      // Raccourci Tab pour basculer alternativement entre Puxador et Coro (hors saisie de texte)
+      if (e.key === 'Tab' && isVocalContext && puxTrack && coroTrack) {
+        e.preventDefault();
+        const target = isCoroActive ? puxTrack : coroTrack;
+        handleSwitchVocalTrack(target);
+        return;
+      }
+
       // Si le focus est sur une cellule de pas de grille ou qu'un pas est ciblé, laisser la cellule traiter
       const isCellTarget = 
         Boolean(activeEl?.closest?.('.step-boxes')) || 
@@ -1314,7 +1381,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track]);
+  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack]);
 
   if (!track) return null;
 
@@ -1339,9 +1406,41 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
           <div className="w-[150px] min-w-[150px] shrink-0 flex items-center">
-            <span className="font-cactus font-bold text-lg tracking-wide truncate" title={trackDisplayName}>
-              {trackDisplayName}
-            </span>
+            {isVocalContext && puxTrack && coroTrack ? (
+              <div className="w-full flex items-stretch h-7 rounded border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] overflow-hidden bg-[#f4ecd8] select-none">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchVocalTrack(puxTrack)}
+                  className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer ${
+                    !isCoroActive
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                      : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                  }`}
+                  title={lang === 'fr' ? 'Éditer le Puxador (Solo) [Tab]' : 'Editar o Puxador (Solo) [Tab]'}
+                >
+                  <span className="text-[10px]">🎙️</span>
+                  <span className="truncate">Puxador</span>
+                </button>
+                <div className="w-[1px] bg-[#1a1a1a]" />
+                <button
+                  type="button"
+                  onClick={() => handleSwitchVocalTrack(coroTrack)}
+                  className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer ${
+                    isCoroActive
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                      : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                  }`}
+                  title={lang === 'fr' ? 'Éditer le Coro (Chœur) [Tab]' : 'Editar o Coro (Coro) [Tab]'}
+                >
+                  <span className="text-[10px]">👥</span>
+                  <span className="truncate">Coro</span>
+                </button>
+              </div>
+            ) : (
+              <span className="font-cactus font-bold text-lg tracking-wide truncate" title={trackDisplayName}>
+                {trackDisplayName}
+              </span>
+            )}
           </div>
 
           {/* Ruban de navigation rapide des pupitres */}
