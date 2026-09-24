@@ -48,6 +48,24 @@ function debouncedSavePan(trackId: number, val: number) {
   panDebounceTimers.set(trackId, timer);
 }
 
+const isVoiceTrack = (t?: any): boolean => {
+  if (!t) return false;
+  const inst = instrumentsConfig[t.instrumentIdx];
+  return (
+    t.id === 'toada' ||
+    t.id === 'puxador' ||
+    t.id === 'coro' ||
+    t.type === 'voice' ||
+    inst?.type === 'voice' ||
+    inst?.id === 'puxador' ||
+    inst?.id === 'coro' ||
+    inst?.id === 'toada' ||
+    t.customName === 'Toada' ||
+    t.customName === 'Puxador' ||
+    t.customName === 'Coro'
+  );
+};
+
 export const useMidiController = () => {
   const audio = useAudio();
   const sequencer = useSequencer();
@@ -426,15 +444,159 @@ export const useMidiController = () => {
         return; // Always return to block transport signals from triggering instrument sounds
       }
 
-      // 4. Live Mode: Instrument notes (only Note On, velocity > 0)
-      if (isNoteOn && velocity > 0) {
-        const seqStore = useSequencerStore.getState();
-        const { isPatternRecording, armedPatternId, armedTrackId, updatePatternStep, tracks, lang, isLeftHanded } = seqStore;
-        const target = state.mappings[note];
+      // 4. Live Mode: Instrument notes (Note On & Note Off)
+      const seqStore = useSequencerStore.getState();
+      const { isPatternRecording, armedPatternId, armedTrackId, updatePatternStep, tracks, lang, isLeftHanded } = seqStore;
+      const target = state.mappings[note];
 
+      // Résolution de la piste cible
+      let trackIdToPlay: number | string | null = target ? target.trackId : armedTrackId;
+      if (trackIdToPlay === null && (seqStore as any).editingTrackId !== undefined) {
+        trackIdToPlay = (seqStore as any).editingTrackId;
+      }
+      const activeTrack = tracks.find(t => t.id === trackIdToPlay) || tracks.find(t => isVoiceTrack(t));
+      const isVoice = isVoiceTrack(activeTrack);
+
+      const isNoteOff = messageType === 0x80 || (isNoteOn && velocity === 0);
+
+      // A. Gestion du Note Off (extinction des voix tenues)
+      if (isNoteOff) {
+        if (isVoice && audioEngine) {
+          const noteName = Tone.Frequency(note, 'midi').toNote();
+          audioEngine.releaseVoicePitch(noteName);
+        }
+        return;
+      }
+
+      // B. Gestion du Note On (velocity > 0)
+      if (isNoteOn && velocity > 0) {
+        const noteName = Tone.Frequency(note, 'midi').toNote();
+
+        // --- Branche Vocale (Puxador / Toada / Coro) ---
+        if (isVoice) {
+          // 1. Déclenchement sonore immédiat sur le synthétiseur vocal
+          if (audioEngine) {
+            audioEngine.triggerVoicePitch(noteName, velocity / 127.0);
+          }
+
+          // 2. Si un pas est ciblé hors lecture (input focus ou pas sélectionné)
+          const activeInput = document.activeElement as HTMLInputElement | null;
+          let targetCard: HTMLElement | null = null;
+          let stepInput: HTMLInputElement | null = null;
+
+          if (activeInput && (activeInput.classList.contains('v-note') || activeInput.classList.contains('step-input-cell'))) {
+            stepInput = activeInput;
+            targetCard = activeInput.closest('[data-step-index]') as HTMLElement | null;
+          } else {
+            targetCard = document.querySelector('.v-card.border-\\[\\#f1c40f\\], [data-step-type="voice"].border-\\[\\#f1c40f\\], [data-step-type="voice"][data-selected="true"]') as HTMLElement | null;
+            if (targetCard) {
+              stepInput = targetCard.querySelector('.v-note') as HTMLInputElement | null;
+            }
+          }
+
+          if (targetCard && stepInput) {
+            const cardTrackId = targetCard.getAttribute('data-track-id');
+            const cardPatternId = targetCard.getAttribute('data-pattern-id');
+            const cardStepIdx = parseInt(targetCard.getAttribute('data-step-index') || '0', 10);
+
+            // Injecter le pitch dans l'input DOM
+            stepInput.value = noteName;
+            stepInput.dispatchEvent(new Event('input', { bubbles: true }));
+            stepInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Mettre à jour Zustand de manière immuable
+            if (cardTrackId && cardPatternId) {
+              const numTrackId = Number(cardTrackId);
+              const numPatternId = Number(cardPatternId);
+              seqStore.setTracks(prev => prev.map(t => {
+                if (t.id === numTrackId || String(t.id) === cardTrackId) {
+                  return {
+                    ...t,
+                    patterns: t.patterns.map(p => {
+                      if (p.id === numPatternId || String(p.id) === cardPatternId) {
+                        const notes = [...(p.notes || Array(p.steps).fill(''))];
+                        notes[cardStepIdx] = noteName;
+                        const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
+                        if (!activeSteps[cardStepIdx] || activeSteps[cardStepIdx] === '0' || activeSteps[cardStepIdx] === 0) {
+                          activeSteps[cardStepIdx] = 'T';
+                        }
+                        return { ...p, notes, activeSteps };
+                      }
+                      return p;
+                    })
+                  };
+                }
+                return t;
+              }));
+            }
+
+            // Incrémenter vers le pas suivant
+            const nextCardWrapper = targetCard.closest('.step-col')?.nextElementSibling ||
+                                    targetCard.parentElement?.nextElementSibling;
+            const nextInput = nextCardWrapper?.querySelector('.v-note') as HTMLInputElement | null;
+            if (nextInput) {
+              nextInput.focus();
+              nextInput.select();
+            } else {
+              const nextCard = nextCardWrapper?.querySelector('[data-step-index]') as HTMLElement | null;
+              if (nextCard) nextCard.click();
+            }
+          }
+
+          // 3. Enregistrement en direct pendant la lecture
+          if (isPatternRecording && armedPatternId !== null && armedTrackId !== null) {
+            const armedTrack = tracks.find(t => t.id === armedTrackId);
+            const armedPattern = armedTrack?.patterns.find(p => p.id === armedPatternId);
+            if (armedTrack && armedPattern) {
+              const stepsCount = armedPattern.steps || 16;
+              const ppq = Tone.Transport.PPQ || 192;
+              const patternTicks = stepsCount * (ppq / 4);
+              const currentTick = Math.max(0, Tone.Transport.ticks) % patternTicks;
+              const targetStep = (Math.round(currentTick / (patternTicks / stepsCount)) % stepsCount + stepsCount) % stepsCount;
+
+              seqStore.setTracks(prev => prev.map(t => {
+                if (t.id === armedTrackId) {
+                  return {
+                    ...t,
+                    patterns: t.patterns.map(p => {
+                      if (p.id === armedPatternId) {
+                        const notes = [...(p.notes || Array(p.steps).fill(''))];
+                        notes[targetStep] = noteName;
+                        const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
+                        if (!activeSteps[targetStep] || activeSteps[targetStep] === '0' || activeSteps[targetStep] === 0) {
+                          activeSteps[targetStep] = 'T';
+                        }
+                        return { ...p, notes, activeSteps };
+                      }
+                      return p;
+                    })
+                  };
+                }
+                return t;
+              }));
+
+              // Animation WAAPI sans re-render React
+              const cellElements = document.querySelectorAll<HTMLElement>(
+                `[data-pattern-id="${armedPatternId}"][data-step-index="${targetStep}"]`
+              );
+              cellElements.forEach(cellEl => {
+                cellEl.animate([
+                  { transform: 'scale(1.25)', filter: 'brightness(1.8)', opacity: 1 },
+                  { transform: 'scale(1)', filter: 'brightness(1)', opacity: 1 }
+                ], {
+                  duration: 160,
+                  easing: 'cubic-bezier(0.25, 1, 0.5, 1)'
+                });
+              });
+            }
+          }
+
+          return;
+        }
+
+        // --- Branche Percussions (comportement d'origine) ---
         // Résolution du symbole/frappe
         let strokeChar = target?.symbol;
-        let trackIdToPlay: number | string | null = target ? target.trackId : armedTrackId;
 
         if (!strokeChar && armedTrackId !== null) {
           const armedTrack = tracks.find(t => t.id === armedTrackId);

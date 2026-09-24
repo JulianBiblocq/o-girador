@@ -20,6 +20,7 @@ import { useSequencerStore } from './stores/useSequencerStore';
 import { instrumentsConfig } from './data';
 import { TrackGroup } from './types';
 import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from './audio/audioSampleCache';
+import { masterVolumeNode } from './audio/effectsChain';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -95,6 +96,7 @@ export class AudioEngine {
   private activeGainNodes = new Map<AudioBufferSourceNode, { instrumentId: string; gainNode: GainNode; expectedEnd: number }>(); // Precise tracking to avoid leaks
   private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
   private instrumentVoices = new Map<string, ActiveVoice[]>(); // Track active/scheduled voices for eco mode polyphony limits
+  public voiceSynth: any = null; // Tone.PolySynth for interactive vocal pitch preview (Puxador / Toada)
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
@@ -442,6 +444,12 @@ export class AudioEngine {
     }
     this.activeGainNodes.clear();
     this.instrumentVoices.clear();
+
+    if (this.voiceSynth) {
+      try {
+        this.voiceSynth.releaseAll();
+      } catch (_) {}
+    }
   }
 
   /**
@@ -451,6 +459,100 @@ export class AudioEngine {
     if (!this.isPlaying) return;
     this.nextTickTime = this.audioContext.currentTime + 0.025;
     this.mustReanchor = true;
+  }
+
+  /**
+   * Initialise le synthétiseur de guidage vocal interactif
+   */
+  private initVoiceSynth(): void {
+    const Tone = getTone();
+    if (!Tone) return;
+
+    try {
+      this.voiceSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: {
+          type: 'triangle',
+        },
+        envelope: {
+          attack: 0.02,
+          decay: 0.1,
+          sustain: 0.85,
+          release: 0.25,
+        },
+      });
+
+      this.voiceSynth.maxPolyphony = 6;
+      this.voiceSynth.volume.value = -6;
+
+      if (masterVolumeNode) {
+        this.voiceSynth.connect(masterVolumeNode as any);
+        (this.voiceSynth as any)._connectedToMaster = true;
+      } else {
+        const dest = Tone.getDestination ? Tone.getDestination() : Tone.Destination;
+        this.voiceSynth.connect(dest as any);
+      }
+    } catch (err) {
+      console.error('AudioEngine: Error initializing voiceSynth:', err);
+    }
+  }
+
+  /**
+   * Déclenche une note de synthèse vocale temps réel (clavier virtuel ou MIDI)
+   */
+  public triggerVoicePitch(pitch: string | number, velocity: number = 0.8): void {
+    try {
+      const Tone = getTone();
+      if (!Tone) return;
+
+      if (this.audioContext.state !== 'running') {
+        this.audioContext.resume().catch(() => {});
+      }
+      if (Tone.context && Tone.context.state !== 'running') {
+        Tone.start().catch(() => {});
+      }
+
+      if (!this.voiceSynth) {
+        this.initVoiceSynth();
+      } else if (masterVolumeNode && !(this.voiceSynth as any)._connectedToMaster) {
+        try {
+          this.voiceSynth.connect(masterVolumeNode as any);
+          (this.voiceSynth as any)._connectedToMaster = true;
+        } catch (_) {}
+      }
+
+      if (!this.voiceSynth) return;
+
+      const note = typeof pitch === 'number' && pitch <= 127
+        ? Tone.Frequency(pitch, 'midi').toNote()
+        : pitch;
+
+      const vel = Math.max(0.1, Math.min(1.0, velocity));
+      this.voiceSynth.triggerAttack(note, Tone.now(), vel);
+    } catch (err) {
+      console.error('AudioEngine.triggerVoicePitch error:', err);
+    }
+  }
+
+  /**
+   * Relâche une note de synthèse vocale (ou toutes les notes si aucun pitch n'est spécifié)
+   */
+  public releaseVoicePitch(pitch?: string | number): void {
+    try {
+      if (!this.voiceSynth) return;
+      const Tone = getTone();
+      if (!Tone) return;
+
+      if (pitch !== undefined && pitch !== null && pitch !== '') {
+        const note = typeof pitch === 'number' && pitch <= 127
+          ? Tone.Frequency(pitch, 'midi').toNote()
+          : pitch;
+        this.voiceSynth.triggerRelease([note], Tone.now());
+      } else {
+        this.voiceSynth.releaseAll(Tone.now());
+      }
+    } catch (err) {
+      console.error('AudioEngine.releaseVoicePitch error:', err);
+    }
   }
 
   /**
@@ -1433,5 +1535,13 @@ export class AudioEngine {
     }
     this.gainNodePools.clear();
     this.instrumentVoices.clear();
+
+    if (this.voiceSynth) {
+      try {
+        this.voiceSynth.releaseAll();
+        this.voiceSynth.dispose();
+      } catch (_) {}
+      this.voiceSynth = null;
+    }
   }
 }

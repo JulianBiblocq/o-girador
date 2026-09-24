@@ -5,7 +5,8 @@
  * to input notes cleanly without manual typing.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { audioEngine } from '../hooks/useAudioSync';
 
 interface MelodicNoteSelectorProps {
   currentValue: string; // e.g. "C4", "A#3", or ""
@@ -34,11 +35,27 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
     }
   }
 
+  // Sécurité fuite audio : couper toute note tenue lors du démontage du popover
+  useEffect(() => {
+    return () => {
+      if (audioEngine) {
+        audioEngine.releaseVoicePitch();
+      }
+    };
+  }, []);
+
   const handleNoteClick = (note: string) => {
     onSelect(`${note}${activeOctave}`);
   };
 
   const handleOctaveClick = (octave: string) => {
+    const targetNote = activeNote || 'C';
+    if (audioEngine) {
+      audioEngine.triggerVoicePitch(`${targetNote}${octave}`, 0.8);
+      setTimeout(() => {
+        audioEngine?.releaseVoicePitch(`${targetNote}${octave}`);
+      }, 150);
+    }
     if (activeNote) {
       onSelect(`${activeNote}${octave}`);
     } else {
@@ -81,6 +98,29 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
               return (
                 <button
                   key={note}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
+                  }}
+                  onMouseUp={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
+                  onMouseLeave={() => {
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
+                  onTouchCancel={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
                   onClick={() => handleNoteClick(note)}
                   style={{ left: `${leftOffset}px` }}
                   className={`absolute top-1 z-10 w-5 h-12 border border-[#1a1a1a] cursor-pointer transition-colors ${
@@ -100,6 +140,29 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
               return (
                 <button
                   key={note}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
+                  }}
+                  onMouseUp={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
+                  onMouseLeave={() => {
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
+                  onTouchCancel={(e) => {
+                    e.preventDefault();
+                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
+                  }}
                   onClick={() => handleNoteClick(note)}
                   className={`w-8 h-18 border-r last:border-r-0 border-[#1a1a1a]/30 cursor-pointer flex items-end justify-center pb-1 transition-colors ${
                     isActive 
