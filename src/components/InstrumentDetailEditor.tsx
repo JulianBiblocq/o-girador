@@ -47,6 +47,7 @@ import { useBalancoStore } from '../stores/useBalancoStore';
 import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
+import { VocalWorkflowStepper } from './VocalWorkflowStepper';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 
@@ -1629,6 +1630,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     : 'Instrumento vinculado — Padrões sincronizados com o mestre'}
                 </span>
               </div>
+            )}
+
+            {/* Stepper vocal didactique (« Poser sa voix ») uniquement pour le contexte vocal */}
+            {isVocalContext && (
+              <VocalWorkflowStepper
+                patternId={selectedPatternId ?? activePattern?.id}
+                trackId={effectiveEditTrackId}
+                isCoro={isCoroActive}
+              />
             )}
 
             <div className={`flex flex-col gap-6 ${isSlave ? 'opacity-55 pointer-events-none select-none' : ''}`}>
