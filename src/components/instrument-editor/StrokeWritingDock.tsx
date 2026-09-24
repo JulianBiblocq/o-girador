@@ -56,13 +56,17 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
       <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pl-2 pr-3 py-1.5 min-w-0 flex-1 scrollbar-none">
         {/* Main Stroke Tool Pairs / Groups */}
         {pairs.map((pair) => {
+          const isWeakActive = pair.weak && pair.weak.symbol === activeTool;
+          const isStrongActive = pair.strong.symbol === activeTool || pair.id === activeTool;
           const isSelected = !isScissorsActive && !isEraserActive && (
-            pair.id === activeTool ||
-            pair.strong.symbol === activeTool ||
+            isStrongActive ||
+            isWeakActive ||
             pair.strokes.some(s => s.symbol === activeTool)
           );
-          const bgCol = instrument.colors?.[pair.strong.colorKey] || '#666';
-          const isDark = isDarkText(instrument.id, pair.strong.colorKey);
+
+          const displayedStroke = isSelected && isWeakActive && pair.weak ? pair.weak : pair.strong;
+          const bgCol = instrument.colors?.[displayedStroke.colorKey] || instrument.colors?.[pair.strong.colorKey] || '#666';
+          const isDark = isDarkText(instrument.id, displayedStroke.symbol);
           const txtCol = isDark ? '#1a1a1a' : '#f4ecd8';
 
           const strokeChain = pair.strokes.map(s => s.symbol).join(' / ');
@@ -71,20 +75,37 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
             <button
               key={pair.id}
               type="button"
-              onClick={() => onSelectTool(pair.strong.symbol)}
+              onClick={() => {
+                if (isSelected && isStrongActive && pair.weak) {
+                  onSelectTool(pair.weak.symbol);
+                } else {
+                  onSelectTool(pair.strong.symbol);
+                }
+              }}
+              onWheel={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.deltaY < 0) {
+                  onSelectTool(pair.strong.symbol);
+                } else if (e.deltaY > 0) {
+                  onSelectTool(pair.weak ? pair.weak.symbol : pair.strong.symbol);
+                }
+              }}
               className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border-[2px] transition-all cursor-pointer select-none shrink-0 active:scale-95 ${
                 isSelected
                   ? 'border-[#8b2a1a] bg-[#f4ecd8] shadow-[2px_2px_0px_#8b2a1a] scale-105 z-10'
                   : 'border-[#1a1a1a] bg-[#fdfbf7] hover:bg-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]'
               }`}
-              title={`${pair.mainLabel} (${strokeChain}) — ${isFr ? 'Raccourci' : 'Tecla'}: ${pair.strong.shortcut}`}
+              title={`${pair.mainLabel} (${strokeChain}) — ${isFr ? 'Molette: Nuance | Raccourci' : 'Roda: Nuance | Tecla'}: ${pair.strong.shortcut}`}
             >
               {/* Stroke visual icon badge */}
               <div
-                className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner"
+                className={`w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner transition-colors ${
+                  isSelected && isWeakActive ? 'opacity-85 ring-1 ring-inset ring-black/20' : ''
+                }`}
                 style={{ backgroundColor: bgCol, color: txtCol }}
               >
-                {pair.strong.symbol}
+                {displayedStroke.symbol}
               </div>
 
               {/* Label and shortcut */}

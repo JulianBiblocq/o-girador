@@ -12,7 +12,7 @@ import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useA
 import { useAudioStore } from '../stores/useAudioStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { getStrokePairs, STEP_OPTIONS } from '../utils/instrumentStrokes';
+import { getStrokePairs, getWheelNuanceState, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { getNextPatternName } from '../utils/patternNaming';
 import { createPortal } from 'react-dom';
 import { Play, Square, GripVertical } from 'lucide-react';
@@ -1164,26 +1164,157 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const isSettingsOpen = useSequencerSettingsStore(state => state.isSettingsOpen);
 
   useEffect(() => {
+    (window as any).oGiradorDetailEditorClose = handleClose;
+    return () => {
+      delete (window as any).oGiradorDetailEditorClose;
+    };
+  }, [handleClose]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isSettingsOpen) return;
       if (e.defaultPrevented) return;
+
+      const activeEl = document.activeElement as HTMLElement | null;
+      const target = e.target as HTMLElement | null;
+
+      const isTextEntry = 
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        Boolean(activeEl?.isContentEditable) ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        Boolean(target?.isContentEditable);
+
+      // Barrière 1 : Saisie de texte (seule Escape blur le champ)
+      if (isTextEntry) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          activeEl?.blur();
+          target?.blur();
+        }
+        return;
+      }
+
+      // Barrière 2 : Touche Escape ferme immédiatement l'éditeur d'instrument
       if (e.key === 'Escape') {
         e.preventDefault();
         handleClose();
         return;
       }
+
+      // Si le focus est sur une cellule de pas de grille ou qu'un pas est ciblé, laisser la cellule traiter
+      const isCellTarget = 
+        Boolean(activeEl?.closest?.('.step-boxes')) || 
+        Boolean(activeEl?.closest?.('.step-input-cell')) ||
+        Boolean(target?.closest?.('.step-boxes')) || 
+        Boolean(target?.closest?.('.step-input-cell'));
+
+      if (isCellTarget || selectedStepIdx !== null) {
+        if (onKeyDown) onKeyDown(e);
+        return;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // SÉLECTION DU PINCEAU & NUANCES AU CLAVIER (Hors focus de pas)
+      // ─────────────────────────────────────────────────────────────
+
+      // Flèches ↑ / ↓ : Ajuster la nuance du pinceau actif entre fort et faible
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        if (selectedStepIdx !== null) return;
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.closest?.('.step-boxes') || activeEl.closest?.('.step-input-cell'))) {
+        e.preventDefault();
+        const dir = e.key === 'ArrowUp' ? 'up' : 'down';
+        const nextTool = getWheelNuanceState(activeTool, dir, inst.id, inst.type, lang, isLeftHanded);
+        if (nextTool && String(nextTool) !== activeTool) {
+          const toolStr = String(nextTool);
+          setActiveTool(toolStr);
+          if (toolStr !== '0' && audioEngine && track) {
+            const isWeak = dir === 'down';
+            try {
+              audioEngine.playNote(track.id, toolStr, Tone.now(), isWeak ? 0.6 : 0.95, isWeak ? 0.8 : 1.0);
+            } catch (_) {}
+          }
+        }
+        return;
+      }
+
+      // 0, Backspace ou Suppr : Sélectionne l'outil Gomme ('0')
+      if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        setActiveTool('0');
+        return;
+      }
+
+      // Sélection directe d'un outil par lettre (d, e, g, a, s, p, t...)
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+        const pairs = getStrokePairs(inst.id, inst.type, lang, isLeftHanded);
+        const char = e.key;
+        const isUpper = char === char.toUpperCase() && char !== char.toLowerCase();
+
+        // 1. Recherche par paire de timbres
+        const matchingPair = pairs.find((p) => {
+          return (
+            p.id.toLowerCase() === char.toLowerCase() ||
+            p.strong.shortcut.toLowerCase() === char.toLowerCase() ||
+            p.strong.symbol.toLowerCase() === char.toLowerCase() ||
+            p.strokes.some((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase())
+          );
+        });
+
+        if (matchingPair) {
+          e.preventDefault();
+          let targetSymbol: string;
+          let isWeak = false;
+          if (isUpper) {
+            targetSymbol = matchingPair.strong.symbol;
+            isWeak = false;
+          } else {
+            if (matchingPair.weak) {
+              targetSymbol = matchingPair.weak.symbol;
+              isWeak = true;
+            } else {
+              targetSymbol = matchingPair.strong.symbol;
+              isWeak = false;
+            }
+          }
+
+          setActiveTool(targetSymbol);
+
+          // Pré-écoute sonore feutrée (faible) ou franche (forte)
+          if (audioEngine && track) {
+            try {
+              const vol = isWeak ? 0.6 : 0.95;
+              const dec = isWeak ? 0.8 : 1.0;
+              audioEngine.playNote(track.id, targetSymbol, Tone.now(), vol, dec);
+            } catch (_) {}
+          }
           return;
         }
+
+        // 2. Outils autonomes directs (B: Barulho, C: Clic baguettes, X: Aro/Corps)
+        const upperChar = char.toUpperCase();
+        if (['B', 'C', 'X'].includes(upperChar)) {
+          const allSymbols = pairs.flatMap((p) => p.strokes.map((s) => s.symbol));
+          const hasUpper = allSymbols.includes(upperChar);
+          const hasLower = allSymbols.includes(char.toLowerCase());
+          if (hasUpper || hasLower) {
+            e.preventDefault();
+            const symbolToSelect = (isUpper || !hasLower) ? upperChar : char.toLowerCase();
+            setActiveTool(symbolToSelect);
+            if (audioEngine && track) {
+              try {
+                audioEngine.playNote(track.id, symbolToSelect, Tone.now(), isUpper ? 0.95 : 0.6, isUpper ? 1.0 : 0.8);
+              } catch (_) {}
+            }
+            return;
+          }
+        }
       }
+
       if (onKeyDown) onKeyDown(e);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen]);
+  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track]);
 
   if (!track) return null;
 

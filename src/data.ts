@@ -305,7 +305,25 @@ export const i18n = {
     speedTrainerMaintenance: "Manutenção",
     speedTrainerLaps: "volta(s)",
     speedTrainerLoopsInterval: "a cada volta",
-    speedTrainerLoopsIntervalPlural: "a cada 2 voltas"
+    speedTrainerLoopsIntervalPlural: "a cada 2 voltas",
+    legendTabStrokes: "🪘 Timbres e Sons",
+    legendTabShortcuts: "⌨️ Atalhos",
+    shortcutsTransportTitle: "Transporte & Navegação",
+    shortcutsEditTitle: "Edição & Partitura",
+    shortcutSpaceDesc: "Reproduzir / Pausar",
+    shortcutEnterDesc: "Voltar ao início (Compasso 1)",
+    shortcutTabDesc: "Alternar Roda ↔ Linha do tempo",
+    shortcutOficinaDesc: "Abrir / Fechar A Oficina",
+    shortcutLoopDesc: "Ativar / Desativar repetição contínua",
+    shortcutMeasureNavDesc: "Voltar / Avançar um compasso inteiro",
+    shortcutWeakStrokesDesc: "Selecionar ferramenta de golpe fraco",
+    shortcutStrongStrokesDesc: "Selecionar ferramenta de golpe forte",
+    shortcutNuanceWheelDesc: "Ajustar a nuance (Forte ↔ Fraco)",
+    shortcutEraserDesc: "Borracha (silêncio / pausa)",
+    shortcutSplitStepDesc: "Dividir o passo em dois (semicolcheia / rá)",
+    shortcutDuplicateMeasureDesc: "Duplicar o padrão para o próximo compasso",
+    shortcutUndoRedoDesc: "Desfazer / Refazer",
+    shortcutSpecialToolsDesc: "Barulho, Clique de baqueta, Borda / Corpo"
   },
   fr: {
     loading: "Chargement des voix...",
@@ -459,7 +477,25 @@ export const i18n = {
     speedTrainerMaintenance: "Maintien",
     speedTrainerLaps: "tour(s)",
     speedTrainerLoopsInterval: "par tour",
-    speedTrainerLoopsIntervalPlural: "tous les 2 tours"
+    speedTrainerLoopsIntervalPlural: "tous les 2 tours",
+    legendTabStrokes: "🪘 Timbres & Sons",
+    legendTabShortcuts: "⌨️ Raccourcis",
+    shortcutsTransportTitle: "Transport & Navigation",
+    shortcutsEditTitle: "Édition & Partition",
+    shortcutSpaceDesc: "Lecture / Pause",
+    shortcutEnterDesc: "Retour au début (Mesure 1)",
+    shortcutTabDesc: "Bascule Roda ↔ Timeline",
+    shortcutOficinaDesc: "Ouvrir / Fermer A Oficina",
+    shortcutLoopDesc: "Activer / Désactiver la boucle",
+    shortcutMeasureNavDesc: "Reculer / Avancer d'une mesure entière",
+    shortcutWeakStrokesDesc: "Choisir l'outil coup faible",
+    shortcutStrongStrokesDesc: "Choisir l'outil coup fort",
+    shortcutNuanceWheelDesc: "Ajuster la nuance (Fort ↔ Faible)",
+    shortcutEraserDesc: "Gomme (silence)",
+    shortcutSplitStepDesc: "Scinder le pas en deux (Ra / Triple croche)",
+    shortcutDuplicateMeasureDesc: "Dupliquer la mesure vers la suivante",
+    shortcutUndoRedoDesc: "Annuler / Rétablir",
+    shortcutSpecialToolsDesc: "Barulho, Clic baguettes, Bord / Corps"
   }
 };
 

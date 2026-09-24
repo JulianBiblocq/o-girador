@@ -210,6 +210,15 @@ export default function App() {
     return () => window.removeEventListener('o-girador-stage-completed', handleStageCompleted);
   }, [alertAsync]);
 
+  // Raccourci Tab : Bascule instantanée entre la Roda circulaire et la Timeline linéaire
+  useEffect(() => {
+    const handleToggleViewMode = () => {
+      changeViewMode(viewMode === 'roda' ? 'timeline' : 'roda');
+    };
+    window.addEventListener('toggle-view-mode', handleToggleViewMode);
+    return () => window.removeEventListener('toggle-view-mode', handleToggleViewMode);
+  }, [changeViewMode, viewMode]);
+
   const {
     isDarkMode,
     toggleDarkMode

@@ -4,6 +4,7 @@ import { Play, Square } from 'lucide-react';
 import { Language, Pattern } from '../../types';
 import { isDarkText } from '../../data';
 import { audioEngine } from '../../hooks/useAudioSync';
+import { useAudio } from '../../contexts/AudioContext';
 import { getAlternatingStroke, getNextNuanceState, getWheelNuanceState } from '../../utils/instrumentStrokes';
 
 interface PatternVariationsEditorProps {
@@ -82,10 +83,58 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   getStepSwingPercent,
   onAddPatternVariation,
 }) => {
+  const { handleTogglePlay } = useAudio();
   const selectedPatternIdRef = useRef(selectedPatternId);
+  const isMouseDownRef = useRef(false);
+
   useEffect(() => {
     selectedPatternIdRef.current = selectedPatternId;
   }, [selectedPatternId]);
+
+  useEffect(() => {
+    const onMouseUp = () => {
+      isMouseDownRef.current = false;
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    return () => window.removeEventListener('mouseup', onMouseUp);
+  }, []);
+
+  const applyStrokeToVariationStep = React.useCallback((
+    variationId: string,
+    stepIdx: number,
+    currentVal: string | number | [string, string],
+    isInitialClick = false
+  ) => {
+    if (activeTool === 'scissors') return;
+
+    let strokeToApply: string | number;
+    if (activeTool === '0' || activeTool === '') {
+      strokeToApply = 0;
+    } else if (isAlternating) {
+      strokeToApply = getAlternatingStroke(stepIdx, activeTool, inst.id, inst.type, lang, isLeftHanded);
+    } else {
+      strokeToApply = activeTool;
+    }
+
+    // Si clic direct sur la case possédant déjà cette frappe, cycle de nuances
+    if (isInitialClick && String(currentVal) === String(strokeToApply)) {
+      strokeToApply = getNextNuanceState(currentVal as string | number, activeTool, inst.id, inst.type, lang, isLeftHanded);
+    }
+
+    onVariationStepValueChange && onVariationStepValueChange(ptn.id, variationId, stepIdx, String(strokeToApply));
+
+    // Pré-écoute sonore
+    if (strokeToApply !== 0 && strokeToApply !== '0' && audioEngine) {
+      try {
+        const variation = ptn.variations?.find(v => v.id === variationId);
+        const rawVol = variation?.volumes?.[stepIdx];
+        const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+        const rawDec = variation?.decays?.[stepIdx];
+        const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+        audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
+      } catch (_) {}
+    }
+  }, [activeTool, isAlternating, inst.id, inst.type, lang, isLeftHanded, onVariationStepValueChange, ptn.id, ptn.variations, trackId]);
 
   const getDisplayVal = (val: string | number | [string, string]): string => {
     if (val === 0 || val === '0' || !val) return '';
@@ -251,36 +300,17 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               setSelectedStepIdx(i);
                               setSelectedStepIndices([i]);
                               setSelectedSubIndex?.(null);
+                              isMouseDownRef.current = true;
 
-                              // Application directe de l'outil d'écriture actif du dock (sans ouvrir de popup intempestive)
-                              let strokeToApply: string | number;
-                              if (activeTool === '0' || activeTool === '') {
-                                strokeToApply = 0;
-                              } else if (activeTool === 'scissors') {
-                                return;
-                              } else if (isAlternating) {
-                                strokeToApply = getAlternatingStroke(i, activeTool, inst.id, inst.type, lang, isLeftHanded);
-                              } else {
-                                strokeToApply = activeTool;
-                              }
-
-                              // Si la case a déjà cette frappe, cycle de nuances
-                              if (String(val) === String(strokeToApply)) {
-                                strokeToApply = getNextNuanceState(val as string | number, activeTool, inst.id, inst.type, lang, isLeftHanded);
-                              }
-
-                              onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, String(strokeToApply));
-
-                              // Pré-écoute sonore
-                              if (strokeToApply !== 0 && strokeToApply !== '0' && audioEngine) {
-                                try {
-                                  const rawVol = variation.volumes?.[i];
-                                  const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
-                                  const rawDec = variation.decays?.[i];
-                                  const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
-                                  audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
-                                } catch (_) {}
-                              }
+                              // Peinture directe du pas avec alternance et pré-écoute sonore
+                              applyStrokeToVariationStep(variation.id, i, val, true);
+                            }}
+                            onMouseEnter={() => {
+                              if (!isMouseDownRef.current) return;
+                              setSelectedStepIdx(i);
+                              setSelectedStepIndices([i]);
+                              setSelectedSubIndex?.(null);
+                              applyStrokeToVariationStep(variation.id, i, val, false);
                             }}
                             onTouchStart={(e) => {
                               e.stopPropagation();
@@ -349,7 +379,15 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               const inputs = cardGrid ? Array.from(cardGrid.querySelectorAll('input')) : [];
                               const indexInGrid = inputs.indexOf(inputEl);
 
-                              if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ' || e.key === '0') {
+                              // Espace : Dédié exclusivement au transport Play / Pause hors saisie de texte
+                              if (e.code === 'Space') {
+                                e.preventDefault();
+                                handleTogglePlay();
+                                return;
+                              }
+
+                              // Backspace / Delete / 0 : Gomme (silence)
+                              if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '0') {
                                 e.preventDefault();
                                 onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, '0');
                                 if (e.key === 'Backspace' && indexInGrid > 0) {

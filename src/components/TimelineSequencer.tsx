@@ -35,6 +35,7 @@ import { VocalRecordingBar } from './VocalRecordingBar';
 import { TimelineContextMenu } from './TimelineContextMenu';
 import { XiloChisel, XiloMagnet } from './XiloIcons';
 import { AutomationTrack } from './AutomationTrack';
+import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -90,40 +91,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     );
   }, []);
 
-  // Raccourci clavier Ctrl+D / Cmd+D : Duplication rapide de mesure (avec garde de saisie)
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        const activeEl = document.activeElement;
-        if (
-          activeEl &&
-          (activeEl.tagName === 'INPUT' ||
-           activeEl.tagName === 'TEXTAREA' ||
-           (activeEl as HTMLElement).isContentEditable)
-        ) {
-          return;
-        }
-
-        const activeCell = useSequencerStore.getState().activeTimelineCell;
-        if (activeCell) {
-          e.preventDefault();
-          e.stopPropagation();
-          useSequencerStore.getState().duplicateMeasurePattern(
-            activeCell.trackId,
-            activeCell.measureIdx,
-            activeCell.measureIdx + 1
-          );
-          useSequencerStore.getState().setActiveTimelineCell({
-            trackId: activeCell.trackId,
-            measureIdx: activeCell.measureIdx + 1,
-          });
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  // Raccourcis universels DAW & Timeline (Navigation, Transport, Duplication Ctrl+D)
+  useTimelineShortcuts();
 
   // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
   const totalMeasures = useSequencerStore(state => state.totalMeasures);

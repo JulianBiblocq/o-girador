@@ -81,53 +81,131 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
     }
   };
 
+  const [activeTab, setActiveTab] = React.useState<'strokes' | 'shortcuts'>('strokes');
+
   return (
-    <div className="flex flex-col gap-y-3 pr-1 flex-grow overflow-y-auto custom-scrollbar min-h-0">
-      
-      {/* Shortcuts & Gestures */}
-      <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
-        <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
-          <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
-            ⌨️ {lang === 'fr' ? 'Raccourcis & Gestes' : 'Atalhos e Gestos'}
-          </span>
-          <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
-        </summary>
-        <div className="p-2 border-t border-[var(--cordel-border)]/20 text-[10px] text-[var(--cordel-text)] leading-relaxed">
-          {lang === 'fr' ? (
-            <>
-              <p>• <b>Sélection & Dock d'écriture</b> : Cliquez sur un pas pour le sélectionner et utiliser la palette inférieure.</p>
-              <p>• <b>Flèches Haut / Bas</b> (ou molette sur pas sélectionné) : Ajuster la nuance et vélocité.</p>
-              <p>• <b>Double-clic</b> (ou appui long) sur un temps pour y insérer une frappe forte.</p>
-              <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
-              <p>• <b>Touches du clavier</b> : Tapez les lettres des frappes (ex: D, E, X, G, A...) pour insérer et pré-écouter le son instantanément.</p>
-              <p>• <b>Ctrl + Clic</b> sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
-              <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
-              <p>• <b>Espace</b> : Lecture / Pause.</p>
-              <p>• <b>O</b> : Ouvrir / Fermer A Oficina (L'Officine).</p>
-              <p>• <b>Ctrl+Z / Ctrl+Y</b> : Annuler / Rétablir.</p>
-              <p>• <b>Ctrl+C / Ctrl+V</b> : Copier / Coller le motif.</p>
-              <p>• <b>Ctrl+A / Ctrl+X</b> : Tout sélectionner / Couper le motif.</p>
-              <p>• <b>Gomme en direct (Live Erase)</b> : Maintenez <b>Retour arrière (Backspace)</b> ou <b>Suppr</b> pendant la lecture pour effacer les pas en continu au passage de la tête de lecture.</p>
-            </>
-          ) : (
-            <>
-              <p>• <b>Seleção e Dock de Escrita</b> : Clique em um passo para selecioná-lo e usar a barra inferior.</p>
-              <p>• <b>Setas Cima / Baixo</b> (ou roda do mouse no passo selecionado) : Ajustar velocidade e nuance.</p>
-              <p>• <b>Duplo clique</b> (ou toque longo) em um tempo para inserir uma batida forte.</p>
-              <p>• <b>Clique simples</b> para inserir uma batida fraca.</p>
-              <p>• <b>Teclas do teclado</b> : Digite as letras dos toques (ex: D, E, X, G, A...) para inserir e pré-ouvir o som instantaneamente.</p>
-              <p>• <b>Ctrl + Clique</b> no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
-              <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
-              <p>• <b>Espaço</b> : Reproduzir / Pausar.</p>
-              <p>• <b>O</b> : Abrir / Fechar A Oficina.</p>
-              <p>• <b>Ctrl+Z / Ctrl+Y</b> : Desfazer / Refazer.</p>
-              <p>• <b>Ctrl+C / Ctrl+V</b> : Copiar / Colar o padrão.</p>
-              <p>• <b>Ctrl+A / Ctrl+X</b> : Selecionar tudo / Recortar o padrão.</p>
-              <p>• <b>Borracha ao vivo (Live Erase)</b> : Mantenha <b>Backspace</b> ou <b>Delete</b> pressionado durante a reprodução para apagar notas na passagem da cabeça de reprodução.</p>
-            </>
-          )}
+    <div className="flex flex-col gap-y-2 pr-1 flex-grow overflow-hidden min-h-0">
+      {/* ═══════════════════ SÉLECTEUR D'ONGLETS CORDEL ═══════════════════ */}
+      <div className="flex items-center gap-1.5 p-1 bg-[#ece4d0] cordel-border-sm shrink-0 select-none">
+        <button
+          type="button"
+          onClick={() => setActiveTab('strokes')}
+          className={`flex-1 py-1.5 px-2 rounded-xs font-cactus font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${
+            activeTab === 'strokes'
+              ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]'
+              : 'bg-transparent text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+          }`}
+        >
+          {t('legendTabStrokes')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('shortcuts')}
+          className={`flex-1 py-1.5 px-2 rounded-xs font-cactus font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${
+            activeTab === 'shortcuts'
+              ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]'
+              : 'bg-transparent text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+          }`}
+        >
+          {t('legendTabShortcuts')}
+        </button>
+      </div>
+
+      {activeTab === 'shortcuts' ? (
+        /* ═══════════════════ ONGLET 2 : RACCOURCIS CLAVIER ═══════════════════ */
+        <div className="flex flex-col gap-y-3 overflow-y-auto custom-scrollbar flex-grow pr-1">
+          {/* Section 1 : Transport & Navigation */}
+          <div className="bg-[var(--cordel-bg)] cordel-border-sm p-2.5 flex flex-col gap-2">
+            <h4 className="text-[11px] font-bold text-[#8b2a1a] uppercase tracking-wider font-cactus border-b border-[var(--cordel-border)]/20 pb-1">
+              ▶️ {t('shortcutsTransportTitle')}
+            </h4>
+            <div className="flex flex-col gap-1.5 text-[10px] text-[var(--cordel-text)]">
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutSpaceDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Space</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutEnterDesc')}</span>
+                <div className="flex gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Enter</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Home</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutTabDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Tab</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutOficinaDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">O</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutLoopDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">L</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5">
+                <span className="font-medium">{t('shortcutMeasureNavDesc')}</span>
+                <div className="flex gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">&lt; / ,</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">&gt; / .</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2 : Édition & Partition */}
+          <div className="bg-[var(--cordel-bg)] cordel-border-sm p-2.5 flex flex-col gap-2">
+            <h4 className="text-[11px] font-bold text-[#8b2a1a] uppercase tracking-wider font-cactus border-b border-[var(--cordel-border)]/20 pb-1">
+              ✏️ {t('shortcutsEditTitle')}
+            </h4>
+            <div className="flex flex-col gap-1.5 text-[10px] text-[var(--cordel-text)]">
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutWeakStrokesDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">d, e, g, a...</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutStrongStrokesDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Shift + D, E...</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutNuanceWheelDesc')}</span>
+                <div className="flex gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">↑ / ↓</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Wheel</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutEraserDesc')}</span>
+                <div className="flex gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">0</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Del / ⌫</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutSplitStepDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Alt + Clic</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutDuplicateMeasureDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Ctrl + D</kbd>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
+                <span className="font-medium">{t('shortcutUndoRedoDesc')}</span>
+                <div className="flex gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Ctrl+Z</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Ctrl+Shift+Z / Y</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2 py-0.5">
+                <span className="font-medium">{t('shortcutSpecialToolsDesc')}</span>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">B / C / X</kbd>
+              </div>
+            </div>
+          </div>
         </div>
-      </details>
+      ) : (
+        /* ═══════════════════ ONGLET 1 : TIMBRES & SONS ═══════════════════ */
+        <div className="flex flex-col gap-y-3 overflow-y-auto custom-scrollbar flex-grow pr-1">
 
       {/* Speed Trainer / Mode Entraînement */}
       <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
@@ -547,7 +625,8 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           </button>
         </div>
       </details>
-
+        </div>
+      )}
     </div>
   );
 };

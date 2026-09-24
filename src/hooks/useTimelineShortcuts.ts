@@ -3,81 +3,59 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
-import { inputManager } from './useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 
-export function useGlobalKeyboardShortcuts() {
+interface UseTimelineShortcutsOptions {
+  onToggleViewMode?: () => void;
+  onCloseEditor?: () => void;
+}
+
+/**
+ * useTimelineShortcuts
+ * Hook universel de raccourcis DAW & Timeline conforme aux standards de performance :
+ * - Barrière 1 : Saisie de texte (INPUT, TEXTAREA, isContentEditable) -> seule Escape fait un blur().
+ * - Barrière 2 : Modales & Pop-ups actives -> Escape ferme l'éditeur ou les pop-ups.
+ * - Barrière 3 : Commandes de transport & navigation (Espace, Entrée/Home, Tab, O, L, < / >, Ctrl+D, Ctrl+Z/Y).
+ * - Zero Render Thrashing : inspection directe de document.activeElement, aucun state React haute fréquence.
+ */
+export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
   const audio = useAudio();
   const sequencer = useSequencer();
 
   const { handleTogglePlay, handleTimelineNavigate } = audio;
-  const { handleUndo, handleRedo, setIsLooping } = sequencer;
+  const { handleUndo, handleRedo, isLooping, setIsLooping } = sequencer;
 
-  // InputManager Keyboard Listeners (Live Erase, etc.)
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((window as any).oGiradorDetailEditorOpen) return;
-      if (inputManager) inputManager.handleKeyDown(e);
-    };
-    const handleGlobalKeyUp = (e: KeyboardEvent) => {
-      if ((window as any).oGiradorDetailEditorOpen) return;
-      if (inputManager) inputManager.handleKeyUp(e);
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    window.addEventListener('keyup', handleGlobalKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown);
-      window.removeEventListener('keyup', handleGlobalKeyUp);
-    };
-  }, []);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
-  // Écouteur principal unifié avec les 3 barrières anti-conflits DAW
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
 
-      const isTargetInput = target instanceof HTMLInputElement || 
-                            target instanceof HTMLTextAreaElement || 
-                            target instanceof HTMLSelectElement || 
-                            Boolean(target?.isContentEditable);
-
-      const isFocusedInput = activeEl?.tagName === 'INPUT' ||
-                             activeEl?.tagName === 'SELECT' ||
-                             activeEl?.tagName === 'TEXTAREA' ||
-                             activeEl?.id === 'letras-textarea' ||
-                             Boolean(activeEl?.isContentEditable);
-
-      const isInput = isTargetInput || isFocusedInput;
+      const isTextEntry = 
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        activeEl?.isContentEditable ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        Boolean(target?.isContentEditable);
 
       // ─────────────────────────────────────────────────────────────
       // BARRIÈRE 1 : Saisie de texte
       // ─────────────────────────────────────────────────────────────
-      if (isInput) {
-        // Seule la touche Escape dé-focalise le champ actif
+      if (isTextEntry) {
+        // Seule la touche Escape est traitée pour dé-focaliser
         if (e.key === 'Escape') {
           e.preventDefault();
           activeEl?.blur();
           target?.blur();
-          return;
         }
-
-        // Exception autorisée : Copier/Coller/Sélectionner sur une cellule de grille
-        const isModifier = e.ctrlKey || e.metaKey;
-        if (isModifier && (target?.classList.contains('step-input-cell') || activeEl?.classList.contains('step-input-cell'))) {
-          const key = e.key.toLowerCase();
-          if (['z', 'y', 'a', 'x', 'c', 'v'].includes(key)) {
-            // Laisser passer vers la logique ci-dessous
-          } else {
-            return;
-          }
-        } else {
-          return;
-        }
+        return;
       }
 
       // ─────────────────────────────────────────────────────────────
@@ -85,14 +63,24 @@ export function useGlobalKeyboardShortcuts() {
       // ─────────────────────────────────────────────────────────────
       if (e.key === 'Escape') {
         e.preventDefault();
+
+        // 1. Fermer l'éditeur d'instrument si ouvert
         if (typeof (window as any).oGiradorDetailEditorClose === 'function') {
           (window as any).oGiradorDetailEditorClose();
           return;
         }
+        if (optionsRef.current?.onCloseEditor) {
+          optionsRef.current.onCloseEditor();
+          return;
+        }
+
+        // 2. Fermer A Oficina si ouverte
         if (useSequencerSettingsStore.getState().isSettingsOpen) {
           useSequencerSettingsStore.getState().setIsSettingsOpen(false);
           return;
         }
+
+        // 3. Fermer les sélecteurs contextuels / popups
         window.dispatchEvent(new CustomEvent('close-popups'));
         return;
       }
@@ -108,14 +96,18 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // 2. Tab : Bascule Roda ↔ Timeline (avec neutralisation native du focus)
+      // 2. Tab : Bascule Roda ↔ Timeline avec neutralisation stricte du focus traversal
       if (e.key === 'Tab') {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent('toggle-view-mode'));
+        if (optionsRef.current?.onToggleViewMode) {
+          optionsRef.current.onToggleViewMode();
+        } else {
+          window.dispatchEvent(new CustomEvent('toggle-view-mode'));
+        }
         return;
       }
 
-      // 3. Entrée ou Home : Remettre la tête de lecture au début
+      // 3. Entrée ou Home : Remettre la tête de lecture au début (mesure 1)
       if (e.key === 'Enter' || e.key === 'Home') {
         e.preventDefault();
         if (handleTimelineNavigate) {
@@ -136,7 +128,9 @@ export function useGlobalKeyboardShortcuts() {
         e.preventDefault();
         const nextLoop = !useSequencerStore.getState().isLooping;
         useSequencerStore.getState().setIsLooping(nextLoop);
-        if (setIsLooping) setIsLooping(nextLoop);
+        if (setIsLooping) {
+          setIsLooping(nextLoop);
+        }
         return;
       }
 
@@ -147,15 +141,15 @@ export function useGlobalKeyboardShortcuts() {
         const totalM = useSequencerStore.getState().totalMeasures;
         if (e.key === '<' || e.key === ',') {
           const prevIdx = Math.max(0, curM - 1);
-          if (handleTimelineNavigate) handleTimelineNavigate(prevIdx, 0, 16);
+          handleTimelineNavigate(prevIdx, 0, 16);
         } else {
           const nextIdx = Math.min(totalM - 1, curM + 1);
-          if (handleTimelineNavigate) handleTimelineNavigate(nextIdx, 0, 16);
+          handleTimelineNavigate(nextIdx, 0, 16);
         }
         return;
       }
 
-      // 7. Ctrl+D / Cmd+D : Dupliquer la mesure active vers m+1
+      // 7. Ctrl+D / Cmd+D : Dupliquer le motif de la mesure active vers la mesure suivante (m+1)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         const activeCell = useSequencerStore.getState().activeTimelineCell;
         if (activeCell) {
@@ -174,28 +168,20 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // 8. Modificateurs : Undo, Redo, Copy, Cut, Paste, Select All
-      if (e.ctrlKey || e.metaKey) {
-        const key = e.key.toLowerCase();
-        if (key === 'z') {
-          e.preventDefault();
-          if (e.shiftKey) {
-            if (handleRedo) handleRedo();
-          } else {
-            if (handleUndo) handleUndo();
-          }
-          return;
-        }
-        if (key === 'y') {
-          e.preventDefault();
-          if (handleRedo) handleRedo();
-          return;
-        }
-        if (['a', 'x', 'c', 'v'].includes(key)) {
-          e.preventDefault();
-          window.dispatchEvent(new CustomEvent('grid-shortcut', { detail: { key } }));
-          return;
-        }
+      // 8. Ctrl+Z / Ctrl+Shift+Z ou Ctrl+Y : Annuler / Rétablir
+      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
+      const isRedoKey = 
+        ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey));
+
+      if (isUndoKey) {
+        e.preventDefault();
+        if (handleUndo) handleUndo();
+        return;
+      } else if (isRedoKey) {
+        e.preventDefault();
+        if (handleRedo) handleRedo();
+        return;
       }
     };
 
