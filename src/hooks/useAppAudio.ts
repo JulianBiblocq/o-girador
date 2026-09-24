@@ -101,7 +101,13 @@ export function useAppAudio() {
           }
         }
 
-        const loadPresetId = urlParams.get('loadPreset');
+        // Si trainingId est présent, le hook useTrainingUrlHandler prend le relais
+        // pour charger le preset et armer le Speed Trainer de façon atomique
+        if (urlParams.has('trainingId')) {
+          return true;
+        }
+
+        const loadPresetId = urlParams.get('loadPreset') || urlParams.get('presetId');
         if (loadPresetId) {
           try {
             const { getCloudPreset } = await import('../cloudLibrary');
@@ -239,9 +245,13 @@ export function useAppAudio() {
         .then(async (files: string[]) => {
           setPresetFiles(files);
           if (files.length > 0 && !loadedFromHash && !restoredFromLocalStorage) {
-            // Ne pas écraser si un preset a déjà été appliqué
+            // Ne pas écraser si un preset a déjà été appliqué ou si une URL d'entraînement / preset est présente
             const currentActivePreset = audioRef.current?.activePresetName;
             if (currentActivePreset && currentActivePreset !== '') {
+              return;
+            }
+            const currentParams = new URLSearchParams(window.location.search);
+            if (currentParams.has('trainingId') || currentParams.has('presetId') || currentParams.has('loadPreset')) {
               return;
             }
 
@@ -273,10 +283,13 @@ export function useAppAudio() {
     });
   }, [audio, authLoading]);
 
-  // PWA File Handler: handle files opened via the OS file handler
+  // PWA File & URL Handler: handle files opened via the OS file handler or URLs via focus-existing
   useEffect(() => {
     if ('launchQueue' in window) {
       (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+        if (launchParams.targetURL) {
+          window.dispatchEvent(new CustomEvent('pwa-launch-url', { detail: { targetURL: launchParams.targetURL } }));
+        }
         if (!launchParams.files || launchParams.files.length === 0) return;
         try {
           const fileHandle = launchParams.files[0];
@@ -290,6 +303,27 @@ export function useAppAudio() {
         }
       });
     }
+
+    const handleFilesFromOtherConsumer = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ files: any[] }>;
+      const files = customEvent.detail?.files;
+      if (!files || files.length === 0) return;
+      try {
+        const fileHandle = files[0];
+        const file: File = await fileHandle.getFile();
+        if (!file.name.endsWith('.json')) return;
+        const text = await file.text();
+        const data = JSON.parse(text);
+        await audio.applyPreset(data);
+      } catch (err) {
+        console.error('Failed to load file from pwa-launch-files:', err);
+      }
+    };
+    window.addEventListener('pwa-launch-files', handleFilesFromOtherConsumer);
+
+    return () => {
+      window.removeEventListener('pwa-launch-files', handleFilesFromOtherConsumer);
+    };
   }, [audio.applyPreset]);
 
   // Autosave to IndexedDB using Zustand subscription

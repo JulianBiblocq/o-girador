@@ -29,7 +29,7 @@ const getInitialViewMode = (): ViewMode => {
   if (targetView && ['roda', 'console', 'timeline', 'admin', 'landing', 'home'].includes(targetView)) {
     return targetView as ViewMode;
   }
-  if (urlParams.has('loadPreset') || urlParams.has('loadPattern')) {
+  if (urlParams.has('loadPreset') || urlParams.has('loadPattern') || urlParams.has('presetId') || urlParams.has('trainingId')) {
     return 'roda';
   }
 

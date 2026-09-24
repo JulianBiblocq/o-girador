@@ -23,9 +23,34 @@ export const createSpeedTrainerSlice: StateCreator<SequencerStore, [], [], Speed
   speedTrainerTourCount: 0,
   speedTrainerCurrentBpm: 83,
   speedTrainerCountdown: null,
+  activeTrainingSession: null,
 
   openSpeedTrainerModal: () => {
     const state = get();
+
+    // If an active challenge/training session is set, prioritize its configuration
+    if (state.activeTrainingSession) {
+      const session = state.activeTrainingSession;
+      const maxM = Math.max(0, state.totalMeasures - 1);
+      const clampedStart = Math.min(state.speedTrainerConfig?.startMeasure ?? 0, maxM);
+      const clampedEnd = Math.min(Math.max(clampedStart, state.speedTrainerConfig?.endMeasure ?? 1), maxM);
+
+      set({
+        isSpeedTrainerOpen: true,
+        speedTrainerConfig: {
+          ...state.speedTrainerConfig,
+          startMeasure: clampedStart,
+          endMeasure: clampedEnd,
+          startBpm: session.startBpm,
+          targetBpm: session.targetBpm,
+          consolidationLaps: session.consolidationLaps,
+          trainingId: session.trainingId,
+          stageIndex: session.stageIndex,
+          stageTitle: session.title,
+        },
+      });
+      return;
+    }
 
     // If the user already configured the trainer for this piece, preserve their settings
     if (state.hasCustomSpeedTrainerConfig && state.speedTrainerConfig) {
@@ -142,4 +167,5 @@ export const createSpeedTrainerSlice: StateCreator<SequencerStore, [], [], Speed
   })),
 
   setSpeedTrainerCountdown: (count) => set({ speedTrainerCountdown: count }),
+  setActiveTrainingSession: (session) => set({ activeTrainingSession: session }),
 });

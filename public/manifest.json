@@ -45,5 +45,8 @@
       "text": "text",
       "url": "url"
     }
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
   }
 }

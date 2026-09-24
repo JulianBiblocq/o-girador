@@ -198,6 +198,7 @@ export const SpeedTrainerModal: React.FC = () => {
   const currentTour = useSequencerStore((state) => state.speedTrainerTourCount || 0);
   const currentBpm = useSequencerStore((state) => state.speedTrainerCurrentBpm || songBpm);
   const closeSpeedTrainerModal = useSequencerStore((state) => state.closeSpeedTrainerModal);
+  const activeTrainingSession = useSequencerStore((state) => state.activeTrainingSession);
 
   // Mode onglet (libre ou Mestre)
   const [activeTab, setActiveTab] = useState<'free' | 'mestre'>('free');
@@ -284,18 +285,30 @@ export const SpeedTrainerModal: React.FC = () => {
   // Sync state when opening
   useEffect(() => {
     if (isOpen) {
-      const initialTarget = songBpm;
-      const initialStart = Math.max(40, initialTarget - 20);
+      if (activeTrainingSession) {
+        const sM = storeConfig ? storeConfig.startMeasure : 0;
+        const eM = storeConfig ? storeConfig.endMeasure : Math.min(1, totalMeasures - 1);
+        setStartMeasure(Math.min(sM, totalMeasures - 1));
+        setEndMeasure(Math.min(Math.max(sM, eM), totalMeasures - 1));
+        setStartBpm(activeTrainingSession.startBpm);
+        setTargetBpm(activeTrainingSession.targetBpm);
+        setBpmStep(storeConfig?.bpmStep || 2);
+        setLoopInterval(storeConfig?.loopInterval || 1);
+        setConsolidationLaps(activeTrainingSession.consolidationLaps || 2);
+      } else {
+        const initialTarget = songBpm;
+        const initialStart = Math.max(40, initialTarget - 20);
 
-      const sM = storeConfig ? storeConfig.startMeasure : 0;
-      const eM = storeConfig ? storeConfig.endMeasure : Math.min(1, totalMeasures - 1);
+        const sM = storeConfig ? storeConfig.startMeasure : 0;
+        const eM = storeConfig ? storeConfig.endMeasure : Math.min(1, totalMeasures - 1);
 
-      setStartMeasure(Math.min(sM, totalMeasures - 1));
-      setEndMeasure(Math.min(Math.max(sM, eM), totalMeasures - 1));
-      setStartBpm(storeConfig ? storeConfig.startBpm : initialStart);
-      setTargetBpm(storeConfig ? storeConfig.targetBpm : initialTarget);
-      setBpmStep(storeConfig?.bpmStep || 2);
-      setLoopInterval(storeConfig?.loopInterval || 1);
+        setStartMeasure(Math.min(sM, totalMeasures - 1));
+        setEndMeasure(Math.min(Math.max(sM, eM), totalMeasures - 1));
+        setStartBpm(storeConfig ? storeConfig.startBpm : initialStart);
+        setTargetBpm(storeConfig ? storeConfig.targetBpm : initialTarget);
+        setBpmStep(storeConfig?.bpmStep || 2);
+        setLoopInterval(storeConfig?.loopInterval || 1);
+      }
       setSelectedSectionMarkerId('');
       setRangeStartMarkerId('');
       setRangeEndMarkerId('');
@@ -303,7 +316,7 @@ export const SpeedTrainerModal: React.FC = () => {
       setSaveSuccess(false);
       setSaveError(null);
     }
-  }, [isOpen, storeConfig, songBpm, totalMeasures, defaultChallengeTitle]);
+  }, [isOpen, storeConfig, songBpm, totalMeasures, defaultChallengeTitle, activeTrainingSession]);
 
   const handleClose = useCallback(() => {
     useSequencerStore.getState().setSpeedTrainerConfig({
@@ -313,9 +326,13 @@ export const SpeedTrainerModal: React.FC = () => {
       targetBpm,
       bpmStep,
       loopInterval,
+      consolidationLaps: activeTrainingSession ? activeTrainingSession.consolidationLaps : consolidationLaps,
+      trainingId: activeTrainingSession?.trainingId || storeConfig?.trainingId,
+      stageIndex: activeTrainingSession?.stageIndex || storeConfig?.stageIndex,
+      stageTitle: activeTrainingSession?.title || storeConfig?.stageTitle,
     });
     closeSpeedTrainerModal();
-  }, [startMeasure, endMeasure, startBpm, targetBpm, bpmStep, loopInterval, closeSpeedTrainerModal]);
+  }, [startMeasure, endMeasure, startBpm, targetBpm, bpmStep, loopInterval, consolidationLaps, activeTrainingSession, storeConfig, closeSpeedTrainerModal]);
 
   // Close on Escape key
   useEffect(() => {
@@ -351,6 +368,10 @@ export const SpeedTrainerModal: React.FC = () => {
       targetBpm,
       bpmStep,
       loopInterval,
+      consolidationLaps: activeTrainingSession ? activeTrainingSession.consolidationLaps : consolidationLaps,
+      trainingId: activeTrainingSession?.trainingId || storeConfig?.trainingId,
+      stageIndex: activeTrainingSession?.stageIndex || storeConfig?.stageIndex,
+      stageTitle: activeTrainingSession?.title || storeConfig?.stageTitle,
     };
     handleClose();
     audio.launchSpeedTrainer(config);
@@ -870,6 +891,23 @@ export const SpeedTrainerModal: React.FC = () => {
           {activeTab === 'free' ? (
             /* --- ONGLET 1 : ENTRAÎNEMENT LIBRE --- */
             <>
+              {/* Challenge Mestre Banner if launched from Organizad'Or */}
+              {activeTrainingSession && (
+                <div className="p-3 bg-amber-500/20 border-2 border-amber-600/60 rounded-xs flex flex-col gap-1 shadow-[2px_2px_0px_#1a1a1a]">
+                  <div className="flex items-center justify-between">
+                    <span className="font-cactus font-bold text-sm text-[#1a1a1a] flex items-center gap-1.5">
+                      🎯 {activeTrainingSession.title || 'Défi Mestre'} — Palier {activeTrainingSession.stageIndex}
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-600 text-[#f4ecd8] rounded-xs uppercase">
+                      Défi
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#555] font-sans">
+                    Objectif : {activeTrainingSession.startBpm} ➔ {activeTrainingSession.targetBpm} BPM ({activeTrainingSession.consolidationLaps} tour{activeTrainingSession.consolidationLaps > 1 ? 's' : ''} de maintien)
+                  </span>
+                </div>
+              )}
+
               {/* Pedagogical Help Box */}
               <div className="p-2.5 bg-[#ebe2cb]/70 border border-[#1a1a1a]/40 rounded-xs flex items-start gap-2 text-[11px] text-[#333] leading-relaxed">
                 <Info className="w-4 h-4 text-[#8b2a1a] shrink-0 mt-0.5" />
@@ -1050,7 +1088,11 @@ export const SpeedTrainerModal: React.FC = () => {
                 className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <XiloLightning size={16} className="fill-current" />
-                {t('speedTrainerLaunch')}
+                {activeTrainingSession ? (
+                  `⚡ Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
+                ) : (
+                  t('speedTrainerLaunch')
+                )}
               </button>
             )
           ) : (

@@ -81,6 +81,9 @@ export default defineConfig(({ command, mode }) => {
           background_color: "#0a0807",
           display: "standalone",
           orientation: "any",
+          launch_handler: {
+            client_mode: "focus-existing"
+          },
           icons: [
             {
               src: "pwa-192x192.png",

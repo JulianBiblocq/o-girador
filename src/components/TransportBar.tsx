@@ -73,6 +73,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const [isPreRollPopupOpen, setIsPreRollPopupOpen] = React.useState(false);
   const metroContainerRef = React.useRef<HTMLDivElement>(null);
   const preRollSettings = useTransportStore((state) => state.preRollSettings);
+  const setPreRollSettings = useTransportStore((state) => state.setPreRollSettings);
   const storeRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals);
   const localRhythmSignals = storeRhythmSignals ?? EMPTY_SIGNALS;
   const storeMestreSignals = useSequencerStore((state) => state.mestreSignals);

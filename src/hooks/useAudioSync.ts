@@ -9,6 +9,9 @@ import { AudioEngine, ActiveInstrumentData } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing, Pattern, SpeedTrainerConfig } from '../types';
 import { isStrokeActiveByDefault } from '../utils/instrumentStrokes';
+import confetti from 'canvas-confetti';
+import { auth } from '../firebase/config';
+import { recordStageSuccess } from '../services/cloudTrainings';
 
 import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
@@ -556,6 +559,7 @@ export function useAudioSync({
   const anchoredMeasureIdxRef = useRef<number>(-1);
   const speedTrainerCurrentBpmRef = useRef<number>(83);
   const speedTrainerTimeoutsRef = useRef<number[]>([]);
+  const speedTrainerConsolidationLapsDoneRef = useRef<number>(0);
 
   // PRÉ-ROLL REFERENCES
   const isPreRollActiveRef = useRef<boolean>(false);
@@ -1141,19 +1145,61 @@ export function useAudioSync({
                   useSequencerStore.getState().setCurrentLoopIteration(currentLoopIterationRef.current);
                   measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
 
-                  // ⚡ Speed Trainer loop acceleration
+                  // ⚡ Speed Trainer loop acceleration & consolidation laps
                   const stState = useSequencerStore.getState();
                   if (stState.isSpeedTrainerActive && stState.speedTrainerConfig) {
                     const nextTour = (stState.speedTrainerTourCount || 0) + 1;
                     stState.setSpeedTrainerTourCount(nextTour);
 
-                    if (nextTour % stState.speedTrainerConfig.loopInterval === 0) {
-                      const curBpm = speedTrainerCurrentBpmRef.current || stState.speedTrainerConfig.startBpm;
-                      if (curBpm < stState.speedTrainerConfig.targetBpm) {
-                        const nextBpm = Math.min(curBpm + stState.speedTrainerConfig.bpmStep, stState.speedTrainerConfig.targetBpm);
+                    const curBpm = speedTrainerCurrentBpmRef.current || stState.speedTrainerConfig.startBpm;
+                    const targetBpm = stState.speedTrainerConfig.targetBpm;
+
+                    if (curBpm < targetBpm) {
+                      if (nextTour % stState.speedTrainerConfig.loopInterval === 0) {
+                        const nextBpm = Math.min(curBpm + stState.speedTrainerConfig.bpmStep, targetBpm);
                         speedTrainerCurrentBpmRef.current = nextBpm;
                         Tone.Transport.bpm.value = nextBpm;
                         stState.setSpeedTrainerCurrentBpm(nextBpm);
+                      }
+                    } else {
+                      // Tours de maintien (consolidation laps) à la vitesse cible
+                      speedTrainerConsolidationLapsDoneRef.current++;
+                      const requiredLaps = stState.speedTrainerConfig.consolidationLaps ?? 2;
+
+                      if (speedTrainerConsolidationLapsDoneRef.current >= requiredLaps) {
+                        // 🏆 Validation du palier !
+                        const completedConfig = stState.speedTrainerConfig;
+
+                        try {
+                          confetti({
+                            particleCount: 120,
+                            spread: 80,
+                            origin: { y: 0.6 },
+                            zIndex: 9999,
+                          });
+                        } catch (_) {}
+
+                        // Enregistrement Firestore (/users/{uid}/aisance/{trainingId})
+                        const currentUid = auth.currentUser?.uid;
+                        if (currentUid && completedConfig.trainingId && completedConfig.stageIndex !== undefined) {
+                          recordStageSuccess(currentUid, completedConfig.trainingId, completedConfig.stageIndex);
+                        }
+
+                        // Arrêt propre du speed trainer et du moteur audio
+                        stState.stopSpeedTrainer();
+                        handleStop();
+
+                        window.dispatchEvent(
+                          new CustomEvent('o-girador-stage-completed', {
+                            detail: {
+                              trainingId: completedConfig.trainingId,
+                              stageIndex: completedConfig.stageIndex,
+                              stageTitle: completedConfig.stageTitle,
+                              targetBpm: completedConfig.targetBpm,
+                            },
+                          })
+                        );
+                        return;
                       }
                     }
                   }
@@ -2473,6 +2519,7 @@ export function useAudioSync({
     const store = useSequencerStore.getState();
     store.startSpeedTrainer(config);
     speedTrainerCurrentBpmRef.current = config.startBpm;
+    speedTrainerConsolidationLapsDoneRef.current = 0;
     Tone.Transport.bpm.value = config.startBpm;
 
     // 5. Hardware-timed Pre-roll Count-in Beeps

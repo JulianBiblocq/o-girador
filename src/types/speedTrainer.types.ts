@@ -10,6 +10,10 @@ export interface SpeedTrainerConfig {
   targetBpm: number;
   bpmStep: number;      // 1, 2, or 4 (default: 2)
   loopInterval: number; // 1 = each tour, 2 = every 2 tours (default: 1)
+  consolidationLaps?: number; // Tours à tenir au targetBpm avant validation (default: 2)
+  trainingId?: string;  // ID du programme Firestore si lancé depuis un défi
+  stageIndex?: number;  // Numéro du palier (1, 2, 3...)
+  stageTitle?: string;  // Nom du défi / palier
 }
 
 export interface SpeedTrainerBackup {
@@ -18,6 +22,15 @@ export interface SpeedTrainerBackup {
   originalLoopStart: number | null;
   originalLoopEnd: number | null;
   originalIsLoopActive: boolean;
+}
+
+export interface ActiveTrainingSession {
+  trainingId: string;
+  stageIndex: number;
+  consolidationLaps: number;
+  title?: string;
+  targetBpm: number;
+  startBpm: number;
 }
 
 export interface SpeedTrainerSlice {
@@ -29,6 +42,7 @@ export interface SpeedTrainerSlice {
   speedTrainerTourCount: number;
   speedTrainerCurrentBpm: number;
   speedTrainerCountdown: number | null;
+  activeTrainingSession: ActiveTrainingSession | null;
 
   openSpeedTrainerModal: () => void;
   closeSpeedTrainerModal: () => void;
@@ -39,4 +53,5 @@ export interface SpeedTrainerSlice {
   setSpeedTrainerTourCount: (count: number | ((prev: number) => number)) => void;
   setSpeedTrainerCurrentBpm: (bpm: number | ((prev: number) => number)) => void;
   setSpeedTrainerCountdown: (count: number | null) => void;
+  setActiveTrainingSession: (session: ActiveTrainingSession | null) => void;
 }

@@ -45,6 +45,7 @@ import { useViewRouter } from './hooks/useViewRouter';
 import { useThemeManager } from './hooks/useThemeManager';
 import { useWallpaper } from './hooks/useWallpaper';
 import { useMidiController } from './hooks/useMidiController';
+import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler';
 import { startSession, endSession } from './utils/O-Girador-Tracker';
 import { VisitorAuthModal } from './components/VisitorAuthModal';
 import { SpeedTrainerModal } from './components/SpeedTrainerModal';
@@ -191,6 +192,24 @@ export default function App() {
     hasManuallyOpenedAbout
   } = router;
 
+  useTrainingUrlHandler({
+    audio,
+    changeViewMode,
+    alertAsync,
+  });
+
+  // Célébration et notification de validation de palier
+  useEffect(() => {
+    const handleStageCompleted = (e: Event) => {
+      const detail = (e as CustomEvent<{ stageIndex: number; targetBpm: number }>).detail;
+      if (detail && alertAsync) {
+        alertAsync(`🎉 Parabéns ! Vous avez validé avec succès le Palier ${detail.stageIndex} (${detail.targetBpm} BPM) !`);
+      }
+    };
+    window.addEventListener('o-girador-stage-completed', handleStageCompleted);
+    return () => window.removeEventListener('o-girador-stage-completed', handleStageCompleted);
+  }, [alertAsync]);
+
   const {
     isDarkMode,
     toggleDarkMode
@@ -260,7 +279,14 @@ export default function App() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (hasAutoLoadedDefaultRef.current) return;
-    if (urlParams.has('loadPreset') || urlParams.has('loadPattern') || urlParams.has('baque') || (window.location.hash && window.location.hash.length > 1)) {
+    if (
+      urlParams.has('loadPreset') || 
+      urlParams.has('loadPattern') || 
+      urlParams.has('baque') || 
+      urlParams.has('presetId') || 
+      urlParams.has('trainingId') || 
+      (window.location.hash && window.location.hash.length > 1)
+    ) {
       return;
     }
 
