@@ -484,13 +484,21 @@ export class AudioEngine {
       this.voiceSynth.maxPolyphony = 6;
       this.voiceSynth.volume.value = -6;
 
+      const dest = Tone.getDestination ? Tone.getDestination() : Tone.Destination;
       if (masterVolumeNode) {
-        this.voiceSynth.connect(masterVolumeNode as any);
-        (this.voiceSynth as any)._connectedToMaster = true;
+        try {
+          this.voiceSynth.connect(masterVolumeNode as any);
+          (this.voiceSynth as any)._connectedToMaster = true;
+        } catch (_) {}
       } else {
-        const dest = Tone.getDestination ? Tone.getDestination() : Tone.Destination;
         this.voiceSynth.connect(dest as any);
       }
+      
+      // Connexion directe parallèle à Destination pour garantir l'audition immédiate hors lecture
+      try {
+        this.voiceSynth.connect(dest as any);
+        (this.voiceSynth as any)._connectedToDest = true;
+      } catch (_) {}
     } catch (err) {
       console.error('AudioEngine: Error initializing voiceSynth:', err);
     }

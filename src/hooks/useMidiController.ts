@@ -18,6 +18,7 @@ import { getStrokesForInstrument } from '../utils/instrumentStrokes';
    - State persistence: debounced at 50 ms before writing into global Zustand stores.
    - MCU DAW commands: notes 80 (Save), 81 (Undo), 88 (Punch), 89 (Metro) cut off immediately. */
 let lastTransportActionTime = 0;
+let lastVoiceStepInputTime = 0;
 const volumeDebounceTimers = new Map<number | 'master', any>();
 const panDebounceTimers = new Map<number, any>();
 
@@ -449,13 +450,29 @@ export const useMidiController = () => {
       const { isPatternRecording, armedPatternId, armedTrackId, updatePatternStep, tracks, lang, isLeftHanded } = seqStore;
       const target = state.mappings[note];
 
-      // Résolution de la piste cible
-      let trackIdToPlay: number | string | null = target ? target.trackId : armedTrackId;
-      if (trackIdToPlay === null && (seqStore as any).editingTrackId !== undefined) {
-        trackIdToPlay = (seqStore as any).editingTrackId;
+      // Vérifier si la piste en cours d'édition est vocale (priorité absolue au mode vocal)
+      const editingTrackId = (seqStore as any).editingTrackId;
+      const editingTrack = tracks.find(t => t.id === editingTrackId);
+      const isEditingVoice = isVoiceTrack(editingTrack);
+
+      let trackIdToPlay: number | string | null = null;
+      let activeTrack: any = null;
+
+      if (isEditingVoice && editingTrack) {
+        // En mode édition vocale : priorité absolue, court-circuite tout mapping percussif
+        trackIdToPlay = editingTrack.id;
+        activeTrack = editingTrack;
+      } else {
+        trackIdToPlay = target ? target.trackId : armedTrackId;
+        if (trackIdToPlay === null && editingTrackId !== undefined && editingTrackId !== null) {
+          trackIdToPlay = editingTrackId;
+        }
+        activeTrack = tracks.find(t => t.id === trackIdToPlay) || tracks.find(t => isVoiceTrack(t));
       }
-      const activeTrack = tracks.find(t => t.id === trackIdToPlay) || tracks.find(t => isVoiceTrack(t));
+
       const isVoice = isVoiceTrack(activeTrack);
+      const instId = instrumentsConfig[activeTrack?.instrumentIdx ?? -1]?.id;
+      const voiceSymbol = (instId === 'coro' || String(activeTrack?.id) === 'coro') ? 'C' : 'P';
 
       const isNoteOff = messageType === 0x80 || (isNoteOn && velocity === 0);
 
@@ -479,6 +496,10 @@ export const useMidiController = () => {
             audioEngine.triggerVoicePitch(noteName, velocity / 127.0);
           }
 
+          // Verrou anti-rebond temporel (60 ms) pour la saisie de pas
+          const now = Date.now();
+          const canWriteStep = (now - lastVoiceStepInputTime) >= 60;
+
           // 2. Si un pas est ciblé hors lecture (input focus ou pas sélectionné)
           const activeInput = document.activeElement as HTMLInputElement | null;
           let targetCard: HTMLElement | null = null;
@@ -494,17 +515,16 @@ export const useMidiController = () => {
             }
           }
 
-          if (targetCard && stepInput) {
+          if (canWriteStep && targetCard && stepInput) {
+            lastVoiceStepInputTime = now;
             const cardTrackId = targetCard.getAttribute('data-track-id');
             const cardPatternId = targetCard.getAttribute('data-pattern-id');
             const cardStepIdx = parseInt(targetCard.getAttribute('data-step-index') || '0', 10);
 
-            // Injecter le pitch dans l'input DOM
+            // Mettre à jour visuellement la valeur de l'input local sans double dispatch synthétique
             stepInput.value = noteName;
-            stepInput.dispatchEvent(new Event('input', { bubbles: true }));
-            stepInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-            // Mettre à jour Zustand de manière immuable
+            // Mettre à jour Zustand de manière immuable et atomique
             if (cardTrackId && cardPatternId) {
               const numTrackId = Number(cardTrackId);
               const numPatternId = Number(cardPatternId);
@@ -518,7 +538,7 @@ export const useMidiController = () => {
                         notes[cardStepIdx] = noteName;
                         const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
                         if (!activeSteps[cardStepIdx] || activeSteps[cardStepIdx] === '0' || activeSteps[cardStepIdx] === 0) {
-                          activeSteps[cardStepIdx] = 'T';
+                          activeSteps[cardStepIdx] = voiceSymbol;
                         }
                         return { ...p, notes, activeSteps };
                       }
@@ -530,7 +550,7 @@ export const useMidiController = () => {
               }));
             }
 
-            // Incrémenter vers le pas suivant
+            // Incrémenter vers le pas suivant de manière sécurisée
             const nextCardWrapper = targetCard.closest('.step-col')?.nextElementSibling ||
                                     targetCard.parentElement?.nextElementSibling;
             const nextInput = nextCardWrapper?.querySelector('.v-note') as HTMLInputElement | null;
@@ -564,7 +584,7 @@ export const useMidiController = () => {
                         notes[targetStep] = noteName;
                         const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
                         if (!activeSteps[targetStep] || activeSteps[targetStep] === '0' || activeSteps[targetStep] === 0) {
-                          activeSteps[targetStep] = 'T';
+                          activeSteps[targetStep] = voiceSymbol;
                         }
                         return { ...p, notes, activeSteps };
                       }

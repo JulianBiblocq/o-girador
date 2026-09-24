@@ -35,14 +35,8 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
     }
   }
 
-  // Sécurité fuite audio : couper toute note tenue lors du démontage du popover
-  useEffect(() => {
-    return () => {
-      if (audioEngine) {
-        audioEngine.releaseVoicePitch();
-      }
-    };
-  }, []);
+  // Les extinctions de notes tenues sont gérées directement au onMouseUp/onTouchEnd sur les touches virtuelles
+  // et par les événements physiques Note Off dans useMidiController.ts (évite d'étouffer les notes au changement de focus).
 
   const handleNoteClick = (note: string) => {
     onSelect(`${note}${activeOctave}`);

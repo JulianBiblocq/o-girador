@@ -61,6 +61,110 @@ const EditableNumber = ({ value, suffix = "", min = 0, max = 100, onChange, clas
   );
 };
 
+const DecaySliderControl: React.FC<{
+  initialValue: number;
+  isVoice: boolean;
+  lang: string;
+  onCommit: (val: number) => void;
+}> = ({ initialValue, isVoice, lang, onCommit }) => {
+  const [localVal, setLocalVal] = useState(initialValue);
+  const labelRef = React.useRef<HTMLSpanElement>(null);
+  const valRef = React.useRef(initialValue);
+  const isDraggingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!isDraggingRef.current) {
+      setLocalVal(initialValue);
+      valRef.current = initialValue;
+      if (labelRef.current) {
+        labelRef.current.textContent = isVoice
+          ? getVoiceDurationLabel(initialValue, lang)
+          : `${initialValue}%`;
+      }
+    }
+  }, [initialValue, isVoice, lang]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLInputElement>) => {
+    isDraggingRef.current = true;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  };
+
+  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const nextVal = parseInt((e.target as HTMLInputElement).value, 10);
+    valRef.current = nextVal;
+    if (labelRef.current) {
+      labelRef.current.textContent = isVoice
+        ? getVoiceDurationLabel(nextVal, lang)
+        : `${nextVal}%`;
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLInputElement>) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+      setLocalVal(valRef.current);
+      onCommit(valRef.current);
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLInputElement>) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      setLocalVal(valRef.current);
+      onCommit(valRef.current);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex justify-between text-[10px] font-bold items-center">
+        {isVoice ? (
+          <>
+            <span>⏱️ {lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
+            <span ref={labelRef} className="font-mono text-amber-800">
+              {getVoiceDurationLabel(localVal, lang)}
+            </span>
+          </>
+        ) : (
+          <>
+            <span>🎛️ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
+            <EditableNumber 
+              value={localVal} 
+              suffix="%" 
+              min={10} 
+              max={100} 
+              onChange={(newVal: number) => {
+                setLocalVal(newVal);
+                valRef.current = newVal;
+                if (labelRef.current) labelRef.current.textContent = `${newVal}%`;
+                onCommit(newVal);
+              }} 
+            />
+          </>
+        )}
+      </div>
+      <input 
+        type="range"
+        min="10"
+        max="100"
+        step={isVoice ? "5" : "1"}
+        defaultValue={localVal}
+        key={`decay-slider-${initialValue}`}
+        onPointerDown={handlePointerDown}
+        onInput={handleInput}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10 touch-none"
+      />
+    </>
+  );
+};
+
 interface InstrumentEffectsProps {
   trackId: number;
   pattern: Pattern;
@@ -285,49 +389,18 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
             }
 
             return (
-              <>
-                <div className="flex justify-between text-[10px] font-bold items-center">
-                  {isVoice ? (
-                    <>
-                      <span>⏱️ {lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
-                      <span>{getVoiceDurationLabel(currDecay, lang)}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🎛️ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
-                      <EditableNumber 
-                        value={currDecay} 
-                        suffix="%" 
-                        min={10} 
-                        max={100} 
-                        onChange={(val: number) => {
-                          if (selectedVariationId) {
-                            handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass);
-                          } else {
-                            handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass);
-                          }
-                        }} 
-                      />
-                    </>
-                  )}
-                </div>
-                <input 
-                  type="range"
-                  min="10"
-                  max="100"
-                  step={isVoice ? "10" : undefined}
-                  value={currDecay}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (selectedVariationId) {
-                      handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass);
-                    } else {
-                      handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass);
-                    }
-                  }}
-                  className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10"
-                />
-              </>
+              <DecaySliderControl
+                initialValue={currDecay}
+                isVoice={Boolean(isVoice)}
+                lang={lang}
+                onCommit={(committedVal) => {
+                  if (selectedVariationId) {
+                    handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, committedVal, subToPass);
+                  } else {
+                    handleTrackStepDecayChange(trackId, pattern.id, targets, committedVal, subToPass);
+                  }
+                }}
+              />
             );
           })()}
         </div>
