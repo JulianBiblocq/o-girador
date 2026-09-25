@@ -491,9 +491,14 @@ export const useMidiController = () => {
 
         // --- Branche Vocale (Puxador / Toada / Coro) ---
         if (isVoice) {
+          // Forcer la reprise du contexte audio si suspendu
+          if (Tone.context && Tone.context.state !== 'running') {
+            Tone.context.resume().catch(() => {});
+          }
+
           // 1. Déclenchement sonore immédiat sur le synthétiseur vocal
           if (audioEngine) {
-            audioEngine.triggerVoicePitch(noteName, velocity / 127.0);
+            audioEngine.triggerVoiceAttackRelease(noteName, '8n', undefined, velocity / 127.0);
           }
 
           // Verrou anti-rebond temporel (60 ms) pour la saisie de pas
@@ -512,7 +517,8 @@ export const useMidiController = () => {
             targetCard = document.querySelector('.v-card.border-\\[\\#f1c40f\\], [data-step-type="voice"].border-\\[\\#f1c40f\\], [data-step-type="voice"][data-selected="true"]') as HTMLElement | null;
             if (!targetCard) {
               const selectedIdx = (seqStore as any).selectedStepIdx ?? 0;
-              targetCard = document.querySelector(`[data-step-type="voice"][data-step-index="${selectedIdx}"]`) as HTMLElement | null;
+              targetCard = document.querySelector(`:not(.pre-roll-section) [data-step-type="voice"][data-step-index="${selectedIdx}"]`) as HTMLElement | null
+                || document.querySelector(`[data-step-type="voice"][data-step-index="${selectedIdx}"]`) as HTMLElement | null;
             }
             if (targetCard) {
               stepInput = targetCard.querySelector('.v-note') as HTMLInputElement | null;
@@ -521,8 +527,9 @@ export const useMidiController = () => {
 
           if (canWriteStep && targetCard) {
             lastVoiceStepInputTime = now;
-            const cardTrackId = targetCard.getAttribute('data-track-id');
-            const cardPatternId = targetCard.getAttribute('data-pattern-id');
+            const isInPreRoll = targetCard.closest('.pre-roll-section') !== null;
+            const cardTrackId = targetCard.getAttribute('data-track-id') || (armedTrackId !== null ? String(armedTrackId) : null);
+            const cardPatternId = targetCard.getAttribute('data-pattern-id') || (armedPatternId !== null ? String(armedPatternId) : null);
             const cardStepIdx = parseInt(targetCard.getAttribute('data-step-index') || '0', 10);
 
             // Mettre à jour visuellement la valeur de l'input local sans double dispatch synthétique
@@ -540,11 +547,23 @@ export const useMidiController = () => {
                     ...t,
                     patterns: t.patterns.map(p => {
                       if (p.id === numPatternId || String(p.id) === cardPatternId) {
-                        const notes = [...(p.notes || Array(p.steps).fill(''))];
-                        notes[cardStepIdx] = noteName;
-                        const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
-                        activeSteps[cardStepIdx] = voiceSymbol;
-                        return { ...p, notes, activeSteps };
+                        if (isInPreRoll) {
+                          const preRollNotes = [...(p.preRollNotes || Array(16).fill(''))];
+                          preRollNotes[cardStepIdx] = noteName;
+                          const preRollActiveSteps = [...(p.preRollActiveSteps || Array(16).fill(0))];
+                          if (!preRollActiveSteps[cardStepIdx] || preRollActiveSteps[cardStepIdx] === 0 || preRollActiveSteps[cardStepIdx] === '0') {
+                            preRollActiveSteps[cardStepIdx] = voiceSymbol;
+                          }
+                          return { ...p, preRollNotes, preRollActiveSteps };
+                        } else {
+                          const notes = [...(p.notes || Array(p.steps).fill(''))];
+                          notes[cardStepIdx] = noteName;
+                          const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
+                          if (!activeSteps[cardStepIdx] || activeSteps[cardStepIdx] === 0 || activeSteps[cardStepIdx] === '0') {
+                            activeSteps[cardStepIdx] = voiceSymbol;
+                          }
+                          return { ...p, notes, activeSteps };
+                        }
                       }
                       return p;
                     })
@@ -556,7 +575,13 @@ export const useMidiController = () => {
 
             // Déplacer automatiquement la sélection / focus vers le pas suivant (stepIdx + 1)
             const nextStepIdx = cardStepIdx + 1;
-            const nextCard = document.querySelector<HTMLElement>(`[data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
+            // Émettre l'événement custom focus-voice-step pour prise en charge globale contextuelle
+            window.dispatchEvent(new CustomEvent('focus-voice-step', {
+              detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll }
+            }));
+
+            const scopeSelector = isInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
+            const nextCard = document.querySelector<HTMLElement>(`${scopeSelector} [data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
             if (nextCard) {
               const nextInput = nextCard.querySelector('.v-note') as HTMLInputElement | null;
               if (nextInput) {

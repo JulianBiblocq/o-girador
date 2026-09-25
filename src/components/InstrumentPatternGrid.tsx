@@ -534,6 +534,7 @@ interface VoiceStepCellProps {
   onFocusStep: (index: number) => void;
   onNoteSelectorTarget: (target: { patternId: number; stepIdx: number; note: string; element: HTMLInputElement }) => void;
   onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
+  focusVoiceStep?: (stepIdx: number, type?: 'note' | 'syl', forceInPreRoll?: boolean) => void;
   onVoiceStepClear?: (trackId: number, patternId: number, index: number) => void;
   isProlongation?: boolean;
   isFollowedByProlongation?: boolean;
@@ -568,6 +569,7 @@ const VoiceStepCellComponent = ({
   onFocusStep,
   onNoteSelectorTarget,
   onVoiceNav,
+  focusVoiceStep,
   onVoiceStepClear,
   isProlongation = false,
   isFollowedByProlongation = false
@@ -612,22 +614,33 @@ const VoiceStepCellComponent = ({
     // 1. Touche Espace ou Touche 0 : Silence et avance au pas suivant
     if (e.key === ' ' || e.code === 'Space' || e.key === '0') {
       e.preventDefault();
+      e.stopPropagation();
       onVoiceStepClear?.(trackId, patternId, i);
-      onVoiceNav(input, 'ArrowRight', field);
+      if (focusVoiceStep) {
+        focusVoiceStep(i + 1, field, isPreRoll);
+      } else {
+        onVoiceNav(input, 'ArrowRight', field);
+      }
       return;
     }
 
     // 2. Touche Backspace : Effacement atomique et recul au pas précédent
     if (e.key === 'Backspace') {
       e.preventDefault();
+      e.stopPropagation();
       onVoiceStepClear?.(trackId, patternId, i);
-      onVoiceNav(input, 'ArrowLeft', field);
+      if (focusVoiceStep) {
+        focusVoiceStep(i - 1, field, isPreRoll);
+      } else {
+        onVoiceNav(input, 'ArrowLeft', field);
+      }
       return;
     }
 
     // 3. Touche Suppr / Delete : Effacement atomique sur place
     if (e.key === 'Delete') {
       e.preventDefault();
+      e.stopPropagation();
       onVoiceStepClear?.(trackId, patternId, i);
       return;
     }
@@ -639,7 +652,12 @@ const VoiceStepCellComponent = ({
       const valLen = input.value.length;
       if (selStart === 0 || (selStart === 0 && selEnd === valLen)) {
         e.preventDefault();
-        onVoiceNav(input, 'ArrowLeft', field);
+        e.stopPropagation();
+        if (focusVoiceStep) {
+          focusVoiceStep(i - 1, field, isPreRoll);
+        } else {
+          onVoiceNav(input, 'ArrowLeft', field);
+        }
       }
       return;
     }
@@ -651,7 +669,12 @@ const VoiceStepCellComponent = ({
       const valLen = input.value.length;
       if (selStart === valLen || (selStart === 0 && selEnd === valLen)) {
         e.preventDefault();
-        onVoiceNav(input, 'ArrowRight', field);
+        e.stopPropagation();
+        if (focusVoiceStep) {
+          focusVoiceStep(i + 1, field, isPreRoll);
+        } else {
+          onVoiceNav(input, 'ArrowRight', field);
+        }
       }
       return;
     }
@@ -659,14 +682,25 @@ const VoiceStepCellComponent = ({
     // 6. Touche Tab
     if (e.key === 'Tab') {
       e.preventDefault();
-      onVoiceNav(input, e.shiftKey ? 'ArrowLeft' : 'ArrowRight', field);
+      e.stopPropagation();
+      const targetIdx = e.shiftKey ? i - 1 : i + 1;
+      if (focusVoiceStep) {
+        focusVoiceStep(targetIdx, field, isPreRoll);
+      } else {
+        onVoiceNav(input, e.shiftKey ? 'ArrowLeft' : 'ArrowRight', field);
+      }
       return;
     }
 
     // 7. Touche Enter
     if (e.key === 'Enter') {
       e.preventDefault();
-      onVoiceNav(input, 'ArrowRight', field);
+      e.stopPropagation();
+      if (focusVoiceStep) {
+        focusVoiceStep(i + 1, field, isPreRoll);
+      } else {
+        onVoiceNav(input, 'ArrowRight', field);
+      }
       return;
     }
   };
@@ -1799,6 +1833,30 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }));
   }, []);
 
+  /* Pre-roll Voice step clear helper (Silence / Backspace / Gomme) */
+  const handleVoicePreRollStepClear = React.useCallback((tId: number, pId: number, sIdx: number) => {
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === tId || String(t.id) === String(tId)) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === pId || String(p.id) === String(pId)) {
+              const preRollActiveSteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
+              preRollActiveSteps[sIdx] = 0;
+              const preRollNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+              preRollNotes[sIdx] = '';
+              const preRollLyrics = p.preRollLyrics ? [...p.preRollLyrics] : Array(16).fill('');
+              preRollLyrics[sIdx] = '';
+              return { ...p, preRollActiveSteps, preRollNotes, preRollLyrics };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  }, []);
+
   const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
     if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
       handleVoiceStepClear(trackId, pattern.id, idx);
@@ -2622,39 +2680,64 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   };
 
+  /* Contextual Voice Step Focus (Global Grid Traversal) */
+  const focusVoiceStep = React.useCallback((
+    stepIdx: number, 
+    type: 'note' | 'syl' = 'note', 
+    forceInPreRoll?: boolean
+  ) => {
+    // Détection du contexte : est-on dans le pre-roll (anacrouse) ou dans la mesure principale ?
+    const activeEl = document.activeElement;
+    const isInPreRoll = forceInPreRoll !== undefined
+      ? forceInPreRoll
+      : (activeEl?.closest('.pre-roll-section') !== null);
+
+    const totalSteps = isInPreRoll ? 16 : (pattern?.steps || 16);
+    if (stepIdx < 0 || stepIdx >= totalSteps) return;
+
+    const scopeSelector = isInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
+
+    const targetCard = gridRef.current?.querySelector(`${scopeSelector} [data-step-type="voice"][data-step-index="${stepIdx}"]`) as HTMLElement | null;
+    if (targetCard) {
+      const targetInput = targetCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement | null;
+      if (targetInput) {
+        targetInput.focus();
+        targetInput.select();
+      } else {
+        (targetCard as HTMLElement).focus?.();
+      }
+      setSelectedStepIdx(stepIdx);
+      setSelectedStepIndices([stepIdx]);
+    }
+  }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices]);
+
+  /* Écouteur d'événement global pour la prise de focus pilotée par MIDI ou externe */
+  React.useEffect(() => {
+    const handleFocusVoiceStepEvent = (e: Event) => {
+      const customEvt = e as CustomEvent<{ stepIdx: number; type?: 'note' | 'syl'; isInPreRoll?: boolean }>;
+      if (customEvt.detail && typeof customEvt.detail.stepIdx === 'number') {
+        focusVoiceStep(customEvt.detail.stepIdx, customEvt.detail.type || 'note', customEvt.detail.isInPreRoll);
+      }
+    };
+    window.addEventListener('focus-voice-step', handleFocusVoiceStepEvent);
+    return () => {
+      window.removeEventListener('focus-voice-step', handleFocusVoiceStepEvent);
+    };
+  }, [focusVoiceStep]);
+
   /* Voice input navigation helper */
   const handleVoiceNav = React.useCallback((el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
     const currentCard = el.closest('[data-step-index]');
     if (!currentCard) return;
     const currentIdx = parseInt(currentCard.getAttribute('data-step-index') || '0', 10);
-    const parentContainer = el.closest('[id^="detail-voice-"]') || el.closest('.step-boxes') || gridRef.current || document;
-    const totalSteps = pattern?.steps ?? 16;
+    const isInPreRoll = el.closest('.pre-roll-section') !== null;
 
-    let targetIdx: number | null = null;
     if (key === 'ArrowRight' || key === 'Enter') {
-      if (currentIdx < totalSteps - 1) {
-        targetIdx = currentIdx + 1;
-      }
+      focusVoiceStep(currentIdx + 1, type, isInPreRoll);
     } else if (key === 'ArrowLeft') {
-      if (currentIdx > 0) {
-        targetIdx = currentIdx - 1;
-      }
+      focusVoiceStep(currentIdx - 1, type, isInPreRoll);
     }
-
-    if (targetIdx !== null) {
-      const boundedIdx = Math.max(0, Math.min(totalSteps - 1, targetIdx));
-      const targetCard = parentContainer.querySelector(`[data-step-type="voice"][data-step-index="${boundedIdx}"]`) as HTMLElement | null;
-      if (targetCard) {
-        const input = targetCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement | null;
-        if (input) {
-          input.focus();
-          input.select();
-        }
-        setSelectedStepIdx(boundedIdx);
-        setSelectedStepIndices([boundedIdx]);
-      }
-    }
-  }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices]);
+  }, [focusVoiceStep]);
 
   const getDisplayVal = (val: string | number | [string, string] | undefined): string => {
     if (val === undefined || val === 0 || val === '0') return '';
@@ -2816,14 +2899,15 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       isPreRoll={true}
                       isProlongation={isProlongation}
                       isFollowedByProlongation={isFollowedByProlongation}
-                      onVoiceStepClear={handleVoiceStepClear}
+                      onVoiceStepClear={handleVoicePreRollStepClear}
                       onVoiceTypeToggle={() => {}}
                       onVoiceSylChange={handleVoicePreRollSylChange}
                       onVoiceNoteChange={handleVoicePreRollNoteChange}
                       onVoiceNoteBlur={handleVoicePreRollNoteBlur}
-                      onFocusStep={() => {}}
+                      onFocusStep={handleVoiceFocusStep}
                       onNoteSelectorTarget={setNoteSelectorTarget}
                       onVoiceNav={handleVoiceNav}
+                      focusVoiceStep={focusVoiceStep}
                     />
                   );
                 })}
@@ -2992,6 +3076,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           onSelectForSculpt={handleSelectStepForSculpt}
                           onNoteSelectorTarget={setNoteSelectorTarget}
                           onVoiceNav={handleVoiceNav}
+                          focusVoiceStep={focusVoiceStep}
                         />
                       );
                     })}

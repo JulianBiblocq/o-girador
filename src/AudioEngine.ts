@@ -542,7 +542,7 @@ export class AudioEngine {
    */
   public triggerVoiceAttackRelease(
     pitch: string | number,
-    duration: number,
+    duration: number | string,
     time?: number,
     velocity: number = 0.8
   ): void {
@@ -572,7 +572,8 @@ export class AudioEngine {
 
       const vel = Math.max(0.1, Math.min(1.0, velocity));
       const triggerTime = time !== undefined ? time : Tone.now();
-      this.voiceSynth.triggerAttackRelease(note, duration, triggerTime, vel);
+      const dur = typeof duration === 'string' && Tone.Time ? Tone.Time(duration).toSeconds() : duration;
+      this.voiceSynth.triggerAttackRelease(note, dur, triggerTime, vel);
     } catch (err) {
       console.error('AudioEngine.triggerVoiceAttackRelease error:', err);
     }
