@@ -9,6 +9,7 @@ import { Play, Square, Save, X, RotateCcw, Scissors, Music } from 'lucide-react'
 import { Pattern, VocalClipMeta } from '../types/store.types';
 import { useAudio } from '../contexts/AudioContext';
 import { extractPeaks, renderTrimmedVocalBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
+import { getBeatsPerMeasure } from '../utils/measureHelpers';
 
 const PIXELS_PER_SECOND = 200; // Timeline scale: 200px = 1 second
 
@@ -48,24 +49,29 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Measure and pattern durations based on anchor measure BPM
+  // Measure and pattern durations based on anchor measure BPM and time signature
   const initialMeasureIdx = pattern.measureAssignments.indexOf(true) !== -1
     ? pattern.measureAssignments.indexOf(true)
     : 0;
-  const anchorBpm = (measureBpms && measureBpms[initialMeasureIdx % (measureBpms.length || 1)]) || bpm;
-  const beatDurationSec = 60 / anchorBpm;
+  const anchorBpm = (measureBpms && measureBpms[initialMeasureIdx % (measureBpms.length || 1)] > 0)
+    ? measureBpms[initialMeasureIdx % (measureBpms.length || 1)]
+    : bpm;
+  const targetSig = (measureTimeSigs && measureTimeSigs[initialMeasureIdx % (measureTimeSigs.length || 1)]) || '4/4';
+  const beatsCount = getBeatsPerMeasure(targetSig);
+  const isCompound = targetSig === '6/8' || targetSig === '9/8' || targetSig === '12/8';
+  const beatDurationSec = isCompound ? (90 / anchorBpm) : (60 / anchorBpm);
   const patternMeasures = Math.max(
     1,
     pattern.measureAssignments.filter(Boolean).length || 1
   );
-  const loopDurationSec = patternMeasures * 4 * beatDurationSec;
+  const loopDurationSec = patternMeasures * beatsCount * beatDurationSec;
 
   // Refs for 60 FPS DOM direct mutations (Zero Render Thrashing)
   const waveformContainerRef = useRef<HTMLDivElement>(null);
   const nudgeValueLabelRef = useRef<HTMLSpanElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const trimOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const localPlayerRef = useRef<Tone.GrainPlayer | null>(null);
+  const localPlayerRef = useRef<Tone.Player | Tone.GrainPlayer | null>(null);
   const previewLoopTimeoutRef = useRef<any>(null);
 
   // Cached Peaks extracted ONCE (Zero Layout Thrashing & Waveform Persistence)
@@ -195,11 +201,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const rawNudge = nudgeMsRef.current;
     const duration = Math.max(0.05, tEnd - tStart);
 
-    const player = new Tone.GrainPlayer(audioBuffer);
-    player.grainSize = 0.09;
-    player.overlap = 0.04;
+    const player = new Tone.Player(audioBuffer);
     player.volume.value = 0;
-    player.connect(Tone.Destination);
+    player.toDestination();
 
     // Convention de signe : triggerTime = measureStartTime - anacrusisSec + nudgeSec
     const anacrusisSec = Math.max(0, preRollDurationSec - tStart);
@@ -217,7 +221,16 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       actualPlayDelay = 0;
     }
 
-    if (actualDuration > 0) {
+    // Protection stricte des bornes par rapport au buffer physique
+    if (actualStartOffset < 0) {
+      actualDuration = Math.max(0, actualDuration + actualStartOffset);
+      actualStartOffset = 0;
+    }
+    if (actualStartOffset + actualDuration > audioBuffer.duration) {
+      actualDuration = Math.max(0, audioBuffer.duration - actualStartOffset);
+    }
+
+    if (actualDuration > 0 && actualStartOffset < audioBuffer.duration) {
       const now = Tone.context.currentTime;
       player.start(now + actualPlayDelay, actualStartOffset, actualDuration);
       localPlayerRef.current = player;
@@ -229,12 +242,20 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     }, loopDurationSec * 1000);
   }, [audioBuffer, preRollDurationSec, loopDurationSec, stopLocalPreview]);
 
-  const handleTogglePreview = () => {
+  const handleTogglePreview = async () => {
     if (isPlayingPreview) {
       setIsPlayingPreview(false);
       stopLocalPreview();
       handleStop();
     } else {
+      try {
+        if (Tone.context.state !== 'running') {
+          await Tone.context.resume();
+        }
+        if (Tone.context.rawContext && Tone.context.rawContext.state !== 'running') {
+          await (Tone.context.rawContext as AudioContext).resume();
+        }
+      } catch (_) {}
       setIsPlayingPreview(true);
       if (!isPlaying) {
         handleTogglePlay();

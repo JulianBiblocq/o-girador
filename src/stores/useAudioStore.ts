@@ -4,6 +4,7 @@ export interface AudioState {
   recordingStatus: 'inactive' | 'arming' | 'countdown' | 'recording';
   targetPatternId: number | null;
   targetMeasureIdx: number | null;
+  recordingTargetTrackId: number | string | null;
   vocalBlobs: Record<number, Blob>;
   vocalBuffers: Record<number, AudioBuffer>;
   tempRecording: { patternId: number; blob: Blob } | null;
@@ -25,6 +26,7 @@ export interface AudioState {
   setIsFocusRecordingMode: (focus: boolean) => void;
   setTargetPatternId: (id: number | null) => void;
   setTargetMeasureIdx: (idx: number | null) => void;
+  setRecordingTarget: (target: { trackId?: number | string | null; patternId: number | null; targetMeasure: number | null }) => void;
   setTempRecording: (temp: { patternId: number; blob: Blob } | null) => void;
   setChorusDensity: (density: number) => void;
   setIsVocalGuideEnabled: (enabled: boolean) => void;
@@ -44,6 +46,7 @@ export const useAudioStore = create<AudioState>((set) => ({
   isFocusRecordingMode: false,
   targetPatternId: null,
   targetMeasureIdx: null,
+  recordingTargetTrackId: null,
   vocalBlobs: {},
   vocalBuffers: {},
   tempRecording: null,
@@ -116,6 +119,11 @@ export const useAudioStore = create<AudioState>((set) => ({
   setIsFocusRecordingMode: (focus) => set({ isFocusRecordingMode: focus }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),
   setTargetMeasureIdx: (idx) => set({ targetMeasureIdx: idx }),
+  setRecordingTarget: (target) => set({
+    recordingTargetTrackId: target.trackId ?? null,
+    targetPatternId: target.patternId,
+    targetMeasureIdx: target.targetMeasure,
+  }),
   setTempRecording: (temp) => set({ tempRecording: temp }),
   setChorusDensity: (density) => set({ chorusDensity: Math.max(0, Math.min(1, density)) }),
   setIsVocalGuideEnabled: (enabled) => set({ isVocalGuideEnabled: enabled }),

@@ -71,15 +71,24 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const handleTrackArmClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isArmedAtTrackLevel) {
-      useAudioStore.getState().setTargetPatternId(null);
-      useAudioStore.getState().setTargetMeasureIdx(null);
+      useAudioStore.getState().setRecordingTarget({
+        trackId: null,
+        patternId: null,
+        targetMeasure: null,
+      });
     } else {
       const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === trackId);
       if (currentTrack && currentTrack.patterns.length > 0) {
         const patternIdToArm = currentTrack.selectedPatternId || currentTrack.patterns[0].id;
-        useAudioStore.getState().setTargetPatternId(patternIdToArm);
-        const assignedIdx = currentTrack.patterns.find(p => p.id === patternIdToArm)?.measureAssignments.indexOf(true) ?? 0;
-        useAudioStore.getState().setTargetMeasureIdx(assignedIdx !== -1 ? assignedIdx : 0);
+        const targetPattern = currentTrack.patterns.find(p => p.id === patternIdToArm);
+        const assignedIdx = targetPattern?.measureAssignments.indexOf(true) ?? 0;
+        const targetMeasure = assignedIdx !== -1 ? assignedIdx : 0;
+        useAudioStore.getState().setRecordingTarget({
+          trackId,
+          patternId: patternIdToArm,
+          targetMeasure,
+        });
+        useAudioStore.getState().setSelectedVocalPatternId(patternIdToArm);
       }
     }
   };

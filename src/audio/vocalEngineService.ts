@@ -10,7 +10,7 @@ export { useAudioStore, useSequencerStore };
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../db';
 import { channels, masterVolumeNode } from './effectsChain';
 import { instrumentsConfig } from '../data';
-import { playNativeMetroClick } from './nativeSynths';
+import { playNativeMetroClick, playCountInBeep } from './nativeSynths';
 import { calculateDeterministicVocalClipMeta } from '../utils/audioBufferUtils';
 import { VocalClipMeta } from '../types/store.types';
 import { getBeatsPerMeasure } from '../utils/measureHelpers';
@@ -175,6 +175,7 @@ export const vocalEngineService = {
   async startRecording(
     patternId: number,
     options: {
+      targetMeasure?: number;
       onStartSequencer?: (targetMeasure?: number) => void;
       onStopSequencer?: () => void;
       onRecordingStopped?: (blob: Blob) => void;
@@ -186,6 +187,15 @@ export const vocalEngineService = {
     if (this.isArming || this.mediaRecorder?.state === 'recording') {
       console.warn("🎙️ [VOCAL ENGINE] startRecording rejected: already arming or recording");
       return;
+    }
+
+    // Réveil immédiat et synchrone du contexte audio Tone.js et AudioContext natif
+    if (Tone.context && Tone.context.state !== 'running') {
+      try { await Tone.context.resume(); } catch (_) {}
+    }
+    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+    if (rawCtx && rawCtx.state !== 'running') {
+      try { await rawCtx.resume(); } catch (_) {}
     }
 
     this.isArming = true;
@@ -267,13 +277,17 @@ export const vocalEngineService = {
         throw new Error("Target pattern or voice track not found");
       }
 
-      // Calculate duration of the pattern (in measures)
+      // Calculate duration of the pattern (in measures) asservi à la mesure ciblée
       const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1 
         ? targetPattern.measureAssignments.indexOf(true) 
         : 0;
 
+      const effectiveTargetMeasure = options.targetMeasure !== undefined 
+        ? options.targetMeasure 
+        : (store.targetMeasureIdx !== null ? store.targetMeasureIdx : (initialMeasureIdx !== -1 ? initialMeasureIdx : 0));
+
       let consecutiveMeasures = 0;
-      for (let i = initialMeasureIdx; i < (freshSequencerStore.totalMeasures || 8); i++) {
+      for (let i = effectiveTargetMeasure; i < (freshSequencerStore.totalMeasures || 8); i++) {
         if (targetPattern.measureAssignments[i]) {
           consecutiveMeasures++;
         } else {
@@ -282,14 +296,17 @@ export const vocalEngineService = {
       }
       consecutiveMeasures = Math.max(1, consecutiveMeasures);
 
-      const targetMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || bpm;
-      const targetTimeSig = sequencerStore.measureTimeSigs[initialMeasureIdx % (sequencerStore.measureTimeSigs.length || 1)] || '4/4';
+      const targetMeasureBpm = (sequencerStore.measureBpms && sequencerStore.measureBpms[effectiveTargetMeasure % (sequencerStore.measureBpms.length || 1)] > 0)
+        ? sequencerStore.measureBpms[effectiveTargetMeasure % (sequencerStore.measureBpms.length || 1)]
+        : (sequencerStore.bpm || 100);
+
+      const targetTimeSig = (sequencerStore.measureTimeSigs && sequencerStore.measureTimeSigs[effectiveTargetMeasure % (sequencerStore.measureTimeSigs.length || 1)]) || '4/4';
       const beatsCount = getBeatsPerMeasure(targetTimeSig);
       const isCompound = (targetTimeSig as string) === '6/8' || (targetTimeSig as string) === '9/8' || (targetTimeSig as string) === '12/8';
       const beatDurationSec = isCompound ? (90 / targetMeasureBpm) : (60 / targetMeasureBpm);
       const preRollDurationSec = beatsCount * beatDurationSec; // Exactement 1 mesure de précompte
       const patternDurationSec = consecutiveMeasures * beatsCount * beatDurationSec;
-      const resonanceTailSec = 1.5; // Marge naturelle de résonance vocale
+      const resonanceTailSec = 0.8; // Directive : +0.8s strict
       const totalCaptureSec = preRollDurationSec + patternDurationSec + resonanceTailSec;
 
       if (options.immediate) {
@@ -298,7 +315,7 @@ export const vocalEngineService = {
           store.setRecordingStartTimelineSec(Tone.Transport.seconds);
           store.setRecordingStatus('recording');
 
-          // Programme l'auto-stop pour le mode immédiat (durée attendue du pattern + 1.5s de résonance)
+          // Programme l'auto-stop pour le mode immédiat (durée attendue du pattern + 0.8s de résonance)
           const immediateDurationSec = patternDurationSec + resonanceTailSec;
           const stopImmediateRecording = () => {
             clearScheduledEvents();
@@ -338,7 +355,8 @@ export const vocalEngineService = {
         Tone.Transport.position = 0;
         clearScheduledEvents();
 
-        // Count-in : exactement beatsCount clics de métronome (1 mesure complète)
+        // Count-in : exactement beatsCount clics de métronome audibles (1 mesure complète)
+        // Sortie directe reliée à Tone.getDestination() (insensible au mute de metroChannel)
         // Micro activé IMMEDIATEMENT à T=0 pour capturer l'anacrouse
         for (let b = 0; b < beatsCount; b++) {
           const isDownbeat = b === 0;
@@ -353,7 +371,7 @@ export const vocalEngineService = {
                 }
               }
             }
-            playNativeMetroClick(time, isDownbeat, 'synth', isDownbeat ? 0.85 : 0.5);
+            playCountInBeep(time, isDownbeat ? 1200 : 800, isDownbeat);
           }, b * beatDurationSec);
           activeScheduledEvents.push(idB);
         }
@@ -363,9 +381,9 @@ export const vocalEngineService = {
           store.setRecordingStartTimelineSec(time);
           store.setRecordingStatus('recording');
 
-          // Lancement immédiat de la bateria (Roda) calée sur le pas 0 de la mesure cible
+          // Lancement immédiat de la bateria (Roda) calée sur le pas 0 de la mesure effective ciblée
           if (options.onStartSequencer) {
-            options.onStartSequencer(initialMeasureIdx);
+            options.onStartSequencer(effectiveTargetMeasure);
           }
         }, preRollDurationSec);
 
