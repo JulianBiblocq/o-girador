@@ -10,6 +10,7 @@ import { Pattern, VocalClipMeta } from '../types/store.types';
 import { useAudio } from '../contexts/AudioContext';
 import { extractPeaks, renderTrimmedVocalBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
 import { getBeatsPerMeasure } from '../utils/measureHelpers';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 const PIXELS_PER_SECOND = 200; // Timeline scale: 200px = 1 second
 
@@ -40,15 +41,6 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   onSave,
   onCancel,
 }) => {
-  // Initial trim and nudge states
-  const defaultTrimStart = initialTrimStartSec !== undefined ? initialTrimStartSec : preRollDurationSec;
-  const defaultTrimEnd = initialTrimEndSec !== undefined ? initialTrimEndSec : audioBuffer.duration;
-
-  const [trimStartSec, setTrimStartSec] = useState(defaultTrimStart);
-  const [trimEndSec, setTrimEndSec] = useState(defaultTrimEnd);
-  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
   // Measure and pattern durations based on anchor measure BPM and time signature
   const initialMeasureIdx = pattern.measureAssignments.indexOf(true) !== -1
     ? pattern.measureAssignments.indexOf(true)
@@ -64,7 +56,38 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     1,
     pattern.measureAssignments.filter(Boolean).length || 1
   );
-  const loopDurationSec = patternMeasures * beatsCount * beatDurationSec;
+
+  // Exact duration of preceding measure M - 1 at its own BPM (or preRoll if M=0)
+  const mPrev = Math.max(0, initialMeasureIdx - 1);
+  const prevBpm = (measureBpms && measureBpms[mPrev % (measureBpms.length || 1)] > 0)
+    ? measureBpms[mPrev % (measureBpms.length || 1)]
+    : anchorBpm;
+  const prevSig = (measureTimeSigs && measureTimeSigs[mPrev % (measureTimeSigs.length || 1)]) || '4/4';
+  const prevBeats = getBeatsPerMeasure(prevSig);
+  const isCompoundPrev = prevSig === '6/8' || prevSig === '9/8' || prevSig === '12/8';
+  const prevBeatDuration = isCompoundPrev ? (90 / prevBpm) : (60 / prevBpm);
+  const t_temps1 = initialMeasureIdx >= 1 ? (prevBeats * prevBeatDuration) : (preRollDurationSec > 0 ? preRollDurationSec : beatsCount * beatDurationSec);
+  const temps1Px = t_temps1 * PIXELS_PER_SECOND;
+
+  // Initial trim and nudge states
+  const defaultTrimStart = initialTrimStartSec !== undefined ? initialTrimStartSec : 0;
+  const defaultTrimEnd = initialTrimEndSec !== undefined ? initialTrimEndSec : audioBuffer.duration;
+
+  const [trimStartSec, setTrimStartSec] = useState(defaultTrimStart);
+  const [trimEndSec, setTrimEndSec] = useState(defaultTrimEnd);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Total loop duration for [M - 1, M]
+  const loopDurationSec = (initialMeasureIdx >= 1 ? t_temps1 : 0) + (patternMeasures * beatsCount * beatDurationSec);
+
+  // 🛡️ Mémorisation de l'état initial de boucle pour restauration scrupuleuse
+  const savedLoopStateRef = useRef<{
+    isLooping: boolean;
+    loopStartMeasure: number | null;
+    loopEndMeasure: number | null;
+    isLoopRegionActive: boolean;
+  } | null>(null);
 
   // Refs for 60 FPS DOM direct mutations (Zero Render Thrashing)
   const waveformContainerRef = useRef<HTMLDivElement>(null);
@@ -137,6 +160,52 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const h = Math.max(1.5, (max - min) * amp);
       ctx.fillRect(x, y, 1.5, h);
     }
+
+    // --- STEP GRID & SYNTHESIZER NOTES RENDERING ---
+    // 1. Measure M - 1 step grid (from 0 to temps1Px)
+    if (initialMeasureIdx >= 1) {
+      const stepsCountPrev = isCompoundPrev ? 12 : 16;
+      const stepPxPrev = temps1Px / stepsCountPrev;
+      ctx.strokeStyle = 'rgba(26, 26, 26, 0.15)';
+      ctx.lineWidth = 1;
+      for (let s = 0; s < stepsCountPrev; s++) {
+        const xPos = s * stepPxPrev;
+        ctx.beginPath();
+        ctx.moveTo(xPos, 0);
+        ctx.lineTo(xPos, height);
+        ctx.stroke();
+
+        // Synth notes in pre-roll
+        if (pattern.preRollActiveSteps && pattern.preRollActiveSteps[s]) {
+          ctx.fillStyle = '#2a5d4e';
+          ctx.beginPath();
+          ctx.arc(xPos + stepPxPrev / 2, height / 2 - 30, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 2. Measure M step grid (from temps1Px onward)
+    const stepsCountM = pattern.steps || (isCompound ? 12 : 16);
+    const measureMDurationSec = beatsCount * beatDurationSec;
+    const stepPxM = (measureMDurationSec * PIXELS_PER_SECOND) / stepsCountM;
+    for (let s = 0; s < stepsCountM; s++) {
+      const xPos = temps1Px + s * stepPxM;
+      ctx.strokeStyle = (s % (isCompound ? 3 : 4) === 0) ? 'rgba(139, 42, 26, 0.25)' : 'rgba(26, 26, 26, 0.12)';
+      ctx.lineWidth = (s % (isCompound ? 3 : 4) === 0) ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.moveTo(xPos, 0);
+      ctx.lineTo(xPos, height);
+      ctx.stroke();
+
+      // Synth notes in main pattern
+      if (pattern.activeSteps && pattern.activeSteps[s]) {
+        ctx.fillStyle = '#8b2a1a';
+        ctx.beginPath();
+        ctx.arc(xPos + stepPxM / 2, height / 2 - 30, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }, [audioBuffer]);
 
   // 2. Draw Trim overlay on separate trimOverlayCanvas
@@ -205,15 +274,11 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     player.volume.value = 0;
     player.toDestination();
 
-    // Convention de signe : triggerTime = measureStartTime - anacrusisSec + nudgeSec
-    const anacrusisSec = Math.max(0, preRollDurationSec - tStart);
-    const scheduledTriggerDelay = -anacrusisSec + (rawNudge / 1000);
-
+    const scheduledTriggerDelay = (rawNudge / 1000);
     let actualStartOffset = tStart;
     let actualPlayDelay = scheduledTriggerDelay;
     let actualDuration = duration;
 
-    // Cas limite : si le déclenchement est avant le temps zéro de la mesure, compenser l'offset
     if (actualPlayDelay < 0) {
       const clipPastSec = -actualPlayDelay;
       actualStartOffset += clipPastSec;
@@ -221,7 +286,6 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       actualPlayDelay = 0;
     }
 
-    // Protection stricte des bornes par rapport au buffer physique
     if (actualStartOffset < 0) {
       actualDuration = Math.max(0, actualDuration + actualStartOffset);
       actualStartOffset = 0;
@@ -236,17 +300,28 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       localPlayerRef.current = player;
     }
 
-    // Loop
     previewLoopTimeoutRef.current = setTimeout(() => {
       playPreviewIteration();
     }, loopDurationSec * 1000);
-  }, [audioBuffer, preRollDurationSec, loopDurationSec, stopLocalPreview]);
+  }, [audioBuffer, loopDurationSec, stopLocalPreview]);
 
   const handleTogglePreview = async () => {
     if (isPlayingPreview) {
       setIsPlayingPreview(false);
       stopLocalPreview();
       handleStop();
+
+      // 🛡️ Restauration de la boucle à la fermeture
+      if (savedLoopStateRef.current) {
+        useSequencerStore.setState({
+          isLooping: savedLoopStateRef.current.isLooping,
+          loopStartMeasure: savedLoopStateRef.current.loopStartMeasure,
+          loopEndMeasure: savedLoopStateRef.current.loopEndMeasure,
+          isLoopRegionActive: savedLoopStateRef.current.isLoopRegionActive,
+        });
+        Tone.Transport.loop = savedLoopStateRef.current.isLooping;
+        savedLoopStateRef.current = null;
+      }
     } else {
       try {
         if (Tone.context.state !== 'running') {
@@ -256,10 +331,36 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           await (Tone.context.rawContext as AudioContext).resume();
         }
       } catch (_) {}
+
+      // Mémoriser l'état initial de boucle
+      const currentSeq = useSequencerStore.getState();
+      savedLoopStateRef.current = {
+        isLooping: currentSeq.isLooping,
+        loopStartMeasure: currentSeq.loopStartMeasure,
+        loopEndMeasure: currentSeq.loopEndMeasure,
+        isLoopRegionActive: currentSeq.isLoopRegionActive,
+      };
+
+      const mLoopStart = Math.max(0, initialMeasureIdx - 1);
+      const mLoopEnd = initialMeasureIdx;
+
+      // Définir les bornes de boucle sur la fenêtre utile
+      useSequencerStore.setState({
+        isLooping: true,
+        isLoopRegionActive: true,
+        loopStartMeasure: mLoopStart,
+        loopEndMeasure: mLoopEnd,
+      });
+
+      Tone.Transport.loop = true;
+      // Interdiction absolue de démarrer la lecture à 0:0:0 !
+      Tone.Transport.position = `${mLoopStart}:0:0`;
+
       setIsPlayingPreview(true);
-      if (!isPlaying) {
-        handleTogglePlay();
-      }
+
+      // Démarrage de la Roda calée sur mLoopStart
+      handleTogglePlay({ skipPreRoll: true, targetMeasure: mLoopStart });
+
       playPreviewIteration();
     }
   };
@@ -268,6 +369,15 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     return () => {
       stopLocalPreview();
       handleStop();
+      if (savedLoopStateRef.current) {
+        useSequencerStore.setState({
+          isLooping: savedLoopStateRef.current.isLooping,
+          loopStartMeasure: savedLoopStateRef.current.loopStartMeasure,
+          loopEndMeasure: savedLoopStateRef.current.loopEndMeasure,
+          isLoopRegionActive: savedLoopStateRef.current.isLoopRegionActive,
+        });
+        Tone.Transport.loop = savedLoopStateRef.current.isLooping;
+      }
     };
   }, [stopLocalPreview, handleStop]);
 
@@ -305,6 +415,17 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     stopLocalPreview();
     handleStop();
 
+    if (savedLoopStateRef.current) {
+      useSequencerStore.setState({
+        isLooping: savedLoopStateRef.current.isLooping,
+        loopStartMeasure: savedLoopStateRef.current.loopStartMeasure,
+        loopEndMeasure: savedLoopStateRef.current.loopEndMeasure,
+        isLoopRegionActive: savedLoopStateRef.current.isLoopRegionActive,
+      });
+      Tone.Transport.loop = savedLoopStateRef.current.isLooping;
+      savedLoopStateRef.current = null;
+    }
+
     try {
       const cleanBuffer = await renderTrimmedVocalBuffer(
         audioBuffer,
@@ -317,7 +438,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const wavBlob = audioBufferToWav(cleanBuffer);
 
       // Mathématique de l'anacrouse : dépassement à gauche du Temps 1
-      const anacrusisSec = Math.max(0, preRollDurationSec - trimStartSec);
+      const anacrusisSec = Math.max(0, t_temps1 - trimStartSec);
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
       const meta: VocalClipMeta = {
@@ -343,7 +464,6 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   };
 
   const bufferDuration = audioBuffer.duration;
-  const temps1Px = preRollDurationSec * PIXELS_PER_SECOND;
 
   return (
     <div className="flex flex-col gap-5 select-none font-mono">
@@ -357,23 +477,32 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             Zone d'alignement audio (Pattern #{pattern.id} - "{pattern.name}")
           </span>
 
+          {/* Zone markers left / right */}
+          <div className="absolute left-2 text-[9px] font-bold text-[#2a5d4e] uppercase flex items-center gap-1 pointer-events-none">
+            ← Anacrouse / Respiration (${initialMeasureIdx >= 1 ? `Mesure ${mPrev + 1}` : 'Pre-roll'})
+          </div>
+
           {/* TEMPS 1 Fixed Guide Line Badge */}
           <div
             style={{ left: `${temps1Px}px` }}
             className="absolute top-0 bottom-0 flex items-center -translate-x-1/2 z-30 pointer-events-none"
           >
-            <div className="px-2 py-0.5 bg-[#8b2a1a] text-[#fdfaf2] text-[9px] font-black uppercase tracking-wider border-x border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
-              TEMPS 1 / 1ère NOTE
+            <div className="px-2.5 py-0.5 bg-[#dc2626] text-white text-[9px] font-black uppercase tracking-wider border border-[#1a1a1a] shadow-[0_0_8px_rgba(220,38,38,0.8)]">
+              TEMPS 1 / CHANT (MESURE ${initialMeasureIdx + 1})
             </div>
+          </div>
+
+          <div style={{ left: `${temps1Px + 10}px` }} className="absolute text-[9px] font-bold text-[#8b2a1a] uppercase flex items-center gap-1 pointer-events-none">
+            Chant principal (Mesure ${initialMeasureIdx + 1}) →
           </div>
         </div>
 
         {/* Scrollable Waveform Viewport */}
         <div className="relative h-36 overflow-x-auto overflow-y-hidden">
-          {/* Fixed Vertical TEMPS 1 Guide Line */}
+          {/* Fixed Vertical TEMPS 1 Guide Line (Ligne rouge vive 2px) */}
           <div
             style={{ left: `${temps1Px}px` }}
-            className="absolute top-0 bottom-0 w-0.5 bg-[#8b2a1a] z-20 pointer-events-none border-l-2 border-dashed border-[#8b2a1a]"
+            className="absolute top-0 bottom-0 w-[2px] bg-[#dc2626] z-20 pointer-events-none shadow-[0_0_10px_rgba(220,38,38,0.9)]"
           />
 
           {/* Floating Waveform Canvas Layer (Translates with Nudge via GPU transform) */}

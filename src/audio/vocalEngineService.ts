@@ -104,6 +104,9 @@ let audioStream: MediaStream | null = null;
 let recordedChunks: Blob[] = [];
 let activeScheduledEvents: number[] = [];
 let activeTimeoutIds: number[] = [];
+let isPunchingOut = false;
+let activeTargetPatternId: number | null = null;
+let activeTargetMeasure: number | null = null;
 
 function clearScheduledEvents() {
   activeScheduledEvents.forEach((id) => {
@@ -163,60 +166,49 @@ export const vocalEngineService = {
     return 0;
   },
 
-  /**
-   * Pattern-First deterministic recording workflow asservi à Tone.Transport:
-   * 1. Mode focus activé immédiatement pour isoler le CPU audio.
-   * 2. Count-in de 4 temps au métronome.
-   * 3. Micro activé dès le début du pre-roll (Temps 0) pour capturer l'anacrouse.
-   * 4. Punch-in du motif au Temps 4 (1ère mesure utile).
-   * 5. Arrêt automatique déterministe à fin du motif + 1.5s de résonance.
-   * 6. Libération matérielle stricte du micro (Safeguard 3).
-   */
-  async startRecording(
-    patternId: number,
-    options: {
-      targetMeasure?: number;
-      onStartSequencer?: (targetMeasure?: number) => void;
-      onStopSequencer?: () => void;
-      onRecordingStopped?: (blob: Blob) => void;
-      onError?: (err: Error) => void;
-      deviceId?: string;
-      immediate?: boolean;
-    } = {}
-  ) {
-    if (this.isArming || this.mediaRecorder?.state === 'recording') {
-      console.warn("🎙️ [VOCAL ENGINE] startRecording rejected: already arming or recording");
-      return;
-    }
+  get isPunchingOut(): boolean {
+    return isPunchingOut;
+  },
 
-    // Réveil immédiat et synchrone du contexte audio Tone.js et AudioContext natif
-    if (Tone.context && Tone.context.state !== 'running') {
-      try { await Tone.context.resume(); } catch (_) {}
-    }
-    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-    if (rawCtx && rawCtx.state !== 'running') {
-      try { await rawCtx.resume(); } catch (_) {}
+  /**
+   * Pre-warms and arms the hardware microphone and MediaRecorder instance.
+   * Ensures zero latency when punch-in is triggered at step 0.
+   */
+  async armRecording(
+    patternId: number,
+    targetMeasure: number,
+    options: {
+      deviceId?: string;
+      onError?: (err: Error) => void;
+      onRecordingStopped?: (blob: Blob) => void;
+    } = {}
+  ): Promise<boolean> {
+    if (this.isArming) return false;
+    const numPatternId = Number(patternId);
+    activeTargetPatternId = numPatternId;
+    activeTargetMeasure = targetMeasure;
+
+    const store = useAudioStore.getState();
+    store.setTargetPatternId(numPatternId);
+    store.setTargetMeasureIdx(targetMeasure);
+    store.setRecordingStatus('arming');
+
+    // If mediaRecorder is already created and stream active, we are ready!
+    if (mediaRecorder && audioStream && audioStream.active) {
+      return true;
     }
 
     this.isArming = true;
-    const numPatternId = Number(patternId);
-    const store = useAudioStore.getState();
-    const sequencerStore = useSequencerStore.getState();
-    const bpm = sequencerStore.bpm;
-
-    // Reset scheduled Transport events
-    this.cleanupTimers();
-
-    // Mode Focus immédiat pour alléger le rendu et isoler le CPU
-    store.setIsFocusRecordingMode(true);
-    store.setRecordingStatus(options.immediate ? 'recording' : 'arming');
-    store.setTargetPatternId(numPatternId);
-    recordedChunks = [];
-
     try {
-      const targetDeviceId = options.deviceId || store.selectedDeviceId;
+      if (Tone.context && Tone.context.state !== 'running') {
+        try { await Tone.context.resume(); } catch (_) {}
+      }
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && rawCtx.state !== 'running') {
+        try { await rawCtx.resume(); } catch (_) {}
+      }
 
-      // Request raw, unadulterated microphone stream
+      const targetDeviceId = options.deviceId || store.selectedDeviceId;
       audioStream = await navigator.mediaDevices.getUserMedia({
         audio: targetDeviceId ? {
           deviceId: { exact: targetDeviceId },
@@ -230,6 +222,7 @@ export const vocalEngineService = {
         },
       });
 
+      recordedChunks = [];
       mediaRecorder = new MediaRecorder(audioStream, {
         audioBitsPerSecond: 96000,
       });
@@ -245,10 +238,8 @@ export const vocalEngineService = {
           const blob = new Blob(recordedChunks, {
             type: mediaRecorder?.mimeType || 'audio/webm',
           });
-
-          // Store temporary recording in store for validation modal
-          useAudioStore.getState().setTempRecording({ patternId: numPatternId, blob });
-
+          const targetPid = activeTargetPatternId || numPatternId;
+          useAudioStore.getState().setTempRecording({ patternId: targetPid, blob });
           if (options.onRecordingStopped) {
             options.onRecordingStopped(blob);
           }
@@ -256,186 +247,198 @@ export const vocalEngineService = {
           console.error("🎙️ [VOCAL ENGINE] Error on media recorder stop:", err);
           if (options.onError) options.onError(err);
         } finally {
-          // Safeguard 3: Strict hardware microphone stream release
           this.cleanupMedia();
-          store.setRecordingStatus('inactive');
-          store.setTargetPatternId(null);
-          store.setIsFocusRecordingMode(false);
+          const s = useAudioStore.getState();
+          s.setRecordingStatus('inactive');
+          s.setTargetPatternId(null);
+          s.setIsFocusRecordingMode(false);
+          isPunchingOut = false;
         }
       };
 
-      // MediaRecorder is initialized and ready
       this.isArming = false;
-
-      // Find target pattern (fresh store state after async getUserMedia)
-      const freshSequencerStore = useSequencerStore.getState();
-      const tracks = freshSequencerStore.tracks;
-      const voiceTrack = tracks.find(t => t.patterns?.some(p => Number(p.id) === numPatternId));
-      const targetPattern = voiceTrack?.patterns?.find(p => Number(p.id) === numPatternId);
-
-      if (!targetPattern || !voiceTrack) {
-        throw new Error("Target pattern or voice track not found");
-      }
-
-      // Calculate duration of the pattern (in measures) asservi à la mesure ciblée
-      const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1 
-        ? targetPattern.measureAssignments.indexOf(true) 
-        : 0;
-
-      const effectiveTargetMeasure = options.targetMeasure !== undefined 
-        ? options.targetMeasure 
-        : (store.targetMeasureIdx !== null ? store.targetMeasureIdx : (initialMeasureIdx !== -1 ? initialMeasureIdx : 0));
-
-      let consecutiveMeasures = 0;
-      for (let i = effectiveTargetMeasure; i < (freshSequencerStore.totalMeasures || 8); i++) {
-        if (targetPattern.measureAssignments[i]) {
-          consecutiveMeasures++;
-        } else {
-          break;
-        }
-      }
-      consecutiveMeasures = Math.max(1, consecutiveMeasures);
-
-      const targetMeasureBpm = (sequencerStore.measureBpms && sequencerStore.measureBpms[effectiveTargetMeasure % (sequencerStore.measureBpms.length || 1)] > 0)
-        ? sequencerStore.measureBpms[effectiveTargetMeasure % (sequencerStore.measureBpms.length || 1)]
-        : (sequencerStore.bpm || 100);
-
-      const targetTimeSig = (sequencerStore.measureTimeSigs && sequencerStore.measureTimeSigs[effectiveTargetMeasure % (sequencerStore.measureTimeSigs.length || 1)]) || '4/4';
-      const beatsCount = getBeatsPerMeasure(targetTimeSig);
-      const isCompound = (targetTimeSig as string) === '6/8' || (targetTimeSig as string) === '9/8' || (targetTimeSig as string) === '12/8';
-      const beatDurationSec = isCompound ? (90 / targetMeasureBpm) : (60 / targetMeasureBpm);
-      const preRollDurationSec = beatsCount * beatDurationSec; // Exactement 1 mesure de précompte
-      const patternDurationSec = consecutiveMeasures * beatsCount * beatDurationSec;
-      const resonanceTailSec = 0.8; // Directive : +0.8s strict
-      const totalCaptureSec = preRollDurationSec + patternDurationSec + resonanceTailSec;
-
-      if (options.immediate) {
-        if (mediaRecorder && mediaRecorder.state === 'inactive') {
-          mediaRecorder.start();
-          store.setRecordingStartTimelineSec(Tone.Transport.seconds);
-          store.setRecordingStatus('recording');
-
-          // Programme l'auto-stop pour le mode immédiat (durée attendue du pattern + 0.8s de résonance)
-          const immediateDurationSec = patternDurationSec + resonanceTailSec;
-          const stopImmediateRecording = () => {
-            clearScheduledEvents();
-            if (options.onStopSequencer) {
-              try { options.onStopSequencer(); } catch (_) {}
-            }
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-              try {
-                mediaRecorder.stop();
-              } catch (e) {
-                console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder in immediate mode:", e);
-              }
-            }
-            try {
-              Tone.Transport.stop();
-            } catch (_) {}
-            store.setRecordingStatus('inactive');
-            store.setIsFocusRecordingMode(false);
-          };
-
-          if (Tone.Transport.state === 'started') {
-            const scheduledStopId = Tone.Transport.schedule(() => {
-              stopImmediateRecording();
-            }, Tone.Transport.seconds + immediateDurationSec);
-            activeScheduledEvents.push(scheduledStopId);
-          }
-
-          const safetyTimeoutMs = Math.ceil(immediateDurationSec * 1000) + 100;
-          const safetyTimerId = workerSetTimeout(() => {
-            stopImmediateRecording();
-          }, safetyTimeoutMs);
-          activeTimeoutIds.push(safetyTimerId);
-        }
-      } else {
-        // Pattern-First: Start count-in at Transport position 0 for absolute temporal predictability
-        Tone.Transport.stop();
-        Tone.Transport.position = 0;
-        clearScheduledEvents();
-
-        // Count-in : exactement beatsCount clics de métronome audibles (1 mesure complète)
-        // Sortie directe reliée à Tone.getDestination() (insensible au mute de metroChannel)
-        // Micro activé IMMEDIATEMENT à T=0 pour capturer l'anacrouse
-        for (let b = 0; b < beatsCount; b++) {
-          const isDownbeat = b === 0;
-          const idB = Tone.Transport.schedule((time) => {
-            if (isDownbeat) {
-              store.setRecordingStatus('countdown');
-              if (mediaRecorder && mediaRecorder.state === 'inactive') {
-                try {
-                  mediaRecorder.start();
-                } catch (e) {
-                  console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
-                }
-              }
-            }
-            playCountInBeep(time, isDownbeat ? 1200 : 800, isDownbeat);
-          }, b * beatDurationSec);
-          activeScheduledEvents.push(idB);
-        }
-
-        // Pattern Start (Temps 1 de la mesure cible) : T = preRollDurationSec
-        const idPunchIn = Tone.Transport.schedule((time) => {
-          store.setRecordingStartTimelineSec(time);
-          store.setRecordingStatus('recording');
-
-          // Lancement immédiat de la bateria (Roda) calée sur le pas 0 de la mesure effective ciblée
-          if (options.onStartSequencer) {
-            options.onStartSequencer(effectiveTargetMeasure);
-          }
-        }, preRollDurationSec);
-
-        // Punch-Out : T = totalCaptureSec = preRollDurationSec + patternDurationSec + resonanceTailSec
-        const idPunchOut = Tone.Transport.schedule(() => {
-          if (options.onStopSequencer) {
-            try { options.onStopSequencer(); } catch (_) {}
-          }
-          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            try {
-              mediaRecorder.stop();
-            } catch (e) {
-              console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder at Punch-out:", e);
-            }
-          }
-          Tone.Transport.stop();
-          store.setRecordingStatus('inactive');
-          store.setIsFocusRecordingMode(false);
-        }, totalCaptureSec);
-
-        activeScheduledEvents.push(idPunchIn, idPunchOut);
-
-        // Garde-fou d'arrêt automatique haute précision (Worker Timer)
-        const safetyTimeoutMs = Math.ceil(totalCaptureSec * 1000) + 100;
-        const safetyTimerId = workerSetTimeout(() => {
-          if (options.onStopSequencer) {
-            try { options.onStopSequencer(); } catch (_) {}
-          }
-          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            try {
-              mediaRecorder.stop();
-            } catch (e) {
-              console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder on safety timer:", e);
-            }
-          }
-          try { Tone.Transport.stop(); } catch (_) {}
-          store.setRecordingStatus('inactive');
-          store.setIsFocusRecordingMode(false);
-        }, safetyTimeoutMs);
-        activeTimeoutIds.push(safetyTimerId);
-
-        Tone.Transport.start(undefined, 0);
-      }
+      return true;
     } catch (err: any) {
       this.isArming = false;
-      console.error("🎙️ [VOCAL ENGINE] Error in startRecording:", err);
-      this.cleanupTimers();
+      console.error("🎙️ [VOCAL ENGINE] Error arming recording:", err);
       this.cleanupMedia();
       store.setRecordingStatus('inactive');
       store.setTargetPatternId(null);
       store.setIsFocusRecordingMode(false);
       if (options.onError) options.onError(err);
+      return false;
+    }
+  },
+
+  /**
+   * Starts recording silently and immediately on the hardware MediaRecorder.
+   */
+  punchIn(patternId?: number, targetMeasure?: number) {
+    if (patternId !== undefined) activeTargetPatternId = Number(patternId);
+    if (targetMeasure !== undefined) activeTargetMeasure = targetMeasure;
+
+    const store = useAudioStore.getState();
+    store.setIsFocusRecordingMode(true);
+    store.setRecordingStatus('recording');
+    store.setRecordingStartTimelineSec(Tone.Transport.seconds);
+
+    if (mediaRecorder && mediaRecorder.state === 'inactive') {
+      try {
+        mediaRecorder.start();
+        console.log("🎙️ [VOCAL ENGINE] Punch-in MediaRecorder started silently at measure", targetMeasure);
+      } catch (e) {
+        console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at punch-in:", e);
+      }
+    }
+  },
+
+  /**
+   * Schedules a deterministic punch-out after a specified tail duration (+0.8s).
+   */
+  schedulePunchOut(tailSec: number = 0.8, onStopPlayback?: () => void) {
+    if (isPunchingOut) return;
+    isPunchingOut = true;
+
+    const safetyTimeoutMs = Math.ceil(tailSec * 1000);
+    const timerId = workerSetTimeout(() => {
+      if (onStopPlayback) {
+        try { onStopPlayback(); } catch (_) {}
+      }
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (e) {
+          console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder at punch-out:", e);
+        }
+      }
+      try { Tone.Transport.stop(); } catch (_) {}
+      const store = useAudioStore.getState();
+      store.setRecordingStatus('inactive');
+      store.setIsFocusRecordingMode(false);
+    }, safetyTimeoutMs);
+
+    activeTimeoutIds.push(timerId);
+  },
+
+  /**
+   * Pattern-First deterministic recording workflow asservi à Tone.Transport:
+   * 1. Mode focus activé immédiatement pour isoler le CPU audio.
+   * 2. Count-in de 4 temps au métronome.
+   * 3. Micro activé dès le début du pre-roll (Temps 0) pour capturer l'anacrouse.
+   * 4. Punch-in du motif au Temps 4 (1ère mesure utile).
+   * 5. Arrêt automatique déterministe à fin du motif + 1.5s de résonance.
+   * 6. Libération matérielle stricte du micro (Safeguard 3).
+   */
+  /**
+   * 2-Measure Punch-in Recording Workflow with edge-case handling for M < 2:
+   * - M >= 2: Play starts at M - 2 (Bateria only). Punch-in silent at M - 1 step 0. Chant at M. Punch-out at M + 0.8s.
+   * - M = 1: Play starts at M = 0 with immediate punch-in. Chant at M = 1. Punch-out at M = 1 + 0.8s.
+   * - M = 0: 1-measure count-in (pre-roll 4 beeps) with mic open from count-in (T = 0).
+   */
+  async startRecording(
+    patternId: number,
+    options: {
+      targetMeasure?: number;
+      onStartSequencer?: (targetMeasure?: number) => void;
+      onStopSequencer?: () => void;
+      onRecordingStopped?: (blob: Blob) => void;
+      onError?: (err: Error) => void;
+      deviceId?: string;
+      immediate?: boolean;
+    } = {}
+  ) {
+    const store = useAudioStore.getState();
+    const sequencerStore = useSequencerStore.getState();
+    const numPatternId = Number(patternId);
+
+    const tracks = sequencerStore.tracks;
+    const voiceTrack = tracks.find(t => t.patterns?.some(p => Number(p.id) === numPatternId));
+    const targetPattern = voiceTrack?.patterns?.find(p => Number(p.id) === numPatternId);
+    const initialMeasureIdx = targetPattern?.measureAssignments.indexOf(true) ?? 0;
+
+    const M = options.targetMeasure !== undefined
+      ? options.targetMeasure
+      : (store.targetMeasureIdx !== null ? store.targetMeasureIdx : (initialMeasureIdx !== -1 ? initialMeasureIdx : 0));
+
+    // Reset previous scheduled events
+    this.cleanupTimers();
+
+    const armed = await this.armRecording(numPatternId, M, {
+      deviceId: options.deviceId,
+      onError: options.onError,
+      onRecordingStopped: options.onRecordingStopped,
+    });
+    if (!armed && !mediaRecorder) {
+      return;
+    }
+
+    if (options.immediate) {
+      this.punchIn(numPatternId, M);
+      return;
+    }
+
+    // 🛡️ Edge-cases M < 2
+    if (M >= 2) {
+      // 1. Nominal workflow: Launch playback at M - 2 with skipPreRoll: true
+      const startMeasure = M - 2;
+      if (options.onStartSequencer) {
+        options.onStartSequencer(startMeasure);
+      }
+    } else if (M === 1) {
+      // 2. M = 1: Launch playback at M = 0 with immediate punch-in at M = 0
+      this.punchIn(numPatternId, M);
+      if (options.onStartSequencer) {
+        options.onStartSequencer(0);
+      }
+    } else {
+      // 3. M = 0: Fallback on 1 measure of classic metronome count-in (pre-roll 4 beeps)
+      // with microphone open from count-in (T = 0)
+      const targetBpm = (sequencerStore.measureBpms && sequencerStore.measureBpms[0] > 0)
+        ? sequencerStore.measureBpms[0]
+        : (sequencerStore.bpm || 100);
+      const targetTimeSig = (sequencerStore.measureTimeSigs && sequencerStore.measureTimeSigs[0]) || '4/4';
+      const beatsCount = getBeatsPerMeasure(targetTimeSig);
+      const isCompound = (targetTimeSig as string) === '6/8' || (targetTimeSig as string) === '9/8' || (targetTimeSig as string) === '12/8';
+      const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
+      const preRollDurationSec = beatsCount * beatDurationSec;
+
+      Tone.Transport.stop();
+      Tone.Transport.position = 0;
+      clearScheduledEvents();
+
+      for (let b = 0; b < beatsCount; b++) {
+        const isDownbeat = b === 0;
+        const idB = Tone.Transport.schedule((time) => {
+          if (isDownbeat) {
+            store.setRecordingStatus('countdown');
+            if (mediaRecorder && mediaRecorder.state === 'inactive') {
+              try { mediaRecorder.start(); } catch (e) {
+                console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
+              }
+            }
+          }
+          playCountInBeep(time, isDownbeat ? 1200 : 800, isDownbeat);
+        }, b * beatDurationSec);
+        activeScheduledEvents.push(idB);
+      }
+
+      const idPunchIn = Tone.Transport.schedule((time) => {
+        store.setRecordingStartTimelineSec(time);
+        store.setRecordingStatus('recording');
+        if (options.onStartSequencer) {
+          options.onStartSequencer(0);
+        }
+      }, preRollDurationSec);
+      activeScheduledEvents.push(idPunchIn);
+
+      const patternDurationSec = beatsCount * beatDurationSec;
+      const totalCaptureSec = preRollDurationSec + patternDurationSec + 0.8;
+      const idPunchOut = Tone.Transport.schedule(() => {
+        this.schedulePunchOut(0, options.onStopSequencer);
+      }, totalCaptureSec);
+      activeScheduledEvents.push(idPunchOut);
+
+      Tone.Transport.start(undefined, 0);
     }
   },
 
@@ -443,6 +446,8 @@ export const vocalEngineService = {
    * Stops the active recording process immediately and releases hardware mic stream.
    */
   stopRecording() {
+    if (isPunchingOut) return;
+
     this.isArming = false;
     this.cleanupTimers();
     Tone.Transport.stop();
@@ -479,6 +484,7 @@ export const vocalEngineService = {
       audioStream = null;
     }
     mediaRecorder = null;
+    isPunchingOut = false;
   },
 
   /**
