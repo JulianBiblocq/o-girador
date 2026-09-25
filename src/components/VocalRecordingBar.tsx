@@ -197,38 +197,39 @@ export const VocalRecordingBar: React.FC = () => {
   const handleStartRec = () => {
     // 🛡️ SYNC CHECK: Resume context synchronously inside user gesture to bypass Safari/Chrome autoplay blocks
     try {
+      Tone.start();
+      const rawCtx = (Tone.getContext().rawContext || Tone.context);
+      if (rawCtx && rawCtx.state !== 'running') {
+        rawCtx.resume();
+      }
       if (Tone.context && Tone.context.state !== 'running') {
         Tone.context.resume();
       }
-      Tone.start();
-
-    } catch (e) {
-
-    }
+    } catch (_) {}
 
     // Stop the sequencer if it was playing to ensure start from beginning
     if (isPlaying) {
-
       handleStop();
     }
 
-    vocalEngineService.startRecording(selectedPatternId, {
-      deviceId: selectedDeviceId || undefined,
-      onStartSequencer: (targetMeasure?: number) => {
-        if (!isPlaying) {
-          handleTogglePlay({ skipPreRoll: true, targetMeasure });
-        }
-      },
-      onStopSequencer: () => {
-        handleStop();
-      },
-      onError: (err) => {
-        setAlertMessage(lang === 'fr' 
-          ? "Erreur d'accès au micro : " + err.message 
-          : "Erro de acesso ao microfone: " + err.message
-        );
-      }
+    const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
+    const initialMeasureIdx = activePattern?.measureAssignments.indexOf(true) ?? 0;
+    const targetM = currentArmedMeasure !== null ? currentArmedMeasure : (initialMeasureIdx !== -1 ? initialMeasureIdx : 0);
+
+    useAudioStore.getState().setRecordingTarget({
+      trackId: activeVoiceTrack.id,
+      patternId: selectedPatternId,
+      targetMeasure: targetM,
     });
+    useAudioStore.getState().setSelectedVocalPatternId(selectedPatternId);
+
+    // Préchauffage du micro en tâche de fond silencieux
+    vocalEngineService.preWarmMicStreamSilently(selectedPatternId, targetM);
+
+    // Démarrage de la lecture sur la Timeline (Bateria démarre à M - 2 avec punch-in à M - 1)
+    if (!isPlaying) {
+      handleTogglePlay();
+    }
   };
 
   const handleStopRec = () => {

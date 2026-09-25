@@ -48,9 +48,25 @@ export const VocalValidationModal: React.FC = () => {
     setAudioBuffer(null);
 
     const decode = async () => {
+      // 1. Validation préalable du Blob
+      if (!tempRecording.blob || tempRecording.blob.size === 0) {
+        console.error("🎙️ [AUDIO] Blob d'enregistrement vide ou inexistant.");
+        if (active) setLoading(false);
+        return;
+      }
+
+      // 2. Réveil impératif de l'AudioContext avant décodage
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && rawCtx.state === 'suspended') {
+        try {
+          await rawCtx.resume();
+        } catch (e) {
+          console.warn("🎙️ [AUDIO] Context resume warning:", e);
+        }
+      }
+
       try {
         const arrayBuffer = await tempRecording.blob.arrayBuffer();
-        const rawCtx = Tone.getContext().rawContext as AudioContext;
         const buffer = await rawCtx.decodeAudioData(arrayBuffer);
 
         if (active) {
@@ -83,12 +99,13 @@ export const VocalValidationModal: React.FC = () => {
             setInitialTrimEndSec(buffer.duration);
             setInitialNudgeMs(0);
           }
-
-          setLoading(false);
         }
       } catch (err) {
         console.error('🎙️ [VOCAL ENGINE] Error decoding temporary recording:', err);
-        if (active) setLoading(false);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
@@ -174,10 +191,20 @@ export const VocalValidationModal: React.FC = () => {
           </button>
         </div>
 
-        {loading || !audioBuffer ? (
+        {loading ? (
           <div className="h-64 flex flex-col items-center justify-center gap-4 bg-[#e2d8be] border-2 border-[#1a1a1a] rounded-sm">
             <div className="w-10 h-10 border-4 border-[#8b2a1a] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm font-bold text-[#8b2a1a]">Rendu / Décodage en cours...</p>
+          </div>
+        ) : !audioBuffer ? (
+          <div className="h-64 flex flex-col items-center justify-center gap-4 bg-[#e2d8be] border-2 border-[#1a1a1a] rounded-sm p-6 text-center">
+            <p className="text-sm font-bold text-[#8b2a1a]">Échec du décodage de l'enregistrement (flux audio vide ou format non supporté).</p>
+            <button
+              onClick={handleCancel}
+              className="px-4 py-2 bg-[#8b2a1a] text-[#fdfaf2] font-cactus font-bold text-sm uppercase rounded-sm border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#6e2114]"
+            >
+              Fermer
+            </button>
           </div>
         ) : (
           <AudioAlignmentEditor

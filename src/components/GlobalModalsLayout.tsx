@@ -11,7 +11,6 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { ExportMenuModal } from './ExportMenuModal';
 import { useAudioStore } from '../stores/useAudioStore';
 import { VocalValidationModal } from './VocalValidationModal';
-import { VocalRecordingFocusOverlay } from './VocalRecordingFocusOverlay';
 
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { WindowPortal } from './WindowPortal';
@@ -255,8 +254,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
         </div>
       )}
 
-      {/* Focus Mode Overlay for CPU Isolation during Vocal Recording */}
-      <VocalRecordingFocusOverlay />
+
 
       {/* Vocal Validation Interception Modal */}
       {tempRecording !== null && (
