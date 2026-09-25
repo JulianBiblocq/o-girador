@@ -6,6 +6,7 @@ import { vocalEngineService } from '../audio/vocalEngineService';
 import { instrumentsConfig } from '../data';
 import { useAudio } from '../contexts/AudioContext';
 import { useAudioDevices } from '../hooks/useAudioDevices';
+import { CordelConfirmDialog } from './CordelConfirmDialog';
 import * as Tone from 'tone';
 
 export const VocalRecordingBar: React.FC = () => {
@@ -30,6 +31,9 @@ export const VocalRecordingBar: React.FC = () => {
   const iconRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // Early permission request & device population
   const handleRequestPermissionAndPopulateDevices = async () => {
@@ -186,7 +190,7 @@ export const VocalRecordingBar: React.FC = () => {
       // Reset input value to allow selecting same file again
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
-      alert("Erreur lors de l'import : " + err.message);
+      setAlertMessage(lang === 'fr' ? "Erreur lors de l'import : " + err.message : "Erro ao importar: " + err.message);
     }
   };
 
@@ -219,7 +223,10 @@ export const VocalRecordingBar: React.FC = () => {
         handleStop();
       },
       onError: (err) => {
-        alert("Erreur d'accès au micro : " + err.message);
+        setAlertMessage(lang === 'fr' 
+          ? "Erreur d'accès au micro : " + err.message 
+          : "Erro de acesso ao microfone: " + err.message
+        );
       }
     });
   };
@@ -241,11 +248,13 @@ export const VocalRecordingBar: React.FC = () => {
     }
   };
 
-  const handleDelete = async () => {
-    const confirmMsg = lang === 'fr' 
-      ? "Voulez-vous vraiment supprimer cet enregistrement ?" 
-      : "Tem certeza de que deseja excluir esta gravação?";
-    if (window.confirm(confirmMsg)) {
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    setShowDeleteConfirm(false);
+    if (selectedPatternId) {
       await vocalEngineService.deleteVocalRecording(selectedPatternId);
     }
   };
@@ -618,6 +627,44 @@ export const VocalRecordingBar: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Dialogue Cordel de Confirmation de Suppression */}
+      <CordelConfirmDialog
+        isOpen={showDeleteConfirm}
+        title={lang === 'fr' ? 'Supprimer la voix' : 'Excluir voz'}
+        subtitle={activePattern?.name ? `Patron : ${activePattern.name}` : 'Literatura de Cordel'}
+        icon={<Trash2 size={18} className="text-[#b33939]" />}
+        message={
+          <div className="flex flex-col gap-2">
+            <p>
+              {lang === 'fr' 
+                ? 'Voulez-vous vraiment supprimer cet enregistrement vocal pour ce motif ?' 
+                : 'Tem certeza de que deseja excluir esta gravação vocal deste padrão?'}
+            </p>
+            <p className="text-xs text-[#b33939] font-bold">
+              {lang === 'fr'
+                ? '⚠️ Cette action effacera définitivement l’audio associé.'
+                : '⚠️ Esta ação apagará permanentemente o áudio associado.'}
+            </p>
+          </div>
+        }
+        confirmText={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+        cancelText={lang === 'fr' ? 'Annuler' : 'Cancelar'}
+        confirmVariant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      {/* Dialogue Cordel d'Alerte / Erreur */}
+      <CordelConfirmDialog
+        isOpen={!!alertMessage}
+        title={lang === 'fr' ? 'Attention (Audio)' : 'Atenção (Áudio)'}
+        subtitle="Literatura de Cordel"
+        message={<p>{alertMessage}</p>}
+        confirmText={lang === 'fr' ? 'Compris' : 'Entendido'}
+        confirmVariant="warning"
+        onConfirm={() => setAlertMessage(null)}
+      />
     </div>
   );
 };

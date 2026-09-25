@@ -20,6 +20,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useAudio } from '../contexts/AudioContext';
 import { vocalEngineService } from '../audio/vocalEngineService';
+import { CordelConfirmDialog } from './CordelConfirmDialog';
 import * as Tone from 'tone';
 
 interface VocalWorkflowStepperProps {
@@ -34,6 +35,9 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
   isCoro = false,
 }) => {
   const lang = useSequencerStore((state) => state.lang);
+  const pattern = useSequencerStore((state) => 
+    state.tracks.flatMap(t => t.patterns).find(p => p.id === patternId)
+  );
   const recordingStatus = useAudioStore((state) => state.recordingStatus);
   const tempRecording = useAudioStore((state) => state.tempRecording);
   const hasVocalRecording = useAudioStore((state) => 
@@ -43,6 +47,8 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
   const { isPlaying, handleTogglePlay, handleStop } = useAudio();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [showNewRecordingConfirm, setShowNewRecordingConfirm] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Synchronisation lors du changement de motif
   useEffect(() => {
@@ -96,7 +102,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         handleStop();
       },
       onError: (err) => {
-        alert(lang === 'fr' 
+        setErrorMessage(lang === 'fr' 
           ? "Erreur d'accès au micro : " + err.message 
           : "Erro de acesso ao microfone: " + err.message
         );
@@ -124,15 +130,15 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
     }
   };
 
-  // Demande d'une nouvelle prise
+  // Demande d'une nouvelle prise via dialogue Cordel
   const handleNewRecording = () => {
-    const confirmMsg = lang === 'fr'
-      ? "Voulez-vous réaliser une nouvelle prise pour ce motif ?"
-      : "Deseja realizar uma nova gravação para este padrão?";
-    if (window.confirm(confirmMsg)) {
-      if (isPlaying) handleStop();
-      setCurrentStep(3);
-    }
+    setShowNewRecordingConfirm(true);
+  };
+
+  const confirmNewRecording = () => {
+    setShowNewRecordingConfirm(false);
+    if (isPlaying) handleStop();
+    setCurrentStep(3);
   };
 
   const stepsConfig = [
@@ -373,6 +379,44 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
           )}
         </div>
       </div>
+
+      {/* Dialogue Cordel de Confirmation pour Nouvelle Prise */}
+      <CordelConfirmDialog
+        isOpen={showNewRecordingConfirm}
+        title={lang === 'fr' ? 'Nouvelle Prise Vocale' : 'Nova Gravação Vocal'}
+        subtitle={pattern?.name ? `Patron : ${pattern.name}` : 'Literatura de Cordel'}
+        icon={<RefreshCw size={18} className="text-[#8b2a1a]" />}
+        message={
+          <div className="flex flex-col gap-2">
+            <p>
+              {lang === 'fr'
+                ? 'Voulez-vous réaliser une nouvelle prise pour ce motif ?'
+                : 'Deseja realizar uma nova gravação para este padrão?'}
+            </p>
+            <p className="text-xs text-[#8b2a1a] font-bold">
+              {lang === 'fr'
+                ? '⚠️ L’enregistrement vocal précédent de ce motif sera remplacé.'
+                : '⚠️ A gravação vocal anterior deste padrão será substituída.'}
+            </p>
+          </div>
+        }
+        confirmText={lang === 'fr' ? 'Oui, nouvelle prise' : 'Sim, nova gravação'}
+        cancelText={lang === 'fr' ? 'Annuler' : 'Cancelar'}
+        confirmVariant="primary"
+        onConfirm={confirmNewRecording}
+        onCancel={() => setShowNewRecordingConfirm(false)}
+      />
+
+      {/* Dialogue Cordel d'Alerte / Erreur */}
+      <CordelConfirmDialog
+        isOpen={!!errorMessage}
+        title={lang === 'fr' ? 'Attention (Microphone)' : 'Atenção (Microfone)'}
+        subtitle="Literatura de Cordel"
+        message={<p>{errorMessage}</p>}
+        confirmText={lang === 'fr' ? 'Compris' : 'Entendido'}
+        confirmVariant="warning"
+        onConfirm={() => setErrorMessage(null)}
+      />
     </div>
   );
 };
