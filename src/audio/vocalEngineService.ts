@@ -13,6 +13,7 @@ import { instrumentsConfig } from '../data';
 import { playNativeMetroClick } from './nativeSynths';
 import { calculateDeterministicVocalClipMeta } from '../utils/audioBufferUtils';
 import { VocalClipMeta } from '../types/store.types';
+import { getBeatsPerMeasure } from '../utils/measureHelpers';
 
 // Background-immune high-precision worker timer helpers to bypass browser tab throttling
 let timerWorker: Worker | null = null;
@@ -78,6 +79,14 @@ export function workerSetTimeout(callback: () => void, delay: number): number {
   return id;
 }
 
+export function workerClearTimeout(id: number) {
+  pendingCallbacks.delete(id);
+  const worker = getTimerWorker();
+  if (worker) {
+    worker.postMessage({ type: 'clearTimeout', id });
+  }
+}
+
 export interface ActiveVocal {
   mainPlayer: Tone.GrainPlayer;
   mainGain: Tone.Gain;
@@ -105,6 +114,7 @@ function clearScheduledEvents() {
   activeScheduledEvents = [];
   activeTimeoutIds.forEach((id) => {
     try {
+      workerClearTimeout(id);
       clearTimeout(id);
     } catch (_) {}
   });
@@ -165,7 +175,8 @@ export const vocalEngineService = {
   async startRecording(
     patternId: number,
     options: {
-      onStartSequencer?: () => void;
+      onStartSequencer?: (targetMeasure?: number) => void;
+      onStopSequencer?: () => void;
       onRecordingStopped?: (blob: Blob) => void;
       onError?: (err: Error) => void;
       deviceId?: string;
@@ -272,10 +283,14 @@ export const vocalEngineService = {
       consecutiveMeasures = Math.max(1, consecutiveMeasures);
 
       const targetMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || bpm;
-      const beatDurationSec = 60 / targetMeasureBpm;
-      const countInDurationSec = 4 * beatDurationSec; // Exactly 1 measure pre-roll (4 beats)
-      const patternDurationSec = consecutiveMeasures * 4 * beatDurationSec;
-      const resonanceTailSec = 1.5; // 1.5s natural decay margin
+      const targetTimeSig = sequencerStore.measureTimeSigs[initialMeasureIdx % (sequencerStore.measureTimeSigs.length || 1)] || '4/4';
+      const beatsCount = getBeatsPerMeasure(targetTimeSig);
+      const isCompound = (targetTimeSig as string) === '6/8' || (targetTimeSig as string) === '9/8' || (targetTimeSig as string) === '12/8';
+      const beatDurationSec = isCompound ? (90 / targetMeasureBpm) : (60 / targetMeasureBpm);
+      const preRollDurationSec = beatsCount * beatDurationSec; // Exactement 1 mesure de précompte
+      const patternDurationSec = consecutiveMeasures * beatsCount * beatDurationSec;
+      const resonanceTailSec = 1.5; // Marge naturelle de résonance vocale
+      const totalCaptureSec = preRollDurationSec + patternDurationSec + resonanceTailSec;
 
       if (options.immediate) {
         if (mediaRecorder && mediaRecorder.state === 'inactive') {
@@ -287,6 +302,9 @@ export const vocalEngineService = {
           const immediateDurationSec = patternDurationSec + resonanceTailSec;
           const stopImmediateRecording = () => {
             clearScheduledEvents();
+            if (options.onStopSequencer) {
+              try { options.onStopSequencer(); } catch (_) {}
+            }
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
               try {
                 mediaRecorder.stop();
@@ -308,8 +326,8 @@ export const vocalEngineService = {
             activeScheduledEvents.push(scheduledStopId);
           }
 
-          const safetyTimeoutMs = Math.ceil(immediateDurationSec * 1000);
-          const safetyTimerId = window.setTimeout(() => {
+          const safetyTimeoutMs = Math.ceil(immediateDurationSec * 1000) + 100;
+          const safetyTimerId = workerSetTimeout(() => {
             stopImmediateRecording();
           }, safetyTimeoutMs);
           activeTimeoutIds.push(safetyTimerId);
@@ -320,49 +338,42 @@ export const vocalEngineService = {
         Tone.Transport.position = 0;
         clearScheduledEvents();
 
-        // Count-in Beat 1: Start MediaRecorder IMMEDIATELY at T=0 to capture early anacrusis
-        const idB1 = Tone.Transport.schedule((time) => {
-          store.setRecordingStatus('countdown');
-          playNativeMetroClick(time, true, 'synth', 0.85);
-
-          if (mediaRecorder && mediaRecorder.state === 'inactive') {
-            try {
-              mediaRecorder.start();
-            } catch (e) {
-              console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
+        // Count-in : exactement beatsCount clics de métronome (1 mesure complète)
+        // Micro activé IMMEDIATEMENT à T=0 pour capturer l'anacrouse
+        for (let b = 0; b < beatsCount; b++) {
+          const isDownbeat = b === 0;
+          const idB = Tone.Transport.schedule((time) => {
+            if (isDownbeat) {
+              store.setRecordingStatus('countdown');
+              if (mediaRecorder && mediaRecorder.state === 'inactive') {
+                try {
+                  mediaRecorder.start();
+                } catch (e) {
+                  console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
+                }
+              }
             }
-          }
-        }, 0);
+            playNativeMetroClick(time, isDownbeat, 'synth', isDownbeat ? 0.85 : 0.5);
+          }, b * beatDurationSec);
+          activeScheduledEvents.push(idB);
+        }
 
-        // Count-in Beat 2
-        const idB2 = Tone.Transport.schedule((time) => {
-          playNativeMetroClick(time, false, 'synth', 0.5);
-        }, 1 * beatDurationSec);
-
-        // Count-in Beat 3
-        const idB3 = Tone.Transport.schedule((time) => {
-          playNativeMetroClick(time, false, 'synth', 0.5);
-        }, 2 * beatDurationSec);
-
-        // Count-in Beat 4
-        const idB4 = Tone.Transport.schedule((time) => {
-          playNativeMetroClick(time, false, 'synth', 0.5);
-        }, 3 * beatDurationSec);
-
-        // Pattern Start (Temps 1): T = countInDurationSec
+        // Pattern Start (Temps 1 de la mesure cible) : T = preRollDurationSec
         const idPunchIn = Tone.Transport.schedule((time) => {
           store.setRecordingStartTimelineSec(time);
           store.setRecordingStatus('recording');
 
-          // Launch backing track (Roda) if requested
+          // Lancement immédiat de la bateria (Roda) calée sur le pas 0 de la mesure cible
           if (options.onStartSequencer) {
-            options.onStartSequencer();
+            options.onStartSequencer(initialMeasureIdx);
           }
-        }, countInDurationSec);
+        }, preRollDurationSec);
 
-        // Punch-Out: T = countInDurationSec + patternDurationSec + resonanceTailSec
-        const stopTimeSec = countInDurationSec + patternDurationSec + resonanceTailSec;
+        // Punch-Out : T = totalCaptureSec = preRollDurationSec + patternDurationSec + resonanceTailSec
         const idPunchOut = Tone.Transport.schedule(() => {
+          if (options.onStopSequencer) {
+            try { options.onStopSequencer(); } catch (_) {}
+          }
           if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             try {
               mediaRecorder.stop();
@@ -373,9 +384,29 @@ export const vocalEngineService = {
           Tone.Transport.stop();
           store.setRecordingStatus('inactive');
           store.setIsFocusRecordingMode(false);
-        }, stopTimeSec);
+        }, totalCaptureSec);
 
-        activeScheduledEvents.push(idB1, idB2, idB3, idB4, idPunchIn, idPunchOut);
+        activeScheduledEvents.push(idPunchIn, idPunchOut);
+
+        // Garde-fou d'arrêt automatique haute précision (Worker Timer)
+        const safetyTimeoutMs = Math.ceil(totalCaptureSec * 1000) + 100;
+        const safetyTimerId = workerSetTimeout(() => {
+          if (options.onStopSequencer) {
+            try { options.onStopSequencer(); } catch (_) {}
+          }
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            try {
+              mediaRecorder.stop();
+            } catch (e) {
+              console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder on safety timer:", e);
+            }
+          }
+          try { Tone.Transport.stop(); } catch (_) {}
+          store.setRecordingStatus('inactive');
+          store.setIsFocusRecordingMode(false);
+        }, safetyTimeoutMs);
+        activeTimeoutIds.push(safetyTimerId);
+
         Tone.Transport.start(undefined, 0);
       }
     } catch (err: any) {

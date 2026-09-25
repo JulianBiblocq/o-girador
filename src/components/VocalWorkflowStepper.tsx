@@ -87,10 +87,13 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
 
     vocalEngineService.startRecording(patternId, {
       deviceId: selectedDeviceId || undefined,
-      onStartSequencer: () => {
+      onStartSequencer: (targetMeasure?: number) => {
         if (!isPlaying) {
-          handleTogglePlay();
+          handleTogglePlay({ skipPreRoll: true, targetMeasure });
         }
+      },
+      onStopSequencer: () => {
+        handleStop();
       },
       onError: (err) => {
         alert(lang === 'fr' 

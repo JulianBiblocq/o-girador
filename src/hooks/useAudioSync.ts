@@ -1988,7 +1988,7 @@ export function useAudioSync({
     };
   }, [isAudioUnlocked]);
 
-  const handleTogglePlayRef = useRef<(() => Promise<void>) | null>(null);
+  const handleTogglePlayRef = useRef<((playOptions?: { skipPreRoll?: boolean; targetMeasure?: number }) => Promise<void>) | null>(null);
 
   // ─── VisibilityChange & Mobile Auto-Pause ────────────────────────────
   // When screen turns off or app is backgrounded (document.hidden === true):
@@ -2018,7 +2018,10 @@ export function useAudioSync({
     };
   }, []);
 
-  const handleTogglePlay = useCallback(async () => {
+  const handleTogglePlay = useCallback(async (playOptions?: { skipPreRoll?: boolean; targetMeasure?: number } | any) => {
+    const options = (playOptions && typeof playOptions === 'object' && !('nativeEvent' in playOptions) && !('target' in playOptions))
+      ? (playOptions as { skipPreRoll?: boolean; targetMeasure?: number })
+      : undefined;
     if (import.meta.env.DEV) {
     }
     // 🛡️ UNLOCK GUARD: Réveiller le moteur audio s'il n'avait pas été déverrouillé (arrivée directe sur la Roda)
@@ -2094,12 +2097,16 @@ export function useAudioSync({
 
       // 🎯 PRÉ-ROLL ADAPTATIF
       const preRoll = useTransportStore.getState().preRollSettings;
-      const targetM = measureCountRef.current % (totalMeasuresRef.current || 1);
+      const targetM = options?.targetMeasure !== undefined
+        ? (options.targetMeasure % (totalMeasuresRef.current || 1))
+        : (measureCountRef.current % (totalMeasuresRef.current || 1));
       targetPreRollMeasureRef.current = targetM;
 
       let scheduledMusicStartTime: number | undefined = undefined;
 
-      if (preRoll && preRoll.enabled) {
+      const shouldExecutePreRoll = !options?.skipPreRoll && preRoll && preRoll.enabled;
+
+      if (shouldExecutePreRoll) {
         const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
         const targetBpm = isNaN(measureBpmsRef.current[targetM]) || measureBpmsRef.current[targetM] <= 0
           ? (useSequencerStore.getState().bpm || 100)
@@ -2180,6 +2187,49 @@ export function useAudioSync({
       } else {
         isPreRollActiveRef.current = false;
         preRollRemainingMeasuresRef.current = 0;
+
+        // Calage synchrone immédiat du moteur audio sur la mesure cible targetM et pas 0
+        if (audioEngine) {
+          audioEngine.currentMeasure = targetM;
+          audioEngine.currentStep = 0;
+          audioEngine.schedulingMeasure = targetM;
+          audioEngine.schedulingStep = 0;
+        }
+        currentStepIndexRef.current = -1;
+        measureCountRef.current = targetM;
+
+        if (options?.skipPreRoll) {
+          const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
+          const targetBpm = isNaN(measureBpmsRef.current[targetM]) || measureBpmsRef.current[targetM] <= 0
+            ? (useSequencerStore.getState().bpm || 100)
+            : measureBpmsRef.current[targetM];
+          const beatsCount = getBeatsPerMeasure(targetSig);
+          const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || targetSig === '12/8';
+          const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
+          const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+          const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.02;
+          scheduledMusicStartTime = t0;
+
+          const detail = tickEventDetailRef.current;
+          detail.step = 0;
+          detail.measure = targetM;
+          detail.maxTicks = getMaxTicks(targetSig);
+          detail.ratio = 0;
+          detail.visualStep16 = 0;
+          detail.visualStep12 = 0;
+          detail.time = t0;
+          detail.measureStartTime = t0;
+          detail.measureDuration = beatsCount * beatDurationSec;
+          detail.targetStartTime = t0;
+          detail.iteration = 1;
+          detail.isPreRoll = false;
+          (detail as any).isPaused = false;
+          (detail as any).isNavigation = false;
+
+          tickSubscribers.forEach((cb) => {
+            try { cb(detail); } catch (err) { console.error(err); }
+          });
+        }
       }
 
       if (Tone.Transport.state !== 'started') {

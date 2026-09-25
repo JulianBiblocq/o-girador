@@ -210,10 +210,13 @@ export const VocalRecordingBar: React.FC = () => {
 
     vocalEngineService.startRecording(selectedPatternId, {
       deviceId: selectedDeviceId || undefined,
-      onStartSequencer: () => {
+      onStartSequencer: (targetMeasure?: number) => {
         if (!isPlaying) {
-          handleTogglePlay();
+          handleTogglePlay({ skipPreRoll: true, targetMeasure });
         }
+      },
+      onStopSequencer: () => {
+        handleStop();
       },
       onError: (err) => {
         alert("Erreur d'accès au micro : " + err.message);

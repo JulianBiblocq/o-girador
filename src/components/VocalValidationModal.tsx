@@ -12,6 +12,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { X, Scissors } from 'lucide-react';
 import { AudioAlignmentEditor } from './AudioAlignmentEditor';
 import { VocalClipMeta } from '../types/store.types';
+import { getBeatsPerMeasure } from '../utils/measureHelpers';
 
 export const VocalValidationModal: React.FC = () => {
   const tempRecording = useAudioStore((state) => state.tempRecording);
@@ -55,19 +56,23 @@ export const VocalValidationModal: React.FC = () => {
         if (active) {
           setAudioBuffer(buffer);
 
-          // Find measure BPM
+          // Find measure BPM & Time Signature
           const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1
             ? targetPattern.measureAssignments.indexOf(true)
             : 0;
           const targetBpm = measureBpms[initialMeasureIdx % (measureBpms.length || 1)] || bpm;
+          const targetSig = measureTimeSigs[initialMeasureIdx % (measureTimeSigs.length || 1)] || '4/4';
+          const beatsCount = getBeatsPerMeasure(targetSig);
+          const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || (targetSig as string) === '12/8';
+          const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
           
-          // Pure Transport count-in duration (4 beats)
-          const preRollSec = (4 * 60) / targetBpm;
+          // Pure Transport count-in duration (exactement 1 mesure de précompte)
+          const preRollSec = beatsCount * beatDurationSec;
           setPreRollDurationSec(preRollSec);
 
           const existingClip = targetPattern.vocalClip;
           if (existingClip) {
-            const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * (60 / targetBpm));
+            const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * beatDurationSec);
             const calculatedStart = Math.max(0, preRollSec - anacrusisSec);
             setInitialTrimStartSec(calculatedStart);
             setInitialTrimEndSec(buffer.duration);
@@ -93,7 +98,7 @@ export const VocalValidationModal: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [tempRecording, targetPattern, bpm, measureBpms, handleStop]);
+  }, [tempRecording, targetPattern, bpm, measureBpms, measureTimeSigs, handleStop]);
 
   if (!tempRecording || !targetPattern || !voiceTrack) return null;
 
