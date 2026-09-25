@@ -2117,14 +2117,29 @@ export function useAudioSync({
 
       // 🎯 PRÉ-ROLL ADAPTATIF
       const preRoll = useTransportStore.getState().preRollSettings;
-      const targetM = options?.targetMeasure !== undefined
-        ? (options.targetMeasure % (totalMeasuresRef.current || 1))
-        : (measureCountRef.current % (totalMeasuresRef.current || 1));
+      const audioStore = useAudioStore.getState();
+      const armedTargetMeasure = (audioStore.targetPatternId !== null && audioStore.targetMeasureIdx !== null)
+        ? audioStore.targetMeasureIdx
+        : null;
+
+      let targetM: number;
+      let shouldSkipPreRoll = options?.skipPreRoll;
+
+      if (options?.targetMeasure !== undefined) {
+        targetM = options.targetMeasure % (totalMeasuresRef.current || 1);
+      } else if (armedTargetMeasure !== null) {
+        // Workflow Punch-in 2 mesures : départ à M - 2 (ou 0 si M < 2)
+        targetM = armedTargetMeasure >= 2 ? (armedTargetMeasure - 2) : 0;
+        shouldSkipPreRoll = armedTargetMeasure === 0 ? false : true;
+        vocalEngineService.preWarmMicStreamSilently(audioStore.targetPatternId, armedTargetMeasure);
+      } else {
+        targetM = measureCountRef.current % (totalMeasuresRef.current || 1);
+      }
       targetPreRollMeasureRef.current = targetM;
 
       let scheduledMusicStartTime: number | undefined = undefined;
 
-      const shouldExecutePreRoll = !options?.skipPreRoll && preRoll && preRoll.enabled;
+      const shouldExecutePreRoll = !shouldSkipPreRoll && preRoll && preRoll.enabled;
 
       if (shouldExecutePreRoll) {
         const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
@@ -2218,7 +2233,7 @@ export function useAudioSync({
         currentStepIndexRef.current = -1;
         measureCountRef.current = targetM;
 
-        if (options?.skipPreRoll) {
+        if (options?.skipPreRoll || shouldSkipPreRoll) {
           const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
           const targetBpm = isNaN(measureBpmsRef.current[targetM]) || measureBpmsRef.current[targetM] <= 0
             ? (useSequencerStore.getState().bpm || 100)

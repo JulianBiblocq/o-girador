@@ -114,7 +114,6 @@ export const useAudioStore = create<AudioState>((set) => ({
   },
   setRecordingStatus: (status) => set({
     recordingStatus: status,
-    isFocusRecordingMode: status !== 'inactive'
   }),
   setIsFocusRecordingMode: (focus) => set({ isFocusRecordingMode: focus }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),

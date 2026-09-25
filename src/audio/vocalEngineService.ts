@@ -171,6 +171,69 @@ export const vocalEngineService = {
   },
 
   /**
+   * Pre-warms the microphone hardware stream silently in the background
+   * without altering recording status or displaying any modal/overlay.
+   */
+  async preWarmMicStreamSilently(patternId?: number | null, targetMeasure?: number | null) {
+    if (patternId !== undefined && patternId !== null) activeTargetPatternId = Number(patternId);
+    if (targetMeasure !== undefined && targetMeasure !== null) activeTargetMeasure = targetMeasure;
+
+    if (mediaRecorder && audioStream && audioStream.active) {
+      return;
+    }
+
+    try {
+      const store = useAudioStore.getState();
+      const targetDeviceId = store.selectedDeviceId;
+      audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: targetDeviceId ? {
+          deviceId: { exact: targetDeviceId },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        } : {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(audioStream, {
+        audioBitsPerSecond: 96000,
+      });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        try {
+          const blob = new Blob(recordedChunks, {
+            type: mediaRecorder?.mimeType || 'audio/webm',
+          });
+          const targetPid = activeTargetPatternId;
+          if (targetPid !== null && isPunchingOut) {
+            useAudioStore.getState().setTempRecording({ patternId: targetPid, blob });
+          }
+        } catch (err: any) {
+          console.error("🎙️ [VOCAL ENGINE] Error on media recorder stop:", err);
+        } finally {
+          this.cleanupMedia();
+          const s = useAudioStore.getState();
+          s.setRecordingStatus('inactive');
+          s.setIsFocusRecordingMode(false);
+          isPunchingOut = false;
+        }
+      };
+    } catch (err) {
+      console.warn("🎙️ [VOCAL ENGINE] Silent pre-warm non-blocking warning:", err);
+    }
+  },
+
+  /**
    * Pre-warms and arms the hardware microphone and MediaRecorder instance.
    * Ensures zero latency when punch-in is triggered at step 0.
    */
@@ -192,6 +255,7 @@ export const vocalEngineService = {
     store.setTargetPatternId(numPatternId);
     store.setTargetMeasureIdx(targetMeasure);
     store.setRecordingStatus('arming');
+    store.setIsFocusRecordingMode(true);
 
     // If mediaRecorder is already created and stream active, we are ready!
     if (mediaRecorder && audioStream && audioStream.active) {
@@ -239,9 +303,11 @@ export const vocalEngineService = {
             type: mediaRecorder?.mimeType || 'audio/webm',
           });
           const targetPid = activeTargetPatternId || numPatternId;
-          useAudioStore.getState().setTempRecording({ patternId: targetPid, blob });
-          if (options.onRecordingStopped) {
-            options.onRecordingStopped(blob);
+          if (isPunchingOut) {
+            useAudioStore.getState().setTempRecording({ patternId: targetPid, blob });
+            if (options.onRecordingStopped) {
+              options.onRecordingStopped(blob);
+            }
           }
         } catch (err: any) {
           console.error("🎙️ [VOCAL ENGINE] Error on media recorder stop:", err);
@@ -278,7 +344,6 @@ export const vocalEngineService = {
     if (targetMeasure !== undefined) activeTargetMeasure = targetMeasure;
 
     const store = useAudioStore.getState();
-    store.setIsFocusRecordingMode(true);
     store.setRecordingStatus('recording');
     store.setRecordingStartTimelineSec(Tone.Transport.seconds);
 
@@ -444,26 +509,42 @@ export const vocalEngineService = {
 
   /**
    * Stops the active recording process immediately and releases hardware mic stream.
+   * If aborted manually before punch-out, discards buffers and prevents opening AudioAlignmentEditor.
    */
   stopRecording() {
     if (isPunchingOut) return;
+    this.abortRecording();
+  },
 
+  /**
+   * Aborts active recording immediately without saving or opening AudioAlignmentEditor.
+   */
+  abortRecording() {
+    isPunchingOut = false;
     this.isArming = false;
     this.cleanupTimers();
-    Tone.Transport.stop();
+    try {
+      Tone.Transport.stop();
+    } catch (_) {}
+
+    if (mediaRecorder) {
+      // 🛡️ Détacher onstop pour empêcher l'ouverture d'AudioAlignmentEditor lors d'un arrêt manuel
+      mediaRecorder.onstop = null;
+      if (mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (err) {
+          console.error("🎙️ [VOCAL ENGINE] Error stopping media recorder on abort:", err);
+        }
+      }
+    }
+    recordedChunks = [];
+    this.cleanupMedia();
+
     const store = useAudioStore.getState();
     store.setRecordingStatus('inactive');
     store.setTargetPatternId(null);
     store.setIsFocusRecordingMode(false);
-
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      try {
-        mediaRecorder.stop();
-      } catch (err) {
-        console.error("🎙️ [VOCAL ENGINE] Error stopping media recorder:", err);
-      }
-    }
-    this.cleanupMedia();
   },
 
   cleanupTimers() {

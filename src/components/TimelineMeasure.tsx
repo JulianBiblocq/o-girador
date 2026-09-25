@@ -142,9 +142,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       });
       useAudioStore.getState().setSelectedVocalPatternId(patternId);
       if (patternId !== -1) {
-        vocalEngineService.armRecording(patternId, mIdx).catch((err) => {
-          console.warn('[TimelineMeasure] Failed to pre-arm recording stream:', err);
-        });
+        vocalEngineService.preWarmMicStreamSilently(patternId, mIdx);
       }
     }
   };

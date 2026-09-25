@@ -124,7 +124,6 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
     <div 
       id="main-workspace" 
       className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg"
-      style={{ visibility: isFocusMode ? 'hidden' : 'visible' }}
     >
       <Suspense fallback={<XiloLoadingSpinner lang={lang} />}>
         {/* 1. RODA VIEW */}
