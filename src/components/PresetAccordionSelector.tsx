@@ -4,8 +4,8 @@ export interface PresetAccordionSelectorProps {
   lang: 'pt' | 'fr';
   activePreset: string;
   currentSongTitle?: string;
-  publicCloudPresets: Array<{ id: string; name: string; visibility?: string }>;
-  privateCloudPresets: Array<{ id: string; name: string; visibility?: string }>;
+  publicCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean }>;
+  privateCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean }>;
   localPresets?: string[];
   isCloudPresetsLoading: boolean;
   showGroupCatalogue: boolean;
@@ -14,6 +14,8 @@ export interface PresetAccordionSelectorProps {
   defaultPresetId?: string | null;
   canSetDefaultPreset?: boolean;
   onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
+  canEdit?: boolean;
+  onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
   onSelectPreset: (presetValue: string, cloudId?: string) => void;
   className?: string;
 }
@@ -32,6 +34,8 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   defaultPresetId = null,
   canSetDefaultPreset = false,
   onSetDefaultPreset,
+  canEdit = false,
+  onToggleDraft,
   onSelectPreset,
   className = '',
 }) => {
@@ -66,7 +70,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
     activePreset === val || (currentSongTitle && currentSongTitle.trim().toLowerCase() === name.trim().toLowerCase());
 
   const renderPresetList = (
-    items: Array<{ id: string; name: string }>,
+    items: Array<{ id: string; name: string; isDraft?: boolean }>,
     icon: string,
     emptyMsg: string,
     isGroupList: boolean = false
@@ -96,6 +100,30 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                 </span>
                 {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
               </button>
+
+              {/* Bascule de visibilité Chantier / Publié (spécifique aux morceaux de groupe pour les éditeurs) */}
+              {isGroupList && canEdit && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleDraft?.(p.id, !!p.isDraft);
+                  }}
+                  title={
+                    p.isDraft
+                      ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
+                      : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
+                  }
+                  className="shrink-0 p-1 cursor-pointer flex items-center justify-center transition-transform hover:scale-110 text-sm leading-none"
+                >
+                  {p.isDraft ? (
+                    <span className="select-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">⏳</span>
+                  ) : (
+                    <span className="select-none opacity-60 hover:opacity-100 transition-opacity filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">📢</span>
+                  )}
+                </button>
+              )}
 
               {/* Épingle Cactus (Astérisque Cordel) du morceau vedette (spécifique au groupe) */}
               {isGroupList && (
@@ -151,6 +179,10 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
     </div>
   );
 
+  const visiblePrivatePresets = canEdit
+    ? privateCloudPresets
+    : privateCloudPresets.filter((p) => !p.isDraft);
+
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
       <div className="flex flex-col gap-0.5">
@@ -179,11 +211,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   />
                 </span>
                 <span className="truncate">{groupTitle}</span>
-                <span className="text-[10px] opacity-60 font-sans">({privateCloudPresets.length})</span>
+                <span className="text-[10px] opacity-60 font-sans">({visiblePrivatePresets.length})</span>
               </span>
               <span className="text-[9px] opacity-70 ml-1">{isGroupOpen ? '▼' : '▶'}</span>
             </button>
-            {isGroupOpen && renderPresetList(privateCloudPresets, '', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)', true)}
+            {isGroupOpen && renderPresetList(visiblePrivatePresets, '', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)', true)}
           </div>
         )}
 
@@ -252,7 +284,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
         <option value="" disabled>{currentSongTitle || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}</option>
         {showGroupCatalogue && (
           <optgroup label={groupTitle}>
-            {privateCloudPresets.map((p) => (<option key={`og:${p.id}`} value={`cloud:${p.id}`}>{p.name}</option>))}
+            {visiblePrivatePresets.map((p) => (
+              <option key={`og:${p.id}`} value={`cloud:${p.id}`}>
+                {p.isDraft ? '⏳ ' : ''}{p.name}
+              </option>
+            ))}
           </optgroup>
         )}
         <optgroup label={publicTitle}>

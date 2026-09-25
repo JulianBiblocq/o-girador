@@ -8,7 +8,7 @@ import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized, presetCache } from './clo
 
 export {
   CLOUD_PRESETS_COLLECTION, presetCache, getCloudPreset,
-  deleteCloudPreset, renameCloudPreset, fetchStoragePresetsJSON, isPresetAuthorized
+  deleteCloudPreset, renameCloudPreset, togglePresetDraftStatus, fetchStoragePresetsJSON, isPresetAuthorized
 } from './cloudPresetsStorage';
 
 /**
@@ -24,7 +24,8 @@ export async function savePresetToCloud(
   targetPresetId?: string,
   mestreId?: string,
   groupId?: string,
-  canWriteSequenciador?: boolean
+  canWriteSequenciador?: boolean,
+  isDraft?: boolean
 ): Promise<string> {
   const presetToSave = JSON.parse(JSON.stringify(presetData));
 
@@ -74,6 +75,7 @@ export async function savePresetToCloud(
   };
   if (effectiveGroupId) docData.groupId = effectiveGroupId;
   if (audioUrl !== undefined) docData.audioUrl = audioUrl;
+  if (isDraft !== undefined) docData.isDraft = isDraft;
   
   if (targetPresetId) {
     await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData);

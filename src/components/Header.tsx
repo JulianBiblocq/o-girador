@@ -32,6 +32,8 @@ import { MiniTelemetryBadge } from './TelemetryBadge';
 import { useWizardStore } from '../stores/useWizardStore';
 import { PresetAccordionSelector } from './PresetAccordionSelector';
 import { subscribeToGroupDefaultPreset, setDefaultGroupPreset } from '../cloudGroups';
+import { useQueryClient } from '@tanstack/react-query';
+import { togglePresetDraftStatus } from '../cloudPresetsStorage';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -95,6 +97,7 @@ interface HeaderProps {
     audioUrl?: string | null;
     updatedAt?: number | null;
     createdAt?: number | null;
+    isDraft?: boolean;
     [key: string]: any;
   }[];
   isCloudPresetsLoading?: boolean;
@@ -232,6 +235,35 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       isAdmin
     )
   );
+
+  const queryClient = useQueryClient();
+
+  const isMestre = userProfile?.role === 'mestre' || (userProfile as any)?.dbRole === 'mestre';
+  const isEditor = Boolean(isAdmin || isMestre || userProfile?.canWriteSequenciador);
+
+  const activePresetId = preset?.startsWith('cloud:') ? preset.replace('cloud:', '') : preset;
+  const loadedGroupPreset = privateCloudPresets.find(p =>
+    p.id === activePresetId ||
+    (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
+  );
+
+  const handleToggleDraft = async (presetId: string, currentDraft: boolean) => {
+    const nextDraft = !currentDraft;
+    // Mise à jour optimiste sur le cache React Query pour un retour visuel instantané (60 FPS)
+    queryClient.setQueriesData({ queryKey: ['cloudPresets'] }, (oldData: any) => {
+      if (!Array.isArray(oldData)) return oldData;
+      return oldData.map((p: any) => (p.id === presetId ? { ...p, isDraft: nextDraft } : p));
+    });
+
+    try {
+      await togglePresetDraftStatus(presetId, currentDraft);
+    } catch (err: any) {
+      console.error('Failed to toggle preset draft status:', err);
+      alert(err?.message || (lang === 'pt' ? 'Erro ao alterar visibilidade' : 'Erreur lors de la modification de la visibilité'));
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
+    }
+  };
 
   const handleSetDefaultPreset = async (presetId: string | null) => {
     if (!userProfile?.groupId) return;
@@ -401,6 +433,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   defaultPresetId={groupDefaultPresetId}
                   canSetDefaultPreset={canSetDefaultPreset}
                   onSetDefaultPreset={handleSetDefaultPreset}
+                  canEdit={isEditor}
+                  onToggleDraft={handleToggleDraft}
                   onSelectPreset={(val) => {
                     onPresetChange(val);
                     setMobileMenuOpen(false);
@@ -603,9 +637,30 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
         {/* Center: App Title (masqué sur petits smartphones < 460px pour préserver l'espace des 5 boutons d'action) */}
         <div className="header-mobile-brand flex flex-col items-end select-none cursor-default shrink-0">
-          <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1">
-            O Girador
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1">
+              O Girador
+            </span>
+            {loadedGroupPreset && isEditor && (
+              <button
+                type="button"
+                onClick={() => handleToggleDraft(loadedGroupPreset.id, !!loadedGroupPreset.isDraft)}
+                title={
+                  loadedGroupPreset.isDraft
+                    ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
+                    : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
+                }
+                className={`px-1.5 py-0.5 cordel-border-sm text-[10px] font-cactus font-bold cursor-pointer transition-colors flex items-center gap-1 mt-0.5 ${
+                  loadedGroupPreset.isDraft
+                    ? 'bg-[#d99b26]/20 text-[#d99b26] border-[#d99b26]'
+                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+                }`}
+              >
+                <span>{loadedGroupPreset.isDraft ? '⏳' : '📢'}</span>
+                <span className="text-[9px]">{loadedGroupPreset.isDraft ? (lang === 'pt' ? 'Obras' : 'Chantier') : (lang === 'pt' ? 'Pub' : 'Publié')}</span>
+              </button>
+            )}
+          </div>
           <span className="cordel-stamp-red-sm font-cactus font-bold text-[7.5px] uppercase px-1.5 py-0.5 mt-0.5 leading-tight select-none">
             Sequenciador
           </span>
@@ -708,6 +763,35 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           </div>
           {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans pt-1">v{version}</span>}
         </div>
+
+        {loadedGroupPreset && isEditor && (
+          <button
+            type="button"
+            onClick={() => handleToggleDraft(loadedGroupPreset.id, !!loadedGroupPreset.isDraft)}
+            title={
+              loadedGroupPreset.isDraft
+                ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
+                : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
+            }
+            className={`px-2.5 py-1 cordel-border-sm text-xs font-cactus font-bold cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs ${
+              loadedGroupPreset.isDraft
+                ? 'bg-[#d99b26]/20 text-[#d99b26] border-[#d99b26] hover:bg-[#d99b26]/35'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+          >
+            {loadedGroupPreset.isDraft ? (
+              <>
+                <span className="text-xs leading-none">⏳</span>
+                <span>{lang === 'pt' ? 'Obras' : 'Chantier'}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-xs leading-none">📢</span>
+                <span>{lang === 'pt' ? 'Publicado' : 'Publié'}</span>
+              </>
+            )}
+          </button>
+        )}
         
         <div className="relative ml-2" ref={projectDropRef}>
           <button
@@ -776,6 +860,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   defaultPresetId={groupDefaultPresetId}
                   canSetDefaultPreset={canSetDefaultPreset}
                   onSetDefaultPreset={handleSetDefaultPreset}
+                  canEdit={isEditor}
+                  onToggleDraft={handleToggleDraft}
                   onSelectPreset={(val) => {
                     onPresetChange(val);
                     setProjectDropOpen(false);

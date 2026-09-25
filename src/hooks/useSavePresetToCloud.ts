@@ -137,6 +137,7 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         finalVisibility = 'admin_global';
       }
 
+      const preservedDraft = existingPreset?.isDraft;
       const presetId = await savePresetToCloud(
         presetName,
         finalPresetData,
@@ -147,7 +148,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         targetDocId,
         myGroupMestreId || undefined,
         myGroupId,
-        userProfile.canWriteSequenciador
+        userProfile.canWriteSequenciador,
+        preservedDraft
       );
 
       if (autoGenerateAudio) {
@@ -175,7 +177,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
             presetId,
             myGroupMestreId || undefined,
             myGroupId,
-            userProfile.canWriteSequenciador
+            userProfile.canWriteSequenciador,
+            preservedDraft
           );
         } catch (audioErr) {
           console.warn("useSavePresetToCloud - Échec non bloquant de l'audio cloud:", audioErr);

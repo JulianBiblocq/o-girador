@@ -281,6 +281,7 @@ export default function App() {
       audioUrl: p.audioUrl ?? null,
       updatedAt: (p as any).updatedAt ?? null,
       createdAt: p.createdAt ?? null,
+      isDraft: (p as any).isDraft ?? false,
     }));
   }, [cloudPresetsData]);
 

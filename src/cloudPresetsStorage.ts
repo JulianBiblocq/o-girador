@@ -64,6 +64,17 @@ export async function renameCloudPreset(presetId: string, newName: string): Prom
 }
 
 /**
+ * Bascule le statut En chantier / Publié d'un preset Cloud dans Firestore.
+ */
+export async function togglePresetDraftStatus(presetId: string, currentDraft: boolean): Promise<void> {
+  const docRef = doc(db, CLOUD_PRESETS_COLLECTION, presetId);
+  await updateDoc(docRef, {
+    isDraft: !currentDraft,
+    updatedAt: Date.now()
+  });
+}
+
+/**
  * Cache mémoire pour les presets listés depuis Firebase Storage, indexés par groupId.
  * TTL par défaut : 15 minutes pour éviter d'interroger le bucket à répétition.
  */

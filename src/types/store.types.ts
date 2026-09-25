@@ -215,6 +215,8 @@ export interface CloudPreset {
   createdAt: number;
   isFavorite?: boolean;
   audioUrl?: string | null;
+  isDraft?: boolean;
+  updatedAt?: number | null;
 }
 
 export interface MasterFX {
