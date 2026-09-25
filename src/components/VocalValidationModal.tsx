@@ -67,8 +67,10 @@ export const VocalValidationModal: React.FC = () => {
 
           const existingClip = targetPattern.vocalClip;
           if (existingClip) {
-            setInitialTrimStartSec(existingClip.trimStartSec ?? preRollSec);
-            setInitialTrimEndSec(existingClip.trimEndSec ?? buffer.duration);
+            const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * (60 / targetBpm));
+            const calculatedStart = Math.max(0, preRollSec - anacrusisSec);
+            setInitialTrimStartSec(calculatedStart);
+            setInitialTrimEndSec(buffer.duration);
             setInitialNudgeMs(existingClip.nudgeMs ?? 0);
           } else {
             // Default deterministic anchor: Temps 1 starts exactly at preRollSec

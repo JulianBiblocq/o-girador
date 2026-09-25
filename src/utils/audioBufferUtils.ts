@@ -154,19 +154,21 @@ export function calculateDeterministicVocalClipMeta(
   const anacrusisSec = Math.max(0, preRollDurationSec - trimStartSec);
   const beatDurationSec = 60 / baseBpm;
   const anacrusisBeats = anacrusisSec / beatDurationSec;
+  const usefulDuration = Math.max(0, trimEndSec - trimStartSec);
 
   return {
     patternId,
     baseBpm,
-    trimStartSec,
-    trimEndSec,
+    trimStartSec: 0,
+    trimEndSec: usefulDuration,
     nudgeMs,
     anacrusisBeats,
+    anacrusisSec,
     // Compatibility aliases
     offsetStart: 0,
     startTimeDelay: nudgeMs / 1000,
     bpmSync: true,
-    offsetEnd: trimEndSec - trimStartSec
+    offsetEnd: usefulDuration
   };
 }
 

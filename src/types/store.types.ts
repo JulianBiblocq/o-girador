@@ -53,10 +53,11 @@ export interface Pattern {
 export interface VocalClipMeta {
   patternId?: number;
   baseBpm: number;           // BPM lors de la prise pour le time-stretching
-  trimStartSec: number;      // Début utile du sample (rognage manuel)
-  trimEndSec: number;        // Fin utile du sample
+  trimStartSec: number;      // Début utile du sample (0 pour un buffer nettoyé)
+  trimEndSec: number;        // Fin utile du sample (durée du buffer nettoyé)
   nudgeMs: number;           // Décalage fin manuel (+/- ms)
-  anacrusisBeats: number;    // Débordement éventuel avant le temps 1 (0, 1 ou 2 temps)
+  anacrusisBeats: number;    // Débordement éventuel avant le temps 1 (en temps musicaux)
+  anacrusisSec?: number;     // Durée réelle de l'anacrouse en secondes
   // Backward-compatibility aliases
   offsetStart?: number;      // Legacy alias for trimStartSec
   startTimeDelay?: number;   // Legacy alias for nudgeSec

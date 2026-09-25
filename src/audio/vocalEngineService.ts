@@ -611,15 +611,32 @@ export const vocalEngineService = {
     const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 100) : 100;
     const isCoro = voiceTrack ? instrumentsConfig[voiceTrack.instrumentIdx]?.id === 'coro' : false;
 
-    this.playSequencerVocal(patternId, time, sequencerStore.bpm, outputNode, trackVolPct, isCoro, onStop);
+    // Détermination du BPM d'ancrage effectif de la mesure assignée
+    const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
+    const initialMeasureIdx = ptnRef?.measureAssignments?.indexOf(true) !== -1 
+      ? (ptnRef?.measureAssignments?.indexOf(true) ?? 0) 
+      : 0;
+    const anchorBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
+
+    const beatDurationSec = 60 / anchorBpm;
+    const anacrusisBeats = ptnRef?.vocalClip?.anacrusisBeats ?? 0;
+    const anacrusisSec = anacrusisBeats * beatDurationSec;
+    const nudgeMs = ptnRef?.vocalClip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
+
+    // En écoute solo (pré-écoute), décaler le trigger pour que le sample démarre dès l'offset 0 à l'instant 'time'
+    const previewTime = time + anacrusisSec - (nudgeMs / 1000);
+
+    this.playSequencerVocal(patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
   },
 
   /**
    * Plays a vocal pattern aligned with the sequencer timeline.
-   * Implements:
-   * - Safeguard 1: triggerTime = measureStartTime - anacrusisSec + nudgeSec, with Measure 0 clamping and internal buffer offset advance.
-   * - Safeguard 2: Tone.GrainPlayer instance reuse.
-   * - Time-stretching: player.playbackRate = currentBpm / clipMeta.baseBpm.
+   * Directives de calage strictes (Suppression du conflit de double rognage) :
+   * 1. L'offset interne de lecture est strictement 0 par défaut (player.start(triggerTime, 0)).
+   * 2. Le calage musical est uniquement géré par triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000).
+   * 3. Cas limite Mesure 0 absolue (triggerTime < 0) :
+   *    internalBufferOffset = (-triggerTime) * playbackRate
+   *    player.start(actualTime, internalBufferOffset)
    */
   playSequencerVocal(
     patternId: number,
@@ -639,23 +656,30 @@ export const vocalEngineService = {
     const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
     const clip = ptnRef?.vocalClip;
 
+    // Détermination du BPM effectif de la mesure d'ancrage
+    const initialMeasureIdx = ptnRef?.measureAssignments?.indexOf(true) !== -1 
+      ? (ptnRef?.measureAssignments?.indexOf(true) ?? 0) 
+      : 0;
+    const anchorMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
+    const effectiveBpm = currentBpm || anchorMeasureBpm;
+
     // Retrieve or recycle persistent player (Safeguard 2)
     const activeEntry = this.getOrCreateVocalPlayer(patternId, audioBuffer, outputNode);
     const mainPlayer = activeEntry.mainPlayer;
     const mainGain = activeEntry.mainGain;
 
     // 1. Time-stretching calculation
-    const baseBpm = clip?.baseBpm || ptnRef?.vocalBaseBpm || currentBpm;
-    const playbackRate = currentBpm / baseBpm;
+    const baseBpm = clip?.baseBpm || ptnRef?.vocalBaseBpm || anchorMeasureBpm;
+    const playbackRate = effectiveBpm / baseBpm;
     mainPlayer.playbackRate = playbackRate;
 
-    // 2. Safeguard 1: Mathématique de l'Anacrouse & Sécurité Mesure 0
-    const beatDurationSec = 60 / currentBpm;
+    // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
+    const beatDurationSec = 60 / effectiveBpm;
     const anacrusisBeats = clip?.anacrusisBeats ?? 0;
     const anacrusisSec = anacrusisBeats * beatDurationSec;
     const nudgeMs = clip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
 
-    // Calcul de l'instant de déclenchement sur la timeline Tone.Transport
+    // Calcul de l'instant de déclenchement sur la timeline
     const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
     const bufferDuration = audioBuffer.duration;
 
@@ -667,20 +691,27 @@ export const vocalEngineService = {
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
 
-    // Gère le cas limite de la mesure 0 (si triggerTime < 0)
-    // Le buffer stocké dans vocalBuffers[patternId] étant déjà physiquement rogné,
-    // la lecture débute à l'offset interne 0 lorsque triggerTime >= 0.
+    // 1. L'offset interne de lecture doit être 0 par défaut :
+    //    Le buffer stocké dans vocalBuffers[patternId] étant déjà physiquement rogné,
+    //    on ne saute aucun échantillon à l'intérieur du buffer (player.start(triggerTime, 0)).
+    // 2. Le calage musical est uniquement géré par le moment de déclenchement (triggerTime).
+    // 3. Cas limite de l'anacrouse sur la mesure 0 absolue (triggerTime < 0) :
+    //    Uniquement si triggerTime < 0 (impossible de planifier dans le passé) :
+    //    - Déclencher à actualTime (measureStartTime ou 0).
+    //    - Appliquer exceptionnellement l'offset interne compensé :
+    //      internalBufferOffset = (-triggerTime) * playbackRate
     if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
       mainPlayer.start(triggerTime, 0);
     } else {
-      const internalOffset = Math.abs(triggerTime) * playbackRate;
-      const remainingDuration = Math.max(0, bufferDuration - internalOffset);
+      const internalBufferOffset = (-triggerTime) * playbackRate;
+      const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
       if (remainingDuration <= 0) {
         return null;
       }
-      mainGain.gain.setValueAtTime(baseGainLinear, 0);
-      mainPlayer.start(0, internalOffset);
+      const actualTime = measureStartTime >= 0 ? measureStartTime : 0;
+      mainGain.gain.setValueAtTime(baseGainLinear, actualTime);
+      mainPlayer.start(actualTime, internalBufferOffset);
     }
 
     if (onStop) {

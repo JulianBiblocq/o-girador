@@ -1803,18 +1803,19 @@ export function useAudioSync({
             const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextSafeId];
             const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
             const nextClip = nextPattern.vocalClip;
-            const hasAnacrusis = Boolean(nextClip && (nextClip.anacrusisBeats || 0) > 0);
+            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisBeats || 0) > 0 || (nextClip.nudgeMs || 0) < 0));
 
-            if (nextHasVocal && hasAnacrusis && !activeSequencerVocalsRef.current.has(nextSafeId)) {
+            if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextSafeId)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
               const voiceInst = instrumentsConfig[track.instrumentIdx];
               const isCoroTrack = voiceInst?.id === 'coro';
               const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
               const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
               const nextBpm = useSequencerStore.getState().measureBpms[nextMeasureLocal] || useSequencerStore.getState().bpm;
-              const nextTimeSig = measureTimeSigsRef.current[nextMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
-              const nextBeats = getBeatsPerMeasure(nextTimeSig);
-              const currentMeasureDurationSec = (nextBeats * 60) / (useSequencerStore.getState().measureBpms[currentMeasureLocal] || nextBpm);
+              const currentTimeSig = measureTimeSigsRef.current[currentMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
+              const currentBeats = getBeatsPerMeasure(currentTimeSig);
+              const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+              const currentMeasureDurationSec = (currentBeats * 60) / currentMeasureBpm;
 
               const handle = vocalEngineService.playSequencerVocal(
                 nextSafeId,

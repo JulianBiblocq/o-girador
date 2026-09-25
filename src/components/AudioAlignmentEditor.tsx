@@ -48,8 +48,12 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Measure and pattern durations
-  const beatDurationSec = 60 / bpm;
+  // Measure and pattern durations based on anchor measure BPM
+  const initialMeasureIdx = pattern.measureAssignments.indexOf(true) !== -1
+    ? pattern.measureAssignments.indexOf(true)
+    : 0;
+  const anchorBpm = (measureBpms && measureBpms[initialMeasureIdx % (measureBpms.length || 1)]) || bpm;
+  const beatDurationSec = 60 / anchorBpm;
   const patternMeasures = Math.max(
     1,
     pattern.measureAssignments.filter(Boolean).length || 1
@@ -297,11 +301,12 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
       const meta: VocalClipMeta = {
         patternId: pattern.id,
-        baseBpm: bpm,
-        trimStartSec,
-        trimEndSec,
+        baseBpm: anchorBpm,
+        trimStartSec: 0,
+        trimEndSec: cleanBuffer.duration,
         nudgeMs: nudgeMsRef.current,
         anacrusisBeats,
+        anacrusisSec,
         // Backward compatibility
         offsetStart: 0,
         startTimeDelay: nudgeMsRef.current / 1000,
