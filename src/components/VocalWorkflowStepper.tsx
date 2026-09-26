@@ -38,12 +38,10 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
   const pattern = useSequencerStore((state) => 
     state.tracks.flatMap(t => t.patterns).find(p => p.id === patternId)
   );
-  const recordingStatus = useAudioStore((state) => state.recordingStatus);
   const tempRecording = useAudioStore((state) => state.tempRecording);
   const hasVocalRecording = useAudioStore((state) => 
     Boolean(patternId && state.vocalBlobs[patternId])
   );
-  const selectedDeviceId = useAudioStore((state) => state.selectedDeviceId);
   const { isPlaying, handleTogglePlay, handleStop } = useAudio();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
@@ -69,7 +67,6 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
       const audioBuffer = await rawCtx.decodeAudioData(bufferToDecode);
       const blob = new Blob([arrayBuffer], { type: file.type || 'audio/wav' });
 
-      useAudioStore.getState().setRecordingStartTimelineSec(null);
       useAudioStore.getState().setSelectedVocalPatternId(patternId);
       useAudioStore.getState().setTargetPatternId(patternId);
 
@@ -111,12 +108,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
     }
   }, [tempRecording, patternId]);
 
-  // Si l'enregistrement audio démarre, s'assurer que le stepper est sur l'étape 3
-  useEffect(() => {
-    if (recordingStatus === 'countdown' || recordingStatus === 'recording') {
-      setCurrentStep(3);
-    }
-  }, [recordingStatus]);
+
 
   const accentColor = isCoro ? '#2a9d8f' : '#c25e38';
 

@@ -95,20 +95,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const [activeSection, setActiveSection] = useState<string | null>('groove');
   const [selectedMacro, setSelectedMacro] = useState<{ trackId: number; stroke: string } | null>(null);
 
-  // --- AUDIO I/O ---
-  const selectedDeviceId = useAudioStore((state) => state.selectedDeviceId);
+  // --- AUDIO OUTPUT ---
   const selectedOutputDeviceId = useAudioStore((state) => state.selectedOutputDeviceId);
-  const availableDevices = useAudioStore((state) => state.availableDevices);
   const availableOutputDevices = useAudioStore((state) => state.availableOutputDevices);
-  const setSelectedDeviceId = useAudioStore((state) => state.setSelectedDeviceId);
   const setSelectedOutputDeviceId = useAudioStore((state) => state.setSelectedOutputDeviceId);
-  const refreshAudioDevices = useAudioStore((state) => state.refreshAudioDevices);
+  const refreshAudioOutputDevices = useAudioStore((state) => state.refreshAudioOutputDevices);
   const [isAskingPermission, setIsAskingPermission] = useState(false);
 
   const handleRequestAudioPermission = async () => {
     setIsAskingPermission(true);
     try {
-      await refreshAudioDevices();
+      await refreshAudioOutputDevices();
     } catch (err: any) {
       alert(lang === 'fr' 
         ? "Impossible de rafraîchir les périphériques : " + err.message 
@@ -1970,30 +1967,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                   </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-1">
-                                  {/* Input */}
-                                  <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]">
-                                      {lang === 'fr' ? 'Entrée (Micro) :' : 'Entrada (Microfone) :'}
-                                    </label>
-                                    <select
-                                      value={selectedDeviceId || ''}
-                                      onChange={(e) => setSelectedDeviceId(e.target.value || null)}
-                                      className="bg-[#fbf8f0] border-2 border-black p-2 font-mono font-bold text-xs outline-none cursor-pointer focus:bg-white w-full truncate shadow-[1.5px_1.5px_0px_#000]"
-                                    >
-                                      <option value="">{lang === 'fr' ? '-- Par défaut --' : '-- Padrão --'}</option>
-                                      {availableDevices.map((device) => (
-                                        <option key={device.deviceId} value={device.deviceId}>
-                                          {device.label || (lang === 'fr' ? `Entrée (${device.deviceId.slice(0, 6)}...)` : `Entrada (${device.deviceId.slice(0, 6)}...)`)}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  
+                                <div className="mt-1 max-w-md">
                                   {/* Output */}
                                   <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]">
-                                      {lang === 'fr' ? 'Sortie (Haut-parleurs) :' : 'Saída (Alto-falantes) :'}
+                                      {lang === 'fr' ? 'Sortie (Haut-parleurs / Casque) :' : 'Saída (Alto-falantes / Fones) :'}
                                     </label>
                                     <select
                                       value={selectedOutputDeviceId || ''}

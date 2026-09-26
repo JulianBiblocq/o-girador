@@ -9,8 +9,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { getTrackDisplayName, getBusColor, getTopParentBusId } from '../utils/colorHelpers';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
-import { Mic, Activity } from 'lucide-react';
-import { useAudioStore } from '../stores/useAudioStore';
+import { Activity } from 'lucide-react';
 import { AutomationTrack } from './AutomationTrack';
 
 interface TimelineTrackRowProps {
@@ -59,39 +58,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     trackMeta?.customName || (trackMeta ? useNomenclatureStore.getState().getInstrumentLabel(trackMeta as any) : '')
   );
 
-  const targetPatternId = useAudioStore((state) => state.targetPatternId);
-  const isArmedAtTrackLevel = useSequencerStore(
-    React.useCallback((state) => {
-      if (!targetPatternId) return false;
-      const t = state.tracks.find(curr => curr.id === trackId);
-      return t ? t.patterns.some(p => p.id === targetPatternId) : false;
-    }, [trackId, targetPatternId])
-  );
 
-  const handleTrackArmClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isArmedAtTrackLevel) {
-      useAudioStore.getState().setRecordingTarget({
-        trackId: null,
-        patternId: null,
-        targetMeasure: null,
-      });
-    } else {
-      const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-      if (currentTrack && currentTrack.patterns.length > 0) {
-        const patternIdToArm = currentTrack.selectedPatternId || currentTrack.patterns[0].id;
-        const targetPattern = currentTrack.patterns.find(p => p.id === patternIdToArm);
-        const assignedIdx = targetPattern?.measureAssignments.indexOf(true) ?? 0;
-        const targetMeasure = assignedIdx !== -1 ? assignedIdx : 0;
-        useAudioStore.getState().setRecordingTarget({
-          trackId,
-          patternId: patternIdToArm,
-          targetMeasure,
-        });
-        useAudioStore.getState().setSelectedVocalPatternId(patternIdToArm);
-      }
-    }
-  };
 
   React.useEffect(() => {
     setNameVal(trackMeta?.customName || (trackInst ? trackInst.name : ''));
@@ -375,20 +342,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               isMobile ? 'w-6 h-6' : 'w-8 h-8'
             }`}
           />
-          {inst.type === 'voice' && (
-            <button
-              onClick={handleTrackArmClick}
-              className={`p-1 rounded-full border cursor-pointer shrink-0 flex items-center justify-center transition-all ${
-                isArmedAtTrackLevel
-                  ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50'
-                  : 'bg-transparent hover:bg-gray-400/20 text-gray-400 border-gray-400/30'
-              }`}
-              style={{ width: '22px', height: '22px' }}
-              title={lang === 'fr' ? "Armer la piste pour enregistrement" : "Armar pista para gravação"}
-            >
-              <Mic className="w-3.5 h-3.5" />
-            </button>
-          )}
+
           {!isMobile ? (
             isEditingName ? (
               <input

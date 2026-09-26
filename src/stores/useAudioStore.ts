@@ -10,30 +10,21 @@ export interface TempRecordingData {
 }
 
 export interface AudioState {
-  recordingStatus: 'inactive' | 'arming' | 'countdown' | 'recording';
   targetPatternId: number | null;
   targetMeasureIdx: number | null;
-  recordingTargetTrackId: number | string | null;
   vocalBlobs: Record<string | number, Blob>;
   vocalBuffers: Record<string | number, AudioBuffer>;
   tempRecording: TempRecordingData | null;
   chorusDensity: number;
   isVocalGuideEnabled: boolean;
-  isVocalRecordingBarExpanded: boolean;
   selectedVocalPatternId: number | null;
   isAudioUnlocked: boolean;
-  recordingStartTimelineSec: number | null;
-  selectedDeviceId: string | null;
   selectedOutputDeviceId: string | null;
-  availableDevices: Array<{ deviceId: string; label: string }>;
   availableOutputDevices: Array<{ deviceId: string; label: string }>;
-  setSelectedDeviceId: (id: string | null) => void;
   setSelectedOutputDeviceId: (id: string | null) => void;
-  refreshAudioDevices: () => Promise<void>;
-  setRecordingStatus: (status: 'inactive' | 'arming' | 'countdown' | 'recording') => void;
+  refreshAudioOutputDevices: () => Promise<void>;
   setTargetPatternId: (id: number | null) => void;
   setTargetMeasureIdx: (idx: number | null) => void;
-  setRecordingTarget: (target: { trackId?: number | string | null; patternId: number | null; targetMeasure: number | null }) => void;
   setTempRecording: (temp: TempRecordingData | null) => void;
   setChorusDensity: (density: number) => void;
   setIsVocalGuideEnabled: (enabled: boolean) => void;
@@ -42,99 +33,58 @@ export interface AudioState {
   addVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
   setVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
   removeVocalBuffer: (patternId: string | number) => void;
-  setIsVocalRecordingBarExpanded: (expanded: boolean) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
   unlockAudio: () => void;
-  setRecordingStartTimelineSec: (sec: number | null) => void;
 }
 
 export const useAudioStore = create<AudioState>((set) => ({
-  recordingStatus: 'inactive',
   targetPatternId: null,
   targetMeasureIdx: null,
-  recordingTargetTrackId: null,
   vocalBlobs: {},
   vocalBuffers: {},
   tempRecording: null,
   chorusDensity: 0.0,
   isVocalGuideEnabled: true,
-  isVocalRecordingBarExpanded: false,
   selectedVocalPatternId: null,
   isAudioUnlocked: false,
-  recordingStartTimelineSec: null,
 
-  selectedDeviceId: null,
   selectedOutputDeviceId: null,
-  availableDevices: [],
   availableOutputDevices: [],
-  setSelectedDeviceId: (id) => set({ selectedDeviceId: id }),
   setSelectedOutputDeviceId: async (id) => {
     set({ selectedOutputDeviceId: id });
     if (id !== null) {
-      // Applique le setSinkId si l'API est disponible
       try {
         const Tone = await import('tone');
         const ctx = Tone.getContext().rawContext as any;
         if (typeof ctx.setSinkId === 'function') {
           await ctx.setSinkId(id);
-
         }
-      } catch (err) {
-
-      }
+      } catch (_) {}
     }
   },
-  refreshAudioDevices: async () => {
+  refreshAudioOutputDevices: async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
       const devices = await navigator.mediaDevices.enumerateDevices();
-      
-      const audioInputs = devices
-        .filter((d) => d.kind === 'audioinput')
-        .map((d) => ({
-          deviceId: d.deviceId,
-          label: d.label || `Entrée (${d.deviceId.slice(0, 5)}...)`,
-        }));
-        
       const audioOutputs = devices
         .filter((d) => d.kind === 'audiooutput')
         .map((d) => ({
           deviceId: d.deviceId,
           label: d.label || `Sortie (${d.deviceId.slice(0, 5)}...)`,
         }));
-        
-      set({ 
-        availableDevices: audioInputs,
-        availableOutputDevices: audioOutputs
-      });
-      
-      if (audioInputs.length > 0 && !useAudioStore.getState().selectedDeviceId) {
-        set({ selectedDeviceId: audioInputs[0].deviceId });
-      }
+      set({ availableOutputDevices: audioOutputs });
       if (audioOutputs.length > 0 && !useAudioStore.getState().selectedOutputDeviceId) {
         set({ selectedOutputDeviceId: audioOutputs[0].deviceId });
       }
-    } catch (err) {
-
-    }
+    } catch (_) {}
   },
-  setRecordingStatus: (status) => set({
-    recordingStatus: status,
-  }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),
   setTargetMeasureIdx: (idx) => set({ targetMeasureIdx: idx }),
-  setRecordingTarget: (target) => set({
-    recordingTargetTrackId: target.trackId ?? null,
-    targetPatternId: target.patternId,
-    targetMeasureIdx: target.targetMeasure,
-  }),
   setTempRecording: (temp) => set({ tempRecording: temp }),
   setChorusDensity: (density) => set({ chorusDensity: Math.max(0, Math.min(1, density)) }),
   setIsVocalGuideEnabled: (enabled) => set({ isVocalGuideEnabled: enabled }),
-  setIsVocalRecordingBarExpanded: (expanded) => set({ isVocalRecordingBarExpanded: expanded }),
   setSelectedVocalPatternId: (id) => set({ selectedVocalPatternId: id }),
   unlockAudio: () => set({ isAudioUnlocked: true }),
-  setRecordingStartTimelineSec: (sec) => set({ recordingStartTimelineSec: sec }),
   addVocalBlob: (patternId, blob) =>
     set((state) => ({
       vocalBlobs: { ...state.vocalBlobs, [patternId]: blob },

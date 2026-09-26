@@ -790,17 +790,40 @@ export function useSequencerState() {
 
   const handleTimelinePatternAssign = (trackId: number, patternId: number | null, measureIdx: number) => {
     pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          const assign = [...p.measureAssignments];
-          assign[measureIdx] = p.id === patternId;
-          return { ...p, measureAssignments: assign };
-        });
-        return { ...t, patterns: nextPatterns };
+    setTracks(prev => {
+      const puxTrack = prev.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = prev.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      let targetTrackId = trackId;
+      if (patternId !== null && patternId !== undefined) {
+        const ownerTrack = prev.find(t => t.patterns.some(p => p.id === patternId));
+        if (ownerTrack) {
+          targetTrackId = ownerTrack.id;
+        }
       }
-      return t;
-    }));
+      const isVoiceToadaAssign = (puxTrack && targetTrackId === puxTrack.id) || (coroTrack && targetTrackId === coroTrack.id);
+
+      return prev.map(t => {
+        if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+          return {
+            ...t,
+            patterns: t.patterns.map(p => {
+              const assign = [...p.measureAssignments];
+              assign[measureIdx] = (t.id === targetTrackId && p.id === patternId);
+              return { ...p, measureAssignments: assign };
+            })
+          };
+        }
+        if (t.id === targetTrackId) {
+          const nextPatterns = t.patterns.map(p => {
+            const assign = [...p.measureAssignments];
+            assign[measureIdx] = p.id === patternId;
+            return { ...p, measureAssignments: assign };
+          });
+          return { ...t, patterns: nextPatterns };
+        }
+        return t;
+      });
+    });
   };
 
   const handleTimelinePatternVariationToggle = (trackId: number, patternId: number, measureIdx: number, val: boolean) => {
@@ -2049,7 +2072,7 @@ export function useSequencerState() {
             activeSteps: Array(16).fill(0),
             lyrics: Array(16).fill(''),
             notes: Array(16).fill(''),
-            measureAssignments: Array(totalMeasuresRef.current).fill(true),
+            measureAssignments: Array(totalMeasuresRef.current).fill(false),
             volumes: Array(16).fill(80),
             decays: Array(16).fill(10),
             microtimings: Array(16).fill(0),
@@ -2080,7 +2103,7 @@ export function useSequencerState() {
             activeSteps: Array(16).fill(0),
             lyrics: Array(16).fill(''),
             notes: Array(16).fill(''),
-            measureAssignments: Array(totalMeasuresRef.current).fill(true),
+            measureAssignments: Array(totalMeasuresRef.current).fill(false),
             volumes: Array(16).fill(80),
             decays: Array(16).fill(10),
             microtimings: Array(16).fill(0),

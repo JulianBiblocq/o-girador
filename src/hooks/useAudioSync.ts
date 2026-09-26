@@ -1725,6 +1725,10 @@ export function useAudioSync({
           const inst = instrumentsConfig[track.instrumentIdx];
           if (!inst || inst.type !== 'voice') continue;
 
+          // Exclusion du Bus Toada dans la boucle d'évaluation vocale :
+          // Le bus Toada est un dossier conteneur passif : il ne doit JAMAIS déclencher de sons de synthétiseur ni de samples.
+          if (track.isBusFolder || track.id === 999901 || String(track.id) === '999901') continue;
+
           // Playback of vocal patterns
           let activePattern: Pattern | null = null;
           const patterns = track.patterns;
@@ -1926,12 +1930,12 @@ export function useAudioSync({
               const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
               const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
               const isSolo = soloPatternPlayIdRef.current !== null && soloPatternPlayIdRef.current !== undefined;
-              const targetAnacrusisPat = isSolo ? activePattern : (nextPattern || activePattern);
+              const targetAnacrusisPat = isSolo ? activePattern : (nextPattern || null);
 
               const preRollState = targetAnacrusisPat?.preRollActiveSteps?.[cellIdx];
               const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
 
-              if (isPreActive) {
+              if (isPreActive && targetAnacrusisPat) {
                 const triggerTime = swingTime;
                 const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
                 const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
@@ -2546,7 +2550,6 @@ export function useAudioSync({
       purgeVisualTickBuffer();
       hitTriggersRef.current.clear();
 
-      vocalEngineService.stopRecording();
       audioEngine?.stopAllBarulho();
       audioEngine?.releaseVoicePitch();
       stopAllNativeOscillators();
@@ -2650,7 +2653,6 @@ export function useAudioSync({
       Tone.Transport.seconds = 0;
     } catch (_) {}
 
-    vocalEngineService.stopRecording();
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
     isPreRollActiveRef.current = false;
@@ -2715,7 +2717,6 @@ export function useAudioSync({
       }
     }
 
-    vocalEngineService.stopRecording();
     audioEngine?.stop();
     Tone.Transport.stop();
     audioEngine?.stopAllBarulho();

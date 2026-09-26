@@ -12,6 +12,7 @@ import { useSequencer } from './SequencerContext';
 import { getVocalRecording, saveVocalRecording } from '../db';
 import { getLocalLibrary, savePresetToLibrary } from '../library';
 import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL, i18n, instrumentsConfig } from '../data';
+import { vocalEngineService } from '../audio/vocalEngineService';
 import { Preset, Pattern, TrackGroup, TimeSignature, MasterFX } from '../types';
 import { migrateCirclesToTracks } from '../migration';
 import { useAuth, checkHasFullPlaybackAccess } from './AuthContext';
@@ -307,6 +308,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const applyPreset = useCallback(async (p: any) => {
     setIsPresetLoading(true);
     try {
+      vocalEngineService.disposeAllVocalPlayers();
       sequencer.clearHistory();
       sequencer.setMetadata({
         toada: p.metadata?.toada || '',

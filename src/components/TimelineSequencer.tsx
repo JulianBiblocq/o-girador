@@ -31,7 +31,6 @@ import { TimelineMinimap } from './timeline/TimelineMinimap';
 import { SongSectionModal } from './timeline/SongSectionModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
-import { VocalRecordingBar } from './VocalRecordingBar';
 import { TimelineContextMenu } from './TimelineContextMenu';
 import { XiloChisel, XiloMagnet } from './XiloIcons';
 import { AutomationTrack } from './AutomationTrack';
@@ -2250,8 +2249,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         onUpdateMarker={onUpdateMarker}
       />
 
-      {/* Tablature Export Modal removed (lifted to App.tsx) */}
-      <VocalRecordingBar />
       <StepEditorPopup />
       <TimelineContextMenu />
       {/* ══════════ INSERT MEASURES PROMPT MODAL ══════════ */}

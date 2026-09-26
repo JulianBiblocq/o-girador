@@ -10,7 +10,6 @@ export { useAudioStore, useSequencerStore };
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../db';
 import { channels, masterVolumeNode } from './effectsChain';
 import { instrumentsConfig } from '../data';
-import { playNativeMetroClick, playCountInBeep } from './nativeSynths';
 import { calculateDeterministicVocalClipMeta } from '../utils/audioBufferUtils';
 import { VocalClipMeta } from '../types/store.types';
 import { getBeatsPerMeasure } from '../utils/measureHelpers';
@@ -100,65 +99,7 @@ export interface ActiveVocal {
 // Étanchéité stricte : indexé par clé composite `${trackId}_${patternId}` (Directive 2.D)
 const activeVocals = new Map<string, ActiveVocal>();
 
-let mediaRecorder: MediaRecorder | null = null;
-let audioStream: MediaStream | null = null;
-let recordedChunks: Blob[] = [];
-let activeScheduledEvents: number[] = [];
-let activeTimeoutIds: number[] = [];
-let isPunchingOut = false;
-let activeTargetPatternId: number | null = null;
-let activeTargetMeasure: number | null = null;
-
-function clearScheduledEvents() {
-  activeScheduledEvents.forEach((id) => {
-    try {
-      Tone.Transport.clear(id);
-    } catch (_) {}
-  });
-  activeScheduledEvents = [];
-  activeTimeoutIds.forEach((id) => {
-    try {
-      workerClearTimeout(id);
-      clearTimeout(id);
-    } catch (_) {}
-  });
-  activeTimeoutIds = [];
-}
-
-export function killHardwareMicrophone() {
-  if (audioStream) {
-    try {
-      audioStream.getTracks().forEach((track) => {
-        track.stop();
-        track.enabled = false;
-      });
-    } catch (_) {}
-    audioStream = null;
-  }
-  if (mediaRecorder) {
-    try {
-      if (mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      }
-    } catch (_) {}
-    mediaRecorder = null;
-  }
-  recordedChunks = [];
-}
-
-// Immediate hardware release on load
-if (typeof window !== 'undefined') {
-  killHardwareMicrophone();
-}
-
 export const vocalEngineService = {
-  isArming: false,
-  get mediaRecorder(): MediaRecorder | null {
-    return mediaRecorder;
-  },
-  recordingDurationMeasures: 1,
-  recordedMeasuresCount: 0,
-
   /**
    * Helper to scan vocal pattern and find the exact temporal start offset (in seconds)
    * of the first active syllable (either in pre-roll or main grid).
@@ -191,94 +132,6 @@ export const vocalEngineService = {
     }
     
     return 0;
-  },
-
-  get isPunchingOut(): boolean {
-    return isPunchingOut;
-  },
-
-  /**
-   * 🛡️ Neutralisé : aucun accès micro matériel.
-   */
-  async preWarmMicStreamSilently(_patternId?: number | null, _targetMeasure?: number | null) {
-    killHardwareMicrophone();
-  },
-
-  /**
-   * 🛡️ Neutralisé : aucun armement micro matériel.
-   */
-  async armRecording(
-    _patternId: number,
-    _targetMeasure: number,
-    _options: {
-      deviceId?: string;
-      onError?: (err: Error) => void;
-      onRecordingStopped?: (blob: Blob) => void;
-    } = {}
-  ): Promise<boolean> {
-    killHardwareMicrophone();
-    return false;
-  },
-
-  /**
-   * 🛡️ Neutralisé : aucun punch-in micro.
-   */
-  punchIn(_patternId?: number, _targetMeasure?: number) {
-    killHardwareMicrophone();
-  },
-
-  /**
-   * 🛡️ Neutralisé : aucun punch-out micro.
-   */
-  schedulePunchOut(_tailSec: number = 0.8, _onStopPlayback?: () => void) {
-    killHardwareMicrophone();
-  },
-
-  /**
-   * 🛡️ Neutralisé : l'enregistrement direct est désactivé au profit de l'import audio.
-   */
-  async startRecording(
-    _patternId: number,
-    options: {
-      targetMeasure?: number;
-      onStartSequencer?: (targetMeasure?: number) => void;
-      onStopSequencer?: () => void;
-      onRecordingStopped?: (blob: Blob) => void;
-      onError?: (err: Error) => void;
-      deviceId?: string;
-      immediate?: boolean;
-    } = {}
-  ) {
-    killHardwareMicrophone();
-    if (options.onError) {
-      options.onError(new Error("L'enregistrement micro direct est désactivé. Veuillez utiliser le bouton 'Importer' pour charger un fichier audio."));
-    }
-  },
-
-  /**
-   * Arrêt et libération stricte de toute ressource résiduelle.
-   */
-  stopRecording() {
-    this.cleanupMedia();
-  },
-
-  abortRecording() {
-    this.cleanupMedia();
-  },
-
-  cleanupTimers() {
-    clearScheduledEvents();
-  },
-
-  /**
-   * 🛡️ Safeguard : Libération stricte et inconditionnelle du micro hôte.
-   */
-  cleanupMedia() {
-    killHardwareMicrophone();
-  },
-
-  killHardwareMicrophone() {
-    killHardwareMicrophone();
   },
 
   /**
@@ -391,19 +244,49 @@ export const vocalEngineService = {
   },
 
   /**
-   * Safely stops and disposes a cached vocal player instance.
+   * Safely stops, disconnects and disposes cached vocal player instances.
+   * Gère les clés composites directes (${trackId}_${patternId}) ou par patternId.
    */
-  disposeVocalPlayer(vocalKey: string | number) {
-    const k = String(vocalKey);
-    const entry = activeVocals.get(k);
-    if (entry) {
-      try { entry.mainPlayer.stop(); entry.mainPlayer.dispose(); } catch (_) {}
+  disposeVocalPlayer(trackIdOrKey: string | number, patternId?: number) {
+    const keysToDispose = new Set<string>();
+    if (patternId !== undefined) {
+      keysToDispose.add(`${trackIdOrKey}_${patternId}`);
+    } else {
+      const keyStr = String(trackIdOrKey);
+      keysToDispose.add(keyStr);
+      activeVocals.forEach((_, k) => {
+        if (k.endsWith(`_${keyStr}`) || k === keyStr) {
+          keysToDispose.add(k);
+        }
+      });
+    }
+
+    keysToDispose.forEach((k) => {
+      const entry = activeVocals.get(k);
+      if (entry) {
+        try { entry.mainPlayer.stop(); entry.mainPlayer.disconnect(); entry.mainPlayer.dispose(); } catch (_) {}
+        try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
+        entry.chorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
+        entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
+        entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
+        activeVocals.delete(k);
+      }
+    });
+  },
+
+  /**
+   * Libère systématiquement toutes les instances Tone.GrainPlayer de activeVocals
+   * lors du rechargement de projet / preset ou du nettoyage mémoire.
+   */
+  disposeAllVocalPlayers() {
+    activeVocals.forEach((entry) => {
+      try { entry.mainPlayer.stop(); entry.mainPlayer.disconnect(); entry.mainPlayer.dispose(); } catch (_) {}
       try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
-      entry.chorusPlayers.forEach(p => { try { p.stop(); p.dispose(); } catch (_) {} });
+      entry.chorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
       entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
       entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
-      activeVocals.delete(k);
-    }
+    });
+    activeVocals.clear();
   },
 
   /**

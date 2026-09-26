@@ -1,10 +1,7 @@
 import React, { useRef } from 'react';
 import { TimelineStep } from './TimelineStep';
-import { Trash2, FolderOpen } from 'lucide-react';
-import * as Tone from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { vocalEngineService } from '../audio/vocalEngineService';
 
 interface TimelineMeasureProps {
   mIdx: number;
@@ -101,7 +98,6 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   onStepTouchStart,
 }) => {
   const timeSigStr = useSequencerStore(state => state.measureTimeSigs[mIdx] || state.timeSig || '4/4');
-  const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
 
   const isMultiSelected = useSequencerStore(
     React.useCallback(
@@ -131,45 +127,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
     };
   }, []);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || patternId === -1) return;
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const bufferToDecode = arrayBuffer.slice(0);
-
-      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-      if (rawCtx && rawCtx.state === 'suspended') {
-        try {
-          await rawCtx.resume();
-        } catch (_) {}
-      }
-
-      const audioBuffer = await rawCtx.decodeAudioData(bufferToDecode);
-      const blob = new Blob([arrayBuffer], { type: file.type || 'audio/wav' });
-
-      useAudioStore.getState().setRecordingStartTimelineSec(null);
-      useAudioStore.getState().setSelectedVocalPatternId(patternId);
-      useAudioStore.getState().setTargetPatternId(patternId);
-      useAudioStore.getState().setTargetMeasureIdx(mIdx);
-
-      useAudioStore.getState().setTempRecording({
-        patternId,
-        trackId,
-        blob,
-        audioBuffer,
-        isImported: true,
-        targetMeasureIdx: mIdx,
-      });
-
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (err: any) {
-      alert(lang === 'fr' ? "Erreur lors de l'import : " + err.message : "Erro ao importar: " + err.message);
-    }
-  };
 
   const handleCellClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanningActive) return;
@@ -467,92 +425,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                 );
               })()}
 
-              {instType === 'voice' && (
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="audio/*"
-                  className="hidden"
-                  onChange={handleFileImport}
-                />
-              )}
 
-              {instType === 'voice' && !hasAudio && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  className="absolute right-1.5 bottom-1.5 p-1 rounded-sm border transition-colors cursor-pointer z-20 bg-[#ece4d0] hover:bg-[#8b2a1a] hover:text-white text-[#1a1a1a] border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(0,0,0,0.2)]"
-                  title={lang === 'fr' ? "Importer un fichier audio pour ce motif" : "Importar áudio para este padrão"}
-                >
-                  <FolderOpen className="w-3 h-3" />
-                </button>
-              )}
-
-              {instType === 'voice' && hasAudio && (
-                <div 
-                  className="absolute inset-0 z-10 flex items-center justify-between px-3 border border-[#1a1a1a]/40 pointer-events-none"
-                  style={{
-                    backgroundColor: instId === 'coro' ? 'rgba(179, 220, 216, 0.2)' : 'rgba(233, 204, 168, 0.2)',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E")`,
-                  }}
-                >
-                  <div 
-                    className="flex-grow flex items-center justify-center pointer-events-auto cursor-pointer opacity-85 hover:opacity-100 transition-opacity"
-                    title={lang === 'fr' ? "Ajuster la latence et le calage" : "Ajuster latência e calagem"}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      let blob: Blob | undefined = useAudioStore.getState().vocalBlobs[patternId];
-                      if (!blob) {
-                        const loaded = await vocalEngineService.loadVocalRecording(patternId);
-                        blob = loaded || undefined;
-                      }
-                      if (blob) {
-                        useAudioStore.getState().setTargetMeasureIdx(mIdx);
-                        useAudioStore.getState().setTempRecording({ patternId, trackId, blob, targetMeasureIdx: mIdx });
-                      }
-                    }}
-                  >
-                    <svg className="w-full h-8 max-w-[120px]" viewBox="0 0 100 30" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M 5,15 Q 12,5 18,15 T 30,15 T 42,28 T 55,10 T 68,22 T 80,15 T 95,15" />
-                      <path d="M 8,15 Q 15,22 22,12 T 35,18 T 48,5 T 62,25 T 75,10 T 88,18" opacity="0.6" strokeWidth="1.5" />
-                    </svg>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      fileInputRef.current?.click();
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    className="p-1 rounded-sm border transition-colors cursor-pointer z-20 pointer-events-auto mr-1 bg-[#ece4d0] hover:bg-[#8b2a1a] hover:text-white text-[#1a1a1a] border-[#1a1a1a]/30"
-                    title={lang === 'fr' ? "Importer un nouvel audio pour ce motif" : "Importar novo áudio"}
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(lang === 'fr' ? "Supprimer l'enregistrement audio ?" : "Excluir a gravação de áudio?")) {
-                        vocalEngineService.deleteVocalRecording(patternId);
-                      }
-                    }}
-                    className="p-1 hover:bg-[#8b2a1a]/15 text-[#8b2a1a] rounded transition-colors z-20 border border-transparent hover:border-[#8b2a1a]/30 cursor-pointer pointer-events-auto"
-                    title={lang === 'fr' ? "Supprimer l'audio" : "Excluir áudio"}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
