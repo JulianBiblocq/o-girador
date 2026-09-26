@@ -46,16 +46,14 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   onSave,
   onCancel,
 }) => {
-  // Détermination robuste de la mesure effective M (Directive B)
-  // Résolution définitive du bug "MESURE 52" : targetMeasureIdx prioritaire
-  const storeTargetMeasure = useAudioStore((state) => state.targetMeasureIdx);
-  const effectiveMeasure = (targetMeasureIdx !== undefined && targetMeasureIdx !== null)
+  // Détermination robuste de la mesure effective M (Directive C)
+  // Résolution définitive du bug "MESURE 52" : targetMeasureIdx prioritaire sur tout
+  const storeTargetMeasure = useAudioStore.getState().targetMeasureIdx;
+  const effectiveMeasure = (targetMeasureIdx !== undefined && targetMeasureIdx !== null && targetMeasureIdx >= 0)
     ? targetMeasureIdx
-    : (storeTargetMeasure !== null && storeTargetMeasure !== undefined)
+    : (storeTargetMeasure !== null && storeTargetMeasure !== undefined && storeTargetMeasure >= 0)
       ? storeTargetMeasure
-      : (pattern.measureAssignments && pattern.measureAssignments.indexOf(true) !== -1)
-        ? pattern.measureAssignments.indexOf(true)
-        : 0;
+      : 0;
 
   const anchorBpm = (measureBpms && measureBpms[effectiveMeasure % (measureBpms.length || 1)] > 0)
     ? measureBpms[effectiveMeasure % (measureBpms.length || 1)]
@@ -183,8 +181,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     updateLiveTimingBadges(currentTotalWaveXRef.current);
   }, [updateLiveTimingBadges]);
 
-  // 1. Static Background Grid & Synthesizer Notes Layer (Directive A & Commandements 1 & 2)
-  // Dessiné UNE SEULE FOIS sur calque fixe : fond papier, lignes de subdivision et pastilles de notes
+  // 1. Static Background Grid & Synthesizer Notes Layer (Directives A & B)
+  // Dessiné UNE SEULE FOIS sur calque fixe : fond papier, lignes de subdivision, repères T1-T4, syllabes et notes
   useEffect(() => {
     if (!staticGridCanvasRef.current) return;
     const canvas = staticGridCanvasRef.current;
@@ -206,12 +204,14 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     ctx.fillStyle = '#f4ecd8';
     ctx.fillRect(0, 0, width, height);
 
-    // Ligne d'axe médian
-    ctx.strokeStyle = 'rgba(139, 42, 26, 0.2)';
+    const yCenter = height / 2; // y = 72px
+
+    // Ligne d'axe médian discrète
+    ctx.strokeStyle = 'rgba(139, 42, 26, 0.15)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, height / 2);
-    ctx.lineTo(width, height / 2);
+    ctx.moveTo(0, yCenter);
+    ctx.lineTo(width, yCenter);
     ctx.stroke();
 
     // 1. Grille & pastilles de la mesure précédente (Runway) : de 0 à temps1Px
@@ -220,7 +220,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     ctx.lineWidth = 1;
     for (let s = 0; s < stepsCountPrev; s++) {
       const xPos = s * stepPxPrev;
-      ctx.strokeStyle = 'rgba(26, 26, 26, 0.15)';
+      const isBeatPrev = (s % (isCompoundPrev ? 3 : 4) === 0);
+      ctx.strokeStyle = isBeatPrev ? 'rgba(42, 93, 78, 0.25)' : 'rgba(26, 26, 26, 0.1)';
+      ctx.lineWidth = isBeatPrev ? 1.5 : 1;
       ctx.beginPath();
       ctx.moveTo(xPos, 0);
       ctx.lineTo(xPos, height);
@@ -229,44 +231,162 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       if (pattern.preRollActiveSteps && pattern.preRollActiveSteps[s]) {
         ctx.fillStyle = '#2a5d4e';
         ctx.beginPath();
-        ctx.arc(xPos + stepPxPrev / 2, height / 2 - 30, 4.5, 0, Math.PI * 2);
+        ctx.arc(xPos + stepPxPrev / 2, yCenter, 4.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 1;
         ctx.stroke();
+
+        const preSyl = pattern.preRollLyrics?.[s];
+        if (preSyl) {
+          ctx.font = 'bold 11px monospace, sans-serif';
+          ctx.fillStyle = '#2a5d4e';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(preSyl, xPos + stepPxPrev / 2, yCenter - 8);
+        }
       }
     }
 
-    // 2. Grille & pastilles de la partition (synthétiseur) : à partir de temps1Px
+    // 2. Grille & partition vocale de la mesure M : à partir de temps1Px
+    const syllables: string[] = (pattern as any).syllables || pattern.lyrics || [];
+    const notes: string[] = pattern.notes || [];
+    const activeSteps = pattern.activeSteps || [];
     const stepsCountM = pattern.steps || (isCompound ? 12 : 16);
     const measureMDurationSec = beatsCount * beatDurationSec;
     const stepPxM = (measureMDurationSec * PIXELS_PER_SECOND) / stepsCountM;
 
     for (let m = 0; m < patternMeasures; m++) {
       const mStartPx = temps1Px + m * (measureMDurationSec * PIXELS_PER_SECOND);
+
+      // --- Tracé des lignes de pas et repères T1, T2, T3, T4 (Directive B) ---
       for (let s = 0; s < stepsCountM; s++) {
         const xPos = mStartPx + s * stepPxM;
         if (xPos > width) break;
-        const isBeat = (s % (isCompound ? 3 : 4) === 0);
-        ctx.strokeStyle = isBeat ? 'rgba(139, 42, 26, 0.3)' : 'rgba(26, 26, 26, 0.12)';
-        ctx.lineWidth = isBeat ? 1.5 : 1;
+        const beatStepInterval = isCompound ? 3 : 4;
+        const isBeat = (s % beatStepInterval === 0);
+        const beatNum = Math.floor(s / beatStepInterval) + 1;
+
+        if (isBeat) {
+          // Trait vertical renforcé (Directive B.1 : #8b2a1a, opacité 40%, largeur 2px)
+          ctx.strokeStyle = 'rgba(139, 42, 26, 0.4)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(xPos, 0);
+          ctx.lineTo(xPos, height);
+          ctx.stroke();
+
+          // Repère textuel en haut de colonne : T1, T2, T3, T4 (Directive B.1)
+          ctx.fillStyle = '#8b2a1a';
+          ctx.fillRect(xPos, 0, 22, 14);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 9px monospace, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`T${beatNum}`, xPos + 11, 7);
+        } else {
+          // Subdivisions : lignes fines discrètes (Directive B.2)
+          ctx.strokeStyle = 'rgba(26, 26, 26, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(xPos, 14);
+          ctx.lineTo(xPos, height);
+          ctx.stroke();
+        }
+      }
+
+      // --- Rendu intelligent des Attaques, Syllabes et Tenues (Directive A) ---
+      for (let s = 0; s < stepsCountM; s++) {
+        const stepVal = activeSteps[s];
+        const isActive = stepVal !== undefined && stepVal !== null && stepVal !== 0 && stepVal !== '0';
+        if (!isActive) continue;
+
+        const syl = (syllables[s] || '').trim();
+        const note = (notes[s] || '').trim();
+
+        // 🛡️ SÉCURITÉ DE CODE OBLIGATOIRE : Vérification explicite de s > 0 avant d'accéder à s - 1
+        const prevVal = s > 0 ? activeSteps[s - 1] : 0;
+        const prevIsActive = s > 0 && prevVal !== undefined && prevVal !== null && prevVal !== 0 && prevVal !== '0';
+        const prevNote = s > 0 ? (notes[s - 1] || '').trim() : '';
+
+        // Détection de la tenue (Sustain "-")
+        const isSustain = s > 0 && prevIsActive && (
+          syl === '-' || syl === '—' || syl === '--' ||
+          (syl === '' && note && note === prevNote)
+        );
+
+        // Si c'est une tenue, elle est couverte par la barre de liaison de l'attaque précédente
+        if (isSustain) continue;
+
+        // C'est une VRAIE ATTAQUE !
+        // Détecter jusqu'où s'étend la tenue consécutive (Directive A.2)
+        let sustainEndStep = s;
+        for (let next = s + 1; next < stepsCountM; next++) {
+          const nVal = activeSteps[next];
+          const nActive = nVal !== undefined && nVal !== null && nVal !== 0 && nVal !== '0';
+          const nSyl = (syllables[next] || '').trim();
+          const nNote = (notes[next] || '').trim();
+          const nIsSustain = nActive && (
+            nSyl === '-' || nSyl === '—' || nSyl === '--' ||
+            (nSyl === '' && nNote && nNote === note)
+          );
+          if (nIsSustain) {
+            sustainEndStep = next;
+          } else {
+            break;
+          }
+        }
+
+        const xCenter = mStartPx + s * stepPxM + stepPxM / 2;
+
+        // 1. Barre horizontale de liaison reliant l'attaque à la fin de la tenue (Directive A.2)
+        if (sustainEndStep > s) {
+          const xEndCenter = mStartPx + sustainEndStep * stepPxM + stepPxM / 2;
+          ctx.strokeStyle = '#8b2a1a';
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(xCenter, yCenter);
+          ctx.lineTo(xEndCenter, yCenter);
+          ctx.stroke();
+
+          // Encoche de fin de tenue
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(xEndCenter, yCenter - 4);
+          ctx.lineTo(xEndCenter, yCenter + 4);
+          ctx.stroke();
+        }
+
+        // 2. Pastille pleine de l'attaque (#8b2a1a) (Directive A.1)
+        ctx.fillStyle = '#8b2a1a';
         ctx.beginPath();
-        ctx.moveTo(xPos, 0);
-        ctx.lineTo(xPos, height);
+        ctx.arc(xCenter, yCenter, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#f4ecd8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
-        if (pattern.activeSteps && pattern.activeSteps[s]) {
-          // Pastilles brunes de la partition (notes du synthétiseur)
+        // 3. Texte de la syllabe au-dessus de la pastille en gras 12px (Directive A.1)
+        const displaySyl = syl && syl !== '-' && syl !== '—' && syl !== '--' ? syl : '';
+        if (displaySyl) {
+          ctx.font = 'bold 12px monospace, sans-serif';
           ctx.fillStyle = '#8b2a1a';
-          ctx.beginPath();
-          ctx.arc(xPos + stepPxM / 2, height / 2 - 30, 5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#f4ecd8';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.strokeStyle = '#1a1a1a';
-          ctx.lineWidth = 1;
-          ctx.stroke();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(displaySyl, xCenter, yCenter - 10);
+        }
+
+        // 4. Hauteur de note sous la pastille (Directive A.3)
+        if (note) {
+          ctx.font = 'bold 9px monospace, sans-serif';
+          ctx.fillStyle = 'rgba(26, 26, 26, 0.75)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(note, xCenter, yCenter + 10);
         }
       }
     }
@@ -401,7 +521,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     updateLiveTimingBadges(currentTotalWaveXRef.current);
   }, [audioBuffer, trimStartSec, trimEndSec, updateLiveTimingBadges]);
 
-  // 4. Pré-écoute synchronisée avec la Roda (Formule unifiée & loop calée sur effectiveMeasure - Directive B)
+  // 4. Pré-écoute synchronisée avec la Roda (Formule unifiée & loop calée sur effectiveMeasure - Directives B & C)
   const stopLocalPreview = useCallback(() => {
     if (previewLoopTimeoutRef.current) {
       clearTimeout(previewLoopTimeoutRef.current);
@@ -454,7 +574,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     }
 
     if (actualDuration > 0 && actualStartOffset < audioBuffer.duration) {
-      const now = Tone.context.currentTime;
+      // Lookahead de 30ms pour éviter tout saut de frame matériel
+      const now = Tone.context.currentTime + 0.03;
       player.start(now + actualPlayDelay, actualStartOffset, actualDuration);
       localPlayerRef.current = player;
     }
@@ -489,6 +610,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         if (Tone.context.rawContext && Tone.context.rawContext.state !== 'running') {
           await (Tone.context.rawContext as AudioContext).resume();
         }
+        await Tone.start();
       } catch (_) {}
 
       // Mémoriser l'état initial de boucle
@@ -501,9 +623,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       };
 
       const mLoopStart = effectiveMeasure;
-      const mLoopEnd = effectiveMeasure + patternMeasures - 1;
+      const mLoopEnd = effectiveMeasure;
 
-      // Définir les bornes de boucle sur la fenêtre utile [effectiveMeasure, effectiveMeasure + 1] (Directive B)
+      // Définir les bornes de boucle sur la fenêtre utile [effectiveMeasure, effectiveMeasure + 1] (Directive C)
       useSequencerStore.setState({
         isLooping: true,
         isLoopRegionActive: true,
@@ -512,7 +634,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       });
 
       Tone.Transport.loop = true;
-      Tone.Transport.setLoopPoints(`${mLoopStart}:0:0`, `${mLoopStart + patternMeasures}:0:0`);
+      Tone.Transport.setLoopPoints(`${mLoopStart}:0:0`, `${mLoopStart + 1}:0:0`);
       Tone.Transport.position = `${mLoopStart}:0:0`;
 
       setIsPlayingPreview(true);
@@ -540,7 +662,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     };
   }, [stopLocalPreview, handleStop]);
 
-  // 5. Drag & Drop robuste à 60 FPS (Directive 2 & Commandements 1, 2, 3)
+  // 5. Drag & Drop robuste à 60 FPS (Commandements 1, 2, 3)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -699,7 +821,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             </span>
           </div>
 
-          {/* TEMPS 1 Fixed Guide Line Badge (Directive B) */}
+          {/* TEMPS 1 Fixed Guide Line Badge (Directive C) */}
           <div
             style={{ left: `${temps1Px}px` }}
             className="absolute top-0 bottom-0 flex items-center -translate-x-1/2 z-30 pointer-events-none"
@@ -728,7 +850,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             }}
           />
 
-          {/* Calque statique d'arrière-plan (Grille de pas + notes du synthétiseur) (Directive A) */}
+          {/* Calque statique d'arrière-plan (Grille de pas + T1-T4 + syllabes et notes) (Directives A & B) */}
           <canvas
             ref={staticGridCanvasRef}
             className="absolute top-0 bottom-0 left-0 pointer-events-none z-0"
@@ -756,7 +878,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
               height={144}
             />
 
-            {/* Trim Overlay Canvas solidaire de l'audioBuffer (Directive C.2) */}
+            {/* Trim Overlay Canvas solidaire de l'audioBuffer */}
             <canvas
               ref={trimOverlayCanvasRef}
               className="absolute top-0 bottom-0 left-0 h-full pointer-events-none z-10"
