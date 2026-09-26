@@ -189,6 +189,69 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         return;
       }
 
+      // 7.5. Ctrl+C / Cmd+C : Copier la sélection timeline
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        const store = useSequencerStore.getState();
+        if (store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0)) {
+          e.preventDefault();
+          e.stopPropagation();
+          store.copyTimelineSelection();
+          return;
+        }
+      }
+
+      // 7.6. Ctrl+X / Cmd+X : Couper la sélection timeline
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        const store = useSequencerStore.getState();
+        if (store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0)) {
+          e.preventDefault();
+          e.stopPropagation();
+          store.cutTimelineSelection();
+          return;
+        }
+      }
+
+      // 7.7. Ctrl+V / Cmd+V : Coller le presse-papier timeline à la position active
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        const store = useSequencerStore.getState();
+        if (store.timelineClipboard && store.activeTimelineCell) {
+          e.preventDefault();
+          e.stopPropagation();
+          store.pasteTimelineClipboard();
+          return;
+        }
+      }
+
       // 8. Ctrl+Z / Ctrl+Shift+Z ou Ctrl+Y : Annuler / Rétablir
       const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
       const isRedoKey = 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { Copy, Repeat, Trash2, Link } from 'lucide-react';
+import { Copy, Scissors, Clipboard, CopyPlus, Repeat, Trash2, Link } from 'lucide-react';
 import { instrumentsConfig } from '../data';
 
 export const TimelineContextMenu: React.FC = () => {
@@ -14,6 +14,10 @@ export const TimelineContextMenu: React.FC = () => {
   const assign = useSequencerStore((state) => state.handleTimelinePatternAssign);
   const lang = useSequencerStore((state) => state.lang);
   const tracks = useSequencerStore((state) => state.tracks);
+  const copyTimelineSelection = useSequencerStore((state) => state.copyTimelineSelection);
+  const cutTimelineSelection = useSequencerStore((state) => state.cutTimelineSelection);
+  const pasteTimelineClipboard = useSequencerStore((state) => state.pasteTimelineClipboard);
+  const timelineClipboard = useSequencerStore((state) => state.timelineClipboard);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
@@ -27,7 +31,7 @@ export const TimelineContextMenu: React.FC = () => {
 
     // Viewport collision adjustment
     const menuWidth = 190;
-    const menuHeight = 220;
+    const menuHeight = 310;
     const padding = 12;
 
     const safeX = Math.max(padding, Math.min(menuData.x, window.innerWidth - menuWidth - padding));
@@ -65,6 +69,38 @@ export const TimelineContextMenu: React.FC = () => {
   const isOverridden = isSlave && targetTrack?.patternOverrides?.[menuData.measureIdx] !== undefined;
 
   const hasMultiSelect = selectedTimelineCells.length > 1;
+
+  const handleCopy = () => {
+    if (!hasMultiSelect) {
+      useSequencerStore.getState().setActiveTimelineCell({
+        trackId: menuData.trackId,
+        measureIdx: menuData.measureIdx,
+      });
+    }
+    copyTimelineSelection();
+    closeMenu();
+  };
+
+  const handleCut = () => {
+    if (!hasMultiSelect) {
+      useSequencerStore.getState().setActiveTimelineCell({
+        trackId: menuData.trackId,
+        measureIdx: menuData.measureIdx,
+      });
+    }
+    cutTimelineSelection();
+    closeMenu();
+  };
+
+  const handlePaste = () => {
+    if (!timelineClipboard) return;
+    useSequencerStore.getState().setActiveTimelineCell({
+      trackId: menuData.trackId,
+      measureIdx: menuData.measureIdx,
+    });
+    pasteTimelineClipboard();
+    closeMenu();
+  };
 
   const handleDuplicate = () => {
     if (hasMultiSelect) {
@@ -122,6 +158,70 @@ export const TimelineContextMenu: React.FC = () => {
         </span>
       </div>
 
+      {/* Action: Copier */}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="w-full text-left px-2 py-1.5 font-bold flex items-center justify-between transition-all hover:bg-[#1a1a1a] hover:text-[#f4ecd8] active:translate-x-0.5 cursor-pointer text-xs group"
+      >
+        <div className="flex items-center gap-2">
+          <Copy size={13} className="shrink-0" />
+          <span>
+            {hasMultiSelect
+              ? (lang === 'fr' ? `Copier la sélection (${selectedTimelineCells.length})` : `Copiar seleção (${selectedTimelineCells.length})`)
+              : (lang === 'fr' ? 'Copier' : 'Copiar')}
+          </span>
+        </div>
+        <span className="text-[9px] font-sans opacity-60 font-semibold group-hover:text-[#f4ecd8] group-hover:opacity-90">
+          Ctrl+C
+        </span>
+      </button>
+
+      {/* Action: Couper */}
+      <button
+        type="button"
+        onClick={handleCut}
+        className="w-full text-left px-2 py-1.5 font-bold flex items-center justify-between transition-all hover:bg-[#1a1a1a] hover:text-[#f4ecd8] active:translate-x-0.5 cursor-pointer text-xs group"
+      >
+        <div className="flex items-center gap-2">
+          <Scissors size={13} className="shrink-0" />
+          <span>
+            {hasMultiSelect
+              ? (lang === 'fr' ? `Couper la sélection (${selectedTimelineCells.length})` : `Recortar seleção (${selectedTimelineCells.length})`)
+              : (lang === 'fr' ? 'Couper' : 'Recortar')}
+          </span>
+        </div>
+        <span className="text-[9px] font-sans opacity-60 font-semibold group-hover:text-[#f4ecd8] group-hover:opacity-90">
+          Ctrl+X
+        </span>
+      </button>
+
+      {/* Action: Coller */}
+      <button
+        type="button"
+        disabled={!timelineClipboard}
+        onClick={handlePaste}
+        className={`w-full text-left px-2 py-1.5 font-bold flex items-center justify-between transition-all text-xs group ${
+          timelineClipboard
+            ? 'hover:bg-[#1a1a1a] hover:text-[#f4ecd8] active:translate-x-0.5 cursor-pointer'
+            : 'opacity-40 cursor-not-allowed'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <Clipboard size={13} className="shrink-0" />
+          <span>
+            {timelineClipboard
+              ? (lang === 'fr' ? `Coller (${timelineClipboard.spanMeasures} mes.)` : `Colar (${timelineClipboard.spanMeasures} comp.)`)
+              : (lang === 'fr' ? 'Coller' : 'Colar')}
+          </span>
+        </div>
+        <span className="text-[9px] font-sans opacity-60 font-semibold group-hover:text-[#f4ecd8] group-hover:opacity-90">
+          Ctrl+V
+        </span>
+      </button>
+
+      <div className="my-1 border-b border-[#1a1a1a]/30" />
+
       {/* Action: Dupliquer */}
       <button
         type="button"
@@ -129,7 +229,7 @@ export const TimelineContextMenu: React.FC = () => {
         className="w-full text-left px-2 py-1.5 font-bold flex items-center justify-between transition-all hover:bg-[#1a1a1a] hover:text-[#f4ecd8] active:translate-x-0.5 cursor-pointer text-xs group"
       >
         <div className="flex items-center gap-2">
-          <Copy size={13} className="shrink-0" />
+          <CopyPlus size={13} className="shrink-0" />
           <span>
             {hasMultiSelect
               ? (lang === 'fr' ? `Dupliquer la sélection (${selectedTimelineCells.length} mes.)` : `Duplicar seleção (${selectedTimelineCells.length} comp.)`)

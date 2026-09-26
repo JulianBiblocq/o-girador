@@ -3653,6 +3653,19 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
 // ---------------------------------------------------------
 // 7. UI SLICE
 // ---------------------------------------------------------
+export interface TimelineClipboardEntry {
+  trackId: number;
+  relativeM: number; // mIdx - minMIdx
+  patternId: number | null; // null si silence
+  allowVariations?: boolean;
+  overridePatternId?: number | null; // pour pistes esclaves
+}
+
+export interface TimelineClipboard {
+  spanMeasures: number;
+  entries: TimelineClipboardEntry[];
+}
+
 export interface UISlice {
   isLinearDawDetached: boolean;
   isCircleSequencerDetached: boolean;
@@ -3686,6 +3699,7 @@ export interface UISlice {
   selectedTimelineCells: Array<{ trackId: number; mIdx: number }>;
   selectionAnchorCell: { trackId: number; mIdx: number } | null;
   isMultiSelectMode: boolean;
+  timelineClipboard: TimelineClipboard | null;
   openTimelineContextMenu: (data: {
     x: number;
     y: number;
@@ -3699,6 +3713,9 @@ export interface UISlice {
   clearTimelineSelection: () => void;
   toggleMultiSelectMode: () => void;
   duplicateSelectedCells: () => void;
+  copyTimelineSelection: () => void;
+  cutTimelineSelection: () => void;
+  pasteTimelineClipboard: () => void;
 
   mixerBankOffset: number;
   setMixerBankOffset: (offset: number) => void;
@@ -3730,6 +3747,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   selectedTimelineCells: [],
   selectionAnchorCell: null,
   isMultiSelectMode: false,
+  timelineClipboard: null,
   toggleMultiSelectMode: () => set((state) => ({ isMultiSelectMode: !state.isMultiSelectMode })),
   clearTimelineSelection: () => set({ selectedTimelineCells: [], selectionAnchorCell: null }),
   selectTimelineCell: (trackId, mIdx, mode) => {
@@ -4023,6 +4041,305 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
         selectedTimelineCells: nextSelectedCells,
         selectionAnchorCell: nextSelectedCells[0] || null,
         activeTimelineCell: newActiveCell,
+        tracksVersion: curr.tracksVersion + 1
+      };
+    });
+  },
+
+  copyTimelineSelection: () => {
+    const state = get();
+    const cells = state.selectedTimelineCells.length > 0
+      ? state.selectedTimelineCells
+      : (state.activeTimelineCell ? [{ trackId: state.activeTimelineCell.trackId, mIdx: state.activeTimelineCell.measureIdx }] : []);
+
+    if (cells.length === 0) return;
+
+    const mIndices = cells.map(c => c.mIdx);
+    const minM = Math.min(...mIndices);
+    const maxM = Math.max(...mIndices);
+    const spanMeasures = maxM - minM + 1;
+
+    const uniqueTrackIds = Array.from(new Set(cells.map(c => c.trackId)));
+    const entries: TimelineClipboardEntry[] = [];
+
+    const puxTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coroTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+    for (const trackId of uniqueTrackIds) {
+      const track = state.tracks.find(t => t.id === trackId);
+      if (!track) continue;
+
+      const isToadaBusTrack = isToadaBus(track);
+      const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
+
+      for (let m = minM; m <= maxM; m++) {
+        const isCellSelected = cells.some(c => c.trackId === trackId && c.mIdx === m);
+        if (!isCellSelected) continue;
+
+        const relativeM = m - minM;
+
+        if (isLinkedSlave) {
+          const overrideId = track.patternOverrides?.[m] ?? null;
+          entries.push({
+            trackId,
+            relativeM,
+            patternId: overrideId,
+            overridePatternId: overrideId
+          });
+          continue;
+        }
+
+        if (isToadaBusTrack) {
+          const puxPat = puxTrack?.patterns.find(p => p.measureAssignments?.[m]);
+          const coroPat = coroTrack?.patterns.find(p => p.measureAssignments?.[m]);
+          const activePat = coroPat || puxPat || null;
+          entries.push({
+            trackId,
+            relativeM,
+            patternId: activePat ? activePat.id : null
+          });
+          continue;
+        }
+
+        // Piste standard ou Puxador ou Coro
+        const pat = track.patterns.find(p => p.measureAssignments?.[m]);
+        entries.push({
+          trackId,
+          relativeM,
+          patternId: pat ? pat.id : null,
+          allowVariations: pat?.measureAllowVariations?.[m]
+        });
+      }
+    }
+
+    set({
+      timelineClipboard: {
+        spanMeasures,
+        entries
+      }
+    });
+  },
+
+  cutTimelineSelection: () => {
+    const state = get();
+    const cells = state.selectedTimelineCells.length > 0
+      ? state.selectedTimelineCells
+      : (state.activeTimelineCell ? [{ trackId: state.activeTimelineCell.trackId, mIdx: state.activeTimelineCell.measureIdx }] : []);
+
+    if (cells.length === 0) return;
+
+    // 1. Copier d'abord la sélection
+    get().copyTimelineSelection();
+
+    // 2. Undo atomique unique pour le couper
+    get().pushUndoState();
+
+    // 3. Vider (silence) toutes les cellules coupées
+    set((curr) => {
+      const puxTrack = curr.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = curr.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+      const updatedTracks = curr.tracks.map(t => {
+        // Mesures à vider pour cette piste
+        const directTrackCells = cells.filter(c => c.trackId === t.id);
+        const toadaCutCells = (t.id === puxTrack?.id || t.id === coroTrack?.id)
+          ? cells.filter(c => {
+              const selTrack = curr.tracks.find(st => st.id === c.trackId);
+              return selTrack && isToadaBus(selTrack);
+            })
+          : [];
+
+        const measuresToClear = new Set([
+          ...directTrackCells.map(c => c.mIdx),
+          ...toadaCutCells.map(c => c.mIdx)
+        ]);
+
+        if (measuresToClear.size === 0) return t;
+
+        const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+        if (isLinkedSlave) {
+          const overrides = { ...(t.patternOverrides || {}) };
+          measuresToClear.forEach(m => {
+            delete overrides[m];
+          });
+          return {
+            ...t,
+            patternOverrides: overrides
+          };
+        }
+
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            const assign = [...p.measureAssignments];
+            measuresToClear.forEach(m => {
+              assign[m] = false;
+            });
+            return {
+              ...p,
+              measureAssignments: assign
+            };
+          })
+        };
+      });
+
+      return {
+        tracks: updatedTracks,
+        tracksVersion: curr.tracksVersion + 1
+      };
+    });
+  },
+
+  pasteTimelineClipboard: () => {
+    const clipboard = get().timelineClipboard;
+    const activeCell = get().activeTimelineCell;
+    if (!clipboard || !activeCell || clipboard.entries.length === 0) return;
+
+    const targetM = activeCell.measureIdx;
+    const maxTargetIdx = targetM + clipboard.spanMeasures - 1;
+
+    // 🛡️ Délégation standard d'agrandissement de grille ou Undo atomique
+    if (maxTargetIdx >= get().totalMeasures) {
+      get().handleTotalMeasuresChange(maxTargetIdx + 1);
+    } else {
+      get().pushUndoState();
+    }
+
+    set((curr) => {
+      const uniqueCopiedTracks = Array.from(new Set(clipboard.entries.map(e => e.trackId)));
+      const isSingleTrackClipboard = uniqueCopiedTracks.length === 1;
+
+      // 1. Règle stricte d'instrument pour collage mono-piste
+      let singleTrackTargetId: number | null = null;
+      if (isSingleTrackClipboard) {
+        const sourceTrackId = uniqueCopiedTracks[0];
+        const sourceTrack = curr.tracks.find(t => t.id === sourceTrackId);
+        const activeTrack = curr.tracks.find(t => t.id === activeCell.trackId);
+
+        const isSameInstrument = Boolean(
+          sourceTrack && activeTrack && (
+            sourceTrack.instrumentIdx === activeTrack.instrumentIdx ||
+            instrumentsConfig[sourceTrack.instrumentIdx]?.id === instrumentsConfig[activeTrack.instrumentIdx]?.id
+          )
+        );
+
+        // Si l'instrument est identique : coller sur la piste active. Sinon, rediriger sur la piste source d'origine.
+        singleTrackTargetId = isSameInstrument && activeTrack ? activeTrack.id : sourceTrackId;
+      }
+
+      // Deep clone des pistes pour modifications
+      const updatedTracks = curr.tracks.map(t => ({
+        ...t,
+        patternOverrides: t.patternOverrides ? { ...t.patternOverrides } : undefined,
+        patterns: t.patterns.map(p => ({
+          ...p,
+          measureAssignments: [...p.measureAssignments],
+          measureAllowVariations: p.measureAllowVariations ? [...p.measureAllowVariations] : undefined,
+        }))
+      }));
+
+      const newPuxTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const newCoroTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+      const pastedCellCoords: Array<{ trackId: number; mIdx: number }> = [];
+
+      for (const entry of clipboard.entries) {
+        const destM = targetM + entry.relativeM;
+        const targetTrackId = isSingleTrackClipboard && singleTrackTargetId !== null
+          ? singleTrackTargetId
+          : entry.trackId;
+
+        const destTrack = updatedTracks.find(t => t.id === targetTrackId);
+        if (!destTrack) continue;
+
+        pastedCellCoords.push({ trackId: targetTrackId, mIdx: destM });
+
+        const isToadaBusTrack = isToadaBus(destTrack);
+        const isVoicePux = Boolean(newPuxTrack && destTrack.id === newPuxTrack.id);
+        const isVoiceCoro = Boolean(newCoroTrack && destTrack.id === newCoroTrack.id);
+        const isVoiceTrack = isToadaBusTrack || isVoicePux || isVoiceCoro;
+
+        const isLinkedSlave = Boolean(destTrack.linkedToTrackId && !destTrack.isLinkFolder && !destTrack.isLinkMaster);
+
+        if (isLinkedSlave) {
+          const overrides = { ...(destTrack.patternOverrides || {}) };
+          if (entry.overridePatternId === null || entry.overridePatternId === undefined) {
+            delete overrides[destM];
+          } else {
+            overrides[destM] = entry.overridePatternId;
+          }
+          destTrack.patternOverrides = overrides;
+          continue;
+        }
+
+        if (isVoiceTrack) {
+          if (isToadaBusTrack) {
+            // Identifier si le motif copié appartient à Puxador ou Coro
+            const isPuxPtn = newPuxTrack?.patterns.some(p => p.id === entry.patternId);
+            const isCoroPtn = newCoroTrack?.patterns.some(p => p.id === entry.patternId);
+
+            if (newPuxTrack) {
+              newPuxTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+                p.measureAssignments[destM] = Boolean(isPuxPtn && p.id === entry.patternId);
+              });
+            }
+            if (newCoroTrack) {
+              newCoroTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+                p.measureAssignments[destM] = Boolean(isCoroPtn && p.id === entry.patternId);
+              });
+            }
+          } else if (isVoicePux && newPuxTrack) {
+            newPuxTrack.patterns.forEach(p => {
+              while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+              p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
+            });
+            // Exclusivité vocale : Coro devient silencieux sur destM si Puxador a un motif
+            if (entry.patternId !== null && newCoroTrack) {
+              newCoroTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+                p.measureAssignments[destM] = false;
+              });
+            }
+          } else if (isVoiceCoro && newCoroTrack) {
+            newCoroTrack.patterns.forEach(p => {
+              while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+              p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
+            });
+            // Exclusivité vocale : Puxador devient silencieux sur destM si Coro a un motif
+            if (entry.patternId !== null && newPuxTrack) {
+              newPuxTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+                p.measureAssignments[destM] = false;
+              });
+            }
+          }
+        } else {
+          // Piste normale d'instrument
+          destTrack.patterns.forEach(p => {
+            while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
+            p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
+
+            const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+            if (nextVariations && entry.allowVariations !== undefined && p.id === entry.patternId) {
+              while (nextVariations.length <= destM) nextVariations.push(true);
+              nextVariations[destM] = entry.allowVariations;
+            }
+            p.measureAllowVariations = nextVariations;
+          });
+        }
+      }
+
+      const nextActiveCell = pastedCellCoords[0]
+        ? { trackId: pastedCellCoords[0].trackId, measureIdx: pastedCellCoords[0].mIdx }
+        : curr.activeTimelineCell;
+
+      return {
+        tracks: updatedTracks,
+        selectedTimelineCells: pastedCellCoords,
+        selectionAnchorCell: pastedCellCoords[0] || null,
+        activeTimelineCell: nextActiveCell,
         tracksVersion: curr.tracksVersion + 1
       };
     });

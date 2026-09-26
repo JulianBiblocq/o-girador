@@ -210,6 +210,26 @@ export function useGlobalKeyboardShortcuts() {
           if (handleRedo) handleRedo();
           return;
         }
+        if (['c', 'x', 'v'].includes(key)) {
+          const store = useSequencerStore.getState();
+          const hasTimelineTarget = Boolean(
+            store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0)
+          );
+          if (hasTimelineTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (key === 'c') {
+              store.copyTimelineSelection();
+            } else if (key === 'x') {
+              store.cutTimelineSelection();
+            } else if (key === 'v') {
+              if (store.timelineClipboard && store.activeTimelineCell) {
+                store.pasteTimelineClipboard();
+              }
+            }
+            return;
+          }
+        }
         if (['a', 'x', 'c', 'v', 'd'].includes(key)) {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent('grid-shortcut', { detail: { key } }));
