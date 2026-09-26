@@ -218,6 +218,7 @@ export const vocalEngineService = {
         entry.currentBuffer = audioBuffer;
       }
       entry.mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
+      (entry.mainPlayer as any).fadeIn = 0;
       return entry;
     }
 
@@ -227,6 +228,7 @@ export const vocalEngineService = {
     mainPlayer.overlap = 0.04;
     mainPlayer.volume.value = 0; // Unity gain
     mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
+    (mainPlayer as any).fadeIn = 0;
 
     const mainGain = new Tone.Gain(1);
     mainPlayer.connect(mainGain);
@@ -431,6 +433,7 @@ export const vocalEngineService = {
     const playbackRate = (Number.isFinite(targetRate) && targetRate > 0) ? targetRate : 1.0;
     mainPlayer.playbackRate = playbackRate;
     mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE : forcé systématiquement avant chaque déclenchement
+    (mainPlayer as any).fadeIn = 0; // Pas de fondu d'attaque qui étouffe les consonnes
 
     // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
     const beatDurationSec = 60 / effectiveBpm;

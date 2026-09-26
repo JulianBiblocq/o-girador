@@ -3867,27 +3867,23 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
         }))
       }));
 
-      for (const cell of sortedCells) {
-        const { trackId, mIdx: srcIdx } = cell;
-        const targetIdx = srcIdx + L;
+      // Identifier l'ensemble des pistes uniques concernées par la sélection
+      const uniqueTrackIds = Array.from(new Set(cells.map(c => c.trackId)));
 
+      const puxTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+      for (const trackId of uniqueTrackIds) {
         const clickedTrack = updatedTracks.find(t => t.id === trackId);
         if (!clickedTrack) continue;
 
-        const isLinkedSlave = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
-        const isLinkMaster = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
+        const isToadaBusTrack = isToadaBus(clickedTrack);
+        const isVoicePux = Boolean(puxTrack && clickedTrack.id === puxTrack.id);
+        const isVoiceCoro = Boolean(coroTrack && clickedTrack.id === coroTrack.id);
+        const isVoiceTrack = isToadaBusTrack || isVoicePux || isVoiceCoro;
 
-        if (isLinkedSlave) {
-          const srcOverride = clickedTrack.patternOverrides?.[srcIdx];
-          const overrides = { ...(clickedTrack.patternOverrides || {}) };
-          if (srcOverride === undefined) {
-            delete overrides[targetIdx];
-          } else {
-            overrides[targetIdx] = srcOverride;
-          }
-          clickedTrack.patternOverrides = overrides;
-          continue;
-        }
+        const isLinkedSlave = Boolean(clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster);
+        const isLinkMaster = Boolean(clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster);
 
         let targetTrackId = trackId;
         let sourceOwnerTrack = clickedTrack;
@@ -3897,84 +3893,114 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
           if (owner) sourceOwnerTrack = owner;
         }
 
-        const isToadaTrackId = isToadaBus(clickedTrack);
-        const puxTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-        const coroTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-        const isVoiceToadaAssign = isToadaTrackId || 
-          (puxTrack && targetTrackId === puxTrack.id) || 
-          (coroTrack && targetTrackId === coroTrack.id);
+        for (let m = mMin; m <= mMax; m++) {
+          const targetIdx = m + L;
 
-        let activePatternId: number | null = null;
-        let allowVarVal: boolean | undefined = undefined;
-        const activePat = sourceOwnerTrack.patterns.find(p => p.measureAssignments?.[srcIdx]);
-        if (activePat) {
-          activePatternId = activePat.id;
-          allowVarVal = activePat.measureAllowVariations?.[srcIdx];
-        }
-
-        if (isVoiceToadaAssign && (puxTrack || coroTrack)) {
-          if (puxTrack) {
-            puxTrack.patterns.forEach(p => {
-              while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
-              p.measureAssignments[targetIdx] = (puxTrack.id === targetTrackId && p.id === activePatternId);
-              const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
-              if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
-                while (nextVariations.length < nextTotal) nextVariations.push(true);
-                nextVariations[targetIdx] = allowVarVal;
-              }
-              p.measureAllowVariations = nextVariations;
-            });
+          if (isLinkedSlave) {
+            const srcOverride = clickedTrack.patternOverrides?.[m];
+            const overrides = { ...(clickedTrack.patternOverrides || {}) };
+            if (srcOverride === undefined) {
+              delete overrides[targetIdx];
+            } else {
+              overrides[targetIdx] = srcOverride;
+            }
+            clickedTrack.patternOverrides = overrides;
+            continue;
           }
-          if (coroTrack) {
-            coroTrack.patterns.forEach(p => {
-              while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
-              p.measureAssignments[targetIdx] = (coroTrack.id === targetTrackId && p.id === activePatternId);
-              const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
-              if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
-                while (nextVariations.length < nextTotal) nextVariations.push(true);
-                nextVariations[targetIdx] = allowVarVal;
-              }
-              p.measureAllowVariations = nextVariations;
-            });
-          }
-        } else {
-          const destTrack = updatedTracks.find(t => t.id === targetTrackId);
-          if (destTrack) {
-            if (destTrack.measureVols) {
-              destTrack.measureVols[targetIdx] = destTrack.measureVols[srcIdx] !== undefined
-                ? destTrack.measureVols[srcIdx]
-                : (destTrack.volumeVal ?? 100);
-            }
-            if (destTrack.measureVolTransitions) {
-              destTrack.measureVolTransitions[targetIdx] = destTrack.measureVolTransitions[srcIdx] || 'immediate';
-            }
-            if (destTrack.measurePans) {
-              destTrack.measurePans[targetIdx] = destTrack.measurePans[srcIdx] !== undefined
-                ? destTrack.measurePans[srcIdx]
-                : (destTrack.panVal ?? destTrack.pan ?? 0);
-            }
-            if (destTrack.measurePanTransitions) {
-              destTrack.measurePanTransitions[targetIdx] = destTrack.measurePanTransitions[srcIdx] || 'immediate';
-            }
-            if (destTrack.measureReverbSends) {
-              destTrack.measureReverbSends[targetIdx] = destTrack.measureReverbSends[srcIdx] !== undefined
-                ? destTrack.measureReverbSends[srcIdx]
-                : (destTrack.fxSends?.reverb ?? destTrack.reverbVal ?? 0);
-            }
-            if (destTrack.measureReverbTransitions) {
-              destTrack.measureReverbTransitions[targetIdx] = destTrack.measureReverbTransitions[srcIdx] || 'immediate';
-            }
 
-            destTrack.patterns.forEach(p => {
-              while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
-              p.measureAssignments[targetIdx] = (p.id === activePatternId);
-              const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
-              if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
-                while (nextVariations.length < nextTotal) nextVariations.push(true);
-                nextVariations[targetIdx] = allowVarVal;
+          if (isVoiceTrack) {
+            // Coordination Toada / Puxador / Coro
+            if (isToadaBusTrack) {
+              // La sélection est sur la ligne maîtresse Toada : dupliquer fidèlement Puxador et Coro
+              const puxPat = puxTrack?.patterns.find(p => p.measureAssignments?.[m]);
+              const coroPat = coroTrack?.patterns.find(p => p.measureAssignments?.[m]);
+
+              if (puxTrack) {
+                puxTrack.patterns.forEach(p => {
+                  while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                  p.measureAssignments[targetIdx] = Boolean(puxPat && p.id === puxPat.id);
+                });
               }
-              p.measureAllowVariations = nextVariations;
-            });
+              if (coroTrack) {
+                coroTrack.patterns.forEach(p => {
+                  while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                  p.measureAssignments[targetIdx] = Boolean(coroPat && p.id === coroPat.id);
+                });
+              }
+            } else if (isVoicePux && puxTrack) {
+              const puxPat = puxTrack.patterns.find(p => p.measureAssignments?.[m]);
+              puxTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                p.measureAssignments[targetIdx] = Boolean(puxPat && p.id === puxPat.id);
+              });
+              // Exclusivité : si Puxador a un motif sur targetIdx, Coro doit être silencieux sur targetIdx
+              if (puxPat && coroTrack) {
+                coroTrack.patterns.forEach(p => {
+                  while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                  p.measureAssignments[targetIdx] = false;
+                });
+              }
+            } else if (isVoiceCoro && coroTrack) {
+              const coroPat = coroTrack.patterns.find(p => p.measureAssignments?.[m]);
+              coroTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                p.measureAssignments[targetIdx] = Boolean(coroPat && p.id === coroPat.id);
+              });
+              // Exclusivité : si Coro a un motif sur targetIdx, Puxador doit être silencieux sur targetIdx
+              if (coroPat && puxTrack) {
+                puxTrack.patterns.forEach(p => {
+                  while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                  p.measureAssignments[targetIdx] = false;
+                });
+              }
+            }
+          } else {
+            // Piste normale ou master de groupe
+            const destTrack = updatedTracks.find(t => t.id === targetTrackId);
+            if (destTrack) {
+              // Recopie des automations
+              if (destTrack.measureVols) {
+                destTrack.measureVols[targetIdx] = destTrack.measureVols[m] !== undefined
+                  ? destTrack.measureVols[m]
+                  : (destTrack.volumeVal ?? 100);
+              }
+              if (destTrack.measureVolTransitions) {
+                destTrack.measureVolTransitions[targetIdx] = destTrack.measureVolTransitions[m] || 'immediate';
+              }
+              if (destTrack.measurePans) {
+                destTrack.measurePans[targetIdx] = destTrack.measurePans[m] !== undefined
+                  ? destTrack.measurePans[m]
+                  : (destTrack.panVal ?? destTrack.pan ?? 0);
+              }
+              if (destTrack.measurePanTransitions) {
+                destTrack.measurePanTransitions[targetIdx] = destTrack.measurePanTransitions[m] || 'immediate';
+              }
+              if (destTrack.measureReverbSends) {
+                destTrack.measureReverbSends[targetIdx] = destTrack.measureReverbSends[m] !== undefined
+                  ? destTrack.measureReverbSends[m]
+                  : (destTrack.fxSends?.reverb ?? destTrack.reverbVal ?? 0);
+              }
+              if (destTrack.measureReverbTransitions) {
+                destTrack.measureReverbTransitions[targetIdx] = destTrack.measureReverbTransitions[m] || 'immediate';
+              }
+
+              const activePat = sourceOwnerTrack.patterns.find(p => p.measureAssignments?.[m]);
+              const activePatternId = activePat?.id ?? null;
+              const allowVarVal = activePat?.measureAllowVariations?.[m];
+
+              destTrack.patterns.forEach(p => {
+                while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+                // Si la mesure source m a un motif, l'assigner sur targetIdx. Si la mesure source est un silence, assigner false (duplication fidèle du silence) !
+                p.measureAssignments[targetIdx] = Boolean(activePatternId !== null && p.id === activePatternId);
+
+                const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                  while (nextVariations.length < nextTotal) nextVariations.push(true);
+                  nextVariations[targetIdx] = allowVarVal;
+                }
+                p.measureAllowVariations = nextVariations;
+              });
+            }
           }
         }
       }

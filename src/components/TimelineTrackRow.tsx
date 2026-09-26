@@ -96,6 +96,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   // Stringified track structure to check for structural changes without subscribing to activeSteps/lyrics/etc.
   const trackStructureJson = useSequencerStore(state => {
+    if (trackData && isToadaBus(trackData as any)) {
+      const pux = state.tracks.find(curr => instrumentsConfig[curr.instrumentIdx]?.id === 'puxador');
+      const coro = state.tracks.find(curr => instrumentsConfig[curr.instrumentIdx]?.id === 'coro');
+      return JSON.stringify({
+        pux: pux?.patterns.map(p => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
+        coro: coro?.patterns.map(p => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
+      });
+    }
     if (isMacro) return '';
     const t = state.tracks.find(curr => curr.id === trackId);
     if (!t) return '';
@@ -415,14 +423,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             const coroTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
             const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
             const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
-            if (cPtn) {
-              activePattern = cPtn;
-              activeTrack = coroTrack;
-              currentTrackIdx = tracksMeta.findIndex(t => t.id === coroTrack!.id);
-            } else if (pPtn) {
-              activePattern = pPtn;
-              activeTrack = puxTrack;
-              currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
+            const displayedPattern = cPtn || pPtn || null;
+            if (displayedPattern) {
+              activePattern = displayedPattern;
+              activeTrack = cPtn ? coroTrack : puxTrack;
+              currentTrackIdx = tracksMeta.findIndex(t => t.id === activeTrack!.id);
+            } else {
+              activePattern = null;
+              activeTrack = null;
             }
 
             if (activeTrack) {
@@ -525,6 +533,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               isSilence={isSilence}
               hasChildOverrides={hasChildOverrides}
               onStepTouchStart={onStepTouchStart}
+              isToada={isToada}
             />
           );
         })}

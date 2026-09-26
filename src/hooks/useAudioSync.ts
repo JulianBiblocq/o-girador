@@ -1259,7 +1259,8 @@ export function useAudioSync({
 
           // Discontinuity seek/loop detection
           if (totalElapsedSec < lastElapsedSecRef.current - 0.1 || totalElapsedSec > lastElapsedSecRef.current + 1.5) {
-            activeSequencerVocalsRef.current.forEach(v => v.stop());
+            vocalEngineService.disposeAllVocalPlayers();
+            activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
             activeSequencerVocalsRef.current.clear();
           }
           lastElapsedSecRef.current = totalElapsedSec;
@@ -1758,6 +1759,7 @@ export function useAudioSync({
           // Placée AVANT if (!activePattern) pour permettre l'anticipation depuis une mesure muette (ex: Coro muet en M0 avant entrée en M1).
           const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
           const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
+          let scheduledNextVocalKey: string | null = null;
 
           if (canPlay && nextPattern && stepIdx === 0) {
             const nextSafeId = Number(nextPattern.id);
@@ -1767,6 +1769,10 @@ export function useAudioSync({
             const nextClip = nextPattern.vocalClip;
             // Règle impérative B : Déclenchement anticipé UNIQUEMENT si anacrouse réelle > 0.02s
             const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
+
+            if (nextHasVocal && hasEarlyStart) {
+              scheduledNextVocalKey = nextVocalKey;
+            }
 
             if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextVocalKey)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
@@ -1808,6 +1814,17 @@ export function useAudioSync({
           }
 
           if (!activePattern) {
+            // 🛡️ Coupure franche au changement de mesure (Transition Puxador / Coro) dès que la mesure courante est muette
+            if (stepIdx === 0) {
+              activeSequencerVocalsRef.current.forEach((handle, key) => {
+                // Préservation absolue du lookahead : ne JAMAIS couper scheduledNextVocalKey
+                if (key.startsWith(`${track.id}_`) && key !== scheduledNextVocalKey) {
+                  try { handle.stop(); } catch (_) {}
+                  activeSequencerVocalsRef.current.delete(key);
+                }
+              });
+            }
+
             // Si la mesure courante est muette sur cette piste, traiter les éventuelles syllabes d'anacrouse de nextPattern
             if (canPlay && nextPattern && nextPattern.preRollActiveSteps) {
               const stepCount = nextPattern.steps || 16;
@@ -1870,11 +1887,23 @@ export function useAudioSync({
           const safeId = Number(activePattern.id);
           const vocalKey = `${track.id}_${safeId}`;
 
+          if (stepIdx === 0) {
+            // Couper tout ancien lecteur résiduel sur cette piste (différent du motif courant et de l'anticipation)
+            activeSequencerVocalsRef.current.forEach((handle, key) => {
+              if (key.startsWith(`${track.id}_`) && key !== vocalKey && key !== scheduledNextVocalKey) {
+                try { handle.stop(); } catch (_) {}
+                activeSequencerVocalsRef.current.delete(key);
+              }
+            });
+          }
+
           if (!canPlay) {
-            if (activeSequencerVocalsRef.current.has(vocalKey)) {
-              activeSequencerVocalsRef.current.get(vocalKey)?.stop();
-              activeSequencerVocalsRef.current.delete(vocalKey);
-            }
+            activeSequencerVocalsRef.current.forEach((handle, key) => {
+              if (key.startsWith(`${track.id}_`)) {
+                try { handle.stop(); } catch (_) {}
+                activeSequencerVocalsRef.current.delete(key);
+              }
+            });
             continue;
           }
 
@@ -2616,7 +2645,8 @@ export function useAudioSync({
       stopAllNativeOscillators();
 
       vocalEngineService.stopAllVocalPlayback();
-      activeSequencerVocalsRef.current.forEach(v => v.stop());
+      vocalEngineService.disposeAllVocalPlayers();
+      activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
       activeSequencerVocalsRef.current.clear();
       lastElapsedSecRef.current = 0;
       setIsPlaying(false);
@@ -2720,7 +2750,8 @@ export function useAudioSync({
     preRollRemainingMeasuresRef.current = 0;
 
     vocalEngineService.stopAllVocalPlayback();
-    activeSequencerVocalsRef.current.forEach(v => v.stop());
+    vocalEngineService.disposeAllVocalPlayers();
+    activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
     activeSequencerVocalsRef.current.clear();
     lastElapsedSecRef.current = 0;
     setIsPlaying(false);
