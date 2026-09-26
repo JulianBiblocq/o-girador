@@ -2181,7 +2181,37 @@ export function useAudioSync({
 
       let scheduledMusicStartTime: number | undefined = undefined;
 
-      const shouldExecutePreRoll = !shouldSkipPreRoll && preRoll && preRoll.enabled;
+      // 🎯 Détection d'une anacrouse sur la mesure de départ (Directive A)
+      let hasVocalAnacrusisAtStart = false;
+      const startTracks = tracksRef.current;
+      for (let tIdx = 0; tIdx < startTracks.length; tIdx++) {
+        const trk = startTracks[tIdx];
+        const inst = instrumentsConfig[trk.instrumentIdx];
+        if (!inst || inst.type !== 'voice') continue;
+        const ptn = trk.patterns.find(p => p.measureAssignments[targetM]);
+        if (!ptn) continue;
+        const safeId = Number(ptn.id);
+        const vocalKey = `${trk.id}_${safeId}`;
+        const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
+        const hasVocalSample = Boolean(vocalBuf && ptn.vocalMode === 'micro');
+        const clip = ptn.vocalClip;
+        const anacrusisSec = clip?.anacrusisSec ?? 0;
+        const anacrusisBeats = clip?.anacrusisBeats ?? 0;
+        const hasSampleAnacrusis = Boolean(hasVocalSample && (anacrusisSec > 0.02 || anacrusisBeats > 0.02));
+        const hasPreRollSyllables = Boolean(
+          (ptn.preRollActiveSteps && ptn.preRollActiveSteps.some(Boolean)) ||
+          (ptn.preRollLyrics && ptn.preRollLyrics.some(s => s && s.trim().length > 0)) ||
+          (ptn.preRollNotes && ptn.preRollNotes.some(n => n && n.trim().length > 0))
+        );
+        if (hasSampleAnacrusis || hasPreRollSyllables) {
+          hasVocalAnacrusisAtStart = true;
+          break;
+        }
+      }
+
+      // Si anacrouse présente sur M=0 et précompte désactivé, forcer temporairement l'exécution du précompte (1 mesure)
+      const forcePreRollForAnacrusis = (targetM === 0 && hasVocalAnacrusisAtStart && !options?.skipPreRoll);
+      const shouldExecutePreRoll = (!shouldSkipPreRoll && preRoll && preRoll.enabled) || forcePreRollForAnacrusis;
 
       if (shouldExecutePreRoll) {
         const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
@@ -2191,7 +2221,8 @@ export function useAudioSync({
         const beatsCount = getBeatsPerMeasure(targetSig);
         const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || targetSig === '12/8';
         const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
-        const measuresCount = preRoll.measuresCount || 1;
+        const measureCycleDurationSec = beatsCount * beatDurationSec;
+        const measuresCount = (preRoll && preRoll.enabled) ? (preRoll.measuresCount || 1) : 1;
 
         preRollTotalMeasuresRef.current = measuresCount;
         preRollRemainingMeasuresRef.current = measuresCount;
@@ -2200,7 +2231,7 @@ export function useAudioSync({
         // Hardware-timed count-in beeps (bips haute précision Web Audio)
         const totalBeats = measuresCount * beatsCount;
         const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-        const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.05;
+        const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.06;
         scheduledMusicStartTime = t0 + (totalBeats * beatDurationSec);
 
         for (let i = 0; i < totalBeats; i++) {
@@ -2209,26 +2240,168 @@ export function useAudioSync({
           const isFinalBeat = (i === totalBeats - 1);
           const freq = isFinalBeat ? 1400 : isDownbeat ? 1200 : 800;
           playCountInBeep(beepTime, freq, isDownbeat || isFinalBeat);
+        }
 
-          // Pousser le tick visuel haute précision pour chaque bip de précompte
-          pushVisualTick({
-            drawTime: beepTime,
-            step: 0,
-            measure: targetM,
-            maxTicks: getMaxTicks(targetSig),
-            ratio: 0,
-            visualStep16: 0,
-            visualStep12: 0,
-            time: beepTime,
-            iteration: 1,
-            measureStartTime: t0 + Math.floor(i / beatsCount) * (beatsCount * beatDurationSec),
-            measureDuration: beatsCount * beatDurationSec,
-            targetStartTime: beepTime,
-            isPreRoll: true,
-            preRollBeat: i % beatsCount,
-            preRollMeasureIndex: Math.floor(i / beatsCount),
-            preRollTotalMeasures: measuresCount,
-          });
+        // Ticks visuels haute précision pendant le précompte
+        for (let mIdx = 0; mIdx < measuresCount; mIdx++) {
+          const measureStart = t0 + mIdx * measureCycleDurationSec;
+          const isRunwayMeasure = (mIdx === measuresCount - 1);
+
+          if (!isRunwayMeasure) {
+            for (let b = 0; b < beatsCount; b++) {
+              const beatTime = measureStart + b * beatDurationSec;
+              pushVisualTick({
+                drawTime: beatTime,
+                step: 0,
+                measure: targetM,
+                maxTicks: getMaxTicks(targetSig),
+                ratio: 0,
+                visualStep16: b * 4,
+                visualStep12: b * 3,
+                time: beatTime,
+                iteration: 1,
+                measureStartTime: measureStart,
+                measureDuration: measureCycleDurationSec,
+                targetStartTime: beatTime,
+                isPreRoll: true,
+                preRollBeat: b,
+                preRollMeasureIndex: mIdx,
+                preRollTotalMeasures: measuresCount,
+              });
+            }
+          } else {
+            // Mesure d'élan (Runway) précédant le Temps 1 : 16 pas pour fluidité Roda & Karaoké
+            const runwayStepDurationSec = measureCycleDurationSec / 16;
+            for (let s = 0; s < 16; s++) {
+              const stepTime = measureStart + s * runwayStepDurationSec;
+              const beatIdx = Math.floor(s / 4);
+              const subRatio = (s % 4) / 4;
+              pushVisualTick({
+                drawTime: stepTime,
+                step: 0,
+                measure: targetM,
+                maxTicks: getMaxTicks(targetSig),
+                ratio: subRatio,
+                visualStep16: s,
+                visualStep12: Math.floor((s / 16) * 12),
+                time: stepTime,
+                iteration: 1,
+                measureStartTime: measureStart,
+                measureDuration: measureCycleDurationSec,
+                targetStartTime: stepTime,
+                isPreRoll: true,
+                preRollBeat: beatIdx,
+                preRollMeasureIndex: mIdx,
+                preRollTotalMeasures: measuresCount,
+              });
+            }
+          }
+        }
+
+        // 🎤 PLANIFICATION WEB AUDIO ABSOLUE PENDANT LE PRÉCOMPTE (Directives B & C)
+        const runwayStartTime = scheduledMusicStartTime - measureCycleDurationSec;
+        const runwayStepDurationSec = measureCycleDurationSec / 16;
+
+        for (let tIdx = 0; tIdx < startTracks.length; tIdx++) {
+          const track = startTracks[tIdx];
+          const inst = instrumentsConfig[track.instrumentIdx];
+          if (!inst || inst.type !== 'voice') continue;
+
+          const activePattern = track.patterns.find(p => p.measureAssignments[targetM]);
+          if (!activePattern) continue;
+
+          // Solo / Mute check
+          const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
+          let canPlay = false;
+          if (isSoloPlayActive) {
+            canPlay = activePattern.id === soloPatternPlayIdRef.current;
+          } else {
+            let hasSolo = false;
+            for (let i = 0; i < startTracks.length; i++) {
+              if (startTracks[i].isSolo) { hasSolo = true; break; }
+            }
+            canPlay = hasSolo ? track.isSolo : !track.isMute;
+          }
+          if (!canPlay) continue;
+
+          const safeId = Number(activePattern.id);
+          const vocalKey = `${track.id}_${safeId}`;
+          const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
+          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
+          const clip = activePattern.vocalClip;
+          const anacrusisSec = clip?.anacrusisSec ?? ((clip?.anacrusisBeats ?? 0) * beatDurationSec);
+          const hasSampleAnacrusis = Boolean(hasVocalSample && (anacrusisSec > 0.02 || (clip?.anacrusisBeats ?? 0) > 0.02));
+
+          const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
+          const voiceInst = instrumentsConfig[track.instrumentIdx];
+          const isCoroTrack = voiceInst?.id === 'coro';
+          const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
+          const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(startTracks, track.id);
+
+          // 1. Déclenchement Tone.GrainPlayer du sample vocal à T_vocal absolu
+          if (hasSampleAnacrusis && !activeSequencerVocalsRef.current.has(vocalKey)) {
+            const handle = vocalEngineService.playSequencerVocal(
+              track.id,
+              safeId,
+              scheduledMusicStartTime, // Heure du Temps 1 de la mesure 0
+              targetBpm,
+              outputNode,
+              vocalVol,
+              isCoroTrack,
+              () => {
+                activeSequencerVocalsRef.current.delete(vocalKey);
+              }
+            );
+            if (handle) {
+              activeSequencerVocalsRef.current.set(vocalKey, handle);
+            }
+          }
+
+          // 2. Traitement des pas d'anacrouse (Visual Hit Triggers & Synthèse Vocale si !hasVocalSample)
+          if (activePattern.preRollActiveSteps) {
+            for (let s = 0; s < 16; s++) {
+              const preRollState = activePattern.preRollActiveSteps[s];
+              const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
+              if (isPreActive) {
+                const stepTime = runwayStartTime + s * runwayStepDurationSec;
+
+                // 2a. Émission visuelle obligatoire (avec ou sans sample audio) pour illuminer la Roda
+                const stateCode = typeof preRollState === 'number'
+                  ? preRollState
+                  : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
+                pushVisualHitTrigger(track.id, s, stateCode, stepTime);
+
+                // 2b. Synthèse vocale native UNIQUEMENT si aucun sample audio
+                if (!hasVocalSample && vocalVol > 0) {
+                  const preNote = activePattern.preRollNotes?.[s];
+                  const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
+                  if (noteVal) {
+                    const decayVal = activePattern.preRollDecays?.[s] ?? 10;
+                    const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
+                    const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
+                    const durationSec = Math.max(0.05, numDecaySteps * runwayStepDurationSec);
+
+                    const trackVolLinear = Math.pow(vocalVol / 100, 2);
+                    const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                    let finalNoteVal = noteVal;
+                    if (transposeSteps !== 0) {
+                      try {
+                        finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                      } catch (_) {}
+                    }
+
+                    const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
+                    if (audioEngine) {
+                      audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, stepTime, velocity);
+                    } else {
+                      const noteFreq = noteToFrequency(finalNoteVal);
+                      playNativeVoiceSynth(noteFreq, stepTime, durationSec, trackVolLinear, channels[track.id]);
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
 
         // Calage synchrone immédiat du moteur audio sur la mesure cible M et pas 0
