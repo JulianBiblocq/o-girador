@@ -79,7 +79,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const { hasAccess } = useAuth();
   const [insertMeasuresPrompt, setInsertMeasuresPrompt] = React.useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
   const [insertAmountStr, setInsertAmountStr] = React.useState("1");
-  const { isPlaying } = useAudio();
+  const { isPlaying, seekToMeasure, handleTimelineNavigate } = useAudio();
   const isPlayingRef = React.useRef(isPlaying);
   isPlayingRef.current = isPlaying;
 
@@ -738,34 +738,44 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [isPlaying]);
 
-  const handleRulerClickOrDrag = (clientX: number) => {
+  const lastScrubbedMeasureRef = React.useRef<number>(-1);
+
+  const handleRulerSeek = (clientX: number) => {
     if (!scrollRef.current) return;
     const rect = scrollRef.current.getBoundingClientRect();
     const relativeX = clientX - rect.left - HEADER_W + scrollRef.current.scrollLeft;
-    const { totalMeasures: tMeasures, measureTimeSigs: mSigs } = propsRef.current;
+    const { totalMeasures: tMeasures } = propsRef.current;
     
-    let measureIdx = 0;
+    let targetMeasure = 0;
     if (relativeX < 0) {
-      measureIdx = 0;
+      targetMeasure = 0;
     } else {
-      measureIdx = Math.floor(relativeX / MEASURE_W);
+      targetMeasure = Math.floor(relativeX / MEASURE_W);
     }
-    
-    if (measureIdx >= tMeasures) {
-      measureIdx = tMeasures - 1;
-    }
-    
-    // Trouver la première itération correspondante dans expanded
-    const firstMatchIdx = expanded.findIndex(item => item.baseMeasure === measureIdx);
+    const clampedMeasure = Math.max(0, Math.min(targetMeasure, tMeasures - 1));
+
+    // 🛡️ Garde-fou sur le scrubbing en lecture (Consigne 2) :
+    // Ne déclencher seekToMeasure que si clampedMeasure !== lastScrubbedMeasureRef.current
+    if (clampedMeasure === lastScrubbedMeasureRef.current) return;
+    lastScrubbedMeasureRef.current = clampedMeasure;
+
+    // Trouver la première itération correspondante dans expanded si applicable
+    const firstMatchIdx = expanded.findIndex(item => item.baseMeasure === clampedMeasure);
     const targetIteration = firstMatchIdx !== -1 ? expanded[firstMatchIdx].iteration : 1;
     
     if (firstMatchIdx !== -1) {
       useSequencerStore.getState().setCurrentExpandedMeasureIdx(firstMatchIdx);
     }
 
+    if (seekToMeasure) {
+      seekToMeasure(clampedMeasure, 0);
+    } else if (handleTimelineNavigate) {
+      handleTimelineNavigate(clampedMeasure, 0, 16);
+    }
+
     window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { 
       detail: { 
-        mIdx: measureIdx, 
+        mIdx: clampedMeasure, 
         sIdx: 0,
         iteration: targetIteration
       } 
@@ -775,105 +785,38 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (['INPUT', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
+    if (target.closest('button, select, input, .ruler-detailed')) return;
     
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (!scrollRef.current) return;
     const rect = scrollRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    if (clickX < HEADER_W) return; // Clic sur en-tête d'instruments, ignoré
-    
-    if (e.pointerType === 'mouse') {
-      const initialY = e.clientY;
-      const initialWidth = measureWidthRef.current;
-      
-      let rafId: number | null = null;
-      let latestClientY = e.clientY;
-      let latestClientX = e.clientX;
+    if (clickX < HEADER_W) return; // En-tête gauche figé
 
-      const performRulerDrag = (clientX: number, clientY: number, isFinal: boolean = false) => {
-        const deltaY = clientY - initialY;
-        let clamped = initialWidth;
-        // Si le mouvement est principalement vertical, on zoome
-        if (Math.abs(deltaY) > 5) {
-          const newWidth = initialWidth + deltaY * 2;
-          clamped = Math.max(120, Math.min(960, newWidth));
-          
-          React.startTransition(() => {
-            const S = clamped / initialWidth;
-            if (scrollRef.current) {
-              const rect = scrollRef.current.getBoundingClientRect();
-              const mouseX = clientX - rect.left - HEADER_W;
-              const scrollLeftInit = scrollRef.current.scrollLeft;
-              const mouseXGrid = mouseX + scrollLeftInit;
-              const newScrollLeft = mouseXGrid * S - mouseX;
-              pendingScrollLeft.current = newScrollLeft;
-              scrollRef.current.scrollLeft = newScrollLeft;
-            }
-            onMeasureWidthChange(clamped);
-          });
-        }
-        // Scrubbing horizontal
-        if (isFinal || Math.abs(deltaY) <= 5) {
-          handleRulerClickOrDrag(clientX);
-        }
-      };
+    // Capture de pointeur pour scrubbing fluide sans décrochage
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
 
-      const onPointerMove = (moveEvent: PointerEvent) => {
-        latestClientX = moveEvent.clientX;
-        latestClientY = moveEvent.clientY;
-        if (rafId === null) {
-          rafId = requestAnimationFrame(() => {
-            rafId = null;
-            performRulerDrag(latestClientX, latestClientY, false);
-          });
-        }
-      };
-      
-      const onPointerUp = () => {
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
-        performRulerDrag(latestClientX, latestClientY, true); // Ensure final values are applied
-        isScrubbing.current = false;
-        if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-        document.body.style.cursor = 'default';
-      };
-      
-      isScrubbing.current = true;
-      handleRulerClickOrDrag(e.clientX);
-      
-      if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-      dragAbortControllerRef.current = new AbortController();
-      const { signal } = dragAbortControllerRef.current;
-      
-      window.addEventListener('pointermove', onPointerMove, { signal });
-      window.addEventListener('pointerup', onPointerUp, { signal });
-      document.body.style.cursor = 'ns-resize';
-      e.preventDefault();
-      return;
-    }
-
-    // Fallback pour tactile / autres pointeurs
     isScrubbing.current = true;
-    handleRulerClickOrDrag(e.clientX);
+    lastScrubbedMeasureRef.current = -1; // Réinitialiser pour forcer la prise en compte du clic
+    handleRulerSeek(e.clientX);
     e.preventDefault();
   };
 
-  const handleRulerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (['INPUT', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
-    
-    if (!scrollRef.current) return;
-    const rect = scrollRef.current.getBoundingClientRect();
-    const touch = e.touches[0];
-    const clickX = touch.clientX - rect.left;
-    if (clickX < HEADER_W) return;
-    
-    isScrubbing.current = true;
-    handleRulerClickOrDrag(touch.clientX);
-    // Don't preventDefault here unconditionally if it causes issues, but we already filtered inputs.
-    e.preventDefault();
+  const handleRulerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing.current) return;
+    handleRulerSeek(e.clientX);
+  };
+
+  const handleRulerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isScrubbing.current) {
+      isScrubbing.current = false;
+      lastScrubbedMeasureRef.current = -1;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    }
   };
 
 
@@ -935,7 +878,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       if (isScrubbing.current) {
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-          handleRulerClickOrDrag(e.clientX);
+          handleRulerSeek(e.clientX);
         });
       }
     };
@@ -945,7 +888,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         const touch = e.touches[0];
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-          handleRulerClickOrDrag(touch.clientX);
+          handleRulerSeek(touch.clientX);
         });
         e.preventDefault();
       }
@@ -954,6 +897,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     const handleMouseUp = () => {
       if (isScrubbing.current) {
         isScrubbing.current = false;
+        lastScrubbedMeasureRef.current = -1;
         if (rafId) cancelAnimationFrame(rafId);
       }
     };
@@ -961,6 +905,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     const handleTouchEnd = () => {
       if (isScrubbing.current) {
         isScrubbing.current = false;
+        lastScrubbedMeasureRef.current = -1;
         if (rafId) cancelAnimationFrame(rafId);
       }
     };
@@ -1831,10 +1776,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex min-h-14 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-50 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
+            className="flex min-h-14 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-50 bg-[var(--cordel-bg)] cursor-pointer select-none relative"
             style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
             onPointerDown={handleRulerPointerDown}
-            onTouchStart={handleRulerTouchStart}
+            onPointerMove={handleRulerPointerMove}
+            onPointerUp={handleRulerPointerUp}
+            onPointerCancel={handleRulerPointerUp}
           >
              {/* Sticky corner */}
              <div
@@ -1964,8 +1911,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     />
                   )}
                   <div className="ruler-measure-header flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
-                    <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0">
-                      <span>{measureLabelsMap.get(mIdx)}</span>
+                    <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0 cursor-pointer">
+                      <span className="bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 px-1 py-0.5 rounded transition-colors font-bold">{measureLabelsMap.get(mIdx)}</span>
                       
                       {/* Loop Delimiters */}
                       <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">

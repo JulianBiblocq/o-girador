@@ -26,7 +26,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
   const audio = useAudio();
   const sequencer = useSequencer();
 
-  const { handleTogglePlay, handleTimelineNavigate } = audio;
+  const { handleTogglePlay, handleTimelineNavigate, seekToMeasure } = audio;
   const { handleUndo, handleRedo, isLooping, setIsLooping } = sequencer;
 
   const optionsRef = useRef(options);
@@ -110,10 +110,22 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         return;
       }
 
-      // 3. Entrée ou Home : Remettre la tête de lecture au début (mesure 1)
+      // 3. Entrée ou Home : Remettre la tête de lecture au début absolu (Mesure 0, Temps 1)
       if (e.key === 'Enter' || e.key === 'Home') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
         e.preventDefault();
-        if (handleTimelineNavigate) {
+        if (seekToMeasure) {
+          seekToMeasure(0, 0);
+        } else if (handleTimelineNavigate) {
           handleTimelineNavigate(0, 0, 16);
         }
         return;
@@ -137,17 +149,61 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         return;
       }
 
-      // 6. < / , et > / . : Reculer ou avancer d'une mesure entière
-      if (e.key === '<' || e.key === ',' || e.key === '>' || e.key === '.') {
+      // 6. Navigation par Mesures au Clavier (ArrowLeft / ArrowRight)
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
         e.preventDefault();
         const curM = useSequencerStore.getState().currentMeasure;
         const totalM = useSequencerStore.getState().totalMeasures;
-        if (e.key === '<' || e.key === ',') {
-          const prevIdx = Math.max(0, curM - 1);
-          handleTimelineNavigate(prevIdx, 0, 16);
-        } else {
-          const nextIdx = Math.min(totalM - 1, curM + 1);
-          handleTimelineNavigate(nextIdx, 0, 16);
+        const delta = e.shiftKey ? 4 : 1;
+
+        const targetM = e.key === 'ArrowLeft'
+          ? Math.max(0, curM - delta)
+          : Math.min(totalM - 1, curM + delta);
+
+        if (seekToMeasure) {
+          seekToMeasure(targetM, 0);
+        } else if (handleTimelineNavigate) {
+          handleTimelineNavigate(targetM, 0, 16);
+        }
+        return;
+      }
+
+      // 6.5. Touches complémentaires DAW : < / , / NumpadSubtract / - et > / . / NumpadAdd / +
+      const isPrevMeasureKey = e.key === '<' || e.key === ',' || e.code === 'NumpadSubtract' || (e.key === '-' && !e.ctrlKey && !e.metaKey);
+      const isNextMeasureKey = e.key === '>' || e.key === '.' || e.code === 'NumpadAdd' || (e.key === '+' && !e.ctrlKey && !e.metaKey);
+
+      if (isPrevMeasureKey || isNextMeasureKey) {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        e.preventDefault();
+        const curM = useSequencerStore.getState().currentMeasure;
+        const totalM = useSequencerStore.getState().totalMeasures;
+        const targetM = isPrevMeasureKey
+          ? Math.max(0, curM - 1)
+          : Math.min(totalM - 1, curM + 1);
+
+        if (seekToMeasure) {
+          seekToMeasure(targetM, 0);
+        } else if (handleTimelineNavigate) {
+          handleTimelineNavigate(targetM, 0, 16);
         }
         return;
       }
@@ -271,5 +327,5 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleTimelineNavigate, handleUndo, handleRedo, setIsLooping]);
+  }, [handleTogglePlay, handleTimelineNavigate, seekToMeasure, handleUndo, handleRedo, setIsLooping]);
 }

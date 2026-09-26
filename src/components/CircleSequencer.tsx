@@ -675,10 +675,34 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       preRollBeat?: number;
       preRollMeasureIndex?: number;
       preRollTotalMeasures?: number;
+      isPaused?: boolean;
+      isNavigation?: boolean;
     }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration, isPaused } = detail as any;
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration, isPaused, isNavigation } = detail as any;
 
       if (isPaused) {
+        if (isNavigation) {
+          livePlaybackRef.current = {
+            step: 0,
+            measure,
+            maxTicks,
+            ratio: 0,
+            iteration,
+            time: 0,
+            measureStartTime: 0,
+            measureDuration: 0,
+            isPreRoll: false,
+          };
+          frozenStickAngleRef.current = -Math.PI / 2;
+          const expanded = expandedRef.current;
+          const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+          const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
+          const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+          if (measureDisplayRef.current) {
+            measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+          }
+          updateOverlay(displayMeasure - 1, measure, 0, false);
+        }
         return;
       }
 

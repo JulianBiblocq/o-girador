@@ -2852,7 +2852,76 @@ export function useAudioSync({
     }
   }, [setSoloPatternPlayId, setSoloPatternVariationId, handleStop]);
 
+  const seekToMeasure = useCallback((measureIdx: number, stepIdxInMeasure: number = 0, stepsInMeasure?: number) => {
+    const totalM = totalMeasuresRefInternal.current || 1;
+    const clampedM = Math.max(0, Math.min(totalM - 1, measureIdx));
+    const mSig = measureTimeSigsRefInternal.current[clampedM] || '4/4';
+    const currentTicks = getMaxTicks(mSig);
+    const steps = stepsInMeasure || (mSig === '6/8' || mSig === '12/8' ? 24 : 16);
+    const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / steps) * currentTicks)));
+
+    measureCountRef.current = clampedM;
+    sectionIterationRef.current = 1;
+    setCurrentMeasure(clampedM);
+    hasFinishedRef.current = false;
+    isPlaybackEndingRef.current = false;
+    maxTicksRef.current = currentTicks;
+
+    if (isPlayingRef.current) {
+      // 1. Purge impérative des voix actives (Consigne 1)
+      vocalEngineService.stopAllVocalPlayback();
+      vocalEngineService.disposeAllVocalPlayers();
+      activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
+      activeSequencerVocalsRef.current.clear();
+
+      // 2. Repositionner AudioEngine et Tone.Transport sans couper le moteur
+      currentStepIndexRef.current = tickIdx - 1;
+      if (audioEngine) {
+        audioEngine.purgeScheduledHits();
+        audioEngine.currentMeasure = clampedM;
+        audioEngine.currentStep = tickIdx;
+        audioEngine.schedulingMeasure = clampedM;
+        audioEngine.schedulingStep = tickIdx;
+        audioEngine.forceReanchor();
+      }
+      try {
+        Tone.Transport.position = `${clampedM}:0:0`;
+      } catch (_) {}
+    } else {
+      // À l'arrêt : calage synchrone immédiat sur clampedMeasure et step 0
+      currentStepIndexRef.current = tickIdx - 1;
+      if (audioEngine) {
+        audioEngine.currentMeasure = clampedM;
+        audioEngine.currentStep = Math.max(0, tickIdx);
+      }
+    }
+
+    // Émettre le tick de recalage (aiguille Roda à 12h, playhead début de mesure)
+    const ratioVal = currentTicks > 0 ? tickIdx / currentTicks : 0;
+    const detail = tickEventDetailRef.current;
+    detail.step = tickIdx;
+    detail.measure = clampedM;
+    detail.maxTicks = currentTicks;
+    detail.ratio = ratioVal;
+    detail.visualStep16 = Math.floor(ratioVal * 16);
+    detail.visualStep12 = Math.floor(ratioVal * 12);
+    detail.time = Tone.context.currentTime;
+    detail.iteration = 1;
+    (detail as any).isPaused = !isPlayingRef.current;
+    (detail as any).isNavigation = true;
+
+    tickSubscribers.forEach((cb) => {
+      try { cb(detail); } catch (err) { console.error(err); }
+    });
+  }, [setCurrentMeasure]);
+
   const handleTimelineNavigate = useCallback((measureIdx: number, stepIdxInMeasure: number, stepsInMeasure?: number, iteration: number = 1) => {
+    // Si la navigation est demandée au Temps 1 (pas 0), exécuter le calage direct seekToMeasure
+    if (stepIdxInMeasure === 0) {
+      seekToMeasure(measureIdx, 0, stepsInMeasure);
+      return;
+    }
+
     const targetMeasure = measureIdx % (totalMeasuresRefInternal.current || 1);
     if (isPlayingRef.current) {
       pendingMeasureRef.current = targetMeasure;
@@ -2902,7 +2971,7 @@ export function useAudioSync({
     tickSubscribers.forEach((cb) => {
       try { cb(detail); } catch (err) { console.error(err); }
     });
-  }, [setCurrentMeasure]);
+  }, [setCurrentMeasure, seekToMeasure]);
 
   const navigateRef = useRef(handleTimelineNavigate);
   useEffect(() => {
@@ -3025,11 +3094,15 @@ export function useAudioSync({
     const handleTimelineNav = (e: Event) => {
       const customEvent = e as CustomEvent<{ mIdx: number; sIdx: number }>;
       const { mIdx, sIdx } = customEvent.detail;
-      navigateRef.current(mIdx, sIdx);
+      if (sIdx === 0) {
+        seekToMeasure(mIdx, 0);
+      } else {
+        navigateRef.current(mIdx, sIdx);
+      }
     };
     window.addEventListener('o-girador-timeline-nav', handleTimelineNav);
     return () => window.removeEventListener('o-girador-timeline-nav', handleTimelineNav);
-  }, []);
+  }, [seekToMeasure]);
 
   const lastAppliedTracksParamsRef = useRef<Record<string, string>>({});
   const lastAppliedBussesRef = useRef<Record<string, string | null>>({});
@@ -3291,6 +3364,7 @@ export function useAudioSync({
     handleRewind: handleStop, // alias for backwards compatibility
     handleStartSoloPattern,
     handleStopSoloPattern,
+    seekToMeasure,
     handleTimelineNavigate,
     launchSpeedTrainer,
     stopSpeedTrainerAudio,
@@ -3315,6 +3389,7 @@ export function useAudioSync({
     handleStop,
     handleStartSoloPattern,
     handleStopSoloPattern,
+    seekToMeasure,
     handleTimelineNavigate,
     launchSpeedTrainer,
     stopSpeedTrainerAudio
