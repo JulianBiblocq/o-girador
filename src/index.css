@@ -1408,9 +1408,23 @@ body.has-wallpaper-none .wallpaper-surface-dark {
   transform: scale(0.93) !important;
 }
 
+/* ============================================================================
+   FILTRE D'USURE LINOGRAVURE / XYLOGRAVURE (.lino-distressed)
+   Simule l'encrage artisanal, les micro-aspérités et le tampon écaillé.
+   ============================================================================ */
+.lino-distressed {
+  filter: url(#lino-filter);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-block;
+  letter-spacing: 0.08em;
+  text-shadow: 0.5px 0.5px 0px rgba(139, 42, 26, 0.2);
+}
+
 .cordel-stamp-red {
   color: #8b2a1a;
   border: 2px solid #8b2a1a;
+  border-radius: 2px 3px 2px 4px;
   box-shadow: inset 0 0 0 1px rgba(139, 42, 26, 0.25), 2px 2px 0px rgba(139, 42, 26, 0.3);
   letter-spacing: 0.18em;
   transform: rotate(-1deg);
@@ -1420,6 +1434,7 @@ body.has-wallpaper-none .wallpaper-surface-dark {
   background-color: #f4ecd8;
   color: #8b2a1a;
   border: 1px solid #8b2a1a;
+  border-radius: 2px 3px 2px 4px;
   box-shadow: inset 0 0 0 1px rgba(139, 42, 26, 0.35), 1.5px 1.5px 0px rgba(0, 0, 0, 0.35);
   letter-spacing: 0.18em;
   transform: rotate(-1deg);

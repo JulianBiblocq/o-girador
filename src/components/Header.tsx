@@ -638,7 +638,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         {/* Center: App Title (masqué sur petits smartphones < 460px pour préserver l'espace des 5 boutons d'action) */}
         <div className="header-mobile-brand flex flex-col items-end select-none cursor-default shrink-0">
           <div className="flex items-center gap-1.5">
-            <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1">
+            <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1 lino-distressed">
               O Girador
             </span>
             {loadedGroupPreset && isEditor && (
@@ -662,7 +662,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             )}
           </div>
           <span className="cordel-stamp-red-sm font-cactus font-bold text-[7.5px] uppercase px-1.5 py-0.5 mt-0.5 leading-tight select-none">
-            Sequenciador
+            <span className="lino-distressed translate-x-[0.08em]">Sequenciador</span>
           </span>
         </div>
 
@@ -753,12 +753,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           <div className="flex flex-col items-end">
             <span
               id="header-title-text"
-              className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase leading-none"
+              className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase leading-none lino-distressed"
             >
               O Girador
             </span>
             <span className="cordel-stamp-red-sm font-cactus font-bold text-[9px] uppercase px-1.5 py-0.5 mt-1 leading-tight select-none">
-              Sequenciador
+              <span className="lino-distressed translate-x-[0.08em]">Sequenciador</span>
             </span>
           </div>
           {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans pt-1">v{version}</span>}

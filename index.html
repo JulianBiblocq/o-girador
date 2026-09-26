@@ -268,6 +268,15 @@
       <div id="root"></div>
     </div>
     <div id="modal-root"></div>
+    <!-- Filtre SVG Linogravure / Xylogravure pour effet tampon écaillé -->
+    <svg width="0" height="0" class="hidden" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="lino-filter" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.04 0.09" numOctaves="3" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.4" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
     <script>
       // Auto-recover from Vite dynamic chunk import failures (e.g. after a new deployment)
       window.addEventListener('vite:preloadError', function(event) {

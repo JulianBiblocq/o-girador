@@ -397,7 +397,8 @@ export const vocalEngineService = {
     outputNode: any,
     trackVolPct: number,
     isCoroTrack: boolean,
-    onStop?: () => void
+    onStop?: () => void,
+    isDirectStep0: boolean = false
   ) {
     const store = useAudioStore.getState();
     const compositeKey = `${trackId}_${patternId}`;
@@ -446,27 +447,32 @@ export const vocalEngineService = {
     const bufferDuration = audioBuffer.duration;
     const playDuration = bufferDuration / playbackRate;
 
-    // Stop previous playback on this player
+    // Stop previous playback on this player safely without triggering the old onstop callback
     try {
+      mainPlayer.onstop = null as any;
       mainPlayer.stop();
     } catch (_) {}
 
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
 
-    // 1. L'offset interne de lecture est strictement 0 par défaut :
-    //    Le buffer stocké étant déjà physiquement rogné, on ne saute aucun échantillon (offset = 0).
-    // 2. Le calage musical est uniquement géré par le moment de déclenchement (triggerTime).
-    // 3. Durée de lecture : playDuration (durée physique intégrale du buffer découpé) pour ne JAMAIS tronquer la résonance du buffer
-    // 4. Cas limite de l'anacrouse sur la mesure 0 absolue (triggerTime < 0) :
-    //    Uniquement si triggerTime < 0 (impossible de planifier dans le passé) :
-    //    - Déclencher à actualTime (0).
-    //    - Appliquer exceptionnellement l'offset interne compensé :
-    //      internalBufferOffset = (-triggerTime) * playbackRate
-    if (triggerTime >= 0) {
+    // Directive D : Secours au Pas 0 avec compensation d'offset (Filet de sécurité)
+    // Si isDirectStep0 est vrai et que le motif a une anacrouse réelle, la levée est dans le passé.
+    // On compense en démarrant pile à measureStartTime (Temps 1) avec un offset égal à l'anacrouse,
+    // garantissant que le premier mot accentué tombe exactement sur le Temps 1 sans décalage rythmique.
+    if (isDirectStep0 && (anacrusisSec > 0.02 || nudgeMs !== 0)) {
+      const anacrusisOffsetSec = Math.max(0, anacrusisSec - (nudgeMs / 1000)) * playbackRate;
+      const remainingDuration = Math.max(0, bufferDuration - anacrusisOffsetSec);
+      if (remainingDuration <= 0) {
+        return null;
+      }
+      mainGain.gain.setValueAtTime(baseGainLinear, measureStartTime);
+      mainPlayer.start(measureStartTime, anacrusisOffsetSec, remainingDuration / playbackRate);
+    } else if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
       mainPlayer.start(triggerTime, 0, playDuration);
     } else {
+      // Cas limite Temps 1 absolu au démarrage (triggerTime < 0)
       const internalBufferOffset = Math.abs(triggerTime) * playbackRate;
       const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
       if (remainingDuration <= 0) {
