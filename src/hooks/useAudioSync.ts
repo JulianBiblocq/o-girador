@@ -1915,6 +1915,61 @@ export function useAudioSync({
                 const stateCode = typeof state === 'number' ? state : (typeof state === 'string' ? (state.charCodeAt(0) || 1) : (state[0] ? (state[0].charCodeAt(0) || 1) : 1));
                 pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
               }
+            } else {
+              // Détection d'un pas d'anacrouse sur pas libre
+              const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
+              const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
+              const isSolo = soloPatternPlayIdRef.current !== null && soloPatternPlayIdRef.current !== undefined;
+              const targetAnacrusisPat = isSolo ? activePattern : (nextPattern || activePattern);
+
+              const preRollState = targetAnacrusisPat?.preRollActiveSteps?.[cellIdx];
+              const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
+
+              if (isPreActive) {
+                const triggerTime = swingTime;
+                const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
+                const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+
+                // 1. Émission visuelle obligatoire dans tous les cas (avec ou sans sample audio)
+                if (!isDocHidden) {
+                  const stateCode = typeof preRollState === 'number' ? preRollState : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
+                  pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
+                }
+
+                // 2. Déclenchement synthèse vocale SEULEMENT si aucun sample audio vocal
+                const anacrusisSafeId = Number(targetAnacrusisPat.id);
+                const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisSafeId];
+                const anacrusisHasSample = Boolean(anacrusisVocalBuf && targetAnacrusisPat.vocalMode === 'micro');
+
+                if (!anacrusisHasSample && trackVolPct > 0) {
+                  const preNote = targetAnacrusisPat.preRollNotes?.[cellIdx];
+                  const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
+                  if (noteVal) {
+                    const decayVal = targetAnacrusisPat.preRollDecays?.[cellIdx] ?? 10;
+                    const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
+                    const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
+                    const singleStepSec = (currentTicks / stepCount) * tick96nSec;
+                    const durationSec = Math.max(0.05, numDecaySteps * singleStepSec);
+
+                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                    const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                    let finalNoteVal = noteVal;
+                    if (transposeSteps !== 0) {
+                      try {
+                        finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                      } catch (_) {}
+                    }
+
+                    const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
+                    if (audioEngine) {
+                      audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity);
+                    } else {
+                      const noteFreq = noteToFrequency(finalNoteVal);
+                      playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
+                    }
+                  }
+                }
+              }
             }
           }
         }

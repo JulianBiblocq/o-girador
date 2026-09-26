@@ -122,8 +122,18 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 
         const activeId = activePatternByInst[instIdx];
         const isPatternActive = (activeId === patternId || activeId === undefined || activeId === null);
-        if (isPatternActive && steps > 0 && maxTicks > 0) {
-          const currentStep = Math.floor((step / maxTicks) * steps);
+        if (isPatternActive) {
+          let currentStep = -999;
+          if ((detail as any).isPreRoll) {
+            const preRollBeat = (detail as any).preRollBeat;
+            const ratio = (detail as any).ratio || (step / maxTicks);
+            const preRollStep = preRollBeat !== undefined
+              ? Math.min(15, preRollBeat * 4 + Math.floor(ratio * 4))
+              : Math.min(15, Math.floor(ratio * 16));
+            currentStep = preRollStep - 16;
+          } else if (steps > 0 && maxTicks > 0) {
+            currentStep = Math.floor((step / maxTicks) * steps);
+          }
           if (currentStep === stepIdx) {
             el.classList.add('scale-110', 'cordel-border-sm', 'px-1');
             el.style.backgroundColor = 'var(--cordel-text)';
@@ -413,6 +423,22 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     const inst = instrumentsConfig[t.instrumentIdx];
                     t.patterns.forEach((ptn: any) => {
                       let addedTokensForPattern = false;
+
+                      // Tokens d'anacrouse (Pre-roll : pas i - 16)
+                      if (ptn.preRollActiveSteps && ptn.preRollLyrics) {
+                        for (let i = 0; i < 16; i++) {
+                          const state = ptn.preRollActiveSteps[i];
+                          const lyric = ptn.preRollLyrics[i];
+                          if (!state || state === 0 || !lyric || lyric.trim() === '') continue;
+                          const isPux = state === 'P';
+                          const color = inst && inst.colors ? (isPux ? inst.colors['P'] || '' : inst.colors['C'] || '') : '';
+                          const hasSpace = lyric.endsWith(' ');
+                          const displayText = lyric.replace(/-$/, '').trim();
+                          allTokens.push({ trackId: t.id, patternId: ptn.id, stepIdx: i - 16, displayText, hasSpace, color, instIdx: t.instrumentIdx });
+                          addedTokensForPattern = true;
+                        }
+                      }
+
                       for (let i = 0; i < ptn.steps; i++) {
                         const state = ptn.activeSteps[i];
                         const lyric = ptn.lyrics[i];

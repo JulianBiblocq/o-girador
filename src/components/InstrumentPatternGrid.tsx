@@ -2024,7 +2024,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     let lastActiveWordEl: HTMLElement | null = null;
     let lastActiveSylEl: HTMLElement | null = null;
 
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; isPreRoll?: boolean; preRollBeat?: number }) => {
       if (!detail || !gridRef.current) return;
 
       const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
@@ -2061,19 +2061,38 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
       // 3. Vocal Karaoke word highlighting
       if (instrument?.type === 'voice') {
-        const targetStep = Math.floor(ratio * (pattern?.steps ?? 16));
+        let targetKey: string;
+        if (detail.isPreRoll) {
+          const preRollStep = detail.preRollBeat !== undefined
+            ? Math.min(15, detail.preRollBeat * 4 + Math.floor(ratio * 4))
+            : Math.min(15, Math.floor(ratio * 16));
+          targetKey = `pre-${preRollStep}`;
+        } else {
+          const patternMeasures = (pattern as any)?.measureAssignments || [];
+          const isNextMeasureAssigned = detail.measure !== undefined && patternMeasures[detail.measure + 1] === true;
+          const isCurrentMeasureAssigned = detail.measure !== undefined && patternMeasures[detail.measure] === true;
+
+          if (isNextMeasureAssigned && !isCurrentMeasureAssigned) {
+            const preRollStep = Math.min(15, Math.floor(ratio * 16));
+            targetKey = `pre-${preRollStep}`;
+          } else {
+            const targetStep = Math.floor(ratio * (pattern?.steps ?? 16));
+            targetKey = `${targetStep}`;
+          }
+        }
+
         const wordSpans = gridRef.current.querySelectorAll('[data-word-steps]');
         let activeWordSpan: HTMLElement | null = null;
         let activeSylSpan: HTMLElement | null = null;
 
         wordSpans.forEach(span => {
-          const steps = JSON.parse(span.getAttribute('data-word-steps') || '[]');
-          if (steps.includes(targetStep)) {
+          const steps: (string | number)[] = JSON.parse(span.getAttribute('data-word-steps') || '[]');
+          if (steps.some(s => String(s) === targetKey)) {
             activeWordSpan = span as HTMLElement;
             const sylSpans = span.querySelectorAll('[data-syl-index]');
             sylSpans.forEach(sylSpan => {
-              const sylIdx = Number(sylSpan.getAttribute('data-syl-index'));
-              if (sylIdx === targetStep) {
+              const sylKey = sylSpan.getAttribute('data-syl-index');
+              if (sylKey === targetKey) {
                 activeSylSpan = sylSpan as HTMLElement;
               }
             });
@@ -3152,55 +3171,111 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             
             {/* Live Karaoke Preview */}
             {(() => {
-              const karaokeWords: Array<Array<{ text: string; index: number }>> = [];
-              let currentWord: Array<{ text: string; index: number }> = [];
+              // 1. Extraire les mots d'anacrouse (Mesure -1 : Pre-roll)
+              const preRollWords: Array<Array<{ text: string; key: string }>> = [];
+              let curPreWord: Array<{ text: string; key: string }> = [];
+              const preRollActive = pattern?.preRollActiveSteps || [];
+              const preRollLyrics = pattern?.preRollLyrics || [];
+
+              for (let idx = 0; idx < 16; idx++) {
+                const active = preRollActive[idx] !== undefined && preRollActive[idx] !== null && preRollActive[idx] !== 0 && preRollActive[idx] !== '0';
+                const syl = preRollLyrics[idx] || '';
+                if (active && syl) {
+                  curPreWord.push({ text: syl, key: `pre-${idx}` });
+                  if (syl.endsWith(' ') || idx === 15) {
+                    preRollWords.push([...curPreWord]);
+                    curPreWord = [];
+                  }
+                }
+              }
+              if (curPreWord.length > 0) {
+                preRollWords.push(curPreWord);
+              }
+
+              // 2. Extraire les mots de la mesure principale
+              const mainWords: Array<Array<{ text: string; key: string }>> = [];
+              let currentWord: Array<{ text: string; key: string }> = [];
               
               for (let idx = 0; idx < (pattern?.steps ?? 16); idx++) {
-                const active = pattern?.activeSteps?.[idx] !== 0;
+                const active = pattern?.activeSteps?.[idx] !== undefined && pattern?.activeSteps?.[idx] !== null && pattern?.activeSteps?.[idx] !== 0 && pattern?.activeSteps?.[idx] !== '0';
                 const syl = pattern?.lyrics?.[idx] || '';
                 if (active && syl) {
-                  currentWord.push({ text: syl, index: idx });
+                  currentWord.push({ text: syl, key: `${idx}` });
                   if (syl.endsWith(' ') || idx === (pattern?.steps ?? 16) - 1) {
-                    karaokeWords.push([...currentWord]);
+                    mainWords.push([...currentWord]);
                     currentWord = [];
                   }
                 }
               }
               if (currentWord.length > 0) {
-                karaokeWords.push(currentWord);
+                mainWords.push(currentWord);
               }
 
+              const hasAnyLyrics = preRollWords.length > 0 || mainWords.length > 0;
+
               return (
-                <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1 w-full text-[#1a1a1a]">
-                  <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider">
-                    📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
-                  </span>
-                  <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-bold font-cactus leading-relaxed">
-                    {karaokeWords.length === 0 ? (
+                <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1.5 w-full text-[#1a1a1a]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider select-none">
+                      📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
+                    </span>
+                    {preRollWords.length > 0 && (
+                      <span className="text-[9px] font-bold bg-[#8b2a1a] text-[#f4ecd8] px-1.5 py-0.2 rounded-full uppercase tracking-wider select-none">
+                        + {lang === 'fr' ? 'Anacrouse incluse' : 'Anacruse inclusa'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm font-bold font-cactus leading-relaxed">
+                    {!hasAnyLyrics ? (
                       <span className="italic text-[#666]">
                         {lang === 'fr' ? 'Saisissez des syllabes dans la grille...' : 'Digite sílabas na grade...'}
                       </span>
                     ) : (
-                      karaokeWords.map((word, wIdx) => {
-                        return (
-                          <span 
-                            key={wIdx} 
-                            data-word-steps={JSON.stringify(word.map(item => item.index))}
-                            className="opacity-85 transition-colors duration-150"
-                          >
-                            {word.map((item, sIdx) => {
-                              return (
-                                <span 
-                                  key={sIdx} 
-                                  data-syl-index={item.index}
-                                >
-                                  {item.text}
-                                </span>
-                              );
-                            })}
-                          </span>
-                        );
-                      })
+                      <>
+                        {preRollWords.length > 0 && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#8b2a1a]/10 border border-[#8b2a1a]/25 text-[#8b2a1a] mr-1 select-none">
+                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-75">
+                              ⤹ {lang === 'fr' ? 'Anacrouse :' : 'Anacruse :'}
+                            </span>
+                            {preRollWords.map((word, wIdx) => (
+                              <span
+                                key={`pre-w-${wIdx}`}
+                                data-word-steps={JSON.stringify(word.map(item => item.key))}
+                                className="opacity-85 transition-colors duration-150 inline-flex"
+                              >
+                                {word.map((item, sIdx) => (
+                                  <span
+                                    key={`pre-s-${sIdx}`}
+                                    data-syl-index={item.key}
+                                  >
+                                    {item.text}
+                                  </span>
+                                ))}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {mainWords.map((word, wIdx) => {
+                          return (
+                            <span 
+                              key={`main-w-${wIdx}`} 
+                              data-word-steps={JSON.stringify(word.map(item => item.key))}
+                              className="opacity-85 transition-colors duration-150 inline-flex"
+                            >
+                              {word.map((item, sIdx) => {
+                                return (
+                                  <span 
+                                    key={`main-s-${sIdx}`} 
+                                    data-syl-index={item.key}
+                                  >
+                                    {item.text}
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          );
+                        })}
+                      </>
                     )}
                   </div>
                 </div>
