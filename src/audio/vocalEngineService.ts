@@ -216,7 +216,11 @@ export const vocalEngineService = {
           });
           const targetPid = activeTargetPatternId;
           if (targetPid !== null && isPunchingOut) {
-            useAudioStore.getState().setTempRecording({ patternId: targetPid, blob });
+            useAudioStore.getState().setTempRecording({
+              patternId: targetPid,
+              blob,
+              targetMeasureIdx: useAudioStore.getState().targetMeasureIdx ?? undefined,
+            });
           }
         } catch (err: any) {
           console.error("🎙️ [VOCAL ENGINE] Error on media recorder stop:", err);
@@ -304,7 +308,11 @@ export const vocalEngineService = {
           });
           const targetPid = activeTargetPatternId || numPatternId;
           if (isPunchingOut) {
-            useAudioStore.getState().setTempRecording({ patternId: targetPid, blob });
+            useAudioStore.getState().setTempRecording({
+              patternId: targetPid,
+              blob,
+              targetMeasureIdx: useAudioStore.getState().targetMeasureIdx ?? undefined,
+            });
             if (options.onRecordingStopped) {
               options.onRecordingStopped(blob);
             }

@@ -502,7 +502,8 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                         blob = loaded || undefined;
                       }
                       if (blob) {
-                        useAudioStore.getState().setTempRecording({ patternId, blob });
+                        useAudioStore.getState().setTargetMeasureIdx(mIdx);
+                        useAudioStore.getState().setTempRecording({ patternId, blob, targetMeasureIdx: mIdx });
                       }
                     }}
                   >

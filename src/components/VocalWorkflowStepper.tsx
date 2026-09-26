@@ -74,11 +74,18 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
       useAudioStore.getState().setSelectedVocalPatternId(patternId);
       useAudioStore.getState().setTargetPatternId(patternId);
 
+      const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
+      const assignedMeasure = (pattern?.measureAssignments && pattern.measureAssignments.indexOf(true) !== -1)
+        ? pattern.measureAssignments.indexOf(true)
+        : 0;
+      const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
+
       useAudioStore.getState().setTempRecording({
         patternId,
         blob,
         audioBuffer,
         isImported: true,
+        targetMeasureIdx: effectiveTargetMeasure,
       });
 
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -163,7 +170,12 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
       if (loaded) blob = loaded;
     }
     if (blob) {
-      useAudioStore.getState().setTempRecording({ patternId: pid, blob });
+      const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
+      const assignedMeasure = (pattern?.measureAssignments && pattern.measureAssignments.indexOf(true) !== -1)
+        ? pattern.measureAssignments.indexOf(true)
+        : 0;
+      const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
+      useAudioStore.getState().setTempRecording({ patternId: pid, blob, targetMeasureIdx: effectiveTargetMeasure });
     }
   };
 

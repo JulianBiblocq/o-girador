@@ -199,11 +199,13 @@ export const VocalRecordingBar: React.FC = () => {
       useAudioStore.getState().setTargetPatternId(selectedPatternId);
 
       // Inject directly as a temporary recording to open validation modal with pre-decoded buffer
+      const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
       useAudioStore.getState().setTempRecording({
         patternId: selectedPatternId,
         blob,
         audioBuffer,
         isImported: true,
+        targetMeasureIdx: currentArmedMeasure ?? undefined,
       });
 
       // Reset input value to allow selecting same file again
@@ -287,7 +289,12 @@ export const VocalRecordingBar: React.FC = () => {
       blob = loaded || undefined;
     }
     if (blob) {
-      useAudioStore.getState().setTempRecording({ patternId: selectedPatternId, blob });
+      const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
+      useAudioStore.getState().setTempRecording({
+        patternId: selectedPatternId,
+        blob,
+        targetMeasureIdx: currentArmedMeasure ?? undefined,
+      });
     } else {
       alert(lang === 'fr' ? "Aucun enregistrement trouvé." : "Nenhuma gravação encontrada.");
     }

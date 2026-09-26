@@ -5,6 +5,7 @@ export interface TempRecordingData {
   blob?: Blob;
   audioBuffer?: AudioBuffer;
   isImported?: boolean;
+  targetMeasureIdx?: number;
 }
 
 export interface AudioState {

@@ -49,9 +49,12 @@ export const VocalValidationModal: React.FC = () => {
 
     const decode = async () => {
       // Find measure BPM & Time Signature
-      const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1
-        ? targetPattern.measureAssignments.indexOf(true)
-        : 0;
+      const storeTargetMeasure = useAudioStore.getState().targetMeasureIdx;
+      const initialMeasureIdx = tempRecording.targetMeasureIdx !== undefined && tempRecording.targetMeasureIdx !== null
+        ? tempRecording.targetMeasureIdx
+        : (storeTargetMeasure !== null && storeTargetMeasure !== undefined)
+          ? storeTargetMeasure
+          : (targetPattern.measureAssignments.indexOf(true) !== -1 ? targetPattern.measureAssignments.indexOf(true) : 0);
       const targetBpm = measureBpms[initialMeasureIdx % (measureBpms.length || 1)] || bpm;
       const targetSig = measureTimeSigs[initialMeasureIdx % (measureTimeSigs.length || 1)] || '4/4';
       const beatsCount = getBeatsPerMeasure(targetSig);
@@ -240,6 +243,7 @@ export const VocalValidationModal: React.FC = () => {
             initialTrimStartSec={initialTrimStartSec}
             initialTrimEndSec={initialTrimEndSec}
             initialNudgeMs={initialNudgeMs}
+            targetMeasureIdx={tempRecording.targetMeasureIdx ?? useAudioStore.getState().targetMeasureIdx ?? (targetPattern.measureAssignments.indexOf(true) !== -1 ? targetPattern.measureAssignments.indexOf(true) : 0)}
             onSave={handleSave}
             onCancel={handleCancel}
           />
