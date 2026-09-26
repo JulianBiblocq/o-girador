@@ -22,7 +22,6 @@ export interface AudioState {
   selectedVocalPatternId: number | null;
   isAudioUnlocked: boolean;
   recordingStartTimelineSec: number | null;
-  isFocusRecordingMode: boolean;
   selectedDeviceId: string | null;
   selectedOutputDeviceId: string | null;
   availableDevices: Array<{ deviceId: string; label: string }>;
@@ -31,7 +30,6 @@ export interface AudioState {
   setSelectedOutputDeviceId: (id: string | null) => void;
   refreshAudioDevices: () => Promise<void>;
   setRecordingStatus: (status: 'inactive' | 'arming' | 'countdown' | 'recording') => void;
-  setIsFocusRecordingMode: (focus: boolean) => void;
   setTargetPatternId: (id: number | null) => void;
   setTargetMeasureIdx: (idx: number | null) => void;
   setRecordingTarget: (target: { trackId?: number | string | null; patternId: number | null; targetMeasure: number | null }) => void;
@@ -51,7 +49,6 @@ export interface AudioState {
 
 export const useAudioStore = create<AudioState>((set) => ({
   recordingStatus: 'inactive',
-  isFocusRecordingMode: false,
   targetPatternId: null,
   targetMeasureIdx: null,
   recordingTargetTrackId: null,
@@ -123,7 +120,6 @@ export const useAudioStore = create<AudioState>((set) => ({
   setRecordingStatus: (status) => set({
     recordingStatus: status,
   }),
-  setIsFocusRecordingMode: (focus) => set({ isFocusRecordingMode: focus }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),
   setTargetMeasureIdx: (idx) => set({ targetMeasureIdx: idx }),
   setRecordingTarget: (target) => set({

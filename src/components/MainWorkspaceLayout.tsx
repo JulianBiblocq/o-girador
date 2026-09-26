@@ -104,7 +104,6 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
-  const isFocusMode = useAudioStore(state => state.isFocusRecordingMode);
 
   const isLinearDawDetached = useSequencerStore(state => state.isLinearDawDetached);
   const isCircleSequencerDetached = useSequencerStore(state => state.isCircleSequencerDetached);

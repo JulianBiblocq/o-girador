@@ -228,7 +228,6 @@ export const vocalEngineService = {
           this.cleanupMedia();
           const s = useAudioStore.getState();
           s.setRecordingStatus('inactive');
-          s.setIsFocusRecordingMode(false);
           isPunchingOut = false;
         }
       };
@@ -259,7 +258,6 @@ export const vocalEngineService = {
     store.setTargetPatternId(numPatternId);
     store.setTargetMeasureIdx(targetMeasure);
     store.setRecordingStatus('arming');
-    store.setIsFocusRecordingMode(true);
 
     // If mediaRecorder is already created and stream active, we are ready!
     if (mediaRecorder && audioStream && audioStream.active) {
@@ -325,7 +323,6 @@ export const vocalEngineService = {
           const s = useAudioStore.getState();
           s.setRecordingStatus('inactive');
           s.setTargetPatternId(null);
-          s.setIsFocusRecordingMode(false);
           isPunchingOut = false;
         }
       };
@@ -338,7 +335,6 @@ export const vocalEngineService = {
       this.cleanupMedia();
       store.setRecordingStatus('inactive');
       store.setTargetPatternId(null);
-      store.setIsFocusRecordingMode(false);
       if (options.onError) options.onError(err);
       return false;
     }
@@ -387,7 +383,6 @@ export const vocalEngineService = {
       try { Tone.Transport.stop(); } catch (_) {}
       const store = useAudioStore.getState();
       store.setRecordingStatus('inactive');
-      store.setIsFocusRecordingMode(false);
     }, safetyTimeoutMs);
 
     activeTimeoutIds.push(timerId);
@@ -552,7 +547,6 @@ export const vocalEngineService = {
     const store = useAudioStore.getState();
     store.setRecordingStatus('inactive');
     store.setTargetPatternId(null);
-    store.setIsFocusRecordingMode(false);
   },
 
   cleanupTimers() {
@@ -844,18 +838,20 @@ export const vocalEngineService = {
     //    - Déclencher à actualTime (measureStartTime ou 0).
     //    - Appliquer exceptionnellement l'offset interne compensé :
     //      internalBufferOffset = (-triggerTime) * playbackRate
+    // 🛡️ SÉCURITÉ MESURE 0 :
+    // Si triggerTime < 0 (cas d'une anacrouse sur la toute première mesure du morceau où measureStartTime = 0),
+    // démarrer le lecteur à T = 0 avec un décalage interne dans le buffer : player.start(0, Math.abs(triggerTime) * playbackRate)
     if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
       mainPlayer.start(triggerTime, 0);
     } else {
-      const internalBufferOffset = (-triggerTime) * playbackRate;
+      const internalBufferOffset = Math.abs(triggerTime) * playbackRate;
       const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
       if (remainingDuration <= 0) {
         return null;
       }
-      const actualTime = measureStartTime >= 0 ? measureStartTime : 0;
-      mainGain.gain.setValueAtTime(baseGainLinear, actualTime);
-      mainPlayer.start(actualTime, internalBufferOffset);
+      mainGain.gain.setValueAtTime(baseGainLinear, 0);
+      mainPlayer.start(0, internalBufferOffset);
     }
 
     if (onStop) {

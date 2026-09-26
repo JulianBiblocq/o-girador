@@ -115,7 +115,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const anacrusisBadgeRef = useRef<HTMLSpanElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const trimOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
-  const localPlayerRef = useRef<Tone.Player | Tone.GrainPlayer | null>(null);
+  const activePlayersRef = useRef<Tone.Player[]>([]);
+  const isPlayingPreviewRef = useRef(false);
   const previewLoopTimeoutRef = useRef<any>(null);
 
   // Cached Peaks extracted ONCE (Zero Layout Thrashing & Waveform Persistence)
@@ -138,13 +139,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   // Le sample importé s'initialise à waveX calé sur Temps 1 (Directive 1).
   // Si le motif possédait déjà une anacrouse enregistrée, repositionner l'onde fidèlement.
   const getInitialBaseWaveX = () => {
-    if (isImported) {
-      if (pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
-        return temps1Px - (pattern.vocalClip.anacrusisSec * PIXELS_PER_SECOND) - (defaultTrimStart * PIXELS_PER_SECOND);
-      }
-      return temps1Px - (defaultTrimStart * PIXELS_PER_SECOND);
+    if (pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
+      return temps1Px - (pattern.vocalClip.anacrusisSec * PIXELS_PER_SECOND) - (defaultTrimStart * PIXELS_PER_SECOND);
     }
-    return 0;
+    return temps1Px - (defaultTrimStart * PIXELS_PER_SECOND);
   };
 
   const waveBaseXRef = useRef<number>(getInitialBaseWaveX());
@@ -159,10 +157,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const { handleTogglePlay, handleStop } = useAudio();
 
   // Mise à jour synchrone des badges d'anacrouse (Zero Render Thrashing)
-  // Formule mathématique saine : anacrusisSec = max(0, t_temps1 - (waveXSec + trimStartSec)) (Directive C.1)
-  const updateLiveTimingBadges = useCallback((totalX: number) => {
-    const waveXSec = totalX / PIXELS_PER_SECOND;
-    const anacrusisSec = Math.max(0, t_temps1 - (waveXSec + trimStartSecRef.current));
+  // Formule saine et unifiée : anacrusisSec = max(0, t_temps1 - (waveBaseXSec + trimStartSec)) (Directive C.1)
+  const updateLiveTimingBadges = useCallback((_totalX?: number) => {
+    const waveBaseXSec = waveBaseXRef.current / PIXELS_PER_SECOND;
+    const anacrusisSec = Math.max(0, t_temps1 - (waveBaseXSec + trimStartSecRef.current));
     const anacrusisBeats = anacrusisSec / beatDurationSec;
 
     if (anacrusisBadgeRef.current) {
@@ -402,19 +400,19 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     if (!ctx) return;
 
     const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-    const width = Math.max(Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND), 1600);
+    const bufferPxWidth = Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND);
     const height = canvasHeight;
 
-    canvas.width = Math.round(width * dpr);
+    canvas.width = Math.round(bufferPxWidth * dpr);
     canvas.height = Math.round(height * dpr);
-    canvas.style.width = `${width}px`;
+    canvas.style.width = `${bufferPxWidth}px`;
     canvas.style.height = `${height}px`;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Extract peaks once if not already cached in ref
     if (!cachedPeaksRef.current) {
-      cachedPeaksRef.current = extractPeaks(audioBuffer, width);
+      cachedPeaksRef.current = extractPeaks(audioBuffer, bufferPxWidth);
     }
 
     const peaks = cachedPeaksRef.current;
@@ -435,14 +433,14 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const amp = Math.min(dynamicAmp, (height / 2) * 50);
 
     // Effacer (fond transparent pour laisser transparaître le calque statique)
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, bufferPxWidth, height);
 
     // Ligne centrale de l'onde
     ctx.strokeStyle = 'rgba(139, 42, 26, 0.3)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, height / 2);
-    ctx.lineTo(width, height / 2);
+    ctx.lineTo(bufferPxWidth, height / 2);
     ctx.stroke();
 
     // Crêtes de l'onde en Rouge Argile Cordel (#8b2a1a)
@@ -466,17 +464,17 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     if (!ctx) return;
 
     const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-    const width = Math.max(Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND), 1600);
+    const bufferPxWidth = Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND);
     const height = canvasHeight;
 
-    canvas.width = Math.round(width * dpr);
+    canvas.width = Math.round(bufferPxWidth * dpr);
     canvas.height = Math.round(height * dpr);
-    canvas.style.width = `${width}px`;
+    canvas.style.width = `${bufferPxWidth}px`;
     canvas.style.height = `${height}px`;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, bufferPxWidth, height);
 
     const startPx = trimStartSec * PIXELS_PER_SECOND;
     const endPx = trimEndSec * PIXELS_PER_SECOND;
@@ -484,7 +482,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     // Teinte sombre Cordel pour les zones rognées
     ctx.fillStyle = 'rgba(26, 26, 26, 0.55)';
     ctx.fillRect(0, 0, startPx, height);
-    ctx.fillRect(endPx, 0, width - endPx, height);
+    if (endPx < bufferPxWidth) {
+      ctx.fillRect(endPx, 0, bufferPxWidth - endPx, height);
+    }
 
     // Ligne Trim Début (Vert)
     ctx.strokeStyle = '#2a5d4e';
@@ -523,71 +523,64 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
   // 4. Pré-écoute synchronisée avec la Roda (Formule unifiée & loop calée sur effectiveMeasure - Directives B & C)
   const stopLocalPreview = useCallback(() => {
+    isPlayingPreviewRef.current = false;
     if (previewLoopTimeoutRef.current) {
       clearTimeout(previewLoopTimeoutRef.current);
       previewLoopTimeoutRef.current = null;
     }
-    if (localPlayerRef.current) {
+    activePlayersRef.current.forEach((p) => {
       try {
-        localPlayerRef.current.stop();
-        localPlayerRef.current.dispose();
+        p.stop();
+        p.dispose();
       } catch (_) {}
-      localPlayerRef.current = null;
-    }
+    });
+    activePlayersRef.current = [];
   }, []);
 
-  const playPreviewIteration = useCallback(() => {
-    stopLocalPreview();
+  const scheduleVocalIteration = useCallback((iterationTime: number) => {
+    if (!isPlayingPreviewRef.current) return;
 
     const tStart = trimStartSecRef.current;
     const tEnd = trimEndSecRef.current;
-    const rawNudge = nudgeMsRef.current;
     const duration = Math.max(0.05, tEnd - tStart);
-
-    // Calcul exact du calage temporel par rapport au Temps 1
-    const currentWaveX = currentTotalWaveXRef.current;
-    const waveXSec = currentWaveX / PIXELS_PER_SECOND;
-    const offsetFromDownbeat = (waveXSec + tStart) - t_temps1;
-    const triggerDelay = offsetFromDownbeat + (rawNudge / 1000);
 
     const player = new Tone.Player(audioBuffer);
     player.volume.value = 0;
     player.toDestination();
 
-    let actualStartOffset = tStart;
-    let actualPlayDelay = triggerDelay;
-    let actualDuration = duration;
+    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+    const now = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime);
 
-    if (actualPlayDelay < 0) {
-      const clipPastSec = -actualPlayDelay;
-      actualStartOffset += clipPastSec;
-      actualDuration = Math.max(0, actualDuration - clipPastSec);
-      actualPlayDelay = 0;
+    if (iterationTime >= now) {
+      player.start(iterationTime, tStart, duration);
+    } else {
+      const pastSec = now - iterationTime;
+      if (pastSec < duration) {
+        player.start(now, tStart + pastSec, duration - pastSec);
+      }
+    }
+    activePlayersRef.current.push(player);
+
+    if (activePlayersRef.current.length > 3) {
+      const old = activePlayersRef.current.shift();
+      try { old?.dispose(); } catch (_) {}
     }
 
-    if (actualStartOffset < 0) {
-      actualDuration = Math.max(0, actualDuration + actualStartOffset);
-      actualStartOffset = 0;
-    }
-    if (actualStartOffset + actualDuration > audioBuffer.duration) {
-      actualDuration = Math.max(0, audioBuffer.duration - actualStartOffset);
-    }
-
-    if (actualDuration > 0 && actualStartOffset < audioBuffer.duration) {
-      // Lookahead de 30ms pour éviter tout saut de frame matériel
-      const now = Tone.context.currentTime + 0.03;
-      player.start(now + actualPlayDelay, actualStartOffset, actualDuration);
-      localPlayerRef.current = player;
-    }
+    // Programmer l'itération suivante calée sur l'horloge Web Audio (zéro dérive)
+    const nextIterationTime = iterationTime + measureCycleDurationSec;
+    const msUntilNext = (nextIterationTime - now - 0.1) * 1000;
 
     previewLoopTimeoutRef.current = setTimeout(() => {
-      playPreviewIteration();
-    }, measureCycleDurationSec * 1000);
-  }, [audioBuffer, measureCycleDurationSec, stopLocalPreview, t_temps1]);
+      if (isPlayingPreviewRef.current) {
+        scheduleVocalIteration(nextIterationTime);
+      }
+    }, Math.max(20, msUntilNext));
+  }, [audioBuffer, measureCycleDurationSec]);
 
   const handleTogglePreview = async () => {
     if (isPlayingPreview) {
       setIsPlayingPreview(false);
+      isPlayingPreviewRef.current = false;
       stopLocalPreview();
       handleStop();
 
@@ -633,16 +626,28 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         loopEndMeasure: mLoopEnd,
       });
 
-      Tone.Transport.loop = true;
-      Tone.Transport.setLoopPoints(`${mLoopStart}:0:0`, `${mLoopStart + 1}:0:0`);
-      Tone.Transport.position = `${mLoopStart}:0:0`;
+      // Synchronisation matérielle avec délai de prévenance leadTime
+      const waveBaseXSec = waveBaseXRef.current / PIXELS_PER_SECOND;
+      const anacrusisSec = Math.max(0, t_temps1 - (waveBaseXSec + trimStartSecRef.current));
+      const deltaSec = anacrusisSec - (nudgeMsRef.current / 1000);
+      const leadTime = Math.max(0.06, deltaSec + 0.05);
+
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      const now = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime);
+      const bateriaStartTime = now + leadTime;
+      const vocalStartTime = bateriaStartTime - deltaSec;
 
       setIsPlayingPreview(true);
+      isPlayingPreviewRef.current = true;
 
-      // Démarrage de la Roda calée sur mLoopStart
-      handleTogglePlay({ skipPreRoll: true, targetMeasure: mLoopStart });
+      // Démarrage de la Roda calée sur bateriaStartTime
+      await handleTogglePlay({
+        skipPreRoll: true,
+        targetMeasure: mLoopStart,
+        scheduledStartTime: bateriaStartTime,
+      });
 
-      playPreviewIteration();
+      scheduleVocalIteration(vocalStartTime);
     }
   };
 
@@ -767,9 +772,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const wavBlob = audioBufferToWav(cleanBuffer);
 
       // Calcul sain de l'anacrouse basée sur le point Trim Début sous Temps 1 (Directive C.1)
-      const currentWaveX = currentTotalWaveXRef.current;
-      const waveXSec = currentWaveX / PIXELS_PER_SECOND;
-      const anacrusisSec = Math.max(0, t_temps1 - (waveXSec + trimStartSec));
+      const waveBaseXSec = waveBaseXRef.current / PIXELS_PER_SECOND;
+      const anacrusisSec = Math.max(0, t_temps1 - (waveBaseXSec + trimStartSec));
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
       const meta: VocalClipMeta = {
@@ -827,7 +831,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             className="absolute top-0 bottom-0 flex items-center -translate-x-1/2 z-30 pointer-events-none"
           >
             <div className="px-2.5 py-0.5 bg-[#dc2626] text-white text-[9px] font-black uppercase tracking-wider border border-[#1a1a1a] shadow-[0_0_8px_rgba(220,38,38,0.8)]">
-              TEMPS 1 / CHANT (MESURE ${effectiveMeasure + 1})
+              TEMPS 1 / CHANT (MESURE {effectiveMeasure + 1})
             </div>
           </div>
         </div>

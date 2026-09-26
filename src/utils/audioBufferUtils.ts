@@ -52,8 +52,18 @@ export async function renderTrimmedVocalBuffer(
 ): Promise<AudioBuffer> {
   const sampleRate = sourceAudioBuffer.sampleRate; // Parité stricte du Sample Rate
   const numChannels = sourceAudioBuffer.numberOfChannels;
-  const rawDuration = Math.max(0.05, trimEndSec - trimStartSec);
-  const lengthFrames = Math.max(1, Math.ceil(rawDuration * sampleRate));
+  const totalDuration = sourceAudioBuffer.duration;
+
+  // 🛡️ BORNAGE STRICT DU BUFFER SLICING (Sécurité IndexSizeError)
+  const safeStartSec = Math.max(0, Math.min(trimStartSec, Math.max(0, totalDuration - 0.01)));
+  const safeEndSec = Math.max(safeStartSec + 0.01, Math.min(trimEndSec, totalDuration));
+  const rawDuration = Math.max(0.05, safeEndSec - safeStartSec);
+
+  // Bornage strict des frames par rapport aux dimensions physiques
+  const maxPossibleFrames = Math.max(1, sourceAudioBuffer.length - Math.floor(safeStartSec * sampleRate));
+  const targetFrames = Math.max(1, Math.ceil(rawDuration * sampleRate));
+  const lengthFrames = Math.max(1, Math.min(targetFrames, maxPossibleFrames));
+  const actualRenderDuration = lengthFrames / sampleRate;
 
   const offlineCtx = new OfflineAudioContext(numChannels, lengthFrames, sampleRate);
 
@@ -63,20 +73,20 @@ export async function renderTrimmedVocalBuffer(
   const gainNode = offlineCtx.createGain();
 
   // 10ms fade-in anti-craquement
-  const actualFadeIn = Math.min(rawDuration / 2, fadeInDurationSec);
+  const actualFadeIn = Math.min(actualRenderDuration / 2, fadeInDurationSec);
   gainNode.gain.setValueAtTime(0, 0);
   gainNode.gain.linearRampToValueAtTime(1, actualFadeIn);
 
   // 30ms fade-out anti-craquement
-  const actualFadeOut = Math.min(rawDuration / 2, fadeOutDurationSec);
-  const fadeOutStart = Math.max(actualFadeIn, rawDuration - actualFadeOut);
+  const actualFadeOut = Math.min(actualRenderDuration / 2, fadeOutDurationSec);
+  const fadeOutStart = Math.max(actualFadeIn, actualRenderDuration - actualFadeOut);
   gainNode.gain.setValueAtTime(1, fadeOutStart);
-  gainNode.gain.linearRampToValueAtTime(0, rawDuration);
+  gainNode.gain.linearRampToValueAtTime(0, actualRenderDuration);
 
   source.connect(gainNode);
   gainNode.connect(offlineCtx.destination);
 
-  source.start(0, trimStartSec, rawDuration);
+  source.start(0, safeStartSec, actualRenderDuration);
   return await offlineCtx.startRendering();
 }
 

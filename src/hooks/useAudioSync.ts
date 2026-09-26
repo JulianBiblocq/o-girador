@@ -2008,7 +2008,7 @@ export function useAudioSync({
     };
   }, [isAudioUnlocked]);
 
-  const handleTogglePlayRef = useRef<((playOptions?: { skipPreRoll?: boolean; targetMeasure?: number }) => Promise<void>) | null>(null);
+  const handleTogglePlayRef = useRef<((playOptions?: { skipPreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number }) => Promise<void>) | null>(null);
 
   // ─── VisibilityChange & Mobile Auto-Pause ────────────────────────────
   // When screen turns off or app is backgrounded (document.hidden === true):
@@ -2038,9 +2038,9 @@ export function useAudioSync({
     };
   }, []);
 
-  const handleTogglePlay = useCallback(async (playOptions?: { skipPreRoll?: boolean; targetMeasure?: number } | any) => {
+  const handleTogglePlay = useCallback(async (playOptions?: { skipPreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number } | any) => {
     const options = (playOptions && typeof playOptions === 'object' && !('nativeEvent' in playOptions) && !('target' in playOptions))
-      ? (playOptions as { skipPreRoll?: boolean; targetMeasure?: number })
+      ? (playOptions as { skipPreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number })
       : undefined;
     if (import.meta.env.DEV) {
     }
@@ -2242,7 +2242,9 @@ export function useAudioSync({
           const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || targetSig === '12/8';
           const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
           const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-          const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.02;
+          const t0 = options?.scheduledStartTime !== undefined
+            ? options.scheduledStartTime
+            : ((rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.02);
           scheduledMusicStartTime = t0;
 
           const detail = tickEventDetailRef.current;
