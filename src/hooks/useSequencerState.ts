@@ -1397,7 +1397,7 @@ export function useSequencerState() {
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
             const arrDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
             arrLyrics[stepIdx] = val;
-            if (val.trim() !== '') {
+            if (val !== '') {
               if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
                 const instId = instrumentsConfig[t.instrumentIdx]?.id;
                 copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
@@ -1496,7 +1496,7 @@ export function useSequencerState() {
             const arrVolumes = p.preRollVolumes ? [...p.preRollVolumes] : Array(16).fill(100);
             
             arrLyrics[stepIdx] = val;
-            if (val.trim() !== '') {
+            if (val !== '') {
               if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
                 const instId = instrumentsConfig[t.instrumentIdx]?.id;
                 copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
@@ -1506,8 +1506,9 @@ export function useSequencerState() {
                 arrDecays[stepIdx] = 10;
               }
             } else {
-              copySteps[stepIdx] = 0;
-              arrNotes[stepIdx] = '';
+              if (!arrNotes[stepIdx] || arrNotes[stepIdx].trim() === '') {
+                copySteps[stepIdx] = 0;
+              }
             }
             return { 
               ...p, 

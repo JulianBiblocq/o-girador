@@ -577,9 +577,11 @@ const VoiceStepCellComponent = ({
   const lang = useSequencerStore(state => state.lang);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
   const hasActiveNote = state !== 0 && state !== '0' && Boolean(note && note.trim() !== '');
+  const hasActiveSyl = state !== 0 && state !== '0' && Boolean(syl && syl !== '');
+  const hasActiveStep = hasActiveNote || hasActiveSyl;
   const isPux = state === 'P';
   const inst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
-  const cardBg = hasActiveNote 
+  const cardBg = hasActiveStep 
     ? (isPreRoll ? '#999999' : inst.color) 
     : (isPreRoll ? 'rgba(0, 0, 0, 0.08)' : 'transparent');
 
@@ -611,8 +613,18 @@ const VoiceStepCellComponent = ({
   ) => {
     const input = e.currentTarget;
 
-    // 1. Touche Espace ou Touche 0 : Silence et avance au pas suivant
-    if (e.key === ' ' || e.code === 'Space' || e.key === '0') {
+    // 1. ISOLATION STRICTE DE LA TOUCHE ESPACE DANS LE CHAMP SYLLABE (.v-syl)
+    // Directive A.1 : INTERDICTION FORMELLE d'intercepter la barre d'espace.
+    // Laisser l'événement s'exécuter nativement pour que le caractère espace s'inscrive normalement dans la valeur textuelle.
+    // Ne JAMAIS déclencher la remise à zéro du pas ni l'avance automatique de cellule.
+    if (field === 'syl' && (e.key === ' ' || e.code === 'Space')) {
+      e.stopPropagation();
+      return;
+    }
+
+    // 2. Touche Espace ou Touche 0 : Silence et avance au pas suivant (RÉSERVÉ au champ note ou hors saisie)
+    // Directive A.2 : Le raccourci Silence ne doit s'activer QUE sur le champ note
+    if (field === 'note' && (e.key === ' ' || e.code === 'Space' || e.key === '0')) {
       e.preventDefault();
       e.stopPropagation();
       onVoiceStepClear?.(trackId, patternId, i);
@@ -624,8 +636,16 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 2. Touche Backspace : Effacement atomique et recul au pas précédent
+    // 3. Touche Backspace : Effacement atomique et recul au pas précédent
     if (e.key === 'Backspace') {
+      if (field === 'syl') {
+        // Dans le champ syllabe, si du texte est présent, le Backspace natif doit effacer les caractères
+        // Ne reculer et n'effacer le pas QUE si le champ était déjà vide au moment de l'appui
+        if (input.value.length > 0 && input.selectionStart !== null && input.selectionStart > 0) {
+          e.stopPropagation();
+          return;
+        }
+      }
       e.preventDefault();
       e.stopPropagation();
       onVoiceStepClear?.(trackId, patternId, i);
@@ -637,8 +657,15 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 3. Touche Suppr / Delete : Effacement atomique sur place
+    // 4. Touche Suppr / Delete : Effacement atomique sur place
     if (e.key === 'Delete') {
+      if (field === 'syl') {
+        // Si du texte est présent, Delete natif efface le caractère devant le curseur
+        if (input.selectionStart !== null && input.selectionStart < input.value.length) {
+          e.stopPropagation();
+          return;
+        }
+      }
       e.preventDefault();
       e.stopPropagation();
       onVoiceStepClear?.(trackId, patternId, i);
