@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Mic, Square, ChevronUp, ChevronDown, Play, Trash2, Sliders, FolderOpen } from 'lucide-react';
+import { Square, ChevronUp, ChevronDown, Play, Trash2, Sliders, FolderOpen } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
@@ -35,17 +35,12 @@ export const VocalRecordingBar: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
-  // Early permission request & device population
+  // Device population without getUserMedia permission prompt
   const handleRequestPermissionAndPopulateDevices = async () => {
     try {
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
-
       await refreshAudioDevices();
     } catch (err: any) {
-
-      alert(lang === 'fr' ? "Erreur d'accès micro : " + err.message : "Erro de acesso ao mic: " + err.message);
+      alert(lang === 'fr' ? "Erreur de détection audio : " + err.message : "Erro ao detectar áudio: " + err.message);
     }
   };
 
@@ -215,44 +210,6 @@ export const VocalRecordingBar: React.FC = () => {
     }
   };
 
-  const handleStartRec = () => {
-    // 🛡️ SYNC CHECK: Resume context synchronously inside user gesture to bypass Safari/Chrome autoplay blocks
-    try {
-      Tone.start();
-      const rawCtx = (Tone.getContext().rawContext || Tone.context);
-      if (rawCtx && rawCtx.state !== 'running') {
-        rawCtx.resume();
-      }
-      if (Tone.context && Tone.context.state !== 'running') {
-        Tone.context.resume();
-      }
-    } catch (_) {}
-
-    // Stop the sequencer if it was playing to ensure start from beginning
-    if (isPlaying) {
-      handleStop();
-    }
-
-    const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
-    const initialMeasureIdx = activePattern?.measureAssignments.indexOf(true) ?? 0;
-    const targetM = currentArmedMeasure !== null ? currentArmedMeasure : (initialMeasureIdx !== -1 ? initialMeasureIdx : 0);
-
-    useAudioStore.getState().setRecordingTarget({
-      trackId: activeVoiceTrack.id,
-      patternId: selectedPatternId,
-      targetMeasure: targetM,
-    });
-    useAudioStore.getState().setSelectedVocalPatternId(selectedPatternId);
-
-    // Préchauffage du micro en tâche de fond silencieux
-    vocalEngineService.preWarmMicStreamSilently(selectedPatternId, targetM);
-
-    // Démarrage de la lecture sur la Timeline (Bateria démarre à M - 2 avec punch-in à M - 1)
-    if (!isPlaying) {
-      handleTogglePlay();
-    }
-  };
-
   const handleStopRec = () => {
     vocalEngineService.stopRecording();
     handleStop();
@@ -386,8 +343,8 @@ export const VocalRecordingBar: React.FC = () => {
           onClick={handleExpand}
           className="cordel-btn px-4 py-1 bg-[#b89f74] text-[#1a1a1a] font-bold text-xs border border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-sm flex items-center gap-2 hover:opacity-95 cursor-pointer"
         >
-          <Mic className="w-3.5 h-3.5" />
-          <span>{t('expand')}</span>
+          <FolderOpen className="w-3.5 h-3.5" />
+          <span>{lang === 'fr' ? "Déplier l'import vocal" : "Abrir importação de voz"}</span>
           <ChevronUp className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -455,13 +412,13 @@ export const VocalRecordingBar: React.FC = () => {
             <line x1="23" y1="77" x2="77" y2="23" />
           </svg>
         ) : (
-          <div className="w-10 h-10 rounded-full border-2 border-[#1a1a1a]/30 flex items-center justify-center shrink-0 opacity-55">
-            <Mic className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-full border-2 border-[#1a1a1a]/30 flex items-center justify-center shrink-0 opacity-75">
+            <FolderOpen className="w-5 h-5" />
           </div>
         )}
         <div className="flex flex-col gap-1.5">
           <span className="text-[10px] uppercase font-bold tracking-widest opacity-60">
-            {lang === 'fr' ? "Enregistrement Vocal" : "Gravação de Voz"}
+            {lang === 'fr' ? "Piste Vocale & Import Audio" : "Faixa Vocal e Importação de Áudio"}
           </span>
           
           {recordingStatus === 'inactive' && voiceTracks.length > 0 ? (
@@ -524,10 +481,10 @@ export const VocalRecordingBar: React.FC = () => {
                 <button
                   onClick={handleRequestPermissionAndPopulateDevices}
                   className="px-2.5 py-1 bg-[#b89f74] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#fdfaf2] font-cactus font-bold text-[11px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-                  title="Autoriser l'accès micro et lister toutes les cartes son dédiées"
+                  title="Rafraîchir les périphériques de sortie audio"
                 >
-                  <Mic className="w-3.5 h-3.5" />
-                  <span>{lang === 'fr' ? "Activer / Lister Cartes Son" : "Ativar / Listar Placas"}</span>
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>{lang === 'fr' ? "Périphériques Audio" : "Dispositivos de Áudio"}</span>
                 </button>
 
                 {availableDevices.length > 0 && (
@@ -619,40 +576,21 @@ export const VocalRecordingBar: React.FC = () => {
           </button>
         )}
 
-        {recordingStatus === 'inactive' ? (
-          <>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="audio/*"
-              className="hidden"
-              onChange={handleFileImport}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="cordel-btn px-4.5 py-2.5 font-bold text-sm bg-[#b89f74] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 cursor-pointer hover:opacity-95 transition-colors"
-              title={lang === 'fr' ? "Importer un fichier audio externe" : "Importar arquivo de áudio"}
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>{lang === 'fr' ? "Importer" : "Importar"}</span>
-            </button>
-            <button
-              onClick={handleStartRec}
-              className="cordel-btn px-6 py-2.5 bg-[#8b2a1a] text-[#fdfaf2] font-bold text-sm border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 hover:opacity-95 cursor-pointer"
-            >
-              <Mic className="w-4 h-4" />
-              {t('rec')}
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={handleStopRec}
-            className="cordel-btn px-6 py-2.5 bg-[#1a1a1a] text-[#fdfaf2] font-bold text-sm border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 hover:opacity-90 cursor-pointer"
-          >
-            <Square className="w-4 h-4 fill-current" />
-            {t('stop')}
-          </button>
-        )}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="audio/*"
+          className="hidden"
+          onChange={handleFileImport}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="cordel-btn px-6 py-2.5 bg-[#8b2a1a] text-[#fdfaf2] font-bold text-sm border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 hover:opacity-95 cursor-pointer"
+          title={lang === 'fr' ? "Importer un stem ou export Cubase / DAW (.wav, .ogg, .mp3)" : "Importar arquivo de áudio da DAW (.wav, .ogg, .mp3)"}
+        >
+          <FolderOpen className="w-4 h-4" />
+          <span>{lang === 'fr' ? "📁 Importer Voix" : "📁 Importar Voz"}</span>
+        </button>
       </div>
 
       {/* Dialogue Cordel de Confirmation de Suppression */}

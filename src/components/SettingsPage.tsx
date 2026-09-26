@@ -108,13 +108,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const handleRequestAudioPermission = async () => {
     setIsAskingPermission(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
       await refreshAudioDevices();
     } catch (err: any) {
       alert(lang === 'fr' 
-        ? "Impossible d'accéder à l'audio : " + err.message 
-        : "Erro ao acessar áudio: " + err.message);
+        ? "Impossible de rafraîchir les périphériques : " + err.message 
+        : "Erro ao atualizar dispositivos: " + err.message);
     } finally {
       setIsAskingPermission(false);
     }
@@ -1952,7 +1950,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             {/* 2.5 BLOC MATÉRIEL AUDIO (I/O) */}
                             <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                🎙️ {lang === 'fr' ? 'Matériel Audio (I/O)' : 'Hardware de Áudio (I/O)'}
+                                🔊 {lang === 'fr' ? 'Périphériques de Sortie Audio' : 'Dispositivos de Saída de Áudio'}
                               </h3>
                               <div className="flex flex-col gap-4">
                                 <div className="flex items-center gap-3">
@@ -1963,12 +1961,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                   >
                                     {isAskingPermission 
                                       ? (lang === 'fr' ? "Détection..." : "Detectando...") 
-                                      : (lang === 'fr' ? "Activer & Lister les Cartes Son" : "Ativar e Listar Placas")}
+                                      : (lang === 'fr' ? "Lister les Sorties Audio" : "Listar Saídas de Áudio")}
                                   </button>
                                   <span className="text-[10px] font-sans text-[#1a1a1a]/70">
                                     {lang === 'fr' 
-                                      ? "Cliquez pour lister les entrées et sorties réelles." 
-                                      : "Clique para listar as entradas e saídas reais."}
+                                      ? "Cliquez pour rafraîchir la liste des sorties et casques." 
+                                      : "Clique para atualizar a lista de saídas e fones."}
                                   </span>
                                 </div>
 

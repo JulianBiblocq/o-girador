@@ -124,6 +124,32 @@ function clearScheduledEvents() {
   activeTimeoutIds = [];
 }
 
+export function killHardwareMicrophone() {
+  if (audioStream) {
+    try {
+      audioStream.getTracks().forEach((track) => {
+        track.stop();
+        track.enabled = false;
+      });
+    } catch (_) {}
+    audioStream = null;
+  }
+  if (mediaRecorder) {
+    try {
+      if (mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    } catch (_) {}
+    mediaRecorder = null;
+  }
+  recordedChunks = [];
+}
+
+// Immediate hardware release on load
+if (typeof window !== 'undefined') {
+  killHardwareMicrophone();
+}
+
 export const vocalEngineService = {
   isArming: false,
   get mediaRecorder(): MediaRecorder | null {
@@ -171,240 +197,47 @@ export const vocalEngineService = {
   },
 
   /**
-   * Pre-warms the microphone hardware stream silently in the background
-   * without altering recording status or displaying any modal/overlay.
+   * 🛡️ Neutralisé : aucun accès micro matériel.
    */
-  async preWarmMicStreamSilently(patternId?: number | null, targetMeasure?: number | null) {
-    if (patternId !== undefined && patternId !== null) activeTargetPatternId = Number(patternId);
-    if (targetMeasure !== undefined && targetMeasure !== null) activeTargetMeasure = targetMeasure;
-
-    if (mediaRecorder && audioStream && audioStream.active) {
-      return;
-    }
-
-    try {
-      const store = useAudioStore.getState();
-      const targetDeviceId = store.selectedDeviceId;
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: targetDeviceId ? {
-          deviceId: { exact: targetDeviceId },
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        } : {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
-
-      recordedChunks = [];
-      mediaRecorder = new MediaRecorder(audioStream, {
-        audioBitsPerSecond: 96000,
-      });
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          recordedChunks.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        try {
-          const blob = new Blob(recordedChunks, {
-            type: mediaRecorder?.mimeType || 'audio/webm',
-          });
-          const targetPid = activeTargetPatternId;
-          if (targetPid !== null && isPunchingOut) {
-            useAudioStore.getState().setTempRecording({
-              patternId: targetPid,
-              blob,
-              targetMeasureIdx: useAudioStore.getState().targetMeasureIdx ?? undefined,
-            });
-          }
-        } catch (err: any) {
-          console.error("🎙️ [VOCAL ENGINE] Error on media recorder stop:", err);
-        } finally {
-          this.cleanupMedia();
-          const s = useAudioStore.getState();
-          s.setRecordingStatus('inactive');
-          isPunchingOut = false;
-        }
-      };
-    } catch (err) {
-      console.warn("🎙️ [VOCAL ENGINE] Silent pre-warm non-blocking warning:", err);
-    }
+  async preWarmMicStreamSilently(_patternId?: number | null, _targetMeasure?: number | null) {
+    killHardwareMicrophone();
   },
 
   /**
-   * Pre-warms and arms the hardware microphone and MediaRecorder instance.
-   * Ensures zero latency when punch-in is triggered at step 0.
+   * 🛡️ Neutralisé : aucun armement micro matériel.
    */
   async armRecording(
-    patternId: number,
-    targetMeasure: number,
-    options: {
+    _patternId: number,
+    _targetMeasure: number,
+    _options: {
       deviceId?: string;
       onError?: (err: Error) => void;
       onRecordingStopped?: (blob: Blob) => void;
     } = {}
   ): Promise<boolean> {
-    if (this.isArming) return false;
-    const numPatternId = Number(patternId);
-    activeTargetPatternId = numPatternId;
-    activeTargetMeasure = targetMeasure;
-
-    const store = useAudioStore.getState();
-    store.setTargetPatternId(numPatternId);
-    store.setTargetMeasureIdx(targetMeasure);
-    store.setRecordingStatus('arming');
-
-    // If mediaRecorder is already created and stream active, we are ready!
-    if (mediaRecorder && audioStream && audioStream.active) {
-      return true;
-    }
-
-    this.isArming = true;
-    try {
-      if (Tone.context && Tone.context.state !== 'running') {
-        try { await Tone.context.resume(); } catch (_) {}
-      }
-      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-      if (rawCtx && rawCtx.state !== 'running') {
-        try { await rawCtx.resume(); } catch (_) {}
-      }
-
-      const targetDeviceId = options.deviceId || store.selectedDeviceId;
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: targetDeviceId ? {
-          deviceId: { exact: targetDeviceId },
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        } : {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
-
-      recordedChunks = [];
-      mediaRecorder = new MediaRecorder(audioStream, {
-        audioBitsPerSecond: 96000,
-      });
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          recordedChunks.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        try {
-          const blob = new Blob(recordedChunks, {
-            type: mediaRecorder?.mimeType || 'audio/webm',
-          });
-          const targetPid = activeTargetPatternId || numPatternId;
-          if (isPunchingOut) {
-            useAudioStore.getState().setTempRecording({
-              patternId: targetPid,
-              blob,
-              targetMeasureIdx: useAudioStore.getState().targetMeasureIdx ?? undefined,
-            });
-            if (options.onRecordingStopped) {
-              options.onRecordingStopped(blob);
-            }
-          }
-        } catch (err: any) {
-          console.error("🎙️ [VOCAL ENGINE] Error on media recorder stop:", err);
-          if (options.onError) options.onError(err);
-        } finally {
-          this.cleanupMedia();
-          const s = useAudioStore.getState();
-          s.setRecordingStatus('inactive');
-          s.setTargetPatternId(null);
-          isPunchingOut = false;
-        }
-      };
-
-      this.isArming = false;
-      return true;
-    } catch (err: any) {
-      this.isArming = false;
-      console.error("🎙️ [VOCAL ENGINE] Error arming recording:", err);
-      this.cleanupMedia();
-      store.setRecordingStatus('inactive');
-      store.setTargetPatternId(null);
-      if (options.onError) options.onError(err);
-      return false;
-    }
+    killHardwareMicrophone();
+    return false;
   },
 
   /**
-   * Starts recording silently and immediately on the hardware MediaRecorder.
+   * 🛡️ Neutralisé : aucun punch-in micro.
    */
-  punchIn(patternId?: number, targetMeasure?: number) {
-    if (patternId !== undefined) activeTargetPatternId = Number(patternId);
-    if (targetMeasure !== undefined) activeTargetMeasure = targetMeasure;
-
-    const store = useAudioStore.getState();
-    store.setRecordingStatus('recording');
-    store.setRecordingStartTimelineSec(Tone.Transport.seconds);
-
-    if (mediaRecorder && mediaRecorder.state === 'inactive') {
-      try {
-        mediaRecorder.start();
-        console.log("🎙️ [VOCAL ENGINE] Punch-in MediaRecorder started silently at measure", targetMeasure);
-      } catch (e) {
-        console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at punch-in:", e);
-      }
-    }
+  punchIn(_patternId?: number, _targetMeasure?: number) {
+    killHardwareMicrophone();
   },
 
   /**
-   * Schedules a deterministic punch-out after a specified tail duration (+0.8s).
+   * 🛡️ Neutralisé : aucun punch-out micro.
    */
-  schedulePunchOut(tailSec: number = 0.8, onStopPlayback?: () => void) {
-    if (isPunchingOut) return;
-    isPunchingOut = true;
-
-    const safetyTimeoutMs = Math.ceil(tailSec * 1000);
-    const timerId = workerSetTimeout(() => {
-      if (onStopPlayback) {
-        try { onStopPlayback(); } catch (_) {}
-      }
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try {
-          mediaRecorder.stop();
-        } catch (e) {
-          console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder at punch-out:", e);
-        }
-      }
-      try { Tone.Transport.stop(); } catch (_) {}
-      const store = useAudioStore.getState();
-      store.setRecordingStatus('inactive');
-    }, safetyTimeoutMs);
-
-    activeTimeoutIds.push(timerId);
+  schedulePunchOut(_tailSec: number = 0.8, _onStopPlayback?: () => void) {
+    killHardwareMicrophone();
   },
 
   /**
-   * Pattern-First deterministic recording workflow asservi à Tone.Transport:
-   * 1. Mode focus activé immédiatement pour isoler le CPU audio.
-   * 2. Count-in de 4 temps au métronome.
-   * 3. Micro activé dès le début du pre-roll (Temps 0) pour capturer l'anacrouse.
-   * 4. Punch-in du motif au Temps 4 (1ère mesure utile).
-   * 5. Arrêt automatique déterministe à fin du motif + 1.5s de résonance.
-   * 6. Libération matérielle stricte du micro (Safeguard 3).
-   */
-  /**
-   * 2-Measure Punch-in Recording Workflow with edge-case handling for M < 2:
-   * - M >= 2: Play starts at M - 2 (Bateria only). Punch-in silent at M - 1 step 0. Chant at M. Punch-out at M + 0.8s.
-   * - M = 1: Play starts at M = 0 with immediate punch-in. Chant at M = 1. Punch-out at M = 1 + 0.8s.
-   * - M = 0: 1-measure count-in (pre-roll 4 beeps) with mic open from count-in (T = 0).
+   * 🛡️ Neutralisé : l'enregistrement direct est désactivé au profit de l'import audio.
    */
   async startRecording(
-    patternId: number,
+    _patternId: number,
     options: {
       targetMeasure?: number;
       onStartSequencer?: (targetMeasure?: number) => void;
@@ -415,138 +248,21 @@ export const vocalEngineService = {
       immediate?: boolean;
     } = {}
   ) {
-    const store = useAudioStore.getState();
-    const sequencerStore = useSequencerStore.getState();
-    const numPatternId = Number(patternId);
-
-    const tracks = sequencerStore.tracks;
-    const voiceTrack = tracks.find(t => t.patterns?.some(p => Number(p.id) === numPatternId));
-    const targetPattern = voiceTrack?.patterns?.find(p => Number(p.id) === numPatternId);
-    const initialMeasureIdx = targetPattern?.measureAssignments.indexOf(true) ?? 0;
-
-    const M = options.targetMeasure !== undefined
-      ? options.targetMeasure
-      : (store.targetMeasureIdx !== null ? store.targetMeasureIdx : (initialMeasureIdx !== -1 ? initialMeasureIdx : 0));
-
-    // Reset previous scheduled events
-    this.cleanupTimers();
-
-    const armed = await this.armRecording(numPatternId, M, {
-      deviceId: options.deviceId,
-      onError: options.onError,
-      onRecordingStopped: options.onRecordingStopped,
-    });
-    if (!armed && !mediaRecorder) {
-      return;
-    }
-
-    if (options.immediate) {
-      this.punchIn(numPatternId, M);
-      return;
-    }
-
-    // 🛡️ Edge-cases M < 2
-    if (M >= 2) {
-      // 1. Nominal workflow: Launch playback at M - 2 with skipPreRoll: true
-      const startMeasure = M - 2;
-      if (options.onStartSequencer) {
-        options.onStartSequencer(startMeasure);
-      }
-    } else if (M === 1) {
-      // 2. M = 1: Launch playback at M = 0 with immediate punch-in at M = 0
-      this.punchIn(numPatternId, M);
-      if (options.onStartSequencer) {
-        options.onStartSequencer(0);
-      }
-    } else {
-      // 3. M = 0: Fallback on 1 measure of classic metronome count-in (pre-roll 4 beeps)
-      // with microphone open from count-in (T = 0)
-      const targetBpm = (sequencerStore.measureBpms && sequencerStore.measureBpms[0] > 0)
-        ? sequencerStore.measureBpms[0]
-        : (sequencerStore.bpm || 100);
-      const targetTimeSig = (sequencerStore.measureTimeSigs && sequencerStore.measureTimeSigs[0]) || '4/4';
-      const beatsCount = getBeatsPerMeasure(targetTimeSig);
-      const isCompound = (targetTimeSig as string) === '6/8' || (targetTimeSig as string) === '9/8' || (targetTimeSig as string) === '12/8';
-      const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
-      const preRollDurationSec = beatsCount * beatDurationSec;
-
-      Tone.Transport.stop();
-      Tone.Transport.position = 0;
-      clearScheduledEvents();
-
-      for (let b = 0; b < beatsCount; b++) {
-        const isDownbeat = b === 0;
-        const idB = Tone.Transport.schedule((time) => {
-          if (isDownbeat) {
-            store.setRecordingStatus('countdown');
-            if (mediaRecorder && mediaRecorder.state === 'inactive') {
-              try { mediaRecorder.start(); } catch (e) {
-                console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
-              }
-            }
-          }
-          playCountInBeep(time, isDownbeat ? 1200 : 800, isDownbeat);
-        }, b * beatDurationSec);
-        activeScheduledEvents.push(idB);
-      }
-
-      const idPunchIn = Tone.Transport.schedule((time) => {
-        store.setRecordingStartTimelineSec(time);
-        store.setRecordingStatus('recording');
-        if (options.onStartSequencer) {
-          options.onStartSequencer(0);
-        }
-      }, preRollDurationSec);
-      activeScheduledEvents.push(idPunchIn);
-
-      const patternDurationSec = beatsCount * beatDurationSec;
-      const totalCaptureSec = preRollDurationSec + patternDurationSec + 0.8;
-      const idPunchOut = Tone.Transport.schedule(() => {
-        this.schedulePunchOut(0, options.onStopSequencer);
-      }, totalCaptureSec);
-      activeScheduledEvents.push(idPunchOut);
-
-      Tone.Transport.start(undefined, 0);
+    killHardwareMicrophone();
+    if (options.onError) {
+      options.onError(new Error("L'enregistrement micro direct est désactivé. Veuillez utiliser le bouton 'Importer' pour charger un fichier audio."));
     }
   },
 
   /**
-   * Stops the active recording process immediately and releases hardware mic stream.
-   * If aborted manually before punch-out, discards buffers and prevents opening AudioAlignmentEditor.
+   * Arrêt et libération stricte de toute ressource résiduelle.
    */
   stopRecording() {
-    if (isPunchingOut) return;
-    this.abortRecording();
+    this.cleanupMedia();
   },
 
-  /**
-   * Aborts active recording immediately without saving or opening AudioAlignmentEditor.
-   */
   abortRecording() {
-    isPunchingOut = false;
-    this.isArming = false;
-    this.cleanupTimers();
-    try {
-      Tone.Transport.stop();
-    } catch (_) {}
-
-    if (mediaRecorder) {
-      // 🛡️ Détacher onstop pour empêcher l'ouverture d'AudioAlignmentEditor lors d'un arrêt manuel
-      mediaRecorder.onstop = null;
-      if (mediaRecorder.state !== 'inactive') {
-        try {
-          mediaRecorder.stop();
-        } catch (err) {
-          console.error("🎙️ [VOCAL ENGINE] Error stopping media recorder on abort:", err);
-        }
-      }
-    }
-    recordedChunks = [];
     this.cleanupMedia();
-
-    const store = useAudioStore.getState();
-    store.setRecordingStatus('inactive');
-    store.setTargetPatternId(null);
   },
 
   cleanupTimers() {
@@ -554,20 +270,14 @@ export const vocalEngineService = {
   },
 
   /**
-   * Safeguard 3: Strict hardware microphone stream release.
-   * Ensures browser recording indicator light turns off immediately.
+   * 🛡️ Safeguard : Libération stricte et inconditionnelle du micro hôte.
    */
   cleanupMedia() {
-    if (audioStream) {
-      try {
-        audioStream.getTracks().forEach((track) => {
-          track.stop();
-        });
-      } catch (_) {}
-      audioStream = null;
-    }
-    mediaRecorder = null;
-    isPunchingOut = false;
+    killHardwareMicrophone();
+  },
+
+  killHardwareMicrophone() {
+    killHardwareMicrophone();
   },
 
   /**

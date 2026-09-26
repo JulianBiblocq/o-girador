@@ -1077,13 +1077,6 @@ export function useAudioSync({
           } else {
             const currentMeasureIdx = measureCountRef.current;
 
-            // --- TIMELINE VOCAL PUNCH-OUT WORKFLOW ---
-            const audioStore = useAudioStore.getState();
-            const targetM = audioStore.targetMeasureIdx;
-            if (targetM !== null && currentMeasureIdx === targetM && audioStore.recordingStatus === 'recording') {
-              vocalEngineService.schedulePunchOut(0.8, () => handleStop());
-            }
-
             const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
 
             let activeSection: SongSection | null = null;
@@ -1279,18 +1272,6 @@ export function useAudioSync({
         }
 
         if (stepIdx === 0) {
-          // --- TIMELINE VOCAL PUNCH-IN WORKFLOW ---
-          const audioStore = useAudioStore.getState();
-          const targetM = audioStore.targetMeasureIdx;
-          const targetP = audioStore.targetPatternId;
-
-          if (targetM !== null && targetP !== null) {
-            const punchInM = targetM >= 2 ? (targetM - 1) : 0;
-            if (currentMeasureIdx === punchInM && audioStore.recordingStatus !== 'recording') {
-              vocalEngineService.punchIn(targetP, targetM);
-            }
-          }
-
           const expanded = cachedExpandedMeasuresRef.current;
           let sigId: string | null = null;
           if (expanded.length > 0) {
@@ -2131,7 +2112,6 @@ export function useAudioSync({
         // Workflow Punch-in 2 mesures : départ à M - 2 (ou 0 si M < 2)
         targetM = armedTargetMeasure >= 2 ? (armedTargetMeasure - 2) : 0;
         shouldSkipPreRoll = armedTargetMeasure === 0 ? false : true;
-        vocalEngineService.preWarmMicStreamSilently(audioStore.targetPatternId, armedTargetMeasure);
       } else {
         targetM = measureCountRef.current % (totalMeasuresRef.current || 1);
       }

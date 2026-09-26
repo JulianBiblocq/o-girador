@@ -142,7 +142,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     if (pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
       return temps1Px - (pattern.vocalClip.anacrusisSec * PIXELS_PER_SECOND) - (defaultTrimStart * PIXELS_PER_SECOND);
     }
-    return temps1Px - (defaultTrimStart * PIXELS_PER_SECOND);
+    // Ancrage géométrique par défaut à l'import : début absolu du canvas / piste d'élan [0, temps1Px]
+    return 0;
   };
 
   const waveBaseXRef = useRef<number>(getInitialBaseWaveX());

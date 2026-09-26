@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   PenLine, 
   Headphones, 
-  Mic, 
   Sliders, 
   Check, 
   RefreshCw, 
@@ -119,47 +118,6 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
 
   const accentColor = isCoro ? '#2a9d8f' : '#c25e38';
 
-  // Lancement de l'enregistrement micro avec Tone.js context resume
-  const handleStartRecording = async () => {
-    if (!patternId) return;
-    try {
-      if (Tone.context && Tone.context.state !== 'running') {
-        await Tone.context.resume();
-      }
-      await Tone.start();
-    } catch (_) {}
-
-    if (isPlaying) {
-      handleStop();
-    }
-
-    useAudioStore.getState().setSelectedVocalPatternId(patternId);
-
-    vocalEngineService.startRecording(patternId, {
-      deviceId: selectedDeviceId || undefined,
-      onStartSequencer: (targetMeasure?: number) => {
-        if (!isPlaying) {
-          handleTogglePlay({ skipPreRoll: true, targetMeasure });
-        }
-      },
-      onStopSequencer: () => {
-        handleStop();
-      },
-      onError: (err) => {
-        setErrorMessage(lang === 'fr' 
-          ? "Erreur d'accès au micro : " + err.message 
-          : "Erro de acesso ao microfone: " + err.message
-        );
-      }
-    });
-  };
-
-  // Arrêt de la prise en cours
-  const handleStopRecording = () => {
-    vocalEngineService.stopRecording();
-    handleStop();
-  };
-
   // Réouverture de l'éditeur de calage pour un audio existant
   const handleOpenCalibration = async () => {
     if (!patternId) return;
@@ -207,9 +165,9 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
     },
     {
       id: 3 as const,
-      icon: Mic,
-      labelFr: '3. Prise',
-      labelPt: '3. Gravação',
+      icon: FolderOpen,
+      labelFr: '3. Import Audio',
+      labelPt: '3. Importar Áudio',
       isCompleted: currentStep > 3 || hasVocalRecording,
     },
     {
@@ -313,8 +271,8 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
             {currentStep === 3 && (
               <span>
                 {lang === 'fr'
-                  ? "Mets ton casque (obligatoire pour isoler la voix). Décompte de 4 temps, puis chante dès le départ de la phrase."
-                  : "Coloque seus fones de ouvido (obrigatório para isolar a voz). Contagem de 4 tempos e cante no início da frase."}
+                  ? "Exporte ton stem ou ta piste vocale depuis ton DAW (Cubase, Ableton, Logic, Reaper...). Choisis le fichier (.wav, .ogg, .mp3) pour l'importer et caler automatiquement le Temps 1."
+                  : "Exporte seu stem ou faixa vocal da sua DAW (Cubase, Ableton, Logic...). Selecione o arquivo (.wav, .ogg, .mp3) para importação e alinhamento automático."}
               </span>
             )}
             {currentStep === 4 && (
@@ -369,7 +327,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
                 }}
                 className="px-3 py-1.5 bg-[#8b2a1a] text-white font-bold text-xs rounded-sm hover:bg-[#702014] transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
               >
-                <span>● {lang === 'fr' ? 'Prêt pour la prise ➔' : 'Pronto para gravar ➔'}</span>
+                <span>● {lang === 'fr' ? "Passer à l'import ➔" : "Ir para importação ➔"}</span>
               </button>
             </div>
           )}
@@ -385,38 +343,12 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1.5 bg-[#b89f74] hover:bg-[#a68c63] text-[#1a1a1a] border border-[#1a1a1a] font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
-                title={lang === 'fr' ? "Importer un fichier audio externe (.wav, .ogg, .mp3)" : "Importar áudio externo"}
+                className="px-3.5 py-1.5 bg-[#8b2a1a] hover:bg-[#702014] text-white font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-2 shadow-[2px_2px_0px_#1a1a1a]"
+                title={lang === 'fr' ? "Importer un fichier exporté depuis Cubase / DAW (.wav, .ogg, .mp3)" : "Importar arquivo de áudio da DAW"}
               >
-                <FolderOpen size={13} />
-                <span>{lang === 'fr' ? 'Importer' : 'Importar'}</span>
+                <FolderOpen size={14} />
+                <span>{lang === 'fr' ? "📁 Importer export DAW / Cubase" : "📁 Importar áudio Cubase / DAW"}</span>
               </button>
-              {recordingStatus === 'inactive' && (
-                <button
-                  onClick={handleStartRecording}
-                  className="px-3 py-1.5 bg-[#8b2a1a] text-white font-bold text-xs rounded-sm hover:bg-[#702014] transition-colors cursor-pointer flex items-center gap-1.5 shadow-[2px_2px_0px_#1a1a1a] animate-pulse"
-                >
-                  <Mic size={14} />
-                  <span>{lang === 'fr' ? "Lancer l'enregistrement" : 'Iniciar gravação'}</span>
-                </button>
-              )}
-
-              {recordingStatus === 'countdown' && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-black font-bold text-xs rounded-sm animate-pulse">
-                  <span>⏳</span>
-                  <span>{lang === 'fr' ? 'Décompte 4 temps...' : 'Contagem 4 tempos...'}</span>
-                </div>
-              )}
-
-              {recordingStatus === 'recording' && (
-                <button
-                  onClick={handleStopRecording}
-                  className="px-3 py-1.5 bg-red-600 text-white font-bold text-xs rounded-sm hover:bg-red-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-[2px_2px_0px_#1a1a1a] animate-bounce"
-                >
-                  <Square size={13} fill="currentColor" />
-                  <span>{lang === 'fr' ? 'Arrêter la prise' : 'Parar gravação'}</span>
-                </button>
-              )}
             </div>
           )}
 

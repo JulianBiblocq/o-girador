@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { TimelineStep } from './TimelineStep';
-import { Trash2, Mic } from 'lucide-react';
+import { Trash2, FolderOpen } from 'lucide-react';
+import * as Tone from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
@@ -101,9 +102,6 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 }) => {
   const timeSigStr = useSequencerStore(state => state.measureTimeSigs[mIdx] || state.timeSig || '4/4');
   const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
-  const targetPatternId = useAudioStore((state) => state.targetPatternId);
-  const targetMeasureIdx = useAudioStore((state) => state.targetMeasureIdx);
-  const isArmedOnThisMeasure = targetPatternId === patternId && targetMeasureIdx === mIdx;
 
   const isSelectedCell = useSequencerStore(
     React.useCallback(
@@ -124,26 +122,42 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
     };
   }, []);
 
-  const handleMicroClick = (e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-    if (isArmedOnThisMeasure) {
-      useAudioStore.getState().setRecordingTarget({
-        trackId: null,
-        patternId: null,
-        targetMeasure: null,
-      });
-    } else {
-      useAudioStore.getState().setRecordingTarget({
-        trackId,
-        patternId,
-        targetMeasure: mIdx,
-      });
-      useAudioStore.getState().setSelectedVocalPatternId(patternId);
-      if (patternId !== -1) {
-        vocalEngineService.preWarmMicStreamSilently(patternId, mIdx);
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || patternId === -1) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bufferToDecode = arrayBuffer.slice(0);
+
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && rawCtx.state === 'suspended') {
+        try {
+          await rawCtx.resume();
+        } catch (_) {}
       }
+
+      const audioBuffer = await rawCtx.decodeAudioData(bufferToDecode);
+      const blob = new Blob([arrayBuffer], { type: file.type || 'audio/wav' });
+
+      useAudioStore.getState().setRecordingStartTimelineSec(null);
+      useAudioStore.getState().setSelectedVocalPatternId(patternId);
+      useAudioStore.getState().setTargetPatternId(patternId);
+      useAudioStore.getState().setTargetMeasureIdx(mIdx);
+
+      useAudioStore.getState().setTempRecording({
+        patternId,
+        blob,
+        audioBuffer,
+        isImported: true,
+        targetMeasureIdx: mIdx,
+      });
+
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err: any) {
+      alert(lang === 'fr' ? "Erreur lors de l'import : " + err.message : "Erro ao importar: " + err.message);
     }
   };
 
@@ -346,42 +360,6 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
             )}
           </div>
 
-          {patternId !== -1 && instType === 'voice' && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleMicroClick(e);
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              className={`absolute top-1.5 left-1/2 -translate-x-1/2 border font-sans font-bold text-[8px] px-1.5 py-0.5 rounded-sm z-20 cursor-pointer select-none flex items-center gap-1 shadow-sm transition-all pointer-events-auto ${
-                isArmedOnThisMeasure
-                  ? 'bg-red-600 text-white border-red-800 animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.7)]'
-                  : 'bg-[#27ae60] hover:bg-[#219653] text-white border-black/20'
-              }`}
-              title={
-                isArmedOnThisMeasure
-                  ? (lang === 'fr' ? `Mesure ${mIdx + 1} armée (cliquer pour désarmer)` : `Compasso ${mIdx + 1} armado (clique para desarmar)`)
-                  : (lang === 'fr' ? `Armer l'enregistrement sur la mesure ${mIdx + 1}` : `Armar gravação no compasso ${mIdx + 1}`)
-              }
-            >
-              <Mic className="w-2.5 h-2.5" />
-              <span>{isArmedOnThisMeasure ? '● REC' : '🎙️ MIC'}</span>
-            </button>
-          )}
-
           {patternId === -1 ? (
             <div
               className="w-full h-full opacity-15"
@@ -461,25 +439,31 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                 );
               })()}
 
+              {instType === 'voice' && (
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={handleFileImport}
+                />
+              )}
+
               {instType === 'voice' && !hasAudio && (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleMicroClick(e);
+                    fileInputRef.current?.click();
                   }}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className={`absolute right-1.5 bottom-1.5 p-1 rounded-sm border transition-colors cursor-pointer z-20 ${
-                    isArmedOnThisMeasure 
-                      ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50' 
-                      : 'bg-gray-400/20 hover:bg-gray-400/40 text-gray-500 hover:text-gray-700 dark:text-gray-400 border-gray-400/30'
-                  }`}
-                  title={lang === 'fr' ? "Armer pour l'enregistrement vocal" : "Armar para gravação de voz"}
+                  className="absolute right-1.5 bottom-1.5 p-1 rounded-sm border transition-colors cursor-pointer z-20 bg-[#ece4d0] hover:bg-[#8b2a1a] hover:text-white text-[#1a1a1a] border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(0,0,0,0.2)]"
+                  title={lang === 'fr' ? "Importer un fichier audio pour ce motif" : "Importar áudio para este padrão"}
                 >
-                  <Mic className="w-3 h-3" />
+                  <FolderOpen className="w-3 h-3" />
                 </button>
               )}
 
@@ -516,20 +500,16 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleMicroClick(e);
+                      fileInputRef.current?.click();
                     }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                     }}
-                    className={`p-1 rounded-sm border transition-colors cursor-pointer z-20 pointer-events-auto mr-1 ${
-                      isArmedOnThisMeasure 
-                        ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50' 
-                        : 'bg-gray-400/20 hover:bg-gray-400/40 text-gray-500 hover:text-gray-700 dark:text-gray-400 border-gray-400/30'
-                    }`}
-                    title={lang === 'fr' ? "Armer pour réenregistrer" : "Armar para regravar"}
+                    className="p-1 rounded-sm border transition-colors cursor-pointer z-20 pointer-events-auto mr-1 bg-[#ece4d0] hover:bg-[#8b2a1a] hover:text-white text-[#1a1a1a] border-[#1a1a1a]/30"
+                    title={lang === 'fr' ? "Importer un nouvel audio pour ce motif" : "Importar novo áudio"}
                   >
-                    <Mic className="w-3.5 h-3.5" />
+                    <FolderOpen className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => {
