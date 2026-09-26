@@ -197,6 +197,7 @@ export const VocalRecordingBar: React.FC = () => {
       const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
       useAudioStore.getState().setTempRecording({
         patternId: selectedPatternId,
+        trackId: activeVoiceTrack?.id,
         blob,
         audioBuffer,
         isImported: true,
@@ -249,6 +250,7 @@ export const VocalRecordingBar: React.FC = () => {
       const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
       useAudioStore.getState().setTempRecording({
         patternId: selectedPatternId,
+        trackId: activeVoiceTrack?.id,
         blob,
         targetMeasureIdx: currentArmedMeasure ?? undefined,
       });

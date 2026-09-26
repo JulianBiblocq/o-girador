@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export interface TempRecordingData {
   patternId: number;
+  trackId?: string | number;
   blob?: Blob;
   audioBuffer?: AudioBuffer;
   isImported?: boolean;
@@ -13,8 +14,8 @@ export interface AudioState {
   targetPatternId: number | null;
   targetMeasureIdx: number | null;
   recordingTargetTrackId: number | string | null;
-  vocalBlobs: Record<number, Blob>;
-  vocalBuffers: Record<number, AudioBuffer>;
+  vocalBlobs: Record<string | number, Blob>;
+  vocalBuffers: Record<string | number, AudioBuffer>;
   tempRecording: TempRecordingData | null;
   chorusDensity: number;
   isVocalGuideEnabled: boolean;
@@ -36,11 +37,11 @@ export interface AudioState {
   setTempRecording: (temp: TempRecordingData | null) => void;
   setChorusDensity: (density: number) => void;
   setIsVocalGuideEnabled: (enabled: boolean) => void;
-  addVocalBlob: (patternId: number, blob: Blob) => void;
-  removeVocalBlob: (patternId: number) => void;
-  addVocalBuffer: (patternId: number, buffer: AudioBuffer) => void;
-  setVocalBuffer: (patternId: number, buffer: AudioBuffer) => void;
-  removeVocalBuffer: (patternId: number) => void;
+  addVocalBlob: (patternId: string | number, blob: Blob) => void;
+  removeVocalBlob: (patternId: string | number) => void;
+  addVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
+  setVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
+  removeVocalBuffer: (patternId: string | number) => void;
   setIsVocalRecordingBarExpanded: (expanded: boolean) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
   unlockAudio: () => void;

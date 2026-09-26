@@ -97,7 +97,8 @@ export interface ActiveVocal {
 }
 
 // Persistent GrainPlayer instance cache to prevent GC spikes and Web Audio leaks (Safeguard 2)
-const activeVocals = new Map<number, ActiveVocal>();
+// Étanchéité stricte : indexé par clé composite `${trackId}_${patternId}` (Directive 2.D)
+const activeVocals = new Map<string, ActiveVocal>();
 
 let mediaRecorder: MediaRecorder | null = null;
 let audioStream: MediaStream | null = null;
@@ -352,9 +353,10 @@ export const vocalEngineService = {
   /**
    * Safeguard 2: Reusable Tone.GrainPlayer instance cache.
    * Prevents node recreation and memory churn on high frequency iterations.
+   * Indexé par clé composite pour étanchéité Puxador vs Coro.
    */
-  getOrCreateVocalPlayer(patternId: number, audioBuffer: AudioBuffer, outputNode: any): ActiveVocal {
-    let entry = activeVocals.get(patternId);
+  getOrCreateVocalPlayer(vocalKey: string, audioBuffer: AudioBuffer, outputNode: any): ActiveVocal {
+    let entry = activeVocals.get(vocalKey);
 
     if (entry) {
       // Re-use existing player and update buffer if modified
@@ -384,36 +386,43 @@ export const vocalEngineService = {
       panners: []
     };
 
-    activeVocals.set(patternId, entry);
+    activeVocals.set(vocalKey, entry);
     return entry;
   },
 
   /**
    * Safely stops and disposes a cached vocal player instance.
    */
-  disposeVocalPlayer(patternId: number) {
-    const entry = activeVocals.get(patternId);
+  disposeVocalPlayer(vocalKey: string | number) {
+    const k = String(vocalKey);
+    const entry = activeVocals.get(k);
     if (entry) {
       try { entry.mainPlayer.stop(); entry.mainPlayer.dispose(); } catch (_) {}
       try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
       entry.chorusPlayers.forEach(p => { try { p.stop(); p.dispose(); } catch (_) {} });
       entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
       entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
-      activeVocals.delete(patternId);
+      activeVocals.delete(k);
     }
   },
 
   /**
    * Stops playback of a pattern without disposing the persistent player instance.
    */
-  stopVocalPattern(patternId: number) {
-    const entry = activeVocals.get(patternId);
-    if (entry) {
-      try {
-        entry.mainPlayer.stop();
-      } catch (_) {}
-      entry.chorusPlayers.forEach(p => {
-        try { p.stop(); } catch (_) {}
+  stopVocalPattern(patternId: number, trackId?: string | number) {
+    if (trackId !== undefined) {
+      const k = `${trackId}_${patternId}`;
+      const entry = activeVocals.get(k);
+      if (entry) {
+        try { entry.mainPlayer.stop(); } catch (_) {}
+        entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
+      }
+    } else {
+      activeVocals.forEach((entry, k) => {
+        if (k.endsWith(`_${patternId}`) || k === String(patternId)) {
+          try { entry.mainPlayer.stop(); } catch (_) {}
+          entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
+        }
       });
     }
   },
@@ -422,7 +431,10 @@ export const vocalEngineService = {
    * Stops all active vocal playback.
    */
   stopAllVocalPlayback() {
-    Array.from(activeVocals.keys()).forEach(id => this.stopVocalPattern(id));
+    activeVocals.forEach((entry) => {
+      try { entry.mainPlayer.stop(); } catch (_) {}
+      entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
+    });
   },
 
   /**
@@ -436,25 +448,29 @@ export const vocalEngineService = {
   /**
    * Plays a vocal pattern locally (for preview or solo auditioning).
    */
-  async playVocalPattern(patternId: number, time: number, onStop?: () => void) {
+  async playVocalPattern(patternId: number, time: number, onStop?: () => void, trackId?: string | number) {
     const store = useAudioStore.getState();
-    let audioBuffer = store.vocalBuffers[patternId];
+    const sequencerStore = useSequencerStore.getState();
+    const voiceTrack = trackId
+      ? sequencerStore.tracks.find(t => String(t.id) === String(trackId))
+      : sequencerStore.tracks.find(t => t.patterns.some(p => Number(p.id) === Number(patternId)));
+
+    const compositeKey = voiceTrack ? `${voiceTrack.id}_${patternId}` : String(patternId);
+    let audioBuffer = store.vocalBuffers[compositeKey] || store.vocalBuffers[patternId];
     if (!audioBuffer) {
-      const blob = store.vocalBlobs[patternId] || await this.loadVocalRecording(patternId);
+      const blob = store.vocalBlobs[compositeKey] || store.vocalBlobs[patternId] || await this.loadVocalRecording(patternId);
       if (!blob) return;
       try {
         const arrayBuffer = await blob.arrayBuffer();
         const rawCtx = Tone.getContext().rawContext as AudioContext;
         audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
-        store.setVocalBuffer(patternId, audioBuffer);
+        store.setVocalBuffer(compositeKey, audioBuffer);
       } catch (err) {
         console.error(`Error decoding vocal blob for pattern ${patternId}:`, err);
         return;
       }
     }
 
-    const sequencerStore = useSequencerStore.getState();
-    const voiceTrack = sequencerStore.tracks.find(t => t.patterns.some(p => Number(p.id) === Number(patternId)));
     const outputNode = (voiceTrack && channels[voiceTrack.id]) || masterVolumeNode || Tone.Destination;
     const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 100) : 100;
     const isCoro = voiceTrack ? instrumentsConfig[voiceTrack.instrumentIdx]?.id === 'coro' : false;
@@ -474,12 +490,12 @@ export const vocalEngineService = {
     // En écoute solo (pré-écoute), décaler le trigger pour que le sample démarre dès l'offset 0 à l'instant 'time'
     const previewTime = time + anacrusisSec - (nudgeMs / 1000);
 
-    this.playSequencerVocal(patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
+    this.playSequencerVocal(voiceTrack?.id ?? 0, patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
   },
 
   /**
    * Plays a vocal pattern aligned with the sequencer timeline.
-   * Directives de calage strictes (Suppression du conflit de double rognage) :
+   * Directives de calage strictes (Suppression du conflit de double rognage & étanchéité Puxador vs Coro) :
    * 1. L'offset interne de lecture est strictement 0 par défaut (player.start(triggerTime, 0)).
    * 2. Le calage musical est uniquement géré par triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000).
    * 3. Cas limite Mesure 0 absolue (triggerTime < 0) :
@@ -487,6 +503,7 @@ export const vocalEngineService = {
    *    player.start(actualTime, internalBufferOffset)
    */
   playSequencerVocal(
+    trackId: string | number,
     patternId: number,
     measureStartTime: number,
     currentBpm: number,
@@ -496,28 +513,35 @@ export const vocalEngineService = {
     onStop?: () => void
   ) {
     const store = useAudioStore.getState();
-    const audioBuffer = store.vocalBuffers[patternId];
+    const compositeKey = `${trackId}_${patternId}`;
+    // Fallback de lecture des buffers (Directive 1) : composite d'abord, patternId en fallback
+    const audioBuffer = store.vocalBuffers[compositeKey] || store.vocalBuffers[patternId];
     if (!audioBuffer) return null;
 
     const sequencerStore = useSequencerStore.getState();
-    const voiceTrack = sequencerStore.tracks.find(t => t.patterns.some(p => Number(p.id) === Number(patternId)));
-    const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
-    const clip = ptnRef?.vocalClip;
+    const voiceTrack = sequencerStore.tracks.find(t => String(t.id) === String(trackId));
+    if (!voiceTrack) return null;
+
+    // Étanchéité stricte : le pattern doit appartenir explicitement à cette piste vocale
+    const ptnRef = voiceTrack.patterns.find(p => Number(p.id) === Number(patternId));
+    if (!ptnRef || ptnRef.vocalMode !== 'micro') return null;
+
+    const clip = ptnRef.vocalClip;
 
     // Détermination du BPM effectif de la mesure d'ancrage
-    const initialMeasureIdx = ptnRef?.measureAssignments?.indexOf(true) !== -1 
-      ? (ptnRef?.measureAssignments?.indexOf(true) ?? 0) 
+    const initialMeasureIdx = ptnRef.measureAssignments?.indexOf(true) !== -1 
+      ? (ptnRef.measureAssignments?.indexOf(true) ?? 0) 
       : 0;
     const anchorMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
     const effectiveBpm = currentBpm || anchorMeasureBpm;
 
-    // Retrieve or recycle persistent player (Safeguard 2)
-    const activeEntry = this.getOrCreateVocalPlayer(patternId, audioBuffer, outputNode);
+    // Retrieve or recycle persistent player (Safeguard 2) isolé par couple (trackId, patternId)
+    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode);
     const mainPlayer = activeEntry.mainPlayer;
     const mainGain = activeEntry.mainGain;
 
     // 1. Time-stretching calculation
-    const baseBpm = clip?.baseBpm || ptnRef?.vocalBaseBpm || anchorMeasureBpm;
+    const baseBpm = clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
     const playbackRate = effectiveBpm / baseBpm;
     mainPlayer.playbackRate = playbackRate;
 
@@ -525,7 +549,7 @@ export const vocalEngineService = {
     const beatDurationSec = 60 / effectiveBpm;
     const anacrusisBeats = clip?.anacrusisBeats ?? 0;
     const anacrusisSec = clip?.anacrusisSec ?? (anacrusisBeats * beatDurationSec);
-    const nudgeMs = clip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
+    const nudgeMs = clip?.nudgeMs ?? (ptnRef.vocalNudge ?? 0);
 
     // Calcul de l'instant de déclenchement sur la timeline
     const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
@@ -539,9 +563,8 @@ export const vocalEngineService = {
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
 
-    // 1. L'offset interne de lecture doit être 0 par défaut :
-    //    Le buffer stocké dans vocalBuffers[patternId] étant déjà physiquement rogné,
-    //    on ne saute aucun échantillon à l'intérieur du buffer (player.start(triggerTime, 0)).
+    // 1. L'offset interne de lecture est strictement 0 par défaut :
+    //    Le buffer stocké étant déjà physiquement rogné, on ne saute aucun échantillon (offset = 0).
     // 2. Le calage musical est uniquement géré par le moment de déclenchement (triggerTime).
     // 3. Cas limite de l'anacrouse sur la mesure 0 absolue (triggerTime < 0) :
     //    Uniquement si triggerTime < 0 (impossible de planifier dans le passé) :

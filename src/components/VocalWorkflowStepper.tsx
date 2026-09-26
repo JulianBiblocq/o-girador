@@ -78,9 +78,11 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         ? pattern.measureAssignments.indexOf(true)
         : 0;
       const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
+      const resolvedTrackId = trackId ?? useSequencerStore.getState().tracks.find(t => t.patterns.some(p => p.id === patternId))?.id;
 
       useAudioStore.getState().setTempRecording({
         patternId,
+        trackId: resolvedTrackId,
         blob,
         audioBuffer,
         isImported: true,
@@ -133,7 +135,8 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         ? pattern.measureAssignments.indexOf(true)
         : 0;
       const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
-      useAudioStore.getState().setTempRecording({ patternId: pid, blob, targetMeasureIdx: effectiveTargetMeasure });
+      const resolvedTrackId = trackId ?? useSequencerStore.getState().tracks.find(t => t.patterns.some(p => p.id === pid))?.id;
+      useAudioStore.getState().setTempRecording({ patternId: pid, trackId: resolvedTrackId, blob, targetMeasureIdx: effectiveTargetMeasure });
     }
   };
 

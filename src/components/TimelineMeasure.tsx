@@ -149,6 +149,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
       useAudioStore.getState().setTempRecording({
         patternId,
+        trackId,
         blob,
         audioBuffer,
         isImported: true,
@@ -487,7 +488,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                       }
                       if (blob) {
                         useAudioStore.getState().setTargetMeasureIdx(mIdx);
-                        useAudioStore.getState().setTempRecording({ patternId, blob, targetMeasureIdx: mIdx });
+                        useAudioStore.getState().setTempRecording({ patternId, trackId, blob, targetMeasureIdx: mIdx });
                       }
                     }}
                   >

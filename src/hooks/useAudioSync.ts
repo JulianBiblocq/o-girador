@@ -541,7 +541,7 @@ export function useAudioSync({
 
   const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
-  const activeSequencerVocalsRef = useRef<Map<number, { stop: () => void }>>(new Map());
+  const activeSequencerVocalsRef = useRef<Map<string, { stop: () => void }>>(new Map());
   const lastElapsedSecRef = useRef<number>(0);
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
@@ -1759,20 +1759,22 @@ export function useAudioSync({
           }
 
           const safeId = Number(activePattern.id);
+          const vocalKey = `${track.id}_${safeId}`;
 
           if (!canPlay) {
-            if (activeSequencerVocalsRef.current.has(safeId)) {
-              activeSequencerVocalsRef.current.get(safeId)?.stop();
-              activeSequencerVocalsRef.current.delete(safeId);
+            if (activeSequencerVocalsRef.current.has(vocalKey)) {
+              activeSequencerVocalsRef.current.get(vocalKey)?.stop();
+              activeSequencerVocalsRef.current.delete(vocalKey);
             }
             continue;
           }
 
-          const vocalBuf = useAudioStore.getState().vocalBuffers[safeId];
+          // Fallback de lecture des buffers (Directive 1) : composite trackId_patternId d'abord, patternId en repli
+          const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
           const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
 
           // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
-          if (hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(safeId)) {
+          if (hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(vocalKey)) {
             const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
@@ -1781,6 +1783,7 @@ export function useAudioSync({
             const currentBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
 
             const handle = vocalEngineService.playSequencerVocal(
+              track.id,
               safeId,
               time,
               currentBpm,
@@ -1788,25 +1791,27 @@ export function useAudioSync({
               vocalVol,
               isCoroTrack,
               () => {
-                activeSequencerVocalsRef.current.delete(safeId);
+                activeSequencerVocalsRef.current.delete(vocalKey);
               }
             );
             if (handle) {
-              activeSequencerVocalsRef.current.set(safeId, handle);
+              activeSequencerVocalsRef.current.set(vocalKey, handle);
             }
           }
 
-          // Déclenchement anticipé si le motif de la mesure suivante a une anacrouse
+          // Déclenchement anticipé si le motif de la mesure suivante a une anacrouse réelle (Directive 2.B)
           const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
           const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
           if (nextPattern && stepIdx === 0) {
             const nextSafeId = Number(nextPattern.id);
-            const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextSafeId];
+            const nextVocalKey = `${track.id}_${nextSafeId}`;
+            const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextVocalKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
             const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
             const nextClip = nextPattern.vocalClip;
-            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisBeats || 0) > 0 || (nextClip.anacrusisSec || 0) > 0 || (nextClip.nudgeMs || 0) < 0));
+            // Règle impérative B : Déclenchement anticipé UNIQUEMENT si anacrouse réelle > 0.02s
+            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
 
-            if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextSafeId)) {
+            if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextVocalKey)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
               const voiceInst = instrumentsConfig[track.instrumentIdx];
               const isCoroTrack = voiceInst?.id === 'coro';
@@ -1819,6 +1824,7 @@ export function useAudioSync({
               const currentMeasureDurationSec = (currentBeats * 60) / currentMeasureBpm;
 
               const handle = vocalEngineService.playSequencerVocal(
+                track.id,
                 nextSafeId,
                 time + currentMeasureDurationSec,
                 nextBpm,
@@ -1826,11 +1832,11 @@ export function useAudioSync({
                 vocalVol,
                 isCoroTrack,
                 () => {
-                  activeSequencerVocalsRef.current.delete(nextSafeId);
+                  activeSequencerVocalsRef.current.delete(nextVocalKey);
                 }
               );
               if (handle) {
-                activeSequencerVocalsRef.current.set(nextSafeId, handle);
+                activeSequencerVocalsRef.current.set(nextVocalKey, handle);
               }
             }
           }
@@ -1938,7 +1944,8 @@ export function useAudioSync({
 
                 // 2. Déclenchement synthèse vocale SEULEMENT si aucun sample audio vocal
                 const anacrusisSafeId = Number(targetAnacrusisPat.id);
-                const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisSafeId];
+                const anacrusisVocalKey = `${track.id}_${anacrusisSafeId}`;
+                const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisVocalKey] || useAudioStore.getState().vocalBuffers[anacrusisSafeId];
                 const anacrusisHasSample = Boolean(anacrusisVocalBuf && targetAnacrusisPat.vocalMode === 'micro');
 
                 if (!anacrusisHasSample && trackVolPct > 0) {

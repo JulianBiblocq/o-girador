@@ -117,6 +117,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const trimOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const activePlayersRef = useRef<Tone.Player[]>([]);
+  const previewSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const isPlayingPreviewRef = useRef(false);
   const previewLoopTimeoutRef = useRef<any>(null);
 
@@ -135,6 +136,13 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   useEffect(() => {
     trimEndSecRef.current = trimEndSec;
   }, [trimEndSec]);
+
+  // Détection de la présence réelle de notes ou de syllabes sur la mesure M-1
+  const hasPreRollSyllables = Boolean(
+    (pattern.preRollActiveSteps && pattern.preRollActiveSteps.some(Boolean)) ||
+    (pattern.preRollLyrics && pattern.preRollLyrics.some((s) => s && s.trim().length > 0)) ||
+    (pattern.preRollNotes && pattern.preRollNotes.some((n) => n && n.trim().length > 0))
+  );
 
   // Positionnement initial :
   // Le sample importé s'initialise inconditionnellement à waveBaseX = 0 (début de la piste d'élan).
@@ -158,11 +166,22 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
   const { handleTogglePlay, handleStop } = useAudio();
 
+  // Calcul assaini de l'anacrouse :
+  // L'anacrouse ne représente QUE le chant utile situé à gauche de la ligne rouge Temps 1
+  // Règle 1 : Si l'attaque vocale est sur le Temps 1 ou après : anacrusisSec = 0.
+  // Règle 2 : Seul un chant possédant des syllabes actives sur la mesure M-1 doit déclencher une avance rétrograde.
+  const calculateAnacrusisSec = useCallback((baseX: number, trimStart: number) => {
+    const waveBaseXSec = baseX / PIXELS_PER_SECOND;
+    const attackPosSec = waveBaseXSec + trimStart;
+    const isAttackBeforeTemps1 = attackPosSec < (t_temps1 - 0.01);
+    return (hasPreRollSyllables && isAttackBeforeTemps1)
+      ? Math.max(0, t_temps1 - attackPosSec)
+      : 0;
+  }, [hasPreRollSyllables, t_temps1]);
+
   // Mise à jour synchrone des badges d'anacrouse (Zero Render Thrashing)
-  // Formule saine et unifiée : anacrusisSec = max(0, t_temps1 - (waveBaseXSec + trimStartSec)) (Directive C.1)
   const updateLiveTimingBadges = useCallback((_totalX?: number) => {
-    const waveBaseXSec = waveBaseXRef.current / PIXELS_PER_SECOND;
-    const anacrusisSec = Math.max(0, t_temps1 - (waveBaseXSec + trimStartSecRef.current));
+    const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSecRef.current);
     const anacrusisBeats = anacrusisSec / beatDurationSec;
 
     if (anacrusisBadgeRef.current) {
@@ -174,7 +193,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         anacrusisBadgeRef.current.style.color = '#8b2a1a';
       }
     }
-  }, [t_temps1, beatDurationSec]);
+  }, [calculateAnacrusisSec, beatDurationSec]);
 
   // Initialisation badge et translation GPU immédiate au montage
   useEffect(() => {
@@ -539,8 +558,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   }, [audioBuffer, trimStartSec, trimEndSec, updateLiveTimingBadges]);
 
   // 4. Pré-écoute synchronisée avec la Roda (Formule unifiée & loop calée sur effectiveMeasure - Directives B & C)
-  const stopLocalPreview = useCallback(() => {
+  // 🛡️ Kill-Switch impératif sur la pré-écoute (Directive 2.C)
+  const killSwitch = useCallback(() => {
     isPlayingPreviewRef.current = false;
+    setIsPlayingPreview(false);
     if (previewLoopTimeoutRef.current) {
       clearTimeout(previewLoopTimeoutRef.current);
       previewLoopTimeoutRef.current = null;
@@ -548,11 +569,24 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     activePlayersRef.current.forEach((p) => {
       try {
         p.stop();
+        p.disconnect();
         p.dispose();
       } catch (_) {}
     });
     activePlayersRef.current = [];
-  }, []);
+    if (previewSourceRef.current) {
+      try {
+        previewSourceRef.current.stop();
+        previewSourceRef.current.disconnect();
+      } catch (_) {}
+      previewSourceRef.current = null;
+    }
+    try {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+    } catch (_) {}
+    handleStop();
+  }, [handleStop]);
 
   const scheduleVocalIteration = useCallback((iterationTime: number) => {
     if (!isPlayingPreviewRef.current) return;
@@ -596,10 +630,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
   const handleTogglePreview = async () => {
     if (isPlayingPreview) {
-      setIsPlayingPreview(false);
-      isPlayingPreviewRef.current = false;
-      stopLocalPreview();
-      handleStop();
+      killSwitch();
 
       // Restauration de la boucle à la fermeture
       if (savedLoopStateRef.current) {
@@ -644,8 +675,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       });
 
       // Synchronisation matérielle avec délai de prévenance leadTime
-      const waveBaseXSec = waveBaseXRef.current / PIXELS_PER_SECOND;
-      const anacrusisSec = Math.max(0, t_temps1 - (waveBaseXSec + trimStartSecRef.current));
+      const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSecRef.current);
       const deltaSec = anacrusisSec - (nudgeMsRef.current / 1000);
       const leadTime = Math.max(0.06, deltaSec + 0.05);
 
@@ -670,8 +700,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
   useEffect(() => {
     return () => {
-      stopLocalPreview();
-      handleStop();
+      killSwitch();
       if (savedLoopStateRef.current) {
         useSequencerStore.setState({
           isLooping: savedLoopStateRef.current.isLooping,
@@ -682,7 +711,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         Tone.Transport.loop = savedLoopStateRef.current.isLooping;
       }
     };
-  }, [stopLocalPreview, handleStop]);
+  }, [killSwitch]);
 
   // 5. Drag & Drop robuste à 60 FPS (Commandements 1, 2, 3)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -763,8 +792,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const handleValidate = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
-    stopLocalPreview();
-    handleStop();
+    killSwitch();
 
     if (savedLoopStateRef.current) {
       useSequencerStore.setState({
@@ -788,9 +816,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
       const wavBlob = audioBufferToWav(cleanBuffer);
 
-      // Calcul sain de l'anacrouse basée sur le point Trim Début sous Temps 1 (Directive C.1)
-      const waveBaseXSec = waveBaseXRef.current / PIXELS_PER_SECOND;
-      const anacrusisSec = Math.max(0, t_temps1 - (waveBaseXSec + trimStartSec));
+      // Calcul assaini de l'anacrouse basée sur la présence de syllabes et l'attaque utile sous Temps 1
+      const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSec);
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
       const meta: VocalClipMeta = {
@@ -1027,7 +1054,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
         <div className="flex gap-3 w-full sm:w-auto justify-end">
           <button
-            onClick={onCancel}
+            onClick={() => {
+              killSwitch();
+              onCancel();
+            }}
             disabled={isProcessing}
             className="px-5 py-2.5 text-xs font-bold border-2 border-[#1a1a1a] bg-[#ece4d0] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a]"
           >

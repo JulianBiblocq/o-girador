@@ -695,7 +695,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
     if (blob) {
       useAudioStore.getState().setTargetPatternId(activePattern.id);
-      useAudioStore.getState().setTempRecording({ patternId: activePattern.id, blob });
+      useAudioStore.getState().setTempRecording({ patternId: activePattern.id, trackId: track?.id, blob });
     } else {
       alert(lang === 'fr' ? "Aucun enregistrement vocal trouvé pour ce motif." : "Nenhuma gravação de voz encontrada para este padrão.");
     }

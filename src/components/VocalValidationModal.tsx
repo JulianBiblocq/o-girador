@@ -33,11 +33,26 @@ export const VocalValidationModal: React.FC = () => {
   const measureTimeSigs = useSequencerStore((state) => state.measureTimeSigs);
 
   const voiceTrack = tempRecording
-    ? tracks.find((t) => t.patterns?.some((p) => Number(p.id) === Number(tempRecording.patternId)))
+    ? (tempRecording.trackId
+        ? tracks.find((t) => String(t.id) === String(tempRecording.trackId))
+        : tracks.find((t) => t.patterns?.some((p) => Number(p.id) === Number(tempRecording.patternId))))
     : null;
   const targetPattern = tempRecording && voiceTrack
     ? voiceTrack.patterns?.find((p) => Number(p.id) === Number(tempRecording.patternId))
     : null;
+
+  // Escape key support to cleanly cancel and kill audio
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Decode temporary recording audio data on mount
   useEffect(() => {
@@ -69,23 +84,11 @@ export const VocalValidationModal: React.FC = () => {
         setAudioBuffer(buffer);
         const existingClip = targetPattern.vocalClip;
 
-        if (tempRecording.isImported) {
-          setInitialTrimStartSec(0);
-          setInitialTrimEndSec(buffer.duration);
-          setInitialNudgeMs(0);
-        } else {
-          if (existingClip) {
-            const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * beatDurationSec);
-            const calculatedStart = Math.max(0, preRollSec - anacrusisSec);
-            setInitialTrimStartSec(calculatedStart);
-            setInitialTrimEndSec(buffer.duration);
-            setInitialNudgeMs(existingClip.nudgeMs ?? 0);
-          } else {
-            setInitialTrimStartSec(preRollSec);
-            setInitialTrimEndSec(buffer.duration);
-            setInitialNudgeMs(0);
-          }
-        }
+        // Règle absolue du Buffer Slicing (Zéro double-offset) :
+        // Le buffer utile commence strictement à 0. Ne jamais réappliquer preRollSec - anacrusisSec.
+        setInitialTrimStartSec(0);
+        setInitialTrimEndSec(buffer.duration);
+        setInitialNudgeMs(existingClip?.nudgeMs ?? 0);
       };
 
       // 1. Si tempRecording dispose déjà d'un AudioBuffer décodé (Import direct)
@@ -139,6 +142,10 @@ export const VocalValidationModal: React.FC = () => {
   if (!tempRecording || !targetPattern || !voiceTrack) return null;
 
   const handleCancel = () => {
+    try {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+    } catch (_) {}
     handleStop();
     useAudioStore.getState().setTargetPatternId(null);
     setTempRecording(null);
@@ -146,15 +153,24 @@ export const VocalValidationModal: React.FC = () => {
 
   const handleSave = async (cleanBuffer: AudioBuffer, wavBlob: Blob, meta: VocalClipMeta) => {
     setLoading(true);
+    try {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+    } catch (_) {}
     handleStop();
 
     try {
       // 1. Asynchronously persist clean WAV in IndexedDB
       await vocalEngineService.saveValidatedRecording(tempRecording.patternId, wavBlob);
 
-      // 2. Immediately cache clean AudioBuffer in RAM for zero-latency playback
+      // 2. Immediately cache clean AudioBuffer in RAM for zero-latency playback (patternId et composite trackId_patternId)
       useAudioStore.getState().setVocalBuffer(tempRecording.patternId, cleanBuffer);
       useAudioStore.getState().addVocalBlob(tempRecording.patternId, wavBlob);
+      if (voiceTrack?.id) {
+        const compositeKey = `${voiceTrack.id}_${tempRecording.patternId}`;
+        useAudioStore.getState().setVocalBuffer(compositeKey, cleanBuffer);
+        useAudioStore.getState().addVocalBlob(compositeKey, wavBlob);
+      }
 
       // 3. Update sequencer store pattern metadata
       useSequencerStore.getState().setTracks(
