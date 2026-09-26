@@ -179,14 +179,33 @@ export const VocalRecordingBar: React.FC = () => {
     if (!file || !selectedPatternId) return;
 
     try {
-      const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-      
+      const arrayBuffer = await file.arrayBuffer();
+      const bufferToDecode = arrayBuffer.slice(0);
+
+      // Réveil immédiat de l'AudioContext avant décodage
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && rawCtx.state === 'suspended') {
+        try {
+          await rawCtx.resume();
+        } catch (_) {}
+      }
+
+      const audioBuffer = await rawCtx.decodeAudioData(bufferToDecode);
+      const blob = new Blob([arrayBuffer], { type: file.type || 'audio/wav' });
+
       // Bypasses live recording start context: set timeline start to null
       useAudioStore.getState().setRecordingStartTimelineSec(null);
-      
-      // Inject directly as a temporary recording to open validation modal
-      useAudioStore.getState().setTempRecording({ patternId: selectedPatternId, blob });
-      
+      useAudioStore.getState().setSelectedVocalPatternId(selectedPatternId);
+      useAudioStore.getState().setTargetPatternId(selectedPatternId);
+
+      // Inject directly as a temporary recording to open validation modal with pre-decoded buffer
+      useAudioStore.getState().setTempRecording({
+        patternId: selectedPatternId,
+        blob,
+        audioBuffer,
+        isImported: true,
+      });
+
       // Reset input value to allow selecting same file again
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {

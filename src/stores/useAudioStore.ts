@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 
+export interface TempRecordingData {
+  patternId: number;
+  blob?: Blob;
+  audioBuffer?: AudioBuffer;
+  isImported?: boolean;
+}
+
 export interface AudioState {
   recordingStatus: 'inactive' | 'arming' | 'countdown' | 'recording';
   targetPatternId: number | null;
@@ -7,7 +14,7 @@ export interface AudioState {
   recordingTargetTrackId: number | string | null;
   vocalBlobs: Record<number, Blob>;
   vocalBuffers: Record<number, AudioBuffer>;
-  tempRecording: { patternId: number; blob: Blob } | null;
+  tempRecording: TempRecordingData | null;
   chorusDensity: number;
   isVocalGuideEnabled: boolean;
   isVocalRecordingBarExpanded: boolean;
@@ -27,7 +34,7 @@ export interface AudioState {
   setTargetPatternId: (id: number | null) => void;
   setTargetMeasureIdx: (idx: number | null) => void;
   setRecordingTarget: (target: { trackId?: number | string | null; patternId: number | null; targetMeasure: number | null }) => void;
-  setTempRecording: (temp: { patternId: number; blob: Blob } | null) => void;
+  setTempRecording: (temp: TempRecordingData | null) => void;
   setChorusDensity: (density: number) => void;
   setIsVocalGuideEnabled: (enabled: boolean) => void;
   addVocalBlob: (patternId: number, blob: Blob) => void;

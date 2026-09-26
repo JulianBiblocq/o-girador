@@ -48,14 +48,65 @@ export const VocalValidationModal: React.FC = () => {
     setAudioBuffer(null);
 
     const decode = async () => {
-      // 1. Validation préalable du Blob
+      // Find measure BPM & Time Signature
+      const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1
+        ? targetPattern.measureAssignments.indexOf(true)
+        : 0;
+      const targetBpm = measureBpms[initialMeasureIdx % (measureBpms.length || 1)] || bpm;
+      const targetSig = measureTimeSigs[initialMeasureIdx % (measureTimeSigs.length || 1)] || '4/4';
+      const beatsCount = getBeatsPerMeasure(targetSig);
+      const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || (targetSig as string) === '12/8';
+      const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
+      
+      // Dégagement visuel Runway garanti d'au moins 1 mesure (preRollSec)
+      const preRollSec = beatsCount * beatDurationSec;
+      setPreRollDurationSec(preRollSec);
+
+      const setupBufferAndTrims = (buffer: AudioBuffer) => {
+        setAudioBuffer(buffer);
+        const existingClip = targetPattern.vocalClip;
+
+        if (tempRecording.isImported) {
+          if (existingClip) {
+            setInitialTrimStartSec(existingClip.trimStartSec ?? 0);
+            setInitialTrimEndSec(existingClip.trimEndSec ?? buffer.duration);
+            setInitialNudgeMs(existingClip.nudgeMs ?? 0);
+          } else {
+            setInitialTrimStartSec(0);
+            setInitialTrimEndSec(buffer.duration);
+            setInitialNudgeMs(0);
+          }
+        } else {
+          if (existingClip) {
+            const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * beatDurationSec);
+            const calculatedStart = Math.max(0, preRollSec - anacrusisSec);
+            setInitialTrimStartSec(calculatedStart);
+            setInitialTrimEndSec(buffer.duration);
+            setInitialNudgeMs(existingClip.nudgeMs ?? 0);
+          } else {
+            setInitialTrimStartSec(preRollSec);
+            setInitialTrimEndSec(buffer.duration);
+            setInitialNudgeMs(0);
+          }
+        }
+      };
+
+      // 1. Si tempRecording dispose déjà d'un AudioBuffer décodé (Import direct)
+      if (tempRecording.audioBuffer) {
+        if (active) {
+          setupBufferAndTrims(tempRecording.audioBuffer);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // 2. Décodage du blob si nécessaire
       if (!tempRecording.blob || tempRecording.blob.size === 0) {
         console.error("🎙️ [AUDIO] Blob d'enregistrement vide ou inexistant.");
         if (active) setLoading(false);
         return;
       }
 
-      // 2. Réveil impératif de l'AudioContext avant décodage
       const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
       if (rawCtx && rawCtx.state === 'suspended') {
         try {
@@ -68,37 +119,8 @@ export const VocalValidationModal: React.FC = () => {
       try {
         const arrayBuffer = await tempRecording.blob.arrayBuffer();
         const buffer = await rawCtx.decodeAudioData(arrayBuffer);
-
         if (active) {
-          setAudioBuffer(buffer);
-
-          // Find measure BPM & Time Signature
-          const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1
-            ? targetPattern.measureAssignments.indexOf(true)
-            : 0;
-          const targetBpm = measureBpms[initialMeasureIdx % (measureBpms.length || 1)] || bpm;
-          const targetSig = measureTimeSigs[initialMeasureIdx % (measureTimeSigs.length || 1)] || '4/4';
-          const beatsCount = getBeatsPerMeasure(targetSig);
-          const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || (targetSig as string) === '12/8';
-          const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
-          
-          // Pure Transport count-in duration (exactement 1 mesure de précompte)
-          const preRollSec = beatsCount * beatDurationSec;
-          setPreRollDurationSec(preRollSec);
-
-          const existingClip = targetPattern.vocalClip;
-          if (existingClip) {
-            const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * beatDurationSec);
-            const calculatedStart = Math.max(0, preRollSec - anacrusisSec);
-            setInitialTrimStartSec(calculatedStart);
-            setInitialTrimEndSec(buffer.duration);
-            setInitialNudgeMs(existingClip.nudgeMs ?? 0);
-          } else {
-            // Default deterministic anchor: Temps 1 starts exactly at preRollSec
-            setInitialTrimStartSec(preRollSec);
-            setInitialTrimEndSec(buffer.duration);
-            setInitialNudgeMs(0);
-          }
+          setupBufferAndTrims(buffer);
         }
       } catch (err) {
         console.error('🎙️ [VOCAL ENGINE] Error decoding temporary recording:', err);
@@ -208,6 +230,7 @@ export const VocalValidationModal: React.FC = () => {
           </div>
         ) : (
           <AudioAlignmentEditor
+            isImported={Boolean(tempRecording.isImported)}
             audioBuffer={audioBuffer}
             pattern={targetPattern}
             bpm={bpm}

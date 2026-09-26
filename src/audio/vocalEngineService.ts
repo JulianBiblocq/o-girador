@@ -756,7 +756,7 @@ export const vocalEngineService = {
 
     const beatDurationSec = 60 / anchorBpm;
     const anacrusisBeats = ptnRef?.vocalClip?.anacrusisBeats ?? 0;
-    const anacrusisSec = anacrusisBeats * beatDurationSec;
+    const anacrusisSec = ptnRef?.vocalClip?.anacrusisSec ?? (anacrusisBeats * beatDurationSec);
     const nudgeMs = ptnRef?.vocalClip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
 
     // En écoute solo (pré-écoute), décaler le trigger pour que le sample démarre dès l'offset 0 à l'instant 'time'
@@ -812,7 +812,7 @@ export const vocalEngineService = {
     // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
     const beatDurationSec = 60 / effectiveBpm;
     const anacrusisBeats = clip?.anacrusisBeats ?? 0;
-    const anacrusisSec = anacrusisBeats * beatDurationSec;
+    const anacrusisSec = clip?.anacrusisSec ?? (anacrusisBeats * beatDurationSec);
     const nudgeMs = clip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
 
     // Calcul de l'instant de déclenchement sur la timeline

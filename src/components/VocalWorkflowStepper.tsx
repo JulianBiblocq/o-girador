@@ -14,7 +14,8 @@ import {
   Play, 
   Square, 
   ChevronRight,
-  Sparkles
+  Sparkles,
+  FolderOpen
 } from 'lucide-react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -49,6 +50,42 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [showNewRecordingConfirm, setShowNewRecordingConfirm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !patternId) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bufferToDecode = arrayBuffer.slice(0);
+
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && rawCtx.state === 'suspended') {
+        try {
+          await rawCtx.resume();
+        } catch (_) {}
+      }
+
+      const audioBuffer = await rawCtx.decodeAudioData(bufferToDecode);
+      const blob = new Blob([arrayBuffer], { type: file.type || 'audio/wav' });
+
+      useAudioStore.getState().setRecordingStartTimelineSec(null);
+      useAudioStore.getState().setSelectedVocalPatternId(patternId);
+      useAudioStore.getState().setTargetPatternId(patternId);
+
+      useAudioStore.getState().setTempRecording({
+        patternId,
+        blob,
+        audioBuffer,
+        isImported: true,
+      });
+
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err: any) {
+      setErrorMessage(lang === 'fr' ? "Erreur lors de l'import : " + err.message : "Erro ao importar: " + err.message);
+    }
+  };
 
   // Synchronisation lors du changement de motif
   useEffect(() => {
@@ -327,6 +364,21 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
 
           {currentStep === 3 && (
             <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="audio/*"
+                className="hidden"
+                onChange={handleFileImport}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1.5 bg-[#b89f74] hover:bg-[#a68c63] text-[#1a1a1a] border border-[#1a1a1a] font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
+                title={lang === 'fr' ? "Importer un fichier audio externe (.wav, .ogg, .mp3)" : "Importar áudio externo"}
+              >
+                <FolderOpen size={13} />
+                <span>{lang === 'fr' ? 'Importer' : 'Importar'}</span>
+              </button>
               {recordingStatus === 'inactive' && (
                 <button
                   onClick={handleStartRecording}

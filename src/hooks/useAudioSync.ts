@@ -1823,7 +1823,7 @@ export function useAudioSync({
             const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextSafeId];
             const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
             const nextClip = nextPattern.vocalClip;
-            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisBeats || 0) > 0 || (nextClip.nudgeMs || 0) < 0));
+            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisBeats || 0) > 0 || (nextClip.anacrusisSec || 0) > 0 || (nextClip.nudgeMs || 0) < 0));
 
             if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextSafeId)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;

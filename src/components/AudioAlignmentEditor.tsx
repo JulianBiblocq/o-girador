@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import * as Tone from 'tone';
-import { Play, Square, Save, X, RotateCcw, Scissors, Music } from 'lucide-react';
+import { Play, Square, Save, RotateCcw, Scissors, Music, MoveHorizontal } from 'lucide-react';
 import { Pattern, VocalClipMeta } from '../types/store.types';
 import { useAudio } from '../contexts/AudioContext';
 import { extractPeaks, renderTrimmedVocalBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
@@ -24,6 +24,7 @@ interface AudioAlignmentEditorProps {
   initialTrimStartSec?: number;
   initialTrimEndSec?: number;
   initialNudgeMs?: number;
+  isImported?: boolean;
   onSave: (cleanBuffer: AudioBuffer, wavBlob: Blob, meta: VocalClipMeta) => void;
   onCancel: () => void;
 }
@@ -38,6 +39,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   initialTrimStartSec,
   initialTrimEndSec,
   initialNudgeMs = 0,
+  isImported = false,
   onSave,
   onCancel,
 }) => {
@@ -57,7 +59,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     pattern.measureAssignments.filter(Boolean).length || 1
   );
 
-  // Exact duration of preceding measure M - 1 at its own BPM (or preRoll if M=0)
+  // Exact duration of preceding measure M - 1 at its own BPM (or runway preRoll if M=0)
   const mPrev = Math.max(0, initialMeasureIdx - 1);
   const prevBpm = (measureBpms && measureBpms[mPrev % (measureBpms.length || 1)] > 0)
     ? measureBpms[mPrev % (measureBpms.length || 1)]
@@ -66,7 +68,12 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const prevBeats = getBeatsPerMeasure(prevSig);
   const isCompoundPrev = prevSig === '6/8' || prevSig === '9/8' || prevSig === '12/8';
   const prevBeatDuration = isCompoundPrev ? (90 / prevBpm) : (60 / prevBpm);
-  const t_temps1 = initialMeasureIdx >= 1 ? (prevBeats * prevBeatDuration) : (preRollDurationSec > 0 ? preRollDurationSec : beatsCount * beatDurationSec);
+
+  // 🛡️ RUNWAY GUARANTEE: Ne JAMAIS placer temps1Px à 0.
+  // Conserver strictement un dégagement d'au moins une mesure à gauche (Directive 1)
+  const t_temps1 = initialMeasureIdx >= 1 
+    ? (prevBeats * prevBeatDuration) 
+    : (preRollDurationSec > 0 ? preRollDurationSec : beatsCount * beatDurationSec);
   const temps1Px = t_temps1 * PIXELS_PER_SECOND;
 
   // Initial trim and nudge states
@@ -89,9 +96,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     isLoopRegionActive: boolean;
   } | null>(null);
 
-  // Refs for 60 FPS DOM direct mutations (Zero Render Thrashing)
+  // Refs for 60 FPS DOM direct mutations (Zero Render Thrashing - Commandement 1)
   const waveformContainerRef = useRef<HTMLDivElement>(null);
   const nudgeValueLabelRef = useRef<HTMLSpanElement>(null);
+  const anacrusisBadgeRef = useRef<HTMLSpanElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
   const trimOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const localPlayerRef = useRef<Tone.Player | Tone.GrainPlayer | null>(null);
@@ -113,9 +121,53 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     trimEndSecRef.current = trimEndSec;
   }, [trimEndSec]);
 
-  const { isPlaying, handleTogglePlay, handleStop } = useAudio();
+  // Positionnement initial :
+  // Le sample importé s'initialise à waveX = temps1Px (Directive 1).
+  // Si le motif possédait déjà une anacrouse enregistrée, repositionner l'onde fidèlement.
+  const getInitialBaseWaveX = () => {
+    if (isImported) {
+      if (pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
+        return temps1Px - (pattern.vocalClip.anacrusisSec * PIXELS_PER_SECOND);
+      }
+      return temps1Px;
+    }
+    return 0;
+  };
 
-  // 1. One-time Peak Extraction & Canvas Waveform Render
+  const waveBaseXRef = useRef<number>(getInitialBaseWaveX());
+  const currentTotalWaveXRef = useRef<number>(
+    waveBaseXRef.current + (initialNudgeMs / 1000) * PIXELS_PER_SECOND
+  );
+
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartBaseXRef = useRef(0);
+
+  const { handleTogglePlay, handleStop } = useAudio();
+
+  // Mise à jour synchrone des badges d'anacrouse (Zero Render Thrashing)
+  const updateLiveTimingBadges = useCallback((totalX: number) => {
+    const t_downbeat = (temps1Px - totalX) / PIXELS_PER_SECOND;
+    const anacrusisSec = Math.max(0, t_downbeat - trimStartSecRef.current);
+    const anacrusisBeats = anacrusisSec / beatDurationSec;
+
+    if (anacrusisBadgeRef.current) {
+      if (anacrusisSec > 0.001) {
+        anacrusisBadgeRef.current.textContent = `Anacrouse : ${(anacrusisSec * 1000).toFixed(0)} ms (${anacrusisBeats.toFixed(2)} tps)`;
+        anacrusisBadgeRef.current.style.color = '#2a5d4e';
+      } else {
+        anacrusisBadgeRef.current.textContent = 'Anacrouse : 0 ms (Temps 1 calé)';
+        anacrusisBadgeRef.current.style.color = '#8b2a1a';
+      }
+    }
+  }, [temps1Px, beatDurationSec]);
+
+  // Initialisation badge au montage
+  useEffect(() => {
+    updateLiveTimingBadges(currentTotalWaveXRef.current);
+  }, [updateLiveTimingBadges]);
+
+  // 1. One-time Peak Extraction & Canvas Waveform Render avec Normalisation Dynamique
   useEffect(() => {
     if (!audioBuffer || !waveformCanvasRef.current) return;
 
@@ -124,7 +176,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     if (!ctx) return;
 
     const duration = audioBuffer.duration;
-    const width = Math.max(Math.ceil(duration * PIXELS_PER_SECOND), 1200);
+    const width = Math.max(Math.ceil(duration * PIXELS_PER_SECOND), 1600);
     const height = canvas.height;
 
     canvas.width = width;
@@ -136,6 +188,22 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
     const peaks = cachedPeaksRef.current;
     const numPoints = peaks.length / 2;
+
+    // Normalisation visuelle dynamique (Directive B.1) :
+    // Calcul de la valeur crête (peak) maximale du signal audio
+    let maxGlobalPeak = 0.001;
+    for (let i = 0; i < numPoints; i++) {
+      const absMin = Math.abs(peaks[i * 2]);
+      const absMax = Math.abs(peaks[i * 2 + 1]);
+      if (absMin > maxGlobalPeak) maxGlobalPeak = absMin;
+      if (absMax > maxGlobalPeak) maxGlobalPeak = absMax;
+    }
+
+    // Le tracé doit occuper 70 à 80 % de la hauteur utile (Directive B.1)
+    const targetOccupancy = 0.75; // 75%
+    const usefulHalfHeight = (height / 2) * targetOccupancy;
+    const dynamicAmp = usefulHalfHeight / maxGlobalPeak;
+    const amp = Math.min(dynamicAmp, (height / 2) * 50); // Borne anti-bruit
 
     // Draw Cordel aesthetic waveform: Fond papier (#f4ecd8) & Waveform Rouge Argile (#8b2a1a)
     ctx.fillStyle = '#f4ecd8';
@@ -150,8 +218,6 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     ctx.stroke();
 
     ctx.fillStyle = '#8b2a1a';
-    const amp = (height / 2) * 0.9;
-
     for (let i = 0; i < numPoints; i++) {
       const min = peaks[i * 2];
       const max = peaks[i * 2 + 1];
@@ -162,35 +228,35 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     }
 
     // --- STEP GRID & SYNTHESIZER NOTES RENDERING ---
-    // 1. Measure M - 1 step grid (from 0 to temps1Px)
-    if (initialMeasureIdx >= 1) {
-      const stepsCountPrev = isCompoundPrev ? 12 : 16;
-      const stepPxPrev = temps1Px / stepsCountPrev;
-      ctx.strokeStyle = 'rgba(26, 26, 26, 0.15)';
-      ctx.lineWidth = 1;
-      for (let s = 0; s < stepsCountPrev; s++) {
-        const xPos = s * stepPxPrev;
-        ctx.beginPath();
-        ctx.moveTo(xPos, 0);
-        ctx.lineTo(xPos, height);
-        ctx.stroke();
-
-        // Synth notes in pre-roll
-        if (pattern.preRollActiveSteps && pattern.preRollActiveSteps[s]) {
-          ctx.fillStyle = '#2a5d4e';
-          ctx.beginPath();
-          ctx.arc(xPos + stepPxPrev / 2, height / 2 - 30, 4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-
-    // 2. Measure M step grid (from temps1Px onward)
+    // Grille de pas de référence (16 pas / 12 pas)
     const stepsCountM = pattern.steps || (isCompound ? 12 : 16);
     const measureMDurationSec = beatsCount * beatDurationSec;
     const stepPxM = (measureMDurationSec * PIXELS_PER_SECOND) / stepsCountM;
+
+    // Pas de la mesure précédente (Runway)
+    const stepsCountPrev = isCompoundPrev ? 12 : 16;
+    const stepPxPrev = temps1Px / stepsCountPrev;
+    ctx.strokeStyle = 'rgba(26, 26, 26, 0.15)';
+    ctx.lineWidth = 1;
+    for (let s = 0; s < stepsCountPrev; s++) {
+      const xPos = s * stepPxPrev;
+      ctx.beginPath();
+      ctx.moveTo(xPos, 0);
+      ctx.lineTo(xPos, height);
+      ctx.stroke();
+
+      if (pattern.preRollActiveSteps && pattern.preRollActiveSteps[s]) {
+        ctx.fillStyle = '#2a5d4e';
+        ctx.beginPath();
+        ctx.arc(xPos + stepPxPrev / 2, height / 2 - 30, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Pas de la mesure M
     for (let s = 0; s < stepsCountM; s++) {
-      const xPos = temps1Px + s * stepPxM;
+      const xPos = s * stepPxM;
+      if (xPos > width) break;
       ctx.strokeStyle = (s % (isCompound ? 3 : 4) === 0) ? 'rgba(139, 42, 26, 0.25)' : 'rgba(26, 26, 26, 0.12)';
       ctx.lineWidth = (s % (isCompound ? 3 : 4) === 0) ? 1.5 : 1;
       ctx.beginPath();
@@ -198,7 +264,6 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       ctx.lineTo(xPos, height);
       ctx.stroke();
 
-      // Synth notes in main pattern
       if (pattern.activeSteps && pattern.activeSteps[s]) {
         ctx.fillStyle = '#8b2a1a';
         ctx.beginPath();
@@ -206,9 +271,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         ctx.fill();
       }
     }
-  }, [audioBuffer]);
+  }, [audioBuffer, beatsCount, beatDurationSec, initialMeasureIdx, isCompound, isCompoundPrev, pattern, temps1Px]);
 
-  // 2. Draw Trim overlay on separate trimOverlayCanvas
+  // 2. Draw Trim overlay solidaire de l'audioBuffer sur trimOverlayCanvas
   useEffect(() => {
     if (!trimOverlayCanvasRef.current || !audioBuffer) return;
 
@@ -216,7 +281,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = Math.max(Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND), 1200);
+    const width = Math.max(Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND), 1600);
     const height = canvas.height;
     canvas.width = width;
 
@@ -225,12 +290,12 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const startPx = trimStartSec * PIXELS_PER_SECOND;
     const endPx = trimEndSec * PIXELS_PER_SECOND;
 
-    // Dark Cordel tint for trimmed-out zones
+    // Teinte sombre Cordel pour les zones rognées
     ctx.fillStyle = 'rgba(26, 26, 26, 0.55)';
     ctx.fillRect(0, 0, startPx, height);
     ctx.fillRect(endPx, 0, width - endPx, height);
 
-    // Trim Start line
+    // Ligne Trim Start (Vert)
     ctx.strokeStyle = '#2a5d4e';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
@@ -238,16 +303,18 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     ctx.lineTo(startPx, height);
     ctx.stroke();
 
-    // Trim End line
+    // Ligne Trim End (Rouge sombre)
     ctx.strokeStyle = '#8b2a1a';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(endPx, 0);
     ctx.lineTo(endPx, height);
     ctx.stroke();
-  }, [audioBuffer, trimStartSec, trimEndSec]);
 
-  // 3. Pre-listen (Tone.GrainPlayer surgical preview loop)
+    updateLiveTimingBadges(currentTotalWaveXRef.current);
+  }, [audioBuffer, trimStartSec, trimEndSec, updateLiveTimingBadges]);
+
+  // 3. Pré-écoute synchronisée avec la Roda (Formule unifiée)
   const stopLocalPreview = useCallback(() => {
     if (previewLoopTimeoutRef.current) {
       clearTimeout(previewLoopTimeoutRef.current);
@@ -270,13 +337,21 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const rawNudge = nudgeMsRef.current;
     const duration = Math.max(0.05, tEnd - tStart);
 
+    // Calcul exact de l'anacrouse basée sur la position actuelle de l'onde
+    const currentWaveX = currentTotalWaveXRef.current;
+    const t_downbeat = (temps1Px - currentWaveX) / PIXELS_PER_SECOND;
+    const anacrusisSec = Math.max(0, t_downbeat - tStart);
+
+    // Formule synchronisée : le déclenchement est calé sur Temps 1 (t_temps1)
+    // triggerDelay = t_temps1 - anacrusisSec + (nudgeMs / 1000)
+    const triggerDelay = t_temps1 - anacrusisSec + (rawNudge / 1000);
+
     const player = new Tone.Player(audioBuffer);
     player.volume.value = 0;
     player.toDestination();
 
-    const scheduledTriggerDelay = (rawNudge / 1000);
     let actualStartOffset = tStart;
-    let actualPlayDelay = scheduledTriggerDelay;
+    let actualPlayDelay = triggerDelay;
     let actualDuration = duration;
 
     if (actualPlayDelay < 0) {
@@ -303,7 +378,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     previewLoopTimeoutRef.current = setTimeout(() => {
       playPreviewIteration();
     }, loopDurationSec * 1000);
-  }, [audioBuffer, loopDurationSec, stopLocalPreview]);
+  }, [audioBuffer, loopDurationSec, stopLocalPreview, t_temps1, temps1Px]);
 
   const handleTogglePreview = async () => {
     if (isPlayingPreview) {
@@ -311,7 +386,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       stopLocalPreview();
       handleStop();
 
-      // 🛡️ Restauration de la boucle à la fermeture
+      // Restauration de la boucle à la fermeture
       if (savedLoopStateRef.current) {
         useSequencerStore.setState({
           isLooping: savedLoopStateRef.current.isLooping,
@@ -353,7 +428,6 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       });
 
       Tone.Transport.loop = true;
-      // Interdiction absolue de démarrer la lecture à 0:0:0 !
       Tone.Transport.position = `${mLoopStart}:0:0`;
 
       setIsPlayingPreview(true);
@@ -381,34 +455,82 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     };
   }, [stopLocalPreview, handleStop]);
 
-  // 4. Fine Nudge Slider (-300ms to +300ms) with 60 FPS DOM Manipulation (Zero Render Thrashing)
+  // 4. Drag & Drop robuste à 60 FPS (Directive 2 & Commandements 1, 2, 3)
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartBaseXRef.current = waveBaseXRef.current;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const deltaX = e.clientX - dragStartXRef.current;
+    const newBaseX = dragStartBaseXRef.current + deltaX;
+    waveBaseXRef.current = newBaseX;
+    const totalX = newBaseX + (nudgeMsRef.current / 1000) * PIXELS_PER_SECOND;
+    currentTotalWaveXRef.current = totalX;
+
+    // Zero Render Thrashing & Zero Layout Thrashing (Mutation GPU directe)
+    if (waveformContainerRef.current) {
+      waveformContainerRef.current.style.transform = `translate3d(${totalX}px, 0, 0)`;
+    }
+    updateLiveTimingBadges(totalX);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+      isDraggingRef.current = false;
+    }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+      isDraggingRef.current = false;
+    }
+  };
+
+  // 5. Fine Nudge Slider (-300ms to +300ms) with 60 FPS DOM Manipulation
   const handleNudgeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     nudgeMsRef.current = val;
 
-    // Zero Render Thrashing: Mutate transform and text directly
-    const shiftPx = (val / 1000) * PIXELS_PER_SECOND;
+    const totalX = waveBaseXRef.current + (val / 1000) * PIXELS_PER_SECOND;
+    currentTotalWaveXRef.current = totalX;
+
     if (waveformContainerRef.current) {
-      waveformContainerRef.current.style.transform = `translate3d(${shiftPx}px, 0, 0)`;
+      waveformContainerRef.current.style.transform = `translate3d(${totalX}px, 0, 0)`;
     }
     if (nudgeValueLabelRef.current) {
       nudgeValueLabelRef.current.textContent = `${val > 0 ? '+' : ''}${val.toFixed(0)} ms`;
     }
+    updateLiveTimingBadges(totalX);
   };
 
   const handleResetNudge = () => {
     nudgeMsRef.current = 0;
+    const totalX = waveBaseXRef.current;
+    currentTotalWaveXRef.current = totalX;
     if (waveformContainerRef.current) {
-      waveformContainerRef.current.style.transform = 'translate3d(0px, 0, 0)';
+      waveformContainerRef.current.style.transform = `translate3d(${totalX}px, 0, 0)`;
     }
     if (nudgeValueLabelRef.current) {
       nudgeValueLabelRef.current.textContent = '0 ms';
     }
     const input = document.getElementById('vocal-nudge-slider') as HTMLInputElement | null;
     if (input) input.value = '0';
+    updateLiveTimingBadges(totalX);
   };
 
-  // 5. Validation via OfflineAudioContext with 10ms/30ms anti-pop fades
+  // 6. Validation via OfflineAudioContext with 10ms/30ms anti-pop fades
   const handleValidate = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -437,8 +559,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
       const wavBlob = audioBufferToWav(cleanBuffer);
 
-      // Mathématique de l'anacrouse : dépassement à gauche du Temps 1
-      const anacrusisSec = Math.max(0, t_temps1 - trimStartSec);
+      // Calcul de l'anacrouse réelle basée sur la position de l'onde sous Temps 1
+      const currentWaveX = currentTotalWaveXRef.current;
+      const t_downbeat = (temps1Px - currentWaveX) / PIXELS_PER_SECOND;
+      const anacrusisSec = Math.max(0, t_downbeat - trimStartSec);
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
       const meta: VocalClipMeta = {
@@ -471,15 +595,23 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       <div className="relative border-4 border-[#1a1a1a] bg-[#e2d8be] rounded-sm overflow-hidden h-44 shadow-[4px_4px_0px_#1a1a1a]">
         
         {/* Fixed Header Ruler: TEMPS 1 / PREMIÈRE NOTE */}
-        <div className="h-8 bg-[#d7cbaf] border-b-2 border-[#1a1a1a] relative flex items-center px-2">
-          <span className="text-[10px] font-bold text-[#1a1a1a]/70 uppercase tracking-wider flex items-center gap-1">
+        <div className="h-8 bg-[#d7cbaf] border-b-2 border-[#1a1a1a] relative flex items-center justify-between px-3">
+          <div className="flex items-center gap-2">
             <Music className="w-3.5 h-3.5 text-[#8b2a1a]" />
-            Zone d'alignement audio (Pattern #{pattern.id} - "{pattern.name}")
-          </span>
+            <span className="text-[10px] font-bold text-[#1a1a1a]/80 uppercase tracking-wider hidden sm:inline">
+              Zone d'alignement ({pattern.name}) — Glisser l'onde (Drag) sur le Temps 1
+            </span>
+          </div>
 
-          {/* Zone markers left / right */}
-          <div className="absolute left-2 text-[9px] font-bold text-[#2a5d4e] uppercase flex items-center gap-1 pointer-events-none">
-            ← Anacrouse / Respiration (${initialMeasureIdx >= 1 ? `Mesure ${mPrev + 1}` : 'Pre-roll'})
+          {/* Badge Anacrouse en temps réel (Zero Render Thrashing DOM update) */}
+          <div className="flex items-center gap-2">
+            <span
+              ref={anacrusisBadgeRef}
+              className="px-2 py-0.5 bg-[#ece4d0] border border-[#1a1a1a] text-[10px] font-black uppercase font-mono tracking-wider shadow-[1px_1px_0px_#1a1a1a]"
+              style={{ color: '#2a5d4e' }}
+            >
+              Anacrouse : 0 ms (0.00 tps)
+            </span>
           </div>
 
           {/* TEMPS 1 Fixed Guide Line Badge */}
@@ -491,39 +623,54 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
               TEMPS 1 / CHANT (MESURE ${initialMeasureIdx + 1})
             </div>
           </div>
-
-          <div style={{ left: `${temps1Px + 10}px` }} className="absolute text-[9px] font-bold text-[#8b2a1a] uppercase flex items-center gap-1 pointer-events-none">
-            Chant principal (Mesure ${initialMeasureIdx + 1}) →
-          </div>
         </div>
 
-        {/* Scrollable Waveform Viewport */}
-        <div className="relative h-36 overflow-x-auto overflow-y-hidden">
-          {/* Fixed Vertical TEMPS 1 Guide Line (Ligne rouge vive 2px) */}
+        {/* Scrollable Waveform Viewport avec Drag & Drop robuste (touch-action: none + setPointerCapture) */}
+        <div 
+          className="relative h-36 overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing select-none"
+          style={{ touchAction: 'none' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        >
+          {/* Spacer transparent pour autoriser le défilement horizontal sur les fichiers longs */}
           <div
-            style={{ left: `${temps1Px}px` }}
-            className="absolute top-0 bottom-0 w-[2px] bg-[#dc2626] z-20 pointer-events-none shadow-[0_0_10px_rgba(220,38,38,0.9)]"
+            style={{
+              width: `${Math.max(temps1Px + Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND) + 400, 1600)}px`,
+              height: '1px',
+              pointerEvents: 'none',
+            }}
           />
 
-          {/* Floating Waveform Canvas Layer (Translates with Nudge via GPU transform) */}
+          {/* Fixed Vertical TEMPS 1 Guide Line (Ligne rouge vive 2.5px) */}
+          <div
+            style={{ left: `${temps1Px}px` }}
+            className="absolute top-0 bottom-0 w-[2.5px] bg-[#dc2626] z-20 pointer-events-none shadow-[0_0_12px_rgba(220,38,38,0.9)]"
+          />
+
+          {/* Floating Waveform Canvas Layer (Translates with Drag + Nudge via GPU transform) */}
           <div
             ref={waveformContainerRef}
-            style={{ transform: `translate3d(${(initialNudgeMs / 1000) * PIXELS_PER_SECOND}px, 0, 0)` }}
-            className="absolute top-0 bottom-0 left-0 will-change-transform z-0"
+            style={{
+              transform: `translate3d(${currentTotalWaveXRef.current}px, 0, 0)`,
+              willChange: 'transform',
+            }}
+            className="absolute top-0 bottom-0 left-0 z-0 pointer-events-none"
           >
             <canvas
               ref={waveformCanvasRef}
               className="h-full block pointer-events-none"
               height={144}
             />
-          </div>
 
-          {/* Trim Dark Shading Layer */}
-          <canvas
-            ref={trimOverlayCanvasRef}
-            className="absolute top-0 bottom-0 left-0 h-full pointer-events-none z-10"
-            height={144}
-          />
+            {/* Trim Overlay Canvas solidaire de l'audioBuffer */}
+            <canvas
+              ref={trimOverlayCanvasRef}
+              className="absolute top-0 bottom-0 left-0 h-full pointer-events-none z-10"
+              height={144}
+            />
+          </div>
         </div>
       </div>
 
@@ -578,15 +725,16 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         </div>
       </div>
 
-      {/* Fine Nudge Slider (-300ms to +300ms) */}
+      {/* Fine Nudge Slider (-300ms to +300ms) with Drag Hint */}
       <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-4 rounded-sm flex flex-col gap-3 shadow-[2px_2px_0px_#1a1a1a]">
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-[#8b2a1a] uppercase">
-              Calage Fin de Latence (Nudge -300ms à +300ms)
+            <span className="text-xs font-bold text-[#8b2a1a] uppercase flex items-center gap-1.5">
+              <MoveHorizontal className="w-4 h-4 text-[#8b2a1a]" />
+              Calage Fin de Latence (Nudge -300ms à +300ms) & Déplacement
             </span>
             <span className="text-[10px] text-[#1a1a1a]/60">
-              Glissement à 60 FPS sans re-render pour caler l'attaque au millième de seconde.
+              Glissez directement l'onde sur le visualiseur ou affinez au millième de seconde avec le curseur.
             </span>
           </div>
 
