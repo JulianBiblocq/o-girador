@@ -53,12 +53,16 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const trackMeta = tracksMeta.find(t => t.id === trackId);
   const trackInst = trackMeta ? instrumentsConfig[trackMeta.instrumentIdx] : null;
 
+  const instrumentIdx = trackMeta?.instrumentIdx ?? 0;
+  const isMute = trackMeta?.isMute ?? false;
+  const isSolo = trackMeta?.isSolo ?? false;
+  const isMaster = tracksMeta.some(t => String(t.linkedToTrackId) === String(trackId));
+  const isToada = Boolean(trackMeta && isToadaBus(trackMeta as any));
+
   const [isEditingName, setIsEditingName] = React.useState(false);
   const [nameVal, setNameVal] = React.useState(
     trackMeta?.customName || (trackMeta ? useNomenclatureStore.getState().getInstrumentLabel(trackMeta as any) : '')
   );
-
-
 
   React.useEffect(() => {
     setNameVal(trackMeta?.customName || (trackInst ? trackInst.name : ''));
@@ -77,14 +81,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       handleRenameSubmit();
     } else if (e.key === 'Escape') {
       setIsEditingName(false);
-      setNameVal(trackMeta?.customName || (inst ? inst.name : ''));
+      setNameVal(trackMeta?.customName || (trackInst ? trackInst.name : ''));
     }
   };
-
-  const instrumentIdx = trackMeta?.instrumentIdx ?? 0;
-  const isMute = trackMeta?.isMute ?? false;
-  const isSolo = trackMeta?.isSolo ?? false;
-  const isMaster = tracksMeta.some(t => String(t.linkedToTrackId) === String(trackId));
 
   // Subscribe to full track only in Macro mode (where compact preview must update on step changes)
   const fullTrack = useSequencerStore(state => {
@@ -96,7 +95,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   // Stringified track structure to check for structural changes without subscribing to activeSteps/lyrics/etc.
   const trackStructureJson = useSequencerStore(state => {
-    if (trackData && isToadaBus(trackData as any)) {
+    if (isToada) {
       const pux = state.tracks.find(curr => instrumentsConfig[curr.instrumentIdx]?.id === 'puxador');
       const coro = state.tracks.find(curr => instrumentsConfig[curr.instrumentIdx]?.id === 'coro');
       return JSON.stringify({
@@ -207,7 +206,6 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const isLinkedSlave = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster);
   const isLinkFolder = Boolean(trackMeta?.isLinkFolder);
   const isLinkMaster = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster);
-  const isToada = isToadaBus(trackData);
   const isToadaChildTrack = Boolean(trackMeta && isToadaChild(trackMeta as any, tracksMeta as any));
   const isChild = isLinkedSlave || isToadaChildTrack;
 
