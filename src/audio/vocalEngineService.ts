@@ -217,6 +217,7 @@ export const vocalEngineService = {
         entry.mainPlayer.buffer.set(audioBuffer);
         entry.currentBuffer = audioBuffer;
       }
+      entry.mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
       return entry;
     }
 
@@ -225,6 +226,7 @@ export const vocalEngineService = {
     mainPlayer.grainSize = 0.09;
     mainPlayer.overlap = 0.04;
     mainPlayer.volume.value = 0; // Unity gain
+    mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
 
     const mainGain = new Tone.Gain(1);
     mainPlayer.connect(mainGain);
@@ -423,10 +425,12 @@ export const vocalEngineService = {
     const mainPlayer = activeEntry.mainPlayer;
     const mainGain = activeEntry.mainGain;
 
-    // 1. Time-stretching calculation
-    const baseBpm = clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
-    const playbackRate = effectiveBpm / baseBpm;
+    // 1. Time-stretching calculation : verrouillé strictement à 1.0 au BPM nominal
+    const baseBpm = clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm || effectiveBpm;
+    const targetRate = effectiveBpm / (baseBpm || effectiveBpm);
+    const playbackRate = (Number.isFinite(targetRate) && targetRate > 0) ? targetRate : 1.0;
     mainPlayer.playbackRate = playbackRate;
+    mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE : forcé systématiquement avant chaque déclenchement
 
     // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
     const beatDurationSec = 60 / effectiveBpm;
@@ -437,6 +441,7 @@ export const vocalEngineService = {
     // Calcul de l'instant de déclenchement sur la timeline
     const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
     const bufferDuration = audioBuffer.duration;
+    const playDuration = bufferDuration / playbackRate;
 
     // Stop previous playback on this player
     try {
@@ -449,17 +454,15 @@ export const vocalEngineService = {
     // 1. L'offset interne de lecture est strictement 0 par défaut :
     //    Le buffer stocké étant déjà physiquement rogné, on ne saute aucun échantillon (offset = 0).
     // 2. Le calage musical est uniquement géré par le moment de déclenchement (triggerTime).
-    // 3. Cas limite de l'anacrouse sur la mesure 0 absolue (triggerTime < 0) :
+    // 3. Durée de lecture : playDuration (durée physique intégrale du buffer découpé) pour ne JAMAIS tronquer la résonance du buffer
+    // 4. Cas limite de l'anacrouse sur la mesure 0 absolue (triggerTime < 0) :
     //    Uniquement si triggerTime < 0 (impossible de planifier dans le passé) :
-    //    - Déclencher à actualTime (measureStartTime ou 0).
+    //    - Déclencher à actualTime (0).
     //    - Appliquer exceptionnellement l'offset interne compensé :
     //      internalBufferOffset = (-triggerTime) * playbackRate
-    // 🛡️ SÉCURITÉ MESURE 0 :
-    // Si triggerTime < 0 (cas d'une anacrouse sur la toute première mesure du morceau où measureStartTime = 0),
-    // démarrer le lecteur à T = 0 avec un décalage interne dans le buffer : player.start(0, Math.abs(triggerTime) * playbackRate)
     if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
-      mainPlayer.start(triggerTime, 0);
+      mainPlayer.start(triggerTime, 0, playDuration);
     } else {
       const internalBufferOffset = Math.abs(triggerTime) * playbackRate;
       const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
@@ -467,7 +470,7 @@ export const vocalEngineService = {
         return null;
       }
       mainGain.gain.setValueAtTime(baseGainLinear, 0);
-      mainPlayer.start(0, internalBufferOffset);
+      mainPlayer.start(0, internalBufferOffset, remainingDuration / playbackRate);
     }
 
     if (onStop) {

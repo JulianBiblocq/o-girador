@@ -820,9 +820,16 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSec);
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
+      // Découplage absolu : baseBpm est TOUJOURS le BPM musical réel du projet/mesure
+      // Interdiction formelle de déduire le baseBpm de la durée physique du buffer découpé
+      const projectBpm = useSequencerStore.getState().bpm || anchorBpm || bpm || 100;
+      const effectiveBaseBpm = (typeof projectBpm === 'number' && projectBpm > 20 && Number.isFinite(projectBpm))
+        ? projectBpm
+        : 100;
+
       const meta: VocalClipMeta = {
         patternId: pattern.id,
-        baseBpm: anchorBpm,
+        baseBpm: effectiveBaseBpm,
         trimStartSec: 0,
         trimEndSec: cleanBuffer.duration,
         nudgeMs: nudgeMsRef.current,

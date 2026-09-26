@@ -1729,17 +1729,8 @@ export function useAudioSync({
           // Le bus Toada est un dossier conteneur passif : il ne doit JAMAIS déclencher de sons de synthétiseur ni de samples.
           if (track.isBusFolder || track.id === 999901 || String(track.id) === '999901') continue;
 
-          // Playback of vocal patterns
-          let activePattern: Pattern | null = null;
           const patterns = track.patterns;
           const numPatterns = patterns.length;
-          for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-            if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
-              activePattern = patterns[pIdx];
-              break;
-            }
-          }
-          if (!activePattern) continue;
 
           const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
           let canPlay = false;
@@ -1760,6 +1751,120 @@ export function useAudioSync({
               }
             }
             canPlay = hasSolo ? track.isSolo : !track.isMute;
+          }
+
+          // 🛡️ ÉTANCHÉITÉ TRACKID & ANTICIPATION SUR PISTE SILENCIEUSE :
+          // Résolution de nextPattern ciblant STRICTEMENT track.patterns de CETTE piste (isolant Puxador et Coro).
+          // Placée AVANT if (!activePattern) pour permettre l'anticipation depuis une mesure muette (ex: Coro muet en M0 avant entrée en M1).
+          const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
+          const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
+
+          if (canPlay && nextPattern && stepIdx === 0) {
+            const nextSafeId = Number(nextPattern.id);
+            const nextVocalKey = `${track.id}_${nextSafeId}`;
+            const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextVocalKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
+            const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
+            const nextClip = nextPattern.vocalClip;
+            // Règle impérative B : Déclenchement anticipé UNIQUEMENT si anacrouse réelle > 0.02s
+            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
+
+            if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextVocalKey)) {
+              const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
+              const voiceInst = instrumentsConfig[track.instrumentIdx];
+              const isCoroTrack = voiceInst?.id === 'coro';
+              const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
+              const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+              const nextBpm = useSequencerStore.getState().measureBpms[nextMeasureLocal] || useSequencerStore.getState().bpm;
+              const currentTimeSig = measureTimeSigsRef.current[currentMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
+              const currentBeats = getBeatsPerMeasure(currentTimeSig);
+              const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+              const currentMeasureDurationSec = (currentBeats * 60) / currentMeasureBpm;
+
+              const handle = vocalEngineService.playSequencerVocal(
+                track.id,
+                nextSafeId,
+                time + currentMeasureDurationSec,
+                nextBpm,
+                outputNode,
+                vocalVol,
+                isCoroTrack,
+                () => {
+                  activeSequencerVocalsRef.current.delete(nextVocalKey);
+                }
+              );
+              if (handle) {
+                activeSequencerVocalsRef.current.set(nextVocalKey, handle);
+              }
+            }
+          }
+
+          // Playback of vocal patterns : recherche du motif assigné sur la mesure courante
+          let activePattern: Pattern | null = null;
+          for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+            if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
+              activePattern = patterns[pIdx];
+              break;
+            }
+          }
+
+          if (!activePattern) {
+            // Si la mesure courante est muette sur cette piste, traiter les éventuelles syllabes d'anacrouse de nextPattern
+            if (canPlay && nextPattern && nextPattern.preRollActiveSteps) {
+              const stepCount = nextPattern.steps || 16;
+              if (stepIdx % (currentTicks / stepCount) === 0) {
+                const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
+                const preRollState = nextPattern.preRollActiveSteps[cellIdx];
+                const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
+
+                if (isPreActive) {
+                  const triggerTime = swingTime;
+                  const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
+                  const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+
+                  // 1. Émission visuelle obligatoire dans tous les cas
+                  if (!isDocHidden) {
+                    const stateCode = typeof preRollState === 'number' ? preRollState : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
+                    pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
+                  }
+
+                  // 2. Déclenchement synthèse vocale SEULEMENT si aucun sample audio vocal
+                  const anacrusisSafeId = Number(nextPattern.id);
+                  const anacrusisVocalKey = `${track.id}_${anacrusisSafeId}`;
+                  const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisVocalKey] || useAudioStore.getState().vocalBuffers[anacrusisSafeId];
+                  const anacrusisHasSample = Boolean(anacrusisVocalBuf && nextPattern.vocalMode === 'micro');
+
+                  if (!anacrusisHasSample && trackVolPct > 0) {
+                    const preNote = nextPattern.preRollNotes?.[cellIdx];
+                    const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
+                    if (noteVal) {
+                      const decayVal = nextPattern.preRollDecays?.[cellIdx] ?? 10;
+                      const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
+                      const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
+                      const singleStepSec = (currentTicks / stepCount) * tick96nSec;
+                      const durationSec = Math.max(0.05, numDecaySteps * singleStepSec);
+
+                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                      const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                      let finalNoteVal = noteVal;
+                      if (transposeSteps !== 0) {
+                        try {
+                          finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                        } catch (_) {}
+                      }
+
+                      const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
+                      if (audioEngine) {
+                        audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity);
+                      } else {
+                        const noteFreq = noteToFrequency(finalNoteVal);
+                        playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            continue;
           }
 
           const safeId = Number(activePattern.id);
@@ -1800,48 +1905,6 @@ export function useAudioSync({
             );
             if (handle) {
               activeSequencerVocalsRef.current.set(vocalKey, handle);
-            }
-          }
-
-          // Déclenchement anticipé si le motif de la mesure suivante a une anacrouse réelle (Directive 2.B)
-          const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
-          const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
-          if (nextPattern && stepIdx === 0) {
-            const nextSafeId = Number(nextPattern.id);
-            const nextVocalKey = `${track.id}_${nextSafeId}`;
-            const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextVocalKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
-            const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
-            const nextClip = nextPattern.vocalClip;
-            // Règle impérative B : Déclenchement anticipé UNIQUEMENT si anacrouse réelle > 0.02s
-            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
-
-            if (nextHasVocal && hasEarlyStart && !activeSequencerVocalsRef.current.has(nextVocalKey)) {
-              const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
-              const voiceInst = instrumentsConfig[track.instrumentIdx];
-              const isCoroTrack = voiceInst?.id === 'coro';
-              const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
-              const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
-              const nextBpm = useSequencerStore.getState().measureBpms[nextMeasureLocal] || useSequencerStore.getState().bpm;
-              const currentTimeSig = measureTimeSigsRef.current[currentMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
-              const currentBeats = getBeatsPerMeasure(currentTimeSig);
-              const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
-              const currentMeasureDurationSec = (currentBeats * 60) / currentMeasureBpm;
-
-              const handle = vocalEngineService.playSequencerVocal(
-                track.id,
-                nextSafeId,
-                time + currentMeasureDurationSec,
-                nextBpm,
-                outputNode,
-                vocalVol,
-                isCoroTrack,
-                () => {
-                  activeSequencerVocalsRef.current.delete(nextVocalKey);
-                }
-              );
-              if (handle) {
-                activeSequencerVocalsRef.current.set(nextVocalKey, handle);
-              }
             }
           }
 
@@ -1927,8 +1990,6 @@ export function useAudioSync({
               }
             } else {
               // Détection d'un pas d'anacrouse sur pas libre
-              const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
-              const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
               const isSolo = soloPatternPlayIdRef.current !== null && soloPatternPlayIdRef.current !== undefined;
               const targetAnacrusisPat = isSolo ? activePattern : (nextPattern || null);
 
