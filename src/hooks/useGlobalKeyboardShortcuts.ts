@@ -93,6 +93,7 @@ export function useGlobalKeyboardShortcuts() {
           useSequencerSettingsStore.getState().setIsSettingsOpen(false);
           return;
         }
+        useSequencerStore.getState().clearTimelineSelection();
         window.dispatchEvent(new CustomEvent('close-popups'));
         return;
       }
@@ -155,18 +156,36 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // 7. Ctrl+D / Cmd+D : Dupliquer la mesure active vers m+1
+      // 7. Ctrl+D / Cmd+D : Dupliquer la sélection multiple OU la mesure active vers m+1
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        const activeCell = useSequencerStore.getState().activeTimelineCell;
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isInput
+        ) {
+          return;
+        }
+
+        const store = useSequencerStore.getState();
+        if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          store.duplicateSelectedCells();
+          return;
+        }
+
+        const activeCell = store.activeTimelineCell;
         if (activeCell) {
           e.preventDefault();
           e.stopPropagation();
-          useSequencerStore.getState().duplicateMeasurePattern(
+          store.duplicateMeasurePattern(
             activeCell.trackId,
             activeCell.measureIdx,
             activeCell.measureIdx + 1
           );
-          useSequencerStore.getState().setActiveTimelineCell({
+          store.setActiveTimelineCell({
             trackId: activeCell.trackId,
             measureIdx: activeCell.measureIdx + 1,
           });

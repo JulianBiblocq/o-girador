@@ -103,12 +103,21 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   const timeSigStr = useSequencerStore(state => state.measureTimeSigs[mIdx] || state.timeSig || '4/4');
   const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
 
-  const isSelectedCell = useSequencerStore(
+  const isMultiSelected = useSequencerStore(
     React.useCallback(
-      (state) => state.activeTimelineCell?.trackId === trackId && state.activeTimelineCell?.measureIdx === mIdx,
+      (state) => state.selectedTimelineCells.some(c => c.trackId === trackId && c.mIdx === mIdx),
       [trackId, mIdx]
     )
   );
+
+  const isActiveCell = useSequencerStore(
+    React.useCallback(
+      (state) => state.selectedTimelineCells.length === 0 && state.activeTimelineCell?.trackId === trackId && state.activeTimelineCell?.measureIdx === mIdx,
+      [trackId, mIdx]
+    )
+  );
+
+  const isSelectedCell = isMultiSelected || isActiveCell;
 
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -168,7 +177,16 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       isLongPressTriggeredRef.current = false;
       return;
     }
-    useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+
+    const isMultiMode = useSequencerStore.getState().isMultiSelectMode;
+    if (e.shiftKey) {
+      useSequencerStore.getState().selectTimelineCell(trackId, mIdx, 'range');
+    } else if (e.ctrlKey || e.metaKey || isMultiMode) {
+      useSequencerStore.getState().selectTimelineCell(trackId, mIdx, 'toggle');
+    } else {
+      useSequencerStore.getState().selectTimelineCell(trackId, mIdx, 'single');
+    }
+
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     onMeasureClick(mIdx, steps, clickX);
@@ -190,9 +208,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   return (
     <div
       className={`h-full cursor-pointer border-r shrink-0 select-none relative transition-all duration-100 ${
-        isSelectedCell
-          ? 'ring-2 ring-inset ring-[#8b2a1a] bg-[#8b2a1a]/[0.08] shadow-[inset_0_0_0_1px_#8b2a1a,0_0_8px_rgba(139,42,26,0.3)] z-30'
-          : ''
+        isMultiSelected
+          ? 'ring-2 ring-inset ring-[#8b2a1a] shadow-[inset_0_0_0_2px_#f4ecd8] bg-[#8b2a1a]/[0.08] z-30'
+          : isActiveCell
+            ? 'ring-2 ring-inset ring-[#8b2a1a] bg-[#8b2a1a]/[0.08] shadow-[inset_0_0_0_1px_#8b2a1a,0_0_8px_rgba(139,42,26,0.3)] z-30'
+            : ''
       } ${
         (mIdx + 1) % 4 === 0
           ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
@@ -215,14 +235,21 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       }}
       onPointerDown={(e) => {
         if (e.button === 0 && !isPanningActive) {
-          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+          const isMultiMode = useSequencerStore.getState().isMultiSelectMode;
+          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !isMultiMode) {
+            useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+          }
         }
       }}
       onClick={handleCellClick}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+        const selected = useSequencerStore.getState().selectedTimelineCells;
+        const isAlreadySelected = selected.some(c => c.trackId === trackId && c.mIdx === mIdx);
+        if (!isAlreadySelected) {
+          useSequencerStore.getState().selectTimelineCell(trackId, mIdx, 'single');
+        }
         useSequencerStore.getState().openTimelineContextMenu({
           x: e.clientX,
           y: e.clientY,

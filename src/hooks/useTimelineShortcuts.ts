@@ -80,7 +80,10 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
           return;
         }
 
-        // 3. Fermer les sélecteurs contextuels / popups
+        // 3. Vider la sélection multiple sur la timeline
+        useSequencerStore.getState().clearTimelineSelection();
+
+        // 4. Fermer les sélecteurs contextuels / popups
         window.dispatchEvent(new CustomEvent('close-popups'));
         return;
       }
@@ -149,18 +152,36 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         return;
       }
 
-      // 7. Ctrl+D / Cmd+D : Dupliquer le motif de la mesure active vers la mesure suivante (m+1)
+      // 7. Ctrl+D / Cmd+D : Dupliquer la sélection multiple OU le motif de la mesure active vers la mesure suivante (m+1)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        const activeCell = useSequencerStore.getState().activeTimelineCell;
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        const store = useSequencerStore.getState();
+        if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          store.duplicateSelectedCells();
+          return;
+        }
+
+        const activeCell = store.activeTimelineCell;
         if (activeCell) {
           e.preventDefault();
           e.stopPropagation();
-          useSequencerStore.getState().duplicateMeasurePattern(
+          store.duplicateMeasurePattern(
             activeCell.trackId,
             activeCell.measureIdx,
             activeCell.measureIdx + 1
           );
-          useSequencerStore.getState().setActiveTimelineCell({
+          store.setActiveTimelineCell({
             trackId: activeCell.trackId,
             measureIdx: activeCell.measureIdx + 1,
           });

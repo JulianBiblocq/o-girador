@@ -3683,6 +3683,9 @@ export interface UISlice {
     trackId: number;
     measureIdx: number;
   } | null;
+  selectedTimelineCells: Array<{ trackId: number; mIdx: number }>;
+  selectionAnchorCell: { trackId: number; mIdx: number } | null;
+  isMultiSelectMode: boolean;
   openTimelineContextMenu: (data: {
     x: number;
     y: number;
@@ -3692,6 +3695,10 @@ export interface UISlice {
   }) => void;
   closeTimelineContextMenu: () => void;
   setActiveTimelineCell: (cell: { trackId: number; measureIdx: number } | null) => void;
+  selectTimelineCell: (trackId: number, mIdx: number, mode: 'single' | 'toggle' | 'range') => void;
+  clearTimelineSelection: () => void;
+  toggleMultiSelectMode: () => void;
+  duplicateSelectedCells: () => void;
 
   mixerBankOffset: number;
   setMixerBankOffset: (offset: number) => void;
@@ -3720,6 +3727,281 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
 
   timelineContextMenu: null,
   activeTimelineCell: null,
+  selectedTimelineCells: [],
+  selectionAnchorCell: null,
+  isMultiSelectMode: false,
+  toggleMultiSelectMode: () => set((state) => ({ isMultiSelectMode: !state.isMultiSelectMode })),
+  clearTimelineSelection: () => set({ selectedTimelineCells: [], selectionAnchorCell: null }),
+  selectTimelineCell: (trackId, mIdx, mode) => {
+    set((state) => {
+      if (mode === 'single') {
+        return {
+          selectedTimelineCells: [{ trackId, mIdx }],
+          selectionAnchorCell: { trackId, mIdx },
+          activeTimelineCell: { trackId, measureIdx: mIdx }
+        };
+      }
+      if (mode === 'toggle') {
+        const exists = state.selectedTimelineCells.some(c => c.trackId === trackId && c.mIdx === mIdx);
+        const next = exists
+          ? state.selectedTimelineCells.filter(c => !(c.trackId === trackId && c.mIdx === mIdx))
+          : [...state.selectedTimelineCells, { trackId, mIdx }];
+        return {
+          selectedTimelineCells: next,
+          selectionAnchorCell: { trackId, mIdx },
+          activeTimelineCell: { trackId, measureIdx: mIdx }
+        };
+      }
+      if (mode === 'range') {
+        const anchor = state.selectionAnchorCell || { trackId, mIdx };
+        const startM = Math.min(anchor.mIdx, mIdx);
+        const endM = Math.max(anchor.mIdx, mIdx);
+
+        // Trouver la plage de pistes entre l'ancre et la piste courante
+        const tracks = state.tracks;
+        const anchorTrackIdx = tracks.findIndex(t => t.id === anchor.trackId);
+        const currentTrackIdx = tracks.findIndex(t => t.id === trackId);
+
+        const rangeCells: Array<{ trackId: number; mIdx: number }> = [];
+        if (anchorTrackIdx !== -1 && currentTrackIdx !== -1) {
+          const minT = Math.min(anchorTrackIdx, currentTrackIdx);
+          const maxT = Math.max(anchorTrackIdx, currentTrackIdx);
+          for (let t = minT; t <= maxT; t++) {
+            const trkId = tracks[t].id;
+            for (let m = startM; m <= endM; m++) {
+              rangeCells.push({ trackId: trkId, mIdx: m });
+            }
+          }
+        } else {
+          for (let m = startM; m <= endM; m++) {
+            rangeCells.push({ trackId, mIdx: m });
+          }
+        }
+
+        return {
+          selectedTimelineCells: rangeCells,
+          activeTimelineCell: { trackId, measureIdx: mIdx }
+        };
+      }
+      return state;
+    });
+  },
+  duplicateSelectedCells: () => {
+    const state = get();
+    const cells = state.selectedTimelineCells.length > 0
+      ? state.selectedTimelineCells
+      : (state.activeTimelineCell ? [{ trackId: state.activeTimelineCell.trackId, mIdx: state.activeTimelineCell.measureIdx }] : []);
+
+    if (cells.length === 0) return;
+
+    const mIndices = cells.map(c => c.mIdx);
+    const mMin = Math.min(...mIndices);
+    const mMax = Math.max(...mIndices);
+    const L = mMax - mMin + 1;
+    const maxTargetIdx = mMax + L;
+
+    if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
+      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      return;
+    }
+
+    // 🛡️ Atomicité absolue de l'Undo : un seul appel avant toute mutation
+    get().pushUndoState();
+
+    set((curr) => {
+      let nextTotal = curr.totalMeasures;
+      let nextTracks = [...curr.tracks];
+      let nextTimeSigs = [...curr.measureTimeSigs];
+      let nextBpms = [...curr.measureBpms];
+      let nextBpmTransitions = [...curr.measureBpmTransitions];
+      let nextVols = [...curr.measureVols];
+      let nextVolTransitions = [...curr.measureVolTransitions];
+      let nextSignals = [...curr.measureSignals];
+
+      if (maxTargetIdx >= nextTotal) {
+        nextTotal = maxTargetIdx + 1;
+        const expandArray = <T>(arr: T[], fillValue: T): T[] => {
+          const next = [...arr];
+          while (next.length < nextTotal) next.push(fillValue);
+          return next;
+        };
+        nextTimeSigs = expandArray(nextTimeSigs, curr.timeSig);
+        nextBpms = expandArray(nextBpms, curr.bpm);
+        nextBpmTransitions = expandArray(nextBpmTransitions, 'immediate');
+        nextVols = expandArray(nextVols, 100);
+        nextVolTransitions = expandArray(nextVolTransitions, 'immediate');
+        nextSignals = expandArray(nextSignals, null);
+        nextTracks = nextTracks.map(t => ({
+          ...t,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+          measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+          measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
+          patterns: t.patterns.map(p => ({
+            ...p,
+            measureAssignments: expandArray(p.measureAssignments || [], false),
+            measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined
+          }))
+        }));
+      }
+
+      // Trier les cellules par mIdx croissant
+      const sortedCells = [...cells].sort((a, b) => a.mIdx - b.mIdx);
+
+      // Deep clone des pistes pour modifications en place
+      const updatedTracks = nextTracks.map(t => ({
+        ...t,
+        patternOverrides: t.patternOverrides ? { ...t.patternOverrides } : undefined,
+        measureVols: t.measureVols ? [...t.measureVols] : undefined,
+        measureVolTransitions: t.measureVolTransitions ? [...t.measureVolTransitions] : undefined,
+        measurePans: t.measurePans ? [...t.measurePans] : undefined,
+        measurePanTransitions: t.measurePanTransitions ? [...t.measurePanTransitions] : undefined,
+        measureReverbSends: t.measureReverbSends ? [...t.measureReverbSends] : undefined,
+        measureReverbTransitions: t.measureReverbTransitions ? [...t.measureReverbTransitions] : undefined,
+        patterns: t.patterns.map(p => ({
+          ...p,
+          measureAssignments: [...p.measureAssignments],
+          measureAllowVariations: p.measureAllowVariations ? [...p.measureAllowVariations] : undefined,
+        }))
+      }));
+
+      for (const cell of sortedCells) {
+        const { trackId, mIdx: srcIdx } = cell;
+        const targetIdx = srcIdx + L;
+
+        const clickedTrack = updatedTracks.find(t => t.id === trackId);
+        if (!clickedTrack) continue;
+
+        const isLinkedSlave = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
+        const isLinkMaster = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
+
+        if (isLinkedSlave) {
+          const srcOverride = clickedTrack.patternOverrides?.[srcIdx];
+          const overrides = { ...(clickedTrack.patternOverrides || {}) };
+          if (srcOverride === undefined) {
+            delete overrides[targetIdx];
+          } else {
+            overrides[targetIdx] = srcOverride;
+          }
+          clickedTrack.patternOverrides = overrides;
+          continue;
+        }
+
+        let targetTrackId = trackId;
+        let sourceOwnerTrack = clickedTrack;
+        if (isLinkMaster && clickedTrack.linkedToTrackId) {
+          targetTrackId = Number(clickedTrack.linkedToTrackId);
+          const owner = updatedTracks.find(t => t.id === targetTrackId);
+          if (owner) sourceOwnerTrack = owner;
+        }
+
+        const isToadaTrackId = isToadaBus(clickedTrack);
+        const puxTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+        const coroTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+        const isVoiceToadaAssign = isToadaTrackId || 
+          (puxTrack && targetTrackId === puxTrack.id) || 
+          (coroTrack && targetTrackId === coroTrack.id);
+
+        let activePatternId: number | null = null;
+        let allowVarVal: boolean | undefined = undefined;
+        const activePat = sourceOwnerTrack.patterns.find(p => p.measureAssignments?.[srcIdx]);
+        if (activePat) {
+          activePatternId = activePat.id;
+          allowVarVal = activePat.measureAllowVariations?.[srcIdx];
+        }
+
+        if (isVoiceToadaAssign && (puxTrack || coroTrack)) {
+          if (puxTrack) {
+            puxTrack.patterns.forEach(p => {
+              while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+              p.measureAssignments[targetIdx] = (puxTrack.id === targetTrackId && p.id === activePatternId);
+              const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+              if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                while (nextVariations.length < nextTotal) nextVariations.push(true);
+                nextVariations[targetIdx] = allowVarVal;
+              }
+              p.measureAllowVariations = nextVariations;
+            });
+          }
+          if (coroTrack) {
+            coroTrack.patterns.forEach(p => {
+              while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+              p.measureAssignments[targetIdx] = (coroTrack.id === targetTrackId && p.id === activePatternId);
+              const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+              if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                while (nextVariations.length < nextTotal) nextVariations.push(true);
+                nextVariations[targetIdx] = allowVarVal;
+              }
+              p.measureAllowVariations = nextVariations;
+            });
+          }
+        } else {
+          const destTrack = updatedTracks.find(t => t.id === targetTrackId);
+          if (destTrack) {
+            if (destTrack.measureVols) {
+              destTrack.measureVols[targetIdx] = destTrack.measureVols[srcIdx] !== undefined
+                ? destTrack.measureVols[srcIdx]
+                : (destTrack.volumeVal ?? 100);
+            }
+            if (destTrack.measureVolTransitions) {
+              destTrack.measureVolTransitions[targetIdx] = destTrack.measureVolTransitions[srcIdx] || 'immediate';
+            }
+            if (destTrack.measurePans) {
+              destTrack.measurePans[targetIdx] = destTrack.measurePans[srcIdx] !== undefined
+                ? destTrack.measurePans[srcIdx]
+                : (destTrack.panVal ?? destTrack.pan ?? 0);
+            }
+            if (destTrack.measurePanTransitions) {
+              destTrack.measurePanTransitions[targetIdx] = destTrack.measurePanTransitions[srcIdx] || 'immediate';
+            }
+            if (destTrack.measureReverbSends) {
+              destTrack.measureReverbSends[targetIdx] = destTrack.measureReverbSends[srcIdx] !== undefined
+                ? destTrack.measureReverbSends[srcIdx]
+                : (destTrack.fxSends?.reverb ?? destTrack.reverbVal ?? 0);
+            }
+            if (destTrack.measureReverbTransitions) {
+              destTrack.measureReverbTransitions[targetIdx] = destTrack.measureReverbTransitions[srcIdx] || 'immediate';
+            }
+
+            destTrack.patterns.forEach(p => {
+              while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
+              p.measureAssignments[targetIdx] = (p.id === activePatternId);
+              const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+              if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                while (nextVariations.length < nextTotal) nextVariations.push(true);
+                nextVariations[targetIdx] = allowVarVal;
+              }
+              p.measureAllowVariations = nextVariations;
+            });
+          }
+        }
+      }
+
+      // 🔄 Chaînage dynamique de la sélection : m -> m + L
+      const nextSelectedCells = cells.map(c => ({ trackId: c.trackId, mIdx: c.mIdx + L }));
+      const newActiveCell = nextSelectedCells[0]
+        ? { trackId: nextSelectedCells[0].trackId, measureIdx: nextSelectedCells[0].mIdx }
+        : curr.activeTimelineCell;
+
+      return {
+        totalMeasures: nextTotal,
+        measureTimeSigs: nextTimeSigs,
+        measureBpms: nextBpms,
+        measureBpmTransitions: nextBpmTransitions,
+        measureVols: nextVols,
+        measureVolTransitions: nextVolTransitions,
+        measureSignals: nextSignals,
+        tracks: updatedTracks,
+        selectedTimelineCells: nextSelectedCells,
+        selectionAnchorCell: nextSelectedCells[0] || null,
+        activeTimelineCell: newActiveCell,
+        tracksVersion: curr.tracksVersion + 1
+      };
+    });
+  },
+
   openTimelineContextMenu: (data) => set({ timelineContextMenu: data }),
   closeTimelineContextMenu: () => set({ timelineContextMenu: null }),
   setActiveTimelineCell: (cell) => set({ activeTimelineCell: cell }),

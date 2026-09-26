@@ -143,6 +143,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const duplicateSectionBlock = useSequencerStore(state => state.duplicateSectionBlock);
   const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
   const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
+  const isMultiSelectMode = useSequencerStore(state => state.isMultiSelectMode);
+  const toggleMultiSelectMode = useSequencerStore(state => state.toggleMultiSelectMode);
+  const selectedTimelineCellsCount = useSequencerStore(state => state.selectedTimelineCells.length);
+  const clearTimelineSelection = useSequencerStore(state => state.clearTimelineSelection);
   const trackIds = useSequencerStore(useShallow(state => {
     const topLevelList: TrackGroup[] = [];
     state.tracks.forEach(t => {
@@ -983,7 +987,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     const targetEl = e.target as HTMLElement;
     const isClickingEmpty = targetEl === scrollRef.current || 
                             targetEl === gridRef.current || 
-                            targetEl?.classList?.contains('grid-lines-overlay');
+                            targetEl?.classList?.contains('grid-lines-overlay') ||
+                            targetEl?.classList?.contains('wallpaper-surface-bg');
+
+    if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
+      clearTimelineSelection();
+    }
 
     if (e.button === 0 && (isHandMode || isClickingEmpty)) {
       isPanningDragging.current = true;
@@ -1331,6 +1340,16 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         onPointerMove={handleViewportPointerMove}
         onPointerUp={handleViewportPointerUp}
         onPointerCancel={handleViewportPointerUp}
+        onClick={(e) => {
+          const targetEl = e.target as HTMLElement;
+          const isClickingEmpty = targetEl === scrollRef.current || 
+                                  targetEl === gridRef.current || 
+                                  targetEl?.classList?.contains('grid-lines-overlay') ||
+                                  targetEl?.classList?.contains('wallpaper-surface-bg');
+          if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
+            clearTimelineSelection();
+          }
+        }}
         className={`flex-grow overflow-x-auto overflow-y-auto relative custom-scrollbar ${
           isPanningActive ? 'cursor-grab select-none' : ''
         }`}
@@ -1864,6 +1883,37 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     </svg>
                   </button>
                 </div>
+
+                {/* Bouton Toggle Multi-Sélection Tactile */}
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMultiSelectMode();
+                  }}
+                  className={`w-full max-w-[160px] py-0.5 px-1.5 text-[9px] font-bold rounded flex items-center justify-center gap-1 transition-colors border pointer-events-auto cursor-pointer ${
+                    isMultiSelectMode
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] shadow-sm animate-pulse'
+                      : selectedTimelineCellsCount > 0
+                      ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] border-[var(--cordel-border)]/40 hover:bg-[var(--cordel-text)]/15'
+                      : 'bg-transparent text-[var(--cordel-text)]/60 border-dashed border-[var(--cordel-border)]/30 hover:bg-[var(--cordel-text)]/5'
+                  }`}
+                  title={
+                    lang === 'fr'
+                      ? isMultiSelectMode
+                        ? 'Mode sélection tactile actif (touchez pour sélectionner plusieurs mesures)'
+                        : 'Activer le mode sélection multiple (tactile)'
+                      : isMultiSelectMode
+                        ? 'Modo de seleção tátil ativo (toque para selecionar várias medidas)'
+                        : 'Ativar modo de seleção múltipla (tátil)'
+                  }
+                >
+                  <span className="text-[10px] leading-none">{isMultiSelectMode ? '☑' : '☐'}</span>
+                  <span className="uppercase tracking-wider">
+                    {lang === 'fr' ? 'Sélection' : 'Seleção'}
+                    {selectedTimelineCellsCount > 0 ? ` (${selectedTimelineCellsCount})` : ''}
+                  </span>
+                </button>
              </div>
 
             {/* Left spacer column */}
