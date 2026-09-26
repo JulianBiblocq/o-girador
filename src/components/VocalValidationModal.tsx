@@ -70,15 +70,9 @@ export const VocalValidationModal: React.FC = () => {
         const existingClip = targetPattern.vocalClip;
 
         if (tempRecording.isImported) {
-          if (existingClip) {
-            setInitialTrimStartSec(existingClip.trimStartSec ?? 0);
-            setInitialTrimEndSec(existingClip.trimEndSec ?? buffer.duration);
-            setInitialNudgeMs(existingClip.nudgeMs ?? 0);
-          } else {
-            setInitialTrimStartSec(0);
-            setInitialTrimEndSec(buffer.duration);
-            setInitialNudgeMs(0);
-          }
+          setInitialTrimStartSec(0);
+          setInitialTrimEndSec(buffer.duration);
+          setInitialNudgeMs(0);
         } else {
           if (existingClip) {
             const anacrusisSec = existingClip.anacrusisSec ?? ((existingClip.anacrusisBeats ?? 0) * beatDurationSec);

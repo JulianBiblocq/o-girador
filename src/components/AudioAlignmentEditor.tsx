@@ -85,8 +85,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const temps1Px = t_temps1 * PIXELS_PER_SECOND;
 
   // Initial trim and nudge states
-  const defaultTrimStart = initialTrimStartSec !== undefined ? initialTrimStartSec : 0;
-  const defaultTrimEnd = initialTrimEndSec !== undefined ? initialTrimEndSec : audioBuffer.duration;
+  const defaultTrimStart = isImported ? 0 : (initialTrimStartSec !== undefined ? initialTrimStartSec : 0);
+  const defaultTrimEnd = isImported ? audioBuffer.duration : (initialTrimEndSec !== undefined ? initialTrimEndSec : audioBuffer.duration);
+  const defaultNudgeMs = isImported ? 0 : (initialNudgeMs ?? 0);
 
   const [trimStartSec, setTrimStartSec] = useState(defaultTrimStart);
   const [trimEndSec, setTrimEndSec] = useState(defaultTrimEnd);
@@ -123,7 +124,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const cachedPeaksRef = useRef<Float32Array | null>(null);
 
   // Refs for live state values during preview loops
-  const nudgeMsRef = useRef(initialNudgeMs);
+  const nudgeMsRef = useRef(defaultNudgeMs);
   const trimStartSecRef = useRef(trimStartSec);
   const trimEndSecRef = useRef(trimEndSec);
 
@@ -136,19 +137,19 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   }, [trimEndSec]);
 
   // Positionnement initial :
-  // Le sample importé s'initialise à waveX calé sur Temps 1 (Directive 1).
-  // Si le motif possédait déjà une anacrouse enregistrée, repositionner l'onde fidèlement.
+  // Le sample importé s'initialise inconditionnellement à waveBaseX = 0 (début de la piste d'élan).
+  // Si le motif possédait déjà une anacrouse enregistrée (réouverture hors-import), repositionner l'onde fidèlement.
   const getInitialBaseWaveX = () => {
-    if (pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
+    if (!isImported && pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
       return temps1Px - (pattern.vocalClip.anacrusisSec * PIXELS_PER_SECOND) - (defaultTrimStart * PIXELS_PER_SECOND);
     }
-    // Ancrage géométrique par défaut à l'import : début absolu du canvas / piste d'élan [0, temps1Px]
+    // Ancrage géométrique inconditionnel pour tout import audio : 0 (piste d'élan [0, temps1Px])
     return 0;
   };
 
   const waveBaseXRef = useRef<number>(getInitialBaseWaveX());
   const currentTotalWaveXRef = useRef<number>(
-    waveBaseXRef.current + (initialNudgeMs / 1000) * PIXELS_PER_SECOND
+    waveBaseXRef.current + (defaultNudgeMs / 1000) * PIXELS_PER_SECOND
   );
 
   const isDraggingRef = useRef(false);
@@ -175,10 +176,25 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     }
   }, [t_temps1, beatDurationSec]);
 
-  // Initialisation badge au montage
+  // Initialisation badge et translation GPU immédiate au montage
   useEffect(() => {
+    if (waveformContainerRef.current) {
+      waveformContainerRef.current.style.transform = `translate3d(${currentTotalWaveXRef.current}px, 0, 0)`;
+    }
     updateLiveTimingBadges(currentTotalWaveXRef.current);
   }, [updateLiveTimingBadges]);
+
+  // Synchronisation stricte si l'audioBuffer ou isImported change
+  useEffect(() => {
+    const initX = getInitialBaseWaveX();
+    waveBaseXRef.current = initX;
+    const totalX = initX + (defaultNudgeMs / 1000) * PIXELS_PER_SECOND;
+    currentTotalWaveXRef.current = totalX;
+    if (waveformContainerRef.current) {
+      waveformContainerRef.current.style.transform = `translate3d(${totalX}px, 0, 0)`;
+    }
+    updateLiveTimingBadges(totalX);
+  }, [audioBuffer, isImported]);
 
   // 1. Static Background Grid & Synthesizer Notes Layer (Directives A & B)
   // Dessiné UNE SEULE FOIS sur calque fixe : fond papier, lignes de subdivision, repères T1-T4, syllabes et notes
