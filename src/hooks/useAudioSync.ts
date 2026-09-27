@@ -1745,7 +1745,9 @@ export function useAudioSync({
             const nextSafeId = Number(nextPattern.id);
             const nextCompositeBufferKey = `${track.id}_${nextSafeId}`;
             const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextCompositeBufferKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
-            const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
+            const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
+            const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
+            const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro' && allowSamplePlayback);
             const nextClip = nextPattern.vocalClip;
             // Rappel 1 : Déclenchement anticipé UNIQUEMENT si anacrouse avérée > 0.02s
             const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
@@ -1914,7 +1916,9 @@ export function useAudioSync({
 
           // Fallback de lecture des buffers (Directive 1) : composite trackId_patternId d'abord, patternId en repli
           const vocalBuf = useAudioStore.getState().vocalBuffers[compositeBufferKey] || useAudioStore.getState().vocalBuffers[safeId];
-          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
+          const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
+          const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
+          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro' && allowSamplePlayback);
 
           // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
           // Rappel 2 : Si anticipatedMeasuresRef.current.has(currentKey), le chant est déjà en train de jouer : NE PAS TOUCHER !
@@ -1977,8 +1981,9 @@ export function useAudioSync({
                 (!lyrics[cellIdx] || lyrics[cellIdx].trim() === '')
               );
 
-              // Si le sample vocal micro n'existe pas : synthèse vocale
-              if (!hasVocalSample && trackVolPct > 0) {
+              // Synthèse vocale mélodique : active si vocalMode === 'synth' ou 'both', ou fallback si aucun sample audio
+              const allowSynthPlayback = currentVocalMode === 'synth' || currentVocalMode === 'both' || !hasVocalSample;
+              if (allowSynthPlayback && trackVolPct > 0) {
                 // Si c'est une prolongation, on ne réattaque PAS (évite l'effet mitraillette)
                 if (!isProlongation && noteVal) {
                   // Calculer le nombre de pas consécutifs tenus (attaque + prolongations)
@@ -2046,13 +2051,15 @@ export function useAudioSync({
                   pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
                 }
 
-                // 2. Déclenchement synthèse vocale SEULEMENT si aucun sample audio vocal
+                // 2. Déclenchement synthèse vocale (selon vocalMode)
                 const anacrusisSafeId = Number(targetAnacrusisPat.id);
                 const anacrusisVocalKey = `${track.id}_${anacrusisSafeId}`;
                 const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisVocalKey] || useAudioStore.getState().vocalBuffers[anacrusisSafeId];
-                const anacrusisHasSample = Boolean(anacrusisVocalBuf && targetAnacrusisPat.vocalMode === 'micro');
+                const allowAnacrusisSample = currentVocalMode === 'voice' || currentVocalMode === 'both';
+                const anacrusisHasSample = Boolean(anacrusisVocalBuf && targetAnacrusisPat.vocalMode === 'micro' && allowAnacrusisSample);
+                const allowAnacrusisSynth = currentVocalMode === 'synth' || currentVocalMode === 'both' || !anacrusisHasSample;
 
-                if (!anacrusisHasSample && trackVolPct > 0) {
+                if (allowAnacrusisSynth && trackVolPct > 0) {
                   const preNote = targetAnacrusisPat.preRollNotes?.[cellIdx];
                   const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
                   if (noteVal) {
@@ -2313,7 +2320,9 @@ export function useAudioSync({
         const safeId = Number(ptn.id);
         const vocalKey = `${trk.id}_${safeId}`;
         const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
-        const hasVocalSample = Boolean(vocalBuf && ptn.vocalMode === 'micro');
+        const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
+        const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
+        const hasVocalSample = Boolean(vocalBuf && ptn.vocalMode === 'micro' && allowSamplePlayback);
         const clip = ptn.vocalClip;
         const anacrusisSec = clip?.anacrusisSec ?? 0;
         const anacrusisBeats = clip?.anacrusisBeats ?? 0;
@@ -2447,7 +2456,9 @@ export function useAudioSync({
           const safeId = Number(activePattern.id);
           const vocalKey = `${track.id}_${safeId}`;
           const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
-          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
+          const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
+          const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
+          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro' && allowSamplePlayback);
           const clip = activePattern.vocalClip;
           const anacrusisSec = clip?.anacrusisSec ?? ((clip?.anacrusisBeats ?? 0) * beatDurationSec);
           const hasSampleAnacrusis = Boolean(hasVocalSample && (anacrusisSec > 0.02 || (clip?.anacrusisBeats ?? 0) > 0.02));

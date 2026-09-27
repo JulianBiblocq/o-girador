@@ -36,7 +36,10 @@ export interface AudioState {
   removeVocalBuffer: (patternId: string | number) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
   unlockAudio: () => void;
+  vocalMode: 'voice' | 'synth' | 'both';
+  setVocalMode: (mode: 'voice' | 'synth' | 'both') => void;
 }
+
 
 
 export const useAudioStore = create<AudioState>((set) => ({
@@ -123,4 +126,21 @@ export const useAudioStore = create<AudioState>((set) => ({
       delete nextBuffers[patternId];
       return { vocalBuffers: nextBuffers };
     }),
+  vocalMode: 'voice',
+  setVocalMode: (mode) => {
+    set({ vocalMode: mode });
+    if (mode === 'synth') {
+      try {
+        import('../audio/vocalEngineService').then(({ vocalEngineService }) => {
+          vocalEngineService.stopAllVocalPlayback();
+        });
+      } catch (_) {}
+    } else if (mode === 'voice') {
+      try {
+        import('../hooks/useAudioSync').then(({ audioEngine }) => {
+          audioEngine?.releaseVoicePitch();
+        });
+      } catch (_) {}
+    }
+  },
 }));

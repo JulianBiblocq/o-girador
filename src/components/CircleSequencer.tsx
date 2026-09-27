@@ -18,6 +18,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
 import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers';
 import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
@@ -240,6 +241,282 @@ const getTrackRadius = (visibleIdx: number, totalTracks: number) => {
   return MIN_RADIUS + visibleIdx * gap;
 };
 
+export const resolvePatternForMeasure = (
+  tObj: TrackGroup | undefined,
+  mIdx: number,
+  sPlayId: number | null | undefined
+): Pattern | null => {
+  if (!tObj) return null;
+  if (sPlayId !== undefined && sPlayId !== null) {
+    return tObj.patterns.find(p => p.id === sPlayId) || null;
+  }
+  const overrideId = tObj.patternOverrides?.[mIdx];
+  if (overrideId !== undefined) {
+    return overrideId !== null ? (tObj.patterns.find(p => p.id === overrideId) || null) : null;
+  }
+  return tObj.patterns.find(p => p.measureAssignments[mIdx]) || null;
+};
+
+/**
+ * Tracé Canvas 2D haute performance du Karaoké « Ao Vivo » au centre de la Roda
+ * Isole les styles graphiques avec ctx.save() / ctx.restore(), évite le thrashing DOM
+ * et applique les couleurs du cordel : Puxador (#c25e38) et Coro (#1e40af).
+ */
+export const drawCenterKaraoke = (
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  live: { step: number; measure: number; maxTicks: number; ratio: number; isPreRoll?: boolean },
+  tracks: TrackGroup[],
+  rawTracks: TrackGroup[],
+  totalMeasures: number,
+  isLoopRegionActive?: boolean,
+  loopStartMeasure?: number | null,
+  loopEndMeasure?: number | null,
+  soloPlayId?: number | null,
+  dynamicScale: number = 1
+) => {
+  ctx.save();
+  try {
+    const measureIdx = live.step >= 0 ? live.measure : 0;
+    const currentStep = live.step >= 0 ? live.step : 0;
+
+    // 1. Résolution des pistes et motifs vocaux
+    const puxTrack = rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coroTrack = rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+    const puxPattern = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId);
+    const coroPattern = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId);
+
+    // Détection de la mesure suivante pour anacrouse
+    let nextMeasureIdx: number;
+    if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {
+      nextMeasureIdx = (loopStartMeasure !== null && loopStartMeasure !== undefined) ? loopStartMeasure : 0;
+    } else {
+      nextMeasureIdx = (measureIdx + 1) % totalMeasures;
+    }
+
+    const nextPuxPattern = resolvePatternForMeasure(puxTrack, nextMeasureIdx, soloPlayId);
+    const nextCoroPattern = resolvePatternForMeasure(coroTrack, nextMeasureIdx, soloPlayId);
+
+    // 2. Détection de l'anacrouse anticipée (pas 12 à 15)
+    const isPickupWindow = currentStep >= 12;
+    let isAnacrusis = false;
+    let activeRole: 'puxador' | 'coro' | 'both' | 'none' = 'none';
+    let currentSyllable = '';
+    let currentNote = '';
+
+    // Vérifier les pas de la mesure courante
+    const isPuxStepActive = Boolean(puxPattern && puxPattern.activeSteps?.[currentStep] && puxPattern.activeSteps[currentStep] !== 0 && puxPattern.activeSteps[currentStep] !== '0');
+    const isCoroStepActive = Boolean(coroPattern && coroPattern.activeSteps?.[currentStep] && coroPattern.activeSteps[currentStep] !== 0 && coroPattern.activeSteps[currentStep] !== '0');
+
+    if (isPuxStepActive && isCoroStepActive) {
+      activeRole = 'both';
+      currentSyllable = (puxPattern?.lyrics?.[currentStep] || coroPattern?.lyrics?.[currentStep] || '').trim();
+      currentNote = (puxPattern?.notes?.[currentStep] || coroPattern?.notes?.[currentStep] || '').trim();
+    } else if (isPuxStepActive) {
+      activeRole = 'puxador';
+      currentSyllable = (puxPattern?.lyrics?.[currentStep] || '').trim();
+      currentNote = (puxPattern?.notes?.[currentStep] || '').trim();
+    } else if (isCoroStepActive) {
+      activeRole = 'coro';
+      currentSyllable = (coroPattern?.lyrics?.[currentStep] || '').trim();
+      currentNote = (coroPattern?.notes?.[currentStep] || '').trim();
+    } else if (isPickupWindow) {
+      // Vérifier si une anacrouse entrante existe sur la mesure suivante
+      const nextPuxPre = nextPuxPattern?.preRollActiveSteps?.[currentStep];
+      const nextCoroPre = nextCoroPattern?.preRollActiveSteps?.[currentStep];
+      const hasNextPuxPre = Boolean(nextPuxPre && nextPuxPre !== 0 && nextPuxPre !== '0');
+      const hasNextCoroPre = Boolean(nextCoroPre && nextCoroPre !== 0 && nextCoroPre !== '0');
+
+      if (hasNextPuxPre || hasNextCoroPre) {
+        isAnacrusis = true;
+        if (hasNextPuxPre && hasNextCoroPre) {
+          activeRole = 'both';
+          currentSyllable = (nextPuxPattern?.preRollLyrics?.[currentStep] || nextCoroPattern?.preRollLyrics?.[currentStep] || '').trim();
+          currentNote = (nextPuxPattern?.preRollNotes?.[currentStep] || nextCoroPattern?.preRollNotes?.[currentStep] || '').trim();
+        } else if (hasNextPuxPre) {
+          activeRole = 'puxador';
+          currentSyllable = (nextPuxPattern?.preRollLyrics?.[currentStep] || '').trim();
+          currentNote = (nextPuxPattern?.preRollNotes?.[currentStep] || '').trim();
+        } else {
+          activeRole = 'coro';
+          currentSyllable = (nextCoroPattern?.preRollLyrics?.[currentStep] || '').trim();
+          currentNote = (nextCoroPattern?.preRollNotes?.[currentStep] || '').trim();
+        }
+      }
+    }
+
+    // Si pas de frappe active au pas exact, chercher la dernière syllabe attaquée (prolongation ou tenue)
+    if (!currentSyllable) {
+      const targetPattern = puxPattern || coroPattern;
+      if (targetPattern) {
+        if (!activeRole || activeRole === 'none') {
+          activeRole = puxPattern ? 'puxador' : 'coro';
+        }
+        for (let s = currentStep; s >= 0; s--) {
+          const sVal = targetPattern.activeSteps?.[s];
+          if (sVal && sVal !== 0 && sVal !== '0') {
+            const syl = (targetPattern.lyrics?.[s] || '').trim();
+            if (syl && syl !== '-') {
+              currentSyllable = syl;
+              currentNote = (targetPattern.notes?.[s] || '').trim();
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Définir la palette de couleur selon le rôle
+    let roleColor = '#c25e38'; // Puxador Terracotta par défaut
+    let roleLabel = 'PUXADOR';
+    if (activeRole === 'coro') {
+      roleColor = '#1e40af'; // Bleu cobalt
+      roleLabel = 'CORO';
+    } else if (activeRole === 'both') {
+      roleColor = '#7c3aed';
+      roleLabel = 'PUXADOR & CORO';
+    } else if (puxPattern && !coroPattern) {
+      roleColor = '#c25e38';
+      roleLabel = 'PUXADOR';
+    } else if (coroPattern && !puxPattern) {
+      roleColor = '#1e40af';
+      roleLabel = 'CORO';
+    }
+
+    if (isAnacrusis) {
+      roleColor = '#c25e38';
+      roleLabel = 'ANACROUSE ➔ T1';
+    }
+
+    // 3. Dessin du disque central parchemin Cordel
+    const diskRadius = 135 * dynamicScale;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, diskRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#f4ecd8';
+    ctx.fill();
+    ctx.lineWidth = 3.5 * dynamicScale;
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.stroke();
+
+    // Anneau intérieur fin décoratif Cordel
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, diskRadius - 8 * dynamicScale, 0, Math.PI * 2);
+    ctx.lineWidth = 1 * dynamicScale;
+    ctx.strokeStyle = '#8b2a1a';
+    ctx.stroke();
+
+    // 4. Badge du rôle (Puxador / Coro / Anacrouse)
+    const badgeW = (roleLabel.length > 10 ? 150 : 110) * dynamicScale;
+    const badgeH = 22 * dynamicScale;
+    const badgeX = centerX - badgeW / 2;
+    const badgeY = centerY - 92 * dynamicScale;
+
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === 'function') {
+      (ctx as any).roundRect(badgeX, badgeY, badgeW, badgeH, 6 * dynamicScale);
+    } else {
+      ctx.rect(badgeX, badgeY, badgeW, badgeH);
+    }
+    ctx.fillStyle = roleColor;
+    ctx.fill();
+    ctx.lineWidth = 1.5 * dynamicScale;
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.stroke();
+
+    ctx.font = `900 ${Math.floor(10 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(roleLabel, centerX, badgeY + badgeH / 2 + 0.5);
+
+    // 5. Affichage de la syllabe active au centre avec éclat coloré
+    let displaySyllable = currentSyllable;
+    if (displaySyllable.endsWith('-')) displaySyllable = displaySyllable.slice(0, -1);
+    if (!displaySyllable || displaySyllable === '-') {
+      displaySyllable = live.isPreRoll ? '🎙️ ...' : '♪';
+    }
+
+    const fontSize = Math.floor(Math.min(42, Math.max(22, 140 / Math.max(3, displaySyllable.length))) * dynamicScale);
+    ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Éclat coloré (glow) sur la syllabe chantée
+    ctx.shadowColor = roleColor;
+    ctx.shadowBlur = 12 * dynamicScale;
+    ctx.fillStyle = roleColor;
+    ctx.fillText(displaySyllable, centerX, centerY - 6 * dynamicScale);
+
+    // Réinitialiser le shadowBlur immédiatement pour les autres tracés
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    // Note musicale sous la syllabe si présente
+    if (currentNote) {
+      ctx.font = `bold ${Math.floor(11 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(currentNote, centerX, centerY + 24 * dynamicScale);
+    }
+
+    // 6. Contexte des paroles de la mesure (Ruban déroulant Karaoké)
+    const activePatternForLyrics = puxPattern || coroPattern;
+    if (activePatternForLyrics && activePatternForLyrics.lyrics) {
+      const lyricsItems: Array<{ step: number; syl: string; active: boolean }> = [];
+      const stepsCount = activePatternForLyrics.steps || 16;
+      for (let s = 0; s < stepsCount; s++) {
+        const syl = (activePatternForLyrics.lyrics[s] || '').trim();
+        if (syl && syl !== '-') {
+          const cleanSyl = syl.endsWith('-') ? syl.slice(0, -1) : syl;
+          lyricsItems.push({
+            step: s,
+            syl: cleanSyl,
+            active: s === currentStep
+          });
+        }
+      }
+
+      if (lyricsItems.length > 0) {
+        const contextY = centerY + 62 * dynamicScale;
+        const totalItems = lyricsItems.length;
+        const itemSpacing = Math.min(36 * dynamicScale, (210 * dynamicScale) / Math.max(1, totalItems));
+        const startX = centerX - ((totalItems - 1) * itemSpacing) / 2;
+
+        lyricsItems.forEach((item, idx) => {
+          const ix = startX + idx * itemSpacing;
+          const isCurrent = item.step === currentStep;
+
+          ctx.font = `900 ${Math.floor((isCurrent ? 13 : 11) * dynamicScale)}px "Outfit", "Inter", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          if (isCurrent) {
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = roleColor;
+            ctx.fillText(item.syl, ix, contextY);
+
+            // Petit point indicateur sous la syllabe courante
+            ctx.beginPath();
+            ctx.arc(ix, contextY + 12 * dynamicScale, 2.5 * dynamicScale, 0, Math.PI * 2);
+            ctx.fillStyle = roleColor;
+            ctx.fill();
+          } else {
+            ctx.globalAlpha = 0.40;
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillText(item.syl, ix, contextY);
+          }
+        });
+        ctx.globalAlpha = 1.0;
+      }
+    }
+  } finally {
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+    ctx.restore();
+  }
+};
+
 const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const { isActive = true } = props;
   const sequencer = useSequencer();
@@ -343,6 +620,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   });
 
   const [isCenterShaking, setIsCenterShaking] = useState(false);
+  const [isKaraokeActive, setIsKaraokeActive] = useState(false);
+  const vocalMode = useAudioStore(state => state.vocalMode);
+  const setVocalMode = useAudioStore(state => state.setVocalMode);
   const [pendingTargetMeasure, setPendingTargetMeasure] = useState<number | null>(null);
   const pendingTargetMeasureRef = useRef<number | null>(null);
   const [pendingTargetExpandedIndex, setPendingTargetExpandedIndex] = useState<number | null>(null);
@@ -393,6 +673,15 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   ) => {
     const container = centerOverlayRef.current;
     if (!container) return;
+
+    // Si le Karaoké Ao Vivo est actif sur la Roda, masquer l'overlay DOM pour libérer le Canvas 2D
+    if (stateRef.current.isKaraokeActive) {
+      if (lastOverlayStateRef.current.opacity !== '0') {
+        container.style.opacity = '0';
+        lastOverlayStateRef.current.opacity = '0';
+      }
+      return;
+    }
 
     const {
       measureSignals: currentMeasureSignals,
@@ -942,6 +1231,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     isLeftHanded,
     songMarkers,
     measureTimeSigs,
+    isKaraokeActive,
+    vocalMode,
   });
 
   useEffect(() => {
@@ -973,9 +1264,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       songSections,
       isLeftHanded,
       songMarkers,
-      measureTimeSigs
+      measureTimeSigs,
+      isKaraokeActive,
+      vocalMode,
     };
-  }, [tracks, rawTracks, rodaTrackOrder, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, isLoopRegionActive, loopStartMeasure, loopEndMeasure, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs]);
+  }, [tracks, rawTracks, rodaTrackOrder, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, isLoopRegionActive, loopStartMeasure, loopEndMeasure, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs, isKaraokeActive, vocalMode]);
 
   useEffect(() => {
     if (props.tracks !== undefined) return;
@@ -2756,6 +3049,24 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
       ctx.restore();
 
+      // 4. Tracé Canvas 2D du Karaoké Ao Vivo au centre de la Roda si activé
+      if (stateRef.current.isKaraokeActive) {
+        drawCenterKaraoke(
+          ctx,
+          centerX,
+          centerY,
+          live,
+          stateRef.current.tracks,
+          stateRef.current.rawTracks,
+          stateRef.current.totalMeasures,
+          stateRef.current.isLoopRegionActive,
+          stateRef.current.loopStartMeasure,
+          stateRef.current.loopEndMeasure,
+          stateRef.current.soloPatternPlayId,
+          dynamicScale
+        );
+      }
+
       // Restore the ctx scale applied after drawImage
       ctx.restore();
       
@@ -2961,6 +3272,71 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           </div>
         </div>
       </div>
+      {/* Barre d'outils Roda : Commutateur Karaoké Ao Vivo & Mode Voix / Synthé */}
+      <div 
+        className="absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 md:gap-2 bg-[var(--cordel-bg)]/95 border-2 border-[var(--cordel-border)] rounded-md px-2.5 py-1 md:px-3 md:py-1.5 shadow-[3px_3px_0px_var(--cordel-border)] select-none backdrop-blur-xs"
+        role="toolbar"
+        aria-label={lang === 'pt' ? 'Controles vocais da Roda' : 'Contrôles vocaux de la Roda'}
+      >
+        {/* Bouton Toggle Karaokê */}
+        <button
+          type="button"
+          onClick={() => setIsKaraokeActive(prev => !prev)}
+          className={`flex items-center gap-1.5 px-2 py-0.5 md:px-2.5 md:py-1 rounded text-[11px] md:text-xs font-bold font-sans transition-all cursor-pointer border border-[var(--cordel-border)] active:scale-95 ${
+            isKaraokeActive
+              ? 'bg-[#c25e38] text-white shadow-[1px_1px_0px_var(--cordel-border)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#e8dec5]'
+          }`}
+          title={lang === 'pt' ? 'Ativar / desativar Karaokê Ao Vivo no centro da roda' : 'Activer / désactiver le Karaoké Ao Vivo au centre de la roda'}
+        >
+          <span className="text-xs md:text-sm">🎙️</span>
+          <span>{lang === 'pt' ? 'Karaokê' : 'Karaoké'}</span>
+          <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${isKaraokeActive ? 'bg-amber-300 animate-pulse' : 'bg-stone-400'}`} />
+        </button>
+
+        <div className="w-[1px] h-3.5 md:h-4 bg-[var(--cordel-border)]/30 mx-0.5" />
+
+        {/* Commutateur 3 positions Voix / Synthé */}
+        <div className="flex items-center border border-[var(--cordel-border)] rounded overflow-hidden bg-[#e8dec5]/50">
+          <button
+            type="button"
+            onClick={() => setVocalMode('voice')}
+            className={`px-1.5 md:px-2 py-0.5 md:py-1 text-[11px] md:text-xs font-bold transition-all cursor-pointer ${
+              vocalMode === 'voice'
+                ? 'bg-[var(--cordel-border)] text-[var(--cordel-bg)]'
+                : 'text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/10'
+            }`}
+            title={lang === 'pt' ? 'Voz gravada (sample áudio puro)' : 'Voix enregistrée (échantillon audio)'}
+          >
+            🎙️
+          </button>
+          <button
+            type="button"
+            onClick={() => setVocalMode('synth')}
+            className={`px-1.5 md:px-2 py-0.5 md:py-1 text-[11px] md:text-xs font-bold border-l border-r border-[var(--cordel-border)] transition-all cursor-pointer ${
+              vocalMode === 'synth'
+                ? 'bg-[var(--cordel-border)] text-[var(--cordel-bg)]'
+                : 'text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/10'
+            }`}
+            title={lang === 'pt' ? 'Sintetizador melódico (notas MIDI)' : 'Synthétiseur de notes mélodiques'}
+          >
+            🎹
+          </button>
+          <button
+            type="button"
+            onClick={() => setVocalMode('both')}
+            className={`px-1.5 md:px-2 py-0.5 md:py-1 text-[11px] md:text-xs font-bold transition-all cursor-pointer ${
+              vocalMode === 'both'
+                ? 'bg-[var(--cordel-border)] text-[var(--cordel-bg)]'
+                : 'text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/10'
+            }`}
+            title={lang === 'pt' ? 'Voz gravada + Sintetizador simultâneos' : 'Voix enregistrée + Synthétiseur simultanés'}
+          >
+            🎙️+🎹
+          </button>
+        </div>
+      </div>
+
       <div 
         className="absolute top-1 md:top-4 left-1/2 -translate-x-1/2 text-[8px] md:text-[12px] font-bold tracking-widest text-center z-50 pointer-events-none select-none flex flex-col md:flex-row gap-0.5 md:gap-2 leading-tight items-center"
         style={{ color: '#f4ecd8', opacity: 0.8, textShadow: '0px 2px 4px rgba(0,0,0,0.9)' }}
