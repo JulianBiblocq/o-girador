@@ -439,7 +439,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       useSequencerStore.setState({ 
         rodaTrackOrder: finalRodaOrder,
         totalMeasures: loadedMeasures,
-        tracksVersion: useSequencerStore.getState().tracksVersion + 1
+        tracksVersion: useSequencerStore.getState().tracksVersion + 1,
+        isLetraActive: false
       });
       useSequencerStore.getState().setTracks(loadedTracks);
       useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);

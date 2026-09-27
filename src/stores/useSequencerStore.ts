@@ -14,13 +14,16 @@ import { getTopParentBusId } from '../utils/colorHelpers';
 export interface TrackSlice {
   tracks: TrackGroup[];
   activeAoVivoTrackId: number | null;
+  isLetraActive: boolean;
   tracksVersion: number;
   masterFX: MasterFX;
   armedTrackId: number | null;
   armedPatternId: number | null;
   isPatternRecording: boolean;
   
-  // Actions (Squelette pour l'instant)
+  // Actions
+  setIsLetraActive: (val: boolean | ((prev: boolean) => boolean)) => void;
+  toggleLetraActive: () => void;
   toggleArmPattern: (trackId: number, patternId: number) => void;
   disarmAllPatterns: () => void;
   setIsPatternRecording: (val: boolean | ((prev: boolean) => boolean)) => void;
@@ -249,6 +252,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   tracks: [],
   rodaTrackOrder: [],
   activeAoVivoTrackId: null,
+  isLetraActive: false,
   tracksVersion: 0,
   armedTrackId: null,
   armedPatternId: null,
@@ -435,6 +439,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     });
   },
   setActiveAoVivoTrackId: (id) => set({ activeAoVivoTrackId: id }),
+  setIsLetraActive: (val) => set(state => ({ isLetraActive: typeof val === 'function' ? val(state.isLetraActive) : val })),
+  toggleLetraActive: () => set(state => ({ isLetraActive: !state.isLetraActive })),
   
   handleReorderMixerTracks: (activeId, overId) => {
     if (activeId === overId) return;
@@ -1745,7 +1751,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         },
         songSections: [],
         songMarkers: [],
-        activeAoVivoTrackId: null
+        activeAoVivoTrackId: null,
+        isLetraActive: false
       };
     });
   },

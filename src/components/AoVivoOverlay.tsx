@@ -928,75 +928,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
       case 'voice':
       case 'puxador':
-      case 'coro': {
-        const currentLivePattern = currentMeasureIdx >= 0
-          ? activeTrack.patterns.find(p => p.measureAssignments[currentMeasureIdx])
-          : activeTrack.patterns[0];
-
-        if (!currentLivePattern) return null;
-
-        const karaokeWords: { text: string; index: number }[][] = [];
-        let currentWord: { text: string; index: number }[] = [];
-
-        for (let idx = 0; idx < currentLivePattern.steps; idx++) {
-          const active = currentLivePattern.activeSteps[idx] !== 0;
-          const syl = currentLivePattern.lyrics?.[idx] || '';
-          if (active && syl) {
-            currentWord.push({ text: syl, index: idx });
-            if (syl.endsWith(' ') || idx === currentLivePattern.steps - 1) {
-              karaokeWords.push([...currentWord]);
-              currentWord = [];
-            }
-          }
-        }
-        if (currentWord.length > 0) {
-          karaokeWords.push(currentWord);
-        }
-
-        return (
-          <div
-            ref={voiceWrapperRef}
-            className="absolute z-50 pointer-events-none flex flex-col items-center justify-center w-full max-w-2xl px-6 text-center"
-            style={{
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <div className="bg-[#ece4d0]/80 backdrop-blur-[2px] text-[#000000] border-4 border-[#1a1a1a] shadow-[8px_8px_0_#1a1a1a] p-6 w-full flex flex-col gap-2 font-sans select-none cordel-border">
-              <div className="text-lg opacity-60 mb-0.5">
-                🎙️
-              </div>
-              <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-2xl font-black font-cactus uppercase">
-                {karaokeWords.length === 0 ? (
-                  <span className="italic opacity-55 text-lg">
-                    {lang === 'fr' ? 'Paroles vides' : 'Sem letras'}
-                  </span>
-                ) : (
-                  karaokeWords.map((word, wIdx) => {
-                    return (
-                      <span
-                        key={wIdx}
-                        data-word-idx={wIdx}
-                        className="transition-all duration-100 opacity-40"
-                      >
-                        {word.map((item, sIdx) => {
-                          return (
-                            <span
-                              key={sIdx}
-                              data-step-idx={item.index}
-                            >
-                              {item.text}
-                            </span>
-                          );
-                        })}
-                      </span>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      }
+      case 'coro':
+      case 'toada':
+        return null;
 
       default:
         return null;
