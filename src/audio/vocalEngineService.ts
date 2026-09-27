@@ -519,6 +519,7 @@ export const vocalEngineService = {
       }
       entry.mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
       (entry.mainPlayer as any).fadeIn = 0;
+      entry.mainPlayer.onstop = () => {};
       return entry;
     }
 
@@ -529,6 +530,7 @@ export const vocalEngineService = {
     mainPlayer.volume.value = 0; // Unity gain
     mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
     (mainPlayer as any).fadeIn = 0;
+    mainPlayer.onstop = () => {};
 
     const mainGain = new Tone.Gain(1);
     mainPlayer.connect(mainGain);
@@ -649,7 +651,12 @@ export const vocalEngineService = {
    */
   disposeAllVocalPlayers() {
     activeVocals.forEach((entry) => {
-      try { entry.mainPlayer.stop(); entry.mainPlayer.disconnect(); entry.mainPlayer.dispose(); } catch (_) {}
+      try {
+        entry.mainPlayer.onstop = () => {};
+        entry.mainPlayer.stop();
+        entry.mainPlayer.disconnect();
+        entry.mainPlayer.dispose();
+      } catch (_) {}
       try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
       if (entry.haasNodes) {
         try {
@@ -693,8 +700,16 @@ export const vocalEngineService = {
    */
   stopAllVocalPlayback() {
     activeVocals.forEach((entry) => {
-      try { entry.mainPlayer.stop(); } catch (_) {}
-      entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
+      try {
+        entry.mainPlayer.onstop = () => {};
+        entry.mainPlayer.stop();
+      } catch (_) {}
+      entry.chorusPlayers.forEach(p => {
+        try {
+          p.onstop = () => {};
+          p.stop();
+        } catch (_) {}
+      });
     });
   },
 
@@ -873,7 +888,8 @@ export const vocalEngineService = {
     activeVocals.forEach((entry, k) => {
       if (k.startsWith(`${trackId}_`)) {
         try {
-          entry.mainPlayer.onstop = null as any;
+          // 🛡️ TONE.JS SAFETY: Toujours une fonction no-op () => {}, JAMAIS null, car Tone.Source appelle this.onstop()
+          entry.mainPlayer.onstop = () => {};
           const oldGain = entry.mainGain.gain;
           const now = Tone.now();
           const fadeStart = Math.max(now, actualStartTime);
@@ -892,6 +908,7 @@ export const vocalEngineService = {
           const delayMs = Math.max(50, (fadeStart + 0.1 - now) * 1000);
           setTimeout(() => {
             try {
+              oldPlayer.onstop = () => {};
               oldPlayer.disconnect();
               oldPlayer.dispose();
               oldGainNode.disconnect();
@@ -903,7 +920,7 @@ export const vocalEngineService = {
                 oldHaasNodes.rightGain.disconnect();
                 oldHaasNodes.merger.disconnect();
               }
-              oldChorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
+              oldChorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
               oldChorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
               oldPanners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
             } catch (_) {}
@@ -943,16 +960,20 @@ export const vocalEngineService = {
       mainPlayer.start(0, internalBufferOffset, remainingDuration / playbackRate);
     }
 
-    if (onStop) {
-      mainPlayer.onstop = () => {
+    // 🛡️ TONE.JS SAFETY: Toujours une fonction valide
+    mainPlayer.onstop = typeof onStop === 'function' ? () => {
+      try {
         onStop();
-      };
-    }
+      } catch (_) {}
+    } : () => {};
 
     return {
       mainPlayer,
       stop: () => {
-        try { mainPlayer.stop(); } catch (_) {}
+        try {
+          mainPlayer.onstop = () => {};
+          mainPlayer.stop();
+        } catch (_) {}
       }
     };
   }
