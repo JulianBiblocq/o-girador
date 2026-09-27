@@ -51,6 +51,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     brightness: 0,
     threshold: 128,
     sobelContrast: 50,
+    bgRemovalMode: 'none',
     isMirror: true,
     isFrame: false,
     posX: 0,
@@ -119,7 +120,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -162,6 +163,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
         brightness: 0,
         threshold: 128,
         sobelContrast: 50,
+        bgRemovalMode: 'none',
         isMirror: true,
         isFrame: false,
         posX: 0,
@@ -228,23 +230,24 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     } catch (_) {}
   };
 
-  // 5. Capture synchrone en mémoire (< 2 ms)
+  // 5. Capture synchrone en haute résolution native 1:1 centrée (< 2 ms)
   const captureCurrentFrame = () => {
     const video = videoRef.current;
     if (!video) return;
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 480;
-    const size = Math.min(w, h);
-    const sx = (w - size) / 2;
-    const sy = (h - size) / 2;
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 720;
+    const size = Math.min(vw, vh);
+    const sx = (vw - size) / 2;
+    const sy = (vh - size) / 2;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 240;
-    canvas.height = 240;
-    const ctx = canvas.getContext('2d');
+    const workCanvas = document.createElement('canvas');
+    const workSize = Math.min(720, size);
+    workCanvas.width = workSize;
+    workCanvas.height = workSize;
+    const ctx = workCanvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(video, sx, sy, size, size, 0, 0, 240, 240);
-      const b64 = canvas.toDataURL('image/jpeg', 0.6);
+      ctx.drawImage(video, sx, sy, size, size, 0, 0, workSize, workSize);
+      const b64 = workCanvas.toDataURL('image/jpeg', 0.9);
       rawBase64ImagesRef.current.push(b64);
     }
   };
@@ -472,6 +475,27 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     }
   };
 
+  // Helper de compression des images brutes pour respecter le plafond de 1 Mo Firestore
+  const compressRawFrameForCloud = (b64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = 240;
+        c.height = 240;
+        const ctx = c.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 240, 240);
+          resolve(c.toDataURL('image/jpeg', 0.6));
+        } else {
+          resolve(b64);
+        }
+      };
+      img.onerror = () => resolve(b64);
+      img.src = b64;
+    });
+  };
+
   // Validation et rendu final en fusionnant options globales et débrayages unitaires
   const handleSave = async () => {
     const rawImages = rawBase64ImagesRef.current;
@@ -486,12 +510,17 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
         finalFrames.push(rendered);
       }
 
+      // Compression des sources brutes en 240x240 @ 0.6 pour le stockage Cloud Firestore (< 1 Mo garanti)
+      const compressedRawFrames = await Promise.all(
+        rawImages.map((b64) => compressRawFrameForCloud(b64))
+      );
+
       const finalName = signalName.trim() || (lang === 'fr' ? 'Signal du Mestre' : 'Sinal do Mestre');
       onSave({
         name: finalName,
         image: finalFrames[0],
         frames: finalFrames,
-        rawFrames: rawImages,
+        rawFrames: compressedRawFrames,
         cordelOptions,
         frameOverrides: Object.keys(frameOverrides).length > 0 ? frameOverrides : undefined,
         beatsCount,

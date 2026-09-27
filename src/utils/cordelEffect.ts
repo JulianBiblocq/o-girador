@@ -46,44 +46,52 @@ export const processCordelEffectBase64 = (base64Img: string, options: CordelOpti
 
 export const processCordelEffect = (img: HTMLImageElement, options: CordelOptions, outSize: number = 200): string => {
   // Pre-center detection based on luminance
-  const smallCanvas = document.createElement('canvas');
-  const scale = 100 / Math.max(img.width, img.height);
-  smallCanvas.width = img.width * scale; 
-  smallCanvas.height = img.height * scale;
-  const smallCtx = smallCanvas.getContext('2d');
-  if (!smallCtx) return '';
-  
-  smallCtx.drawImage(img, 0, 0, smallCanvas.width, smallCanvas.height);
-  const smallData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height).data;
+  const isSquare = Math.abs(img.width - img.height) < 2;
+  let cx = img.width / 2;
+  let cy = img.height / 2;
+  let boxSize = Math.min(img.width, img.height);
 
-  let bgSum = 0;
-  const corners = [0, smallCanvas.width - 1, (smallCanvas.height - 1) * smallCanvas.width, (smallCanvas.height - 1) * smallCanvas.width + smallCanvas.width - 1];
-  corners.forEach(idx => {
-      let j = idx * 4;
-      bgSum += 0.299 * smallData[j] + 0.587 * smallData[j+1] + 0.114 * smallData[j+2];
-  });
-  const thresholdVal = (bgSum / 4) - 20;
+  if (!isSquare) {
+    const smallCanvas = document.createElement('canvas');
+    const scale = 100 / Math.max(img.width, img.height);
+    smallCanvas.width = img.width * scale; 
+    smallCanvas.height = img.height * scale;
+    const smallCtx = smallCanvas.getContext('2d');
+    if (smallCtx) {
+      smallCtx.drawImage(img, 0, 0, smallCanvas.width, smallCanvas.height);
+      const smallData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height).data;
 
-  let minX = smallCanvas.width, maxX = 0, minY = smallCanvas.height, maxY = 0;
-  for(let y = 0; y < smallCanvas.height; y++){
-      for(let x = 0; x < smallCanvas.width; x++){
-          let idx = (y * smallCanvas.width + x) * 4;
-          let lum = 0.299 * smallData[idx] + 0.587 * smallData[idx+1] + 0.114 * smallData[idx+2];
-          if (lum < thresholdVal) { 
-              if (x < minX) minX = x; if (x > maxX) maxX = x;
-              if (y < minY) minY = y; if (y > maxY) maxY = y;
+      let bgSum = 0;
+      const corners = [0, smallCanvas.width - 1, (smallCanvas.height - 1) * smallCanvas.width, (smallCanvas.height - 1) * smallCanvas.width + smallCanvas.width - 1];
+      corners.forEach(idx => {
+          let j = idx * 4;
+          bgSum += 0.299 * smallData[j] + 0.587 * smallData[j+1] + 0.114 * smallData[j+2];
+      });
+      const thresholdVal = (bgSum / 4) - 20;
+
+      let minX = smallCanvas.width, maxX = 0, minY = smallCanvas.height, maxY = 0;
+      for(let y = 0; y < smallCanvas.height; y++){
+          for(let x = 0; x < smallCanvas.width; x++){
+              let idx = (y * smallCanvas.width + x) * 4;
+              let lum = 0.299 * smallData[idx] + 0.587 * smallData[idx+1] + 0.114 * smallData[idx+2];
+              if (lum < thresholdVal) { 
+                  if (x < minX) minX = x; if (x > maxX) maxX = x;
+                  if (y < minY) minY = y; if (y > maxY) maxY = y;
+              }
           }
       }
+      
+      minX /= scale; maxX /= scale; minY /= scale; maxY /= scale;
+      if (minX <= maxX && minY <= maxY) {
+        const detectedBox = Math.max(maxX - minX, maxY - minY);
+        if (detectedBox > 0) {
+          boxSize = detectedBox;
+          cx = (minX + maxX) / 2;
+          cy = (minY + maxY) / 2;
+        }
+      }
+    }
   }
-  
-  minX /= scale; maxX /= scale; minY /= scale; maxY /= scale;
-  if (minX > maxX) { minX = 0; maxX = img.width; minY = 0; maxY = img.height; }
-
-  let boxSize = Math.max(maxX - minX, maxY - minY);
-  if(boxSize === 0) boxSize = Math.min(img.width, img.height);
-
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
 
   // Apply crop and offsets
   const zoomVal = options.zoom;
@@ -95,32 +103,36 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   const sX = cx - cropSize / 2 + shiftX;
   const sY = cy - cropSize / 2 + shiftY;
 
+  // ⚡ Haute Définition de travail : résolution native de travail pour ciseler les traits Sobel
+  const workSize = Math.max(outSize * 2, Math.min(720, Math.max(img.width, img.height)));
+
   const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = outSize; tempCanvas.height = outSize;
+  tempCanvas.width = workSize;
+  tempCanvas.height = workSize;
   const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
   if (!tempCtx) return '';
   
   tempCtx.fillStyle = '#ffffff';
-  tempCtx.fillRect(0, 0, outSize, outSize);
+  tempCtx.fillRect(0, 0, workSize, workSize);
   
   if (options.isMirror) {
-      tempCtx.translate(outSize, 0);
+      tempCtx.translate(workSize, 0);
       tempCtx.scale(-1, 1);
   }
   
-  tempCtx.drawImage(img, sX, sY, cropSize, cropSize, 0, 0, outSize, outSize);
+  tempCtx.drawImage(img, sX, sY, cropSize, cropSize, 0, 0, workSize, workSize);
   
-  // 1. Détection préalable du fond (Chroma Key Vert & Seuil Blanc)
+  // 1. Détection préalable du fond (Optionnelle, par défaut 'none' pour préserver tous les détails)
   const bgRemovalMode = options.bgRemovalMode ?? 'none';
   const bgTolerance = options.bgTolerance ?? 40;
-  const isBackgroundPixel = new Uint8Array(outSize * outSize);
+  const isBackgroundPixel = new Uint8Array(workSize * workSize);
 
   const brightness = options.brightness ?? 0;
-  const imgData = tempCtx.getImageData(0, 0, outSize, outSize);
+  const imgData = tempCtx.getImageData(0, 0, workSize, workSize);
   const data = imgData.data;
 
   if (bgRemovalMode !== 'none') {
-    for (let i = 0; i < outSize * outSize; i++) {
+    for (let i = 0; i < workSize * workSize; i++) {
       const idx = i * 4;
       const r = data[idx];
       const g = data[idx + 1];
@@ -142,8 +154,8 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   }
 
   // 2. Luminance & Luminosité / Exposition (-50 à +50)
-  const gray = new Float32Array(outSize * outSize);
-  for(let i = 0; i < outSize * outSize; i++) {
+  const gray = new Float32Array(workSize * workSize);
+  for(let i = 0; i < workSize * workSize; i++) {
     if (isBackgroundPixel[i] === 1) {
       gray[i] = 255;
     } else {
@@ -155,24 +167,29 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
     }
   }
 
-  // 3. Paramètres de filtrage Sobel et d'encrage
+  // 3. Paramètres de filtrage Sobel et d'encrage calculés sur la trame HD
   const sobelPct = options.sobelContrast !== undefined ? options.sobelContrast : (options.detail !== undefined ? Math.round((options.detail / 150) * 100) : 50);
   const clampedSobel = Math.min(100, Math.max(0, sobelPct));
-  // À 0% : traits d'arête désactivés (pur clair-obscur Cordel). À 100% : traits fins et précis (seuil 25)
+  // Sensibilité Sobel ajustée pour la haute résolution
   const detailSensibility = clampedSobel === 0 ? 9999 : 400 - (clampedSobel / 100) * 375;
   const inkThreshold = options.threshold !== undefined ? options.threshold : (options.shadow ?? 128);
 
-  const finalCanvas = document.createElement('canvas');
-  finalCanvas.width = outSize; finalCanvas.height = outSize;
-  const finalCtx = finalCanvas.getContext('2d');
-  if (!finalCtx) return '';
+  const workFinalCanvas = document.createElement('canvas');
+  workFinalCanvas.width = workSize;
+  workFinalCanvas.height = workSize;
+  const workFinalCtx = workFinalCanvas.getContext('2d');
+  if (!workFinalCtx) return '';
 
-  const finalImgData = finalCtx.createImageData(outSize, outSize);
+  const finalImgData = workFinalCtx.createImageData(workSize, workSize);
   const fData = finalImgData.data;
 
-  for(let y = 0; y < outSize; y++){
-      for(let x = 0; x < outSize; x++){
-          let i = y * outSize + x;
+  // Facteur d'échelle pour normaliser l'épaisseur du cadre artisanal
+  const scaleRatio = workSize / outSize;
+  const frameBorder = Math.round(15 * scaleRatio);
+
+  for(let y = 0; y < workSize; y++){
+      for(let x = 0; x < workSize; x++){
+          let i = y * workSize + x;
           let outIdx = i * 4;
           
           let isInk = false;
@@ -181,10 +198,10 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
           if (isBackgroundPixel[i] === 0) {
               let lum = gray[i];
 
-              if (y > 0 && y < outSize - 1 && x > 0 && x < outSize - 1) {
-                  let tl = gray[i - outSize - 1], tc = gray[i - outSize], tr = gray[i - outSize + 1];
-                  let ml = gray[i - 1],                                   mr = gray[i + 1];
-                  let bl = gray[i + outSize - 1], bc = gray[i + outSize], br = gray[i + outSize + 1];
+              if (y > 0 && y < workSize - 1 && x > 0 && x < workSize - 1) {
+                  let tl = gray[i - workSize - 1], tc = gray[i - workSize], tr = gray[i - workSize + 1];
+                  let ml = gray[i - 1],                                     mr = gray[i + 1];
+                  let bl = gray[i + workSize - 1], bc = gray[i + workSize], br = gray[i + workSize + 1];
                   
                   let dx = (tr + 2*mr + br) - (tl + 2*ml + bl);
                   let dy = (bl + 2*bc + br) - (tl + 2*tc + tr);
@@ -196,17 +213,20 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
               }
 
               if (!isInk) {
-                  let groove = Math.sin((x - y) * 0.4) * 15 + Math.sin(y * 0.1) * 5;
-                  let noise = (Math.random() * 30) - 15;
+                  // Normalisation spatiale des rainures Cordel
+                  const normX = (x / workSize) * outSize;
+                  const normY = (y / workSize) * outSize;
+                  const groove = Math.sin((normX - normY) * 0.4) * 15 + Math.sin(normY * 0.1) * 5;
+                  const noise = (Math.random() * 30) - 15;
                   if (lum + groove + noise < inkThreshold) {
                       isInk = true;
                   }
               }
           }
 
-          // Priorité absolue au cadre artisanal (isFrame) : prime sur le masque du fond aux extrémités
+          // Priorité au cadre artisanal normalisé (isFrame)
           if (options.isFrame) {
-              if (x < 15 || x > outSize - 15 || y < 15 || y > outSize - 15) {
+              if (x < frameBorder || x > workSize - 1 - frameBorder || y < frameBorder || y > workSize - 1 - frameBorder) {
                   isInk = true;
                   if(Math.random() > 0.8) isInk = false;
               }
@@ -221,6 +241,18 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
       }
   }
 
-  finalCtx.putImageData(finalImgData, 0, 0);
-  return finalCanvas.toDataURL('image/jpeg', 0.8);
+  workFinalCtx.putImageData(finalImgData, 0, 0);
+
+  // 4. Sous-échantillonnage lissé de haute qualité vers la résolution cible outSize
+  const targetCanvas = document.createElement('canvas');
+  targetCanvas.width = outSize;
+  targetCanvas.height = outSize;
+  const targetCtx = targetCanvas.getContext('2d');
+  if (!targetCtx) return '';
+
+  targetCtx.imageSmoothingEnabled = true;
+  targetCtx.imageSmoothingQuality = 'high';
+  targetCtx.drawImage(workFinalCanvas, 0, 0, outSize, outSize);
+
+  return targetCanvas.toDataURL('image/jpeg', 0.85);
 };
