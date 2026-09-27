@@ -3217,7 +3217,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                 <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1.5 w-full text-[#1a1a1a]">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider select-none">
-                      📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
+                      📖 {lang === 'fr' ? 'Paroles (Letra en direct)' : 'Letras (Letra ao vivo)'}
                     </span>
                     {preRollWords.length > 0 && (
                       <span className="text-[9px] font-bold bg-[#8b2a1a] text-[#f4ecd8] px-1.5 py-0.2 rounded-full uppercase tracking-wider select-none">

@@ -258,7 +258,87 @@ export const resolvePatternForMeasure = (
 };
 
 /**
- * Tracé Canvas 2D haute performance du Karaoké « Ao Vivo » au centre de la Roda
+ * Structure d'une syllabe découpée selon la règle des espaces de fin
+ */
+interface SyllableItem {
+  step: number;
+  cleanText: string;
+  hasSpace: boolean;
+  note?: string;
+}
+
+/**
+ * Structure d'un mot complet reconstitué
+ */
+interface WordItem {
+  syllables: SyllableItem[];
+  fullWord: string;
+  startStep: number;
+  endStep: number;
+}
+
+/**
+ * Cache de mémoïsation pour éviter toute allocation Garbage Collector dans la boucle d'animation à 60 FPS
+ */
+const patternWordsCache = new Map<string, WordItem[]>();
+
+function getPatternWords(pattern: Pattern | undefined | null, isAnacrusis: boolean): WordItem[] {
+  if (!pattern) return [];
+  const lyrics = isAnacrusis ? pattern.preRollLyrics : pattern.lyrics;
+  const activeSteps = isAnacrusis ? pattern.preRollActiveSteps : pattern.activeSteps;
+  const notes = isAnacrusis ? pattern.preRollNotes : pattern.notes;
+  const stepsCount = isAnacrusis ? 16 : (pattern.steps || 16);
+
+  if (!lyrics || !activeSteps) return [];
+
+  const cacheKey = `${pattern.id}_${isAnacrusis ? 'pre' : 'main'}_${lyrics.join('|')}_${stepsCount}`;
+  const cached = patternWordsCache.get(cacheKey);
+  if (cached) return cached;
+
+  if (patternWordsCache.size > 100) {
+    patternWordsCache.clear();
+  }
+
+  const words: WordItem[] = [];
+  let currentSyllables: SyllableItem[] = [];
+
+  for (let s = 0; s < stepsCount; s++) {
+    const isActive = activeSteps[s] !== undefined && activeSteps[s] !== null && activeSteps[s] !== 0 && activeSteps[s] !== '0';
+    const rawText = lyrics[s];
+    if (isActive && rawText && typeof rawText === 'string' && rawText.trim() !== '' && rawText.trim() !== '-') {
+      const hasSpace = rawText.endsWith(' ') || rawText.endsWith('  ');
+      const cleanText = rawText.trim().replace(/-$/, '');
+      const note = notes?.[s]?.trim();
+
+      currentSyllables.push({ step: s, cleanText, hasSpace, note });
+
+      if (hasSpace || s === stepsCount - 1) {
+        words.push({
+          syllables: [...currentSyllables],
+          fullWord: currentSyllables.map(item => item.cleanText).join(''),
+          startStep: currentSyllables[0].step,
+          endStep: s
+        });
+        currentSyllables = [];
+      }
+    }
+  }
+
+  if (currentSyllables.length > 0) {
+    words.push({
+      syllables: [...currentSyllables],
+      fullWord: currentSyllables.map(item => item.cleanText).join(''),
+      startStep: currentSyllables[0].step,
+      endStep: currentSyllables[currentSyllables.length - 1].step
+    });
+  }
+
+  patternWordsCache.set(cacheKey, words);
+  return words;
+}
+
+/**
+ * Tracé Canvas 2D haute performance de la Letra « Ao Vivo » au centre de la Roda
  * Isole les styles graphiques avec ctx.save() / ctx.restore(), évite le thrashing DOM
  * et applique les couleurs du cordel : Puxador (#c25e38) et Coro (#1e40af).
  */
@@ -296,34 +376,27 @@ export const drawCenterKaraoke = (
       nextMeasureIdx = (measureIdx + 1) % totalMeasures;
     }
 
-    const nextPuxPattern = resolvePatternForMeasure(puxTrack, nextMeasureIdx, soloPlayId);
-    const nextCoroPattern = resolvePatternForMeasure(coroTrack, nextMeasureIdx, soloPlayId);
+    // 2. Détection de l'anacrouse anticipée (pas 12 à 15) ou pré-roll
+    let isAnacrusis = Boolean(live.isPreRoll);
+    let activePattern: Pattern | null | undefined = undefined;
+    let activeRole: 'puxador' | 'coro' | 'none' = 'none';
 
-    // 2. Détection de l'anacrouse anticipée (pas 12 à 15)
-    const isPickupWindow = currentStep >= 12;
-    let isAnacrusis = false;
-    let activeRole: 'puxador' | 'coro' | 'both' | 'none' = 'none';
-    let currentSyllable = '';
-    let currentNote = '';
-
-    // Vérifier les pas de la mesure courante
-    const isPuxStepActive = Boolean(puxPattern && puxPattern.activeSteps?.[currentStep] && puxPattern.activeSteps[currentStep] !== 0 && puxPattern.activeSteps[currentStep] !== '0');
-    const isCoroStepActive = Boolean(coroPattern && coroPattern.activeSteps?.[currentStep] && coroPattern.activeSteps[currentStep] !== 0 && coroPattern.activeSteps[currentStep] !== '0');
-
-    if (isPuxStepActive && isCoroStepActive) {
-      activeRole = 'both';
-      currentSyllable = (puxPattern?.lyrics?.[currentStep] || coroPattern?.lyrics?.[currentStep] || '').trim();
-      currentNote = (puxPattern?.notes?.[currentStep] || coroPattern?.notes?.[currentStep] || '').trim();
-    } else if (isPuxStepActive) {
-      activeRole = 'puxador';
-      currentSyllable = (puxPattern?.lyrics?.[currentStep] || '').trim();
-      currentNote = (puxPattern?.notes?.[currentStep] || '').trim();
-    } else if (isCoroStepActive) {
-      activeRole = 'coro';
-      currentSyllable = (coroPattern?.lyrics?.[currentStep] || '').trim();
-      currentNote = (coroPattern?.notes?.[currentStep] || '').trim();
-    } else if (isPickupWindow) {
-      // Vérifier si une anacrouse entrante existe sur la mesure suivante
+    if (isAnacrusis) {
+      const nextPuxPre = puxPattern?.preRollActiveSteps;
+      const nextCoroPre = coroPattern?.preRollActiveSteps;
+      const hasPuxPre = Boolean(nextPuxPre && Object.values(nextPuxPre).some(v => v && v !== 0 && v !== '0'));
+      const hasCoroPre = Boolean(nextCoroPre && Object.values(nextCoroPre).some(v => v && v !== 0 && v !== '0'));
+      if (hasPuxPre) {
+        activeRole = 'puxador';
+        activePattern = puxPattern;
+      } else if (hasCoroPre) {
+        activeRole = 'coro';
+        activePattern = coroPattern;
+      }
+    } else if (currentStep >= 12) {
+      // Fenêtre de fin de mesure : vérifier si une anacrouse existe sur la mesure suivante
+      const nextPuxPattern = resolvePatternForMeasure(puxTrack, nextMeasureIdx, soloPlayId);
+      const nextCoroPattern = resolvePatternForMeasure(coroTrack, nextMeasureIdx, soloPlayId);
       const nextPuxPre = nextPuxPattern?.preRollActiveSteps?.[currentStep];
       const nextCoroPre = nextCoroPattern?.preRollActiveSteps?.[currentStep];
       const hasNextPuxPre = Boolean(nextPuxPre && nextPuxPre !== 0 && nextPuxPre !== '0');
@@ -331,66 +404,66 @@ export const drawCenterKaraoke = (
 
       if (hasNextPuxPre || hasNextCoroPre) {
         isAnacrusis = true;
-        if (hasNextPuxPre && hasNextCoroPre) {
-          activeRole = 'both';
-          currentSyllable = (nextPuxPattern?.preRollLyrics?.[currentStep] || nextCoroPattern?.preRollLyrics?.[currentStep] || '').trim();
-          currentNote = (nextPuxPattern?.preRollNotes?.[currentStep] || nextCoroPattern?.preRollNotes?.[currentStep] || '').trim();
-        } else if (hasNextPuxPre) {
+        if (hasNextPuxPre) {
           activeRole = 'puxador';
-          currentSyllable = (nextPuxPattern?.preRollLyrics?.[currentStep] || '').trim();
-          currentNote = (nextPuxPattern?.preRollNotes?.[currentStep] || '').trim();
+          activePattern = nextPuxPattern;
         } else {
           activeRole = 'coro';
-          currentSyllable = (nextCoroPattern?.preRollLyrics?.[currentStep] || '').trim();
-          currentNote = (nextCoroPattern?.preRollNotes?.[currentStep] || '').trim();
+          activePattern = nextCoroPattern;
         }
       }
     }
 
-    // Si pas de frappe active au pas exact, chercher la dernière syllabe attaquée (prolongation ou tenue)
-    if (!currentSyllable) {
-      const targetPattern = puxPattern || coroPattern;
-      if (targetPattern) {
-        if (!activeRole || activeRole === 'none') {
-          activeRole = puxPattern ? 'puxador' : 'coro';
+    if (!isAnacrusis) {
+      const puxHasNotes = Boolean(puxPattern?.activeSteps && Object.values(puxPattern.activeSteps).some(v => v && v !== 0 && v !== '0'));
+      const coroHasNotes = Boolean(coroPattern?.activeSteps && Object.values(coroPattern.activeSteps).some(v => v && v !== 0 && v !== '0'));
+
+      if (puxHasNotes && coroHasNotes) {
+        // Départage précis selon la frappe au pas physique courant
+        const puxHitNow = Boolean(puxPattern?.activeSteps?.[currentStep] && puxPattern.activeSteps[currentStep] !== 0);
+        const coroHitNow = Boolean(coroPattern?.activeSteps?.[currentStep] && coroPattern.activeSteps[currentStep] !== 0);
+        if (puxHitNow && !coroHitNow) {
+          activeRole = 'puxador';
+          activePattern = puxPattern;
+        } else if (coroHitNow && !puxHitNow) {
+          activeRole = 'coro';
+          activePattern = coroPattern;
+        } else {
+          activeRole = 'puxador';
+          activePattern = puxPattern;
         }
-        for (let s = currentStep; s >= 0; s--) {
-          const sVal = targetPattern.activeSteps?.[s];
-          if (sVal && sVal !== 0 && sVal !== '0') {
-            const syl = (targetPattern.lyrics?.[s] || '').trim();
-            if (syl && syl !== '-') {
-              currentSyllable = syl;
-              currentNote = (targetPattern.notes?.[s] || '').trim();
-              break;
-            }
-          }
-        }
+      } else if (puxHasNotes) {
+        activeRole = 'puxador';
+        activePattern = puxPattern;
+      } else if (coroHasNotes) {
+        activeRole = 'coro';
+        activePattern = coroPattern;
       }
     }
 
-    // Définir la palette de couleur selon le rôle
+    // 🛡️ Mesure purement instrumentale : ne tracer aucun texte parasite au centre
+    if (!activePattern || activeRole === 'none') {
+      return;
+    }
+
+    const words = getPatternWords(activePattern, isAnacrusis);
+    if (words.length === 0) {
+      return;
+    }
+
+    // 3. Définir la palette de couleur selon le rôle
     let roleColor = '#c25e38'; // Puxador Terracotta par défaut
     let roleLabel = 'PUXADOR';
     if (activeRole === 'coro') {
       roleColor = '#1e40af'; // Bleu cobalt
       roleLabel = 'CORO';
-    } else if (activeRole === 'both') {
-      roleColor = '#7c3aed';
-      roleLabel = 'PUXADOR & CORO';
-    } else if (puxPattern && !coroPattern) {
-      roleColor = '#c25e38';
-      roleLabel = 'PUXADOR';
-    } else if (coroPattern && !puxPattern) {
-      roleColor = '#1e40af';
-      roleLabel = 'CORO';
     }
 
     if (isAnacrusis) {
-      roleColor = '#c25e38';
       roleLabel = 'ANACROUSE ➔ T1';
     }
 
-    // 3. Dessin du disque central parchemin Cordel
+    // 4. Dessin du disque central parchemin Cordel
     const diskRadius = 135 * dynamicScale;
     ctx.beginPath();
     ctx.arc(centerX, centerY, diskRadius, 0, Math.PI * 2);
@@ -407,7 +480,7 @@ export const drawCenterKaraoke = (
     ctx.strokeStyle = '#8b2a1a';
     ctx.stroke();
 
-    // 4. Badge du rôle (Puxador / Coro / Anacrouse)
+    // 5. Badge du rôle (Puxador / Coro / Anacrouse)
     const badgeW = (roleLabel.length > 10 ? 150 : 110) * dynamicScale;
     const badgeH = 22 * dynamicScale;
     const badgeX = centerX - badgeW / 2;
@@ -431,88 +504,134 @@ export const drawCenterKaraoke = (
     ctx.textBaseline = 'middle';
     ctx.fillText(roleLabel, centerX, badgeY + badgeH / 2 + 0.5);
 
-    // 5. Affichage de la syllabe active au centre avec éclat coloré
-    let displaySyllable = currentSyllable;
-    if (displaySyllable.endsWith('-')) displaySyllable = displaySyllable.slice(0, -1);
-    if (!displaySyllable || displaySyllable === '-') {
-      displaySyllable = live.isPreRoll ? '🎙️ ...' : '♪';
+    // 6. Calage strict du mot et de la syllabe sur le pas physique courant
+    let activeWord: WordItem | null = null;
+    let activeSyllableIndex: number = -1;
+
+    // A. Recherche d'une frappe exacte sur ce pas
+    for (const word of words) {
+      const sylIdx = word.syllables.findIndex(syl => syl.step === currentStep);
+      if (sylIdx !== -1) {
+        activeWord = word;
+        activeSyllableIndex = sylIdx;
+        break;
+      }
     }
 
-    const fontSize = Math.floor(Math.min(42, Math.max(22, 140 / Math.max(3, displaySyllable.length))) * dynamicScale);
-    ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Éclat coloré (glow) sur la syllabe chantée
-    ctx.shadowColor = roleColor;
-    ctx.shadowBlur = 12 * dynamicScale;
-    ctx.fillStyle = roleColor;
-    ctx.fillText(displaySyllable, centerX, centerY - 6 * dynamicScale);
-
-    // Réinitialiser le shadowBlur immédiatement pour les autres tracés
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = 'transparent';
-
-    // Note musicale sous la syllabe si présente
-    if (currentNote) {
-      ctx.font = `bold ${Math.floor(11 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
-      ctx.fillStyle = '#6b7280';
-      ctx.fillText(currentNote, centerX, centerY + 24 * dynamicScale);
-    }
-
-    // 6. Contexte des paroles de la mesure (Ruban déroulant Karaoké)
-    const activePatternForLyrics = puxPattern || coroPattern;
-    if (activePatternForLyrics && activePatternForLyrics.lyrics) {
-      const lyricsItems: Array<{ step: number; syl: string; active: boolean }> = [];
-      const stepsCount = activePatternForLyrics.steps || 16;
-      for (let s = 0; s < stepsCount; s++) {
-        const syl = (activePatternForLyrics.lyrics[s] || '').trim();
-        if (syl && syl !== '-') {
-          const cleanSyl = syl.endsWith('-') ? syl.slice(0, -1) : syl;
-          lyricsItems.push({
-            step: s,
-            syl: cleanSyl,
-            active: s === currentStep
-          });
+    // B. Si pas de frappe exacte au pas courant, chercher le mot en cours de tenue
+    if (!activeWord) {
+      for (let i = words.length - 1; i >= 0; i--) {
+        if (words[i].startStep <= currentStep) {
+          activeWord = words[i];
+          // Pas de frappe exacte sur ce pas précis : aucune syllabe en éclat
+          activeSyllableIndex = -1;
+          break;
         }
       }
+    }
 
-      if (lyricsItems.length > 0) {
-        const contextY = centerY + 62 * dynamicScale;
-        const totalItems = lyricsItems.length;
-        const itemSpacing = Math.min(36 * dynamicScale, (210 * dynamicScale) / Math.max(1, totalItems));
-        const startX = centerX - ((totalItems - 1) * itemSpacing) / 2;
+    // C. Si aucun mot n'a encore été attaqué, afficher le premier mot en attente
+    if (!activeWord && words.length > 0) {
+      activeWord = words[0];
+      activeSyllableIndex = -1;
+    }
 
-        lyricsItems.forEach((item, idx) => {
-          const ix = startX + idx * itemSpacing;
-          const isCurrent = item.step === currentStep;
+    // 7. Rendu horizontal du mot entier au centre de la Roda
+    if (activeWord) {
+      const fontSize = Math.floor(Math.min(38, Math.max(20, 160 / Math.max(4, activeWord.fullWord.length))) * dynamicScale);
+      ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
 
-          ctx.font = `900 ${Math.floor((isCurrent ? 13 : 11) * dynamicScale)}px "Outfit", "Inter", sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
+      // Calcul des largeurs de chaque syllabe pour le centrage horizontal parfait
+      const sylWidths = activeWord.syllables.map(s => ctx.measureText(s.cleanText).width);
+      const totalWordWidth = sylWidths.reduce((a, b) => a + b, 0);
+      let curX = centerX - totalWordWidth / 2;
+      const wordY = centerY - 6 * dynamicScale;
 
-          if (isCurrent) {
-            ctx.globalAlpha = 1.0;
-            ctx.fillStyle = roleColor;
-            ctx.fillText(item.syl, ix, contextY);
+      let activeNote: string | undefined = undefined;
 
-            // Petit point indicateur sous la syllabe courante
-            ctx.beginPath();
-            ctx.arc(ix, contextY + 12 * dynamicScale, 2.5 * dynamicScale, 0, Math.PI * 2);
-            ctx.fillStyle = roleColor;
-            ctx.fill();
-          } else {
-            ctx.globalAlpha = 0.40;
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillText(item.syl, ix, contextY);
-          }
-        });
-        ctx.globalAlpha = 1.0;
+      for (let i = 0; i < activeWord.syllables.length; i++) {
+        const syl = activeWord.syllables[i];
+        const w = sylWidths[i];
+        const isHitNow = (i === activeSyllableIndex);
+
+        if (isHitNow) {
+          activeNote = syl.note;
+          // Syllabe active : 100% opacité + éclat coloré
+          ctx.globalAlpha = 1.0;
+          ctx.shadowColor = roleColor;
+          ctx.shadowBlur = 14 * dynamicScale;
+          ctx.fillStyle = roleColor;
+          ctx.fillText(syl.cleanText, curX, wordY);
+          ctx.shadowBlur = 0;
+          ctx.shadowColor = 'transparent';
+        } else {
+          // Reste du mot : 40% d'opacité en encre noire cordel
+          ctx.globalAlpha = 0.40;
+          ctx.shadowBlur = 0;
+          ctx.shadowColor = 'transparent';
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fillText(syl.cleanText, curX, wordY);
+        }
+
+        curX += w;
       }
+
+      ctx.globalAlpha = 1.0;
+
+      // Note musicale sous la syllabe active si présente
+      if (activeNote) {
+        ctx.font = `bold ${Math.floor(11 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
+        ctx.fillStyle = '#6b7280';
+        ctx.textAlign = 'center';
+        ctx.fillText(activeNote, centerX, centerY + 24 * dynamicScale);
+      }
+    }
+
+    // 8. Ligne de contexte inférieure : affichage de la phrase complète de la mesure
+    if (words.length > 0) {
+      const contextY = centerY + 62 * dynamicScale;
+      ctx.font = `bold ${Math.floor(10.5 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+
+      const wordWidths = words.map(w => ctx.measureText(w.fullWord).width);
+      const spacing = 8 * dynamicScale;
+      const totalPhraseWidth = wordWidths.reduce((a, b) => a + b, 0) + (words.length - 1) * spacing;
+
+      let lineX = centerX - totalPhraseWidth / 2;
+
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        const wWidth = wordWidths[i];
+        const isCurrentWord = (w === activeWord);
+
+        if (isCurrentWord) {
+          ctx.globalAlpha = 1.0;
+          ctx.fillStyle = roleColor;
+          ctx.fillText(w.fullWord, lineX + wWidth / 2, contextY);
+
+          // Point indicateur sous le mot actif
+          ctx.beginPath();
+          ctx.arc(lineX + wWidth / 2, contextY + 11 * dynamicScale, 2.2 * dynamicScale, 0, Math.PI * 2);
+          ctx.fillStyle = roleColor;
+          ctx.fill();
+        } else {
+          ctx.globalAlpha = 0.35;
+          ctx.fillStyle = '#1a1a1a';
+          ctx.fillText(w.fullWord, lineX + wWidth / 2, contextY);
+        }
+
+        lineX += wWidth + spacing;
+      }
+
+      ctx.globalAlpha = 1.0;
     }
   } finally {
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'transparent';
+    ctx.globalAlpha = 1.0;
     ctx.restore();
   }
 };
@@ -3278,7 +3397,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         role="toolbar"
         aria-label={lang === 'pt' ? 'Controles vocais da Roda' : 'Contrôles vocaux de la Roda'}
       >
-        {/* Bouton Toggle Karaokê */}
+        {/* Bouton Toggle Letra */}
         <button
           type="button"
           onClick={() => setIsKaraokeActive(prev => !prev)}
@@ -3287,10 +3406,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               ? 'bg-[#c25e38] text-white shadow-[1px_1px_0px_var(--cordel-border)]'
               : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#e8dec5]'
           }`}
-          title={lang === 'pt' ? 'Ativar / desativar Karaokê Ao Vivo no centro da roda' : 'Activer / désactiver le Karaoké Ao Vivo au centre de la roda'}
+          title={lang === 'pt' ? 'Ativar / desativar Letra da Toada no centro da roda' : 'Activer / désactiver la Letra au centre de la roda'}
         >
           <span className="text-xs md:text-sm">🎙️</span>
-          <span>{lang === 'pt' ? 'Karaokê' : 'Karaoké'}</span>
+          <span>{lang === 'pt' ? 'Letra' : 'Letra'}</span>
           <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${isKaraokeActive ? 'bg-amber-300 animate-pulse' : 'bg-stone-400'}`} />
         </button>
 

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Language } from '../types';
+import { Language, TrackGroup } from '../types';
 import { i18n, instrumentsConfig, getMaxTicks } from '../data';
 // import { parseCordelFormatting } from '../utils/cordelFormatter';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -83,9 +83,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       if (useSequencerStore.getState().isEcoMode || !karaokeContainerRef.current) {
         if (activeTokensRef.current.length > 0) {
           activeTokensRef.current.forEach(el => {
-            el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+            el.classList.remove('scale-110');
             el.style.backgroundColor = 'transparent';
             el.style.color = 'var(--cordel-text)';
+            el.style.boxShadow = 'none';
           });
           activeTokensRef.current = [];
         }
@@ -96,50 +97,105 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       const currentMeasure = useSequencerStore.getState().currentMeasure;
       const currentTracks = useSequencerStore.getState().tracks;
 
-      const activePatternByInst: Record<number, number | null> = {};
-      currentTracks.forEach(t => {
-        if (activePatternByInst[t.instrumentIdx] === undefined) {
-          const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
-          activePatternByInst[t.instrumentIdx] = activePattern ? activePattern.id : null;
-        }
-      });
+      const puxTrack = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 
-      // Clear previous tokens
+      const puxActivePattern = puxTrack?.patterns.find(p => p.measureAssignments[currentMeasure]);
+      const coroActivePattern = coroTrack?.patterns.find(p => p.measureAssignments[currentMeasure]);
+
+      const puxHasNotes = Boolean(
+        puxActivePattern?.activeSteps &&
+        Object.values(puxActivePattern.activeSteps).some(v => v && v !== 0 && v !== '0')
+      );
+      const coroHasNotes = Boolean(
+        coroActivePattern?.activeSteps &&
+        Object.values(coroActivePattern.activeSteps).some(v => v && v !== 0 && v !== '0')
+      );
+
+      // Calcul du pas physique courant
+      let currentStep = -999;
+      if ((detail as any).isPreRoll) {
+        const preRollBeat = (detail as any).preRollBeat;
+        const ratio = (detail as any).ratio || (step / maxTicks);
+        const preRollStep = preRollBeat !== undefined
+          ? Math.min(15, preRollBeat * 4 + Math.floor(ratio * 4))
+          : Math.min(15, Math.floor(ratio * 16));
+        currentStep = preRollStep - 16;
+      } else if (maxTicks > 0) {
+        currentStep = Math.floor((step / maxTicks) * 16);
+      }
+
+      // Identification stricte du rôle actif sur la mesure
+      let activeRole: 'puxador' | 'coro' | 'none' = 'none';
+
+      if ((detail as any).isPreRoll) {
+        const puxPre = puxActivePattern?.preRollActiveSteps;
+        const coroPre = coroActivePattern?.preRollActiveSteps;
+        const hasPuxPre = Boolean(puxPre && Object.values(puxPre).some(v => v && v !== 0 && v !== '0'));
+        const hasCoroPre = Boolean(coroPre && Object.values(coroPre).some(v => v && v !== 0 && v !== '0'));
+        if (hasPuxPre) activeRole = 'puxador';
+        else if (hasCoroPre) activeRole = 'coro';
+      } else {
+        if (puxHasNotes && coroHasNotes) {
+          const puxHit = Boolean(puxActivePattern?.activeSteps?.[currentStep] && puxActivePattern.activeSteps[currentStep] !== 0);
+          const coroHit = Boolean(coroActivePattern?.activeSteps?.[currentStep] && coroActivePattern.activeSteps[currentStep] !== 0);
+          if (puxHit && !coroHit) activeRole = 'puxador';
+          else if (coroHit && !puxHit) activeRole = 'coro';
+          else activeRole = 'puxador';
+        } else if (puxHasNotes) {
+          activeRole = 'puxador';
+        } else if (coroHasNotes) {
+          activeRole = 'coro';
+        }
+      }
+
+      // 1. Mise à jour de l'opacité des blocs Puxador et Coro
+      const puxBlock = karaokeContainerRef.current.querySelector<HTMLElement>('[data-role-block="puxador"]');
+      const coroBlock = karaokeContainerRef.current.querySelector<HTMLElement>('[data-role-block="coro"]');
+
+      if (puxBlock) {
+        puxBlock.style.opacity = activeRole === 'puxador' ? '1' : (activeRole === 'coro' ? '0.35' : '0.6');
+      }
+      if (coroBlock) {
+        coroBlock.style.opacity = activeRole === 'coro' ? '1' : (activeRole === 'puxador' ? '0.35' : '0.6');
+      }
+
+      // 2. Éteindre impérativement tous les tokens précédents pour éviter toute rémanence
       activeTokensRef.current.forEach(el => {
-        el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+        el.classList.remove('scale-110');
         el.style.backgroundColor = 'transparent';
         el.style.color = 'var(--cordel-text)';
+        el.style.boxShadow = 'none';
       });
       activeTokensRef.current = [];
 
-      // Find and activate tokens directly via DOM
-      const tokenElements = karaokeContainerRef.current.querySelectorAll<HTMLElement>('[data-karaoke-token]');
-      tokenElements.forEach(el => {
-        const instIdx = Number(el.dataset.instIdx);
+      // 3. Si aucun rôle n'est actif sur la mesure (instrumentale), aucune illumination
+      if (activeRole === 'none') {
+        return;
+      }
+
+      // 4. Illumination exclusive des tokens du rôle actif UNIQUEMENT
+      const targetPatternId = activeRole === 'puxador' ? puxActivePattern?.id : coroActivePattern?.id;
+      const roleHighlightBg = activeRole === 'puxador' ? '#c25e38' : '#1e40af';
+      const roleShadow = activeRole === 'puxador' ? '0 0 8px rgba(194, 94, 56, 0.6)' : '0 0 8px rgba(30, 64, 175, 0.6)';
+
+      const selector = `[data-karaoke-token][data-role="${activeRole}"]`;
+      const roleTokens = karaokeContainerRef.current.querySelectorAll<HTMLElement>(selector);
+
+      roleTokens.forEach(el => {
         const patternId = Number(el.dataset.patternId);
         const stepIdx = Number(el.dataset.stepIdx);
-        const steps = Number(el.dataset.steps);
 
-        const activeId = activePatternByInst[instIdx];
-        const isPatternActive = (activeId === patternId || activeId === undefined || activeId === null);
-        if (isPatternActive) {
-          let currentStep = -999;
-          if ((detail as any).isPreRoll) {
-            const preRollBeat = (detail as any).preRollBeat;
-            const ratio = (detail as any).ratio || (step / maxTicks);
-            const preRollStep = preRollBeat !== undefined
-              ? Math.min(15, preRollBeat * 4 + Math.floor(ratio * 4))
-              : Math.min(15, Math.floor(ratio * 16));
-            currentStep = preRollStep - 16;
-          } else if (steps > 0 && maxTicks > 0) {
-            currentStep = Math.floor((step / maxTicks) * steps);
-          }
-          if (currentStep === stepIdx) {
-            el.classList.add('scale-110', 'cordel-border-sm', 'px-1');
-            el.style.backgroundColor = 'var(--cordel-text)';
-            el.style.color = 'var(--cordel-bg)';
-            activeTokensRef.current.push(el);
-          }
+        if (targetPatternId !== undefined && patternId !== targetPatternId) {
+          return;
+        }
+
+        if (stepIdx === currentStep) {
+          el.classList.add('scale-110');
+          el.style.backgroundColor = roleHighlightBg;
+          el.style.color = '#ffffff';
+          el.style.boxShadow = roleShadow;
+          activeTokensRef.current.push(el);
         }
       });
     };
@@ -148,9 +204,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     return () => {
       unsubscribeFromTick(handleTick);
       activeTokensRef.current.forEach(el => {
-        el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+        el.classList.remove('scale-110');
         el.style.backgroundColor = 'transparent';
         el.style.color = 'var(--cordel-text)';
+        el.style.boxShadow = 'none';
       });
       activeTokensRef.current = [];
     };
@@ -399,11 +456,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                   </button>
                 )}
                 
-                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left">
-                  🎤 Karaokê
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left flex items-center gap-1.5">
+                  🎙️ {lang === 'fr' ? 'Letra da Toada (Ao Vivo)' : 'Letra da Toada (Ao Vivo)'}
                 </span>
 
-                {/* Karaoke Viewer Container */}
+                {/* Karaoke / Letra Viewer Container */}
                 <div ref={karaokeContainerRef} className="flex-grow overflow-y-auto min-h-0 pr-1 custom-scrollbar">
                 {(() => {
                   const voiceTracks = tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.type === 'voice' && !t.isMute);
@@ -411,17 +468,19 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     return (
                       <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-6 italic opacity-70">
                         {lang === 'fr' 
-                          ? 'Ajoutez une piste de voix (non mutée) pour voir le karaoké.'
-                          : 'Adicione uma faixa de Voz/Coro (não mutada) para ver o karaokê.'}
+                          ? 'Ajoutez une piste de voix (non mutée) pour voir la letra.'
+                          : 'Adicione uma faixa de Voz/Coro (não mutada) para ver a letra.'}
                       </div>
                     );
                   }
 
-                  type Token = { trackId: number; patternId: number; stepIdx: number; displayText: string; hasSpace: boolean; color: string; instIdx: number; isBreak?: boolean };
-                  const allTokens: Token[] = [];
-                  voiceTracks.forEach(t => {
-                    const inst = instrumentsConfig[t.instrumentIdx];
-                    t.patterns.forEach((ptn: any) => {
+                  type Token = { trackId: number; patternId: number; stepIdx: number; displayText: string; hasSpace: boolean; color: string; instIdx: number; role: 'puxador' | 'coro'; isBreak?: boolean };
+
+                  const extractRoleTokens = (track: TrackGroup | undefined, role: 'puxador' | 'coro'): Token[][] => {
+                    if (!track) return [];
+                    const allTokens: Token[] = [];
+
+                    track.patterns.forEach((ptn: any) => {
                       let addedTokensForPattern = false;
 
                       // Tokens d'anacrouse (Pre-roll : pas i - 16)
@@ -429,12 +488,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                         for (let i = 0; i < 16; i++) {
                           const state = ptn.preRollActiveSteps[i];
                           const lyric = ptn.preRollLyrics[i];
-                          if (!state || state === 0 || !lyric || lyric.trim() === '') continue;
-                          const isPux = state === 'P';
-                          const color = inst && inst.colors ? (isPux ? inst.colors['P'] || '' : inst.colors['C'] || '') : '';
-                          const hasSpace = lyric.endsWith(' ');
+                          if (!state || state === 0 || !lyric || lyric.trim() === '' || lyric.trim() === '-') continue;
+                          const color = role === 'puxador' ? '#c25e38' : '#1e40af';
+                          const hasSpace = lyric.endsWith(' ') || lyric.endsWith('  ');
                           const displayText = lyric.replace(/-$/, '').trim();
-                          allTokens.push({ trackId: t.id, patternId: ptn.id, stepIdx: i - 16, displayText, hasSpace, color, instIdx: t.instrumentIdx });
+                          allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: i - 16, displayText, hasSpace, color, instIdx: track.instrumentIdx, role });
                           addedTokensForPattern = true;
                         }
                       }
@@ -442,83 +500,110 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                       for (let i = 0; i < ptn.steps; i++) {
                         const state = ptn.activeSteps[i];
                         const lyric = ptn.lyrics[i];
-                        if (!state || state === 0 || !lyric || lyric.trim() === '') continue;
-                        const isPux = state === 'P';
-                        const color = inst && inst.colors ? (isPux ? inst.colors['P'] || '' : inst.colors['C'] || '') : '';
-                        
-                        // Respect user's explicit trailing spaces
-                        const hasSpace = lyric.endsWith(' ');
+                        if (!state || state === 0 || !lyric || lyric.trim() === '' || lyric.trim() === '-') continue;
+                        const color = role === 'puxador' ? '#c25e38' : '#1e40af';
+                        const hasSpace = lyric.endsWith(' ') || lyric.endsWith('  ');
                         const displayText = lyric.replace(/-$/, '').trim();
-                        
-                        allTokens.push({ trackId: t.id, patternId: ptn.id, stepIdx: i, displayText, hasSpace, color, instIdx: t.instrumentIdx });
+                        allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: i, displayText, hasSpace, color, instIdx: track.instrumentIdx, role });
                         addedTokensForPattern = true;
                       }
+
                       if (addedTokensForPattern) {
-                        allTokens.push({ trackId: t.id, patternId: ptn.id, stepIdx: -1, displayText: '', hasSpace: false, color: '', instIdx: t.instrumentIdx, isBreak: true });
+                        allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: -1, displayText: '', hasSpace: false, color: '', instIdx: track.instrumentIdx, role, isBreak: true });
                       }
                     });
-                  });
 
-                  return (
-                    <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm p-3 font-sans">
-                      <div className="flex flex-wrap gap-y-2 leading-loose text-base">
-                        {(() => {
-                          const words: Token[][] = [];
-                          let currentWord: Token[] = [];
-                          allTokens.forEach(tok => {
-                            if (tok.isBreak) {
-                              if (currentWord.length > 0) {
-                                words.push(currentWord);
-                                currentWord = [];
-                              }
-                              words.push([tok]);
-                              return;
-                            }
-                            currentWord.push(tok);
-                            if (tok.hasSpace) {
-                              words.push(currentWord);
-                              currentWord = [];
-                            }
-                          });
-                          if (currentWord.length > 0) words.push(currentWord);
+                    // Reconstitution des mots
+                    const words: Token[][] = [];
+                    let currentWord: Token[] = [];
+                    allTokens.forEach(tok => {
+                      if (tok.isBreak) {
+                        if (currentWord.length > 0) {
+                          words.push(currentWord);
+                          currentWord = [];
+                        }
+                        words.push([tok]);
+                        return;
+                      }
+                      currentWord.push(tok);
+                      if (tok.hasSpace) {
+                        words.push(currentWord);
+                        currentWord = [];
+                      }
+                    });
+                    if (currentWord.length > 0) words.push(currentWord);
 
-                          return words.map((word, wordIdx) => {
+                    return words;
+                  };
+
+                  const puxTrack = voiceTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+                  const coroTrack = voiceTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+                  const puxWords = extractRoleTokens(puxTrack, 'puxador');
+                  const coroWords = extractRoleTokens(coroTrack, 'coro');
+
+                  if (puxWords.length === 0 && coroWords.length === 0) {
+                    return (
+                      <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-6 italic opacity-70">
+                        {lang === 'fr'
+                          ? 'Saisissez des paroles sur le Puxador ou le Coro.'
+                          : 'Digite letras no Puxador ou no Coro.'}
+                      </div>
+                    );
+                  }
+
+                  const renderWordBlock = (words: Token[][], role: 'puxador' | 'coro', label: string, badgeBg: string, borderColor: string) => {
+                    if (words.length === 0) return null;
+                    return (
+                      <div
+                        data-role-block={role}
+                        className={`transition-opacity duration-200 border-2 ${borderColor} bg-[#f4ecd8]/60 p-2.5 rounded-sm flex flex-col gap-1.5 mb-2.5 cordel-shadow-sm`}
+                      >
+                        <div className="flex items-center justify-between border-b border-black/10 pb-1">
+                          <span className={`${badgeBg} text-white text-[9px] font-cactus font-bold uppercase px-2 py-0.5 rounded-xs tracking-wider shadow-xs`}>
+                            {label}
+                          </span>
+                          <span className="text-[9px] font-cactus font-bold uppercase opacity-60">
+                            {role === 'puxador' ? (lang === 'fr' ? 'Solo' : 'Solo') : (lang === 'fr' ? 'Chœur' : 'Coro')}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-y-1.5 gap-x-2 text-sm md:text-base font-bold font-sans leading-relaxed">
+                          {words.map((word, wordIdx) => {
                             if (word[0].isBreak) {
-                              return <div key={`break-${wordIdx}`} className="w-full h-1" />;
+                              return <div key={`break-${role}-${wordIdx}`} className="w-full h-1" />;
                             }
                             return (
-                              <span key={`word-${wordIdx}`} className="inline">
-                                {word.map((tok, idx) => {
-                                  const t = voiceTracks.find(x => x.id === tok.trackId);
-                                  if (!t) return null;
-
-                                  const activePattern = t.patterns.find((p: any) => p.id === tok.patternId);
-                                  if (!activePattern) return null;
-
-                                  return (
-                                    <span
-                                      key={`${tok.trackId}-${tok.patternId}-${tok.stepIdx}-${idx}`}
-                                      data-karaoke-token="true"
-                                      data-inst-idx={tok.instIdx}
-                                      data-pattern-id={tok.patternId}
-                                      data-step-idx={tok.stepIdx}
-                                      data-steps={activePattern.steps}
-                                      className="transition-all duration-100 font-bold"
-                                      style={{
-                                        backgroundColor: 'transparent',
-                                        color: 'var(--cordel-text)',
-                                        marginRight: tok.hasSpace ? '6px' : '0px',
-                                      }}
-                                    >
-                                      {tok.displayText}
-                                    </span>
-                                  );
-                                })}
+                              <span key={`word-${role}-${wordIdx}`} className="inline">
+                                {word.map((tok, idx) => (
+                                  <span
+                                    key={`${tok.trackId}-${tok.patternId}-${tok.stepIdx}-${idx}`}
+                                    data-karaoke-token="true"
+                                    data-role={tok.role}
+                                    data-inst-idx={tok.instIdx}
+                                    data-pattern-id={tok.patternId}
+                                    data-step-idx={tok.stepIdx}
+                                    className="transition-all duration-75 font-bold rounded-xs px-0.5 inline-block"
+                                    style={{
+                                      backgroundColor: 'transparent',
+                                      color: 'var(--cordel-text)',
+                                      marginRight: tok.hasSpace ? '5px' : '0px',
+                                    }}
+                                  >
+                                    {tok.displayText}
+                                  </span>
+                                ))}
                               </span>
                             );
-                          });
-                        })()}
+                          })}
+                        </div>
                       </div>
+                    );
+                  };
+
+                  return (
+                    <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm p-2 font-sans flex flex-col gap-1">
+                      {renderWordBlock(puxWords, 'puxador', 'PUXADOR', 'bg-[#c25e38]', 'border-[#c25e38]/30')}
+                      {renderWordBlock(coroWords, 'coro', 'CORO', 'bg-[#1e40af]', 'border-[#1e40af]/30')}
                     </div>
                   );
                 })()}

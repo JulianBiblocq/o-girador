@@ -421,10 +421,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
                 isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
               }`}
-              title={inst.type === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
+              title={inst.type === 'voice' ? (lang === 'fr' ? 'Letra (Live)' : 'Letra (Ao Vivo)') : "Ao Vivo (Live POV)"}
             >
               {inst.type === 'voice' ? (
-                <span className="text-xs leading-none">🎤</span>
+                <span className="text-xs leading-none">🎙️</span>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                   <path d="M11 22 L5 6" />
