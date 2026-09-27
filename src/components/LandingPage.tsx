@@ -964,7 +964,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="flex flex-col items-end">
               <div
                 style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                className="font-cactus-display text-5xl sm:text-7xl md:text-8xl lg:text-[10.5rem] font-bold tracking-tight text-[#1a1a1a] leading-none select-none flex items-baseline"
+                className="font-cactus-display text-5xl sm:text-7xl md:text-8xl lg:text-[10.5rem] font-bold tracking-tight text-[#1a1a1a] leading-none select-none flex items-baseline lino-distressed"
               >
                 <span>G</span>
                 <span className="relative inline-flex flex-col items-center">
@@ -982,7 +982,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
                   className="inline-block px-3 sm:px-4 py-1 font-cactus-display font-bold text-sm sm:text-base md:text-xl uppercase cordel-stamp-red shadow-[2px_2px_0px_#8b2a1a] rotate-[-1deg]"
                 >
-                  SEQUENCIADOR
+                  <span className="lino-distressed font-bold translate-x-[0.09em]">
+                    SEQUENCIADOR
+                  </span>
                 </span>
               </div>
             </div>
