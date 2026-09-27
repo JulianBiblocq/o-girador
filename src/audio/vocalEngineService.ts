@@ -456,18 +456,18 @@ export const vocalEngineService = {
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
 
-    // Directive D : Secours au Pas 0 avec compensation d'offset (Filet de sécurité)
-    // Si isDirectStep0 est vrai et que le motif a une anacrouse réelle, la levée est dans le passé.
-    // On compense en démarrant pile à measureStartTime (Temps 1) avec un offset égal à l'anacrouse,
-    // garantissant que le premier mot accentué tombe exactement sur le Temps 1 sans décalage rythmique.
-    if (isDirectStep0 && (anacrusisSec > 0.02 || nudgeMs !== 0)) {
-      const anacrusisOffsetSec = Math.max(0, anacrusisSec - (nudgeMs / 1000)) * playbackRate;
-      const remainingDuration = Math.max(0, bufferDuration - anacrusisOffsetSec);
+    // Directive B / 4 : Filet de sécurité strict sur le Fallback Pas 0
+    // Si isDirectStep0 est vrai et que le motif possède une anacrouse avérée,
+    // forcer le départ au Temps 1 (measureStartTime) avec un offset égal à l'anacrouse.
+    const hasAnacrusis = (anacrusisSec > 0.02 || nudgeMs !== 0);
+    if (isDirectStep0 && hasAnacrusis) {
+      const startOffset = Math.max(0, anacrusisSec - (nudgeMs / 1000));
+      const remainingDuration = Math.max(0, bufferDuration - startOffset);
       if (remainingDuration <= 0) {
         return null;
       }
       mainGain.gain.setValueAtTime(baseGainLinear, measureStartTime);
-      mainPlayer.start(measureStartTime, anacrusisOffsetSec, remainingDuration / playbackRate);
+      mainPlayer.start(measureStartTime, startOffset);
     } else if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
       mainPlayer.start(triggerTime, 0, playDuration);

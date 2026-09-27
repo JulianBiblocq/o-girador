@@ -1735,11 +1735,6 @@ export function useAudioSync({
             nextMeasureLocal = (currentMeasureLocal + 1) % (totalMeasuresRef.current || 1);
           }
 
-          // Détermination du cycle cible : si on reboucle vers le début, incrémenter le cycle cible (Directive B / Consigne 2)
-          const targetCycle = (nextMeasureLocal <= currentMeasureLocal)
-            ? currentLoopIterationRef.current + 1
-            : currentLoopIterationRef.current;
-
           const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
           let scheduledNextVocalKey: string | null = null;
 
@@ -1749,17 +1744,17 @@ export function useAudioSync({
             const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextCompositeBufferKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
             const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
             const nextClip = nextPattern.vocalClip;
-            // Règle impérative B : Déclenchement anticipé UNIQUEMENT si anacrouse réelle > 0.02s
+            // Rappel 1 : Déclenchement anticipé UNIQUEMENT si anacrouse avérée > 0.02s
             const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
 
-            // Clé dynamique indexée par cycle et mesure (Directive B)
-            const cycleKey = `${track.id}_m${nextMeasureLocal}_c${targetCycle}`;
+            // Verrou spatial direct par mesure (Directive A)
+            const targetKey = `${track.id}_m${nextMeasureLocal}`;
 
             if (nextHasVocal && hasEarlyStart) {
-              scheduledNextVocalKey = cycleKey;
+              scheduledNextVocalKey = targetKey;
             }
 
-            if (nextHasVocal && hasEarlyStart && !anticipatedMeasuresRef.current.has(cycleKey)) {
+            if (nextHasVocal && hasEarlyStart && !anticipatedMeasuresRef.current.has(targetKey)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
               const voiceInst = instrumentsConfig[track.instrumentIdx];
               const isCoroTrack = voiceInst?.id === 'coro';
@@ -1774,8 +1769,8 @@ export function useAudioSync({
               // Horodatage absolu au wrap-around (Consigne 1) : nextMeasureStartTime = time + currentMeasureDurationSec
               const nextMeasureStartTime = time + currentMeasureDurationSec;
 
-              // Enregistrement immédiat dans le registre d'anticipation pour ce cycle
-              anticipatedMeasuresRef.current.add(cycleKey);
+              // Enregistrement immédiat dans le registre d'anticipation pour cette mesure cible
+              anticipatedMeasuresRef.current.add(targetKey);
 
               const handle = vocalEngineService.playSequencerVocal(
                 track.id,
@@ -1786,12 +1781,12 @@ export function useAudioSync({
                 vocalVol,
                 isCoroTrack,
                 () => {
-                  activeSequencerVocalsRef.current.delete(cycleKey);
+                  activeSequencerVocalsRef.current.delete(targetKey);
                 },
                 false // isDirectStep0 = false
               );
               if (handle) {
-                activeSequencerVocalsRef.current.set(cycleKey, handle);
+                activeSequencerVocalsRef.current.set(targetKey, handle);
               }
             }
           }
@@ -1806,6 +1801,12 @@ export function useAudioSync({
           }
 
           if (!activePattern) {
+            const currentKey = `${track.id}_m${currentMeasureLocal}`;
+            // Réarmement spatial si la piste est muette (dès stepIdx >= 4)
+            if (stepIdx >= 4 && anticipatedMeasuresRef.current.has(currentKey)) {
+              anticipatedMeasuresRef.current.delete(currentKey);
+            }
+
             // 🛡️ Coupure franche au changement de mesure (Transition Puxador / Coro) dès que la mesure courante est muette
             if (stepIdx === 0) {
               activeSequencerVocalsRef.current.forEach((handle, key) => {
@@ -1878,27 +1879,20 @@ export function useAudioSync({
 
           const safeId = Number(activePattern.id);
           const compositeBufferKey = `${track.id}_${safeId}`;
-          const currentCycleKey = `${track.id}_m${currentMeasureLocal}_c${currentLoopIterationRef.current}`;
+          const currentKey = `${track.id}_m${currentMeasureLocal}`;
+
+          // Rappel 3 / Directive A.4 : Réarmement spatial dès la sortie de mesure (dès stepIdx >= 4)
+          // Dès que le Temps 1 est franchi, la mesure redevient instantanément armée pour le prochain tour de boucle
+          if (stepIdx >= 4 && anticipatedMeasuresRef.current.has(currentKey)) {
+            anticipatedMeasuresRef.current.delete(currentKey);
+          }
 
           if (stepIdx === 0) {
             // Couper tout ancien lecteur résiduel sur cette piste (différent de l'instance courante et de l'anticipation future)
             activeSequencerVocalsRef.current.forEach((handle, key) => {
-              if (key.startsWith(`${track.id}_`) && key !== currentCycleKey && key !== scheduledNextVocalKey) {
+              if (key.startsWith(`${track.id}_`) && key !== currentKey && key !== scheduledNextVocalKey) {
                 try { handle.stop(); } catch (_) {}
                 activeSequencerVocalsRef.current.delete(key);
-              }
-            });
-
-            // Nettoyage régulier des anciens cycles dans anticipatedMeasuresRef (Directive B)
-            anticipatedMeasuresRef.current.forEach(k => {
-              if (k.startsWith(`${track.id}_`)) {
-                const parts = k.split('_c');
-                if (parts.length === 2) {
-                  const cycleNum = parseInt(parts[1], 10);
-                  if (!isNaN(cycleNum) && cycleNum < currentLoopIterationRef.current - 1) {
-                    anticipatedMeasuresRef.current.delete(k);
-                  }
-                }
               }
             });
           }
@@ -1918,10 +1912,10 @@ export function useAudioSync({
           const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
 
           // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
-          // VÉRIFICATION CRITIQUE (Directive B) : Ne déclencher au pas 0 QUE si cette mesure n'a PAS déjà été anticipée pour ce cycle !
-          const isAlreadyAnticipated = anticipatedMeasuresRef.current.has(currentCycleKey);
+          // Rappel 2 : Si anticipatedMeasuresRef.current.has(currentKey), le chant est déjà en train de jouer : NE PAS TOUCHER !
+          const isAlreadyAnticipated = anticipatedMeasuresRef.current.has(currentKey);
 
-          if (hasVocalSample && stepIdx === 0 && !isAlreadyAnticipated && !activeSequencerVocalsRef.current.has(currentCycleKey)) {
+          if (hasVocalSample && stepIdx === 0 && !isAlreadyAnticipated && !activeSequencerVocalsRef.current.has(currentKey)) {
             const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
@@ -1929,7 +1923,7 @@ export function useAudioSync({
             const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
             const currentBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
 
-            // Secours au Pas 0 avec compensation d'offset (Directive D) : isDirectStep0 = true
+            // Secours au Pas 0 avec compensation d'offset (Directive B / Rappel 4) : isDirectStep0 = true
             const handle = vocalEngineService.playSequencerVocal(
               track.id,
               safeId,
@@ -1939,12 +1933,12 @@ export function useAudioSync({
               vocalVol,
               isCoroTrack,
               () => {
-                activeSequencerVocalsRef.current.delete(currentCycleKey);
+                activeSequencerVocalsRef.current.delete(currentKey);
               },
               true // isDirectStep0 = true
             );
             if (handle) {
-              activeSequencerVocalsRef.current.set(currentCycleKey, handle);
+              activeSequencerVocalsRef.current.set(currentKey, handle);
             }
           }
 
@@ -2444,9 +2438,9 @@ export function useAudioSync({
           const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(startTracks, track.id);
 
           // 1. Déclenchement Tone.GrainPlayer du sample vocal à T_vocal absolu
-          const preRollCycleKey = `${track.id}_m0_c1`;
-          if (hasSampleAnacrusis && !activeSequencerVocalsRef.current.has(preRollCycleKey)) {
-            anticipatedMeasuresRef.current.add(preRollCycleKey);
+          const preRollKey = `${track.id}_m0`;
+          if (hasSampleAnacrusis && !activeSequencerVocalsRef.current.has(preRollKey)) {
+            anticipatedMeasuresRef.current.add(preRollKey);
             const handle = vocalEngineService.playSequencerVocal(
               track.id,
               safeId,
@@ -2456,12 +2450,12 @@ export function useAudioSync({
               vocalVol,
               isCoroTrack,
               () => {
-                activeSequencerVocalsRef.current.delete(preRollCycleKey);
+                activeSequencerVocalsRef.current.delete(preRollKey);
               },
               false
             );
             if (handle) {
-              activeSequencerVocalsRef.current.set(preRollCycleKey, handle);
+              activeSequencerVocalsRef.current.set(preRollKey, handle);
             }
           }
 
