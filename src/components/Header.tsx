@@ -2,12 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Trash2,
   Save,
-  FolderOpen,
   BookOpen,
   FileText,
   Video,
   Share2,
-  SlidersHorizontal,
   MessageSquare,
   Download,
   ExternalLink,
@@ -636,33 +634,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* Center: App Title (masqué sur petits smartphones < 460px pour préserver l'espace des 5 boutons d'action) */}
-        <div className="header-mobile-brand flex flex-col items-end select-none cursor-default shrink-0">
-          <div className="flex items-center gap-1.5">
-            <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1 lino-distressed">
-              O Girador
-            </span>
-            {loadedGroupPreset && isEditor && (
-              <button
-                type="button"
-                onClick={() => handleToggleDraft(loadedGroupPreset.id, !!loadedGroupPreset.isDraft)}
-                title={
-                  loadedGroupPreset.isDraft
-                    ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
-                    : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
-                }
-                className={`px-1.5 py-0.5 cordel-border-sm text-[10px] font-cactus font-bold cursor-pointer transition-colors flex items-center gap-1 mt-0.5 ${
-                  loadedGroupPreset.isDraft
-                    ? 'bg-[#d99b26]/20 text-[#d99b26] border-[#d99b26]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                }`}
-              >
-                <span>{loadedGroupPreset.isDraft ? '⏳' : '📢'}</span>
-                <span className="text-[9px]">{loadedGroupPreset.isDraft ? (lang === 'pt' ? 'Obras' : 'Chantier') : (lang === 'pt' ? 'Pub' : 'Publié')}</span>
-              </button>
-            )}
-          </div>
-          <span className="cordel-stamp-red-sm font-cactus font-bold text-[7.5px] uppercase px-1.5 py-0.5 mt-0.5 leading-tight select-none">
-            <span className="lino-distressed translate-x-[0.08em]">Sequenciador</span>
+        <div className="header-mobile-brand flex flex-col items-end select-none cursor-default shrink-0 whitespace-nowrap">
+          <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1 lino-distressed">
+            O Girador
+          </span>
+          <span className="cordel-stamp-red-sm font-cactus font-bold text-[7.5px] uppercase px-1.5 py-0.5 mt-0.5 leading-tight select-none whitespace-nowrap">
+            <span className="lino-distressed translate-x-[0.08em] whitespace-nowrap">Sequenciador</span>
           </span>
         </div>
 
@@ -749,49 +726,18 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       className="w-full min-h-[70px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-5 py-2.5 gap-2 z-50 relative select-none shrink-0"
     >
       <div className="flex-1 flex items-center gap-3">
-        <div className="flex items-start select-none cursor-default">
-          <div className="flex flex-col items-end">
-            <span
-              id="header-title-text"
-              className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase leading-none lino-distressed"
-            >
-              O Girador
-            </span>
-            <span className="cordel-stamp-red-sm font-cactus font-bold text-[9px] uppercase px-1.5 py-0.5 mt-1 leading-tight select-none">
-              <span className="lino-distressed translate-x-[0.08em]">Sequenciador</span>
-            </span>
-          </div>
-          {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans pt-1">v{version}</span>}
-        </div>
-
-        {loadedGroupPreset && isEditor && (
-          <button
-            type="button"
-            onClick={() => handleToggleDraft(loadedGroupPreset.id, !!loadedGroupPreset.isDraft)}
-            title={
-              loadedGroupPreset.isDraft
-                ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
-                : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
-            }
-            className={`px-2.5 py-1 cordel-border-sm text-xs font-cactus font-bold cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs ${
-              loadedGroupPreset.isDraft
-                ? 'bg-[#d99b26]/20 text-[#d99b26] border-[#d99b26] hover:bg-[#d99b26]/35'
-                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
+        <div className="flex items-center select-none cursor-default whitespace-nowrap shrink-0">
+          <span
+            id="header-title-text"
+            className="font-cactus text-[var(--cordel-text)] text-2xl lg:text-3xl font-medium tracking-widest uppercase leading-none lino-distressed whitespace-nowrap"
           >
-            {loadedGroupPreset.isDraft ? (
-              <>
-                <span className="text-xs leading-none">⏳</span>
-                <span>{lang === 'pt' ? 'Obras' : 'Chantier'}</span>
-              </>
-            ) : (
-              <>
-                <span className="text-xs leading-none">📢</span>
-                <span>{lang === 'pt' ? 'Publicado' : 'Publié'}</span>
-              </>
-            )}
-          </button>
-        )}
+            O Girador
+          </span>
+          <span className="cordel-stamp-red-sm font-cactus font-bold text-[9px] uppercase px-1.5 py-0.5 ml-2 leading-tight select-none whitespace-nowrap">
+            <span className="lino-distressed translate-x-[0.08em] whitespace-nowrap">Sequenciador</span>
+          </span>
+          {version && <span className="text-xs lowercase opacity-50 ml-1.5 font-sans pt-0.5 whitespace-nowrap">v{version}</span>}
+        </div>
         
         <div className="relative ml-2" ref={projectDropRef}>
           <button
@@ -940,23 +886,27 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
 
 
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button w-[34px] h-[34px] flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ml-1.5 shrink-0"
-          title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
-        >
-          <UndoIcon className="w-5 h-5" />
-        </button>
-
-        <button
-          onClick={onRedo}
-          disabled={!canRedo}
-          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button w-[34px] h-[34px] flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ml-1.5 shrink-0"
-          title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}
-        >
-          <RedoIcon className="w-5 h-5" />
-        </button>
+        {/* Bloc solidaire Undo / Redo */}
+        <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_rgba(0,0,0,1)] ml-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[#1a1a1a] transition-colors"
+            title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
+          >
+            <UndoIcon className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[#1a1a1a] transition-colors"
+            title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}
+          >
+            <RedoIcon className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* CENTER: Main Core Actions */}
