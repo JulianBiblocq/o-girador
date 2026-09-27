@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import * as Tone from 'tone';
-import { Play, Square, Save, RotateCcw, Scissors, Music, MoveHorizontal, Maximize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Play, Square, Save, RotateCcw, Scissors, Music, MoveHorizontal, Maximize2, ZoomIn, ZoomOut, Check } from 'lucide-react';
 import { Pattern, VocalClipMeta } from '../types/store.types';
 import { useAudio } from '../contexts/AudioContext';
 import { extractPeaks, renderTrimmedVocalBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
@@ -1278,8 +1278,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
               <span>Rendu en cours...</span>
             ) : (
               <>
-                <Save className="w-4 h-4" />
-                Valider le Sample
+                <Check className="w-4 h-4 stroke-[3]" />
+                ✓ Valider le chant
               </>
             )}
           </button>

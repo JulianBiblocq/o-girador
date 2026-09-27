@@ -3,22 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   PenLine, 
-  Headphones, 
   Sliders, 
   Check, 
-  RefreshCw, 
-  Play, 
-  Square, 
   ChevronRight,
   Sparkles,
-  FolderOpen
+  FolderOpen,
+  UploadCloud
 } from 'lucide-react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
-import { useAudio } from '../contexts/AudioContext';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import { CordelConfirmDialog } from './CordelConfirmDialog';
 import * as Tone from 'tone';
@@ -40,17 +36,15 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
   );
   const tempRecording = useAudioStore((state) => state.tempRecording);
   const hasVocalRecording = useAudioStore((state) => 
-    Boolean(patternId && state.vocalBlobs[patternId])
+    Boolean(patternId && (state.vocalBlobs[patternId] || state.vocalBlobs[String(patternId)]))
   );
-  const { isPlaying, handleTogglePlay, handleStop } = useAudio();
 
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
-  const [showNewRecordingConfirm, setShowNewRecordingConfirm] = useState(false);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processAudioFile = async (file: File) => {
     if (!file || !patternId) return;
 
     try {
@@ -86,29 +80,58 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         targetMeasureIdx: effectiveTargetMeasure,
       });
 
+      // Bascule automatique vers l'Étape 3 : Calage
+      setCurrentStep(3);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
       setErrorMessage(lang === 'fr' ? "Erreur lors de l'import : " + err.message : "Erro ao importar: " + err.message);
     }
   };
 
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processAudioFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processAudioFile(file);
+    }
+  };
+
   // Synchronisation lors du changement de motif
   useEffect(() => {
     if (hasVocalRecording) {
-      setCurrentStep(4);
+      setCurrentStep(3);
     } else {
       setCurrentStep(1);
     }
   }, [patternId, hasVocalRecording]);
 
-  // Dès qu'une prise audio temporaire arrive, basculer immédiatement sur l'étape 4 (Calage)
+  // Dès qu'une prise audio temporaire arrive, basculer immédiatement sur l'étape 3 (Calage)
   useEffect(() => {
     if (tempRecording && patternId && Number(tempRecording.patternId) === Number(patternId)) {
-      setCurrentStep(4);
+      setCurrentStep(3);
     }
   }, [tempRecording, patternId]);
-
-
 
   const accentColor = isCoro ? '#2a9d8f' : '#c25e38';
 
@@ -116,7 +139,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
   const handleOpenCalibration = async () => {
     if (!patternId) return;
     const pid = patternId;
-    let blob: Blob | undefined = useAudioStore.getState().vocalBlobs[pid];
+    let blob: Blob | undefined = useAudioStore.getState().vocalBlobs[pid] || useAudioStore.getState().vocalBlobs[String(pid)];
     if (!blob) {
       const loaded = await vocalEngineService.loadVocalRecording(pid);
       if (loaded) blob = loaded;
@@ -128,48 +151,37 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         : 0;
       const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
       const resolvedTrackId = trackId ?? useSequencerStore.getState().tracks.find(t => t.patterns.some(p => p.id === pid))?.id;
-      useAudioStore.getState().setTempRecording({ patternId: pid, trackId: resolvedTrackId, blob, targetMeasureIdx: effectiveTargetMeasure });
+      useAudioStore.getState().setTempRecording({
+        patternId: pid,
+        trackId: resolvedTrackId,
+        blob,
+        isImported: true,
+        targetMeasureIdx: effectiveTargetMeasure
+      });
+      setCurrentStep(3);
     }
-  };
-
-  // Demande d'une nouvelle prise via dialogue Cordel
-  const handleNewRecording = () => {
-    setShowNewRecordingConfirm(true);
-  };
-
-  const confirmNewRecording = () => {
-    setShowNewRecordingConfirm(false);
-    if (isPlaying) handleStop();
-    setCurrentStep(3);
   };
 
   const stepsConfig = [
     {
       id: 1 as const,
       icon: PenLine,
-      labelFr: '1. Mots & Mélodie',
-      labelPt: '1. Letra e Melodia',
+      labelFr: '1. Paroles & Guide',
+      labelPt: '1. Letra & Guia',
       isCompleted: currentStep > 1 || hasVocalRecording,
     },
     {
       id: 2 as const,
-      icon: Headphones,
-      labelFr: '2. Répétition',
-      labelPt: '2. Ensaio',
+      icon: FolderOpen,
+      labelFr: '2. Import Audio',
+      labelPt: '2. Importar Áudio',
       isCompleted: currentStep > 2 || hasVocalRecording,
     },
     {
       id: 3 as const,
-      icon: FolderOpen,
-      labelFr: '3. Import Audio',
-      labelPt: '3. Importar Áudio',
-      isCompleted: currentStep > 3 || hasVocalRecording,
-    },
-    {
-      id: 4 as const,
       icon: Sliders,
-      labelFr: '4. Calage',
-      labelPt: '4. Ajuste',
+      labelFr: '3. Calage',
+      labelPt: '3. Calagem & Ajuste',
       isCompleted: hasVocalRecording,
     },
   ];
@@ -179,7 +191,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
       className="bg-[#ece4d0] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-sm p-3 flex flex-col gap-2.5 text-[#1a1a1a] mb-2 select-none"
       data-testid="vocal-workflow-stepper"
     >
-      {/* En-tête du stepper didactique */}
+      {/* En-tête du parcours vocal épuré */}
       <div className="flex items-center justify-between border-b border-[#1a1a1a]/15 pb-2">
         <div className="flex items-center gap-2">
           <span className="text-base" role="img" aria-label="mic">🎙️</span>
@@ -187,7 +199,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
             className="font-cactus font-black text-sm tracking-wider uppercase"
             style={{ color: accentColor }}
           >
-            {lang === 'fr' ? 'Parcours Vocal : Poser sa voix' : 'Percurso Vocal : Gravar sua voz'}
+            {lang === 'fr' ? 'Parcours Vocal (3 étapes)' : 'Percurso Vocal (3 passos)'}
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold">
@@ -200,8 +212,8 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         </div>
       </div>
 
-      {/* Rangée des 4 pastilles d'étapes */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* Rangée des 3 pastilles d'étapes */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {stepsConfig.map((s) => {
           const Icon = s.icon;
           const isActive = s.id === currentStep;
@@ -211,12 +223,12 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
             <button
               key={s.id}
               onClick={() => setCurrentStep(s.id)}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-sm transition-all cursor-pointer text-left ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-sm transition-all cursor-pointer text-left ${
                 isActive
                   ? 'bg-[#fdfaf2] border-2 shadow-[2px_2px_0px_#1a1a1a] font-bold scale-[1.01]'
                   : isPassed
-                    ? 'bg-[#2a9d8f]/10 border border-[#2a9d8f]/40 text-[#2a9d8f] font-semibold'
-                    : 'bg-[#1a1a1a]/5 border border-[#1a1a1a]/15 text-[#666] opacity-65 hover:opacity-100'
+                    ? 'bg-[#2a9d8f]/10 border border-[#2a9d8f]/40 text-[#2a9d8f] font-semibold hover:bg-[#2a9d8f]/15'
+                    : 'bg-[#1a1a1a]/5 border border-[#1a1a1a]/15 text-[#666] opacity-75 hover:opacity-100 hover:bg-[#1a1a1a]/10'
               }`}
               style={{
                 borderColor: isActive ? accentColor : undefined,
@@ -235,7 +247,8 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
               >
                 {isPassed ? <Check size={11} strokeWidth={3} /> : s.id}
               </div>
-              <span className="text-[11px] font-mono tracking-tight truncate">
+              <span className="text-[12px] font-mono tracking-tight truncate flex items-center gap-1.5">
+                <Icon size={14} className="shrink-0" />
                 {lang === 'fr' ? s.labelFr : s.labelPt}
               </span>
             </button>
@@ -252,33 +265,26 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
             {currentStep === 1 && (
               <span>
                 {lang === 'fr' 
-                  ? "Écris d'abord tes syllabes sur la grille, puis donne-leur une hauteur avec le clavier ou ton synthé. Astuce : utilise Ctrl+D pour prolonger une voyelle tenue !"
-                  : "Escreva primeiro suas sílabas na grade e, em seguida, defina as notas com o teclado ou sintetizador. Dica: use Ctrl+D para prolongar a nota!"}
+                  ? "Saisis tes syllabes sur la grille, puis donne-leur une hauteur avec le clavier ou ton synthé pour poser ta voix guide de référence. (Un retour à cette étape ne supprime jamais ton audio chargé)."
+                  : "Escreva suas sílabas na grade e defina as alturas com o teclado ou sintetizador como guia. (Voltar a este passo nunca apaga o áudio carregado)."}
               </span>
             )}
             {currentStep === 2 && (
               <span>
                 {lang === 'fr'
-                  ? "Lance la lecture pour vérifier ta mélodie. Le synthétiseur chante la ligne pour t'aider à caler ton souffle et tes appuis rythmiques."
-                  : "Inicie a reprodução para conferir a melodia. O sintetizador canta a linha vocal para ajudar na respiração e no ritmo."}
+                  ? "Exporte ton chant depuis ton DAW (Cubase, Ableton, Logic, Reaper...) au tempo de la séquence. Glisse-dépose le fichier (.wav / .ogg) ou sélectionne-le ci-contre."
+                  : "Exporte seu vocal da DAW (Cubase, Ableton, Logic...) no andamento da música. Arraste e solte o arquivo (.wav / .ogg) ou clique para selecionar."}
               </span>
             )}
             {currentStep === 3 && (
               <span>
-                {lang === 'fr'
-                  ? "Exporte ton stem ou ta piste vocale depuis ton DAW (Cubase, Ableton, Logic, Reaper...). Choisis le fichier (.wav, .ogg, .mp3) pour l'importer et caler automatiquement le Temps 1."
-                  : "Exporte seu stem ou faixa vocal da sua DAW (Cubase, Ableton, Logic...). Selecione o arquivo (.wav, .ogg, .mp3) para importação e alinhamento automático."}
-              </span>
-            )}
-            {currentStep === 4 && (
-              <span>
                 {hasVocalRecording
                   ? (lang === 'fr' 
-                      ? "🎉 Prise vocale enregistrée et calée avec succès sur ce motif ! Tu peux réajuster le calage ou faire une nouvelle prise."
-                      : "🎉 Gravação vocal salva e alinhada com sucesso neste padrão! Você pode reajustar o alinhamento ou gravar novamente.")
+                      ? "🎉 Chant importé et calé avec succès sur ce motif ! Tu peux réajuster l'anacrouse, le nudge ou remplacer le fichier audio."
+                      : "🎉 Vocal importado e alinhado com sucesso! Você pode reajustar a anacruse, nudge ou substituir o arquivo.")
                   : (lang === 'fr'
-                      ? "Vérifie l'alignement de ta voix avec les notes du patron, ajuste le décalage (Nudge) et valide."
-                      : "Verifique o alinhamento da sua voz com as notas do padrão, ajuste o deslocamento (Nudge) e valide.")}
+                      ? "Ajuste la position du chant avec la waveform, l'anacrouse et le nudge, écoute en boucle avec la Roda et valide définitivement."
+                      : "Ajuste o alinhamento da voz na forma de onda, anacruse e nudge, ouça em loop com a Roda e confirme.")}
               </span>
             )}
           </div>
@@ -291,117 +297,76 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
               onClick={() => setCurrentStep(2)}
               className="px-3 py-1.5 bg-[#1a1a1a] text-[#f4ecd8] font-bold text-xs rounded-sm hover:bg-[#333] transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
             >
-              <span>{lang === 'fr' ? 'Passer à la répétition' : 'Ir para o ensaio'}</span>
+              <span>{lang === 'fr' ? "Passer à l'import audio" : "Ir para importação"}</span>
               <ChevronRight size={14} />
             </button>
           )}
 
           {currentStep === 2 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={handleTogglePlay}
-                className={`px-2.5 py-1.5 font-bold text-xs rounded-sm transition-colors border border-[#1a1a1a] cursor-pointer flex items-center gap-1.5 ${
-                  isPlaying 
-                    ? 'bg-[#8b2a1a] text-[#f4ecd8]' 
-                    : 'bg-[#ece4d0] text-[#1a1a1a] hover:bg-[#e2d8be]'
-                }`}
-                title={lang === 'fr' ? 'Lancer / Arrêter la lecture' : 'Iniciar / Parar reprodução'}
-              >
-                {isPlaying ? <Square size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
-                <span>
-                  {isPlaying 
-                    ? (lang === 'fr' ? 'Pause' : 'Pausar') 
-                    : (lang === 'fr' ? 'Écouter la ligne' : 'Ouvir a linha')}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (isPlaying) handleStop();
-                  setCurrentStep(3);
-                }}
-                className="px-3 py-1.5 bg-[#8b2a1a] text-white font-bold text-xs rounded-sm hover:bg-[#702014] transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
-              >
-                <span>● {lang === 'fr' ? "Passer à l'import ➔" : "Ir para importação ➔"}</span>
-              </button>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div className="flex items-center gap-2">
+            <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-sm border-2 transition-all ${
+                isDragging
+                  ? 'border-[#8b2a1a] bg-[#8b2a1a]/15 scale-[1.02]'
+                  : 'border-dashed border-[#1a1a1a]/40 bg-[#1a1a1a]/5'
+              }`}
+            >
               <input
                 type="file"
                 ref={fileInputRef}
-                accept="audio/*"
+                accept="audio/*,.wav,.ogg,.mp3"
                 className="hidden"
                 onChange={handleFileImport}
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-1.5 bg-[#8b2a1a] hover:bg-[#702014] text-white font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-2 shadow-[2px_2px_0px_#1a1a1a]"
-                title={lang === 'fr' ? "Importer un fichier exporté depuis Cubase / DAW (.wav, .ogg, .mp3)" : "Importar arquivo de áudio da DAW"}
+                className="px-3 py-1 bg-[#8b2a1a] hover:bg-[#702014] text-white font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
+                title={lang === 'fr' ? "Sélectionner ou déposer un fichier .wav / .ogg exporté au tempo" : "Selecionar arquivo de áudio"}
               >
-                <FolderOpen size={14} />
-                <span>{lang === 'fr' ? "📁 Importer export DAW / Cubase" : "📁 Importar áudio Cubase / DAW"}</span>
+                <UploadCloud size={14} />
+                <span>{lang === 'fr' ? "📁 Déposer ou Sélectionner .wav / .ogg" : "📁 Arrastar ou Selecionar .wav / .ogg"}</span>
               </button>
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <div className="flex items-center gap-2 flex-wrap">
-              {hasVocalRecording && (
+              {(hasVocalRecording || tempRecording) && (
                 <button
                   onClick={handleOpenCalibration}
-                  className="px-2.5 py-1.5 bg-[#ece4d0] hover:bg-[#e2d8be] text-[#1a1a1a] border border-[#1a1a1a] font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-[#8b2a1a] hover:bg-[#702014] text-white font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
                 >
                   <Sliders size={13} />
-                  <span>{lang === 'fr' ? 'Ajuster le calage' : 'Ajustar alinhamento'}</span>
+                  <span>{lang === 'fr' ? '🎚️ Ajuster le calage' : '🎚️ Ajustar alinhamento'}</span>
                 </button>
               )}
 
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="audio/*,.wav,.ogg,.mp3"
+                className="hidden"
+                onChange={handleFileImport}
+              />
               <button
-                onClick={handleNewRecording}
-                className="px-2.5 py-1.5 bg-[#1a1a1a] text-[#f4ecd8] hover:bg-[#333] font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-[1px_1px_0px_#1a1a1a]"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1.5 bg-[#ece4d0] hover:bg-[#e2d8be] text-[#1a1a1a] border border-[#1a1a1a] font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                title={lang === 'fr' ? "Remplacer par un autre fichier audio" : "Substituir por outro áudio"}
               >
-                <RefreshCw size={13} />
-                <span>{lang === 'fr' ? 'Nouvelle prise' : 'Nova gravação'}</span>
+                <FolderOpen size={13} />
+                <span>{lang === 'fr' ? 'Remplacer le fichier' : 'Substituir áudio'}</span>
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Dialogue Cordel de Confirmation pour Nouvelle Prise */}
-      <CordelConfirmDialog
-        isOpen={showNewRecordingConfirm}
-        title={lang === 'fr' ? 'Nouvelle Prise Vocale' : 'Nova Gravação Vocal'}
-        subtitle={pattern?.name ? `Patron : ${pattern.name}` : 'Literatura de Cordel'}
-        icon={<RefreshCw size={18} className="text-[#8b2a1a]" />}
-        message={
-          <div className="flex flex-col gap-2">
-            <p>
-              {lang === 'fr'
-                ? 'Voulez-vous réaliser une nouvelle prise pour ce motif ?'
-                : 'Deseja realizar uma nova gravação para este padrão?'}
-            </p>
-            <p className="text-xs text-[#8b2a1a] font-bold">
-              {lang === 'fr'
-                ? '⚠️ L’enregistrement vocal précédent de ce motif sera remplacé.'
-                : '⚠️ A gravação vocal anterior deste padrão será substituída.'}
-            </p>
-          </div>
-        }
-        confirmText={lang === 'fr' ? 'Oui, nouvelle prise' : 'Sim, nova gravação'}
-        cancelText={lang === 'fr' ? 'Annuler' : 'Cancelar'}
-        confirmVariant="primary"
-        onConfirm={confirmNewRecording}
-        onCancel={() => setShowNewRecordingConfirm(false)}
-      />
-
       {/* Dialogue Cordel d'Alerte / Erreur */}
       <CordelConfirmDialog
         isOpen={!!errorMessage}
-        title={lang === 'fr' ? 'Attention (Microphone)' : 'Atenção (Microfone)'}
+        title={lang === 'fr' ? 'Attention (Import Audio)' : 'Atenção (Importação)'}
         subtitle="Literatura de Cordel"
         message={<p>{errorMessage}</p>}
         confirmText={lang === 'fr' ? 'Compris' : 'Entendido'}

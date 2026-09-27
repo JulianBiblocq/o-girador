@@ -701,9 +701,25 @@ export const vocalEngineService = {
   /**
    * Saves a validated recording to IndexedDB and registers it in the store.
    */
-  async saveValidatedRecording(patternId: number, blob: Blob) {
+  async saveValidatedRecording(patternId: number | string, blob: Blob) {
+    const numId = Number(patternId);
+    const strId = String(patternId);
+
     await saveVocalRecording(patternId, blob);
+    if (strId !== patternId) {
+      await saveVocalRecording(strId, blob);
+    }
+    if (!isNaN(numId) && numId !== patternId) {
+      await saveVocalRecording(numId, blob);
+    }
+
     useAudioStore.getState().addVocalBlob(patternId, blob);
+    if (strId !== patternId) {
+      useAudioStore.getState().addVocalBlob(strId, blob);
+    }
+    if (!isNaN(numId) && numId !== patternId) {
+      useAudioStore.getState().addVocalBlob(numId, blob);
+    }
   },
 
   /**
@@ -850,55 +866,52 @@ export const vocalEngineService = {
     // Calcul de l'instant de déclenchement sur la timeline
     const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
     const bufferDuration = audioBuffer.duration;
-    const playDuration = bufferDuration / playbackRate;
-    const hasAnacrusis = (anacrusisSec > 0.02 || nudgeMs !== 0);
-    const actualStartTime = (isDirectStep0 && hasAnacrusis) ? measureStartTime : (triggerTime >= 0 ? triggerTime : 0);
+    const actualStartTime = triggerTime >= 0 ? triggerTime : 0;
 
-    // 3. Cycle de vie propre de oldPlayer (Directive 2) :
-    // Si une instance précédente existe, programmer son extinction progressive et différer le nettoyage
-    const existingEntry = activeVocals.get(compositeKey);
-    if (existingEntry) {
-      try {
-        existingEntry.mainPlayer.onstop = null as any;
-        const oldGain = existingEntry.mainGain.gain;
-        const now = Tone.now();
-        const fadeStart = Math.max(now, actualStartTime);
-        oldGain.cancelScheduledValues(fadeStart);
-        oldGain.setValueAtTime(oldGain.value, fadeStart);
-        oldGain.linearRampToValueAtTime(0.0001, fadeStart + 0.015);
-        existingEntry.mainPlayer.stop(fadeStart + 0.02);
+    // 3. Cycle de vie propre de oldPlayer :
+    // Couper tout ancien lecteur résiduel sur cette piste (trackId) avec micro fondu
+    activeVocals.forEach((entry, k) => {
+      if (k.startsWith(`${trackId}_`)) {
+        try {
+          entry.mainPlayer.onstop = null as any;
+          const oldGain = entry.mainGain.gain;
+          const now = Tone.now();
+          const fadeStart = Math.max(now, actualStartTime);
+          oldGain.cancelScheduledValues(fadeStart);
+          oldGain.setValueAtTime(oldGain.value, fadeStart);
+          oldGain.linearRampToValueAtTime(0.0001, fadeStart + 0.015);
+          entry.mainPlayer.stop(fadeStart + 0.02);
 
-        const oldPlayer = existingEntry.mainPlayer;
-        const oldGainNode = existingEntry.mainGain;
-        const oldHaasNodes = existingEntry.haasNodes;
-        const oldChorusPlayers = existingEntry.chorusPlayers;
-        const oldChorusGains = existingEntry.chorusGains;
-        const oldPanners = existingEntry.panners;
+          const oldPlayer = entry.mainPlayer;
+          const oldGainNode = entry.mainGain;
+          const oldHaasNodes = entry.haasNodes;
+          const oldChorusPlayers = entry.chorusPlayers;
+          const oldChorusGains = entry.chorusGains;
+          const oldPanners = entry.panners;
 
-        // Attention : Ne JAMAIS appeler oldPlayer.dispose() de façon synchrone lors de la planification.
-        // Différer le nettoyage complet (dispose et déconnexion) via setTimeout calé après l'extinction effective.
-        const delayMs = Math.max(50, (fadeStart + 0.1 - now) * 1000);
-        setTimeout(() => {
-          try {
-            oldPlayer.disconnect();
-            oldPlayer.dispose();
-            oldGainNode.disconnect();
-            oldGainNode.dispose();
-            if (oldHaasNodes) {
-              oldHaasNodes.input.disconnect();
-              oldHaasNodes.delay.disconnect();
-              oldHaasNodes.filter.disconnect();
-              oldHaasNodes.rightGain.disconnect();
-              oldHaasNodes.merger.disconnect();
-            }
-            oldChorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
-            oldChorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
-            oldPanners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
-          } catch (_) {}
-        }, Math.min(delayMs, 5000));
-      } catch (_) {}
-      activeVocals.delete(compositeKey);
-    }
+          const delayMs = Math.max(50, (fadeStart + 0.1 - now) * 1000);
+          setTimeout(() => {
+            try {
+              oldPlayer.disconnect();
+              oldPlayer.dispose();
+              oldGainNode.disconnect();
+              oldGainNode.dispose();
+              if (oldHaasNodes) {
+                oldHaasNodes.input.disconnect();
+                oldHaasNodes.delay.disconnect();
+                oldHaasNodes.filter.disconnect();
+                oldHaasNodes.rightGain.disconnect();
+                oldHaasNodes.merger.disconnect();
+              }
+              oldChorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
+              oldChorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
+              oldPanners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
+            } catch (_) {}
+          }, Math.min(delayMs, 5000));
+        } catch (_) {}
+        activeVocals.delete(k);
+      }
+    });
 
     // 4. Instancier et armer immédiatement la nouvelle voix pour triggerTime
     const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode, isCoroTrack);
@@ -912,22 +925,15 @@ export const vocalEngineService = {
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
 
-    // Directive B / 4 : Filet de sécurité strict sur le Fallback Pas 0
-    // Si isDirectStep0 est vrai et que le motif possède une anacrouse avérée,
-    // forcer le départ au Temps 1 (measureStartTime) avec un offset égal à l'anacrouse.
-    if (isDirectStep0 && hasAnacrusis) {
-      const startOffset = Math.max(0, anacrusisSec - (nudgeMs / 1000));
-      const remainingDuration = Math.max(0, bufferDuration - startOffset);
-      if (remainingDuration <= 0) {
-        return null;
-      }
-      mainGain.gain.setValueAtTime(baseGainLinear, measureStartTime);
-      mainPlayer.start(measureStartTime, startOffset);
-    } else if (triggerTime >= 0) {
+    // 🛡️ ÉLIMINATION DU DOUBLE DÉCALAGE :
+    // Lorsqu'un fichier est importé et validé, le buffer audio stocké est déjà physiquement propre.
+    // Aucun internalBufferOffset supplémentaire n'est appliqué à l'intérieur du sample dès lors que triggerTime >= 0.
+    // Le calage dans le temps est uniquement régi par l'instant de déclenchement triggerTime.
+    if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
-      mainPlayer.start(triggerTime, 0, playDuration);
+      mainPlayer.start(triggerTime, 0);
     } else {
-      // Cas limite Temps 1 absolu au démarrage (triggerTime < 0)
+      // Cas limite Mesure 0 absolue (triggerTime < 0, anacrouse avant T=0)
       const internalBufferOffset = Math.abs(triggerTime) * playbackRate;
       const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
       if (remainingDuration <= 0) {

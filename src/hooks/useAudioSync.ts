@@ -1811,6 +1811,14 @@ export function useAudioSync({
               // Enregistrement immédiat dans le registre d'anticipation pour cette mesure cible
               anticipatedMeasuresRef.current.add(targetKey);
 
+              // 🛡️ FIN DE GUILLOTINE : Couper l'ancien lecteur sur cette piste uniquement si un nouveau chant démarre
+              activeSequencerVocalsRef.current.forEach((handle, key) => {
+                if (key.startsWith(`${track.id}_`) && key !== targetKey) {
+                  try { handle.stop(); } catch (_) {}
+                  activeSequencerVocalsRef.current.delete(key);
+                }
+              });
+
               const handle = vocalEngineService.playSequencerVocal(
                 track.id,
                 nextPattern.id,
@@ -1846,16 +1854,9 @@ export function useAudioSync({
               anticipatedMeasuresRef.current.delete(currentKey);
             }
 
-            // 🛡️ Coupure franche au changement de mesure (Transition Puxador / Coro) dès que la mesure courante est muette
-            if (stepIdx === 0) {
-              activeSequencerVocalsRef.current.forEach((handle, key) => {
-                // Préservation absolue du lookahead : ne JAMAIS couper scheduledNextVocalKey
-                if (key.startsWith(`${track.id}_`) && key !== scheduledNextVocalKey) {
-                  try { handle.stop(); } catch (_) {}
-                  activeSequencerVocalsRef.current.delete(key);
-                }
-              });
-            }
+            // 🛡️ FIN DE GUILLOTINE : Ne plus forcer de player.stop() sur la mesure muette.
+            // Le lecteur Tone.GrainPlayer s'éteint de lui-même grâce à player.loop = false,
+            // préservant la résonance naturelle complète de la phrase vocale.
 
             // Si la mesure courante est muette sur cette piste, traiter les éventuelles syllabes d'anacrouse de nextPattern
             if (canPlay && nextPattern && nextPattern.preRollActiveSteps) {
@@ -1922,16 +1923,6 @@ export function useAudioSync({
             anticipatedMeasuresRef.current.delete(currentKey);
           }
 
-          if (stepIdx === 0) {
-            // Couper tout ancien lecteur résiduel sur cette piste (différent de l'instance courante et de l'anticipation future)
-            activeSequencerVocalsRef.current.forEach((handle, key) => {
-              if (key.startsWith(`${track.id}_`) && key !== currentKey && key !== scheduledNextVocalKey) {
-                try { handle.stop(); } catch (_) {}
-                activeSequencerVocalsRef.current.delete(key);
-              }
-            });
-          }
-
           if (!canPlay) {
             activeSequencerVocalsRef.current.forEach((handle, key) => {
               if (key.startsWith(`${track.id}_`)) {
@@ -1953,6 +1944,14 @@ export function useAudioSync({
           const isAlreadyAnticipated = anticipatedMeasuresRef.current.has(currentKey);
 
           if (hasVocalSample && stepIdx === 0 && !isAlreadyAnticipated && !activeSequencerVocalsRef.current.has(currentKey)) {
+            // 🛡️ FIN DE GUILLOTINE : Couper l'ancien lecteur sur cette piste uniquement si un nouveau chant démarre
+            activeSequencerVocalsRef.current.forEach((handle, key) => {
+              if (key.startsWith(`${track.id}_`) && key !== currentKey) {
+                try { handle.stop(); } catch (_) {}
+                activeSequencerVocalsRef.current.delete(key);
+              }
+            });
+
             const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';

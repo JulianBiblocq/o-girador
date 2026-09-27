@@ -13,6 +13,7 @@ import { X, Scissors } from 'lucide-react';
 import { AudioAlignmentEditor } from './AudioAlignmentEditor';
 import { VocalClipMeta } from '../types/store.types';
 import { getBeatsPerMeasure } from '../utils/measureHelpers';
+import { saveVocalRecording } from '../db';
 
 export const VocalValidationModal: React.FC = () => {
   const tempRecording = useAudioStore((state) => state.tempRecording);
@@ -160,16 +161,30 @@ export const VocalValidationModal: React.FC = () => {
     handleStop();
 
     try {
-      // 1. Asynchronously persist clean WAV in IndexedDB
+      // 1. Persistance asynchrone sécurisée du WAV dans IndexedDB (patternId number et string)
       await vocalEngineService.saveValidatedRecording(tempRecording.patternId, wavBlob);
+      await saveVocalRecording(tempRecording.patternId, wavBlob);
+      await saveVocalRecording(String(tempRecording.patternId), wavBlob);
+      if (!isNaN(Number(tempRecording.patternId))) {
+        await saveVocalRecording(Number(tempRecording.patternId), wavBlob);
+      }
 
-      // 2. Immediately cache clean AudioBuffer in RAM for zero-latency playback (patternId et composite trackId_patternId)
+      // 2. Mise en cache RAM immédiate de l'AudioBuffer sous patternId et composite `${track.id}_${patternId}`
       useAudioStore.getState().setVocalBuffer(tempRecording.patternId, cleanBuffer);
+      useAudioStore.getState().setVocalBuffer(String(tempRecording.patternId), cleanBuffer);
       useAudioStore.getState().addVocalBlob(tempRecording.patternId, wavBlob);
+      useAudioStore.getState().addVocalBlob(String(tempRecording.patternId), wavBlob);
+      if (!isNaN(Number(tempRecording.patternId))) {
+        useAudioStore.getState().setVocalBuffer(Number(tempRecording.patternId), cleanBuffer);
+        useAudioStore.getState().addVocalBlob(Number(tempRecording.patternId), wavBlob);
+      }
       if (voiceTrack?.id) {
         const compositeKey = `${voiceTrack.id}_${tempRecording.patternId}`;
         useAudioStore.getState().setVocalBuffer(compositeKey, cleanBuffer);
         useAudioStore.getState().addVocalBlob(compositeKey, wavBlob);
+        const compositeKeyStr = `${voiceTrack.id}_${String(tempRecording.patternId)}`;
+        useAudioStore.getState().setVocalBuffer(compositeKeyStr, cleanBuffer);
+        useAudioStore.getState().addVocalBlob(compositeKeyStr, wavBlob);
       }
 
       // 3. Update sequencer store pattern metadata
