@@ -2266,15 +2266,45 @@ export function useAudioSync({
 
       console.log('🥁 [AUDIO ENGINE] bufferPool size:', audioEngine?.bufferPool?.size ?? 0);
 
-      // 🛡️ REHYDRATION BARRIER: Attendre la résolution de la réhydratation vocale avant de démarrer le transport
+      // 🛡️ REHYDRATION BARRIER & FILET DE SÉCURITÉ AU CLIC SUR PLAY:
+      // Si une réhydratation est en cours, attendre impérativement sa résolution
       const pendingRehydration = vocalEngineService.getRehydratingPromise();
       if (pendingRehydration) {
         try {
           await pendingRehydration;
         } catch (_) {}
-      } else {
+      }
+
+      // Vérifier si un motif vocal présent sur la grille active manque de buffer en RAM
+      const allActiveTracks = (tracksRef.current && tracksRef.current.length > 0)
+        ? tracksRef.current
+        : useSequencerStore.getState().tracks;
+      const currentVocalBuffers = useAudioStore.getState().vocalBuffers;
+
+      const hasMissingVocalBuffer = allActiveTracks.some((t: any) => {
+        const inst = instrumentsConfig[t.instrumentIdx];
+        const isVocal = Boolean(
+          inst && (
+            inst.type === 'voice' ||
+            inst.id === 'toada' ||
+            inst.id === 'puxador' ||
+            inst.id === 'coro' ||
+            inst.id === 'voice'
+          )
+        );
+        if (!isVocal && !t.patterns?.some((p: any) => p && p.vocalMode === 'micro')) return false;
+
+        return t.patterns?.some((p: any) => {
+          if (!p || (p.vocalMode !== 'micro' && !isVocal)) return false;
+          const pId = Number(p.id);
+          const compKey = `${t.id}_${pId}`;
+          return !currentVocalBuffers[compKey] && !currentVocalBuffers[pId];
+        });
+      });
+
+      if (hasMissingVocalBuffer) {
         try {
-          await vocalEngineService.rehydrateVocalBuffers(tracksRef.current);
+          await vocalEngineService.rehydrateVocalBuffers(allActiveTracks);
         } catch (_) {}
       }
 

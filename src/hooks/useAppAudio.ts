@@ -12,6 +12,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { getLocalLibrary } from '../library';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../data';
 import { getDefaultGroupPresetId } from '../cloudGroups';
+import { vocalEngineService } from '../audio/vocalEngineService';
 
 export function useAppAudio() {
   const audio = useAudio();
@@ -279,7 +280,11 @@ export function useAppAudio() {
             audio.loadFallbackPreset(files[0]);
           }
         })
-        .catch((err) => console.error('Could not load catalog.json:', err));
+        .catch((err) => console.error('Could not load catalog.json:', err))
+        .finally(() => {
+          // 🎙️ Sécurité réhydratation vocale post-restauration F5 / Preset
+          vocalEngineService.rehydrateVocalBuffers(useSequencerStore.getState().tracks).catch(() => {});
+        });
     });
   }, [audio, authLoading]);
 

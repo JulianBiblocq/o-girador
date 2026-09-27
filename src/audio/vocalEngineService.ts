@@ -130,35 +130,72 @@ export const vocalEngineService = {
 
   /**
    * Réhydrate automatiquement l'ensemble des motifs vocaux enregistrés (IndexedDB -> RAM).
-   * Scanne les pistes vocales (toada, voice, puxador, coro), récupère les Blobs depuis IndexedDB,
-   * les convertit en ArrayBuffer, les décode via le contexte Web Audio natif et les injecte dans useAudioStore
+   * Scanne récursivement les pistes et sous-pistes vocales (toada, voice, puxador, coro),
+   * récupère les Blobs depuis IndexedDB, les décode via le contexte Web Audio natif et les injecte dans useAudioStore
    * sous double indexation : patternId (accès direct) et `${track.id}_${patternId}` (accès séquenceur/anacrouse).
    */
   async rehydrateVocalBuffers(tracksToScan?: any[]): Promise<void> {
+    // 🛡️ RACE CONDITION GUARD: Si une réhydratation précédente tourne déjà, attendre sa complétion avant d'enchaîner
     if (rehydratingPromise) {
-      return rehydratingPromise;
+      try {
+        await rehydratingPromise;
+      } catch (_) {}
     }
 
-    rehydratingPromise = (async () => {
+    let currentPromise: Promise<void> | null = null;
+    currentPromise = (async () => {
       try {
         const sequencerStore = useSequencerStore.getState();
-        const tracks = tracksToScan && tracksToScan.length > 0 ? tracksToScan : sequencerStore.tracks;
-        if (!tracks || tracks.length === 0) return;
+        const rawTracks = tracksToScan && tracksToScan.length > 0 ? tracksToScan : sequencerStore.tracks;
+        if (!rawTracks || rawTracks.length === 0) return;
 
-        // Identifier l'ensemble des pistes vocales (toada, voice, puxador, coro)
-        const vocalTracks = tracks.filter((t) => {
+        // Aplatissement récursif de l'arbre des pistes et sous-pistes (toada bus, link folders, subTracks)
+        const flattenTracks = (trackList: any[]): any[] => {
+          const result: any[] = [];
+          const visitedIds = new Set<string | number>();
+
+          const collect = (list: any[]) => {
+            if (!Array.isArray(list)) return;
+            for (const t of list) {
+              if (!t) continue;
+              if (!visitedIds.has(t.id)) {
+                visitedIds.add(t.id);
+                result.push(t);
+              }
+              if (t.subTracks && Array.isArray(t.subTracks)) {
+                collect(t.subTracks);
+              }
+              if (t.tracks && Array.isArray(t.tracks)) {
+                collect(t.tracks);
+              }
+            }
+          };
+
+          collect(trackList);
+          return result;
+        };
+
+        const allTracks = flattenTracks(rawTracks);
+
+        // Identifier l'ensemble des pistes vocales (toada, voice, puxador, coro ou tout motif micro)
+        const isVocalTrack = (t: any): boolean => {
           const inst = instrumentsConfig[t.instrumentIdx];
-          return Boolean(
-            inst && (
-              inst.type === 'voice' ||
-              inst.id === 'toada' ||
-              inst.id === 'puxador' ||
-              inst.id === 'coro' ||
-              inst.id === 'voice'
-            )
+          const instId = inst?.id || (typeof t.instrumentId === 'string' ? t.instrumentId : '');
+          const instType = inst?.type || (typeof t.instrumentType === 'string' ? t.instrumentType : '');
+          const hasVocalInstrument = Boolean(
+            instType === 'voice' ||
+            instId === 'toada' ||
+            instId === 'puxador' ||
+            instId === 'coro' ||
+            instId === 'voice'
           );
-        });
+          const hasVocalPatterns = Array.isArray(t.patterns) && t.patterns.some((p: any) =>
+            p && (p.vocalMode === 'micro' || Boolean(p.vocalClip) || Boolean(p.vocalAudioData) || Boolean(p.vocalAudioUrl))
+          );
+          return hasVocalInstrument || hasVocalPatterns;
+        };
 
+        const vocalTracks = allTracks.filter(isVocalTrack);
         if (vocalTracks.length === 0) return;
 
         // Sécuriser l'accès au contexte audio sans exiger d'interaction utilisateur préalable
@@ -230,14 +267,17 @@ export const vocalEngineService = {
               const arrayBuffer = await blob.arrayBuffer();
               const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
 
-              // 4. Double indexation RAM (patternId + `${track.id}_${patternId}`)
+              // 4. Double indexation RAM immédiate (patternId + `${track.id}_${patternId}`)
+              useAudioStore.getState().setVocalBuffer(patternId, audioBuffer);
+              useAudioStore.getState().setVocalBuffer(compositeKey, audioBuffer);
+
               entriesToBatch.push(
                 { key: patternId, buffer: audioBuffer, blob },
                 { key: compositeKey, buffer: audioBuffer, blob }
               );
 
-              // 5. Log de contrôle requis
-              console.log(`🎙️ [VOCAL REHYDRATE] Motif ${patternId} rechargé en RAM avec succès.`);
+              // 5. Log de contrôle explicite obligatoire
+              console.log(`🎙️ [REHYDRATE SUCCESS] Buffer chargé pour ${track.id} (motif ${patternId})`);
             } catch (err) {
               console.error(`🎙️ [VOCAL REHYDRATE] Erreur lors de la réhydratation du motif ${patternId}:`, err);
             }
@@ -250,11 +290,14 @@ export const vocalEngineService = {
       } catch (globalErr) {
         console.error('🎙️ [VOCAL REHYDRATE] Erreur globale lors de la réhydratation:', globalErr);
       } finally {
-        rehydratingPromise = null;
+        if (rehydratingPromise === currentPromise) {
+          rehydratingPromise = null;
+        }
       }
     })();
 
-    return rehydratingPromise;
+    rehydratingPromise = currentPromise;
+    return currentPromise;
   },
 
   /**
