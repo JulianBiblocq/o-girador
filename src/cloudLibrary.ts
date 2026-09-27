@@ -5,6 +5,8 @@ import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
 import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized, presetCache } from './cloudPresetsStorage';
+import { useAudioStore } from './stores/useAudioStore';
+import { useSequencerStore } from './stores/useSequencerStore';
 
 export {
   CLOUD_PRESETS_COLLECTION, presetCache, getCloudPreset,
@@ -29,21 +31,56 @@ export async function savePresetToCloud(
 ): Promise<string> {
   const presetToSave = JSON.parse(JSON.stringify(presetData));
 
-  // Téléversement des enregistrements vocaux locaux vers Firebase Storage
+  // Téléversement garanti des enregistrements vocaux locaux vers Firebase Storage
+  const updatedPatternsUrlMap = new Map<string | number, string>();
   for (const track of presetToSave.tracks || []) {
     for (const pattern of track.patterns || []) {
       try {
-        if (pattern.vocalAudioUrl?.startsWith('https://firebasestorage.googleapis.com/')) continue;
-        const blob = (await getVocalRecording(pattern.id)) || (pattern.vocalClip?.id ? await getVocalRecording(pattern.vocalClip.id) : null);
-        if (blob) {
-          const storageRef = ref(storage, `vocalRecordings/${pattern.id}.ogg`);
-          await uploadBytes(storageRef, blob);
-          pattern.vocalAudioUrl = await getDownloadURL(storageRef);
+        const storeBlobs = useAudioStore.getState().vocalBlobs;
+        const blob = (await getVocalRecording(pattern.id)) ||
+          (pattern.vocalClip?.id ? await getVocalRecording(pattern.vocalClip.id) : null) ||
+          storeBlobs[pattern.id] ||
+          storeBlobs[String(pattern.id)] ||
+          (pattern.vocalClip?.id ? storeBlobs[pattern.vocalClip.id] || storeBlobs[String(pattern.vocalClip.id)] : null);
+
+        const needsUpload = Boolean(
+          blob && (
+            !pattern.vocalAudioUrl ||
+            !pattern.vocalAudioUrl.startsWith('https://firebasestorage.googleapis.com/')
+          )
+        );
+
+        if (needsUpload && blob) {
+          const timestamp = Date.now();
+          const storageRef = ref(storage, `vocalRecordings/${pattern.id}_${timestamp}.wav`);
+          await uploadBytes(storageRef, blob, { contentType: 'audio/wav' });
+          const downloadUrl = await getDownloadURL(storageRef);
+          pattern.vocalAudioUrl = downloadUrl;
+          updatedPatternsUrlMap.set(pattern.id, downloadUrl);
+          if (pattern.vocalClip?.id) {
+            updatedPatternsUrlMap.set(pattern.vocalClip.id, downloadUrl);
+          }
         }
       } catch (e) {
         console.error(`savePresetToCloud - Échec upload vocal pour motif ${pattern.id}:`, e);
       }
     }
+  }
+
+  // Synchroniser les URLs générées dans useSequencerStore en session
+  if (updatedPatternsUrlMap.size > 0) {
+    try {
+      const currentTracks = useSequencerStore.getState().tracks;
+      useSequencerStore.getState().setTracks(
+        currentTracks.map(t => ({
+          ...t,
+          patterns: t.patterns.map(p => {
+            const newUrl = updatedPatternsUrlMap.get(p.id) || (p.vocalClip?.id ? updatedPatternsUrlMap.get(p.vocalClip.id) : undefined);
+            return newUrl ? { ...p, vocalAudioUrl: newUrl } : p;
+          })
+        }))
+      );
+    } catch (_) {}
   }
 
   const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));

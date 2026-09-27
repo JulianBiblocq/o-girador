@@ -185,10 +185,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const waveBaseXSec = baseX / pixelsPerSecond;
     const attackPosSec = waveBaseXSec + trimStart;
     const isAttackBeforeTemps1 = attackPosSec < (t_temps1 - 0.01);
-    return (hasPreRollSyllables && isAttackBeforeTemps1)
+    return isAttackBeforeTemps1
       ? Math.max(0, t_temps1 - attackPosSec)
       : 0;
-  }, [hasPreRollSyllables, t_temps1, pixelsPerSecond]);
+  }, [t_temps1, pixelsPerSecond]);
 
   // Mise à jour synchrone des badges d'anacrouse (Zero Render Thrashing)
   const updateLiveTimingBadges = useCallback((_totalX?: number) => {
@@ -938,6 +938,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         startTimeDelay: nudgeMsRef.current / 1000,
         bpmSync: true,
         offsetEnd: cleanBuffer.duration,
+        updatedAt: Date.now(),
       };
 
       onSave(cleanBuffer, wavBlob, meta);

@@ -942,17 +942,23 @@ export const vocalEngineService = {
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
 
+    // 🛡️ BORNAGE STRICT DE LA DURÉE UTILE (Anti-débordement & intégrité de résonance)
+    const usefulSec = (clip?.trimEndSec && clip.trimEndSec > 0 && clip.trimEndSec < bufferDuration)
+      ? clip.trimEndSec
+      : bufferDuration;
+    const playDuration = usefulSec / playbackRate;
+
     // 🛡️ ÉLIMINATION DU DOUBLE DÉCALAGE :
     // Lorsqu'un fichier est importé et validé, le buffer audio stocké est déjà physiquement propre.
     // Aucun internalBufferOffset supplémentaire n'est appliqué à l'intérieur du sample dès lors que triggerTime >= 0.
     // Le calage dans le temps est uniquement régi par l'instant de déclenchement triggerTime.
     if (triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
-      mainPlayer.start(triggerTime, 0);
+      mainPlayer.start(triggerTime, 0, playDuration);
     } else {
       // Cas limite Mesure 0 absolue (triggerTime < 0, anacrouse avant T=0)
-      const internalBufferOffset = Math.abs(triggerTime) * playbackRate;
-      const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
+      const internalBufferOffset = Math.min(Math.abs(triggerTime) * playbackRate, Math.max(0, usefulSec - 0.05));
+      const remainingDuration = Math.max(0, usefulSec - internalBufferOffset);
       if (remainingDuration <= 0) {
         return null;
       }

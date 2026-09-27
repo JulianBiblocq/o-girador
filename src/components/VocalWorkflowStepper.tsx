@@ -155,7 +155,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         patternId: pid,
         trackId: resolvedTrackId,
         blob,
-        isImported: true,
+        isImported: false,
         targetMeasureIdx: effectiveTargetMeasure
       });
       setCurrentStep(3);

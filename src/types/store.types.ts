@@ -65,6 +65,7 @@ export interface VocalClipMeta {
   startTimeDelay?: number;   // Legacy alias for nudgeSec
   bpmSync?: boolean;         // Legacy alias
   offsetEnd?: number;        // Legacy alias for trimEndSec
+  updatedAt?: number;        // Horodatage pour suivi de fraîcheur
 }
 
 export interface SavedPattern {

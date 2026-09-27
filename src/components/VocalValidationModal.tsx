@@ -199,6 +199,7 @@ export const VocalValidationModal: React.FC = () => {
                     ...p,
                     vocalMode: 'micro',
                     vocalClip: meta,
+                    vocalAudioUrl: undefined, // 🛡️ CRITIQUE: Invalidation formelle de l'URL distante pour forcer le téléversement du nouveau WAV dans Firebase Storage lors de la sauvegarde
                     // Clean legacy single fields
                     vocalNudge: undefined,
                     vocalTrimStart: undefined,

@@ -2390,8 +2390,8 @@ export function useAudioSync({
         }
       }
 
-      // Si anacrouse présente sur M=0 et précompte désactivé, forcer temporairement l'exécution du précompte (1 mesure)
-      const forcePreRollForAnacrusis = (targetM === 0 && hasVocalAnacrusisAtStart && !options?.skipPreRoll);
+      // Si anacrouse présente sur la mesure de départ et précompte désactivé, forcer temporairement l'exécution du précompte (1 mesure)
+      const forcePreRollForAnacrusis = (hasVocalAnacrusisAtStart && !options?.skipPreRoll);
       const shouldExecutePreRoll = (!shouldSkipPreRoll && preRoll && preRoll.enabled) || forcePreRollForAnacrusis;
 
       if (shouldExecutePreRoll) {
@@ -2520,13 +2520,13 @@ export function useAudioSync({
           const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(startTracks, track.id);
 
           // 1. Déclenchement Tone.GrainPlayer du sample vocal à T_vocal absolu
-          const preRollKey = `${track.id}_m0`;
+          const preRollKey = `${track.id}_m${targetM}`;
           if (hasSampleAnacrusis && !activeSequencerVocalsRef.current.has(preRollKey)) {
             anticipatedMeasuresRef.current.add(preRollKey);
             const handle = vocalEngineService.playSequencerVocal(
               track.id,
               activePattern.id,
-              scheduledMusicStartTime, // Heure du Temps 1 de la mesure 0
+              scheduledMusicStartTime, // Heure du Temps 1 de la mesure cible targetM
               targetBpm,
               outputNode,
               vocalVol,

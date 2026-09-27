@@ -5,6 +5,7 @@
 
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loadTone } from '../ToneLoader';
 import { useAudioSync, audioEngine, masterVolumeNode } from '../hooks/useAudioSync';
@@ -456,12 +457,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               promises.push(
                 (async () => {
                   try {
-                    const response = await fetch(url);
+                    // Contournement strict du cache HTTP navigateur via horodatage
+                    const fetchUrl = url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`;
+                    const response = await fetch(fetchUrl);
                     if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                     const blob = await response.blob();
                     await saveVocalRecording(patternId, blob);
+                    useAudioStore.getState().addVocalBlob(patternId, blob);
+                    useAudioStore.getState().addVocalBlob(String(patternId), blob);
                     if (clipId && String(clipId) !== String(patternId)) {
                       await saveVocalRecording(clipId, blob);
+                      useAudioStore.getState().addVocalBlob(clipId, blob);
+                      useAudioStore.getState().addVocalBlob(String(clipId), blob);
                     }
                   } catch (err) {
                     console.error(`Failed to download and save vocal recording from ${url}:`, err);
