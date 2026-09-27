@@ -249,6 +249,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!p.notes) p.notes = Array(p.steps).fill('');
     if (!p.lyrics) p.lyrics = Array(p.steps).fill('');
     if (!p.activeSteps) p.activeSteps = Array(p.steps).fill(0);
+
+    // Isolation absolue anacrouse vs mesure principale (anti-référence partagée)
+    if (p.preRollActiveSteps && p.preRollActiveSteps === p.activeSteps) {
+      p.preRollActiveSteps = [...p.preRollActiveSteps];
+    }
+    if (p.preRollLyrics && p.preRollLyrics === p.lyrics) {
+      p.preRollLyrics = [...p.preRollLyrics];
+    }
+    if (p.preRollNotes && p.preRollNotes === p.notes) {
+      p.preRollNotes = [...p.preRollNotes];
+    }
+    if (p.preRollVolumes && p.preRollVolumes === p.volumes) {
+      p.preRollVolumes = [...p.preRollVolumes];
+    }
+    if (p.preRollDecays && p.preRollDecays === p.decays) {
+      p.preRollDecays = [...p.preRollDecays];
+    }
     
     // Assainissement absolu de measureAssignments (Support objets Firestore, tableaux d'indices et tableaux booléens)
     if (!p.measureAssignments) {

@@ -94,14 +94,16 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       }
 
       const { step, maxTicks } = detail;
-      const currentMeasure = useSequencerStore.getState().currentMeasure;
+      const totalMeasures = useSequencerStore.getState().totalMeasures || 1;
+      const rawMeasure = useSequencerStore.getState().currentMeasure;
+      const safeMeasure = Math.max(0, Math.min(rawMeasure, totalMeasures - 1));
       const currentTracks = useSequencerStore.getState().tracks;
 
       const puxTrack = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coroTrack = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 
-      const puxActivePattern = puxTrack?.patterns.find(p => p.measureAssignments[currentMeasure]);
-      const coroActivePattern = coroTrack?.patterns.find(p => p.measureAssignments[currentMeasure]);
+      const puxActivePattern = puxTrack?.patterns?.find(p => p.measureAssignments?.[safeMeasure]);
+      const coroActivePattern = coroTrack?.patterns?.find(p => p.measureAssignments?.[safeMeasure]);
 
       const puxHasNotes = Boolean(
         puxActivePattern?.activeSteps &&

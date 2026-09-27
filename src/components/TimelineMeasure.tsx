@@ -99,7 +99,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   isToada,
   onStepTouchStart,
 }) => {
-  const timeSigStr = useSequencerStore(state => state.measureTimeSigs[mIdx] || state.timeSig || '4/4');
+  const timeSigStr = useSequencerStore(state => state.measureTimeSigs?.[mIdx] || state.timeSig || '4/4');
 
   const isMultiSelected = useSequencerStore(
     React.useCallback(

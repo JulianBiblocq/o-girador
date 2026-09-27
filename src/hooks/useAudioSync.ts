@@ -1163,6 +1163,7 @@ export function useAudioSync({
                   
                   measureCountRef.current++;
                   if (measureCountRef.current >= (totalMeasuresRef.current || 1)) {
+                    measureCountRef.current = Math.max(0, (totalMeasuresRef.current || 1) - 1);
                     isPlaybackEndingRef.current = true;
                     hasFinishedRef.current = true;
                     currentStepIndexRef.current = currentTicks - 1;
@@ -1243,6 +1244,7 @@ export function useAudioSync({
               }
             } else if (currentMeasureIdx >= (totalMeasuresRef.current || 1) - 1) {
               // We reached the absolute end of the sequence (e.g. after exiting a loop)
+              measureCountRef.current = Math.max(0, (totalMeasuresRef.current || 1) - 1);
               isPlaybackEndingRef.current = true;
               hasFinishedRef.current = true;
               currentStepIndexRef.current = currentTicks - 1;
@@ -2743,12 +2745,15 @@ export function useAudioSync({
       setIsPlaying(false);
       setMediaSessionState('paused');
       releaseWakeLock();
-      setCurrentMeasure(measureCountRef.current);
-
+      const totalM = totalMeasuresRef.current || 1;
+      const safeMeasure = Math.max(0, Math.min(measureCountRef.current, totalM - 1));
+      measureCountRef.current = safeMeasure;
+      setCurrentMeasure(safeMeasure);
 
       const audibleTick = getLastAudibleTick();
       const pausedStep = audibleTick ? audibleTick.step : 0;
-      const pausedMeasure = audibleTick ? audibleTick.measure : measureCountRef.current;
+      const rawPausedMeasure = audibleTick ? audibleTick.measure : safeMeasure;
+      const pausedMeasure = Math.max(0, Math.min(rawPausedMeasure, totalM - 1));
       const pausedMaxTicks = audibleTick ? audibleTick.maxTicks : maxTicksRef.current;
       const ratioVal = audibleTick ? audibleTick.ratio : 0;
 

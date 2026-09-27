@@ -254,7 +254,7 @@ export const resolvePatternForMeasure = (
   if (overrideId !== undefined) {
     return overrideId !== null ? (tObj.patterns.find(p => p.id === overrideId) || null) : null;
   }
-  return tObj.patterns.find(p => p.measureAssignments[mIdx]) || null;
+  return tObj.patterns.find(p => p.measureAssignments?.[mIdx]) || null;
 };
 
 /**
@@ -413,7 +413,8 @@ export const drawCenterKaraoke = (
 ) => {
   ctx.save();
   try {
-    const measureIdx = live.step >= 0 ? live.measure : 0;
+    const totalM = totalMeasures || 1;
+    const measureIdx = live.step >= 0 ? Math.max(0, Math.min(live.measure, totalM - 1)) : 0;
     const effectiveTimeSig = (measureTimeSigs && (Array.isArray(measureTimeSigs) ? measureTimeSigs[measureIdx] : measureTimeSigs[measureIdx])) || timeSig || '4/4';
     const beatsCount = getBeatsPerMeasure(effectiveTimeSig);
 
@@ -429,7 +430,7 @@ export const drawCenterKaraoke = (
     if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {
       nextMeasureIdx = (loopStartMeasure !== null && loopStartMeasure !== undefined) ? loopStartMeasure : 0;
     } else {
-      nextMeasureIdx = (measureIdx + 1) % totalMeasures;
+      nextMeasureIdx = (measureIdx + 1) % totalM;
     }
 
     const candidatePattern = puxPattern || coroPattern;
@@ -762,7 +763,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const mestreSignals = props.mestreSignals !== undefined ? props.mestreSignals : [];
 
   const maxTicks = props.maxTicks !== undefined ? props.maxTicks : audio.maxTicksRef.current;
-  const timeSig = props.timeSig !== undefined ? props.timeSig : (measureTimeSigs[currentMeasure] || sequencer.timeSig);
+  const timeSig = props.timeSig !== undefined ? props.timeSig : (measureTimeSigs?.[currentMeasure] || sequencer.timeSig || '4/4');
 
   const onTogglePlay = props.onTogglePlay !== undefined ? props.onTogglePlay : audio.handleTogglePlay;
   const onNavigateMeasure = props.onNavigateMeasure !== undefined ? props.onNavigateMeasure : ((mIdx: number) => audio.handleTimelineNavigate(mIdx, 0, 16));
@@ -780,7 +781,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
         result[track.id] = hasSoloPattern ? soloPatternPlayId : null;
       } else {
-        const activePattern = track.patterns.find(p => p.measureAssignments[currentMeasure]);
+        const activePattern = track.patterns.find(p => p.measureAssignments?.[currentMeasure]);
         result[track.id] = activePattern ? activePattern.id : null;
       }
     });
@@ -2259,7 +2260,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             if (overrideId !== undefined) {
               return overrideId !== null ? (tObj.patterns.find(p => p.id === overrideId) || null) : null;
             }
-            return tObj.patterns.find(p => p.measureAssignments[mIdx]) || null;
+            return tObj.patterns.find(p => p.measureAssignments?.[mIdx]) || null;
           };
 
           // 1. Résolution des motifs vocaux Puxador et Coro
@@ -3288,8 +3289,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     };
   }, []);
 
-  const activeBpm = measureBpms[currentMeasure] || bpm;
-  const activeVol = measureVols[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
+  const activeBpm = measureBpms?.[currentMeasure] ?? bpm;
+  const activeVol = measureVols?.[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
 
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
   let displayMeasure = 1;

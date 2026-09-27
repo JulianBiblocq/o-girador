@@ -84,9 +84,9 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
       if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
       if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
     }
-    const coroPtn = coro?.patterns.find(p => p.measureAssignments[currentMeasure]);
+    const coroPtn = coro?.patterns?.find(p => p.measureAssignments?.[currentMeasure]);
     if (coroPtn) return coro;
-    const puxPtn = pux?.patterns.find(p => p.measureAssignments[currentMeasure]);
+    const puxPtn = pux?.patterns?.find(p => p.measureAssignments?.[currentMeasure]);
     if (puxPtn) return pux;
     return coro || pux || null;
   })();

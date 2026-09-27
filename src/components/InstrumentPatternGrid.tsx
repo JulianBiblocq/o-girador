@@ -42,12 +42,12 @@ interface InstrumentPatternGridProps {
   setSelectedSubIndex?: React.Dispatch<React.SetStateAction<0 | 1 | null>>;
   isTupletEditMode: boolean;
   isMultiSelectActive: boolean;
-  noteSelectorTarget: { patternId: number; stepIdx: number; note: string; element: HTMLElement } | null;
+  noteSelectorTarget: { patternId: number; stepIdx: number; note: string; element: HTMLElement; isPreRoll?: boolean } | null;
   activeTool?: string;
   isAlternating?: boolean;
 
   // React State setters
-  setNoteSelectorTarget: React.Dispatch<React.SetStateAction<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>>;
+  setNoteSelectorTarget: React.Dispatch<React.SetStateAction<{ patternId: number; stepIdx: number; note: string; element: HTMLElement; isPreRoll?: boolean } | null>>;
   setSelectedPatternId: React.Dispatch<React.SetStateAction<number>>;
   setSelectedStepIdx: React.Dispatch<React.SetStateAction<number | null>>;
   setSelectedVariationId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -532,7 +532,7 @@ interface VoiceStepCellProps {
   onVoiceNoteChange: (trackId: number, patternId: number, index: number, value: string) => void;
   onVoiceNoteBlur: (trackId: number, patternId: number, index: number, value: string) => void;
   onFocusStep: (index: number) => void;
-  onNoteSelectorTarget: (target: { patternId: number; stepIdx: number; note: string; element: HTMLInputElement }) => void;
+  onNoteSelectorTarget: (target: { patternId: number; stepIdx: number; note: string; element: HTMLInputElement; isPreRoll?: boolean }) => void;
   onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
   focusVoiceStep?: (stepIdx: number, type?: 'note' | 'syl', forceInPreRoll?: boolean) => void;
   onVoiceStepClear?: (trackId: number, patternId: number, index: number) => void;
@@ -812,13 +812,13 @@ const VoiceStepCellComponent = ({
             onFocus={(e) => {
               if (!isMultiSelectActive) {
                 onFocusStep(i);
-                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
+                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any, isPreRoll: Boolean(isPreRoll) });
                 setIsNoteFocused(true);
               }
             }}
             onClick={(e) => {
               if (!isMultiSelectActive) {
-                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
+                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any, isPreRoll: Boolean(isPreRoll) });
                 setIsNoteFocused(true);
               }
             }}
@@ -1894,6 +1894,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [activeTool, isMultiSelectActive, handleStepMouseDownMulti, handleVoiceStepClear, trackId, pattern.id]);
 
+  const handleVoicePreRollMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
+    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
+      handleVoicePreRollStepClear(trackId, pattern.id, idx);
+      return;
+    }
+  }, [activeTool, handleVoicePreRollStepClear, trackId, pattern.id]);
+
   const handleVoiceMouseEnter = React.useCallback((idx: number) => {
     if (isMultiSelectActive) {
       handleStepMouseEnterMulti(idx);
@@ -2946,6 +2953,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       isProlongation={isProlongation}
                       isFollowedByProlongation={isFollowedByProlongation}
                       onVoiceStepClear={handleVoicePreRollStepClear}
+                      onMouseDown={handleVoicePreRollMouseDown}
                       onVoiceTypeToggle={() => {}}
                       onVoiceSylChange={handleVoicePreRollSylChange}
                       onVoiceNoteChange={handleVoicePreRollNoteChange}

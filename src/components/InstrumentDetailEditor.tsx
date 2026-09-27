@@ -420,9 +420,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
         if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
       }
-      const coroPtn = coro?.patterns.find(p => p.measureAssignments[currentMeasure]);
+      const coroPtn = coro?.patterns?.find(p => p.measureAssignments?.[currentMeasure]);
       if (coroPtn) return coro;
-      const puxPtn = pux?.patterns.find(p => p.measureAssignments[currentMeasure]);
+      const puxPtn = pux?.patterns?.find(p => p.measureAssignments?.[currentMeasure]);
       if (puxPtn) return pux;
       return pux || coro || undefined;
     }, [track, isToada, currentMeasure])
@@ -496,6 +496,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           decays: Array(p ? p.steps : 16).fill(100),
           microtimings: Array(p ? p.steps : 16).fill(0),
           variations: [],
+          preRollActiveSteps: Array(16).fill(0),
+          preRollLyrics: Array(16).fill(''),
+          preRollNotes: Array(16).fill(''),
+          preRollVolumes: Array(16).fill(100),
+          preRollDecays: Array(16).fill(10),
         };
         return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
       }
@@ -785,7 +790,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
-  const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>(null);
+  const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement; isPreRoll?: boolean } | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
   const isPlayingRef = useRef(isPlaying);
@@ -2430,8 +2435,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             <MelodicNoteSelector
               currentValue={noteSelectorTarget.note}
               onSelect={(selectedNote) => {
-                onVoiceNoteChange(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
-                onVoiceNoteBlur(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                if (noteSelectorTarget.isPreRoll) {
+                  sequencer.handleVoicePreRollNoteChange(effectiveEditTrackId, noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                  sequencer.handleVoicePreRollNoteBlur(effectiveEditTrackId, noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                } else {
+                  onVoiceNoteChange(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                  onVoiceNoteBlur(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                }
                 setNoteSelectorTarget({
                   ...noteSelectorTarget,
                   note: selectedNote

@@ -527,7 +527,7 @@ export const useMidiController = () => {
 
           if (canWriteStep && targetCard) {
             lastVoiceStepInputTime = now;
-            const isInPreRoll = targetCard.closest('.pre-roll-section') !== null;
+            const isInPreRoll = Boolean(targetCard.closest('.pre-roll-section') !== null || (document.activeElement && (document.activeElement as HTMLElement).closest?.('.pre-roll-section')));
             const cardTrackId = targetCard.getAttribute('data-track-id') || (armedTrackId !== null ? String(armedTrackId) : null);
             const cardPatternId = targetCard.getAttribute('data-pattern-id') || (armedPatternId !== null ? String(armedPatternId) : null);
             const cardStepIdx = parseInt(targetCard.getAttribute('data-step-index') || '0', 10);

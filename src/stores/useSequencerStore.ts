@@ -3174,7 +3174,11 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
   isLoopBypassed: false,
   isLoopExitRequested: false,
 
-  setCurrentMeasure: (updater) => set(state => ({ currentMeasure: typeof updater === 'function' ? updater(state.currentMeasure) : updater })),
+  setCurrentMeasure: (updater) => set(state => {
+    const raw = typeof updater === 'function' ? updater(state.currentMeasure) : updater;
+    const safe = Math.max(0, Math.min(raw, (state.totalMeasures || 1) - 1));
+    return { currentMeasure: safe };
+  }),
   setCurrentExpandedMeasureIdx: (updater) => set(state => ({ currentExpandedMeasureIdx: typeof updater === 'function' ? updater(state.currentExpandedMeasureIdx) : updater })),
   setLoopStartMeasure: (updater) => set(state => ({ loopStartMeasure: typeof updater === 'function' ? updater(state.loopStartMeasure) : updater })),
   setLoopEndMeasure: (updater) => set(state => ({ loopEndMeasure: typeof updater === 'function' ? updater(state.loopEndMeasure) : updater })),

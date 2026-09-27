@@ -1610,8 +1610,19 @@ export function useSequencerState() {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
             const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+            const copySteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
             arrNotes[stepIdx] = val;
-            return { ...p, preRollNotes: arrNotes };
+            if (!val || val.trim() === '' || val === '0') {
+              arrNotes[stepIdx] = '';
+              const arrSyl = p.preRollLyrics || [];
+              if (!arrSyl[stepIdx] || arrSyl[stepIdx].trim() === '') {
+                copySteps[stepIdx] = 0;
+              }
+            } else if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+              const instId = instrumentsConfig[t.instrumentIdx]?.id;
+              copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+            }
+            return { ...p, preRollNotes: arrNotes, preRollActiveSteps: copySteps };
           }
           return p;
         });
@@ -1632,8 +1643,13 @@ export function useSequencerState() {
             const nextPatterns = t.patterns.map(p => {
               if (p.id === patternId) {
                 const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+                const copySteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
                 arrNotes[stepIdx] = completedNote;
-                return { ...p, preRollNotes: arrNotes };
+                if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+                  const instId = instrumentsConfig[t.instrumentIdx]?.id;
+                  copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+                }
+                return { ...p, preRollNotes: arrNotes, preRollActiveSteps: copySteps };
               }
               return p;
             });
