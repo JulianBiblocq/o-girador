@@ -423,18 +423,10 @@ export const vocalEngineService = {
     const anchorMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
     const effectiveBpm = currentBpm || anchorMeasureBpm;
 
-    // Retrieve or recycle persistent player (Safeguard 2) isolé par couple (trackId, patternId)
-    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode);
-    const mainPlayer = activeEntry.mainPlayer;
-    const mainGain = activeEntry.mainGain;
-
     // 1. Time-stretching calculation : verrouillé strictement à 1.0 au BPM nominal
     const baseBpm = clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm || effectiveBpm;
     const targetRate = effectiveBpm / (baseBpm || effectiveBpm);
     const playbackRate = (Number.isFinite(targetRate) && targetRate > 0) ? targetRate : 1.0;
-    mainPlayer.playbackRate = playbackRate;
-    mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE : forcé systématiquement avant chaque déclenchement
-    (mainPlayer as any).fadeIn = 0; // Pas de fondu d'attaque qui étouffe les consonnes
 
     // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
     const beatDurationSec = 60 / effectiveBpm;
@@ -446,12 +438,55 @@ export const vocalEngineService = {
     const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
     const bufferDuration = audioBuffer.duration;
     const playDuration = bufferDuration / playbackRate;
+    const hasAnacrusis = (anacrusisSec > 0.02 || nudgeMs !== 0);
+    const actualStartTime = (isDirectStep0 && hasAnacrusis) ? measureStartTime : (triggerTime >= 0 ? triggerTime : 0);
 
-    // Stop previous playback on this player safely without triggering the old onstop callback
-    try {
-      mainPlayer.onstop = null as any;
-      mainPlayer.stop();
-    } catch (_) {}
+    // 3. Cycle de vie propre de oldPlayer (Directive 2) :
+    // Si une instance précédente existe, programmer son extinction progressive et différer le nettoyage
+    const existingEntry = activeVocals.get(compositeKey);
+    if (existingEntry) {
+      try {
+        existingEntry.mainPlayer.onstop = null as any;
+        const oldGain = existingEntry.mainGain.gain;
+        const now = Tone.now();
+        const fadeStart = Math.max(now, actualStartTime);
+        oldGain.cancelScheduledValues(fadeStart);
+        oldGain.setValueAtTime(oldGain.value, fadeStart);
+        oldGain.linearRampToValueAtTime(0.0001, fadeStart + 0.015);
+        existingEntry.mainPlayer.stop(fadeStart + 0.02);
+
+        const oldPlayer = existingEntry.mainPlayer;
+        const oldGainNode = existingEntry.mainGain;
+        const oldChorusPlayers = existingEntry.chorusPlayers;
+        const oldChorusGains = existingEntry.chorusGains;
+        const oldPanners = existingEntry.panners;
+
+        // Attention : Ne JAMAIS appeler oldPlayer.dispose() de façon synchrone lors de la planification.
+        // Différer le nettoyage complet (dispose et déconnexion) via setTimeout calé après l'extinction effective.
+        const delayMs = Math.max(50, (fadeStart + 0.1 - now) * 1000);
+        setTimeout(() => {
+          try {
+            oldPlayer.disconnect();
+            oldPlayer.dispose();
+            oldGainNode.disconnect();
+            oldGainNode.dispose();
+            oldChorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
+            oldChorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
+            oldPanners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
+          } catch (_) {}
+        }, Math.min(delayMs, 5000));
+      } catch (_) {}
+      activeVocals.delete(compositeKey);
+    }
+
+    // 4. Instancier et armer immédiatement la nouvelle voix pour triggerTime
+    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode);
+    const mainPlayer = activeEntry.mainPlayer;
+    const mainGain = activeEntry.mainGain;
+
+    mainPlayer.playbackRate = playbackRate;
+    mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE : forcé systématiquement avant chaque déclenchement
+    (mainPlayer as any).fadeIn = 0; // Pas de fondu d'attaque qui étouffe les consonnes
 
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
@@ -459,7 +494,6 @@ export const vocalEngineService = {
     // Directive B / 4 : Filet de sécurité strict sur le Fallback Pas 0
     // Si isDirectStep0 est vrai et que le motif possède une anacrouse avérée,
     // forcer le départ au Temps 1 (measureStartTime) avec un offset égal à l'anacrouse.
-    const hasAnacrusis = (anacrusisSec > 0.02 || nudgeMs !== 0);
     if (isDirectStep0 && hasAnacrusis) {
       const startOffset = Math.max(0, anacrusisSec - (nudgeMs / 1000));
       const remainingDuration = Math.max(0, bufferDuration - startOffset);

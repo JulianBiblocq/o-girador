@@ -1738,7 +1738,10 @@ export function useAudioSync({
           const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
           let scheduledNextVocalKey: string | null = null;
 
-          if (canPlay && nextPattern && stepIdx === 0) {
+          // Évaluation de l'anacrouse entrante dès la seconde moitié de la mesure (Pas 8 / tick >= currentTicks / 2)
+          const isSecondHalf = stepIdx >= Math.floor(currentTicks / 2);
+
+          if (canPlay && nextPattern && isSecondHalf) {
             const nextSafeId = Number(nextPattern.id);
             const nextCompositeBufferKey = `${track.id}_${nextSafeId}`;
             const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextCompositeBufferKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
@@ -1766,8 +1769,10 @@ export function useAudioSync({
               const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
               const currentMeasureDurationSec = (currentBeats * 60) / currentMeasureBpm;
 
-              // Horodatage absolu au wrap-around (Consigne 1) : nextMeasureStartTime = time + currentMeasureDurationSec
-              const nextMeasureStartTime = time + currentMeasureDurationSec;
+              // Horodatage absolu au wrap-around / anticipation au pas 8 (Consigne 1) :
+              const remainingTicks = currentTicks - stepIdx;
+              const remainingDurationSec = (remainingTicks / currentTicks) * currentMeasureDurationSec;
+              const nextMeasureStartTime = time + remainingDurationSec;
 
               // Enregistrement immédiat dans le registre d'anticipation pour cette mesure cible
               anticipatedMeasuresRef.current.add(targetKey);
