@@ -90,6 +90,13 @@ export interface ActiveVocal {
   mainPlayer: Tone.GrainPlayer;
   mainGain: Tone.Gain;
   currentBuffer: AudioBuffer | null;
+  haasNodes?: {
+    input: GainNode;
+    delay: DelayNode;
+    filter: BiquadFilterNode;
+    rightGain: GainNode;
+    merger: ChannelMergerNode;
+  };
   chorusPlayers: Tone.GrainPlayer[];
   chorusGains: Tone.Gain[];
   panners: Tone.Panner[];
@@ -357,8 +364,14 @@ export const vocalEngineService = {
    * Safeguard 2: Reusable Tone.GrainPlayer instance cache.
    * Prevents node recreation and memory churn on high frequency iterations.
    * Indexé par clé composite pour étanchéité Puxador vs Coro.
+   * Module Haas (Option B) : élargissement spatial stéréo du Coro avec lecteur unique.
    */
-  getOrCreateVocalPlayer(vocalKey: string, audioBuffer: AudioBuffer, outputNode: any): ActiveVocal {
+  getOrCreateVocalPlayer(
+    vocalKey: string,
+    audioBuffer: AudioBuffer,
+    outputNode: any,
+    isCoroTrack: boolean = false
+  ): ActiveVocal {
     let entry = activeVocals.get(vocalKey);
 
     if (entry) {
@@ -382,12 +395,68 @@ export const vocalEngineService = {
 
     const mainGain = new Tone.Gain(1);
     mainPlayer.connect(mainGain);
-    mainGain.connect(outputNode || masterVolumeNode || Tone.Destination);
+
+    const isEcoMode = useSequencerStore.getState().isEcoMode;
+    let haasNodes: ActiveVocal['haasNodes'] = undefined;
+
+    // 🎧 Module Haas Stéréo pour le Coro (Zéro surcoût CPU, 4 nœuds Web Audio natifs légers)
+    if (isCoroTrack && !isEcoMode) {
+      const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
+
+      // 1. Forçage mono sur l'entrée Haas pour séparation stéréo parfaite même sur sample stéréo
+      const haasInput = rawCtx.createGain();
+      haasInput.channelCount = 1;
+      haasInput.channelCountMode = 'explicit';
+
+      // 2. Branche retardée (R) : 18 ms (psychoacoustique de Haas)
+      const delayNode = rawCtx.createDelay(0.05);
+      delayNode.delayTime.value = 0.018;
+
+      // 3. Filtre coupe-bas à 280 Hz pour immunité sommation mono et intégrité des basses
+      const filterNode = rawCtx.createBiquadFilter();
+      filterNode.type = 'highpass';
+      filterNode.frequency.value = 280;
+
+      // 4. Atténuation de compensation de préséance (-1 dB / 0.88)
+      const rightGain = rawCtx.createGain();
+      rightGain.gain.value = 0.88;
+
+      // 5. Fusion stéréo 2 canaux
+      const merger = rawCtx.createChannelMerger(2);
+
+      // Câblage :
+      mainGain.connect(haasInput);
+
+      // Branche L directe -> Canal 0
+      haasInput.connect(merger, 0, 0);
+
+      // Branche R retardée & filtrée -> Canal 1
+      haasInput.connect(delayNode);
+      delayNode.connect(filterNode);
+      filterNode.connect(rightGain);
+      rightGain.connect(merger, 0, 1);
+
+      // Sortie vers le bus de tranche de piste
+      const destNode = (outputNode && (outputNode.input || outputNode)) || (masterVolumeNode && (masterVolumeNode.input || masterVolumeNode)) || rawCtx.destination;
+      merger.connect(destNode);
+
+      haasNodes = {
+        input: haasInput,
+        delay: delayNode,
+        filter: filterNode,
+        rightGain: rightGain,
+        merger: merger,
+      };
+    } else {
+      // Puxador (mono centré pan 0) ou Mode Éco (bypass immédiat)
+      mainGain.connect(outputNode || masterVolumeNode || Tone.Destination);
+    }
 
     entry = {
       mainPlayer,
       mainGain,
       currentBuffer: audioBuffer,
+      haasNodes,
       chorusPlayers: [],
       chorusGains: [],
       panners: []
@@ -420,6 +489,15 @@ export const vocalEngineService = {
       if (entry) {
         try { entry.mainPlayer.stop(); entry.mainPlayer.disconnect(); entry.mainPlayer.dispose(); } catch (_) {}
         try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
+        if (entry.haasNodes) {
+          try {
+            entry.haasNodes.input.disconnect();
+            entry.haasNodes.delay.disconnect();
+            entry.haasNodes.filter.disconnect();
+            entry.haasNodes.rightGain.disconnect();
+            entry.haasNodes.merger.disconnect();
+          } catch (_) {}
+        }
         entry.chorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
         entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
         entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
@@ -436,6 +514,15 @@ export const vocalEngineService = {
     activeVocals.forEach((entry) => {
       try { entry.mainPlayer.stop(); entry.mainPlayer.disconnect(); entry.mainPlayer.dispose(); } catch (_) {}
       try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
+      if (entry.haasNodes) {
+        try {
+          entry.haasNodes.input.disconnect();
+          entry.haasNodes.delay.disconnect();
+          entry.haasNodes.filter.disconnect();
+          entry.haasNodes.rightGain.disconnect();
+          entry.haasNodes.merger.disconnect();
+        } catch (_) {}
+      }
       entry.chorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
       entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
       entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
@@ -608,6 +695,7 @@ export const vocalEngineService = {
 
         const oldPlayer = existingEntry.mainPlayer;
         const oldGainNode = existingEntry.mainGain;
+        const oldHaasNodes = existingEntry.haasNodes;
         const oldChorusPlayers = existingEntry.chorusPlayers;
         const oldChorusGains = existingEntry.chorusGains;
         const oldPanners = existingEntry.panners;
@@ -621,6 +709,13 @@ export const vocalEngineService = {
             oldPlayer.dispose();
             oldGainNode.disconnect();
             oldGainNode.dispose();
+            if (oldHaasNodes) {
+              oldHaasNodes.input.disconnect();
+              oldHaasNodes.delay.disconnect();
+              oldHaasNodes.filter.disconnect();
+              oldHaasNodes.rightGain.disconnect();
+              oldHaasNodes.merger.disconnect();
+            }
             oldChorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
             oldChorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
             oldPanners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
@@ -631,7 +726,7 @@ export const vocalEngineService = {
     }
 
     // 4. Instancier et armer immédiatement la nouvelle voix pour triggerTime
-    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode);
+    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode, isCoroTrack);
     const mainPlayer = activeEntry.mainPlayer;
     const mainGain = activeEntry.mainGain;
 
