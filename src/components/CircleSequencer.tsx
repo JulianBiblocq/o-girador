@@ -267,6 +267,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const songMarkers = props.songMarkers !== undefined ? props.songMarkers : (songMarkersFromStore || []);
   const storeRodaTrackOrder = useSequencerStore(state => state.rodaTrackOrder);
   const rodaTrackOrder = props.rodaTrackOrder !== undefined ? props.rodaTrackOrder : storeRodaTrackOrder;
+  const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
+  const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
+  const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
   const globalCurrentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
@@ -922,6 +925,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     isMetroOn,
     activeCircleIdByInst,
     totalMeasures,
+    isLoopRegionActive,
+    loopStartMeasure,
+    loopEndMeasure,
     activePatternIdByTrack,
     hitTriggersRef,
     bpm,
@@ -951,6 +957,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       isMetroOn,
       activeCircleIdByInst,
       totalMeasures,
+      isLoopRegionActive,
+      loopStartMeasure,
+      loopEndMeasure,
       activePatternIdByTrack,
       hitTriggersRef,
       bpm,
@@ -966,7 +975,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       songMarkers,
       measureTimeSigs
     };
-  }, [tracks, rawTracks, rodaTrackOrder, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs]);
+  }, [tracks, rawTracks, rodaTrackOrder, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, isLoopRegionActive, loopStartMeasure, loopEndMeasure, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs]);
 
   useEffect(() => {
     if (props.tracks !== undefined) return;
@@ -975,12 +984,18 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     stateRef.current.rawTracks = useSequencerStore.getState().tracks;
     stateRef.current.rodaTrackOrder = useSequencerStore.getState().rodaTrackOrder;
+    stateRef.current.isLoopRegionActive = useSequencerStore.getState().isLoopRegionActive;
+    stateRef.current.loopStartMeasure = useSequencerStore.getState().loopStartMeasure;
+    stateRef.current.loopEndMeasure = useSequencerStore.getState().loopEndMeasure;
     
     const unsubscribe = useSequencerStore.subscribe(
       (state) => {
         stateRef.current.tracks = state.tracks.filter(t => isSequencerVisibleTrack(t, state.tracks));
         stateRef.current.rawTracks = state.tracks;
         stateRef.current.rodaTrackOrder = state.rodaTrackOrder;
+        stateRef.current.isLoopRegionActive = state.isLoopRegionActive;
+        stateRef.current.loopStartMeasure = state.loopStartMeasure;
+        stateRef.current.loopEndMeasure = state.loopEndMeasure;
       }
     );
     return unsubscribe;
@@ -1742,6 +1757,19 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           const currentRawTracks = props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks;
           const soloPlayId = stateVal.soloPatternPlayId;
 
+          // Helper pour résoudre le motif d'une mesure (en tenant compte des overrides de motif)
+          const resolvePatternForMeasure = (tObj: TrackGroup | undefined, mIdx: number, sPlayId: number | null | undefined): Pattern | null => {
+            if (!tObj) return null;
+            if (sPlayId !== undefined && sPlayId !== null) {
+              return tObj.patterns.find(p => p.id === sPlayId) || null;
+            }
+            const overrideId = tObj.patternOverrides?.[mIdx];
+            if (overrideId !== undefined) {
+              return overrideId !== null ? (tObj.patterns.find(p => p.id === overrideId) || null) : null;
+            }
+            return tObj.patterns.find(p => p.measureAssignments[mIdx]) || null;
+          };
+
           // 1. Résolution des motifs vocaux Puxador et Coro
           let puxPattern: Pattern | null = null;
           let coroPattern: Pattern | null = null;
@@ -1752,23 +1780,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             puxTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
             coroTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 
-            if (puxTrackObj) {
-              if (soloPlayId !== undefined && soloPlayId !== null) {
-                puxPattern = puxTrackObj.patterns.find(p => p.id === soloPlayId) || null;
-              }
-              if (!puxPattern) {
-                puxPattern = puxTrackObj.patterns.find(p => p.measureAssignments[measureIdx]) || null;
-              }
-            }
-
-            if (coroTrackObj) {
-              if (soloPlayId !== undefined && soloPlayId !== null) {
-                coroPattern = coroTrackObj.patterns.find(p => p.id === soloPlayId) || null;
-              }
-              if (!coroPattern) {
-                coroPattern = coroTrackObj.patterns.find(p => p.measureAssignments[measureIdx]) || null;
-              }
-            }
+            puxPattern = resolvePatternForMeasure(puxTrackObj, measureIdx, soloPlayId);
+            coroPattern = resolvePatternForMeasure(coroTrackObj, measureIdx, soloPlayId);
 
             // Repli sur le motif actif si aucun enfant n'a d'assignation directe
             if (!puxPattern && !coroPattern && activePattern) {
@@ -1782,35 +1795,55 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             if (currentInst.id === 'coro') {
               coroPattern = activePattern;
               coroTrackObj = track;
+              puxTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+              puxPattern = resolvePatternForMeasure(puxTrackObj, measureIdx, soloPlayId);
+            } else if (currentInst.id === 'puxador') {
+              puxPattern = activePattern;
+              puxTrackObj = track;
+              coroTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+              coroPattern = resolvePatternForMeasure(coroTrackObj, measureIdx, soloPlayId);
             } else {
               puxPattern = activePattern;
               puxTrackObj = track;
             }
           }
 
-          // Détection du motif de la mesure suivante pour anticipation de l'anacrouse sur la Timeline
+          if (!puxTrackObj) {
+            puxTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+          }
+          if (!coroTrackObj) {
+            coroTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+          }
+
+          // Détection cyclique du motif de la mesure suivante pour anticipation de l'anacrouse sur la Roda
           const totalM = stateVal.totalMeasures || currentRawTracks[0]?.patterns[0]?.measureAssignments?.length || 1;
-          const nextMeasureIdx = (measureIdx + 1) % totalM;
-          let nextPuxPattern: Pattern | null = null;
-          let nextCoroPattern: Pattern | null = null;
-          if (puxTrackObj) {
-            nextPuxPattern = puxTrackObj.patterns.find(p => p.measureAssignments[nextMeasureIdx]) || null;
+          const isLoopActive = Boolean(stateVal.isLoopRegionActive);
+          const loopStart = stateVal.loopStartMeasure;
+          const loopEnd = stateVal.loopEndMeasure;
+
+          let nextMeasureIdx: number;
+          if (isLoopActive && loopEnd !== null && loopEnd !== undefined && measureIdx === loopEnd) {
+            nextMeasureIdx = (loopStart !== null && loopStart !== undefined) ? loopStart : 0;
+          } else {
+            nextMeasureIdx = (measureIdx + 1) % totalM;
           }
-          if (coroTrackObj) {
-            nextCoroPattern = coroTrackObj.patterns.find(p => p.measureAssignments[nextMeasureIdx]) || null;
-          }
+
+          const nextPuxPattern = resolvePatternForMeasure(puxTrackObj, nextMeasureIdx, soloPlayId);
+          const nextCoroPattern = resolvePatternForMeasure(coroTrackObj, nextMeasureIdx, soloPlayId);
 
           // 2. Extraction des pas par voix (Puxador et Coro) avec support complet de l'anacrouse
           const puxSteps: Array<{ active: boolean; note: string; syl: string; isProlongation: boolean; isAnacrusis: boolean }> = [];
           const coroSteps: Array<{ active: boolean; note: string; syl: string; isProlongation: boolean; isAnacrusis: boolean }> = [];
 
-          const hasSeparatePatterns = Boolean(puxPattern && coroPattern);
+          const hasSeparateVoiceTracks = Boolean(puxTrackObj || coroTrackObj);
           const puxPlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current && puxTrackObj)
             ? (sequencer.activeVariationsRef.current[puxTrackObj.id] || puxPattern?.activeSteps)
             : puxPattern?.activeSteps;
           const coroPlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current && coroTrackObj)
             ? (sequencer.activeVariationsRef.current[coroTrackObj.id] || coroPattern?.activeSteps)
             : coroPattern?.activeSteps;
+
+          const isStepValActive = (val: any) => val !== 0 && val !== '0' && val !== '' && val !== undefined && val !== null && val !== '-';
 
           for (let i = 0; i < effectiveStepCount; i++) {
             let pActive = false;
@@ -1823,51 +1856,62 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             let cSyl = '';
             let cAnacrusis = false;
 
-            if (hasSeparatePatterns) {
+            if (hasSeparateVoiceTracks) {
+              // Voix Puxador (mesure courante)
               if (puxPattern && puxPlayingSteps) {
                 const sVal = puxPlayingSteps[i];
-                pActive = sVal !== 0 && sVal !== '0' && sVal !== '' && sVal !== undefined && sVal !== null && sVal !== '-';
-                pNote = (puxPattern.notes?.[i] || '').trim();
-                pSyl = (puxPattern.lyrics?.[i] || '').trim();
-              }
-              // Injection anacrouse Puxador si pas inactif
-              if (!pActive) {
-                // 1. Anacrouse locale du motif courant (solo/boucle ou motif affiché avec levée)
-                const preVal = puxPattern?.preRollActiveSteps?.[i];
-                if (preVal !== undefined && preVal !== null && preVal !== 0 && preVal !== '0' && preVal !== '' && preVal !== '-') {
+                if (isStepValActive(sVal)) {
                   pActive = true;
-                  pNote = (puxPattern?.preRollNotes?.[i] || '').trim();
-                  pSyl = (puxPattern?.preRollLyrics?.[i] || '').trim();
-                  pAnacrusis = true;
-                } else if (soloPlayId === undefined || soloPlayId === null) {
-                  // 2. Anacrouse de la mesure suivante en Timeline
-                  const nextPreVal = nextPuxPattern?.preRollActiveSteps?.[i];
-                  if (nextPreVal !== undefined && nextPreVal !== null && nextPreVal !== 0 && nextPreVal !== '0' && nextPreVal !== '' && nextPreVal !== '-') {
+                  pNote = (puxPattern.notes?.[i] || '').trim();
+                  pSyl = (puxPattern.lyrics?.[i] || '').trim();
+                }
+              }
+
+              // Voix Coro (mesure courante)
+              if (coroPattern && coroPlayingSteps) {
+                const sVal = coroPlayingSteps[i];
+                if (isStepValActive(sVal)) {
+                  cActive = true;
+                  cNote = (coroPattern.notes?.[i] || '').trim();
+                  cSyl = (coroPattern.lyrics?.[i] || '').trim();
+                }
+              }
+
+              // Anacrouse locale en Solo
+              if (soloPlayId !== undefined && soloPlayId !== null) {
+                if (!pActive) {
+                  const preVal = puxPattern?.preRollActiveSteps?.[i];
+                  if (isStepValActive(preVal)) {
+                    pActive = true;
+                    pNote = (puxPattern?.preRollNotes?.[i] || '').trim();
+                    pSyl = (puxPattern?.preRollLyrics?.[i] || '').trim();
+                    pAnacrusis = true;
+                  }
+                }
+                if (!cActive) {
+                  const preVal = coroPattern?.preRollActiveSteps?.[i];
+                  if (isStepValActive(preVal)) {
+                    cActive = true;
+                    cNote = (coroPattern?.preRollNotes?.[i] || '').trim();
+                    cSyl = (coroPattern?.preRollLyrics?.[i] || '').trim();
+                    cAnacrusis = true;
+                  }
+                }
+              } else {
+                // Anacrouse entrante de la mesure suivante (Timeline / Boucle)
+                // Projection sur les pas 12 à 15 si le pas est libre de notes (!pActive && !cActive)
+                const isPickupWindow = i >= effectiveStepCount - 4;
+                if (isPickupWindow && !pActive && !cActive) {
+                  const nextPuxPre = nextPuxPattern?.preRollActiveSteps?.[i];
+                  if (isStepValActive(nextPuxPre)) {
                     pActive = true;
                     pNote = (nextPuxPattern?.preRollNotes?.[i] || '').trim();
                     pSyl = (nextPuxPattern?.preRollLyrics?.[i] || '').trim();
                     pAnacrusis = true;
                   }
-                }
-              }
 
-              if (coroPattern && coroPlayingSteps) {
-                const sVal = coroPlayingSteps[i];
-                cActive = sVal !== 0 && sVal !== '0' && sVal !== '' && sVal !== undefined && sVal !== null && sVal !== '-';
-                cNote = (coroPattern.notes?.[i] || '').trim();
-                cSyl = (coroPattern.lyrics?.[i] || '').trim();
-              }
-              // Injection anacrouse Coro si pas inactif
-              if (!cActive) {
-                const preVal = coroPattern?.preRollActiveSteps?.[i];
-                if (preVal !== undefined && preVal !== null && preVal !== 0 && preVal !== '0' && preVal !== '' && preVal !== '-') {
-                  cActive = true;
-                  cNote = (coroPattern?.preRollNotes?.[i] || '').trim();
-                  cSyl = (coroPattern?.preRollLyrics?.[i] || '').trim();
-                  cAnacrusis = true;
-                } else if (soloPlayId === undefined || soloPlayId === null) {
-                  const nextPreVal = nextCoroPattern?.preRollActiveSteps?.[i];
-                  if (nextPreVal !== undefined && nextPreVal !== null && nextPreVal !== 0 && nextPreVal !== '0' && nextPreVal !== '' && nextPreVal !== '-') {
+                  const nextCoroPre = nextCoroPattern?.preRollActiveSteps?.[i];
+                  if (isStepValActive(nextCoroPre)) {
                     cActive = true;
                     cNote = (nextCoroPattern?.preRollNotes?.[i] || '').trim();
                     cSyl = (nextCoroPattern?.preRollLyrics?.[i] || '').trim();
@@ -1876,11 +1920,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                 }
               }
             } else {
+              // Piste vocale unifiée (legacy)
               const basePat = puxPattern || coroPattern || activePattern;
               const nextBasePat = nextPuxPattern || nextCoroPattern;
               const sVal = activePlayingSteps[i];
               const sStr = String(Array.isArray(sVal) ? sVal[0] : sVal).toUpperCase();
-              const isRawActive = sVal !== 0 && sVal !== '0' && sVal !== '' && sVal !== undefined && sVal !== null && sVal !== '-';
+              const isRawActive = isStepValActive(sVal);
 
               if (isRawActive) {
                 const noteVal = (basePat?.notes?.[i] || '').trim();
@@ -1897,11 +1942,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                   pSyl = sylVal;
                 }
               } else {
-                // Injection anacrouse sur piste unifiée
+                const isPickupWindow = i >= effectiveStepCount - 4;
                 const preVal = basePat?.preRollActiveSteps?.[i];
-                const isPreActive = preVal !== undefined && preVal !== null && preVal !== 0 && preVal !== '0' && preVal !== '' && preVal !== '-';
-                const nextPreVal = (soloPlayId === undefined || soloPlayId === null) ? nextBasePat?.preRollActiveSteps?.[i] : 0;
-                const isNextPreActive = nextPreVal !== undefined && nextPreVal !== null && nextPreVal !== 0 && nextPreVal !== '0' && nextPreVal !== '' && nextPreVal !== '-';
+                const isPreActive = isStepValActive(preVal);
+                const nextPreVal = (soloPlayId === undefined || soloPlayId === null && isPickupWindow) ? nextBasePat?.preRollActiveSteps?.[i] : 0;
+                const isNextPreActive = isStepValActive(nextPreVal);
 
                 const targetPat = isPreActive ? basePat : (isNextPreActive ? nextBasePat : null);
                 const activeVal = isPreActive ? preVal : (isNextPreActive ? nextPreVal : null);
@@ -2040,6 +2085,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           });
 
           //    Calque C : Pastilles circulaires de frappe au premier plan (uniquement attaques avec syllabes ou notes)
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1.0;
           const voicePastilleRadius = 22 * dynamicScale;
 
           for (let i = 0; i < effectiveStepCount; i++) {
@@ -2058,12 +2105,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               continue;
             }
 
-            // Décoration Playhead au pas courant
+            // Décoration Playhead au pas courant avec mise en valeur dorée sous l'aiguille
             if (!isEco && i === currentStep) {
               ctx.beginPath();
               ctx.arc(x, y, voicePastilleRadius + 5, 0, Math.PI * 2);
-              ctx.strokeStyle = themeWood;
-              ctx.lineWidth = 2.5;
+              ctx.strokeStyle = (pStep.isAnacrusis || cStep.isAnacrusis) ? '#f59e0b' : themeWood;
+              ctx.lineWidth = (pStep.isAnacrusis || cStep.isAnacrusis) ? 3.0 : 2.5;
               ctx.stroke();
             }
 
@@ -2097,6 +2144,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               ctx.lineWidth = 2.0;
               ctx.stroke();
               ctx.setLineDash([]); // Restauration immédiate obligatoire
+              ctx.globalAlpha = 1.0;
 
               let pText = pStep.syl || (pStep.note ? pStep.note : 'P');
               if (pText.endsWith('-')) pText = pText.slice(0, -1);
@@ -2127,6 +2175,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               }
               ctx.stroke();
               ctx.setLineDash([]); // Restauration immédiate obligatoire
+              ctx.globalAlpha = 1.0;
 
               let text = pStep.syl || (pStep.note ? pStep.note : 'P');
               if (text.endsWith('-')) text = text.slice(0, -1);
@@ -2156,6 +2205,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               }
               ctx.stroke();
               ctx.setLineDash([]); // Restauration immédiate obligatoire
+              ctx.globalAlpha = 1.0;
 
               let text = cStep.syl || (cStep.note ? cStep.note : 'C');
               if (text.endsWith('-')) text = text.slice(0, -1);
@@ -2184,6 +2234,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             ctx.restore();
           }
 
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1.0;
           ctx.restore();
           return;
         }
