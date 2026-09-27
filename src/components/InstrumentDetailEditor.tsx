@@ -341,6 +341,18 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         return;
       }
       if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+        const instConfig = currentTrack ? instrumentsConfig[currentTrack.instrumentIdx] : null;
+        const isVocal = Boolean(
+          currentTrack?.customName === 'Toada' ||
+          currentTrack?.customName === 'Puxador' ||
+          currentTrack?.customName === 'Coro' ||
+          instConfig?.type === 'voice' ||
+          instConfig?.id === 'puxador' ||
+          instConfig?.id === 'coro' ||
+          instConfig?.id === 'toada'
+        );
+        if (isVocal) return;
         e.preventDefault();
         togglePatternRecording();
       }
@@ -1536,28 +1548,30 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             )}
           </div>
 
-          {/* Bouton REC Global de l'Éditeur */}
-          <div className="flex items-center mr-2">
-            {isPatternRecording ? (
-              <button
-                onClick={() => togglePatternRecording()}
-                className="h-8 px-2.5 rounded-sm cordel-border-sm bg-[#e74c3c] text-white shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-bold text-xs cordel-arm-pulse animate-pulse"
-                title={lang === 'fr' ? "Enregistrement MIDI en cours (Raccourci: R pour arrêter)" : "Gravação MIDI ativa (Atalho: R para parar)"}
-              >
-                <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
-                <span>REC (R)</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => togglePatternRecording()}
-                className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] group"
-                title={lang === 'fr' ? "Activer l'enregistrement MIDI en direct (Raccourci: R)" : "Ativar gravação MIDI ao vivo (Atalho: R)"}
-              >
-                <span className="w-2 h-2 rounded-full bg-[#8b2a1a] group-hover:bg-[#f4ecd8] shrink-0 transition-colors" />
-                <span>REC (R)</span>
-              </button>
-            )}
-          </div>
+          {/* Bouton REC Global de l'Éditeur (masqué en contexte vocal / Toada) */}
+          {!isVocalContext && (
+            <div className="flex items-center mr-2">
+              {isPatternRecording ? (
+                <button
+                  onClick={() => togglePatternRecording()}
+                  className="h-8 px-2.5 rounded-sm cordel-border-sm bg-[#e74c3c] text-white shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-bold text-xs cordel-arm-pulse animate-pulse"
+                  title={lang === 'fr' ? "Enregistrement MIDI en cours (Raccourci: R pour arrêter)" : "Gravação MIDI ativa (Atalho: R para parar)"}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+                  <span>REC (R)</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => togglePatternRecording()}
+                  className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] group"
+                  title={lang === 'fr' ? "Activer l'enregistrement MIDI en direct (Raccourci: R)" : "Ativar gravação MIDI ao vivo (Atalho: R)"}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#8b2a1a] group-hover:bg-[#f4ecd8] shrink-0 transition-colors" />
+                  <span>REC (R)</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Mute */}
           <button
@@ -1788,31 +1802,33 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                             </button>
 
-                            {/* Bouton ARM / Badge ARMÉ */}
-                            {armedPatternId === ptn.id ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleArmPattern(track.id, ptn.id);
-                                }}
-                                className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm bg-[#e67e22] text-[#1a1a1a] shadow-sm transition-all cursor-pointer select-none flex items-center gap-1.5 ml-1.5 animate-pulse"
-                                title={lang === 'fr' ? "Motif armé pour l'enregistrement (cliquer pour désarmer)" : "Padrão armado para gravação (clique para desarmar)"}
-                              >
-                                <span className="w-2 h-2 rounded-full bg-[#8b2a1a] shrink-0" />
-                                <span>● {lang === 'fr' ? 'ARMÉ / PRÊT' : 'ARMADO / PRONTO'}</span>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleArmPattern(track.id, ptn.id);
-                                }}
-                                className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:border-[#1a1a1a] bg-transparent transition-all cursor-pointer select-none flex items-center gap-1 ml-1.5"
-                                title={lang === 'fr' ? "Armer ce motif pour l'enregistrement MIDI" : "Armar este padrão para gravação MIDI"}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]/40 shrink-0" />
-                                <span>ARM</span>
-                              </button>
+                            {/* Bouton ARM / Badge ARMÉ (masqué en contexte vocal / Toada) */}
+                            {!isVocalContext && (
+                              armedPatternId === ptn.id ? (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleArmPattern(track.id, ptn.id);
+                                  }}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm bg-[#e67e22] text-[#1a1a1a] shadow-sm transition-all cursor-pointer select-none flex items-center gap-1.5 ml-1.5 animate-pulse"
+                                  title={lang === 'fr' ? "Motif armé pour l'enregistrement (cliquer pour désarmer)" : "Padrão armado para gravação (clique para desarmar)"}
+                                >
+                                  <span className="w-2 h-2 rounded-full bg-[#8b2a1a] shrink-0" />
+                                  <span>● {lang === 'fr' ? 'ARMÉ / PRÊT' : 'ARMADO / PRONTO'}</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleArmPattern(track.id, ptn.id);
+                                  }}
+                                  className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:border-[#1a1a1a] bg-transparent transition-all cursor-pointer select-none flex items-center gap-1 ml-1.5"
+                                  title={lang === 'fr' ? "Armer ce motif pour l'enregistrement MIDI" : "Armar este padrão para gravação MIDI"}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]/40 shrink-0" />
+                                  <span>ARM</span>
+                                </button>
+                              )
                             )}
 
                             <button

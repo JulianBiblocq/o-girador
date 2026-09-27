@@ -7,7 +7,7 @@ import * as Tone from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 export { useAudioStore, useSequencerStore };
-import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../db';
+import { saveVocalRecording, getVocalRecording, getAllVocalRecordings, deleteVocalRecording } from '../db';
 import { channels, masterVolumeNode } from './effectsChain';
 import { instrumentsConfig } from '../data';
 import { calculateDeterministicVocalClipMeta } from '../utils/audioBufferUtils';
@@ -145,9 +145,28 @@ export const vocalEngineService = {
     let currentPromise: Promise<void> | null = null;
     currentPromise = (async () => {
       try {
+        // 1. Audit console systématique au démarrage
+        const records = await getAllVocalRecordings();
+        console.log(`🔍 [IDB AUDIT] ${records.length} enregistrement(s) trouvé(s) :`, records.map(r => ({ id: r.patternId, type: typeof r.patternId })));
+
+        // Sécuriser l'accès au contexte audio sans exiger d'interaction utilisateur préalable
+        let rawCtx: AudioContext | null = null;
+        try {
+          rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
+        } catch (_) {}
+        if (!rawCtx || typeof rawCtx.decodeAudioData !== 'function') {
+          const AudioCtxClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+          if (AudioCtxClass) {
+            rawCtx = new AudioCtxClass();
+          }
+        }
+        if (!rawCtx) {
+          console.warn('🎙️ [VOCAL REHYDRATE] Contexte audio indisponible pour le décodage.');
+          return;
+        }
+
         const sequencerStore = useSequencerStore.getState();
         const rawTracks = tracksToScan && tracksToScan.length > 0 ? tracksToScan : sequencerStore.tracks;
-        if (!rawTracks || rawTracks.length === 0) return;
 
         // Aplatissement récursif de l'arbre des pistes et sous-pistes (toada bus, link folders, subTracks)
         const flattenTracks = (trackList: any[]): any[] => {
@@ -175,9 +194,65 @@ export const vocalEngineService = {
           return result;
         };
 
-        const allTracks = flattenTracks(rawTracks);
+        const allTracks = flattenTracks(rawTracks || []);
+        const entriesToBatch: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }> = [];
 
-        // Identifier l'ensemble des pistes vocales (toada, voice, puxador, coro ou tout motif micro)
+        // 2. Traitement prioritaire des enregistrements IDB audités
+        if (records.length > 0) {
+          for (const rec of records) {
+            try {
+              const pid = rec.patternId;
+              const numPid = Number(pid);
+              const strPid = String(pid);
+
+              // Trouver la piste associée si elle existe dans allTracks
+              const matchingTrack = allTracks.find(t =>
+                Array.isArray(t.patterns) && t.patterns.some((p: any) => p && (p.id === pid || String(p.id) === strPid || Number(p.id) === numPid))
+              );
+
+              const compositeKey = matchingTrack ? `${matchingTrack.id}_${pid}` : null;
+              const currentBuffers = useAudioStore.getState().vocalBuffers;
+
+              if (currentBuffers[pid] && (!compositeKey || currentBuffers[compositeKey])) {
+                continue;
+              }
+
+              const arrayBuffer = await rec.audioBlob.arrayBuffer();
+              const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
+
+              // Injection sous la clé simple (numérique ou string)
+              useAudioStore.getState().setVocalBuffer(pid, audioBuffer);
+              entriesToBatch.push({ key: pid, buffer: audioBuffer, blob: rec.audioBlob });
+
+              if (!isNaN(numPid) && numPid !== pid) {
+                useAudioStore.getState().setVocalBuffer(numPid, audioBuffer);
+                entriesToBatch.push({ key: numPid, buffer: audioBuffer, blob: rec.audioBlob });
+              }
+              if (strPid !== pid) {
+                useAudioStore.getState().setVocalBuffer(strPid, audioBuffer);
+                entriesToBatch.push({ key: strPid, buffer: audioBuffer, blob: rec.audioBlob });
+              }
+
+              // Injection sous la clé composite ${track.id}_${patternId}
+              if (matchingTrack) {
+                const compKey = `${matchingTrack.id}_${pid}`;
+                const compKeyNum = `${matchingTrack.id}_${numPid}`;
+                useAudioStore.getState().setVocalBuffer(compKey, audioBuffer);
+                entriesToBatch.push({ key: compKey, buffer: audioBuffer, blob: rec.audioBlob });
+                if (compKeyNum !== compKey) {
+                  useAudioStore.getState().setVocalBuffer(compKeyNum, audioBuffer);
+                  entriesToBatch.push({ key: compKeyNum, buffer: audioBuffer, blob: rec.audioBlob });
+                }
+              }
+
+              console.log(`🎙️ [REHYDRATE SUCCESS] Buffer chargé depuis IDB pour motif ${pid}${matchingTrack ? ` (piste ${matchingTrack.id})` : ''}`);
+            } catch (err) {
+              console.error(`🎙️ [VOCAL REHYDRATE] Erreur décodage IDB record ${rec.patternId}:`, err);
+            }
+          }
+        }
+
+        // 3. Scanner les pistes vocales pour des données distantes (vocalAudioData / vocalAudioUrl) non présentes dans IDB
         const isVocalTrack = (t: any): boolean => {
           const inst = instrumentsConfig[t.instrumentIdx];
           const instId = inst?.id || (typeof t.instrumentId === 'string' ? t.instrumentId : '');
@@ -196,25 +271,6 @@ export const vocalEngineService = {
         };
 
         const vocalTracks = allTracks.filter(isVocalTrack);
-        if (vocalTracks.length === 0) return;
-
-        // Sécuriser l'accès au contexte audio sans exiger d'interaction utilisateur préalable
-        let rawCtx: AudioContext | null = null;
-        try {
-          rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
-        } catch (_) {}
-        if (!rawCtx || typeof rawCtx.decodeAudioData !== 'function') {
-          const AudioCtxClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
-          if (AudioCtxClass) {
-            rawCtx = new AudioCtxClass();
-          }
-        }
-        if (!rawCtx) {
-          console.warn('🎙️ [VOCAL REHYDRATE] Contexte audio indisponible pour le décodage.');
-          return;
-        }
-
-        const entriesToBatch: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }> = [];
 
         for (const track of vocalTracks) {
           if (!track.patterns || track.patterns.length === 0) continue;

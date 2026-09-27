@@ -84,18 +84,28 @@ export async function getVocalRecording(patternId: number | string): Promise<Blo
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readonly');
     const store = transaction.objectStore(STORE_NAME);
-    const numId = Number(patternId);
-    const primaryKey = !isNaN(numId) ? numId : patternId;
-    const request = store.get(primaryKey);
+
+    // 1. Tester la clé brute fournie
+    const request = store.get(patternId);
 
     request.onsuccess = () => {
       if (request.result && request.result.audioBlob) {
         resolve(request.result.audioBlob);
-      } else if (typeof patternId === 'string' && !isNaN(numId)) {
-        // Fallback: try raw string key
-        const retryRequest = store.get(patternId);
+        return;
+      }
+
+      // 2. Repli croisé automatique (Number / String)
+      let fallbackKey: number | string | null = null;
+      if (typeof patternId === 'number') {
+        fallbackKey = String(patternId);
+      } else if (typeof patternId === 'string' && !isNaN(Number(patternId))) {
+        fallbackKey = Number(patternId);
+      }
+
+      if (fallbackKey !== null && fallbackKey !== patternId) {
+        const retryRequest = store.get(fallbackKey);
         retryRequest.onsuccess = () => {
-          resolve(retryRequest.result ? retryRequest.result.audioBlob : null);
+          resolve(retryRequest.result && retryRequest.result.audioBlob ? retryRequest.result.audioBlob : null);
         };
         retryRequest.onerror = () => resolve(null);
       } else {

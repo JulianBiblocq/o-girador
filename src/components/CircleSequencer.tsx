@@ -278,16 +278,69 @@ interface WordItem {
 }
 
 /**
+ * Calcule dynamiquement le nombre de pas par défaut d'une mesure selon sa métrique.
+ * Respecte strictement les signatures régulières et composées (16 en 4/4, 12 en 12/8, 8 en 2/4, etc.)
+ */
+export function getDefaultStepsForMeasure(
+  measureIdx: number,
+  timeSig: string = '4/4',
+  measureTimeSigs?: Record<number, string> | string[]
+): number {
+  const effectiveTimeSig = (measureTimeSigs && (Array.isArray(measureTimeSigs) ? measureTimeSigs[measureIdx] : measureTimeSigs[measureIdx])) || timeSig || '4/4';
+  if (effectiveTimeSig === '12/8') return 12;
+  if (effectiveTimeSig === '6/8') return 6;
+  if (effectiveTimeSig === '9/8') return 9;
+  if (effectiveTimeSig === '2/4') return 8;
+  if (effectiveTimeSig === '3/4') return 12;
+  if (effectiveTimeSig === '4/4') return 16;
+  const parts = effectiveTimeSig.split('/');
+  const num = parseInt(parts[0], 10) || 4;
+  const den = parseInt(parts[1], 10) || 4;
+  if (den === 8) return num;
+  return num * 4;
+}
+
+/**
+ * Dérive l'indice de pas physique exact (currentStep) depuis live.ratio (0..1)
+ * en respectant la découpe par temps (beatsCount) et les subdivisions (beatResolutions).
+ */
+export function getPhysicalStepFromRatio(
+  ratio: number,
+  pattern: Pattern | null | undefined,
+  totalSteps: number,
+  beatsCount: number
+): number {
+  const clampedRatio = Math.min(0.999999, Math.max(0, ratio));
+  const resolutions = pattern?.beatResolutions && pattern.beatResolutions.length === beatsCount
+    ? pattern.beatResolutions
+    : (pattern?.beatResolutions && pattern.beatResolutions.length > 0 
+        ? pattern.beatResolutions 
+        : Array(beatsCount).fill(Math.max(1, Math.floor(totalSteps / beatsCount))));
+
+  const b = Math.min(resolutions.length - 1, Math.floor(clampedRatio * resolutions.length));
+  const subProgression = (clampedRatio * resolutions.length) - b;
+  const res = resolutions[b] || 4;
+  const k = Math.min(res - 1, Math.floor(subProgression * res));
+
+  let stepOffset = 0;
+  for (let i = 0; i < b; i++) {
+    stepOffset += resolutions[i] || 4;
+  }
+
+  return Math.min(totalSteps - 1, Math.max(0, stepOffset + k));
+}
+
+/**
  * Cache de mémoïsation pour éviter toute allocation Garbage Collector dans la boucle d'animation à 60 FPS
  */
 const patternWordsCache = new Map<string, WordItem[]>();
 
-function getPatternWords(pattern: Pattern | undefined | null, isAnacrusis: boolean): WordItem[] {
+function getPatternWords(pattern: Pattern | undefined | null, isAnacrusis: boolean, totalSteps: number = 16): WordItem[] {
   if (!pattern) return [];
   const lyrics = isAnacrusis ? pattern.preRollLyrics : pattern.lyrics;
   const activeSteps = isAnacrusis ? pattern.preRollActiveSteps : pattern.activeSteps;
   const notes = isAnacrusis ? pattern.preRollNotes : pattern.notes;
-  const stepsCount = isAnacrusis ? 16 : (pattern.steps || 16);
+  const stepsCount = isAnacrusis ? (pattern.preRollActiveSteps ? pattern.preRollActiveSteps.length : (pattern.steps || totalSteps)) : (pattern.steps || totalSteps);
 
   if (!lyrics || !activeSteps) return [];
 
@@ -354,12 +407,15 @@ export const drawCenterKaraoke = (
   loopStartMeasure?: number | null,
   loopEndMeasure?: number | null,
   soloPlayId?: number | null,
-  dynamicScale: number = 1
+  dynamicScale: number = 1,
+  timeSig?: string,
+  measureTimeSigs?: Record<number, string> | string[]
 ) => {
   ctx.save();
   try {
     const measureIdx = live.step >= 0 ? live.measure : 0;
-    const currentStep = live.step >= 0 ? live.step : 0;
+    const effectiveTimeSig = (measureTimeSigs && (Array.isArray(measureTimeSigs) ? measureTimeSigs[measureIdx] : measureTimeSigs[measureIdx])) || timeSig || '4/4';
+    const beatsCount = getBeatsPerMeasure(effectiveTimeSig);
 
     // 1. Résolution des pistes et motifs vocaux
     const puxTrack = rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
@@ -376,7 +432,25 @@ export const drawCenterKaraoke = (
       nextMeasureIdx = (measureIdx + 1) % totalMeasures;
     }
 
-    // 2. Détection de l'anacrouse anticipée (pas 12 à 15) ou pré-roll
+    const candidatePattern = puxPattern || coroPattern;
+    const totalSteps = candidatePattern?.steps || (candidatePattern?.beatResolutions ? candidatePattern.beatResolutions.reduce((a, b) => a + b, 0) : getDefaultStepsForMeasure(measureIdx, timeSig, measureTimeSigs));
+
+    // Calcul du pas physique courant asservi à live.ratio et aux subdivisions métriques (sans hardcoder 16)
+    const currentRatio = (live.ratio !== undefined && !isNaN(live.ratio))
+      ? live.ratio
+      : (live.step >= 0 && live.maxTicks > 0 ? live.step / live.maxTicks : 0);
+
+    const currentStep = (live.step >= 0)
+      ? getPhysicalStepFromRatio(currentRatio, candidatePattern, totalSteps, beatsCount)
+      : 0;
+
+    // Seuil dynamique de détection d'anacrouse anticipée sur le dernier temps de la mesure (ex: pas 12 en 4/4, pas 9 en 12/8)
+    const stepsInLastBeat = candidatePattern?.beatResolutions && candidatePattern.beatResolutions.length > 0
+      ? candidatePattern.beatResolutions[candidatePattern.beatResolutions.length - 1]
+      : Math.max(1, Math.floor(totalSteps / beatsCount));
+    const anacrusisThreshold = Math.max(0, totalSteps - stepsInLastBeat);
+
+    // 2. Détection de l'anacrouse anticipée ou pré-roll
     let isAnacrusis = Boolean(live.isPreRoll);
     let activePattern: Pattern | null | undefined = undefined;
     let activeRole: 'puxador' | 'coro' | 'none' = 'none';
@@ -393,7 +467,7 @@ export const drawCenterKaraoke = (
         activeRole = 'coro';
         activePattern = coroPattern;
       }
-    } else if (currentStep >= 12) {
+    } else if (currentStep >= anacrusisThreshold) {
       // Fenêtre de fin de mesure : vérifier si une anacrouse existe sur la mesure suivante
       const nextPuxPattern = resolvePatternForMeasure(puxTrack, nextMeasureIdx, soloPlayId);
       const nextCoroPattern = resolvePatternForMeasure(coroTrack, nextMeasureIdx, soloPlayId);
@@ -446,7 +520,7 @@ export const drawCenterKaraoke = (
       return;
     }
 
-    const words = getPatternWords(activePattern, isAnacrusis);
+    const words = getPatternWords(activePattern, isAnacrusis, totalSteps);
     if (words.length === 0) {
       return;
     }
@@ -518,19 +592,24 @@ export const drawCenterKaraoke = (
       }
     }
 
-    // B. Si pas de frappe exacte au pas courant, chercher le mot en cours de tenue
+    // B. Si pas de frappe exacte au pas courant (tenue ou silence), maintenir le dernier mot chanté
     if (!activeWord) {
       for (let i = words.length - 1; i >= 0; i--) {
         if (words[i].startStep <= currentStep) {
           activeWord = words[i];
-          // Pas de frappe exacte sur ce pas précis : aucune syllabe en éclat
-          activeSyllableIndex = -1;
+          // Maintenir la dernière syllabe chantée dans ce mot à ou avant currentStep
+          for (let s = words[i].syllables.length - 1; s >= 0; s--) {
+            if (words[i].syllables[s].step <= currentStep) {
+              activeSyllableIndex = s;
+              break;
+            }
+          }
           break;
         }
       }
     }
 
-    // C. Si aucun mot n'a encore été attaqué, afficher le premier mot en attente
+    // C. Si aucun mot n'a encore été attaqué dans la mesure, afficher le premier mot en attente
     if (!activeWord && words.length > 0) {
       activeWord = words[0];
       activeSyllableIndex = -1;
@@ -3183,7 +3262,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           stateRef.current.loopStartMeasure,
           stateRef.current.loopEndMeasure,
           stateRef.current.soloPatternPlayId,
-          dynamicScale
+          dynamicScale,
+          stateRef.current.timeSig,
+          stateRef.current.measureTimeSigs
         );
       }
 

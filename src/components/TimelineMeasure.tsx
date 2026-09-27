@@ -151,8 +151,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
     const clickX = e.clientX - rect.left;
     onMeasureClick(mIdx, steps, clickX);
 
-    if (instType === 'voice' && patternId !== -1) {
+    if ((instType === 'voice' || isToada) && patternId !== -1) {
       useAudioStore.getState().setSelectedVocalPatternId(patternId);
+      if (useSequencerStore.getState().armedPatternId !== null) {
+        useSequencerStore.getState().disarmAllPatterns();
+      }
     }
   };
 
