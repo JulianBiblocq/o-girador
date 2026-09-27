@@ -179,7 +179,7 @@ export const VocalValidationModal: React.FC = () => {
             return {
               ...t,
               patterns: t.patterns.map((p) => {
-                if (Number(p.id) === Number(tempRecording.patternId)) {
+                if (p.id === tempRecording.patternId || String(p.id) === String(tempRecording.patternId) || (!isNaN(Number(tempRecording.patternId)) && Number(p.id) === Number(tempRecording.patternId))) {
                   return {
                     ...p,
                     vocalMode: 'micro',

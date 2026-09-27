@@ -292,6 +292,40 @@ const getVoiceNoteStepsFromDecay = (decay: number): number => {
   return 16;
 };
 
+/**
+ * 🎙️ Helpers de synchronisation & résilience vocale
+ */
+export const isVocalSamplePattern = (pattern: any): boolean => {
+  if (!pattern) return false;
+  return Boolean(
+    pattern.vocalMode === 'micro' ||
+    pattern.vocalMode === 'audio' ||
+    pattern.vocalMode === 'recorded' ||
+    pattern.vocalClip ||
+    pattern.vocalAudioData ||
+    pattern.vocalAudioUrl
+  );
+};
+
+export const isSamplePlaybackAllowed = (currentVocalMode: string | undefined): boolean => {
+  return currentVocalMode !== 'synth';
+};
+
+export const getVocalBufferForPattern = (trackId: string | number, pattern: any): AudioBuffer | undefined => {
+  if (!pattern) return undefined;
+  const buffers = useAudioStore.getState().vocalBuffers;
+  const patId = pattern.id;
+  const clipId = pattern.vocalClip?.id;
+
+  return (
+    buffers[`${trackId}_${patId}`] ||
+    buffers[patId] ||
+    (clipId ? buffers[`${trackId}_${clipId}`] || buffers[clipId] : undefined) ||
+    (!isNaN(Number(patId)) ? buffers[`${trackId}_${Number(patId)}`] || buffers[Number(patId)] : undefined) ||
+    (clipId && !isNaN(Number(clipId)) ? buffers[`${trackId}_${Number(clipId)}`] || buffers[Number(clipId)] : undefined)
+  );
+};
+
 // Performance caches and pools
 const RANDOM_POOL_SIZE = 1000;
 const randomPool = Array.from({ length: RANDOM_POOL_SIZE }, () => Math.random());
@@ -1742,12 +1776,10 @@ export function useAudioSync({
           const isSecondHalf = stepIdx >= Math.floor(currentTicks / 2);
 
           if (canPlay && nextPattern && isSecondHalf) {
-            const nextSafeId = Number(nextPattern.id);
-            const nextCompositeBufferKey = `${track.id}_${nextSafeId}`;
-            const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextCompositeBufferKey] || useAudioStore.getState().vocalBuffers[nextSafeId];
-            const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
-            const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
-            const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro' && allowSamplePlayback);
+            const nextVocalBuf = getVocalBufferForPattern(track.id, nextPattern);
+            const currentVocalMode = useAudioStore.getState().vocalMode;
+            const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
+            const nextHasVocal = Boolean(nextVocalBuf && isVocalSamplePattern(nextPattern) && allowSamplePlayback);
             const nextClip = nextPattern.vocalClip;
             // Rappel 1 : Déclenchement anticipé UNIQUEMENT si anacrouse avérée > 0.02s
             const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
@@ -1781,7 +1813,7 @@ export function useAudioSync({
 
               const handle = vocalEngineService.playSequencerVocal(
                 track.id,
-                nextSafeId,
+                nextPattern.id,
                 nextMeasureStartTime,
                 nextBpm,
                 outputNode,
@@ -1845,10 +1877,8 @@ export function useAudioSync({
                   }
 
                   // 2. Déclenchement synthèse vocale SEULEMENT si aucun sample audio vocal
-                  const anacrusisSafeId = Number(nextPattern.id);
-                  const anacrusisVocalKey = `${track.id}_${anacrusisSafeId}`;
-                  const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisVocalKey] || useAudioStore.getState().vocalBuffers[anacrusisSafeId];
-                  const anacrusisHasSample = Boolean(anacrusisVocalBuf && nextPattern.vocalMode === 'micro');
+                  const anacrusisVocalBuf = getVocalBufferForPattern(track.id, nextPattern);
+                  const anacrusisHasSample = Boolean(anacrusisVocalBuf && isVocalSamplePattern(nextPattern));
 
                   if (!anacrusisHasSample && trackVolPct > 0) {
                     const preNote = nextPattern.preRollNotes?.[cellIdx];
@@ -1884,8 +1914,6 @@ export function useAudioSync({
             continue;
           }
 
-          const safeId = Number(activePattern.id);
-          const compositeBufferKey = `${track.id}_${safeId}`;
           const currentKey = `${track.id}_m${currentMeasureLocal}`;
 
           // Rappel 3 / Directive A.4 : Réarmement spatial dès la sortie de mesure (dès stepIdx >= 4)
@@ -1914,11 +1942,11 @@ export function useAudioSync({
             continue;
           }
 
-          // Fallback de lecture des buffers (Directive 1) : composite trackId_patternId d'abord, patternId en repli
-          const vocalBuf = useAudioStore.getState().vocalBuffers[compositeBufferKey] || useAudioStore.getState().vocalBuffers[safeId];
-          const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
-          const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
-          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro' && allowSamplePlayback);
+          // Fallback de lecture des buffers multi-clés résilient
+          const vocalBuf = getVocalBufferForPattern(track.id, activePattern);
+          const currentVocalMode = useAudioStore.getState().vocalMode;
+          const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
+          const hasVocalSample = Boolean(vocalBuf && isVocalSamplePattern(activePattern) && allowSamplePlayback);
 
           // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
           // Rappel 2 : Si anticipatedMeasuresRef.current.has(currentKey), le chant est déjà en train de jouer : NE PAS TOUCHER !
@@ -1935,7 +1963,7 @@ export function useAudioSync({
             // Secours au Pas 0 avec compensation d'offset (Directive B / Rappel 4) : isDirectStep0 = true
             const handle = vocalEngineService.playSequencerVocal(
               track.id,
-              safeId,
+              activePattern.id,
               time,
               currentBpm,
               outputNode,
@@ -2052,11 +2080,9 @@ export function useAudioSync({
                 }
 
                 // 2. Déclenchement synthèse vocale (selon vocalMode)
-                const anacrusisSafeId = Number(targetAnacrusisPat.id);
-                const anacrusisVocalKey = `${track.id}_${anacrusisSafeId}`;
-                const anacrusisVocalBuf = useAudioStore.getState().vocalBuffers[anacrusisVocalKey] || useAudioStore.getState().vocalBuffers[anacrusisSafeId];
-                const allowAnacrusisSample = currentVocalMode === 'voice' || currentVocalMode === 'both';
-                const anacrusisHasSample = Boolean(anacrusisVocalBuf && targetAnacrusisPat.vocalMode === 'micro' && allowAnacrusisSample);
+                const anacrusisVocalBuf = getVocalBufferForPattern(track.id, targetAnacrusisPat);
+                const allowAnacrusisSample = isSamplePlaybackAllowed(currentVocalMode);
+                const anacrusisHasSample = Boolean(anacrusisVocalBuf && isVocalSamplePattern(targetAnacrusisPat) && allowAnacrusisSample);
                 const allowAnacrusisSynth = currentVocalMode === 'synth' || currentVocalMode === 'both' || !anacrusisHasSample;
 
                 if (allowAnacrusisSynth && trackVolPct > 0) {
@@ -2292,13 +2318,12 @@ export function useAudioSync({
             inst.id === 'voice'
           )
         );
-        if (!isVocal && !t.patterns?.some((p: any) => p && p.vocalMode === 'micro')) return false;
+        if (!isVocal && !t.patterns?.some((p: any) => isVocalSamplePattern(p))) return false;
 
         return t.patterns?.some((p: any) => {
-          if (!p || (p.vocalMode !== 'micro' && !isVocal)) return false;
-          const pId = Number(p.id);
-          const compKey = `${t.id}_${pId}`;
-          return !currentVocalBuffers[compKey] && !currentVocalBuffers[pId];
+          if (!p || (!isVocalSamplePattern(p) && !isVocal)) return false;
+          const buf = getVocalBufferForPattern(t.id, p);
+          return !buf;
         });
       });
 
@@ -2347,12 +2372,10 @@ export function useAudioSync({
         if (!inst || inst.type !== 'voice') continue;
         const ptn = trk.patterns.find(p => p.measureAssignments[targetM]);
         if (!ptn) continue;
-        const safeId = Number(ptn.id);
-        const vocalKey = `${trk.id}_${safeId}`;
-        const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
-        const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
-        const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
-        const hasVocalSample = Boolean(vocalBuf && ptn.vocalMode === 'micro' && allowSamplePlayback);
+        const vocalBuf = getVocalBufferForPattern(trk.id, ptn);
+        const currentVocalMode = useAudioStore.getState().vocalMode;
+        const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
+        const hasVocalSample = Boolean(vocalBuf && isVocalSamplePattern(ptn) && allowSamplePlayback);
         const clip = ptn.vocalClip;
         const anacrusisSec = clip?.anacrusisSec ?? 0;
         const anacrusisBeats = clip?.anacrusisBeats ?? 0;
@@ -2483,12 +2506,10 @@ export function useAudioSync({
           }
           if (!canPlay) continue;
 
-          const safeId = Number(activePattern.id);
-          const vocalKey = `${track.id}_${safeId}`;
-          const vocalBuf = useAudioStore.getState().vocalBuffers[vocalKey] || useAudioStore.getState().vocalBuffers[safeId];
-          const currentVocalMode = useAudioStore.getState().vocalMode || 'voice';
-          const allowSamplePlayback = currentVocalMode === 'voice' || currentVocalMode === 'both';
-          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro' && allowSamplePlayback);
+          const vocalBuf = getVocalBufferForPattern(track.id, activePattern);
+          const currentVocalMode = useAudioStore.getState().vocalMode;
+          const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
+          const hasVocalSample = Boolean(vocalBuf && isVocalSamplePattern(activePattern) && allowSamplePlayback);
           const clip = activePattern.vocalClip;
           const anacrusisSec = clip?.anacrusisSec ?? ((clip?.anacrusisBeats ?? 0) * beatDurationSec);
           const hasSampleAnacrusis = Boolean(hasVocalSample && (anacrusisSec > 0.02 || (clip?.anacrusisBeats ?? 0) > 0.02));
@@ -2505,7 +2526,7 @@ export function useAudioSync({
             anticipatedMeasuresRef.current.add(preRollKey);
             const handle = vocalEngineService.playSequencerVocal(
               track.id,
-              safeId,
+              activePattern.id,
               scheduledMusicStartTime, // Heure du Temps 1 de la mesure 0
               targetBpm,
               outputNode,

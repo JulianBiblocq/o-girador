@@ -29,7 +29,7 @@ export interface Pattern {
   volumes?: StepSculptValue[];
   decays?: StepSculptValue[];
   microtimings?: StepSculptValue[];
-  vocalMode?: 'synth' | 'micro';
+  vocalMode?: 'synth' | 'micro' | 'audio' | 'recorded';
   vocalLatency?: number;
   vocalBaseBpm?: number;
   vocalBpmSync?: boolean;
@@ -51,6 +51,8 @@ export interface Pattern {
 }
 
 export interface VocalClipMeta {
+  id?: string | number;
+  name?: string;
   patternId?: number;
   baseBpm: number;           // BPM lors de la prise pour le time-stretching
   trimStartSec: number;      // Début utile du sample (0 pour un buffer nettoyé)

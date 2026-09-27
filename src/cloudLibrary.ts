@@ -34,7 +34,7 @@ export async function savePresetToCloud(
     for (const pattern of track.patterns || []) {
       try {
         if (pattern.vocalAudioUrl?.startsWith('https://firebasestorage.googleapis.com/')) continue;
-        const blob = await getVocalRecording(pattern.id);
+        const blob = (await getVocalRecording(pattern.id)) || (pattern.vocalClip?.id ? await getVocalRecording(pattern.vocalClip.id) : null);
         if (blob) {
           const storageRef = ref(storage, `vocalRecordings/${pattern.id}.ogg`);
           await uploadBytes(storageRef, blob);

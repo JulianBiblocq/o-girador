@@ -248,13 +248,51 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!p.notes) p.notes = Array(p.steps).fill('');
     if (!p.lyrics) p.lyrics = Array(p.steps).fill('');
     if (!p.activeSteps) p.activeSteps = Array(p.steps).fill(0);
+    
+    // Assainissement absolu de measureAssignments (Support objets Firestore, tableaux d'indices et tableaux booléens)
     if (!p.measureAssignments) {
       p.measureAssignments = Array(targetMeasures).fill(false);
+    } else if (!Array.isArray(p.measureAssignments)) {
+      // Cas Firestore / Object Map: { "1": "...", "3": "..." } ou { "0": true }
+      const rawObj = p.measureAssignments as any;
+      const normalized = Array(targetMeasures).fill(false);
+      Object.entries(rawObj).forEach(([k, v]) => {
+        const mIdx = parseInt(k, 10);
+        if (!isNaN(mIdx) && mIdx >= 0 && mIdx < targetMeasures) {
+          normalized[mIdx] = Boolean(v);
+        }
+      });
+      p.measureAssignments = normalized;
+    } else if (p.measureAssignments.length > 0 && typeof p.measureAssignments[0] === 'number') {
+      // Cas liste d'indices de mesures (1-based ou 0-based)
+      const numList = p.measureAssignments as unknown as number[];
+      const normalized = Array(targetMeasures).fill(false);
+      const isOneBased = numList.some(n => n === targetMeasures);
+      numList.forEach(n => {
+        const idx = isOneBased ? n - 1 : n;
+        if (idx >= 0 && idx < targetMeasures) {
+          normalized[idx] = true;
+        }
+      });
+      p.measureAssignments = normalized;
     } else if (p.measureAssignments.length < targetMeasures) {
       const currentLen = p.measureAssignments.length;
       for (let i = currentLen; i < targetMeasures; i++) {
         p.measureAssignments.push(p.measureAssignments[0] || false);
       }
+    } else if (p.measureAssignments.length > targetMeasures) {
+      p.measureAssignments = p.measureAssignments.slice(0, targetMeasures);
+    }
+
+    // Normalisation de vocalMode pour motifs vocaux avec sample
+    if (
+      p.vocalMode === 'audio' ||
+      p.vocalMode === 'recorded' ||
+      (p.vocalClip && p.vocalMode !== 'synth') ||
+      Boolean(p.vocalAudioData) ||
+      Boolean(p.vocalAudioUrl)
+    ) {
+      p.vocalMode = 'micro';
     }
 
     const sanitizeSculptValue = (raw: any, defaultVal: number): number | [number, number] => {
@@ -385,10 +423,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const promises: Promise<void>[] = [];
       loadedTracks.forEach(t => {
         const inst = instrumentsConfig[t.instrumentIdx];
-        if (inst && inst.type === 'voice') {
+        const isVocalTrack = Boolean(
+          inst?.type === 'voice' ||
+          inst?.id === 'toada' ||
+          inst?.id === 'puxador' ||
+          inst?.id === 'coro' ||
+          t.instrumentIdx >= 10 ||
+          (t.patterns && t.patterns.some((p: any) => p && (p.vocalClip || p.vocalAudioData || p.vocalAudioUrl || p.vocalMode === 'micro' || p.vocalMode === 'audio' || p.vocalMode === 'recorded')))
+        );
+        if (isVocalTrack) {
           t.patterns.forEach(ptn => {
+            const patternId = ptn.id;
+            const clipId = ptn.vocalClip?.id;
             if (ptn.vocalAudioData) {
-              const patternId = ptn.id;
               const b64 = ptn.vocalAudioData;
               delete ptn.vocalAudioData;
               promises.push(
@@ -396,13 +443,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   try {
                     const blob = base64ToBlob(b64);
                     await saveVocalRecording(patternId, blob);
+                    if (clipId && String(clipId) !== String(patternId)) {
+                      await saveVocalRecording(clipId, blob);
+                    }
                   } catch (err) {
                     console.error(`Failed to save vocal recording for pattern ${patternId}:`, err);
                   }
                 })()
               );
             } else if (ptn.vocalAudioUrl) {
-              const patternId = ptn.id;
               const url = ptn.vocalAudioUrl;
               promises.push(
                 (async () => {
@@ -411,6 +460,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                     const blob = await response.blob();
                     await saveVocalRecording(patternId, blob);
+                    if (clipId && String(clipId) !== String(patternId)) {
+                      await saveVocalRecording(clipId, blob);
+                    }
                   } catch (err) {
                     console.error(`Failed to download and save vocal recording from ${url}:`, err);
                   }

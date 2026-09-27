@@ -205,9 +205,22 @@ export const vocalEngineService = {
               const numPid = Number(pid);
               const strPid = String(pid);
 
-              // Trouver la piste associée si elle existe dans allTracks
+              // Trouver la piste et le pattern associés dans allTracks (par patternId OU vocalClip.id)
+              let matchingPattern: any = null;
               const matchingTrack = allTracks.find(t =>
-                Array.isArray(t.patterns) && t.patterns.some((p: any) => p && (p.id === pid || String(p.id) === strPid || Number(p.id) === numPid))
+                Array.isArray(t.patterns) && t.patterns.some((p: any) => {
+                  if (!p) return false;
+                  const match = (
+                    p.id === pid || String(p.id) === strPid || (!isNaN(numPid) && Number(p.id) === numPid) ||
+                    (p.vocalClip && (
+                      p.vocalClip.id === pid ||
+                      String(p.vocalClip.id) === strPid ||
+                      (!isNaN(numPid) && Number(p.vocalClip.id) === numPid)
+                    ))
+                  );
+                  if (match) matchingPattern = p;
+                  return match;
+                })
               );
 
               const compositeKey = matchingTrack ? `${matchingTrack.id}_${pid}` : null;
@@ -220,28 +233,53 @@ export const vocalEngineService = {
               const arrayBuffer = await rec.audioBlob.arrayBuffer();
               const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
 
-              // Injection sous la clé simple (numérique ou string)
+              // 1. Injection sous la clé de l'enregistrement IDB (numérique et string)
               useAudioStore.getState().setVocalBuffer(pid, audioBuffer);
+              useAudioStore.getState().addVocalBlob(pid, rec.audioBlob);
               entriesToBatch.push({ key: pid, buffer: audioBuffer, blob: rec.audioBlob });
 
               if (!isNaN(numPid) && numPid !== pid) {
                 useAudioStore.getState().setVocalBuffer(numPid, audioBuffer);
+                useAudioStore.getState().addVocalBlob(numPid, rec.audioBlob);
                 entriesToBatch.push({ key: numPid, buffer: audioBuffer, blob: rec.audioBlob });
               }
               if (strPid !== pid) {
                 useAudioStore.getState().setVocalBuffer(strPid, audioBuffer);
+                useAudioStore.getState().addVocalBlob(strPid, rec.audioBlob);
                 entriesToBatch.push({ key: strPid, buffer: audioBuffer, blob: rec.audioBlob });
               }
 
-              // Injection sous la clé composite ${track.id}_${patternId}
+              // 2. Injection sous la clé composite ${track.id}_${pid}
               if (matchingTrack) {
                 const compKey = `${matchingTrack.id}_${pid}`;
-                const compKeyNum = `${matchingTrack.id}_${numPid}`;
                 useAudioStore.getState().setVocalBuffer(compKey, audioBuffer);
+                useAudioStore.getState().addVocalBlob(compKey, rec.audioBlob);
                 entriesToBatch.push({ key: compKey, buffer: audioBuffer, blob: rec.audioBlob });
-                if (compKeyNum !== compKey) {
+
+                if (!isNaN(numPid) && numPid !== pid) {
+                  const compKeyNum = `${matchingTrack.id}_${numPid}`;
                   useAudioStore.getState().setVocalBuffer(compKeyNum, audioBuffer);
+                  useAudioStore.getState().addVocalBlob(compKeyNum, rec.audioBlob);
                   entriesToBatch.push({ key: compKeyNum, buffer: audioBuffer, blob: rec.audioBlob });
+                }
+
+                // 3. Si le pattern associé porte un ID distinct (ex: ptn-toada-1 ou vocalClip.id)
+                if (matchingPattern) {
+                  const patId = matchingPattern.id;
+                  const patCompKey = `${matchingTrack.id}_${patId}`;
+                  useAudioStore.getState().setVocalBuffer(patId, audioBuffer);
+                  useAudioStore.getState().addVocalBlob(patId, rec.audioBlob);
+                  useAudioStore.getState().setVocalBuffer(patCompKey, audioBuffer);
+                  useAudioStore.getState().addVocalBlob(patCompKey, rec.audioBlob);
+
+                  if (matchingPattern.vocalClip?.id) {
+                    const clipId = matchingPattern.vocalClip.id;
+                    const clipCompKey = `${matchingTrack.id}_${clipId}`;
+                    useAudioStore.getState().setVocalBuffer(clipId, audioBuffer);
+                    useAudioStore.getState().addVocalBlob(clipId, rec.audioBlob);
+                    useAudioStore.getState().setVocalBuffer(clipCompKey, audioBuffer);
+                    useAudioStore.getState().addVocalBlob(clipCompKey, rec.audioBlob);
+                  }
                 }
               }
 
@@ -632,7 +670,7 @@ export const vocalEngineService = {
   /**
    * Stops playback of a pattern without disposing the persistent player instance.
    */
-  stopVocalPattern(patternId: number, trackId?: string | number) {
+  stopVocalPattern(patternId: number | string, trackId?: string | number) {
     if (trackId !== undefined) {
       const k = `${trackId}_${patternId}`;
       const entry = activeVocals.get(k);
@@ -728,7 +766,7 @@ export const vocalEngineService = {
    */
   playSequencerVocal(
     trackId: string | number,
-    patternId: number,
+    patternId: number | string,
     measureStartTime: number,
     currentBpm: number,
     outputNode: any,
@@ -738,25 +776,63 @@ export const vocalEngineService = {
     isDirectStep0: boolean = false
   ) {
     const store = useAudioStore.getState();
-    const compositeKey = `${trackId}_${patternId}`;
-    // Fallback de lecture des buffers (Directive 1) : composite d'abord, patternId en fallback
-    const audioBuffer = store.vocalBuffers[compositeKey] || store.vocalBuffers[patternId];
-    if (!audioBuffer) return null;
-
     const sequencerStore = useSequencerStore.getState();
     const voiceTrack = sequencerStore.tracks.find(t => String(t.id) === String(trackId));
     if (!voiceTrack) return null;
 
-    // Étanchéité stricte : le pattern doit appartenir explicitement à cette piste vocale
-    const ptnRef = voiceTrack.patterns.find(p => Number(p.id) === Number(patternId));
-    if (!ptnRef || ptnRef.vocalMode !== 'micro') return null;
+    // Étanchéité & tolérance d'ID (id direct, id numérique, vocalClip.id)
+    const ptnRef = voiceTrack.patterns.find(p =>
+      p && (
+        p.id === patternId ||
+        String(p.id) === String(patternId) ||
+        (!isNaN(Number(patternId)) && Number(p.id) === Number(patternId)) ||
+        (p.vocalClip && (
+          p.vocalClip.id === patternId ||
+          String(p.vocalClip.id) === String(patternId) ||
+          (!isNaN(Number(patternId)) && Number(p.vocalClip.id) === Number(patternId))
+        ))
+      )
+    );
+    if (!ptnRef) return null;
+
+    // Autoriser la lecture dès qu'un sample audio est présent ou paramétré
+    const isSamplePattern = Boolean(
+      ptnRef.vocalMode === 'micro' ||
+      ptnRef.vocalMode === 'audio' ||
+      ptnRef.vocalMode === 'recorded' ||
+      ptnRef.vocalClip ||
+      ptnRef.vocalAudioData ||
+      ptnRef.vocalAudioUrl
+    );
+    if (!isSamplePattern) return null;
 
     const clip = ptnRef.vocalClip;
+    const patId = ptnRef.id;
+    const clipId = clip?.id;
+
+    // Résolution du buffer avec chaîne de repli complète (trackId_patId, patId, trackId_clipId, clipId, string & number)
+    const audioBuffer = (
+      store.vocalBuffers[`${trackId}_${patId}`] ||
+      store.vocalBuffers[patId] ||
+      (clipId ? store.vocalBuffers[`${trackId}_${clipId}`] || store.vocalBuffers[clipId] : undefined) ||
+      store.vocalBuffers[`${trackId}_${patternId}`] ||
+      store.vocalBuffers[patternId] ||
+      (!isNaN(Number(patId)) ? store.vocalBuffers[`${trackId}_${Number(patId)}`] || store.vocalBuffers[Number(patId)] : undefined) ||
+      (clipId && !isNaN(Number(clipId)) ? store.vocalBuffers[`${trackId}_${Number(clipId)}`] || store.vocalBuffers[Number(clipId)] : undefined)
+    );
+    if (!audioBuffer) return null;
+
+    const compositeKey = `${trackId}_${patId}`;
 
     // Détermination du BPM effectif de la mesure d'ancrage
-    const initialMeasureIdx = ptnRef.measureAssignments?.indexOf(true) !== -1 
-      ? (ptnRef.measureAssignments?.indexOf(true) ?? 0) 
-      : 0;
+    let initialMeasureIdx = 0;
+    if (Array.isArray(ptnRef.measureAssignments)) {
+      const foundIdx = ptnRef.measureAssignments.indexOf(true);
+      if (foundIdx !== -1) initialMeasureIdx = foundIdx;
+    } else if (ptnRef.measureAssignments && typeof ptnRef.measureAssignments === 'object') {
+      const keys = Object.keys(ptnRef.measureAssignments).map(k => parseInt(k, 10)).filter(k => !isNaN(k)).sort((a, b) => a - b);
+      if (keys.length > 0) initialMeasureIdx = keys[0];
+    }
     const anchorMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
     const effectiveBpm = currentBpm || anchorMeasureBpm;
 
