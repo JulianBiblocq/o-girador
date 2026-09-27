@@ -221,14 +221,20 @@ export interface CloudPreset {
 }
 
 export interface MasterFX {
-  reverb: {
-    returnVolume: number;
-    time: number;
-    isMuted: boolean;
-  };
-  distortion: {
-    returnVolume: number;
-    drive: number;
-    isMuted: boolean;
-  };
+    reverb: {
+      returnVolume: number;
+      time: number;
+      isMuted: boolean;
+    };
+    distortion: {
+      returnVolume: number;
+      drive: number;
+      isMuted: boolean;
+    };
+  }
+
+export interface VocalStateBuffers {
+  vocalBuffers: Record<string | number, AudioBuffer>;
+  vocalBlobs?: Record<string | number, Blob>;
 }
+

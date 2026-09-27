@@ -29,6 +29,7 @@ import { SEO } from './components/SEO';
 import { Home } from './components/Home';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 const LandingPage = lazyWithRetry(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })), 'LandingPage');
+import { vocalEngineService } from './audio/vocalEngineService';
 
 import { Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
@@ -105,6 +106,13 @@ export default function App() {
     };
     window.addEventListener('show-visitor-auth-mandatory', handleShowAuth);
     return () => window.removeEventListener('show-visitor-auth-mandatory', handleShowAuth);
+  }, []);
+
+  React.useEffect(() => {
+    // 🎙️ Réhydratation automatique des enregistrements vocaux en RAM au montage de l'application
+    vocalEngineService.rehydrateVocalBuffers().catch((err) => {
+      console.error('🎙️ [VOCAL REHYDRATE] Erreur montage App:', err);
+    });
   }, []);
 
   // Context and unstable state Refs to maximize callback stabilization

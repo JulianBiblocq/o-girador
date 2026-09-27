@@ -32,10 +32,12 @@ export interface AudioState {
   removeVocalBlob: (patternId: string | number) => void;
   addVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
   setVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
+  setVocalBuffersBatch: (entries: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }>) => void;
   removeVocalBuffer: (patternId: string | number) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
   unlockAudio: () => void;
 }
+
 
 export const useAudioStore = create<AudioState>((set) => ({
   targetPatternId: null,
@@ -103,6 +105,18 @@ export const useAudioStore = create<AudioState>((set) => ({
     set((state) => ({
       vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer },
     })),
+  setVocalBuffersBatch: (entries) =>
+    set((state) => {
+      const nextBuffers = { ...state.vocalBuffers };
+      const nextBlobs = { ...state.vocalBlobs };
+      for (const entry of entries) {
+        nextBuffers[entry.key] = entry.buffer;
+        if (entry.blob) {
+          nextBlobs[entry.key] = entry.blob;
+        }
+      }
+      return { vocalBuffers: nextBuffers, vocalBlobs: nextBlobs };
+    }),
   removeVocalBuffer: (patternId) =>
     set((state) => {
       const nextBuffers = { ...state.vocalBuffers };

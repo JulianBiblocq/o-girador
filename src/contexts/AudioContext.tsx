@@ -444,6 +444,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       useSequencerStore.getState().setTracks(loadedTracks);
       useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);
       useSequencerStore.getState().resetSpeedTrainerConfig();
+
+      // Réhydratation automatique des enregistrements vocaux (IndexedDB -> RAM)
+      vocalEngineService.rehydrateVocalBuffers(loadedTracks).catch((err) => {
+        console.error("🎙️ [VOCAL REHYDRATE] Error during applyPreset rehydration:", err);
+      });
+
       sequencer.setTotalMeasures(loadedMeasures, true);
       sequencer.setBpmRaw(Math.round(p.bpm || 90));
       sequencer.setTimeSig(p.timeSig || '4/4');

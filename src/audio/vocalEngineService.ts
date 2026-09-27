@@ -99,7 +99,157 @@ export interface ActiveVocal {
 // Étanchéité stricte : indexé par clé composite `${trackId}_${patternId}` (Directive 2.D)
 const activeVocals = new Map<string, ActiveVocal>();
 
+let rehydratingPromise: Promise<void> | null = null;
+
+function base64ToBlob(base64Data: string): Blob {
+  const parts = base64Data.split(';base64,');
+  const contentType = parts[0]?.split(':')[1] || 'audio/wav';
+  const raw = typeof window !== 'undefined' ? window.atob(parts[1] || parts[0]) : '';
+  const rawLength = raw.length;
+  const uInt8Array = new Uint8Array(rawLength);
+  for (let i = 0; i < rawLength; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], { type: contentType });
+}
+
 export const vocalEngineService = {
+  /**
+   * Retourne la promesse de réhydratation active s'il y en a une en cours.
+   */
+  getRehydratingPromise(): Promise<void> | null {
+    return rehydratingPromise;
+  },
+
+  /**
+   * Réhydrate automatiquement l'ensemble des motifs vocaux enregistrés (IndexedDB -> RAM).
+   * Scanne les pistes vocales (toada, voice, puxador, coro), récupère les Blobs depuis IndexedDB,
+   * les convertit en ArrayBuffer, les décode via le contexte Web Audio natif et les injecte dans useAudioStore
+   * sous double indexation : patternId (accès direct) et `${track.id}_${patternId}` (accès séquenceur/anacrouse).
+   */
+  async rehydrateVocalBuffers(tracksToScan?: any[]): Promise<void> {
+    if (rehydratingPromise) {
+      return rehydratingPromise;
+    }
+
+    rehydratingPromise = (async () => {
+      try {
+        const sequencerStore = useSequencerStore.getState();
+        const tracks = tracksToScan && tracksToScan.length > 0 ? tracksToScan : sequencerStore.tracks;
+        if (!tracks || tracks.length === 0) return;
+
+        // Identifier l'ensemble des pistes vocales (toada, voice, puxador, coro)
+        const vocalTracks = tracks.filter((t) => {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          return Boolean(
+            inst && (
+              inst.type === 'voice' ||
+              inst.id === 'toada' ||
+              inst.id === 'puxador' ||
+              inst.id === 'coro' ||
+              inst.id === 'voice'
+            )
+          );
+        });
+
+        if (vocalTracks.length === 0) return;
+
+        // Sécuriser l'accès au contexte audio sans exiger d'interaction utilisateur préalable
+        let rawCtx: AudioContext | null = null;
+        try {
+          rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
+        } catch (_) {}
+        if (!rawCtx || typeof rawCtx.decodeAudioData !== 'function') {
+          const AudioCtxClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+          if (AudioCtxClass) {
+            rawCtx = new AudioCtxClass();
+          }
+        }
+        if (!rawCtx) {
+          console.warn('🎙️ [VOCAL REHYDRATE] Contexte audio indisponible pour le décodage.');
+          return;
+        }
+
+        const entriesToBatch: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }> = [];
+
+        for (const track of vocalTracks) {
+          if (!track.patterns || track.patterns.length === 0) continue;
+
+          for (const pattern of track.patterns) {
+            const patternId = Number(pattern.id);
+            const compositeKey = `${track.id}_${patternId}`;
+            const currentBuffers = useAudioStore.getState().vocalBuffers;
+
+            // Déjà en RAM sous les deux clés ?
+            if (currentBuffers[compositeKey] && currentBuffers[patternId]) {
+              continue;
+            }
+
+            // try / catch individuel par motif pour qu'un sample corrompu ne bloque pas les autres pistes
+            try {
+              let blob: Blob | null = null;
+
+              // 1. Récupération depuis IndexedDB
+              blob = await getVocalRecording(patternId);
+              if (!blob && pattern.id !== patternId) {
+                blob = await getVocalRecording(pattern.id);
+              }
+
+              // 2. Si non présent dans IndexedDB mais données audio embarquées (preset importé ou partagé)
+              if (!blob && pattern.vocalAudioData) {
+                try {
+                  blob = base64ToBlob(pattern.vocalAudioData);
+                  await saveVocalRecording(patternId, blob);
+                } catch (b64Err) {
+                  console.warn(`🎙️ [VOCAL REHYDRATE] Échec décodage base64 pour motif ${patternId}:`, b64Err);
+                }
+              } else if (!blob && pattern.vocalAudioUrl) {
+                try {
+                  const res = await fetch(pattern.vocalAudioUrl);
+                  if (res.ok) {
+                    blob = await res.blob();
+                    await saveVocalRecording(patternId, blob);
+                  }
+                } catch (urlErr) {
+                  console.warn(`🎙️ [VOCAL REHYDRATE] Échec téléchargement URL pour motif ${patternId}:`, urlErr);
+                }
+              }
+
+              if (!blob) {
+                continue;
+              }
+
+              // 3. Décodage Web Audio
+              const arrayBuffer = await blob.arrayBuffer();
+              const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
+
+              // 4. Double indexation RAM (patternId + `${track.id}_${patternId}`)
+              entriesToBatch.push(
+                { key: patternId, buffer: audioBuffer, blob },
+                { key: compositeKey, buffer: audioBuffer, blob }
+              );
+
+              // 5. Log de contrôle requis
+              console.log(`🎙️ [VOCAL REHYDRATE] Motif ${patternId} rechargé en RAM avec succès.`);
+            } catch (err) {
+              console.error(`🎙️ [VOCAL REHYDRATE] Erreur lors de la réhydratation du motif ${patternId}:`, err);
+            }
+          }
+        }
+
+        if (entriesToBatch.length > 0) {
+          useAudioStore.getState().setVocalBuffersBatch(entriesToBatch);
+        }
+      } catch (globalErr) {
+        console.error('🎙️ [VOCAL REHYDRATE] Erreur globale lors de la réhydratation:', globalErr);
+      } finally {
+        rehydratingPromise = null;
+      }
+    })();
+
+    return rehydratingPromise;
+  },
+
   /**
    * Helper to scan vocal pattern and find the exact temporal start offset (in seconds)
    * of the first active syllable (either in pre-roll or main grid).
@@ -146,7 +296,7 @@ export const vocalEngineService = {
         // Zero-latency RAM pre-decode
         try {
           const arrayBuffer = await blob.arrayBuffer();
-          const rawCtx = Tone.getContext().rawContext as AudioContext;
+          const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
           const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
           useAudioStore.getState().setVocalBuffer(patternId, audioBuffer);
         } catch (decErr) {
@@ -349,9 +499,10 @@ export const vocalEngineService = {
       if (!blob) return;
       try {
         const arrayBuffer = await blob.arrayBuffer();
-        const rawCtx = Tone.getContext().rawContext as AudioContext;
+        const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
         audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
         store.setVocalBuffer(compositeKey, audioBuffer);
+        store.setVocalBuffer(patternId, audioBuffer);
       } catch (err) {
         console.error(`Error decoding vocal blob for pattern ${patternId}:`, err);
         return;

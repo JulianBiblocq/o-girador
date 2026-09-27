@@ -2133,6 +2133,10 @@ export function useAudioSync({
         if (audioEngine) {
           audioEngine.loadAllSamples().catch(e => { /* consolewarn("Background load samples failed:", e); */ });
         }
+        // Réhydratation automatique des enregistrements vocaux en RAM
+        vocalEngineService.rehydrateVocalBuffers(tracksRef.current).catch((e) => {
+          console.error("🎙️ [VOCAL REHYDRATE] Background rehydration error in initAudio:", e);
+        });
         // ALWAYS unblock the UI.
         setIsLoading(false);
       }
@@ -2254,6 +2258,18 @@ export function useAudioSync({
       }
 
       console.log('🥁 [AUDIO ENGINE] bufferPool size:', audioEngine?.bufferPool?.size ?? 0);
+
+      // 🛡️ REHYDRATION BARRIER: Attendre la résolution de la réhydratation vocale avant de démarrer le transport
+      const pendingRehydration = vocalEngineService.getRehydratingPromise();
+      if (pendingRehydration) {
+        try {
+          await pendingRehydration;
+        } catch (_) {}
+      } else {
+        try {
+          await vocalEngineService.rehydrateVocalBuffers(tracksRef.current);
+        } catch (_) {}
+      }
 
       // Suppression du délai destructeur setTimeout(300) pour conserver le jeton d'activation utilisateur tactile
       if (Tone.loaded) {

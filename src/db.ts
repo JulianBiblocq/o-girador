@@ -59,13 +59,15 @@ function getDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-export async function saveVocalRecording(patternId: number, audioBlob: Blob): Promise<void> {
+export async function saveVocalRecording(patternId: number | string, audioBlob: Blob): Promise<void> {
   const db = await getDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
+    const numId = Number(patternId);
+    const safeId = !isNaN(numId) ? numId : patternId;
     const data = {
-      patternId,
+      patternId: safeId,
       audioBlob,
       updatedAt: Date.now(),
     };
@@ -77,16 +79,25 @@ export async function saveVocalRecording(patternId: number, audioBlob: Blob): Pr
   });
 }
 
-export async function getVocalRecording(patternId: number): Promise<Blob | null> {
+export async function getVocalRecording(patternId: number | string): Promise<Blob | null> {
   const db = await getDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readonly');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(patternId);
+    const numId = Number(patternId);
+    const primaryKey = !isNaN(numId) ? numId : patternId;
+    const request = store.get(primaryKey);
 
     request.onsuccess = () => {
-      if (request.result) {
+      if (request.result && request.result.audioBlob) {
         resolve(request.result.audioBlob);
+      } else if (typeof patternId === 'string' && !isNaN(numId)) {
+        // Fallback: try raw string key
+        const retryRequest = store.get(patternId);
+        retryRequest.onsuccess = () => {
+          resolve(retryRequest.result ? retryRequest.result.audioBlob : null);
+        };
+        retryRequest.onerror = () => resolve(null);
       } else {
         resolve(null);
       }
@@ -97,12 +108,30 @@ export async function getVocalRecording(patternId: number): Promise<Blob | null>
   });
 }
 
-export async function deleteVocalRecording(patternId: number): Promise<void> {
+export async function getAllVocalRecordings(): Promise<Array<{ patternId: number | string; audioBlob: Blob }>> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+
+    request.onsuccess = () => {
+      resolve(request.result || []);
+    };
+    request.onerror = () => reject(request.error || new Error('Failed to get all vocal recordings'));
+    transaction.onerror = () => reject(transaction.error || new Error('Read transaction failed'));
+    transaction.onabort = () => reject(new Error('Read transaction aborted'));
+  });
+}
+
+export async function deleteVocalRecording(patternId: number | string): Promise<void> {
   const db = await getDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    store.delete(patternId);
+    const numId = Number(patternId);
+    const safeId = !isNaN(numId) ? numId : patternId;
+    store.delete(safeId);
 
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error || new Error('Failed to delete vocal recording'));
