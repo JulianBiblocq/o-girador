@@ -46,8 +46,9 @@ export const playVoicePitchLive = (note: string, velocity: number = 0.85): void 
     if (!fallbackPolySynth) {
       fallbackPolySynth = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'triangle' },
-        envelope: { attack: 0.02, decay: 0.1, sustain: 0.85, release: 0.25 },
+        envelope: { attack: 0.02, decay: 0.1, sustain: 0.85, release: 0.15 },
       });
+      fallbackPolySynth.maxPolyphony = 32;
       fallbackPolySynth.volume.value = -4;
       const dest = Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination;
       try {
@@ -56,6 +57,9 @@ export const playVoicePitchLive = (note: string, velocity: number = 0.85): void 
         try { fallbackPolySynth.toDestination(); } catch (_) {}
       }
     }
+    try {
+      fallbackPolySynth.triggerRelease([note], Tone.now());
+    } catch (_) {}
     fallbackPolySynth.triggerAttack(note, Tone.now(), Math.max(0.2, Math.min(1.0, velocity)));
   } catch (err) {
     console.warn('Vocal live pitch fallback error:', err);

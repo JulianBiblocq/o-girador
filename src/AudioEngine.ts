@@ -479,11 +479,11 @@ export class AudioEngine {
           attack: 0.02,
           decay: 0.1,
           sustain: 0.85,
-          release: 0.25,
+          release: 0.15,
         },
       });
 
-      this.voiceSynth.maxPolyphony = 6;
+      this.voiceSynth.maxPolyphony = 32;
       this.voiceSynth.volume.value = -6;
 
       const dest = Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination;
@@ -531,6 +531,9 @@ export class AudioEngine {
         : pitch;
 
       const vel = Math.max(0.1, Math.min(1.0, velocity));
+      try {
+        this.voiceSynth.triggerRelease([note], Tone.now());
+      } catch (_) {}
       this.voiceSynth.triggerAttack(note, Tone.now(), vel);
     } catch (err) {
       console.error('AudioEngine.triggerVoicePitch error:', err);
