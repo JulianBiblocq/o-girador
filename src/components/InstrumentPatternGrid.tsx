@@ -42,12 +42,12 @@ interface InstrumentPatternGridProps {
   setSelectedSubIndex?: React.Dispatch<React.SetStateAction<0 | 1 | null>>;
   isTupletEditMode: boolean;
   isMultiSelectActive: boolean;
-  noteSelectorTarget: { patternId: number; stepIdx: number; note: string; element: HTMLElement; isPreRoll?: boolean } | null;
+  selectedStepIsPreRoll?: boolean;
   activeTool?: string;
   isAlternating?: boolean;
 
   // React State setters
-  setNoteSelectorTarget: React.Dispatch<React.SetStateAction<{ patternId: number; stepIdx: number; note: string; element: HTMLElement; isPreRoll?: boolean } | null>>;
+  setSelectedStepIsPreRoll?: React.Dispatch<React.SetStateAction<boolean>>;
   setSelectedPatternId: React.Dispatch<React.SetStateAction<number>>;
   setSelectedStepIdx: React.Dispatch<React.SetStateAction<number | null>>;
   setSelectedVariationId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -531,8 +531,7 @@ interface VoiceStepCellProps {
   onVoiceSylChange: (trackId: number, patternId: number, index: number, value: string) => void;
   onVoiceNoteChange: (trackId: number, patternId: number, index: number, value: string) => void;
   onVoiceNoteBlur: (trackId: number, patternId: number, index: number, value: string) => void;
-  onFocusStep: (index: number) => void;
-  onNoteSelectorTarget: (target: { patternId: number; stepIdx: number; note: string; element: HTMLInputElement; isPreRoll?: boolean }) => void;
+  onFocusStep: (index: number, isPreRoll?: boolean) => void;
   onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
   focusVoiceStep?: (stepIdx: number, type?: 'note' | 'syl', forceInPreRoll?: boolean) => void;
   onVoiceStepClear?: (trackId: number, patternId: number, index: number) => void;
@@ -567,7 +566,6 @@ const VoiceStepCellComponent = ({
   onVoiceNoteChange,
   onVoiceNoteBlur,
   onFocusStep,
-  onNoteSelectorTarget,
   onVoiceNav,
   focusVoiceStep,
   onVoiceStepClear,
@@ -811,14 +809,13 @@ const VoiceStepCellComponent = ({
             }}
             onFocus={(e) => {
               if (!isMultiSelectActive) {
-                onFocusStep(i);
-                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any, isPreRoll: Boolean(isPreRoll) });
+                onFocusStep(i, Boolean(isPreRoll));
                 setIsNoteFocused(true);
               }
             }}
             onClick={(e) => {
               if (!isMultiSelectActive) {
-                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any, isPreRoll: Boolean(isPreRoll) });
+                onFocusStep(i, Boolean(isPreRoll));
                 setIsNoteFocused(true);
               }
             }}
@@ -921,8 +918,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   setSelectedSubIndex: propSetSelectedSubIndex,
   isTupletEditMode,
   isMultiSelectActive,
-  noteSelectorTarget,
-  setNoteSelectorTarget,
+  selectedStepIsPreRoll,
+  setSelectedStepIsPreRoll,
   setSelectedPatternId,
   setSelectedStepIdx,
   setSelectedVariationId,
@@ -1907,10 +1904,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [isMultiSelectActive, handleStepMouseEnterMulti]);
 
-  const handleVoiceFocusStep = React.useCallback((idx: number) => {
+  const handleVoiceFocusStep = React.useCallback((idx: number, isPreRoll?: boolean) => {
     setSelectedStepIdx(idx);
+    setSelectedStepIndices([idx]);
     setSelectedPatternId(pattern.id);
-  }, [setSelectedStepIdx, setSelectedPatternId, pattern.id]);
+    if (setSelectedStepIsPreRoll) {
+      setSelectedStepIsPreRoll(Boolean(isPreRoll));
+    }
+  }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedStepIsPreRoll, pattern.id]);
 
   // Sélection Escultor isolée : ne touche JAMAIS à la valeur du pas (Zero Tool Trigger)
   // Impact perf : seul setSelectedStepIdx mute → React.memo filtre les cellules non-concernées
@@ -2761,8 +2762,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
       setSelectedStepIdx(stepIdx);
       setSelectedStepIndices([stepIdx]);
+      if (setSelectedStepIsPreRoll) {
+        setSelectedStepIsPreRoll(isInPreRoll);
+      }
     }
-  }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices]);
+  }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices, setSelectedStepIsPreRoll]);
 
   /* Écouteur d'événement global pour la prise de focus pilotée par MIDI ou externe */
   React.useEffect(() => {
@@ -2941,7 +2945,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       state={state}
                       syl={syl}
                       note={note}
-                      isSelected={false}
+                      isSelected={selectedPatternId === pattern.id && selectedStepIdx === i && Boolean(selectedStepIsPreRoll)}
                       isMultiSelectActive={false}
                       manualMicro={0}
                       totalShift={0}
@@ -2958,8 +2962,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       onVoiceSylChange={handleVoicePreRollSylChange}
                       onVoiceNoteChange={handleVoicePreRollNoteChange}
                       onVoiceNoteBlur={handleVoicePreRollNoteBlur}
-                      onFocusStep={handleVoiceFocusStep}
-                      onNoteSelectorTarget={setNoteSelectorTarget}
+                      onFocusStep={(idx) => handleVoiceFocusStep(idx, true)}
                       onVoiceNav={handleVoiceNav}
                       focusVoiceStep={focusVoiceStep}
                     />
@@ -3061,7 +3064,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const state = pattern?.activeSteps?.[i];
                       const syl = pattern?.lyrics?.[i] || '';
                       const note = pattern?.notes?.[i] || '';
-                      const isSelected = selectedStepIndices.includes(i);
+                      const isSelected = !selectedStepIsPreRoll && (selectedStepIndices.includes(i) || (selectedPatternId === pattern.id && selectedStepIdx === i));
 
                       const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
                       const currentActive = isStepActive(state);
@@ -3125,10 +3128,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           onVoiceSylChange={handleVoiceSylChange}
                           onVoiceNoteChange={handleVoiceNoteChange}
                           onVoiceNoteBlur={handleVoiceNoteBlur}
-                          onFocusStep={handleVoiceFocusStep}
+                          onFocusStep={(idx) => handleVoiceFocusStep(idx, false)}
                           onContextMenu={handleVoiceContextMenu}
                           onSelectForSculpt={handleSelectStepForSculpt}
-                          onNoteSelectorTarget={setNoteSelectorTarget}
                           onVoiceNav={handleVoiceNav}
                           focusVoiceStep={focusVoiceStep}
                         />

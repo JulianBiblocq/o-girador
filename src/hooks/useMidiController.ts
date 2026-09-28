@@ -4,6 +4,7 @@ import { audioEngine } from './useAudioSync';
 import { useMidiStore, MidiTarget, TransportAction } from '../stores/useMidiStore';
 import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { channels, busChannels, masterVolumeNode } from '../audio/effectsChain';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -500,6 +501,13 @@ export const useMidiController = () => {
           if (audioEngine) {
             audioEngine.triggerVoiceAttackRelease(noteName, '8n', undefined, velocity / 127.0);
           }
+          window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName } }));
+
+          const voiceInputMode = useAudioStore.getState().voiceInputMode || 'free';
+          if (voiceInputMode === 'free') {
+            // Mode Écoute libre : la note résonne sur le synthétiseur sans s'écrire dans la cellule courante
+            return;
+          }
 
           // Verrou anti-rebond temporel (60 ms) pour la saisie de pas
           const now = Date.now();
@@ -573,14 +581,33 @@ export const useMidiController = () => {
               }));
             }
 
-            // Déplacer automatiquement la sélection / focus vers le pas suivant (stepIdx + 1)
-            const nextStepIdx = cardStepIdx + 1;
+            // Déplacer automatiquement la sélection / focus vers le pas suivant avec métrique dynamique
+            const targetTrack = tracks.find(t => t.id === Number(cardTrackId) || String(t.id) === cardTrackId);
+            const targetPattern = targetTrack?.patterns.find(p => p.id === Number(cardPatternId) || String(p.id) === cardPatternId);
+            const patternSteps = targetPattern?.steps || 16;
+
+            let nextStepIdx = 0;
+            let nextIsInPreRoll = false;
+
+            if (isInPreRoll) {
+              if (cardStepIdx < patternSteps - 1) {
+                nextStepIdx = cardStepIdx + 1;
+                nextIsInPreRoll = true;
+              } else {
+                nextStepIdx = 0;
+                nextIsInPreRoll = false;
+              }
+            } else {
+              nextStepIdx = (cardStepIdx + 1) % patternSteps;
+              nextIsInPreRoll = false;
+            }
+
             // Émettre l'événement custom focus-voice-step pour prise en charge globale contextuelle
             window.dispatchEvent(new CustomEvent('focus-voice-step', {
-              detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll }
+              detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll: nextIsInPreRoll }
             }));
 
-            const scopeSelector = isInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
+            const scopeSelector = nextIsInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
             const nextCard = document.querySelector<HTMLElement>(`${scopeSelector} [data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
             if (nextCard) {
               const nextInput = nextCard.querySelector('.v-note') as HTMLInputElement | null;

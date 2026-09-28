@@ -38,6 +38,8 @@ export interface AudioState {
   unlockAudio: () => void;
   vocalMode: 'voice' | 'synth' | 'both';
   setVocalMode: (mode: 'voice' | 'synth' | 'both') => void;
+  voiceInputMode: 'free' | 'step';
+  setVoiceInputMode: (mode: 'free' | 'step') => void;
 }
 
 
@@ -52,6 +54,8 @@ export const useAudioStore = create<AudioState>((set) => ({
   isVocalGuideEnabled: true,
   selectedVocalPatternId: null,
   isAudioUnlocked: false,
+  voiceInputMode: 'free',
+  setVoiceInputMode: (mode) => set({ voiceInputMode: mode }),
 
   selectedOutputDeviceId: null,
   availableOutputDevices: [],

@@ -39,7 +39,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
-import { MelodicNoteSelector } from './MelodicNoteSelector';
+import { VoicePianoDock } from './VoicePianoDock';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
 import { StrokeWritingDock } from './instrument-editor/StrokeWritingDock';
@@ -790,7 +790,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
-  const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement; isPreRoll?: boolean } | null>(null);
+  const [selectedStepIsPreRoll, setSelectedStepIsPreRoll] = useState<boolean>(false);
   const [isClosing, setIsClosing] = useState(false);
 
   const isPlayingRef = useRef(isPlaying);
@@ -2046,8 +2046,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             setSelectedSubIndex={setSelectedSubIndex}
                             isTupletEditMode={isTupletEditMode}
                             isMultiSelectActive={isMultiSelectActive}
-                            noteSelectorTarget={noteSelectorTarget}
-                            setNoteSelectorTarget={setNoteSelectorTarget}
+                            selectedStepIsPreRoll={selectedStepIsPreRoll}
+                            setSelectedStepIsPreRoll={setSelectedStepIsPreRoll}
                             setSelectedPatternId={setSelectedPatternId}
                             setSelectedStepIdx={setSelectedStepIdx}
                             setSelectedVariationId={setSelectedVariationId}
@@ -2167,17 +2167,30 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         </div>
 
         {/* ═══════════════════ PIED DE PAGE GLOBAL (Dock pleine largeur) ═══════════════════ */}
-        <StrokeWritingDock
-          trackId={effectiveEditTrackId}
-          instrument={inst}
-          lang={lang}
-          isLeftHanded={isLeftHanded}
-          activeTool={activeTool}
-          onSelectTool={handleDockSelectTool}
-          isAlternating={isAlternating}
-          onToggleAlternating={() => setIsAlternating(prev => !prev)}
-          onOpenBottomSheet={() => setIsInspectorMobileOpen(true)}
-        />
+        {isVocalContext ? (
+          <VoicePianoDock
+            trackId={effectiveEditTrackId}
+            patternId={selectedPatternId ?? activePattern?.id ?? displayedPatterns[0]?.id}
+            selectedStepIdx={selectedStepIdx}
+            setSelectedStepIdx={setSelectedStepIdx}
+            selectedStepIsPreRoll={selectedStepIsPreRoll}
+            setSelectedStepIsPreRoll={setSelectedStepIsPreRoll}
+            lang={lang}
+            patternSteps={activePattern?.steps || 16}
+          />
+        ) : (
+          <StrokeWritingDock
+            trackId={effectiveEditTrackId}
+            instrument={inst}
+            lang={lang}
+            isLeftHanded={isLeftHanded}
+            activeTool={activeTool}
+            onSelectTool={handleDockSelectTool}
+            isAlternating={isAlternating}
+            onToggleAlternating={() => setIsAlternating(prev => !prev)}
+            onOpenBottomSheet={() => setIsInspectorMobileOpen(true)}
+          />
+        )}
       </div>
 
     {/* ─── Mobile/Tablet Portrait Bottom Sheet Drawer (< 1024px) ─── */}
@@ -2420,39 +2433,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         </div>
       )}
 
-      {/* Global Fixed Note Popover Selector */}
-      {noteSelectorTarget && (() => {
-        const rect = noteSelectorTarget.element.getBoundingClientRect();
-        const popoverStyle = {
-          position: 'fixed' as const,
-          top: `${rect.bottom + 5}px`,
-          left: `${Math.min(window.innerWidth - 250, Math.max(10, rect.left - 90))}px`,
-          zIndex: 10000,
-        };
-        
-        return (
-          <div style={popoverStyle}>
-            <MelodicNoteSelector
-              currentValue={noteSelectorTarget.note}
-              onSelect={(selectedNote) => {
-                if (noteSelectorTarget.isPreRoll) {
-                  sequencer.handleVoicePreRollNoteChange(effectiveEditTrackId, noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
-                  sequencer.handleVoicePreRollNoteBlur(effectiveEditTrackId, noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
-                } else {
-                  onVoiceNoteChange(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
-                  onVoiceNoteBlur(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
-                }
-                setNoteSelectorTarget({
-                  ...noteSelectorTarget,
-                  note: selectedNote
-                });
-              }}
-              onClose={() => setNoteSelectorTarget(null)}
-              lang={lang === 'pt' ? 'pt' : 'fr'}
-            />
-          </div>
-        );
-      })()}
+
     </>
   );
 
