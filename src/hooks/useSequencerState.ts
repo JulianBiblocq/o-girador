@@ -1448,24 +1448,24 @@ export function useSequencerState() {
 
   const handleVoiceNoteChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
     const tracks = useSequencerStore.getState().tracks;
-    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const activePattern = tracks.find(t => t.id === trackId || String(t.id) === String(trackId))?.patterns.find(p => p.id === patternId || String(p.id) === String(patternId));
     const prevVal = activePattern?.notes?.[stepIdx] || '';
     if (prevVal === '' && val !== '') {
       pushUndoState();
     }
     setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
+      if (t.id === trackId || String(t.id) === String(trackId)) {
         const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
+          if (p.id === patternId || String(p.id) === String(patternId)) {
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
             const copySteps = [...p.activeSteps];
             arrNotes[stepIdx] = val;
             if (!val || val.trim() === '' || val === '0') {
               arrNotes[stepIdx] = '';
               copySteps[stepIdx] = 0;
-            } else if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+            } else if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
               const instId = instrumentsConfig[t.instrumentIdx]?.id;
-              copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+              copySteps[stepIdx] = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
             }
             return { ...p, activeSteps: copySteps, notes: arrNotes };
           }
@@ -1484,9 +1484,9 @@ export function useSequencerState() {
       if (/^[a-gA-G][#b]?$/.test(trimmed)) {
         const completedNote = trimmed.toUpperCase() + '4';
         setTracks(prev => prev.map(t => {
-          if (t.id === trackId) {
+          if (t.id === trackId || String(t.id) === String(trackId)) {
             const nextPatterns = t.patterns.map(p => {
-              if (p.id === patternId) {
+              if (p.id === patternId || String(p.id) === String(patternId)) {
                 const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
                 arrNotes[stepIdx] = completedNote;
                 return { ...p, notes: arrNotes };
@@ -1600,15 +1600,15 @@ export function useSequencerState() {
 
   const handleVoicePreRollNoteChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
     const tracks = useSequencerStore.getState().tracks;
-    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const activePattern = tracks.find(t => t.id === trackId || String(t.id) === String(trackId))?.patterns.find(p => p.id === patternId || String(p.id) === String(patternId));
     const prevVal = activePattern?.preRollNotes?.[stepIdx] || '';
     if (prevVal === '' && val !== '') {
       pushUndoState();
     }
     setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
+      if (t.id === trackId || String(t.id) === String(trackId)) {
         const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
+          if (p.id === patternId || String(p.id) === String(patternId)) {
             const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
             const copySteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
             arrNotes[stepIdx] = val;
@@ -1618,9 +1618,9 @@ export function useSequencerState() {
               if (!arrSyl[stepIdx] || arrSyl[stepIdx].trim() === '') {
                 copySteps[stepIdx] = 0;
               }
-            } else if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+            } else if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
               const instId = instrumentsConfig[t.instrumentIdx]?.id;
-              copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+              copySteps[stepIdx] = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
             }
             return { ...p, preRollNotes: arrNotes, preRollActiveSteps: copySteps };
           }
@@ -1639,15 +1639,15 @@ export function useSequencerState() {
       if (/^[a-gA-G][#b]?$/.test(trimmed)) {
         const completedNote = trimmed.toUpperCase() + '4';
         setTracks(prev => prev.map(t => {
-          if (t.id === trackId) {
+          if (t.id === trackId || String(t.id) === String(trackId)) {
             const nextPatterns = t.patterns.map(p => {
-              if (p.id === patternId) {
+              if (p.id === patternId || String(p.id) === String(patternId)) {
                 const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
                 const copySteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
                 arrNotes[stepIdx] = completedNote;
-                if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+                if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
                   const instId = instrumentsConfig[t.instrumentIdx]?.id;
-                  copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+                  copySteps[stepIdx] = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
                 }
                 return { ...p, preRollNotes: arrNotes, preRollActiveSteps: copySteps };
               }

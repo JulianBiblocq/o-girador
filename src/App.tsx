@@ -15,6 +15,8 @@ import { TransportBar } from './components/TransportBar';
 import { useSequencerStore, isToadaChild } from './stores/useSequencerStore';
 import { useSequencerSettingsStore } from './stores/useSequencerSettingsStore';
 import { useTransportStore } from './stores/useTransportStore';
+import { useAudioStore } from './stores/useAudioStore';
+import * as Tone from 'tone';
 import { SettingsPage } from './components/SettingsPage';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -106,6 +108,28 @@ export default function App() {
     };
     window.addEventListener('show-visitor-auth-mandatory', handleShowAuth);
     return () => window.removeEventListener('show-visitor-auth-mandatory', handleShowAuth);
+  }, []);
+
+  React.useEffect(() => {
+    const handleFirstUserGesture = () => {
+      if (!useAudioStore.getState().isAudioUnlocked) {
+        useAudioStore.getState().unlockAudio();
+      }
+      try {
+        if (Tone.context && Tone.context.state !== 'running') {
+          Tone.context.resume().catch(() => {});
+          Tone.start().catch(() => {});
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('pointerdown', handleFirstUserGesture, { once: true, passive: true });
+    window.addEventListener('keydown', handleFirstUserGesture, { once: true, passive: true });
+    window.addEventListener('touchstart', handleFirstUserGesture, { once: true, passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstUserGesture);
+      window.removeEventListener('keydown', handleFirstUserGesture);
+      window.removeEventListener('touchstart', handleFirstUserGesture);
+    };
   }, []);
 
   React.useEffect(() => {

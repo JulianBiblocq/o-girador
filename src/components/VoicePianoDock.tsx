@@ -4,9 +4,10 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { audioEngine } from '../hooks/useAudioSync';
+import { playVoicePitchLive, releaseVoicePitchLive } from '../audio/vocalSynthService';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudioStore } from '../stores/useAudioStore';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { Ear, Edit3, Eraser } from 'lucide-react';
 
 interface VoicePianoDockProps {
@@ -83,12 +84,24 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
 
   // Écoute de l'événement MIDI externe pour illumination visuelle temps réel de la touche
   useEffect(() => {
-    const handleMidiKey = (e: CustomEvent<{ note: string }>) => {
+    const handleMidiKey = (e: CustomEvent<{ note: string; active?: boolean }>) => {
       const note = e.detail?.note;
       if (!note) return;
 
       // Normaliser enharmonique si nécessaire (Db -> C#)
       const mappedNote = note.replace('Db', 'C#').replace('Eb', 'D#').replace('Gb', 'F#').replace('Ab', 'G#').replace('Bb', 'A#');
+
+      if (e.detail?.active === false) {
+        const existing = midiHighlightTimersRef.current.get(mappedNote);
+        if (existing) clearTimeout(existing);
+        midiHighlightTimersRef.current.delete(mappedNote);
+        setActiveNotes(prev => {
+          const next = new Set(prev);
+          next.delete(mappedNote);
+          return next;
+        });
+        return;
+      }
 
       setActiveNotes(prev => {
         const next = new Set(prev);
@@ -107,7 +120,7 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
           return next;
         });
         midiHighlightTimersRef.current.delete(mappedNote);
-      }, 180);
+      }, 300);
 
       midiHighlightTimersRef.current.set(mappedNote, timer);
     };
@@ -120,31 +133,37 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
     };
   }, []);
 
+  // Résolution robuste du patternId effectif
+  const getEffectivePatternId = useCallback(() => {
+    if (patternId && patternId !== 0) return patternId;
+    const tracks = useSequencerStore.getState().tracks;
+    const t = tracks.find(tr => tr.id === trackId || String(tr.id) === String(trackId));
+    return t?.selectedPatternId || t?.patterns?.[0]?.id || patternId;
+  }, [patternId, trackId]);
+
   // Déclencheur PointerDown (Son + Écriture conditionnelle)
   const handleNoteDown = useCallback((note: string) => {
-    if (!audioEngine) return;
-
-    // Mise à jour visuelle immédiate de la touche pressée
+    // 1. Mise à jour visuelle immédiate de la touche pressée
     activeNotesRef.current.add(note);
     setActiveNotes(new Set(activeNotesRef.current));
 
-    if (voiceInputMode === 'free') {
-      // 👂 Mode Écoute libre : déclenchement du pitch continu jusqu'au relâchement (zéro écriture)
-      audioEngine.triggerVoicePitch(note, 0.85);
-    } else {
-      // ✍️ Mode Saisie pas-à-pas : attaque-relâchement sonore + écriture dans la grille + avance
-      audioEngine.triggerVoicePitch(note, 0.85);
+    // 2. Déclenchement sonore garanti sans blocage
+    playVoicePitchLive(note, 0.85);
 
+    if (voiceInputMode === 'step') {
+      // ✍️ Mode Saisie pas-à-pas : écriture dans la grille + avance dynamique
       const effectiveStep = selectedStepIdx !== null ? selectedStepIdx : 0;
       const effectivePreRoll = selectedStepIsPreRoll;
+      const targetPatternId = getEffectivePatternId();
 
       if (effectivePreRoll) {
-        sequencer.handleVoicePreRollNoteChange(trackId, patternId, effectiveStep, note);
-        sequencer.handleVoicePreRollNoteBlur(trackId, patternId, effectiveStep, note);
+        sequencer.handleVoicePreRollNoteChange(trackId, targetPatternId, effectiveStep, note);
+        sequencer.handleVoicePreRollNoteBlur(trackId, targetPatternId, effectiveStep, note);
 
         // Transition dynamique vers le pas suivant
         if (effectiveStep < patternSteps - 1) {
           setSelectedStepIdx(effectiveStep + 1);
+          useSequencerStore.setState({ selectedStepIdx: effectiveStep + 1 } as any);
           window.dispatchEvent(new CustomEvent('focus-voice-step', {
             detail: { stepIdx: effectiveStep + 1, type: 'note', isInPreRoll: true }
           }));
@@ -152,50 +171,51 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
           // Fin de l'anacrouse atteinte : basculer au pas 0 de la mesure principale
           setSelectedStepIdx(0);
           setSelectedStepIsPreRoll(false);
+          useSequencerStore.setState({ selectedStepIdx: 0 } as any);
           window.dispatchEvent(new CustomEvent('focus-voice-step', {
             detail: { stepIdx: 0, type: 'note', isInPreRoll: false }
           }));
         }
       } else {
-        sequencer.handleVoiceNoteChange(trackId, patternId, effectiveStep, note);
-        sequencer.handleVoiceNoteBlur(trackId, patternId, effectiveStep, note);
+        sequencer.handleVoiceNoteChange(trackId, targetPatternId, effectiveStep, note);
+        sequencer.handleVoiceNoteBlur(trackId, targetPatternId, effectiveStep, note);
 
         const nextStep = (effectiveStep + 1) % patternSteps;
         setSelectedStepIdx(nextStep);
+        useSequencerStore.setState({ selectedStepIdx: nextStep } as any);
         window.dispatchEvent(new CustomEvent('focus-voice-step', {
           detail: { stepIdx: nextStep, type: 'note', isInPreRoll: false }
         }));
       }
     }
-  }, [audioEngine, voiceInputMode, selectedStepIdx, selectedStepIsPreRoll, sequencer, trackId, patternId, patternSteps, setSelectedStepIdx, setSelectedStepIsPreRoll]);
+  }, [voiceInputMode, selectedStepIdx, selectedStepIsPreRoll, getEffectivePatternId, sequencer, trackId, patternSteps, setSelectedStepIdx, setSelectedStepIsPreRoll]);
 
   // Déclencheur PointerUp / Leave (Relâchement sonore)
   const handleNoteUp = useCallback((note: string) => {
-    if (!audioEngine) return;
-
     activeNotesRef.current.delete(note);
     setActiveNotes(new Set(activeNotesRef.current));
 
     if (voiceInputMode === 'free') {
-      audioEngine.releaseVoicePitch(note);
+      releaseVoicePitchLive(note);
     } else {
       setTimeout(() => {
-        audioEngine?.releaseVoicePitch(note);
+        releaseVoicePitchLive(note);
       }, 150);
     }
-  }, [audioEngine, voiceInputMode]);
+  }, [voiceInputMode]);
 
   // Effacer la note du pas sélectionné (Gomme / Silence)
   const handleClearCurrentStep = useCallback(() => {
     if (selectedStepIdx === null) return;
+    const targetPatternId = getEffectivePatternId();
     if (selectedStepIsPreRoll) {
-      sequencer.handleVoicePreRollNoteChange(trackId, patternId, selectedStepIdx, '');
-      sequencer.handleVoicePreRollNoteBlur(trackId, patternId, selectedStepIdx, '');
+      sequencer.handleVoicePreRollNoteChange(trackId, targetPatternId, selectedStepIdx, '');
+      sequencer.handleVoicePreRollNoteBlur(trackId, targetPatternId, selectedStepIdx, '');
     } else {
-      sequencer.handleVoiceNoteChange(trackId, patternId, selectedStepIdx, '');
-      sequencer.handleVoiceNoteBlur(trackId, patternId, selectedStepIdx, '');
+      sequencer.handleVoiceNoteChange(trackId, targetPatternId, selectedStepIdx, '');
+      sequencer.handleVoiceNoteBlur(trackId, targetPatternId, selectedStepIdx, '');
     }
-  }, [selectedStepIdx, selectedStepIsPreRoll, sequencer, trackId, patternId]);
+  }, [selectedStepIdx, selectedStepIsPreRoll, getEffectivePatternId, sequencer, trackId]);
 
   const isFr = lang === 'fr';
 

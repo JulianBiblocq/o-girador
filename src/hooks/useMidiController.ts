@@ -10,6 +10,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
+import { playVoicePitchLive, releaseVoicePitchLive } from '../audio/vocalSynthService';
 
 /* CPU / Audio justification: This MIDI event listener runs outside the React render cycle (bypass).
    Upon receiving MIDI Note On, Pitch Bend, or CC messages:
@@ -479,9 +480,10 @@ export const useMidiController = () => {
 
       // A. Gestion du Note Off (extinction des voix tenues)
       if (isNoteOff) {
-        if (isVoice && audioEngine) {
+        if (isVoice) {
           const noteName = Tone.Frequency(note, 'midi').toNote();
-          audioEngine.releaseVoicePitch(noteName);
+          releaseVoicePitchLive(noteName);
+          window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName, active: false } }));
         }
         return;
       }
@@ -492,20 +494,13 @@ export const useMidiController = () => {
 
         // --- Branche Vocale (Puxador / Toada / Coro) ---
         if (isVoice) {
-          // Forcer la reprise du contexte audio si suspendu
-          if (Tone.context && Tone.context.state !== 'running') {
-            Tone.context.resume().catch(() => {});
-          }
-
-          // 1. Déclenchement sonore immédiat sur le synthétiseur vocal
-          if (audioEngine) {
-            audioEngine.triggerVoiceAttackRelease(noteName, '8n', undefined, velocity / 127.0);
-          }
-          window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName } }));
+          // 1. Déclenchement sonore immédiat garanti via service vocal live
+          playVoicePitchLive(noteName, velocity / 127.0);
+          window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName, active: true } }));
 
           const voiceInputMode = useAudioStore.getState().voiceInputMode || 'free';
           if (voiceInputMode === 'free') {
-            // Mode Écoute libre : la note résonne sur le synthétiseur sans s'écrire dans la cellule courante
+            // Mode Écoute libre : la note résonne sans s'écrire dans la cellule
             return;
           }
 
@@ -533,12 +528,16 @@ export const useMidiController = () => {
             }
           }
 
-          if (canWriteStep && targetCard) {
+          if (canWriteStep) {
             lastVoiceStepInputTime = now;
-            const isInPreRoll = Boolean(targetCard.closest('.pre-roll-section') !== null || (document.activeElement && (document.activeElement as HTMLElement).closest?.('.pre-roll-section')));
-            const cardTrackId = targetCard.getAttribute('data-track-id') || (armedTrackId !== null ? String(armedTrackId) : null);
-            const cardPatternId = targetCard.getAttribute('data-pattern-id') || (armedPatternId !== null ? String(armedPatternId) : null);
-            const cardStepIdx = parseInt(targetCard.getAttribute('data-step-index') || '0', 10);
+            const isInPreRoll = Boolean(
+              targetCard?.closest('.pre-roll-section') !== null || 
+              (document.activeElement && (document.activeElement as HTMLElement).closest?.('.pre-roll-section')) ||
+              (seqStore as any).selectedStepIsPreRoll
+            );
+            const cardTrackId = targetCard?.getAttribute('data-track-id') || (armedTrackId !== null ? String(armedTrackId) : (trackIdToPlay !== null ? String(trackIdToPlay) : null));
+            const cardPatternId = targetCard?.getAttribute('data-pattern-id') || (armedPatternId !== null ? String(armedPatternId) : (activeTrack?.selectedPatternId ? String(activeTrack.selectedPatternId) : (activeTrack?.patterns?.[0]?.id ? String(activeTrack.patterns[0].id) : null)));
+            const cardStepIdx = targetCard ? parseInt(targetCard.getAttribute('data-step-index') || '0', 10) : ((seqStore as any).selectedStepIdx ?? 0);
 
             // Mettre à jour visuellement la valeur de l'input local sans double dispatch synthétique
             if (stepInput) {

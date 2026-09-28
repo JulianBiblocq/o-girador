@@ -758,8 +758,12 @@ const VoiceStepCellComponent = ({
         data-step-index={i}
         data-step-type="voice"
         data-selected={isSelected ? "true" : undefined}
-        onTouchStart={(e) => onTouchStart?.(e, i)}
+        onTouchStart={(e) => {
+          onTouchStart?.(e, i);
+          onFocusStep(i, Boolean(isPreRoll));
+        }}
         onMouseDown={(e) => onMouseDown?.(e, i)}
+        onClick={() => onFocusStep(i, Boolean(isPreRoll))}
         onMouseEnter={() => onMouseEnter?.(i)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -785,7 +789,12 @@ const VoiceStepCellComponent = ({
           }}
           onFocus={() => {
             if (!isMultiSelectActive) {
-              onFocusStep(i);
+              onFocusStep(i, Boolean(isPreRoll));
+            }
+          }}
+          onClick={() => {
+            if (!isMultiSelectActive) {
+              onFocusStep(i, Boolean(isPreRoll));
             }
           }}
           onKeyDown={(e) => handleInputKeyDown(e, 'syl')}
@@ -900,6 +909,7 @@ const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) 
          prev.isLinked === next.isLinked &&
          prev.volume === next.volume &&
          prev.decay === next.decay &&
+         prev.isPreRoll === next.isPreRoll &&
          prev.isProlongation === next.isProlongation &&
          prev.isFollowedByProlongation === next.isFollowedByProlongation;
 };
@@ -1881,29 +1891,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }));
   }, []);
 
-  const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
-    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
-      handleVoiceStepClear(trackId, pattern.id, idx);
-      return;
-    }
-    if (isMultiSelectActive) {
-      handleStepMouseDownMulti(e as any, idx);
-    }
-  }, [activeTool, isMultiSelectActive, handleStepMouseDownMulti, handleVoiceStepClear, trackId, pattern.id]);
-
-  const handleVoicePreRollMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
-    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
-      handleVoicePreRollStepClear(trackId, pattern.id, idx);
-      return;
-    }
-  }, [activeTool, handleVoicePreRollStepClear, trackId, pattern.id]);
-
-  const handleVoiceMouseEnter = React.useCallback((idx: number) => {
-    if (isMultiSelectActive) {
-      handleStepMouseEnterMulti(idx);
-    }
-  }, [isMultiSelectActive, handleStepMouseEnterMulti]);
-
   const handleVoiceFocusStep = React.useCallback((idx: number, isPreRoll?: boolean) => {
     setSelectedStepIdx(idx);
     setSelectedStepIndices([idx]);
@@ -1911,7 +1898,34 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (setSelectedStepIsPreRoll) {
       setSelectedStepIsPreRoll(Boolean(isPreRoll));
     }
+    useSequencerStore.setState({ selectedStepIdx: idx } as any);
   }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedStepIsPreRoll, pattern.id]);
+
+  const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
+    if (activeTool === '0') {
+      handleVoiceStepClear(trackId, pattern.id, idx);
+      return;
+    }
+    if (isMultiSelectActive) {
+      handleStepMouseDownMulti(e as any, idx);
+      return;
+    }
+    handleVoiceFocusStep(idx, false);
+  }, [activeTool, isMultiSelectActive, handleStepMouseDownMulti, handleVoiceStepClear, handleVoiceFocusStep, trackId, pattern.id]);
+
+  const handleVoicePreRollMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
+    if (activeTool === '0') {
+      handleVoicePreRollStepClear(trackId, pattern.id, idx);
+      return;
+    }
+    handleVoiceFocusStep(idx, true);
+  }, [activeTool, handleVoicePreRollStepClear, handleVoiceFocusStep, trackId, pattern.id]);
+
+  const handleVoiceMouseEnter = React.useCallback((idx: number) => {
+    if (isMultiSelectActive) {
+      handleStepMouseEnterMulti(idx);
+    }
+  }, [isMultiSelectActive, handleStepMouseEnterMulti]);
 
   // Sélection Escultor isolée : ne touche JAMAIS à la valeur du pas (Zero Tool Trigger)
   // Impact perf : seul setSelectedStepIdx mute → React.memo filtre les cellules non-concernées

@@ -1122,6 +1122,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
   const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
+  useEffect(() => {
+    if ((!selectedPatternId || selectedPatternId === 0) && activePattern?.id) {
+      setSelectedPatternId(activePattern.id);
+    }
+  }, [selectedPatternId, activePattern?.id]);
   const [isTupletEditMode, setIsTupletEditMode] = useState(false);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
@@ -2170,7 +2175,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         {isVocalContext ? (
           <VoicePianoDock
             trackId={effectiveEditTrackId}
-            patternId={selectedPatternId ?? activePattern?.id ?? displayedPatterns[0]?.id}
+            patternId={selectedPatternId || activePattern?.id || displayedPatterns[0]?.id || 0}
             selectedStepIdx={selectedStepIdx}
             setSelectedStepIdx={setSelectedStepIdx}
             selectedStepIsPreRoll={selectedStepIsPreRoll}
