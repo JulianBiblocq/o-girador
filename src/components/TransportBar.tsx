@@ -405,11 +405,14 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
                           </span>
                         </div>
                         <select
-                          value={preRollSettings.startSignalMeasure1Id || ''}
-                          onChange={(e) => setPreRollSettings({ startSignalMeasure1Id: e.target.value || null })}
+                          value={(!preRollSettings.startSignalMeasure1Id || preRollSettings.startSignalMeasure1Id === 'none' || preRollSettings.startSignalMeasure1Id === 'neutre') ? '' : preRollSettings.startSignalMeasure1Id}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPreRollSettings({ startSignalMeasure1Id: (!val || val === 'none' || val === 'neutre') ? null : val });
+                          }}
                           className="w-full bg-white border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
                         >
-                          <option value="">{lang === 'fr' ? '🔢 Décompte chiffré neutre' : '🔢 Contagem numérica neutra'}</option>
+                          <option value="">{lang === 'fr' ? '🔢 Neutre (Chiffres uniquement)' : '🔢 Neutro (Apenas números)'}</option>
                           {availableSignals.map((sig) => (
                             <option key={sig.id} value={sig.id}>{sig.name}</option>
                           ))}
@@ -420,7 +423,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
                             type="button"
                             onClick={() => setPreRollSettings({ startSignalMeasure1Id: null })}
                             className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${
-                              !preRollSettings.startSignalMeasure1Id
+                              !preRollSettings.startSignalMeasure1Id || preRollSettings.startSignalMeasure1Id === 'none' || preRollSettings.startSignalMeasure1Id === 'neutre'
                                 ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold'
                                 : 'border-black/30 bg-white/70 hover:bg-white text-black/70'
                             }`}
@@ -463,11 +466,14 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
                         </span>
                       </div>
                       <select
-                        value={preRollSettings.startSignalMeasure2Id || ''}
-                        onChange={(e) => setPreRollSettings({ startSignalMeasure2Id: e.target.value || null })}
+                        value={(!preRollSettings.startSignalMeasure2Id || preRollSettings.startSignalMeasure2Id === 'none' || preRollSettings.startSignalMeasure2Id === 'neutre') ? '' : preRollSettings.startSignalMeasure2Id}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPreRollSettings({ startSignalMeasure2Id: (!val || val === 'none' || val === 'neutre') ? null : val });
+                        }}
                         className="w-full bg-white border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
                       >
-                        <option value="">{lang === 'fr' ? '🔢 Décompte chiffré neutre' : '🔢 Contagem numérica neutra'}</option>
+                        <option value="">{lang === 'fr' ? '🔢 Neutre (Chiffres uniquement)' : '🔢 Neutro (Apenas números)'}</option>
                         {availableSignals.map((sig) => (
                           <option key={sig.id} value={sig.id}>{sig.name}</option>
                         ))}
@@ -478,7 +484,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
                           type="button"
                           onClick={() => setPreRollSettings({ startSignalMeasure2Id: null })}
                           className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${
-                            !preRollSettings.startSignalMeasure2Id
+                            !preRollSettings.startSignalMeasure2Id || preRollSettings.startSignalMeasure2Id === 'none' || preRollSettings.startSignalMeasure2Id === 'neutre'
                               ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold'
                               : 'border-black/30 bg-white/70 hover:bg-white text-black/70'
                           }`}

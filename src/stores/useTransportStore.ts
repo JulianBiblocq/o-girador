@@ -42,11 +42,26 @@ export const useTransportStore = create<TransportState>((set) => ({
   setSoloPatternPlayId: (soloPatternPlayId) => set({ soloPatternPlayId }),
   setSoloPatternVariationId: (soloPatternVariationId) => set({ soloPatternVariationId }),
   setPreRollSettings: (settings) =>
-    set((state) => ({
-      preRollSettings:
+    set((state) => {
+      const next =
         typeof settings === 'function'
           ? settings(state.preRollSettings)
-          : { ...state.preRollSettings, ...settings },
-    })),
+          : { ...state.preRollSettings, ...settings };
+
+      const normalizeSig = (val: string | null | undefined): string | null => {
+        if (!val || val === 'none' || val === 'neutre' || val === 'null' || !val.trim()) {
+          return null;
+        }
+        return val.trim();
+      };
+
+      return {
+        preRollSettings: {
+          ...next,
+          startSignalMeasure1Id: normalizeSig(next.startSignalMeasure1Id),
+          startSignalMeasure2Id: normalizeSig(next.startSignalMeasure2Id),
+        },
+      };
+    }),
 }));
 

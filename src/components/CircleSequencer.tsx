@@ -897,20 +897,35 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (isPreRoll) {
       if (baseMeasureIdx === 0) {
         const preRoll = useTransportStore.getState().preRollSettings;
-        if (preRollTotalMeasures === 2) {
-          sigId = preRollMeasureIndex === 0
-            ? (preRoll.startSignalMeasure1Id || null)
-            : (preRoll.startSignalMeasure2Id || null);
+        const isTwoMeasuresPreRoll = preRollTotalMeasures === 2 || preRoll.measuresCount === 2;
+        const targetSignalId = isTwoMeasuresPreRoll && preRollMeasureIndex === 0
+          ? preRoll.startSignalMeasure1Id
+          : preRoll.startSignalMeasure2Id;
+
+        // Règle stricte : si !targetSignalId ou 'none'/'neutre'/'null'/vide, forcer sigId = null.
+        // Interdiction absolue de repli vers || preRoll.startSignalMeasure1Id, signals[0] ou measureSignals[0].
+        if (!targetSignalId || targetSignalId === 'none' || targetSignalId === 'neutre' || targetSignalId === 'null' || !targetSignalId.trim()) {
+          sigId = null;
         } else {
-          sigId = preRoll.startSignalMeasure2Id || preRoll.startSignalMeasure1Id || null;
+          sigId = targetSignalId.trim();
         }
       } else {
         // En cours de morceau (M > 0) : animer le signal de la mesure précédente M-1 s'il existe
         const prevM = baseMeasureIdx - 1;
-        sigId = currentMeasureSignals?.[prevM] || null;
+        const rawPrevSigId = currentMeasureSignals?.[prevM] || null;
+        if (!rawPrevSigId || rawPrevSigId === 'none' || rawPrevSigId === 'neutre' || rawPrevSigId === 'null' || !rawPrevSigId.trim()) {
+          sigId = null;
+        } else {
+          sigId = rawPrevSigId.trim();
+        }
       }
     } else {
-      sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
+      const rawMeasureSigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
+      if (!rawMeasureSigId || rawMeasureSigId === 'none' || rawMeasureSigId === 'neutre' || rawMeasureSigId === 'null' || !rawMeasureSigId.trim()) {
+        sigId = null;
+      } else {
+        sigId = rawMeasureSigId.trim();
+      }
     }
 
     let activeSig: { name: string; image: string; frames?: string[]; beatsCount?: number; mirrorHorizontal?: boolean } | null = null;
@@ -1054,6 +1069,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       if (lastOverlayTextRef.current !== countNum) {
         textEl.innerText = countNum;
         lastOverlayTextRef.current = countNum;
+        // 🚀 Animation WAAPI au tempo du décompte Cordel (Priorité GPU, zéro layout thrashing)
+        try {
+          afficheurEl.animate(
+            [
+              { transform: 'scale(1.25)' },
+              { transform: 'scale(1.0)' }
+            ],
+            { duration: 180, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }
+          );
+        } catch (_) {}
       }
       if (cache.bgColor !== 'var(--cordel-wood)') {
         afficheurEl.style.backgroundColor = 'var(--cordel-wood)';
@@ -1302,6 +1327,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     let baseIdx = currentMeasure;
     if (isPlaying) {
       const live = livePlaybackRef.current;
+      // 🛡️ Protection contre l'écrasement au Play : en précompte, l'overlay est piloté exclusivement par le flux haute-fréquence handleTick
+      if (live.isPreRoll) {
+        return;
+      }
       baseIdx = live.measure;
       const expanded = expandedRef.current;
       const activeRepIndex = expanded.findIndex(item => item.baseMeasure === live.measure && item.iteration === (live.iteration || 1));
