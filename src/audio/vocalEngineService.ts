@@ -14,6 +14,9 @@ import { calculateDeterministicVocalClipMeta } from '../utils/audioBufferUtils';
 import { VocalClipMeta } from '../types/store.types';
 import { getBeatsPerMeasure } from '../utils/measureHelpers';
 
+import { VocalPresetId } from './vocalPresets';
+import { applyVocalPresetLive } from './vocalSynthService';
+
 // Background-immune high-precision worker timer helpers to bypass browser tab throttling
 let timerWorker: Worker | null = null;
 let nextTimerId = 1;
@@ -121,6 +124,13 @@ function base64ToBlob(base64Data: string): Blob {
 }
 
 export const vocalEngineService = {
+  /**
+   * Applique le preset de timbre vocal au moteur de synthèse en direct
+   */
+  applyVocalPreset(presetId: VocalPresetId): void {
+    applyVocalPresetLive(presetId);
+  },
+
   /**
    * Retourne la promesse de réhydratation active s'il y en a une en cours.
    */

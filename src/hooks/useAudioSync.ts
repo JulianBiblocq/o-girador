@@ -2230,6 +2230,7 @@ export function useAudioSync({
           return getMaxTicks(timeSig);
         }
       );
+      (window as any).__AUDIO_ENGINE__ = audioEngine;
       audioEngine.setOnPositionJump((step, measure) => {
         currentStepIndexRef.current = step === 0 ? -1 : step - 1;
         measureCountRef.current = measure;

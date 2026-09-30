@@ -21,6 +21,8 @@ import { instrumentsConfig } from './data';
 import { TrackGroup } from './types';
 import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from './audio/audioSampleCache';
 import { masterVolumeNode } from './audio/effectsChain';
+import { VocalPresetId, VOCAL_PRESETS } from './audio/vocalPresets';
+import { useAudioStore } from './stores/useAudioStore';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -97,6 +99,7 @@ export class AudioEngine {
   private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
   private instrumentVoices = new Map<string, ActiveVoice[]>(); // Track active/scheduled voices for eco mode polyphony limits
   public voiceSynth: any = null; // Tone.PolySynth for interactive vocal pitch preview (Puxador / Toada)
+  public currentVocalPreset: VocalPresetId = 'guide';
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
@@ -231,6 +234,13 @@ export class AudioEngine {
     this.getTicksPerMeasure = getTicksPerMeasure || (() => 96);
 
     this.updateSchedulingParameters();
+
+    try {
+      const initialPreset = useAudioStore.getState().vocalPreset;
+      if (initialPreset) {
+        this.currentVocalPreset = initialPreset;
+      }
+    } catch (_) {}
 
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
@@ -464,29 +474,37 @@ export class AudioEngine {
   }
 
   /**
-   * Initialise le synthétiseur de guidage vocal interactif
+   * Initialise ou reconfigure le synthétiseur de guidage vocal interactif avec le preset spécifié
    */
-  private initVoiceSynth(): void {
+  public initVoiceSynth(presetId?: VocalPresetId): void {
     const Tone = getTone();
     if (!Tone) return;
 
+    if (presetId) {
+      this.currentVocalPreset = presetId;
+    }
+
+    const presetConfig = VOCAL_PRESETS[this.currentVocalPreset] || VOCAL_PRESETS.guide;
+
     try {
-      this.voiceSynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: {
-          type: 'triangle',
-        },
-        envelope: {
-          attack: 0.02,
-          decay: 0.1,
-          sustain: 0.85,
-          release: 0.15,
-        },
-      });
+      if (this.voiceSynth) {
+        try { this.voiceSynth.releaseAll(); } catch (_) {}
+        try { this.voiceSynth.disconnect(); } catch (_) {}
+        try { this.voiceSynth.dispose(); } catch (_) {}
+        this.voiceSynth = null;
+      }
+
+      const SynthConstructor = presetConfig.synthClass === 'FMSynth' ? Tone.FMSynth : Tone.Synth;
+      this.voiceSynth = new Tone.PolySynth(SynthConstructor as any, {
+        maxPolyphony: 32,
+        options: presetConfig.options,
+        ...presetConfig.options,
+      } as any);
 
       this.voiceSynth.maxPolyphony = 32;
       this.voiceSynth.volume.value = -6;
 
-      const dest = Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination;
+      const dest = masterVolumeNode || (Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination);
       try {
         this.voiceSynth.disconnect();
       } catch (_) {}
@@ -500,6 +518,13 @@ export class AudioEngine {
     } catch (err) {
       console.error('AudioEngine: Error initializing voiceSynth:', err);
     }
+  }
+
+  /**
+   * Applique à la volée un preset de timbre vocal sur le synthétiseur actif
+   */
+  public applyVocalPreset(presetId: VocalPresetId): void {
+    this.initVoiceSynth(presetId);
   }
 
   /**

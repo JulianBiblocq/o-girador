@@ -6,8 +6,30 @@
 import * as Tone from 'tone';
 import { audioEngine } from '../hooks/useAudioSync';
 import { useAudioStore } from '../stores/useAudioStore';
+import { VocalPresetId, VOCAL_PRESETS } from './vocalPresets';
 
 let fallbackPolySynth: Tone.PolySynth | null = null;
+
+/**
+ * Applique immédiatement le preset de timbre vocal au moteur audio actif
+ * et au synthétiseur autonome de repli.
+ */
+export const applyVocalPresetLive = (presetId: VocalPresetId): void => {
+  if (audioEngine) {
+    try {
+      audioEngine.applyVocalPreset(presetId);
+    } catch (_) {}
+  }
+
+  if (fallbackPolySynth) {
+    try {
+      fallbackPolySynth.releaseAll();
+      fallbackPolySynth.disconnect();
+      fallbackPolySynth.dispose();
+    } catch (_) {}
+    fallbackPolySynth = null;
+  }
+};
 
 /**
  * Assure le déverrouillage et le démarrage du contexte audio Web Audio / Tone.js
@@ -44,12 +66,17 @@ export const playVoicePitchLive = (note: string, velocity: number = 0.85): void 
   // 2. Repli autonome Tone.PolySynth garanti
   try {
     if (!fallbackPolySynth) {
-      fallbackPolySynth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.02, decay: 0.1, sustain: 0.85, release: 0.15 },
-      });
+      const activePresetId = useAudioStore.getState().vocalPreset || 'guide';
+      const presetConfig = VOCAL_PRESETS[activePresetId] || VOCAL_PRESETS.guide;
+      const SynthConstructor = presetConfig.synthClass === 'FMSynth' ? Tone.FMSynth : Tone.Synth;
+
+      fallbackPolySynth = new Tone.PolySynth(SynthConstructor as any, {
+        maxPolyphony: 32,
+        options: presetConfig.options,
+        ...presetConfig.options,
+      } as any);
       fallbackPolySynth.maxPolyphony = 32;
-      fallbackPolySynth.volume.value = -4;
+      fallbackPolySynth.volume.value = -6;
       const dest = Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination;
       try {
         fallbackPolySynth.connect(dest as any);

@@ -40,7 +40,11 @@ export interface AudioState {
   setVocalMode: (mode: 'voice' | 'synth' | 'both') => void;
   voiceInputMode: 'free' | 'step';
   setVoiceInputMode: (mode: 'free' | 'step') => void;
+  vocalPreset: VocalPresetId;
+  setVocalPreset: (preset: VocalPresetId) => void;
 }
+
+export type VocalPresetId = 'guide' | 'rhodes' | 'pifano' | 'organ' | 'pluck';
 
 
 
@@ -130,6 +134,15 @@ export const useAudioStore = create<AudioState>((set) => ({
       delete nextBuffers[patternId];
       return { vocalBuffers: nextBuffers };
     }),
+  vocalPreset: 'guide',
+  setVocalPreset: (preset) => {
+    set({ vocalPreset: preset });
+    try {
+      import('../audio/vocalSynthService').then(({ applyVocalPresetLive }) => {
+        applyVocalPresetLive(preset);
+      });
+    } catch (_) {}
+  },
   vocalMode: 'voice',
   setVocalMode: (mode) => {
     set({ vocalMode: mode });

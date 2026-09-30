@@ -10,6 +10,7 @@ import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStor
 import { useMidiStore } from '../../stores/useMidiStore';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { PercussionTuningControl } from '../PercussionTuningControl';
+import { VocalTimbreSelector } from './VocalTimbreSelector';
 import { isDarkText } from '../../data';
 import { getStrokePairs, strokeExistsForInstrument } from '../../utils/instrumentStrokes';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
@@ -43,7 +44,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const isFr = lang === 'fr';
   const isEraser = activeTool === '0' || activeTool === '';
   const isScissors = activeTool === 'scissors';
-  const isVoice = instrument?.type === 'voice';
+  const isVoice = instrument?.type === 'voice' || instrument?.id === 'puxador' || instrument?.id === 'coro';
   const getInstrumentLabel = useInstrumentLabel();
 
   // Store selectors
@@ -518,9 +519,13 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
         </div>
       )}
 
-      {/* Section Lutherie du Fût (Accordage / Pitch) */}
+      {/* Section Lutherie du Fût (Accordage / Pitch) ou Timbre Vocal */}
       <div className="border-t border-[#1a1a1a]/20 pt-1.5 flex flex-col gap-1.5 mt-auto shrink-0">
-        <PercussionTuningControl trackId={trackId} onPreview={handlePreviewDrum} showPreviewButton={true} />
+        {isVoice ? (
+          <VocalTimbreSelector lang={lang} />
+        ) : (
+          <PercussionTuningControl trackId={trackId} onPreview={handlePreviewDrum} showPreviewButton={true} />
+        )}
       </div>
     </div>
   );
