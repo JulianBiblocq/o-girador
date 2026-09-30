@@ -34,6 +34,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
 
@@ -80,8 +81,9 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
           return;
         }
 
-        // 3. Vider la sélection multiple sur la timeline
+        // 3. Vider la sélection multiple sur la timeline et l'automation
         useSequencerStore.getState().clearTimelineSelection();
+        useSequencerStore.getState().clearAutomationSelection();
 
         // 4. Fermer les sélecteurs contextuels / popups
         window.dispatchEvent(new CustomEvent('close-popups'));
@@ -308,6 +310,47 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         }
       }
 
+      // 7.8. Touche Suppr / Delete / Backspace : Vider la sélection timeline (passer en silence)
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        const store = useSequencerStore.getState();
+        if (store.selectedTimelineCells.length > 0 || store.activeTimelineCell) {
+          e.preventDefault();
+          e.stopPropagation();
+          store.deleteSelectedTimelineCells();
+          return;
+        }
+      }
+
+      // 7.9. Ctrl+A / Cmd+A : Tout sélectionner sur la timeline
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isTextEntry
+        ) {
+          return;
+        }
+
+        if (!(window as any).oGiradorDetailEditorOpen) {
+          e.preventDefault();
+          e.stopPropagation();
+          useSequencerStore.getState().selectAllTimelineCells();
+          return;
+        }
+      }
+
       // 8. Ctrl+Z / Ctrl+Shift+Z ou Ctrl+Y : Annuler / Rétablir
       const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
       const isRedoKey = 
@@ -316,10 +359,14 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       if (isUndoKey) {
         e.preventDefault();
+        e.stopImmediatePropagation();
+        useSequencerStore.getState().handleUndo();
         if (handleUndo) handleUndo();
         return;
       } else if (isRedoKey) {
         e.preventDefault();
+        e.stopImmediatePropagation();
+        useSequencerStore.getState().handleRedo();
         if (handleRedo) handleRedo();
         return;
       }

@@ -580,6 +580,8 @@ export function useAudioSync({
   const lastElapsedSecRef = useRef<number>(0);
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
+  const lastAppliedTracksParamsRef = useRef<Record<string, string>>({});
+  const lastAppliedBussesRef = useRef<Record<string, string | null>>({});
 
   // FLAT SONG SCHEDULE REFERENCES
   const flatCompiledScheduleRef = useRef<Float32Array | null>(null);
@@ -992,19 +994,76 @@ export function useAudioSync({
 
         initInstrumentNodes();
 
-      // Synchronize track volume, panning, reverb levels, and mute/solo initially once nodes exist
+      // ── PHASE 1 : Initialiser et synchroniser les Bus d'abord (t.isBusFolder === true) ──
+      tracksRef.current.forEach((t) => {
+        if (!t.isBusFolder) return;
+
+        if (!busChannels[t.id]) {
+          const channelNode = new Tone.Channel({ volume: 0 });
+          try {
+            channelNode.channelCount = 2;
+            channelNode.channelCountMode = "explicit";
+          } catch (_) {}
+
+          busChannels[t.id] = channelNode;
+
+          busMeters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
+          channelNode.connect(busMeters[t.id]);
+        }
+
+        const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+        const distortion = t.fxSends?.distortion ?? 0;
+
+        if (busChannels[t.id] && !reverbSends[t.id]) {
+          reverbSends[t.id] = busChannels[t.id].send("reverb", percentToDb(isEco ? 0 : reverb));
+        }
+        if (busChannels[t.id] && !distortionSends[t.id]) {
+          distortionSends[t.id] = busChannels[t.id].send("distortion", percentToDb(distortion));
+        }
+
+        // Routage du bus vers parent ou master
+        const currentBusId = t.busId || null;
+        busChannels[t.id].disconnect();
+        if (currentBusId && busChannels[currentBusId]) {
+          busChannels[t.id].connect(busChannels[currentBusId]);
+        } else {
+          busChannels[t.id].connect(masterVolumeNode!);
+        }
+
+        if (reverbSends[t.id]) busChannels[t.id].connect(reverbSends[t.id]);
+        if (distortionSends[t.id]) busChannels[t.id].connect(distortionSends[t.id]);
+        if (busMeters[t.id]) busChannels[t.id].connect(busMeters[t.id]!);
+
+        lastAppliedBussesRef.current[t.id] = currentBusId;
+
+        // Paramètres acoustiques initiaux du bus
+        const isConnectedToParentBus = Boolean(t.busId && busChannels[t.busId]);
+        const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
+        const gain = Math.max(0.00001, effectiveVol / 100);
+        const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
+        const pan = (t.panVal || t.pan || 0) / 100;
+        const muteState = getEffectiveMuteState(tracksRef.current, t.id);
+
+        busChannels[t.id].volume.value = db;
+        busChannels[t.id].pan.value = pan;
+        busChannels[t.id].mute = muteState;
+
+        lastAppliedTracksParamsRef.current[t.id] = `bus_${db}_${pan}_${muteState}_${reverb}_${distortion}`;
+      });
+
+      // ── PHASE 2 : Initialiser et synchroniser les pistes normales et enfants (!t.isBusFolder) ──
       tracksRef.current.forEach((t) => {
         if (t.isBusFolder) return;
         const inst = instrumentsConfig[t.instrumentIdx];
         if (inst) {
           if (!channels[t.id]) {
-            channels[t.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
+            channels[t.id] = new Tone.Channel({ volume: 0 });
             try {
               channels[t.id].channelCount = 2;
               channels[t.id].channelCountMode = "explicit";
             } catch (_) {}
             
-            meters[t.id] = new Tone.Analyser("waveform", 256) as any;
+            meters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
             channels[t.id].connect(meters[t.id]);
 
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
@@ -1015,21 +1074,41 @@ export function useAudioSync({
             distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
           }
 
-          if (!trackInputs[t.id]) {
-            trackInputs[t.id] = new Tone.Gain(1.0);
-            syncTrackInsertChain(t.id, t);
+          // Routage strict : brancher sur busChannels[currentBusId] si défini, sinon vers masterVolumeNode!
+          const currentBusId = t.busId || null;
+          channels[t.id].disconnect();
+          if (currentBusId && busChannels[currentBusId]) {
+            channels[t.id].connect(busChannels[currentBusId]);
+          } else {
+            channels[t.id].connect(masterVolumeNode!);
           }
 
+          // Reconnecter le send réverb, le send distorsion et le VU-mètre (post-fader)
+          if (reverbSends[t.id]) channels[t.id].connect(reverbSends[t.id]);
+          if (distortionSends[t.id]) channels[t.id].connect(distortionSends[t.id]);
+          if (meters[t.id]) channels[t.id].connect(meters[t.id]);
+
+          lastAppliedBussesRef.current[t.id] = currentBusId;
+
+          if (!trackInputs[t.id]) {
+            trackInputs[t.id] = new Tone.Gain(1.0);
+          }
+          syncTrackInsertChain(t.id, t);
+
           // Always sync the channel mapping with audioEngine using the start of the insert chain
-          audioEngine?.setInstrumentChannel(t.id, inst.id, trackInputs[t.id] || channels[t.id]);
+          const gainNode = trackInputs[t.id] || channels[t.id];
+          audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
           const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
           const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
           const gain = Math.max(0.00001, effectiveVol / 100);
           const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
+          const pan = (t.pan ?? t.panVal ?? 0) / 100;
+          const muteState = getEffectiveMuteState(tracksRef.current, t.id);
+
           channels[t.id].volume.value = db;
-          channels[t.id].pan.value = (t.pan ?? t.panVal ?? 0) / 100;
-          channels[t.id].mute = getEffectiveMuteState(tracksRef.current, t.id);
+          channels[t.id].pan.value = pan;
+          channels[t.id].mute = muteState;
           
           if (reverbSends[t.id]) {
             const targetRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
@@ -1039,6 +1118,18 @@ export function useAudioSync({
             const targetDistDb = percentToDb(t.fxSends?.distortion ?? 0);
             try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
           }
+
+          const lowCut = t.lowCut ?? false;
+          const eqLowG = t.eqBands?.low?.g ?? 0;
+          const eqLowF = t.eqBands?.low?.f ?? 100;
+          const eqMidG = t.eqBands?.mid?.g ?? 0;
+          const eqMidF = t.eqBands?.mid?.f ?? 1000;
+          const eqMidQ = t.eqBands?.mid?.q ?? 'wide';
+          const eqHighG = t.eqBands?.high?.g ?? 0;
+          const eqHighF = t.eqBands?.high?.f ?? 8000;
+          const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+          const distortion = t.fxSends?.distortion ?? 0;
+          lastAppliedTracksParamsRef.current[t.id] = `${db}_${pan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
         }
       });
 
@@ -1074,7 +1165,7 @@ export function useAudioSync({
       // Stable 96-tick sequencing loop using our AudioEngine
       onTickRef.current = (time) => {
         if (isPlaybackEndingRef.current) {
-          return;
+          return true;
         }
 
         const isDocHidden = typeof document !== 'undefined' && document.hidden;
@@ -1144,7 +1235,7 @@ export function useAudioSync({
                   autoStopTimeoutRef.current = null;
                   handleStop();
                 }, 3000);
-                return;
+                return true;
               } else {
                 // Live Arranger Logic (Mission 3) - Applies to both global and sub-loops
                 const shouldExit = isLoopExitRequestedRef.current || (loopModeRef.current !== 'infinite' && currentLoopIterationRef.current >= loopModeRef.current);
@@ -1174,7 +1265,7 @@ export function useAudioSync({
                       autoStopTimeoutRef.current = null;
                       handleStop();
                     }, 3000);
-                    return;
+                    return true;
                   }
                 } else {
                   // On boucle
@@ -1236,7 +1327,7 @@ export function useAudioSync({
                             },
                           })
                         );
-                        return;
+                        return true;
                       }
                     }
                   }
@@ -1255,7 +1346,7 @@ export function useAudioSync({
                 autoStopTimeoutRef.current = null;
                 handleStop();
               }, 3000);
-              return;
+              return true;
             } else {
               // Normal progression
               measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
@@ -2119,12 +2210,12 @@ export function useAudioSync({
           }
         }
 
-        // Wrap-around Guard : signaler si ce pas est le dernier de la boucle active
+        // Wrap-around Guard : signaler si ce pas est le dernier de la boucle active ou si lecture terminée
         const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : ((totalMeasuresRef.current || 1) - 1);
         const isLastStepOfLoop = (stepIdx === currentTicks - 1) &&
           ((soloPatternPlayIdRef.current !== null) || (currentMeasureIdx === effectiveLoopEnd && isLoopingRef.current));
 
-        return isLastStepOfLoop;
+        return isLastStepOfLoop || isPlaybackEndingRef.current;
       };
 
       const rawCtx = Tone.getContext().rawContext as AudioContext;
@@ -3202,9 +3293,6 @@ export function useAudioSync({
     return () => window.removeEventListener('o-girador-timeline-nav', handleTimelineNav);
   }, [seekToMeasure]);
 
-  const lastAppliedTracksParamsRef = useRef<Record<string, string>>({});
-  const lastAppliedBussesRef = useRef<Record<string, string | null>>({});
-
   // Synchronize track volume, panning, reverb levels, and mute/solo dynamically when React state changes
   useEffect(() => {
     const unsub = useSequencerStore.subscribe((state, prevState) => {
@@ -3261,7 +3349,6 @@ export function useAudioSync({
                 channelNode.channelCount = 2;
                 channelNode.channelCountMode = "explicit";
               } catch (_) {}
-              channelNode.connect(masterVolumeNode!);
 
               busChannels[t.id] = channelNode;
               
@@ -3281,7 +3368,7 @@ export function useAudioSync({
             const paramHash = `bus_${db}_${pan}_${muteState}_${reverb}_${distortion}`;
 
             if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-              busChannels[t.id].volume.value = db;
+              busChannels[t.id].volume.rampTo(db, 0.05);
               busChannels[t.id].pan.value = pan;
               busChannels[t.id].mute = muteState;
 
@@ -3337,7 +3424,7 @@ export function useAudioSync({
 
           // Création dynamique des canaux si inexistants pour cette piste
           if (!channels[t.id]) {
-            channels[t.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
+            channels[t.id] = new Tone.Channel({ volume: 0 });
             try {
               channels[t.id].channelCount = 2;
               channels[t.id].channelCountMode = "explicit";

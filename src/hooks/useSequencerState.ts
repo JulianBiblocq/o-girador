@@ -20,6 +20,27 @@ import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useSequencerHistory } from './useSequencerHistory';
 import { getNextPatternName } from '../utils/patternNaming';
 
+/**
+ * Convertit toutes les frappes vocales ('P' ou 'C') d'un tableau activeSteps
+ * pour forcer le rôle de la piste de destination.
+ * Ne touche ni aux notes, ni aux lyrics, ni aux durées.
+ * Impact CPU : O(n) trivial, aucun Reflow/Paint.
+ */
+function convertStepsToVocalRole(
+  steps: (string | number | [string, string])[],
+  targetRole: 'P' | 'C'
+): (string | number | [string, string])[] {
+  const sourceToReplace = targetRole === 'P' ? 'C' : 'P';
+  return steps.map(step => {
+    if (step === sourceToReplace) return targetRole;
+    if (step === targetRole) return step; // Déjà correct
+    if (Array.isArray(step)) {
+      return step.map(s => s === sourceToReplace ? targetRole : s) as [string, string];
+    }
+    return step;
+  });
+}
+
 export function useSequencerState() {
   const { userProfile, updateUserPreference } = useAuth();
   const setTracks = (useSequencerStore as any)(state => state.setTracks) as any;
@@ -28,10 +49,14 @@ export function useSequencerState() {
   const [timeSig, setTimeSig] = useState<TimeSignature>('4/4');
 
   const setMeasureTimeSigs = (useSequencerStore as any)(state => state.setMeasureTimeSigs) as any;
-  const [measureBpms, setMeasureBpms] = useState<number[]>(() => Array(8).fill(83));
-  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp' | 'bezier')[]>(() => Array(8).fill('immediate'));
-  const [measureVols, setMeasureVols] = useState<number[]>(() => Array(8).fill(100));
-  const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp' | 'bezier')[]>(() => Array(8).fill('immediate'));
+  const measureBpms = useSequencerStore(state => state.measureBpms);
+  const setMeasureBpms = useSequencerStore(state => state.setMeasureBpms);
+  const measureBpmTransitions = useSequencerStore(state => state.measureBpmTransitions);
+  const setMeasureBpmTransitions = useSequencerStore(state => state.setMeasureBpmTransitions);
+  const measureVols = useSequencerStore(state => state.measureVols);
+  const setMeasureVols = useSequencerStore(state => state.setMeasureVols);
+  const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
+  const setMeasureVolTransitions = useSequencerStore(state => state.setMeasureVolTransitions);
   const setSongSections = (useSequencerStore as any)(state => state.setSongSections) as any;
   const measureSignals = useSequencerStore(state => state.measureSignals);
   const setMeasureSignals = (useSequencerStore as any)(state => state.setMeasureSignals) as any;
@@ -102,13 +127,9 @@ export function useSequencerState() {
     useSequencerStore.setState({
       bpm,
       timeSig,
-      measureBpms,
-      measureBpmTransitions,
-      measureVols,
-      measureVolTransitions,
       isLooping,
     });
-  }, [bpm, timeSig, measureBpms, measureBpmTransitions, measureVols, measureVolTransitions, isLooping]);
+  }, [bpm, timeSig, isLooping]);
 
   useEffect(() => {
     if (userProfile && userProfile.isLeftHanded !== undefined) {
@@ -186,6 +207,11 @@ export function useSequencerState() {
       isLoopingRef.current = state.isLooping;
       loopModeRef.current = state.loopMode;
       isLoopExitRequestedRef.current = state.isLoopExitRequested;
+      measureBpmsRef.current = state.measureBpms;
+      measureBpmTransitionsRef.current = state.measureBpmTransitions;
+      measureVolsRef.current = state.measureVols;
+      measureVolTransitionsRef.current = state.measureVolTransitions;
+      measureSignalsRef.current = state.measureSignals;
     });
     // Init refs
     const state = useSequencerStore.getState();
@@ -199,23 +225,13 @@ export function useSequencerState() {
     isLoopingRef.current = state.isLooping;
     loopModeRef.current = state.loopMode;
     isLoopExitRequestedRef.current = state.isLoopExitRequested;
-
-    measureBpmsRef.current = measureBpms;
-    measureBpmTransitionsRef.current = measureBpmTransitions;
-    measureVolsRef.current = measureVols;
-    measureVolTransitionsRef.current = measureVolTransitions;
-    measureSignalsRef.current = measureSignals;
+    measureBpmsRef.current = state.measureBpms;
+    measureBpmTransitionsRef.current = state.measureBpmTransitions;
+    measureVolsRef.current = state.measureVols;
+    measureVolTransitionsRef.current = state.measureVolTransitions;
+    measureSignalsRef.current = state.measureSignals;
     return unsub;
-  }, [
-    measureBpms,
-    measureBpmTransitions,
-    measureVols,
-    measureVolTransitions,
-    measureSignals,
-    isLooping,
-    activeVariationsRef,
-    tracksRef
-  ]);
+  }, []);
 
   // Adjust measure arrays length when totalMeasures changes
   useEffect(() => {
@@ -1102,6 +1118,16 @@ export function useSequencerState() {
             if (pasted.decays) pasted.decays.length = patternToPaste.steps;
             if (pasted.microtimings) pasted.microtimings.length = patternToPaste.steps;
 
+            // 🛡️ Étanchéité vocale : forcer le rôle de la piste de destination
+            const destInstId1 = instrumentsConfig[t.instrumentIdx]?.id;
+            if (destInstId1 === 'puxador' || destInstId1 === 'coro') {
+              const role = destInstId1 === 'puxador' ? 'P' : 'C';
+              pasted.activeSteps = convertStepsToVocalRole(pasted.activeSteps, role);
+              if (pasted.preRollActiveSteps) {
+                pasted.preRollActiveSteps = convertStepsToVocalRole(pasted.preRollActiveSteps, role);
+              }
+            }
+
             return {
               ...t,
               patterns: [...t.patterns, pasted],
@@ -1110,12 +1136,25 @@ export function useSequencerState() {
           }
 
           // Collage sur un motif existant distinct : on conserve son nom original (p.name)
+          // 🛡️ Étanchéité vocale : forcer le rôle de la piste de destination
+          const destInstId2 = instrumentsConfig[t.instrumentIdx]?.id;
+          const isDestVocal2 = destInstId2 === 'puxador' || destInstId2 === 'coro';
+          const vocalRole2 = destInstId2 === 'puxador' ? 'P' : 'C';
+
           const nextPatterns = t.patterns.map(p => {
             if (p.id === targetPatternId) {
+              let nextActiveSteps = [...patternToPaste.activeSteps];
+              let nextPreRollActiveSteps = patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined;
+              if (isDestVocal2) {
+                nextActiveSteps = convertStepsToVocalRole(nextActiveSteps, vocalRole2);
+                if (nextPreRollActiveSteps) {
+                  nextPreRollActiveSteps = convertStepsToVocalRole(nextPreRollActiveSteps, vocalRole2);
+                }
+              }
               return {
                 ...p,
                 name: p.name,
-                activeSteps: [...patternToPaste.activeSteps],
+                activeSteps: nextActiveSteps,
                 lyrics: [...patternToPaste.lyrics],
                 notes: [...patternToPaste.notes],
                 volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
@@ -1123,7 +1162,7 @@ export function useSequencerState() {
                 microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
                 beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,
                 variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
-                preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
+                preRollActiveSteps: nextPreRollActiveSteps,
                 preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
                 preRollNotes: patternToPaste.preRollNotes ? [...patternToPaste.preRollNotes] : undefined,
                 preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
@@ -1171,6 +1210,16 @@ export function useSequencerState() {
           if (pasted.volumes) pasted.volumes.length = patternToPaste.steps;
           if (pasted.decays) pasted.decays.length = patternToPaste.steps;
           if (pasted.microtimings) pasted.microtimings.length = patternToPaste.steps;
+
+          // 🛡️ Étanchéité vocale : forcer le rôle de la piste de destination
+          const destInstId3 = instrumentsConfig[t.instrumentIdx]?.id;
+          if (destInstId3 === 'puxador' || destInstId3 === 'coro') {
+            const role = destInstId3 === 'puxador' ? 'P' : 'C';
+            pasted.activeSteps = convertStepsToVocalRole(pasted.activeSteps, role);
+            if (pasted.preRollActiveSteps) {
+              pasted.preRollActiveSteps = convertStepsToVocalRole(pasted.preRollActiveSteps, role);
+            }
+          }
 
           return {
             ...t,
@@ -1463,9 +1512,14 @@ export function useSequencerState() {
             if (!val || val.trim() === '' || val === '0') {
               arrNotes[stepIdx] = '';
               copySteps[stepIdx] = 0;
-            } else if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+            } else {
               const instId = instrumentsConfig[t.instrumentIdx]?.id;
-              copySteps[stepIdx] = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
+              const vocalRole = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
+              // 🛡️ Forcer le rôle correct : que le pas soit vide OU qu'il porte le mauvais rôle
+              if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0'
+                  || copySteps[stepIdx] === (vocalRole === 'P' ? 'C' : 'P')) {
+                copySteps[stepIdx] = vocalRole;
+              }
             }
             return { ...p, activeSteps: copySteps, notes: arrNotes };
           }
@@ -1618,9 +1672,14 @@ export function useSequencerState() {
               if (!arrSyl[stepIdx] || arrSyl[stepIdx].trim() === '') {
                 copySteps[stepIdx] = 0;
               }
-            } else if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
+            } else {
               const instId = instrumentsConfig[t.instrumentIdx]?.id;
-              copySteps[stepIdx] = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
+              const vocalRole = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
+              // 🛡️ Forcer le rôle correct : que le pas soit vide OU qu'il porte le mauvais rôle
+              if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0'
+                  || copySteps[stepIdx] === (vocalRole === 'P' ? 'C' : 'P')) {
+                copySteps[stepIdx] = vocalRole;
+              }
             }
             return { ...p, preRollNotes: arrNotes, preRollActiveSteps: copySteps };
           }
@@ -1790,6 +1849,12 @@ export function useSequencerState() {
                 const currentVal = Array.isArray(val) ? val[i] : val;
                 const parsed = parseVal(currentVal);
                 copySteps[idx] = parsed;
+                // 🛡️ Étanchéité vocale : corriger le rôle si mauvais type sur piste vocale
+                if (isVoice && parsed !== 0 && parsed !== '0' && parsed) {
+                  const destRole = (inst?.id === 'coro') ? 'C' : 'P';
+                  const wrongRole = destRole === 'P' ? 'C' : 'P';
+                  if (copySteps[idx] === wrongRole) copySteps[idx] = destRole;
+                }
                 if (lyrics) {
                   const lyricVal = Array.isArray(lyrics) ? lyrics[i] : lyrics;
                   if (lyricVal !== undefined) arrLyrics[idx] = lyricVal;
@@ -1813,6 +1878,12 @@ export function useSequencerState() {
               } else {
                 parsed = parseVal(val);
                 copySteps[stepIdx] = parsed;
+                // 🛡️ Étanchéité vocale : corriger le rôle si mauvais type sur piste vocale
+                if (isVoice && parsed !== 0 && parsed !== '0' && parsed) {
+                  const destRole = (inst?.id === 'coro') ? 'C' : 'P';
+                  const wrongRole = destRole === 'P' ? 'C' : 'P';
+                  if (copySteps[stepIdx] === wrongRole) copySteps[stepIdx] = destRole;
+                }
               }
               if (lyrics !== undefined) {
                 arrLyrics[stepIdx] = Array.isArray(lyrics) ? (lyrics[0] ?? '') : lyrics;

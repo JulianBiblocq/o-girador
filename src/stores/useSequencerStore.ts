@@ -210,6 +210,50 @@ export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   return !t.isBusFolder;
 };
 
+export const getVisibleTimelineTrackIds = (state: {
+  tracks: TrackGroup[];
+  rodaTrackOrder?: number[];
+}): number[] => {
+  const topLevelList: TrackGroup[] = [];
+  state.tracks.forEach(t => {
+    if (isLinearDAWVisibleTrack(t, state.tracks)) {
+      topLevelList.push(t);
+    }
+  });
+
+  if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
+    const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
+    topLevelList.sort((a, b) => {
+      const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+      const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+      return idxA - idxB;
+    });
+  }
+
+  const visibleTrackIds: number[] = [];
+  topLevelList.forEach(t => {
+    visibleTrackIds.push(t.id);
+    if (isToadaBus(t) && !t.isSequencerFolded) {
+      const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
+      const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
+      if (puxTrack) visibleTrackIds.push(puxTrack.id);
+      if (coroTrack) visibleTrackIds.push(coroTrack.id);
+    }
+    if (t.isLinkMaster) {
+      const parentBus = state.tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+      if (parentBus && !parentBus.isSequencerFolded) {
+        const slaves = state.tracks.filter(child => 
+          String(child.linkedToTrackId) === String(parentBus.id) && 
+          !child.isLinkFolder && 
+          !child.isLinkMaster
+        );
+        slaves.forEach(slave => visibleTrackIds.push(slave.id));
+      }
+    }
+  });
+  return visibleTrackIds;
+};
+
 export const sanitizeRodaTrackOrder = (currentOrder: number[] | undefined, tracks: TrackGroup[]): number[] => {
   const trackIdSet = new Set(tracks.map(t => t.id));
   const validExisting = (currentOrder || []).filter(id => trackIdSet.has(id));
@@ -837,6 +881,17 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   },
 
   handleTrackMeasureVolChange: (trackId, mIdx, val) => {
+    const state = get();
+    if (
+      state.selectedAutomationType === 'volume' &&
+      state.selectedAutomationTrackId === trackId &&
+      state.selectedAutomationRange &&
+      mIdx >= state.selectedAutomationRange.start &&
+      mIdx <= state.selectedAutomationRange.end
+    ) {
+      state.setGroupedAutomationValue('volume', val, trackId);
+      return;
+    }
     get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
@@ -2683,8 +2738,16 @@ export interface StructureSlice {
   handleDeleteMeasure: (measureIdx: number) => void;
   handleInsertMeasure: (measureIdx: number) => void;
   duplicateSectionBlock: (startIdx: number, endIdx: number, targetIdx: number, copiesCount: number) => void;
+  stretchSongSection: (sectionId: string, newEndMeasure: number, mode: 'insert' | 'overwrite') => void;
   isMasterVolumeBypassed?: boolean;
   toggleMasterVolumeBypass: () => void;
+  selectedAutomationType: 'bpm' | 'volume' | null;
+  selectedAutomationTrackId: number | null;
+  selectedAutomationRange: { start: number; end: number } | null;
+  automationAnchorMeasure: number | null;
+  selectAutomationMeasure: (type: 'bpm' | 'volume', measureIdx: number, isShift: boolean, trackId?: number | null) => void;
+  clearAutomationSelection: () => void;
+  setGroupedAutomationValue: (type: 'bpm' | 'volume', value: number, trackId?: number | null) => void;
 }
 
 const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice> = (set, get) => ({
@@ -2706,6 +2769,10 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   songSections: [],
   songMarkers: [],
   mestreSignals: [],
+  selectedAutomationType: null,
+  selectedAutomationTrackId: null,
+  selectedAutomationRange: null,
+  automationAnchorMeasure: null,
  
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
@@ -2792,12 +2859,122 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     });
   },
 
+  selectAutomationMeasure: (type, measureIdx, isShift, trackId = null) => {
+    set((state) => {
+      const isSameTarget =
+        state.selectedAutomationType === type &&
+        state.selectedAutomationTrackId === trackId;
+
+      if (!isShift || !isSameTarget || state.automationAnchorMeasure === null) {
+        return {
+          selectedAutomationType: type,
+          selectedAutomationTrackId: trackId,
+          automationAnchorMeasure: measureIdx,
+          selectedAutomationRange: { start: measureIdx, end: measureIdx }
+        };
+      } else {
+        const anchor = state.automationAnchorMeasure;
+        return {
+          selectedAutomationType: type,
+          selectedAutomationTrackId: trackId,
+          selectedAutomationRange: {
+            start: Math.min(anchor, measureIdx),
+            end: Math.max(anchor, measureIdx)
+          }
+        };
+      }
+    });
+  },
+
+  clearAutomationSelection: () => {
+    set({
+      selectedAutomationType: null,
+      selectedAutomationTrackId: null,
+      selectedAutomationRange: null,
+      automationAnchorMeasure: null
+    });
+  },
+
+  setGroupedAutomationValue: (type, value, trackId = null) => {
+    get().pushUndoState();
+    const state = get();
+    const totalM = state.totalMeasures || 8;
+    const range = state.selectedAutomationRange || { start: 0, end: totalM - 1 };
+    const start = Math.max(0, Math.min(range.start, range.end));
+    const end = Math.min(totalM - 1, Math.max(range.start, range.end));
+
+    if (type === 'bpm') {
+      const nextBpms = [...state.measureBpms];
+      while (nextBpms.length < totalM) {
+        nextBpms.push(state.bpm || 83);
+      }
+      for (let i = start; i <= end; i++) {
+        nextBpms[i] = value;
+      }
+      const updates: any = {
+        measureBpms: nextBpms,
+        tracksVersion: state.tracksVersion + 1
+      };
+      if (start === 0) {
+        updates.bpm = value;
+      }
+      set(updates);
+    } else if (type === 'volume') {
+      if (trackId === null || trackId === undefined) {
+        // Master Volume
+        const nextVols = [...state.measureVols];
+        while (nextVols.length < totalM) {
+          nextVols.push(100);
+        }
+        for (let i = start; i <= end; i++) {
+          nextVols[i] = value;
+        }
+        set({
+          measureVols: nextVols,
+          tracksVersion: state.tracksVersion + 1
+        });
+      } else {
+        // Track-specific Volume
+        set((s) => ({
+          tracks: s.tracks.map((t) => {
+            if (t.id === trackId) {
+              const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 100);
+              while (currentVols.length < totalM) {
+                currentVols.push(t.volumeVal ?? 100);
+              }
+              for (let i = start; i <= end; i++) {
+                currentVols[i] = value;
+              }
+              return { ...t, measureVols: currentVols };
+            }
+            return t;
+          }),
+          tracksVersion: s.tracksVersion + 1
+        }));
+      }
+    }
+  },
+
   handleMeasureBpmChange: (idx, val) => {
+    const state = get();
+    if (
+      state.selectedAutomationType === 'bpm' &&
+      state.selectedAutomationRange &&
+      idx >= state.selectedAutomationRange.start &&
+      idx <= state.selectedAutomationRange.end
+    ) {
+      state.setGroupedAutomationValue('bpm', val, null);
+      return;
+    }
     get().pushUndoState();
     set((state) => {
       const arr = [...state.measureBpms];
       arr[idx] = val;
-      return { measureBpms: arr };
+      return { 
+        measureBpms: arr,
+        bpm: idx === 0 ? val : state.bpm,
+        tracksVersion: state.tracksVersion + 1
+      };
     });
   },
 
@@ -2811,11 +2988,25 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   },
 
   handleMeasureVolChange: (idx, val) => {
+    const state = get();
+    if (
+      state.selectedAutomationType === 'volume' &&
+      (state.selectedAutomationTrackId === null || state.selectedAutomationTrackId === undefined) &&
+      state.selectedAutomationRange &&
+      idx >= state.selectedAutomationRange.start &&
+      idx <= state.selectedAutomationRange.end
+    ) {
+      state.setGroupedAutomationValue('volume', val, null);
+      return;
+    }
     get().pushUndoState();
     set((state) => {
       const arr = [...state.measureVols];
       arr[idx] = val;
-      return { measureVols: arr };
+      return { 
+        measureVols: arr,
+        tracksVersion: state.tracksVersion + 1
+      };
     });
   },
 
@@ -2966,6 +3157,288 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     set((state) => ({
       songSections: state.songSections.filter(s => s.id !== id)
     }));
+  },
+
+  stretchSongSection: (sectionId, newEndMeasure, mode) => {
+    get().pushUndoState();
+
+    set((state) => {
+      const section = state.songSections.find(s => s.id === sectionId);
+      if (!section) return {};
+
+      const origStart = section.startMeasure;
+      const origEnd = section.endMeasure;
+      const blockSize = origEnd - origStart + 1;
+      const count = newEndMeasure - origEnd;
+      if (count <= 0 || blockSize <= 0) return {};
+
+      const targetStartM = origEnd + 1;
+
+      if (mode === 'insert') {
+        const newTotalMeasures = state.totalMeasures + count;
+        if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && newTotalMeasures > state.maxMeasuresAllowed) {
+          alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+          return state;
+        }
+
+        const prevIdx = Math.max(0, targetStartM - 1);
+        const refSig = state.measureTimeSigs[prevIdx] || state.timeSig;
+        const refBpm = state.measureBpms[prevIdx] || state.bpm;
+        const refVol = state.measureVols[prevIdx] !== undefined ? state.measureVols[prevIdx] : 100;
+
+        const spliceArray = <T>(arr: T[], fillVal: T): T[] => {
+          const next = [...(arr || [])];
+          next.splice(targetStartM, 0, ...Array(count).fill(fillVal));
+          return next;
+        };
+
+        const nextTimeSigs = spliceArray(state.measureTimeSigs, refSig);
+        const nextBpms = spliceArray(state.measureBpms, refBpm);
+        const nextBpmTransitions = spliceArray(state.measureBpmTransitions, 'immediate');
+        const nextVols = spliceArray(state.measureVols, refVol);
+        const nextVolTransitions = spliceArray(state.measureVolTransitions, 'immediate');
+        const nextSignals = spliceArray(state.measureSignals, null);
+
+        // Décaler les repères songMarkers (Sécurité C)
+        const nextMarkers = (state.songMarkers || []).map(m =>
+          m.measure >= targetStartM ? { ...m, measure: m.measure + count } : m
+        );
+
+        // Décaler et ajuster les songSections
+        const nextSections = state.songSections.map(s => {
+          if (s.id === section.id) {
+            return { ...s, endMeasure: origEnd + count };
+          }
+          if (s.startMeasure >= targetStartM) {
+            return { ...s, startMeasure: s.startMeasure + count, endMeasure: s.endMeasure + count };
+          }
+          if (s.endMeasure >= targetStartM) {
+            return { ...s, endMeasure: s.endMeasure + count };
+          }
+          return s;
+        }).sort((a, b) => a.startMeasure - b.startMeasure);
+
+        // Décaler et insérer sur les pistes
+        const nextTracks = state.tracks.map(t => {
+          const nextVols = t.measureVols ? spliceArray(t.measureVols, t.measureVols[prevIdx] ?? t.volumeVal ?? 100) : undefined;
+          const nextVolTrans = t.measureVolTransitions ? spliceArray(t.measureVolTransitions, 'immediate' as const) : undefined;
+          const nextPans = t.measurePans ? spliceArray(t.measurePans, t.measurePans[prevIdx] ?? t.panVal ?? t.pan ?? 0) : undefined;
+          const nextPanTrans = t.measurePanTransitions ? spliceArray(t.measurePanTransitions, 'immediate' as const) : undefined;
+          const nextReverb = t.measureReverbSends ? spliceArray(t.measureReverbSends, t.measureReverbSends[prevIdx] ?? t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined;
+          const nextReverbTrans = t.measureReverbTransitions ? spliceArray(t.measureReverbTransitions, 'immediate' as const) : undefined;
+
+          let nextOverrides: Record<number, number | null> | undefined = undefined;
+          if (t.patternOverrides) {
+            nextOverrides = {};
+            for (const [keyStr, val] of Object.entries(t.patternOverrides)) {
+              const m = Number(keyStr);
+              if (m >= targetStartM) {
+                nextOverrides[m + count] = val;
+              } else {
+                nextOverrides[m] = val;
+              }
+            }
+          }
+
+          const nextPatterns = t.patterns.map(p => ({
+            ...p,
+            measureAssignments: spliceArray(p.measureAssignments, false),
+            measureAllowVariations: p.measureAllowVariations ? spliceArray(p.measureAllowVariations, true) : undefined
+          }));
+
+          return {
+            ...t,
+            measureVols: nextVols,
+            measureVolTransitions: nextVolTrans,
+            measurePans: nextPans,
+            measurePanTransitions: nextPanTrans,
+            measureReverbSends: nextReverb,
+            measureReverbTransitions: nextReverbTrans,
+            patternOverrides: nextOverrides,
+            patterns: nextPatterns
+          };
+        });
+
+        // Dupliquer fidèlement les motifs et automations de la section source sur les mesures insérées
+        for (let i = 0; i < count; i++) {
+          const srcM = origStart + (i % blockSize);
+          const destM = targetStartM + i;
+
+          nextTimeSigs[destM] = nextTimeSigs[srcM];
+          nextBpms[destM] = nextBpms[srcM];
+          nextBpmTransitions[destM] = nextBpmTransitions[srcM];
+          nextVols[destM] = nextVols[srcM];
+          nextVolTransitions[destM] = nextVolTransitions[srcM];
+          nextSignals[destM] = nextSignals[srcM];
+
+          for (const t of nextTracks) {
+            if (t.measureVols && t.measureVols[srcM] !== undefined) {
+              t.measureVols[destM] = t.measureVols[srcM];
+            }
+            if (t.measurePans && t.measurePans[srcM] !== undefined) {
+              t.measurePans[destM] = t.measurePans[srcM];
+            }
+            if (t.patternOverrides) {
+              if (t.patternOverrides[srcM] !== undefined) {
+                t.patternOverrides[destM] = t.patternOverrides[srcM];
+              } else {
+                delete t.patternOverrides[destM];
+              }
+            }
+            for (const p of t.patterns) {
+              p.measureAssignments[destM] = Boolean(p.measureAssignments[srcM]);
+              if (p.measureAllowVariations && p.measureAllowVariations[srcM] !== undefined) {
+                p.measureAllowVariations[destM] = p.measureAllowVariations[srcM];
+              }
+            }
+          }
+        }
+
+        const nextLoopStart = (state.loopStartMeasure !== null && state.loopStartMeasure >= targetStartM)
+          ? state.loopStartMeasure + count
+          : state.loopStartMeasure;
+        const nextLoopEnd = (state.loopEndMeasure !== null && state.loopEndMeasure >= targetStartM)
+          ? state.loopEndMeasure + count
+          : state.loopEndMeasure;
+
+        return {
+          totalMeasures: newTotalMeasures,
+          loopStartMeasure: nextLoopStart,
+          loopEndMeasure: nextLoopEnd,
+          measureTimeSigs: nextTimeSigs,
+          measureBpms: nextBpms,
+          measureBpmTransitions: nextBpmTransitions,
+          measureVols: nextVols,
+          measureVolTransitions: nextVolTransitions,
+          measureSignals: nextSignals,
+          songSections: nextSections,
+          songMarkers: nextMarkers,
+          tracks: nextTracks,
+          tracksVersion: state.tracksVersion + 1
+        };
+      }
+
+      // Mode === 'overwrite'
+      const newTotalMeasures = Math.max(state.totalMeasures, newEndMeasure + 1);
+      if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && newTotalMeasures > state.maxMeasuresAllowed) {
+        alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+        return state;
+      }
+
+      const expandArray = <T>(arr: T[], fillVal: T, len: number): T[] => {
+        const next = [...(arr || [])];
+        while (next.length < len) next.push(fillVal);
+        return next;
+      };
+
+      const nextTimeSigs = expandArray(state.measureTimeSigs, state.timeSig, newTotalMeasures);
+      const nextBpms = expandArray(state.measureBpms, state.bpm, newTotalMeasures);
+      const nextBpmTransitions = expandArray(state.measureBpmTransitions, 'immediate', newTotalMeasures);
+      const nextVols = expandArray(state.measureVols, 100, newTotalMeasures);
+      const nextVolTransitions = expandArray(state.measureVolTransitions, 'immediate', newTotalMeasures);
+      const nextSignals = expandArray(state.measureSignals, null, newTotalMeasures);
+
+      const nextTracks = state.tracks.map(t => {
+        const nextOverrides = t.patternOverrides ? { ...t.patternOverrides } : {};
+        const nextVols = t.measureVols ? expandArray(t.measureVols, 100, newTotalMeasures) : undefined;
+        const nextPans = t.measurePans ? expandArray(t.measurePans, 0, newTotalMeasures) : undefined;
+        const nextPatterns = t.patterns.map(p => ({
+          ...p,
+          measureAssignments: expandArray(p.measureAssignments || [], false, newTotalMeasures),
+          measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true, newTotalMeasures) : undefined
+        }));
+        return {
+          ...t,
+          patternOverrides: nextOverrides,
+          measureVols: nextVols,
+          measurePans: nextPans,
+          patterns: nextPatterns
+        };
+      });
+
+      // Écraser avec les motifs et automations de la section source sur [targetStartM, newEndMeasure]
+      for (let i = 0; i < count; i++) {
+        const srcM = origStart + (i % blockSize);
+        const destM = targetStartM + i;
+
+        nextTimeSigs[destM] = nextTimeSigs[srcM];
+        nextBpms[destM] = nextBpms[srcM];
+        nextBpmTransitions[destM] = nextBpmTransitions[srcM];
+        nextVols[destM] = nextVols[srcM];
+        nextVolTransitions[destM] = nextVolTransitions[srcM];
+        nextSignals[destM] = nextSignals[srcM];
+
+        for (const t of nextTracks) {
+          if (t.measureVols && t.measureVols[srcM] !== undefined) {
+            t.measureVols[destM] = t.measureVols[srcM];
+          }
+          if (t.measurePans && t.measurePans[srcM] !== undefined) {
+            t.measurePans[destM] = t.measurePans[srcM];
+          }
+          if (t.patternOverrides) {
+            if (t.patternOverrides[srcM] !== undefined) {
+              t.patternOverrides[destM] = t.patternOverrides[srcM];
+            } else {
+              delete t.patternOverrides[destM];
+            }
+          }
+          for (const p of t.patterns) {
+            p.measureAssignments[destM] = Boolean(p.measureAssignments[srcM]);
+            if (p.measureAllowVariations && p.measureAllowVariations[srcM] !== undefined) {
+              p.measureAllowVariations[destM] = p.measureAllowVariations[srcM];
+            }
+          }
+        }
+      }
+
+      // Sécurité B: Précision du rognage des sections
+      const nextSections: SongSection[] = [];
+      for (const s of state.songSections) {
+        if (s.id === section.id) {
+          nextSections.push({ ...s, endMeasure: newEndMeasure });
+          continue;
+        }
+
+        // Si s est complètement recouverte par [targetStartM, newEndMeasure] : supprimer
+        if (s.startMeasure >= targetStartM && s.endMeasure <= newEndMeasure) {
+          continue;
+        }
+
+        let adjStart = s.startMeasure;
+        let adjEnd = s.endMeasure;
+
+        // Si son début est dans la plage recouverte : ajuster début
+        if (adjStart >= targetStartM && adjStart <= newEndMeasure) {
+          adjStart = newEndMeasure + 1;
+        }
+        // Si sa fin est dans la plage recouverte : ajuster fin
+        if (adjEnd >= targetStartM && adjEnd <= newEndMeasure) {
+          adjEnd = targetStartM - 1;
+        }
+        // Si elle englobe toute la plage : conserver la partie gauche
+        if (s.startMeasure < targetStartM && s.endMeasure > newEndMeasure) {
+          adjEnd = targetStartM - 1;
+        }
+
+        if (adjStart <= adjEnd) {
+          nextSections.push({ ...s, startMeasure: adjStart, endMeasure: adjEnd });
+        }
+      }
+      nextSections.sort((a, b) => a.startMeasure - b.startMeasure);
+
+      return {
+        totalMeasures: newTotalMeasures,
+        measureTimeSigs: nextTimeSigs,
+        measureBpms: nextBpms,
+        measureBpmTransitions: nextBpmTransitions,
+        measureVols: nextVols,
+        measureVolTransitions: nextVolTransitions,
+        measureSignals: nextSignals,
+        songSections: nextSections,
+        tracks: nextTracks,
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
   },
 
   handleCreateSongMarker: (name, measure, color) => {
@@ -3225,7 +3698,7 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
 // ---------------------------------------------------------
 // 4. HISTORY SLICE
 // ---------------------------------------------------------
-export type StructureSnapshot = Pick<StructureSlice, 'measureTimeSigs' | 'measureBpms' | 'measureBpmTransitions' | 'measureVols' | 'measureVolTransitions' | 'songSections' | 'songMarkers'>;
+export type StructureSnapshot = Pick<StructureSlice, 'totalMeasures' | 'measureTimeSigs' | 'measureBpms' | 'measureBpmTransitions' | 'measureVols' | 'measureVolTransitions' | 'songSections' | 'songMarkers'>;
 
 export interface HistorySlice {
   tracksHistory: TrackGroup[][];
@@ -3255,13 +3728,14 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
       if (nextTracksHistory.length > 10) nextTracksHistory.shift();
 
       const snapStructure: StructureSnapshot = {
-        measureTimeSigs: prev.measureTimeSigs,
-        measureBpms: prev.measureBpms,
-        measureBpmTransitions: prev.measureBpmTransitions,
-        measureVols: prev.measureVols,
-        measureVolTransitions: prev.measureVolTransitions,
-        songSections: prev.songSections,
-        songMarkers: prev.songMarkers || [],
+        totalMeasures: prev.totalMeasures,
+        measureTimeSigs: [...prev.measureTimeSigs],
+        measureBpms: [...prev.measureBpms],
+        measureBpmTransitions: [...prev.measureBpmTransitions],
+        measureVols: [...prev.measureVols],
+        measureVolTransitions: [...prev.measureVolTransitions],
+        songSections: prev.songSections ? [...prev.songSections] : [],
+        songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
       };
       
       const nextStructureHistory = [...prev.songStructureHistory, snapStructure];
@@ -3283,13 +3757,14 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     set((prev) => {
       const currentTracks = prev.tracks;
       const currentStructure: StructureSnapshot = {
-        measureTimeSigs: prev.measureTimeSigs,
-        measureBpms: prev.measureBpms,
-        measureBpmTransitions: prev.measureBpmTransitions,
-        measureVols: prev.measureVols,
-        measureVolTransitions: prev.measureVolTransitions,
-        songSections: prev.songSections,
-        songMarkers: prev.songMarkers || [],
+        totalMeasures: prev.totalMeasures,
+        measureTimeSigs: [...prev.measureTimeSigs],
+        measureBpms: [...prev.measureBpms],
+        measureBpmTransitions: [...prev.measureBpmTransitions],
+        measureVols: [...prev.measureVols],
+        measureVolTransitions: [...prev.measureVolTransitions],
+        songSections: prev.songSections ? [...prev.songSections] : [],
+        songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
       };
 
       const nextTracksHistory = [...prev.tracksHistory];
@@ -3308,6 +3783,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
       if (previousTracksState) updates.tracks = previousTracksState;
       
       if (previousStructureState) {
+        if (previousStructureState.totalMeasures !== undefined) updates.totalMeasures = previousStructureState.totalMeasures;
         updates.measureTimeSigs = previousStructureState.measureTimeSigs;
         updates.measureBpms = previousStructureState.measureBpms;
         updates.measureBpmTransitions = previousStructureState.measureBpmTransitions;
@@ -3328,13 +3804,14 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     set((prev) => {
       const currentTracks = prev.tracks;
       const currentStructure: StructureSnapshot = {
-        measureTimeSigs: prev.measureTimeSigs,
-        measureBpms: prev.measureBpms,
-        measureBpmTransitions: prev.measureBpmTransitions,
-        measureVols: prev.measureVols,
-        measureVolTransitions: prev.measureVolTransitions,
-        songSections: prev.songSections,
-        songMarkers: prev.songMarkers || [],
+        totalMeasures: prev.totalMeasures,
+        measureTimeSigs: [...prev.measureTimeSigs],
+        measureBpms: [...prev.measureBpms],
+        measureBpmTransitions: [...prev.measureBpmTransitions],
+        measureVols: [...prev.measureVols],
+        measureVolTransitions: [...prev.measureVolTransitions],
+        songSections: prev.songSections ? [...prev.songSections] : [],
+        songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
       };
 
       const nextTracksRedoHistory = [...prev.tracksRedoHistory];
@@ -3353,6 +3830,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
       if (nextTracksState) updates.tracks = nextTracksState;
 
       if (nextStructureState) {
+        if (nextStructureState.totalMeasures !== undefined) updates.totalMeasures = nextStructureState.totalMeasures;
         updates.measureTimeSigs = nextStructureState.measureTimeSigs;
         updates.measureBpms = nextStructureState.measureBpms;
         updates.measureBpmTransitions = nextStructureState.measureBpmTransitions;
@@ -3512,6 +3990,9 @@ export interface ProjectSettingsSlice {
   isEcoMode: boolean;
   ecoConfig: EcoConfig;
   editingTrackId: number | null;
+  selectedStepIdx: number | null;
+  selectedStepIsPreRoll: boolean;
+  selectedSubIndex: 0 | 1 | null;
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
@@ -3528,6 +4009,7 @@ export interface ProjectSettingsSlice {
   toggleEcoMode: () => void;
   toggleEcoOption: (key: keyof EcoConfig) => void;
   setEditingTrackId: (id: number | null) => void;
+  setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
   setVocalTransposeSteps: (steps: number) => void;
   incrementVocalTransposeSteps: () => void;
   decrementVocalTransposeSteps: () => void;
@@ -3566,6 +4048,9 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     disableAnimations: detectEcoMode()
   },
   editingTrackId: null,
+  selectedStepIdx: null,
+  selectedStepIsPreRoll: false,
+  selectedSubIndex: null,
   vocalTransposeSteps: 0,
   isTracksCollapsed: typeof window !== 'undefined' && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768) ? false : true,
   isPreviewMode: false,
@@ -3619,6 +4104,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     };
   }),
   setEditingTrackId: (id) => set({ editingTrackId: id }),
+  setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex }),
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
   incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
   decrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.max(-12, state.vocalTransposeSteps - 1) })),
@@ -3727,6 +4213,9 @@ export interface UISlice {
   copyTimelineSelection: () => void;
   cutTimelineSelection: () => void;
   pasteTimelineClipboard: () => void;
+  selectAllTimelineCells: () => void;
+  selectTrackTimelineCells: (trackId: number, additive?: boolean) => void;
+  deleteSelectedTimelineCells: () => void;
 
   mixerBankOffset: number;
   setMixerBankOffset: (offset: number) => void;
@@ -3815,6 +4304,133 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
       return state;
     });
   },
+
+  selectAllTimelineCells: () => {
+    const state = get();
+    const totalMeasures = state.totalMeasures;
+    if (totalMeasures <= 0) return;
+
+    const visibleTrackIds = getVisibleTimelineTrackIds(state);
+    const allCells: Array<{ trackId: number; mIdx: number }> = [];
+
+    for (const trackId of visibleTrackIds) {
+      for (let m = 0; m < totalMeasures; m++) {
+        allCells.push({ trackId, mIdx: m });
+      }
+    }
+
+    set({
+      selectedTimelineCells: allCells,
+      selectionAnchorCell: allCells[0] || null,
+      activeTimelineCell: allCells[0] ? { trackId: allCells[0].trackId, measureIdx: allCells[0].mIdx } : null,
+    });
+  },
+
+  selectTrackTimelineCells: (trackId: number, additive = false) => {
+    const state = get();
+    const totalMeasures = state.totalMeasures;
+    if (totalMeasures <= 0) return;
+
+    const trackCells: Array<{ trackId: number; mIdx: number }> = [];
+    for (let m = 0; m < totalMeasures; m++) {
+      trackCells.push({ trackId, mIdx: m });
+    }
+
+    set((curr) => {
+      if (additive) {
+        const isTrackFullySelected = trackCells.every(tc =>
+          curr.selectedTimelineCells.some(c => c.trackId === tc.trackId && c.mIdx === tc.mIdx)
+        );
+        const filtered = curr.selectedTimelineCells.filter(c => c.trackId !== trackId);
+        const next = isTrackFullySelected ? filtered : [...filtered, ...trackCells];
+        return {
+          selectedTimelineCells: next,
+          selectionAnchorCell: { trackId, mIdx: 0 },
+          activeTimelineCell: { trackId, measureIdx: 0 },
+        };
+      }
+      return {
+        selectedTimelineCells: trackCells,
+        selectionAnchorCell: { trackId, mIdx: 0 },
+        activeTimelineCell: { trackId, measureIdx: 0 },
+      };
+    });
+  },
+
+  deleteSelectedTimelineCells: () => {
+    const state = get();
+    const cells = state.selectedTimelineCells.length > 0
+      ? state.selectedTimelineCells
+      : (state.activeTimelineCell ? [{ trackId: state.activeTimelineCell.trackId, mIdx: state.activeTimelineCell.measureIdx }] : []);
+
+    if (cells.length === 0) return;
+
+    // 1. Enregistrer l'état pour l'historique Undo atomique
+    get().pushUndoState();
+
+    // 2. Parcourir et désassigner le motif (passer en silence / patternId: null sur la mesure ciblée)
+    // Synchroniser l'état miroir du bus Toada (Puxador et Coro)
+    set((curr) => {
+      const puxTrack = curr.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = curr.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+      const updatedTracks = curr.tracks.map(t => {
+        const directTrackCells = cells.filter(c => c.trackId === t.id);
+        const toadaBusCells = (t.id === puxTrack?.id || t.id === coroTrack?.id)
+          ? cells.filter(c => {
+              const selTrack = curr.tracks.find(st => st.id === c.trackId);
+              return selTrack && isToadaBus(selTrack);
+            })
+          : [];
+
+        const isCurrentToadaBus = isToadaBus(t);
+        const toadaChildCells = isCurrentToadaBus
+          ? cells.filter(c => c.trackId === puxTrack?.id || c.trackId === coroTrack?.id)
+          : [];
+
+        const measuresToClear = new Set([
+          ...directTrackCells.map(c => c.mIdx),
+          ...toadaBusCells.map(c => c.mIdx),
+          ...toadaChildCells.map(c => c.mIdx)
+        ]);
+
+        if (measuresToClear.size === 0) return t;
+
+        const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+        if (isLinkedSlave) {
+          const overrides = { ...(t.patternOverrides || {}) };
+          measuresToClear.forEach(m => {
+            overrides[m] = null; // null = silence explicite sur esclave lié
+          });
+          return {
+            ...t,
+            patternOverrides: overrides
+          };
+        }
+
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            const assign = [...p.measureAssignments];
+            measuresToClear.forEach(m => {
+              assign[m] = false;
+            });
+            return {
+              ...p,
+              measureAssignments: assign
+            };
+          })
+        };
+      });
+
+      // Maintien explicite de la sélection (les cellules sélectionnées restent visibles avec le silence)
+      return {
+        tracks: updatedTracks,
+        tracksVersion: curr.tracksVersion + 1
+      };
+    });
+  },
+
   duplicateSelectedCells: () => {
     const state = get();
     const cells = state.selectedTimelineCells.length > 0

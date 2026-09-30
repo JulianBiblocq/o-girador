@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 export interface AutomationTrackProps {
   type: 'tempo' | 'volume' | 'pan' | 'reverb';
+  trackId?: number | null;
   label?: string;
   onClose?: () => void;
   totalMeasures: number;
@@ -25,6 +27,7 @@ export interface AutomationTrackProps {
 
 export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   type,
+  trackId = null,
   label,
   onClose,
   totalMeasures,
@@ -44,6 +47,12 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedAutomationType = useSequencerStore(state => state.selectedAutomationType);
+  const selectedAutomationTrackId = useSequencerStore(state => state.selectedAutomationTrackId);
+  const selectedAutomationRange = useSequencerStore(state => state.selectedAutomationRange);
+  const selectAutomationMeasure = useSequencerStore(state => state.selectAutomationMeasure);
+  const setGroupedAutomationValue = useSequencerStore(state => state.setGroupedAutomationValue);
   
   // Local state for dragging to satisfy Zero Render Thrashing
   const draggingIdxRef = useRef<number | null>(null);
@@ -156,6 +165,37 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     }
     svgRef.current.appendChild(strokePath);
 
+    // Selection Highlight Overlay
+    const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
+    const isTrackMatch = (trackId ?? null) === (selectedAutomationTrackId ?? null);
+    const isSelectedTrack = Boolean(isTypeMatch && isTrackMatch && selectedAutomationRange);
+
+    if (isSelectedTrack && selectedAutomationRange) {
+      const selStart = Math.min(selectedAutomationRange.start, selectedAutomationRange.end);
+      const selEnd = Math.max(selectedAutomationRange.start, selectedAutomationRange.end);
+      const selX = selStart * measureWidth;
+      const selW = (selEnd - selStart + 1) * measureWidth;
+
+      const selRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      selRect.setAttribute('x', selX.toString());
+      selRect.setAttribute('y', '0');
+      selRect.setAttribute('width', selW.toString());
+      selRect.setAttribute('height', height.toString());
+      selRect.setAttribute('fill', 'rgba(230, 126, 34, 0.22)');
+      selRect.setAttribute('pointer-events', 'none');
+      svgRef.current.appendChild(selRect);
+
+      const selTopBorder = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      selTopBorder.setAttribute('x1', selX.toString());
+      selTopBorder.setAttribute('y1', '1');
+      selTopBorder.setAttribute('x2', (selX + selW).toString());
+      selTopBorder.setAttribute('y2', '1');
+      selTopBorder.setAttribute('stroke', '#e67e22');
+      selTopBorder.setAttribute('stroke-width', '2');
+      selTopBorder.setAttribute('pointer-events', 'none');
+      svgRef.current.appendChild(selTopBorder);
+    }
+
     // Draw Nodes
     if (isExpanded) {
       for (let i = 0; i < totalMeasures; i++) {
@@ -163,13 +203,17 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         const val = currentValues[i] !== undefined ? currentValues[i] : (type === 'pan' ? 0 : min);
         const y = getYFromValue(val, height);
 
+        const isInRange = isSelectedTrack && selectedAutomationRange &&
+          i >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
+          i <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end);
+
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', x.toString());
         circle.setAttribute('cy', y.toString());
-        circle.setAttribute('r', '5');
-        circle.setAttribute('fill', isBypassed ? '#666' : 'white');
-        circle.setAttribute('stroke', color);
-        circle.setAttribute('stroke-width', '2');
+        circle.setAttribute('r', isInRange ? '6' : '5');
+        circle.setAttribute('fill', isBypassed ? '#666' : (isInRange ? '#f4ecd8' : 'white'));
+        circle.setAttribute('stroke', isInRange ? '#e67e22' : color);
+        circle.setAttribute('stroke-width', isInRange ? '3' : '2');
         circle.setAttribute('cursor', 'ns-resize');
         if (isBypassed) {
           circle.setAttribute('opacity', '0.4');
@@ -247,20 +291,32 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         }
       }
     }
-  }, [totalMeasures, measureWidth, transitions, min, max, color, isExpanded, isBypassed, type]);
+  }, [totalMeasures, measureWidth, transitions, min, max, color, isExpanded, isBypassed, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId]);
 
   const handlePromptSubmit = useCallback(() => {
     if (promptTargetIdx !== null) {
       let val = parseInt(promptValue, 10);
       if (!isNaN(val)) {
         val = Math.max(min, Math.min(max, val));
-        onChangeValue(promptTargetIdx, val);
+        const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
+        const isTrackMatch = (trackId ?? null) === (selectedAutomationTrackId ?? null);
+        if (
+          isTypeMatch &&
+          isTrackMatch &&
+          selectedAutomationRange &&
+          promptTargetIdx >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
+          promptTargetIdx <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end)
+        ) {
+          setGroupedAutomationValue(type === 'tempo' ? 'bpm' : 'volume', val, trackId ?? null);
+        } else {
+          onChangeValue(promptTargetIdx, val);
+        }
         localValuesRef.current[promptTargetIdx] = val;
         renderSvg();
       }
     }
     setPromptOpen(false);
-  }, [promptTargetIdx, promptValue, min, max, onChangeValue, renderSvg]);
+  }, [promptTargetIdx, promptValue, min, max, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId, setGroupedAutomationValue, onChangeValue, renderSvg]);
 
   // Sync local ref when props change (only when not dragging)
   useEffect(() => {
@@ -285,6 +341,16 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         draggedIdx = parseInt(target.dataset.idx, 10);
         draggingIdxRef.current = draggedIdx;
         target.setPointerCapture(e.pointerId);
+
+        // Sélection d'automation (avec ou sans Shift)
+        if (type === 'tempo' || type === 'volume') {
+          selectAutomationMeasure(
+            type === 'tempo' ? 'bpm' : 'volume',
+            draggedIdx,
+            e.shiftKey,
+            trackId ?? null
+          );
+        }
       } else if (target.tagName === 'rect' || target.tagName === 'text') {
         const parent = target.parentNode as SVGElement;
         if (parent && parent.dataset && parent.dataset.transIdx) {
@@ -321,7 +387,19 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       isDragging = false;
       
       const finalVal = localValuesRef.current[draggedIdx];
-      onChangeValue(draggedIdx, finalVal);
+      const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
+      const isTrackMatch = (trackId ?? null) === (selectedAutomationTrackId ?? null);
+      if (
+        isTypeMatch &&
+        isTrackMatch &&
+        selectedAutomationRange &&
+        draggedIdx >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
+        draggedIdx <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end)
+      ) {
+        setGroupedAutomationValue(type === 'tempo' ? 'bpm' : 'volume', finalVal, trackId ?? null);
+      } else {
+        onChangeValue(draggedIdx, finalVal);
+      }
       
       draggingIdxRef.current = null;
       draggedIdx = -1;
@@ -466,20 +544,47 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
 
       {/* Grid Background & SVG */}
       <div className="relative flex-1 overflow-hidden" style={{ height: `${height}px` }}>
-        {/* Vertical Grid Lines */}
-        <div className="absolute inset-0 flex pointer-events-none opacity-20">
-          {Array.from({ length: totalMeasures }).map((_, i) => (
-            <div 
-              key={i} 
-              className="border-l border-white h-full"
-              style={{ width: `${measureWidth}px` }}
-            />
-          ))}
+        {/* Vertical Grid Lines & Clickable Measure Columns */}
+        <div className="absolute inset-0 flex z-0">
+          {Array.from({ length: totalMeasures }).map((_, i) => {
+            const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
+            const isTrackMatch = (trackId ?? null) === (selectedAutomationTrackId ?? null);
+            const isSelected = Boolean(
+              isTypeMatch &&
+              isTrackMatch &&
+              selectedAutomationRange &&
+              i >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
+              i <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end)
+            );
+
+            return (
+              <div 
+                key={i} 
+                data-automation-type={type === 'tempo' ? 'bpm' : 'volume'}
+                data-measure-idx={i}
+                onClick={(e) => {
+                  if (type === 'tempo' || type === 'volume') {
+                    e.stopPropagation();
+                    selectAutomationMeasure(
+                      type === 'tempo' ? 'bpm' : 'volume',
+                      i,
+                      e.shiftKey,
+                      trackId ?? null
+                    );
+                  }
+                }}
+                className={`border-l border-white/20 h-full cursor-pointer hover:bg-white/5 transition-colors ${
+                  isSelected ? 'bg-amber-500/20 shadow-[inset_0_2px_0_#e67e22]' : ''
+                }`}
+                style={{ width: `${measureWidth}px`, minWidth: `${measureWidth}px` }}
+              />
+            );
+          })}
         </div>
         
         <svg
           ref={svgRef}
-          className="absolute inset-0 w-full h-full overflow-visible"
+          className="absolute inset-0 w-full h-full overflow-visible z-10"
           style={{ touchAction: 'none' }} // Prevent scrolling when dragging on mobile
         />
       </div>

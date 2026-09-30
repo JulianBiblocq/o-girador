@@ -344,9 +344,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           <img
             src={`${ASSETS_BASE_URL}${inst.iconImg}`}
             alt={inst.name}
-            className={`track-header-icon object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0 ${
+            onClick={(e) => {
+              e.stopPropagation();
+              useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey);
+            }}
+            className={`track-header-icon object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
               isMobile ? 'w-6 h-6' : 'w-8 h-8'
             }`}
+            title={lang === 'fr' ? 'Cliquer pour sélectionner la piste' : 'Clique para selecionar a faixa'}
           />
 
           {!isMobile ? (
@@ -364,9 +369,16 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               />
             ) : (
               <span 
-                onDoubleClick={() => setIsEditingName(true)}
-                className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider cursor-pointer hover:bg-[var(--cordel-text)]/5 rounded px-1"
-                title={lang === 'fr' ? 'Double-cliquer pour renommer' : 'Clique duplo para renomear'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingName(true);
+                }}
+                className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider cursor-pointer hover:bg-[var(--cordel-text)]/10 rounded px-1 select-none"
+                title={lang === 'fr' ? 'Cliquer pour sélectionner la piste, double-cliquer pour renommer' : 'Clique para selecionar a faixa, duplo clique para renomear'}
               >
                 {displayName}
               </span>
@@ -545,6 +557,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       {isAutomationOpen && (
         <AutomationTrack
           type={automationParam}
+          trackId={trackId}
           label={
             automationParam === 'volume'
               ? (lang === 'fr' ? `Vol : ${displayName}` : `Vol: ${displayName}`)

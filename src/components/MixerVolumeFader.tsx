@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { getTone } from '../ToneLoader';
-import { channels } from '../hooks/useAudioSync';
+import { channels, busChannels } from '../hooks/useAudioSync';
 
 function safeGetTone() {
   try {
@@ -108,7 +108,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       return;
     }
     if (trackId !== undefined) {
-      const channelNode = channels[trackId];
+      const channelNode = channels[trackId] || (busChannels ? busChannels[trackId] : undefined);
       if (channelNode) {
         const gain = Math.max(0.00001, val / 100);
         const toneInstance = safeGetTone();

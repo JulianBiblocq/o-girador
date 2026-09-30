@@ -675,9 +675,15 @@ export class AudioEngine {
       }
 
       // Schedule events in advance
-      while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
+      while (this.isPlaying && this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
+        const prevTickTime = this.nextTickTime;
+
         // 1. Exécution du callback de planification (qui met à jour schedulingStep/Measure de façon synchrone)
         const didWrapLoop = this.onTick(this.nextTickTime);
+
+        if (!this.isPlaying) {
+          break;
+        }
 
         const tickDuration = this.getTickDuration();
 
@@ -692,8 +698,13 @@ export class AudioEngine {
         // 3. Calcul absolu du pas suivant sans accumulation (parfaitement aligné)
         this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDuration);
 
-        // 4. Verrouillage à la frontière de boucle (Wrap-around Guard) :
-        // Arrêt immédiat si on a planifié le dernier pas de la boucle active
+        // 4. Contrôle de monotonie stricte : interruption immédiate si le temps n'avance pas
+        if (this.nextTickTime <= prevTickTime) {
+          break;
+        }
+
+        // 5. Verrouillage à la frontière de boucle (Wrap-around Guard) :
+        // Arrêt immédiat si on a planifié le dernier pas de la boucle active ou fin de lecture
         if (didWrapLoop) {
           break;
         }

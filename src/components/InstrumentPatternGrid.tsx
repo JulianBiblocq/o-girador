@@ -9,6 +9,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { useBalancoStore } from '../stores/useBalancoStore';
 import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
@@ -185,6 +186,7 @@ const PercussionStepCell = React.memo(({
       onMouseDown={activeTool === 'scissors' ? (e) => onMouseDown(e, i, val) : undefined}
       onTouchStart={activeTool === 'scissors' ? (e) => onTouchStart(e, i, val) : undefined}
       onTouchEnd={activeTool === 'scissors' ? (e) => onTouchEnd?.(e, i, val) : undefined}
+      onClick={() => onSelectForSculpt?.(i)}
       title={activeTool === 'scissors' ? (Array.isArray(val) ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Scinder le pas en triples croches') : undefined}
     >
       {Array.isArray(val) ? (
@@ -235,6 +237,7 @@ const PercussionStepCell = React.memo(({
             data-sub-index="0"
             tabIndex={-1}
             onMouseDown={(e) => onMouseDown(e, i, val, 0)}
+            onClick={() => onSelectForSculpt?.(i, 0)}
             onMouseEnter={() => onMouseEnter(i)}
             onTouchStart={(e) => onTouchStart(e, i, val, 0)}
             onTouchMove={onTouchMove}
@@ -266,6 +269,7 @@ const PercussionStepCell = React.memo(({
             data-sub-index="1"
             tabIndex={-1}
             onMouseDown={(e) => onMouseDown(e, i, val, 1)}
+            onClick={() => onSelectForSculpt?.(i, 1)}
             onMouseEnter={() => onMouseEnter(i)}
             onTouchStart={(e) => onTouchStart(e, i, val, 1)}
             onTouchMove={onTouchMove}
@@ -303,6 +307,8 @@ const PercussionStepCell = React.memo(({
           readOnly={isMultiSelectActive || activeTool === 'scissors'}
           tabIndex={activeTool === 'scissors' ? -1 : undefined}
           onMouseDown={(e) => onMouseDown(e, i, val)}
+          onFocus={() => onSelectForSculpt?.(i)}
+          onClick={() => onSelectForSculpt?.(i)}
           onMouseEnter={() => onMouseEnter(i)}
           onTouchStart={(e) => onTouchStart(e, i, val)}
           onTouchMove={onTouchMove}
@@ -534,7 +540,7 @@ interface VoiceStepCellProps {
   onFocusStep: (index: number, isPreRoll?: boolean) => void;
   onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
   focusVoiceStep?: (stepIdx: number, type?: 'note' | 'syl', forceInPreRoll?: boolean) => void;
-  onVoiceStepClear?: (trackId: number, patternId: number, index: number) => void;
+  onVoiceStepClear?: (trackId: number, patternId: number, index: number, isPreRoll?: boolean) => void;
   isProlongation?: boolean;
   isFollowedByProlongation?: boolean;
 }
@@ -574,9 +580,10 @@ const VoiceStepCellComponent = ({
 }: VoiceStepCellProps) => {
   const lang = useSequencerStore(state => state.lang);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
-  const hasActiveNote = state !== 0 && state !== '0' && Boolean(note && note.trim() !== '');
-  const hasActiveSyl = state !== 0 && state !== '0' && Boolean(syl && syl !== '');
-  const hasActiveStep = hasActiveNote || hasActiveSyl;
+  const isStepActiveVal = Boolean(state !== 0 && state !== '0' && state !== '' && state !== undefined && state !== null);
+  const hasActiveNote = Boolean(note && note.trim() !== '');
+  const hasActiveSyl = Boolean(syl && syl.trim() !== '');
+  const hasActiveStep = isStepActiveVal && (hasActiveNote || hasActiveSyl);
   const isPux = state === 'P';
   const inst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
   const cardBg = hasActiveStep 
@@ -611,6 +618,24 @@ const VoiceStepCellComponent = ({
   ) => {
     const input = e.currentTarget;
 
+    // 0. Support direct de Ctrl+Z (Undo) et Ctrl+Y / Ctrl+Shift+Z (Redo) dans les cellules vocales
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.shiftKey) {
+        useSequencerStore.getState().handleRedo();
+      } else {
+        useSequencerStore.getState().handleUndo();
+      }
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+      e.preventDefault();
+      e.stopPropagation();
+      useSequencerStore.getState().handleRedo();
+      return;
+    }
+
     // 1. ISOLATION STRICTE DE LA TOUCHE ESPACE DANS LE CHAMP SYLLABE (.v-syl)
     // Directive A.1 : INTERDICTION FORMELLE d'intercepter la barre d'espace.
     // Laisser l'événement s'exécuter nativement pour que le caractère espace s'inscrive normalement dans la valeur textuelle.
@@ -625,7 +650,7 @@ const VoiceStepCellComponent = ({
     if (field === 'note' && (e.key === ' ' || e.code === 'Space' || e.key === '0')) {
       e.preventDefault();
       e.stopPropagation();
-      onVoiceStepClear?.(trackId, patternId, i);
+      onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
       if (focusVoiceStep) {
         focusVoiceStep(i + 1, field, isPreRoll);
       } else {
@@ -634,19 +659,27 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 3. Touche Backspace : Effacement atomique et recul au pas précédent
+    // 3. Touche Backspace : Effacement contextuel
     if (e.key === 'Backspace') {
       if (field === 'syl') {
-        // Dans le champ syllabe, si du texte est présent, le Backspace natif doit effacer les caractères
-        // Ne reculer et n'effacer le pas QUE si le champ était déjà vide au moment de l'appui
-        if (input.value.length > 0 && input.selectionStart !== null && input.selectionStart > 0) {
-          e.stopPropagation();
-          return;
+        const selStart = input.selectionStart ?? 0;
+        const selEnd = input.selectionEnd ?? 0;
+        const valLen = input.value.length;
+        const isAllSelected = valLen > 0 && selStart === 0 && selEnd === valLen;
+        const isEmpty = valLen === 0;
+
+        // Cas 1 : Si une partie du texte est sélectionnée ou curseur au milieu : n'effacer QUE les caractères de texte saisis
+        if (!isAllSelected && !isEmpty) {
+          if (selStart > 0 || selStart !== selEnd) {
+            e.stopPropagation();
+            return;
+          }
         }
       }
+      // Cas 2 : Tout le texte est sélectionné, champ vide ou champ note : effacement atomique complet et recul
       e.preventDefault();
       e.stopPropagation();
-      onVoiceStepClear?.(trackId, patternId, i);
+      onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
       if (focusVoiceStep) {
         focusVoiceStep(i - 1, field, isPreRoll);
       } else {
@@ -655,22 +688,31 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 4. Touche Suppr / Delete : Effacement atomique sur place
+    // 4. Touche Suppr / Delete : Effacement contextuel sur place
     if (e.key === 'Delete') {
       if (field === 'syl') {
-        // Si du texte est présent, Delete natif efface le caractère devant le curseur
-        if (input.selectionStart !== null && input.selectionStart < input.value.length) {
-          e.stopPropagation();
-          return;
+        const selStart = input.selectionStart ?? 0;
+        const selEnd = input.selectionEnd ?? 0;
+        const valLen = input.value.length;
+        const isAllSelected = valLen > 0 && selStart === 0 && selEnd === valLen;
+        const isEmpty = valLen === 0;
+
+        // Cas 1 : Si une partie du texte est sélectionnée ou curseur au milieu : n'effacer QUE les caractères de texte saisis
+        if (!isAllSelected && !isEmpty) {
+          if (selStart < valLen || selStart !== selEnd) {
+            e.stopPropagation();
+            return;
+          }
         }
       }
+      // Cas 2 : Tout le texte est sélectionné, champ vide ou champ note : effacement atomique complet sur place
       e.preventDefault();
       e.stopPropagation();
-      onVoiceStepClear?.(trackId, patternId, i);
+      onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
       return;
     }
 
-    // 4. Touche ArrowLeft : si curseur au début (0) ou sélection globale
+    // 5. Touche ArrowLeft : si curseur au début (0) ou sélection globale
     if (e.key === 'ArrowLeft') {
       const selStart = input.selectionStart;
       const selEnd = input.selectionEnd;
@@ -687,7 +729,7 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 5. Touche ArrowRight : si curseur à la fin ou sélection globale
+    // 6. Touche ArrowRight : si curseur à la fin ou sélection globale
     if (e.key === 'ArrowRight') {
       const selStart = input.selectionStart;
       const selEnd = input.selectionEnd;
@@ -704,7 +746,40 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 6. Touche Tab
+    // 7. Navigation verticale ArrowDown / ArrowUp (Saut de rangée Ligne 1 <-> Ligne 2 en 4/4)
+    if (e.key === 'ArrowDown') {
+      if ((i % 16) < 8) {
+        const targetIdx = i + 8;
+        if (targetIdx < steps) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (focusVoiceStep) {
+            focusVoiceStep(targetIdx, field, isPreRoll);
+          } else {
+            onVoiceNav(input, 'ArrowDown', field);
+          }
+          return;
+        }
+      }
+    }
+
+    if (e.key === 'ArrowUp') {
+      if ((i % 16) >= 8) {
+        const targetIdx = i - 8;
+        if (targetIdx >= 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (focusVoiceStep) {
+            focusVoiceStep(targetIdx, field, isPreRoll);
+          } else {
+            onVoiceNav(input, 'ArrowUp', field);
+          }
+          return;
+        }
+      }
+    }
+
+    // 8. Touche Tab
     if (e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
@@ -717,7 +792,7 @@ const VoiceStepCellComponent = ({
       return;
     }
 
-    // 7. Touche Enter
+    // 9. Touche Enter
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
@@ -758,6 +833,53 @@ const VoiceStepCellComponent = ({
         data-step-index={i}
         data-step-type="voice"
         data-selected={isSelected ? "true" : undefined}
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.shiftKey) {
+              useSequencerStore.getState().handleRedo();
+            } else {
+              useSequencerStore.getState().handleUndo();
+            }
+            return;
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            e.stopPropagation();
+            useSequencerStore.getState().handleRedo();
+            return;
+          } else if (e.key === 'Delete') {
+            e.preventDefault();
+            e.stopPropagation();
+            onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
+          } else if (e.key === 'Backspace') {
+            e.preventDefault();
+            e.stopPropagation();
+            onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
+            focusVoiceStep?.(i - 1, 'syl', isPreRoll);
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            e.stopPropagation();
+            focusVoiceStep?.(i + 1, 'syl', isPreRoll);
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            e.stopPropagation();
+            focusVoiceStep?.(i - 1, 'syl', isPreRoll);
+          } else if (e.key === 'ArrowDown') {
+            if ((i % 16) < 8 && i + 8 < steps) {
+              e.preventDefault();
+              e.stopPropagation();
+              focusVoiceStep?.(i + 8, 'syl', isPreRoll);
+            }
+          } else if (e.key === 'ArrowUp') {
+            if ((i % 16) >= 8) {
+              e.preventDefault();
+              e.stopPropagation();
+              focusVoiceStep?.(i - 8, 'syl', isPreRoll);
+            }
+          }
+        }}
         onTouchStart={(e) => {
           onTouchStart?.(e, i);
           onFocusStep(i, Boolean(isPreRoll));
@@ -1222,6 +1344,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     setSelectedStepIdx(idx);
     setSelectedStepIndices([idx]);
     setSelectedSubIndex(subIndex ?? null);
+    useSequencerStore.setState({ selectedStepIdx: idx, selectedSubIndex: subIndex ?? null, selectedStepIsPreRoll: false });
 
     isMouseDownRef.current = true;
 
@@ -1671,49 +1794,52 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       return;
     }
 
-    // Backspace: effacement précis sans saut de curseur
+    // Backspace: effacement précis avec gestion de sous-pas et recul
     if (e.key === 'Backspace') {
       e.preventDefault();
+      useSequencerStore.getState().pushUndoState();
       if (Array.isArray(value)) {
-        const sub = subIndex ?? 0;
-        const arr = [...value] as [string, string];
-        if (sub === 1) {
-          if (arr[1] !== '0' && arr[1] !== '') {
-            arr[1] = '0';
-            const finalVal = arr;
-            if (selectedVariationId) {
-              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-            } else {
-              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
-            }
+        if (subIndex === 1) {
+          const arr = [...value] as [string, string];
+          arr[1] = '0';
+          const finalVal = (arr[0] === '0' || !arr[0]) ? 0 : arr;
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
           } else {
-            // Recollement en conservant la note restante val[0]
-            const finalVal = (arr[0] === '0' || !arr[0]) ? 0 : arr[0];
-            if (selectedVariationId) {
-              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-            } else {
-              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
-            }
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
           }
           setSelectedSubIndex(0);
           focusCell(idx, 0);
-        } else {
-          // subIndex === 0
-          if (arr[0] !== '0' && arr[0] !== '') {
-            arr[0] = '0';
-            const finalVal = arr;
-            if (selectedVariationId) {
-              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-            } else {
-              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
-            }
+        } else if (subIndex === 0) {
+          const arr = [...value] as [string, string];
+          arr[0] = '0';
+          const finalVal = (arr[1] === '0' || !arr[1]) ? 0 : arr;
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
           } else {
-            const finalVal = (arr[1] === '0' || !arr[1]) ? 0 : arr[1];
-            if (selectedVariationId) {
-              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+          }
+          if (idx > 0) {
+            const prevIdx = idx - 1;
+            const prevVal = pattern?.activeSteps?.[prevIdx];
+            setSelectedStepIdx(prevIdx);
+            setSelectedStepIndices([prevIdx]);
+            if (Array.isArray(prevVal)) {
+              setSelectedSubIndex(1);
+              focusCell(prevIdx, 1);
             } else {
-              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+              setSelectedSubIndex(null);
+              focusCell(prevIdx);
             }
+          }
+        } else {
+          // Cas 3 : cellule entière scindée sélectionnée -> vider les deux frappes (0)
+          const finalVal = 0;
+          setSelectedSubIndex(null);
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+          } else {
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
           }
           if (idx > 0) {
             const prevIdx = idx - 1;
@@ -1756,18 +1882,30 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     // Delete ou 0: vide la cellule sur place sans reculer
     if (e.key === 'Delete' || e.key === '0') {
       e.preventDefault();
+      useSequencerStore.getState().pushUndoState();
       if (Array.isArray(value)) {
-        const sub = subIndex ?? 0;
-        const arr = [...value] as [string, string];
-        arr[sub] = '0';
-        const finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
-        if (selectedVariationId) {
-          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+        if (subIndex === 0 || subIndex === 1) {
+          const arr = [...value] as [string, string];
+          arr[subIndex] = '0';
+          const finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+          } else {
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+          }
+          if (finalVal === 0) {
+            setSelectedSubIndex(null);
+            focusCell(idx);
+          }
         } else {
-          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
-        }
-        if (finalVal === 0) {
+          // Cas 3 : cellule entière scindée sélectionnée -> vider les deux frappes (0)
+          const finalVal = 0;
           setSelectedSubIndex(null);
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+          } else {
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+          }
           focusCell(idx);
         }
       } else {
@@ -1845,30 +1983,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [isMultiSelectActive, handleStepTouchStartMulti]);
 
-  /* Voice step clear helper (Silence / Backspace / Gomme) */
-  const handleVoiceStepClear = React.useCallback((tId: number, pId: number, sIdx: number) => {
-    useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === tId || String(t.id) === String(tId)) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === pId || String(p.id) === String(pId)) {
-              const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
-              activeSteps[sIdx] = 0;
-              const notes = [...(p.notes || Array(p.steps).fill(''))];
-              notes[sIdx] = '';
-              return { ...p, activeSteps, notes };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
-  }, []);
-
   /* Pre-roll Voice step clear helper (Silence / Backspace / Gomme) */
   const handleVoicePreRollStepClear = React.useCallback((tId: number, pId: number, sIdx: number) => {
+    useSequencerStore.getState().pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
       if (t.id === tId || String(t.id) === String(tId)) {
         return {
@@ -1891,6 +2008,35 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }));
   }, []);
 
+  /* Voice step clear helper (Silence / Backspace / Gomme) */
+  const handleVoiceStepClear = React.useCallback((tId: number, pId: number, sIdx: number, isPreRoll?: boolean) => {
+    if (isPreRoll) {
+      handleVoicePreRollStepClear(tId, pId, sIdx);
+      return;
+    }
+    useSequencerStore.getState().pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === tId || String(t.id) === String(tId)) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === pId || String(p.id) === String(pId)) {
+              const activeSteps = [...(p.activeSteps || Array(p.steps).fill(0))];
+              activeSteps[sIdx] = 0;
+              const notes = [...(p.notes || Array(p.steps).fill(''))];
+              notes[sIdx] = '';
+              const lyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+              lyrics[sIdx] = '';
+              return { ...p, activeSteps, notes, lyrics };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  }, [handleVoicePreRollStepClear]);
+
   const handleVoiceFocusStep = React.useCallback((idx: number, isPreRoll?: boolean) => {
     setSelectedStepIdx(idx);
     setSelectedStepIndices([idx]);
@@ -1898,7 +2044,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (setSelectedStepIsPreRoll) {
       setSelectedStepIsPreRoll(Boolean(isPreRoll));
     }
-    useSequencerStore.setState({ selectedStepIdx: idx } as any);
+    useAudioStore.getState().setVoiceInputMode('step');
+    useSequencerStore.setState({ selectedStepIdx: idx, selectedStepIsPreRoll: Boolean(isPreRoll), selectedSubIndex: null });
   }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedStepIsPreRoll, pattern.id]);
 
   const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
@@ -1935,6 +2082,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     setSelectedPatternId(pattern.id);
     setSelectedVariationId(null);
     setSelectedSubIndex(subIndex ?? null);
+    useSequencerStore.setState({ selectedStepIdx: idx, selectedSubIndex: subIndex ?? null, selectedStepIsPreRoll: false });
   }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedVariationId, setSelectedSubIndex, pattern.id]);
 
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -2576,6 +2724,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (selectedStepIdx === null || pattern?.id !== selectedPatternId || selectedVariationId !== null) return;
 
     const handleGridVerticalArrows = (e: KeyboardEvent) => {
+      // 🛡️ Déverrouillage vocal : ne jamais intercepter les flèches haut/bas sur les voix (utilisées pour naviguer entre rangées)
+      const isVoice = instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada';
+      if (isVoice) {
+        return;
+      }
+
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();
@@ -2728,11 +2882,29 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     const destLyrics: string[] = [];
     const destNotes: string[] = [];
 
+    // 🛡️ Étanchéité vocale : déterminer le rôle de la piste de destination
+    const isPux = instrument?.id === 'puxador';
+    const isCoro = instrument?.id === 'coro';
+    const isDestVocal = isPux || isCoro;
+    const targetRole = isPux ? 'P' : 'C';
+    const sourceToReplace = isPux ? 'C' : 'P';
+
     globalClipboard.steps.forEach((item: any) => {
       const destIdx = targetIdx + item.offset;
       if (destIdx >= 0 && destIdx < ptn.steps) {
         destIndices.push(destIdx);
-        destValues.push(String(item.val));
+
+        // Conversion du rôle vocal si la piste de destination est Puxador ou Coro
+        let destVal = item.val;
+        if (isDestVocal) {
+          if (Array.isArray(destVal)) {
+            destVal = destVal.map((v: string) => v === sourceToReplace ? targetRole : v);
+          } else if (destVal === sourceToReplace) {
+            destVal = targetRole;
+          }
+        }
+        destValues.push(destVal);
+
         destLyrics.push(item.lyric || '');
         destNotes.push(item.note || '');
       }
@@ -2760,12 +2932,35 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       ? forceInPreRoll
       : (activeEl?.closest('.pre-roll-section') !== null);
 
-    const totalSteps = isInPreRoll ? 16 : (pattern?.steps || 16);
-    if (stepIdx < 0 || stepIdx >= totalSteps) return;
+    const patternSteps = pattern?.steps || 16;
+    let targetStepIdx = stepIdx;
+    let targetIsInPreRoll = isInPreRoll;
 
-    const scopeSelector = isInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
+    // Traversée Anacrouse -> Mesure principale (Point 1.A : borne dynamique patternSteps)
+    if (isInPreRoll && stepIdx >= patternSteps) {
+      targetIsInPreRoll = false;
+      targetStepIdx = 0;
+    }
+    // Traversée Mesure principale -> Anacrouse (Point 1.A : borne dynamique patternSteps - 1 si anacrouse existe/est dépliée)
+    else if (!isInPreRoll && stepIdx < 0) {
+      const hasPreRoll = Boolean(gridRef.current?.querySelector('.pre-roll-section'));
+      if (hasPreRoll) {
+        targetIsInPreRoll = true;
+        targetStepIdx = patternSteps - 1;
+      } else {
+        targetStepIdx = 0;
+      }
+    }
+    // Garde-fous de débordement métrique
+    else if (stepIdx < 0) {
+      targetStepIdx = 0;
+    } else if (stepIdx >= patternSteps) {
+      targetStepIdx = patternSteps - 1;
+    }
 
-    const targetCard = gridRef.current?.querySelector(`${scopeSelector} [data-step-type="voice"][data-step-index="${stepIdx}"]`) as HTMLElement | null;
+    const scopeSelector = targetIsInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
+
+    const targetCard = gridRef.current?.querySelector(`${scopeSelector} [data-step-type="voice"][data-step-index="${targetStepIdx}"]`) as HTMLElement | null;
     if (targetCard) {
       const targetInput = targetCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement | null;
       if (targetInput) {
@@ -2774,11 +2969,16 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       } else {
         (targetCard as HTMLElement).focus?.();
       }
-      setSelectedStepIdx(stepIdx);
-      setSelectedStepIndices([stepIdx]);
+      setSelectedStepIdx(targetStepIdx);
+      setSelectedStepIndices([targetStepIdx]);
       if (setSelectedStepIsPreRoll) {
-        setSelectedStepIsPreRoll(isInPreRoll);
+        setSelectedStepIsPreRoll(targetIsInPreRoll);
       }
+      useSequencerStore.setState({
+        selectedStepIdx: targetStepIdx,
+        selectedStepIsPreRoll: targetIsInPreRoll,
+        selectedSubIndex: null
+      });
     }
   }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices, setSelectedStepIsPreRoll]);
 
@@ -2796,6 +2996,26 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     };
   }, [focusVoiceStep]);
 
+  /* Écouteur d'événement global pour la prise de focus percussion pilotée par MIDI */
+  React.useEffect(() => {
+    const handleFocusPercussionStepEvent = (e: Event) => {
+      const customEvt = e as CustomEvent<{ stepIdx: number; subIndex?: 0 | 1 | null }>;
+      if (customEvt.detail && typeof customEvt.detail.stepIdx === 'number') {
+        const nextIdx = customEvt.detail.stepIdx;
+        setSelectedStepIdx(nextIdx);
+        setSelectedStepIndices([nextIdx]);
+        if (customEvt.detail.subIndex !== undefined) {
+          setSelectedSubIndex(customEvt.detail.subIndex);
+        }
+        focusCell(nextIdx, customEvt.detail.subIndex);
+      }
+    };
+    window.addEventListener('focus-percussion-step', handleFocusPercussionStepEvent);
+    return () => {
+      window.removeEventListener('focus-percussion-step', handleFocusPercussionStepEvent);
+    };
+  }, [focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
+
   /* Voice input navigation helper */
   const handleVoiceNav = React.useCallback((el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
     const currentCard = el.closest('[data-step-index]');
@@ -2807,8 +3027,137 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       focusVoiceStep(currentIdx + 1, type, isInPreRoll);
     } else if (key === 'ArrowLeft') {
       focusVoiceStep(currentIdx - 1, type, isInPreRoll);
+    } else if (key === 'ArrowDown') {
+      focusVoiceStep(currentIdx + 8, type, isInPreRoll);
+    } else if (key === 'ArrowUp') {
+      focusVoiceStep(currentIdx - 8, type, isInPreRoll);
     }
   }, [focusVoiceStep]);
+
+  /* Écouteur global pour touches Delete / Backspace / Flèches sur un pas unique sélectionné hors input */
+  useEffect(() => {
+    if (isMultiSelectActive || selectedStepIdx === null) return;
+
+    const handleSingleStepKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      // Ne pas interférer si l'utilisateur est déjà dans un input modifiable (qui a son propre onKeyDown)
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
+        !(activeEl as HTMLInputElement).readOnly
+      ) {
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const isVoice = instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada';
+      const idx = selectedStepIdx;
+
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isVoice) {
+          handleVoiceStepClear(trackId, pattern.id, idx, selectedStepIsPreRoll);
+        } else {
+          useSequencerStore.getState().pushUndoState();
+          const currentVal = pattern?.activeSteps?.[idx];
+          let finalVal: any = 0;
+          if (Array.isArray(currentVal) && (selectedSubIndex === 0 || selectedSubIndex === 1)) {
+            const arr = [...currentVal] as [string, string];
+            arr[selectedSubIndex] = '0';
+            finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
+          } else {
+            finalVal = 0;
+            setSelectedSubIndex(null);
+          }
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
+          } else {
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
+          }
+        }
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isVoice) {
+          handleVoiceStepClear(trackId, pattern.id, idx, selectedStepIsPreRoll);
+          focusVoiceStep(idx - 1, 'syl', selectedStepIsPreRoll);
+        } else {
+          useSequencerStore.getState().pushUndoState();
+          const currentVal = pattern?.activeSteps?.[idx];
+          let finalVal: any = 0;
+          if (Array.isArray(currentVal) && selectedSubIndex === 1) {
+            const arr = [...currentVal] as [string, string];
+            arr[1] = '0';
+            finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
+            setSelectedSubIndex(0);
+            focusCell(idx, 0);
+          } else if (Array.isArray(currentVal) && selectedSubIndex === 0) {
+            const arr = [...currentVal] as [string, string];
+            arr[0] = '0';
+            finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
+            if (idx > 0) {
+              const prevIdx = idx - 1;
+              const prevVal = pattern?.activeSteps?.[prevIdx];
+              setSelectedStepIdx(prevIdx);
+              setSelectedStepIndices([prevIdx]);
+              setSelectedSubIndex(Array.isArray(prevVal) ? 1 : null);
+              focusCell(prevIdx, Array.isArray(prevVal) ? 1 : null);
+            }
+          } else {
+            finalVal = 0;
+            setSelectedSubIndex(null);
+            if (idx > 0) {
+              const prevIdx = idx - 1;
+              const prevVal = pattern?.activeSteps?.[prevIdx];
+              setSelectedStepIdx(prevIdx);
+              setSelectedStepIndices([prevIdx]);
+              setSelectedSubIndex(Array.isArray(prevVal) ? 1 : null);
+              focusCell(prevIdx, Array.isArray(prevVal) ? 1 : null);
+            }
+          }
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
+          } else {
+            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
+          }
+        }
+        return;
+      }
+
+      if (isVoice) {
+        const patternSteps = pattern?.steps || 16;
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          e.stopPropagation();
+          focusVoiceStep(idx + 1, 'syl', selectedStepIsPreRoll);
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          e.stopPropagation();
+          focusVoiceStep(idx - 1, 'syl', selectedStepIsPreRoll);
+        } else if (e.key === 'ArrowDown') {
+          if ((idx % 16) < 8 && idx + 8 < patternSteps) {
+            e.preventDefault();
+            e.stopPropagation();
+            focusVoiceStep(idx + 8, 'syl', selectedStepIsPreRoll);
+          }
+        } else if (e.key === 'ArrowUp') {
+          if ((idx % 16) >= 8) {
+            e.preventDefault();
+            e.stopPropagation();
+            focusVoiceStep(idx - 8, 'syl', selectedStepIsPreRoll);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleSingleStepKeyDown);
+    return () => window.removeEventListener('keydown', handleSingleStepKeyDown);
+  }, [isMultiSelectActive, selectedStepIdx, selectedStepIsPreRoll, selectedSubIndex, pattern?.id, pattern?.steps, pattern?.activeSteps, selectedVariationId, trackId, instrument?.type, handleVariationStepValueChange, handleTrackStepValueChange, handleVoiceStepClear, focusVoiceStep, focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
 
   const getDisplayVal = (val: string | number | [string, string] | undefined): string => {
     if (val === undefined || val === 0 || val === '0') return '';
@@ -2953,7 +3302,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                     <VoiceStepCell
                       key={`preroll-cell-${i}`}
                       i={i}
-                      steps={16}
+                      steps={pattern?.steps || 16}
                       trackId={trackId}
                       patternId={pattern.id}
                       state={state}

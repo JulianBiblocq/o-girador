@@ -17,6 +17,7 @@ export const TimelineContextMenu: React.FC = () => {
   const copyTimelineSelection = useSequencerStore((state) => state.copyTimelineSelection);
   const cutTimelineSelection = useSequencerStore((state) => state.cutTimelineSelection);
   const pasteTimelineClipboard = useSequencerStore((state) => state.pasteTimelineClipboard);
+  const deleteSelectedTimelineCells = useSequencerStore((state) => state.deleteSelectedTimelineCells);
   const timelineClipboard = useSequencerStore((state) => state.timelineClipboard);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,14 +127,7 @@ export const TimelineContextMenu: React.FC = () => {
   };
 
   const handleClear = () => {
-    if (hasMultiSelect) {
-      useSequencerStore.getState().pushUndoState();
-      selectedTimelineCells.forEach((cell) => {
-        assign(cell.trackId, null, cell.mIdx);
-      });
-    } else {
-      assign(menuData.trackId, null, menuData.measureIdx);
-    }
+    deleteSelectedTimelineCells();
     closeMenu();
   };
 

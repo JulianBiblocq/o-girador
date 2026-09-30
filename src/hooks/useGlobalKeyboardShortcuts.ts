@@ -38,6 +38,7 @@ export function useGlobalKeyboardShortcuts() {
   // Écouteur principal unifié avec les 3 barrières anti-conflits DAW
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
 
@@ -94,6 +95,7 @@ export function useGlobalKeyboardShortcuts() {
           return;
         }
         useSequencerStore.getState().clearTimelineSelection();
+        useSequencerStore.getState().clearAutomationSelection();
         window.dispatchEvent(new CustomEvent('close-popups'));
         return;
       }
@@ -249,20 +251,46 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
+      // 7.5. Touche Suppr / Delete / Backspace : Vider la sélection timeline (passer en silence)
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const curActive = document.activeElement as HTMLElement | null;
+        if (
+          curActive?.tagName === 'INPUT' ||
+          curActive?.tagName === 'TEXTAREA' ||
+          curActive?.isContentEditable ||
+          isInput
+        ) {
+          return;
+        }
+
+        if (!(window as any).oGiradorDetailEditorOpen) {
+          const store = useSequencerStore.getState();
+          if (store.selectedTimelineCells.length > 0 || store.activeTimelineCell) {
+            e.preventDefault();
+            e.stopPropagation();
+            store.deleteSelectedTimelineCells();
+            return;
+          }
+        }
+      }
+
       // 8. Modificateurs : Undo, Redo, Copy, Cut, Paste, Select All
       if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
         if (key === 'z') {
           e.preventDefault();
           if (e.shiftKey) {
+            useSequencerStore.getState().handleRedo();
             if (handleRedo) handleRedo();
           } else {
+            useSequencerStore.getState().handleUndo();
             if (handleUndo) handleUndo();
           }
           return;
         }
         if (key === 'y') {
           e.preventDefault();
+          useSequencerStore.getState().handleRedo();
           if (handleRedo) handleRedo();
           return;
         }
@@ -283,6 +311,24 @@ export function useGlobalKeyboardShortcuts() {
                 store.pasteTimelineClipboard();
               }
             }
+            return;
+          }
+        }
+        if (key === 'a') {
+          const curActive = document.activeElement as HTMLElement | null;
+          if (
+            curActive?.tagName === 'INPUT' ||
+            curActive?.tagName === 'TEXTAREA' ||
+            curActive?.isContentEditable ||
+            isInput
+          ) {
+            return;
+          }
+
+          if (!(window as any).oGiradorDetailEditorOpen) {
+            e.preventDefault();
+            e.stopPropagation();
+            useSequencerStore.getState().selectAllTimelineCells();
             return;
           }
         }

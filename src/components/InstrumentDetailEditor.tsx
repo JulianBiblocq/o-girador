@@ -1122,11 +1122,55 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
   const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
+
+  // Synchronisation descendante : de l'éditeur local vers useSequencerStore
+  useEffect(() => {
+    useSequencerStore.setState({
+      selectedStepIdx,
+      selectedSubIndex,
+    });
+  }, [selectedStepIdx, selectedSubIndex]);
+
+  // Synchronisation montante : écoute des modifications externes (ex : auto-avancement MIDI)
+  useEffect(() => {
+    const unsub = useSequencerStore.subscribe((state, prevState) => {
+      if (state.selectedStepIdx !== prevState.selectedStepIdx && state.selectedStepIdx !== selectedStepIdx) {
+        setSelectedStepIdx(state.selectedStepIdx);
+        if (state.selectedStepIdx !== null) {
+          setSelectedStepIndices([state.selectedStepIdx]);
+        }
+      }
+      if (state.selectedSubIndex !== prevState.selectedSubIndex && state.selectedSubIndex !== selectedSubIndex) {
+        setSelectedSubIndex(state.selectedSubIndex);
+      }
+    });
+    return unsub;
+  }, [selectedStepIdx, selectedSubIndex]);
+
+  // Réinitialisation du pas sélectionné au démontage de l'éditeur
+  useEffect(() => {
+    return () => {
+      useSequencerStore.setState({
+        selectedStepIdx: null,
+        selectedSubIndex: null,
+      });
+    };
+  }, []);
+
   useEffect(() => {
     if ((!selectedPatternId || selectedPatternId === 0) && activePattern?.id) {
       setSelectedPatternId(activePattern.id);
     }
   }, [selectedPatternId, activePattern?.id]);
+
+  useEffect(() => {
+    if (selectedPatternId && effectiveEditTrackId) {
+      useSequencerStore.getState().setTracks(prev =>
+        prev.map(t => t.id === effectiveEditTrackId ? { ...t, selectedPatternId } : t)
+      );
+    }
+  }, [selectedPatternId, effectiveEditTrackId]);
+
   const [isTupletEditMode, setIsTupletEditMode] = useState(false);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);

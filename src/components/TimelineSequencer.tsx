@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus, getVisibleTimelineTrackIds } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
@@ -29,7 +29,9 @@ import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
 import { TimelineMinimap } from './timeline/TimelineMinimap';
 import { SongSectionModal } from './timeline/SongSectionModal';
+import { SectionStretchConflictModal } from './timeline/SectionStretchConflictModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
+import { hasContentInRange } from '../utils/timelineCollision';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 import { TimelineContextMenu } from './TimelineContextMenu';
 import { XiloChisel, XiloMagnet } from './XiloIcons';
@@ -79,9 +81,20 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const { hasAccess } = useAuth();
   const [insertMeasuresPrompt, setInsertMeasuresPrompt] = React.useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
   const [insertAmountStr, setInsertAmountStr] = React.useState("1");
-  const { isPlaying, seekToMeasure, handleTimelineNavigate } = useAudio();
+  const { isPlaying, seekToMeasure, handleTimelineNavigate, handleStop } = useAudio();
   const isPlayingRef = React.useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+
+  // État du modal d'arbitrage de conflit d'étirement de section
+  const [stretchConflict, setStretchConflict] = React.useState<{
+    isOpen: boolean;
+    section: SongSection | null;
+    targetRange: { start: number; end: number } | null;
+  }>({
+    isOpen: false,
+    section: null,
+    targetRange: null,
+  });
 
   // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
   React.useEffect(() => {
@@ -146,46 +159,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const toggleMultiSelectMode = useSequencerStore(state => state.toggleMultiSelectMode);
   const selectedTimelineCellsCount = useSequencerStore(state => state.selectedTimelineCells.length);
   const clearTimelineSelection = useSequencerStore(state => state.clearTimelineSelection);
-  const trackIds = useSequencerStore(useShallow(state => {
-    const topLevelList: TrackGroup[] = [];
-    state.tracks.forEach(t => {
-      if (isLinearDAWVisibleTrack(t, state.tracks)) {
-        topLevelList.push(t);
-      }
-    });
-
-    if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
-      const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
-      topLevelList.sort((a, b) => {
-        const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
-        const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
-        return idxA - idxB;
-      });
-    }
-
-    const visibleTrackIds: number[] = [];
-    topLevelList.forEach(t => {
-      visibleTrackIds.push(t.id);
-      if (isToadaBus(t) && !t.isSequencerFolded) {
-        const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
-        const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
-        if (puxTrack) visibleTrackIds.push(puxTrack.id);
-        if (coroTrack) visibleTrackIds.push(coroTrack.id);
-      }
-      if (t.isLinkMaster) {
-        const parentBus = state.tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-        if (parentBus && !parentBus.isSequencerFolded) {
-          const slaves = state.tracks.filter(child => 
-            String(child.linkedToTrackId) === String(parentBus.id) && 
-            !child.isLinkFolder && 
-            !child.isLinkMaster
-          );
-          slaves.forEach(slave => visibleTrackIds.push(slave.id));
-        }
-      }
-    });
-    return visibleTrackIds;
-  }));
+  const clearAutomationSelection = useSequencerStore(state => state.clearAutomationSelection);
+  const selectedAutomationType = useSequencerStore(state => state.selectedAutomationType);
+  const selectedAutomationTrackId = useSequencerStore(state => state.selectedAutomationTrackId);
+  const selectedAutomationRange = useSequencerStore(state => state.selectedAutomationRange);
+  const selectAutomationMeasure = useSequencerStore(state => state.selectAutomationMeasure);
+  const trackIds = useSequencerStore(useShallow(state => getVisibleTimelineTrackIds(state)));
 
   const localRhythmSignals = metadata?.rhythmSignals || [];
   const rhythmSignals = [
@@ -372,10 +351,17 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const measureWidthRef = useRef(measureWidth);
+  const pendingTargetWidthRef = useRef<number | null>(null);
   const initialPinchDist = useRef<number | null>(null);
   const initialMeasureWidth = useRef<number>(0);
 
   useEffect(() => {
+    if (pendingTargetWidthRef.current !== null) {
+      if (measureWidth === pendingTargetWidthRef.current) {
+        pendingTargetWidthRef.current = null;
+      }
+      return;
+    }
     measureWidthRef.current = measureWidth;
   }, [measureWidth]);
 
@@ -824,19 +810,81 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   // Total scrollable content width (excluding sticky header column)
   const totalContentW = totalMeasures * MEASURE_W;
 
-  // 1. Mouse wheel horizontal scroll
+  // 1. Mouse wheel horizontal scroll & Ctrl+Wheel horizontal zoom (DAW standard)
   React.useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+
     const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0) {
+      const scrollEl = scrollRef.current;
+
+      // ── CAS A : Ctrl + Molette ou Cmd + Molette -> Zoom horizontal DAW centré ──
+      if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        el.scrollLeft += e.deltaY;
+
+        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+        if (delta === 0) return;
+
+        const currentW = measureWidthRef.current;
+        const MIN_W = 60;
+        const MAX_W = 320;
+
+        // Facteur de zoom fluide adapté aux souris standard et pavés tactiles
+        // delta < 0 (molette avant) -> zoom avant (élargissement des mesures)
+        // delta > 0 (molette arrière) -> zoom arrière (réduction des mesures)
+        const zoomFactor = delta < 0 ? 1.15 : 0.87;
+        let targetW = Math.round(currentW * zoomFactor);
+        targetW = Math.max(MIN_W, Math.min(MAX_W, targetW));
+
+        if (targetW === currentW) return;
+
+        // Zoom centré : stabiliser le point temporel sous le curseur
+        if (scrollEl) {
+          const rect = scrollEl.getBoundingClientRect();
+          const mouseViewportX = e.clientX - rect.left;
+
+          let newScrollLeft: number;
+          if (mouseViewportX > HEADER_W) {
+            // Curseur au-dessus de la grille des mesures
+            const contentX = scrollEl.scrollLeft + mouseViewportX;
+            const measureOffset = (contentX - HEADER_W) / currentW;
+            const newContentX = HEADER_W + measureOffset * targetW;
+            newScrollLeft = Math.max(0, newContentX - mouseViewportX);
+          } else {
+            // Curseur au-dessus des en-têtes de pistes (ancrage à gauche / ratio direct)
+            newScrollLeft = Math.max(0, scrollEl.scrollLeft * (targetW / currentW));
+          }
+
+          pendingScrollLeft.current = newScrollLeft;
+          scrollEl.scrollLeft = newScrollLeft;
+        }
+
+        containerEl.style.setProperty('--measure-width', `${targetW}px`);
+        containerEl.style.setProperty('--zoom-level', String(targetW / 480));
+
+        pendingTargetWidthRef.current = targetW;
+        measureWidthRef.current = targetW;
+
+        if (isPlaying) {
+          React.startTransition(() => {
+            onMeasureWidthChange(targetW);
+          });
+        } else {
+          onMeasureWidthChange(targetW);
+        }
+        return;
+      }
+
+      // ── CAS B : Molette normale -> Défilement horizontal fluide ──
+      if (scrollEl && e.deltaY !== 0) {
+        e.preventDefault();
+        scrollEl.scrollLeft += e.deltaY;
       }
     };
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
-  }, []);
+
+    containerEl.addEventListener('wheel', handleWheel, { passive: false });
+    return () => containerEl.removeEventListener('wheel', handleWheel);
+  }, [HEADER_W, onMeasureWidthChange]);
 
   // Keyboard listener for Spacebar panning shortcut
   React.useEffect(() => {
@@ -936,6 +984,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
     if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
       clearTimelineSelection();
+      clearAutomationSelection();
     }
 
     if (e.button === 0 && (isHandMode || isClickingEmpty)) {
@@ -1213,21 +1262,27 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       }
 
       if (currentCopies > 0) {
-        // Mission 2: Sécurité Audio (Critique) - Bloquer si lecture en cours
+        // Sécurité A: Interrompre la lecture si isPlaying avant de modifier la grille ou d'ouvrir le modal
         if (isPlaying) {
-          console.warn("Impossible d'étirer une section pendant la lecture (Zero Render Thrashing / Audio Sync rule).");
-          return;
+          handleStop();
         }
-        
-        // Execute physical cloning of measures in Zustand store
-        duplicateSectionBlock(startMeasure, endMeasure, endMeasure + 1, currentCopies);
-        
-        // Clone the visual SongSection for each copy
-        const sectionLength = endMeasure - startMeasure + 1;
-        for (let i = 0; i < currentCopies; i++) {
-          const newStart = endMeasure + 1 + (i * sectionLength);
-          const newEnd = newStart + sectionLength - 1;
-          onCreateSection(section.name, newStart, newEnd, section.color, 1, section.level);
+
+        const count = currentCopies * sectionLength;
+        const targetStart = endMeasure + 1;
+        const targetEnd = endMeasure + count;
+
+        const currentTracks = useSequencerStore.getState().tracks;
+        const hasConflict = hasContentInRange(targetStart, targetEnd, currentTracks);
+
+        if (hasConflict) {
+          setStretchConflict({
+            isOpen: true,
+            section,
+            targetRange: { start: targetStart, end: targetEnd },
+          });
+        } else {
+          // Plage entièrement vierge : extension directe sans dialogue
+          useSequencerStore.getState().stretchSongSection(section.id, targetEnd, 'overwrite');
         }
       }
     };
@@ -1238,6 +1293,22 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
     window.addEventListener('pointermove', handlePointerMove, { signal });
     window.addEventListener('pointerup', handlePointerUp, { signal });
+  };
+
+  const handleConfirmStretchInsert = () => {
+    if (!stretchConflict.section || !stretchConflict.targetRange) return;
+    useSequencerStore.getState().stretchSongSection(stretchConflict.section.id, stretchConflict.targetRange.end, 'insert');
+    setStretchConflict({ isOpen: false, section: null, targetRange: null });
+  };
+
+  const handleConfirmStretchOverwrite = () => {
+    if (!stretchConflict.section || !stretchConflict.targetRange) return;
+    useSequencerStore.getState().stretchSongSection(stretchConflict.section.id, stretchConflict.targetRange.end, 'overwrite');
+    setStretchConflict({ isOpen: false, section: null, targetRange: null });
+  };
+
+  const handleCancelStretchConflict = () => {
+    setStretchConflict({ isOpen: false, section: null, targetRange: null });
   };
 
 
@@ -1292,6 +1363,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                                   targetEl?.classList?.contains('wallpaper-surface-bg');
           if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
             clearTimelineSelection();
+            clearAutomationSelection();
           }
         }}
         className={`flex-grow overflow-x-auto overflow-y-auto relative custom-scrollbar ${
@@ -1662,6 +1734,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 return (
                   <div
                     key={section.id}
+                    data-testid={`section-block-${section.name}`}
+                    data-section-id={section.id}
                     className={`absolute flex items-center justify-between px-6 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}
@@ -1683,6 +1757,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
                     {/* Right resize handle */}
                     <div
+                      data-testid={`section-resize-right-${section.id}`}
+                      data-section-name={section.name}
                       className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize flex items-center justify-center hover:bg-black/15 select-none z-20 rounded-r"
                       onPointerDown={(e) => handleResizePointerDown(e, section, 'right')}
                       title={lang === 'fr' ? "Étendre à droite" : "Estender para direita"}
@@ -1880,6 +1956,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
 
                 const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+                const isBpmSelected = Boolean(
+                  selectedAutomationType === 'bpm' &&
+                  selectedAutomationTrackId === null &&
+                  selectedAutomationRange &&
+                  mIdx >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
+                  mIdx <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end)
+                );
 
                 return (
                   <div
@@ -1888,6 +1971,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       (mIdx + 1) % 4 === 0
                         ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
                         : 'border-r-[var(--cordel-border)]/30'
+                    } ${
+                      isBpmSelected ? 'bg-amber-500/15 border-t-2 border-t-[#e67e22]' : ''
                     } ${
                       loopStartMeasure !== null && loopEndMeasure !== null
                         ? (isInLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80 dark:border-t-gray-400/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
@@ -1955,7 +2040,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     </span>
 
                     {/* Time Signature */}
-                    <div className="ruler-detailed flex items-center gap-1">
+                    <div className="ruler-detailed">
                       <select
                         value={mTimeSig}
                         onChange={e => onMeasureTimeSigChange(mIdx, e.target.value as TimeSignature)}
@@ -1969,6 +2054,25 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         <option value="12/8">12/8</option>
                       </select>
                     </div>
+
+                    {/* Tempo Badge */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectAutomationMeasure('bpm', mIdx, e.shiftKey, null);
+                      }}
+                      data-automation-type="bpm"
+                      data-measure-idx={mIdx}
+                      className={`ruler-bpm-badge px-1 py-0.5 rounded text-[8px] font-bold font-cactus cursor-pointer transition-colors border select-none ${
+                        isBpmSelected
+                          ? 'bg-[#e67e22] text-[#f4ecd8] border-[#8b2a1a] shadow-xs ring-1 ring-[#8b2a1a]'
+                          : 'bg-[var(--cordel-text)]/10 hover:bg-[var(--cordel-text)]/20 text-[var(--cordel-text)] border-[var(--cordel-border)]/20'
+                      }`}
+                      title={lang === 'fr' ? `Tempo mesure ${mIdx + 1} : ${mBpm} BPM (Shift+clic pour sélection continue)` : `Andamento compasso ${mIdx + 1} : ${mBpm} BPM`}
+                    >
+                      {mBpm} BPM
+                    </button>
                   </div>
 
                   {/* Rhythm Signal */}
@@ -2107,6 +2211,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           {/* ══════════ AUTOMATION TRACKS ══════════ */}
           <AutomationTrack
             type="tempo"
+            trackId={null}
             totalMeasures={totalMeasures}
             measureWidth={MEASURE_W}
             values={measureBpms}
@@ -2121,6 +2226,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           />
           <AutomationTrack
             type="volume"
+            trackId={null}
             totalMeasures={totalMeasures}
             measureWidth={MEASURE_W}
             values={measureVols}
@@ -2182,6 +2288,17 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         onUpdateSection={onUpdateSection}
         onSaveCloudSection={onSaveCloudSection}
         onLoadCloudSection={onLoadCloudSection}
+      />
+
+      {/* ══════════ SECTION STRETCH CONFLICT MODAL ══════════ */}
+      <SectionStretchConflictModal
+        isOpen={stretchConflict.isOpen}
+        section={stretchConflict.section}
+        targetRange={stretchConflict.targetRange}
+        lang={lang}
+        onInsert={handleConfirmStretchInsert}
+        onOverwrite={handleConfirmStretchOverwrite}
+        onCancel={handleCancelStretchConflict}
       />
 
       {/* ══════════ MARKER FORM MODAL ══════════ */}

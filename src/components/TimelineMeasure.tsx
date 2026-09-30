@@ -145,6 +145,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       useSequencerStore.getState().selectTimelineCell(trackId, mIdx, 'toggle');
     } else {
       useSequencerStore.getState().selectTimelineCell(trackId, mIdx, 'single');
+      useSequencerStore.getState().clearAutomationSelection();
     }
 
     const rect = e.currentTarget.getBoundingClientRect();

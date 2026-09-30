@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { getTone } from '@/src/ToneLoader';
-import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode, reverbNode } from '../hooks/useAudioSync';
+import { channels, busChannels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode, reverbNode } from '../hooks/useAudioSync';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
@@ -81,13 +81,15 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
     }
     lastAudioUpdateTimeRef.current = now;
 
+    const targetChannel = trackId !== undefined ? (channels[trackId] || (busChannels ? busChannels[trackId] : undefined)) : undefined;
+
     // Direct-to-WebAudio with 0.05s smoothing
-    if (audioTarget === 'trackVolume' && trackId !== undefined && channels[trackId]) {
+    if (audioTarget === 'trackVolume' && targetChannel) {
       const gain = Math.max(0.00001, val / 100);
       const db = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
-      channels[trackId].volume.rampTo(db, 0.05);
-    } else if (audioTarget === 'trackPan' && trackId !== undefined && channels[trackId]) {
-      channels[trackId].pan.rampTo(val / 100, 0.05);
+      targetChannel.volume.rampTo(db, 0.05);
+    } else if (audioTarget === 'trackPan' && targetChannel) {
+      targetChannel.pan.rampTo(val / 100, 0.05);
     } else if (audioTarget === 'trackReverb' && trackId !== undefined && reverbSends[trackId]) {
       const gain = Math.max(0.00001, val / 100);
       const targetDb = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
