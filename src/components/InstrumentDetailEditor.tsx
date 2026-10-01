@@ -1125,6 +1125,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   // Synchronisation descendante : de l'éditeur local vers useSequencerStore
   useEffect(() => {
+    const storeStep = useSequencerStore.getState().selectedStepIdx;
+    if (selectedStepIdx === null && storeStep !== null) {
+      setSelectedStepIdx(storeStep);
+      return;
+    }
     useSequencerStore.setState({
       selectedStepIdx,
       selectedSubIndex,

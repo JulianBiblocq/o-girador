@@ -171,9 +171,20 @@ export const useMidiController = () => {
             return;
           }
 
-          const currentStepIdx = seqStore.selectedStepIdx;
-          if (currentStepIdx === null || currentStepIdx === undefined) {
-            return;
+          // Initialisation automatique au pas 0 de la mesure active si aucun pas n'est formellement sélectionné
+          let currentStepIdx = (seqStore.selectedStepIdx !== null && seqStore.selectedStepIdx !== undefined)
+            ? seqStore.selectedStepIdx
+            : 0;
+          let isInPreRoll = Boolean(seqStore.selectedStepIsPreRoll);
+
+          if (seqStore.selectedStepIdx === null || seqStore.selectedStepIdx === undefined) {
+            currentStepIdx = 0;
+            isInPreRoll = false;
+            useSequencerStore.setState({
+              selectedStepIdx: 0,
+              selectedStepIsPreRoll: false,
+              selectedSubIndex: null
+            });
           }
 
           // Anti-rebond mécanique strict (15 ms max, appliqué UNIQUEMENT sur la même note répétée)
@@ -191,9 +202,12 @@ export const useMidiController = () => {
           }
 
           // 2. Écriture atomique dans le pas actif (Saisie pas-à-pas)
-          const isInPreRoll = Boolean(seqStore.selectedStepIsPreRoll);
           const cardTrackId = activeTrack?.id !== undefined ? String(activeTrack.id) : (seqStore.armedTrackId !== null ? String(seqStore.armedTrackId) : null);
-          const cardPatternId = activeTrack?.selectedPatternId ? String(activeTrack.selectedPatternId) : (activeTrack?.patterns?.[0]?.id ? String(activeTrack.patterns[0].id) : null);
+          const activeDomCard = typeof document !== 'undefined'
+            ? (document.querySelector('[data-pattern-card][data-selected="true"]') || document.querySelector('[data-pattern-card]'))
+            : null;
+          const activeDomPatternId = activeDomCard ? activeDomCard.getAttribute('data-pattern-card') : null;
+          const cardPatternId = activeDomPatternId || (activeTrack?.selectedPatternId ? String(activeTrack.selectedPatternId) : (activeTrack?.patterns?.[0]?.id ? String(activeTrack.patterns[0].id) : null));
 
           if (cardTrackId && cardPatternId) {
             const numTrackId = Number(cardTrackId);
@@ -259,13 +273,18 @@ export const useMidiController = () => {
 
           // Émettre l'événement custom focus-voice-step pour prise en charge visuelle globale
           window.dispatchEvent(new CustomEvent('focus-voice-step', {
-            detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll: nextIsInPreRoll }
+            detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll: nextIsInPreRoll, patternId: cardPatternId }
           }));
 
           // Synchroniser visuellement l'input s'il est présent dans le DOM
           try {
-            const scopeSelector = nextIsInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
-            const nextCard = document.querySelector<HTMLElement>(`${scopeSelector} [data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
+            const patternContainer = (cardPatternId ? document.querySelector(`[data-pattern-card="${cardPatternId}"]`) : null)
+              || (cardPatternId ? document.querySelector(`[id="detail-voice-${cardTrackId}-${cardPatternId}"]`) : null)
+              || activeDomCard;
+            const container = nextIsInPreRoll
+              ? patternContainer?.querySelector('.pre-roll-section')
+              : (patternContainer?.querySelector('.main-measure-section') || patternContainer);
+            const nextCard = container?.querySelector<HTMLElement>(`[data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
             if (nextCard) {
               const nextInput = nextCard.querySelector('.v-note') as HTMLInputElement | null;
               if (nextInput) {

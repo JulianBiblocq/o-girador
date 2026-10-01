@@ -1941,18 +1941,15 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const puxTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coroTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 
-      const isVoiceToadaAssign = isToadaTrackId || 
-        (puxTrack && targetTrackId === puxTrack.id) || 
-        (coroTrack && targetTrackId === coroTrack.id);
-
       return {
         tracks: state.tracks.map(t => {
-          if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+          // Si on efface explicitement depuis la ligne maîtresse Toada (silence global de la toada)
+          if (isToadaTrackId && patternId === null && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
             return {
               ...t,
               patterns: t.patterns.map(p => {
                 const assign = [...p.measureAssignments];
-                assign[measureIdx] = (t.id === targetTrackId && p.id === patternId);
+                assign[measureIdx] = false;
                 return { ...p, measureAssignments: assign };
               })
             };
@@ -2094,9 +2091,6 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const isToadaTrackId = isToadaBus(clickedTrack);
       const puxTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coroTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-      const isVoiceToadaAssign = isToadaTrackId || 
-        (puxTrack && targetTrackId === puxTrack.id) || 
-        (coroTrack && targetTrackId === coroTrack.id);
 
       let activePatternId: number | null = null;
       let allowVarVal: boolean | undefined = undefined;
@@ -2115,17 +2109,22 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         measureVolTransitions: nextVolTransitions,
         measureSignals: nextSignals,
         tracks: nextTracks.map(t => {
-          if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+          // Duplication depuis la ligne maîtresse Toada : dupliquer fidèlement Puxador ET Coro
+          if (isToadaTrackId && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+            const trackActivePat = t.patterns.find(p => p.measureAssignments?.[srcIdx]);
+            const trackActivePatId = trackActivePat?.id ?? null;
+            const trackAllowVarVal = trackActivePat?.measureAllowVariations?.[srcIdx];
+
             return {
               ...t,
               patterns: t.patterns.map(p => {
                 const assign = [...p.measureAssignments];
                 while (assign.length < nextTotal) assign.push(false);
-                assign[targetIdx] = (t.id === targetTrackId && p.id === activePatternId);
+                assign[targetIdx] = Boolean(trackActivePatId !== null && p.id === trackActivePatId);
                 const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
-                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                if (nextVariations && trackAllowVarVal !== undefined && p.id === trackActivePatId) {
                   while (nextVariations.length < nextTotal) nextVariations.push(true);
-                  nextVariations[targetIdx] = allowVarVal;
+                  nextVariations[targetIdx] = trackAllowVarVal;
                 }
                 return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
               })
@@ -2302,9 +2301,6 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const isToadaTrackId = isToadaBus(clickedTrack);
       const puxTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coroTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-      const isVoiceToadaAssign = isToadaTrackId || 
-        (puxTrack && targetTrackId === puxTrack.id) || 
-        (coroTrack && targetTrackId === coroTrack.id);
 
       let activePatternId: number | null = null;
       let allowVarVal: boolean | undefined = undefined;
@@ -2323,21 +2319,26 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         measureVolTransitions: nextVolTransitions,
         measureSignals: nextSignals,
         tracks: nextTracks.map(t => {
-          if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+          // Duplication multi-mesures depuis la ligne maîtresse Toada : dupliquer fidèlement Puxador ET Coro
+          if (isToadaTrackId && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+            const trackActivePat = t.patterns.find(p => p.measureAssignments?.[srcIdx]);
+            const trackActivePatId = trackActivePat?.id ?? null;
+            const trackAllowVarVal = trackActivePat?.measureAllowVariations?.[srcIdx];
+
             return {
               ...t,
               patterns: t.patterns.map(p => {
                 const assign = [...p.measureAssignments];
                 while (assign.length < nextTotal) assign.push(false);
                 const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
-                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                if (nextVariations && trackAllowVarVal !== undefined && p.id === trackActivePatId) {
                   while (nextVariations.length < nextTotal) nextVariations.push(true);
                 }
                 for (let step = 1; step <= count; step++) {
                   const targetIdx = srcIdx + step;
-                  assign[targetIdx] = (t.id === targetTrackId && p.id === activePatternId);
-                  if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
-                    nextVariations[targetIdx] = allowVarVal;
+                  assign[targetIdx] = Boolean(trackActivePatId !== null && p.id === trackActivePatId);
+                  if (nextVariations && trackAllowVarVal !== undefined && p.id === trackActivePatId) {
+                    nextVariations[targetIdx] = trackAllowVarVal;
                   }
                 }
                 return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
@@ -4578,26 +4579,12 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
                 while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
                 p.measureAssignments[targetIdx] = Boolean(puxPat && p.id === puxPat.id);
               });
-              // Exclusivité : si Puxador a un motif sur targetIdx, Coro doit être silencieux sur targetIdx
-              if (puxPat && coroTrack) {
-                coroTrack.patterns.forEach(p => {
-                  while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
-                  p.measureAssignments[targetIdx] = false;
-                });
-              }
             } else if (isVoiceCoro && coroTrack) {
               const coroPat = coroTrack.patterns.find(p => p.measureAssignments?.[m]);
               coroTrack.patterns.forEach(p => {
                 while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
                 p.measureAssignments[targetIdx] = Boolean(coroPat && p.id === coroPat.id);
               });
-              // Exclusivité : si Coro a un motif sur targetIdx, Puxador doit être silencieux sur targetIdx
-              if (coroPat && puxTrack) {
-                puxTrack.patterns.forEach(p => {
-                  while (p.measureAssignments.length < nextTotal) p.measureAssignments.push(false);
-                  p.measureAssignments[targetIdx] = false;
-                });
-              }
             }
           } else {
             // Piste normale ou master de groupe
@@ -4922,25 +4909,11 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
               while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
               p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
             });
-            // Exclusivité vocale : Coro devient silencieux sur destM si Puxador a un motif
-            if (entry.patternId !== null && newCoroTrack) {
-              newCoroTrack.patterns.forEach(p => {
-                while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-                p.measureAssignments[destM] = false;
-              });
-            }
           } else if (isVoiceCoro && newCoroTrack) {
             newCoroTrack.patterns.forEach(p => {
               while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
               p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
             });
-            // Exclusivité vocale : Puxador devient silencieux sur destM si Coro a un motif
-            if (entry.patternId !== null && newPuxTrack) {
-              newPuxTrack.patterns.forEach(p => {
-                while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-                p.measureAssignments[destM] = false;
-              });
-            }
           }
         } else {
           // Piste normale d'instrument
@@ -5032,6 +5005,7 @@ export interface TrackMeta {
   isSolo: boolean;
   isHidden?: boolean;
   isFolded?: boolean;
+  isSequencerFolded?: boolean;
   patternOverrides?: Record<number, number | null>;
   automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean };
 }
@@ -5052,11 +5026,12 @@ export const getCachedTrackMeta = (
   isHidden: boolean | undefined,
   isFolded: boolean | undefined,
   patternOverrides?: Record<number, number | null>,
-  automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean }
+  automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean },
+  isSequencerFolded?: boolean
 ): TrackMeta => {
   const overridesKey = patternOverrides ? Object.entries(patternOverrides).map(([k, v]) => `${k}:${v}`).join(',') : '';
   const bypassKey = automationBypass ? `${!!automationBypass.volume}_${!!automationBypass.pan}_${!!automationBypass.reverb}` : '';
-  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isHidden}_${!!isFolded}_${overridesKey}_${bypassKey}`;
+  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isHidden}_${!!isFolded}_${!!isSequencerFolded}_${overridesKey}_${bypassKey}`;
   let item = trackMetaCache.get(key);
   if (!item) {
     item = {
@@ -5072,6 +5047,7 @@ export const getCachedTrackMeta = (
       isSolo,
       isHidden,
       isFolded,
+      isSequencerFolded,
       patternOverrides,
       automationBypass,
     };
@@ -5108,7 +5084,8 @@ export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] =
       t.isHidden,
       t.isFolded,
       t.patternOverrides,
-      t.automationBypass
+      t.automationBypass,
+      t.isSequencerFolded
     );
     nextMetaList.push(meta);
     if (!hasChanged && prevMetaList[i] !== meta) {

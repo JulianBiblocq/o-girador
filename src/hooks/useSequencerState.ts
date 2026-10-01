@@ -807,8 +807,6 @@ export function useSequencerState() {
   const handleTimelinePatternAssign = (trackId: number, patternId: number | null, measureIdx: number) => {
     pushUndoState();
     setTracks(prev => {
-      const puxTrack = prev.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-      const coroTrack = prev.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
       let targetTrackId = trackId;
       if (patternId !== null && patternId !== undefined) {
         const ownerTrack = prev.find(t => t.patterns.some(p => p.id === patternId));
@@ -816,19 +814,8 @@ export function useSequencerState() {
           targetTrackId = ownerTrack.id;
         }
       }
-      const isVoiceToadaAssign = (puxTrack && targetTrackId === puxTrack.id) || (coroTrack && targetTrackId === coroTrack.id);
 
       return prev.map(t => {
-        if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
-          return {
-            ...t,
-            patterns: t.patterns.map(p => {
-              const assign = [...p.measureAssignments];
-              assign[measureIdx] = (t.id === targetTrackId && p.id === patternId);
-              return { ...p, measureAssignments: assign };
-            })
-          };
-        }
         if (t.id === targetTrackId) {
           const nextPatterns = t.patterns.map(p => {
             const assign = [...p.measureAssignments];

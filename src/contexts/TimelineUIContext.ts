@@ -12,6 +12,7 @@ export interface TimelineUIContextType {
   lang: Language;
   signalDropdownOpen: number | null;
   setSignalDropdownOpen: (val: number | null) => void;
+  onOpenPatternPicker?: (trackId: number, measureIdx: number, rect: DOMRect) => void;
 }
 
 export const TimelineUIContext = React.createContext<TimelineUIContextType | null>(null);

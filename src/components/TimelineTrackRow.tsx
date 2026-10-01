@@ -47,6 +47,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     isMinZoom, 
     isPanningActive, 
     lang, 
+    onOpenPatternPicker,
   } = uiContext;
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
@@ -235,10 +236,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   }, [topBusId, tracksMeta]);
 
   const isCollapsed = React.useMemo(() => {
-    if (isToada) return trackMeta?.isFolded;
-    if (trackMeta?.isLinkMaster) return parentBus?.isFolded;
+    if (isToada) return Boolean(trackMeta?.isSequencerFolded);
+    if (trackMeta?.isLinkMaster) return Boolean(parentBus?.isSequencerFolded);
     return false;
-  }, [isToada, trackMeta?.isFolded, trackMeta?.isLinkMaster, parentBus?.isFolded]);
+  }, [isToada, trackMeta?.isSequencerFolded, trackMeta?.isLinkMaster, parentBus?.isSequencerFolded]);
 
   const handleToggleFold = () => {
     if (isToada) {
@@ -428,25 +429,46 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           let isOverridden = false;
           let isSilence = false;
 
+          const isFolded = Boolean(trackMeta?.isSequencerFolded);
+          let toadaVocalBadges: { pPtnName?: string; cPtnName?: string } | undefined = undefined;
+
           if (isToada) {
             const puxTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
             const coroTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
             const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
             const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
-            const displayedPattern = cPtn || pPtn || null;
-            if (displayedPattern) {
-              activePattern = displayedPattern;
-              activeTrack = cPtn ? coroTrack : puxTrack;
-              currentTrackIdx = tracksMeta.findIndex(t => t.id === activeTrack!.id);
-            } else {
+
+            if (!isFolded) {
+              // 1. Dépliée (!isSequencerFolded) : aucune inscription de motif ni badge, cellules de mesure vierges et neutres
               activePattern = null;
               activeTrack = null;
-            }
+            } else {
+              // 2. Repliée (isSequencerFolded) : badge miroir synthétique
+              if (pPtn && cPtn) {
+                activePattern = pPtn;
+                activeTrack = puxTrack;
+                currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
+                toadaVocalBadges = { pPtnName: pPtn.name, cPtnName: cPtn.name };
+              } else if (pPtn) {
+                activePattern = pPtn;
+                activeTrack = puxTrack;
+                currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
+                toadaVocalBadges = { pPtnName: pPtn.name };
+              } else if (cPtn) {
+                activePattern = cPtn;
+                activeTrack = coroTrack;
+                currentTrackIdx = tracksMeta.findIndex(t => t.id === coroTrack!.id);
+                toadaVocalBadges = { cPtnName: cPtn.name };
+              } else {
+                activePattern = null;
+                activeTrack = null;
+              }
 
-            if (activeTrack) {
-              currentTrackId = activeTrack.id;
-              currentInstrumentIdx = activeTrack.instrumentIdx;
-              currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
+              if (activeTrack) {
+                currentTrackId = activeTrack.id;
+                currentInstrumentIdx = activeTrack.instrumentIdx;
+                currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
+              }
             }
 
             const toadaPatternsList: Pattern[] = [];
@@ -544,6 +566,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               hasChildOverrides={hasChildOverrides}
               onStepTouchStart={onStepTouchStart}
               isToada={isToada}
+              toadaVocalBadges={toadaVocalBadges}
+              onOpenPatternPicker={onOpenPatternPicker}
             />
           );
         })}

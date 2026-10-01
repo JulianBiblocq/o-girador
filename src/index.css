@@ -1503,6 +1503,11 @@ body.has-wallpaper-none .wallpaper-surface-dark {
   box-shadow: 1px 1px 0px #1a1a1a;
 }
 
+.automation-node-circle,
+.automation-node-hit {
+  cursor: ns-resize !important;
+}
+
 
 
 

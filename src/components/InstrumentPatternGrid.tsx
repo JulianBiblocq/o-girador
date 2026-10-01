@@ -16,7 +16,7 @@ import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useA
 import { Pattern, StepSculptValue } from '../types';
 import { getNextStepValue, getWheelNuanceState, getNextNuanceState, getAlternatingStroke, getComplementaryStroke, getDefaultSplitPair } from '../utils/instrumentStrokes';
 import { Trash2 } from 'lucide-react';
-import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
+import { isDarkText, instrumentsConfig } from '../data';
 import { getContrastColor } from '../utils/colorHelpers';
 import { useWindow } from '../contexts/WindowContext';
 
@@ -592,24 +592,6 @@ const VoiceStepCellComponent = ({
 
   const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps || 0);
 
-  const getTransposedNoteDetails = () => {
-    if (!note || note.trim() === '') {
-      return { letter: '', octave: '', color: '#1a1a1a' };
-    }
-    let finalNote = note;
-    if (vocalTransposeSteps !== 0) {
-      try {
-        finalNote = Tone.Frequency(note).transpose(vocalTransposeSteps).toNote();
-      } catch (_) {}
-    }
-    const letter = finalNote.includes('#') ? finalNote.substring(0, 2).toUpperCase() : finalNote.charAt(0).toUpperCase();
-    const oct = finalNote.replace(/^[a-gA-G][#b]?/, '');
-    const base = finalNote.charAt(0).toUpperCase();
-    const color = base ? (NEWTON_NOTE_COLORS[base] || '#1a1a1a') : '#1a1a1a';
-    return { letter, octave: oct, color };
-  };
-
-  const { letter: noteLetterOnly, octave, color: noteColor } = getTransposedNoteDetails();
   const txtColor = hasActiveNote ? getContrastColor(cardBg || '#f4ecd8') : '#1a1a1a';
 
   const handleInputKeyDown = (
@@ -922,29 +904,31 @@ const VoiceStepCellComponent = ({
           onKeyDown={(e) => handleInputKeyDown(e, 'syl')}
         />
 
-        {/* Note input */}
+        {/* Note input - Unique texte net, centré, sans calque fantôme */}
         <div className="relative w-full h-[24px] flex items-center justify-center cursor-pointer hover:bg-black/5">
           <input
             type="text"
-            value={note}
+            value={isProlongation && !isNoteFocused ? '───' : (note || '')}
             readOnly={isMultiSelectActive}
             onChange={(e) => onVoiceNoteChange(trackId, patternId, i, e.target.value)}
             onBlur={(e) => {
               onVoiceNoteBlur(trackId, patternId, i, e.target.value);
               setIsNoteFocused(false);
             }}
-            placeholder="C4"
-            className={`step-input-cell v-note w-full text-center font-bold outline-none bg-transparent pt-0.5`}
+            placeholder={isNoteFocused ? 'C4' : ''}
+            className="step-input-cell v-note w-full text-center font-bold text-xs outline-none bg-transparent pt-0.5 placeholder:text-black/20"
             style={{
-              color: isMultiSelectActive && isSelected ? 'transparent' : txtColor,
+              color: isMultiSelectActive && isSelected
+                ? 'transparent'
+                : (isProlongation ? '#666666' : '#1a1a1a'),
             }}
-            onFocus={(e) => {
+            onFocus={() => {
               if (!isMultiSelectActive) {
                 onFocusStep(i, Boolean(isPreRoll));
                 setIsNoteFocused(true);
               }
             }}
-            onClick={(e) => {
+            onClick={() => {
               if (!isMultiSelectActive) {
                 onFocusStep(i, Boolean(isPreRoll));
                 setIsNoteFocused(true);
@@ -952,24 +936,6 @@ const VoiceStepCellComponent = ({
             }}
             onKeyDown={(e) => handleInputKeyDown(e, 'note')}
           />
-          {!isNoteFocused && (
-            <span 
-              className="absolute inset-0 flex items-center justify-center text-xs font-black tracking-wide pointer-events-none"
-              style={{
-                color: isProlongation ? txtColor : noteColor,
-                textShadow: isProlongation ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 0, 0, 0.5)'
-              }}
-            >
-              {isProlongation ? (
-                <span className="tracking-widest font-extrabold select-none opacity-80">───</span>
-              ) : (
-                <>
-                  {noteLetterOnly || '-'}
-                  {octave && <span className="text-[7px] align-super opacity-60 ml-0.5">{octave}</span>}
-                </>
-              )}
-            </span>
-          )}
         </div>
         {/* Sculpting micro-bars — Zone isolée pour sélection Escultor sans écrasement d'outil */}
         <div
@@ -2958,9 +2924,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       targetStepIdx = patternSteps - 1;
     }
 
-    const scopeSelector = targetIsInPreRoll ? '.pre-roll-section' : ':not(.pre-roll-section)';
+    const container = targetIsInPreRoll
+      ? gridRef.current?.querySelector('.pre-roll-section')
+      : (gridRef.current?.querySelector('.main-measure-section') || gridRef.current?.querySelector(`[id^="detail-voice-"]`));
 
-    const targetCard = gridRef.current?.querySelector(`${scopeSelector} [data-step-type="voice"][data-step-index="${targetStepIdx}"]`) as HTMLElement | null;
+    const targetCard = container?.querySelector(`[data-step-type="voice"][data-step-index="${targetStepIdx}"]`) as HTMLElement | null;
     if (targetCard) {
       const targetInput = targetCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement | null;
       if (targetInput) {
@@ -2985,7 +2953,15 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   /* Écouteur d'événement global pour la prise de focus pilotée par MIDI ou externe */
   React.useEffect(() => {
     const handleFocusVoiceStepEvent = (e: Event) => {
-      const customEvt = e as CustomEvent<{ stepIdx: number; type?: 'note' | 'syl'; isInPreRoll?: boolean }>;
+      const customEvt = e as CustomEvent<{ stepIdx: number; type?: 'note' | 'syl'; isInPreRoll?: boolean; patternId?: number | string }>;
+      // 🛡️ Si un patternId précis est ciblé par l'événement : vérifier la correspondance
+      if (customEvt.detail?.patternId && pattern?.id && String(customEvt.detail.patternId) !== String(pattern.id)) {
+        return;
+      }
+      // 🛡️ N'intercepter le focus que si cette grille correspond au motif actif en cours d'édition
+      if (selectedPatternId && pattern?.id && selectedPatternId !== pattern.id) {
+        return;
+      }
       if (customEvt.detail && typeof customEvt.detail.stepIdx === 'number') {
         focusVoiceStep(customEvt.detail.stepIdx, customEvt.detail.type || 'note', customEvt.detail.isInPreRoll);
       }
@@ -2994,12 +2970,18 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => {
       window.removeEventListener('focus-voice-step', handleFocusVoiceStepEvent);
     };
-  }, [focusVoiceStep]);
+  }, [focusVoiceStep, selectedPatternId, pattern?.id]);
 
   /* Écouteur d'événement global pour la prise de focus percussion pilotée par MIDI */
   React.useEffect(() => {
     const handleFocusPercussionStepEvent = (e: Event) => {
-      const customEvt = e as CustomEvent<{ stepIdx: number; subIndex?: 0 | 1 | null }>;
+      const customEvt = e as CustomEvent<{ stepIdx: number; subIndex?: 0 | 1 | null; patternId?: number | string }>;
+      if (customEvt.detail?.patternId && pattern?.id && String(customEvt.detail.patternId) !== String(pattern.id)) {
+        return;
+      }
+      if (selectedPatternId && pattern?.id && selectedPatternId !== pattern.id) {
+        return;
+      }
       if (customEvt.detail && typeof customEvt.detail.stepIdx === 'number') {
         const nextIdx = customEvt.detail.stepIdx;
         setSelectedStepIdx(nextIdx);
@@ -3014,7 +2996,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => {
       window.removeEventListener('focus-percussion-step', handleFocusPercussionStepEvent);
     };
-  }, [focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
+  }, [focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex, selectedPatternId, pattern?.id]);
 
   /* Voice input navigation helper */
   const handleVoiceNav = React.useCallback((el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
@@ -3403,7 +3385,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
           </div>
 
           <div
-            className="flex flex-col gap-3 w-full"
+            className="main-measure-section flex flex-col gap-3 w-full"
             id={`detail-voice-${trackId}-${pattern.id}`}
             onTouchMove={handleGridTouchMove}
             onTouchEnd={handleGridTouchEnd}

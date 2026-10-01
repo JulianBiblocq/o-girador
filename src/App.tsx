@@ -465,7 +465,7 @@ export default function App() {
   // Cloud Section State
   const [sectionToSave, setSectionToSave] = useState<SongSection | null>(null);
   const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
-  const [measureWidth, setMeasureWidth] = useState<number>(() => {
+  const [_measureWidth, setMeasureWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return 240;
     const w = window.innerWidth;
     if (w < 600) {
@@ -476,6 +476,10 @@ export default function App() {
       return Math.max(160, Math.min(280, Math.round((w - 260) / 6.5)));
     }
   });
+  const measureWidth = _measureWidth;
+  const handleSetMeasureWidth = React.useCallback((w: number) => {
+    setMeasureWidth(w);
+  }, []);
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
 
   const t = (key: string) => {
@@ -794,7 +798,7 @@ export default function App() {
         hideGlobalSignals={hideGlobalSignals}
         onToggleHideGlobalSignals={handleToggleHideGlobalSignals}
         measureWidth={measureWidth}
-        setMeasureWidth={setMeasureWidth}
+        setMeasureWidth={handleSetMeasureWidth}
         setSectionToSave={setSectionToSave}
         setLoadSectionInsertMeasure={setLoadSectionInsertMeasure}
 

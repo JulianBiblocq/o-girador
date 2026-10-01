@@ -217,6 +217,40 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
     }
   }, [selectedStepIdx, selectedStepIsPreRoll, getEffectivePatternId, sequencer, trackId]);
 
+  // Activation de la saisie pas-à-pas avec sélection auto du pas 0 et libération du focus bouton
+  const handleActivateStepMode = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur();
+    setVoiceInputMode('step');
+
+    const storeStep = useSequencerStore.getState().selectedStepIdx;
+    const isStepNull = selectedStepIdx === null || selectedStepIdx === undefined;
+
+    const targetStep = isStepNull ? 0 : (selectedStepIdx ?? 0);
+    const targetIsPreRoll = isStepNull ? false : Boolean(selectedStepIsPreRoll);
+
+    if (isStepNull) {
+      if (setSelectedStepIdx) setSelectedStepIdx(0);
+      if (setSelectedStepIsPreRoll) setSelectedStepIsPreRoll(false);
+      useSequencerStore.setState({
+        selectedStepIdx: 0,
+        selectedStepIsPreRoll: false,
+        selectedSubIndex: null
+      });
+      useSequencerStore.getState().setSelectedStepIdx?.(0, false, null);
+    }
+
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('focus-voice-step', {
+        detail: {
+          stepIdx: targetStep,
+          type: 'note',
+          isInPreRoll: targetIsPreRoll,
+          patternId: getEffectivePatternId()
+        }
+      }));
+    }, 10);
+  }, [selectedStepIdx, selectedStepIsPreRoll, setVoiceInputMode, setSelectedStepIdx, setSelectedStepIsPreRoll]);
+
   const isFr = lang === 'fr';
 
   return (
@@ -241,7 +275,8 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
 
           <button
             type="button"
-            onClick={() => setVoiceInputMode('step')}
+            data-testid="voice-step-mode-btn"
+            onClick={handleActivateStepMode}
             className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               voiceInputMode === 'step'
                 ? 'bg-[#8b2a1a] text-[#fcf8ef] shadow-xs'

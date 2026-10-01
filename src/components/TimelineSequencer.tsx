@@ -37,6 +37,7 @@ import { TimelineContextMenu } from './TimelineContextMenu';
 import { XiloChisel, XiloMagnet } from './XiloIcons';
 import { AutomationTrack } from './AutomationTrack';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
+import { TimelinePatternPickerPopover } from './TimelinePatternPickerPopover';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -192,6 +193,16 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       }
       return next;
     });
+  }, []);
+
+  const [pickerState, setPickerState] = useState<{
+    trackId: number;
+    measureIdx: number;
+    rect: DOMRect;
+  } | null>(null);
+
+  const handleOpenPatternPicker = useCallback((trackId: number, measureIdx: number, rect: DOMRect) => {
+    setPickerState({ trackId, measureIdx, rect });
   }, []);
 
   const HEADER_W = isMobile ? 80 : 200;
@@ -648,7 +659,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   
   React.useLayoutEffect(() => {
     if (pendingScrollLeft.current !== null && scrollRef.current) {
-      scrollRef.current.scrollLeft = pendingScrollLeft.current;
+      scrollRef.current.scrollLeft = Math.max(0, pendingScrollLeft.current);
       pendingScrollLeft.current = null;
     }
   }, [measureWidth]);
@@ -825,7 +836,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
         if (delta === 0) return;
 
-        const currentW = measureWidthRef.current;
+        const currentW = measureWidthRef.current || measureWidth;
         const MIN_W = 60;
         const MAX_W = 320;
 
@@ -833,12 +844,16 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         // delta < 0 (molette avant) -> zoom avant (élargissement des mesures)
         // delta > 0 (molette arrière) -> zoom arrière (réduction des mesures)
         const zoomFactor = delta < 0 ? 1.15 : 0.87;
-        let targetW = Math.round(currentW * zoomFactor);
-        targetW = Math.max(MIN_W, Math.min(MAX_W, targetW));
+        const targetW = Math.round(currentW * zoomFactor);
+        const clampedTargetW = Math.max(MIN_W, Math.min(MAX_W, targetW));
 
-        if (targetW === currentW) return;
+        if (clampedTargetW === currentW) return;
 
-        // Zoom centré : stabiliser le point temporel sous le curseur
+        // Synchronisation immédiate de la ref pour encaisser les rafales de molette sans déphasage
+        measureWidthRef.current = clampedTargetW;
+        pendingTargetWidthRef.current = clampedTargetW;
+
+        // Zoom centré : stabiliser le point temporel sous le curseur (Zero Drift Anchor)
         if (scrollEl) {
           const rect = scrollEl.getBoundingClientRect();
           const mouseViewportX = e.clientX - rect.left;
@@ -846,31 +861,42 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           let newScrollLeft: number;
           if (mouseViewportX > HEADER_W) {
             // Curseur au-dessus de la grille des mesures
-            const contentX = scrollEl.scrollLeft + mouseViewportX;
-            const measureOffset = (contentX - HEADER_W) / currentW;
-            const newContentX = HEADER_W + measureOffset * targetW;
-            newScrollLeft = Math.max(0, newContentX - mouseViewportX);
+            const deltaX = mouseViewportX - HEADER_W;
+            const contentX = scrollEl.scrollLeft + deltaX;
+            newScrollLeft = contentX * (clampedTargetW / currentW) - deltaX;
           } else {
             // Curseur au-dessus des en-têtes de pistes (ancrage à gauche / ratio direct)
-            newScrollLeft = Math.max(0, scrollEl.scrollLeft * (targetW / currentW));
+            newScrollLeft = scrollEl.scrollLeft * (clampedTargetW / currentW);
+          }
+          newScrollLeft = Math.max(0, newScrollLeft);
+
+          // ── Anti-Clamping synchrone immédiat (Pré-extension du scrollWidth) ──
+          const newTotalContentW = totalMeasures * clampedTargetW;
+          const newTotalGridW = HEADER_W + newTotalContentW + 150;
+          if (gridRef.current) {
+            gridRef.current.style.width = `${newTotalGridW}px`;
+            gridRef.current.style.minWidth = `${newTotalGridW}px`;
+          }
+          const bgEl = scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement;
+          if (bgEl) {
+            bgEl.style.width = `max(100%, ${HEADER_W + newTotalContentW + 300}px)`;
           }
 
-          pendingScrollLeft.current = newScrollLeft;
+          scrollEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
+          containerEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
+          containerEl.style.setProperty('--zoom-level', String(clampedTargetW / 480));
+
+          // Application synchrone immédiate (garantie non bridée par le scrollWidth pré-étendu)
           scrollEl.scrollLeft = newScrollLeft;
+          pendingScrollLeft.current = newScrollLeft;
         }
-
-        containerEl.style.setProperty('--measure-width', `${targetW}px`);
-        containerEl.style.setProperty('--zoom-level', String(targetW / 480));
-
-        pendingTargetWidthRef.current = targetW;
-        measureWidthRef.current = targetW;
 
         if (isPlaying) {
           React.startTransition(() => {
-            onMeasureWidthChange(targetW);
+            onMeasureWidthChange(clampedTargetW);
           });
         } else {
-          onMeasureWidthChange(targetW);
+          onMeasureWidthChange(clampedTargetW);
         }
         return;
       }
@@ -884,7 +910,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
     containerEl.addEventListener('wheel', handleWheel, { passive: false });
     return () => containerEl.removeEventListener('wheel', handleWheel);
-  }, [HEADER_W, onMeasureWidthChange]);
+  }, [HEADER_W, totalMeasures, onMeasureWidthChange]);
 
   // Keyboard listener for Spacebar panning shortcut
   React.useEffect(() => {
@@ -1323,8 +1349,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   const contextValue = React.useMemo(() => ({
     MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang,
-    signalDropdownOpen, setSignalDropdownOpen
-  }), [MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen]);
+    signalDropdownOpen, setSignalDropdownOpen,
+    onOpenPatternPicker: handleOpenPatternPicker,
+  }), [MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen, handleOpenPatternPicker]);
 
   if (!trackIds) return null;
 
@@ -2379,6 +2406,16 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Pattern Picker Popover on Double-Click */}
+      {pickerState && (
+        <TimelinePatternPickerPopover
+          trackId={pickerState.trackId}
+          measureIdx={pickerState.measureIdx}
+          anchorRect={pickerState.rect}
+          onClose={() => setPickerState(null)}
+        />
       )}
     </div>
     </TimelineUIContext.Provider>

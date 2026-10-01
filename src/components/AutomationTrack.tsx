@@ -54,6 +54,8 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   const selectAutomationMeasure = useSequencerStore(state => state.selectAutomationMeasure);
   const setGroupedAutomationValue = useSequencerStore(state => state.setGroupedAutomationValue);
   
+  const svgRectRef = useRef<DOMRect | null>(null);
+  
   // Local state for dragging to satisfy Zero Render Thrashing
   const draggingIdxRef = useRef<number | null>(null);
   const localValuesRef = useRef<number[]>([...values]);
@@ -83,10 +85,17 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     return min + percent * (max - min);
   };
 
+  const totalWidth = totalMeasures * measureWidth;
+
   const renderSvg = useCallback(() => {
     if (!svgRef.current) return;
     const height = isExpanded ? 80 : 30;
+    const totalW = totalMeasures * measureWidth;
     
+    // Set explicit SVG dimensions
+    svgRef.current.setAttribute('width', totalW.toString());
+    svgRef.current.setAttribute('height', height.toString());
+
     // Clear SVG
     while (svgRef.current.firstChild) {
       svgRef.current.removeChild(svgRef.current.firstChild);
@@ -100,58 +109,68 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       const zeroLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       zeroLine.setAttribute('x1', '0');
       zeroLine.setAttribute('y1', zeroY.toString());
-      zeroLine.setAttribute('x2', (totalMeasures * measureWidth).toString());
+      zeroLine.setAttribute('x2', totalW.toString());
       zeroLine.setAttribute('y2', zeroY.toString());
       zeroLine.setAttribute('stroke', 'rgba(255,255,255,0.25)');
       zeroLine.setAttribute('stroke-dasharray', '3 3');
       zeroLine.setAttribute('stroke-width', '1');
+      zeroLine.setAttribute('pointer-events', 'none');
       svgRef.current.appendChild(zeroLine);
     }
 
-    // Create Path
+    // Create Path with centered nodes: Xm = m * measureWidth + measureWidth / 2
     let d = '';
+    const nodeXCoords: number[] = [];
+    const nodeYCoords: number[] = [];
+
     for (let i = 0; i < totalMeasures; i++) {
-      const x = i * measureWidth;
+      const nodeX = i * measureWidth + measureWidth / 2;
       const val = currentValues[i] !== undefined ? currentValues[i] : (type === 'pan' ? 0 : min);
-      const y = getYFromValue(val, height);
-      
+      const nodeY = getYFromValue(val, height);
+
+      nodeXCoords.push(nodeX);
+      nodeYCoords.push(nodeY);
+
       if (i === 0) {
-        d += `M ${x} ${y}`;
+        // Start flat line from x = 0 to first centered node
+        d += `M 0 ${nodeY} L ${nodeX} ${nodeY}`;
       } else {
-        const prevX = (i - 1) * measureWidth;
-        const prevVal = currentValues[i - 1] !== undefined ? currentValues[i - 1] : (type === 'pan' ? 0 : min);
-        const prevY = getYFromValue(prevVal, height);
+        const prevX = nodeXCoords[i - 1];
+        const prevY = nodeYCoords[i - 1];
+        const boundaryX = i * measureWidth;
         const trans = transitions[i] || 'immediate';
 
         if (trans === 'immediate') {
-          d += ` L ${x} ${prevY} L ${x} ${y}`;
+          // Sharp step at the exact measure boundary
+          d += ` L ${boundaryX} ${prevY} L ${boundaryX} ${nodeY} L ${nodeX} ${nodeY}`;
         } else if (trans === 'ramp') {
-          d += ` L ${x} ${y}`;
+          // Linear ramp between centered nodes
+          d += ` L ${nodeX} ${nodeY}`;
         } else if (trans === 'bezier') {
-          // Cubic bezier for a smooth curve
-          const cp1x = prevX + measureWidth * 0.5;
+          // Cubic bezier centered around measure boundary
+          const cp1x = boundaryX;
           const cp1y = prevY;
-          const cp2x = prevX + measureWidth * 0.5;
-          const cp2y = y;
-          d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x} ${y}`;
+          const cp2x = boundaryX;
+          const cp2y = nodeY;
+          d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${nodeX} ${nodeY}`;
         }
       }
     }
 
-    // Extend line to the end of the last measure
-    const lastX = totalMeasures * measureWidth;
-    const lastVal = currentValues[totalMeasures - 1] !== undefined ? currentValues[totalMeasures - 1] : (type === 'pan' ? 0 : min);
-    const lastY = getYFromValue(lastVal, height);
+    // Extend line to the right end of the last measure
+    const lastX = totalW;
+    const lastY = nodeYCoords[totalMeasures - 1] ?? getYFromValue(min, height);
     d += ` L ${lastX} ${lastY}`;
 
-    // Fill area below path
+    // Fill area below path (pointer-events: none to avoid blocking clicks)
     const fillPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     fillPath.setAttribute('d', `${d} L ${lastX} ${height} L 0 ${height} Z`);
     fillPath.setAttribute('fill', color);
     fillPath.setAttribute('opacity', isBypassed ? '0.05' : '0.2');
+    fillPath.setAttribute('pointer-events', 'none');
     svgRef.current.appendChild(fillPath);
 
-    // Stroke path
+    // Stroke path (pointer-events: none)
     const strokePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     strokePath.setAttribute('d', d);
     strokePath.setAttribute('fill', 'none');
@@ -159,6 +178,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     strokePath.setAttribute('stroke-width', '2');
     strokePath.setAttribute('stroke-linecap', 'round');
     strokePath.setAttribute('stroke-linejoin', 'round');
+    strokePath.setAttribute('pointer-events', 'none');
     if (isBypassed) {
       strokePath.setAttribute('stroke-dasharray', '4 4');
       strokePath.setAttribute('opacity', '0.35');
@@ -196,40 +216,54 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       svgRef.current.appendChild(selTopBorder);
     }
 
-    // Draw Nodes
+    // Draw Nodes and Hit Targets
     if (isExpanded) {
       for (let i = 0; i < totalMeasures; i++) {
-        const x = i * measureWidth;
+        const x = nodeXCoords[i];
+        const y = nodeYCoords[i];
         const val = currentValues[i] !== undefined ? currentValues[i] : (type === 'pan' ? 0 : min);
-        const y = getYFromValue(val, height);
 
         const isInRange = isSelectedTrack && selectedAutomationRange &&
           i >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
           i <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end);
 
+        // 1. Large Invisible Hit-Target Circle (r = 14) for effortless mouse & touch handling
+        const hitTarget = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        hitTarget.setAttribute('cx', x.toString());
+        hitTarget.setAttribute('cy', y.toString());
+        hitTarget.setAttribute('r', '14');
+        hitTarget.setAttribute('fill', 'transparent');
+        hitTarget.setAttribute('cursor', 'ns-resize');
+        hitTarget.style.cursor = 'ns-resize';
+        hitTarget.setAttribute('pointer-events', 'auto');
+        hitTarget.setAttribute('class', 'automation-node-hit');
+        hitTarget.dataset.idx = i.toString();
+
+        // 2. Visible Circle Node
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         circle.setAttribute('cx', x.toString());
         circle.setAttribute('cy', y.toString());
-        circle.setAttribute('r', isInRange ? '6' : '5');
+        circle.setAttribute('r', isInRange ? '7' : '6');
         circle.setAttribute('fill', isBypassed ? '#666' : (isInRange ? '#f4ecd8' : 'white'));
         circle.setAttribute('stroke', isInRange ? '#e67e22' : color);
         circle.setAttribute('stroke-width', isInRange ? '3' : '2');
         circle.setAttribute('cursor', 'ns-resize');
+        circle.style.cursor = 'ns-resize';
+        circle.setAttribute('pointer-events', 'auto');
+        circle.setAttribute('class', 'automation-node-circle');
+        circle.dataset.idx = i.toString();
         if (isBypassed) {
           circle.setAttribute('opacity', '0.4');
         }
         
-        // Data attrs for interaction
-        circle.dataset.idx = i.toString();
-        
-        // Text label
+        // 3. Text label (pointer-events: none so it never blocks node interactions)
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.dataset.idx = i.toString();
         text.setAttribute('x', (x + 8).toString());
         text.setAttribute('y', (y - 8).toString());
         text.setAttribute('fill', isBypassed ? '#888' : 'white');
         text.setAttribute('font-size', '10px');
         text.setAttribute('font-weight', 'bold');
+        text.setAttribute('pointer-events', 'none');
         if (isBypassed) {
           text.setAttribute('opacity', '0.5');
         }
@@ -246,17 +280,18 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         text.textContent = labelStr;
         
         svgRef.current.appendChild(circle);
+        svgRef.current.appendChild(hitTarget);
         svgRef.current.appendChild(text);
 
-        // Transition Toggle Button (if i > 0)
+        // 4. Transition Toggle Button (if i > 0, placed at measure boundary)
         if (i > 0) {
-          const prevVal = currentValues[i - 1] !== undefined ? currentValues[i - 1] : (type === 'pan' ? 0 : min);
-          const prevY = getYFromValue(prevVal, height);
-          const midX = x - measureWidth / 2;
+          const prevY = nodeYCoords[i - 1];
+          const midX = i * measureWidth; // Exactly on measure boundary
           const midY = (y + prevY) / 2;
           
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
           g.setAttribute('cursor', 'pointer');
+          g.setAttribute('pointer-events', 'auto');
           g.dataset.transIdx = i.toString();
           if (isBypassed) {
             g.setAttribute('opacity', '0.4');
@@ -270,6 +305,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           rect.setAttribute('fill', '#1a1a1a');
           rect.setAttribute('rx', '4');
           rect.setAttribute('stroke', 'rgba(255,255,255,0.2)');
+          rect.setAttribute('pointer-events', 'auto');
           
           const icon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           icon.setAttribute('x', midX.toString());
@@ -279,6 +315,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           icon.setAttribute('text-anchor', 'middle');
           icon.setAttribute('font-family', 'sans-serif');
           icon.setAttribute('font-weight', 'bold');
+          icon.setAttribute('pointer-events', 'none');
           
           const trans = transitions[i] || 'immediate';
           if (trans === 'immediate') icon.textContent = '⎍';
@@ -331,22 +368,45 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     const svg = svgRef.current;
     if (!svg) return;
 
-    let isDragging = false;
-    let draggedIdx = -1;
+    let lastClickTime = 0;
+    let lastClickIdx = -1;
 
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as SVGElement;
       if (target.tagName === 'circle' && target.dataset.idx) {
-        isDragging = true;
-        draggedIdx = parseInt(target.dataset.idx, 10);
-        draggingIdxRef.current = draggedIdx;
-        target.setPointerCapture(e.pointerId);
+        e.stopPropagation();
+        const idx = parseInt(target.dataset.idx, 10);
+        const now = Date.now();
 
-        // Sélection d'automation (avec ou sans Shift)
+        // Robust double-click / double-tap detection for desktop & tablets
+        if (now - lastClickTime < 350 && lastClickIdx === idx) {
+          lastClickTime = 0;
+          lastClickIdx = -1;
+          draggingIdxRef.current = null;
+          const currentVal = localValuesRef.current[idx];
+          setPromptValue(String(currentVal));
+          setPromptTargetIdx(idx);
+          setPromptOpen(true);
+          return;
+        }
+
+        lastClickTime = now;
+        lastClickIdx = idx;
+        draggingIdxRef.current = idx;
+
+        // Cache SVG bounding box once on pointerdown to prevent Layout Thrashing on pointermove
+        svgRectRef.current = svg.getBoundingClientRect();
+        
+        // Capture on the persistent SVG element to prevent capture loss when child elements re-render
+        try {
+          svg.setPointerCapture(e.pointerId);
+        } catch (_) {}
+
+        // Automation selection (simple click / Shift + click)
         if (type === 'tempo' || type === 'volume') {
           selectAutomationMeasure(
             type === 'tempo' ? 'bpm' : 'volume',
-            draggedIdx,
+            idx,
             e.shiftKey,
             trackId ?? null
           );
@@ -354,6 +414,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       } else if (target.tagName === 'rect' || target.tagName === 'text') {
         const parent = target.parentNode as SVGElement;
         if (parent && parent.dataset && parent.dataset.transIdx) {
+          e.stopPropagation();
           const idx = parseInt(parent.dataset.transIdx, 10);
           const currentTrans = transitions[idx] || 'immediate';
           let nextTrans: 'immediate' | 'ramp' | 'bezier' = 'immediate';
@@ -366,9 +427,10 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      if (!isDragging || draggedIdx === -1 || !isExpanded) return;
+      if (draggingIdxRef.current === null || !isExpanded) return;
+      const draggedIdx = draggingIdxRef.current;
       
-      const rect = svg.getBoundingClientRect();
+      const rect = svgRectRef.current || svg.getBoundingClientRect();
       let y = e.clientY - rect.top;
       
       // Clamp Y to SVG bounds
@@ -378,13 +440,22 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       const val = getValueFromY(y, rect.height);
       const roundedVal = Math.round(val);
       
-      localValuesRef.current[draggedIdx] = roundedVal;
-      renderSvg(); // Re-render vanilla SVG without React state update
+      if (localValuesRef.current[draggedIdx] !== roundedVal) {
+        localValuesRef.current[draggedIdx] = roundedVal;
+        renderSvg(); // Re-render vanilla SVG without React state update (Zero Render Thrashing)
+      }
     };
 
     const handlePointerUp = (e: PointerEvent) => {
-      if (!isDragging) return;
-      isDragging = false;
+      if (draggingIdxRef.current === null) return;
+      const draggedIdx = draggingIdxRef.current;
+      draggingIdxRef.current = null;
+      
+      try {
+        if (svg.hasPointerCapture(e.pointerId)) {
+          svg.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
       
       const finalVal = localValuesRef.current[draggedIdx];
       const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
@@ -401,48 +472,60 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         onChangeValue(draggedIdx, finalVal);
       }
       
-      draggingIdxRef.current = null;
-      draggedIdx = -1;
+      svgRectRef.current = null;
     };
 
     const handleDoubleClick = (e: MouseEvent) => {
-      const target = e.target as SVGElement;
-      if ((target.tagName === 'circle' || target.tagName === 'text') && target.dataset.idx) {
-        const idx = parseInt(target.dataset.idx, 10);
-        const currentVal = localValuesRef.current[idx];
-        setPromptValue(String(currentVal));
-        setPromptTargetIdx(idx);
-        setPromptOpen(true);
+      const target = e.target as HTMLElement | SVGElement;
+      if (!target) return;
+      const idxStr = target.getAttribute?.('data-idx') ?? target.dataset?.idx ?? target.getAttribute?.('data-measure-idx') ?? target.dataset?.measureIdx;
+      if (idxStr !== null && idxStr !== undefined) {
+        e.preventDefault();
+        e.stopPropagation();
+        const idx = parseInt(idxStr, 10);
+        if (!isNaN(idx)) {
+          const currentVal = localValuesRef.current[idx];
+          setPromptValue(String(currentVal));
+          setPromptTargetIdx(idx);
+          setPromptOpen(true);
+        }
       }
     };
 
-    svg.addEventListener('pointerdown', handlePointerDown);
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('dblclick', handleDoubleClick);
+    }
     svg.addEventListener('dblclick', handleDoubleClick);
+    svg.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      svg.removeEventListener('pointerdown', handlePointerDown);
+      if (container) {
+        container.removeEventListener('dblclick', handleDoubleClick);
+      }
       svg.removeEventListener('dblclick', handleDoubleClick);
+      svg.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [isExpanded, max, min, onChangeTransition, onChangeValue, renderSvg, transitions]);
+  }, [isExpanded, max, min, onChangeTransition, onChangeValue, renderSvg, transitions, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId, selectAutomationMeasure, setGroupedAutomationValue]);
 
   const height = isExpanded ? 80 : 30;
 
   return (
     <div 
-      className="flex border-b border-[var(--cordel-border)]/20 bg-[#111] relative" 
+      className="flex border-b border-[var(--cordel-border)]/20 bg-[#111] relative select-none" 
       ref={containerRef}
       style={{
-        width: `${headerWidth + (totalMeasures * measureWidth)}px`,
-        minWidth: `${headerWidth + (totalMeasures * measureWidth)}px`,
+        width: `${headerWidth + totalWidth}px`,
+        minWidth: `${headerWidth + totalWidth}px`,
       }}
     >
       {/* Header */}
       <div 
-        className="flex flex-col p-2 border-r border-black relative shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.5)] z-40 sticky left-0"
+        className="timeline-sticky-header flex flex-col p-2 border-r border-black relative shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.5)] z-20 sticky left-0"
         style={{ width: `${headerWidth}px`, minWidth: `${headerWidth}px`, backgroundColor: '#1a1a1a' }}
       >
         <div className="flex items-center justify-between gap-1 mb-1">
@@ -542,10 +625,16 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         )}
       </div>
 
-      {/* Grid Background & SVG */}
-      <div className="relative flex-1 overflow-hidden" style={{ height: `${height}px` }}>
+      {/* Grid Background & SVG with explicit totalWidth */}
+      <div 
+        className="relative overflow-hidden shrink-0" 
+        style={{ width: `${totalWidth}px`, minWidth: `${totalWidth}px`, height: `${height}px` }}
+      >
         {/* Vertical Grid Lines & Clickable Measure Columns */}
-        <div className="absolute inset-0 flex z-0">
+        <div 
+          className="absolute inset-0 flex z-0"
+          style={{ width: `${totalWidth}px`, minWidth: `${totalWidth}px`, height: `${height}px` }}
+        >
           {Array.from({ length: totalMeasures }).map((_, i) => {
             const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
             const isTrackMatch = (trackId ?? null) === (selectedAutomationTrackId ?? null);
@@ -584,8 +673,13 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         
         <svg
           ref={svgRef}
-          className="absolute inset-0 w-full h-full overflow-visible z-10"
-          style={{ touchAction: 'none' }} // Prevent scrolling when dragging on mobile
+          className="absolute inset-0 z-10 overflow-visible pointer-events-none"
+          style={{ 
+            width: `${totalWidth}px`,
+            minWidth: `${totalWidth}px`,
+            height: `${height}px`,
+            touchAction: 'none'
+          }}
         />
       </div>
 
