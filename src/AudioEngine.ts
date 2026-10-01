@@ -425,6 +425,7 @@ export class AudioEngine {
     this.sequenceStartTime = this.nextTickTime - (priorSteps * tickDuration);
 
     this.isPlaying = true;
+    this.scheduler();
   }
 
   /**
@@ -638,6 +639,13 @@ export class AudioEngine {
     targetTrackId?: string | number
   ): void {
     try {
+      if (typeof window !== 'undefined') {
+        const win = window as any;
+        win.__LAST_VOICE_ATTACK__ = { pitch, duration, time, velocity, targetTrackId, timestamp: Date.now() };
+        win.__VOICE_ATTACK_HISTORY__ = win.__VOICE_ATTACK_HISTORY__ || [];
+        win.__VOICE_ATTACK_HISTORY__.push({ pitch, duration, time, velocity, targetTrackId });
+      }
+
       const Tone = getTone();
       if (!Tone) return;
 

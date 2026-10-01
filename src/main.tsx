@@ -11,6 +11,7 @@ import { indexedDBPersister } from './queryPersister';
 import { telemetryService } from './services/telemetryService';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { useAudioStore } from './stores/useAudioStore';
+import { useTransportStore } from './stores/useTransportStore';
 import { channels, busChannels } from './hooks/useAudioSync';
 import './index.css';
 
@@ -254,6 +255,7 @@ window.getDocs = fbGetDocs;
 window.updateDoc = fbUpdateDoc;
 (window as any).__SEQUENCER_STORE__ = useSequencerStore;
 (window as any).__AUDIO_STORE__ = useAudioStore;
+(window as any).__TRANSPORT_STORE__ = useTransportStore;
 (window as any).__CHANNELS__ = channels;
 (window as any).__BUS_CHANNELS__ = busChannels;
 

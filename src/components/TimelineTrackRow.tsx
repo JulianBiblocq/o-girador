@@ -307,7 +307,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   return (
     <div className="flex flex-col">
       <div
-        className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
+        className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative overflow-hidden ${
           !canPlay ? 'opacity-50' : ''
         }`}
         style={{ 

@@ -230,7 +230,6 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                         }
                         colorStyle = {
                           backgroundColor: bgColor,
-                          borderColor: isSelected ? undefined : bgColor,
                           color: txtColor,
                         };
                       }
@@ -474,16 +473,16 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                                 }
                               }
                             }}
-                            className={`step-input-cell text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 cursor-pointer ${
-                              (val === 0 || val === '0' || !val) ? 'bg-[#ece4d0] text-[#1a1a1a]' : ''
-                            } ${
+                            className={`step-input-cell text-center text-sm font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 cursor-pointer ${
                               selectedStepIdx === i && selectedVariationId === variation.id
-                                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                : 'focus:border-[#8b2a1a]'
+                                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
+                                : (val === 0 || val === '0' || !val)
+                                  ? 'bg-[#ece4d0] text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-black/40 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
+                                  : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
                             }`}
                             style={{
-                              width: '36px',
-                              height: '36px',
+                              width: '34px',
+                              height: '34px',
                               ...colorStyle,
                             }}
                           />

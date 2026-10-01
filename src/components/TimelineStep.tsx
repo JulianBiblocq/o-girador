@@ -520,14 +520,13 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   const disableHeavyEffects = isEcoMode || isMobileDevice;
 
   const isDarkStroke = isDarkColor(stepData.leftFillColor) || (stepData.isSplit && isDarkColor(stepData.rightFillColor));
+  const cordelStepBorder = 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)]';
   const borderClass = stepData.leftIsAccent 
-    ? 'border border-white/70 shadow-sm' 
-    : isDarkStroke
-      ? 'border border-white/50 dark:border-white/60 shadow-[0_0_1px_rgba(255,255,255,0.4)]'
-      : 'border border-black/15 dark:border-black/30';
+    ? `${cordelStepBorder} ring-1 ring-white/60` 
+    : cordelStepBorder;
   const scaleClass = stepData.leftIsAccent ? 'scale-120' : '';
   const accentClass = `${scaleClass} ${borderClass}`;
-  const heavyEffectClass = disableHeavyEffects ? '' : 'transition-transform duration-75 ease-out shadow-sm';
+  const heavyEffectClass = disableHeavyEffects ? '' : 'transition-transform duration-75 ease-out';
 
   let shapeClipPath: string | undefined = undefined;
   let shapeBorderRadius: string | undefined = undefined;
@@ -549,7 +548,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     if (!hasActiveVoice) {
       return (
         <div
-          className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
+          className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none p-[1px]"
           data-measure={measureIdx}
           data-step={stepIdx}
           data-track-id={trackId}
@@ -562,23 +561,14 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     const isStart = !stepData.isProlongation;
     const isEnd = !stepData.isFollowedByProlongation;
 
-    // Coins arrondis selon début / milieu / fin de la tenue
-    const roundedClass = isStart && isEnd
-      ? 'rounded-xs'
-      : isStart
-        ? 'rounded-l-xs rounded-r-none'
-        : isEnd
-          ? 'rounded-r-xs rounded-l-none'
-          : 'rounded-none';
-
-    // Bordures horizontales sans cloisons verticales intermédiaires
+    // Bordures horizontales nettes avec alignement sous-pixel de l'ombre d'estampe sur tout le socle vocal
     const voiceBorderClass = isStart && isEnd
-      ? 'border border-black/30 shadow-xs'
+      ? 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mx-[1px]'
       : isStart
-        ? 'border-y border-l border-black/30'
+        ? 'border-y border-l border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
         : isEnd
-          ? 'border-y border-r border-black/30 shadow-xs'
-          : 'border-y border-black/30';
+          ? 'border-y border-r border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
+          : 'border-y border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0';
 
     // Retrait de la bordure droite du conteneur si suivi par une prolongation pour fusionner avec la cellule suivante
     const containerBorder = stepData.isFollowedByProlongation
@@ -589,14 +579,14 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
     return (
       <div
-        className={`timeline-step relative h-full flex-1 ${containerBorder} flex items-center justify-center pointer-events-none select-none overflow-hidden`}
+        className={`timeline-step relative h-full flex-1 ${containerBorder} flex items-center justify-center pointer-events-none select-none py-[1px]`}
         data-measure={measureIdx}
         data-step={stepIdx}
         data-track-id={trackId}
         data-pattern-id={patternId}
       >
         <div
-          className={`w-full h-3 md:h-3.5 flex items-center justify-center transition-all ${roundedClass} ${voiceBorderClass}`}
+          className={`w-full h-3 md:h-3.5 flex items-center justify-center transition-all ${voiceBorderClass}`}
           style={{
             backgroundColor: stepData.voiceColor,
             opacity: bgOpacity,
@@ -619,7 +609,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
   return (
     <div
-      className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
+      className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none p-[1px]"
       data-measure={measureIdx}
       data-step={stepIdx}
       data-steps={stepsCount}
@@ -629,7 +619,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     >
       {hasBackground ? (
         <div 
-          className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-xs'} ${heavyEffectClass} ${accentClass}`}
+          className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${heavyEffectClass} ${accentClass}`}
           style={{
             background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
             backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,

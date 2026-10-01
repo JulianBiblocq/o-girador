@@ -569,6 +569,14 @@ export function useAudioSync({
   const globalSwingRef = useRef<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58], swingIntensity: 100 });
   const soloPatternPlayIdRef = useRef<number | null>(null);
   const soloPatternVariationIdRef = useRef<string | null>(null);
+  const savedSoloMuteStateRef = useRef<{
+    trackId?: number | string;
+    trackMuted?: boolean;
+    trackVol?: number;
+    toadaId?: number | string;
+    toadaMuted?: boolean;
+    toadaVol?: number;
+  } | null>(null);
   const pendingMeasureRef = useRef<number | null>(null);
   const pendingIterationRef = useRef<number | null>(null);
   const hasFinishedRef = useRef<boolean>(false);
@@ -1887,7 +1895,7 @@ export function useAudioSync({
 
           if (isSoloPlayActive) {
             for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-              if (patterns[pIdx].id === soloPatternPlayIdRef.current) {
+              if (String(patterns[pIdx].id) === String(soloPatternPlayIdRef.current)) {
                 canPlay = true;
                 break;
               }
@@ -1906,13 +1914,17 @@ export function useAudioSync({
           // 🛡️ ÉTANCHÉITÉ TRACKID & ANTICIPATION SUR PISTE SILENCIEUSE :
           // Résolution de nextMeasureLocal en tenant compte de la région de boucle active (Directive A)
           let nextMeasureLocal: number;
-          if (isLoopRegionActiveRef.current && loopEndRef.current !== null && currentMeasureLocal === loopEndRef.current) {
+          if (isSoloPlayActive) {
+            nextMeasureLocal = 0;
+          } else if (isLoopRegionActiveRef.current && loopEndRef.current !== null && currentMeasureLocal === loopEndRef.current) {
             nextMeasureLocal = loopStartRef.current !== null ? loopStartRef.current : 0;
           } else {
             nextMeasureLocal = (currentMeasureLocal + 1) % (totalMeasuresRef.current || 1);
           }
 
-          const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
+          const nextPattern = isSoloPlayActive
+            ? (track.patterns.find(p => String(p.id) === String(soloPatternPlayIdRef.current)) || null)
+            : track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
           let scheduledNextVocalKey: string | null = null;
 
           // Évaluation de l'anacrouse entrante dès la seconde moitié de la mesure (Pas 8 / tick >= currentTicks / 2)
@@ -1981,12 +1993,22 @@ export function useAudioSync({
             }
           }
 
-          // Playback of vocal patterns : recherche du motif assigné sur la mesure courante
+          // Playback of vocal patterns : recherche du motif assigné sur la mesure courante (ou motif solo en cours)
           let activePattern: Pattern | null = null;
-          for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-            if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
-              activePattern = patterns[pIdx];
-              break;
+          if (isSoloPlayActive) {
+            for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+              if (String(patterns[pIdx].id) === String(soloPatternPlayIdRef.current)) {
+                activePattern = patterns[pIdx];
+                break;
+              }
+            }
+          }
+          if (!activePattern) {
+            for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+              if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
+                activePattern = patterns[pIdx];
+                break;
+              }
             }
           }
 
@@ -2070,6 +2092,12 @@ export function useAudioSync({
 
           const currentKey = `${track.id}_m${currentMeasureLocal}`;
 
+          // En mode solo au pas 0 : réarmement immédiat pour permettre la ré-attaque propre du sample vocal au rebouclage
+          if (isSoloPlayActive && stepIdx === 0) {
+            anticipatedMeasuresRef.current.delete(currentKey);
+            activeSequencerVocalsRef.current.delete(currentKey);
+          }
+
           // Rappel 3 / Directive A.4 : Réarmement spatial dès la sortie de mesure (dès stepIdx >= 4)
           // Dès que le Temps 1 est franchi, la mesure redevient instantanément armée pour le prochain tour de boucle
           if (stepIdx >= 4 && anticipatedMeasuresRef.current.has(currentKey)) {
@@ -2110,7 +2138,11 @@ export function useAudioSync({
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
             const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
-            const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+            let vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+            const isSoloTrack = isSoloPlayActive && track.patterns.some(p => String(p.id) === String(soloPatternPlayIdRef.current));
+            if (isSoloTrack && vocalVol <= 0) {
+              vocalVol = 80;
+            }
             const currentBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
 
             // Secours au Pas 0 avec compensation d'offset (Directive B / Rappel 4) : isDirectStep0 = true
@@ -2132,12 +2164,31 @@ export function useAudioSync({
             }
           }
 
+          // Résolution de la variation active si soloPatternVariationId est spécifié
+          const soloVarId = soloPatternVariationIdRef.current;
+          let effectivePatternForSteps: Pattern = activePattern;
+          if (isSoloPlayActive && soloVarId && soloVarId !== 'base' && soloVarId !== 'ensemble' && activePattern.variations) {
+            const matchedVar = activePattern.variations.find(v => v.id === soloVarId) as any;
+            if (matchedVar) {
+              effectivePatternForSteps = {
+                ...activePattern,
+                activeSteps: matchedVar.steps || matchedVar.activeSteps || activePattern.activeSteps,
+                notes: matchedVar.notes || activePattern.notes,
+                lyrics: matchedVar.lyrics || activePattern.lyrics,
+                decays: matchedVar.decays || activePattern.decays,
+                volumes: matchedVar.volumes || activePattern.volumes,
+                microtimings: matchedVar.microtimings || activePattern.microtimings,
+                beatResolutions: matchedVar.beatResolutions || activePattern.beatResolutions,
+              };
+            }
+          }
+
           // 2. Traitement des pas du motif (Karaoké & Synthé)
           // CRITIQUE : NE PAS bloquer la surbrillance des pas ni le défilement des paroles (Karaoké)
-          const stepCount = activePattern.steps;
+          const stepCount = effectivePatternForSteps.steps;
           if (stepIdx % (currentTicks / stepCount) === 0) {
             const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
-            const state = activePattern.activeSteps[cellIdx];
+            const state = effectivePatternForSteps.activeSteps[cellIdx];
             const isActive = state !== undefined && state !== null && state !== 0 && state !== '0';
 
             if (isActive) {
@@ -2145,29 +2196,33 @@ export function useAudioSync({
               const balancoOffsetSec = cellIdx === 0 ? 0 : getBalancoOffsetSec({
                 stepIdx: cellIdx,
                 steps: stepCount,
-                beatResolutions: activePattern.beatResolutions,
+                beatResolutions: effectivePatternForSteps.beatResolutions,
                 track,
-                pattern: activePattern,
+                pattern: effectivePatternForSteps,
                 globalSwing: globalSwingRef.current,
                 bpm: currentMeasureBpm,
                 isPreRoll: false,
               });
-              const microVal = activePattern.microtimings?.[cellIdx] ?? 0;
+              const microVal = effectivePatternForSteps.microtimings?.[cellIdx] ?? 0;
               const microPct = Array.isArray(microVal) ? (microVal[0] ?? 0) : (typeof microVal === 'number' ? microVal : 0);
               const stepDurSec = (currentTicks / stepCount) * tick96nSec;
               const microOffsetSec = (microPct / 100) * stepDurSec * 0.5;
               const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
+              const isSoloTrack = isSoloPlayActive && track.patterns.some(p => String(p.id) === String(soloPatternPlayIdRef.current));
               const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
-              const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+              let trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+              if (isSoloTrack && trackVolPct <= 0) {
+                trackVolPct = 80;
+              }
 
               // Détection d'une prolongation (tenue de note)
-              const rawNote = activePattern.notes?.[cellIdx];
+              const rawNote = effectivePatternForSteps.notes?.[cellIdx];
               const noteVal = typeof rawNote === 'string' ? rawNote.trim() : '';
-              const lyrics = activePattern.lyrics || [];
-              const prevActiveState = cellIdx > 0 ? activePattern.activeSteps[cellIdx - 1] : 0;
+              const lyrics = effectivePatternForSteps.lyrics || [];
+              const prevActiveState = cellIdx > 0 ? effectivePatternForSteps.activeSteps[cellIdx - 1] : 0;
               const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
-              const prevRawNote = cellIdx > 0 ? activePattern.notes?.[cellIdx - 1] : '';
+              const prevRawNote = cellIdx > 0 ? effectivePatternForSteps.notes?.[cellIdx - 1] : '';
               const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
 
               const isProlongation = Boolean(
@@ -2186,9 +2241,9 @@ export function useAudioSync({
                   // Calculer le nombre de pas consécutifs tenus (attaque + prolongations)
                   let consecutiveSteps = 1;
                   for (let nextIdx = cellIdx + 1; nextIdx < stepCount; nextIdx++) {
-                    const nextState = activePattern.activeSteps[nextIdx];
+                    const nextState = effectivePatternForSteps.activeSteps[nextIdx];
                     const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
-                    const nextRawNote = activePattern.notes?.[nextIdx];
+                    const nextRawNote = effectivePatternForSteps.notes?.[nextIdx];
                     const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
                     const nextSyl = lyrics[nextIdx];
                     if (nextIsActive && nextNoteVal === noteVal && (!nextSyl || nextSyl.trim() === '')) {
@@ -2198,7 +2253,7 @@ export function useAudioSync({
                     }
                   }
 
-                  const decayVal = activePattern.decays?.[cellIdx] ?? 10;
+                  const decayVal = effectivePatternForSteps.decays?.[cellIdx] ?? 10;
                   const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                   const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
                   const effectiveSteps = Math.max(consecutiveSteps, numDecaySteps);
@@ -2670,7 +2725,7 @@ export function useAudioSync({
           const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
           let canPlay = false;
           if (isSoloPlayActive) {
-            canPlay = activePattern.id === soloPatternPlayIdRef.current;
+            canPlay = String(activePattern.id) === String(soloPatternPlayIdRef.current);
           } else {
             let hasSolo = false;
             for (let i = 0; i < startTracks.length; i++) {
@@ -3051,6 +3106,11 @@ export function useAudioSync({
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
   const handleStartSoloPattern = useCallback(async (patternId: number, variationId?: string) => {
+    // 🛡️ UNLOCK GUARD: Déverrouiller le moteur audio s'il n'avait pas été déverrouillé
+    if (!useAudioStore.getState().isAudioUnlocked) {
+      useAudioStore.getState().unlockAudio();
+    }
+
     // 🛡️ SYNC CHECK: Resume context synchronously inside the user event click stack to bypass Safari autoplay block
     if (Tone.context && Tone.context.state !== 'running') {
       try {
@@ -3080,6 +3140,38 @@ export function useAudioSync({
 
     vocalEngineService.stopAllVocalPlayback();
 
+    // 🛡️ Sauvegarde et déblocage non destructif du mixeur pour la piste et le bus Toada
+    const currentTracks = tracksRef.current;
+    const soloTrack = currentTracks.find(t => t.patterns && t.patterns.some(p => String(p.id) === String(patternId)));
+    const toadaTrack = currentTracks.find(t => isToadaBus(t));
+    const toadaId = toadaTrack ? toadaTrack.id : null;
+    const trackId = soloTrack ? soloTrack.id : null;
+
+    if (trackId !== null) {
+      savedSoloMuteStateRef.current = {
+        trackId,
+        trackMuted: channels[trackId]?.mute,
+        trackVol: channels[trackId]?.volume.value,
+        toadaId: toadaId ?? undefined,
+        toadaMuted: toadaId ? busChannels[toadaId]?.mute : undefined,
+        toadaVol: toadaId ? busChannels[toadaId]?.volume.value : undefined,
+      };
+
+      // Démuter temporairement et garantir un volume audible
+      if (channels[trackId]) {
+        channels[trackId].mute = false;
+        if (channels[trackId].volume.value < -60) {
+          channels[trackId].volume.value = 0;
+        }
+      }
+      if (toadaId && busChannels[toadaId]) {
+        busChannels[toadaId].mute = false;
+        if (busChannels[toadaId].volume.value < -60) {
+          busChannels[toadaId].volume.value = 0;
+        }
+      }
+    }
+
     setSoloPatternPlayId(patternId);
     setSoloPatternVariationId(variationId || null);
     currentStepIndexRef.current = -1;
@@ -3106,9 +3198,26 @@ export function useAudioSync({
     }
     audioEngine?.start();
     setIsPlaying(true);
+    isPlayingRef.current = true;
   }, [audioEngine, setSoloPatternPlayId, setSoloPatternVariationId, setCurrentMeasure, setIsPlaying]);
 
   const handleStopSoloPattern = useCallback(() => {
+    // 🛡️ Restauration non destructive du mixeur
+    if (savedSoloMuteStateRef.current) {
+      const { trackId, trackMuted, trackVol, toadaId, toadaMuted, toadaVol } = savedSoloMuteStateRef.current;
+      if (trackId !== undefined && channels[trackId]) {
+        if (trackMuted !== undefined) channels[trackId].mute = trackMuted;
+        if (trackVol !== undefined) channels[trackId].volume.value = trackVol;
+      }
+      if (toadaId !== undefined && busChannels[toadaId]) {
+        if (toadaMuted !== undefined) busChannels[toadaId].mute = toadaMuted;
+        if (toadaVol !== undefined) busChannels[toadaId].volume.value = toadaVol;
+      }
+      savedSoloMuteStateRef.current = null;
+    }
+    // Forcer le recalcul du hash des paramètres de piste au prochain cycle
+    lastAppliedTracksParamsRef.current = {};
+
     setSoloPatternPlayId(null);
     setSoloPatternVariationId(null);
     if (isPlayingRef.current) {

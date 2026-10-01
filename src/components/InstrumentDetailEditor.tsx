@@ -1472,6 +1472,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const wrapperContent = (
     <>
       <div
+        data-testid="instrument-detail-editor-modal"
         className={`bg-[#f4ecd8] ${isDetached ? 'w-full h-full' : 'cordel-border-sm'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
         style={isDetached ? { width: '100%', height: '100%' } : {
           maxWidth: isMobile ? '100%' : '1400px',
@@ -1887,6 +1888,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             )}
 
                             <button
+                              data-testid={`btn-solo-pattern-${ptn.id}-ensemble`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble') {
@@ -2094,6 +2096,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 <div className="flex items-center gap-3">
                                   <span>{lang === 'fr' ? 'Probabilité du motif maître :' : 'Probabilidade do padrão base :'} {baseProb}%</span>
                                   <button
+                                    data-testid={`btn-solo-pattern-${ptn.id}-base`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {

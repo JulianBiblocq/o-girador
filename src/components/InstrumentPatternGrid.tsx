@@ -191,18 +191,18 @@ const PercussionStepCell = React.memo(({
     >
       {Array.isArray(val) ? (
         <div
-          className={`step-input-cell w-full relative flex items-center justify-center font-bold cordel-border outline-none p-0 box-border z-10 transition-all duration-200 overflow-hidden ${
+          className={`step-input-cell relative flex items-center justify-center font-bold outline-none p-0 box-border z-10 transition-all duration-200 overflow-hidden ${
             isOcto ? 'text-[9px]' : 'text-sm'
           } ${
             isMultiSelected
-              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
               : (isFocused && (selectedSubIndex === null || selectedSubIndex === undefined))
-                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                : 'outline-none'
+                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
+                : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
           }`}
           style={{
-            width: isSextuplet || isTriplet || isOcto ? '100%' : '40px',
-            height: isSextuplet || isTriplet ? '48px' : '40px',
+            width: isSextuplet || isTriplet || isOcto ? 'calc(100% - 2px)' : '38px',
+            height: isSextuplet || isTriplet ? '48px' : '38px',
             transform: `translateX(${shiftPx}px)`,
             background: `linear-gradient(135deg, ${splitLeftColor || '#666'} 48%, #1a1a1a 48%, #1a1a1a 52%, ${splitRightColor || '#666'} 52%)`,
             clipPath: isSextuplet 
@@ -319,23 +319,21 @@ const PercussionStepCell = React.memo(({
           }}
           onChange={(e) => onChange(e, i, val)}
           onKeyDown={(e) => onKeyDown(e, i, val)}
-          className={`step-input-cell w-full text-center font-bold cordel-border outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+          className={`step-input-cell text-center font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 ${
             isOcto ? 'text-[9px]' : 'text-sm'
           } ${
-            val === 0
-              ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
-              : ''
-          } ${
             isMultiSelected
-              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
               : isFocused
-                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                : 'outline-none'
+                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
+                : val === 0 || val === '0' || !val
+                  ? 'bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-black/40 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
+                  : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
           }`}
           style={{
             ...colorStyle,
-            width: isSextuplet || isTriplet || isOcto ? '100%' : '40px',
-            height: isSextuplet || isTriplet ? '48px' : '40px',
+            width: isSextuplet || isTriplet || isOcto ? 'calc(100% - 2px)' : '38px',
+            height: isSextuplet || isTriplet ? '48px' : '38px',
             transform: `translateX(${shiftPx}px)`,
             cursor: activeTool === 'scissors' ? SCISSORS_CURSOR : undefined,
             clipPath: isSextuplet 
@@ -795,14 +793,16 @@ const VoiceStepCellComponent = ({
       )}
       
       <div
-        className={`v-card flex flex-col cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 w-full ${
+        className={`v-card flex flex-col z-10 relative transition-all duration-100 w-full ${
           isSelected
-            ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
-            : 'border-[#1a1a1a]'
-        } ${
-          isProlongation ? 'border-l-0 rounded-l-none' : ''
-        } ${
-          isFollowedByProlongation ? 'border-r-0 rounded-r-none' : ''
+            ? '!border-2 !border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f] rounded-none m-[1px]'
+            : isProlongation && isFollowedByProlongation
+              ? 'border-y border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0'
+              : isProlongation && !isFollowedByProlongation
+                ? 'border-y border-r border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
+                : !isProlongation && isFollowedByProlongation
+                  ? 'border-y border-l border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
+                  : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
         }`}
         style={{
           transform: `translateX(${shiftPx}px)`,
@@ -3717,7 +3717,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                         }
                         colorStyle = {
                           backgroundColor: bgColor,
-                          borderColor: (isSelected || isSingleSelected) ? undefined : bgColor,
                           color: txtColor,
                         };
                       }
