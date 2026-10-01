@@ -525,7 +525,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     >
       {/* Header */}
       <div 
-        className="timeline-sticky-header flex flex-col p-2 border-r border-black relative shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.5)] z-20 sticky left-0"
+        className="timeline-sticky-header flex flex-col p-2 border-r border-black relative shrink-0 shadow-[2px_0_10px_rgba(0,0,0,0.5)] z-30 sticky left-0"
         style={{ width: `${headerWidth}px`, minWidth: `${headerWidth}px`, backgroundColor: '#1a1a1a' }}
       >
         <div className="flex items-center justify-between gap-1 mb-1">

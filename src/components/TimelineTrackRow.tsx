@@ -86,9 +86,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     }
   };
 
-  // Subscribe to full track only in Macro mode (where compact preview must update on step changes)
+  // Subscribe to full track only in Macro mode for non-Toada tracks (where compact preview must update on step changes)
   const fullTrack = useSequencerStore(state => {
-    if (isMacro) {
+    if (isMacro && !isToada) {
       return state.tracks.find(t => t.id === trackId);
     }
     return null;
@@ -140,10 +140,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   // Re-generate the track object for rendering purposes (isolated from step updates)
   const trackData = React.useMemo(() => {
-    if (isMacro) {
+    if (isMacro && !isToada) {
       return fullTrack;
     }
-    if (!trackStructureJson) return null;
+    if (!trackStructureJson && !isToada) return null;
     return {
       id: trackId,
       instrumentIdx,
@@ -153,10 +153,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       isLinkFolder: trackMeta?.isLinkFolder,
       isLinkMaster: trackMeta?.isLinkMaster,
       customName: trackMeta?.customName,
-      patterns: JSON.parse(trackStructureJson),
+      patterns: isToada ? [] : (trackStructureJson ? JSON.parse(trackStructureJson) : []),
     };
   }, [
     isMacro, 
+    isToada,
     fullTrack, 
     trackStructureJson, 
     trackId, 
@@ -304,10 +305,17 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const rightSpacerCount = Math.max(0, totalMeasures - 1 - visibleRange.end);
   const rightSpacerWidth = rightSpacerCount * currentMeasureW;
 
+  const puxTrack = isToada 
+    ? useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') 
+    : null;
+  const coroTrack = isToada 
+    ? useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro') 
+    : null;
+
   return (
     <div className="flex flex-col">
       <div
-        className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative overflow-hidden ${
+        className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
           !canPlay ? 'opacity-50' : ''
         }`}
         style={{ 
@@ -317,7 +325,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       >
       {/* ── Sticky track header ── */}
       <div
-        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
+        className={`timeline-sticky-header sticky left-0 z-30 bg-[#f4ecd8] dark:bg-[#1a1a1a] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
           isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')
         }`}
         style={{ 
@@ -407,48 +415,54 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         </div>
       </div>
 
-      {/* Left spacer column */}
-      {visibleRange.start > 0 && (
-        <div style={{ width: `${leftSpacerWidth}px`, minWidth: `${leftSpacerWidth}px` }} className="shrink-0" />
-      )}
+      {/* ── Measure cells wrapper (isolation horizontal sticky / vertical overflow) ── */}
+      <div 
+        className="flex h-full items-center overflow-hidden"
+        style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}
+      >
+        {/* Left spacer column */}
+        {visibleRange.start > 0 && (
+          <div style={{ width: `${leftSpacerWidth}px`, minWidth: `${leftSpacerWidth}px` }} className="shrink-0" />
+        )}
 
-      {/* ── Measure cells (Isolés dans TimelineMeasure.tsx pour éviter le render thrashing) ── */}
-      {Array.from({ length: totalMeasures })
-        .map((_, mIdx) => ({ mIdx }))
-        .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
-        .map(({ mIdx }) => {
-          const isToada = isToadaBus(trackData);
+        {/* ── Measure cells (Isolés dans TimelineMeasure.tsx pour éviter le render thrashing) ── */}
+        {Array.from({ length: totalMeasures })
+          .map((_, mIdx) => ({ mIdx }))
+          .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
+          .map(({ mIdx }) => {
+            const isToada = isToadaBus(trackData);
 
-          let activePattern: Pattern | null = null;
-          let activeTrack: any = null;
-          let currentTrackId = trackData.id;
-          let currentInstrumentIdx = trackData.instrumentIdx;
-          let currentInst = inst;
-          let currentPatternsList = trackData.patterns;
-          let currentTrackIdx = trackIndex;
-          let isOverridden = false;
-          let isSilence = false;
+            let activePattern: Pattern | null = null;
+            let activeTrack: any = null;
+            let currentTrackId = trackData.id;
+            let currentInstrumentIdx = trackData.instrumentIdx;
+            let currentInst = inst;
+            let currentPatternsList = trackData.patterns;
+            let currentTrackIdx = trackIndex;
+            let isOverridden = false;
+            let isSilence = false;
 
-          const isFolded = Boolean(trackMeta?.isSequencerFolded);
-          let toadaVocalBadges: { pPtnName?: string; cPtnName?: string } | undefined = undefined;
+            let isToadaComposite = false;
+            let toadaCompositePatterns: any = undefined;
+            let toadaVocalBadges: { pPtnName?: string; cPtnName?: string } | undefined = undefined;
 
-          if (isToada) {
-            const puxTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-            const coroTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-            const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
-            const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+            if (isToada) {
+              const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+              const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
 
-            if (!isFolded) {
-              // 1. Dépliée (!isSequencerFolded) : aucune inscription de motif ni badge, cellules de mesure vierges et neutres
-              activePattern = null;
-              activeTrack = null;
-            } else {
-              // 2. Repliée (isSequencerFolded) : badge miroir synthétique
+              // Synthèse passive Toada permanente (dépliée ET repliée)
               if (pPtn && cPtn) {
                 activePattern = pPtn;
                 activeTrack = puxTrack;
                 currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
                 toadaVocalBadges = { pPtnName: pPtn.name, cPtnName: cPtn.name };
+                isToadaComposite = true;
+                toadaCompositePatterns = {
+                  puxPtn: pPtn,
+                  coroPtn: cPtn,
+                  puxTrackId: puxTrack?.id,
+                  coroTrackId: coroTrack?.id,
+                };
               } else if (pPtn) {
                 activePattern = pPtn;
                 activeTrack = puxTrack;
@@ -469,113 +483,115 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                 currentInstrumentIdx = activeTrack.instrumentIdx;
                 currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
               }
-            }
 
-            const toadaPatternsList: Pattern[] = [];
-            if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
-            if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
-            currentPatternsList = toadaPatternsList;
-          } else if (isLinkedChild && trackMeta) {
-            const parentBus = useSequencerStore.getState().tracks.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
-            if (parentBus) {
-              const override = trackMeta.isLinkMaster ? undefined : trackMeta.patternOverrides?.[mIdx];
-              if (override === null) {
-                isSilence = true;
-                activePattern = null;
-                isOverridden = true;
-              } else if (override !== undefined) {
-                activePattern = parentBus.patterns.find(p => p.id === override) || null;
-                isOverridden = true;
-              } else {
-                activePattern = parentBus.patterns.find(p => p.measureAssignments[mIdx]) || null;
-                isOverridden = false;
+              const toadaPatternsList: Pattern[] = [];
+              if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
+              if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
+              currentPatternsList = toadaPatternsList;
+            } else if (isLinkedChild && trackMeta) {
+              const parentBus = useSequencerStore.getState().tracks.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
+              if (parentBus) {
+                const override = trackMeta.isLinkMaster ? undefined : trackMeta.patternOverrides?.[mIdx];
+                if (override === null) {
+                  isSilence = true;
+                  activePattern = null;
+                  isOverridden = true;
+                } else if (override !== undefined) {
+                  activePattern = parentBus.patterns.find(p => p.id === override) || null;
+                  isOverridden = true;
+                } else {
+                  activePattern = parentBus.patterns.find(p => p.measureAssignments[mIdx]) || null;
+                  isOverridden = false;
+                }
+                activeTrack = parentBus;
+                currentPatternsList = parentBus.patterns;
+                currentTrackIdx = tracksMeta.findIndex(t => t.id === parentBus.id);
               }
-              activeTrack = parentBus;
-              currentPatternsList = parentBus.patterns;
-              currentTrackIdx = tracksMeta.findIndex(t => t.id === parentBus.id);
+            } else {
+              activePattern = trackData.patterns.find((p: any) => p.measureAssignments[mIdx]);
+              activeTrack = trackData;
             }
-          } else {
-            activePattern = trackData.patterns.find((p: any) => p.measureAssignments[mIdx]);
-            activeTrack = trackData;
-          }
 
-          const patternIdx = activePattern && activeTrack ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
-          const steps = activePattern ? activePattern.steps : 16;
+            const patternIdx = activePattern && activeTrack ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
+            const steps = activePattern ? activePattern.steps : 16;
 
-          // Find if there is a section covering this measure
-          const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
-          const isSectionStart = !!(measureSection && mIdx === measureSection.startMeasure);
-          const isSectionEnd = !!(measureSection && mIdx === measureSection.endMeasure);
-          const sectionColor = measureSection?.color || '';
+            // Find if there is a section covering this measure
+            const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
+            const isSectionStart = !!(measureSection && mIdx === measureSection.startMeasure);
+            const isSectionEnd = !!(measureSection && mIdx === measureSection.endMeasure);
+            const sectionColor = measureSection?.color || '';
 
-          const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
-          const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null
-            ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
-            : 'none' as const;
+            const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+            const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null
+              ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
+              : 'none' as const;
 
-          const hasChildOverrides = Boolean(
-            trackMeta?.isLinkFolder && tracksMeta.some(child => 
-              String(child.linkedToTrackId) === String(trackMeta.id) && 
-              !child.isLinkFolder && 
-              child.patternOverrides?.[mIdx] !== undefined
-            )
-          );
+            const hasChildOverrides = Boolean(
+              trackMeta?.isLinkFolder && tracksMeta.some(child => 
+                String(child.linkedToTrackId) === String(trackMeta.id) && 
+                !child.isLinkFolder && 
+                child.patternOverrides?.[mIdx] !== undefined
+              )
+            );
 
-          return (
-            <TimelineMeasure
-              key={mIdx}
-              mIdx={mIdx}
-              trackId={isLinkedChild && trackMeta ? trackMeta.id : currentTrackId}
-              trackIdx={isLinkedChild && trackMeta ? trackIndex : currentTrackIdx}
-              instrumentIdx={isLinkedChild && trackMeta ? trackMeta.instrumentIdx : currentInstrumentIdx}
-              currentMeasureW={currentMeasureW}
-              patternId={activePattern ? activePattern.id : -1}
-              patternIdx={patternIdx}
-              steps={steps}
-              beatResolutions={activePattern?.beatResolutions}
-              sectionColor={sectionColor}
-              isSectionStart={isSectionStart}
-              isSectionEnd={isSectionEnd}
-              loopStatus={loopStatus}
-              isPanningActive={isPanningActive}
-              instId={isLinkedChild ? inst.id : currentInst.id}
-              instType={isLinkedChild ? inst.type : currentInst.type}
-              lang={lang}
-              activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern ? activePattern.name : null)}
-              patternsList={currentPatternsList}
-              signalDropdownOpen={uiContext.signalDropdownOpen}
-              onPatternAssignForMeasure={onPatternAssignForMeasure}
-              onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
-              measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] ?? true}
-              variationsCount={activePattern?.variations?.length || 0}
-              isMacro={isMacro}
-              isMinZoom={isMinZoom}
-              instColors={isLinkedChild ? inst.colors : currentInst.colors}
-              instMixerBg={isLinkedChild ? inst.mixerBg : currentInst.mixerBg}
-              activePatternActiveSteps={activePattern?.activeSteps}
-              onMeasureClick={handleMeasureClick}
-              isLinkedChild={!!isLinkedChild}
-              isLinkMaster={isLinkMaster}
-              isLinkFolder={isLinkFolder}
-              isSlave={isLinkedSlave}
-              parentBusTrackId={parentBusTrackId}
-              masterTrackId={masterTrackId}
-              slaveTrackIds={slaveTrackIds}
-              isOverridden={isOverridden}
-              isSilence={isSilence}
-              hasChildOverrides={hasChildOverrides}
-              onStepTouchStart={onStepTouchStart}
-              isToada={isToada}
-              toadaVocalBadges={toadaVocalBadges}
-              onOpenPatternPicker={onOpenPatternPicker}
-            />
-          );
-        })}
+            return (
+              <TimelineMeasure
+                key={mIdx}
+                mIdx={mIdx}
+                trackId={isLinkedChild && trackMeta ? trackMeta.id : currentTrackId}
+                trackIdx={isLinkedChild && trackMeta ? trackIndex : currentTrackIdx}
+                instrumentIdx={isLinkedChild && trackMeta ? trackMeta.instrumentIdx : currentInstrumentIdx}
+                currentMeasureW={currentMeasureW}
+                patternId={activePattern ? activePattern.id : -1}
+                patternIdx={patternIdx}
+                steps={steps}
+                beatResolutions={activePattern?.beatResolutions}
+                sectionColor={sectionColor}
+                isSectionStart={isSectionStart}
+                isSectionEnd={isSectionEnd}
+                loopStatus={loopStatus}
+                isPanningActive={isPanningActive}
+                instId={isLinkedChild ? inst.id : currentInst.id}
+                instType={isLinkedChild ? inst.type : currentInst.type}
+                lang={lang}
+                activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern ? activePattern.name : null)}
+                patternsList={currentPatternsList}
+                signalDropdownOpen={uiContext.signalDropdownOpen}
+                onPatternAssignForMeasure={onPatternAssignForMeasure}
+                onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
+                measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] ?? true}
+                variationsCount={activePattern?.variations?.length || 0}
+                isMacro={isMacro}
+                isMinZoom={isMinZoom}
+                instColors={isLinkedChild ? inst.colors : currentInst.colors}
+                instMixerBg={isLinkedChild ? inst.mixerBg : currentInst.mixerBg}
+                activePatternActiveSteps={activePattern?.activeSteps}
+                onMeasureClick={handleMeasureClick}
+                isLinkedChild={!!isLinkedChild}
+                isLinkMaster={isLinkMaster}
+                isLinkFolder={isLinkFolder}
+                isSlave={isLinkedSlave}
+                parentBusTrackId={parentBusTrackId}
+                masterTrackId={masterTrackId}
+                slaveTrackIds={slaveTrackIds}
+                isOverridden={isOverridden}
+                isSilence={isSilence}
+                hasChildOverrides={hasChildOverrides}
+                onStepTouchStart={onStepTouchStart}
+                isToada={isToada}
+                isToadaComposite={isToadaComposite}
+                toadaCompositePatterns={toadaCompositePatterns}
+                toadaVocalBadges={toadaVocalBadges}
+                onOpenPatternPicker={isToada ? undefined : onOpenPatternPicker}
+              />
+            );
+          })}
 
-      {/* Right spacer column */}
-      {rightSpacerCount > 0 && (
-        <div style={{ width: `${rightSpacerWidth}px`, minWidth: `${rightSpacerWidth}px` }} className="shrink-0" />
-      )}
+        {/* Right spacer column */}
+        {rightSpacerCount > 0 && (
+          <div style={{ width: `${rightSpacerWidth}px`, minWidth: `${rightSpacerWidth}px` }} className="shrink-0" />
+        )}
+      </div>
       </div>
 
       {isAutomationOpen && (

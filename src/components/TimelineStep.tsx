@@ -520,7 +520,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   const disableHeavyEffects = isEcoMode || isMobileDevice;
 
   const isDarkStroke = isDarkColor(stepData.leftFillColor) || (stepData.isSplit && isDarkColor(stepData.rightFillColor));
-  const cordelStepBorder = 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)]';
+  const cordelStepBorder = 'border border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)]';
   const borderClass = stepData.leftIsAccent 
     ? `${cordelStepBorder} ring-1 ring-white/60` 
     : cordelStepBorder;
@@ -563,12 +563,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
     // Bordures horizontales nettes avec alignement sous-pixel de l'ombre d'estampe sur tout le socle vocal
     const voiceBorderClass = isStart && isEnd
-      ? 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mx-[1px]'
+      ? 'border border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mx-[1px]'
       : isStart
-        ? 'border-y border-l border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
+        ? 'border-y border-l border-[#1a1a1a] dark:border-black shadow-[0px_1px_0px_#1a1a1a] dark:shadow-[0px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] ml-[1px] mr-0'
         : isEnd
-          ? 'border-y border-r border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
-          : 'border-y border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0';
+          ? 'border-y border-r border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
+          : 'border-y border-[#1a1a1a] dark:border-black shadow-[0px_1px_0px_#1a1a1a] dark:shadow-[0px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mx-0';
 
     // Retrait de la bordure droite du conteneur si suivi par une prolongation pour fusionner avec la cellule suivante
     const containerBorder = stepData.isFollowedByProlongation
@@ -619,7 +619,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     >
       {hasBackground ? (
         <div 
-          className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${heavyEffectClass} ${accentClass}`}
+          className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3 rounded-none m-[1px]' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${heavyEffectClass} ${accentClass}`}
           style={{
             background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
             backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,

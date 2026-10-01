@@ -46,6 +46,13 @@ interface TimelineMeasureProps {
   hasChildOverrides?: boolean;
   isToada?: boolean;
   toadaVocalBadges?: { pPtnName?: string; cPtnName?: string };
+  isToadaComposite?: boolean;
+  toadaCompositePatterns?: {
+    puxPtn: any;
+    coroPtn: any;
+    puxTrackId?: number;
+    coroTrackId?: number;
+  };
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -100,6 +107,8 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   hasChildOverrides,
   isToada,
   toadaVocalBadges,
+  isToadaComposite,
+  toadaCompositePatterns,
   onStepTouchStart,
   onOpenPatternPicker,
 }) => {
@@ -395,15 +404,43 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           )}
 
           {patternId === -1 ? (
-            isToada ? null : (
-              <div
-                className="w-full h-full opacity-15"
-                style={{
-                  backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
-                  backgroundSize: '10px 10px',
-                }}
-              />
-            )
+            <div
+              className="w-full h-full opacity-15"
+              style={{
+                backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+                backgroundSize: '10px 10px',
+              }}
+            />
+          ) : isToada ? (
+            <div
+              className={`w-full h-full rounded-sm relative border ${
+                isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a]' : ''
+              }`}
+              style={
+                isToadaComposite
+                  ? {
+                      background: 'linear-gradient(135deg, rgba(139, 42, 26, 0.45) 0%, rgba(139, 42, 26, 0.45) 50%, rgba(0, 131, 143, 0.45) 50%, rgba(0, 131, 143, 0.45) 100%)',
+                      borderColor: '#8b2a1a60',
+                      borderLeftWidth: '3px',
+                      borderLeftColor: '#8b2a1a',
+                      borderRightWidth: '3px',
+                      borderRightColor: '#00838f',
+                    }
+                  : toadaVocalBadges?.pPtnName
+                  ? {
+                      backgroundColor: 'rgba(139, 42, 26, 0.35)',
+                      borderColor: 'rgba(139, 42, 26, 0.5)',
+                      borderLeftWidth: '3px',
+                      borderLeftColor: '#8b2a1a',
+                    }
+                  : {
+                      backgroundColor: 'rgba(0, 131, 143, 0.35)',
+                      borderColor: 'rgba(0, 131, 143, 0.5)',
+                      borderLeftWidth: '3px',
+                      borderLeftColor: '#00838f',
+                    }
+              }
+            />
           ) : (
             <div className="flex h-full w-full pointer-events-none">
               {(() => {
@@ -485,7 +522,15 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       {isMacro && (
         <div className="cell-macro w-full h-full p-1 relative">
           {patternId === -1 ? (
-            isToada ? null : (
+            isToada ? (
+              <div
+                className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
+                style={{
+                  backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+                  backgroundSize: '8px 8px',
+                }}
+              />
+            ) : (
               <>
                 <div
                   className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
@@ -524,32 +569,68 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
             <div
               className={`macro-pattern-block w-full h-full flex ${
                 isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-center p-1.5'
-              } border rounded-sm transition-all relative ${
+              } border rounded-sm transition-all relative overflow-hidden ${
                 isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''
               }`}
-              style={{
-                backgroundColor: `${instMixerBg}cc`,
-                borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
-                borderLeftWidth: '3px',
-                borderLeftColor: instColors['D'] || instColors['E'] || 'var(--cordel-border)',
-              }}
-              title={`${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')} (${instColors['text']})`}
+              style={
+                isToada
+                  ? (isToadaComposite
+                    ? {
+                        background: 'linear-gradient(135deg, rgba(139, 42, 26, 0.45) 0%, rgba(139, 42, 26, 0.45) 50%, rgba(0, 131, 143, 0.45) 50%, rgba(0, 131, 143, 0.45) 100%)',
+                        borderColor: '#8b2a1a60',
+                        borderLeftWidth: '3px',
+                        borderLeftColor: '#8b2a1a',
+                        borderRightWidth: '3px',
+                        borderRightColor: '#00838f',
+                      }
+                    : toadaVocalBadges?.pPtnName
+                    ? {
+                        backgroundColor: 'rgba(139, 42, 26, 0.35)',
+                        borderColor: 'rgba(139, 42, 26, 0.5)',
+                        borderLeftWidth: '3px',
+                        borderLeftColor: '#8b2a1a',
+                      }
+                    : {
+                        backgroundColor: 'rgba(0, 131, 143, 0.35)',
+                        borderColor: 'rgba(0, 131, 143, 0.5)',
+                        borderLeftWidth: '3px',
+                        borderLeftColor: '#00838f',
+                      })
+                  : {
+                      backgroundColor: `${instMixerBg}cc`,
+                      borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
+                      borderLeftWidth: '3px',
+                      borderLeftColor: instColors['D'] || instColors['E'] || 'var(--cordel-border)',
+                    }
+              }
+              title={
+                isToada
+                  ? (isToadaComposite
+                    ? `Toada: [P] ${toadaVocalBadges?.pPtnName} · [C] ${toadaVocalBadges?.cPtnName}`
+                    : toadaVocalBadges?.pPtnName
+                    ? `Toada (Puxador): ${toadaVocalBadges.pPtnName}`
+                    : `Toada (Coro): ${toadaVocalBadges?.cPtnName}`)
+                  : `${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')} (${instColors['text']})`
+              }
             >
               {!isMinZoom && (
                 <>
                   {toadaVocalBadges ? (
-                    <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
+                    <div className="flex items-center gap-1 overflow-hidden truncate max-w-full whitespace-nowrap">
                       {toadaVocalBadges.pPtnName && (
                         <span 
-                          className="font-cactus text-[8px] font-bold text-[#8b2a1a] dark:text-[#f39c12] truncate max-w-[45px]"
+                          className="font-cactus text-[8px] font-bold text-[#8b2a1a] dark:text-[#f39c12] truncate max-w-[48px]"
                           title={`Puxador: ${toadaVocalBadges.pPtnName}`}
                         >
                           [P] {toadaVocalBadges.pPtnName}
                         </span>
                       )}
+                      {toadaVocalBadges.pPtnName && toadaVocalBadges.cPtnName && (
+                        <span className="text-[7px] text-[var(--cordel-text)]/50 shrink-0 select-none">·</span>
+                      )}
                       {toadaVocalBadges.cPtnName && (
                         <span 
-                          className="font-cactus text-[8px] font-bold text-[#00838f] dark:text-[#4dd0e1] truncate max-w-[45px]"
+                          className="font-cactus text-[8px] font-bold text-[#00838f] dark:text-[#4dd0e1] truncate max-w-[48px]"
                           title={`Coro: ${toadaVocalBadges.cPtnName}`}
                         >
                           [C] {toadaVocalBadges.cPtnName}
@@ -665,6 +746,7 @@ export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next)
          prev.isSlave === next.isSlave &&
          prev.isSilence === next.isSilence &&
          prev.isToada === next.isToada &&
+         prev.isToadaComposite === next.isToadaComposite &&
          prev.toadaVocalBadges?.pPtnName === next.toadaVocalBadges?.pPtnName &&
          prev.toadaVocalBadges?.cPtnName === next.toadaVocalBadges?.cPtnName &&
          prev.parentBusTrackId === next.parentBusTrackId &&
