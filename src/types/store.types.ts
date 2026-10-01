@@ -48,6 +48,7 @@ export interface Pattern {
   preRollNotes?: string[];
   preRollVolumes?: StepSculptValue[];
   preRollDecays?: StepSculptValue[];
+  preRollMicrotimings?: StepSculptValue[];
 }
 
 export interface VocalClipMeta {

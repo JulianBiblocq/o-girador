@@ -401,9 +401,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const canPaste = !!sequencer.copiedPattern;
 
+  const tracksVersion = useSequencerStore(state => state.tracksVersion);
+
   // Granular selection of only the current track to prevent parent-level render thrashing
   const track = useSequencerStore(
-    React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
+    React.useCallback(state => state.tracks.find(t => String(t.id) === String(trackId)), [trackId])
   );
 
   const isSlave = Boolean(track?.linkedToTrackId && !track?.isLinkMaster);
@@ -431,6 +433,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const effectiveEditTrackId = (isToada && (!track?.patterns || track.patterns.length === 0) && activeVocalChildTrack)
     ? activeVocalChildTrack.id
     : trackId;
+
+  const targetBalancoTrack = useSequencerStore(
+    React.useCallback((state) => state.tracks.find(t => String(t.id) === String(effectiveEditTrackId)) || track, [effectiveEditTrackId, track])
+  );
 
   // Callbacks mapped directly to sequencer context actions
   const onStepValueChange = React.useCallback((
@@ -698,7 +704,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     return track?.patterns || [];
   }, [isSlave, parentBus?.patterns, masterTrack?.patterns, isToada, track?.patterns, activeVocalChildTrack?.patterns]);
 
-  const activePattern = displayedPatterns.find(p => p.id === (track?.selectedPatternId ?? displayedPatterns[0]?.id));
+  const [selectedPatternId, setSelectedPatternId] = useState<number>(() => track?.selectedPatternId || displayedPatterns[0]?.id || 0);
+
+  const activePattern = displayedPatterns.find(p => p.id === (selectedPatternId || track?.selectedPatternId || displayedPatterns[0]?.id));
   const hasVocalRecording = useAudioStore(
     useShallow(state => !!activePattern && !!state.vocalBlobs[activePattern.id])
   );
@@ -717,6 +725,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       alert(lang === 'fr' ? "Aucun enregistrement vocal trouvé pour ce motif." : "Nenhuma gravação de voz encontrada para este padrão.");
     }
   }, [activePattern, lang]);
+
+  const handleTranspose = React.useCallback((semitones: number) => {
+    if (!activePattern) return;
+    useSequencerStore.getState().transposePatternNotes(effectiveEditTrackId, activePattern.id, semitones);
+  }, [activePattern, effectiveEditTrackId]);
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -1121,7 +1134,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
-  const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
 
   // Synchronisation descendante : de l'éditeur local vers useSequencerStore
   useEffect(() => {
@@ -1531,22 +1543,52 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             {/* Pitch Shift Controller for Vocal/Toada tracks */}
             {inst.type === 'voice' && (
               <div className="flex items-center gap-2 select-none">
-                <div className="flex items-center gap-2 bg-[#f4ecd8] px-3 py-1.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
-                  <span>{lang === 'fr' ? 'Transposition :' : 'Transposição :'}</span>
+                <div className="flex items-center gap-1.5 bg-[#f4ecd8] px-2.5 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
+                  <span className="mr-0.5">{lang === 'fr' ? 'Transposition :' : 'Transposição :'}</span>
+                  
+                  {/* Raccourci -7 (Quinte descendante) */}
                   <button
-                    onClick={() => sequencer.decrementVocalTransposeSteps()}
-                    className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                    type="button"
+                    onClick={() => handleTranspose(-7)}
+                    title={lang === 'fr' ? '-7 demi-tons (Quinte descendante)' : '-7 semitons (Quinta descendente)'}
+                    className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
+                  >
+                    -7
+                  </button>
+
+                  {/* Bouton -1 demi-ton */}
+                  <button
+                    type="button"
+                    onClick={() => handleTranspose(-1)}
+                    title={lang === 'fr' ? '-1 demi-ton' : '-1 semitom'}
+                    className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
                   >
                     -
                   </button>
-                  <span className="w-8 text-center font-cactus text-sm">
+
+                  {/* Compteur de transposition relative */}
+                  <span className="w-8 text-center font-cactus text-sm font-black text-[#8b2a1a]">
                     {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
                   </span>
+
+                  {/* Bouton +1 demi-ton */}
                   <button
-                    onClick={() => sequencer.incrementVocalTransposeSteps()}
-                    className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                    type="button"
+                    onClick={() => handleTranspose(1)}
+                    title={lang === 'fr' ? '+1 demi-ton' : '+1 semitom'}
+                    className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
                   >
                     +
+                  </button>
+
+                  {/* Raccourci +7 (Quinte ascendante) */}
+                  <button
+                    type="button"
+                    onClick={() => handleTranspose(7)}
+                    title={lang === 'fr' ? '+7 demi-tons (Quinte ascendante)' : '+7 semitons (Quinta ascendente)'}
+                    className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
+                  >
+                    +7
                   </button>
                 </div>
 
@@ -1561,8 +1603,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
             )}
 
-            {/* Balanço Controller for non-vocal tracks (Preset + Amount) */}
-            {inst.type !== 'voice' && (
+            {/* Balanço Controller for all tracks (Preset + Amount) */}
+            {targetBalancoTrack && (
               <div className="flex items-center gap-2.5 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-4 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
                 <span className="whitespace-nowrap flex items-center text-sm" title={lang === 'fr' ? 'Balanço (Instrument)' : 'Balanço (Instrument)'}>
                   ⚖️
@@ -1570,11 +1612,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                 {/* Sélecteur de preset d'instrument */}
                 <select
-                  value={track.balancoPresetId || 'maracatu-trad'}
+                  data-testid="track-balanco-preset-select"
+                  value={targetBalancoTrack.balancoPresetId || 'maracatu-trad'}
                   onChange={(e) => {
                     const presetId = e.target.value;
-                    const amount = track.balancoAmount !== undefined ? track.balancoAmount : (track.swingIntensity !== undefined ? track.swingIntensity : 100);
-                    handleTrackBalancoChange(trackId, presetId, amount);
+                    const amount = targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100);
+                    handleTrackBalancoChange(effectiveEditTrackId, presetId, amount);
                   }}
                   className="bg-white border border-[#1a1a1a] px-1.5 py-0.5 text-[11px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[130px] truncate"
                   title={lang === 'fr' ? "Preset de Balanço par défaut de l'instrument" : "Preset de Balanço padrão do instrumento"}
@@ -1588,20 +1631,21 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                 {/* Curseur de dosage balancoAmount (0 - 100%) */}
                 <input
+                  data-testid="track-balanco-slider"
                   type="range"
                   min="0"
                   max="100"
-                  value={track.balancoAmount !== undefined ? track.balancoAmount : (track.swingIntensity !== undefined ? track.swingIntensity : 100)}
+                  value={targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100)}
                   onChange={(e) => {
                     const val = Number(e.target.value);
-                    handleTrackBalancoChange(trackId, track.balancoPresetId || 'maracatu-trad', val);
+                    handleTrackBalancoChange(effectiveEditTrackId, targetBalancoTrack.balancoPresetId || 'maracatu-trad', val);
                   }}
                   className="w-20 h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
                   style={{ accentColor: '#8b2a1a' }}
                   title={lang === 'fr' ? "Dosage du balanço pour l'instrument" : "Dosagem do balanço para o instrumento"}
                 />
-                <span className="w-8 text-right font-cactus text-sm">
-                  {track.balancoAmount !== undefined ? track.balancoAmount : (track.swingIntensity !== undefined ? track.swingIntensity : 100)}%
+                <span data-testid="track-balanco-amount-label" className="w-8 text-right font-cactus text-sm">
+                  {targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100)}%
                 </span>
               </div>
             )}
@@ -1947,7 +1991,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 onChange={(e) => {
                                   const val = e.target.value || undefined;
                                   const amount = ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100);
-                                  handlePatternBalancoChange(trackId, ptn.id, val, amount);
+                                  handlePatternBalancoChange(effectiveEditTrackId, ptn.id, val, amount);
                                 }}
                                 className="bg-white border border-[#1a1a1a] px-1 py-0.5 text-[10px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[125px] truncate"
                                 title={lang === 'fr' ? "Surcharge de preset pour ce motif" : "Substituição de preset para este padrão"}
@@ -1970,7 +2014,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 value={ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100)}
                                 onChange={(e) => {
                                   const val = parseInt(e.target.value, 10);
-                                  handlePatternBalancoChange(trackId, ptn.id, ptn.balancoPresetId, val);
+                                  handlePatternBalancoChange(effectiveEditTrackId, ptn.id, ptn.balancoPresetId, val);
                                 }}
                                 className="w-14 h-1.5 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
                                 style={{ accentColor: '#8b2a1a' }}

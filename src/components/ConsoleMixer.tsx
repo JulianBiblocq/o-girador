@@ -208,6 +208,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const onMasterCompressorChange = setMasterCompressor;
 
   const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const isCompressorActive = useSequencerStore(state => state.masterEffectsActive?.compressor ?? true);
+  const toggleMasterEffectActive = useSequencerStore(state => state.toggleMasterEffectActive);
   const isEcoModeRef = useRef(isEcoMode);
   isEcoModeRef.current = isEcoMode;
   const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
@@ -1264,11 +1266,32 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--comp-color,#d4af37)] flex items-center gap-1">
                       <XiloCompressor size={11} className="shrink-0 text-[var(--comp-color,#d4af37)]" /> {t('compTitle')}
                     </span>
-                    <span className="text-[8px] font-mono font-bold px-1 rounded-xs bg-[var(--comp-color,#d4af37)]/15 text-[var(--comp-color,#d4af37)] border border-[var(--comp-color,#d4af37)]/30 leading-tight">
-                      DYN
-                    </span>
+                    <div className="flex items-center gap-1.5 pointer-events-auto">
+                      <span className="text-[8px] font-mono font-bold px-1 rounded-xs bg-[var(--comp-color,#d4af37)]/15 text-[var(--comp-color,#d4af37)] border border-[var(--comp-color,#d4af37)]/30 leading-tight">
+                        DYN
+                      </span>
+                      <button
+                        type="button"
+                        data-testid="master-power-compressor"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMasterEffectActive('compressor');
+                        }}
+                        className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
+                          isCompressorActive
+                            ? 'bg-[#c88b2a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
+                            : 'bg-[#ded3be] text-[#1a1a1a]/40 border border-[#1a1a1a]/30 shadow-none'
+                        }`}
+                        title={isCompressorActive ? "Compresseur Master actif (cliquer pour contourner / bypass)" : "Compresseur Master bypassé (cliquer pour activer)"}
+                      >
+                        ⏻
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 justify-between mt-0.5">
+                  {/* Isolation stricte : opacity-40 grayscale pointer-events-none sur les réglages enfants uniquement */}
+                  <div data-testid="master-compressor-settings" className={`flex gap-2 justify-between mt-0.5 transition-opacity duration-150 ${
+                    isCompressorActive ? '' : 'opacity-40 grayscale pointer-events-none'
+                  }`}>
                     <DragNumberBox 
                       label={t('compThreshold')}
                       value={masterCompressor.threshold}

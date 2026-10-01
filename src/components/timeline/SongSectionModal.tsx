@@ -16,6 +16,7 @@ interface SongSectionModalProps {
   editingSection: SongSection | null;
   totalMeasures: number;
   lang: Language;
+  defaultMeasure?: number;
   onCreateSection: (name: string, start: number, end: number, color: string, repeat?: number, level?: number) => void;
   onUpdateSection: (id: string, name: string, start: number, end: number, color: string, level?: number) => void;
   onSaveCloudSection?: (section: SongSection) => void;
@@ -28,6 +29,7 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
   editingSection,
   totalMeasures,
   lang,
+  defaultMeasure = 1,
   onCreateSection,
   onUpdateSection,
   onSaveCloudSection,
@@ -35,46 +37,74 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
 }) => {
   const { userProfile } = useAuth();
   const [sectionFormName, setSectionFormName] = useState<string>('');
-  const [sectionFormStart, setSectionFormStart] = useState<number | string>(1);
-  const [sectionFormEnd, setSectionFormEnd] = useState<number | string>(4);
+  const [startM, setStartM] = useState<number>(1);
+  const [endM, setEndM] = useState<number>(4);
   const [sectionFormColor, setSectionFormColor] = useState<string>('#f19066');
   const [sectionFormLevel, setSectionFormLevel] = useState<number>(0);
   
-  const { isPlaying } = useAudio();
-  const duplicateSectionBlock = useSequencerStore(state => state.duplicateSectionBlock);
-  
+  const maxLimit = Math.max(64, totalMeasures);
+
   useEffect(() => {
     if (isOpen) {
       if (editingSection) {
+        const s = editingSection.startMeasure + 1;
+        const e = editingSection.endMeasure + 1;
         setSectionFormName(editingSection.name);
-        setSectionFormStart(editingSection.startMeasure + 1);
-        setSectionFormEnd(editingSection.endMeasure + 1);
+        setStartM(s);
+        setEndM(e);
         setSectionFormColor(editingSection.color || '#f19066');
         setSectionFormLevel(editingSection.level || 0);
       } else {
+        const s = Math.max(1, Math.min(maxLimit, defaultMeasure));
+        const e = Math.min(maxLimit, s + 3);
         setSectionFormName(lang === 'fr' ? 'Partie A' : 'Parte A');
-        setSectionFormStart(1);
-        setSectionFormEnd(Math.min(4, totalMeasures));
+        setStartM(s);
+        setEndM(e);
         setSectionFormColor('#f19066');
         setSectionFormLevel(0);
       }
     }
-  }, [isOpen, editingSection, lang, totalMeasures]);
+  }, [isOpen, editingSection, lang, totalMeasures, defaultMeasure, maxLimit]);
 
   if (!isOpen) return null;
 
+  // Asservissement dynamique Début / Fin (Anti-inversion)
+  const handleStartChange = (valStr: string) => {
+    const val = parseInt(valStr, 10);
+    if (isNaN(val)) return;
+    const clampedStart = Math.max(1, Math.min(maxLimit, val));
+    setStartM(clampedStart);
+    if (clampedStart > endM) {
+      setEndM(clampedStart);
+    }
+  };
+
+  const handleEndChange = (valStr: string) => {
+    const val = parseInt(valStr, 10);
+    if (isNaN(val)) return;
+    const clampedEnd = Math.max(1, Math.min(maxLimit, val));
+    setEndM(clampedEnd);
+    if (clampedEnd < startM) {
+      setStartM(clampedEnd);
+    }
+  };
+
+  const handleQuickDuration = (bars: number) => {
+    const nextEnd = Math.min(maxLimit, startM + bars - 1);
+    setEndM(nextEnd);
+  };
+
+  const duration = Math.max(1, endM - startM + 1);
+
   const handleValidate = async () => {
     if (!sectionFormName.trim()) return;
-    let startVal = parseInt(String(sectionFormStart)) || 1;
-    startVal = Math.max(1, Math.min(totalMeasures, startVal));
-    let endVal = parseInt(String(sectionFormEnd)) || 1;
-    endVal = Math.max(startVal, Math.min(totalMeasures, endVal));
+    const finalStart = Math.max(1, Math.min(maxLimit, startM));
+    const finalEnd = Math.max(finalStart, Math.min(maxLimit, endM));
 
-    // 1. Action locale (création ou mise à jour de la section dans la timeline)
     if (editingSection) {
-      onUpdateSection(editingSection.id, sectionFormName, startVal - 1, endVal - 1, sectionFormColor, sectionFormLevel);
+      onUpdateSection(editingSection.id, sectionFormName, finalStart - 1, finalEnd - 1, sectionFormColor, sectionFormLevel);
     } else {
-      onCreateSection(sectionFormName, startVal - 1, endVal - 1, sectionFormColor, 1, sectionFormLevel);
+      onCreateSection(sectionFormName, finalStart - 1, finalEnd - 1, sectionFormColor, 1, sectionFormLevel);
     }
 
     onClose();
@@ -83,10 +113,20 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
       <div className="w-full max-w-[460px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col gap-4">
-        <h3 className="font-cactus text-xl font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)]">
-          {editingSection 
-            ? (lang === 'fr' ? 'Modifier la Section' : 'Editar Seção')
-            : (lang === 'fr' ? 'Créer une Section' : 'Criar Seção')}
+        {/* Titre dynamique */}
+        <h3 className="font-cactus text-lg font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)] flex items-center justify-between">
+          <span>
+            {editingSection 
+              ? (lang === 'fr' ? `MODIFIER LA SECTION (M. ${startM} - ${endM})` : `EDITAR SEÇÃO (C. ${startM} - ${endM})`)
+              : (lang === 'fr' ? `NOUVELLE SECTION (M. ${startM} - ${endM})` : `NOVA SEÇÃO (C. ${startM} - ${endM})`)}
+          </span>
+          <button 
+            type="button"
+            onClick={onClose}
+            className="text-xs hover:text-red-500 font-bold cursor-pointer opacity-70 hover:opacity-100"
+          >
+            ✕
+          </button>
         </h3>
 
         {/* Nom */}
@@ -100,7 +140,86 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
             onChange={(e) => setSectionFormName(e.target.value)}
             placeholder="Ex: Partie A / Refrain"
             className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
+            autoFocus
           />
+        </div>
+
+        {/* Bloc d'intervalle : Bornes début / fin, durée et raccourcis rapides */}
+        <div className="flex flex-col gap-2 p-2.5 bg-[var(--cordel-border)]/10 rounded cordel-border-sm">
+          <div className="flex gap-4">
+            <div className="flex flex-col gap-1 flex-1">
+              <label className="text-[10px] font-bold uppercase opacity-80 text-[var(--cordel-text)]">
+                {lang === 'fr' ? 'Mesure début' : 'Medida inicial'}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={endM}
+                value={startM}
+                onChange={(e) => handleStartChange(e.target.value)}
+                className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1 text-xs font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)] text-center"
+              />
+            </div>
+            <div className="flex flex-col gap-1 flex-1">
+              <label className="text-[10px] font-bold uppercase opacity-80 text-[var(--cordel-text)]">
+                {lang === 'fr' ? 'Mesure fin' : 'Medida final'}
+              </label>
+              <input
+                type="number"
+                min={startM}
+                max={maxLimit}
+                value={endM}
+                onChange={(e) => handleEndChange(e.target.value)}
+                className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1 text-xs font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)] text-center"
+              />
+            </div>
+          </div>
+
+          {/* Indicateur de durée et Raccourcis rapides */}
+          <div className="flex items-center justify-between pt-1 border-t border-[var(--cordel-border)]/20">
+            <span className="text-[10px] font-bold text-[var(--cordel-text)] opacity-90">
+              {lang === 'fr' ? `Durée : ${duration} mesure${duration > 1 ? 's' : ''}` : `Duração: ${duration} compasso${duration > 1 ? 's' : ''}`}
+            </span>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => handleQuickDuration(2)}
+                className="px-2 py-0.5 text-[9px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
+              >
+                [ 2 mes. ]
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDuration(4)}
+                className="px-2 py-0.5 text-[9px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
+              >
+                [ 4 mes. ]
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDuration(8)}
+                className="px-2 py-0.5 text-[9px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
+              >
+                [ 8 mes. ]
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Niveau d'imbrication */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">
+            {lang === 'fr' ? "Niveau d'imbrication" : "Nível de aninhamento"}
+          </label>
+          <select
+            value={sectionFormLevel}
+            onChange={(e) => setSectionFormLevel(parseInt(e.target.value, 10))}
+            className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-1.5 text-xs font-bold text-[var(--cordel-text)] outline-none cursor-pointer"
+          >
+            <option value={0}>{lang === 'fr' ? 'Niveau 0 (Base)' : 'Nível 0 (Base)'}</option>
+            <option value={1}>{lang === 'fr' ? 'Niveau 1 (Groupe)' : 'Nível 1 (Grupo)'}</option>
+            <option value={2}>{lang === 'fr' ? 'Niveau 2 (Super-groupe)' : 'Nível 2 (Super-grupo)'}</option>
+          </select>
         </div>
 
         {/* Couleur du bloc */}
@@ -119,6 +238,7 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
               { value: '#eaddcf', label: 'Cordel beige' }
             ].map((colorOpt) => (
               <button
+                type="button"
                 key={colorOpt.value}
                 onClick={() => setSectionFormColor(colorOpt.value)}
                 className={`w-7 h-7 rounded-full cursor-pointer cordel-border-sm transition-transform ${
@@ -131,41 +251,12 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           </div>
         </div>
 
-        {/* Start / End Measures */}
-        <div className="flex gap-4">
-          <div className="flex flex-col gap-1.5 flex-1">
-            <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">
-              {lang === 'fr' ? 'Mesure début' : 'Medida inicial'}
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={totalMeasures}
-              value={sectionFormStart}
-              onChange={(e) => setSectionFormStart(e.target.value)}
-              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 flex-1">
-            <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">
-              {lang === 'fr' ? 'Mesure fin' : 'Medida final'}
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={totalMeasures}
-              value={sectionFormEnd}
-              onChange={(e) => setSectionFormEnd(e.target.value)}
-              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
-            />
-          </div>
-        </div>
-
         {/* Pied de page et boutons d'action */}
         <div className="flex flex-wrap justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
           <div className="flex flex-wrap gap-2.5 mr-auto">
             {editingSection && onSaveCloudSection && (
               <button
+                type="button"
                 onClick={() => {
                   if (!userProfile) {
                     useSequencerStore.getState().openVisitorAuthModal();
@@ -182,17 +273,21 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
             )}
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="px-3 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
           >
             {lang === 'fr' ? 'Annuler' : 'Cancelar'}
           </button>
           <button
+            type="button"
             onClick={handleValidate}
             disabled={!sectionFormName.trim()}
             className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[#f4ecd8] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center gap-1.5 disabled:opacity-50"
           >
-            {lang === 'fr' ? 'Valider' : 'Confirmar'}
+            {editingSection 
+              ? (lang === 'fr' ? 'Enregistrer les modifications' : 'Salvar alterações')
+              : `➕ ${lang === 'fr' ? 'Créer la section' : 'Criar seção'}`}
           </button>
         </div>
       </div>

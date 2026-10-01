@@ -77,3 +77,45 @@ export function computeStepBalancoPercent({
 
   return offsetPct * effectiveIntensity;
 }
+
+export interface BalancoOffsetParams extends StepBalancoParams {
+  bpm: number;
+  isPreRoll?: boolean;
+}
+
+/**
+ * Calcule le décalage temporel en secondes (deltaT) induit par le Balanço
+ * pour un pas donné, directement convertible pour Tone.js / Web Audio.
+ * 
+ * Sécurités :
+ * - Ancrage strict à 0 sur le premier temps de mesure (stepIdx === 0 hors anacrouse).
+ * - Calibrage identique au moteur des percussions (100% = demi-durée de pas).
+ */
+export function getBalancoOffsetSec({
+  stepIdx,
+  steps,
+  beatResolutions,
+  track,
+  pattern,
+  globalSwing,
+  bpm,
+  isPreRoll = false,
+}: BalancoOffsetParams): number {
+  if (!isPreRoll && stepIdx === 0) return 0;
+  if (!bpm || bpm <= 0) return 0;
+
+  const percent = computeStepBalancoPercent({
+    stepIdx,
+    steps,
+    beatResolutions,
+    track,
+    pattern,
+    globalSwing,
+  });
+
+  if (percent === 0) return 0;
+
+  const numBeats = 4; // Référence quaternaire par défaut
+  const stepDurationSec = (60 / bpm) / (steps / numBeats);
+  return (percent / 100) * stepDurationSec * 0.5;
+}

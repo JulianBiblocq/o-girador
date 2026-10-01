@@ -13,7 +13,7 @@ import confetti from 'canvas-confetti';
 import { auth } from '../firebase/config';
 import { recordStageSuccess } from '../services/cloudTrainings';
 
-import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -21,6 +21,7 @@ import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useBalancoStore } from '../stores/useBalancoStore';
+import { getBalancoOffsetSec } from '../utils/balancoUtils';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
 import {
   pushVisualTick,
@@ -727,19 +728,49 @@ export function useAudioSync({
 
   // Sync Master Compressor
   useEffect(() => {
-    const applyCompressor = (isEco: boolean) => {
+    const applyCompressor = (isEco: boolean, isCompActive: boolean) => {
       if (masterCompressorNode) {
-        const threshold = isEco ? 0 : Math.max(-100, Math.min(0, masterCompressor.threshold));
-        const ratio = isEco ? 1 : Math.max(1, masterCompressor.ratio);
-        masterCompressorNode.threshold.value = threshold;
-        masterCompressorNode.ratio.value = ratio;
+        const isBypassed = isEco || !isCompActive;
+        const currentComp = masterCompressor;
+        const targetThreshold = isBypassed ? 0 : Math.max(-100, Math.min(0, currentComp.threshold));
+        const targetRatio = isBypassed ? 1 : Math.max(1, currentComp.ratio);
+
+        // Rampe douce de 20ms pour éviter tout transitoire sonore (clic)
+        // Utiliser une rampe linéaire car Tone.Param.rampTo utilise un calcul exponentiel qui lève RangeError quand la cible vaut 0
+        try {
+          if (typeof (masterCompressorNode.threshold as any).linearRampTo === 'function') {
+            (masterCompressorNode.threshold as any).linearRampTo(targetThreshold, 0.02);
+          } else {
+            masterCompressorNode.threshold.value = targetThreshold;
+          }
+        } catch (_) {
+          masterCompressorNode.threshold.value = targetThreshold;
+        }
+
+        try {
+          if (typeof (masterCompressorNode.ratio as any).linearRampTo === 'function') {
+            (masterCompressorNode.ratio as any).linearRampTo(targetRatio, 0.02);
+          } else {
+            masterCompressorNode.ratio.value = targetRatio;
+          }
+        } catch (_) {
+          masterCompressorNode.ratio.value = targetRatio;
+        }
       }
     };
     
-    applyCompressor(useSequencerStore.getState().isEcoMode);
+    const initialState = useSequencerStore.getState();
+    applyCompressor(initialState.isEcoMode, initialState.masterEffectsActive?.compressor ?? true);
 
-    const unsubscribe = useSequencerStore.subscribe((state) => {
-      applyCompressor(state.isEcoMode);
+    const unsubscribe = useSequencerStore.subscribe((state, prevState) => {
+      const isEco = state.isEcoMode;
+      const isCompActive = state.masterEffectsActive?.compressor ?? true;
+      const prevEco = prevState.isEcoMode;
+      const prevCompActive = prevState.masterEffectsActive?.compressor ?? true;
+
+      if (isEco !== prevEco || isCompActive !== prevCompActive) {
+        applyCompressor(isEco, isCompActive);
+      }
     });
 
     return () => unsubscribe();
@@ -1076,9 +1107,21 @@ export function useAudioSync({
 
           // Routage strict : brancher sur busChannels[currentBusId] si défini, sinon vers masterVolumeNode!
           const currentBusId = t.busId || null;
+          let targetBusNode: any = null;
+          if (currentBusId) {
+            targetBusNode = busChannels[currentBusId] || (busChannels as any)[String(currentBusId)] || (busChannels as any)[Number(currentBusId)] || null;
+          }
+          const isVocalTrack = isToadaChild(t, tracksRef.current) || inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro';
+          if (isVocalTrack && !targetBusNode) {
+            const toadaTrack = tracksRef.current.find(trk => isToadaBus(trk));
+            if (toadaTrack) {
+              targetBusNode = busChannels[toadaTrack.id] || (busChannels as any)[String(toadaTrack.id)] || null;
+            }
+          }
+
           channels[t.id].disconnect();
-          if (currentBusId && busChannels[currentBusId]) {
-            channels[t.id].connect(busChannels[currentBusId]);
+          if (targetBusNode) {
+            channels[t.id].connect(targetBusNode);
           } else {
             channels[t.id].connect(masterVolumeNode!);
           }
@@ -1135,23 +1178,30 @@ export function useAudioSync({
 
       // Synchronize Master FX Returns initially
       const initialFX = useSequencerStore.getState().masterFX;
+      const initialFxActive = useSequencerStore.getState().masterEffectsActive || { compressor: true, reverb: true, disto: true };
+
       if (masterReverbVolumeNode) {
-        const revGain = initialFX.reverb.isMuted ? 0 : Tone.dbToGain(percentToDb(initialFX.reverb.returnVolume));
+        const revBypassed = !initialFxActive.reverb || initialFX.reverb.isMuted;
+        const revGain = revBypassed ? 0 : Tone.dbToGain(percentToDb(initialFX.reverb.returnVolume));
         masterReverbVolumeNode.gain.value = revGain;
       }
       if (reverbNode) {
         reverbNode.decay = 0.5 + 7.5 * (initialFX.reverb.time / 100);
       }
-      syncMasterReverbBypass(initialFX.reverb.isMuted, initialFX.reverb.returnVolume);
+      syncMasterReverbBypass(!initialFxActive.reverb || initialFX.reverb.isMuted, initialFX.reverb.returnVolume);
 
       if (masterDistortionVolumeNode) {
-        const distGain = initialFX.distortion.isMuted ? 0 : Tone.dbToGain(percentToDb(initialFX.distortion.returnVolume));
+        const distBypassed = !initialFxActive.disto || initialFX.distortion.isMuted;
+        const distGain = distBypassed ? 0 : Tone.dbToGain(percentToDb(initialFX.distortion.returnVolume));
         masterDistortionVolumeNode.gain.value = distGain;
       }
       if (distortionNode) {
         distortionNode.distortion = initialFX.distortion.drive / 100;
+        if (typeof distortionNode.wet?.setValueAtTime === 'function') {
+          distortionNode.wet.value = initialFxActive.disto && !initialFX.distortion.isMuted ? 1 : 0;
+        }
       }
-      syncMasterDistortionBypass(initialFX.distortion.isMuted, initialFX.distortion.returnVolume);
+      syncMasterDistortionBypass(!initialFxActive.disto || initialFX.distortion.isMuted, initialFX.distortion.returnVolume);
 
       tracksRef.current.forEach((t) => {
         const inst = instrumentsConfig[t.instrumentIdx];
@@ -1960,7 +2010,23 @@ export function useAudioSync({
                 const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
 
                 if (isPreActive) {
-                  const triggerTime = swingTime;
+                  const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+                  const balancoOffsetSec = getBalancoOffsetSec({
+                    stepIdx: cellIdx,
+                    steps: stepCount,
+                    beatResolutions: nextPattern.beatResolutions,
+                    track,
+                    pattern: nextPattern,
+                    globalSwing: globalSwingRef.current,
+                    bpm: currentMeasureBpm,
+                    isPreRoll: true,
+                  });
+                  const preRollMicroVal = nextPattern.preRollMicrotimings?.[cellIdx] ?? nextPattern.microtimings?.[cellIdx] ?? 0;
+                  const preRollMicroPct = Array.isArray(preRollMicroVal) ? (preRollMicroVal[0] ?? 0) : (typeof preRollMicroVal === 'number' ? preRollMicroVal : 0);
+                  const stepDurSec = (currentTicks / stepCount) * tick96nSec;
+                  const microOffsetSec = (preRollMicroPct / 100) * stepDurSec * 0.5;
+                  const triggerTime = time + balancoOffsetSec + microOffsetSec;
+
                   const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
                   const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
 
@@ -1985,17 +2051,11 @@ export function useAudioSync({
                       const durationSec = Math.max(0.05, numDecaySteps * singleStepSec);
 
                       const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                      const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                      let finalNoteVal = noteVal;
-                      if (transposeSteps !== 0) {
-                        try {
-                          finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                        } catch (_) {}
-                      }
+                      const finalNoteVal = noteVal;
 
                       const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
                       if (audioEngine) {
-                        audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity);
+                        audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity, track.id);
                       } else {
                         const noteFreq = noteToFrequency(finalNoteVal);
                         playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
@@ -2045,7 +2105,8 @@ export function useAudioSync({
               }
             });
 
-            const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
+            const toadaTrack = tracks.find(trk => isToadaBus(trk));
+            const outputNode = trackInputs[track.id] || channels[track.id] || (toadaTrack && busChannels[toadaTrack.id]) || masterVolumeNode;
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
             const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
@@ -2080,7 +2141,23 @@ export function useAudioSync({
             const isActive = state !== undefined && state !== null && state !== 0 && state !== '0';
 
             if (isActive) {
-              const triggerTime = swingTime;
+              const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+              const balancoOffsetSec = cellIdx === 0 ? 0 : getBalancoOffsetSec({
+                stepIdx: cellIdx,
+                steps: stepCount,
+                beatResolutions: activePattern.beatResolutions,
+                track,
+                pattern: activePattern,
+                globalSwing: globalSwingRef.current,
+                bpm: currentMeasureBpm,
+                isPreRoll: false,
+              });
+              const microVal = activePattern.microtimings?.[cellIdx] ?? 0;
+              const microPct = Array.isArray(microVal) ? (microVal[0] ?? 0) : (typeof microVal === 'number' ? microVal : 0);
+              const stepDurSec = (currentTicks / stepCount) * tick96nSec;
+              const microOffsetSec = (microPct / 100) * stepDurSec * 0.5;
+              const triggerTime = time + balancoOffsetSec + microOffsetSec;
+
               const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
               const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
 
@@ -2129,17 +2206,11 @@ export function useAudioSync({
                   const durationSec = Math.max(0.05, effectiveSteps * singleStepSec);
 
                   const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                  const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                  let finalNoteVal = noteVal;
-                  if (transposeSteps !== 0) {
-                    try {
-                      finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                    } catch (_) {}
-                  }
+                  const finalNoteVal = noteVal;
 
                   const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
                   if (audioEngine) {
-                    audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity);
+                    audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity, track.id);
                   } else {
                     const noteFreq = noteToFrequency(finalNoteVal);
                     playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
@@ -2161,7 +2232,23 @@ export function useAudioSync({
               const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
 
               if (isPreActive && targetAnacrusisPat) {
-                const triggerTime = swingTime;
+                const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+                const balancoOffsetSec = getBalancoOffsetSec({
+                  stepIdx: cellIdx,
+                  steps: stepCount,
+                  beatResolutions: targetAnacrusisPat.beatResolutions,
+                  track,
+                  pattern: targetAnacrusisPat,
+                  globalSwing: globalSwingRef.current,
+                  bpm: currentMeasureBpm,
+                  isPreRoll: true,
+                });
+                const preRollMicroVal = targetAnacrusisPat.preRollMicrotimings?.[cellIdx] ?? targetAnacrusisPat.microtimings?.[cellIdx] ?? 0;
+                const preRollMicroPct = Array.isArray(preRollMicroVal) ? (preRollMicroVal[0] ?? 0) : (typeof preRollMicroVal === 'number' ? preRollMicroVal : 0);
+                const stepDurSec = (currentTicks / stepCount) * tick96nSec;
+                const microOffsetSec = (preRollMicroPct / 100) * stepDurSec * 0.5;
+                const triggerTime = time + balancoOffsetSec + microOffsetSec;
+
                 const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
                 const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
 
@@ -2188,17 +2275,11 @@ export function useAudioSync({
                     const durationSec = Math.max(0.05, numDecaySteps * singleStepSec);
 
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                    const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                    let finalNoteVal = noteVal;
-                    if (transposeSteps !== 0) {
-                      try {
-                        finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                      } catch (_) {}
-                    }
+                    const finalNoteVal = noteVal;
 
                     const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
                     if (audioEngine) {
-                      audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity);
+                      audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, triggerTime, velocity, track.id);
                     } else {
                       const noteFreq = noteToFrequency(finalNoteVal);
                       playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
@@ -2660,17 +2741,11 @@ export function useAudioSync({
                     const durationSec = Math.max(0.05, numDecaySteps * runwayStepDurationSec);
 
                     const trackVolLinear = Math.pow(vocalVol / 100, 2);
-                    const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                    let finalNoteVal = noteVal;
-                    if (transposeSteps !== 0) {
-                      try {
-                        finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                      } catch (_) {}
-                    }
+                    const finalNoteVal = noteVal;
 
                     const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
                     if (audioEngine) {
-                      audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, stepTime, velocity);
+                      audioEngine.triggerVoiceAttackRelease(finalNoteVal, durationSec, stepTime, velocity, track.id);
                     } else {
                       const noteFreq = noteToFrequency(finalNoteVal);
                       playNativeVoiceSynth(noteFreq, stepTime, durationSec, trackVolLinear, channels[track.id]);
@@ -3297,42 +3372,51 @@ export function useAudioSync({
   // Synchronize track volume, panning, reverb levels, and mute/solo dynamically when React state changes
   useEffect(() => {
     const unsub = useSequencerStore.subscribe((state, prevState) => {
-      if (state.masterFX !== prevState.masterFX) {
+      if (state.masterFX !== prevState.masterFX || state.masterEffectsActive !== prevState.masterEffectsActive) {
         const masterFX = state.masterFX;
+        const fxActive = state.masterEffectsActive || { compressor: true, reverb: true, disto: true };
         
-        // 1. Reverb Return Volume & Mute
+        // 1. Reverb Return Volume & Bypass (Rampe 20ms anti-clic)
         if (masterReverbVolumeNode) {
-          const revGain = masterFX.reverb.isMuted
+          const revBypassed = !fxActive.reverb || masterFX.reverb.isMuted;
+          const revGain = revBypassed
             ? 0
             : Tone.dbToGain(percentToDb(masterFX.reverb.returnVolume));
-          masterReverbVolumeNode.gain.rampTo(revGain, 0.05);
+          masterReverbVolumeNode.gain.rampTo(revGain, 0.02);
         }
         
-        // 2. Reverb Return Parameter (Decay)
+        // 2. Reverb Return Parameter (Decay & Wet)
         if (reverbNode) {
           const decay = 0.5 + 7.5 * (masterFX.reverb.time / 100);
           if (reverbNode.decay !== decay) {
             reverbNode.decay = decay;
           }
+          if (typeof (reverbNode as any).wet?.rampTo === 'function') {
+            (reverbNode as any).wet.rampTo(fxActive.reverb && !masterFX.reverb.isMuted ? 1 : 0, 0.02);
+          }
         }
-        syncMasterReverbBypass(masterFX.reverb.isMuted, masterFX.reverb.returnVolume);
+        syncMasterReverbBypass(!fxActive.reverb || masterFX.reverb.isMuted, masterFX.reverb.returnVolume);
         
-        // 3. Distortion Return Volume & Mute
+        // 3. Distortion Return Volume & Bypass (Rampe 20ms anti-clic)
         if (masterDistortionVolumeNode) {
-          const distGain = masterFX.distortion.isMuted
+          const distBypassed = !fxActive.disto || masterFX.distortion.isMuted;
+          const distGain = distBypassed
             ? 0
             : Tone.dbToGain(percentToDb(masterFX.distortion.returnVolume));
-          masterDistortionVolumeNode.gain.rampTo(distGain, 0.05);
+          masterDistortionVolumeNode.gain.rampTo(distGain, 0.02);
         }
         
-        // 4. Distortion Return Parameter (Drive)
+        // 4. Distortion Return Parameter (Drive & Wet)
         if (distortionNode) {
           const distVal = masterFX.distortion.drive / 100;
           if (distortionNode.distortion !== distVal) {
             distortionNode.distortion = distVal;
           }
+          if (typeof distortionNode.wet?.rampTo === 'function') {
+            distortionNode.wet.rampTo(fxActive.disto && !masterFX.distortion.isMuted ? 1 : 0, 0.02);
+          }
         }
-        syncMasterDistortionBypass(masterFX.distortion.isMuted, masterFX.distortion.returnVolume);
+        syncMasterDistortionBypass(!fxActive.disto || masterFX.distortion.isMuted, masterFX.distortion.returnVolume);
       }
 
       if (state.tracks !== prevState.tracks) {
@@ -3495,10 +3579,22 @@ export function useAudioSync({
 
           // B. Routage dynamique de bus
           const currentBusId = t.busId || null;
-          if (lastAppliedBussesRef.current[t.id] !== currentBusId) {
+          let targetBusNode: any = null;
+          if (currentBusId) {
+            targetBusNode = busChannels[currentBusId] || (busChannels as any)[String(currentBusId)] || (busChannels as any)[Number(currentBusId)] || null;
+          }
+          const isVocalTrack = isToadaChild(t, tracks) || inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro';
+          if (isVocalTrack && !targetBusNode) {
+            const toadaTrack = tracks.find(trk => isToadaBus(trk));
+            if (toadaTrack) {
+              targetBusNode = busChannels[toadaTrack.id] || (busChannels as any)[String(toadaTrack.id)] || null;
+            }
+          }
+
+          if (lastAppliedBussesRef.current[t.id] !== currentBusId || !channels[t.id]) {
             channels[t.id].disconnect();
-            if (currentBusId && busChannels[currentBusId]) {
-              channels[t.id].connect(busChannels[currentBusId]);
+            if (targetBusNode) {
+              channels[t.id].connect(targetBusNode);
             } else {
               channels[t.id].connect(masterVolumeNode!);
             }

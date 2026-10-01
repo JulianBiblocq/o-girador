@@ -601,7 +601,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   };
 
   const handlePlusClick = (mIdx: number) => {
-    setQuickSectionRange({ start: mIdx, end: mIdx });
+    const maxLimit = Math.max(64, totalMeasures);
+    const start = mIdx;
+    const end = Math.min(maxLimit - 1, mIdx + 3);
+    setQuickSectionRange({ start, end });
     setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
     setQuickSectionColor('#f19066');
     setQuickSectionLevel(0);
@@ -1662,12 +1665,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between border-b border-[var(--cordel-border)]/20 pb-1">
-                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">
+                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-80">
                       {lang === 'fr' 
-                        ? `Nouvelle Section (M. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})` 
-                        : `Nova Seção (C. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})`}
+                        ? `NOUVELLE SECTION (M. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})` 
+                        : `NOVA SEÇÃO (C. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})`}
                     </span>
                     <button 
+                      type="button"
                       className="text-xs hover:text-red-500 font-bold cursor-pointer"
                       onClick={() => setQuickSectionRange(null)}
                     >✕</button>
@@ -1688,6 +1692,90 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       }}
                     />
                   </div>
+
+                  {/* Intervalle Début / Fin, Durée et Raccourcis rapides */}
+                  {(() => {
+                    const maxLimit = Math.max(64, totalMeasures);
+                    const duration = quickSectionRange.end - quickSectionRange.start + 1;
+                    return (
+                      <div className="flex flex-col gap-1.5 p-2 bg-[var(--cordel-border)]/10 rounded cordel-border-sm">
+                        <div className="flex gap-2">
+                          <div className="flex flex-col gap-0.5 flex-1">
+                            <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Mesure début' : 'Medida inicial'}</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={quickSectionRange.end + 1}
+                              value={quickSectionRange.start + 1}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (isNaN(val)) return;
+                                const clampedStart = Math.max(1, Math.min(maxLimit, val));
+                                const startIdx = clampedStart - 1;
+                                setQuickSectionRange(prev => {
+                                  if (!prev) return null;
+                                  const endIdx = startIdx > prev.end ? startIdx : prev.end;
+                                  return { ...prev, start: startIdx, end: endIdx };
+                                });
+                              }}
+                              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-1.5 py-0.5 text-xs font-bold outline-none text-[var(--cordel-text)] text-center"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-0.5 flex-1">
+                            <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Mesure fin' : 'Medida final'}</label>
+                            <input
+                              type="number"
+                              min={quickSectionRange.start + 1}
+                              max={maxLimit}
+                              value={quickSectionRange.end + 1}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (isNaN(val)) return;
+                                const clampedEnd = Math.max(1, Math.min(maxLimit, val));
+                                const endIdx = clampedEnd - 1;
+                                setQuickSectionRange(prev => {
+                                  if (!prev) return null;
+                                  const startIdx = endIdx < prev.start ? endIdx : prev.start;
+                                  return { ...prev, start: startIdx, end: endIdx };
+                                });
+                              }}
+                              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-1.5 py-0.5 text-xs font-bold outline-none text-[var(--cordel-text)] text-center"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Indicateur de durée et Raccourcis rapides */}
+                        <div className="flex items-center justify-between pt-1 border-t border-[var(--cordel-border)]/20">
+                          <span className="text-[8px] font-bold text-[var(--cordel-text)] opacity-90">
+                            {lang === 'fr' ? `Durée : ${duration} mesure${duration > 1 ? 's' : ''}` : `Duração: ${duration} compasso${duration > 1 ? 's' : ''}`}
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setQuickSectionRange(prev => prev ? ({ ...prev, end: Math.min(maxLimit - 1, prev.start + 1) }) : null)}
+                              className="px-1.5 py-0.5 text-[8px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
+                            >
+                              [ 2 mes. ]
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setQuickSectionRange(prev => prev ? ({ ...prev, end: Math.min(maxLimit - 1, prev.start + 3) }) : null)}
+                              className="px-1.5 py-0.5 text-[8px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
+                            >
+                              [ 4 mes. ]
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setQuickSectionRange(prev => prev ? ({ ...prev, end: Math.min(maxLimit - 1, prev.start + 7) }) : null)}
+                              className="px-1.5 py-0.5 text-[8px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
+                            >
+                              [ 8 mes. ]
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Level / Imbrication Selector */}
                   <div className="flex flex-col gap-1">
@@ -1717,6 +1805,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         '#eaddcf'  // Beige
                       ].map((color) => (
                         <button
+                          type="button"
                           key={color}
                           onClick={() => setQuickSectionColor(color)}
                           className={`w-4.5 h-4.5 rounded-full cursor-pointer border border-black/35 transition-transform ${
@@ -1730,6 +1819,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
                   <div className="flex flex-col gap-1 mt-1">
                     <button
+                      type="button"
                       onClick={handleQuickSectionCreate}
                       className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:opacity-95 transition-opacity cursor-pointer text-center"
                     >
@@ -1738,6 +1828,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     
                     {onLoadCloudSection && (
                       <button
+                        type="button"
                         onClick={() => {
                           onLoadCloudSection(quickSectionRange.start);
                           setQuickSectionRange(null);
@@ -1994,7 +2085,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 return (
                   <div
                     key={mIdx}
-                    className={`flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-all border-r shrink-0 ${
+                    className={`group flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-all border-r shrink-0 relative ${
                       (mIdx + 1) % 4 === 0
                         ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
                         : 'border-r-[var(--cordel-border)]/30'
@@ -2037,33 +2128,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                           className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${loopEndMeasure === mIdx ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'}`}
                         > ] </button>
                       </div>
-
-                      {/* Measure Insertion / Deletion */}
-                      <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setInsertAmountStr("1");
-                            setInsertMeasuresPrompt({ isOpen: true, targetIdx: mIdx });
-                          }}
-                          className="w-4 h-4 flex items-center justify-center rounded bg-emerald-600/10 text-emerald-700 hover:bg-emerald-700 hover:text-white border border-emerald-600/30 transition-colors font-bold text-[9px] cursor-pointer"
-                          title={lang === 'fr' ? 'Insérer une mesure avant' : 'Inserir compasso antes'}
-                        >
-                          ➕
-                        </button>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (await sequencer.confirmAsync(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
-                              onDeleteMeasure && onDeleteMeasure(mIdx);
-                            }
-                          }}
-                          className="w-4 h-4 flex items-center justify-center rounded bg-rose-600/10 text-rose-700 hover:bg-rose-700 hover:text-white border border-rose-600/30 transition-colors font-bold text-[9px] cursor-pointer"
-                          title={lang === 'fr' ? 'Supprimer la mesure' : 'Excluir compasso'}
-                        >
-                          ✕
-                        </button>
-                      </div>
                     </span>
 
                     {/* Time Signature */}
@@ -2082,24 +2146,45 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       </select>
                     </div>
 
-                    {/* Tempo Badge */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        selectAutomationMeasure('bpm', mIdx, e.shiftKey, null);
-                      }}
-                      data-automation-type="bpm"
-                      data-measure-idx={mIdx}
-                      className={`ruler-bpm-badge px-1 py-0.5 rounded text-[8px] font-bold font-cactus cursor-pointer transition-colors border select-none ${
-                        isBpmSelected
-                          ? 'bg-[#e67e22] text-[#f4ecd8] border-[#8b2a1a] shadow-xs ring-1 ring-[#8b2a1a]'
-                          : 'bg-[var(--cordel-text)]/10 hover:bg-[var(--cordel-text)]/20 text-[var(--cordel-text)] border-[var(--cordel-border)]/20'
+                    {/* Structure Controls Duo [ + ] et [ × ] */}
+                    <div
+                      className={`flex items-center gap-1 shrink-0 ${
+                        MEASURE_W < 70
+                          ? 'hidden group-hover:flex absolute inset-0 justify-center items-center bg-[var(--cordel-bg)]/85 z-20 pointer-events-none'
+                          : ''
                       }`}
-                      title={lang === 'fr' ? `Tempo mesure ${mIdx + 1} : ${mBpm} BPM (Shift+clic pour sélection continue)` : `Andamento compasso ${mIdx + 1} : ${mBpm} BPM`}
                     >
-                      {mBpm} BPM
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onInsertMeasure && onInsertMeasure(mIdx, 1);
+                        }}
+                        className="w-5 h-5 flex items-center justify-center text-xs font-bold bg-[#1a1a1a]/10 hover:bg-[#1a1a1a] hover:text-[#f4ecd8] dark:bg-white/10 dark:hover:bg-white dark:hover:text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-white/30 rounded transition-colors cursor-pointer select-none pointer-events-auto shadow-xs"
+                        title={lang === 'fr' ? `Insérer une mesure avant M.${mIdx + 1}` : `Inserir compasso antes de C.${mIdx + 1}`}
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        disabled={totalMeasures <= 1}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (totalMeasures <= 1) return;
+                          if (await sequencer.confirmAsync(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
+                            onDeleteMeasure && onDeleteMeasure(mIdx);
+                          }
+                        }}
+                        className={`w-5 h-5 flex items-center justify-center text-xs font-bold border rounded transition-colors select-none pointer-events-auto shadow-xs ${
+                          totalMeasures <= 1
+                            ? 'opacity-30 cursor-not-allowed border-transparent bg-black/5 dark:bg-white/5'
+                            : 'bg-[#1a1a1a]/10 hover:bg-rose-700 hover:text-white dark:bg-white/10 dark:hover:bg-rose-600 dark:hover:text-white border-[#1a1a1a]/30 dark:border-white/30 cursor-pointer'
+                        }`}
+                        title={lang === 'fr' ? `Supprimer la mesure ${mIdx + 1}` : `Excluir compasso ${mIdx + 1}`}
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
 
                   {/* Rhythm Signal */}

@@ -590,8 +590,6 @@ const VoiceStepCellComponent = ({
     ? (isPreRoll ? '#999999' : inst.color) 
     : (isPreRoll ? 'rgba(0, 0, 0, 0.08)' : 'transparent');
 
-  const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps || 0);
-
   const txtColor = hasActiveNote ? getContrastColor(cardBg || '#f4ecd8') : '#1a1a1a';
 
   const handleInputKeyDown = (

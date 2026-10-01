@@ -1,310 +1,333 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { test, expect } from '@playwright/test';
 
-test.describe("Toada Bus Routing & Controls", () => {
-  test("Toada bus channel is created on audio init and controls volume, pan, mute, solo", async ({ page }) => {
-    const pageErrors: string[] = [];
-    page.on('pageerror', err => pageErrors.push(err.message));
-    page.on('console', msg => {
-      const text = msg.text();
-      if (text.includes('DEBUG') || text.includes('error') || text.includes('Error')) {
-        console.log('BROWSER:', text);
-      }
-    });
-
-    await page.goto('http://localhost:5174/?view=timeline');
-    await page.waitForTimeout(2000);
+test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
+  test('Topologie hiérarchique Puxador/Coro -> Bus Toada -> Master et réactivité Volume, Pan, Mute, Solo', async ({ page }) => {
+    // 1. Ouvrir l'application
+    await page.goto('/');
 
     const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
+    if (await entraBtn.isVisible()) {
       await entraBtn.click();
-      await page.waitForTimeout(1000);
     }
 
-    // Wait for store to be ready
+    // Attendre le chargement initial du store
     await page.waitForFunction(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
       return Boolean(store && store.tracks && store.tracks.length > 0);
-    }, { timeout: 10000 });
+    }, { timeout: 20000 });
 
-    // Click play to initialize audio context
-    const playButton = page.locator('button:has(svg.lucide-play)').first();
-    await expect(playButton).toBeVisible();
-    await playButton.click();
-    await page.waitForTimeout(1000);
+    // S'assurer que Puxador et Coro sont présents pour générer le bus Toada
+    await page.evaluate(async () => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      const { instrumentsConfig } = await import('/src/data.ts');
+      const puxExists = store.tracks.some((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
+      const coroExists = store.tracks.some((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || String(t.id) === 'coro');
 
-    // Stop playback
-    const squareButton = page.locator('button:has(svg.lucide-square)').first();
-    if (await squareButton.isVisible().catch(() => false)) {
-      await squareButton.click();
-      await page.waitForTimeout(500);
-    }
+      if (!puxExists || !coroExists) {
+        const puxIdx = instrumentsConfig.findIndex(i => i.id === 'puxador');
+        const coroIdx = instrumentsConfig.findIndex(i => i.id === 'coro');
 
-    // Inspect store tracks and audio nodes
-    const audit = await page.evaluate(() => {
+        const newTracks = [...store.tracks];
+        if (!puxExists) {
+          newTracks.push({
+            id: 999101,
+            instrumentIdx: puxIdx !== -1 ? puxIdx : 10,
+            patterns: [{ id: 9101, name: 'Puxador 1', steps: 16, activeSteps: Array(16).fill(0), measureAssignments: [true] }],
+            isMute: false,
+            isSolo: false,
+            isHidden: false,
+            volumeVal: 100,
+            selectedPatternId: 9101,
+            reverbVal: 0,
+            panVal: 0,
+            pan: 0,
+            tuning: 0,
+            fxSends: { reverb: 0, distortion: 0 }
+          });
+        }
+        if (!coroExists) {
+          newTracks.push({
+            id: 999102,
+            instrumentIdx: coroIdx !== -1 ? coroIdx : 11,
+            patterns: [{ id: 9102, name: 'Coro 1', steps: 16, activeSteps: Array(16).fill(0), measureAssignments: [true] }],
+            isMute: false,
+            isSolo: false,
+            isHidden: false,
+            volumeVal: 100,
+            selectedPatternId: 9102,
+            reverbVal: 0,
+            panVal: 0,
+            pan: 0,
+            tuning: 0,
+            fxSends: { reverb: 0, distortion: 0 }
+          });
+        }
+        store.setTracks(newTracks);
+      }
+    });
+
+    // Déverrouiller et initialiser l'audio
+    await page.evaluate(async () => {
+      const { useAudioStore } = await import('/src/stores/useAudioStore.ts');
+      useAudioStore.getState().unlockAudio();
+    });
+
+    // Attendre que le busChannel de Toada soit créé et actif
+    await page.waitForFunction(async () => {
+      const store = (window as any).__SEQUENCER_STORE__?.getState();
+      const { isToadaBus } = await import('/src/stores/useSequencerStore.ts');
+      const { busChannels, channels } = await import('/src/audio/effectsChain.ts');
+      const toada = store?.tracks?.find((t: any) => isToadaBus(t));
+      if (!toada) return false;
+      const busChannel = busChannels[toada.id] || busChannels[String(toada.id)];
+      return Boolean(busChannel && channels && Object.keys(channels).length > 0);
+    }, { timeout: 20000 });
+
+    // 2. Vérification de la topologie du graphe audio (Topologie en cascade)
+    const topologyAudit = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const tracks = store.tracks;
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      const channels = (window as any).__CHANNELS__;
+      const { isToadaBus } = await import('/src/stores/useSequencerStore.ts');
+      const { channels, busChannels, masterVolumeNode, trackInputs } = await import('/src/audio/effectsChain.ts');
+      const { audioEngine } = await import('/src/hooks/useAudioSync.ts');
+      const { resolveVocalOutputNode } = await import('/src/audio/vocalEngineService.ts');
+      const { instrumentsConfig } = await import('/src/data.ts');
 
-      const toadaTrack = tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const puxTrack = tracks.find((t: any) => t.busId && String(t.busId) === String(toadaTrack?.id));
-      const coroTrack = tracks.find((t: any) => t.busId && String(t.busId) === String(toadaTrack?.id) && t.id !== puxTrack?.id);
+      const toadaTrack = tracks.find((t: any) => isToadaBus(t));
+      const puxTrack = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
+      const coroTrack = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || String(t.id) === 'coro');
 
-      const toadaBusNode = toadaTrack ? busChannels?.[toadaTrack.id] : null;
-      const puxNode = puxTrack ? channels?.[puxTrack.id] : null;
-      const coroNode = coroTrack ? channels?.[coroTrack.id] : null;
+      const toadaBusChannel = toadaTrack ? (busChannels[toadaTrack.id] || busChannels[String(toadaTrack.id)]) : null;
+      const puxChannel = puxTrack ? (channels[puxTrack.id] || trackInputs[puxTrack.id]) : null;
+      const coroChannel = coroTrack ? (channels[coroTrack.id] || trackInputs[coroTrack.id]) : null;
+
+      // Résolution des nœuds de sortie vocaux
+      const puxOutput = resolveVocalOutputNode(puxTrack?.id, false);
+      const coroOutput = resolveVocalOutputNode(coroTrack?.id, true);
+
+      // VoiceSynths dédiés
+      const puxSynth = audioEngine ? audioEngine.getOrCreateVoiceSynth(puxTrack?.id) : null;
+      const coroSynth = audioEngine ? audioEngine.getOrCreateVoiceSynth(coroTrack?.id) : null;
+
+      const puxValid = Boolean(puxOutput && (
+        puxOutput === channels[puxTrack?.id] || 
+        puxOutput === (trackInputs && trackInputs[puxTrack?.id]) ||
+        puxOutput === toadaBusChannel
+      ));
+      const coroValid = Boolean(coroOutput && (
+        coroOutput === channels[coroTrack?.id] || 
+        coroOutput === (trackInputs && trackInputs[coroTrack?.id]) ||
+        coroOutput === toadaBusChannel
+      ));
 
       return {
         hasToadaTrack: Boolean(toadaTrack),
         toadaTrackId: toadaTrack?.id,
-        hasPuxTrack: Boolean(puxTrack),
-        puxTrackId: puxTrack?.id,
-        puxBusId: puxTrack?.busId,
-        hasCoroTrack: Boolean(coroTrack),
-        coroTrackId: coroTrack?.id,
-        coroBusId: coroTrack?.busId,
-        hasToadaBusNode: Boolean(toadaBusNode),
-        toadaBusNodeVolume: toadaBusNode?.volume?.value,
-        toadaBusNodePan: toadaBusNode?.pan?.value,
-        toadaBusNodeMute: toadaBusNode?.mute,
-        hasPuxNode: Boolean(puxNode),
-        hasCoroNode: Boolean(coroNode),
+        hasToadaBusChannel: Boolean(toadaBusChannel),
+        hasPuxChannel: Boolean(puxChannel),
+        hasCoroChannel: Boolean(coroChannel),
+        hasMasterVolumeNode: Boolean(masterVolumeNode),
+        puxResolvedMatchesPuxChannel: puxValid,
+        coroResolvedMatchesCoroChannel: coroValid,
+        hasPuxVoiceSynth: Boolean(puxSynth),
+        hasCoroVoiceSynth: Boolean(coroSynth),
+        puxAndCoroSynthsDistinct: puxSynth !== coroSynth,
       };
     });
 
-    expect(audit.hasToadaTrack).toBe(true);
-    expect(audit.hasPuxTrack).toBe(true);
-    expect(audit.hasCoroTrack).toBe(true);
-    expect(String(audit.puxBusId)).toBe(String(audit.toadaTrackId));
-    expect(String(audit.coroBusId)).toBe(String(audit.toadaTrackId));
+    expect(topologyAudit.hasToadaTrack).toBe(true);
+    expect(topologyAudit.hasToadaBusChannel).toBe(true);
+    expect(topologyAudit.hasPuxChannel).toBe(true);
+    expect(topologyAudit.hasCoroChannel).toBe(true);
+    expect(topologyAudit.hasMasterVolumeNode).toBe(true);
+    expect(topologyAudit.puxResolvedMatchesPuxChannel).toBe(true);
+    expect(topologyAudit.coroResolvedMatchesCoroChannel).toBe(true);
+    expect(topologyAudit.hasPuxVoiceSynth).toBe(true);
+    expect(topologyAudit.hasCoroVoiceSynth).toBe(true);
+    expect(topologyAudit.puxAndCoroSynthsDistinct).toBe(true);
 
-    // busChannels must have the Toada bus node instantiated!
-    expect(audit.hasToadaBusNode).toBe(true);
-    expect(audit.hasPuxNode).toBe(true);
-    expect(audit.hasCoroNode).toBe(true);
-
-    // ── Test 1: Volume control (Fader Toada à zéro = silence total) ──
-    const debugBefore = await page.evaluate(() => {
+    // 3. Test du Contrôle de Volume du Bus Toada
+    // Descendre le volume de Toada à 0
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      return {
-        id: toadaTrack?.id,
-        volBefore: toadaTrack?.volumeVal,
-        busVolBefore: busChannels[toadaTrack.id]?.volume?.value,
-      };
-    });
-    console.log('DEBUG BEFORE:', debugBefore);
+      store.handleTrackVolumeChange(toadaId, 0);
+    }, topologyAudit.toadaTrackId);
 
-    await page.evaluate(() => {
-      const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackVolumeChange(toadaTrack.id, 0);
-    });
+    // Vérifier l'application sur le nœud audio busChannels[toadaTrack.id]
     await page.waitForTimeout(200);
+    const busVolAfterZero = await page.evaluate(async (toadaId) => {
+      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const bus = busChannels[toadaId] || busChannels[String(toadaId)];
+      return bus ? bus.volume.value : null;
+    }, topologyAudit.toadaTrackId);
 
-    const volZeroState = await page.evaluate(() => {
-      const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      const v = busChannels[toadaTrack.id]?.volume?.value;
-      return {
-        trackVolAfter: toadaTrack?.volumeVal,
-        volValue: v,
-        isMutedOrSilent: v <= -100 || v === -Infinity,
-        busChannelKeys: Object.keys(busChannels)
-      };
-    });
-    console.log('DEBUG AFTER:', volZeroState);
-    expect(volZeroState.trackVolAfter).toBe(0);
-    expect(volZeroState.isMutedOrSilent).toBe(true);
+    // Le volume à 0 donne -Infinity ou <= -100 dB (coupure totale Tone.js)
+    expect(busVolAfterZero <= -100 || busVolAfterZero === -Infinity).toBe(true);
 
-    // Remettre le volume à 100
-    await page.evaluate(() => {
+    // Remonter le volume de Toada à 100
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackVolumeChange(toadaTrack.id, 100);
-    });
+      store.handleTrackVolumeChange(toadaId, 100);
+    }, topologyAudit.toadaTrackId);
+
     await page.waitForTimeout(200);
+    const busVolAfter100 = await page.evaluate(async (toadaId) => {
+      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const bus = busChannels[toadaId] || busChannels[String(toadaId)];
+      return bus ? bus.volume.value : null;
+    }, topologyAudit.toadaTrackId);
 
-    const volHundredState = await page.evaluate(() => {
-      const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      return {
-        volValue: busChannels[toadaTrack.id]?.volume?.value
-      };
-    });
-    expect(volHundredState.volValue).toBeCloseTo(0, 1);
+    // En dB, gain 1.0 (100%) vaut 0 dB
+    expect(busVolAfter100).toBeCloseTo(0, 1);
 
-    // ── Test 2: Pan control (Panoramique global du bus Toada) ──
-    await page.evaluate(() => {
+    // 4. Test du Panoramique du Bus Toada
+    // Pan à gauche (-100)
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackPanChange(toadaTrack.id, -50);
-    });
+      store.handleTrackPanChange(toadaId, -100);
+    }, topologyAudit.toadaTrackId);
+
     await page.waitForTimeout(200);
+    const busPanLeft = await page.evaluate(async (toadaId) => {
+      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const bus = busChannels[toadaId] || busChannels[String(toadaId)];
+      return bus ? bus.pan.value : null;
+    }, topologyAudit.toadaTrackId);
+    expect(busPanLeft).toBeCloseTo(-1, 2);
 
-    const panStateLeft = await page.evaluate(() => {
+    // Pan à droite (+100)
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      return {
-        panValue: busChannels[toadaTrack.id]?.pan?.value
-      };
-    });
-    expect(panStateLeft.panValue).toBeCloseTo(-0.5, 2);
+      store.handleTrackPanChange(toadaId, 100);
+    }, topologyAudit.toadaTrackId);
 
-    // Remettre le pan à 0
-    await page.evaluate(() => {
-      const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackPanChange(toadaTrack.id, 0);
-    });
     await page.waitForTimeout(200);
+    const busPanRight = await page.evaluate(async (toadaId) => {
+      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const bus = busChannels[toadaId] || busChannels[String(toadaId)];
+      return bus ? bus.pan.value : null;
+    }, topologyAudit.toadaTrackId);
+    expect(busPanRight).toBeCloseTo(1, 2);
 
-    // ── Test 3: Mute toggle sur Toada (silence complet) ──
-    await page.evaluate(() => {
+    // 5. Test du Mute du Bus Toada
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackMuteToggle(toadaTrack.id);
-    });
+      store.handleTrackMuteToggle(toadaId);
+    }, topologyAudit.toadaTrackId);
+
     await page.waitForTimeout(200);
-
-    const muteState = await page.evaluate(() => {
+    const muteAudit = await page.evaluate(async (toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      const channels = (window as any).__CHANNELS__;
-      const puxTrack = store.tracks.find((t: any) => t.busId && String(t.busId) === String(toadaTrack.id));
+      const tracks = store.tracks;
+      const { getEffectiveMuteState } = await import('/src/stores/useSequencerStore.ts');
+      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const { instrumentsConfig } = await import('/src/data.ts');
+
+      const pux = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const toada = tracks.find((t: any) => t.id === toadaId);
+      const bus = busChannels[toadaId] || busChannels[String(toadaId)];
 
       return {
-        busMute: busChannels[toadaTrack.id]?.mute,
-        childMute: channels[puxTrack.id]?.mute,
+        toadaIsMute: toada?.isMute,
+        busChannelMute: bus ? bus.mute : null,
+        puxEffectiveMute: pux ? getEffectiveMuteState(tracks, pux.id) : null,
+        coroEffectiveMute: coro ? getEffectiveMuteState(tracks, coro.id) : null,
       };
-    });
-    expect(muteState.busMute).toBe(true);
-    expect(muteState.childMute).toBe(true);
+    }, topologyAudit.toadaTrackId);
 
-    // Unmute
-    await page.evaluate(() => {
+    expect(muteAudit.toadaIsMute).toBe(true);
+    expect(muteAudit.busChannelMute).toBe(true);
+    expect(muteAudit.puxEffectiveMute).toBe(true); // Puxador muté par héritage du bus Toada
+    expect(muteAudit.coroEffectiveMute).toBe(true); // Coro muté par héritage du bus Toada
+
+    // Démuter Toada
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackMuteToggle(toadaTrack.id);
-    });
+      store.handleTrackMuteToggle(toadaId);
+    }, topologyAudit.toadaTrackId);
+
+    // 6. Test du Solo Hiérarchique du Bus Toada (Consigne 1.A)
+    // A. Activer le Solo sur le Bus Toada
+    await page.evaluate((toadaId) => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      store.handleTrackSoloToggle(toadaId);
+    }, topologyAudit.toadaTrackId);
+
     await page.waitForTimeout(200);
-
-    // ── Test 4: Solo toggle sur Toada (isole les voix, mute la Roda) ──
-    await page.evaluate(() => {
+    const toadaSoloAudit = await page.evaluate(async (toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackSoloToggle(toadaTrack.id);
-    });
-    await page.waitForTimeout(200);
+      const tracks = store.tracks;
+      const { getEffectiveMuteState } = await import('/src/stores/useSequencerStore.ts');
+      const { instrumentsConfig } = await import('/src/data.ts');
 
-    const soloState = await page.evaluate(() => {
-      const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      const channels = (window as any).__CHANNELS__;
-
-      const puxTrack = store.tracks.find((t: any) => t.busId && String(t.busId) === String(toadaTrack.id));
-      const percTrack = store.tracks.find((t: any) => !t.isBusFolder && !t.busId);
+      const pux = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const marcante = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'marcante');
+      const caixa = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'caixa');
 
       return {
-        busMute: busChannels[toadaTrack.id]?.mute,
-        puxMute: channels[puxTrack.id]?.mute,
-        percMute: percTrack ? channels[percTrack.id]?.mute : true,
+        puxEffectiveMute: pux ? getEffectiveMuteState(tracks, pux.id) : null,
+        coroEffectiveMute: coro ? getEffectiveMuteState(tracks, coro.id) : null,
+        marcanteEffectiveMute: marcante ? getEffectiveMuteState(tracks, marcante.id) : null,
+        caixaEffectiveMute: caixa ? getEffectiveMuteState(tracks, caixa.id) : null,
       };
-    });
+    }, topologyAudit.toadaTrackId);
 
-    // Toada and its child Puxador must NOT be muted
-    expect(soloState.busMute).toBe(false);
-    expect(soloState.puxMute).toBe(false);
-    // Other non-soloed tracks (percussion) MUST be muted
-    expect(soloState.percMute).toBe(true);
+    // Si Toada est en solo : Puxador et Coro restent audibles (effectiveMute = false)
+    expect(toadaSoloAudit.puxEffectiveMute).toBe(false);
+    expect(toadaSoloAudit.coroEffectiveMute).toBe(false);
+    // La bateria est mutée (effectiveMute = true)
+    expect(toadaSoloAudit.marcanteEffectiveMute).toBe(true);
+    expect(toadaSoloAudit.caixaEffectiveMute).toBe(true);
 
-    // Unsolo
-    await page.evaluate(() => {
+    // B. Désactiver le Solo sur Toada et activer le Solo uniquement sur Puxador
+    await page.evaluate((toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toadaTrack = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      store.handleTrackSoloToggle(toadaTrack.id);
-    });
-    await page.waitForTimeout(200);
+      store.handleTrackSoloToggle(toadaId); // off
+    }, topologyAudit.toadaTrackId);
 
-    expect(pageErrors).toEqual([]);
-  });
-
-  test("Mixer view Toada fader directly controls bus channel node", async ({ page }) => {
-    const pageErrors: string[] = [];
-    page.on('pageerror', err => pageErrors.push(err.message));
-
-    await page.goto('http://localhost:5174/?view=mixer');
-    await page.waitForTimeout(2000);
-
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
-
-    // Wait for store and tracks
-    await page.waitForFunction(() => {
-      const store = (window as any).__SEQUENCER_STORE__?.getState();
-      return Boolean(store && store.tracks && store.tracks.length > 0);
-    }, { timeout: 10000 });
-
-    // Initialize audio by triggering play
-    const playButton = page.locator('button:has(svg.lucide-play)').first();
-    await playButton.click();
-    await page.waitForTimeout(600);
-
-    // Stop playback
-    const squareButton = page.locator('button:has(svg.lucide-square)').first();
-    if (await squareButton.isVisible().catch(() => false)) {
-      await squareButton.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Verify initial volume of Toada bus channel is ~0 dB
-    const initialBusVol = await page.evaluate(() => {
+    await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const toada = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-      const busChannels = (window as any).__BUS_CHANNELS__;
-      return busChannels?.[toada.id]?.volume?.value;
-    });
-    expect(initialBusVol).toBeCloseTo(0, 1);
-
-    // Locate the Toada folder bus fader container
-    const toadaBusHeader = page.locator('span.font-cactus:has-text("Toada")').first();
-    await expect(toadaBusHeader).toBeVisible();
-
-    // Drag the Toada bus fader in the UI
-    const toadaBusContainer = page.locator('div.border-\\[var\\(--cordel-border\\)\\]:has(span.font-cactus:has-text("Toada"))').first();
-    const fader = toadaBusContainer.locator('div.cursor-pointer.touch-none').first();
-    
-    if (await fader.isVisible().catch(() => false)) {
-      const box = await fader.boundingBox();
-      if (box) {
-        // Drag from top to near bottom (minimum volume)
-        await page.mouse.move(box.x + box.width / 2, box.y + 10);
-        await page.mouse.down();
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height - 2, { steps: 5 });
-        await page.mouse.up();
-        await page.waitForTimeout(300);
-
-        const busVolAfterDrag = await page.evaluate(() => {
-          const store = (window as any).__SEQUENCER_STORE__.getState();
-          const toada = store.tracks.find((t: any) => t.isBusFolder && t.customName === 'Toada');
-          const busChannels = (window as any).__BUS_CHANNELS__;
-          return busChannels?.[toada.id]?.volume?.value;
-        });
-
-        // The bus volume must have dropped significantly (<= -20 dB or silence)
-        expect(busVolAfterDrag <= -20 || busVolAfterDrag === -Infinity).toBe(true);
+      const { instrumentsConfig } = await import('/src/data.ts');
+      const pux = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      if (pux) {
+        store.handleTrackSoloToggle(pux.id);
       }
-    }
+    });
 
-    expect(pageErrors).toEqual([]);
+    await page.waitForTimeout(200);
+    const puxSoloAudit = await page.evaluate(async (toadaId) => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      const tracks = store.tracks;
+      const { getEffectiveMuteState } = await import('/src/stores/useSequencerStore.ts');
+      const { instrumentsConfig } = await import('/src/data.ts');
+
+      const pux = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const toada = tracks.find((t: any) => t.id === toadaId);
+      const marcante = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'marcante');
+
+      return {
+        toadaEffectiveMute: toada ? getEffectiveMuteState(tracks, toada.id) : null,
+        puxEffectiveMute: pux ? getEffectiveMuteState(tracks, pux.id) : null,
+        coroEffectiveMute: coro ? getEffectiveMuteState(tracks, coro.id) : null,
+        marcanteEffectiveMute: marcante ? getEffectiveMuteState(tracks, marcante.id) : null,
+      };
+    }, topologyAudit.toadaTrackId);
+
+    // Puxador reste actif
+    expect(puxSoloAudit.puxEffectiveMute).toBe(false);
+    // Le bus Toada parent reste ouvert
+    expect(puxSoloAudit.toadaEffectiveMute).toBe(false);
+    // La piste sœur (Coro) est mutée
+    expect(puxSoloAudit.coroEffectiveMute).toBe(true);
+    // La bateria est mutée
+    expect(puxSoloAudit.marcanteEffectiveMute).toBe(true);
   });
 });

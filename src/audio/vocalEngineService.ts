@@ -5,10 +5,10 @@
 
 import * as Tone from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 export { useAudioStore, useSequencerStore };
 import { saveVocalRecording, getVocalRecording, getAllVocalRecordings, deleteVocalRecording } from '../db';
-import { channels, masterVolumeNode } from './effectsChain';
+import { channels, busChannels, trackInputs, masterVolumeNode } from './effectsChain';
 import { instrumentsConfig } from '../data';
 import { calculateDeterministicVocalClipMeta } from '../utils/audioBufferUtils';
 import { VocalClipMeta } from '../types/store.types';
@@ -16,6 +16,7 @@ import { getBeatsPerMeasure } from '../utils/measureHelpers';
 
 import { VocalPresetId } from './vocalPresets';
 import { applyVocalPresetLive } from './vocalSynthService';
+import { getBalancoOffsetSec } from '../utils/balancoUtils';
 
 // Background-immune high-precision worker timer helpers to bypass browser tab throttling
 let timerWorker: Worker | null = null;
@@ -110,6 +111,43 @@ export interface ActiveVocal {
 const activeVocals = new Map<string, ActiveVocal>();
 
 let rehydratingPromise: Promise<void> | null = null;
+
+/**
+ * Résout le nœud audio de destination approprié pour une piste vocale :
+ * Tranche enfant Puxador/Coro -> Bus Toada -> Master (interdiction stricte de Tone.Destination)
+ */
+export function resolveVocalOutputNode(trackId?: string | number, isCoroTrack?: boolean): any {
+  const store = useSequencerStore.getState();
+  const tracks = store.tracks;
+  const toadaTrack = tracks.find(t => isToadaBus(t));
+  const toadaBusNode = toadaTrack ? (busChannels[toadaTrack.id] || (busChannels as any)[String(toadaTrack.id)]) : null;
+
+  // 1. Tranche directe de la piste spécifiée
+  if (trackId !== undefined && trackId !== null) {
+    const directChannel = (trackInputs && (trackInputs as any)[trackId]) || (channels && (channels as any)[trackId]);
+    if (directChannel) return directChannel;
+  }
+
+  // 2. Tranches Puxador ou Coro identifiées par l'instrument
+  const puxTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+  const coroTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+  if (isCoroTrack && coroTrack) {
+    const coroChannel = (trackInputs && (trackInputs as any)[coroTrack.id]) || (channels && (channels as any)[coroTrack.id]);
+    if (coroChannel) return coroChannel;
+  } else if (!isCoroTrack && puxTrack) {
+    const puxChannel = (trackInputs && (trackInputs as any)[puxTrack.id]) || (channels && (channels as any)[puxTrack.id]);
+    if (puxChannel) return puxChannel;
+  }
+
+  // 3. Repli de sécurité : Bus Toada parent
+  if (toadaBusNode) {
+    return toadaBusNode;
+  }
+
+  // 4. Repli ultime : masterVolumeNode (JAMAIS Tone.Destination directement)
+  return masterVolumeNode;
+}
 
 function base64ToBlob(base64Data: string): Blob {
   const parts = base64Data.split(';base64,');
@@ -517,8 +555,13 @@ export const vocalEngineService = {
     vocalKey: string,
     audioBuffer: AudioBuffer,
     outputNode: any,
-    isCoroTrack: boolean = false
+    isCoroTrack: boolean = false,
+    trackId?: string | number
   ): ActiveVocal {
+    const resolvedOutput = outputNode && outputNode !== Tone.Destination && outputNode !== (Tone as any).getDestination?.()
+      ? outputNode
+      : resolveVocalOutputNode(trackId, isCoroTrack);
+
     let entry = activeVocals.get(vocalKey);
 
     if (entry) {
@@ -585,8 +628,8 @@ export const vocalEngineService = {
       filterNode.connect(rightGain);
       rightGain.connect(merger, 0, 1);
 
-      // Sortie vers le bus de tranche de piste
-      const destNode = (outputNode && (outputNode.input || outputNode)) || (masterVolumeNode && (masterVolumeNode.input || masterVolumeNode)) || rawCtx.destination;
+      // Sortie vers le bus de tranche de piste stéréo (ou repli bus Toada)
+      const destNode = (resolvedOutput && (resolvedOutput.input || resolvedOutput)) || (masterVolumeNode && (masterVolumeNode.input || masterVolumeNode));
       merger.connect(destNode);
 
       haasNodes = {
@@ -597,8 +640,9 @@ export const vocalEngineService = {
         merger: merger,
       };
     } else {
-      // Puxador (mono centré pan 0) ou Mode Éco (bypass immédiat)
-      mainGain.connect(outputNode || masterVolumeNode || Tone.Destination);
+      // Puxador (mono centré pan 0) ou Mode Éco (bypass immédiat) -> connecté à resolvedOutput
+      const destNode = (resolvedOutput && (resolvedOutput.input || resolvedOutput)) || (masterVolumeNode && (masterVolumeNode.input || masterVolumeNode));
+      mainGain.connect(destNode);
     }
 
     entry = {
@@ -774,9 +818,9 @@ export const vocalEngineService = {
       }
     }
 
-    const outputNode = (voiceTrack && channels[voiceTrack.id]) || masterVolumeNode || Tone.Destination;
-    const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 100) : 100;
     const isCoro = voiceTrack ? instrumentsConfig[voiceTrack.instrumentIdx]?.id === 'coro' : false;
+    const outputNode = resolveVocalOutputNode(voiceTrack?.id, isCoro);
+    const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 100) : 100;
 
     // Détermination du BPM d'ancrage effectif de la mesure assignée
     const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
@@ -888,8 +932,27 @@ export const vocalEngineService = {
     const anacrusisSec = clip?.anacrusisSec ?? (anacrusisBeats * beatDurationSec);
     const nudgeMs = clip?.nudgeMs ?? (ptnRef.vocalNudge ?? 0);
 
+    // Décalage de Balanço si le chant démarre sur un pas intermédiaire sans anacrouse
+    let balancoOffset = 0;
+    if (anacrusisSec <= 0.02) {
+      const activeSteps = ptnRef.activeSteps || [];
+      const firstStepIdx = activeSteps.findIndex((s: any) => s !== undefined && s !== null && s !== 0 && s !== '0');
+      if (firstStepIdx > 0) {
+        balancoOffset = getBalancoOffsetSec({
+          stepIdx: firstStepIdx,
+          steps: ptnRef.steps || 16,
+          beatResolutions: ptnRef.beatResolutions,
+          track: voiceTrack,
+          pattern: ptnRef,
+          globalSwing: (sequencerStore as any).globalSwing,
+          bpm: effectiveBpm,
+          isPreRoll: false,
+        });
+      }
+    }
+
     // Calcul de l'instant de déclenchement sur la timeline
-    const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
+    const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000) + balancoOffset;
     const bufferDuration = audioBuffer.duration;
     const actualStartTime = triggerTime >= 0 ? triggerTime : 0;
 
@@ -941,7 +1004,7 @@ export const vocalEngineService = {
     });
 
     // 4. Instancier et armer immédiatement la nouvelle voix pour triggerTime
-    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode, isCoroTrack);
+    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode, isCoroTrack, trackId);
     const mainPlayer = activeEntry.mainPlayer;
     const mainGain = activeEntry.mainGain;
 

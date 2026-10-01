@@ -1,5 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
+import * as Tone from 'tone';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice, WorkspaceTemplate } from '../types';
 import { createSpeedTrainerSlice } from './slices/speedTrainerSlice';
 
@@ -7,9 +8,16 @@ import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
 import { getTopParentBusId } from '../utils/colorHelpers';
+import { transposeNoteString } from '../utils/musicTheory';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
+export interface MasterEffectsActiveState {
+  compressor: boolean;
+  reverb: boolean;
+  disto: boolean;
+}
+
 // ---------------------------------------------------------
 export interface TrackSlice {
   tracks: TrackGroup[];
@@ -17,11 +25,14 @@ export interface TrackSlice {
   isLetraActive: boolean;
   tracksVersion: number;
   masterFX: MasterFX;
+  masterEffectsActive: MasterEffectsActiveState;
   armedTrackId: number | null;
   armedPatternId: number | null;
   isPatternRecording: boolean;
   
   // Actions
+  toggleMasterEffectActive: (effect: 'compressor' | 'reverb' | 'disto') => void;
+  setMasterEffectsActive: (active: Partial<MasterEffectsActiveState>) => void;
   setIsLetraActive: (val: boolean | ((prev: boolean) => boolean)) => void;
   toggleLetraActive: () => void;
   toggleArmPattern: (trackId: number, patternId: number) => void;
@@ -57,8 +68,10 @@ export interface TrackSlice {
   handleTrackPanChange: (id: number, val: number) => void;
   handleTrackSwingChange: (id: number, val: number) => void;
   handlePatternSwingChange: (trackId: number, patternId: number, val: number) => void;
-  handleTrackBalancoChange: (trackId: number, presetId?: string, amount?: number) => void;
-  handlePatternBalancoChange: (trackId: number, patternId: number, presetId?: string, amount?: number) => void;
+  handleTrackBalancoChange: (trackId: number | string, presetId?: string, amount?: number) => void;
+  setTrackBalancoIntensity: (trackId: number | string, intensity: number) => void;
+  setTrackBalancoPreset: (trackId: number | string, presetId: string) => void;
+  handlePatternBalancoChange: (trackId: number | string, patternId: number, presetId?: string, amount?: number) => void;
   handleResetPatternMicrotimings: (trackId: number, patternId: number) => void;
   setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
   setTrackPan: (trackId: number, value: number) => void;
@@ -375,6 +388,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       drive: 20,
       isMuted: false
     }
+  },
+  masterEffectsActive: {
+    compressor: true,
+    reverb: true,
+    disto: true
   },
   setTracks: (updater) => set(state => {
     let nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
@@ -1070,7 +1088,9 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleTrackBalancoChange: (trackId, presetId, amount) => {
     set((state) => ({
       tracks: state.tracks.map((t) => {
-        if (t.id === trackId) {
+        const matchesId = String(t.id) === String(trackId);
+        const matchesInst = instrumentsConfig[t.instrumentIdx]?.id === String(trackId);
+        if (matchesId || matchesInst) {
           return {
             ...t,
             ...(presetId !== undefined ? { balancoPresetId: presetId } : {}),
@@ -1078,18 +1098,29 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
+  },
+
+  setTrackBalancoIntensity: (trackId, intensity) => {
+    get().handleTrackBalancoChange(trackId, undefined, intensity);
+  },
+
+  setTrackBalancoPreset: (trackId, presetId) => {
+    get().handleTrackBalancoChange(trackId, presetId, undefined);
   },
 
   handlePatternBalancoChange: (trackId, patternId, presetId, amount) => {
     set((state) => ({
       tracks: state.tracks.map((t) => {
-        if (t.id === trackId) {
+        const matchesId = String(t.id) === String(trackId);
+        const matchesInst = instrumentsConfig[t.instrumentIdx]?.id === String(trackId);
+        if (matchesId || matchesInst) {
           return {
             ...t,
             patterns: t.patterns.map((p) => {
-              if (p.id === patternId) {
+              if (String(p.id) === String(patternId)) {
                 return {
                   ...p,
                   balancoPresetId: presetId,
@@ -1101,7 +1132,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -1899,6 +1931,24 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   setMasterFX: (masterFX) => {
     set({ masterFX });
+  },
+
+  toggleMasterEffectActive: (effect) => {
+    set((state) => ({
+      masterEffectsActive: {
+        ...state.masterEffectsActive,
+        [effect]: !state.masterEffectsActive[effect]
+      }
+    }));
+  },
+
+  setMasterEffectsActive: (active) => {
+    set((state) => ({
+      masterEffectsActive: {
+        ...state.masterEffectsActive,
+        ...active
+      }
+    }));
   },
 
   handleTimelinePatternAssign: (trackId, patternId, measureIdx) => {
@@ -3122,6 +3172,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   },
 
   handleCreateSongSection: (name, start, end, color, repeatCount, level) => {
+    get().pushUndoState();
     set((state) => {
       const newSection: SongSection = {
         id: Date.now().toString(),
@@ -3134,27 +3185,96 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
       };
       const next = [...state.songSections, newSection];
       next.sort((a, b) => a.startMeasure - b.startMeasure);
+      const targetTotal = Math.max(state.totalMeasures, end + 1);
+      if (targetTotal > state.totalMeasures) {
+        const expandArray = <T>(arr: T[], fillValue: T): T[] => {
+          if (arr.length === targetTotal) return arr;
+          if (arr.length > targetTotal) return arr.slice(0, targetTotal);
+          const n = [...arr];
+          while (n.length < targetTotal) n.push(fillValue);
+          return n;
+        };
+        return {
+          songSections: next,
+          totalMeasures: targetTotal,
+          measureTimeSigs: expandArray(state.measureTimeSigs, state.timeSig),
+          measureBpms: expandArray(state.measureBpms, state.bpm),
+          measureBpmTransitions: expandArray(state.measureBpmTransitions, 'immediate'),
+          measureVols: expandArray(state.measureVols, 100),
+          measureVolTransitions: expandArray(state.measureVolTransitions, 'immediate'),
+          measureSignals: expandArray(state.measureSignals, null),
+          tracks: state.tracks.map(t => ({
+            ...t,
+            measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+            measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+            measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+            measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+            measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+            measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
+            patterns: t.patterns.map(p => ({
+              ...p,
+              measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined,
+            }))
+          }))
+        };
+      }
       return { songSections: next };
     });
   },
 
   handleUpdateSongSection: (id, name, start, end, color, level) => {
+    get().pushUndoState();
     set((state) => {
       const next = state.songSections.map(s => 
         s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color: color || s.color, level: level || s.level } : s
       );
       next.sort((a, b) => a.startMeasure - b.startMeasure);
+      const targetTotal = Math.max(state.totalMeasures, end + 1);
+      if (targetTotal > state.totalMeasures) {
+        const expandArray = <T>(arr: T[], fillValue: T): T[] => {
+          if (arr.length === targetTotal) return arr;
+          if (arr.length > targetTotal) return arr.slice(0, targetTotal);
+          const n = [...arr];
+          while (n.length < targetTotal) n.push(fillValue);
+          return n;
+        };
+        return {
+          songSections: next,
+          totalMeasures: targetTotal,
+          measureTimeSigs: expandArray(state.measureTimeSigs, state.timeSig),
+          measureBpms: expandArray(state.measureBpms, state.bpm),
+          measureBpmTransitions: expandArray(state.measureBpmTransitions, 'immediate'),
+          measureVols: expandArray(state.measureVols, 100),
+          measureVolTransitions: expandArray(state.measureVolTransitions, 'immediate'),
+          measureSignals: expandArray(state.measureSignals, null),
+          tracks: state.tracks.map(t => ({
+            ...t,
+            measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+            measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+            measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+            measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+            measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+            measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
+            patterns: t.patterns.map(p => ({
+              ...p,
+              measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined,
+            }))
+          }))
+        };
+      }
       return { songSections: next };
     });
   },
 
   handleUpdateSectionRepeat: (id, count) => {
+    get().pushUndoState();
     set((state) => ({
       songSections: state.songSections.map(s => s.id === id ? { ...s, repeatCount: count } : s)
     }));
   },
 
   handleDeleteSongSection: (id) => {
+    get().pushUndoState();
     set((state) => ({
       songSections: state.songSections.filter(s => s.id !== id)
     }));
@@ -3699,7 +3819,7 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
 // ---------------------------------------------------------
 // 4. HISTORY SLICE
 // ---------------------------------------------------------
-export type StructureSnapshot = Pick<StructureSlice, 'totalMeasures' | 'measureTimeSigs' | 'measureBpms' | 'measureBpmTransitions' | 'measureVols' | 'measureVolTransitions' | 'songSections' | 'songMarkers'>;
+export type StructureSnapshot = Pick<StructureSlice, 'totalMeasures' | 'measureTimeSigs' | 'measureBpms' | 'measureBpmTransitions' | 'measureVols' | 'measureVolTransitions' | 'songSections' | 'songMarkers'> & { vocalTransposeSteps?: number };
 
 export interface HistorySlice {
   tracksHistory: TrackGroup[][];
@@ -3737,6 +3857,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         measureVolTransitions: [...prev.measureVolTransitions],
         songSections: prev.songSections ? [...prev.songSections] : [],
         songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
+        vocalTransposeSteps: prev.vocalTransposeSteps ?? 0,
       };
       
       const nextStructureHistory = [...prev.songStructureHistory, snapStructure];
@@ -3766,6 +3887,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         measureVolTransitions: [...prev.measureVolTransitions],
         songSections: prev.songSections ? [...prev.songSections] : [],
         songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
+        vocalTransposeSteps: prev.vocalTransposeSteps ?? 0,
       };
 
       const nextTracksHistory = [...prev.tracksHistory];
@@ -3779,6 +3901,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         songStructureRedoHistory: [...prev.songStructureRedoHistory, currentStructure],
         tracksHistory: nextTracksHistory,
         songStructureHistory: nextStructureHistory,
+        tracksVersion: (prev.tracksVersion || 0) + 1,
       };
 
       if (previousTracksState) updates.tracks = previousTracksState;
@@ -3792,6 +3915,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         if (previousStructureState.measureVolTransitions) updates.measureVolTransitions = previousStructureState.measureVolTransitions;
         if (previousStructureState.songSections) updates.songSections = previousStructureState.songSections;
         if (previousStructureState.songMarkers) updates.songMarkers = previousStructureState.songMarkers;
+        if (previousStructureState.vocalTransposeSteps !== undefined) updates.vocalTransposeSteps = previousStructureState.vocalTransposeSteps;
       }
 
       return updates;
@@ -3813,6 +3937,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         measureVolTransitions: [...prev.measureVolTransitions],
         songSections: prev.songSections ? [...prev.songSections] : [],
         songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
+        vocalTransposeSteps: prev.vocalTransposeSteps ?? 0,
       };
 
       const nextTracksRedoHistory = [...prev.tracksRedoHistory];
@@ -3826,6 +3951,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         songStructureHistory: [...prev.songStructureHistory, currentStructure],
         tracksRedoHistory: nextTracksRedoHistory,
         songStructureRedoHistory: nextStructureRedoHistory,
+        tracksVersion: (prev.tracksVersion || 0) + 1,
       };
 
       if (nextTracksState) updates.tracks = nextTracksState;
@@ -3839,6 +3965,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         if (nextStructureState.measureVolTransitions) updates.measureVolTransitions = nextStructureState.measureVolTransitions;
         if (nextStructureState.songSections) updates.songSections = nextStructureState.songSections;
         if (nextStructureState.songMarkers) updates.songMarkers = nextStructureState.songMarkers;
+        if (nextStructureState.vocalTransposeSteps !== undefined) updates.vocalTransposeSteps = nextStructureState.vocalTransposeSteps;
       }
 
       return updates;
@@ -4014,6 +4141,7 @@ export interface ProjectSettingsSlice {
   setVocalTransposeSteps: (steps: number) => void;
   incrementVocalTransposeSteps: () => void;
   decrementVocalTransposeSteps: () => void;
+  transposePatternNotes: (trackId: number, patternId: string | number, semitones: number) => void;
   toggleTracksCollapsed: () => void;
   setIsPreviewMode: (val: boolean) => void;
   setHasFullPlaybackAccess: (val: boolean) => void;
@@ -4109,6 +4237,86 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
   incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
   decrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.max(-12, state.vocalTransposeSteps - 1) })),
+  transposePatternNotes: (trackId, patternId, semitones) => {
+    if (!semitones) return;
+    const state = get();
+
+    // 1. Sauvegarde Undo atomique
+    state.pushUndoState();
+
+    // 2. Reprise de l'AudioContext si suspendu
+    try {
+      if (typeof window !== 'undefined' && Tone.context && Tone.context.state !== 'running') {
+        Tone.start().catch(() => {});
+      }
+    } catch (_) {}
+
+    let firstTransposedNote: string | null = null;
+
+    // 3. Mise à jour des tracks et réécriture des notes
+    const newTracks = state.tracks.map((t) => {
+      if (String(t.id) !== String(trackId)) return t;
+
+      const newPatterns = t.patterns.map((p) => {
+        if (String(p.id) !== String(patternId)) return p;
+
+        const transposedNotes = (p.notes || []).map((n) => transposeNoteString(n, semitones));
+        const transposedPreRollNotes = p.preRollNotes
+          ? p.preRollNotes.map((n) => transposeNoteString(n, semitones))
+          : undefined;
+
+        // Détection de la première note transposée valide pour pré-écoute immédiate
+        if (!firstTransposedNote) {
+          for (const n of transposedNotes) {
+            if (n && n !== '0' && n !== '───' && n !== '-') {
+              firstTransposedNote = n;
+              break;
+            }
+          }
+          if (!firstTransposedNote && transposedPreRollNotes) {
+            for (const n of transposedPreRollNotes) {
+              if (n && n !== '0' && n !== '───' && n !== '-') {
+                firstTransposedNote = n;
+                break;
+              }
+            }
+          }
+        }
+
+        return {
+          ...p,
+          notes: transposedNotes,
+          ...(transposedPreRollNotes ? { preRollNotes: transposedPreRollNotes } : {}),
+        };
+      });
+
+      return {
+        ...t,
+        patterns: newPatterns,
+      };
+    });
+
+    const currentSteps = state.vocalTransposeSteps || 0;
+    const nextSteps = currentSteps + semitones;
+
+    set({
+      tracks: newTracks,
+      tracksVersion: (state.tracksVersion || 0) + 1,
+      vocalTransposeSteps: nextSteps,
+    });
+
+    // 4. Déclenchement de l'audition de la première note transposée
+    if (firstTransposedNote) {
+      const noteToPreview = firstTransposedNote;
+      import('../hooks/useAudioSync')
+        .then(({ audioEngine }) => {
+          if (audioEngine) {
+            audioEngine.triggerVoiceAttackRelease(noteToPreview, '8n');
+          }
+        })
+        .catch(() => {});
+    }
+  },
 
   
   handleExtractLyrics: () => {

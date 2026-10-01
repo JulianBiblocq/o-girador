@@ -648,6 +648,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       useSequencerStore.getState().setMasterFX(loadedMasterFX);
+      useSequencerStore.getState().setMasterEffectsActive({
+        compressor: true,
+        reverb: true,
+        disto: true
+      });
       setMasterReverbVol(loadedMasterFX.reverb.returnVolume);
       setReverbDecay(0.5 + 7.5 * (loadedMasterFX.reverb.time / 100));
 

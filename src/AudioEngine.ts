@@ -16,11 +16,11 @@
 import type * as ToneType from 'tone';
 import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
-import { useSequencerStore } from './stores/useSequencerStore';
+import { useSequencerStore, isToadaBus } from './stores/useSequencerStore';
 import { instrumentsConfig } from './data';
 import { TrackGroup } from './types';
 import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from './audio/audioSampleCache';
-import { masterVolumeNode } from './audio/effectsChain';
+import { masterVolumeNode, channels, busChannels, trackInputs } from './audio/effectsChain';
 import { VocalPresetId, VOCAL_PRESETS } from './audio/vocalPresets';
 import { useAudioStore } from './stores/useAudioStore';
 
@@ -98,7 +98,8 @@ export class AudioEngine {
   private activeGainNodes = new Map<AudioBufferSourceNode, { instrumentId: string; gainNode: GainNode; expectedEnd: number }>(); // Precise tracking to avoid leaks
   private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
   private instrumentVoices = new Map<string, ActiveVoice[]>(); // Track active/scheduled voices for eco mode polyphony limits
-  public voiceSynth: any = null; // Tone.PolySynth for interactive vocal pitch preview (Puxador / Toada)
+  public voiceSynths = new Map<string, any>(); // Maps trackId -> Tone.PolySynth
+  public voiceSynth: any = null; // Tone.PolySynth for interactive vocal pitch preview (fallback)
   public currentVocalPreset: VocalPresetId = 'guide';
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
@@ -474,6 +475,83 @@ export class AudioEngine {
   }
 
   /**
+   * Obtient ou instancie un Tone.PolySynth dédié pour une piste vocale, connecté à sa tranche (Puxador/Coro)
+   * se déversant ensuite dans le bus Toada.
+   */
+  public getOrCreateVoiceSynth(trackId?: string | number): any {
+    const Tone = getTone();
+    if (!Tone) return null;
+
+    const normalizedTrackId = trackId !== undefined && trackId !== null ? String(trackId) : 'default';
+    let existingSynth = this.voiceSynths.get(normalizedTrackId);
+
+    // Résolution dynamique du canal de destination pour cette piste
+    let destNode: any = null;
+    if (trackId !== undefined && trackId !== null) {
+      destNode = this.instrumentChannels.get(normalizedTrackId) ||
+        (trackInputs && (trackInputs as any)[trackId]) ||
+        (channels && (channels as any)[trackId]);
+    }
+
+    if (!destNode) {
+      const store = useSequencerStore.getState();
+      const tracks = store.tracks;
+      
+      // Chercher par type d'instrument si trackId correspond à puxador ou coro
+      const puxTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const toadaTrack = tracks.find(t => isToadaBus(t));
+
+      if (normalizedTrackId === 'coro' || (coroTrack && String(coroTrack.id) === normalizedTrackId)) {
+        destNode = coroTrack ? ((trackInputs && (trackInputs as any)[coroTrack.id]) || (channels && (channels as any)[coroTrack.id])) : null;
+      } else if (normalizedTrackId === 'puxador' || (puxTrack && String(puxTrack.id) === normalizedTrackId)) {
+        destNode = puxTrack ? ((trackInputs && (trackInputs as any)[puxTrack.id]) || (channels && (channels as any)[puxTrack.id])) : null;
+      }
+
+      // Repli vers bus Toada si tranche fille absente/ombrée
+      if (!destNode && toadaTrack) {
+        destNode = (busChannels && (busChannels as any)[toadaTrack.id]) || (busChannels && (busChannels as any)[String(toadaTrack.id)]);
+      }
+
+      // Dernier recours : masterVolumeNode (JAMAIS Tone.Destination directement)
+      if (!destNode) {
+        destNode = masterVolumeNode;
+      }
+    }
+
+    if (existingSynth) {
+      return existingSynth;
+    }
+
+    try {
+      const presetConfig = VOCAL_PRESETS[this.currentVocalPreset] || VOCAL_PRESETS.guide;
+      const SynthConstructor = presetConfig.synthClass === 'FMSynth' ? Tone.FMSynth : Tone.Synth;
+      const synth = new Tone.PolySynth(SynthConstructor as any, {
+        maxPolyphony: 32,
+        options: presetConfig.options,
+        ...presetConfig.options,
+      } as any);
+
+      synth.maxPolyphony = 32;
+      synth.volume.value = -6;
+
+      const finalDest = destNode || masterVolumeNode;
+      if (finalDest) {
+        try { synth.connect(finalDest as any); } catch (_) {}
+      }
+
+      this.voiceSynths.set(normalizedTrackId, synth);
+      if (normalizedTrackId === 'default' || !this.voiceSynth) {
+        this.voiceSynth = synth;
+      }
+      return synth;
+    } catch (err) {
+      console.error('AudioEngine: Error creating voiceSynth for track', normalizedTrackId, err);
+      return null;
+    }
+  }
+
+  /**
    * Initialise ou reconfigure le synthétiseur de guidage vocal interactif avec le preset spécifié
    */
   public initVoiceSynth(presetId?: VocalPresetId): void {
@@ -484,40 +562,23 @@ export class AudioEngine {
       this.currentVocalPreset = presetId;
     }
 
-    const presetConfig = VOCAL_PRESETS[this.currentVocalPreset] || VOCAL_PRESETS.guide;
+    // Libérer proprement toutes les instances actives
+    this.voiceSynths.forEach((synth) => {
+      try { synth.releaseAll(); } catch (_) {}
+      try { synth.disconnect(); } catch (_) {}
+      try { synth.dispose(); } catch (_) {}
+    });
+    this.voiceSynths.clear();
 
-    try {
-      if (this.voiceSynth) {
-        try { this.voiceSynth.releaseAll(); } catch (_) {}
-        try { this.voiceSynth.disconnect(); } catch (_) {}
-        try { this.voiceSynth.dispose(); } catch (_) {}
-        this.voiceSynth = null;
-      }
-
-      const SynthConstructor = presetConfig.synthClass === 'FMSynth' ? Tone.FMSynth : Tone.Synth;
-      this.voiceSynth = new Tone.PolySynth(SynthConstructor as any, {
-        maxPolyphony: 32,
-        options: presetConfig.options,
-        ...presetConfig.options,
-      } as any);
-
-      this.voiceSynth.maxPolyphony = 32;
-      this.voiceSynth.volume.value = -6;
-
-      const dest = masterVolumeNode || (Tone.getDestination ? Tone.getDestination() : (Tone as any).Destination);
-      try {
-        this.voiceSynth.disconnect();
-      } catch (_) {}
-      try {
-        this.voiceSynth.connect(dest as any);
-      } catch (_) {
-        try {
-          this.voiceSynth.toDestination();
-        } catch (_) {}
-      }
-    } catch (err) {
-      console.error('AudioEngine: Error initializing voiceSynth:', err);
+    if (this.voiceSynth) {
+      try { this.voiceSynth.releaseAll(); } catch (_) {}
+      try { this.voiceSynth.disconnect(); } catch (_) {}
+      try { this.voiceSynth.dispose(); } catch (_) {}
+      this.voiceSynth = null;
     }
+
+    // Instancier l'instance par défaut
+    this.getOrCreateVoiceSynth('default');
   }
 
   /**
@@ -530,7 +591,7 @@ export class AudioEngine {
   /**
    * Déclenche une note de synthèse vocale temps réel (clavier virtuel ou MIDI)
    */
-  public triggerVoicePitch(pitch: string | number, velocity: number = 0.8): void {
+  public triggerVoicePitch(pitch: string | number, velocity: number = 0.8, targetTrackId?: string | number): void {
     try {
       const Tone = getTone();
       if (!Tone) return;
@@ -545,11 +606,12 @@ export class AudioEngine {
         Tone.start().catch(() => {});
       }
 
-      if (!this.voiceSynth) {
-        this.initVoiceSynth();
-      }
+      const effectiveTrackId = targetTrackId !== undefined && targetTrackId !== null
+        ? targetTrackId
+        : (useSequencerStore.getState().editingTrackId ?? 'default');
 
-      if (!this.voiceSynth) return;
+      const synth = this.getOrCreateVoiceSynth(effectiveTrackId);
+      if (!synth) return;
 
       const note = typeof pitch === 'number' && pitch <= 127
         ? Tone.Frequency(pitch, 'midi').toNote()
@@ -557,9 +619,9 @@ export class AudioEngine {
 
       const vel = Math.max(0.1, Math.min(1.0, velocity));
       try {
-        this.voiceSynth.triggerRelease([note], Tone.now());
+        synth.triggerRelease([note], Tone.now());
       } catch (_) {}
-      this.voiceSynth.triggerAttack(note, Tone.now(), vel);
+      synth.triggerAttack(note, Tone.now(), vel);
     } catch (err) {
       console.error('AudioEngine.triggerVoicePitch error:', err);
     }
@@ -572,7 +634,8 @@ export class AudioEngine {
     pitch: string | number,
     duration: number | string,
     time?: number,
-    velocity: number = 0.8
+    velocity: number = 0.8,
+    targetTrackId?: string | number
   ): void {
     try {
       const Tone = getTone();
@@ -588,11 +651,12 @@ export class AudioEngine {
         Tone.start().catch(() => {});
       }
 
-      if (!this.voiceSynth) {
-        this.initVoiceSynth();
-      }
+      const effectiveTrackId = targetTrackId !== undefined && targetTrackId !== null
+        ? targetTrackId
+        : (useSequencerStore.getState().editingTrackId ?? 'default');
 
-      if (!this.voiceSynth) return;
+      const synth = this.getOrCreateVoiceSynth(effectiveTrackId);
+      if (!synth) return;
 
       const note = typeof pitch === 'number' && pitch <= 127
         ? Tone.Frequency(pitch, 'midi').toNote()
@@ -601,7 +665,7 @@ export class AudioEngine {
       const vel = Math.max(0.1, Math.min(1.0, velocity));
       const triggerTime = time !== undefined ? time : Tone.now();
       const dur = typeof duration === 'string' && Tone.Time ? Tone.Time(duration).toSeconds() : duration;
-      this.voiceSynth.triggerAttackRelease(note, dur, triggerTime, vel);
+      synth.triggerAttackRelease(note, dur, triggerTime, vel);
     } catch (err) {
       console.error('AudioEngine.triggerVoiceAttackRelease error:', err);
     }
@@ -610,19 +674,48 @@ export class AudioEngine {
   /**
    * Relâche une note de synthèse vocale (ou toutes les notes si aucun pitch n'est spécifié)
    */
-  public releaseVoicePitch(pitch?: string | number): void {
+  public releaseVoicePitch(pitch?: string | number, targetTrackId?: string | number): void {
     try {
-      if (!this.voiceSynth) return;
       const Tone = getTone();
       if (!Tone) return;
 
-      if (pitch !== undefined && pitch !== null && pitch !== '') {
-        const note = typeof pitch === 'number' && pitch <= 127
-          ? Tone.Frequency(pitch, 'midi').toNote()
-          : pitch;
-        this.voiceSynth.triggerRelease([note], Tone.now());
+      if (targetTrackId !== undefined && targetTrackId !== null) {
+        const synth = this.voiceSynths.get(String(targetTrackId));
+        if (synth) {
+          if (pitch !== undefined && pitch !== null && pitch !== '') {
+            const note = typeof pitch === 'number' && pitch <= 127
+              ? Tone.Frequency(pitch, 'midi').toNote()
+              : pitch;
+            synth.triggerRelease([note], Tone.now());
+          } else {
+            synth.releaseAll(Tone.now());
+          }
+        }
       } else {
-        this.voiceSynth.releaseAll(Tone.now());
+        this.voiceSynths.forEach((synth) => {
+          try {
+            if (pitch !== undefined && pitch !== null && pitch !== '') {
+              const note = typeof pitch === 'number' && pitch <= 127
+                ? Tone.Frequency(pitch, 'midi').toNote()
+                : pitch;
+              synth.triggerRelease([note], Tone.now());
+            } else {
+              synth.releaseAll(Tone.now());
+            }
+          } catch (_) {}
+        });
+        if (this.voiceSynth) {
+          try {
+            if (pitch !== undefined && pitch !== null && pitch !== '') {
+              const note = typeof pitch === 'number' && pitch <= 127
+                ? Tone.Frequency(pitch, 'midi').toNote()
+                : pitch;
+              this.voiceSynth.triggerRelease([note], Tone.now());
+            } else {
+              this.voiceSynth.releaseAll(Tone.now());
+            }
+          } catch (_) {}
+        }
       }
     } catch (err) {
       console.error('AudioEngine.releaseVoicePitch error:', err);
@@ -978,6 +1071,15 @@ export class AudioEngine {
         }
       } catch (_) {}
       this.instrumentChannels.delete(normalizedId);
+    }
+    const voiceSynth = this.voiceSynths.get(normalizedId);
+    if (voiceSynth) {
+      try {
+        voiceSynth.releaseAll();
+        voiceSynth.disconnect();
+        voiceSynth.dispose();
+      } catch (_) {}
+      this.voiceSynths.delete(normalizedId);
     }
   }
 
@@ -1621,9 +1723,19 @@ export class AudioEngine {
     this.gainNodePools.clear();
     this.instrumentVoices.clear();
 
+    this.voiceSynths.forEach((synth) => {
+      try {
+        synth.releaseAll();
+        synth.disconnect();
+        synth.dispose();
+      } catch (_) {}
+    });
+    this.voiceSynths.clear();
+
     if (this.voiceSynth) {
       try {
         this.voiceSynth.releaseAll();
+        this.voiceSynth.disconnect();
         this.voiceSynth.dispose();
       } catch (_) {}
       this.voiceSynth = null;

@@ -655,6 +655,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         {/* Niveau 1 (Tout en bas) : Mute & Solo - fixed size */}
         <div className="flex gap-1.5 w-full justify-center shrink-0 border-t border-[var(--cordel-border)]/20 pt-1.5">
           <button 
+            data-testid={`bus-mute-${trackId}`}
             onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
             className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
               (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
@@ -664,6 +665,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             M
           </button>
           <button 
+            data-testid={`bus-solo-${trackId}`}
             onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
             className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
               track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'

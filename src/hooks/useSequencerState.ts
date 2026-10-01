@@ -120,6 +120,11 @@ export function useSequencerState() {
   const setVocalTransposeSteps = useSequencerStore(state => state.setVocalTransposeSteps);
   const incrementVocalTransposeSteps = useSequencerStore(state => state.incrementVocalTransposeSteps);
   const decrementVocalTransposeSteps = useSequencerStore(state => state.decrementVocalTransposeSteps);
+  const transposePatternNotes = useSequencerStore(state => state.transposePatternNotes);
+  const handleTrackBalancoChange = useSequencerStore(state => state.handleTrackBalancoChange);
+  const setTrackBalancoIntensity = useSequencerStore(state => state.setTrackBalancoIntensity);
+  const setTrackBalancoPreset = useSequencerStore(state => state.setTrackBalancoPreset);
+  const handlePatternBalancoChange = useSequencerStore(state => state.handlePatternBalancoChange);
 
   // Sync local states to the store for autosave and global access
   // Note: metadata et letras sont désormais synchronisés immédiatement via leurs wrappers ci-dessus
@@ -1266,6 +1271,7 @@ export function useSequencerState() {
   };
 
   const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => {
+    pushUndoState();
     const newSection: SongSection = {
       id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
       name,
@@ -1281,21 +1287,30 @@ export function useSequencerState() {
       next.sort((a, b) => a.startMeasure - b.startMeasure);
       return next;
     });
+    if (end + 1 > totalMeasures) {
+      setTotalMeasures(end + 1);
+    }
   };
 
   const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => {
+    pushUndoState();
     setSongSections(prev => {
       const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color, level: level || 0 } : s);
       next.sort((a, b) => a.startMeasure - b.startMeasure);
       return next;
     });
+    if (end + 1 > totalMeasures) {
+      setTotalMeasures(end + 1);
+    }
   };
 
   const handleUpdateSectionRepeat = (id: string, count: number) => {
+    pushUndoState();
     setSongSections(prev => prev.map(s => s.id === id ? { ...s, repeatCount: count } : s));
   };
 
   const handleDeleteSongSection = (id: string) => {
+    pushUndoState();
     setSongSections(prev => prev.filter(s => s.id !== id));
   };
 
@@ -2506,6 +2521,11 @@ export function useSequencerState() {
     vocalTransposeSteps,
     setVocalTransposeSteps,
     incrementVocalTransposeSteps,
-    decrementVocalTransposeSteps
+    decrementVocalTransposeSteps,
+    transposePatternNotes,
+    handleTrackBalancoChange,
+    setTrackBalancoIntensity,
+    setTrackBalancoPreset,
+    handlePatternBalancoChange
   };
 }

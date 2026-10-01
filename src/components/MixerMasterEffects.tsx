@@ -32,7 +32,9 @@ export const MixerMasterEffects: React.FC = () => {
   const { lang = 'pt' } = useSequencer();
   const t = (key: keyof typeof i18n['fr']) => i18n[lang]?.[key] || i18n['pt']?.[key] || key;
   const masterFX = useSequencerStore(useShallow((state) => state.masterFX));
-  const { setMasterFxVolume, setMasterFxParam } = useSequencerStore();
+  const isReverbActive = useSequencerStore((state) => state.masterEffectsActive?.reverb ?? true);
+  const isDistoActive = useSequencerStore((state) => state.masterEffectsActive?.disto ?? true);
+  const { setMasterFxVolume, setMasterFxParam, toggleMasterEffectActive } = useSequencerStore();
 
   // Références directes DOM pour zéro render thrashing
   const reverbBgRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export const MixerMasterEffects: React.FC = () => {
 
   const handleReverbDrag = (val: number) => {
     const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
-    if (masterReverbVolumeNode) {
+    if (masterReverbVolumeNode && isReverbActive) {
       masterReverbVolumeNode.gain.rampTo(gain, 0.05);
     }
     // Mutation directe GPU sans re-rendu React
@@ -66,7 +68,7 @@ export const MixerMasterEffects: React.FC = () => {
 
   const handleDistortionDrag = (val: number) => {
     const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
-    if (masterDistortionVolumeNode) {
+    if (masterDistortionVolumeNode && isDistoActive) {
       masterDistortionVolumeNode.gain.rampTo(gain, 0.05);
     }
   };
@@ -111,8 +113,8 @@ export const MixerMasterEffects: React.FC = () => {
           style={{ opacity: calcReverbOpacity(masterFX.reverb.returnVolume) * 0.15 }}
         />
 
-        {/* En-tête avec pastille d'accent réactive */}
-        <div className="pb-0.5 flex justify-center items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10">
+        {/* En-tête avec pastille d'accent réactive & Bouton Power */}
+        <div className="pb-0.5 flex justify-between items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10 px-1.5">
           <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden">
             <div 
               ref={reverbBadgeRef}
@@ -123,10 +125,29 @@ export const MixerMasterEffects: React.FC = () => {
               <XiloReverb size={11} className="shrink-0" /> REVERB
             </span>
           </div>
+
+          <button
+            type="button"
+            data-testid="master-power-reverb"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMasterEffectActive('reverb');
+            }}
+            className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none relative z-20 ${
+              isReverbActive
+                ? 'bg-[#2a5c8a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
+                : 'bg-[#ded3be] text-[#1a1a1a]/40 border border-[#1a1a1a]/30 shadow-none'
+            }`}
+            title={isReverbActive ? "Réverbe Master active (cliquer pour contourner / bypass)" : "Réverbe Master bypassée (cliquer pour activer)"}
+          >
+            ⏻
+          </button>
         </div>
 
-        {/* Paramètres: Decay & Vol */}
-        <div className="px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10">
+        {/* Isolation stricte : opacity-40 grayscale pointer-events-none sur les réglages enfants uniquement */}
+        <div data-testid="master-reverb-settings" className={`px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10 transition-opacity duration-150 ${
+          isReverbActive ? '' : 'opacity-40 grayscale pointer-events-none'
+        }`}>
           <DragNumberBox 
             label={t('reverbTime')}
             value={masterFX.reverb.time}
@@ -155,8 +176,8 @@ export const MixerMasterEffects: React.FC = () => {
           style={{ opacity: calcDistoOpacity(masterFX.distortion.drive) * 0.15 }}
         />
 
-        {/* En-tête avec pastille d'accent réactive */}
-        <div className="pb-0.5 flex justify-center items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10">
+        {/* En-tête avec pastille d'accent réactive & Bouton Power */}
+        <div className="pb-0.5 flex justify-between items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10 px-1.5">
           <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden">
             <div 
               ref={distoBadgeRef}
@@ -167,10 +188,29 @@ export const MixerMasterEffects: React.FC = () => {
               <XiloDistortion size={10} className="shrink-0" /> DISTO
             </span>
           </div>
+
+          <button
+            type="button"
+            data-testid="master-power-disto"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMasterEffectActive('disto');
+            }}
+            className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none relative z-20 ${
+              isDistoActive
+                ? 'bg-[#c25e1a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
+                : 'bg-[#ded3be] text-[#1a1a1a]/40 border border-[#1a1a1a]/30 shadow-none'
+            }`}
+            title={isDistoActive ? "Distorsion Master active (cliquer pour contourner / bypass)" : "Distorsion Master bypassée (cliquer pour activer)"}
+          >
+            ⏻
+          </button>
         </div>
 
-        {/* Paramètres: Drive & Vol */}
-        <div className="px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10">
+        {/* Isolation stricte : opacity-40 grayscale pointer-events-none sur les réglages enfants uniquement */}
+        <div data-testid="master-disto-settings" className={`px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10 transition-opacity duration-150 ${
+          isDistoActive ? '' : 'opacity-40 grayscale pointer-events-none'
+        }`}>
           <DragNumberBox 
             label={t('distoDrive')}
             value={masterFX.distortion.drive}

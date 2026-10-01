@@ -8,6 +8,7 @@ import { TrackGroup, TimeSignature, SongSection, SongMarker } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
 export interface StructureSnapshot {
+  totalMeasures?: number;
   measureTimeSigs: TimeSignature[];
   measureBpms: number[];
   measureBpmTransitions: ('immediate' | 'ramp' | 'bezier')[];
@@ -75,11 +76,18 @@ export function useSequencerHistory({
     songStructureRedoHistoryRef.current = songStructureRedoHistory;
   }, [tracksHistory, tracksRedoHistory, songStructureHistory, songStructureRedoHistory]);
 
-  // Synchronisation avec le store Zustand pour Header.tsx (canUndo / canRedo)
-  const syncStoreHistory = (history: TrackGroup[][], redoHistory: TrackGroup[][]) => {
+  // Synchronisation avec le store Zustand pour Header.tsx (canUndo / canRedo) et raccourcis globaux
+  const syncStoreHistory = (
+    history: TrackGroup[][],
+    redoHistory: TrackGroup[][],
+    structHistory?: StructureSnapshot[],
+    structRedo?: StructureSnapshot[]
+  ) => {
     useSequencerStore.setState({
       tracksHistory: history,
       tracksRedoHistory: redoHistory,
+      ...(structHistory ? { songStructureHistory: structHistory as any } : {}),
+      ...(structRedo ? { songStructureRedoHistory: structRedo as any } : {}),
     });
   };
 
@@ -87,6 +95,7 @@ export function useSequencerHistory({
     // 1. Snapshot SYNCHRONE (Vital : il faut capturer l'état *maintenant*)
     const stateToSave = customTracksState ? customTracksState : tracksRef.current;
     const clonedStructure: StructureSnapshot = {
+      totalMeasures: useSequencerStore.getState().totalMeasures,
       measureTimeSigs: [...measureTimeSigsRef.current],
       measureBpms: [...measureBpmsRef.current],
       measureBpmTransitions: [...measureBpmTransitionsRef.current],
@@ -95,6 +104,9 @@ export function useSequencerHistory({
       songSections: [...songSectionsRef.current],
       songMarkers: [...(songMarkersRef.current || [])],
     };
+
+    // Synchronisation synchrone du store Zustand pour être paré immédiatement à Ctrl+Z
+    useSequencerStore.getState().pushUndoState(customTracksState);
     
     // 2. Mise à jour DIFFÉRÉE (On libère le thread immédiatement)
     const deferredSave = () => {
@@ -106,7 +118,7 @@ export function useSequencerHistory({
       setSongStructureHistory(nextStructureHistory);
       setSongStructureRedoHistory([]);
 
-      syncStoreHistory(nextTracksHistory, []);
+      syncStoreHistory(nextTracksHistory, [], nextStructureHistory, []);
     };
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -121,6 +133,7 @@ export function useSequencerHistory({
 
     const currentTracks = tracksRef.current;
     const currentStructure: StructureSnapshot = {
+      totalMeasures: useSequencerStore.getState().totalMeasures,
       measureTimeSigs: measureTimeSigsRef.current,
       measureBpms: measureBpmsRef.current,
       measureBpmTransitions: measureBpmTransitionsRef.current,
@@ -147,6 +160,9 @@ export function useSequencerHistory({
       const nextStructureHistory = [...songStructureHistoryRef.current];
       const previousStructureState = nextStructureHistory.pop();
       if (previousStructureState) {
+        if (previousStructureState.totalMeasures !== undefined) {
+          useSequencerStore.getState().setTotalMeasures(previousStructureState.totalMeasures, true);
+        }
         setMeasureTimeSigs(previousStructureState.measureTimeSigs);
         setMeasureBpms(previousStructureState.measureBpms);
         setMeasureBpmTransitions(previousStructureState.measureBpmTransitions);
@@ -156,9 +172,10 @@ export function useSequencerHistory({
         if (previousStructureState.songMarkers) setSongMarkers(previousStructureState.songMarkers);
       }
       setSongStructureHistory(nextStructureHistory);
+      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory, nextStructureHistory, nextSongStructureRedoHistory);
+    } else {
+      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory);
     }
-
-    syncStoreHistory(nextTracksHistory, nextTracksRedoHistory);
   };
 
   const handleRedo = () => {
@@ -166,6 +183,7 @@ export function useSequencerHistory({
 
     const currentTracks = tracksRef.current;
     const currentStructure: StructureSnapshot = {
+      totalMeasures: useSequencerStore.getState().totalMeasures,
       measureTimeSigs: measureTimeSigsRef.current,
       measureBpms: measureBpmsRef.current,
       measureBpmTransitions: measureBpmTransitionsRef.current,
@@ -192,6 +210,9 @@ export function useSequencerHistory({
       const nextSongStructureRedoHistory = [...songStructureRedoHistoryRef.current];
       const nextStructureState = nextSongStructureRedoHistory.pop();
       if (nextStructureState) {
+        if (nextStructureState.totalMeasures !== undefined) {
+          useSequencerStore.getState().setTotalMeasures(nextStructureState.totalMeasures, true);
+        }
         setMeasureTimeSigs(nextStructureState.measureTimeSigs);
         setMeasureBpms(nextStructureState.measureBpms);
         setMeasureBpmTransitions(nextStructureState.measureBpmTransitions);
@@ -201,9 +222,10 @@ export function useSequencerHistory({
         if (nextStructureState.songMarkers) setSongMarkers(nextStructureState.songMarkers);
       }
       setSongStructureRedoHistory(nextSongStructureRedoHistory);
+      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory, nextSongStructureHistory, nextSongStructureRedoHistory);
+    } else {
+      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory);
     }
-
-    syncStoreHistory(nextTracksHistory, nextTracksRedoHistory);
   };
 
   const clearHistory = () => {
@@ -211,7 +233,7 @@ export function useSequencerHistory({
     setTracksRedoHistory([]);
     setSongStructureHistory([]);
     setSongStructureRedoHistory([]);
-    syncStoreHistory([], []);
+    syncStoreHistory([], [], [], []);
   };
 
   return {

@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "__Secure-YNID",
-      "value": "22.YT=UVkTBQRfZT13HjqJnnxaGu5d50V90g4yuMB5HSZg_qzKC4JIednqvgoy9vaIyYtz83yrRpL5WUSsqRuq9aqdqkU0cjYGAIs2--F7TNEWPIWwB7AQOc4v0pbN7JQiVWHnm7KtLMkK-e6SteAM3i3PvhEkQbVIieslu24ev1X0-SB92L-12QWPDgLuXVDreSJLCr_yGUEIQXJHFxPKSyrDx0_n0M555Y3vBwEMVDJUG1abUt8jMYeEFzjKN50-j3VH1VItMINa_92I88N5tSkFeHHyIy9lbkuepTyMh8v2EYLNr_mEsfez-wTpwUf2dNS6k3ruCwe0bhhhjes2LWjGlQ",
+      "value": "CoECCAUSswEB8QZuZjBSPFjcTlpMnM5Hi6w2baVAjcfQssA6cks8Xyaa_Q1c2HZ-6RUAYMBgs7IfkOeGt3j7CC0c5bE7ygTWG2nfIuiyHJSOlvnJYzAK2zqf93YPZD1NUlaPSWzTk4-4y8UUB6CAL-KIt_WOfVtttglKQd3Vbqk7mZGikOpGbad3NRodqN2gTlES1TAsk6EkSutazkVwSR5-NUH5f22PrfXOKK9cYheir02Kqyhfjx5ecSgFMkUB3qmdT6_8SG0wIv5DMcGN5lb_dfBhr26ug5OvaC49k4OkJ6GnfiNlTBX8-9l3Mq0nsEAtIbYPzyAokW2LZsUMcqrnLA0",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806400850.10122,
+      "expires": 1806408979.978503,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -14,7 +14,7 @@
     },
     {
       "name": "YSC",
-      "value": "zQtqisSKpXU",
+      "value": "diMbT87vVio",
       "domain": ".youtube.com",
       "path": "/",
       "expires": -1,
@@ -24,30 +24,30 @@
     },
     {
       "name": "VISITOR_INFO1_LIVE",
-      "value": "Tf4QKDcEcSE",
+      "value": "HCKHEvyNsbA",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806400850.101323,
+      "expires": 1806408980.978591,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "VISITOR_PRIVACY_METADATA",
-      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgaA%3D%3D",
+      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgZQ%3D%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806400850.101339,
+      "expires": 1806408980.978609,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "__Secure-ROLLOUT_TOKEN",
-      "value": "CL_M7uHrjcGoBBCW6ofsx5iXAxiW6ofsx5iXAw%3D%3D",
+      "value": "CKiEqdj4-LWeowEQ7obFkeaYlwMY7obFkeaYlwM%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806400850.101362,
+      "expires": 1806408980.978631,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -60,20 +60,20 @@
       "origin": "http://localhost:5174",
       "localStorage": [
         {
+          "name": "oGirador_master_reverb_vol",
+          "value": "63"
+        },
+        {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_22",
-          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1790848850287,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1790856981185,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "ogirador_has_seen_welcome",
           "value": "true"
         },
         {
-          "name": "oGirador_master_reverb_vol",
-          "value": "63"
-        },
-        {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "411"
+          "value": "394"
         },
         {
           "name": "oGirador_reverb_decay",
@@ -89,11 +89,11 @@
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_50",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790848853137}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790856984561}"
         },
         {
           "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"kJZEbGY672MZS3QPZcmV\",\"onlineState\":\"Online\"}"
+          "value": "{\"clientId\":\"2SMEH0xq1yTbd0fjucW5\",\"onlineState\":\"Online\"}"
         },
         {
           "name": "o-girador-theme",
@@ -101,23 +101,23 @@
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_16",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790848853137}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790856984360}"
+        },
+        {
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_2SMEH0xq1yTbd0fjucW5",
+          "value": "{\"activeTargetIds\":[16,24,50],\"updateTimeMs\":1790856984414}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_26",
-          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1790848850310,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1790856981177,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_24",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790848853137}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790856984360}"
         },
         {
           "name": "girador_last_loaded_preset_id",
           "value": "29dIDjgc2vPuDnwjiy9V"
-        },
-        {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_kJZEbGY672MZS3QPZcmV",
-          "value": "{\"activeTargetIds\":[16,24,50],\"updateTimeMs\":1790848853113}"
         },
         {
           "name": "o_girador_left_handed",
@@ -130,11 +130,11 @@
       "localStorage": [
         {
           "name": "ytidb::LAST_RESULT_ENTRY_KEY",
-          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1793440852904,\"creation\":1790848852904}"
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1793448983878,\"creation\":1790856983878}"
         },
         {
           "name": "yt-icons-last-purged",
-          "value": "1789120850664"
+          "value": "1788783381596"
         }
       ]
     }
