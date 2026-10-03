@@ -13,7 +13,7 @@ import { SavedPattern, TimeSignature, SavedSectionData, Preset } from '../types'
 import { useSequencerStore, getEffectiveVolume } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useAudio } from '../contexts/AudioContext';
-import { getExpandedMeasures } from '../utils/measureHelpers';
+import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers';
 import { encoderWav } from '../utils/encodeurWav';
 const CLOUD_PATTERNS_COLLECTION = 'patterns';
 import { CLOUD_SECTIONS_COLLECTION } from '../cloudSections';
@@ -475,14 +475,23 @@ export function useCloudAudioBounce() {
 
     let recorder: Tone.Recorder | null = null;
     let progressInterval: any = null;
+    let sequenceEndListener: ((e: any) => void) | null = null;
+    let safetyTimer: any = null;
+    let decayTimer: any = null;
 
-    // Sauvegarde des paramètres utilisateurs à restaurer
+    // Sauvegarde des paramètres utilisateurs à restaurer fidèlement
     const transportState = useTransportStore.getState();
     const prevMetro = transportState.isMetroOn;
     const prevPreRoll = transportState.preRollSettings;
     const storeState = useSequencerStore.getState();
     const prevIsLooping = storeState.isLooping;
+    const prevIsLoopRegionActive = storeState.isLoopRegionActive;
+    const prevLoopStart = storeState.loopStartMeasure;
+    const prevLoopEnd = storeState.loopEndMeasure;
+    const prevLoopMode = storeState.loopMode;
     const prevLoopIteration = storeState.currentLoopIteration;
+    const prevIsLoopBypassed = storeState.isLoopBypassed;
+    const prevIsLoopExitRequested = storeState.isLoopExitRequested;
 
     try {
       setStage(5, "Initialisation de l'enregistrement...", "Inicializando gravação...");
@@ -495,15 +504,32 @@ export function useCloudAudioBounce() {
         safeTenantId = 'global';
       }
 
-      // 1. Dépliage de la structure temporelle (sections répétées, boucles finies)
+      // 1. Dépliage de la structure temporelle (Intro, Boucle N fois, Outro)
+      const rawLoopMode = options?.loopMode ?? storeState.loopMode ?? presetData.loopMode;
+      let numLoops = 1;
+      if (typeof rawLoopMode === 'number' && rawLoopMode > 0) {
+        numLoops = rawLoopMode;
+      } else if (typeof rawLoopMode === 'string' && !isNaN(parseInt(rawLoopMode, 10)) && parseInt(rawLoopMode, 10) > 0) {
+        numLoops = parseInt(rawLoopMode, 10);
+      } else if (rawLoopMode === 'infinite') {
+        numLoops = 2; // Repli par défaut à 2 tours pour les exports de boucle infinie
+      }
+
+      const loopStart = options?.loopStartMeasure ?? storeState.loopStartMeasure ?? presetData.loopStartMeasure ?? null;
+      const loopEnd = options?.loopEndMeasure ?? storeState.loopEndMeasure ?? presetData.loopEndMeasure ?? null;
+      const isLoopRegionActive = Boolean(
+        (options?.isLoopRegionActive ?? storeState.isLoopRegionActive ?? presetData.isLoopRegionActive) &&
+        loopStart !== null && loopEnd !== null && loopStart <= loopEnd
+      );
+
       const loopOptions = {
-        isLoopRegionActive: options?.isLoopRegionActive ?? storeState.isLoopRegionActive,
-        loopStartMeasure: options?.loopStartMeasure ?? storeState.loopStartMeasure,
-        loopEndMeasure: options?.loopEndMeasure ?? storeState.loopEndMeasure,
-        loopMode: options?.loopMode ?? storeState.loopMode,
+        isLoopRegionActive,
+        loopStartMeasure: loopStart,
+        loopEndMeasure: loopEnd,
+        loopMode: numLoops,
       };
 
-      const totalMeasures = Math.max(1, presetData.totalMeasures || 16);
+      const totalMeasures = Math.max(1, presetData.totalMeasures || storeState.totalMeasures || 16);
       let expandedMeasures = getExpandedMeasures(
         totalMeasures,
         presetData.songSections || [],
@@ -551,7 +577,7 @@ export function useCloudAudioBounce() {
         const timeSigStr = (presetData.measureTimeSigs && presetData.measureTimeSigs[m]) || presetData.timeSig || '4/4';
         measureTimeSigsAbsolus.push(timeSigStr);
 
-        const beats = Math.max(1, parseInt(timeSigStr.split('/')[0], 10) || 4);
+        const beats = getBeatsPerMeasure(timeSigStr);
 
         if (transition === 'immediate' || currentMeasureBpm === nextMeasureBpm) {
           dureeTotaleSec += (60 / currentMeasureBpm) * beats;
@@ -623,10 +649,34 @@ export function useCloudAudioBounce() {
         try { await Tone.loaded(); } catch (_) {}
       }
 
-      // Configuration d'enregistrement : désactiver métronome & précompte pour mix propre
+      // Configuration d'enregistrement : désactiver formellement métronome & précompte pour mix propre
       transportState.setIsMetroOn(false);
       transportState.setPreRollSettings({ ...prevPreRoll, enabled: false });
-      storeState.setIsLooping(false);
+
+      // Configuration nominale de la boucle pour le bounce
+      if (isLoopRegionActive && loopStart !== null && loopEnd !== null) {
+        useSequencerStore.setState({
+          isLooping: true,
+          isLoopRegionActive: true,
+          loopStartMeasure: loopStart,
+          loopEndMeasure: loopEnd,
+          loopMode: numLoops,
+          currentLoopIteration: 1,
+          isLoopBypassed: false,
+          isLoopExitRequested: false,
+        });
+      } else {
+        useSequencerStore.setState({
+          isLooping: false,
+          isLoopRegionActive: false,
+          loopStartMeasure: null,
+          loopEndMeasure: null,
+          loopMode: numLoops,
+          currentLoopIteration: 1,
+          isLoopBypassed: false,
+          isLoopExitRequested: false,
+        });
+      }
 
       // Calage absolu à la mesure 0
       try {
@@ -646,12 +696,12 @@ export function useCloudAudioBounce() {
       Tone.getDestination().connect(recorder);
       recorder.start();
 
-      // Démarrage de la lecture live
-      await audio.handleTogglePlay();
+      // Démarrage de la lecture live (sans précompte et calé à la mesure 0)
+      await audio.handleTogglePlay({ skipPreRoll: true, targetMeasure: 0 });
 
-      // 6. Ticker de progression en direct (10 Hz / 100ms) sans render thrashing
+      // 6. Synchronisation de fin de séquence ('o-girador-sequence-end')
+      // + Ticker de progression en direct (10 Hz / 100ms) sans render thrashing
       const startTime = Date.now();
-      const totalMs = totalDurationSec * 1000;
 
       progressInterval = setInterval(() => {
         const elapsedSec = (Date.now() - startTime) / 1000;
@@ -682,15 +732,51 @@ export function useCloudAudioBounce() {
         }
       }, 100);
 
-      // Attente active de la durée totale (mesures + 2s de decay tail)
-      await new Promise(resolve => setTimeout(resolve, totalMs));
+      // Attente réactive de la fin réelle de la séquence
+      let sequenceEndPromiseResolve: (() => void) | null = null;
+      const sequenceEndPromise = new Promise<void>((resolve) => {
+        sequenceEndPromiseResolve = resolve;
+      });
 
+      sequenceEndListener = () => {
+        if (decayTimer) return; // Ne pas réagir deux fois
+        decayTimer = setTimeout(() => {
+          sequenceEndPromiseResolve?.();
+        }, decayTailSec * 1000);
+      };
+
+      if (typeof window !== 'undefined') {
+        window.addEventListener('o-girador-sequence-end', sequenceEndListener, { once: true });
+      }
+
+      // Garde-fou de sécurité : timeout après (totalDurationSec + 3)s si l'événement n'a pas été reçu
+      safetyTimer = setTimeout(() => {
+        console.warn("[Cloud Bounce] Timeout de sécurité atteint avant l'événement o-girador-sequence-end");
+        sequenceEndPromiseResolve?.();
+      }, (totalDurationSec + 3) * 1000);
+
+      await sequenceEndPromise;
+
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      if (decayTimer) {
+        decayTimer = null;
+      }
+      if (sequenceEndListener && typeof window !== 'undefined') {
+        window.removeEventListener('o-girador-sequence-end', sequenceEndListener);
+        sequenceEndListener = null;
+      }
       if (progressInterval) {
         clearInterval(progressInterval);
         progressInterval = null;
       }
 
-      // 7. Arrêt strict de l'enregistrement et récupération du Blob
+      // 7. Arrêt strict de l'enregistrement et récupération du Blob (Éradication absolue du rebond de mesure 0)
+      // 1. Déconnexion immédiate du recorder
+      // 2. Arrêt du recorder et extraction du blob audio
+      // 3. Arrêt des moteurs audio
       setStage(87, "Finalisation de l'audio...", "Finalizando o áudio...");
       try {
         Tone.getDestination().disconnect(recorder);
@@ -700,13 +786,22 @@ export function useCloudAudioBounce() {
         recorder.dispose();
         recorder = null;
       } catch (_) {}
+      audioEngine?.stop();
       audio.handleStop();
 
       // Restauration immédiate des paramètres de lecture
       useTransportStore.getState().setIsMetroOn(prevMetro);
       useTransportStore.getState().setPreRollSettings(prevPreRoll);
-      useSequencerStore.getState().setIsLooping(prevIsLooping);
-      useSequencerStore.getState().setCurrentLoopIteration(prevLoopIteration);
+      useSequencerStore.setState({
+        isLooping: prevIsLooping,
+        isLoopRegionActive: prevIsLoopRegionActive,
+        loopStartMeasure: prevLoopStart,
+        loopEndMeasure: prevLoopEnd,
+        loopMode: prevLoopMode,
+        currentLoopIteration: prevLoopIteration,
+        isLoopBypassed: prevIsLoopBypassed,
+        isLoopExitRequested: prevIsLoopExitRequested,
+      });
 
       // 8. Téléversement Firebase Storage
       setStage(88, "Téléversement vers le Cloud...", "Enviando para a nuvem...");
@@ -799,6 +894,18 @@ export function useCloudAudioBounce() {
       }
       return null;
     } finally {
+      if (sequenceEndListener && typeof window !== 'undefined') {
+        window.removeEventListener('o-girador-sequence-end', sequenceEndListener);
+        sequenceEndListener = null;
+      }
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      if (decayTimer) {
+        clearTimeout(decayTimer);
+        decayTimer = null;
+      }
       if (progressInterval) {
         clearInterval(progressInterval);
         progressInterval = null;
@@ -807,13 +914,22 @@ export function useCloudAudioBounce() {
         try {
           Tone.getDestination().disconnect(recorder);
           recorder.dispose();
+          recorder = null;
         } catch (_) {}
       }
-      // Sécurité : restaurer l'état
+      // Sécurité : restaurer impérativement l'état initial complet
       useTransportStore.getState().setIsMetroOn(prevMetro);
       useTransportStore.getState().setPreRollSettings(prevPreRoll);
-      useSequencerStore.getState().setIsLooping(prevIsLooping);
-      useSequencerStore.getState().setCurrentLoopIteration(prevLoopIteration);
+      useSequencerStore.setState({
+        isLooping: prevIsLooping,
+        isLoopRegionActive: prevIsLoopRegionActive,
+        loopStartMeasure: prevLoopStart,
+        loopEndMeasure: prevLoopEnd,
+        loopMode: prevLoopMode,
+        currentLoopIteration: prevLoopIteration,
+        isLoopBypassed: prevIsLoopBypassed,
+        isLoopExitRequested: prevIsLoopExitRequested,
+      });
       setIsBouncingCloud(false);
     }
   };

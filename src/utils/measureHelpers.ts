@@ -38,18 +38,28 @@ export function getExpandedMeasures(
   const expanded: { baseMeasure: number; iteration: number }[] = [];
   if (totalMeasures <= 0) return expanded;
 
-  // 1. Unrolled timeline for loop region if active with a finite repeat count (e.g. 3x)
-  if (
-    options?.isLoopRegionActive &&
-    typeof options?.loopMode === 'number' &&
-    options.loopMode > 0 &&
-    options.loopStartMeasure !== null &&
-    options.loopStartMeasure !== undefined &&
-    options.loopEndMeasure !== null &&
-    options.loopEndMeasure !== undefined
-  ) {
-    const loopStart = Math.max(0, Math.min(options.loopStartMeasure, options.loopEndMeasure));
-    const loopEnd = Math.min(totalMeasures - 1, Math.max(options.loopStartMeasure, options.loopEndMeasure));
+  // 1. Unrolled timeline for loop region if active with a finite repeat count (e.g. 2x, 3x)
+  const isLoopActive = Boolean(options?.isLoopRegionActive);
+  const rawLoopMode = options?.loopMode;
+  let numLoops = 0;
+  if (typeof rawLoopMode === 'number' && rawLoopMode > 0) {
+    numLoops = rawLoopMode;
+  } else if (typeof rawLoopMode === 'string' && !isNaN(parseInt(rawLoopMode, 10)) && parseInt(rawLoopMode, 10) > 0) {
+    numLoops = parseInt(rawLoopMode, 10);
+  } else if (rawLoopMode === 'infinite') {
+    numLoops = 2; // Repli déterministe à 2 tours pour les exports de boucle infinie
+  }
+
+  const hasValidLoopBounds = (
+    options?.loopStartMeasure !== null &&
+    options?.loopStartMeasure !== undefined &&
+    options?.loopEndMeasure !== null &&
+    options?.loopEndMeasure !== undefined
+  );
+
+  if (isLoopActive && hasValidLoopBounds && numLoops > 0) {
+    const loopStart = Math.max(0, Math.min(options!.loopStartMeasure!, options!.loopEndMeasure!));
+    const loopEnd = Math.min(totalMeasures - 1, Math.max(options!.loopStartMeasure!, options!.loopEndMeasure!));
 
     if (loopStart <= loopEnd) {
       // Intro: [0 ... loopStart - 1] (skipped if loopStart === 0)
@@ -57,8 +67,8 @@ export function getExpandedMeasures(
         expanded.push({ baseMeasure: m, iteration: 1 });
       }
 
-      // Loop iterations: loopMode times [loopStart ... loopEnd]
-      for (let iter = 1; iter <= options.loopMode; iter++) {
+      // Loop iterations: numLoops times [loopStart ... loopEnd]
+      for (let iter = 1; iter <= numLoops; iter++) {
         for (let m = loopStart; m <= loopEnd; m++) {
           expanded.push({ baseMeasure: m, iteration: iter });
         }

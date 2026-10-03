@@ -1286,6 +1286,9 @@ export function useAudioSync({
                 isPlaybackEndingRef.current = true;
                 hasFinishedRef.current = true;
                 currentStepIndexRef.current = currentTicks - 1;
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('o-girador-sequence-end', { detail: { measure: currentMeasureIdx } }));
+                }
                 if (autoStopTimeoutRef.current) {
                   clearTimeout(autoStopTimeoutRef.current);
                 }
@@ -1316,6 +1319,9 @@ export function useAudioSync({
                     isPlaybackEndingRef.current = true;
                     hasFinishedRef.current = true;
                     currentStepIndexRef.current = currentTicks - 1;
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('o-girador-sequence-end', { detail: { measure: currentMeasureIdx } }));
+                    }
                     if (autoStopTimeoutRef.current) {
                       clearTimeout(autoStopTimeoutRef.current);
                     }
@@ -1397,6 +1403,9 @@ export function useAudioSync({
               isPlaybackEndingRef.current = true;
               hasFinishedRef.current = true;
               currentStepIndexRef.current = currentTicks - 1;
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('o-girador-sequence-end', { detail: { measure: currentMeasureIdx } }));
+              }
               if (autoStopTimeoutRef.current) {
                 clearTimeout(autoStopTimeoutRef.current);
               }

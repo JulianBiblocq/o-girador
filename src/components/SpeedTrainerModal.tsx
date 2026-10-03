@@ -241,6 +241,7 @@ export const SpeedTrainerModal: React.FC = () => {
   const [isLoadingTrainings, setIsLoadingTrainings] = useState<boolean>(false);
   const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Normalisation presetId & groupId pour Firestore
   const resolvedPresetId = useMemo(() => {
@@ -281,6 +282,26 @@ export const SpeedTrainerModal: React.FC = () => {
       loadTrainings();
     }
   }, [isOpen, isMestre, activeTab, loadTrainings]);
+
+  // Réinitialiser la confirmation de suppression en cas de changement d'onglet ou fermeture
+  useEffect(() => {
+    setConfirmDeleteId(null);
+  }, [isOpen, activeTab]);
+
+  // Écouteur de clic externe pour annuler la confirmation de suppression
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const handleDocumentPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest(`[data-training-card="${confirmDeleteId}"]`)) {
+        setConfirmDeleteId(null);
+      }
+    };
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleDocumentPointerDown);
+    };
+  }, [confirmDeleteId]);
 
   // Marker selection handlers
   const handleSelectSingleMarker = (markerId: string) => {
@@ -462,12 +483,11 @@ export const SpeedTrainerModal: React.FC = () => {
   };
 
   const handleDeleteTraining = async (trainingId: string) => {
-    if (!window.confirm(t('speedTrainerConfirmDelete'))) return;
     setIsDeletingId(trainingId);
     setSaveError(null);
     try {
       await deleteTrainingProgram(trainingId);
-      // Point 4: Reset après suppression si c'était le défi en cours d'édition
+      // Reset après suppression si c'était le défi en cours d'édition
       if (editingTrainingId === trainingId) {
         handleCancelEdit();
       }
@@ -479,6 +499,7 @@ export const SpeedTrainerModal: React.FC = () => {
       setSaveError(err?.message || 'Erreur lors de la suppression');
     } finally {
       setIsDeletingId(null);
+      setConfirmDeleteId(null);
     }
   };
 
@@ -1099,6 +1120,7 @@ export const SpeedTrainerModal: React.FC = () => {
                       return (
                         <div
                           key={tr.id}
+                          data-training-card={tr.id}
                           className={`p-2.5 rounded-xs border-2 transition-all flex items-center justify-between gap-2 shadow-[2px_2px_0px_#1a1a1a] ${
                             isCurrentEditing
                               ? 'border-amber-600 bg-amber-500/15'
@@ -1134,33 +1156,73 @@ export const SpeedTrainerModal: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleStartEditTraining(tr)}
-                              title={t('speedTrainerEditChallenge')}
-                              className={`p-1.5 border border-[#1a1a1a] rounded-xs font-bold transition-colors cursor-pointer ${
-                                isCurrentEditing
-                                  ? 'bg-[#1a1a1a] text-[#f4ecd8]'
-                                  : 'bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-                              }`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isDeleting}
-                              onClick={() => tr.id && handleDeleteTraining(tr.id)}
-                              title={t('speedTrainerDeleteChallenge')}
-                              className="p-1.5 border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-red-700 hover:text-white rounded-xs font-bold transition-colors cursor-pointer disabled:opacity-40"
-                            >
-                              {isDeleting ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
+                          {confirmDeleteId === tr.id ? (
+                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                              <span className="text-[11px] font-cactus font-bold text-[#8b2a1a] whitespace-nowrap">
+                                {lang === 'fr' ? 'Supprimer ce défi ?' : 'Excluir este desafio?'}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (tr.id) handleDeleteTraining(tr.id);
+                                }}
+                                className="bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#6b1f13] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-2.5 py-1 text-xs font-bold uppercase rounded-none transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {isDeleting ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <>✓ {lang === 'fr' ? 'Oui, supprimer' : 'Sim, excluir'}</>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDeleteId(null);
+                                }}
+                                className="bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#e2d5b8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-2 py-1 text-xs font-bold uppercase rounded-none transition-all cursor-pointer"
+                              >
+                                ✕ {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartEditTraining(tr);
+                                }}
+                                title={t('speedTrainerEditChallenge')}
+                                className={`p-1.5 border border-[#1a1a1a] rounded-xs font-bold transition-colors cursor-pointer ${
+                                  isCurrentEditing
+                                    ? 'bg-[#1a1a1a] text-[#f4ecd8]'
+                                    : 'bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+                                }`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (tr.id) setConfirmDeleteId(tr.id);
+                                }}
+                                title={t('speedTrainerDeleteChallenge')}
+                                className="p-1.5 border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-red-700 hover:text-white rounded-xs font-bold transition-colors cursor-pointer disabled:opacity-40"
+                              >
+                                {isDeleting ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
