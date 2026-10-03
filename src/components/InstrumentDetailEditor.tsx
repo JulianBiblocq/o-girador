@@ -719,8 +719,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       if (loaded) blob = loaded;
     }
     if (blob) {
+      const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
+      const assignedMeasure = (activePattern?.measureAssignments && activePattern.measureAssignments.indexOf(true) !== -1)
+        ? activePattern.measureAssignments.indexOf(true)
+        : 0;
+      const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
+      const seq = useSequencerStore.getState();
+      const targetBpm = (seq.measureBpms && seq.measureBpms[effectiveTargetMeasure] > 0)
+        ? seq.measureBpms[effectiveTargetMeasure]
+        : seq.bpm;
+      const resolvedSampleBpm = activePattern?.vocalClip?.sampleBpm || activePattern?.vocalClip?.baseBpm || targetBpm;
+
       useAudioStore.getState().setTargetPatternId(activePattern.id);
-      useAudioStore.getState().setTempRecording({ patternId: activePattern.id, trackId: track?.id, blob });
+      useAudioStore.getState().setTempRecording({
+        patternId: activePattern.id,
+        trackId: track?.id,
+        blob,
+        targetMeasureIdx: effectiveTargetMeasure,
+        sampleBpm: resolvedSampleBpm,
+      });
     } else {
       alert(lang === 'fr' ? "Aucun enregistrement vocal trouvé pour ce motif." : "Nenhuma gravação de voz encontrada para este padrão.");
     }

@@ -55,7 +55,8 @@ export interface VocalClipMeta {
   id?: string | number;
   name?: string;
   patternId?: number;
-  baseBpm: number;           // BPM lors de la prise pour le time-stretching
+  sampleBpm?: number;         // BPM effectif d'enregistrement ou d'origine du sample
+  baseBpm: number;           // BPM lors de la prise pour le time-stretching (rétro-compatibilité)
   trimStartSec: number;      // Début utile du sample (0 pour un buffer nettoyé)
   trimEndSec: number;        // Fin utile du sample (durée du buffer nettoyé)
   nudgeMs: number;           // Décalage fin manuel (+/- ms)

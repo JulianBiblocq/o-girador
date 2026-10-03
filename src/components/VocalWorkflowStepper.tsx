@@ -69,7 +69,11 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         ? pattern.measureAssignments.indexOf(true)
         : 0;
       const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
-      const resolvedTrackId = trackId ?? useSequencerStore.getState().tracks.find(t => t.patterns.some(p => p.id === patternId))?.id;
+      const sequencerStore = useSequencerStore.getState();
+      const targetMeasureBpm = (sequencerStore.measureBpms && sequencerStore.measureBpms[effectiveTargetMeasure] > 0)
+        ? sequencerStore.measureBpms[effectiveTargetMeasure]
+        : sequencerStore.bpm;
+      const resolvedTrackId = trackId ?? sequencerStore.tracks.find(t => t.patterns.some(p => p.id === patternId))?.id;
 
       useAudioStore.getState().setTempRecording({
         patternId,
@@ -78,6 +82,7 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         audioBuffer,
         isImported: true,
         targetMeasureIdx: effectiveTargetMeasure,
+        sampleBpm: targetMeasureBpm,
       });
 
       // Bascule automatique vers l'Étape 3 : Calage
@@ -150,13 +155,19 @@ export const VocalWorkflowStepper: React.FC<VocalWorkflowStepperProps> = ({
         ? pattern.measureAssignments.indexOf(true)
         : 0;
       const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
-      const resolvedTrackId = trackId ?? useSequencerStore.getState().tracks.find(t => t.patterns.some(p => p.id === pid))?.id;
+      const sequencerStore = useSequencerStore.getState();
+      const targetMeasureBpm = (sequencerStore.measureBpms && sequencerStore.measureBpms[effectiveTargetMeasure] > 0)
+        ? sequencerStore.measureBpms[effectiveTargetMeasure]
+        : sequencerStore.bpm;
+      const existingSampleBpm = pattern?.vocalClip?.sampleBpm || pattern?.vocalClip?.baseBpm || targetMeasureBpm;
+      const resolvedTrackId = trackId ?? sequencerStore.tracks.find(t => t.patterns.some(p => p.id === pid))?.id;
       useAudioStore.getState().setTempRecording({
         patternId: pid,
         trackId: resolvedTrackId,
         blob,
         isImported: false,
-        targetMeasureIdx: effectiveTargetMeasure
+        targetMeasureIdx: effectiveTargetMeasure,
+        sampleBpm: existingSampleBpm,
       });
       setCurrentStep(3);
     }

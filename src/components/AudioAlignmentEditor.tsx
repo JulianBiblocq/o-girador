@@ -25,6 +25,7 @@ interface AudioAlignmentEditorProps {
   initialNudgeMs?: number;
   isImported?: boolean;
   targetMeasureIdx?: number | null;
+  initialSampleBpm?: number;
   onSave: (cleanBuffer: AudioBuffer, wavBlob: Blob, meta: VocalClipMeta) => void;
   onCancel: () => void;
 }
@@ -41,6 +42,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   initialNudgeMs = 0,
   isImported = false,
   targetMeasureIdx,
+  initialSampleBpm,
   onSave,
   onCancel,
 }) => {
@@ -85,13 +87,15 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     : (preRollDurationSec > 0 ? preRollDurationSec : beatsCount * beatDurationSec);
   const temps1Px = t_temps1 * pixelsPerSecond;
 
-  // Initial trim and nudge states
+  // Initial trim, nudge and source sample BPM states
   const defaultTrimStart = isImported ? 0 : (initialTrimStartSec !== undefined ? initialTrimStartSec : 0);
   const defaultTrimEnd = isImported ? audioBuffer.duration : (initialTrimEndSec !== undefined ? initialTrimEndSec : audioBuffer.duration);
   const defaultNudgeMs = isImported ? 0 : (initialNudgeMs ?? 0);
+  const defaultSampleBpm = initialSampleBpm ?? pattern.vocalClip?.sampleBpm ?? pattern.vocalClip?.baseBpm ?? anchorBpm;
 
   const [trimStartSec, setTrimStartSec] = useState(defaultTrimStart);
   const [trimEndSec, setTrimEndSec] = useState(defaultTrimEnd);
+  const [sampleBpm, setSampleBpm] = useState<number>(defaultSampleBpm);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -132,6 +136,11 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const nudgeMsRef = useRef(defaultNudgeMs);
   const trimStartSecRef = useRef(trimStartSec);
   const trimEndSecRef = useRef(trimEndSec);
+  const sampleBpmRef = useRef(sampleBpm);
+
+  useEffect(() => {
+    sampleBpmRef.current = sampleBpm;
+  }, [sampleBpm]);
 
   // Refs for interactive Trim drag handles
   const isDraggingTrimRef = useRef<'start' | 'end' | null>(null);
@@ -620,7 +629,27 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const tEnd = trimEndSecRef.current;
     const duration = Math.max(0.05, tEnd - tStart);
 
-    const player = new Tone.Player(audioBuffer);
+    const sBpm = sampleBpmRef.current > 0 ? sampleBpmRef.current : anchorBpm;
+    const rate = sBpm > 0 ? (anchorBpm / sBpm) : 1.0;
+    const isPure = Math.abs(rate - 1.0) < 0.001;
+
+    let player: Tone.Player | Tone.GrainPlayer;
+    if (isPure) {
+      const directPlayer = new Tone.Player(audioBuffer);
+      directPlayer.playbackRate = 1.0;
+      directPlayer.fadeIn = 0.01;
+      directPlayer.fadeOut = 0.03;
+      directPlayer.loop = false;
+      player = directPlayer;
+    } else {
+      const grainPlayer = new Tone.GrainPlayer(audioBuffer);
+      grainPlayer.grainSize = 0.09;
+      grainPlayer.overlap = 0.04;
+      grainPlayer.playbackRate = rate;
+      grainPlayer.loop = false;
+      player = grainPlayer;
+    }
+
     player.volume.value = 0;
     player.toDestination();
 
@@ -635,7 +664,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         player.start(now, tStart + pastSec, duration - pastSec);
       }
     }
-    activePlayersRef.current.push(player);
+    activePlayersRef.current.push(player as any);
 
     if (activePlayersRef.current.length > 3) {
       const old = activePlayersRef.current.shift();
@@ -918,16 +947,16 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSec);
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
-      // Découplage absolu : baseBpm est TOUJOURS le BPM musical réel du projet/mesure
-      // Interdiction formelle de déduire le baseBpm de la durée physique du buffer découpé
-      const projectBpm = useSequencerStore.getState().bpm || anchorBpm || bpm || 100;
-      const effectiveBaseBpm = (typeof projectBpm === 'number' && projectBpm > 20 && Number.isFinite(projectBpm))
-        ? projectBpm
-        : 100;
+      // Découplage absolu : sampleBpm est le tempo d'origine du fichier audio (pré-rempli avec anchorBpm)
+      // Rétrocompatibilité : baseBpm est synchronisé avec sampleBpm
+      const validatedSampleBpm = (typeof sampleBpm === 'number' && sampleBpm > 20 && Number.isFinite(sampleBpm))
+        ? Math.round(sampleBpm * 10) / 10
+        : anchorBpm;
 
       const meta: VocalClipMeta = {
         patternId: pattern.id,
-        baseBpm: effectiveBaseBpm,
+        sampleBpm: validatedSampleBpm,
+        baseBpm: validatedSampleBpm,
         trimStartSec: 0,
         trimEndSec: cleanBuffer.duration,
         nudgeMs: nudgeMsRef.current,
@@ -966,6 +995,38 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           >
             Anacrouse : 0 ms (0.00 tps)
           </span>
+        </div>
+
+        {/* Contrôles BPM Source du Sample (Directive 2) */}
+        <div className="flex items-center gap-1.5 bg-[#ece4d0] border-2 border-[#1a1a1a] px-2.5 py-1 rounded-sm shadow-[2px_2px_0px_#1a1a1a]">
+          <label htmlFor="sample-bpm-input" className="text-[10px] font-black text-[#1a1a1a]/80 uppercase tracking-wider select-none">
+            BPM du sample :
+          </label>
+          <input
+            id="sample-bpm-input"
+            type="number"
+            min="20"
+            max="300"
+            step="1"
+            value={sampleBpm}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (!isNaN(val)) {
+                setSampleBpm(Math.max(20, Math.min(300, val)));
+              }
+            }}
+            className="w-14 px-1 py-0.5 text-center text-xs font-mono font-bold bg-[#fdfaf2] text-[#1a1a1a] border border-[#1a1a1a] rounded-sm focus:outline-none focus:ring-1 focus:ring-[#8b2a1a]"
+            title="Tempo source de la prise audio (DAW externe ou métronome)"
+          />
+          <span className="text-[10px] font-bold text-[#1a1a1a]/60 select-none">BPM</span>
+          {sampleBpm > 0 && Math.abs((anchorBpm / sampleBpm) - 1.0) >= 0.001 && (
+            <span
+              className="text-[9px] font-black px-1.5 py-0.5 bg-[#8b2a1a] text-white rounded-xs border border-[#1a1a1a] tracking-tight shadow-[1px_1px_0px_#1a1a1a]"
+              title={`Ratio de time-stretching calculé : x${(anchorBpm / sampleBpm).toFixed(2)}`}
+            >
+              x{(anchorBpm / sampleBpm).toFixed(2)}
+            </span>
+          )}
         </div>
 
         {/* Contrôles de Zoom Temporel & Adaptation écran */}

@@ -203,8 +203,8 @@ export const VocalValidationModal: React.FC = () => {
                     // Clean legacy single fields
                     vocalNudge: undefined,
                     vocalTrimStart: undefined,
-                    vocalBaseBpm: undefined,
-                    vocalBpmSync: undefined,
+                    vocalBaseBpm: meta.sampleBpm ?? meta.baseBpm,
+                    vocalBpmSync: true,
                   };
                 }
                 return p;
@@ -270,6 +270,7 @@ export const VocalValidationModal: React.FC = () => {
             initialTrimEndSec={initialTrimEndSec}
             initialNudgeMs={initialNudgeMs}
             targetMeasureIdx={tempRecording.targetMeasureIdx ?? useAudioStore.getState().targetMeasureIdx ?? (targetPattern.measureAssignments.indexOf(true) !== -1 ? targetPattern.measureAssignments.indexOf(true) : 0)}
+            initialSampleBpm={tempRecording.sampleBpm ?? targetPattern.vocalClip?.sampleBpm ?? targetPattern.vocalClip?.baseBpm}
             onSave={handleSave}
             onCancel={handleCancel}
           />

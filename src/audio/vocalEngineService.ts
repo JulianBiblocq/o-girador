@@ -91,7 +91,9 @@ export function workerClearTimeout(id: number) {
 }
 
 export interface ActiveVocal {
-  mainPlayer: Tone.GrainPlayer;
+  mainPlayer: Tone.GrainPlayer | Tone.Player;
+  directPlayer?: Tone.Player;
+  grainPlayer?: Tone.GrainPlayer;
   mainGain: Tone.Gain;
   currentBuffer: AudioBuffer | null;
   haasNodes?: {
@@ -101,7 +103,7 @@ export interface ActiveVocal {
     rightGain: GainNode;
     merger: ChannelMergerNode;
   };
-  chorusPlayers: Tone.GrainPlayer[];
+  chorusPlayers: (Tone.GrainPlayer | Tone.Player)[];
   chorusGains: Tone.Gain[];
   panners: Tone.Panner[];
 }
@@ -556,7 +558,8 @@ export const vocalEngineService = {
     audioBuffer: AudioBuffer,
     outputNode: any,
     isCoroTrack: boolean = false,
-    trackId?: string | number
+    trackId?: string | number,
+    useDirectPlayer: boolean = false
   ): ActiveVocal {
     const resolvedOutput = outputNode && outputNode !== Tone.Destination && outputNode !== (Tone as any).getDestination?.()
       ? outputNode
@@ -567,26 +570,47 @@ export const vocalEngineService = {
     if (entry) {
       // Re-use existing player and update buffer if modified
       if (entry.currentBuffer !== audioBuffer) {
-        entry.mainPlayer.buffer.set(audioBuffer);
+        if (entry.grainPlayer) entry.grainPlayer.buffer.set(audioBuffer);
+        if (entry.directPlayer) entry.directPlayer.buffer.set(audioBuffer);
         entry.currentBuffer = audioBuffer;
       }
+
+      if (useDirectPlayer) {
+        if (!entry.directPlayer) {
+          const direct = new Tone.Player(audioBuffer);
+          direct.volume.value = 0;
+          direct.loop = false;
+          direct.fadeIn = 0.01;  // 10ms anti-clic
+          direct.fadeOut = 0.03; // 30ms anti-pop
+          direct.onstop = () => {};
+          direct.connect(entry.mainGain);
+          entry.directPlayer = direct;
+        }
+        entry.mainPlayer = entry.directPlayer;
+        if (entry.grainPlayer) {
+          try { entry.grainPlayer.playbackRate = 1.0; } catch (_) {}
+        }
+      } else {
+        if (!entry.grainPlayer) {
+          const grain = new Tone.GrainPlayer(audioBuffer);
+          grain.grainSize = 0.09;
+          grain.overlap = 0.04;
+          grain.volume.value = 0;
+          grain.loop = false;
+          (grain as any).fadeIn = 0;
+          grain.onstop = () => {};
+          grain.connect(entry.mainGain);
+          entry.grainPlayer = grain;
+        }
+        entry.mainPlayer = entry.grainPlayer;
+      }
+
       entry.mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
-      (entry.mainPlayer as any).fadeIn = 0;
       entry.mainPlayer.onstop = () => {};
       return entry;
     }
 
-    // Allocate once and persist
-    const mainPlayer = new Tone.GrainPlayer(audioBuffer);
-    mainPlayer.grainSize = 0.09;
-    mainPlayer.overlap = 0.04;
-    mainPlayer.volume.value = 0; // Unity gain
-    mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE
-    (mainPlayer as any).fadeIn = 0;
-    mainPlayer.onstop = () => {};
-
     const mainGain = new Tone.Gain(1);
-    mainPlayer.connect(mainGain);
 
     const isEcoMode = useSequencerStore.getState().isEcoMode;
     let haasNodes: ActiveVocal['haasNodes'] = undefined;
@@ -645,8 +669,35 @@ export const vocalEngineService = {
       mainGain.connect(destNode);
     }
 
+    let directPlayer: Tone.Player | undefined;
+    let grainPlayer: Tone.GrainPlayer | undefined;
+    let mainPlayer: Tone.GrainPlayer | Tone.Player;
+
+    if (useDirectPlayer) {
+      directPlayer = new Tone.Player(audioBuffer);
+      directPlayer.volume.value = 0;
+      directPlayer.loop = false;
+      directPlayer.fadeIn = 0.01;  // 10ms anti-clic
+      directPlayer.fadeOut = 0.03; // 30ms anti-pop
+      directPlayer.onstop = () => {};
+      directPlayer.connect(mainGain);
+      mainPlayer = directPlayer;
+    } else {
+      grainPlayer = new Tone.GrainPlayer(audioBuffer);
+      grainPlayer.grainSize = 0.09;
+      grainPlayer.overlap = 0.04;
+      grainPlayer.volume.value = 0;
+      grainPlayer.loop = false;
+      (grainPlayer as any).fadeIn = 0;
+      grainPlayer.onstop = () => {};
+      grainPlayer.connect(mainGain);
+      mainPlayer = grainPlayer;
+    }
+
     entry = {
       mainPlayer,
+      directPlayer,
+      grainPlayer,
       mainGain,
       currentBuffer: audioBuffer,
       haasNodes,
@@ -680,7 +731,28 @@ export const vocalEngineService = {
     keysToDispose.forEach((k) => {
       const entry = activeVocals.get(k);
       if (entry) {
-        try { entry.mainPlayer.stop(); entry.mainPlayer.disconnect(); entry.mainPlayer.dispose(); } catch (_) {}
+        try {
+          entry.mainPlayer.onstop = () => {};
+          entry.mainPlayer.stop();
+          entry.mainPlayer.disconnect();
+          entry.mainPlayer.dispose();
+        } catch (_) {}
+        if (entry.directPlayer && entry.directPlayer !== entry.mainPlayer) {
+          try {
+            entry.directPlayer.onstop = () => {};
+            entry.directPlayer.stop();
+            entry.directPlayer.disconnect();
+            entry.directPlayer.dispose();
+          } catch (_) {}
+        }
+        if (entry.grainPlayer && entry.grainPlayer !== entry.mainPlayer) {
+          try {
+            entry.grainPlayer.onstop = () => {};
+            entry.grainPlayer.stop();
+            entry.grainPlayer.disconnect();
+            entry.grainPlayer.dispose();
+          } catch (_) {}
+        }
         try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
         if (entry.haasNodes) {
           try {
@@ -691,7 +763,7 @@ export const vocalEngineService = {
             entry.haasNodes.merger.disconnect();
           } catch (_) {}
         }
-        entry.chorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
+        entry.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
         entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
         entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
         activeVocals.delete(k);
@@ -700,7 +772,7 @@ export const vocalEngineService = {
   },
 
   /**
-   * Libère systématiquement toutes les instances Tone.GrainPlayer de activeVocals
+   * Libère systématiquement toutes les instances de activeVocals
    * lors du rechargement de projet / preset ou du nettoyage mémoire.
    */
   disposeAllVocalPlayers() {
@@ -711,6 +783,22 @@ export const vocalEngineService = {
         entry.mainPlayer.disconnect();
         entry.mainPlayer.dispose();
       } catch (_) {}
+      if (entry.directPlayer && entry.directPlayer !== entry.mainPlayer) {
+        try {
+          entry.directPlayer.onstop = () => {};
+          entry.directPlayer.stop();
+          entry.directPlayer.disconnect();
+          entry.directPlayer.dispose();
+        } catch (_) {}
+      }
+      if (entry.grainPlayer && entry.grainPlayer !== entry.mainPlayer) {
+        try {
+          entry.grainPlayer.onstop = () => {};
+          entry.grainPlayer.stop();
+          entry.grainPlayer.disconnect();
+          entry.grainPlayer.dispose();
+        } catch (_) {}
+      }
       try { entry.mainGain.disconnect(); entry.mainGain.dispose(); } catch (_) {}
       if (entry.haasNodes) {
         try {
@@ -721,7 +809,7 @@ export const vocalEngineService = {
           entry.haasNodes.merger.disconnect();
         } catch (_) {}
       }
-      entry.chorusPlayers.forEach(p => { try { p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
+      entry.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
       entry.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
       entry.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
     });
@@ -737,12 +825,16 @@ export const vocalEngineService = {
       const entry = activeVocals.get(k);
       if (entry) {
         try { entry.mainPlayer.stop(); } catch (_) {}
+        try { entry.directPlayer?.stop(); } catch (_) {}
+        try { entry.grainPlayer?.stop(); } catch (_) {}
         entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
       }
     } else {
       activeVocals.forEach((entry, k) => {
         if (k.endsWith(`_${patternId}`) || k === String(patternId)) {
           try { entry.mainPlayer.stop(); } catch (_) {}
+          try { entry.directPlayer?.stop(); } catch (_) {}
+          try { entry.grainPlayer?.stop(); } catch (_) {}
           entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
         }
       });
@@ -758,6 +850,18 @@ export const vocalEngineService = {
         entry.mainPlayer.onstop = () => {};
         entry.mainPlayer.stop();
       } catch (_) {}
+      if (entry.directPlayer) {
+        try {
+          entry.directPlayer.onstop = () => {};
+          entry.directPlayer.stop();
+        } catch (_) {}
+      }
+      if (entry.grainPlayer) {
+        try {
+          entry.grainPlayer.onstop = () => {};
+          entry.grainPlayer.stop();
+        } catch (_) {}
+      }
       entry.chorusPlayers.forEach(p => {
         try {
           p.onstop = () => {};
@@ -921,10 +1025,12 @@ export const vocalEngineService = {
     const anchorMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
     const effectiveBpm = currentBpm || anchorMeasureBpm;
 
-    // 1. Time-stretching calculation : verrouillé strictement à 1.0 au BPM nominal
-    const baseBpm = clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm || effectiveBpm;
-    const targetRate = effectiveBpm / (baseBpm || effectiveBpm);
-    const playbackRate = (Number.isFinite(targetRate) && targetRate > 0) ? targetRate : 1.0;
+    // 1. Time-stretching calculation :
+    // Directive 3 : Calcul strict du playbackRate avec tolérance Math.abs(rate - 1.0) < 0.001
+    const clipSampleBpm = clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
+    const rate = clipSampleBpm ? (effectiveBpm / clipSampleBpm) : 1.0;
+    const isPurePlayback = Math.abs(rate - 1.0) < 0.001;
+    const playbackRate = isPurePlayback ? 1.0 : ((Number.isFinite(rate) && rate > 0) ? rate : 1.0);
 
     // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
     const beatDurationSec = 60 / effectiveBpm;
@@ -963,6 +1069,8 @@ export const vocalEngineService = {
         try {
           // 🛡️ TONE.JS SAFETY: Toujours une fonction no-op () => {}, JAMAIS null, car Tone.Source appelle this.onstop()
           entry.mainPlayer.onstop = () => {};
+          if (entry.directPlayer) entry.directPlayer.onstop = () => {};
+          if (entry.grainPlayer) entry.grainPlayer.onstop = () => {};
           const oldGain = entry.mainGain.gain;
           const now = Tone.now();
           const fadeStart = Math.max(now, actualStartTime);
@@ -970,8 +1078,16 @@ export const vocalEngineService = {
           oldGain.setValueAtTime(oldGain.value, fadeStart);
           oldGain.linearRampToValueAtTime(0.0001, fadeStart + 0.015);
           entry.mainPlayer.stop(fadeStart + 0.02);
+          if (entry.directPlayer && entry.directPlayer !== entry.mainPlayer) {
+            try { entry.directPlayer.stop(fadeStart + 0.02); } catch (_) {}
+          }
+          if (entry.grainPlayer && entry.grainPlayer !== entry.mainPlayer) {
+            try { entry.grainPlayer.stop(fadeStart + 0.02); } catch (_) {}
+          }
 
           const oldPlayer = entry.mainPlayer;
+          const oldDirect = entry.directPlayer;
+          const oldGrain = entry.grainPlayer;
           const oldGainNode = entry.mainGain;
           const oldHaasNodes = entry.haasNodes;
           const oldChorusPlayers = entry.chorusPlayers;
@@ -984,6 +1100,16 @@ export const vocalEngineService = {
               oldPlayer.onstop = () => {};
               oldPlayer.disconnect();
               oldPlayer.dispose();
+              if (oldDirect && oldDirect !== oldPlayer) {
+                oldDirect.onstop = () => {};
+                oldDirect.disconnect();
+                oldDirect.dispose();
+              }
+              if (oldGrain && oldGrain !== oldPlayer) {
+                oldGrain.onstop = () => {};
+                oldGrain.disconnect();
+                oldGrain.dispose();
+              }
               oldGainNode.disconnect();
               oldGainNode.dispose();
               if (oldHaasNodes) {
@@ -1004,13 +1130,28 @@ export const vocalEngineService = {
     });
 
     // 4. Instancier et armer immédiatement la nouvelle voix pour triggerTime
-    const activeEntry = this.getOrCreateVocalPlayer(compositeKey, audioBuffer, outputNode, isCoroTrack, trackId);
+    const activeEntry = this.getOrCreateVocalPlayer(
+      compositeKey,
+      audioBuffer,
+      outputNode,
+      isCoroTrack,
+      trackId,
+      isPurePlayback
+    );
     const mainPlayer = activeEntry.mainPlayer;
     const mainGain = activeEntry.mainGain;
 
     mainPlayer.playbackRate = playbackRate;
+    if (activeEntry.grainPlayer) {
+      activeEntry.grainPlayer.playbackRate = playbackRate;
+    }
     mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE : forcé systématiquement avant chaque déclenchement
-    (mainPlayer as any).fadeIn = 0; // Pas de fondu d'attaque qui étouffe les consonnes
+    if (isPurePlayback && activeEntry.directPlayer) {
+      activeEntry.directPlayer.fadeIn = 0.01;
+      activeEntry.directPlayer.fadeOut = 0.03;
+    } else {
+      (mainPlayer as any).fadeIn = 0; // Pas de fondu d'attaque qui étouffe les consonnes
+    }
 
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
@@ -1052,6 +1193,14 @@ export const vocalEngineService = {
         try {
           mainPlayer.onstop = () => {};
           mainPlayer.stop();
+          if (activeEntry.directPlayer) {
+            activeEntry.directPlayer.onstop = () => {};
+            activeEntry.directPlayer.stop();
+          }
+          if (activeEntry.grainPlayer) {
+            activeEntry.grainPlayer.onstop = () => {};
+            activeEntry.grainPlayer.stop();
+          }
         } catch (_) {}
       }
     };
