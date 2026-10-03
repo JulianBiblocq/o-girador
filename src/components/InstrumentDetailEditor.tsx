@@ -15,7 +15,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokePairs, getWheelNuanceState, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { getNextPatternName } from '../utils/patternNaming';
 import { createPortal } from 'react-dom';
-import { Play, Square, GripVertical } from 'lucide-react';
+import { Play, Square, GripVertical, FolderOpen } from 'lucide-react';
 import {
   DndContext,
   pointerWithin,
@@ -234,7 +234,7 @@ const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
         }
       }}
       title={titleText}
-      className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
+      className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
         isActive
           ? 'bg-[#fbf8f0] border-2 border-[#1a1a1a] ring-2 ring-[#d4af37] ring-offset-1 ring-offset-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10 cursor-default'
           : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] border-2 border-[#1a1a1a]/50 hover:border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,0.5)] hover:shadow-[2px_2px_0px_#1a1a1a] opacity-75 hover:opacity-100 hover:-translate-y-[1px] cursor-pointer'
@@ -707,9 +707,58 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedPatternId, setSelectedPatternId] = useState<number>(() => track?.selectedPatternId || displayedPatterns[0]?.id || 0);
 
   const activePattern = displayedPatterns.find(p => p.id === (selectedPatternId || track?.selectedPatternId || displayedPatterns[0]?.id));
-  const hasVocalRecording = useAudioStore(
-    useShallow(state => !!activePattern && !!state.vocalBlobs[activePattern.id])
+  
+  const hasAudio = useAudioStore(
+    useShallow(state => Boolean(
+      activePattern?.vocalClip || 
+      (activePattern?.id && state.vocalBuffers[activePattern.id]) || 
+      (activePattern?.id && state.vocalBlobs[activePattern.id])
+    ))
   );
+  const hasVocalRecording = hasAudio;
+
+  const headerAudioInputRef = useRef<HTMLInputElement>(null);
+
+  const handleHeaderAudioImport = React.useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Précision 2 : Vider immédiatement la valeur pour autoriser le ré-import du même fichier
+    e.target.value = '';
+    if (!file || !activePattern) return;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const rawCtx = Tone.getContext().rawContext;
+      const bufferToDecode = arrayBuffer.slice(0);
+      const audioBuffer = await rawCtx.decodeAudioData(bufferToDecode);
+      const blob = new Blob([arrayBuffer], { type: file.type || 'audio/wav' });
+
+      useAudioStore.getState().setSelectedVocalPatternId(activePattern.id);
+      useAudioStore.getState().setTargetPatternId(activePattern.id);
+
+      const currentArmedMeasure = useAudioStore.getState().targetMeasureIdx;
+      const assignedMeasure = (activePattern.measureAssignments && activePattern.measureAssignments.indexOf(true) !== -1)
+        ? activePattern.measureAssignments.indexOf(true)
+        : 0;
+      const effectiveTargetMeasure = currentArmedMeasure !== null ? currentArmedMeasure : assignedMeasure;
+      const seq = useSequencerStore.getState();
+      const targetMeasureBpm = (seq.measureBpms && seq.measureBpms[effectiveTargetMeasure] > 0)
+        ? seq.measureBpms[effectiveTargetMeasure]
+        : seq.bpm;
+      const resolvedTrackId = effectiveEditTrackId ?? track?.id;
+
+      useAudioStore.getState().setTempRecording({
+        patternId: activePattern.id,
+        trackId: resolvedTrackId,
+        blob,
+        audioBuffer,
+        isImported: true,
+        targetMeasureIdx: effectiveTargetMeasure,
+        sampleBpm: targetMeasureBpm,
+      });
+    } catch (err: any) {
+      console.error('Audio import failed:', err);
+      alert(lang === 'fr' ? "Erreur lors de l'import : " + err.message : "Erro ao importar: " + err.message);
+    }
+  }, [activePattern, effectiveEditTrackId, track?.id, lang]);
 
   const handleOpenAlignment = React.useCallback(async () => {
     if (!activePattern) return;
@@ -733,7 +782,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       useAudioStore.getState().setTargetPatternId(activePattern.id);
       useAudioStore.getState().setTempRecording({
         patternId: activePattern.id,
-        trackId: track?.id,
+        trackId: effectiveEditTrackId ?? track?.id,
         blob,
         targetMeasureIdx: effectiveTargetMeasure,
         sampleBpm: resolvedSampleBpm,
@@ -741,7 +790,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     } else {
       alert(lang === 'fr' ? "Aucun enregistrement vocal trouvé pour ce motif." : "Nenhuma gravação de voz encontrada para este padrão.");
     }
-  }, [activePattern, lang]);
+  }, [activePattern, lang, effectiveEditTrackId, track?.id]);
 
   const handleTranspose = React.useCallback((semitones: number) => {
     if (!activePattern) return;
@@ -1504,251 +1553,284 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         )}
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
-          className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
+          className="flex flex-col gap-1.5 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0"
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
-          <div className="w-[150px] min-w-[150px] shrink-0 flex items-center">
-            {isVocalContext && puxTrack && coroTrack ? (
-              <div className="w-full flex items-stretch h-7 rounded border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] overflow-hidden bg-[#f4ecd8] select-none">
-                <button
-                  type="button"
-                  onClick={() => handleSwitchVocalTrack(puxTrack)}
-                  className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer ${
-                    !isCoroActive
-                      ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                      : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-                  }`}
-                  title={lang === 'fr' ? 'Éditer le Puxador (Solo) [Tab]' : 'Editar o Puxador (Solo) [Tab]'}
-                >
-                  <span className="text-[10px]">🎙️</span>
-                  <span className="truncate">Puxador</span>
-                </button>
-                <div className="w-[1px] bg-[#1a1a1a]" />
-                <button
-                  type="button"
-                  onClick={() => handleSwitchVocalTrack(coroTrack)}
-                  className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer ${
-                    isCoroActive
-                      ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                      : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-                  }`}
-                  title={lang === 'fr' ? 'Éditer le Coro (Chœur) [Tab]' : 'Editar o Coro (Coro) [Tab]'}
-                >
-                  <span className="text-[10px]">👥</span>
-                  <span className="truncate">Coro</span>
-                </button>
-              </div>
-            ) : (
-              <span className="font-cactus font-bold text-lg tracking-wide truncate" title={trackDisplayName}>
-                {trackDisplayName}
-              </span>
-            )}
-          </div>
-
-          {/* Ruban de navigation rapide des pupitres */}
-          <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-[190px] xs:max-w-[250px] sm:max-w-[360px] md:max-w-[480px] lg:max-w-[620px] mr-auto">
-            {visibleTrackIds.map((vTrackId) => (
-              <PupitreRibbonChip
-                key={vTrackId}
-                trackId={vTrackId}
-                isActive={vTrackId === trackId}
-                onSelect={setEditingTrackId}
-              />
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Pitch Shift Controller for Vocal/Toada tracks */}
-            {inst.type === 'voice' && (
-              <div className="flex items-center gap-2 select-none">
-                <div className="flex items-center gap-1.5 bg-[#f4ecd8] px-2.5 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
-                  <span className="mr-0.5">{lang === 'fr' ? 'Transposition :' : 'Transposição :'}</span>
-                  
-                  {/* Raccourci -7 (Quinte descendante) */}
-                  <button
-                    type="button"
-                    onClick={() => handleTranspose(-7)}
-                    title={lang === 'fr' ? '-7 demi-tons (Quinte descendante)' : '-7 semitons (Quinta descendente)'}
-                    className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
-                  >
-                    -7
-                  </button>
-
-                  {/* Bouton -1 demi-ton */}
-                  <button
-                    type="button"
-                    onClick={() => handleTranspose(-1)}
-                    title={lang === 'fr' ? '-1 demi-ton' : '-1 semitom'}
-                    className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
-                  >
-                    -
-                  </button>
-
-                  {/* Compteur de transposition relative */}
-                  <span className="w-8 text-center font-cactus text-sm font-black text-[#8b2a1a]">
-                    {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
+          {/* Ligne 1 : Navigation principale, Bouton Audio et Commandes */}
+          <div className="flex items-center justify-between gap-3 w-full shrink-0">
+            {/* Gauche : Commutateur Puxador / Coro (ou Nom de l'instrument) + Ruban */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="w-[150px] min-w-[150px] shrink-0 flex-shrink-0 flex items-center">
+                {isVocalContext && puxTrack && coroTrack ? (
+                  <div className="w-full flex items-stretch h-7 rounded border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] overflow-hidden bg-[#f4ecd8] select-none shrink-0 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchVocalTrack(puxTrack)}
+                      className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer shrink-0 ${
+                        !isCoroActive
+                          ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                          : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                      }`}
+                      title={lang === 'fr' ? 'Éditer le Puxador (Solo) [Tab]' : 'Editar o Puxador (Solo) [Tab]'}
+                    >
+                      <span className="text-[10px]">🎙️</span>
+                      <span className="truncate">Puxador</span>
+                    </button>
+                    <div className="w-[1px] bg-[#1a1a1a] shrink-0" />
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchVocalTrack(coroTrack)}
+                      className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer shrink-0 ${
+                        isCoroActive
+                          ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                          : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                      }`}
+                      title={lang === 'fr' ? 'Éditer le Coro (Chœur) [Tab]' : 'Editar o Coro (Coro) [Tab]'}
+                    >
+                      <span className="text-[10px]">👥</span>
+                      <span className="truncate">Coro</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="font-cactus font-bold text-lg tracking-wide truncate" title={trackDisplayName}>
+                    {trackDisplayName}
                   </span>
+                )}
+              </div>
 
-                  {/* Bouton +1 demi-ton */}
+              {/* Ruban de navigation rapide des pupitres (Protection absolue : shrink-0 sans contrainte max-w écrasante) */}
+              <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 shrink-0 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {visibleTrackIds.map((vTrackId) => (
+                  <PupitreRibbonChip
+                    key={vTrackId}
+                    trackId={vTrackId}
+                    isActive={vTrackId === trackId}
+                    onSelect={setEditingTrackId}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Centre : Bouton contextuel Audio 2-en-1 en contexte vocal */}
+            {isVocalContext && (
+              <div className="flex items-center justify-center shrink-0 flex-shrink-0 px-2">
+                <input
+                  type="file"
+                  ref={headerAudioInputRef}
+                  accept="audio/*,.wav,.ogg,.mp3"
+                  className="hidden"
+                  onChange={handleHeaderAudioImport}
+                />
+                {!hasAudio ? (
                   <button
                     type="button"
-                    onClick={() => handleTranspose(1)}
-                    title={lang === 'fr' ? '+1 demi-ton' : '+1 semitom'}
-                    className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                    onClick={() => headerAudioInputRef.current?.click()}
+                    className="flex items-center gap-1.5 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-3 py-1.5 rounded-sm font-cactus font-bold text-xs uppercase text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shrink-0 flex-shrink-0"
+                    title={lang === 'fr' ? "Importer un fichier audio (.wav, .ogg, .mp3)" : "Importar arquivo de áudio"}
                   >
-                    +
+                    <FolderOpen size={14} className="shrink-0" />
+                    <span>{lang === 'fr' ? '📁 IMPORTER AUDIO' : '📁 IMPORTAR ÁUDIO'}</span>
                   </button>
-
-                  {/* Raccourci +7 (Quinte ascendante) */}
+                ) : (
                   <button
                     type="button"
-                    onClick={() => handleTranspose(7)}
-                    title={lang === 'fr' ? '+7 demi-tons (Quinte ascendante)' : '+7 semitons (Quinta ascendente)'}
-                    className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
-                  >
-                    +7
-                  </button>
-                </div>
-
-                {activePattern && hasVocalRecording && (
-                  <button
                     onClick={handleOpenAlignment}
-                    className="flex items-center gap-1.5 bg-[#b89f74] hover:bg-[#1a1a1a] hover:text-[#ece4d0] px-3 py-1.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold font-cactus uppercase ml-4 cursor-pointer text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] transition-all"
+                    className="flex items-center gap-1.5 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-3 py-1.5 rounded-sm font-cactus font-bold text-xs uppercase text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shrink-0 flex-shrink-0"
+                    title={lang === 'fr' ? "Ajuster le calage, trim et tempo du sample audio" : "Ajustar alinhamento, trim e andamento"}
                   >
-                    ✏️ {lang === 'fr' ? 'Ajuster le calage' : 'Ajustar o calado'}
+                    <span className="shrink-0">✏️</span>
+                    <span>{lang === 'fr' ? 'AJUSTER LE CALAGE' : 'AJUSTAR O CALADO'}</span>
                   </button>
                 )}
               </div>
             )}
 
-            {/* Balanço Controller for all tracks (Preset + Amount) */}
-            {targetBalancoTrack && (
-              <div className="flex items-center gap-2.5 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-4 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
-                <span className="whitespace-nowrap flex items-center text-sm" title={lang === 'fr' ? 'Balanço (Instrument)' : 'Balanço (Instrument)'}>
-                  ⚖️
-                </span>
+            {/* Droite : Balanço + REC + Mute / Solo / Detach / Close */}
+            <div className="flex items-center gap-2 shrink-0 flex-shrink-0">
+              {/* Balanço Controller for all tracks (Preset + Amount) */}
+              {targetBalancoTrack && (
+                <div className="flex items-center gap-2.5 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] shrink-0 flex-shrink-0">
+                  <span className="whitespace-nowrap flex items-center text-sm" title={lang === 'fr' ? 'Balanço (Instrument)' : 'Balanço (Instrument)'}>
+                    ⚖️
+                  </span>
 
-                {/* Sélecteur de preset d'instrument */}
-                <select
-                  data-testid="track-balanco-preset-select"
-                  value={targetBalancoTrack.balancoPresetId || 'maracatu-trad'}
-                  onChange={(e) => {
-                    const presetId = e.target.value;
-                    const amount = targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100);
-                    handleTrackBalancoChange(effectiveEditTrackId, presetId, amount);
-                  }}
-                  className="bg-white border border-[#1a1a1a] px-1.5 py-0.5 text-[11px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[130px] truncate"
-                  title={lang === 'fr' ? "Preset de Balanço par défaut de l'instrument" : "Preset de Balanço padrão do instrumento"}
-                >
-                  {balancoPresets.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  {/* Sélecteur de preset d'instrument */}
+                  <select
+                    data-testid="track-balanco-preset-select"
+                    value={targetBalancoTrack.balancoPresetId || 'maracatu-trad'}
+                    onChange={(e) => {
+                      const presetId = e.target.value;
+                      const amount = targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100);
+                      handleTrackBalancoChange(effectiveEditTrackId, presetId, amount);
+                    }}
+                    className="bg-white border border-[#1a1a1a] px-1.5 py-0.5 text-[11px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[130px] truncate"
+                    title={lang === 'fr' ? "Preset de Balanço par défaut de l'instrument" : "Preset de Balanço padrão do instrumento"}
+                  >
+                    {balancoPresets.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
 
-                {/* Curseur de dosage balancoAmount (0 - 100%) */}
-                <input
-                  data-testid="track-balanco-slider"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100)}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    handleTrackBalancoChange(effectiveEditTrackId, targetBalancoTrack.balancoPresetId || 'maracatu-trad', val);
-                  }}
-                  className="w-20 h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
-                  style={{ accentColor: '#8b2a1a' }}
-                  title={lang === 'fr' ? "Dosage du balanço pour l'instrument" : "Dosagem do balanço para o instrumento"}
-                />
-                <span data-testid="track-balanco-amount-label" className="w-8 text-right font-cactus text-sm">
-                  {targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100)}%
-                </span>
-              </div>
-            )}
+                  {/* Curseur de dosage balancoAmount (0 - 100%) */}
+                  <input
+                    data-testid="track-balanco-slider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100)}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      handleTrackBalancoChange(effectiveEditTrackId, targetBalancoTrack.balancoPresetId || 'maracatu-trad', val);
+                    }}
+                    className="w-20 h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
+                    style={{ accentColor: '#8b2a1a' }}
+                    title={lang === 'fr' ? "Dosage du balanço pour l'instrument" : "Dosagem do balanço para o instrumento"}
+                  />
+                  <span data-testid="track-balanco-amount-label" className="w-8 text-right font-cactus text-sm">
+                    {targetBalancoTrack.balancoAmount !== undefined ? targetBalancoTrack.balancoAmount : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100)}%
+                  </span>
+                </div>
+              )}
+
+              {/* Bouton REC Global de l'Éditeur (masqué en contexte vocal / Toada) */}
+              {!isVocalContext && (
+                <div className="flex items-center mr-1 shrink-0 flex-shrink-0">
+                  {isPatternRecording ? (
+                    <button
+                      onClick={() => togglePatternRecording()}
+                      className="h-8 px-2.5 rounded-sm cordel-border-sm bg-[#e74c3c] text-white shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-bold text-xs cordel-arm-pulse animate-pulse shrink-0 flex-shrink-0"
+                      title={lang === 'fr' ? "Enregistrement MIDI en cours (Raccourci: R pour arrêter)" : "Gravação MIDI ativa (Atalho: R para parar)"}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+                      <span>REC (R)</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => togglePatternRecording()}
+                      className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] group shrink-0 flex-shrink-0"
+                      title={lang === 'fr' ? "Activer l'enregistrement MIDI en direct (Raccourci: R)" : "Ativar gravação MIDI ao vivo (Atalho: R)"}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-[#8b2a1a] group-hover:bg-[#f4ecd8] shrink-0 transition-colors" />
+                      <span>REC (R)</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Mute */}
+              <button
+                onClick={onMuteToggle}
+                className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${
+                  (track.isMute && !track.isSolo)
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                    : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
+                }`}
+                title="Mute"
+              >
+                M
+              </button>
+
+              {/* Solo */}
+              <button
+                onClick={onSoloToggle}
+                className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${
+                  track.isSolo
+                    ? 'bg-[#d4af37] text-[#1a1a1a]'
+                    : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'
+                }`}
+                title="Solo"
+              >
+                S
+              </button>
+
+              {/* Detach / Reintegrate */}
+              <button
+                onClick={() => useSequencerStore.getState().toggleInstrumentEditorDetached()}
+                className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center cursor-pointer transition-colors ml-1 shrink-0 flex-shrink-0 ${
+                  isDetached ? 'bg-[#d4af37] text-[#1a1a1a] hover:bg-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37]'
+                }`}
+                title={
+                  isDetached
+                    ? (lang === 'fr' ? 'Réintégrer dans la fenêtre principale' : 'Reintegrar na janela principal')
+                    : (lang === 'fr' ? 'Détacher dans une nouvelle fenêtre' : 'Destacar em nova janela')
+                }
+              >
+                {isDetached ? '↙' : '↗'}
+              </button>
+
+              {/* Close */}
+              <button
+                onClick={handleClose}
+                disabled={isClosing}
+                className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1 shrink-0 flex-shrink-0"
+              >
+                {isClosing ? (
+                  <svg className="w-5 h-5 animate-spin text-[#f4ecd8]" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5 2.24-5 5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/>
+                  </svg>
+                ) : (
+                  '✕'
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Bouton REC Global de l'Éditeur (masqué en contexte vocal / Toada) */}
-          {!isVocalContext && (
-            <div className="flex items-center mr-2">
-              {isPatternRecording ? (
+          {/* Ligne 2 : Sous-ligne Transposition (Précision 1 : conditionnée sur isVocalContext) */}
+          {isVocalContext && (
+            <div className="w-full flex items-center justify-end shrink-0 flex-shrink-0 pt-0.5">
+              <div className="flex items-center gap-1.5 bg-[#f4ecd8] px-2.5 py-0.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] select-none shrink-0 flex-shrink-0">
+                <span className="mr-0.5 font-cactus uppercase tracking-wide text-[11px]">
+                  {lang === 'fr' ? 'Transposition :' : 'Transposição :'}
+                </span>
+                {/* Raccourci -7 (Quinte descendante) */}
                 <button
-                  onClick={() => togglePatternRecording()}
-                  className="h-8 px-2.5 rounded-sm cordel-border-sm bg-[#e74c3c] text-white shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-bold text-xs cordel-arm-pulse animate-pulse"
-                  title={lang === 'fr' ? "Enregistrement MIDI en cours (Raccourci: R pour arrêter)" : "Gravação MIDI ativa (Atalho: R para parar)"}
+                  type="button"
+                  onClick={() => handleTranspose(-7)}
+                  title={lang === 'fr' ? '-7 demi-tons (Quinte descendante)' : '-7 semitons (Quinta descendente)'}
+                  className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
                 >
-                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
-                  <span>REC (R)</span>
+                  -7
                 </button>
-              ) : (
+
+                {/* Bouton -1 demi-ton */}
                 <button
-                  onClick={() => togglePatternRecording()}
-                  className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] group"
-                  title={lang === 'fr' ? "Activer l'enregistrement MIDI en direct (Raccourci: R)" : "Ativar gravação MIDI ao vivo (Atalho: R)"}
+                  type="button"
+                  onClick={() => handleTranspose(-1)}
+                  title={lang === 'fr' ? '-1 demi-ton' : '-1 semitom'}
+                  className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#8b2a1a] group-hover:bg-[#f4ecd8] shrink-0 transition-colors" />
-                  <span>REC (R)</span>
+                  -
                 </button>
-              )}
+
+                {/* Compteur de transposition relative */}
+                <span className="w-8 text-center font-cactus text-sm font-black text-[#8b2a1a]">
+                  {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
+                </span>
+
+                {/* Bouton +1 demi-ton */}
+                <button
+                  type="button"
+                  onClick={() => handleTranspose(1)}
+                  title={lang === 'fr' ? '+1 demi-ton' : '+1 semitom'}
+                  className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                >
+                  +
+                </button>
+
+                {/* Raccourci +7 (Quinte ascendante) */}
+                <button
+                  type="button"
+                  onClick={() => handleTranspose(7)}
+                  title={lang === 'fr' ? '+7 demi-tons (Quinte ascendante)' : '+7 semitons (Quinta ascendente)'}
+                  className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
+                >
+                  +7
+                </button>
+              </div>
             </div>
           )}
-
-          {/* Mute */}
-          <button
-            onClick={onMuteToggle}
-            className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center ${
-              (track.isMute && !track.isSolo)
-                ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
-            }`}
-            title="Mute"
-          >
-            M
-          </button>
-
-          {/* Solo */}
-          <button
-            onClick={onSoloToggle}
-            className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center ${
-              track.isSolo
-                ? 'bg-[#d4af37] text-[#1a1a1a]'
-                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'
-            }`}
-            title="Solo"
-          >
-            S
-          </button>
-
-          {/* Detach / Reintegrate */}
-          <button
-            onClick={() => useSequencerStore.getState().toggleInstrumentEditorDetached()}
-            className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center cursor-pointer transition-colors ml-1 ${
-              isDetached ? 'bg-[#d4af37] text-[#1a1a1a] hover:bg-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37]'
-            }`}
-            title={
-              isDetached
-                ? (lang === 'fr' ? 'Réintégrer dans la fenêtre principale' : 'Reintegrar na janela principal')
-                : (lang === 'fr' ? 'Détacher dans une nouvelle fenêtre' : 'Destacar em nova janela')
-            }
-          >
-            {isDetached ? '↙' : '↗'}
-          </button>
-
-          {/* Close */}
-          <button
-            onClick={handleClose}
-            disabled={isClosing}
-            className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1"
-          >
-            {isClosing ? (
-              <svg className="w-5 h-5 animate-spin text-[#f4ecd8]" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5 2.24-5 5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/>
-              </svg>
-            ) : (
-              '✕'
-            )}
-          </button>
         </div>
 
         {/* ═══════════════════ CORPS CENTRAL (Grille + Inspecteur) ═══════════════════ */}
