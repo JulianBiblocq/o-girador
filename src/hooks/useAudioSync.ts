@@ -1936,8 +1936,11 @@ export function useAudioSync({
             const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
             const nextHasVocal = Boolean(nextVocalBuf && isVocalSamplePattern(nextPattern) && allowSamplePlayback);
             const nextClip = nextPattern.vocalClip;
-            // Rappel 1 : Déclenchement anticipé UNIQUEMENT si anacrouse avérée > 0.02s
-            const hasEarlyStart = Boolean(nextClip && ((nextClip.anacrusisSec || 0) > 0.02 || (nextClip.anacrusisBeats || 0) > 0.02));
+            // Rappel 1 : Déclenchement anticipé UNIQUEMENT si anacrouse avérée > 0.02s (attaque avant T1)
+            const isClipAnacrusis = nextClip?.startOffsetSec !== undefined
+              ? (nextClip.startOffsetSec < -0.02)
+              : Boolean((nextClip?.anacrusisSec || 0) > 0.02 || (nextClip?.anacrusisBeats || 0) > 0.02);
+            const hasEarlyStart = Boolean(nextClip && isClipAnacrusis);
 
             // Verrou spatial direct par mesure (Directive A)
             const targetKey = `${track.id}_m${nextMeasureLocal}`;
@@ -2606,9 +2609,10 @@ export function useAudioSync({
         const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
         const hasVocalSample = Boolean(vocalBuf && isVocalSamplePattern(ptn) && allowSamplePlayback);
         const clip = ptn.vocalClip;
-        const anacrusisSec = clip?.anacrusisSec ?? 0;
-        const anacrusisBeats = clip?.anacrusisBeats ?? 0;
-        const hasSampleAnacrusis = Boolean(hasVocalSample && (anacrusisSec > 0.02 || anacrusisBeats > 0.02));
+        const isClipAnacrusis = clip?.startOffsetSec !== undefined
+          ? (clip.startOffsetSec < -0.02)
+          : Boolean(((clip?.anacrusisSec ?? 0) > 0.02) || ((clip?.anacrusisBeats ?? 0) > 0.02));
+        const hasSampleAnacrusis = Boolean(hasVocalSample && isClipAnacrusis);
         const hasPreRollSyllables = Boolean(
           (ptn.preRollActiveSteps && ptn.preRollActiveSteps.some(Boolean)) ||
           (ptn.preRollLyrics && ptn.preRollLyrics.some(s => s && s.trim().length > 0)) ||
@@ -2740,8 +2744,10 @@ export function useAudioSync({
           const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
           const hasVocalSample = Boolean(vocalBuf && isVocalSamplePattern(activePattern) && allowSamplePlayback);
           const clip = activePattern.vocalClip;
-          const anacrusisSec = clip?.anacrusisSec ?? ((clip?.anacrusisBeats ?? 0) * beatDurationSec);
-          const hasSampleAnacrusis = Boolean(hasVocalSample && (anacrusisSec > 0.02 || (clip?.anacrusisBeats ?? 0) > 0.02));
+          const isClipAnacrusis = clip?.startOffsetSec !== undefined
+            ? (clip.startOffsetSec < -0.02)
+            : Boolean(((clip?.anacrusisSec ?? 0) > 0.02) || ((clip?.anacrusisBeats ?? 0) > 0.02));
+          const hasSampleAnacrusis = Boolean(hasVocalSample && isClipAnacrusis);
 
           const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
           const voiceInst = instrumentsConfig[track.instrumentIdx];

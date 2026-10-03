@@ -934,12 +934,18 @@ export const vocalEngineService = {
     const anchorBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
 
     const beatDurationSec = 60 / anchorBpm;
-    const anacrusisBeats = ptnRef?.vocalClip?.anacrusisBeats ?? 0;
-    const anacrusisSec = ptnRef?.vocalClip?.anacrusisSec ?? (anacrusisBeats * beatDurationSec);
+    let triggerOffsetSec = 0;
+    if (ptnRef?.vocalClip?.startOffsetSec !== undefined) {
+      triggerOffsetSec = ptnRef.vocalClip.startOffsetSec;
+    } else if (ptnRef?.vocalClip?.anacrusisSec !== undefined) {
+      triggerOffsetSec = -ptnRef.vocalClip.anacrusisSec;
+    } else if (ptnRef?.vocalClip?.anacrusisBeats !== undefined) {
+      triggerOffsetSec = -(ptnRef.vocalClip.anacrusisBeats * beatDurationSec);
+    }
     const nudgeMs = ptnRef?.vocalClip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
 
     // En écoute solo (pré-écoute), décaler le trigger pour que le sample démarre dès l'offset 0 à l'instant 'time'
-    const previewTime = time + anacrusisSec - (nudgeMs / 1000);
+    const previewTime = time - triggerOffsetSec - (nudgeMs / 1000);
 
     this.playSequencerVocal(voiceTrack?.id ?? 0, patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
   },
@@ -1032,15 +1038,22 @@ export const vocalEngineService = {
     const isPurePlayback = Math.abs(rate - 1.0) < 0.001;
     const playbackRate = isPurePlayback ? 1.0 : ((Number.isFinite(rate) && rate > 0) ? rate : 1.0);
 
-    // 2. Mathématique de l'Anacrouse basée sur le BPM effectif de la mesure
+    // 2. Mathématique du calage temporel (Anacrouse ou Départ différé / Syncope)
     const beatDurationSec = 60 / effectiveBpm;
-    const anacrusisBeats = clip?.anacrusisBeats ?? 0;
-    const anacrusisSec = clip?.anacrusisSec ?? (anacrusisBeats * beatDurationSec);
+    let triggerOffsetSec = 0;
+    if (clip?.startOffsetSec !== undefined) {
+      triggerOffsetSec = clip.startOffsetSec;
+    } else if (clip?.anacrusisSec !== undefined) {
+      triggerOffsetSec = -clip.anacrusisSec;
+    } else if (clip?.anacrusisBeats !== undefined) {
+      triggerOffsetSec = -(clip.anacrusisBeats * beatDurationSec);
+    }
+
     const nudgeMs = clip?.nudgeMs ?? (ptnRef.vocalNudge ?? 0);
 
-    // Décalage de Balanço si le chant démarre sur un pas intermédiaire sans anacrouse
+    // Décalage de Balanço si le chant démarre sur un pas intermédiaire sans calage temporel manuel
     let balancoOffset = 0;
-    if (anacrusisSec <= 0.02) {
+    if (Math.abs(triggerOffsetSec) <= 0.02) {
       const activeSteps = ptnRef.activeSteps || [];
       const firstStepIdx = activeSteps.findIndex((s: any) => s !== undefined && s !== null && s !== 0 && s !== '0');
       if (firstStepIdx > 0) {
@@ -1058,7 +1071,7 @@ export const vocalEngineService = {
     }
 
     // Calcul de l'instant de déclenchement sur la timeline
-    const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000) + balancoOffset;
+    const triggerTime = measureStartTime + triggerOffsetSec + (nudgeMs / 1000) + balancoOffset;
     const bufferDuration = audioBuffer.duration;
     const actualStartTime = triggerTime >= 0 ? triggerTime : 0;
 

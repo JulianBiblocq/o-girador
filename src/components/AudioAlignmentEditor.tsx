@@ -164,10 +164,15 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
   // Positionnement initial :
   // Le sample importé s'initialise inconditionnellement à waveBaseX = 0 (début de la piste d'élan).
-  // Si le motif possédait déjà une anacrouse enregistrée (réouverture hors-import), repositionner l'onde fidèlement.
+  // Si le motif possédait déjà un décalage ou une anacrouse enregistrée (réouverture hors-import), repositionner l'onde fidèlement.
   const getInitialBaseWaveX = (pps: number) => {
-    if (!isImported && pattern.vocalClip && pattern.vocalClip.anacrusisSec !== undefined) {
-      return (t_temps1 * pps) - (pattern.vocalClip.anacrusisSec * pps) - (defaultTrimStart * pps);
+    if (!isImported && pattern.vocalClip) {
+      if (pattern.vocalClip.startOffsetSec !== undefined) {
+        return (t_temps1 * pps) + (pattern.vocalClip.startOffsetSec * pps) - (defaultTrimStart * pps);
+      }
+      if (pattern.vocalClip.anacrusisSec !== undefined) {
+        return (t_temps1 * pps) - (pattern.vocalClip.anacrusisSec * pps) - (defaultTrimStart * pps);
+      }
     }
     // Ancrage géométrique inconditionnel pour tout import audio : 0 (piste d'élan [0, temps1Px])
     return 0;
@@ -186,34 +191,36 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
   const { handleTogglePlay, handleStop } = useAudio();
 
-  // Calcul assaini de l'anacrouse :
-  // L'anacrouse ne représente QUE le chant utile situé à gauche de la ligne rouge Temps 1
-  // Règle 1 : Si l'attaque vocale est sur le Temps 1 ou après : anacrusisSec = 0.
-  // Règle 2 : Seul un chant possédant des syllabes actives sur la mesure M-1 doit déclencher une avance rétrograde.
-  const calculateAnacrusisSec = useCallback((baseX: number, trimStart: number) => {
+  // Calcul signé universel du décalage par rapport au Temps 1 :
+  // Déplacement vers la gauche : départ avant T1 (startOffsetSec < 0, anacrouse)
+  // Déplacement vers la droite : départ après T1 (startOffsetSec > 0, départ différé / syncope)
+  const calculateStartOffsetSec = useCallback((baseX: number, trimStart: number) => {
     const waveBaseXSec = baseX / pixelsPerSecond;
     const attackPosSec = waveBaseXSec + trimStart;
-    const isAttackBeforeTemps1 = attackPosSec < (t_temps1 - 0.01);
-    return isAttackBeforeTemps1
-      ? Math.max(0, t_temps1 - attackPosSec)
-      : 0;
+    return attackPosSec - t_temps1;
   }, [t_temps1, pixelsPerSecond]);
 
-  // Mise à jour synchrone des badges d'anacrouse (Zero Render Thrashing)
+  // Mise à jour synchrone des badges de calage temporel (Zero Render Thrashing)
   const updateLiveTimingBadges = useCallback((_totalX?: number) => {
-    const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSecRef.current);
-    const anacrusisBeats = anacrusisSec / beatDurationSec;
+    const startOffsetSec = calculateStartOffsetSec(waveBaseXRef.current, trimStartSecRef.current);
+    let offsetMs = Math.round(startOffsetSec * 1000);
+    if (Math.abs(offsetMs) <= 1) {
+      offsetMs = 0;
+    }
 
     if (anacrusisBadgeRef.current) {
-      if (anacrusisSec > 0.001) {
-        anacrusisBadgeRef.current.textContent = `Anacrouse : ${(anacrusisSec * 1000).toFixed(0)} ms (${anacrusisBeats.toFixed(2)} tps)`;
+      if (offsetMs < 0) {
+        anacrusisBadgeRef.current.textContent = `ANACROUSE : ${Math.abs(offsetMs)} MS (AVANT TEMPS 1)`;
         anacrusisBadgeRef.current.style.color = '#2a5d4e';
-      } else {
-        anacrusisBadgeRef.current.textContent = 'Anacrouse : 0 ms (Temps 1 calé)';
+      } else if (offsetMs > 0) {
+        anacrusisBadgeRef.current.textContent = `DÉPART DIFFÉRÉ : +${offsetMs} MS (APRÈS TEMPS 1)`;
         anacrusisBadgeRef.current.style.color = '#8b2a1a';
+      } else {
+        anacrusisBadgeRef.current.textContent = 'TEMPS 1 CALÉ (0 MS)';
+        anacrusisBadgeRef.current.style.color = '#1a1a1a';
       }
     }
-  }, [calculateAnacrusisSec, beatDurationSec]);
+  }, [calculateStartOffsetSec]);
 
   // Initialisation badge et translation GPU immédiate au montage
   useEffect(() => {
@@ -729,14 +736,14 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       });
 
       // Synchronisation matérielle avec délai de prévenance leadTime
-      const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSecRef.current);
-      const deltaSec = anacrusisSec - (nudgeMsRef.current / 1000);
-      const leadTime = Math.max(0.06, deltaSec + 0.05);
+      const startOffsetSec = calculateStartOffsetSec(waveBaseXRef.current, trimStartSecRef.current);
+      const totalOffsetSec = startOffsetSec + (nudgeMsRef.current / 1000);
+      const leadTime = totalOffsetSec < 0 ? Math.max(0.06, Math.abs(totalOffsetSec) + 0.05) : 0.06;
 
       const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
       const now = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime);
       const bateriaStartTime = now + leadTime;
-      const vocalStartTime = bateriaStartTime - deltaSec;
+      const vocalStartTime = bateriaStartTime + totalOffsetSec;
 
       setIsPlayingPreview(true);
       isPlayingPreviewRef.current = true;
@@ -780,7 +787,14 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   const handleWaveformPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
     const deltaX = e.clientX - dragStartXRef.current;
-    const newBaseX = dragStartBaseXRef.current + deltaX;
+    let newBaseX = dragStartBaseXRef.current + deltaX;
+
+    // Snap magnétique subtil au Temps 1 (rayon de 4 pixels pour calage aisé sans contrainte)
+    const attackX = newBaseX + (trimStartSecRef.current * pixelsPerSecond);
+    if (Math.abs(attackX - temps1Px) < 4) {
+      newBaseX = temps1Px - (trimStartSecRef.current * pixelsPerSecond);
+    }
+
     waveBaseXRef.current = newBaseX;
     waveBaseXSecRef.current = newBaseX / pixelsPerSecond;
     const totalX = newBaseX + (nudgeMsRef.current / 1000) * pixelsPerSecond;
@@ -943,8 +957,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
       const wavBlob = audioBufferToWav(cleanBuffer);
 
-      // Calcul assaini de l'anacrouse basée sur la présence de syllabes et l'attaque utile sous Temps 1
-      const anacrusisSec = calculateAnacrusisSec(waveBaseXRef.current, trimStartSec);
+      // Calcul assaini du décalage signé par rapport au Temps 1
+      const startOffsetSec = calculateStartOffsetSec(waveBaseXRef.current, trimStartSec);
+      const anacrusisSec = startOffsetSec < 0 ? Math.abs(startOffsetSec) : 0;
       const anacrusisBeats = anacrusisSec / beatDurationSec;
 
       // Découplage absolu : sampleBpm est le tempo d'origine du fichier audio (pré-rempli avec anchorBpm)
@@ -962,6 +977,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         nudgeMs: nudgeMsRef.current,
         anacrusisBeats,
         anacrusisSec,
+        startOffsetSec,
         // Backward compatibility
         offsetStart: 0,
         startTimeDelay: nudgeMsRef.current / 1000,
@@ -991,9 +1007,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           <span
             ref={anacrusisBadgeRef}
             className="px-2 py-0.5 bg-[#ece4d0] border border-[#1a1a1a] text-[10px] font-black uppercase font-mono tracking-wider shadow-[1px_1px_0px_#1a1a1a]"
-            style={{ color: '#2a5d4e' }}
+            style={{ color: '#1a1a1a' }}
           >
-            Anacrouse : 0 ms (0.00 tps)
+            TEMPS 1 CALÉ (0 MS)
           </span>
         </div>
 

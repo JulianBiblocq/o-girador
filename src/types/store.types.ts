@@ -62,6 +62,7 @@ export interface VocalClipMeta {
   nudgeMs: number;           // Décalage fin manuel (+/- ms)
   anacrusisBeats: number;    // Débordement éventuel avant le temps 1 (en temps musicaux)
   anacrusisSec?: number;     // Durée réelle de l'anacrouse en secondes
+  startOffsetSec?: number;   // Décalage temporel signé par rapport au Temps 1 (- = anacrouse, + = départ différé / syncope)
   // Backward-compatibility aliases
   offsetStart?: number;      // Legacy alias for trimStartSec
   startTimeDelay?: number;   // Legacy alias for nudgeSec
