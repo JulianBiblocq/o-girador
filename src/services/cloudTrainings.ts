@@ -4,7 +4,7 @@
  */
 
 import { db } from '../firebase/config';
-import { collection, addDoc, getDocs, doc, getDoc, setDoc, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { TrainingProgram } from '../types/trainings';
 
 export const CLOUD_TRAININGS_COLLECTION = 'trainings';
@@ -28,34 +28,60 @@ export async function saveTrainingProgram(training: Omit<TrainingProgram, 'id'>)
 }
 
 /**
+ * Met à jour un programme d'entraînement existant (/trainings/{trainingId}).
+ */
+export async function updateTrainingProgram(
+  trainingId: string,
+  data: Partial<Omit<TrainingProgram, 'id'>>
+): Promise<void> {
+  if (!trainingId) throw new Error('Training ID is required for update');
+  const docRef = doc(db, CLOUD_TRAININGS_COLLECTION, trainingId);
+  const payload: Record<string, any> = {
+    ...data,
+    updatedAt: Date.now(),
+  };
+  if (payload.groupId) {
+    payload.groupId = payload.groupId.trim().toLowerCase();
+  }
+  await updateDoc(docRef, payload);
+}
+
+/**
+ * Supprime un programme d'entraînement (/trainings/{trainingId}).
+ */
+export async function deleteTrainingProgram(trainingId: string): Promise<void> {
+  if (!trainingId) throw new Error('Training ID is required for deletion');
+  const docRef = doc(db, CLOUD_TRAININGS_COLLECTION, trainingId);
+  await deleteDoc(docRef);
+}
+
+/**
  * Récupère les entraînements existants rattachés à un morceau et un groupe.
  * Tolérance de casse sur le groupId ([groupId, groupId.toLowerCase()]).
+ * Garde-fou strict : si presetId ou groupId est vide/falsy, retourne immédiatement [] sans requête.
  */
-export async function fetchTrainingsByPreset(presetId: string, groupId: string): Promise<TrainingProgram[]> {
-  if (!presetId) return [];
+export async function fetchTrainingsByPreset(presetId?: string | null, groupId?: string | null): Promise<TrainingProgram[]> {
+  const cleanPreset = (presetId || '').trim();
+  const cleanGroup = (groupId || '').trim();
+  if (!cleanPreset || !cleanGroup) return [];
+
   const collRef = collection(db, CLOUD_TRAININGS_COLLECTION);
 
   try {
-    const rawGroup = (groupId || '').trim();
-    const groupVariants = Array.from(new Set([rawGroup, rawGroup.toLowerCase()].filter(Boolean)));
+    const groupVariants = Array.from(new Set([cleanGroup, cleanGroup.toLowerCase()].filter(Boolean)));
 
     let q;
     if (groupVariants.length > 1) {
       q = query(
         collRef,
-        where('presetId', '==', presetId),
+        where('presetId', '==', cleanPreset),
         where('groupId', 'in', groupVariants)
-      );
-    } else if (groupVariants.length === 1) {
-      q = query(
-        collRef,
-        where('presetId', '==', presetId),
-        where('groupId', '==', groupVariants[0])
       );
     } else {
       q = query(
         collRef,
-        where('presetId', '==', presetId)
+        where('presetId', '==', cleanPreset),
+        where('groupId', '==', groupVariants[0])
       );
     }
 

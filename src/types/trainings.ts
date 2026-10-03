@@ -25,4 +25,5 @@ export interface TrainingProgram {
   consolidationLaps: number;
   stages: TrainingStage[];
   createdAt: number;
+  updatedAt?: number;
 }

@@ -13,10 +13,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { i18n } from '../data';
 import { SpeedTrainerConfig } from '../types/speedTrainer.types';
 import { TrainingProgram } from '../types/trainings';
-import { X, Minus, Plus, Square, Info, GraduationCap, Save, CheckCircle2, Loader2 } from 'lucide-react';
+import { X, Minus, Plus, Square, Info, GraduationCap, Save, CheckCircle2, Loader2, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { XiloLightning } from './XiloIcons';
 import { generateTrainingStages } from '../utils/trainingCalculator';
-import { saveTrainingProgram } from '../services/cloudTrainings';
+import { saveTrainingProgram, updateTrainingProgram, deleteTrainingProgram, fetchTrainingsByPreset } from '../services/cloudTrainings';
 
 interface HoldButtonProps {
   onAction: () => void;
@@ -233,7 +233,54 @@ export const SpeedTrainerModal: React.FC = () => {
   const [consolidationLaps, setConsolidationLaps] = useState<number>(2);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Mestre training management state
+  const [existingTrainings, setExistingTrainings] = useState<TrainingProgram[]>([]);
+  const [isLoadingTrainings, setIsLoadingTrainings] = useState<boolean>(false);
+  const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  // Normalisation presetId & groupId pour Firestore
+  const resolvedPresetId = useMemo(() => {
+    if (audio.activePresetName && audio.activePresetName.startsWith('cloud:')) {
+      return audio.activePresetName.replace('cloud:', '');
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromParam = urlParams.get('loadPreset');
+    if (fromParam) return fromParam;
+    const rawPresetName = sequencer.metadata?.toada?.trim() || audio.activePresetName || '';
+    return rawPresetName ? rawPresetName.toLowerCase().replace(/[^a-z0-9_-]/g, '_') : '';
+  }, [audio.activePresetName, sequencer.metadata?.toada]);
+
+  const effectiveGroupId = useMemo(() => {
+    return (userProfile?.groupId || 'samambaia').trim();
+  }, [userProfile?.groupId]);
+
+  // Chargement des défis existants sur le morceau
+  const loadTrainings = useCallback(async () => {
+    if (!resolvedPresetId || !effectiveGroupId) {
+      setExistingTrainings([]);
+      return;
+    }
+    setIsLoadingTrainings(true);
+    try {
+      const list = await fetchTrainingsByPreset(resolvedPresetId, effectiveGroupId);
+      setExistingTrainings(list);
+    } catch (err) {
+      console.error('Error loading trainings:', err);
+      setExistingTrainings([]);
+    } finally {
+      setIsLoadingTrainings(false);
+    }
+  }, [resolvedPresetId, effectiveGroupId]);
+
+  useEffect(() => {
+    if (isOpen && isMestre && activeTab === 'mestre') {
+      loadTrainings();
+    }
+  }, [isOpen, isMestre, activeTab, loadTrainings]);
 
   // Marker selection handlers
   const handleSelectSingleMarker = (markerId: string) => {
@@ -313,7 +360,9 @@ export const SpeedTrainerModal: React.FC = () => {
       setRangeStartMarkerId('');
       setRangeEndMarkerId('');
       setChallengeTitle(defaultChallengeTitle);
+      setEditingTrainingId(null);
       setSaveSuccess(false);
+      setSaveMessage(null);
       setSaveError(null);
     }
   }, [isOpen, storeConfig, songBpm, totalMeasures, defaultChallengeTitle, activeTrainingSession]);
@@ -382,42 +431,113 @@ export const SpeedTrainerModal: React.FC = () => {
     audio.stopSpeedTrainerAudio();
   };
 
+  const handleStartEditTraining = (training: TrainingProgram) => {
+    if (!training.id) return;
+    setEditingTrainingId(training.id);
+    setChallengeTitle(training.title || defaultChallengeTitle);
+    setStartMeasure(training.startMeasure);
+    setEndMeasure(training.endMeasure);
+    setStagesCount(training.stagesCount || 3);
+    setConsolidationLaps(training.consolidationLaps || 2);
+    if (training.stages && training.stages.length > 0) {
+      setStartBpm(training.stages[0].startBpm);
+      setTargetBpm(training.stages[training.stages.length - 1].targetBpm);
+      setBpmStep(training.stages[0].bpmStep || 2);
+      setLoopInterval(training.stages[0].loopInterval || 1);
+    }
+    setSelectedSectionMarkerId('');
+    setRangeStartMarkerId('');
+    setRangeEndMarkerId('');
+    setSaveSuccess(false);
+    setSaveMessage(null);
+    setSaveError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTrainingId(null);
+    setChallengeTitle(defaultChallengeTitle);
+    setSaveSuccess(false);
+    setSaveMessage(null);
+    setSaveError(null);
+  };
+
+  const handleDeleteTraining = async (trainingId: string) => {
+    if (!window.confirm(t('speedTrainerConfirmDelete'))) return;
+    setIsDeletingId(trainingId);
+    setSaveError(null);
+    try {
+      await deleteTrainingProgram(trainingId);
+      // Point 4: Reset après suppression si c'était le défi en cours d'édition
+      if (editingTrainingId === trainingId) {
+        handleCancelEdit();
+      }
+      setSaveMessage(t('speedTrainerChallengeDeleted'));
+      setSaveSuccess(true);
+      await loadTrainings();
+    } catch (err: any) {
+      console.error('Failed to delete training program:', err);
+      setSaveError(err?.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsDeletingId(null);
+    }
+  };
+
   const handleSaveTraining = async () => {
     if (isSaving) return;
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
+    setSaveMessage(null);
 
     try {
       const rawPresetName = sequencer.metadata?.toada?.trim() || audio.activePresetName || 'Morceau';
-      
-      let resolvedPresetId = '';
-      if (audio.activePresetName && audio.activePresetName.startsWith('cloud:')) {
-        resolvedPresetId = audio.activePresetName.replace('cloud:', '');
-      } else {
-        const urlParams = new URLSearchParams(window.location.search);
-        resolvedPresetId = urlParams.get('loadPreset') || rawPresetName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-      }
-
-      const effectiveGroupId = userProfile?.groupId || 'samambaia';
       const effectiveMestreId = userProfile?.uid || '';
 
-      const programData: Omit<TrainingProgram, 'id'> = {
-        presetId: resolvedPresetId,
-        presetName: rawPresetName,
-        groupId: effectiveGroupId,
-        mestreId: effectiveMestreId,
-        title: challengeTitle.trim() || defaultChallengeTitle,
-        startMeasure,
-        endMeasure,
+      // Point 1: Régénération impérative du tableau stages via generateTrainingStages(...)
+      const freshStages = generateTrainingStages(
+        Math.min(startBpm, targetBpm),
+        targetBpm,
         stagesCount,
-        consolidationLaps,
-        stages: calculatedStages,
-        createdAt: Date.now(),
-      };
+        bpmStep,
+        loopInterval,
+        consolidationLaps
+      );
 
-      await saveTrainingProgram(programData);
-      setSaveSuccess(true);
+      if (editingTrainingId) {
+        await updateTrainingProgram(editingTrainingId, {
+          title: challengeTitle.trim() || defaultChallengeTitle,
+          startMeasure,
+          endMeasure,
+          stagesCount,
+          consolidationLaps,
+          stages: freshStages,
+        });
+        setSaveMessage(t('speedTrainerChallengeUpdated'));
+        setSaveSuccess(true);
+        setEditingTrainingId(null);
+        setChallengeTitle(defaultChallengeTitle);
+      } else {
+        const programData: Omit<TrainingProgram, 'id'> = {
+          presetId: resolvedPresetId,
+          presetName: rawPresetName,
+          groupId: effectiveGroupId,
+          mestreId: effectiveMestreId,
+          title: challengeTitle.trim() || defaultChallengeTitle,
+          startMeasure,
+          endMeasure,
+          stagesCount,
+          consolidationLaps,
+          stages: freshStages,
+          createdAt: Date.now(),
+        };
+
+        await saveTrainingProgram(programData);
+        setSaveMessage(t('speedTrainerChallengeSaved'));
+        setSaveSuccess(true);
+        setChallengeTitle(defaultChallengeTitle);
+      }
+
+      await loadTrainings();
     } catch (err: any) {
       console.error('Failed to save training program:', err);
       setSaveError(err?.message || 'Erreur lors de la sauvegarde');
@@ -924,7 +1044,7 @@ export const SpeedTrainerModal: React.FC = () => {
               {renderStepAndInterval()}
             </>
           ) : (
-            /* --- ONGLET 2 : CRÉER UN ENTRAÎNEMENT (MESTRE) --- */
+            /* --- ONGLET 2 : CRÉER / GÉRER UN ENTRAÎNEMENT (MESTRE) --- */
             <>
               {/* Pedagogical Help Box Mestre */}
               <div className="p-2.5 bg-[#ebe2cb]/70 border border-[#1a1a1a]/40 rounded-xs flex items-start gap-2 text-[11px] text-[#333] leading-relaxed">
@@ -935,6 +1055,136 @@ export const SpeedTrainerModal: React.FC = () => {
                     : "Defina um desafio em etapas progressivas para seus alunos. Eles deverão manter o andamento alvo para validar o desafio."}
                 </p>
               </div>
+
+              {/* Liste des défis existants sur ce morceau */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666] flex items-center gap-1.5">
+                    📋 {t('speedTrainerExistingChallenges')}
+                    {existingTrainings.length > 0 && (
+                      <span className="px-1.5 py-0.2 bg-[#1a1a1a] text-[#f4ecd8] rounded-xs text-[10px]">
+                        {existingTrainings.length}
+                      </span>
+                    )}
+                  </label>
+                  {editingTrainingId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="text-[11px] font-bold text-[#8b2a1a] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      {t('speedTrainerNewChallenge')}
+                    </button>
+                  )}
+                </div>
+
+                {isLoadingTrainings ? (
+                  <div className="p-4 bg-[#fcf9f2] border-2 border-[#1a1a1a] rounded-xs flex items-center justify-center gap-2 text-xs text-[#666] shadow-[2px_2px_0px_#1a1a1a]">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                    <span>{lang === 'fr' ? 'Chargement des défis...' : 'Carregando desafios...'}</span>
+                  </div>
+                ) : existingTrainings.length === 0 ? (
+                  <div className="p-3 bg-[#fcf9f2] border-2 border-[#1a1a1a]/40 border-dashed rounded-xs text-center text-xs text-[#777] italic">
+                    {t('speedTrainerNoChallenges')}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-0.5">
+                    {existingTrainings.map((tr) => {
+                      const isCurrentEditing = editingTrainingId === tr.id;
+                      const isDeleting = isDeletingId === tr.id;
+                      const sBpm = tr.stages?.[0]?.startBpm;
+                      const tBpm = tr.stages?.[tr.stages.length - 1]?.targetBpm;
+
+                      return (
+                        <div
+                          key={tr.id}
+                          className={`p-2.5 rounded-xs border-2 transition-all flex items-center justify-between gap-2 shadow-[2px_2px_0px_#1a1a1a] ${
+                            isCurrentEditing
+                              ? 'border-amber-600 bg-amber-500/15'
+                              : 'border-[#1a1a1a] bg-[#fcf9f2] hover:bg-[#fffdf9]'
+                          }`}
+                        >
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-cactus font-bold text-sm text-[#1a1a1a] truncate">
+                                {tr.title}
+                              </span>
+                              {isCurrentEditing && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 bg-amber-600 text-[#f4ecd8] rounded-xs uppercase">
+                                  {lang === 'fr' ? 'En cours' : 'Em edição'}
+                                </span>
+                              )}
+                            </div>
+                            {/* Point 2: Affichage mesures en Base 1 (${startMeasure + 1} - ${endMeasure + 1}) */}
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#555] flex-wrap">
+                              <span className="font-bold text-[#1a1a1a]">
+                                m. {tr.startMeasure + 1} - {tr.endMeasure + 1}
+                              </span>
+                              <span>•</span>
+                              <span>{tr.stagesCount} {lang === 'fr' ? 'paliers' : 'etapas'}</span>
+                              {sBpm && tBpm && (
+                                <>
+                                  <span>•</span>
+                                  <span className="font-bold text-amber-900">
+                                    {sBpm} ➔ {tBpm} BPM
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditTraining(tr)}
+                              title={t('speedTrainerEditChallenge')}
+                              className={`p-1.5 border border-[#1a1a1a] rounded-xs font-bold transition-colors cursor-pointer ${
+                                isCurrentEditing
+                                  ? 'bg-[#1a1a1a] text-[#f4ecd8]'
+                                  : 'bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+                              }`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isDeleting}
+                              onClick={() => tr.id && handleDeleteTraining(tr.id)}
+                              title={t('speedTrainerDeleteChallenge')}
+                              className="p-1.5 border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-red-700 hover:text-white rounded-xs font-bold transition-colors cursor-pointer disabled:opacity-40"
+                            >
+                              {isDeleting ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Bannière mode édition active */}
+              {editingTrainingId && (
+                <div className="p-2 bg-amber-500/20 border-2 border-amber-600 rounded-xs flex items-center justify-between gap-2 shadow-[2px_2px_0px_#1a1a1a]">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950 truncate">
+                    <Pencil className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>{t('speedTrainerEditingChallenge')}</span>
+                    <span className="truncate italic">"{challengeTitle}"</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="text-[10px] font-bold px-2 py-0.5 bg-[#f4ecd8] border border-[#1a1a1a] rounded-xs hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer shrink-0"
+                  >
+                    {t('speedTrainerCancelEdit')}
+                  </button>
+                </div>
+              )}
 
               {/* Nom du défi */}
               <div className="flex flex-col gap-1.5">
@@ -1056,7 +1306,9 @@ export const SpeedTrainerModal: React.FC = () => {
               {saveSuccess && (
                 <div className="p-2.5 bg-emerald-500/20 border-2 border-emerald-600 rounded-xs flex items-center gap-2 text-xs font-bold text-emerald-900 animate-in fade-in">
                   <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span>{t('speedTrainerChallengeSaved')}</span>
+                  <span>
+                    {saveMessage || (editingTrainingId ? t('speedTrainerChallengeUpdated') : t('speedTrainerChallengeSaved'))}
+                  </span>
                 </div>
               )}
               {saveError && (
@@ -1100,17 +1352,21 @@ export const SpeedTrainerModal: React.FC = () => {
               type="button"
               disabled={isSaving}
               onClick={handleSaveTraining}
-              className="w-full py-2.5 px-4 bg-emerald-700 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-emerald-800 disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className={`w-full py-2.5 px-4 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                editingTrainingId
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-emerald-700 hover:bg-emerald-800'
+              }`}
             >
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {t('speedTrainerSavingChallenge')}
+                  {editingTrainingId ? t('speedTrainerUpdatingChallenge') : t('speedTrainerSavingChallenge')}
                 </>
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  {t('speedTrainerSaveChallenge')}
+                  {editingTrainingId ? t('speedTrainerUpdateChallenge') : t('speedTrainerSaveChallenge')}
                 </>
               )}
             </button>
