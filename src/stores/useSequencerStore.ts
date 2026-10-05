@@ -1,14 +1,16 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import * as Tone from 'tone';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice, WorkspaceTemplate } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice, WorkspaceTemplate, TrainingSlice } from '../types';
 import { createSpeedTrainerSlice } from './slices/speedTrainerSlice';
+import { createTrainingSlice } from './slices/trainingSlice';
 
 import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
 import { getTopParentBusId } from '../utils/colorHelpers';
 import { transposeNoteString } from '../utils/musicTheory';
+import { canTransferPatterns, convertStepsToVocalRole, getInstrumentFamily } from '../utils/instrumentCompatibility';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
@@ -46,6 +48,7 @@ export interface TrackSlice {
   handleReorderMixerTracks: (activeId: number, overId: number) => void;
   handleReorderWagon: (wagonTrackIds: number[], overTrackId: number) => void;
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
+  setSelectedPatternId: (trackId: number, patternId: number) => void;
   handleCreateFromTemplate: (
     template: WorkspaceTemplate,
     audio?: {
@@ -63,6 +66,7 @@ export interface TrackSlice {
   handleTrackSoloToggle: (id: number) => void;
   handleTrackHideToggle: (id: number) => void;
   handleTrackDelete: (id: number) => void;
+  duplicateTrack: (trackId: number) => number | null;
   handleTrackVolumeChange: (id: number, val: number) => void;
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
@@ -404,6 +408,13 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       tracksVersion: state.tracksVersion + 1
     };
   }),
+  setSelectedPatternId: (trackId: number, patternId: number) => set(state => ({
+    tracks: state.tracks.map(t => (t.id === trackId || String(t.id) === String(trackId))
+      ? { ...t, selectedPatternId: patternId }
+      : t
+    ),
+    tracksVersion: state.tracksVersion + 1
+  })),
   setRodaTrackOrder: (updater) => set(state => {
     const rawOrder = typeof updater === 'function' ? updater(state.rodaTrackOrder) : updater;
     const nextOrder = sanitizeRodaTrackOrder(rawOrder, state.tracks);
@@ -890,6 +901,65 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         mixerBankOffset: nextMixerBankOffset
       };
     });
+  },
+
+  duplicateTrack: (trackId) => {
+    get().pushUndoState();
+    const state = get();
+    const originalTrack = state.tracks.find(t => t.id === trackId);
+    if (!originalTrack) return null;
+
+    const inst = instrumentsConfig[originalTrack.instrumentIdx];
+    const newTrackId = Date.now() + Math.floor(Math.random() * 1000);
+    const copySuffix = state.lang === 'fr' ? '(Copie)' : '(Cópia)';
+    const baseName = originalTrack.customName || inst?.name || 'Piste';
+    const newName = `${baseName} ${copySuffix}`;
+
+    // Cloner tous les motifs avec de nouveaux IDs
+    const newPatterns: Pattern[] = (originalTrack.patterns || []).map((p, pIdx) => ({
+      ...JSON.parse(JSON.stringify(p)),
+      id: newTrackId + 10 + pIdx + Math.floor(Math.random() * 100),
+    }));
+
+    const newTrack: TrackGroup = {
+      ...JSON.parse(JSON.stringify(originalTrack)),
+      id: newTrackId,
+      customName: newName,
+      patterns: newPatterns,
+      selectedPatternId: newPatterns[0]?.id || 0,
+      linkedToTrackId: undefined,
+      isLinkMaster: undefined,
+    };
+
+    // Insérer la nouvelle piste immédiatement après l'originale dans tracks
+    const origIndex = state.tracks.findIndex(t => t.id === trackId);
+    const nextTracks = [...state.tracks];
+    if (origIndex !== -1) {
+      nextTracks.splice(origIndex + 1, 0, newTrack);
+    } else {
+      nextTracks.push(newTrack);
+    }
+
+    // Consigne 1 : Insérer impérativement le nouvel identifiant dans rodaTrackOrder immédiatement après la piste d'origine
+    let nextRodaOrder = [...(state.rodaTrackOrder || [])];
+    const rodaIdx = nextRodaOrder.indexOf(trackId);
+    if (rodaIdx !== -1) {
+      nextRodaOrder.splice(rodaIdx + 1, 0, newTrackId);
+    } else {
+      nextRodaOrder.push(newTrackId);
+    }
+    nextRodaOrder = sanitizeRodaTrackOrder(nextRodaOrder, nextTracks);
+
+    // Consigne 1 : Appliquer applyRadii pour recalculer instantanément les rayons sans décalage
+    const finalTracks = applyRadii(nextTracks, nextRodaOrder);
+
+    set({
+      tracks: finalTracks,
+      rodaTrackOrder: nextRodaOrder,
+      tracksVersion: state.tracksVersion + 1,
+    });
+
+    return newTrackId;
   },
 
   handleTrackVolumeChange: (id, val) => {
@@ -3739,6 +3809,7 @@ export interface PlaybackSlice {
   currentLoopIteration: number; // For UI countdown display
   isLoopBypassed: boolean; // True when loop is bypassed and finishing linear sequence
   isLoopExitRequested: boolean;
+  isPreRolling: boolean; // True pendant le décompte pré-roll (count-in) avant la mesure 1
 
   handleSetLoopStart: (measure: number | null) => void;
   handleSetLoopEnd: (measure: number | null) => void;
@@ -3754,6 +3825,7 @@ export interface PlaybackSlice {
   setLoopEndMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
   setCurrentMeasure: (measure: number | ((prev: number) => number)) => void;
   setCurrentExpandedMeasureIdx: (idx: number | ((prev: number) => number)) => void;
+  setIsPreRolling: (isPreRolling: boolean) => void;
 }
 
 const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> = (set, get) => ({
@@ -3767,6 +3839,9 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
   currentLoopIteration: 1,
   isLoopBypassed: false,
   isLoopExitRequested: false,
+  isPreRolling: false,
+
+  setIsPreRolling: (isPreRolling) => set({ isPreRolling }),
 
   setCurrentMeasure: (updater) => set(state => {
     const raw = typeof updater === 'function' ? updater(state.currentMeasure) : updater;
@@ -3978,20 +4053,188 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
 // ---------------------------------------------------------
 // 5. CLIPBOARD SLICE
 // ---------------------------------------------------------
+export interface InstrumentPatternsClipboard {
+  sourceTrackId: number;
+  sourceInstrumentIdx: number;
+  sourceInstId: string;
+  sourceFamily: string;
+  patterns: Pattern[];
+}
+
 export interface ClipboardSlice {
   copiedPattern: Pattern | null;
   copiedSection: any | null;
+  instrumentPatternsClipboard: InstrumentPatternsClipboard | null;
+  vocalNotesClipboard: string[] | null;
 
   setCopiedPattern: (pattern: Pattern | null) => void;
   setCopiedSection: (section: any | null) => void;
   handleCopyPattern: (pattern: Pattern) => void;
   handleCopySongSection: (section: SongSection) => void;
   handlePasteSongSection: (destStartMeasure: number) => void;
+  copyAllTrackPatterns: (trackId: number) => void;
+  pasteAllTrackPatterns: (targetTrackId: number, mode: 'libraryOnly' | 'libraryAndTimeline') => void;
+  copySelectedNotesRange: (rangeOverride?: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null) => void;
+  pasteNotesOnlyStartingAt: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number) => void;
 }
 
 const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice> = (set, get) => ({
   copiedPattern: null,
   copiedSection: null,
+  instrumentPatternsClipboard: null,
+  vocalNotesClipboard: null,
+
+  copySelectedNotesRange: (rangeOverride) => {
+    const state = get();
+    const range = rangeOverride || state.selectedStepRange;
+    let effectiveRange = range;
+    if (!effectiveRange && state.selectedStepIdx !== null && state.selectedStepIdx !== undefined) {
+      const isPreRoll = Boolean(state.selectedStepIsPreRoll);
+      effectiveRange = {
+        start: { isPreRoll, step: state.selectedStepIdx },
+        end: { isPreRoll, step: state.selectedStepIdx }
+      };
+    }
+    if (!effectiveRange) return;
+
+    const editingTrackId = state.editingTrackId;
+    let track = state.tracks.find(t => t.id === editingTrackId || String(t.id) === String(editingTrackId));
+    if (!track) {
+      track = state.tracks.find(t => {
+        const instId = instrumentsConfig[t.instrumentIdx]?.id;
+        return instId === 'puxador' || instId === 'coro' || String(t.id).includes('coro') || String(t.id).includes('puxador') || isToadaBus(t);
+      });
+    }
+    if (!track) return;
+
+    const pattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
+    if (!pattern) return;
+
+    const timeSig = (pattern as any).timeSignature || state.metadata?.ritmo || '4/4';
+    const preRollStepsCount = pattern.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+
+    const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollStepsCount + p.step);
+    const minLinear = Math.min(toLinear(effectiveRange.start), toLinear(effectiveRange.end));
+    const maxLinear = Math.max(toLinear(effectiveRange.start), toLinear(effectiveRange.end));
+
+    const copiedNotes: string[] = [];
+    for (let l = minLinear; l <= maxLinear; l++) {
+      if (l < preRollStepsCount) {
+        const note = pattern.preRollNotes?.[l] || '';
+        copiedNotes.push(note);
+      } else {
+        const stepIdx = l - preRollStepsCount;
+        const note = pattern.notes?.[stepIdx] || '';
+        copiedNotes.push(note);
+      }
+    }
+
+    set({ vocalNotesClipboard: copiedNotes });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
+    }
+  },
+
+  pasteNotesOnlyStartingAt: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number) => {
+    const state = get();
+    const clipboard = state.vocalNotesClipboard;
+    if (!clipboard || clipboard.length === 0) return;
+
+    const track = state.tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId));
+    if (!track) return;
+    const pattern = track.patterns.find(p => p.id === targetPatternId || String(p.id) === String(targetPatternId));
+    if (!pattern) return;
+
+    const instId = instrumentsConfig[track.instrumentIdx]?.id;
+    const isCoro = instId === 'coro' || String(track.id).toLowerCase().includes('coro') || track.customName?.toLowerCase().includes('coro');
+    const voiceSymbol: 'P' | 'C' = isCoro ? 'C' : 'P';
+
+    const timeSig = (pattern as any).timeSignature || state.metadata?.ritmo || '4/4';
+    const preRollStepsCount = pattern.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+    const patternSteps = pattern.steps || 16;
+
+    const preRollNotes = [...(pattern.preRollNotes || Array(preRollStepsCount).fill(''))];
+    while (preRollNotes.length < preRollStepsCount) preRollNotes.push('');
+    const preRollActiveSteps = [...(pattern.preRollActiveSteps || Array(preRollStepsCount).fill(0))];
+    while (preRollActiveSteps.length < preRollStepsCount) preRollActiveSteps.push(0);
+
+    const notes = [...(pattern.notes || Array(patternSteps).fill(''))];
+    while (notes.length < patternSteps) notes.push('');
+    const activeSteps = [...(pattern.activeSteps || Array(patternSteps).fill(0))];
+    while (activeSteps.length < patternSteps) activeSteps.push(0);
+
+    let currentIsPreRoll = startIsPreRoll;
+    let currentStep = startStepIdx;
+
+    for (let i = 0; i < clipboard.length; i++) {
+      const noteVal = clipboard[i];
+
+      if (currentIsPreRoll) {
+        if (currentStep < preRollStepsCount) {
+          preRollNotes[currentStep] = noteVal;
+          if (noteVal && noteVal.trim() !== '') {
+            const act = preRollActiveSteps[currentStep];
+            if (!act || act === 0 || act === '0') {
+              preRollActiveSteps[currentStep] = voiceSymbol;
+            }
+          }
+          currentStep++;
+        } else {
+          currentIsPreRoll = false;
+          currentStep = 0;
+          if (currentStep < patternSteps) {
+            notes[currentStep] = noteVal;
+            if (noteVal && noteVal.trim() !== '') {
+              const act = activeSteps[currentStep];
+              if (!act || act === 0 || act === '0') {
+                activeSteps[currentStep] = voiceSymbol;
+              }
+            }
+            currentStep++;
+          }
+        }
+      } else {
+        if (currentStep < patternSteps) {
+          notes[currentStep] = noteVal;
+          if (noteVal && noteVal.trim() !== '') {
+            const act = activeSteps[currentStep];
+            if (!act || act === 0 || act === '0') {
+              activeSteps[currentStep] = voiceSymbol;
+            }
+          }
+          currentStep++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    state.pushUndoState();
+
+    set(prev => ({
+      tracks: prev.tracks.map(t => {
+        if (t.id === targetTrackId || String(t.id) === String(targetTrackId)) {
+          return {
+            ...t,
+            patterns: t.patterns.map(p => {
+              if (p.id === targetPatternId || String(p.id) === String(targetPatternId)) {
+                return {
+                  ...p,
+                  notes,
+                  activeSteps,
+                  preRollNotes,
+                  preRollActiveSteps
+                };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      }),
+      tracksVersion: prev.tracksVersion + 1
+    }));
+  },
 
   setCopiedPattern: (pattern) => set({ copiedPattern: pattern }),
   setCopiedSection: (section) => set({ copiedSection: section }),
@@ -4100,6 +4343,114 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
     // Create the section object in the store
     const stateAfterPasting = get();
     stateAfterPasting.handleCreateSongSection(copied.name, destStartMeasure, end, copied.color, copied.repeatCount, copied.level);
+  },
+
+  copyAllTrackPatterns: (trackId: number) => {
+    const state = get();
+    const rawTrack = state.tracks.find(t => t.id === trackId || String(t.id) === String(trackId));
+    if (!rawTrack) return;
+
+    // Résolution de la piste porteuse réelle (Track Linking Alfaias et Toada)
+    let effectiveTrack = rawTrack;
+    if (rawTrack.linkedToTrackId) {
+      const parentBus = state.tracks.find(t => String(t.id) === String(rawTrack.linkedToTrackId) && t.isLinkFolder);
+      if (parentBus && parentBus.patterns && parentBus.patterns.length > 0) {
+        effectiveTrack = parentBus;
+      }
+    } else if (rawTrack.isLinkMaster) {
+      const parentBus = state.tracks.find(t => (String(t.id) === String(rawTrack.id) || String(t.linkedToTrackId) === String(rawTrack.id)) && t.isLinkFolder);
+      if (parentBus && parentBus.patterns && parentBus.patterns.length > 0) {
+        effectiveTrack = parentBus;
+      }
+    } else if (isToadaBus(rawTrack) && (!rawTrack.patterns || rawTrack.patterns.length === 0)) {
+      const vocalChild = state.tracks.find(t => isToadaChild(t, state.tracks) && t.patterns && t.patterns.length > 0);
+      if (vocalChild) effectiveTrack = vocalChild;
+    }
+
+    const inst = instrumentsConfig[effectiveTrack.instrumentIdx] || instrumentsConfig[rawTrack.instrumentIdx];
+    const instId = inst?.id || (isToadaBus(rawTrack) ? 'toada' : '');
+    const family = getInstrumentFamily(instId);
+
+    const clonedPatterns: Pattern[] = JSON.parse(JSON.stringify(effectiveTrack.patterns || []));
+
+    set({
+      instrumentPatternsClipboard: {
+        sourceTrackId: rawTrack.id,
+        sourceInstrumentIdx: effectiveTrack.instrumentIdx,
+        sourceInstId: instId,
+        sourceFamily: family,
+        patterns: clonedPatterns
+      }
+    });
+  },
+
+  pasteAllTrackPatterns: (targetTrackId: number, mode: 'libraryOnly' | 'libraryAndTimeline') => {
+    const state = get();
+    const clip = state.instrumentPatternsClipboard;
+    if (!clip || !clip.patterns || clip.patterns.length === 0) return;
+
+    const rawTargetTrack = state.tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId));
+    if (!rawTargetTrack) return;
+
+    // Résolution de la piste porteuse réelle cible (Track Linking Alfaias et Toada)
+    let effectiveTargetTrack = rawTargetTrack;
+    if (rawTargetTrack.linkedToTrackId) {
+      const parentBus = state.tracks.find(t => String(t.id) === String(rawTargetTrack.linkedToTrackId) && t.isLinkFolder);
+      if (parentBus) effectiveTargetTrack = parentBus;
+    } else if (rawTargetTrack.isLinkMaster) {
+      const parentBus = state.tracks.find(t => (String(t.id) === String(rawTargetTrack.id) || String(t.linkedToTrackId) === String(rawTargetTrack.id)) && t.isLinkFolder);
+      if (parentBus) effectiveTargetTrack = parentBus;
+    } else if (isToadaBus(rawTargetTrack) && (!rawTargetTrack.patterns || rawTargetTrack.patterns.length === 0)) {
+      const vocalChild = state.tracks.find(t => isToadaChild(t, state.tracks));
+      if (vocalChild) effectiveTargetTrack = vocalChild;
+    }
+
+    if (!canTransferPatterns(clip, effectiveTargetTrack)) return;
+
+    state.pushUndoState();
+
+    const targetInst = instrumentsConfig[effectiveTargetTrack.instrumentIdx];
+    const targetInstId = targetInst?.id || '';
+    const isVocalTarget = targetInstId === 'puxador' || targetInstId === 'coro' || String(effectiveTargetTrack.id).includes('coro') || String(effectiveTargetTrack.id).includes('puxador');
+    const vocalRole: 'P' | 'C' = (targetInstId === 'coro' || String(effectiveTargetTrack.id).toLowerCase().includes('coro')) ? 'C' : 'P';
+
+    const totalMeasures = state.totalMeasures || 4;
+
+    const newPatterns: Pattern[] = clip.patterns.map((p, idx) => {
+      const clonedP: Pattern = JSON.parse(JSON.stringify(p));
+      clonedP.id = Date.now() + Math.floor(Math.random() * 10000) + idx;
+
+      if (isVocalTarget && clonedP.activeSteps) {
+        clonedP.activeSteps = convertStepsToVocalRole(clonedP.activeSteps, vocalRole);
+        if (clonedP.preRollActiveSteps) {
+          clonedP.preRollActiveSteps = convertStepsToVocalRole(clonedP.preRollActiveSteps, vocalRole);
+        }
+      }
+
+      if (mode === 'libraryOnly') {
+        clonedP.measureAssignments = Array(totalMeasures).fill(false);
+      } else {
+        const assignments = clonedP.measureAssignments ? [...clonedP.measureAssignments] : [];
+        while (assignments.length < totalMeasures) assignments.push(false);
+        clonedP.measureAssignments = assignments.slice(0, totalMeasures);
+      }
+
+      return clonedP;
+    });
+
+    const targetId = effectiveTargetTrack.id;
+    set(curr => ({
+      tracks: curr.tracks.map(t => {
+        if (t.id === targetId || String(t.id) === String(targetId)) {
+          return {
+            ...t,
+            patterns: newPatterns,
+            selectedPatternId: newPatterns[0]?.id || 0
+          };
+        }
+        return t;
+      })
+    }));
   }
 });
 
@@ -4121,6 +4472,7 @@ export interface ProjectSettingsSlice {
   selectedStepIdx: number | null;
   selectedStepIsPreRoll: boolean;
   selectedSubIndex: 0 | 1 | null;
+  selectedStepRange: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null;
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
@@ -4138,6 +4490,7 @@ export interface ProjectSettingsSlice {
   toggleEcoOption: (key: keyof EcoConfig) => void;
   setEditingTrackId: (id: number | null) => void;
   setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
+  setSelectedStepRange: (range: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null) => void;
   setVocalTransposeSteps: (steps: number) => void;
   incrementVocalTransposeSteps: () => void;
   decrementVocalTransposeSteps: () => void;
@@ -4180,6 +4533,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   selectedStepIdx: null,
   selectedStepIsPreRoll: false,
   selectedSubIndex: null,
+  selectedStepRange: null,
   vocalTransposeSteps: 0,
   isTracksCollapsed: typeof window !== 'undefined' && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768) ? false : true,
   isPreviewMode: false,
@@ -4233,7 +4587,8 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     };
   }),
   setEditingTrackId: (id) => set({ editingTrackId: id }),
-  setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex }),
+  setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex, selectedStepRange: null }),
+  setSelectedStepRange: (range) => set({ selectedStepRange: range }),
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
   incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
   decrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.max(-12, state.vocalTransposeSteps - 1) })),
@@ -5187,7 +5542,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   },
 });
 
-export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice & SpeedTrainerSlice;
+export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice & SpeedTrainerSlice & TrainingSlice;
 
 export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createTrackSlice(...a),
@@ -5198,6 +5553,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createProjectSettingsSlice(...a),
   ...createUISlice(...a),
   ...createSpeedTrainerSlice(...a),
+  ...createTrainingSlice(...a),
 }));
 
 export interface TrackMeta {

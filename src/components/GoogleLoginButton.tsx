@@ -171,7 +171,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
               <div>
                 <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
                   {userProfile.displayName}
-                  {isAdmin && <span title="Administrateur"><Shield size={12} className="text-[#8b2a1a]" /></span>}
+                  {isAdmin && <span title={lang === 'fr' ? 'Administrateur' : 'Administrador'}><Shield size={12} className="text-[#8b2a1a]" /></span>}
                 </span>
                 <span className="text-[10px] font-sans text-[var(--cordel-text)] opacity-60 truncate block">
                   {userProfile.email}
@@ -188,18 +188,18 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                 )}
                 <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
                   {userProfile.role === 'admin'
-                    ? '🛡️ Admin'
+                    ? (lang === 'fr' ? '🛡️ Admin' : '🛡️ Admin')
                     : userProfile.role === 'mestre'
-                    ? '👑 Mestre'
+                    ? (lang === 'fr' ? '👑 Maître' : '👑 Mestre')
                     : userProfile.role === 'membre'
-                    ? '🥁 Membre'
+                    ? (lang === 'fr' ? '🥁 Membre' : '🥁 Membro')
                     : userProfile.role === 'eleve'
-                    ? '🎓 Élève'
-                    : '👤 Visiteur'}
+                    ? (lang === 'fr' ? '🎓 Élève' : '🎓 Aluno')
+                    : (lang === 'fr' ? '👤 Visiteur' : '👤 Visitante')}
                 </span>
                 {userProfile.lateralite && (
                   <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                    {userProfile.lateralite === 'gaucher' ? '🫲 Gaucher' : '🫱 Droitier'}
+                    {userProfile.lateralite === 'gaucher' ? (lang === 'fr' ? '🫲 Gaucher' : '🫲 Canhoto') : (lang === 'fr' ? '🫱 Droitier' : '🫱 Destro')}
                   </span>
                 )}
               </div>
@@ -213,7 +213,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                 className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#8b2a1a] border border-[#8b2a1a] font-cactus font-bold text-xs hover:bg-[#8b2a1a] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
               >
                 <Shield className="w-3.5 h-3.5" />
-                <span>Administration</span>
+                <span>{lang === 'fr' ? 'Administration' : 'Administração'}</span>
               </button>
             )}
 
@@ -223,13 +223,13 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                   onClick={() => {
                     const url = `${window.location.origin}${window.location.pathname}?invite=${currentUser.uid}`;
                     navigator.clipboard.writeText(url);
-                    alert("Lien d'invitation copié ! Envoyez-le à vos élèves pour qu'ils rejoignent votre groupe.");
+                    alert(lang === 'fr' ? "Lien d'invitation copié ! Envoyez-le à vos élèves pour qu'ils rejoignent votre groupe." : "Link de convite copiado! Envie-o para seus alunos para entrarem no grupo.");
                     setDropdownOpen(false);
                   }}
                   className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#27ae60] border border-[#27ae60] font-cactus font-bold text-xs hover:bg-[#27ae60] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
                 >
                   <Link className="w-3.5 h-3.5" />
-                  <span>Inviter Élèves</span>
+                  <span>{lang === 'fr' ? 'Inviter des élèves' : 'Convidar alunos'}</span>
                 </button>
                 <input 
                   type="file" 
@@ -244,7 +244,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                   className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#2980b9] border border-[#2980b9] font-cactus font-bold text-xs hover:bg-[#2980b9] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isUploading ? <span className="animate-spin">⚙️</span> : <Upload className="w-3.5 h-3.5" />}
-                  <span>Mon Estandarte</span>
+                  <span>{lang === 'fr' ? 'Mon étendard' : 'Meu Estandarte'}</span>
                 </button>
               </>
             )}
@@ -257,7 +257,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
               className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-cactus font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Se déconnecter</span>
+              <span>{lang === 'fr' ? 'Se déconnecter' : 'Sair da conta'}</span>
             </button>
           </div>
         )}
@@ -273,7 +273,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       <button
         onClick={signInWithGoogle}
         className={`bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button ${btnDim} cursor-pointer flex justify-center items-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shadow-sm`}
-        title="Se connecter avec Google"
+        title={lang === 'fr' ? 'Se connecter avec Google' : 'Conectar com o Google'}
       >
         <svg viewBox="0 0 24 24" className={svgDim} fill="currentColor">
           <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.211 4.113-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.558 0 2.973.568 4.072 1.503L21.05 4.41C18.665 2.195 15.602 1 11.916 1 5.887 1 11.916 5.887 11.916 11.916S5.887 22.83 11.916 22.83c6.177 0 10.99-4.346 10.99-10.914 0-.648-.073-1.28-.2-1.63H12.24z"/>

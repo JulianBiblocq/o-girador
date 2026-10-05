@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Tone from 'tone';
 import { audioEngine } from './useAudioSync';
 import { useMidiStore, MidiTarget, TransportAction } from '../stores/useMidiStore';
-import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks } from '../stores/useSequencerStore';
+import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks, isToadaChild } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { channels, busChannels, masterVolumeNode } from '../audio/effectsChain';
@@ -80,6 +80,12 @@ export const useMidiController = () => {
   const sequencerRef = useRef(sequencer);
   sequencerRef.current = sequencer;
 
+  // Références de temporisation pour la prolongation de note MIDI par maintien (Hold-to-Extend)
+  const midiHoldTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const midiRepeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentHeldNoteRef = useRef<number | null>(null);
+  const tracksBeforeHoldRef = useRef<any[] | null>(null);
+
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.requestMIDIAccess) {
       return;
@@ -87,6 +93,267 @@ export const useMidiController = () => {
 
     let midiAccess: MIDIAccess | null = null;
     const activeInputs = new Set<MIDIInput>();
+
+    /**
+     * Écrit la note vocale sur le pas courant et avance le curseur au pas suivant.
+     * Consigne 1 : Continuité sonore sans réattaque - aucun appel audio n'est déclenché ici.
+     */
+    const writeVoiceStepAndAdvance = (targetNoteName: string) => {
+      const seqStore = useSequencerStore.getState();
+      const editingTrackId = (seqStore as any).editingTrackId;
+      const editingTrack = seqStore.tracks.find(t => t.id === editingTrackId);
+
+      let activeTrack = editingTrack && isVoiceTrack(editingTrack)
+        ? editingTrack
+        : seqStore.tracks.find(t => isVoiceTrack(t));
+
+      // --- Résolution précise de la piste et du motif vocal cible ---
+      let targetTrack: any = null;
+      let targetPattern: any = null;
+
+      // 1. Priorité DOM : élément actif ou cellule focalisée portant data-pattern-id
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement;
+        const focusedCell = activeEl?.closest('[data-pattern-id]');
+        const activePatternId = focusedCell?.getAttribute('data-pattern-id');
+        const activeTrackId = focusedCell?.getAttribute('data-track-id');
+        if (activePatternId) {
+          targetTrack = seqStore.tracks.find(t => (activeTrackId && String(t.id) === String(activeTrackId)) || t.patterns.some(p => String(p.id) === String(activePatternId)));
+          targetPattern = targetTrack?.patterns.find((p: any) => String(p.id) === String(activePatternId));
+        }
+
+        // 2. Priorité DOM : cellule vocale sélectionnée
+        if (!targetPattern) {
+          const selectedStepCell = document.querySelector<HTMLElement>('[data-step-type="voice"][data-selected="true"]');
+          if (selectedStepCell) {
+            const pId = selectedStepCell.getAttribute('data-pattern-id');
+            const tId = selectedStepCell.getAttribute('data-track-id');
+            if (pId) {
+              targetTrack = seqStore.tracks.find(t => (tId && String(t.id) === String(tId)) || t.patterns.some(p => String(p.id) === String(pId)));
+              targetPattern = targetTrack?.patterns.find((p: any) => String(p.id) === String(pId));
+            }
+          }
+        }
+
+        // 3. Priorité DOM : carte de motif active/sélectionnée
+        if (!targetPattern) {
+          const activeDomCard = document.querySelector<HTMLElement>('[data-pattern-card][data-selected="true"]');
+          if (activeDomCard) {
+            const pId = activeDomCard.getAttribute('data-pattern-card');
+            if (pId) {
+              targetTrack = seqStore.tracks.find(t => t.patterns.some(p => String(p.id) === String(pId)));
+              targetPattern = targetTrack?.patterns.find((p: any) => String(p.id) === String(pId));
+            }
+          }
+        }
+      }
+
+      // 4. Contexte d'édition : editingTrackId (priorise selectedPatternId)
+      if (!targetPattern && editingTrackId !== null && editingTrackId !== undefined) {
+        const trk = seqStore.tracks.find(t => t.id === editingTrackId || String(t.id) === String(editingTrackId));
+        if (trk) {
+          if (trk.patterns && trk.patterns.length > 0) {
+            targetTrack = trk;
+            targetPattern = trk.patterns.find((p: any) => p.id === trk.selectedPatternId);
+          } else {
+            const children = seqStore.tracks.filter(t => String(t.busId) === String(trk.id) || isToadaChild(t, seqStore.tracks));
+            for (const child of children) {
+              if (child.patterns && child.patterns.length > 0) {
+                targetTrack = child;
+                targetPattern = child.patterns.find((p: any) => p.id === child.selectedPatternId);
+                if (targetPattern) break;
+              }
+            }
+          }
+        }
+      }
+
+      // 5. AudioStore : selectedVocalPatternId
+      if (!targetPattern) {
+        const vocalPtnId = useAudioStore.getState().selectedVocalPatternId;
+        if (vocalPtnId) {
+          targetTrack = seqStore.tracks.find(t => t.patterns.some(p => p.id === vocalPtnId || String(p.id) === String(vocalPtnId)));
+          targetPattern = targetTrack?.patterns.find((p: any) => p.id === vocalPtnId || String(p.id) === String(vocalPtnId));
+        }
+      }
+
+      // 6. Repli sécurisé : uniquement si selectedPatternId ou premier motif de la piste ciblée
+      if (!targetPattern && targetTrack && targetTrack.patterns && targetTrack.patterns.length > 0) {
+        targetPattern = targetTrack.patterns.find((p: any) => p.id === targetTrack.selectedPatternId) || targetTrack.patterns[0];
+      }
+
+      if (!targetPattern && activeTrack) {
+        if (activeTrack.patterns && activeTrack.patterns.length > 0) {
+          targetTrack = activeTrack;
+          targetPattern = activeTrack.patterns.find((p: any) => p.id === activeTrack.selectedPatternId) || activeTrack.patterns[0];
+        } else {
+          const children = seqStore.tracks.filter(t => String(t.busId) === String(activeTrack.id) || isToadaChild(t, seqStore.tracks));
+          for (const child of children) {
+            if (child.patterns && child.patterns.length > 0) {
+              targetTrack = child;
+              targetPattern = child.patterns.find((p: any) => p.id === child.selectedPatternId) || child.patterns[0];
+              break;
+            }
+          }
+        }
+      }
+
+      if (!targetTrack || !targetPattern) return;
+
+      const targetInstId = instrumentsConfig[targetTrack?.instrumentIdx ?? -1]?.id;
+      const isTargetCoro = targetInstId === 'coro' || String(targetTrack?.id).toLowerCase().includes('coro') || targetTrack?.customName?.toLowerCase().includes('coro');
+      const effectiveVoiceSymbol: 'P' | 'C' = isTargetCoro ? 'C' : 'P';
+
+      const patternSteps = targetPattern.steps || 16;
+      let currentStepIdx = (seqStore.selectedStepIdx !== null && seqStore.selectedStepIdx !== undefined)
+        ? seqStore.selectedStepIdx
+        : 0;
+      let isInPreRoll = Boolean(seqStore.selectedStepIsPreRoll);
+
+      if (seqStore.selectedStepIdx === null || seqStore.selectedStepIdx === undefined) {
+        currentStepIdx = 0;
+        isInPreRoll = false;
+        useSequencerStore.setState({
+          selectedStepIdx: 0,
+          selectedStepIsPreRoll: false,
+          selectedSubIndex: null
+        });
+      }
+
+      // Consigne 1 : Écriture pure sans réattaque sonore
+      if (isInPreRoll) {
+        const preRollNotes = [...(targetPattern.preRollNotes || Array(patternSteps).fill(''))];
+        while (preRollNotes.length < patternSteps) preRollNotes.push('');
+        preRollNotes[currentStepIdx] = targetNoteName;
+
+        const preRollActiveSteps = [...(targetPattern.preRollActiveSteps || Array(patternSteps).fill('0'))];
+        while (preRollActiveSteps.length < patternSteps) preRollActiveSteps.push('0');
+        if (!preRollActiveSteps[currentStepIdx] || preRollActiveSteps[currentStepIdx] === 0 || preRollActiveSteps[currentStepIdx] === '0') {
+          preRollActiveSteps[currentStepIdx] = effectiveVoiceSymbol;
+        }
+
+        const preRollLyrics = [...(targetPattern.preRollLyrics || Array(patternSteps).fill(''))];
+        while (preRollLyrics.length < patternSteps) preRollLyrics.push('');
+
+        const preRollDecays = targetPattern.preRollDecays ? [...targetPattern.preRollDecays] : Array(patternSteps).fill(10);
+        while (preRollDecays.length < patternSteps) preRollDecays.push(10);
+
+        const preRollVolumes = targetPattern.preRollVolumes ? [...targetPattern.preRollVolumes] : Array(patternSteps).fill(100);
+        while (preRollVolumes.length < patternSteps) preRollVolumes.push(100);
+
+        seqStore.setTracks(prev => prev.map(t => {
+          if (t.id === targetTrack.id || String(t.id) === String(targetTrack.id)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                if (p.id === targetPattern.id || String(p.id) === String(targetPattern.id)) {
+                  return { ...p, preRollNotes, preRollActiveSteps, preRollLyrics, preRollDecays, preRollVolumes };
+                }
+                return p;
+              })
+            };
+          }
+          return t;
+        }));
+      } else {
+        const notes = [...(targetPattern.notes || Array(patternSteps).fill(''))];
+        while (notes.length < patternSteps) notes.push('');
+        notes[currentStepIdx] = targetNoteName;
+
+        const activeSteps = [...(targetPattern.activeSteps || Array(patternSteps).fill('0'))];
+        while (activeSteps.length < patternSteps) activeSteps.push('0');
+        if (!activeSteps[currentStepIdx] || activeSteps[currentStepIdx] === 0 || activeSteps[currentStepIdx] === '0') {
+          activeSteps[currentStepIdx] = effectiveVoiceSymbol;
+        }
+
+        const lyrics = [...(targetPattern.lyrics || Array(patternSteps).fill(''))];
+        while (lyrics.length < patternSteps) lyrics.push('');
+
+        seqStore.setTracks(prev => prev.map(t => {
+          if (t.id === targetTrack.id || String(t.id) === String(targetTrack.id)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                if (p.id === targetPattern.id || String(p.id) === String(targetPattern.id)) {
+                  return { ...p, notes, activeSteps, lyrics };
+                }
+                return p;
+              })
+            };
+          }
+          return t;
+        }));
+      }
+
+      // Déplacement automatique de la sélection vers le pas suivant
+      let nextStepIdx = 0;
+      let nextIsInPreRoll = false;
+      const timeSig = (targetPattern as any).timeSignature || seqStore.metadata?.ritmo || '4/4';
+      const preRollStepsCount = targetPattern.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+
+      if (isInPreRoll) {
+        if (currentStepIdx < preRollStepsCount - 1) {
+          nextStepIdx = currentStepIdx + 1;
+          nextIsInPreRoll = true;
+        } else {
+          nextStepIdx = 0;
+          nextIsInPreRoll = false;
+        }
+      } else {
+        nextStepIdx = (currentStepIdx + 1) % patternSteps;
+        nextIsInPreRoll = false;
+      }
+
+      // Mise à jour synchrone de l'index dans le store global
+      useSequencerStore.setState({
+        selectedStepIdx: nextStepIdx,
+        selectedStepIsPreRoll: nextIsInPreRoll,
+        selectedSubIndex: null,
+        selectedStepRange: null
+      });
+
+      // Animation WAAPI sur la cellule jouée (Zero Layout Thrashing, GPU prioritaire)
+      try {
+        const currentCard = document.querySelector<HTMLElement>(
+          `[data-step-type="voice"][data-pattern-id="${targetPattern.id}"][data-step-index="${currentStepIdx}"]`
+        ) || document.querySelector<HTMLElement>(
+          `[data-step-type="voice"][data-step-index="${currentStepIdx}"]`
+        );
+        if (currentCard) {
+          currentCard.animate([
+            { transform: 'scale(1.08)', filter: 'brightness(1.3)' },
+            { transform: 'scale(1)', filter: 'brightness(1)' }
+          ], {
+            duration: 180,
+            easing: 'ease-out'
+          });
+        }
+      } catch (_) {}
+
+      // Émettre l'événement custom focus-voice-step pour prise en charge visuelle globale
+      window.dispatchEvent(new CustomEvent('focus-voice-step', {
+        detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll: nextIsInPreRoll, patternId: targetPattern.id }
+      }));
+
+      // Synchroniser visuellement l'input s'il est présent dans le DOM
+      try {
+        const patternContainer = document.querySelector(`[data-pattern-card="${targetPattern.id}"]`)
+          || document.querySelector(`[id="detail-voice-${targetTrack.id}-${targetPattern.id}"]`);
+        const container = nextIsInPreRoll
+          ? patternContainer?.querySelector('.pre-roll-section')
+          : (patternContainer?.querySelector('.main-measure-section') || patternContainer);
+        const nextCard = container?.querySelector<HTMLElement>(`[data-step-type="voice"][data-step-index="${nextStepIdx}"]`)
+          || document.querySelector<HTMLElement>(`[data-step-type="voice"][data-pattern-id="${targetPattern.id}"][data-step-index="${nextStepIdx}"]`)
+          || document.querySelector<HTMLElement>(`[data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
+        if (nextCard) {
+          const nextInput = nextCard.querySelector('.v-note') as HTMLInputElement | null;
+          if (nextInput) {
+            nextInput.focus();
+            nextInput.select();
+          }
+        }
+      } catch (_) {}
+    };
 
     // Central high-performance MIDI message handler
     const onMIDIMessage = (event: Event) => {
@@ -151,8 +418,27 @@ export const useMidiController = () => {
         const voiceSymbol: 'P' | 'C' = isCoro ? 'C' : 'P';
         const noteName = Tone.Frequency(note, 'midi').toNote();
 
-        // A. Relâchement (Note Off)
+        // A. Relâchement (Note Off ou Note On avec velocity = 0)
         if (isNoteOff) {
+          // Annulation des timers de maintien Hold-to-Extend si c'est la note tenue (ou toute note)
+          if (currentHeldNoteRef.current === note || currentHeldNoteRef.current !== null) {
+            if (midiHoldTimeoutRef.current) {
+              clearTimeout(midiHoldTimeoutRef.current);
+              midiHoldTimeoutRef.current = null;
+            }
+            if (midiRepeatIntervalRef.current) {
+              clearInterval(midiRepeatIntervalRef.current);
+              midiRepeatIntervalRef.current = null;
+            }
+            currentHeldNoteRef.current = null;
+
+            // Consigne 2 : Groupement Undo atomique : pushUndoState() lors du noteOff
+            if (tracksBeforeHoldRef.current) {
+              useSequencerStore.getState().pushUndoState(tracksBeforeHoldRef.current);
+              tracksBeforeHoldRef.current = null;
+            }
+          }
+
           releaseVoicePitchLive(noteName);
           window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName, active: false } }));
           return;
@@ -160,139 +446,74 @@ export const useMidiController = () => {
 
         // B. Attaque (Note On avec velocity > 0)
         if (isNoteOn && velocity > 0) {
+          // Consigne 3 : Protection Legato (annuler immédiatement tout timer en cours de la note précédente)
+          if (midiHoldTimeoutRef.current) {
+            clearTimeout(midiHoldTimeoutRef.current);
+            midiHoldTimeoutRef.current = null;
+          }
+          if (midiRepeatIntervalRef.current) {
+            clearInterval(midiRepeatIntervalRef.current);
+            midiRepeatIntervalRef.current = null;
+          }
+          if (tracksBeforeHoldRef.current) {
+            useSequencerStore.getState().pushUndoState(tracksBeforeHoldRef.current);
+            tracksBeforeHoldRef.current = null;
+          }
+
           // 1. Déclenchement sonore immédiat garanti (Zero Latence, Zero Throttle)
           playVoicePitchLive(noteName, velocity / 127.0);
           window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName, active: true } }));
 
-          // Consigne A : Si l'utilisateur a explicitement réenclenché voiceInputMode === 'free', respecter ce choix :
-          // Jouer le son vocal SANS écrire de note dans la grille.
+          // Si l'utilisateur est en mode 'free' (jeu libre sans écriture pas-à-pas)
           const voiceInputMode = useAudioStore.getState().voiceInputMode || 'free';
           if (voiceInputMode === 'free') {
             return;
           }
 
           // Initialisation automatique au pas 0 de la mesure active si aucun pas n'est formellement sélectionné
-          let currentStepIdx = (seqStore.selectedStepIdx !== null && seqStore.selectedStepIdx !== undefined)
-            ? seqStore.selectedStepIdx
-            : 0;
-          let isInPreRoll = Boolean(seqStore.selectedStepIsPreRoll);
-
           if (seqStore.selectedStepIdx === null || seqStore.selectedStepIdx === undefined) {
-            currentStepIdx = 0;
-            isInPreRoll = false;
             useSequencerStore.setState({
               selectedStepIdx: 0,
               selectedStepIsPreRoll: false,
-              selectedSubIndex: null
+              selectedSubIndex: null,
+              selectedStepRange: null
             });
           }
 
-          // Anti-rebond mécanique strict (15 ms max, appliqué UNIQUEMENT sur la même note répétée)
+          // Anti-rebond matériel sur le pas-à-pas (seuil 45 ms entre deux frappes)
           const now = Date.now();
-          if (note === lastVoiceStepNote && (now - lastVoiceStepInputTime) < 15) {
+          if ((now - lastVoiceStepInputTime) < 45) {
             return;
           }
           lastVoiceStepNote = note;
           lastVoiceStepInputTime = now;
 
-          // Snapshot Undo (groupement de la phrase musicale avec debounce 1500 ms)
-          if (now - lastStepUndoTime > 1500) {
-            seqStore.pushUndoState();
-            lastStepUndoTime = now;
-          }
+          // Mémoriser l'état des pistes avant frappe pour le snapshot Undo atomique au noteOff
+          tracksBeforeHoldRef.current = useSequencerStore.getState().tracks;
+          currentHeldNoteRef.current = note;
 
-          // 2. Écriture atomique dans le pas actif (Saisie pas-à-pas)
-          const cardTrackId = activeTrack?.id !== undefined ? String(activeTrack.id) : (seqStore.armedTrackId !== null ? String(seqStore.armedTrackId) : null);
-          const activeDomCard = typeof document !== 'undefined'
-            ? (document.querySelector('[data-pattern-card][data-selected="true"]') || document.querySelector('[data-pattern-card]'))
-            : null;
-          const activeDomPatternId = activeDomCard ? activeDomCard.getAttribute('data-pattern-card') : null;
-          const cardPatternId = activeDomPatternId || (activeTrack?.selectedPatternId ? String(activeTrack.selectedPatternId) : (activeTrack?.patterns?.[0]?.id ? String(activeTrack.patterns[0].id) : null));
+          // 2. Écriture du pas-à-pas vocal (hors enregistrement live en lecture)
+          if (!seqStore.isPatternRecording) {
+            // Écriture immédiate du pas 1 (sans réattaque sonore)
+            writeVoiceStepAndAdvance(noteName);
 
-          if (cardTrackId && cardPatternId) {
-            const numTrackId = Number(cardTrackId);
-            const numPatternId = Number(cardPatternId);
-            seqStore.setTracks(prev => prev.map(t => {
-              if (t.id === numTrackId || String(t.id) === cardTrackId) {
-                return {
-                  ...t,
-                  patterns: t.patterns.map(p => {
-                    if (p.id === numPatternId || String(p.id) === cardPatternId) {
-                      const stepsCount = p.steps || 16;
-                      if (isInPreRoll) {
-                        const preRollNotes = [...(p.preRollNotes || Array(stepsCount).fill(''))];
-                        preRollNotes[currentStepIdx] = noteName;
-                        const preRollActiveSteps = [...(p.preRollActiveSteps || Array(stepsCount).fill(0))];
-                        // 🛡️ Étanchéité vocale absolue : forcer le rôle 'P' ou 'C'
-                        preRollActiveSteps[currentStepIdx] = voiceSymbol;
-                        return { ...p, preRollNotes, preRollActiveSteps };
-                      } else {
-                        const notes = [...(p.notes || Array(stepsCount).fill(''))];
-                        notes[currentStepIdx] = noteName;
-                        const activeSteps = [...(p.activeSteps || Array(stepsCount).fill(0))];
-                        // 🛡️ Étanchéité vocale absolue : forcer le rôle 'P' ou 'C'
-                        activeSteps[currentStepIdx] = voiceSymbol;
-                        return { ...p, notes, activeSteps };
-                      }
+            // Armement du maintien Hold-to-Extend (400 ms de délai initial, puis cadence 450 ms)
+            midiHoldTimeoutRef.current = setTimeout(() => {
+              if (currentHeldNoteRef.current === note) {
+                midiRepeatIntervalRef.current = setInterval(() => {
+                  if (currentHeldNoteRef.current === note) {
+                    // Consigne 1 : writeVoiceStepAndAdvance n'appelle aucun son, le son résonne en continu
+                    writeVoiceStepAndAdvance(noteName);
+                  } else {
+                    if (midiRepeatIntervalRef.current) {
+                      clearInterval(midiRepeatIntervalRef.current);
+                      midiRepeatIntervalRef.current = null;
                     }
-                    return p;
-                  })
-                };
+                  }
+                }, 450);
               }
-              return t;
-            }));
+            }, 400);
           }
-
-          // Consigne B : Déplacer automatiquement la sélection vers le pas suivant avec métrique dynamique (12/8, 2/4, etc.)
-          const targetTrack = seqStore.tracks.find(t => t.id === Number(cardTrackId) || String(t.id) === cardTrackId);
-          const targetPattern = targetTrack?.patterns.find(p => p.id === Number(cardPatternId) || String(p.id) === cardPatternId);
-          const patternSteps = targetPattern?.steps || 16;
-
-          let nextStepIdx = 0;
-          let nextIsInPreRoll = false;
-
-          if (isInPreRoll) {
-            if (currentStepIdx < patternSteps - 1) {
-              nextStepIdx = currentStepIdx + 1;
-              nextIsInPreRoll = true;
-            } else {
-              nextStepIdx = 0;
-              nextIsInPreRoll = false;
-            }
-          } else {
-            nextStepIdx = (currentStepIdx + 1) % patternSteps;
-            nextIsInPreRoll = false;
-          }
-
-          // Mise à jour synchrone de l'index dans le store global
-          useSequencerStore.setState({
-            selectedStepIdx: nextStepIdx,
-            selectedStepIsPreRoll: nextIsInPreRoll,
-            selectedSubIndex: null
-          });
-
-          // Émettre l'événement custom focus-voice-step pour prise en charge visuelle globale
-          window.dispatchEvent(new CustomEvent('focus-voice-step', {
-            detail: { stepIdx: nextStepIdx, type: 'note', isInPreRoll: nextIsInPreRoll, patternId: cardPatternId }
-          }));
-
-          // Synchroniser visuellement l'input s'il est présent dans le DOM
-          try {
-            const patternContainer = (cardPatternId ? document.querySelector(`[data-pattern-card="${cardPatternId}"]`) : null)
-              || (cardPatternId ? document.querySelector(`[id="detail-voice-${cardTrackId}-${cardPatternId}"]`) : null)
-              || activeDomCard;
-            const container = nextIsInPreRoll
-              ? patternContainer?.querySelector('.pre-roll-section')
-              : (patternContainer?.querySelector('.main-measure-section') || patternContainer);
-            const nextCard = container?.querySelector<HTMLElement>(`[data-step-type="voice"][data-step-index="${nextStepIdx}"]`);
-            if (nextCard) {
-              const nextInput = nextCard.querySelector('.v-note') as HTMLInputElement | null;
-              if (nextInput) {
-                nextInput.focus();
-                nextInput.select();
-              }
-            }
-          } catch (_) {}
 
           // 3. Enregistrement en direct pendant la lecture
           if (seqStore.isPatternRecording && seqStore.armedPatternId !== null && seqStore.armedTrackId !== null) {
@@ -931,6 +1152,16 @@ export const useMidiController = () => {
       volumeDebounceTimers.clear();
       panDebounceTimers.forEach(t => clearTimeout(t));
       panDebounceTimers.clear();
+      if (midiHoldTimeoutRef.current) {
+        clearTimeout(midiHoldTimeoutRef.current);
+        midiHoldTimeoutRef.current = null;
+      }
+      if (midiRepeatIntervalRef.current) {
+        clearInterval(midiRepeatIntervalRef.current);
+        midiRepeatIntervalRef.current = null;
+      }
+      currentHeldNoteRef.current = null;
+      tracksBeforeHoldRef.current = null;
     };
   }, []);
 };

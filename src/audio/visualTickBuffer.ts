@@ -160,6 +160,9 @@ export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCod
   // Background playback: skip hit trigger buffering when screen is off/tab hidden
   if (typeof document !== 'undefined' && document.hidden) return;
 
+  // INTERDICTION FORMELLE : Aucun déclencheur de frappe Ao Vivo pendant le décompte pré-roll
+  if (useSequencerStore.getState().isPreRolling) return;
+
   const nextWriteIdx = (hitWriteIdx + 1) % HIT_QUEUE_SIZE;
   if (nextWriteIdx === hitReadIdx) {
     hitReadIdx = (hitReadIdx + 1) % HIT_QUEUE_SIZE;
@@ -190,6 +193,11 @@ function processVisualLoop(): void {
     if (syncAudioEngine) {
       syncAudioEngine.currentStep = evt.step;
       syncAudioEngine.currentMeasure = evt.measure;
+    }
+
+    // Sécurité de transition : bascule isPreRolling à false dès la réception du premier tick musical
+    if (!evt.isPreRoll && useSequencerStore.getState().isPreRolling) {
+      useSequencerStore.getState().setIsPreRolling(false);
     }
 
     const prevMeasure = useSequencerStore.getState().currentMeasure;

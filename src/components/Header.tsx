@@ -32,6 +32,7 @@ import { PresetAccordionSelector } from './PresetAccordionSelector';
 import { subscribeToGroupDefaultPreset, setDefaultGroupPreset } from '../cloudGroups';
 import { useQueryClient } from '@tanstack/react-query';
 import { togglePresetDraftStatus } from '../cloudPresetsStorage';
+import { CordelContextMenu, CordelMenuItem } from './ui/CordelContextMenu';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -200,6 +201,129 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const onRedo = handleRedo;
   const canRedo = tracksRedoHistory.length > 0;
   const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
+
+  // Menu contextuel Cordel sur les onglets de navigation principale (Zone 1)
+  const [tabContextMenu, setTabContextMenu] = useState<{
+    tabKey: 'roda' | 'pistes' | 'mixer' | 'timeline' | 'editor';
+    title: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const tabLongPressTimerRef = useRef<any>(null);
+  const tabTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleOpenTabContextMenu = (tabKey: 'roda' | 'pistes' | 'mixer' | 'timeline' | 'editor', title: string, clientX: number, clientY: number) => {
+    setTabContextMenu({ tabKey, title, x: clientX, y: clientY });
+  };
+
+  const createTabTouchHandlers = (tabKey: 'roda' | 'pistes' | 'mixer' | 'timeline' | 'editor', title: string) => ({
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleOpenTabContextMenu(tabKey, title, e.clientX, e.clientY);
+    },
+    onTouchStart: (e: React.TouchEvent) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        tabTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+        tabLongPressTimerRef.current = setTimeout(() => {
+          handleOpenTabContextMenu(tabKey, title, touch.clientX, touch.clientY);
+          tabLongPressTimerRef.current = null;
+        }, 400);
+      }
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      if (tabLongPressTimerRef.current && tabTouchStartPosRef.current && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const dx = Math.abs(touch.clientX - tabTouchStartPosRef.current.x);
+        const dy = Math.abs(touch.clientY - tabTouchStartPosRef.current.y);
+        if (dx > 10 || dy > 10) {
+          clearTimeout(tabLongPressTimerRef.current);
+          tabLongPressTimerRef.current = null;
+        }
+      }
+    },
+    onTouchEnd: () => {
+      if (tabLongPressTimerRef.current) {
+        clearTimeout(tabLongPressTimerRef.current);
+        tabLongPressTimerRef.current = null;
+      }
+      tabTouchStartPosRef.current = null;
+    },
+    onTouchCancel: () => {
+      if (tabLongPressTimerRef.current) {
+        clearTimeout(tabLongPressTimerRef.current);
+        tabLongPressTimerRef.current = null;
+      }
+      tabTouchStartPosRef.current = null;
+    }
+  });
+
+  const getTabMenuItems = (): CordelMenuItem[] => {
+    if (!tabContextMenu) return [];
+    const { tabKey } = tabContextMenu;
+
+    const onDetach = () => {
+      switch (tabKey) {
+        case 'roda':
+          useSequencerStore.getState().toggleCircleSequencerDetached();
+          break;
+        case 'pistes':
+          useSequencerStore.getState().toggleLinearDawDetached();
+          break;
+        case 'mixer':
+          useSequencerStore.getState().toggleConsoleDetached();
+          break;
+        case 'timeline':
+          useSequencerStore.getState().toggleTimelineDetached();
+          break;
+        case 'editor':
+          if (onToggleDetachInstrumentEditor) onToggleDetachInstrumentEditor();
+          else useSequencerStore.getState().toggleInstrumentEditorDetached();
+          break;
+      }
+    };
+
+    const onToggleFullscreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+
+    const onResetLayout = () => {
+      useSequencerStore.getState().setDetachedPanelsState({
+        mixer: false,
+        roda: false,
+        detailEditor: false,
+        linearDaw: false,
+        timeline: false,
+      });
+    };
+
+    return [
+      {
+        id: 'detach',
+        label: lang === 'fr' ? 'Détacher dans une fenêtre' : 'Separar em uma janela',
+        icon: '↗',
+        onClick: onDetach,
+      },
+      {
+        id: 'fullscreen',
+        label: lang === 'fr' ? 'Plein écran' : 'Tela cheia',
+        icon: '⤢',
+        onClick: onToggleFullscreen,
+      },
+      { isSeparator: true },
+      {
+        id: 'reset-layout',
+        label: lang === 'fr' ? 'Réinitialiser la disposition' : 'Redefinir layout',
+        icon: '↺',
+        onClick: onResetLayout,
+      }
+    ];
+  };
   const isOtherDistinctGroup = Boolean(
     userProfile?.groupId &&
     !userProfile.groupId.toLowerCase().includes('samambaia') &&
@@ -485,7 +609,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 
                 <div className="grid grid-cols-2 gap-1.5 mt-1">
                   <button onClick={() => { onToggleDarkMode(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1">
-                    {isDarkMode ? <><XiloSun size={12} className="shrink-0" /> Light</> : <><XiloMoon size={11} className="shrink-0" /> Dark</>}
+                    {isDarkMode ? <><XiloSun size={12} className="shrink-0" /> {lang === 'pt' ? 'Modo Claro' : 'Mode clair'}</> : <><XiloMoon size={11} className="shrink-0" /> {lang === 'pt' ? 'Modo Escuro' : 'Mode sombre'}</>}
                   </button>
                   <button onClick={() => { onLangToggle(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
                     🌐 {lang === 'pt' ? 'FR' : 'PT'}
@@ -914,7 +1038,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       {/* CENTER: Main Core Actions */}
       <div className="flex items-center justify-center gap-4">
         {/* RODA */}
-        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+        <div
+          {...createTabTouchHandlers('roda', 'RODA')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
           <button
             onClick={() => {
               onViewModeToggle('roda');
@@ -939,7 +1066,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* PISTES / DAW LINEAIRE */}
-        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+        <div
+          {...createTabTouchHandlers('pistes', lang === 'fr' ? 'PISTES' : 'PISTAS')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
           <button
             onClick={() => {
               onViewModeToggle('roda');
@@ -964,7 +1094,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* MIXER */}
-        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+        <div
+          {...createTabTouchHandlers('mixer', lang === 'fr' ? 'MIXEUR' : 'MIXADOR')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
           <button
             onClick={() => onViewModeToggle('console')}
             className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
@@ -972,7 +1105,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                 : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
             }`}
-            title="Vue Console / Mixeur vertical"
+            title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
           >
             <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
           </button>
@@ -986,7 +1119,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* TIMELINE */}
-        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+        <div
+          {...createTabTouchHandlers('timeline', lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
           <button
             onClick={() => onViewModeToggle('timeline')}
             className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
@@ -1008,7 +1144,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* ÉDITEUR */}
-        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+        <div
+          {...createTabTouchHandlers('editor', lang === 'fr' ? 'ÉDITEUR' : 'EDITOR')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
           <button
             onClick={() => onOpenInstrumentEditor?.()}
             className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
@@ -1046,7 +1185,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         <button
           onClick={onToggleDarkMode}
           className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button w-12 h-[34px] flex items-center justify-center cursor-pointer shrink-0"
-          title="Dark / Light Mode"
+          title={lang === 'pt' ? 'Modo Claro / Modo Escuro' : 'Mode clair / Mode sombre'}
         >
           {isDarkMode ? <XiloSun size={18} className="shrink-0" /> : <XiloMoon size={16} className="shrink-0" />}
         </button>
@@ -1064,7 +1203,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         <button
           onClick={onLangToggle}
           className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button w-12 h-[34px] flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
-          title="Changer de langue / Mudar idioma"
+          title={lang === 'pt' ? 'Mudar idioma' : 'Changer de langue'}
         >
           {lang === 'pt' ? 'FR' : 'PT'}
         </button>
@@ -1099,6 +1238,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           setGlobalSwing={setGlobalSwing}
           onClose={() => setIsSwingModalOpen(false)}
           lang={lang}
+        />
+      )}
+
+      {/* Menu contextuel Cordel sur les onglets de navigation */}
+      {tabContextMenu && (
+        <CordelContextMenu
+          x={tabContextMenu.x}
+          y={tabContextMenu.y}
+          title={tabContextMenu.title}
+          items={getTabMenuItems()}
+          onClose={() => setTabContextMenu(null)}
         />
       )}
     </div>

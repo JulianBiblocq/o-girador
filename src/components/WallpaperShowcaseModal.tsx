@@ -116,7 +116,7 @@ export const WallpaperShowcaseModal: React.FC<WallpaperShowcaseModalProps> = ({
             className="flex items-center gap-1.5 px-2.5 py-1 border border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold transition-colors cursor-pointer"
           >
             {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
-            <span>{isDarkMode ? (isPt ? 'Modo Claro' : 'Mode Jour') : (isPt ? 'Modo Escuro' : 'Mode Nuit')}</span>
+            <span>{isDarkMode ? (isPt ? 'Modo Claro' : 'Mode clair') : (isPt ? 'Modo Escuro' : 'Mode sombre')}</span>
           </button>
         </div>
 

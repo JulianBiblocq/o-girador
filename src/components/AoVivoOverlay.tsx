@@ -60,11 +60,12 @@ const EMPTY_ARRAY: any[] = [];
 // This guarantees that no animation hooks are executed when animations are inactive.
 const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = ({ activeAoVivoTrackId }) => {
   const { isLeftHanded, activeVariationsRef, lang } = useSequencer();
+  const isPreRolling = useSequencerStore(state => state.isPreRolling);
   const tracks = useSequencerStore(useShallow(state => {
-    return state.tracks.filter(t => t.id === activeAoVivoTrackId);
+    return state.tracks.filter(t => t.id === Number(activeAoVivoTrackId) || String(t.id) === String(activeAoVivoTrackId));
   }));
 
-  const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);
+  const activeTrack = tracks.find(t => t.id === Number(activeAoVivoTrackId) || String(t.id) === String(activeAoVivoTrackId));
   const inst = activeTrack ? instrumentsConfig[activeTrack.instrumentIdx] : undefined;
 
   // Lower frequency React states (only update when the pattern structure changes at measure boundaries)
@@ -106,6 +107,85 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
     subStepTimersRef.current.forEach(t => clearTimeout(t));
     subStepTimersRef.current = [];
   };
+
+  // Réinitialisation instantanée sur la posture de repos statique (sans transition CSS lente)
+  const resetToRestPosition = () => {
+    if (!inst) return;
+    // 1. Alfaias
+    if (['marcante', 'meiao', 'repique'].includes(inst.id)) {
+      if (leftStickRef.current) {
+        const angle = isLeftHanded ? -CONFIG_STICKS.angles.alfaia.macaneta : CONFIG_STICKS.angles.alfaia.bacalhau;
+        leftStickRef.current.style.transition = 'none';
+        leftStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${angle}deg) scale(${CONFIG_STICKS.rest.scale})`;
+      }
+      if (rightStickRef.current) {
+        const angle = isLeftHanded ? -CONFIG_STICKS.angles.alfaia.bacalhau : CONFIG_STICKS.angles.alfaia.macaneta;
+        rightStickRef.current.style.transition = 'none';
+        rightStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${angle}deg) scale(${CONFIG_STICKS.rest.scale})`;
+      }
+    }
+    // 2. Caixa / Tarol
+    else if (['caixa', 'tarol'].includes(inst.id)) {
+      if (leftStickRef.current) {
+        leftStickRef.current.style.transition = 'none';
+        leftStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.angles.drum.left}deg) scale(${CONFIG_STICKS.rest.scale})`;
+      }
+      if (rightStickRef.current) {
+        rightStickRef.current.style.transition = 'none';
+        rightStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.angles.drum.right}deg) scale(${CONFIG_STICKS.rest.scale})`;
+      }
+    }
+    // 3. Timbal
+    else if (inst.id === 'timbal') {
+      if (leftStickRef.current) {
+        leftStickRef.current.style.transition = 'none';
+        leftStickRef.current.style.transform = getTimbalRestTransform(true);
+      }
+      if (rightStickRef.current) {
+        rightStickRef.current.style.transition = 'none';
+        rightStickRef.current.style.transform = getTimbalRestTransform(false);
+      }
+    }
+    // 4. Gonguê
+    else if (inst.id === 'gongue') {
+      if (gongueStickRef.current) {
+        gongueStickRef.current.style.transition = 'none';
+        gongueStickRef.current.style.transform = `translate(0px, ${CONFIG_GONGUE.rest.translateY}px) rotateX(${CONFIG_GONGUE.rest.rotateX}deg) scale(${CONFIG_GONGUE.perspective.scaleXCenter}, ${CONFIG_GONGUE.rest.scaleY})`;
+      }
+    }
+    // 5. Mineiro
+    else if (inst.id === 'mineiro') {
+      if (mineiroStickRef.current) {
+        mineiroStickRef.current.style.transition = 'none';
+        mineiroStickRef.current.style.transform = `translate3d(0, ${CONFIG_MINEIRO.backWeak.y}px, 0) scale(${CONFIG_MINEIRO.backWeak.scale}) rotateZ(${CONFIG_MINEIRO.backWeak.rotateZ}deg)`;
+      }
+      mineiroPoleRef.current = 'backWeak';
+    }
+    // 6. Agbê
+    else if (inst.id === 'agbe') {
+      if (agbeWholeRef.current) {
+        agbeWholeRef.current.style.transition = 'none';
+        agbeWholeRef.current.style.transform = 'translate3d(0, 0, 0)';
+      }
+    }
+  };
+
+  // --- SYNCHRONISATION PRÉ-ROLL (STABILISATION ABSOLUE SANS FLOTTEMENT) ---
+  useEffect(() => {
+    if (isPreRolling) {
+      clearSubStepTimers();
+      lastVuStepRef.current = -1;
+      leftAnimRef.current?.cancel();
+      rightAnimRef.current?.cancel();
+      gongueAnimRef.current?.cancel();
+      agbeAnimRef.current?.cancel();
+      mineiroAnimRef.current?.cancel();
+      resetToRestPosition();
+    } else {
+      // Décompte achevé : armement immédiat pour le pas 0 du temps 1
+      lastVuStepRef.current = -1;
+    }
+  }, [isPreRolling]);
 
   // Early return if active track or instrument config is missing, after hooks are declared
   if (!activeTrack || !inst) return null;
@@ -229,8 +309,21 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
   // --- AUDIO TICK LISTENERS AND GPU ANIMATIONS (WAAPI) ---
   useEffect(() => {
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; isPreRoll?: boolean }) => {
       const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
+
+      // 1. Filtrage strict du précompte (count-in) : maintien absolu de la posture de repos statique
+      if (isPreRolling || Boolean((detail as any).isPreRoll)) {
+        clearSubStepTimers();
+        lastVuStepRef.current = -1;
+        if (leftAnimRef.current) leftAnimRef.current.cancel();
+        if (rightAnimRef.current) rightAnimRef.current.cancel();
+        if (gongueAnimRef.current) gongueAnimRef.current.cancel();
+        if (agbeAnimRef.current) agbeAnimRef.current.cancel();
+        if (mineiroAnimRef.current) mineiroAnimRef.current.cancel();
+        resetToRestPosition();
+        return;
+      }
 
       if (step < 0) {
         clearSubStepTimers();
@@ -240,18 +333,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
         if (gongueAnimRef.current) gongueAnimRef.current.cancel();
         if (agbeAnimRef.current) agbeAnimRef.current.cancel();
         if (mineiroAnimRef.current) mineiroAnimRef.current.cancel();
-        if (mineiroStickRef.current) {
-          mineiroStickRef.current.style.transform = `translate3d(0, ${CONFIG_MINEIRO.backWeak.y}px, 0) scale(${CONFIG_MINEIRO.backWeak.scale}) rotateZ(${CONFIG_MINEIRO.backWeak.rotateZ}deg)`;
-        }
-        mineiroPoleRef.current = 'backWeak';
-        if (inst.id === 'timbal') {
-          if (leftStickRef.current) {
-            leftStickRef.current.style.transform = getTimbalRestTransform(true);
-          }
-          if (rightStickRef.current) {
-            rightStickRef.current.style.transform = getTimbalRestTransform(false);
-          }
-        }
+        resetToRestPosition();
         // Clean highlights on stop
         if (inst.type === 'voice' && voiceWrapperRef.current) {
           const stepSpans = voiceWrapperRef.current.querySelectorAll('[data-step-idx]');
@@ -750,7 +832,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       unsubscribeFromTick(handleTick);
       clearSubStepTimers();
     };
-  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst]);
+  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst, isPreRolling]);
 
   // static helper for Agbê net rendering
   const renderNet = () => {
@@ -953,7 +1035,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
 export const AoVivoOverlay: React.FC = () => {
   const isEco = useSequencerStore(state => state.isEcoMode);
-  const { activeAoVivoTrackId } = useSequencer();
+  const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
 
   // If eco mode is enabled or no track is active for Ao Vivo,
   // return null immediately, avoiding any animation hook execution (Zero Cost basis).

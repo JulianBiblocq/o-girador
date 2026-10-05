@@ -394,7 +394,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
                         setIsBusNameEdited(true);
                       }}
                       className="px-3 py-2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)]/60 text-[var(--cordel-text)] focus:outline-none focus:border-[var(--cordel-border)] font-bold text-xs"
-                      placeholder="e.g. CAIXAS & TAROLS"
+                      placeholder={lang === 'pt' ? 'ex.: CAIXAS & TAROLS' : 'ex. : CAIXAS & TAROLS'}
                     />
                   </div>
 
@@ -508,7 +508,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
                         setIsLinkNameEdited(true);
                       }}
                       className="px-3 py-2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)]/60 text-[var(--cordel-text)] focus:outline-none focus:border-[var(--cordel-border)] font-bold text-xs"
-                      placeholder="e.g. CAIXAS LINKED"
+                      placeholder={lang === 'pt' ? 'ex.: CAIXAS VINCULADAS' : 'ex. : CAIXAS LIÉES'}
                     />
                   </div>
 

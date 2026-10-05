@@ -84,12 +84,40 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   onAddPatternVariation,
 }) => {
   const { handleTogglePlay } = useAudio();
-  const selectedPatternIdRef = useRef(selectedPatternId);
+  const variationsContainerRef = useRef<HTMLDivElement>(null);
   const isMouseDownRef = useRef(false);
 
-  useEffect(() => {
-    selectedPatternIdRef.current = selectedPatternId;
-  }, [selectedPatternId]);
+  // Synchronisation des références pour l'écouteur d'événements natif (évite les fermetures obsolètes)
+  const ptnRef = useRef(ptn);
+  ptnRef.current = ptn;
+  const instRef = useRef(inst);
+  instRef.current = inst;
+  const selectedPatternIdRef = useRef(selectedPatternId);
+  selectedPatternIdRef.current = selectedPatternId;
+  const selectedVariationIdRef = useRef(selectedVariationId);
+  selectedVariationIdRef.current = selectedVariationId;
+  const langRef = useRef(lang);
+  langRef.current = lang;
+  const isLeftHandedRef = useRef(isLeftHanded);
+  isLeftHandedRef.current = isLeftHanded;
+  const trackIdRef = useRef(trackId);
+  trackIdRef.current = trackId;
+  const selectedSubIndexRef = useRef(selectedSubIndex);
+  selectedSubIndexRef.current = selectedSubIndex;
+  const onVariationStepValueChangeRef = useRef(onVariationStepValueChange);
+  onVariationStepValueChangeRef.current = onVariationStepValueChange;
+  const setSelectedPatternIdRef = useRef(setSelectedPatternId);
+  setSelectedPatternIdRef.current = setSelectedPatternId;
+  const setSelectedVariationIdRef = useRef(setSelectedVariationId);
+  setSelectedVariationIdRef.current = setSelectedVariationId;
+  const setSelectedStepIdxRef = useRef(setSelectedStepIdx);
+  setSelectedStepIdxRef.current = setSelectedStepIdx;
+  const setSelectedStepIndicesRef = useRef(setSelectedStepIndices);
+  setSelectedStepIndicesRef.current = setSelectedStepIndices;
+  const setSelectedSubIndexRef = useRef(setSelectedSubIndex);
+  setSelectedSubIndexRef.current = setSelectedSubIndex;
+  const onSelectPatternRef = useRef(onSelectPattern);
+  onSelectPatternRef.current = onSelectPattern;
 
   useEffect(() => {
     const onMouseUp = () => {
@@ -97,6 +125,103 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
     };
     window.addEventListener('mouseup', onMouseUp);
     return () => window.removeEventListener('mouseup', onMouseUp);
+  }, []);
+
+  // Écouteur natif non-passif sur le conteneur des variations :
+  // Neutralise impérativement le défilement vertical (e.preventDefault()) lors du survol d'un pas
+  useEffect(() => {
+    const el = variationsContainerRef.current;
+    if (!el) return;
+
+    const handleVariationWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const stepTarget = target.closest('[data-step-index][data-variation-id]') as HTMLElement | null;
+      if (!stepTarget) return;
+
+      const stepIdxAttr = stepTarget.getAttribute('data-step-index');
+      const varId = stepTarget.getAttribute('data-variation-id');
+      if (stepIdxAttr === null || !varId) return;
+
+      const currentPtn = ptnRef.current;
+      const currentSelectedPatternId = selectedPatternIdRef.current;
+      const currentSelectedVariationId = selectedVariationIdRef.current;
+
+      // Condition de focus : le motif parent ou la variation doit être sélectionné(e)
+      const isContextSelected =
+        currentPtn?.id === currentSelectedPatternId ||
+        currentSelectedVariationId === varId;
+
+      if (!isContextSelected) return;
+
+      // Interception et blocage strict du défilement vertical de la page
+      e.preventDefault();
+      e.stopPropagation();
+
+      const stepIdx = parseInt(stepIdxAttr, 10);
+      const direction = e.deltaY < 0 ? 'up' : 'down';
+
+      const variation = currentPtn?.variations?.find(v => v.id === varId);
+      if (!variation) return;
+
+      const currentVal = variation.steps[stepIdx] ?? 0;
+      let valToNuance = currentVal;
+      const subIdx = selectedSubIndexRef.current;
+      if (Array.isArray(currentVal)) {
+        valToNuance = currentVal[subIdx === 1 ? 1 : 0];
+      }
+
+      const nextVal = getWheelNuanceState(
+        valToNuance as string | number,
+        direction,
+        instRef.current?.id,
+        instRef.current?.type,
+        langRef.current,
+        isLeftHandedRef.current
+      );
+
+      let finalVal: string | number | [string, string] = nextVal;
+      if (Array.isArray(currentVal)) {
+        const arr = [...currentVal] as [string, string];
+        const targetSub = subIdx === 1 ? 1 : 0;
+        arr[targetSub] = String(nextVal);
+        finalVal = arr;
+      }
+
+      if (nextVal !== valToNuance) {
+        onVariationStepValueChangeRef.current?.(
+          currentPtn.id,
+          varId,
+          stepIdx,
+          Array.isArray(finalVal) ? (finalVal as any) : String(finalVal)
+        );
+
+        onSelectPatternRef.current?.(currentPtn.id);
+        setSelectedPatternIdRef.current?.(currentPtn.id);
+        setSelectedVariationIdRef.current?.(varId);
+        setSelectedStepIdxRef.current?.(stepIdx);
+        setSelectedStepIndicesRef.current?.([stepIdx]);
+        if (!Array.isArray(currentVal)) {
+          setSelectedSubIndexRef.current?.(null);
+        }
+
+        if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
+          try {
+            const rawVol = variation.volumes?.[stepIdx];
+            const vol = ((Array.isArray(rawVol) ? (subIdx === 1 ? rawVol[1] : rawVol[0]) : (rawVol ?? 80)) as number) / 100;
+            const rawDec = variation.decays?.[stepIdx];
+            const dec = ((Array.isArray(rawDec) ? (subIdx === 1 ? rawDec[1] : rawDec[0]) : (rawDec ?? 100)) as number) / 100;
+            audioEngine.playNote(trackIdRef.current, String(nextVal), Tone.now(), vol, dec);
+          } catch (_) {}
+        }
+      }
+    };
+
+    el.addEventListener('wheel', handleVariationWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleVariationWheel);
+    };
   }, []);
 
   const applyStrokeToVariationStep = React.useCallback((
@@ -145,7 +270,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   if (inst.type === 'voice' || inst.id === 'apito') return null;
 
   return (
-    <div className="flex flex-col gap-3 mt-2 mb-2 pl-4 border-l-[3px] border-dashed border-[#1a1a1a]/20">
+    <div ref={variationsContainerRef} className="flex flex-col gap-3 mt-2 mb-2 pl-4 border-l-[3px] border-dashed border-[#1a1a1a]/20">
       {(ptn.variations || []).map((variation, vIdx) => {
         return (
           <div key={variation.id} className="flex flex-col gap-1.5 p-2 bg-[#ece4d0]/60 cordel-border-sm border-dashed">
@@ -235,9 +360,17 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                       }
                       
                       return (
-                        <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
+                        <div
+                          key={i}
+                          data-step-index={i}
+                          data-variation-id={variation.id}
+                          className="relative flex flex-col items-center"
+                          style={{ width: '36px' }}
+                        >
                           <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
                           <input
+                            data-step-index={i}
+                            data-variation-id={variation.id}
                             type="text"
                             maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 3 : 1}
                             value={displayVal}
@@ -338,39 +471,6 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                             }}
                             onChange={(e) => {
                               onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, e.target.value);
-                            }}
-                            onWheel={(e) => {
-                              // Uniquement si ce motif est le motif actif sélectionné
-                              if (ptn.id !== selectedPatternIdRef.current) return;
-
-                              e.preventDefault();
-                              e.stopPropagation();
-
-                              const direction = e.deltaY < 0 ? 'up' : 'down';
-                              const nextVal = getWheelNuanceState(
-                                val as string | number,
-                                direction,
-                                inst.id,
-                                inst.type,
-                                lang,
-                                isLeftHanded
-                              );
-
-                              if (nextVal !== val) {
-                                onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, String(nextVal));
-                                setSelectedStepIdx(i);
-                                setSelectedStepIndices([i]);
-
-                                if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
-                                  try {
-                                    const rawVol = variation.volumes?.[i];
-                                    const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
-                                    const rawDec = variation.decays?.[i];
-                                    const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
-                                    audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
-                                  } catch (_) {}
-                                }
-                              }
                             }}
                             onKeyDown={(e) => {
                               const inputEl = e.currentTarget;

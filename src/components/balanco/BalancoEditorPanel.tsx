@@ -1115,7 +1115,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
                             setIsLibraryModalOpen(false);
                           }}
                           className="px-2 py-1 bg-white border border-black text-[10px] font-bold text-[#1a1a1a] hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000]"
-                          title={lang === 'fr' ? "Ouvrir dans l'Atelier" : "Abrir no Ateliê"}
+                          title={lang === 'fr' ? "Ouvrir dans l'Atelier" : "Abrir n'A Oficina"}
                         >
                           ✏️
                         </button>

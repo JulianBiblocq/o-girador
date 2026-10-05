@@ -28,6 +28,7 @@ interface StrokeInspectorPanelProps {
   lang: string;
   isLeftHanded: boolean;
   activeTool: string; // e.g. 'D', 'E', '0', 'scissors', etc.
+  patternId?: number;
   onCloseMobileDrawer?: () => void;
   isMobileDrawer?: boolean;
 }
@@ -38,6 +39,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   lang,
   isLeftHanded,
   activeTool,
+  patternId,
   onCloseMobileDrawer,
   isMobileDrawer = false,
 }) => {
@@ -51,6 +53,13 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
   const setTracks = useSequencerStore(state => state.setTracks);
   const pushUndoState = useSequencerStore(state => state.pushUndoState);
+  const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps);
+
+  const handleTranspose = React.useCallback((semitones: number) => {
+    const currentPatternId = patternId || track?.selectedPatternId || track?.patterns?.[0]?.id;
+    if (!currentPatternId) return;
+    useSequencerStore.getState().transposePatternNotes(trackId, currentPatternId, semitones);
+  }, [patternId, track?.selectedPatternId, track?.patterns, trackId]);
 
   const strokeDefaults = useSequencerSettingsStore(state => state.strokeDefaults) || {};
   const setStrokeDefault = useSequencerSettingsStore(state => state.setStrokeDefault);
@@ -519,10 +528,65 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
         </div>
       )}
 
-      {/* Section Lutherie du Fût (Accordage / Pitch) ou Timbre Vocal */}
-      <div className="border-t border-[#1a1a1a]/20 pt-1.5 flex flex-col gap-1.5 mt-auto shrink-0">
+      {/* Section Lutherie du Fût (Accordage / Pitch) ou Timbre Vocal & Transposition */}
+      <div className="border-t border-[#1a1a1a]/20 pt-1.5 flex flex-col gap-2 mt-auto shrink-0">
         {isVoice ? (
-          <VocalTimbreSelector lang={lang} />
+          <>
+            {/* Widget Transposition vocale */}
+            <div className="flex flex-col gap-1 bg-[#f4ecd8] p-2 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-sm select-none">
+              <span className="font-cactus font-bold text-xs uppercase tracking-wide text-[#1a1a1a]">
+                {isFr ? 'Transposition' : 'Transposição'}
+              </span>
+              <div className="flex items-center justify-between gap-1 mt-0.5">
+                {/* Raccourci -7 (Quinte descendante) */}
+                <button
+                  type="button"
+                  onClick={() => handleTranspose(-7)}
+                  title={isFr ? '-7 demi-tons (Quinte descendante)' : '-7 semitons (Quinta descendente)'}
+                  className="px-2 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-xs font-cactus shrink-0"
+                >
+                  -7
+                </button>
+
+                {/* Bouton -1 demi-ton */}
+                <button
+                  type="button"
+                  onClick={() => handleTranspose(-1)}
+                  title={isFr ? '-1 demi-ton' : '-1 semitom'}
+                  className="w-7 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-sm font-cactus shrink-0"
+                >
+                  -
+                </button>
+
+                {/* Compteur de transposition relative */}
+                <span className="w-8 text-center font-cactus text-base font-black text-[#8b2a1a] tabular-nums">
+                  {vocalTransposeSteps > 0 ? `+${vocalTransposeSteps}` : vocalTransposeSteps}
+                </span>
+
+                {/* Bouton +1 demi-ton */}
+                <button
+                  type="button"
+                  onClick={() => handleTranspose(1)}
+                  title={isFr ? '+1 demi-ton' : '+1 semitom'}
+                  className="w-7 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-sm font-cactus shrink-0"
+                >
+                  +
+                </button>
+
+                {/* Raccourci +7 (Quinte ascendante) */}
+                <button
+                  type="button"
+                  onClick={() => handleTranspose(7)}
+                  title={isFr ? '+7 demi-tons (Quinte ascendante)' : '+7 semitons (Quinta ascendente)'}
+                  className="px-2 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-xs font-cactus shrink-0"
+                >
+                  +7
+                </button>
+              </div>
+            </div>
+
+            <VocalTimbreSelector lang={lang} />
+          </>
         ) : (
           <PercussionTuningControl trackId={trackId} onPreview={handlePreviewDrum} showPreviewButton={true} />
         )}

@@ -19,6 +19,7 @@ import { Trash2 } from 'lucide-react';
 import { isDarkText, instrumentsConfig } from '../data';
 import { getContrastColor } from '../utils/colorHelpers';
 import { useWindow } from '../contexts/WindowContext';
+import { CordelContextMenu } from './ui/CordelContextMenu';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
   if (val === undefined) return fallback;
@@ -110,7 +111,7 @@ interface PercussionStepCellProps {
   patternId: number;
   
   onMouseDown: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
-  onMouseEnter: (index: number) => void;
+  onMouseEnter: (index: number, e?: React.MouseEvent) => void;
   onTouchStart: (e: React.TouchEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onTouchMove?: (e: React.TouchEvent<any>) => void;
   onTouchEnd?: (e: React.TouchEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
@@ -187,7 +188,7 @@ const PercussionStepCell = React.memo(({
       onTouchStart={activeTool === 'scissors' ? (e) => onTouchStart(e, i, val) : undefined}
       onTouchEnd={activeTool === 'scissors' ? (e) => onTouchEnd?.(e, i, val) : undefined}
       onClick={() => onSelectForSculpt?.(i)}
-      title={activeTool === 'scissors' ? (Array.isArray(val) ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Scinder le pas en triples croches') : undefined}
+      title={activeTool === 'scissors' ? (Array.isArray(val) ? (lang === 'fr' ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Juntar o passo (Mesclar)') : (lang === 'fr' ? '✂ / 🩹 Scinder le pas en doubles croches' : '✂ / 🩹 Dividir o passo em semicolcheias')) : undefined}
     >
       {Array.isArray(val) ? (
         <div
@@ -222,7 +223,7 @@ const PercussionStepCell = React.memo(({
               onContextMenu?.(e, i, val);
             }
           }}
-          title={activeTool === 'scissors' ? '✂ / 🩹 Recoller le pas (Fusionner)' : undefined}
+          title={activeTool === 'scissors' ? (lang === 'fr' ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Juntar o passo (Mesclar)') : undefined}
         >
           {/* Zone cliquable note 1 (Haut-Gauche) */}
           <div
@@ -238,7 +239,7 @@ const PercussionStepCell = React.memo(({
             tabIndex={-1}
             onMouseDown={(e) => onMouseDown(e, i, val, 0)}
             onClick={() => onSelectForSculpt?.(i, 0)}
-            onMouseEnter={() => onMouseEnter(i)}
+            onMouseEnter={(e) => onMouseEnter(i, e)}
             onTouchStart={(e) => onTouchStart(e, i, val, 0)}
             onTouchMove={onTouchMove}
             onTouchEnd={(e) => onTouchEnd?.(e, i, val, 0)}
@@ -270,7 +271,7 @@ const PercussionStepCell = React.memo(({
             tabIndex={-1}
             onMouseDown={(e) => onMouseDown(e, i, val, 1)}
             onClick={() => onSelectForSculpt?.(i, 1)}
-            onMouseEnter={() => onMouseEnter(i)}
+            onMouseEnter={(e) => onMouseEnter(i, e)}
             onTouchStart={(e) => onTouchStart(e, i, val, 1)}
             onTouchMove={onTouchMove}
             onTouchEnd={(e) => onTouchEnd?.(e, i, val, 1)}
@@ -309,7 +310,7 @@ const PercussionStepCell = React.memo(({
           onMouseDown={(e) => onMouseDown(e, i, val)}
           onFocus={() => onSelectForSculpt?.(i)}
           onClick={() => onSelectForSculpt?.(i)}
-          onMouseEnter={() => onMouseEnter(i)}
+          onMouseEnter={(e) => onMouseEnter(i, e)}
           onTouchStart={(e) => onTouchStart(e, i, val)}
           onTouchMove={onTouchMove}
           onTouchEnd={(e) => onTouchEnd?.(e, i, val)}
@@ -345,7 +346,7 @@ const PercussionStepCell = React.memo(({
           data-track-id={trackId}
           data-pattern-id={patternId}
           data-step-index={i}
-          title={activeTool === 'scissors' ? '✂ / 🩹 Scinder le pas en triples croches' : undefined}
+          title={activeTool === 'scissors' ? (lang === 'fr' ? '✂ / 🩹 Scinder le pas en doubles croches' : '✂ / 🩹 Dividir o passo em semicolcheias') : undefined}
         />
       )}
       {/* Sculpting micro-bars — Zone isolée pour sélection Escultor sans écrasement d'outil */}
@@ -378,7 +379,7 @@ const PercussionStepCell = React.memo(({
                     e.stopPropagation();
                     onSelectForSculpt?.(i, 0);
                   }}
-                  title="Sculpter le 1er coup"
+                  title={lang === 'fr' ? 'Sculpter le 1er coup' : 'Esculpir o 1º golpe'}
                 >
                   <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
                     <div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} />
@@ -412,7 +413,7 @@ const PercussionStepCell = React.memo(({
                     e.stopPropagation();
                     onSelectForSculpt?.(i, 1);
                   }}
-                  title="Sculpter le 2ème coup"
+                  title={lang === 'fr' ? 'Sculpter le 2ème coup' : 'Esculpir o 2º golpe'}
                 >
                   <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
                     <div className="h-full bg-green-600 transition-all" style={{ width: `${vol1}%` }} />
@@ -528,7 +529,7 @@ interface VoiceStepCellProps {
   
   onTouchStart?: (e: React.TouchEvent<HTMLDivElement>, index: number) => void;
   onMouseDown?: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
-  onMouseEnter?: (index: number) => void;
+  onMouseEnter?: (index: number, e?: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent<any>, index: number) => void;
   onSelectForSculpt?: (index: number) => void;
   onVoiceTypeToggle: (trackId: number, patternId: number, index: number) => void;
@@ -539,6 +540,8 @@ interface VoiceStepCellProps {
   onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
   focusVoiceStep?: (stepIdx: number, type?: 'note' | 'syl', forceInPreRoll?: boolean) => void;
   onVoiceStepClear?: (trackId: number, patternId: number, index: number, isPreRoll?: boolean) => void;
+  isInRange?: boolean;
+  preRollLength?: number;
   isProlongation?: boolean;
   isFollowedByProlongation?: boolean;
 }
@@ -552,6 +555,8 @@ const VoiceStepCellComponent = ({
   syl,
   note,
   isSelected,
+  isInRange = false,
+  preRollLength = 16,
   isMultiSelectActive,
   manualMicro,
   totalShift,
@@ -581,7 +586,7 @@ const VoiceStepCellComponent = ({
   const isStepActiveVal = Boolean(state !== 0 && state !== '0' && state !== '' && state !== undefined && state !== null);
   const hasActiveNote = Boolean(note && note.trim() !== '');
   const hasActiveSyl = Boolean(syl && syl.trim() !== '');
-  const hasActiveStep = isStepActiveVal && (hasActiveNote || hasActiveSyl);
+  const hasActiveStep = isStepActiveVal || hasActiveNote || hasActiveSyl;
   const isPux = state === 'P';
   const inst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
   const cardBg = hasActiveStep 
@@ -612,6 +617,28 @@ const VoiceStepCellComponent = ({
       e.stopPropagation();
       useSequencerStore.getState().handleRedo();
       return;
+    }
+
+    // Support de Ctrl+Shift+V / Ctrl+Alt+V (Coller les notes seules avec sanctuarisation des paroles)
+    if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && e.key.toLowerCase() === 'v') {
+      e.preventDefault();
+      e.stopPropagation();
+      useSequencerStore.getState().pasteNotesOnlyStartingAt(trackId, patternId, Boolean(isPreRoll), i);
+      return;
+    }
+
+    // Support de Ctrl+C pour copier la plage de mélodie ou la note actuelle
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !e.shiftKey && !e.altKey) {
+      const selStart = input.selectionStart;
+      const selEnd = input.selectionEnd;
+      const valLen = input.value.length;
+      const hasPartialText = selStart !== null && selEnd !== null && selStart !== selEnd && !(selStart === 0 && selEnd === valLen);
+      if (!hasPartialText) {
+        e.preventDefault();
+        e.stopPropagation();
+        useSequencerStore.getState().copySelectedNotesRange();
+        return;
+      }
     }
 
     // 1. ISOLATION STRICTE DE LA TOUCHE ESPACE DANS LE CHAMP SYLLABE (.v-syl)
@@ -757,10 +784,25 @@ const VoiceStepCellComponent = ({
       }
     }
 
-    // 8. Touche Tab
+    // 8. Touche Tab (Continuité fluide Anacrouse <-> Mesure principale)
     if (e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
+      const preRollLen = preRollLength || 16;
+      if (!e.shiftKey && isPreRoll && i >= preRollLen - 1) {
+        // Tab sur le dernier pas de l'anacrouse -> Pas 0 de la mesure principale
+        if (focusVoiceStep) {
+          focusVoiceStep(0, field, false);
+        }
+        return;
+      }
+      if (e.shiftKey && !isPreRoll && i === 0) {
+        // Shift+Tab sur le pas 0 de la mesure principale -> Dernier pas de l'anacrouse
+        if (focusVoiceStep) {
+          focusVoiceStep(preRollLen - 1, field, true);
+        }
+        return;
+      }
       const targetIdx = e.shiftKey ? i - 1 : i + 1;
       if (focusVoiceStep) {
         focusVoiceStep(targetIdx, field, isPreRoll);
@@ -796,13 +838,15 @@ const VoiceStepCellComponent = ({
         className={`v-card flex flex-col z-10 relative transition-all duration-100 w-full ${
           isSelected
             ? '!border-2 !border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f] rounded-none m-[1px]'
-            : isProlongation && isFollowedByProlongation
-              ? 'border-y border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0'
-              : isProlongation && !isFollowedByProlongation
-                ? 'border-y border-r border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
-                : !isProlongation && isFollowedByProlongation
-                  ? 'border-y border-l border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
-                  : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
+            : isInRange
+              ? '!border-2 !border-amber-500/90 bg-amber-500/25 shadow-[0_0_8px_rgba(245,158,11,0.6)] rounded-none m-[1px]'
+              : isProlongation && isFollowedByProlongation
+                ? 'border-y border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0'
+                : isProlongation && !isFollowedByProlongation
+                  ? 'border-y border-r border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
+                  : !isProlongation && isFollowedByProlongation
+                    ? 'border-y border-l border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
+                    : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
         }`}
         style={{
           transform: `translateX(${shiftPx}px)`,
@@ -812,9 +856,22 @@ const VoiceStepCellComponent = ({
         data-pattern-id={patternId}
         data-step-index={i}
         data-step-type="voice"
+        data-is-preroll={isPreRoll ? "true" : "false"}
         data-selected={isSelected ? "true" : undefined}
         tabIndex={-1}
         onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && e.key.toLowerCase() === 'v') {
+            e.preventDefault();
+            e.stopPropagation();
+            useSequencerStore.getState().pasteNotesOnlyStartingAt(trackId, patternId, Boolean(isPreRoll), i);
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            useSequencerStore.getState().copySelectedNotesRange();
+            return;
+          }
           if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
             e.stopPropagation();
@@ -866,7 +923,7 @@ const VoiceStepCellComponent = ({
         }}
         onMouseDown={(e) => onMouseDown?.(e, i)}
         onClick={() => onFocusStep(i, Boolean(isPreRoll))}
-        onMouseEnter={() => onMouseEnter?.(i)}
+        onMouseEnter={(e) => onMouseEnter?.(i, e)}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -888,6 +945,12 @@ const VoiceStepCellComponent = ({
           className={`step-input-cell v-syl w-full text-center outline-none border-b border-[#00000020] bg-transparent pb-0.5 ${syl ? 'font-bold' : ''}`}
           style={{ 
             color: isMultiSelectActive && isSelected ? 'transparent' : txtColor,
+          }}
+          onMouseDown={(e) => {
+            if (e.shiftKey) {
+              e.preventDefault();
+              onMouseDown?.(e as any, i);
+            }
           }}
           onFocus={() => {
             if (!isMultiSelectActive) {
@@ -919,6 +982,12 @@ const VoiceStepCellComponent = ({
               color: isMultiSelectActive && isSelected
                 ? 'transparent'
                 : (isProlongation ? '#666666' : '#1a1a1a'),
+            }}
+            onMouseDown={(e) => {
+              if (e.shiftKey) {
+                e.preventDefault();
+                onMouseDown?.(e as any, i);
+              }
             }}
             onFocus={() => {
               if (!isMultiSelectActive) {
@@ -996,6 +1065,8 @@ const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) 
          prev.volume === next.volume &&
          prev.decay === next.decay &&
          prev.isPreRoll === next.isPreRoll &&
+         prev.isInRange === next.isInRange &&
+         prev.preRollLength === next.preRollLength &&
          prev.isProlongation === next.isProlongation &&
          prev.isFollowedByProlongation === next.isFollowedByProlongation;
 };
@@ -1055,6 +1126,26 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const currentWindow = useWindow();
 
   const gridRef = useRef<HTMLDivElement>(null);
+  const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
+  const [voiceStepContextMenu, setVoiceStepContextMenu] = useState<{ x: number; y: number; stepIdx: number; isPreRoll: boolean } | null>(null);
+
+  const timeSig = (pattern as any)?.timeSignature || useSequencerStore.getState().metadata?.ritmo || '4/4';
+  const preRollLengthComputed = pattern?.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+
+  const isStepInRange = React.useCallback((
+    range: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null,
+    cellIsPreRoll: boolean,
+    cellStep: number,
+    preRollCount: number
+  ): boolean => {
+    if (!range) return false;
+    const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollCount + p.step);
+    const minLinear = Math.min(toLinear(range.start), toLinear(range.end));
+    const maxLinear = Math.max(toLinear(range.start), toLinear(range.end));
+    const cellLinear = cellIsPreRoll ? cellStep : (preRollCount + cellStep);
+    return cellLinear >= minLinear && cellLinear <= maxLinear;
+  }, []);
+
   const [hasClipboard, setHasClipboard] = useState(false);
   const [internalSubIndex, setInternalSubIndex] = useState<0 | 1 | null>(null);
   const selectedSubIndex = propSelectedSubIndex !== undefined ? propSelectedSubIndex : internalSubIndex;
@@ -1352,7 +1443,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [pattern.id, pattern.activeSteps, pattern.volumes, pattern.decays, selectedVariationId, isMultiSelectActive, activeTool, isAlternating, instrument?.id, instrument?.type, lang, isLeftHanded, trackId, handleStepMouseDownMulti, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedPatternId, setSelectedVariationId, setSelectedStepIndices, setSelectedStepIdx, setSelectedSubIndex]);
 
-  const handleCellMouseEnter = React.useCallback((idx: number) => {
+  const handleCellMouseEnter = React.useCallback((idx: number, e?: React.MouseEvent) => {
+    // Consigne Zone 4 : Gomme glissée au maintien du clic droit (e.buttons === 2)
+    if (e && e.buttons === 2) {
+      handleClearStep(idx);
+      return;
+    }
     if (activeTool === 'scissors') return; // Glisser/drag désactivé pour l'outil ciseau
     if (isMultiSelectActive) {
       handleStepMouseEnterMulti(idx);
@@ -1437,16 +1533,16 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     handleClearStep(idx, subIndex);
   }, [handleClearStep]);
 
-  const handleVoiceContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number) => {
+  const handleVoiceContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number, isPreRoll?: boolean) => {
     e.preventDefault();
-    const currentState = pattern?.activeSteps?.[idx];
-    const currentSyl = pattern?.lyrics?.[idx];
-    const currentNote = pattern?.notes?.[idx];
-    if ((!currentState || currentState === 0 || currentState === '0') && !currentSyl && !currentNote) {
-      return;
-    }
-    handleTrackStepValueChange(trackId, pattern.id, idx, '0', '', '');
-  }, [pattern?.activeSteps, pattern?.lyrics, pattern?.notes, pattern?.id, trackId, handleTrackStepValueChange]);
+    e.stopPropagation();
+    setVoiceStepContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      stepIdx: idx,
+      isPreRoll: Boolean(isPreRoll)
+    });
+  }, []);
 
   const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     if (activeTool === 'scissors') {
@@ -1470,11 +1566,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       clearTimeout(longPressTimerRef.current);
     }
 
-    // Long press (> 450ms) triggers TouchStrokeSelector popup for rare strokes
+    // Consigne Zone 4 : Long press (400ms) avec annulation si déplacement > 8px
     longPressTimerRef.current = setTimeout(() => {
       isLongPressFiredRef.current = true;
       handleStart(e, idx, value, subIndex);
-    }, 450);
+    }, 400);
   }, [isMultiSelectActive, handleStepTouchStartMulti, handleStart, activeTool]);
 
   const handleCellTouchMove = React.useCallback((e: React.TouchEvent<HTMLInputElement>) => {
@@ -2009,7 +2105,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       setSelectedStepIsPreRoll(Boolean(isPreRoll));
     }
     useAudioStore.getState().setVoiceInputMode('step');
-    useSequencerStore.setState({ selectedStepIdx: idx, selectedStepIsPreRoll: Boolean(isPreRoll), selectedSubIndex: null });
+    useSequencerStore.setState({ selectedStepIdx: idx, selectedStepIsPreRoll: Boolean(isPreRoll), selectedSubIndex: null, selectedStepRange: null });
   }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedStepIsPreRoll, pattern.id]);
 
   const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
@@ -2017,26 +2113,50 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       handleVoiceStepClear(trackId, pattern.id, idx);
       return;
     }
+    if (e.shiftKey) {
+      e.preventDefault();
+      const currentStart = (selectedStepIdx !== null && selectedStepIdx !== undefined)
+        ? { isPreRoll: Boolean(selectedStepIsPreRoll), step: selectedStepIdx }
+        : { isPreRoll: false, step: idx };
+      const currentEnd = { isPreRoll: false, step: idx };
+      useSequencerStore.getState().setSelectedStepRange({ start: currentStart, end: currentEnd });
+      return;
+    }
+    useSequencerStore.getState().setSelectedStepRange(null);
     if (isMultiSelectActive) {
       handleStepMouseDownMulti(e as any, idx);
       return;
     }
     handleVoiceFocusStep(idx, false);
-  }, [activeTool, isMultiSelectActive, handleStepMouseDownMulti, handleVoiceStepClear, handleVoiceFocusStep, trackId, pattern.id]);
+  }, [activeTool, isMultiSelectActive, handleStepMouseDownMulti, handleVoiceStepClear, handleVoiceFocusStep, trackId, pattern.id, selectedStepIdx, selectedStepIsPreRoll]);
 
   const handleVoicePreRollMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
     if (activeTool === '0') {
       handleVoicePreRollStepClear(trackId, pattern.id, idx);
       return;
     }
+    if (e.shiftKey) {
+      e.preventDefault();
+      const currentStart = (selectedStepIdx !== null && selectedStepIdx !== undefined)
+        ? { isPreRoll: Boolean(selectedStepIsPreRoll), step: selectedStepIdx }
+        : { isPreRoll: true, step: idx };
+      const currentEnd = { isPreRoll: true, step: idx };
+      useSequencerStore.getState().setSelectedStepRange({ start: currentStart, end: currentEnd });
+      return;
+    }
+    useSequencerStore.getState().setSelectedStepRange(null);
     handleVoiceFocusStep(idx, true);
-  }, [activeTool, handleVoicePreRollStepClear, handleVoiceFocusStep, trackId, pattern.id]);
+  }, [activeTool, handleVoicePreRollStepClear, handleVoiceFocusStep, trackId, pattern.id, selectedStepIdx, selectedStepIsPreRoll]);
 
-  const handleVoiceMouseEnter = React.useCallback((idx: number) => {
+  const handleVoiceMouseEnter = React.useCallback((idx: number, e?: React.MouseEvent) => {
+    if (e && e.buttons === 2) {
+      handleVoiceStepClear(trackId, pattern.id, idx);
+      return;
+    }
     if (isMultiSelectActive) {
       handleStepMouseEnterMulti(idx);
     }
-  }, [isMultiSelectActive, handleStepMouseEnterMulti]);
+  }, [isMultiSelectActive, handleStepMouseEnterMulti, handleVoiceStepClear]);
 
   // Sélection Escultor isolée : ne touche JAMAIS à la valeur du pas (Zero Tool Trigger)
   // Impact perf : seul setSelectedStepIdx mute → React.memo filtre les cellules non-concernées
@@ -2629,6 +2749,55 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => targetWin.removeEventListener('keydown', handleDuplicateKeyDown, { capture: true });
   }, [selectedStepIdx, pattern?.id, selectedPatternId, currentWindow, handleDuplicateStep]);
 
+  // Écouteur global pour raccourcis clavier Ctrl+C (Copier mélodie) et Ctrl+Shift+V / Ctrl+Alt+V (Coller notes seules)
+  useEffect(() => {
+    if (pattern?.id !== selectedPatternId) return;
+
+    const handleNotesClipboardGlobalKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd) return;
+
+      const activeEl = document.activeElement as HTMLElement | null;
+
+      // 1. Interception étanche de Ctrl+Shift+V ou Ctrl+Alt+V : Coller les notes seules (Sanctuarisation des paroles)
+      if ((e.shiftKey || e.altKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        e.stopPropagation();
+        (e as any).stopImmediatePropagation?.();
+
+        const state = useSequencerStore.getState();
+        const targetIsPreRoll = Boolean(state.selectedStepIsPreRoll);
+        const targetStep = state.selectedStepIdx ?? 0;
+        state.pasteNotesOnlyStartingAt(trackId, pattern.id, targetIsPreRoll, targetStep);
+        return;
+      }
+
+      // 2. Interception de Ctrl+C : Copier la plage de notes mélodiques
+      if (!e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') {
+        if (activeEl instanceof HTMLInputElement) {
+          const selStart = activeEl.selectionStart;
+          const selEnd = activeEl.selectionEnd;
+          const valLen = activeEl.value.length;
+          const hasPartialSelection = selStart !== null && selEnd !== null && selStart !== selEnd && !(selStart === 0 && selEnd === valLen);
+          if (hasPartialSelection) return;
+        }
+
+        const state = useSequencerStore.getState();
+        if (state.selectedStepRange || state.selectedStepIdx !== null) {
+          e.preventDefault();
+          e.stopPropagation();
+          (e as any).stopImmediatePropagation?.();
+          state.copySelectedNotesRange();
+          return;
+        }
+      }
+    };
+
+    const targetWin = currentWindow || window;
+    targetWin.addEventListener('keydown', handleNotesClipboardGlobalKeyDown, { capture: true });
+    return () => targetWin.removeEventListener('keydown', handleNotesClipboardGlobalKeyDown, { capture: true });
+  }, [pattern?.id, selectedPatternId, trackId, currentWindow]);
+
   // Keyboard and Copy/Paste listeners specifically related to pattern actions
   useEffect(() => {
     const handleGridShortcut = (e: Event) => {
@@ -2896,30 +3065,34 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       ? forceInPreRoll
       : (activeEl?.closest('.pre-roll-section') !== null);
 
+    const timeSigLocal = (pattern as any)?.timeSignature || useSequencerStore.getState().metadata?.ritmo || '4/4';
+    const preRollCount = pattern?.preRollActiveSteps?.length || (timeSigLocal === '12/8' ? 12 : 16);
     const patternSteps = pattern?.steps || 16;
     let targetStepIdx = stepIdx;
     let targetIsInPreRoll = isInPreRoll;
 
-    // Traversée Anacrouse -> Mesure principale (Point 1.A : borne dynamique patternSteps)
-    if (isInPreRoll && stepIdx >= patternSteps) {
+    // Traversée Anacrouse -> Mesure principale (borne dynamique preRollCount)
+    if (isInPreRoll && stepIdx >= preRollCount) {
       targetIsInPreRoll = false;
       targetStepIdx = 0;
     }
-    // Traversée Mesure principale -> Anacrouse (Point 1.A : borne dynamique patternSteps - 1 si anacrouse existe/est dépliée)
+    // Traversée Mesure principale -> Anacrouse (borne dynamique preRollCount - 1 si anacrouse existe/est dépliée)
     else if (!isInPreRoll && stepIdx < 0) {
       const hasPreRoll = Boolean(gridRef.current?.querySelector('.pre-roll-section'));
       if (hasPreRoll) {
         targetIsInPreRoll = true;
-        targetStepIdx = patternSteps - 1;
+        targetStepIdx = preRollCount - 1;
       } else {
         targetStepIdx = 0;
       }
     }
     // Garde-fous de débordement métrique
-    else if (stepIdx < 0) {
-      targetStepIdx = 0;
-    } else if (stepIdx >= patternSteps) {
-      targetStepIdx = patternSteps - 1;
+    else if (targetIsInPreRoll) {
+      if (stepIdx < 0) targetStepIdx = 0;
+      else if (stepIdx >= preRollCount) targetStepIdx = preRollCount - 1;
+    } else {
+      if (stepIdx < 0) targetStepIdx = 0;
+      else if (stepIdx >= patternSteps) targetStepIdx = patternSteps - 1;
     }
 
     const container = targetIsInPreRoll
@@ -2943,10 +3116,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       useSequencerStore.setState({
         selectedStepIdx: targetStepIdx,
         selectedStepIsPreRoll: targetIsInPreRoll,
-        selectedSubIndex: null
+        selectedSubIndex: null,
+        selectedStepRange: null
       });
     }
-  }, [pattern?.steps, setSelectedStepIdx, setSelectedStepIndices, setSelectedStepIsPreRoll]);
+  }, [pattern?.steps, pattern?.preRollActiveSteps, setSelectedStepIdx, setSelectedStepIndices, setSelectedStepIsPreRoll]);
 
   /* Écouteur d'événement global pour la prise de focus pilotée par MIDI ou externe */
   React.useEffect(() => {
@@ -3195,7 +3369,18 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   };
 
   return (
-    <div ref={gridRef} className="w-full flex flex-col gap-2">
+    <div
+      ref={gridRef}
+      className="w-full flex flex-col gap-2"
+      onClick={(e) => {
+        if (!e.shiftKey) {
+          const target = e.target as HTMLElement | null;
+          if (!target?.closest('[data-step-index]')) {
+            useSequencerStore.getState().setSelectedStepRange(null);
+          }
+        }
+      }}
+    >
       <style>{`
         .live-playhead-highlight {
           background-color: #1a1a1a !important;
@@ -3297,10 +3482,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       volume={volume}
                       decay={decay}
                       isPreRoll={true}
+                      isInRange={isStepInRange(selectedStepRange, true, i, preRollLengthComputed)}
+                      preRollLength={preRollLengthComputed}
                       isProlongation={isProlongation}
                       isFollowedByProlongation={isFollowedByProlongation}
                       onVoiceStepClear={handleVoicePreRollStepClear}
                       onMouseDown={handleVoicePreRollMouseDown}
+                      onContextMenu={(e) => handleVoiceContextMenu(e, i, true)}
                       onVoiceTypeToggle={() => {}}
                       onVoiceSylChange={handleVoicePreRollSylChange}
                       onVoiceNoteChange={handleVoicePreRollNoteChange}
@@ -3454,6 +3642,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           syl={syl}
                           note={note}
                           isSelected={isSelected}
+                          isInRange={isStepInRange(selectedStepRange, false, i, preRollLengthComputed)}
+                          preRollLength={preRollLengthComputed}
                           isMultiSelectActive={isMultiSelectActive}
                           manualMicro={manualMicro}
                           totalShift={totalShift}
@@ -3472,7 +3662,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           onVoiceNoteChange={handleVoiceNoteChange}
                           onVoiceNoteBlur={handleVoiceNoteBlur}
                           onFocusStep={(idx) => handleVoiceFocusStep(idx, false)}
-                          onContextMenu={handleVoiceContextMenu}
+                          onContextMenu={(e) => handleVoiceContextMenu(e, i, false)}
                           onSelectForSculpt={handleSelectStepForSculpt}
                           onVoiceNav={handleVoiceNav}
                           focusVoiceStep={focusVoiceStep}
@@ -3800,6 +3990,61 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             });
           })()}
         </div>
+      )}
+
+      {/* Menu contextuel Cordel pour le pas vocal (Copier mélodie, Coller notes seules, Effacer le pas) */}
+      {voiceStepContextMenu && (
+        <CordelContextMenu
+          x={voiceStepContextMenu.x}
+          y={voiceStepContextMenu.y}
+          title={
+            voiceStepContextMenu.isPreRoll
+              ? (lang === 'fr' ? `Anacrouse — Pas ${voiceStepContextMenu.stepIdx + 1}` : `Anacruse — Passo ${voiceStepContextMenu.stepIdx + 1}`)
+              : (lang === 'fr' ? `Mesure — Pas ${voiceStepContextMenu.stepIdx + 1}` : `Compasso — Passo ${voiceStepContextMenu.stepIdx + 1}`)
+          }
+          items={[
+            {
+              id: 'copy-melody',
+              icon: '📋',
+              label: lang === 'fr' ? 'Copier la mélodie' : 'Copiar a melodia',
+              onClick: () => {
+                useSequencerStore.getState().copySelectedNotesRange();
+                setVoiceStepContextMenu(null);
+              }
+            },
+            {
+              id: 'paste-notes-only',
+              icon: '📥',
+              label: lang === 'fr' ? 'Coller les notes seules' : 'Colar somente as notas',
+              disabled: !useSequencerStore.getState().vocalNotesClipboard || (useSequencerStore.getState().vocalNotesClipboard?.length ?? 0) === 0,
+              disabledReason: lang === 'fr' ? 'Aucune note mélodique dans le presse-papier' : 'Nenhuma nota melódica na área de transferência',
+              onClick: () => {
+                useSequencerStore.getState().pasteNotesOnlyStartingAt(
+                  trackId,
+                  pattern.id,
+                  voiceStepContextMenu.isPreRoll,
+                  voiceStepContextMenu.stepIdx
+                );
+                setVoiceStepContextMenu(null);
+              }
+            },
+            {
+              id: 'sep-clear',
+              isSeparator: true
+            },
+            {
+              id: 'clear-step',
+              icon: '✕',
+              label: lang === 'fr' ? 'Effacer le pas' : 'Limpar o passo',
+              isDestructive: true,
+              onClick: () => {
+                handleVoiceStepClear(trackId, pattern.id, voiceStepContextMenu.stepIdx, voiceStepContextMenu.isPreRoll);
+                setVoiceStepContextMenu(null);
+              }
+            }
+          ]}
+          onClose={() => setVoiceStepContextMenu(null)}
+        />
       )}
     </div>
   );

@@ -10,11 +10,12 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAuth } from '../contexts/AuthContext';
-import { i18n } from '../data';
+import { i18n, instrumentsConfig } from '../data';
 import { SpeedTrainerConfig } from '../types/speedTrainer.types';
 import { TrainingProgram } from '../types/trainings';
 import { X, Minus, Plus, Square, Info, GraduationCap, Save, CheckCircle2, Loader2, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { XiloLightning } from './XiloIcons';
+import { CordelTarget } from './ui/CordelTarget';
 import { generateTrainingStages } from '../utils/trainingCalculator';
 import { saveTrainingProgram, updateTrainingProgram, deleteTrainingProgram, fetchTrainingsByPreset } from '../services/cloudTrainings';
 
@@ -177,12 +178,17 @@ const NumberInput: React.FC<NumberInputProps> = ({
   );
 };
 
-export const SpeedTrainerModal: React.FC = () => {
+interface SpeedTrainerModalProps {
+  changeViewMode?: (mode: 'roda' | 'console' | 'timeline' | 'admin' | 'landing') => void;
+}
+
+export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeViewMode }) => {
   const audio = useAudio();
   const sequencer = useSequencer();
   const { userProfile } = useAuth();
-  const lang = sequencer.lang || 'pt';
-  const t = (key: string) => (i18n[lang] as any)[key] || key;
+  const lang = useSequencerStore((state) => state.lang);
+  const setLang = useSequencerStore((state) => state.setLang);
+  const t = (key: string) => (i18n[lang] as any)?.[key] || (i18n['pt'] as any)?.[key] || key;
 
   // Droits étendus Mestre / Admin
   const isMestre = useMemo(() => {
@@ -200,8 +206,41 @@ export const SpeedTrainerModal: React.FC = () => {
   const closeSpeedTrainerModal = useSequencerStore((state) => state.closeSpeedTrainerModal);
   const activeTrainingSession = useSequencerStore((state) => state.activeTrainingSession);
 
-  // Mode onglet (libre ou Mestre)
-  const [activeTab, setActiveTab] = useState<'free' | 'mestre'>('free');
+  // Stores pour Tocar Junto (« Jouer avec »)
+  const storeTracks = useSequencerStore((state) => state.tracks);
+  const tocarJuntoActive = useSequencerStore((state) => state.tocarJuntoActive);
+  const tocarJuntoTrackId = useSequencerStore((state) => state.tocarJuntoTrackId);
+  const isolateBaseOnly = useSequencerStore((state) => state.isolateBaseOnly);
+  const setTocarJuntoTrack = useSequencerStore((state) => state.setTocarJuntoTrack);
+  const setIsolateBaseOnly = useSequencerStore((state) => state.setIsolateBaseOnly);
+  const activeAoVivoTrackId = useSequencerStore((state) => state.activeAoVivoTrackId);
+  const setActiveAoVivoTrackId = useSequencerStore((state) => state.setActiveAoVivoTrackId);
+  const isEcoMode = useSequencerStore((state) => state.isEcoMode);
+  const toggleEcoMode = useSequencerStore((state) => state.toggleEcoMode);
+
+  // Type des 3 onglets (Jouer avec, Vitesse & Paliers, Défis & Carnet)
+  type SpeedTrainerTab = 'tocarJunto' | 'speedTrainer' | 'mestreChallenges';
+  const [activeTab, setActiveTab] = useState<SpeedTrainerTab>('tocarJunto');
+
+  // Formulaire local Tocar Junto
+  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
+  const [isMutedOption, setIsMutedOption] = useState<boolean>(true);
+  const [selectedBaseOnly, setSelectedBaseOnly] = useState<boolean>(true);
+  const [showAoVivoSticks, setShowAoVivoSticks] = useState<boolean>(true);
+
+  // Filtre rigoureux des pistes percussives (inclut les alfaias liées, exclut les bus réels et voix)
+  const playableTracks = useMemo(() => {
+    return storeTracks.filter((t) => {
+      // Seuls les dossiers bus réels (isBusFolder && !isLinkFolder) sont écartés
+      if (t.isBusFolder && !t.isLinkFolder) return false;
+      // Les pistes vocales Toada sont écartées
+      const inst = instrumentsConfig[t.instrumentIdx];
+      if (inst?.type === 'voice' || inst?.id === 'puxador' || inst?.id === 'coro' || (t as any).isToadaBus) {
+        return false;
+      }
+      return true;
+    });
+  }, [storeTracks]);
 
   // Markers sorted chronologically
   const sortedMarkers = useMemo(() => {
@@ -278,7 +317,7 @@ export const SpeedTrainerModal: React.FC = () => {
   }, [resolvedPresetId, effectiveGroupId]);
 
   useEffect(() => {
-    if (isOpen && isMestre && activeTab === 'mestre') {
+    if (isOpen && isMestre && activeTab === 'mestreChallenges') {
       loadTrainings();
     }
   }, [isOpen, isMestre, activeTab, loadTrainings]);
@@ -403,6 +442,65 @@ export const SpeedTrainerModal: React.FC = () => {
     });
     closeSpeedTrainerModal();
   }, [startMeasure, endMeasure, startBpm, targetBpm, bpmStep, loopInterval, consolidationLaps, activeTrainingSession, storeConfig, closeSpeedTrainerModal]);
+
+  // Synchronisation de l'onglet et de la sélection Tocar Junto à l'ouverture
+  useEffect(() => {
+    if (isOpen) {
+      if (tocarJuntoActive && tocarJuntoTrackId !== null) {
+        setActiveTab('tocarJunto');
+        setSelectedTrackId(tocarJuntoTrackId);
+        setSelectedBaseOnly(isolateBaseOnly);
+      } else if (isActive) {
+        setActiveTab('speedTrainer');
+      } else {
+        setActiveTab('tocarJunto');
+        if (selectedTrackId === null && playableTracks.length > 0) {
+          setSelectedTrackId(playableTracks[0].id);
+        }
+      }
+    }
+  }, [isOpen, tocarJuntoActive, tocarJuntoTrackId, isolateBaseOnly, isActive, playableTracks]);
+
+  const handleValidateTocarJunto = () => {
+    if (selectedTrackId === null) return;
+    const targetTrack = storeTracks.find((t) => t.id === selectedTrackId);
+    if (!targetTrack) return;
+
+    // 1. Armer le mode Tocar Junto
+    setTocarJuntoTrack(selectedTrackId, selectedBaseOnly);
+
+    // 2. Gérer les baguettes Ao Vivo
+    if (showAoVivoSticks) {
+      setActiveAoVivoTrackId(selectedTrackId);
+      if (isEcoMode) {
+        toggleEcoMode();
+      }
+    } else {
+      setActiveAoVivoTrackId(null);
+    }
+
+    // 3. Basculer vers la vue Roda
+    if (changeViewMode) {
+      changeViewMode('roda');
+    }
+
+    // 4. Log de contrôle strict
+    const trackDisplayName =
+      (targetTrack as any).name ||
+      targetTrack.customName ||
+      instrumentsConfig[targetTrack.instrumentIdx]?.name ||
+      'Piste';
+    console.log('🎯 [TOCAR JUNTO SUCCÈS] Mode armé pour la piste :', trackDisplayName, '(ID:', targetTrack.id, ')');
+
+    // 5. Fermer la modale
+    handleClose();
+  };
+
+  const handleDeactivateTocarJunto = () => {
+    setTocarJuntoTrack(null);
+    setActiveAoVivoTrackId(null);
+    handleClose();
+  };
 
   // Close on Escape key
   useEffect(() => {
@@ -955,62 +1053,114 @@ export const SpeedTrainerModal: React.FC = () => {
         aria-modal="true"
       >
         {/* Header */}
-        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-b-2 border-[#1a1a1a] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-xs bg-amber-500/20 border border-amber-600 flex items-center justify-center text-amber-700 shadow-[1px_1px_0px_#1a1a1a]">
+        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-b-2 border-[#1a1a1a] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-7 h-7 rounded-none bg-amber-500/20 border border-amber-600 flex items-center justify-center text-amber-700 shadow-[1px_1px_0px_#1a1a1a] shrink-0">
               <XiloLightning size={16} />
             </span>
-            <div>
-              <h2 className="font-cactus font-bold text-lg sm:text-xl uppercase tracking-wide leading-none">
+            <div className="min-w-0">
+              <h2 className="font-cactus font-bold text-base sm:text-xl uppercase tracking-wide leading-none truncate">
                 {t('speedTrainerTitle')}
               </h2>
-              <span className="text-[10px] text-[#555] font-sans font-bold">
+              <span className="text-[10px] text-[#555] font-sans font-bold block truncate">
                 {t('speedTrainerSubtitle')}
               </span>
             </div>
           </div>
 
-          <button
-            onClick={handleClose}
-            className="w-7 h-7 flex items-center justify-center border-2 border-[#1a1a1a] rounded-xs bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] font-bold text-base transition-colors shadow-[2px_2px_0px_#1a1a1a] cursor-pointer"
-            title={lang === 'fr' ? 'Fermer (Échap)' : 'Fechar (Esc)'}
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Sélecteur de langue rapide Cordel [ PT | FR ] */}
+            <div 
+              className="flex items-stretch h-7 border-2 border-[#1a1a1a] dark:border-black rounded-none shadow-[1px_1px_0px_#1a1a1a] overflow-hidden bg-[#f4ecd8]"
+              role="group"
+              aria-label={lang === 'fr' ? 'Sélecteur de langue' : 'Seletor de idioma'}
+            >
+              <button
+                type="button"
+                onClick={() => setLang('pt')}
+                className={`px-2 flex items-center justify-center text-xs font-bold font-mono tracking-wider transition-colors cursor-pointer select-none ${
+                  lang === 'pt'
+                    ? 'bg-[#1a1a1a] text-[#f4ecd8]'
+                    : 'bg-[#f4ecd8] text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:bg-[#ebe2cb]'
+                }`}
+                title="Português"
+              >
+                PT
+              </button>
+              <div className="w-[1.5px] bg-[#1a1a1a] dark:bg-black" />
+              <button
+                type="button"
+                onClick={() => setLang('fr')}
+                className={`px-2 flex items-center justify-center text-xs font-bold font-mono tracking-wider transition-colors cursor-pointer select-none ${
+                  lang === 'fr'
+                    ? 'bg-[#1a1a1a] text-[#f4ecd8]'
+                    : 'bg-[#f4ecd8] text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:bg-[#ebe2cb]'
+                }`}
+                title="Français"
+              >
+                FR
+              </button>
+            </div>
+
+            <button
+              onClick={handleClose}
+              className="w-7 h-7 flex items-center justify-center border-2 border-[#1a1a1a] rounded-none bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] font-bold text-base transition-colors shadow-[2px_2px_0px_#1a1a1a] cursor-pointer"
+              title={lang === 'fr' ? 'Fermer (Échap)' : 'Fechar (Esc)'}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Mestre Tabs Selector (si rôle Mestre ou canWriteSequenciador) */}
-        {isMestre && (
-          <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2">
+        {/* Tabs Selector : 2 onglets pour tous (élèves & Mestres), 3 onglets pour les Mestres */}
+        <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2 overflow-x-auto">
+          {/* Onglet 1 : Jouer avec (Tocar Junto) */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('tocarJunto')}
+            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeTab === 'tocarJunto'
+                ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]'
+                : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
+            }`}
+          >
+            <CordelTarget size={14} className={activeTab === 'tocarJunto' ? 'text-[#c25e38]' : 'text-current'} />
+            {t('speedTrainerTabTocarJunto')}
+          </button>
+
+          {/* Onglet 2 : Vitesse & Paliers (Speed Trainer) */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('speedTrainer')}
+            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+              activeTab === 'speedTrainer'
+                ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]'
+                : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
+            }`}
+          >
+            <XiloLightning size={14} />
+            {t('speedTrainerTabSpeed')}
+          </button>
+
+          {/* Onglet 3 : Défis & Carnet (Mestre uniquement) */}
+          {isMestre && (
             <button
               type="button"
-              onClick={() => setActiveTab('free')}
-              className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'free'
-                  ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]'
-                  : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
-              }`}
-            >
-              <XiloLightning size={14} />
-              {t('speedTrainerTabFree')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('mestre')}
-              className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'mestre'
+              onClick={() => setActiveTab('mestreChallenges')}
+              className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'mestreChallenges'
                   ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]'
                   : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
               }`}
             >
               <GraduationCap size={14} />
-              {t('speedTrainerTabMestre')}
+              {t('speedTrainerTabMestreChallenges')}
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Live Active Banner if already running in free mode */}
-        {isActive && activeTab === 'free' && (
+        {/* Live Active Banner if Speed Trainer is active */}
+        {isActive && activeTab === 'speedTrainer' && (
           <div className="bg-amber-500/15 border-b-2 border-amber-600/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-amber-900">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
@@ -1027,9 +1177,212 @@ export const SpeedTrainerModal: React.FC = () => {
           </div>
         )}
 
+        {/* Live Banner if Tocar Junto is running */}
+        {tocarJuntoActive && activeTab === 'tocarJunto' && (() => {
+          const activeTrack = storeTracks.find((t) => t.id === tocarJuntoTrackId);
+          const inst = activeTrack ? instrumentsConfig[activeTrack.instrumentIdx] : null;
+          const name = activeTrack?.customName || inst?.name || 'Pupitre';
+          return (
+            <div className="bg-[#c25e38]/15 border-b-2 border-[#c25e38]/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-[#8b2a1a]">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#c25e38] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#c25e38]"></span>
+                </span>
+                <span>
+                  {lang === 'fr' ? `Mode Jouer avec actif sur : ${name}` : `Modo Tocar Junto ativo em: ${name}`}
+                </span>
+              </div>
+              <span className="font-cactus text-sm">
+                {isolateBaseOnly ? (lang === 'fr' ? '🔒 Base pure' : '🔒 Base pura') : (lang === 'fr' ? '🎲 Avec variations' : '🎲 Com variações')}
+              </span>
+            </div>
+          );
+        })()}
+
         {/* Body Content */}
         <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto max-h-[72vh]">
-          {activeTab === 'free' ? (
+          {activeTab === 'tocarJunto' ? (
+            /* --- ONGLET 1 : JOUER AVEC (TOCAR JUNTO) --- */
+            <div className="flex flex-col gap-4">
+              {/* En-tête explicatif */}
+              <div className="p-3 bg-amber-500/10 border-2 border-[#1a1a1a] rounded-none flex items-center gap-3">
+                <CordelTarget size={26} className="text-[#c25e38] shrink-0" />
+                <div className="flex flex-col">
+                  <span className="font-cactus font-bold text-sm text-[#1a1a1a]">
+                    {lang === 'fr' ? 'Mode Entraînement : Jouer avec' : 'Modo Treino: Tocar Junto'}
+                  </span>
+                  <span className="text-xs text-[#1a1a1a]/80 leading-snug">
+                    {t('tocarJuntoInstruction')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Sélecteur de pupitre */}
+              <div className="flex flex-col gap-2">
+                <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#1a1a1a]">
+                  {lang === 'fr' ? '1. Choisissez votre pupitre :' : '1. Escolha seu naipe :'}
+                </label>
+                {playableTracks.length === 0 ? (
+                  <div className="p-3 bg-black/5 text-xs italic text-center text-black/60 border border-black/20">
+                    {t('tocarJuntoNoTracks')}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {playableTracks.map((track) => {
+                      const inst = instrumentsConfig[track.instrumentIdx];
+                      const name = track.customName || inst?.name || `Track ${track.id}`;
+                      const isSelected = selectedTrackId === track.id;
+                      const isCurrentActive = tocarJuntoActive && tocarJuntoTrackId === track.id;
+
+                      return (
+                        <button
+                          key={track.id}
+                          type="button"
+                          onClick={() => setSelectedTrackId(track.id)}
+                          className={`p-2.5 flex flex-col items-center justify-center gap-1.5 border-2 transition-all cursor-pointer rounded-none text-center relative ${
+                            isSelected
+                              ? 'border-[#1a1a1a] bg-[#c25e38] text-white shadow-[2px_2px_0px_#1a1a1a]'
+                              : 'border-[#1a1a1a]/40 bg-white/70 hover:bg-white text-[#1a1a1a] hover:border-[#1a1a1a]'
+                          }`}
+                        >
+                          {isCurrentActive && (
+                            <span className="absolute top-1 right-1 text-[9px] px-1 py-0.2 bg-white/90 text-[#c25e38] font-bold font-mono uppercase rounded-none">
+                              {lang === 'fr' ? 'Actif' : 'Ativo'}
+                            </span>
+                          )}
+                          {inst?.iconImg && (
+                            <img src={inst.iconImg} alt={name} className="w-7 h-7 object-contain" />
+                          )}
+                          <span className="font-cactus font-bold text-xs truncate max-w-full">
+                            {name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Options de comportement */}
+              <div className="flex flex-col gap-2">
+                <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#1a1a1a]">
+                  {lang === 'fr' ? '2. Options de jeu :' : '2. Opções de treino :'}
+                </label>
+                <div className="p-3 bg-white/60 border-2 border-[#1a1a1a] flex flex-col gap-3 rounded-none shadow-[2px_2px_0px_#1a1a1a]">
+                  {/* Option Sourdine audio */}
+                  <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                    <div className="flex flex-col pr-2">
+                      <span className="font-cactus font-bold text-xs text-[#1a1a1a]">
+                        {t('tocarJuntoMuteInstrument')}
+                      </span>
+                      <span className="text-[10px] text-black/60 leading-tight">
+                        {lang === 'fr'
+                          ? 'Coupe l’audio de ce pupitre dans le batuque pour vous laisser jouer physiquement en direct.'
+                          : 'Silencia o áudio deste naipe no batuque para você tocar fisicamente por cima.'}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isMutedOption}
+                      onChange={(e) => setIsMutedOption(e.target.checked)}
+                      className="w-4 h-4 accent-[#c25e38] cursor-pointer shrink-0"
+                    />
+                  </label>
+
+                  <div className="border-t border-black/15" />
+
+                  {/* Option Variations */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="font-cactus font-bold text-xs text-[#1a1a1a]">
+                      {t('tocarJuntoVariationMode')}
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBaseOnly(true)}
+                        className={`p-2 border-2 text-left flex flex-col gap-0.5 rounded-none cursor-pointer transition-all ${
+                          selectedBaseOnly
+                            ? 'border-[#1a1a1a] bg-[var(--cordel-wood)] text-white shadow-[2px_2px_0px_#1a1a1a]'
+                            : 'border-[#1a1a1a]/30 bg-white/70 hover:bg-white text-[#1a1a1a]'
+                        }`}
+                      >
+                        <span className="font-cactus font-bold text-xs">
+                          🔒 {t('tocarJuntoBasePure')}
+                        </span>
+                        <span className="text-[10px] opacity-80 leading-tight">
+                          {t('tocarJuntoBasePureDesc')}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBaseOnly(false)}
+                        className={`p-2 border-2 text-left flex flex-col gap-0.5 rounded-none cursor-pointer transition-all ${
+                          !selectedBaseOnly
+                            ? 'border-[#1a1a1a] bg-[var(--cordel-wood)] text-white shadow-[2px_2px_0px_#1a1a1a]'
+                            : 'border-[#1a1a1a]/30 bg-white/70 hover:bg-white text-[#1a1a1a]'
+                        }`}
+                      >
+                        <span className="font-cactus font-bold text-xs">
+                          🎲 {t('tocarJuntoFreeGame')}
+                        </span>
+                        <span className="text-[10px] opacity-80 leading-tight">
+                          {t('tocarJuntoFreeGameDesc')}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-black/15" />
+
+                  {/* Option Baguettes Ao Vivo */}
+                  <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                    <div className="flex flex-col pr-2">
+                      <span className="font-cactus font-bold text-xs text-[#1a1a1a]">
+                        {t('tocarJuntoShowAoVivo')}
+                      </span>
+                      <span className="text-[10px] text-black/60 leading-tight">
+                        {lang === 'fr'
+                          ? 'Affiche les baguettes animées en vue Roda sur le tambour de votre pupitre.'
+                          : 'Exibe as baquetas animadas na Roda sobre o tambor do seu naipe.'}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={showAoVivoSticks}
+                      onChange={(e) => setShowAoVivoSticks(e.target.checked)}
+                      className="w-4 h-4 accent-[#c25e38] cursor-pointer shrink-0"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Actions de validation */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={selectedTrackId === null}
+                  onClick={handleValidateTocarJunto}
+                  className="flex-1 py-2.5 px-4 bg-[#c25e38] hover:bg-[#a84c2a] disabled:opacity-40 disabled:cursor-not-allowed text-white font-cactus font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] cursor-pointer rounded-none transition-all active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  <CordelTarget size={16} className="text-white" />
+                  <span>{t('tocarJuntoValidate')}</span>
+                </button>
+
+                {tocarJuntoActive && (
+                  <button
+                    type="button"
+                    onClick={handleDeactivateTocarJunto}
+                    className="py-2.5 px-4 bg-white hover:bg-red-50 text-red-700 font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer rounded-none transition-all"
+                  >
+                    <X size={14} />
+                    <span>{t('tocarJuntoDeactivate')}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : activeTab === 'speedTrainer' ? (
             /* --- ONGLET 1 : ENTRAÎNEMENT LIBRE --- */
             <>
               {/* Challenge Mestre Banner if launched from Organizad'Or */}
@@ -1383,57 +1736,59 @@ export const SpeedTrainerModal: React.FC = () => {
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2">
-          {activeTab === 'free' ? (
-            isActive ? (
-              <button
-                type="button"
-                onClick={handleStopAndRestore}
-                className="w-full py-2.5 px-4 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Square className="w-4 h-4 fill-current" />
-                {t('speedTrainerStop')}
-              </button>
+        {/* Footer Actions (Speed Trainer & Mestre Challenges) */}
+        {activeTab !== 'tocarJunto' && (
+          <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2">
+            {activeTab === 'speedTrainer' ? (
+              isActive ? (
+                <button
+                  type="button"
+                  onClick={handleStopAndRestore}
+                  className="w-full py-2.5 px-4 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                  {t('speedTrainerStop')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLaunch}
+                  className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <XiloLightning size={16} className="fill-current" />
+                  {activeTrainingSession ? (
+                    `⚡ Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
+                  ) : (
+                    t('speedTrainerLaunch')
+                  )}
+                </button>
+              )
             ) : (
               <button
                 type="button"
-                onClick={handleLaunch}
-                className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isSaving}
+                onClick={handleSaveTraining}
+                className={`w-full py-2.5 px-4 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  editingTrainingId
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-emerald-700 hover:bg-emerald-800'
+                }`}
               >
-                <XiloLightning size={16} className="fill-current" />
-                {activeTrainingSession ? (
-                  `⚡ Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {editingTrainingId ? t('speedTrainerUpdatingChallenge') : t('speedTrainerSavingChallenge')}
+                  </>
                 ) : (
-                  t('speedTrainerLaunch')
+                  <>
+                    <Save className="w-4 h-4" />
+                    {editingTrainingId ? t('speedTrainerUpdateChallenge') : t('speedTrainerSaveChallenge')}
+                  </>
                 )}
               </button>
-            )
-          ) : (
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={handleSaveTraining}
-              className={`w-full py-2.5 px-4 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                editingTrainingId
-                  ? 'bg-amber-600 hover:bg-amber-700'
-                  : 'bg-emerald-700 hover:bg-emerald-800'
-              }`}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {editingTrainingId ? t('speedTrainerUpdatingChallenge') : t('speedTrainerSavingChallenge')}
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  {editingTrainingId ? t('speedTrainerUpdateChallenge') : t('speedTrainerSaveChallenge')}
-                </>
-              )}
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

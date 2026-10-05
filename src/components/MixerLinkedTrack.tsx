@@ -393,7 +393,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                     ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] hover:opacity-90' 
                     : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/30 border-[var(--cordel-border)]/20 cursor-default opacity-55'
                 }`}
-                title="Reset EQ"
+                title={lang === 'fr' ? "Réinitialiser l'égaliseur" : "Redefinir equalizador"}
                 disabled={!isEQModified}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">

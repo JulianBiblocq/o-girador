@@ -365,6 +365,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPresetLoading(true);
     try {
       vocalEngineService.disposeAllVocalPlayers();
+      useSequencerStore.getState().resetFirstPassRegistry();
       sequencer.clearHistory();
       sequencer.setMetadata({
         toada: p.metadata?.toada || '',
@@ -678,6 +679,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         useTransportStore.getState().setPreRollSettings(p.metadata?.preRollSettings || p.preRollSettings);
       }
 
+      const targetVocalPreset = p.vocalPreset || p.metadata?.vocalPreset;
+      if (targetVocalPreset) {
+        useAudioStore.getState().setVocalPreset(targetVocalPreset as any);
+      }
+
       sequencer.measureCountRef.current = 0;
       audioSync.setCurrentMeasure(0);
       audioSync.setIsLoading(false);
@@ -822,9 +828,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
 
     const currentPreRoll = useTransportStore.getState().preRollSettings;
+    const activeVocalPreset = useAudioStore.getState().vocalPreset || 'guide';
 
     const cleanMetadata = sequencer.metadata ? {
       ...sequencer.metadata,
+      vocalPreset: activeVocalPreset,
       partitionImage: undefined,
       preRollSettings: currentPreRoll,
     } : undefined;
@@ -835,6 +843,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       bpm: sequencer.bpm,
       timeSig: sequencer.timeSig,
       version: 3,
+      vocalPreset: activeVocalPreset,
       totalMeasures: storeState.totalMeasures,
       tracks: tracksCopy,
       rodaTrackOrder: storeState.rodaTrackOrder,

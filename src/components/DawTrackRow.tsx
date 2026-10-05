@@ -284,7 +284,7 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
         }
 
         return (
-          <div className="flex items-center flex-grow pl-4 h-full">
+          <div className="flex items-center flex-grow pl-4 pr-3 h-full">
             <div className="flex w-full h-full items-center gap-1.5 select-none">
               {beatGroups.map((group, beatIdx) => {
                 const isEvenBeat = beatIdx % 2 === 0;
@@ -295,8 +295,8 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                 return (
                   <div
                     key={beatIdx}
-                    className={`flex flex-1 h-full items-center py-1 px-1 rounded ${
-                      isTriplet ? 'justify-between gap-1' : isSextuplet ? 'gap-0.5' : 'gap-1'
+                    className={`flex flex-1 h-full items-center py-1 px-1 rounded-none border-[1.5px] border-[#1a1a1a]/30 dark:border-black/40 gap-[2px] ${
+                      isTriplet ? 'justify-between' : ''
                     }`}
                     style={{ 
                       backgroundColor: emptyStepBg,
@@ -307,9 +307,13 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                     }}
                   >
                     {group.map((stepIdx, indexInGroup) => {
-                      const val = isGhostStep
+                      const activePlayingSteps = sequencer.activeVariationsRef?.current?.[effectiveTrack.id];
+                      const baseVal = isGhostStep
                         ? (masterActivePattern?.activeSteps?.[stepIdx] ?? 0)
                         : (activePattern?.activeSteps?.[stepIdx] ?? 0);
+                      const liveVal = activePlayingSteps ? (activePlayingSteps[stepIdx] ?? baseVal) : baseVal;
+                      const val = isGhostStep ? baseVal : liveVal;
+                      const isVariationStep = Boolean(activePlayingSteps && val !== baseVal);
                       const isActiveCell = val !== 0 && val !== '';
                       const isVoice = Boolean(
                         inst.type === 'voice' ||
@@ -369,7 +373,6 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
 
                       let bgColor = emptyStepBg;
                       let txtColor = 'rgba(26, 26, 26, 0.4)';
-                      let borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
                       let isSplit = false;
 
                       let leftBg = emptyStepBg;
@@ -387,7 +390,7 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                       if (isActiveCell) {
                         if (isVoice) {
                           masterBg = isPux ? '#c25e38' : '#2a9d8f';
-                          masterTxt = isProlongation ? 'rgba(255, 255, 255, 0.7)' : '#ffffff';
+                          masterTxt = isProlongation ? 'rgba(255, 255, 255, 0.85)' : '#ffffff';
                         } else {
                           const primaryVal = String(visualVal);
                           masterBg = inst.colors?.[primaryVal] || inst.color || '#111';
@@ -463,13 +466,11 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                           isSplit = false;
                           bgColor = getBusNoteColor(String(track.id), String(masterVisualVal), tracks, instrumentsConfig);
                           txtColor = getContrastColor(bgColor);
-                          borderStyle = '2px solid #1a1a1a';
                           displayVal = String(masterVisualVal);
                         } else {
                           const groupHasEvent = hasMasterEvent || activeChildrenCount > 0;
                           if (groupHasEvent) {
                             isSplit = true;
-                            borderStyle = '2px solid #1a1a1a';
 
                             if (hasMasterEvent) {
                               leftBg = masterBg;
@@ -494,14 +495,12 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                             isSplit = false;
                             bgColor = emptyStepBg;
                             txtColor = 'rgba(26, 26, 26, 0.4)';
-                            borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
                           }
                         }
                       } else {
                         // Normal, unlinked track
                         if (Array.isArray(val) && val.length === 2) {
                           isSplit = true;
-                          borderStyle = '2px solid #1a1a1a';
                           bgColor = emptyStepBg;
 
                           const leftVal = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);
@@ -520,11 +519,9 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                           if (isActiveCell) {
                             bgColor = masterBg;
                             txtColor = masterTxt;
-                            borderStyle = '2px solid #1a1a1a';
                           } else {
                             bgColor = emptyStepBg;
                             txtColor = 'rgba(26, 26, 26, 0.4)';
-                            borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
                           }
                         }
                       }
@@ -536,35 +533,34 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                               ref={(el) => registerStepRef(track.id, stepIdx, el)}
                               data-step-index={stepIdx}
                               onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
-                              className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-10 md:h-11 overflow-hidden outline-none ${
+                              className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-8 rounded-none outline-none border-[1.5px] border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.9)] ${
                                 isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
                               }`}
                               style={{
-                                border: (isTriplet || isSextuplet) ? 'none' : borderStyle,
-                                borderRadius: (isTriplet || isSextuplet) ? '0' : '2px',
-                                boxShadow: (!isTriplet && !isSextuplet) ? '1px 1px 0px rgba(0,0,0,1)' : undefined,
                                 filter: (isTriplet || isSextuplet) ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
                                 clipPath: isSextuplet
                                   ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
                                   : isTriplet
                                     ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
                                     : undefined,
+                                outline: isVariationStep ? '2px solid #c25e38' : undefined,
+                                outlineOffset: isVariationStep ? '-2px' : undefined,
                                 opacity: isGhostStep ? 0.35 : 1,
                               }}
                             >
                               <div
-                                className="absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center"
+                                className="absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a]"
                                 style={{ backgroundColor: leftBg, color: leftTxt }}
                               >
-                                <span className={isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}>
+                                <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
                                   {leftSym}
                                 </span>
                               </div>
                               <div
-                                className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-l border-[#1a1a1a]"
+                                className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center"
                                 style={{ backgroundColor: rightBg, color: rightTxt }}
                               >
-                                <span className={isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}>
+                                <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
                                   {rightSym}
                                 </span>
                               </div>
@@ -573,32 +569,16 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                         );
                       }
 
-                      const wrapperClass = `flex items-center justify-center h-full flex-1 ${
-                        isVoice && isProlongation && indexInGroup > 0 ? '-ml-1.5 z-10' : ''
-                      }`;
+                      const wrapperClass = "flex items-center justify-center h-full flex-1";
 
-                      let buttonBorderStyle: any = borderStyle;
-                      let buttonBorderLeft: string | undefined = undefined;
-                      let buttonBorderRight: string | undefined = undefined;
-                      let buttonRadiusTopLeft: string | undefined = undefined;
-                      let buttonRadiusBottomLeft: string | undefined = undefined;
-                      let buttonRadiusTopRight: string | undefined = undefined;
-                      let buttonRadiusBottomRight: string | undefined = undefined;
-                      let buttonBoxShadow: string | undefined = (!isTriplet && !isSextuplet && isActiveCell) ? '1px 1px 0px rgba(0,0,0,1)' : undefined;
+                      const isStepActive = Boolean(
+                        isActiveCell || 
+                        (isVoice && val !== 0 && val !== '' && val !== '0' && val !== '-')
+                      );
 
-                      if (isVoice && isActiveCell) {
-                        if (isProlongation) {
-                          buttonBorderLeft = 'none';
-                          buttonRadiusTopLeft = '0px';
-                          buttonRadiusBottomLeft = '0px';
-                        }
-                        if (isFollowedByProlongation) {
-                          buttonBorderRight = 'none';
-                          buttonRadiusTopRight = '0px';
-                          buttonRadiusBottomRight = '0px';
-                          buttonBoxShadow = 'none';
-                        }
-                      }
+                      const buttonBorderAndShadowClasses = isStepActive
+                        ? "border-[1.5px] border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.9)]"
+                        : "border-[1.5px] border-[#1a1a1a]/40 dark:border-black/50 shadow-[1px_1px_0px_rgba(26,26,26,0.25)] bg-[#f4ecd8]/60 dark:bg-[#1a1a1a]/40 text-[#1a1a1a]/40 dark:text-white/40";
 
                       return (
                         <div key={stepIdx} className={wrapperClass}>
@@ -606,32 +586,25 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                             ref={(el) => registerStepRef(track.id, stepIdx, el)}
                             data-step-index={stepIdx}
                             onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
-                            className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-10 md:h-11 overflow-hidden outline-none ${
+                            className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-8 rounded-none outline-none ${buttonBorderAndShadowClasses} ${
                               isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
                             }`}
                             style={{
                               backgroundColor: (isTriplet || isSextuplet)
-                                ? (isActiveCell ? bgColor : 'rgba(26, 26, 26, 0.12)')
-                                : (isActiveCell ? bgColor : 'transparent'),
-                              color: txtColor,
-                              border: (isTriplet || isSextuplet) ? 'none' : buttonBorderStyle,
-                              borderLeft: buttonBorderLeft,
-                              borderRight: buttonBorderRight,
-                              borderRadius: (isTriplet || isSextuplet) ? '0' : '2px',
-                              borderTopLeftRadius: buttonRadiusTopLeft,
-                              borderBottomLeftRadius: buttonRadiusBottomLeft,
-                              borderTopRightRadius: buttonRadiusTopRight,
-                              borderBottomRightRadius: buttonRadiusBottomRight,
-                              boxShadow: buttonBoxShadow,
+                                ? (isStepActive ? bgColor : 'rgba(26, 26, 26, 0.12)')
+                                : (isStepActive ? bgColor : undefined),
+                              color: isStepActive ? txtColor : undefined,
                               filter: (isTriplet || isSextuplet) ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
                               clipPath: isSextuplet 
                                 ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
                                 : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+                              outline: isVariationStep ? '2px solid #c25e38' : undefined,
+                              outlineOffset: isVariationStep ? '-2px' : undefined,
                               opacity: isGhostStep ? 0.35 : 1,
                             }}
                           >
-                            <span className={`${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''} ${isVoice && isProlongation ? 'tracking-widest font-mono text-xs md:text-sm' : ''} ${isVoice && !isProlongation ? 'font-bold text-xs md:text-sm truncate px-0.5' : ''}`}>
-                              {displayVal}
+                            <span className={`${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''} ${isVoice && isProlongation ? 'tracking-widest font-mono text-xs md:text-sm' : ''} ${isVoice && !isProlongation ? 'font-bold text-xs md:text-sm truncate px-0.5' : ''} ${!isVoice ? 'font-bold text-xs md:text-sm' : ''}`}>
+                              {displayVal || '---'}
                             </span>
                           </button>
                         </div>

@@ -16,7 +16,8 @@ function buildFlatSongSchedule(
   measureTimeSigs: string[],
   instConfig: any[],
   soloPatternPlayId: number | null,
-  soloPatternVariationId: string | null
+  soloPatternVariationId: string | null,
+  isolateBaseOnly: boolean = false
 ): Float32Array {
   const notesList: number[] = [];
   const hasSolo = tracks.some((t: any) => t.isSolo);
@@ -131,8 +132,8 @@ function buildFlatSongSchedule(
             }
           }
 
-          // 2. Si pas de Levée correspondante, on évalue les probabilités UNIQUEMENT SI l'improvisation est autorisée (ou si on lit un pattern en solo)
-          if (!matchedVariation) {
+          // 2. Si pas de Levée correspondante, on évalue les probabilités UNIQUEMENT SI l'improvisation est autorisée ET que le mode base pure n'est pas actif
+          if (!matchedVariation && !isolateBaseOnly) {
             const allowImprov = isSoloPlayActive || (activePattern.measureAllowVariations ? activePattern.measureAllowVariations[measureIdx] : true);
             if (allowImprov) {
               const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
@@ -276,7 +277,7 @@ function buildFlatSongSchedule(
 
 self.onmessage = (e: MessageEvent<any>) => {
   try {
-    const { action, tracks, totalMeasures, measureTimeSigs, instConfig, soloPatternPlayId, soloPatternVariationId } = e.data;
+    const { action, tracks, totalMeasures, measureTimeSigs, instConfig, soloPatternPlayId, soloPatternVariationId, isolateBaseOnly } = e.data;
     if (action === 'compileSong') {
       const flatArray = buildFlatSongSchedule(
         tracks,
@@ -284,7 +285,8 @@ self.onmessage = (e: MessageEvent<any>) => {
         measureTimeSigs,
         instConfig,
         soloPatternPlayId,
-        soloPatternVariationId
+        soloPatternVariationId,
+        !!isolateBaseOnly
       );
       // @ts-ignore
       self.postMessage({ success: true, action: 'compileSong', data: flatArray }, [flatArray.buffer]);

@@ -164,7 +164,7 @@ export const SaveWorkspaceTemplateModal: React.FC<SaveWorkspaceTemplateModalProp
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-[#1a1a1a] hover:text-[#8b2a1a] font-bold text-2xl hover:scale-110 duration-200 cursor-pointer"
-          aria-label="Fermer"
+          aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
         >
           ✕
         </button>

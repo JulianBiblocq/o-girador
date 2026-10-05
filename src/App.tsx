@@ -44,17 +44,22 @@ import { getDefaultGroupPresetId } from './cloudGroups';
 import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
 import { useAppAudio } from './hooks/useAppAudio';
 import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
+import { useGlobalTransportShortcuts } from './hooks/useGlobalTransportShortcuts';
 import { useViewRouter } from './hooks/useViewRouter';
 import { useThemeManager } from './hooks/useThemeManager';
 import { useWallpaper } from './hooks/useWallpaper';
 import { useMidiController } from './hooks/useMidiController';
 import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler';
+import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu';
 import { startSession, endSession } from './utils/O-Girador-Tracker';
 import { VisitorAuthModal } from './components/VisitorAuthModal';
 import { SpeedTrainerModal } from './components/SpeedTrainerModal';
 import { WallpaperShowcaseModal } from './components/WallpaperShowcaseModal';
 
 export default function App() {
+  // Désactivation globale du menu contextuel natif du navigateur (DAW immersion)
+  useDisableNativeContextMenu();
+
   // 1. Core hook extraction setup
   const { deferredPrompt, handleInstallClick } = useAppUpdate();
   const { presetFiles, localPresets, isSavedIndicatorVisible, refreshLocalPresets } = useAppAudio();
@@ -78,6 +83,7 @@ export default function App() {
     promptAsync,
   } = sequencer;
   const audio = useAudio();
+  useGlobalTransportShortcuts(audio.handleTogglePlay);
   const { hasAccess, userProfile, updateUserPreference, isAdmin } = useAuth();
 
   React.useEffect(() => {
@@ -907,7 +913,7 @@ export default function App() {
         <SettingsPage mestreSignals={mestreSignals} />
       )}
 
-      <SpeedTrainerModal />
+      <SpeedTrainerModal changeViewMode={changeViewMode} />
 
       <WallpaperShowcaseModal
         isOpen={isWallpaperModalOpen}

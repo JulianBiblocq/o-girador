@@ -12,10 +12,11 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
-import { i18n } from '../data';
+import { i18n, instrumentsConfig } from '../data';
 import { DragNumberBox } from './DragNumberBox';
 import { metroChannel } from '../audio/effectsChain';
 import { XiloLightning } from './XiloIcons';
+import { CordelTarget } from './ui/CordelTarget';
 import * as Tone from 'tone';
 
 interface TransportBarProps {
@@ -65,6 +66,14 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const speedTrainerCurrentBpm = useSequencerStore(state => state.speedTrainerCurrentBpm);
   const speedTrainerCountdown = useSequencerStore(state => state.speedTrainerCountdown);
   const openSpeedTrainerModal = useSequencerStore(state => state.openSpeedTrainerModal);
+
+  const bpm = useSequencerStore(state => state.bpm);
+  const tocarJuntoActive = useSequencerStore(state => state.tocarJuntoActive);
+  const tocarJuntoTrackId = useSequencerStore(state => state.tocarJuntoTrackId);
+  const isolateBaseOnly = useSequencerStore(state => state.isolateBaseOnly);
+  const setTocarJuntoTrack = useSequencerStore(state => state.setTocarJuntoTrack);
+  const setIsolateBaseOnly = useSequencerStore(state => state.setIsolateBaseOnly);
+  const storeTracks = useSequencerStore(state => state.tracks);
 
   const [showLoopMenu, setShowLoopMenu] = React.useState(false);
   const loopBtnRef = React.useRef<HTMLButtonElement>(null);
@@ -271,16 +280,15 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
     <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-2 sm:px-4 z-50 shrink-0 overflow-visible">
       
       {/* Left side: Metro, Swing, BPM */}
-      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-        <div className="relative flex items-center bg-[var(--cordel-bg)] cordel-border-sm h-[30px]" ref={metroContainerRef}>
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="relative flex items-center bg-[var(--cordel-bg)] h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a]" ref={metroContainerRef}>
           {/* Bouton bascule audio métronome */}
           <button
             onClick={() => setIsMetroOn(!isMetroOn)}
-            className={`px-2 sm:px-2.5 py-1 font-cactus font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 h-full transition-colors cursor-pointer select-none ${
+            className={`px-2 sm:px-2.5 font-cactus font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 h-full transition-colors cursor-pointer select-none rounded-none ${
               isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
             }`}
             title={t('metroBtn')}
-            style={{ borderRadius: 0 }}
           >
             <svg
               className="w-4 h-4 flex-shrink-0"
@@ -300,7 +308,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
               {lang === 'fr' ? 'Métronome' : lang === 'pt' ? 'Metrônomo' : 'Metronome'}
             </span>
             {preRollSettings.enabled && (
-              <span className="px-1 py-0.2 bg-amber-600 text-white rounded text-[10px] font-sans font-bold leading-none shadow-xs">
+              <span className="px-1 py-0.2 bg-amber-600 text-white rounded-none text-[10px] font-sans font-bold leading-none shadow-xs">
                 {preRollSettings.measuresCount}M
               </span>
             )}
@@ -312,7 +320,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
               e.stopPropagation();
               setIsPreRollPopupOpen(!isPreRollPopupOpen);
             }}
-            className={`px-1.5 h-full flex items-center justify-center border-l border-[var(--cordel-border)]/30 hover:bg-[var(--cordel-text)]/10 cursor-pointer transition-colors ${
+            className={`px-1.5 h-full flex items-center justify-center border-l-2 border-[#1a1a1a] dark:border-black/60 hover:bg-[var(--cordel-text)]/10 cursor-pointer transition-colors rounded-none ${
               isPreRollPopupOpen ? 'bg-[var(--cordel-text)]/15 text-[var(--cordel-text)]' : 'text-[var(--cordel-text)]'
             }`}
             title={lang === 'fr' ? 'Réglages du précompte' : 'Configurações de contagem'}
@@ -527,19 +535,22 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
           )}
         </div>
 
-        {/* Bouton de vélocité : icône / libellé + boutons +/- */}
-        <div className="flex items-center gap-1 sm:gap-1.5 bg-[var(--cordel-bg)] px-1.5 sm:px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
-          <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />
-          <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none hidden md:inline">
-            {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
+        {/* 2. Bloc de vitesse (BPM) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-[var(--cordel-bg)] px-2 h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a]">
+          <Gauge className="w-4 h-4 text-[var(--cordel-text)] shrink-0" />
+          <span className="font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-text)] tabular-nums select-none">
+            {bpm}
           </span>
-          <div className="flex items-center gap-1 ml-0.5 sm:ml-1">
+          <span className="text-[10px] font-mono font-bold text-[var(--cordel-text)]/70 uppercase select-none">
+            BPM
+          </span>
+          <div className="flex items-center gap-1 ml-0.5">
             <button
               onPointerDown={(e) => { e.preventDefault(); startBpmChange(-1); }}
               onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
               onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
               onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
-              className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all select-none"
+              className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[#1a1a1a] dark:border-black/60 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-none active:scale-95 transition-all select-none"
               title={lang === 'fr' ? 'Diminuer la vitesse' : lang === 'pt' ? 'Diminuir a velocidade' : 'Decrease speed'}
               style={{ padding: 0, touchAction: 'none' }}
             >
@@ -550,7 +561,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
               onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
               onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
               onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
-              className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all select-none"
+              className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[#1a1a1a] dark:border-black/60 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-none active:scale-95 transition-all select-none"
               title={lang === 'fr' ? 'Augmenter la vitesse' : lang === 'pt' ? 'Aumentar a velocidade' : 'Increase speed'}
               style={{ padding: 0, touchAction: 'none' }}
             >
@@ -559,43 +570,80 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
           </div>
         </div>
 
-        {/* Speed Trainer ⚡ Button / Live Indicator */}
-        <button
-          onClick={() => {
-            if (isSpeedTrainerActive) {
-              stopSpeedTrainerAudio();
-            } else {
-              openSpeedTrainerModal();
-            }
-          }}
-          className={`h-[30px] px-2 sm:px-2.5 flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all cordel-border-sm cursor-pointer shadow-[1px_1px_0px_#1a1a1a] ${
-            isSpeedTrainerActive
-              ? 'bg-amber-500/20 text-amber-800 border-amber-600 animate-pulse'
-              : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
-          }`}
-          title={
-            isSpeedTrainerActive
-              ? (lang === 'fr'
-                  ? `Entraînement actif : Tour ${speedTrainerTourCount + 1} (${speedTrainerCurrentBpm} BPM). Cliquez pour arrêter et restaurer.`
-                  : `Treino ativo: Volta ${speedTrainerTourCount + 1} (${speedTrainerCurrentBpm} BPM). Clique para parar e restaurar.`)
-              : (lang === 'fr' ? 'Entraînement (Montée en vitesse)' : 'Treino (Aceleração de andamento)')
+        {/* 3. Bouton Entraînement Dynamique (Treino) */}
+        {(() => {
+          const targetTrack = tocarJuntoActive ? storeTracks.find(t => t.id === tocarJuntoTrackId) : null;
+          const targetInst = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
+          const trackLabel = targetTrack?.customName || targetInst?.name || (lang === 'fr' ? 'Pupitre' : 'Naipe');
+
+          // Cas 4 : Les deux modes actifs simultanément (Speed Trainer + Tocar Junto)
+          if (isSpeedTrainerActive && tocarJuntoActive) {
+            return (
+              <button
+                type="button"
+                onClick={openSpeedTrainerModal}
+                className="h-8 px-2 sm:px-2.5 flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all rounded-none border-2 border-amber-500 bg-[#c25e38] text-white shadow-[2px_2px_0px_#1a1a1a] cursor-pointer animate-pulse"
+                title={lang === 'fr' ? `Entraînement combiné (${trackLabel} + ${speedTrainerCurrentBpm} BPM). Cliquez pour configurer.` : `Treino combinado (${trackLabel} + ${speedTrainerCurrentBpm} BPM). Clique para configurar.`}
+              >
+                <CordelTarget size={15} className="shrink-0 text-white" />
+                <span className="font-cactus font-bold text-xs text-white">
+                  {speedTrainerCurrentBpm} BPM
+                </span>
+              </button>
+            );
           }
-        >
-          <XiloLightning size={14} className="shrink-0 transition-colors" />
-          {speedTrainerCountdown !== null ? (
-            <span className="font-cactus font-bold text-amber-700 animate-bounce text-sm">
-              {speedTrainerCountdown}
-            </span>
-          ) : isSpeedTrainerActive ? (
-            <span className="font-cactus font-bold text-[11px] sm:text-xs">
-              {lang === 'fr' ? `T${speedTrainerTourCount + 1} · ${speedTrainerCurrentBpm}` : `V${speedTrainerTourCount + 1} · ${speedTrainerCurrentBpm}`}
-            </span>
-          ) : (
-            <span className="hidden lg:inline text-[var(--cordel-text)]">
-              {lang === 'fr' ? 'Entraînement' : 'Treino'}
-            </span>
-          )}
-        </button>
+
+          // Cas 3 : Tocar Junto seul actif
+          if (tocarJuntoActive) {
+            return (
+              <button
+                type="button"
+                onClick={openSpeedTrainerModal}
+                className="h-8 px-2 sm:px-2.5 flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all rounded-none border-2 border-[#1a1a1a] dark:border-black/60 bg-[#c25e38] text-white shadow-[2px_2px_0px_#1a1a1a] cursor-pointer hover:brightness-110"
+                title={lang === 'fr' ? `Jouer avec : ${trackLabel} (audio muet). Cliquez pour ajuster le pupitre.` : `Tocar Junto: ${trackLabel} (áudio mudo). Clique para ajustar o naipe.`}
+              >
+                <CordelTarget size={15} className="shrink-0 text-white" />
+                <span className="truncate max-w-[90px] sm:max-w-[140px] text-white">
+                  {trackLabel}
+                </span>
+              </button>
+            );
+          }
+
+          // Cas 2 : Speed Trainer seul actif
+          if (isSpeedTrainerActive) {
+            return (
+              <button
+                type="button"
+                onClick={openSpeedTrainerModal}
+                className="h-8 px-2 sm:px-2.5 flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all rounded-none border-2 border-amber-600 bg-amber-500/20 text-amber-900 dark:text-amber-200 shadow-[2px_2px_0px_#1a1a1a] cursor-pointer animate-pulse"
+                title={lang === 'fr' ? `Speed Trainer actif : Tour ${speedTrainerTourCount + 1} (${speedTrainerCurrentBpm} BPM). Cliquez pour ouvrir.` : `Treino ativo: Volta ${speedTrainerTourCount + 1} (${speedTrainerCurrentBpm} BPM). Clique para abrir.`}
+              >
+                <XiloLightning size={14} className="shrink-0 text-amber-700 dark:text-amber-400" />
+                <span className="font-cactus font-bold text-[11px] sm:text-xs">
+                  {speedTrainerCountdown !== null
+                    ? speedTrainerCountdown
+                    : (lang === 'fr' ? `T${speedTrainerTourCount + 1} · ${speedTrainerCurrentBpm} BPM` : `V${speedTrainerTourCount + 1} · ${speedTrainerCurrentBpm} BPM`)}
+                </span>
+              </button>
+            );
+          }
+
+          // Cas 1 : Inactif (défaut sobre Cordel)
+          return (
+            <button
+              type="button"
+              onClick={openSpeedTrainerModal}
+              className="h-8 px-2 sm:px-2.5 flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all rounded-none border-2 border-[#1a1a1a] dark:border-black/60 bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10 shadow-[1px_1px_0px_#1a1a1a] cursor-pointer"
+              title={lang === 'fr' ? 'Entraînement (Jouer avec / Montée en vitesse)' : 'Treino (Tocar Junto / Aceleração)'}
+            >
+              <XiloLightning size={14} className="shrink-0" />
+              <span className="hidden lg:inline text-[var(--cordel-text)]">
+                {lang === 'fr' ? 'Entraînement' : 'Treino'}
+              </span>
+            </button>
+          );
+        })()}
       </div>
 
       {/* Center/Right: Main Transport Controls
@@ -606,7 +654,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
         <button
           onClick={handleStop}
           className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shrink-0"
-          title={lang === 'pt' ? 'Voltar au início' : 'Retour au début'}
+          title={lang === 'pt' ? 'Voltar ao início' : 'Retour au début'}
         >
           <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
         </button>
@@ -647,7 +695,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
                       : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]'
                     : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
               }`}
-              title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
+              title={lang === 'fr' ? 'Activer / désactiver la boucle' : 'Ativar / desativar loop'}
             >
               <Repeat className={`w-5 h-5 sm:w-6 sm:h-6 icon-repeat ${(!sequencer.isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`} />
               <ArrowRightToLine className={`w-5 h-5 sm:w-6 sm:h-6 icon-arrow ${(sequencer.isLooping && !isLoopBypassed && !isLoopExitRequested) ? 'hidden' : ''}`} />

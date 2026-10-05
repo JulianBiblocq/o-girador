@@ -47,6 +47,7 @@ export interface PresetMetadata {
   descriptionPt?: string;
   descriptionFr?: string;
   preRollSettings?: PreRollSettings;
+  vocalPreset?: string;
 }
 
 export interface Circle {
@@ -67,6 +68,7 @@ export interface Circle {
 export interface Preset {
   bpm: number;
   timeSig: TimeSignature;
+  vocalPreset?: string;
   totalMeasures?: number;
   circles?: Circle[]; // Old format
   tracks?: TrackGroup[]; // New format

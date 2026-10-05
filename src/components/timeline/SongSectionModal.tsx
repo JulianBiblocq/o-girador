@@ -138,7 +138,7 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
             type="text"
             value={sectionFormName}
             onChange={(e) => setSectionFormName(e.target.value)}
-            placeholder="Ex: Partie A / Refrain"
+            placeholder={lang === 'fr' ? 'Ex: Partie A / Refrain' : 'Ex: Parte A / Refrão'}
             className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
             autoFocus
           />

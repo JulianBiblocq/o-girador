@@ -2218,7 +2218,7 @@ export function useSequencerState() {
         const next = [...prev, toadaBusTrack, puxTrack, coroTrack];
         return applyRadii(next);
       });
-      return;
+      return toadaBusId;
     }
 
     const newTrack: TrackGroup = {
@@ -2255,6 +2255,7 @@ export function useSequencerState() {
       const next = [...prev, newTrack];
       return applyRadii(next);
     });
+    return newTrack.id;
   };
 
   const handleGlobalBpmChange = (val: number | ((prev: number) => number)) => {

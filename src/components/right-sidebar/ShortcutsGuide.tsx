@@ -171,19 +171,19 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
                 <span className="font-medium">{t('shortcutNuanceWheelDesc')}</span>
                 <div className="flex gap-1">
                   <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">↑ / ↓</kbd>
-                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Wheel</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">{lang === 'fr' ? 'Molette' : 'Roda'}</kbd>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
                 <span className="font-medium">{t('shortcutEraserDesc')}</span>
                 <div className="flex gap-1">
                   <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">0</kbd>
-                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Del / ⌫</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">{lang === 'fr' ? 'Suppr / ⌫' : 'Delete / ⌫'}</kbd>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
                 <span className="font-medium">{t('shortcutSplitStepDesc')}</span>
-                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">Alt + Clic</kbd>
+                <kbd className="px-1.5 py-0.5 bg-[#fdfbf7] cordel-border-sm font-mono font-bold text-[9px] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] shrink-0">{lang === 'fr' ? 'Alt + Clic' : 'Alt + Clique'}</kbd>
               </div>
               <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5">
                 <span className="font-medium">{t('shortcutDuplicateMeasureDesc')}</span>

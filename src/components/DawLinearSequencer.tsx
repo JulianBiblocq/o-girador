@@ -318,9 +318,9 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
       {/* Scrollable Container enforcing combined inline tracks scroll */}
       <div className="min-w-[1240px] p-5 flex flex-col justify-start h-full relative z-[1]">
         
-        <div className="flex items-center w-full h-auto pb-2.5 shrink-0 border-b border-[#333] mb-4 select-none justify-start">
-          {/* Left Spacer matching Left Instrument Mixer section width (360px) */}
-          <div className="w-[360px] min-w-[360px] shrink-0 flex items-center gap-3">
+        <div className="flex items-center w-full h-auto pb-2.5 shrink-0 border-b border-[#333] mb-4 select-none justify-start px-3">
+          {/* Left Spacer matching Left Instrument Mixer section width (360px with pr-3) */}
+          <div className="w-[360px] min-w-[360px] shrink-0 flex items-center gap-3 pr-3">
             <button
               onClick={() => useSequencerStore.getState().toggleTracksCollapsed()}
               className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-sm font-extrabold cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex-shrink-0 flex items-center justify-center"
@@ -340,7 +340,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                 return (
                   <div
                     key={beatIdx}
-                    className="flex-1 text-center py-1 rounded"
+                    className="flex-1 text-center py-1.5 rounded-none border-[1.5px] border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)]"
                     style={{
                       backgroundColor: emptyStepBg,
                     }}

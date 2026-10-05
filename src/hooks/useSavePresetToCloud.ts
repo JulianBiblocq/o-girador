@@ -5,6 +5,7 @@ import { CatalogVisibility, Preset } from '../types';
 import { useCloudAudioBounce } from './useCloudAudioBounce';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useAudioStore } from '../stores/useAudioStore';
 
 interface UseSavePresetOptions {
   presetData: Preset;
@@ -124,13 +125,15 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
       const currentSections = Array.isArray(storeState.songSections) ? JSON.parse(JSON.stringify(storeState.songSections)) : [];
       const currentSignals = Array.isArray(storeState.measureSignals) ? JSON.parse(JSON.stringify(storeState.measureSignals)) : [];
 
+      const currentVocalPreset = useAudioStore.getState().vocalPreset || presetData.vocalPreset || 'guide';
       const finalPresetData = {
         ...presetData,
+        vocalPreset: currentVocalPreset,
         songMarkers: currentMarkers.length > 0 ? currentMarkers : (presetData.songMarkers || []),
         songSections: currentSections.length > 0 ? currentSections : (presetData.songSections || []),
         measureSignals: currentSignals.length > 0 ? currentSignals : (presetData.measureSignals || []),
       };
-      finalPresetData.metadata = { ...finalPresetData.metadata, toada: presetName } as any;
+      finalPresetData.metadata = { ...finalPresetData.metadata, toada: presetName, vocalPreset: currentVocalPreset } as any;
 
       let finalVisibility = visibility;
       if (isAdmin && visibility === 'public') {

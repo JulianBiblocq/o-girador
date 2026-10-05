@@ -1282,7 +1282,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                             ? 'bg-[#c88b2a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
                             : 'bg-[#ded3be] text-[#1a1a1a]/40 border border-[#1a1a1a]/30 shadow-none'
                         }`}
-                        title={isCompressorActive ? "Compresseur Master actif (cliquer pour contourner / bypass)" : "Compresseur Master bypassé (cliquer pour activer)"}
+                        title={isCompressorActive ? (lang === 'fr' ? "Compresseur Master actif (cliquer pour contourner)" : "Compressor Master ativo (clique para ignorar)") : (lang === 'fr' ? "Compresseur Master contourné (cliquer pour activer)" : "Compressor Master desativado (clique para ativar)")}
                       >
                         ⏻
                       </button>
@@ -1341,7 +1341,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                             ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220] shadow-xs hover:bg-[#a83220]'
                             : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through hover:text-gray-200'
                         }`}
-                        title={isMasterVolActive ? "Automation Master Volume active (cliquer pour débrayer)" : "Automation Master Volume débrayée (cliquer pour activer)"}
+                        title={isMasterVolActive ? (lang === 'fr' ? "Automation Master Volume active (cliquer pour débrayer)" : "Automação Master Volume ativa (clique para desativar)") : (lang === 'fr' ? "Automation Master Volume débrayée (cliquer pour activer)" : "Automação Master Volume desativada (clique para ativar)")}
                       >
                         A
                       </button>

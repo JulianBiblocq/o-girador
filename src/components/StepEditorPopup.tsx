@@ -42,6 +42,7 @@ export const StepEditorPopup: React.FC = () => {
 
   const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded) || false;
+  const lang = useSequencerStore(state => state.lang);
 
   // Local UI states for expansion and lazy loading
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -330,9 +331,9 @@ export const StepEditorPopup: React.FC = () => {
               ? 'bg-[#8b2a1a] text-[#f4ecd8]' 
               : 'bg-transparent text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
           }`}
-          title="Silenciar / Vider"
+          title={lang === 'fr' ? 'Vider la case (Silence)' : 'Limpar o passo (Pausa)'}
         >
-          Silence (0)
+          {lang === 'fr' ? 'Silence (0)' : 'Pausa (0)'}
         </button>
       </div>
     </div>,

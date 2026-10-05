@@ -27,6 +27,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
     trackId !== undefined ? state.tracks.find((t) => t.id === trackId) : undefined
   );
   const setTrackTuning = useSequencerStore((state) => state.setTrackTuning);
+  const lang = useSequencerStore((state) => state.lang);
 
   const effectiveInstrumentId = isControlled
     ? instrumentId || ''
@@ -122,7 +123,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
   // Calculate Ring Y position based on tuning (-6 to +6)
   const R_y = 90 - (localTuning * (50 / 6));
 
-  const displayTitle = title || (isControlled ? 'Afinar' : 'Afinar (Pitch)');
+  const displayTitle = title || (lang === 'fr' ? (isControlled ? 'Accorder' : 'Accorder le tambour') : (isControlled ? 'Afinar' : 'Afinar o tambor'));
 
   return (
     <div className="flex flex-col items-center justify-center bg-[var(--cordel-bg)] border-[2px] sm:border-[3px] border-[var(--cordel-text)] p-2 gap-1.5 relative w-full select-none shadow-[3px_3px_0_rgba(0,0,0,1)]">
@@ -214,12 +215,12 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
           className="w-full py-1 bg-[#1a1a1a] hover:bg-[#8b2a1a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:scale-95 transition-all cursor-pointer font-cactus font-bold uppercase text-[9px] flex items-center justify-center gap-1 mt-0.5"
         >
           <span>🔊</span>
-          <span>Écouter</span>
+          <span>{lang === 'fr' ? 'Écouter' : 'Ouvir'}</span>
         </button>
       )}
 
       <p className="text-[9px] font-bold text-[#666] leading-tight text-center">
-        ↕ Glisser l'anneau
+        {lang === 'fr' ? "↕ Glisser l'anneau" : "↕ Deslizar o anel"}
       </p>
     </div>
   );

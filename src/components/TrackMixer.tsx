@@ -13,6 +13,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useWindow } from '../contexts/WindowContext';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { getBusColor, getTopParentBusId } from '../utils/colorHelpers';
+import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
 
 interface TrackMixerProps {
   trackId: number;
@@ -133,6 +134,15 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const cellRefs = useRef<Record<number, HTMLInputElement>>({});
   const lastActiveStepRef = useRef<number>(-1);
+
+  // Menu contextuel Cordel (Zone 2)
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const contextLongPressTimerRef = useRef<any>(null);
+  const contextTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleContextMenuOpen = (clientX: number, clientY: number) => {
+    setContextMenuPos({ x: clientX, y: clientY });
+  };
 
   const registerStepRef = (stepIdx: number, el: HTMLInputElement | null) => {
     if (el) {
@@ -301,6 +311,46 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   return (
     <div
       ref={setNodeRef}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleContextMenuOpen(e.clientX, e.clientY);
+      }}
+      onTouchStart={(e) => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          contextTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+          contextLongPressTimerRef.current = setTimeout(() => {
+            handleContextMenuOpen(touch.clientX, touch.clientY);
+            contextLongPressTimerRef.current = null;
+          }, 400);
+        }
+      }}
+      onTouchMove={(e) => {
+        if (contextLongPressTimerRef.current && contextTouchStartPosRef.current && e.touches.length === 1) {
+          const touch = e.touches[0];
+          const dx = Math.abs(touch.clientX - contextTouchStartPosRef.current.x);
+          const dy = Math.abs(touch.clientY - contextTouchStartPosRef.current.y);
+          if (dx > 10 || dy > 10) {
+            clearTimeout(contextLongPressTimerRef.current);
+            contextLongPressTimerRef.current = null;
+          }
+        }
+      }}
+      onTouchEnd={() => {
+        if (contextLongPressTimerRef.current) {
+          clearTimeout(contextLongPressTimerRef.current);
+          contextLongPressTimerRef.current = null;
+        }
+        contextTouchStartPosRef.current = null;
+      }}
+      onTouchCancel={() => {
+        if (contextLongPressTimerRef.current) {
+          clearTimeout(contextLongPressTimerRef.current);
+          contextLongPressTimerRef.current = null;
+        }
+        contextTouchStartPosRef.current = null;
+      }}
       className={`flex flex-col relative transition-all duration-300 w-full justify-center border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 ${
         isUnfolded ? 'h-auto min-h-[156px] py-2' : 'h-[76px] min-h-[76px] py-1'
       } ${
@@ -435,7 +485,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               title={
                 (inst.type === 'voice' || isToada)
                   ? (lang === 'fr' ? (isLetraActive ? 'Masquer la Letra' : 'Afficher la Letra') : (isLetraActive ? 'Ocultar Letra' : 'Exibir Letra'))
-                  : "Ao Vivo (Live POV)"
+                  : (lang === 'fr' ? 'Vue en direct (Baguettes)' : 'Ao Vivo (Visão das baquetas)')
               }
             >
               {(inst.type === 'voice' || isToada) ? (
@@ -482,6 +532,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             }}
           />
         </div>
+      )}
+
+      {/* Menu contextuel Cordel pour la piste */}
+      {contextMenuPos && (
+        <TrackContextMenu
+          trackId={trackId}
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          onClose={() => setContextMenuPos(null)}
+        />
       )}
     </div>
   );

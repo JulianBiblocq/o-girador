@@ -898,6 +898,7 @@ export function useAudioSync({
       if (!worker) return;
 
       setIsCompiling(true);
+      const isolateBaseOnly = useSequencerStore.getState().isolateBaseOnly;
 
       worker.postMessage({
         action: 'compileSong',
@@ -906,7 +907,8 @@ export function useAudioSync({
         measureTimeSigs: mTimeSigs,
         instConfig: instrumentsConfig,
         soloPatternPlayId: soloId,
-        soloPatternVariationId: soloVarId
+        soloPatternVariationId: soloVarId,
+        isolateBaseOnly: !!isolateBaseOnly
       });
     };
 
@@ -1867,11 +1869,18 @@ export function useAudioSync({
 
                     let triggerTime = time + noteSwingOffset + microOffset;
 
-                    audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+                    const isTocarJuntoMuted = useSequencerStore.getState().tocarJuntoActive && useSequencerStore.getState().tocarJuntoTrackId === liveTrack.id;
 
-                    // Visual hit trigger
+                    if (!isTocarJuntoMuted) {
+                      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+                    }
+
+                    // Visual hit trigger (animant les baguettes Ao Vivo - verrouillé pendant le pré-roll)
                     if (!isDocHidden) {
-                      pushVisualHitTrigger(liveTrack.id, circleStepIdx, strokeCharCode, triggerTime);
+                      const isPreRolling = useSequencerStore.getState().isPreRolling || currentMeasureIdx < 0;
+                      if (!isPreRolling) {
+                        pushVisualHitTrigger(liveTrack.id, circleStepIdx, strokeCharCode, triggerTime);
+                      }
                     }
                   }
                 }
@@ -2064,10 +2073,13 @@ export function useAudioSync({
                   const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
                   const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
 
-                  // 1. Émission visuelle obligatoire dans tous les cas
+                  // 1. Émission visuelle (verrouillée pendant le pré-roll)
                   if (!isDocHidden) {
-                    const stateCode = typeof preRollState === 'number' ? preRollState : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
-                    pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
+                    const isPreRolling = useSequencerStore.getState().isPreRolling || currentMeasureIdx < 0;
+                    if (!isPreRolling) {
+                      const stateCode = typeof preRollState === 'number' ? preRollState : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
+                      pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
+                    }
                   }
 
                   // 2. Déclenchement synthèse vocale SEULEMENT si aucun sample audio vocal
@@ -2319,10 +2331,13 @@ export function useAudioSync({
                 const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
                 const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
 
-                // 1. Émission visuelle obligatoire dans tous les cas (avec ou sans sample audio)
+                // 1. Émission visuelle (verrouillée pendant le pré-roll)
                 if (!isDocHidden) {
-                  const stateCode = typeof preRollState === 'number' ? preRollState : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
-                  pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
+                  const isPreRolling = useSequencerStore.getState().isPreRolling || currentMeasureIdx < 0;
+                  if (!isPreRolling) {
+                    const stateCode = typeof preRollState === 'number' ? preRollState : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
+                    pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
+                  }
                 }
 
                 // 2. Déclenchement synthèse vocale (selon vocalMode)
@@ -2651,12 +2666,27 @@ export function useAudioSync({
         preRollTotalMeasuresRef.current = measuresCount;
         preRollRemainingMeasuresRef.current = measuresCount;
         isPreRollActiveRef.current = true;
+        useSequencerStore.getState().setIsPreRolling(true);
 
         // Hardware-timed count-in beeps (bips haute précision Web Audio)
         const totalBeats = measuresCount * beatsCount;
         const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
         const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.06;
         scheduledMusicStartTime = t0 + (totalBeats * beatDurationSec);
+
+        // Planifier la libération de isPreRolling précisément à scheduledMusicStartTime
+        Tone.Draw.schedule(() => {
+          useSequencerStore.getState().setIsPreRolling(false);
+          isPreRollActiveRef.current = false;
+        }, scheduledMusicStartTime);
+
+        const nowSec = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime);
+        const delayToMusicStartMs = Math.max(0, (scheduledMusicStartTime - nowSec) * 1000);
+        const preRollTimer = setTimeout(() => {
+          useSequencerStore.getState().setIsPreRolling(false);
+          isPreRollActiveRef.current = false;
+        }, delayToMusicStartMs);
+        engineTimeoutsRef.current.add(preRollTimer);
 
         for (let i = 0; i < totalBeats; i++) {
           const beepTime = t0 + i * beatDurationSec;
@@ -2794,11 +2824,14 @@ export function useAudioSync({
               if (isPreActive) {
                 const stepTime = runwayStartTime + s * runwayStepDurationSec;
 
-                // 2a. Émission visuelle obligatoire (avec ou sans sample audio) pour illuminer la Roda
-                const stateCode = typeof preRollState === 'number'
-                  ? preRollState
-                  : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
-                pushVisualHitTrigger(track.id, s, stateCode, stepTime);
+                // 2a. Émission visuelle (verrouillée pendant le pré-roll)
+                const isPreRolling = useSequencerStore.getState().isPreRolling;
+                if (!isPreRolling) {
+                  const stateCode = typeof preRollState === 'number'
+                    ? preRollState
+                    : (typeof preRollState === 'string' ? (preRollState.charCodeAt(0) || 1) : 1);
+                  pushVisualHitTrigger(track.id, s, stateCode, stepTime);
+                }
 
                 // 2b. Synthèse vocale native UNIQUEMENT si aucun sample audio
                 if (!hasVocalSample && vocalVol > 0) {
@@ -2860,6 +2893,7 @@ export function useAudioSync({
       } else {
         isPreRollActiveRef.current = false;
         preRollRemainingMeasuresRef.current = 0;
+        useSequencerStore.getState().setIsPreRolling(false);
 
         // Calage synchrone immédiat du moteur audio sur la mesure cible targetM et pas 0
         if (audioEngine) {
@@ -2961,6 +2995,7 @@ export function useAudioSync({
       }
       isPreRollActiveRef.current = false;
       preRollRemainingMeasuresRef.current = 0;
+      useSequencerStore.getState().setIsPreRolling(false);
       audioEngine?.stop();
       Tone.Transport.pause();
       anchoredMeasureStartSecRef.current = -1;
@@ -2977,6 +3012,7 @@ export function useAudioSync({
       vocalEngineService.disposeAllVocalPlayers();
       activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
       activeSequencerVocalsRef.current.clear();
+      useSequencerStore.getState().resetFirstPassRegistry();
       anticipatedMeasuresRef.current.clear();
       lastElapsedSecRef.current = 0;
       setIsPlaying(false);
@@ -3070,6 +3106,7 @@ export function useAudioSync({
     resetVisualTickBuffer();
     hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
+    useSequencerStore.getState().resetFirstPassRegistry();
 
     try {
       Tone.Transport.stop();
@@ -3081,6 +3118,7 @@ export function useAudioSync({
     stopAllNativeOscillators();
     isPreRollActiveRef.current = false;
     preRollRemainingMeasuresRef.current = 0;
+    useSequencerStore.getState().setIsPreRolling(false);
 
     vocalEngineService.stopAllVocalPlayback();
     vocalEngineService.disposeAllVocalPlayers();
@@ -3250,6 +3288,7 @@ export function useAudioSync({
 
     measureCountRef.current = clampedM;
     sectionIterationRef.current = 1;
+    useSequencerStore.getState().resetFirstPassRegistry();
     setCurrentMeasure(clampedM);
     hasFinishedRef.current = false;
     isPlaybackEndingRef.current = false;

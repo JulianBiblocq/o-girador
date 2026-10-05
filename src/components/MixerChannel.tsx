@@ -26,6 +26,7 @@ import { eqNodes } from '../audio/effectsChain';
 import * as Tone from 'tone';
 import { interpolateAutomationValue } from '../utils/automationMath';
 import { getLastAudibleTick } from '../audio/visualTickBuffer';
+import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
 
 interface MixerChannelProps {
   trackId: number;
@@ -83,6 +84,15 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const hasSolo = tracksMeta.some(t => t.isSolo);
+
+  // Menu contextuel Cordel (Zone 2)
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const contextLongPressTimerRef = useRef<any>(null);
+  const contextTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleContextMenuOpen = (clientX: number, clientY: number) => {
+    setContextMenuPos({ x: clientX, y: clientY });
+  };
 
   const hasVolAuto = !!track?.measureVols && track.measureVols.length > 0;
   const isVolBypassed = !!track?.automationBypass?.volume;
@@ -543,6 +553,46 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     <div 
       ref={setNodeRef}
       data-track-id={trackId}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleContextMenuOpen(e.clientX, e.clientY);
+      }}
+      onTouchStart={(e) => {
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          contextTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+          contextLongPressTimerRef.current = setTimeout(() => {
+            handleContextMenuOpen(touch.clientX, touch.clientY);
+            contextLongPressTimerRef.current = null;
+          }, 400);
+        }
+      }}
+      onTouchMove={(e) => {
+        if (contextLongPressTimerRef.current && contextTouchStartPosRef.current && e.touches.length === 1) {
+          const touch = e.touches[0];
+          const dx = Math.abs(touch.clientX - contextTouchStartPosRef.current.x);
+          const dy = Math.abs(touch.clientY - contextTouchStartPosRef.current.y);
+          if (dx > 10 || dy > 10) {
+            clearTimeout(contextLongPressTimerRef.current);
+            contextLongPressTimerRef.current = null;
+          }
+        }
+      }}
+      onTouchEnd={() => {
+        if (contextLongPressTimerRef.current) {
+          clearTimeout(contextLongPressTimerRef.current);
+          contextLongPressTimerRef.current = null;
+        }
+        contextTouchStartPosRef.current = null;
+      }}
+      onTouchCancel={() => {
+        if (contextLongPressTimerRef.current) {
+          clearTimeout(contextLongPressTimerRef.current);
+          contextLongPressTimerRef.current = null;
+        }
+        contextTouchStartPosRef.current = null;
+      }}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
@@ -662,7 +712,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                     ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] hover:opacity-90' 
                     : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/30 border-[var(--cordel-border)]/20 cursor-default opacity-55'
                 }`}
-                title="Reset EQ"
+                title={lang === 'fr' ? "Réinitialiser l'égaliseur" : "Redefinir equalizador"}
                 disabled={!isEQModified}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
@@ -945,6 +995,16 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Menu contextuel Cordel pour la piste */}
+      {contextMenuPos && (
+        <TrackContextMenu
+          trackId={trackId}
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          onClose={() => setContextMenuPos(null)}
+        />
+      )}
     </div>
   );
 };

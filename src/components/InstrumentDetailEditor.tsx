@@ -50,6 +50,9 @@ import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { VocalWorkflowStepper } from './VocalWorkflowStepper';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
+import { InstrumentHeaderContextMenu } from './instrument-editor/InstrumentHeaderContextMenu';
+import { InstrumentAddPickerPopover } from './instrument-editor/InstrumentAddPickerPopover';
+import { CordelContextMenu, CordelMenuItem } from './ui/CordelContextMenu';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -187,6 +190,7 @@ interface PupitreRibbonChipProps {
   trackId: number;
   isActive: boolean;
   onSelect: (id: number) => void;
+  onContextMenu: (id: number, x: number, y: number) => void;
 }
 
 // Composant Enfant mémoïsé (Commandement 4 : Zustand ID-Only)
@@ -194,8 +198,11 @@ const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   trackId,
   isActive,
   onSelect,
+  onContextMenu,
 }) => {
   const chipRef = useRef<HTMLButtonElement | null>(null);
+  const longPressTimerRef = useRef<any>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Chaque puce s'abonne individuellement à ses propres propriétés primitives
   const instrumentIdx = useSequencerStore(
@@ -224,6 +231,37 @@ const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
   const titleText = isToada ? 'Toada' : (customName || tInst?.name || 'Instrument');
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+      longPressTimerRef.current = setTimeout(() => {
+        onContextMenu(trackId, touch.clientX, touch.clientY);
+        longPressTimerRef.current = null;
+      }, 400);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (longPressTimerRef.current && touchStartPosRef.current && e.touches.length === 1) {
+      const touch = e.touches[0];
+      const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+  };
+
   return (
     <button
       ref={chipRef}
@@ -233,6 +271,15 @@ const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
           onSelect(trackId);
         }
       }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu(trackId, e.clientX, e.clientY);
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       title={titleText}
       className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
         isActive
@@ -328,6 +375,169 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       return list.map((t) => t.id);
     })
   );
+
+  // Gestion du menu contextuel (Clic droit / Appui long sur les puces du ruban)
+  const [contextMenuPos, setContextMenuPos] = useState<{ trackId: number; x: number; y: number } | null>(null);
+  const handleOpenContextMenu = React.useCallback((cTrackId: number, x: number, y: number) => {
+    setContextMenuPos({ trackId: cTrackId, x, y });
+  }, []);
+  const handleCloseContextMenu = React.useCallback(() => {
+    setContextMenuPos(null);
+  }, []);
+
+  // Gestion du sélecteur d'instrument rapide (Bouton « + » du ruban)
+  const [isAddPickerOpen, setIsAddPickerOpen] = useState(false);
+  const [addPickerAnchorRect, setAddPickerAnchorRect] = useState<DOMRect | null>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+
+  const handleToggleAddPicker = React.useCallback(() => {
+    setIsAddPickerOpen((prev) => {
+      if (!prev && addBtnRef.current) {
+        setAddPickerAnchorRect(addBtnRef.current.getBoundingClientRect());
+        return true;
+      }
+      return false;
+    });
+  }, []);
+
+  const handleCloseAddPicker = React.useCallback(() => {
+    setIsAddPickerOpen(false);
+  }, []);
+
+  const handleAddInstrumentFromRibbon = React.useCallback((instIdx: number) => {
+    const newTrackId = sequencer.handleAddTrackInstrument(instIdx, currentMeasure);
+    if (newTrackId && setEditingTrackId) {
+      setEditingTrackId(newTrackId);
+    }
+  }, [sequencer, currentMeasure, setEditingTrackId]);
+
+  // Menu contextuel Cordel sur les cartes de motifs (Zone 3)
+  const [patternCardContextMenu, setPatternCardContextMenu] = useState<{
+    pattern: Pattern;
+    x: number;
+    y: number;
+  } | null>(null);
+  const cardLongPressTimerRef = useRef<any>(null);
+  const cardTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleOpenPatternCardMenu = (targetPtn: Pattern, clientX: number, clientY: number) => {
+    setPatternCardContextMenu({ pattern: targetPtn, x: clientX, y: clientY });
+  };
+
+  const handleDuplicatePattern = (sourcePtn: Pattern) => {
+    sequencer.pushUndoState();
+    const newId = Date.now() + Math.floor(Math.random() * 1000);
+    const copySuffix = lang === 'fr' ? '(Copie)' : '(Cópia)';
+    const newName = `${sourcePtn.name || (lang === 'fr' ? 'Motif' : 'Padrão')} ${copySuffix}`;
+    const newPattern: Pattern = {
+      ...JSON.parse(JSON.stringify(sourcePtn)),
+      id: newId,
+      name: newName,
+      measureAssignments: Array(totalMeasures).fill(false),
+    };
+    useSequencerStore.getState().setTracks((prev) =>
+      prev.map((t) => {
+        if (t.id === effectiveEditTrackId) {
+          const pIndex = t.patterns.findIndex((p) => p.id === sourcePtn.id);
+          const nextPatterns = [...t.patterns];
+          if (pIndex !== -1) {
+            nextPatterns.splice(pIndex + 1, 0, newPattern);
+          } else {
+            nextPatterns.push(newPattern);
+          }
+          return { ...t, patterns: nextPatterns, selectedPatternId: newId };
+        }
+        return t;
+      })
+    );
+    setSelectedPatternId(newId);
+  };
+
+  const handleClearPatternStrokes = (patternId: number) => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks((prev) =>
+      prev.map((t) => {
+        if (t.id === effectiveEditTrackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (p.id === patternId) {
+                return {
+                  ...p,
+                  activeSteps: Array(p.steps).fill(0),
+                  lyrics: Array(p.steps).fill(''),
+                  notes: Array(p.steps).fill(''),
+                  preRollActiveSteps: p.preRollActiveSteps ? Array(p.preRollActiveSteps.length).fill(0) : undefined,
+                  preRollLyrics: p.preRollLyrics ? Array(p.preRollLyrics.length).fill('') : undefined,
+                  preRollNotes: p.preRollNotes ? Array(p.preRollNotes.length).fill('') : undefined,
+                };
+              }
+              return p;
+            }),
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  const handleContextDeletePattern = async (patternId: number) => {
+    const currentTrack = useSequencerStore.getState().tracks.find((t) => t.id === effectiveEditTrackId);
+    if (!currentTrack || currentTrack.patterns.length <= 1) {
+      alert(lang === 'fr' ? 'Impossible de supprimer le dernier motif restant.' : 'Não é possível excluir o último padrão restante.');
+      return;
+    }
+    const targetPattern = currentTrack.patterns.find((p) => p.id === patternId);
+    const isAssigned = targetPattern?.measureAssignments?.some(Boolean);
+    if (isAssigned) {
+      const confirm = await sequencer.confirmAsync(
+        lang === 'fr'
+          ? 'Ce motif est actuellement utilisé sur la timeline. Êtes-vous sûr de vouloir le supprimer ?'
+          : 'Este padrão está atualmente em uso na linha do tempo. Tem certeza de que deseja excluí-lo?'
+      );
+      if (!confirm) return;
+    }
+    onDeletePattern(patternId);
+  };
+
+  const getPatternCardMenuItems = (ptn: Pattern): CordelMenuItem[] => {
+    const isSinglePattern = (track?.patterns?.length || 0) <= 1;
+
+    return [
+      {
+        id: 'duplicate-pattern',
+        label: lang === 'fr' ? 'Dupliquer ce motif' : 'Duplicar este padrão',
+        icon: '📋',
+        onClick: () => handleDuplicatePattern(ptn),
+      },
+      {
+        id: 'cloud-save-pattern',
+        label: lang === 'fr' ? 'Sauvegarder sur le Cloud' : 'Salvar na nuvem',
+        icon: '☁️',
+        onClick: () => {
+          setSaveModalPatternId(ptn.id);
+          setSavePatternName(ptn.name || '');
+          setSavePatternFolder(existingFolders[0] || 'Général');
+        },
+      },
+      {
+        id: 'clear-pattern-strokes',
+        label: lang === 'fr' ? 'Vider les frappes' : 'Limpar toques',
+        icon: '🧹',
+        onClick: () => handleClearPatternStrokes(ptn.id),
+      },
+      { isSeparator: true },
+      {
+        id: 'delete-pattern',
+        label: lang === 'fr' ? 'Supprimer le motif' : 'Excluir padrão',
+        icon: '✕',
+        isDestructive: true,
+        disabled: isSinglePattern,
+        disabledReason: isSinglePattern ? (lang === 'fr' ? 'Dernier motif' : 'Último padrão') : undefined,
+        onClick: () => handleContextDeletePattern(ptn.id),
+      },
+    ];
+  };
 
   // Raccourci Clavier 'R' pour basculer l'enregistrement MIDI
   useEffect(() => {
@@ -792,10 +1002,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
   }, [activePattern, lang, effectiveEditTrackId, track?.id]);
 
-  const handleTranspose = React.useCallback((semitones: number) => {
-    if (!activePattern) return;
-    useSequencerStore.getState().transposePatternNotes(effectiveEditTrackId, activePattern.id, semitones);
-  }, [activePattern, effectiveEditTrackId]);
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -1248,11 +1454,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   useEffect(() => {
     if (selectedPatternId && effectiveEditTrackId) {
-      useSequencerStore.getState().setTracks(prev =>
-        prev.map(t => t.id === effectiveEditTrackId ? { ...t, selectedPatternId } : t)
-      );
+      useSequencerStore.getState().setSelectedPatternId(effectiveEditTrackId, selectedPatternId);
+      if (trackId && trackId !== effectiveEditTrackId) {
+        useSequencerStore.getState().setSelectedPatternId(trackId, selectedPatternId);
+      }
     }
-  }, [selectedPatternId, effectiveEditTrackId]);
+  }, [selectedPatternId, effectiveEditTrackId, trackId]);
 
   const [isTupletEditMode, setIsTupletEditMode] = useState(false);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
@@ -1269,6 +1476,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
     if (targetPattern) {
       setSelectedPatternId(targetPattern.id);
+      useSequencerStore.getState().setSelectedPatternId(targetTrack.id, targetPattern.id);
     }
     setSelectedVariationId(null);
     setSelectedStepIdx(null);
@@ -1281,10 +1489,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const onSelectPattern = React.useCallback((patternId: number) => {
     setSelectedPatternId(patternId);
     setSelectedVariationId(null);
-    useSequencerStore.getState().setTracks(prev =>
-      prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t)
-    );
-  }, [trackId]);
+    useSequencerStore.getState().setSelectedPatternId(trackId, patternId);
+    if (effectiveEditTrackId && effectiveEditTrackId !== trackId) {
+      useSequencerStore.getState().setSelectedPatternId(effectiveEditTrackId, patternId);
+    }
+  }, [trackId, effectiveEditTrackId]);
 
   const prevTrackIdRef = useRef(track?.id);
   const prevTrackSelectedPatternIdRef = useRef(track?.selectedPatternId);
@@ -1553,12 +1762,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         )}
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
-          className="flex flex-col gap-1.5 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0"
+          className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0"
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
-          {/* Ligne 1 : Navigation principale, Bouton Audio et Commandes */}
-          <div className="flex items-center justify-between gap-3 w-full shrink-0">
-            {/* Gauche : Commutateur Puxador / Coro (ou Nom de l'instrument) + Ruban */}
+          {/* Gauche : Commutateur Puxador / Coro (ou Nom de l'instrument) + Ruban */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="w-[150px] min-w-[150px] shrink-0 flex-shrink-0 flex items-center">
                 {isVocalContext && puxTrack && coroTrack ? (
@@ -1606,8 +1813,24 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     trackId={vTrackId}
                     isActive={vTrackId === trackId}
                     onSelect={setEditingTrackId}
+                    onContextMenu={handleOpenContextMenu}
                   />
                 ))}
+
+                {/* Bouton compact d'ajout rapide « + » */}
+                <button
+                  ref={addBtnRef}
+                  type="button"
+                  onClick={handleToggleAddPicker}
+                  title={lang === 'fr' ? 'Ajouter un instrument' : 'Adicionar instrumento'}
+                  className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center font-cactus font-bold text-lg leading-none border-2 border-dashed transition-all duration-150 select-none cursor-pointer ${
+                    isAddPickerOpen
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10'
+                      : 'bg-[#f4ecd8]/60 hover:bg-[#fbf8f0] text-[#1a1a1a]/70 hover:text-[#1a1a1a] border-[#1a1a1a]/40 hover:border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,0.3)] hover:shadow-[2px_2px_0px_#1a1a1a] hover:-translate-y-[1px]'
+                  }`}
+                >
+                  +
+                </button>
               </div>
             </div>
 
@@ -1775,62 +1998,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 )}
               </button>
             </div>
-          </div>
-
-          {/* Ligne 2 : Sous-ligne Transposition (Précision 1 : conditionnée sur isVocalContext) */}
-          {isVocalContext && (
-            <div className="w-full flex items-center justify-end shrink-0 flex-shrink-0 pt-0.5">
-              <div className="flex items-center gap-1.5 bg-[#f4ecd8] px-2.5 py-0.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] select-none shrink-0 flex-shrink-0">
-                <span className="mr-0.5 font-cactus uppercase tracking-wide text-[11px]">
-                  {lang === 'fr' ? 'Transposition :' : 'Transposição :'}
-                </span>
-                {/* Raccourci -7 (Quinte descendante) */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(-7)}
-                  title={lang === 'fr' ? '-7 demi-tons (Quinte descendante)' : '-7 semitons (Quinta descendente)'}
-                  className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
-                >
-                  -7
-                </button>
-
-                {/* Bouton -1 demi-ton */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(-1)}
-                  title={lang === 'fr' ? '-1 demi-ton' : '-1 semitom'}
-                  className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
-                >
-                  -
-                </button>
-
-                {/* Compteur de transposition relative */}
-                <span className="w-8 text-center font-cactus text-sm font-black text-[#8b2a1a]">
-                  {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
-                </span>
-
-                {/* Bouton +1 demi-ton */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(1)}
-                  title={lang === 'fr' ? '+1 demi-ton' : '+1 semitom'}
-                  className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
-                >
-                  +
-                </button>
-
-                {/* Raccourci +7 (Quinte ascendante) */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(7)}
-                  title={lang === 'fr' ? '+7 demi-tons (Quinte ascendante)' : '+7 semitons (Quinta ascendente)'}
-                  className="px-1.5 h-6 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-xs"
-                >
-                  +7
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ═══════════════════ CORPS CENTRAL (Grille + Inspecteur) ═══════════════════ */}
@@ -1894,7 +2061,49 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           }}
                         >
                           {/* Pattern Header */}
-                          <div className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2">
+                          <div
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenPatternCardMenu(ptn, e.clientX, e.clientY);
+                            }}
+                            onTouchStart={(e) => {
+                              if (e.touches.length === 1) {
+                                const touch = e.touches[0];
+                                cardTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+                                cardLongPressTimerRef.current = setTimeout(() => {
+                                  handleOpenPatternCardMenu(ptn, touch.clientX, touch.clientY);
+                                  cardLongPressTimerRef.current = null;
+                                }, 400);
+                              }
+                            }}
+                            onTouchMove={(e) => {
+                              if (cardLongPressTimerRef.current && cardTouchStartPosRef.current && e.touches.length === 1) {
+                                const touch = e.touches[0];
+                                const dx = Math.abs(touch.clientX - cardTouchStartPosRef.current.x);
+                                const dy = Math.abs(touch.clientY - cardTouchStartPosRef.current.y);
+                                if (dx > 10 || dy > 10) {
+                                  clearTimeout(cardLongPressTimerRef.current);
+                                  cardLongPressTimerRef.current = null;
+                                }
+                              }
+                            }}
+                            onTouchEnd={() => {
+                              if (cardLongPressTimerRef.current) {
+                                clearTimeout(cardLongPressTimerRef.current);
+                                cardLongPressTimerRef.current = null;
+                              }
+                              cardTouchStartPosRef.current = null;
+                            }}
+                            onTouchCancel={() => {
+                              if (cardLongPressTimerRef.current) {
+                                clearTimeout(cardLongPressTimerRef.current);
+                                cardLongPressTimerRef.current = null;
+                              }
+                              cardTouchStartPosRef.current = null;
+                            }}
+                            className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2 select-none"
+                          >
                             {/* Reorder handle */}
                             {(track.patterns?.length || 0) > 1 && (
                               <div
@@ -2362,6 +2571,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               lang={lang}
               isLeftHanded={isLeftHanded}
               activeTool={activeTool}
+              patternId={selectedPatternId || activePattern?.id}
             />
           </div>
         </div>
@@ -2404,11 +2614,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           onClick={(e) => e.stopPropagation()}
         >
           <StrokeInspectorPanel
-            trackId={track.id}
+            trackId={effectiveEditTrackId}
             instrument={inst}
             lang={lang}
             isLeftHanded={isLeftHanded}
             activeTool={activeTool}
+            patternId={selectedPatternId || activePattern?.id}
             isMobileDrawer={true}
             onCloseMobileDrawer={() => setIsInspectorMobileOpen(false)}
           />
@@ -2631,6 +2842,36 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
           {toastMessage}
         </div>
+      )}
+
+      {/* Menu contextuel Clic Droit / Appui long sur les puces du ruban */}
+      {contextMenuPos && (
+        <InstrumentHeaderContextMenu
+          trackId={contextMenuPos.trackId}
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          onClose={handleCloseContextMenu}
+        />
+      )}
+
+      {/* Popover Sélecteur d'instrument rapide du Bouton « + » */}
+      {isAddPickerOpen && (
+        <InstrumentAddPickerPopover
+          anchorRect={addPickerAnchorRect}
+          onSelectInstrument={handleAddInstrumentFromRibbon}
+          onClose={handleCloseAddPicker}
+        />
+      )}
+
+      {/* Menu contextuel Cordel pour carte de motif (Zone 3) */}
+      {patternCardContextMenu && (
+        <CordelContextMenu
+          x={patternCardContextMenu.x}
+          y={patternCardContextMenu.y}
+          title={patternCardContextMenu.pattern.name || (lang === 'fr' ? 'Motif' : 'Padrão')}
+          items={getPatternCardMenuItems(patternCardContextMenu.pattern)}
+          onClose={() => setPatternCardContextMenu(null)}
+        />
       )}
 
 

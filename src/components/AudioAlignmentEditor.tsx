@@ -55,6 +55,8 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       ? storeTargetMeasure
       : 0;
 
+  const lang = useSequencerStore(state => state.lang);
+
   const anchorBpm = (measureBpms && measureBpms[effectiveMeasure % (measureBpms.length || 1)] > 0)
     ? measureBpms[effectiveMeasure % (measureBpms.length || 1)]
     : bpm;
@@ -210,17 +212,21 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
 
     if (anacrusisBadgeRef.current) {
       if (offsetMs < 0) {
-        anacrusisBadgeRef.current.textContent = `ANACROUSE : ${Math.abs(offsetMs)} MS (AVANT TEMPS 1)`;
+        anacrusisBadgeRef.current.textContent = lang === 'fr'
+          ? `ANACROUSE : ${Math.abs(offsetMs)} MS (AVANT TEMPS 1)`
+          : `ANACRUSE : ${Math.abs(offsetMs)} MS (ANTES DO TEMPO 1)`;
         anacrusisBadgeRef.current.style.color = '#2a5d4e';
       } else if (offsetMs > 0) {
-        anacrusisBadgeRef.current.textContent = `DÉPART DIFFÉRÉ : +${offsetMs} MS (APRÈS TEMPS 1)`;
+        anacrusisBadgeRef.current.textContent = lang === 'fr'
+          ? `DÉPART DIFFÉRÉ : +${offsetMs} MS (APRÈS TEMPS 1)`
+          : `PARTIDA ATRASADA : +${offsetMs} MS (APÓS TEMPO 1)`;
         anacrusisBadgeRef.current.style.color = '#8b2a1a';
       } else {
-        anacrusisBadgeRef.current.textContent = 'TEMPS 1 CALÉ (0 MS)';
+        anacrusisBadgeRef.current.textContent = lang === 'fr' ? 'TEMPS 1 CALÉ (0 MS)' : 'TEMPO 1 ALINHADO (0 MS)';
         anacrusisBadgeRef.current.style.color = '#1a1a1a';
       }
     }
-  }, [calculateStartOffsetSec]);
+  }, [calculateStartOffsetSec, lang]);
 
   // Initialisation badge et translation GPU immédiate au montage
   useEffect(() => {
@@ -1002,21 +1008,21 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         <div className="flex items-center gap-2">
           <Music className="w-4 h-4 text-[#8b2a1a]" />
           <span className="text-xs font-bold text-[#1a1a1a] uppercase tracking-wider">
-            Alignement Vocal : <span className="text-[#8b2a1a]">{pattern.name}</span>
+            {lang === 'fr' ? 'Alignement Vocal : ' : 'Alinhamento Vocal : '}<span className="text-[#8b2a1a]">{pattern.name}</span>
           </span>
           <span
             ref={anacrusisBadgeRef}
             className="px-2 py-0.5 bg-[#ece4d0] border border-[#1a1a1a] text-[10px] font-black uppercase font-mono tracking-wider shadow-[1px_1px_0px_#1a1a1a]"
             style={{ color: '#1a1a1a' }}
           >
-            TEMPS 1 CALÉ (0 MS)
+            {lang === 'fr' ? 'TEMPS 1 CALÉ (0 MS)' : 'TEMPO 1 ALINHADO (0 MS)'}
           </span>
         </div>
 
         {/* Contrôles BPM Source du Sample (Directive 2) */}
         <div className="flex items-center gap-1.5 bg-[#ece4d0] border-2 border-[#1a1a1a] px-2.5 py-1 rounded-sm shadow-[2px_2px_0px_#1a1a1a]">
           <label htmlFor="sample-bpm-input" className="text-[10px] font-black text-[#1a1a1a]/80 uppercase tracking-wider select-none">
-            BPM du sample :
+            {lang === 'fr' ? 'BPM du sample :' : 'BPM da amostra :'}
           </label>
           <input
             id="sample-bpm-input"
@@ -1032,13 +1038,13 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
               }
             }}
             className="w-14 px-1 py-0.5 text-center text-xs font-mono font-bold bg-[#fdfaf2] text-[#1a1a1a] border border-[#1a1a1a] rounded-sm focus:outline-none focus:ring-1 focus:ring-[#8b2a1a]"
-            title="Tempo source de la prise audio (DAW externe ou métronome)"
+            title={lang === 'fr' ? "Tempo source de la prise audio (DAW externe ou métronome)" : "Andamento de origem do áudio (DAW externa ou metrônomo)"}
           />
           <span className="text-[10px] font-bold text-[#1a1a1a]/60 select-none">BPM</span>
           {sampleBpm > 0 && Math.abs((anchorBpm / sampleBpm) - 1.0) >= 0.001 && (
             <span
               className="text-[9px] font-black px-1.5 py-0.5 bg-[#8b2a1a] text-white rounded-xs border border-[#1a1a1a] tracking-tight shadow-[1px_1px_0px_#1a1a1a]"
-              title={`Ratio de time-stretching calculé : x${(anchorBpm / sampleBpm).toFixed(2)}`}
+              title={lang === 'fr' ? `Ratio de time-stretching calculé : x${(anchorBpm / sampleBpm).toFixed(2)}` : `Proporção de time-stretch calculada : x${(anchorBpm / sampleBpm).toFixed(2)}`}
             >
               x{(anchorBpm / sampleBpm).toFixed(2)}
             </span>
@@ -1054,7 +1060,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             onClick={handleZoomOut}
             disabled={pixelsPerSecond <= 50}
             className="p-1 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-white disabled:opacity-40 border border-[#1a1a1a] rounded-sm transition-colors cursor-pointer"
-            title="Zoom arrière (-25 px/s)"
+            title={lang === 'fr' ? "Zoom arrière (-25 px/s)" : "Diminuir zoom (-25 px/s)"}
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
@@ -1068,7 +1074,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             onClick={handleZoomIn}
             disabled={pixelsPerSecond >= 300}
             className="p-1 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-white disabled:opacity-40 border border-[#1a1a1a] rounded-sm transition-colors cursor-pointer"
-            title="Zoom avant (+25 px/s)"
+            title={lang === 'fr' ? "Zoom avant (+25 px/s)" : "Aumentar zoom (+25 px/s)"}
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
@@ -1081,7 +1087,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
                 ? 'bg-[#1a1a1a] text-[#fdfaf2]'
                 : 'bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-white'
             }`}
-            title="Réinitialiser l'échelle à 100% (200 px/s standard)"
+            title={lang === 'fr' ? "Réinitialiser l'échelle à 100% (200 px/s standard)" : "Redefinir escala para 100% (200 px/s padrão)"}
           >
             1:1
           </button>
@@ -1090,10 +1096,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             type="button"
             onClick={handleFitToWindow}
             className="flex items-center gap-1 px-2 py-0.5 text-[9px] font-black uppercase bg-[#2a5d4e] text-white hover:bg-[#1a1a1a] border border-[#1a1a1a] rounded-sm transition-colors cursor-pointer shadow-[1px_1px_0px_#1a1a1a]"
-            title="Adapter toute la forme d'onde et les repères à la largeur de l'écran"
+            title={lang === 'fr' ? "Adapter toute la forme d'onde et les repères à la largeur de l'écran" : "Ajustar toda a forma de onda e marcadores à largura da tela"}
           >
             <Maximize2 className="w-3 h-3" />
-            Adapter à l'écran
+            {lang === 'fr' ? 'Adapter à l\'écran' : 'Ajustar à tela'}
           </button>
         </div>
       </div>
@@ -1114,7 +1120,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             {/* Header Ruler: TEMPS 1 / PREMIÈRE NOTE — Rigoureusement solidaire du défilement (Consigne 1) */}
             <div className="h-7 bg-[#d7cbaf] border-b-2 border-[#1a1a1a] relative flex items-center px-3 pointer-events-none">
               <span className="text-[10px] font-bold text-[#1a1a1a]/80 uppercase tracking-wider">
-                Glisser l'onde centrale pour caler le chant — Glisser les poignées DÉBUT/FIN pour rogner
+                {lang === 'fr' ? "Glisser l'onde centrale pour caler le chant — Glisser les poignées DÉBUT/FIN pour rogner" : "Arraste a onda central para alinhar o canto — Arraste as alças INÍCIO/FIM para cortar"}
               </span>
 
               {/* TEMPS 1 Fixed Guide Line Badge (Solidaire du défilement horizontal) */}
@@ -1123,7 +1129,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
                 className="absolute top-0 bottom-0 flex items-center -translate-x-1/2 z-30 pointer-events-none"
               >
                 <div className="px-2.5 py-0.5 bg-[#dc2626] text-white text-[9px] font-black uppercase tracking-wider border border-[#1a1a1a] shadow-[0_0_8px_rgba(220,38,38,0.8)] whitespace-nowrap">
-                  TEMPS 1 / CHANT (MESURE {effectiveMeasure + 1})
+                  {lang === 'fr' ? `TEMPS 1 / CHANT (MESURE ${effectiveMeasure + 1})` : `TEMPO 1 / CANTO (COMPASSO ${effectiveMeasure + 1})`}
                 </div>
               </div>
             </div>
@@ -1161,7 +1167,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
                   onPointerMove={handleWaveformPointerMove}
                   onPointerUp={handleWaveformPointerUp}
                   onPointerCancel={handleWaveformPointerUp}
-                  title="Cliquer et glisser pour caler le chant sur la timeline"
+                  title={lang === 'fr' ? "Cliquer et glisser pour caler le chant sur la timeline" : "Clique e arraste para alinhar o canto na linha do tempo"}
                 >
                   <canvas
                     ref={waveformCanvasRef}
@@ -1188,11 +1194,11 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
                   onPointerMove={(e) => handleTrimPointerMove(e, 'start')}
                   onPointerUp={(e) => handleTrimPointerUp(e, 'start')}
                   onPointerCancel={(e) => handleTrimPointerUp(e, 'start')}
-                  title={`Trim Début : ${trimStartSec.toFixed(3)}s (Glisser pour ajuster le début)`}
+                  title={lang === 'fr' ? `Trim Début : ${trimStartSec.toFixed(3)}s (Glisser pour ajuster le début)` : `Trim Início : ${trimStartSec.toFixed(3)}s (Arraste para ajustar o início)`}
                 >
                   <div className="w-[3px] h-full bg-[#2a5d4e] group-hover:bg-[#34d399] shadow-[0_0_6px_rgba(42,93,78,0.8)]" />
                   <div className="absolute top-0 px-1 py-0.5 bg-[#2a5d4e] text-white text-[8px] font-black uppercase font-mono tracking-tighter whitespace-nowrap border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] group-hover:scale-110 transition-transform pointer-events-none">
-                    DÉBUT
+                    {lang === 'fr' ? 'DÉBUT' : 'INÍCIO'}
                   </div>
                 </div>
 
@@ -1207,11 +1213,11 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
                   onPointerMove={(e) => handleTrimPointerMove(e, 'end')}
                   onPointerUp={(e) => handleTrimPointerUp(e, 'end')}
                   onPointerCancel={(e) => handleTrimPointerUp(e, 'end')}
-                  title={`Trim Fin : ${trimEndSec.toFixed(3)}s (Glisser pour ajuster la fin)`}
+                  title={lang === 'fr' ? `Trim Fin : ${trimEndSec.toFixed(3)}s (Glisser pour ajuster la fin)` : `Trim Fim : ${trimEndSec.toFixed(3)}s (Arraste para ajustar o fim)`}
                 >
                   <div className="w-[3px] h-full bg-[#8b2a1a] group-hover:bg-[#ef4444] shadow-[0_0_6px_rgba(139,42,26,0.8)]" />
                   <div className="absolute top-0 px-1 py-0.5 bg-[#8b2a1a] text-white text-[8px] font-black uppercase font-mono tracking-tighter whitespace-nowrap border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] group-hover:scale-110 transition-transform pointer-events-none">
-                    FIN
+                    {lang === 'fr' ? 'FIN' : 'FIM'}
                   </div>
                 </div>
               </div>
@@ -1225,10 +1231,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         <div className="flex items-center justify-between text-xs font-bold text-[#1a1a1a]">
           <span className="flex items-center gap-1.5 uppercase text-[#2a5d4e]">
             <Scissors className="w-4 h-4 text-[#2a5d4e]" />
-            Rognage Audio (Trim Start / Trim End)
+            {lang === 'fr' ? 'Rognage Audio (Trim Start / Trim End)' : 'Ajuste de Trim (Trim Início / Trim Fim)'}
           </span>
           <span className="text-[10px] text-[#1a1a1a]/60">
-            L'anacrouse respire à gauche de la ligne rouge Temps 1.
+            {lang === 'fr' ? "L'anacrouse respire à gauche de la ligne rouge Temps 1." : "A anacruse respira à esquerda da linha vermelha Tempo 1."}
           </span>
         </div>
 
@@ -1236,7 +1242,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           {/* Trim Start */}
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between text-xs font-bold">
-              <span className="text-[#2a5d4e]">Trim Début :</span>
+              <span className="text-[#2a5d4e]">{lang === 'fr' ? 'Trim Début :' : 'Trim Início :'}</span>
               <span className="font-mono text-[#2a5d4e]">{trimStartSec.toFixed(3)}s</span>
             </div>
             <input
@@ -1253,7 +1259,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           {/* Trim End */}
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between text-xs font-bold">
-              <span className="text-[#8b2a1a]">Trim Fin :</span>
+              <span className="text-[#8b2a1a]">{lang === 'fr' ? 'Trim Fin :' : 'Trim Fim :'}</span>
               <span className="font-mono text-[#8b2a1a]">
                 {trimEndSec.toFixed(3)}s / {bufferDuration.toFixed(3)}s
               </span>
@@ -1277,10 +1283,10 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           <div className="flex flex-col">
             <span className="text-xs font-bold text-[#8b2a1a] uppercase flex items-center gap-1.5">
               <MoveHorizontal className="w-4 h-4 text-[#8b2a1a]" />
-              Calage Fin de Latence (Nudge -300ms à +300ms) & Déplacement
+              {lang === 'fr' ? 'Calage Fin de Latence (Nudge -300ms à +300ms) & Déplacement' : 'Ajuste Fino de Latência (Nudge -300ms a +300ms) & Deslocamento'}
             </span>
             <span className="text-[10px] text-[#1a1a1a]/60">
-              Glissez directement l'onde sur le visualiseur ou affinez au millième de seconde avec le curseur.
+              {lang === 'fr' ? "Glissez directement l'onde sur le visualiseur ou affinez au millième de seconde avec le curseur." : "Arraste diretamente a onda no visualizador ou ajuste ao milésimo de segundo com o cursor."}
             </span>
           </div>
 
@@ -1294,7 +1300,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             <button
               onClick={handleResetNudge}
               className="p-1.5 bg-[#ece4d0] hover:bg-[#8b2a1a] hover:text-[#fdfaf2] border-2 border-[#1a1a1a] transition-colors rounded-sm cursor-pointer"
-              title="Réinitialiser le Nudge à 0 ms"
+              title={lang === 'fr' ? "Réinitialiser le Nudge à 0 ms" : "Redefinir Nudge para 0 ms"}
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -1326,12 +1332,12 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           {isPlayingPreview ? (
             <>
               <Square className="w-4 h-4 fill-current" />
-              Arrêter Écoute
+              {lang === 'fr' ? 'Arrêter Écoute' : 'Parar Reprodução'}
             </>
           ) : (
             <>
               <Play className="w-4 h-4 fill-current" />
-              Écouter avec la Roda
+              {lang === 'fr' ? 'Écouter avec la Roda' : 'Ouvir com a Roda'}
             </>
           )}
         </button>
@@ -1345,7 +1351,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             disabled={isProcessing}
             className="px-5 py-2.5 text-xs font-bold border-2 border-[#1a1a1a] bg-[#ece4d0] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a]"
           >
-            Annuler
+            {lang === 'fr' ? 'Annuler' : 'Cancelar'}
           </button>
           <button
             onClick={handleValidate}
@@ -1353,11 +1359,11 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
             className="px-5 py-2.5 text-xs font-bold bg-[#8b2a1a] text-[#fdfaf2] border-2 border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a] flex items-center gap-2"
           >
             {isProcessing ? (
-              <span>Rendu en cours...</span>
+              <span>{lang === 'fr' ? 'Rendu en cours...' : 'Processando...'}</span>
             ) : (
               <>
                 <Check className="w-4 h-4 stroke-[3]" />
-                ✓ Valider le chant
+                {lang === 'fr' ? '✓ Valider le chant' : '✓ Confirmar o canto'}
               </>
             )}
           </button>

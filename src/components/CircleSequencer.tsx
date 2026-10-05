@@ -1523,9 +1523,93 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     return unsubscribe;
   }, [props.tracks]);
 
+  // Fonction d'aide : Gommer un pas sous les coordonnées du pointeur (Zone 4)
+  const clearStepAtCanvasCoords = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (clientX - rect.left) * (1200 / rect.width);
+    const mouseY = (clientY - rect.top) * (1200 / rect.height);
+
+    const centerX = 600;
+    const centerY = 600;
+    const dx = mouseX - centerX;
+    const dy = mouseY - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < 55) return;
+
+    const currentTracks = stateRef.current.tracks;
+    const currentRawTracks = stateRef.current.rawTracks;
+    const currentRodaOrder = stateRef.current.rodaTrackOrder;
+    const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
+
+    const activeVisibleTracksToDraw = sortedCurrentTracks.filter(t => {
+      if (t.isHidden) return false;
+      if (!isSequencerVisibleTrack(t, currentTracks)) return false;
+      if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
+      return !getEffectiveMuteState(currentRawTracks, t.id);
+    });
+
+    for (let visibleIdx = 0; visibleIdx < activeVisibleTracksToDraw.length; visibleIdx++) {
+      const track = activeVisibleTracksToDraw[visibleIdx];
+      const isToada = isToadaBus(track);
+      let activePattern: Pattern | null | undefined = null;
+      let ownerTrack = track;
+      const activePatternId = getLiveActivePatternId(track);
+      if (activePatternId === null) continue;
+
+      if (isToada) {
+        const pux = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+        const coro = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+        if (pux) {
+          activePattern = pux.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = pux;
+        }
+        if (!activePattern && coro) {
+          activePattern = coro.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = coro;
+        }
+      } else {
+        activePattern = track.patterns.find(p => p.id === activePatternId);
+      }
+
+      if (!activePattern) continue;
+      const tRad = getTrackRadius(visibleIdx, activeVisibleTracksToDraw.length);
+
+      if (Math.abs(distance - tRad) < 18) {
+        let clickAngle = Math.atan2(dy, dx) + Math.PI / 2;
+        if (clickAngle < 0) clickAngle += Math.PI * 2;
+        const stepAngleSize = (Math.PI * 2) / activePattern.steps;
+
+        for (let i = 0; i < activePattern.steps; i++) {
+          const targetAngle = i * stepAngleSize;
+          let angleDiff = Math.abs(clickAngle - targetAngle);
+          if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+
+          if (angleDiff < stepAngleSize / 2) {
+            const currentVal = activePattern.activeSteps[i];
+            if (currentVal !== 0 && currentVal !== '0') {
+              onStepChange(ownerTrack.id, activePattern.id, i, 0, '', '');
+            }
+            return;
+          }
+        }
+      }
+    }
+  };
+
   // Handle click on canvas via Pointer Events (no touch latency)
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+
+    // Consigne 2 : Clic droit immédiat = effacement du pas (Zone 4)
+    if (e.button === 2) {
+      clearStepAtCanvasCoords(e.clientX, e.clientY);
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1678,6 +1762,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
       }
     });
+  };
+
+  // Consigne 2 : Gomme glissée sur la Roda au maintien du clic droit (e.buttons === 2)
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.buttons === 2) {
+      clearStepAtCanvasCoords(e.clientX, e.clientY);
+    }
   };
 
   // 🛡️ FIX (Performance): control requestAnimationFrame lifecycle based on visibility
@@ -2967,6 +3058,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             ctx.stroke();
           }
 
+          // Liseré contrasté terracotta sur les pas qui diffèrent de la base (variation active)
+          const isStepDifferentFromBase = Boolean(activePattern.activeSteps && activePlayingSteps[i] !== activePattern.activeSteps[i]);
+          if (isStepDifferentFromBase && !isEco) {
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize + 3, 0, Math.PI * 2);
+            ctx.strokeStyle = '#c25e38';
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+          }
+
           // Accent ring decoration
           if (leftIsAccent) {
             ctx.beginPath();
@@ -3451,7 +3552,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           ref={canvasRef}
           width={1200}
           height={1200}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
           className={`max-w-full max-h-full aspect-square cursor-pointer block select-none ${isPlaying ? 'pointer-events-none' : ''}`}
           style={{ touchAction: 'none' }}
           role="application"

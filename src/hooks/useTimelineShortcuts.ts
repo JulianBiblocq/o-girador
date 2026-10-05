@@ -94,12 +94,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
       // BARRIÈRE 3 : Commandes de Transport & Vues
       // ─────────────────────────────────────────────────────────────
 
-      // 1. Espace : Transport Play / Pause exclusivement
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handleTogglePlay();
-        return;
-      }
+      // 1. Espace : Transport Play / Pause — Sanctuarisé au sommet par useGlobalTransportShortcuts (capture: true)
 
       // 2. Tab : Bascule Roda ↔ Timeline avec neutralisation stricte du focus traversal
       if (e.key === 'Tab') {

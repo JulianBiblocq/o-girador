@@ -915,37 +915,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     return () => containerEl.removeEventListener('wheel', handleWheel);
   }, [HEADER_W, totalMeasures, onMeasureWidthChange]);
 
-  // Keyboard listener for Spacebar panning shortcut
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((window as any).oGiradorDetailEditorOpen) return;
-      if (e.code === 'Space') {
-        const activeEl = document.activeElement;
-        const isInput = activeEl && (
-          activeEl.tagName === 'INPUT' || 
-          activeEl.tagName === 'TEXTAREA' || 
-          (activeEl as HTMLElement).isContentEditable
-        );
-        if (!isInput) {
-          e.preventDefault();
-          setIsSpacePressed(true);
-        }
-      }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        setIsSpacePressed(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
+  // Note : Le raccourci universel Barre d'Espace (Play/Stop) est désormais sanctuarisé
+  // et piloté au sommet de l'application via useGlobalTransportShortcuts en phase de capture.
 
   // 2. Scrubbing ruler handler (Global mouse move/up listener)
   React.useEffect(() => {

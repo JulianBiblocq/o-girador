@@ -135,7 +135,7 @@ const t = {
     phrasesDistinctes: "Frases distintas (Cada alfaia toca sua própria partitura)",
     phrasesDistinctesDesc: "Cada família (Marcante, Meião, Repique) toca sua própria frase.",
     afinacaoTitle: "A Afinação dos Tambores (Afinação)",
-    afinacaoDesc: "Ajuste a tensão de cada tambor usando as cordas em V e a bague de couro (-6 a +6 semitons).",
+    afinacaoDesc: "Ajuste a tensão de cada tambor usando as cordas em V e o anel de couro (-6 a +6 semitons).",
     ecouterTrio: "👂 Ouvir a afinação do Trio",
     ecouterCaixas: "👂 Ouvir o naipe de Caixas",
     ameBaque: "3. A Alma do Baque (Balanço)",
