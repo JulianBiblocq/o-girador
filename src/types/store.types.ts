@@ -247,12 +247,16 @@ export interface VocalStateBuffers {
 export interface TrainingState {
   tocarJuntoActive: boolean;
   tocarJuntoTrackId: number | null;
+  tocarJuntoMuteScope: 'track' | 'family';
+  tocarJuntoIsMuted: boolean;
   isolateBaseOnly: boolean;          // true = neutralise les variations aléatoires
   firstPassRegistry: Record<string, boolean>; // Clé "trackId_patternId" pour mémoriser l'amorce franchie
 }
 
 export interface TrainingSlice extends TrainingState {
   setTocarJuntoTrack: (trackId: number | null, baseOnly?: boolean) => void;
+  setTocarJuntoMuteScope: (scope: 'track' | 'family') => void;
+  setTocarJuntoIsMuted: (isMuted: boolean) => void;
   setIsolateBaseOnly: (baseOnly: boolean) => void;
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;

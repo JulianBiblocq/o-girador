@@ -10,8 +10,18 @@ import { TrainingSlice } from '../../types';
 export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingSlice> = (set, get) => ({
   tocarJuntoActive: false,
   tocarJuntoTrackId: null,
+  tocarJuntoMuteScope: 'track',
+  tocarJuntoIsMuted: true,
   isolateBaseOnly: true,
   firstPassRegistry: {},
+
+  setTocarJuntoMuteScope: (scope: 'track' | 'family') => {
+    set({ tocarJuntoMuteScope: scope });
+  },
+
+  setTocarJuntoIsMuted: (isMuted: boolean) => {
+    set({ tocarJuntoIsMuted: isMuted });
+  },
 
   setTocarJuntoTrack: (trackId: number | null, baseOnly?: boolean) => {
     if (trackId === null) {

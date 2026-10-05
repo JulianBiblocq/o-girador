@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, getTrackFamilyIds } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -210,8 +210,12 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
   const storeTracks = useSequencerStore((state) => state.tracks);
   const tocarJuntoActive = useSequencerStore((state) => state.tocarJuntoActive);
   const tocarJuntoTrackId = useSequencerStore((state) => state.tocarJuntoTrackId);
+  const tocarJuntoMuteScope = useSequencerStore((state) => state.tocarJuntoMuteScope);
+  const tocarJuntoIsMuted = useSequencerStore((state) => state.tocarJuntoIsMuted);
   const isolateBaseOnly = useSequencerStore((state) => state.isolateBaseOnly);
   const setTocarJuntoTrack = useSequencerStore((state) => state.setTocarJuntoTrack);
+  const setTocarJuntoMuteScope = useSequencerStore((state) => state.setTocarJuntoMuteScope);
+  const setTocarJuntoIsMuted = useSequencerStore((state) => state.setTocarJuntoIsMuted);
   const setIsolateBaseOnly = useSequencerStore((state) => state.setIsolateBaseOnly);
   const activeAoVivoTrackId = useSequencerStore((state) => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore((state) => state.setActiveAoVivoTrackId);
@@ -225,8 +229,37 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
   // Formulaire local Tocar Junto
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
   const [isMutedOption, setIsMutedOption] = useState<boolean>(true);
+  const [selectedMuteScope, setSelectedMuteScope] = useState<'track' | 'family'>('track');
   const [selectedBaseOnly, setSelectedBaseOnly] = useState<boolean>(true);
   const [showAoVivoSticks, setShowAoVivoSticks] = useState<boolean>(true);
+
+  // Détection bidirectionnelle de la famille/pupitre
+  const familyTrackIds = useMemo(() => {
+    if (selectedTrackId === null) return [];
+    return getTrackFamilyIds(selectedTrackId, storeTracks);
+  }, [selectedTrackId, storeTracks]);
+
+  const hasFamilyGroup = familyTrackIds.length > 1;
+
+  const familyLabel = useMemo(() => {
+    if (selectedTrackId === null) return '';
+    const target = storeTracks.find((t) => t.id === selectedTrackId);
+    if (!target) return '';
+
+    if (target.busId) {
+      const busFolder = storeTracks.find((t) => String(t.id) === String(target.busId) && t.isBusFolder);
+      if (busFolder?.customName) return busFolder.customName;
+      const busName = String(target.busId).replace(/^(bus[-_]|group[-_])/, '');
+      return busName.charAt(0).toUpperCase() + busName.slice(1);
+    }
+    if (target.linkedToTrackId) {
+      const master = storeTracks.find((t) => String(t.id) === String(target.linkedToTrackId));
+      const masterInst = master ? instrumentsConfig[master.instrumentIdx] : null;
+      if (master?.customName) return master.customName;
+      if (masterInst?.name) return masterInst.name;
+    }
+    return '';
+  }, [selectedTrackId, storeTracks]);
 
   // Filtre rigoureux des pistes percussives (inclut les alfaias liées, exclut les bus réels et voix)
   const playableTracks = useMemo(() => {
@@ -450,6 +483,8 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
         setActiveTab('tocarJunto');
         setSelectedTrackId(tocarJuntoTrackId);
         setSelectedBaseOnly(isolateBaseOnly);
+        setIsMutedOption(tocarJuntoIsMuted);
+        setSelectedMuteScope(tocarJuntoMuteScope || 'track');
       } else if (isActive) {
         setActiveTab('speedTrainer');
       } else {
@@ -457,17 +492,21 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
         if (selectedTrackId === null && playableTracks.length > 0) {
           setSelectedTrackId(playableTracks[0].id);
         }
+        setIsMutedOption(tocarJuntoIsMuted);
+        setSelectedMuteScope(tocarJuntoMuteScope || 'track');
       }
     }
-  }, [isOpen, tocarJuntoActive, tocarJuntoTrackId, isolateBaseOnly, isActive, playableTracks]);
+  }, [isOpen, tocarJuntoActive, tocarJuntoTrackId, isolateBaseOnly, tocarJuntoIsMuted, tocarJuntoMuteScope, isActive, playableTracks]);
 
-  const handleValidateTocarJunto = () => {
+  const handleStartTrainingDirect = () => {
     if (selectedTrackId === null) return;
     const targetTrack = storeTracks.find((t) => t.id === selectedTrackId);
     if (!targetTrack) return;
 
-    // 1. Armer le mode Tocar Junto
+    // 1. Armer le mode Tocar Junto dans le store
     setTocarJuntoTrack(selectedTrackId, selectedBaseOnly);
+    setTocarJuntoMuteScope(selectedMuteScope);
+    setTocarJuntoIsMuted(isMutedOption);
 
     // 2. Gérer les baguettes Ao Vivo
     if (showAoVivoSticks) {
@@ -490,15 +529,34 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
       targetTrack.customName ||
       instrumentsConfig[targetTrack.instrumentIdx]?.name ||
       'Piste';
-    console.log('🎯 [TOCAR JUNTO SUCCÈS] Mode armé pour la piste :', trackDisplayName, '(ID:', targetTrack.id, ')');
+    console.log('🎯 [TOCAR JUNTO SUCCÈS] Mode armé pour la piste :', trackDisplayName, '(ID:', targetTrack.id, ') Scope:', selectedMuteScope);
 
     // 5. Fermer la modale
     handleClose();
+
+    // 6. Calcul de la mesure de départ dynamique (respecter boucle active ou mesure courante)
+    const isLoopRegionActive = useSequencerStore.getState().isLoopRegionActive;
+    const loopStartMeasure = useSequencerStore.getState().loopStartMeasure;
+    const currentMeasure = useSequencerStore.getState().currentMeasure;
+    const isSpeedTrainerActive = useSequencerStore.getState().isSpeedTrainerActive;
+    const speedTrainerConfig = useSequencerStore.getState().speedTrainerConfig;
+
+    const startMeasure = isSpeedTrainerActive
+      ? (speedTrainerConfig?.startMeasure ?? 0)
+      : (isLoopRegionActive && loopStartMeasure !== null ? loopStartMeasure : currentMeasure);
+
+    // 7. Déclencher immédiatement le décompte pré-roll puis la lecture
+    if (audio.isPlayingRef?.current || (audio as any).isPlaying) {
+      audio.handleStop();
+    }
+    audio.handleTogglePlay({ forcePreRoll: true, targetMeasure: startMeasure });
   };
 
-  const handleDeactivateTocarJunto = () => {
-    setTocarJuntoTrack(null);
-    setActiveAoVivoTrackId(null);
+  const handleQuitOrCancelTraining = () => {
+    if (tocarJuntoActive) {
+      setTocarJuntoTrack(null);
+      setActiveAoVivoTrackId(null);
+    }
     handleClose();
   };
 
@@ -1271,24 +1329,67 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
                 </label>
                 <div className="p-3 bg-white/60 border-2 border-[#1a1a1a] flex flex-col gap-3 rounded-none shadow-[2px_2px_0px_#1a1a1a]">
                   {/* Option Sourdine audio */}
-                  <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
-                    <div className="flex flex-col pr-2">
-                      <span className="font-cactus font-bold text-xs text-[#1a1a1a]">
-                        {t('tocarJuntoMuteInstrument')}
-                      </span>
-                      <span className="text-[10px] text-black/60 leading-tight">
-                        {lang === 'fr'
-                          ? 'Coupe l’audio de ce pupitre dans le batuque pour vous laisser jouer physiquement en direct.'
-                          : 'Silencia o áudio deste naipe no batuque para você tocar fisicamente por cima.'}
-                      </span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={isMutedOption}
-                      onChange={(e) => setIsMutedOption(e.target.checked)}
-                      className="w-4 h-4 accent-[#c25e38] cursor-pointer shrink-0"
-                    />
-                  </label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                      <div className="flex flex-col pr-2">
+                        <span className="font-cactus font-bold text-xs text-[#1a1a1a]">
+                          {t('tocarJuntoMuteInstrument')}
+                        </span>
+                        <span className="text-[10px] text-black/60 leading-tight">
+                          {lang === 'fr'
+                            ? 'Coupe l’audio de ce pupitre dans le batuque pour vous laisser jouer physiquement en direct.'
+                            : 'Silencia o áudio deste naipe no batuque para você tocar fisicamente por cima.'}
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={isMutedOption}
+                        onChange={(e) => setIsMutedOption(e.target.checked)}
+                        className="w-4 h-4 accent-[#c25e38] cursor-pointer shrink-0"
+                      />
+                    </label>
+
+                    {/* Sélecteurs Cordel compacts pour la portée de sourdine (instrument seul vs tout le pupitre) */}
+                    {isMutedOption && hasFamilyGroup && (
+                      <div className="mt-1 pl-3 border-l-2 border-[#c25e38] flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMuteScope('track')}
+                          className={`px-3 py-1.5 border-2 text-left flex items-center gap-2 rounded-none cursor-pointer transition-all text-xs font-cactus ${
+                            selectedMuteScope === 'track'
+                              ? 'border-[#1a1a1a] bg-[#c25e38] text-white shadow-[2px_2px_0px_#1a1a1a]'
+                              : 'border-[#1a1a1a]/40 bg-white/80 hover:bg-white text-[#1a1a1a]'
+                          }`}
+                        >
+                          <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                            selectedMuteScope === 'track' ? 'border-white bg-[#c25e38]' : 'border-[#1a1a1a] bg-white'
+                          }`}>
+                            {selectedMuteScope === 'track' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </span>
+                          <span className="font-bold">{t('muteScopeSingle')}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMuteScope('family')}
+                          className={`px-3 py-1.5 border-2 text-left flex items-center gap-2 rounded-none cursor-pointer transition-all text-xs font-cactus ${
+                            selectedMuteScope === 'family'
+                              ? 'border-[#1a1a1a] bg-[#c25e38] text-white shadow-[2px_2px_0px_#1a1a1a]'
+                              : 'border-[#1a1a1a]/40 bg-white/80 hover:bg-white text-[#1a1a1a]'
+                          }`}
+                        >
+                          <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                            selectedMuteScope === 'family' ? 'border-white bg-[#c25e38]' : 'border-[#1a1a1a] bg-white'
+                          }`}>
+                            {selectedMuteScope === 'family' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </span>
+                          <span className="font-bold">
+                            {t('muteScopeFamily')}{familyLabel ? ` (${familyLabel})` : ''}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="border-t border-black/15" />
 
@@ -1356,30 +1457,6 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
                     />
                   </label>
                 </div>
-              </div>
-
-              {/* Actions de validation */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                <button
-                  type="button"
-                  disabled={selectedTrackId === null}
-                  onClick={handleValidateTocarJunto}
-                  className="flex-1 py-2.5 px-4 bg-[#c25e38] hover:bg-[#a84c2a] disabled:opacity-40 disabled:cursor-not-allowed text-white font-cactus font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] cursor-pointer rounded-none transition-all active:translate-x-0.5 active:translate-y-0.5"
-                >
-                  <CordelTarget size={16} className="text-white" />
-                  <span>{t('tocarJuntoValidate')}</span>
-                </button>
-
-                {tocarJuntoActive && (
-                  <button
-                    type="button"
-                    onClick={handleDeactivateTocarJunto}
-                    className="py-2.5 px-4 bg-white hover:bg-red-50 text-red-700 font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer rounded-none transition-all"
-                  >
-                    <X size={14} />
-                    <span>{t('tocarJuntoDeactivate')}</span>
-                  </button>
-                )}
               </div>
             </div>
           ) : activeTab === 'speedTrainer' ? (
@@ -1736,59 +1813,86 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
           )}
         </div>
 
-        {/* Footer Actions (Speed Trainer & Mestre Challenges) */}
-        {activeTab !== 'tocarJunto' && (
-          <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2">
-            {activeTab === 'speedTrainer' ? (
-              isActive ? (
-                <button
-                  type="button"
-                  onClick={handleStopAndRestore}
-                  className="w-full py-2.5 px-4 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Square className="w-4 h-4 fill-current" />
-                  {t('speedTrainerStop')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleLaunch}
-                  className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <XiloLightning size={16} className="fill-current" />
-                  {activeTrainingSession ? (
-                    `⚡ Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
-                  ) : (
-                    t('speedTrainerLaunch')
-                  )}
-                </button>
-              )
+        {/* Footer Actions (Tocar Junto, Speed Trainer & Mestre Challenges) */}
+        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2">
+          {activeTab === 'tocarJunto' ? (
+            <>
+              {/* Bouton principal (Gauche) */}
+              <button
+                type="button"
+                disabled={selectedTrackId === null}
+                onClick={handleStartTrainingDirect}
+                className="flex-1 py-2.5 px-4 bg-[#c25e38] hover:bg-[#a84c2a] disabled:opacity-40 disabled:cursor-not-allowed text-white font-cactus font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] active:translate-y-0.5 cursor-pointer rounded-none transition-all"
+              >
+                <CordelTarget size={16} className="text-white shrink-0" />
+                <span>{t('startTrainingButton')}</span>
+              </button>
+
+              {/* Bouton secondaire (Droite) */}
+              <button
+                type="button"
+                onClick={handleQuitOrCancelTraining}
+                className="py-2.5 px-4 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#e8dcbe] active:translate-y-0.5 font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer rounded-none transition-all"
+              >
+                {tocarJuntoActive ? (
+                  <>
+                    <X size={14} className="shrink-0" />
+                    <span>{t('quitTrainingButton')}</span>
+                  </>
+                ) : (
+                  <span>{t('cancel')}</span>
+                )}
+              </button>
+            </>
+          ) : activeTab === 'speedTrainer' ? (
+            isActive ? (
+              <button
+                type="button"
+                onClick={handleStopAndRestore}
+                className="w-full py-2.5 px-4 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Square className="w-4 h-4 fill-current" />
+                {t('speedTrainerStop')}
+              </button>
             ) : (
               <button
                 type="button"
-                disabled={isSaving}
-                onClick={handleSaveTraining}
-                className={`w-full py-2.5 px-4 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  editingTrainingId
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : 'bg-emerald-700 hover:bg-emerald-800'
-                }`}
+                onClick={handleLaunch}
+                className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {editingTrainingId ? t('speedTrainerUpdatingChallenge') : t('speedTrainerSavingChallenge')}
-                  </>
+                <XiloLightning size={16} className="fill-current" />
+                {activeTrainingSession ? (
+                  `⚡ Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
                 ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {editingTrainingId ? t('speedTrainerUpdateChallenge') : t('speedTrainerSaveChallenge')}
-                  </>
+                  t('speedTrainerLaunch')
                 )}
               </button>
-            )}
-          </div>
-        )}
+            )
+          ) : (
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={handleSaveTraining}
+              className={`w-full py-2.5 px-4 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                editingTrainingId
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-emerald-700 hover:bg-emerald-800'
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {editingTrainingId ? t('speedTrainerUpdatingChallenge') : t('speedTrainerSavingChallenge')}
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  {editingTrainingId ? t('speedTrainerUpdateChallenge') : t('speedTrainerSaveChallenge')}
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

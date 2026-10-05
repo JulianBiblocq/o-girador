@@ -5966,4 +5966,31 @@ export const getAllOrderedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] =
   return ordered;
 };
 
+/**
+ * Résolution bidirectionnelle de la famille de pistes (bus audio ou liaisons maîtres/esclaves)
+ */
+export const getTrackFamilyIds = (
+  trackId: string | number,
+  tracks: (TrackMeta | TrackGroup)[]
+): string[] => {
+  const idStr = String(trackId);
+  const currentTrack = tracks.find((t) => String(t.id) === idStr);
+  if (!currentTrack) return [idStr];
+
+  const familySet = new Set<string>([idStr]);
+  const busId = currentTrack.busId ? String(currentTrack.busId) : null;
+  const parentLinkId = currentTrack.linkedToTrackId ? String(currentTrack.linkedToTrackId) : null;
+
+  tracks.forEach((t) => {
+    const tId = String(t.id);
+    // Même bus audio
+    if (busId && String(t.busId) === busId) familySet.add(tId);
+    // Liens maîtres / esclaves
+    if (parentLinkId && (tId === parentLinkId || String(t.linkedToTrackId) === parentLinkId)) familySet.add(tId);
+    if (String(t.linkedToTrackId) === idStr) familySet.add(tId);
+  });
+
+  return Array.from(familySet);
+};
+
 

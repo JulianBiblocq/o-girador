@@ -13,7 +13,7 @@ import confetti from 'canvas-confetti';
 import { auth } from '../firebase/config';
 import { recordStageSuccess } from '../services/cloudTrainings';
 
-import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume, isToadaBus, isToadaChild, getTrackFamilyIds } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -465,6 +465,21 @@ export function useAudioSync({
 }: UseAudioSyncProps) {
   const isAudioUnlocked = useAudioStore((state) => state.isAudioUnlocked);
   const tracks = useSequencerStore((state) => state.tracks);
+  const tocarJuntoActive = useSequencerStore((state) => state.tocarJuntoActive);
+  const tocarJuntoTrackId = useSequencerStore((state) => state.tocarJuntoTrackId);
+  const tocarJuntoMuteScope = useSequencerStore((state) => state.tocarJuntoMuteScope);
+  const tracksVersion = useSequencerStore((state) => state.tracksVersion);
+
+  const familyMuteSetRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (tocarJuntoActive && tocarJuntoTrackId !== null && tocarJuntoMuteScope === 'family') {
+      const familyIds = getTrackFamilyIds(tocarJuntoTrackId, tracksRef.current || tracks);
+      familyMuteSetRef.current = new Set(familyIds);
+    } else {
+      familyMuteSetRef.current.clear();
+    }
+  }, [tocarJuntoActive, tocarJuntoTrackId, tocarJuntoMuteScope, tracksVersion, tracks, tracksRef]);
 
   // 🛡️ FIX (Audit): Rapatrie instanciation à l'intérieur du hook React via des useRef
   const tickEventDetailRef = useRef<{
@@ -1869,7 +1884,22 @@ export function useAudioSync({
 
                     let triggerTime = time + noteSwingOffset + microOffset;
 
-                    const isTocarJuntoMuted = useSequencerStore.getState().tocarJuntoActive && useSequencerStore.getState().tocarJuntoTrackId === liveTrack.id;
+                    const storeState = useSequencerStore.getState();
+                    const isTocarJuntoActive = storeState.tocarJuntoActive;
+                    const isTocarJuntoMutedOption = storeState.tocarJuntoIsMuted !== false;
+                    let isTocarJuntoMuted = false;
+
+                    if (isTocarJuntoActive && isTocarJuntoMutedOption && storeState.tocarJuntoTrackId !== null) {
+                      if (storeState.tocarJuntoMuteScope === 'family') {
+                        if (familyMuteSetRef.current.size === 0) {
+                          const familyIds = getTrackFamilyIds(storeState.tocarJuntoTrackId, tracksRef.current || storeState.tracks);
+                          familyMuteSetRef.current = new Set(familyIds);
+                        }
+                        isTocarJuntoMuted = familyMuteSetRef.current.has(String(liveTrack.id));
+                      } else {
+                        isTocarJuntoMuted = (storeState.tocarJuntoTrackId === liveTrack.id);
+                      }
+                    }
 
                     if (!isTocarJuntoMuted) {
                       audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
@@ -2448,7 +2478,7 @@ export function useAudioSync({
     };
   }, [isAudioUnlocked]);
 
-  const handleTogglePlayRef = useRef<((playOptions?: { skipPreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number }) => Promise<void>) | null>(null);
+  const handleTogglePlayRef = useRef<((playOptions?: { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number }) => Promise<void>) | null>(null);
 
   // ─── VisibilityChange & Mobile Auto-Pause ────────────────────────────
   // When screen turns off or app is backgrounded (document.hidden === true):
@@ -2478,9 +2508,9 @@ export function useAudioSync({
     };
   }, []);
 
-  const handleTogglePlay = useCallback(async (playOptions?: { skipPreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number } | any) => {
+  const handleTogglePlay = useCallback(async (playOptions?: { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number } | any) => {
     const options = (playOptions && typeof playOptions === 'object' && !('nativeEvent' in playOptions) && !('target' in playOptions))
-      ? (playOptions as { skipPreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number })
+      ? (playOptions as { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number })
       : undefined;
     if (import.meta.env.DEV) {
     }
@@ -2650,7 +2680,7 @@ export function useAudioSync({
 
       // Si anacrouse présente sur la mesure de départ et précompte désactivé, forcer temporairement l'exécution du précompte (1 mesure)
       const forcePreRollForAnacrusis = (hasVocalAnacrusisAtStart && !options?.skipPreRoll);
-      const shouldExecutePreRoll = (!shouldSkipPreRoll && preRoll && preRoll.enabled) || forcePreRollForAnacrusis;
+      const shouldExecutePreRoll = (!shouldSkipPreRoll && ((preRoll && preRoll.enabled) || Boolean(options?.forcePreRoll))) || forcePreRollForAnacrusis;
 
       if (shouldExecutePreRoll) {
         const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
