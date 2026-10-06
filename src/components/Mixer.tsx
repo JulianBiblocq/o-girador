@@ -199,7 +199,11 @@ const MixerComponent: React.FC<MixerProps> = ({
 
       <div className="border-b border-[#333] pb-2.5 mb-4 shrink-0 w-full flex items-center gap-2 relative z-30">
         <button
-          onClick={toggleTracksCollapsed}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleTracksCollapsed();
+          }}
           className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-sm font-extrabold cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex-shrink-0 flex items-center justify-center"
           title={isTracksCollapsed ? t('expandSteps') : t('collapseSteps')}
         >

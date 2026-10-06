@@ -85,11 +85,17 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
   const defaultBeats = getBeatsFromTimeSig(timeSig);
 
-  // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
+  // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page),
+  // assurer isTracksCollapsed: false et initialiser editingTrackId avec la première piste si null pour empêcher tout démontage de sécurité
   useEffect(() => {
+    useSequencerStore.setState({ isTracksCollapsed: false });
     useSequencerStore.getState().setTracks(prev =>
       prev.map(t => t.isLinkFolder ? { ...t, isSequencerFolded: true } : t)
     );
+    const { tracks, editingTrackId, setEditingTrackId } = useSequencerStore.getState();
+    if (editingTrackId === null && tracks.length > 0) {
+      setEditingTrackId(tracks[0].id);
+    }
   }, []);
 
   const currentWindow = useWindow();
@@ -322,7 +328,11 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
           {/* Left Spacer matching Left Instrument Mixer section width (360px with pr-3) */}
           <div className="w-[360px] min-w-[360px] shrink-0 flex items-center gap-3 pr-3">
             <button
-              onClick={() => useSequencerStore.getState().toggleTracksCollapsed()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                useSequencerStore.getState().toggleTracksCollapsed();
+              }}
               className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-sm font-extrabold cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex-shrink-0 flex items-center justify-center"
               title={lang === 'fr' ? 'Replier le séquenceur' : 'Recolher sequenciador'}
             >

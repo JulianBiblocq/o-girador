@@ -22,6 +22,22 @@ interface UseTimelineShortcutsOptions {
  * - Barrière 3 : Commandes de transport & navigation (Espace, Entrée/Home, Tab, O, L, < / >, Ctrl+D, Ctrl+Z/Y).
  * - Zero Render Thrashing : inspection directe de document.activeElement, aucun state React haute fréquence.
  */
+/**
+ * Vérifie si un élément HTML est un vrai champ de saisie textuelle actif.
+ * Exclut explicitement les faders/sliders (<input type="range">), boutons, checkboxes, etc.
+ */
+function isActualTextEntry(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) {
+    const type = (el.type || 'text').toLowerCase();
+    const textTypes = ['text', 'search', 'password', 'email', 'number', 'tel', 'url'];
+    return textTypes.includes(type) && !el.readOnly && !el.disabled;
+  }
+  return false;
+}
+
 export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
   const audio = useAudio();
   const sequencer = useSequencer();
@@ -38,13 +54,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
 
-      const isTextEntry = 
-        activeEl?.tagName === 'INPUT' ||
-        activeEl?.tagName === 'TEXTAREA' ||
-        activeEl?.isContentEditable ||
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        Boolean(target?.isContentEditable);
+      const isTextEntry = isActualTextEntry(target) || isActualTextEntry(activeEl);
 
       // ─────────────────────────────────────────────────────────────
       // BARRIÈRE 1 : Saisie de texte
@@ -109,13 +119,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 3. Entrée ou Home : Remettre la tête de lecture au début absolu (Mesure 0, Temps 1)
       if (e.key === 'Enter' || e.key === 'Home') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -148,13 +152,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 6. Navigation par Mesures au Clavier (ArrowLeft / ArrowRight)
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -180,13 +178,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
       const isNextMeasureKey = e.key === '>' || e.key === '.' || e.code === 'NumpadAdd' || (e.key === '+' && !e.ctrlKey && !e.metaKey);
 
       if (isPrevMeasureKey || isNextMeasureKey) {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -207,13 +199,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 7. Ctrl+D / Cmd+D : Dupliquer la sélection multiple OU le motif de la mesure active vers la mesure suivante (m+1)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -244,13 +230,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 7.5. Ctrl+C / Cmd+C : Copier la sélection timeline
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -265,13 +245,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 7.6. Ctrl+X / Cmd+X : Couper la sélection timeline
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -286,13 +260,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 7.7. Ctrl+V / Cmd+V : Coller le presse-papier timeline à la position active
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -327,13 +295,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 7.8. Touche Suppr / Delete / Backspace : Vider la sélection timeline (passer en silence)
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -348,13 +310,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
       // 7.9. Ctrl+A / Cmd+A : Tout sélectionner sur la timeline
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isTextEntry
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 

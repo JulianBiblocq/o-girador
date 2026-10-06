@@ -13,7 +13,13 @@ import { useSequencerStore } from './stores/useSequencerStore';
 import { useAudioStore } from './stores/useAudioStore';
 import { useTransportStore } from './stores/useTransportStore';
 import { channels, busChannels } from './hooks/useAudioSync';
+import * as Tone from 'tone';
 import './index.css';
+
+if (typeof window !== 'undefined') {
+  (window as any).Tone = Tone;
+  (window as any).useSequencerStore = useSequencerStore;
+}
 
 // Filtrer les logs de debug vocal (VOCAL DEBUG) et de scheduler pour ne pas encombrer la console F12
 const originalLog = console.log;

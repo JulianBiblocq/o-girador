@@ -790,7 +790,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           {/* MIXADOR (MOBILE ONLY TRACK MIXER / DAW LINEAIRE) */}
           {isMobile && (
             <button
-              onClick={() => {
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
                 onViewModeToggle('roda');
                 if (onMobileTabToggle) onMobileTabToggle('mixer');
                 useSequencerStore.setState({ isTracksCollapsed: false });
@@ -1066,7 +1068,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
         >
           <button
-            onClick={() => {
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
               onViewModeToggle('roda');
               useSequencerStore.setState({ isTracksCollapsed: false });
             }}

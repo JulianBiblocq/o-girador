@@ -150,6 +150,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
 
   const handleCellClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    (document.activeElement as HTMLElement)?.blur();
     if (isPanningActive) return;
     if (isLongPressTriggeredRef.current) {
       isLongPressTriggeredRef.current = false;
@@ -216,6 +217,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
         ...({ '--section-color': sectionColor } as React.CSSProperties)
       }}
       onPointerDown={(e) => {
+        (document.activeElement as HTMLElement)?.blur();
         if (e.button === 0 && !isPanningActive) {
           const isMultiMode = useSequencerStore.getState().isMultiSelectMode;
           if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !isMultiMode) {
