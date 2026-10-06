@@ -4,6 +4,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { canTransferPatterns, getInstrumentFamily } from '../../utils/instrumentCompatibility';
 import { useSequencer } from '../../contexts/SequencerContext';
+import { XiloTarget } from '../XiloIcons';
 
 export interface TrackContextMenuProps {
   trackId: number;
@@ -57,8 +58,8 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
   const items: CordelMenuItem[] = [
     {
       id: 'train-track',
-      label: lang === 'fr' ? "🎯 S'entraîner sur ce pupitre (Jouer avec)" : "🎯 Treinar neste naipe (Tocar Junto)",
-      icon: '🎯',
+      label: lang === 'fr' ? "S'entraîner sur ce pupitre (Jouer avec)" : "Treinar neste naipe (Tocar Junto)",
+      icon: <XiloTarget size={16} className="shrink-0" />,
       onClick: () => {
         useSequencerStore.getState().setTocarJuntoTrack(trackId, true);
         useSequencerStore.getState().setActiveAoVivoTrackId(trackId);

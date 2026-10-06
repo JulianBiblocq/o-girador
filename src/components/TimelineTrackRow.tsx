@@ -204,11 +204,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const linkedSlavesTooltip = isMaster
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const isLinkedChild = !!(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder);
-  const isLinkedSlave = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster);
-  const isLinkFolder = Boolean(trackMeta?.isLinkFolder);
-  const isLinkMaster = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster);
   const isToadaChildTrack = Boolean(trackMeta && isToadaChild(trackMeta as any, tracksMeta as any));
+  const isLinkedChild = !!(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !isToadaChildTrack);
+  const isLinkedSlave = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster && !isToadaChildTrack);
+  const isLinkFolder = Boolean(trackMeta?.isLinkFolder);
+  const isLinkMaster = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster && !isToadaChildTrack);
   const isChild = isLinkedSlave || isToadaChildTrack;
 
   const displayName = isToada
@@ -514,6 +514,26 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
             const patternIdx = activePattern && activeTrack ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
             const steps = activePattern ? activePattern.steps : 16;
+            const stepsPerMeasure = 16;
+            const spanMeasures = activePattern ? Math.max(1, Math.round((activePattern.steps || stepsPerMeasure) / stepsPerMeasure)) : 1;
+
+            let startM = mIdx;
+            if (activePattern && spanMeasures > 1) {
+              if (isOverridden && trackMeta?.patternOverrides) {
+                while (startM > 0 && trackMeta.patternOverrides[startM - 1] === activePattern.id) {
+                  startM--;
+                }
+              } else {
+                while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) {
+                  startM--;
+                }
+              }
+            }
+            const relativeIdx = activePattern && spanMeasures > 1 ? (mIdx - startM) % spanMeasures : 0;
+
+            const stepStart = relativeIdx * stepsPerMeasure;
+            const stepEnd = stepStart + stepsPerMeasure;
+            const sliceSteps = activePattern?.activeSteps ? activePattern.activeSteps.slice(stepStart, stepEnd) : undefined;
 
             // Find if there is a section covering this measure
             const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
@@ -544,7 +564,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                 currentMeasureW={currentMeasureW}
                 patternId={activePattern ? activePattern.id : -1}
                 patternIdx={patternIdx}
-                steps={steps}
+                steps={stepsPerMeasure}
+                spanMeasures={spanMeasures}
+                relativeIdx={relativeIdx}
                 beatResolutions={activePattern?.beatResolutions}
                 sectionColor={sectionColor}
                 isSectionStart={isSectionStart}
@@ -565,7 +587,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                 isMinZoom={isMinZoom}
                 instColors={isLinkedChild ? inst.colors : currentInst.colors}
                 instMixerBg={isLinkedChild ? inst.mixerBg : currentInst.mixerBg}
-                activePatternActiveSteps={activePattern?.activeSteps}
+                activePatternActiveSteps={sliceSteps}
                 onMeasureClick={handleMeasureClick}
                 isLinkedChild={!!isLinkedChild}
                 isLinkMaster={isLinkMaster}

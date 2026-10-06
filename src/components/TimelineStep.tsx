@@ -6,6 +6,7 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { getBusNoteColor } from '../utils/colorHelpers';
+import { isVoiceStepProlongation } from '../utils/musicTheory';
 
 
 interface TimelineStepProps {
@@ -13,6 +14,7 @@ interface TimelineStepProps {
   patternId: number;
   measureIdx: number;
   stepIdx: number;
+  patternStepOffset?: number;
   stepsCount: number;
   // Index pré-calculés pour accès O(1)
   trackIdx: number;
@@ -64,6 +66,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   patternId,
   measureIdx,
   stepIdx,
+  patternStepOffset = 0,
   stepsCount,
   trackIdx,
   patternIdx,
@@ -87,6 +90,8 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     useShallow((state) => {
       const currentTrack = state.tracks.find(t => t.id === trackId) || state.tracks[trackIdx];
       if (!currentTrack) return null;
+
+      const actualStepIdx = (patternStepOffset || 0) + stepIdx;
 
       const inst = instrumentsConfig[instrumentIdx];
       const isVoice = Boolean(
@@ -132,9 +137,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         // --- CAS PISTE DOSSIER PARENT (AFFICHE LE RÉSUMÉ COMPLET DES VARIATIONS COMME SUR LA RODA) ---
         // 1. Résolution de la valeur Master (la piste dossier elle-même)
         const masterPattern = currentTrack.patterns?.[patternIdx];
-        masterVal = masterPattern?.activeSteps?.[stepIdx] ?? 0;
+        masterVal = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
         resolvedVal = masterVal;
-        resolvedNote = masterPattern?.notes?.[stepIdx] ?? '';
+        resolvedNote = masterPattern?.notes?.[actualStepIdx] ?? '';
         const hasMasterEvent = masterVal !== 0 && masterVal !== '0' && masterVal !== '' && masterVal !== undefined && masterVal !== null;
 
         let resolvedMasterText = '';
@@ -175,7 +180,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
             if (override !== undefined && override !== null) {
               const childPattern = currentTrack.patterns.find(p => p.id === override);
               if (childPattern) {
-                const childState = childPattern.activeSteps?.[stepIdx] ?? 0;
+                const childState = childPattern.activeSteps?.[actualStepIdx] ?? 0;
                 if (childState !== 0 && childState !== '') {
                   const childInst = instrumentsConfig[c.instrumentIdx];
                   if (childInst) {
@@ -268,7 +273,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
         if (parentBus) {
           const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
-          masterVal = masterPattern?.activeSteps?.[stepIdx] ?? 0;
+          masterVal = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
         }
 
         // 3. Résoudre la valeur de l'esclave depuis les patterns d'override du parent
@@ -280,9 +285,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
             resolvedNote = '';
           } else if (override !== undefined) {
             const childPattern = parentBus.patterns.find(p => p.id === override);
-            esclaveVal = childPattern?.activeSteps?.[stepIdx] ?? 0;
+            esclaveVal = childPattern?.activeSteps?.[actualStepIdx] ?? 0;
             resolvedVal = esclaveVal;
-            resolvedNote = childPattern?.notes?.[stepIdx] ?? '';
+            resolvedNote = childPattern?.notes?.[actualStepIdx] ?? '';
           } else {
             // Suit le maître (donc pas de variation propre)
             esclaveVal = 0;
@@ -330,9 +335,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
           : state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
         if (parentBus) {
           const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
-          const val = masterPattern?.activeSteps?.[stepIdx] ?? 0;
+          const val = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
           resolvedVal = val;
-          resolvedNote = masterPattern?.notes?.[stepIdx] ?? '';
+          resolvedNote = masterPattern?.notes?.[actualStepIdx] ?? '';
           const hasEvent = val !== 0 && val !== '';
 
           if (hasEvent) {
@@ -353,10 +358,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         }
       } else {
         // --- CAS PISTE STANDARD ---
-        const pattern = currentTrack.patterns?.[patternIdx];
-        const val = pattern?.activeSteps?.[stepIdx] ?? 0;
+        const pattern = (patternId !== undefined && patternId !== -1)
+          ? (currentTrack.patterns?.find(p => p.id === patternId) || currentTrack.patterns?.[patternIdx])
+          : currentTrack.patterns?.[patternIdx];
+        const val = pattern?.activeSteps?.[actualStepIdx] ?? 0;
         resolvedVal = val;
-        resolvedNote = pattern?.notes?.[stepIdx] ?? '';
+        resolvedNote = pattern?.notes?.[actualStepIdx] ?? '';
         const hasEvent = val !== 0 && val !== '' && !((val as any)?.length === 0);
 
         if (hasEvent) {
@@ -400,36 +407,48 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       let voiceColor = '#c25e38';
 
       if (isVoice) {
-        const pattern = currentTrack.patterns?.[patternIdx];
-        const curVal = pattern?.activeSteps?.[stepIdx] ?? 0;
+        const pattern = (patternId !== undefined && patternId !== -1)
+          ? (currentTrack.patterns?.find(p => p.id === patternId) || currentTrack.patterns?.[patternIdx])
+          : currentTrack.patterns?.[patternIdx];
+        const curVal = pattern?.activeSteps?.[actualStepIdx] ?? 0;
         const curActive = curVal !== 0 && curVal !== '' && curVal !== '0' && curVal !== '-' && !((curVal as any)?.length === 0);
-        const curNote = (pattern?.notes?.[stepIdx] || '').trim();
-        const curSyl = (pattern?.lyrics?.[stepIdx] || '').trim();
+        const curNote = (pattern?.notes?.[actualStepIdx] || '').trim();
+        const curSyl = (pattern?.lyrics?.[actualStepIdx] || '').trim();
         syl = curSyl;
 
         isPux = curVal === 'P' || inst?.id === 'puxador' || (inst?.id !== 'coro' && curVal !== 'C');
         voiceColor = isPux ? '#c25e38' : '#2a9d8f';
 
         if (curActive) {
-          const prevVal = stepIdx > 0 ? (pattern?.activeSteps?.[stepIdx - 1] ?? 0) : 0;
+          const prevVal = actualStepIdx > 0 ? (pattern?.activeSteps?.[actualStepIdx - 1] ?? 0) : 0;
           const prevActive = prevVal !== 0 && prevVal !== '' && prevVal !== '0' && prevVal !== '-' && !((prevVal as any)?.length === 0);
-          const prevNote = stepIdx > 0 ? (pattern?.notes?.[stepIdx - 1] || '').trim() : '';
+          const prevNote = actualStepIdx > 0 ? (pattern?.notes?.[actualStepIdx - 1] || '').trim() : '';
 
-          const nextVal = (stepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.activeSteps?.[stepIdx + 1] ?? 0) : 0;
+          const nextVal = (actualStepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.activeSteps?.[actualStepIdx + 1] ?? 0) : 0;
           const nextActive = nextVal !== 0 && nextVal !== '' && nextVal !== '0' && nextVal !== '-' && !((nextVal as any)?.length === 0);
-          const nextNote = (stepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.notes?.[stepIdx + 1] || '').trim() : '';
-          const nextSyl = (stepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.lyrics?.[stepIdx + 1] || '').trim() : '';
+          const nextNote = (actualStepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.notes?.[actualStepIdx + 1] || '').trim() : '';
+          const nextSyl = (actualStepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.lyrics?.[actualStepIdx + 1] || '').trim() : '';
 
-          const sameNotePrev = (curNote && prevNote === curNote) || (!curNote && !prevNote && prevVal === curVal);
-          isProlongation = Boolean(prevActive && sameNotePrev && (!curSyl || curSyl === ''));
+          isProlongation = isVoiceStepProlongation(
+            curActive,
+            prevActive,
+            curNote,
+            prevNote,
+            curSyl
+          );
 
-          const sameNoteNext = (curNote && nextNote === curNote) || (!curNote && !nextNote && nextVal === curVal);
-          isFollowedByProlongation = Boolean(nextActive && sameNoteNext && (!nextSyl || nextSyl === ''));
+          isFollowedByProlongation = isVoiceStepProlongation(
+            nextActive,
+            curActive,
+            nextNote,
+            curNote,
+            nextSyl
+          );
         }
       }
 
       // Informations complémentaires requises pour le chant ou la signature rythmique
-      const note = isVoice ? (currentTrack.patterns?.[patternIdx]?.notes?.[stepIdx] || '') : resolvedNote;
+      const note = isVoice ? (currentTrack.patterns?.[patternIdx]?.notes?.[actualStepIdx] || '') : resolvedNote;
       const timeSigStr = state.measureTimeSigs[measureIdx] || state.timeSig || '4/4';
 
       return {
@@ -647,6 +666,7 @@ export const TimelineStep = React.memo(TimelineStepComponent, (prevProps, nextPr
     prevProps.patternId === nextProps.patternId &&
     prevProps.measureIdx === nextProps.measureIdx &&
     prevProps.stepIdx === nextProps.stepIdx &&
+    prevProps.patternStepOffset === nextProps.patternStepOffset &&
     prevProps.stepsCount === nextProps.stepsCount &&
     prevProps.trackIdx === nextProps.trackIdx &&
     prevProps.patternIdx === nextProps.patternIdx &&

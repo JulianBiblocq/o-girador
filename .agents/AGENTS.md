@@ -31,3 +31,25 @@ Si du code est généré ou modifié, ces règles doivent être strictement resp
   * Ne jamais créer, modifier ou valider de fichier local `firestore.rules` ou `storage.rules`.
   * Ne jamais exécuter de commande de déploiement de règles (`firebase deploy --only firestore:rules` ou `storage` formellement proscrits).
 - **Développement client :** Les requêtes Firestore et Storage doivent impérativement s'adapter aux modèles de permissions et collections existants sans exiger d'altération des règles de sécurité depuis ce dépôt.
+
+---
+## 6. Règles Architecturales Permanentes
+
+### A. Règle Anti-Monolithe (Modularité & Extraction Immédiate)
+- **Seuil de 30 lignes** : Toute nouvelle fonctionnalité, enrichissement de logique ou retouche dépassant 30 lignes de code (logique, hooks ou JSX) doit faire l'objet d'une extraction immédiate hors des composants existants déjà denses (ex: `TimelineSequencer.tsx`, `useSequencerStore.ts`, `DawTrackRow.tsx`, etc.).
+- **Découpage systématique** : Extraire obligatoirement vers des sous-composants spécialisés (dans un sous-dossier de composant ou `src/components/...`), des custom hooks (`src/hooks/...`) ou des modules utilitaires purs (`src/utils/...`). Interdiction d'empiler du code monolithique dans les fichiers conteneurs.
+
+### B. Découplage Graphique Multi-Univers (Design Tokens Sémantiques)
+- **Bannir les styles en dur** : Interdiction formelle d'écrire des valeurs de couleur ou styles hardcodés (ex: `#f4ecd8`, `#1a1a1a`, `#8b2a1a`, etc.) dans les attributs `style={{ ... }}` ou les classes utilitaires statiques.
+- **Usage des jetons sémantiques** : Utiliser exclusivement les variables CSS et jetons sémantiques (`var(--cordel-bg)`, `var(--cordel-text)`, `var(--cordel-border)`, `themeTokens.css`, etc.) afin de garantir la cohérence graphique et le basculement instantané entre les différents univers visuels de l'application (Cordel, Dark mode, thèmes dynamiques).
+
+### C. Commandements de Performance Web Audio & Temps-Réel
+- **Zero Render Thrashing** : Proscription totale de `useState` et des mutations de store réactives pour les événements audio haute fréquence (ticks, curseur de lecture, RAF). Recourir exclusivement à des `useRef`, des écouteurs d'événements directs ou la manipulation DOM découplée (Vanilla JS).
+- **Sélecteurs Zustand "ID-Only"** : Les composants conteneurs ne s'abonnent qu'aux listes d'IDs (`useShallow(state => state.trackIds)`). Chaque sous-composant enfant récupère ses données et actions atomiquement via son propre ID pour éliminer les cascades de re-render.
+- **Gestion du Graphe & Nettoyage des Nœuds Tone.js / Web Audio** : Tout nœud audio Tone.js ou Web Audio créé dynamiquement doit être explicitement déconnecté et détruit (`node.disconnect()`, `node.dispose()`) au démontage du composant ou lors du changement de preset afin de garantir l'absence absolue de fuite mémoire et de maintenir 60 FPS constants.
+
+### D. Vérification Locale Obligatoire Avant Toute Validation
+- **Contrôle systématique avant validation** : Avant de déclarer une tâche achevée ou de solliciter la validation, l'agent doit impérativement exécuter et valider localement :
+  1. `cmd /c "npx tsc --noEmit"` : 0 erreur TypeScript.
+  2. `cmd /c "npm run build"` : compilation Vite de production réussie.
+- **Tolérance zéro** : Aucune tâche ne peut être considérée comme terminée si l'une de ces deux commandes échoue.

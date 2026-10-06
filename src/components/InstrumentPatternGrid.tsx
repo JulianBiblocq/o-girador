@@ -20,6 +20,7 @@ import { isDarkText, instrumentsConfig } from '../data';
 import { getContrastColor } from '../utils/colorHelpers';
 import { useWindow } from '../contexts/WindowContext';
 import { CordelContextMenu } from './ui/CordelContextMenu';
+import { isVoiceStepProlongation } from '../utils/musicTheory';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
   if (val === undefined) return fallback;
@@ -171,7 +172,7 @@ const PercussionStepCell = React.memo(({
   return (
     <div
       key={i}
-      className="percussion-step-container flex flex-col items-center select-none relative"
+      className="step-cell percussion-step-container flex flex-col items-center select-none relative"
       data-track-id={trackId}
       data-pattern-id={patternId}
       data-step-index={i}
@@ -621,22 +622,58 @@ const VoiceStepCellComponent = ({
 
     // Support de Ctrl+Shift+V / Ctrl+Alt+V (Coller les notes seules avec sanctuarisation des paroles)
     if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && e.key.toLowerCase() === 'v') {
-      e.preventDefault();
-      e.stopPropagation();
-      useSequencerStore.getState().pasteNotesOnlyStartingAt(trackId, patternId, Boolean(isPreRoll), i);
-      return;
-    }
-
-    // Support de Ctrl+C pour copier la plage de mélodie ou la note actuelle
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !e.shiftKey && !e.altKey) {
       const selStart = input.selectionStart;
       const selEnd = input.selectionEnd;
-      const valLen = input.value.length;
-      const hasPartialText = selStart !== null && selEnd !== null && selStart !== selEnd && !(selStart === 0 && selEnd === valLen);
+      const hasPartialText = selStart !== null && selEnd !== null && selStart !== selEnd;
       if (!hasPartialText) {
         e.preventDefault();
         e.stopPropagation();
-        useSequencerStore.getState().copySelectedNotesRange();
+        useSequencerStore.getState().pasteVoiceSteps(trackId, patternId, Boolean(isPreRoll), i, true);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+        return;
+      }
+    }
+
+    // Support de Ctrl+V (Coller tout : notes + paroles + rôles)
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'v') {
+      const selStart = input.selectionStart;
+      const selEnd = input.selectionEnd;
+      const hasPartialText = selStart !== null && selEnd !== null && selStart !== selEnd;
+      if (!hasPartialText) {
+        e.preventDefault();
+        e.stopPropagation();
+        useSequencerStore.getState().pasteVoiceSteps(trackId, patternId, Boolean(isPreRoll), i, false);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+        return;
+      }
+    }
+
+    // Support de Ctrl+C pour copier la plage de pas ou le pas actuel
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !e.shiftKey && !e.altKey) {
+      const selStart = input.selectionStart;
+      const selEnd = input.selectionEnd;
+      const hasPartialText = selStart !== null && selEnd !== null && selStart !== selEnd;
+      if (!hasPartialText) {
+        e.preventDefault();
+        e.stopPropagation();
+        const curRange = useSequencerStore.getState().selectedStepRange;
+        useSequencerStore.getState().copyVoiceStepsRange(curRange, trackId, patternId);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+        return;
+      }
+    }
+
+    // Support de Ctrl+X pour couper la plage de pas ou le pas actuel
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && !e.shiftKey && !e.altKey) {
+      const selStart = input.selectionStart;
+      const selEnd = input.selectionEnd;
+      const hasPartialText = selStart !== null && selEnd !== null && selStart !== selEnd;
+      if (!hasPartialText) {
+        e.preventDefault();
+        e.stopPropagation();
+        const curRange = useSequencerStore.getState().selectedStepRange;
+        useSequencerStore.getState().cutVoiceStepsRange(curRange, trackId, patternId);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
         return;
       }
     }
@@ -826,7 +863,7 @@ const VoiceStepCellComponent = ({
   };
 
   return (
-    <div className={`relative flex-1 min-w-0 ${isProlongation && (i % 4 !== 0) ? '-ml-1 sm:-ml-2 z-10' : ''}`}>
+    <div className={`relative flex-1 min-w-0 select-none ${isProlongation && (i % 4 !== 0) ? '-ml-1 sm:-ml-2 z-10' : ''}`}>
       {/* Axis vertical centerline (0%) behind steps */}
       <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
       
@@ -835,7 +872,7 @@ const VoiceStepCellComponent = ({
       )}
       
       <div
-        className={`v-card flex flex-col z-10 relative transition-all duration-100 w-full ${
+        className={`v-card voice-step-cell flex flex-col z-10 relative transition-all duration-100 w-full select-none ${
           isSelected
             ? '!border-2 !border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f] rounded-none m-[1px]'
             : isInRange
@@ -863,13 +900,31 @@ const VoiceStepCellComponent = ({
           if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && e.key.toLowerCase() === 'v') {
             e.preventDefault();
             e.stopPropagation();
-            useSequencerStore.getState().pasteNotesOnlyStartingAt(trackId, patternId, Boolean(isPreRoll), i);
+            useSequencerStore.getState().pasteVoiceSteps(trackId, patternId, Boolean(isPreRoll), i, true);
+            console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'v') {
+            e.preventDefault();
+            e.stopPropagation();
+            useSequencerStore.getState().pasteVoiceSteps(trackId, patternId, Boolean(isPreRoll), i, false);
+            console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
             return;
           }
           if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !e.shiftKey && !e.altKey) {
             e.preventDefault();
             e.stopPropagation();
-            useSequencerStore.getState().copySelectedNotesRange();
+            const curRange = useSequencerStore.getState().selectedStepRange;
+            useSequencerStore.getState().copyVoiceStepsRange(curRange, trackId, patternId);
+            console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && !e.shiftKey && !e.altKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const curRange = useSequencerStore.getState().selectedStepRange;
+            useSequencerStore.getState().cutVoiceStepsRange(curRange, trackId, patternId);
+            console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
             return;
           }
           if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -918,11 +973,37 @@ const VoiceStepCellComponent = ({
           }
         }}
         onTouchStart={(e) => {
+          if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           onTouchStart?.(e, i);
           onFocusStep(i, Boolean(isPreRoll));
         }}
-        onMouseDown={(e) => onMouseDown?.(e, i)}
-        onClick={() => onFocusStep(i, Boolean(isPreRoll))}
+        onMouseDown={(e) => {
+          if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.getSelection()?.removeAllRanges();
+          }
+          onMouseDown?.(e, i);
+        }}
+        onClick={(e) => {
+          if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onFocusStep(i, Boolean(isPreRoll));
+        }}
+        onDoubleClick={(e) => {
+          if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.getSelection()?.removeAllRanges();
+          }
+        }}
         onMouseEnter={(e) => onMouseEnter?.(i, e)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -942,14 +1023,17 @@ const VoiceStepCellComponent = ({
           readOnly={isMultiSelectActive}
           onChange={(e) => onVoiceSylChange(trackId, patternId, i, e.target.value)}
           placeholder="-"
-          className={`step-input-cell v-syl w-full text-center outline-none border-b border-[#00000020] bg-transparent pb-0.5 ${syl ? 'font-bold' : ''}`}
+          className={`step-input-cell v-syl w-full text-center outline-none border-b border-[#00000020] bg-transparent pb-0.5 select-none ${syl ? 'font-bold' : ''}`}
           style={{ 
             color: isMultiSelectActive && isSelected ? 'transparent' : txtColor,
           }}
           onMouseDown={(e) => {
             if (e.shiftKey) {
               e.preventDefault();
+              e.stopPropagation();
+              window.getSelection()?.removeAllRanges();
               onMouseDown?.(e as any, i);
+              return;
             }
           }}
           onFocus={() => {
@@ -957,9 +1041,21 @@ const VoiceStepCellComponent = ({
               onFocusStep(i, Boolean(isPreRoll));
             }
           }}
-          onClick={() => {
+          onClick={(e) => {
+            if (e.shiftKey) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
             if (!isMultiSelectActive) {
               onFocusStep(i, Boolean(isPreRoll));
+            }
+          }}
+          onDoubleClick={(e) => {
+            if (e.shiftKey) {
+              e.preventDefault();
+              e.stopPropagation();
+              window.getSelection()?.removeAllRanges();
             }
           }}
           onKeyDown={(e) => handleInputKeyDown(e, 'syl')}
@@ -977,7 +1073,7 @@ const VoiceStepCellComponent = ({
               setIsNoteFocused(false);
             }}
             placeholder={isNoteFocused ? 'C4' : ''}
-            className="step-input-cell v-note w-full text-center font-bold text-xs outline-none bg-transparent pt-0.5 placeholder:text-black/20"
+            className="step-input-cell v-note w-full text-center font-bold text-xs outline-none bg-transparent pt-0.5 placeholder:text-black/20 select-none"
             style={{
               color: isMultiSelectActive && isSelected
                 ? 'transparent'
@@ -986,7 +1082,10 @@ const VoiceStepCellComponent = ({
             onMouseDown={(e) => {
               if (e.shiftKey) {
                 e.preventDefault();
+                e.stopPropagation();
+                window.getSelection()?.removeAllRanges();
                 onMouseDown?.(e as any, i);
+                return;
               }
             }}
             onFocus={() => {
@@ -995,10 +1094,22 @@ const VoiceStepCellComponent = ({
                 setIsNoteFocused(true);
               }
             }}
-            onClick={() => {
+            onClick={(e) => {
+              if (e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
               if (!isMultiSelectActive) {
                 onFocusStep(i, Boolean(isPreRoll));
                 setIsNoteFocused(true);
+              }
+            }}
+            onDoubleClick={(e) => {
+              if (e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.getSelection()?.removeAllRanges();
               }
             }}
             onKeyDown={(e) => handleInputKeyDown(e, 'note')}
@@ -1101,6 +1212,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 }) => {
   const {
     lang,
+    confirmAsync,
     isLeftHanded,
     handleTrackStepValueChange,
     handleTrackStepKeyDown,
@@ -1126,6 +1238,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const currentWindow = useWindow();
 
   const gridRef = useRef<HTMLDivElement>(null);
+  const currentPatternRef = React.useRef(pattern);
+  currentPatternRef.current = pattern;
+  const currentTrackIdRef = React.useRef(trackId);
+  currentTrackIdRef.current = trackId;
   const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
   const [voiceStepContextMenu, setVoiceStepContextMenu] = useState<{ x: number; y: number; stepIdx: number; isPreRoll: boolean } | null>(null);
 
@@ -1139,11 +1255,15 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     preRollCount: number
   ): boolean => {
     if (!range) return false;
-    const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollCount + p.step);
-    const minLinear = Math.min(toLinear(range.start), toLinear(range.end));
-    const maxLinear = Math.max(toLinear(range.start), toLinear(range.end));
-    const cellLinear = cellIsPreRoll ? cellStep : (preRollCount + cellStep);
-    return cellLinear >= minLinear && cellLinear <= maxLinear;
+    const getLinear = (step: number, preRoll: boolean) => preRoll ? step : (preRollCount + step);
+
+    const cellLinear = getLinear(cellStep, Boolean(cellIsPreRoll));
+    const startLinear = getLinear(range.start.step, Boolean(range.start.isPreRoll));
+    const endLinear = getLinear(range.end.step, Boolean(range.end.isPreRoll));
+    const minL = Math.min(startLinear, endLinear);
+    const maxL = Math.max(startLinear, endLinear);
+
+    return cellLinear >= minL && cellLinear <= maxL;
   }, []);
 
   const [hasClipboard, setHasClipboard] = useState(false);
@@ -1536,13 +1656,22 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const handleVoiceContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number, isPreRoll?: boolean) => {
     e.preventDefault();
     e.stopPropagation();
+    const state = useSequencerStore.getState();
+    if (!state.selectedStepRange) {
+      useSequencerStore.setState({
+        selectedStepIdx: idx,
+        selectedStepIsPreRoll: Boolean(isPreRoll)
+      });
+      setSelectedStepIdx(idx);
+      if (setSelectedStepIsPreRoll) setSelectedStepIsPreRoll(Boolean(isPreRoll));
+    }
     setVoiceStepContextMenu({
       x: e.clientX,
       y: e.clientY,
       stepIdx: idx,
       isPreRoll: Boolean(isPreRoll)
     });
-  }, []);
+  }, [setSelectedStepIdx, setSelectedStepIsPreRoll]);
 
   const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     if (activeTool === 'scissors') {
@@ -2105,6 +2234,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       setSelectedStepIsPreRoll(Boolean(isPreRoll));
     }
     useAudioStore.getState().setVoiceInputMode('step');
+    useSequencerStore.getState().setSelectedPatternId(pattern.id);
     useSequencerStore.setState({ selectedStepIdx: idx, selectedStepIsPreRoll: Boolean(isPreRoll), selectedSubIndex: null, selectedStepRange: null });
   }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedStepIsPreRoll, pattern.id]);
 
@@ -2115,11 +2245,21 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
     if (e.shiftKey) {
       e.preventDefault();
-      const currentStart = (selectedStepIdx !== null && selectedStepIdx !== undefined)
-        ? { isPreRoll: Boolean(selectedStepIsPreRoll), step: selectedStepIdx }
-        : { isPreRoll: false, step: idx };
+      e.stopPropagation();
+      const state = useSequencerStore.getState();
+      const currentStart = state.selectedStepRange?.start
+        ?? ((selectedStepIdx !== null && selectedStepIdx !== undefined)
+          ? { isPreRoll: Boolean(selectedStepIsPreRoll), step: selectedStepIdx }
+          : (state.selectedStepIdx !== null && state.selectedStepIdx !== undefined)
+            ? { isPreRoll: Boolean(state.selectedStepIsPreRoll), step: state.selectedStepIdx }
+            : { isPreRoll: false, step: idx });
       const currentEnd = { isPreRoll: false, step: idx };
-      useSequencerStore.getState().setSelectedStepRange({ start: currentStart, end: currentEnd });
+      useSequencerStore.getState().setSelectedStepRange({
+        start: currentStart,
+        end: currentEnd,
+        patternId: pattern.id,
+        trackId: currentTrackIdRef.current
+      });
       return;
     }
     useSequencerStore.getState().setSelectedStepRange(null);
@@ -2137,11 +2277,21 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
     if (e.shiftKey) {
       e.preventDefault();
-      const currentStart = (selectedStepIdx !== null && selectedStepIdx !== undefined)
-        ? { isPreRoll: Boolean(selectedStepIsPreRoll), step: selectedStepIdx }
-        : { isPreRoll: true, step: idx };
+      e.stopPropagation();
+      const state = useSequencerStore.getState();
+      const currentStart = state.selectedStepRange?.start
+        ?? ((selectedStepIdx !== null && selectedStepIdx !== undefined)
+          ? { isPreRoll: Boolean(selectedStepIsPreRoll), step: selectedStepIdx }
+          : (state.selectedStepIdx !== null && state.selectedStepIdx !== undefined)
+            ? { isPreRoll: Boolean(state.selectedStepIsPreRoll), step: state.selectedStepIdx }
+            : { isPreRoll: true, step: idx });
       const currentEnd = { isPreRoll: true, step: idx };
-      useSequencerStore.getState().setSelectedStepRange({ start: currentStart, end: currentEnd });
+      useSequencerStore.getState().setSelectedStepRange({
+        start: currentStart,
+        end: currentEnd,
+        patternId: pattern.id,
+        trackId: currentTrackIdRef.current
+      });
       return;
     }
     useSequencerStore.getState().setSelectedStepRange(null);
@@ -2713,6 +2863,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
       if (!isCtrlOrCmd || e.key.toLowerCase() !== 'd') return;
 
+      // Garde-fou contexte Timeline : si la Timeline est active ou focalisée, laisser useTimelineShortcuts opérer
+      const seqState = useSequencerStore.getState();
+      const isTimelineContext = 
+        Boolean(seqState.activeTimelineCell) || 
+        (seqState.selectedTimelineCells && seqState.selectedTimelineCells.length > 0) ||
+        Boolean(document.activeElement?.closest('#timeline-scroll-container, .timeline-scroll-grid, [data-timeline-grid]'));
+      if (isTimelineContext) return;
+
       const activeEl = document.activeElement as HTMLElement | null;
 
       // Garde-fou de texte : ignorer le raccourci si le focus actif se trouve dans un champ d'édition de paroles (.v-syl) avec sélection partielle
@@ -2749,54 +2907,157 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => targetWin.removeEventListener('keydown', handleDuplicateKeyDown, { capture: true });
   }, [selectedStepIdx, pattern?.id, selectedPatternId, currentWindow, handleDuplicateStep]);
 
-  // Écouteur global pour raccourcis clavier Ctrl+C (Copier mélodie) et Ctrl+Shift+V / Ctrl+Alt+V (Coller notes seules)
+  // Écouteur global pour raccourcis clavier Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Shift+V sur Toada
   useEffect(() => {
-    if (pattern?.id !== selectedPatternId) return;
-
     const handleNotesClipboardGlobalKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
       if (!isCtrlOrCmd) return;
 
+      const key = e.key.toLowerCase();
+      if (!['c', 'x', 'v'].includes(key)) return;
+
+      const state = useSequencerStore.getState();
+
+      // Garde-fou contexte Timeline : si la Timeline est active ou focalisée, laisser useTimelineShortcuts opérer
+      const isTimelineContext = 
+        Boolean(state.activeTimelineCell) || 
+        (state.selectedTimelineCells && state.selectedTimelineCells.length > 0) ||
+        Boolean(document.activeElement?.closest('#timeline-scroll-container, .timeline-scroll-grid, [data-timeline-grid]'));
+      if (isTimelineContext) return;
+
       const activeEl = document.activeElement as HTMLElement | null;
 
-      // 1. Interception étanche de Ctrl+Shift+V ou Ctrl+Alt+V : Coller les notes seules (Sanctuarisation des paroles)
-      if ((e.shiftKey || e.altKey) && e.key.toLowerCase() === 'v') {
-        e.preventDefault();
-        e.stopPropagation();
-        (e as any).stopImmediatePropagation?.();
+      // Détecter si l'élément actif est un input de pas vocal (.v-syl, .v-note) ou une cellule vocale
+      const isVoiceInput = Boolean(
+        activeEl && (
+          activeEl.classList.contains('v-syl') ||
+          activeEl.classList.contains('v-note') ||
+          Boolean(activeEl.closest?.('.voice-step-cell, [data-step-type="voice"]'))
+        )
+      );
 
-        const state = useSequencerStore.getState();
-        const targetIsPreRoll = Boolean(state.selectedStepIsPreRoll);
-        const targetStep = state.selectedStepIdx ?? 0;
-        state.pasteNotesOnlyStartingAt(trackId, pattern.id, targetIsPreRoll, targetStep);
+      const isVoiceTrack = instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada';
+      const hasActiveVoiceContext = isVoiceInput || state.selectedStepRange !== null || (isVoiceTrack && state.selectedStepIdx !== null);
+
+      if (!hasActiveVoiceContext) return;
+
+      // Exception texte partiel : Si l'utilisateur est en train de surligner du texte à l'intérieur du champ, laisser le navigateur copier le texte.
+      if (activeEl instanceof HTMLInputElement) {
+        const selStart = activeEl.selectionStart;
+        const selEnd = activeEl.selectionEnd;
+        if (selStart !== null && selEnd !== null && selStart !== selEnd) {
+          return;
+        }
+      }
+
+      // Garde-fou champ externe : ignorer si input/textarea complètement hors de la grille
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
+        !activeEl.closest('[data-track-id]') &&
+        !activeEl.closest('[data-step-index]') &&
+        !activeEl.classList.contains('step-input-cell')
+      ) {
         return;
       }
 
-      // 2. Interception de Ctrl+C : Copier la plage de notes mélodiques
-      if (!e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') {
-        if (activeEl instanceof HTMLInputElement) {
-          const selStart = activeEl.selectionStart;
-          const selEnd = activeEl.selectionEnd;
-          const valLen = activeEl.value.length;
-          const hasPartialSelection = selStart !== null && selEnd !== null && selStart !== selEnd && !(selStart === 0 && selEnd === valLen);
-          if (hasPartialSelection) return;
+      // ── VÉRIFICATION CONTEXTUELLE DE MOTIF (ANTI COLLISION MULTI-CARTES) ──
+      // Si plusieurs instances de grilles sont montées (Motif 1, Motif 2...), 
+      // cette instance ne doit réagir QUE si elle est le motif ciblé.
+      const currentPtnId = currentPatternRef.current.id;
+
+      // A. Si activeEl est dans une cellule ou carte avec data-pattern-id / data-pattern-card :
+      const domPatternIdAttr = activeEl?.closest?.('[data-pattern-id]')?.getAttribute('data-pattern-id')
+        || activeEl?.closest?.('[data-pattern-card]')?.getAttribute('data-pattern-card');
+      const domPatternId = domPatternIdAttr ? parseInt(domPatternIdAttr, 10) : null;
+      if (domPatternId !== null && domPatternId !== currentPtnId) {
+        return; // Laisser l'autre instance de grille traiter l'événement !
+      }
+
+      // B. Si l'action est Copier ('c') ou Couper ('x') et qu'une plage a été sélectionnée :
+      if ((key === 'c' || key === 'x') && state.selectedStepRange?.patternId) {
+        if (state.selectedStepRange.patternId !== currentPtnId) {
+          return; // Laisser l'instance propriétaire de la sélection copier/couper
+        }
+      }
+
+      // C. Sinon, vérifier avec selectedPatternId (store global ou prop) :
+      const curSelectedPatternId = state.selectedPatternId ?? selectedPatternId;
+      if (curSelectedPatternId && domPatternId === null) {
+        if (curSelectedPatternId !== currentPtnId) {
+          return; // Cette instance n'est pas le motif actif
+        }
+      }
+
+      // Bloquer impérativement le raccourci navigateur et les écouteurs parents (grid-shortcut)
+      e.preventDefault();
+      e.stopPropagation();
+      (e as any).stopImmediatePropagation?.();
+
+      if (key === 'c') {
+        state.copyVoiceStepsRange(state.selectedStepRange, currentTrackIdRef.current, currentPtnId);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+        return;
+      }
+
+      if (key === 'x') {
+        state.cutVoiceStepsRange(state.selectedStepRange, currentTrackIdRef.current, currentPtnId);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+        return;
+      }
+
+      if (key === 'v') {
+        const isNotesOnly = Boolean(e.shiftKey || e.altKey);
+        let targetTrackId = currentTrackIdRef.current;
+        let targetPatternId = currentPtnId;
+        let targetIsPreRoll = false;
+        let targetStep = 0;
+
+        // 1. Si l'élément actif est dans une cellule vocale DOM :
+        if (activeEl) {
+          const cellEl = activeEl.closest?.('.voice-step-cell, [data-step-type="voice"]');
+          if (cellEl) {
+            const stepIdxAttr = cellEl.getAttribute('data-step-index');
+            const isPreRollAttr = cellEl.getAttribute('data-is-preroll');
+            const trackIdAttr = cellEl.getAttribute('data-track-id');
+            const patternIdAttr = cellEl.getAttribute('data-pattern-id');
+            if (stepIdxAttr !== null) targetStep = parseInt(stepIdxAttr, 10);
+            if (isPreRollAttr !== null) targetIsPreRoll = isPreRollAttr === 'true';
+            if (trackIdAttr !== null) targetTrackId = parseInt(trackIdAttr, 10) || targetTrackId;
+            if (patternIdAttr !== null) targetPatternId = parseInt(patternIdAttr, 10) || targetPatternId;
+          } else if (state.selectedStepIdx !== null && state.selectedStepIdx !== undefined) {
+            targetIsPreRoll = Boolean(state.selectedStepIsPreRoll);
+            targetStep = state.selectedStepIdx;
+          }
+        }
+        // 2. Si une plage de pas est sélectionnée : coller au début (minLinear) de la plage
+        else if (state.selectedStepRange) {
+          const preRollCount = currentPatternRef.current?.preRollActiveSteps?.length || 16;
+          const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollCount + p.step);
+          const startIsFirst = toLinear(state.selectedStepRange.start) <= toLinear(state.selectedStepRange.end);
+          const anchor = startIsFirst ? state.selectedStepRange.start : state.selectedStepRange.end;
+          targetIsPreRoll = anchor.isPreRoll;
+          targetStep = anchor.step;
+          if (state.selectedStepRange.patternId) {
+            targetPatternId = state.selectedStepRange.patternId;
+          }
+        }
+        // 3. Sinon, repli sur selectedStepIdx du store
+        else if (state.selectedStepIdx !== null && state.selectedStepIdx !== undefined) {
+          targetIsPreRoll = Boolean(state.selectedStepIsPreRoll);
+          targetStep = state.selectedStepIdx;
         }
 
-        const state = useSequencerStore.getState();
-        if (state.selectedStepRange || state.selectedStepIdx !== null) {
-          e.preventDefault();
-          e.stopPropagation();
-          (e as any).stopImmediatePropagation?.();
-          state.copySelectedNotesRange();
-          return;
-        }
+        state.pasteVoiceSteps(targetTrackId, targetPatternId, targetIsPreRoll, targetStep, isNotesOnly);
+        console.log('📋 [Toada Copy/Paste]', e.key, useSequencerStore.getState().voiceStepsClipboard);
+        return;
       }
     };
 
     const targetWin = currentWindow || window;
     targetWin.addEventListener('keydown', handleNotesClipboardGlobalKeyDown, { capture: true });
     return () => targetWin.removeEventListener('keydown', handleNotesClipboardGlobalKeyDown, { capture: true });
-  }, [pattern?.id, selectedPatternId, trackId, currentWindow]);
+  }, [pattern?.id, pattern?.preRollActiveSteps?.length, selectedPatternId, trackId, instrument?.type, currentWindow]);
 
   // Keyboard and Copy/Paste listeners specifically related to pattern actions
   useEffect(() => {
@@ -2811,12 +3072,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         setIsMultiSelectActive(true);
         setSelectedStepIndices(Array.from({ length: activePtn.steps }, (_, i) => i));
       } else if (key === 'c') {
+        if (instrument?.type === 'voice') {
+          useSequencerStore.getState().copyVoiceStepsRange(useSequencerStore.getState().selectedStepRange, trackId, activePtn.id);
+          return;
+        }
         if (selectedStepIndices.length > 0) {
           handleCopyRelative(activePtn);
         } else {
           onCopyPattern && onCopyPattern(activePtn);
         }
       } else if (key === 'x') {
+        if (instrument?.type === 'voice') {
+          useSequencerStore.getState().cutVoiceStepsRange(useSequencerStore.getState().selectedStepRange, trackId, activePtn.id);
+          return;
+        }
         if (selectedStepIndices.length > 0) {
           handleCopyRelative(activePtn);
           if (selectedVariationId) {
@@ -2835,6 +3104,24 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
           }
         }
       } else if (key === 'v') {
+        if (instrument?.type === 'voice') {
+          const state = useSequencerStore.getState();
+          let targetIsPreRoll = false;
+          let targetStep = 0;
+          if (state.selectedStepRange) {
+            const preRollCount = activePtn.preRollActiveSteps?.length || 16;
+            const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollCount + p.step);
+            const startIsFirst = toLinear(state.selectedStepRange.start) <= toLinear(state.selectedStepRange.end);
+            const anchor = startIsFirst ? state.selectedStepRange.start : state.selectedStepRange.end;
+            targetIsPreRoll = anchor.isPreRoll;
+            targetStep = anchor.step;
+          } else if (state.selectedStepIdx !== null && state.selectedStepIdx !== undefined) {
+            targetIsPreRoll = Boolean(state.selectedStepIsPreRoll);
+            targetStep = state.selectedStepIdx;
+          }
+          state.pasteVoiceSteps(trackId, activePtn.id, targetIsPreRoll, targetStep, false);
+          return;
+        }
         if (getGlobalClipboard()) {
           const targetIdx = (isMultiSelectActive && selectedStepIndices.length > 0) ? selectedStepIndices[0] : (selectedStepIdx !== null ? selectedStepIdx : 0);
           handlePasteRelative(activePtn, targetIdx);
@@ -3373,11 +3660,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       ref={gridRef}
       className="w-full flex flex-col gap-2"
       onClick={(e) => {
+        if ((e.target as HTMLElement).closest('.step-cell, .voice-step-cell, [data-step-type="voice"], [data-step-index]')) {
+          return; // Conserver la sélection active
+        }
         if (!e.shiftKey) {
-          const target = e.target as HTMLElement | null;
-          if (!target?.closest('[data-step-index]')) {
-            useSequencerStore.getState().setSelectedStepRange(null);
-          }
+          useSequencerStore.getState().setSelectedStepRange(null);
         }
       }}
     >
@@ -3447,20 +3734,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   const nextNote = i < 15 ? (pattern?.preRollNotes?.[i + 1] || '').trim() : '';
                   const nextSyl = i < 15 ? (pattern?.preRollLyrics?.[i + 1] || '').trim() : '';
 
-                  const isProlongation = Boolean(
-                    currentActive &&
-                    prevActive &&
-                    curNoteTrim &&
-                    prevNote === curNoteTrim &&
-                    (!syl || syl.trim() === '')
+                  const isProlongation = isVoiceStepProlongation(
+                    currentActive,
+                    prevActive,
+                    curNoteTrim,
+                    prevNote,
+                    syl
                   );
 
-                  const isFollowedByProlongation = Boolean(
-                    currentActive &&
-                    nextActive &&
-                    curNoteTrim &&
-                    nextNote === curNoteTrim &&
-                    (!nextSyl || nextSyl === '')
+                  const isFollowedByProlongation = isVoiceStepProlongation(
+                    nextActive,
+                    currentActive,
+                    nextNote,
+                    curNoteTrim,
+                    nextSyl
                   );
 
                   return (
@@ -3473,7 +3760,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       state={state}
                       syl={syl}
                       note={note}
-                      isSelected={selectedPatternId === pattern.id && selectedStepIdx === i && Boolean(selectedStepIsPreRoll)}
+                      isSelected={selectedPatternId === pattern.id && selectedStepIdx === i && Boolean(selectedStepIsPreRoll) === true}
                       isMultiSelectActive={false}
                       manualMicro={0}
                       totalShift={0}
@@ -3544,7 +3831,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               {lang === 'fr' ? 'Mesure principale' : 'Compasso principal'} ({Math.ceil(pattern.steps / 16)} {lang === 'fr' ? 'Mesure(s)' : 'Compasso(s)'})
             </div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 let nextSteps = 16;
                 if (pattern.steps === 16) nextSteps = 32;
                 else if (pattern.steps === 32) nextSteps = 48;
@@ -3555,7 +3842,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   const confirmMsg = lang === 'fr' 
                     ? "Réduire la taille du motif va tronquer les notes de la fin. Continuer ?"
                     : "Reduzir o tamanho do padrão cortará as notas no final. Continuar?";
-                  if (!confirm(confirmMsg)) return;
+                  const confirmed = await confirmAsync(confirmMsg);
+                  if (!confirmed) return;
                 }
                 handleTrackStepsChange(trackId, pattern.id, nextSteps);
               }}
@@ -3595,7 +3883,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const state = pattern?.activeSteps?.[i];
                       const syl = pattern?.lyrics?.[i] || '';
                       const note = pattern?.notes?.[i] || '';
-                      const isSelected = !selectedStepIsPreRoll && (selectedStepIndices.includes(i) || (selectedPatternId === pattern.id && selectedStepIdx === i));
+                      const isSelected = selectedPatternId === pattern.id && selectedStepIdx === i && Boolean(selectedStepIsPreRoll) === false;
 
                       const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
                       const currentActive = isStepActive(state);
@@ -3606,20 +3894,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const nextNote = i < (pattern?.steps ?? 16) - 1 ? (pattern?.notes?.[i + 1] || '').trim() : '';
                       const nextSyl = i < (pattern?.steps ?? 16) - 1 ? (pattern?.lyrics?.[i + 1] || '').trim() : '';
 
-                      const isProlongation = Boolean(
-                        currentActive &&
-                        prevActive &&
-                        curNoteTrim &&
-                        prevNote === curNoteTrim &&
-                        (!syl || syl.trim() === '')
+                      const isProlongation = isVoiceStepProlongation(
+                        currentActive,
+                        prevActive,
+                        curNoteTrim,
+                        prevNote,
+                        syl
                       );
 
-                      const isFollowedByProlongation = Boolean(
-                        currentActive &&
-                        nextActive &&
-                        curNoteTrim &&
-                        nextNote === curNoteTrim &&
-                        (!nextSyl || nextSyl === '')
+                      const isFollowedByProlongation = isVoiceStepProlongation(
+                        nextActive,
+                        currentActive,
+                        nextNote,
+                        curNoteTrim,
+                        nextSyl
                       );
 
                       // Calculate total micro-timing shift (manual + pre-calculated global swing)
@@ -3678,13 +3966,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       <span>{lang === 'fr' ? `Mesure ${m + 1}` : `Compasso ${m + 1}`}</span>
                       {pattern.steps > 16 && (
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             const confirmMsg = lang === 'fr'
                               ? `Supprimer la mesure ${m + 1} du motif ? Cette action est irréversible.`
                               : `Excluir o compasso ${m + 1} do padrão? Esta ação é irreversível.`;
-                            if (confirm(confirmMsg)) {
-                              handleDeletePatternMeasure(trackId, pattern.id, m);
-                            }
+                            const confirmed = await confirmAsync(confirmMsg);
+                            if (!confirmed) return;
+                            handleDeletePatternMeasure(trackId, pattern.id, m);
                           }}
                           className="text-[#8b2a1a] hover:text-[#a63d2d] transition-colors p-0.5 hover:bg-[#8b2a1a]/10 rounded cursor-pointer"
                           title={lang === 'fr' ? "Supprimer cette mesure" : "Excluir este compasso"}
@@ -4004,26 +4292,53 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
           }
           items={[
             {
-              id: 'copy-melody',
+              id: 'copy-voice-steps',
               icon: '📋',
-              label: lang === 'fr' ? 'Copier la mélodie' : 'Copiar a melodia',
+              label: lang === 'fr' ? 'Copier la sélection (Ctrl+C)' : 'Copiar seleção (Ctrl+C)',
               onClick: () => {
-                useSequencerStore.getState().copySelectedNotesRange();
+                useSequencerStore.getState().copyVoiceStepsRange(useSequencerStore.getState().selectedStepRange, trackId, pattern.id);
+                setVoiceStepContextMenu(null);
+              }
+            },
+            {
+              id: 'cut-voice-steps',
+              icon: '✂️',
+              label: lang === 'fr' ? 'Couper la sélection (Ctrl+X)' : 'Recortar seleção (Ctrl+X)',
+              onClick: () => {
+                useSequencerStore.getState().cutVoiceStepsRange(useSequencerStore.getState().selectedStepRange, trackId, pattern.id);
+                setVoiceStepContextMenu(null);
+              }
+            },
+            {
+              id: 'paste-voice-steps',
+              icon: '📥',
+              label: lang === 'fr' ? 'Coller (Ctrl+V)' : 'Colar (Ctrl+V)',
+              disabled: !(useSequencerStore.getState().voiceStepsClipboard?.steps?.length || useSequencerStore.getState().vocalNotesClipboard?.length),
+              disabledReason: lang === 'fr' ? 'Aucun pas dans le presse-papier' : 'Nenhum passo na área de transferência',
+              onClick: () => {
+                useSequencerStore.getState().pasteVoiceSteps(
+                  trackId,
+                  pattern.id,
+                  voiceStepContextMenu.isPreRoll,
+                  voiceStepContextMenu.stepIdx,
+                  false
+                );
                 setVoiceStepContextMenu(null);
               }
             },
             {
               id: 'paste-notes-only',
-              icon: '📥',
-              label: lang === 'fr' ? 'Coller les notes seules' : 'Colar somente as notas',
-              disabled: !useSequencerStore.getState().vocalNotesClipboard || (useSequencerStore.getState().vocalNotesClipboard?.length ?? 0) === 0,
+              icon: '🎵',
+              label: lang === 'fr' ? 'Coller les notes seules (Ctrl+Shift+V)' : 'Colar somente as notas (Ctrl+Shift+V)',
+              disabled: !(useSequencerStore.getState().voiceStepsClipboard?.steps?.length || useSequencerStore.getState().vocalNotesClipboard?.length),
               disabledReason: lang === 'fr' ? 'Aucune note mélodique dans le presse-papier' : 'Nenhuma nota melódica na área de transferência',
               onClick: () => {
-                useSequencerStore.getState().pasteNotesOnlyStartingAt(
+                useSequencerStore.getState().pasteVoiceSteps(
                   trackId,
                   pattern.id,
                   voiceStepContextMenu.isPreRoll,
-                  voiceStepContextMenu.stepIdx
+                  voiceStepContextMenu.stepIdx,
+                  true
                 );
                 setVoiceStepContextMenu(null);
               }

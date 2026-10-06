@@ -297,6 +297,26 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         }
 
         const store = useSequencerStore.getState();
+
+        // Si une section de morceau est copiée dans le presse-papier
+        if (store.copiedSection) {
+          let targetMeasureIdx: number | null = null;
+          if (store.activeTimelineCell) {
+            targetMeasureIdx = (store.activeTimelineCell as any).mIdx ?? store.activeTimelineCell.measureIdx;
+          } else if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
+            targetMeasureIdx = store.selectedTimelineCells[0].mIdx;
+          } else if (typeof store.currentMeasure === 'number') {
+            targetMeasureIdx = store.currentMeasure;
+          }
+          if (targetMeasureIdx !== null) {
+            e.preventDefault();
+            e.stopPropagation();
+            store.handlePasteSongSection(targetMeasureIdx);
+            return;
+          }
+        }
+
+        // Sinon, coller le presse-papier de cellules de mesures
         if (store.timelineClipboard && store.activeTimelineCell) {
           e.preventDefault();
           e.stopPropagation();

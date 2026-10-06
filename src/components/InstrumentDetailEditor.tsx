@@ -14,6 +14,7 @@ import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokePairs, getWheelNuanceState, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { getNextPatternName } from '../utils/patternNaming';
+import { canTransferPatterns } from '../utils/instrumentCompatibility';
 import { createPortal } from 'react-dom';
 import { Play, Square, GripVertical, FolderOpen } from 'lucide-react';
 import {
@@ -686,6 +687,19 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [effectiveEditTrackId, sequencer]);
 
   const onCopyPattern = sequencer.handleCopyPattern;
+
+  const instrumentPatternsClipboard = useSequencerStore(state => state.instrumentPatternsClipboard);
+  const copyAllTrackPatterns = useSequencerStore(state => state.copyAllTrackPatterns);
+  const pasteAllTrackPatterns = useSequencerStore(state => state.pasteAllTrackPatterns);
+
+  const effectiveTrack = useSequencerStore(
+    React.useCallback((state) => state.tracks.find(t => String(t.id) === String(effectiveEditTrackId)) || track, [effectiveEditTrackId, track])
+  );
+  const isAllPatternsPasteable = Boolean(
+    instrumentPatternsClipboard &&
+    instrumentPatternsClipboard.patterns?.length > 0 &&
+    canTransferPatterns(instrumentPatternsClipboard, effectiveTrack || track)
+  );
 
   const onPlaySoloPattern = audio.handleStartSoloPattern;
   const onStopSoloPattern = audio.handleStopSoloPattern;
@@ -1455,6 +1469,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   useEffect(() => {
     if (selectedPatternId && effectiveEditTrackId) {
       useSequencerStore.getState().setSelectedPatternId(effectiveEditTrackId, selectedPatternId);
+      useSequencerStore.getState().setSelectedPatternId(selectedPatternId);
       if (trackId && trackId !== effectiveEditTrackId) {
         useSequencerStore.getState().setSelectedPatternId(trackId, selectedPatternId);
       }
@@ -1490,6 +1505,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setSelectedPatternId(patternId);
     setSelectedVariationId(null);
     useSequencerStore.getState().setSelectedPatternId(trackId, patternId);
+    useSequencerStore.getState().setSelectedPatternId(patternId);
     if (effectiveEditTrackId && effectiveEditTrackId !== trackId) {
       useSequencerStore.getState().setSelectedPatternId(effectiveEditTrackId, patternId);
     }
@@ -1966,21 +1982,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 title="Solo"
               >
                 S
-              </button>
-
-              {/* Detach / Reintegrate */}
-              <button
-                onClick={() => useSequencerStore.getState().toggleInstrumentEditorDetached()}
-                className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center cursor-pointer transition-colors ml-1 shrink-0 flex-shrink-0 ${
-                  isDetached ? 'bg-[#d4af37] text-[#1a1a1a] hover:bg-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37]'
-                }`}
-                title={
-                  isDetached
-                    ? (lang === 'fr' ? 'Réintégrer dans la fenêtre principale' : 'Reintegrar na janela principal')
-                    : (lang === 'fr' ? 'Détacher dans une nouvelle fenêtre' : 'Destacar em nova janela')
-                }
-              >
-                {isDetached ? '↙' : '↗'}
               </button>
 
               {/* Close */}
@@ -2540,7 +2541,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </SortableContext>
             </DndContext>
 
-            {/* Add pattern button & Paste as new pattern */}
+            {/* Add pattern button & Paste as new pattern & Global Track Patterns Copy/Paste */}
             {!isSlave && (
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <button
@@ -2558,6 +2559,33 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     📥 {lang === 'fr' ? 'Coller comme nouveau motif' : 'Colar como novo padrão'}
                   </button>
                 )}
+                <button
+                  onClick={() => copyAllTrackPatterns(effectiveEditTrackId)}
+                  className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-1.5"
+                  title={lang === 'fr' ? 'Copier tous les motifs de cette piste' : 'Copiar todos os padrões desta faixa'}
+                >
+                  <span>📋</span>
+                  <span>{lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos os padrões'}</span>
+                </button>
+                <button
+                  onClick={() => pasteAllTrackPatterns(effectiveEditTrackId, false)}
+                  disabled={!isAllPatternsPasteable}
+                  className={`self-start cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm transition-colors flex items-center gap-1.5 ${
+                    isAllPatternsPasteable
+                      ? 'bg-[#f4ecd8] text-[#1a1a1a] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                  }`}
+                  title={
+                    !instrumentPatternsClipboard
+                      ? (lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia')
+                      : !canTransferPatterns(instrumentPatternsClipboard, effectiveTrack || track)
+                        ? (lang === 'fr' ? `Famille incompatible (${instrumentPatternsClipboard.sourceFamily || 'source'} ➔ ${effectiveTrack?.customName || inst?.name || 'cible'})` : `Família incompatível`)
+                        : (lang === 'fr' ? 'Coller tous les motifs copiés (banque)' : 'Colar todos os padrões copiados')
+                  }
+                >
+                  <span>📥</span>
+                  <span>{lang === 'fr' ? 'Coller tous les motifs' : 'Colar todos os padrões'}</span>
+                </button>
               </div>
             )}
             </div>

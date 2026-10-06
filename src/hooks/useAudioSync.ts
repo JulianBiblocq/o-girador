@@ -23,6 +23,7 @@ import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useBalancoStore } from '../stores/useBalancoStore';
 import { getBalancoOffsetSec } from '../utils/balancoUtils';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
+import { isVoiceHoldSyllable, isVoiceHoldNote, isVoiceStepProlongation } from '../utils/musicTheory';
 import {
   pushVisualTick,
   pushVisualHitTrigger,
@@ -2119,12 +2120,64 @@ export function useAudioSync({
                   if (!anacrusisHasSample && trackVolPct > 0) {
                     const preNote = nextPattern.preRollNotes?.[cellIdx];
                     const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
-                    if (noteVal) {
+                    const preRollLyrics = nextPattern.preRollLyrics || [];
+                    const preRollCurSyl = preRollLyrics[cellIdx];
+                    const prevActiveState = cellIdx > 0 ? nextPattern.preRollActiveSteps?.[cellIdx - 1] : 0;
+                    const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
+                    const prevRawNote = cellIdx > 0 ? (nextPattern.preRollNotes?.[cellIdx - 1] || '') : '';
+                    const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
+
+                    const isProlongation = isVoiceStepProlongation(
+                      isPreActive,
+                      prevIsActive,
+                      noteVal,
+                      prevNoteVal,
+                      preRollCurSyl
+                    );
+
+                    if (!isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
+                      let spanSteps = 1;
+                      const preRollTotal = nextPattern.preRollActiveSteps?.length || 16;
+                      let nextPreIdx = cellIdx + 1;
+                      while (nextPreIdx < preRollTotal) {
+                        const nextState = nextPattern.preRollActiveSteps?.[nextPreIdx];
+                        const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
+                        const nextRawNote = nextPattern.preRollNotes?.[nextPreIdx];
+                        const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
+                        const nextSyl = preRollLyrics[nextPreIdx];
+                        if (isVoiceStepProlongation(nextIsActive, true, nextNoteVal, noteVal, nextSyl)) {
+                          spanSteps++;
+                          nextPreIdx++;
+                        } else {
+                          break;
+                        }
+                      }
+
+                      // Extension Anacrouse -> Mesure 1
+                      if (nextPreIdx === preRollTotal && nextPattern.activeSteps) {
+                        const patSteps = nextPattern.steps || 16;
+                        let nextMIdx = 0;
+                        while (nextMIdx < patSteps) {
+                          const mState = nextPattern.activeSteps[nextMIdx];
+                          const mIsActive = mState !== undefined && mState !== null && mState !== 0 && mState !== '0';
+                          const mRawNote = nextPattern.notes?.[nextMIdx];
+                          const mNoteVal = typeof mRawNote === 'string' ? mRawNote.trim() : '';
+                          const mSyl = nextPattern.lyrics?.[nextMIdx];
+                          if (isVoiceStepProlongation(mIsActive, true, mNoteVal, noteVal, mSyl)) {
+                            spanSteps++;
+                            nextMIdx++;
+                          } else {
+                            break;
+                          }
+                        }
+                      }
+
                       const decayVal = nextPattern.preRollDecays?.[cellIdx] ?? 10;
                       const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                       const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
+                      const effectiveSteps = Math.max(spanSteps, numDecaySteps);
                       const singleStepSec = (currentTicks / stepCount) * tick96nSec;
-                      const durationSec = Math.max(0.05, numDecaySteps * singleStepSec);
+                      const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                       const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                       const finalNoteVal = noteVal;
@@ -2274,34 +2327,44 @@ export function useAudioSync({
               const rawNote = effectivePatternForSteps.notes?.[cellIdx];
               const noteVal = typeof rawNote === 'string' ? rawNote.trim() : '';
               const lyrics = effectivePatternForSteps.lyrics || [];
-              const prevActiveState = cellIdx > 0 ? effectivePatternForSteps.activeSteps[cellIdx - 1] : 0;
+              const curSyl = lyrics[cellIdx];
+
+              const preRollTotal = effectivePatternForSteps.preRollActiveSteps?.length || 0;
+              const lastPreRollIdx = preRollTotal - 1;
+              const prevActiveState = cellIdx > 0
+                ? effectivePatternForSteps.activeSteps[cellIdx - 1]
+                : (preRollTotal > 0 ? effectivePatternForSteps.preRollActiveSteps?.[lastPreRollIdx] : 0);
               const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
-              const prevRawNote = cellIdx > 0 ? effectivePatternForSteps.notes?.[cellIdx - 1] : '';
+              const prevRawNote = cellIdx > 0
+                ? effectivePatternForSteps.notes?.[cellIdx - 1]
+                : (preRollTotal > 0 ? (effectivePatternForSteps.preRollNotes?.[lastPreRollIdx] || '') : '');
               const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
 
-              const isProlongation = Boolean(
-                isActive &&
-                noteVal &&
-                prevIsActive &&
-                prevNoteVal === noteVal &&
-                (!lyrics[cellIdx] || lyrics[cellIdx].trim() === '')
+              const isProlongation = isVoiceStepProlongation(
+                isActive,
+                prevIsActive,
+                noteVal,
+                prevNoteVal,
+                curSyl
               );
 
               // Synthèse vocale mélodique : active si vocalMode === 'synth' ou 'both', ou fallback si aucun sample audio
               const allowSynthPlayback = currentVocalMode === 'synth' || currentVocalMode === 'both' || !hasVocalSample;
               if (allowSynthPlayback && trackVolPct > 0) {
                 // Si c'est une prolongation, on ne réattaque PAS (évite l'effet mitraillette)
-                if (!isProlongation && noteVal) {
+                if (!isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
                   // Calculer le nombre de pas consécutifs tenus (attaque + prolongations)
-                  let consecutiveSteps = 1;
-                  for (let nextIdx = cellIdx + 1; nextIdx < stepCount; nextIdx++) {
+                  let spanSteps = 1;
+                  let nextIdx = cellIdx + 1;
+                  while (nextIdx < stepCount) {
                     const nextState = effectivePatternForSteps.activeSteps[nextIdx];
                     const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
                     const nextRawNote = effectivePatternForSteps.notes?.[nextIdx];
                     const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
                     const nextSyl = lyrics[nextIdx];
-                    if (nextIsActive && nextNoteVal === noteVal && (!nextSyl || nextSyl.trim() === '')) {
-                      consecutiveSteps++;
+                    if (isVoiceStepProlongation(nextIsActive, true, nextNoteVal, noteVal, nextSyl)) {
+                      spanSteps++;
+                      nextIdx++;
                     } else {
                       break;
                     }
@@ -2310,9 +2373,9 @@ export function useAudioSync({
                   const decayVal = effectivePatternForSteps.decays?.[cellIdx] ?? 10;
                   const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                   const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
-                  const effectiveSteps = Math.max(consecutiveSteps, numDecaySteps);
+                  const effectiveSteps = Math.max(spanSteps, numDecaySteps);
                   const singleStepSec = (currentTicks / stepCount) * tick96nSec;
-                  const durationSec = Math.max(0.05, effectiveSteps * singleStepSec);
+                  const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                   const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                   const finalNoteVal = noteVal;
@@ -2379,12 +2442,64 @@ export function useAudioSync({
                 if (allowAnacrusisSynth && trackVolPct > 0) {
                   const preNote = targetAnacrusisPat.preRollNotes?.[cellIdx];
                   const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
-                  if (noteVal) {
+                  const preRollLyrics = targetAnacrusisPat.preRollLyrics || [];
+                  const preRollCurSyl = preRollLyrics[cellIdx];
+                  const prevActiveState = cellIdx > 0 ? targetAnacrusisPat.preRollActiveSteps?.[cellIdx - 1] : 0;
+                  const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
+                  const prevRawNote = cellIdx > 0 ? (targetAnacrusisPat.preRollNotes?.[cellIdx - 1] || '') : '';
+                  const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
+
+                  const isProlongation = isVoiceStepProlongation(
+                    isPreActive,
+                    prevIsActive,
+                    noteVal,
+                    prevNoteVal,
+                    preRollCurSyl
+                  );
+
+                  if (!isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
+                    let spanSteps = 1;
+                    const preRollTotal = targetAnacrusisPat.preRollActiveSteps?.length || 16;
+                    let nextPreIdx = cellIdx + 1;
+                    while (nextPreIdx < preRollTotal) {
+                      const nextState = targetAnacrusisPat.preRollActiveSteps?.[nextPreIdx];
+                      const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
+                      const nextRawNote = targetAnacrusisPat.preRollNotes?.[nextPreIdx];
+                      const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
+                      const nextSyl = preRollLyrics[nextPreIdx];
+                      if (isVoiceStepProlongation(nextIsActive, true, nextNoteVal, noteVal, nextSyl)) {
+                        spanSteps++;
+                        nextPreIdx++;
+                      } else {
+                        break;
+                      }
+                    }
+
+                    // Extension Anacrouse -> Mesure 1
+                    if (nextPreIdx === preRollTotal && targetAnacrusisPat.activeSteps) {
+                      const patSteps = targetAnacrusisPat.steps || 16;
+                      let nextMIdx = 0;
+                      while (nextMIdx < patSteps) {
+                        const mState = targetAnacrusisPat.activeSteps[nextMIdx];
+                        const mIsActive = mState !== undefined && mState !== null && mState !== 0 && mState !== '0';
+                        const mRawNote = targetAnacrusisPat.notes?.[nextMIdx];
+                        const mNoteVal = typeof mRawNote === 'string' ? mRawNote.trim() : '';
+                        const mSyl = targetAnacrusisPat.lyrics?.[nextMIdx];
+                        if (isVoiceStepProlongation(mIsActive, true, mNoteVal, noteVal, mSyl)) {
+                          spanSteps++;
+                          nextMIdx++;
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+
                     const decayVal = targetAnacrusisPat.preRollDecays?.[cellIdx] ?? 10;
                     const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                     const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
+                    const effectiveSteps = Math.max(spanSteps, numDecaySteps);
                     const singleStepSec = (currentTicks / stepCount) * tick96nSec;
-                    const durationSec = Math.max(0.05, numDecaySteps * singleStepSec);
+                    const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                     const finalNoteVal = noteVal;
@@ -2867,11 +2982,44 @@ export function useAudioSync({
                 if (!hasVocalSample && vocalVol > 0) {
                   const preNote = activePattern.preRollNotes?.[s];
                   const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
-                  if (noteVal) {
+                  const preRollLyrics = activePattern.preRollLyrics || [];
+                  const preRollCurSyl = preRollLyrics[s];
+                  const prevActiveState = s > 0 ? activePattern.preRollActiveSteps?.[s - 1] : 0;
+                  const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
+                  const prevRawNote = s > 0 ? (activePattern.preRollNotes?.[s - 1] || '') : '';
+                  const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
+
+                  const isProlongation = isVoiceStepProlongation(
+                    isPreActive,
+                    prevIsActive,
+                    noteVal,
+                    prevNoteVal,
+                    preRollCurSyl
+                  );
+
+                  if (!isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
+                    let spanSteps = 1;
+                    const preRollTotal = activePattern.preRollActiveSteps?.length || 16;
+                    let nextPreIdx = s + 1;
+                    while (nextPreIdx < preRollTotal) {
+                      const nextState = activePattern.preRollActiveSteps?.[nextPreIdx];
+                      const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
+                      const nextRawNote = activePattern.preRollNotes?.[nextPreIdx];
+                      const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
+                      const nextSyl = preRollLyrics[nextPreIdx];
+                      if (isVoiceStepProlongation(nextIsActive, true, nextNoteVal, noteVal, nextSyl)) {
+                        spanSteps++;
+                        nextPreIdx++;
+                      } else {
+                        break;
+                      }
+                    }
+
                     const decayVal = activePattern.preRollDecays?.[s] ?? 10;
                     const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                     const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
-                    const durationSec = Math.max(0.05, numDecaySteps * runwayStepDurationSec);
+                    const effectiveSteps = Math.max(spanSteps, numDecaySteps);
+                    const durationSec = Math.max(0.05, effectiveSteps * runwayStepDurationSec * 0.95);
 
                     const trackVolLinear = Math.pow(vocalVol / 100, 2);
                     const finalNoteVal = noteVal;

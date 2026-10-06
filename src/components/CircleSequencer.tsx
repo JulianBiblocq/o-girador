@@ -23,6 +23,7 @@ import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useA
 import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers';
 import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
 import { usePerformanceStore } from '../stores/usePerformanceStore';
+import { isVoiceStepProlongation, isVoiceHoldSyllable } from '../utils/musicTheory';
 
 interface CircleSequencerProps {
   isActive?: boolean;
@@ -2587,17 +2588,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
             const prevPActive = i > 0 && puxSteps[i - 1].active;
             const prevPNote = i > 0 ? puxSteps[i - 1].note : '';
-            const isPProlongation = i > 0 && pActive && prevPActive &&
-              (pNote !== '' && prevPNote !== '' ? pNote === prevPNote : true) &&
-              (!pSyl || pSyl === '');
+            const isPProlongation = isVoiceStepProlongation(pActive, prevPActive, pNote, prevPNote, pSyl);
 
             puxSteps.push({ active: pActive, note: pNote, syl: pSyl, isProlongation: isPProlongation, isAnacrusis: pAnacrusis });
 
             const prevCActive = i > 0 && coroSteps[i - 1].active;
             const prevCNote = i > 0 ? coroSteps[i - 1].note : '';
-            const isCProlongation = i > 0 && cActive && prevCActive &&
-              (cNote !== '' && prevCNote !== '' ? cNote === prevCNote : true) &&
-              (!cSyl || cSyl === '');
+            const isCProlongation = isVoiceStepProlongation(cActive, prevCActive, cNote, prevCNote, cSyl);
 
             coroSteps.push({ active: cActive, note: cNote, syl: cSyl, isProlongation: isCProlongation, isAnacrusis: cAnacrusis });
           }
@@ -2634,7 +2631,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           if (puxBlocks.length > 1 && puxBlocks[0].startIndex === 0 && puxBlocks[puxBlocks.length - 1].endIndex === effectiveStepCount - 1) {
             const step0 = puxSteps[0];
             const stepLast = puxSteps[effectiveStepCount - 1];
-            if (step0.active && stepLast.active && (!step0.syl || step0.syl === '') && (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)) {
+            if (step0.active && stepLast.active && isVoiceHoldSyllable(step0.syl) && (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)) {
               puxBlocks[puxBlocks.length - 1].endIndex = effectiveStepCount - 1 + puxBlocks[0].endIndex + 1;
               puxBlocks.shift();
             }
@@ -2664,7 +2661,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           if (coroBlocks.length > 1 && coroBlocks[0].startIndex === 0 && coroBlocks[coroBlocks.length - 1].endIndex === effectiveStepCount - 1) {
             const step0 = coroSteps[0];
             const stepLast = coroSteps[effectiveStepCount - 1];
-            if (step0.active && stepLast.active && (!step0.syl || step0.syl === '') && (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)) {
+            if (step0.active && stepLast.active && isVoiceHoldSyllable(step0.syl) && (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)) {
               coroBlocks[coroBlocks.length - 1].endIndex = effectiveStepCount - 1 + coroBlocks[0].endIndex + 1;
               coroBlocks.shift();
             }

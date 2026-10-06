@@ -19,19 +19,26 @@ export function getInstrumentFamily(instId: string): string {
 export function canTransferPatterns(source: any, target: any): boolean {
   if (!source || !target) return false;
 
-  const sourceInstId = source.sourceInstId 
-    ?? (source.instrumentIdx !== undefined ? instrumentsConfig[source.instrumentIdx]?.id : '')
-    ?? source.id 
-    ?? '';
-  const targetInstId = target.sourceInstId
-    ?? (target.instrumentIdx !== undefined ? instrumentsConfig[target.instrumentIdx]?.id : '')
-    ?? target.id
-    ?? '';
+  const extractId = (item: any): string => {
+    if (typeof item === 'string') return item.trim().toLowerCase();
+    if (item.sourceType) return String(item.sourceType).trim().toLowerCase();
+    if (item.sourceInstId) return String(item.sourceInstId).trim().toLowerCase();
+    if (item.instrumentIdx !== undefined && instrumentsConfig[item.instrumentIdx]?.id) {
+      return String(instrumentsConfig[item.instrumentIdx].id).trim().toLowerCase();
+    }
+    if (item.id && typeof item.id === 'string' && isNaN(Number(item.id))) {
+      return item.id.trim().toLowerCase();
+    }
+    return '';
+  };
+
+  const sourceInstId = extractId(source);
+  const targetInstId = extractId(target);
 
   if (sourceInstId && targetInstId && sourceInstId === targetInstId) return true;
 
-  const sourceFamily = source.sourceFamily ?? getInstrumentFamily(sourceInstId);
-  const targetFamily = target.sourceFamily ?? getInstrumentFamily(targetInstId);
+  const sourceFamily = (typeof source === 'object' && source.sourceFamily) ? source.sourceFamily : getInstrumentFamily(sourceInstId);
+  const targetFamily = (typeof target === 'object' && target.sourceFamily) ? target.sourceFamily : getInstrumentFamily(targetInstId);
 
   return sourceFamily === targetFamily && sourceFamily !== '';
 }

@@ -294,6 +294,22 @@ export function useGlobalKeyboardShortcuts() {
           const hasTimelineTarget = Boolean(
             store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0)
           );
+          if (key === 'v' && store.copiedSection) {
+            let targetMeasureIdx: number | null = null;
+            if (store.activeTimelineCell) {
+              targetMeasureIdx = (store.activeTimelineCell as any).mIdx ?? store.activeTimelineCell.measureIdx;
+            } else if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
+              targetMeasureIdx = store.selectedTimelineCells[0].mIdx;
+            } else if (typeof store.currentMeasure === 'number') {
+              targetMeasureIdx = store.currentMeasure;
+            }
+            if (targetMeasureIdx !== null) {
+              e.preventDefault();
+              e.stopPropagation();
+              store.handlePasteSongSection(targetMeasureIdx);
+              return;
+            }
+          }
           if (hasTimelineTarget) {
             e.preventDefault();
             e.stopPropagation();
@@ -302,7 +318,19 @@ export function useGlobalKeyboardShortcuts() {
             } else if (key === 'x') {
               store.cutTimelineSelection();
             } else if (key === 'v') {
-              if (store.timelineClipboard && store.activeTimelineCell) {
+              if (store.copiedSection) {
+                let targetMeasureIdx: number | null = null;
+                if (store.activeTimelineCell) {
+                  targetMeasureIdx = (store.activeTimelineCell as any).mIdx ?? store.activeTimelineCell.measureIdx;
+                } else if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
+                  targetMeasureIdx = store.selectedTimelineCells[0].mIdx;
+                } else if (typeof store.currentMeasure === 'number') {
+                  targetMeasureIdx = store.currentMeasure;
+                }
+                if (targetMeasureIdx !== null) {
+                  store.handlePasteSongSection(targetMeasureIdx);
+                }
+              } else if (store.timelineClipboard && store.activeTimelineCell) {
                 store.pasteTimelineClipboard();
               }
             }

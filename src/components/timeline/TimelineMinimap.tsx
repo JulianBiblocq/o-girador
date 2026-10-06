@@ -179,8 +179,8 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
   };
 
   const handleMinimapZoomRightPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== 'mouse') return;
     if (e.button !== 0) return;
+    e.preventDefault();
     e.stopPropagation(); // Prevent minimap panning
     
     if (!minimapContainerRef.current || !minimapSliderRef.current || !scrollRef.current) return;
@@ -188,7 +188,11 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     const initialS = sliderWidthRef.current;
     const initialL = sliderLeftRef.current;
     const M = minimapContainerRef.current.clientWidth;
-    const V = scrollRef.current.clientWidth;
+    const handleEl = e.currentTarget;
+    const pointerId = e.pointerId;
+    if (typeof handleEl.setPointerCapture === 'function') {
+      try { handleEl.setPointerCapture(pointerId); } catch (_) {}
+    }
     
     let rafId: number | null = null;
     let latestClientX = initialX;
@@ -199,11 +203,13 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
       const deltaX = clientX - initialX;
       const targetS = Math.max(16, initialS + deltaX);
       
-      const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
-      const clampedW = Math.max(120, Math.min(960, newW));
+      const viewportW = scrollRef.current ? scrollRef.current.clientWidth - HEADER_W : 800;
+      const targetContentW = (M * viewportW) / targetS;
+      const newW = (targetContentW - 150) / totalMeasures;
+      const clampedW = Math.max(20, Math.min(960, newW));
       
       React.startTransition(() => {
-        const newC = HEADER_W + totalMeasures * clampedW + 150;
+        const newC = totalMeasures * clampedW + 150;
         const newScrollLeft = (initialL / M) * newC;
         pendingScrollLeftRef.current = newScrollLeft;
         if (scrollRef.current) {
@@ -240,6 +246,9 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
         rafId = null;
       }
       performZoom(latestClientX, true); // Apply final value
+      if (typeof handleEl.releasePointerCapture === 'function') {
+        try { handleEl.releasePointerCapture(pointerId); } catch (_) {}
+      }
       if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
       document.body.style.cursor = 'default';
     };
@@ -250,12 +259,13 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     
     window.addEventListener('pointermove', onPointerMove, { signal });
     window.addEventListener('pointerup', onPointerUp, { signal });
+    window.addEventListener('pointercancel', onPointerUp, { signal });
     document.body.style.cursor = 'ew-resize';
   };
 
   const handleMinimapZoomLeftPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== 'mouse') return;
     if (e.button !== 0) return;
+    e.preventDefault();
     e.stopPropagation();
     
     if (!minimapContainerRef.current || !minimapSliderRef.current || !scrollRef.current) return;
@@ -263,7 +273,11 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     const initialS = sliderWidthRef.current;
     const initialL = sliderLeftRef.current;
     const M = minimapContainerRef.current.clientWidth;
-    const V = scrollRef.current.clientWidth;
+    const handleEl = e.currentTarget;
+    const pointerId = e.pointerId;
+    if (typeof handleEl.setPointerCapture === 'function') {
+      try { handleEl.setPointerCapture(pointerId); } catch (_) {}
+    }
     
     let rafId: number | null = null;
     let latestClientX = initialX;
@@ -275,11 +289,13 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
       const targetS = Math.max(16, initialS - deltaX);
       const targetL = Math.max(0, Math.min(M - targetS, initialL + deltaX));
       
-      const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
-      const clampedW = Math.max(120, Math.min(960, newW));
+      const viewportW = scrollRef.current ? scrollRef.current.clientWidth - HEADER_W : 800;
+      const targetContentW = (M * viewportW) / targetS;
+      const newW = (targetContentW - 150) / totalMeasures;
+      const clampedW = Math.max(20, Math.min(960, newW));
       
       React.startTransition(() => {
-        const newC = HEADER_W + totalMeasures * clampedW + 150;
+        const newC = totalMeasures * clampedW + 150;
         const newScrollLeft = (targetL / M) * newC;
         pendingScrollLeftRef.current = newScrollLeft;
         if (scrollRef.current) {
@@ -316,6 +332,9 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
         rafId = null;
       }
       performZoom(latestClientX, true); // Apply final value
+      if (typeof handleEl.releasePointerCapture === 'function') {
+        try { handleEl.releasePointerCapture(pointerId); } catch (_) {}
+      }
       if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
       document.body.style.cursor = 'default';
     };
@@ -326,6 +345,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     
     window.addEventListener('pointermove', onPointerMove, { signal });
     window.addEventListener('pointerup', onPointerUp, { signal });
+    window.addEventListener('pointercancel', onPointerUp, { signal });
     document.body.style.cursor = 'ew-resize';
   };
 

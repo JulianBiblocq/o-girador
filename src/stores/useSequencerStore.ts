@@ -8,9 +8,9 @@ import { createTrainingSlice } from './slices/trainingSlice';
 import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
-import { getTopParentBusId } from '../utils/colorHelpers';
-import { transposeNoteString } from '../utils/musicTheory';
+import { transposeNoteString, isVoiceStepProlongation, isVoiceHoldSyllable, isVoiceHoldNote } from '../utils/musicTheory';
 import { canTransferPatterns, convertStepsToVocalRole, getInstrumentFamily } from '../utils/instrumentCompatibility';
+import { getNextPatternName } from '../utils/patternNaming';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
@@ -48,7 +48,7 @@ export interface TrackSlice {
   handleReorderMixerTracks: (activeId: number, overId: number) => void;
   handleReorderWagon: (wagonTrackIds: number[], overTrackId: number) => void;
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
-  setSelectedPatternId: (trackId: number, patternId: number) => void;
+  setSelectedPatternId: (trackIdOrPatternId: number, patternId?: number) => void;
   handleCreateFromTemplate: (
     template: WorkspaceTemplate,
     audio?: {
@@ -408,13 +408,30 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       tracksVersion: state.tracksVersion + 1
     };
   }),
-  setSelectedPatternId: (trackId: number, patternId: number) => set(state => ({
-    tracks: state.tracks.map(t => (t.id === trackId || String(t.id) === String(trackId))
-      ? { ...t, selectedPatternId: patternId }
-      : t
-    ),
-    tracksVersion: state.tracksVersion + 1
-  })),
+  setSelectedPatternId: (trackIdOrPatternId: number, patternId?: number) => set(state => {
+    if (patternId === undefined) {
+      const pId = trackIdOrPatternId;
+      const editingTrackId = state.editingTrackId;
+      return {
+        selectedPatternId: pId,
+        tracks: editingTrackId !== null
+          ? state.tracks.map(t => (t.id === editingTrackId || String(t.id) === String(editingTrackId))
+              ? { ...t, selectedPatternId: pId }
+              : t)
+          : state.tracks,
+        tracksVersion: state.tracksVersion + 1
+      };
+    }
+    const tId = trackIdOrPatternId;
+    return {
+      selectedPatternId: patternId,
+      tracks: state.tracks.map(t => (t.id === tId || String(t.id) === String(tId))
+        ? { ...t, selectedPatternId: patternId }
+        : t
+      ),
+      tracksVersion: state.tracksVersion + 1
+    };
+  }),
   setRodaTrackOrder: (updater) => set(state => {
     const rawOrder = typeof updater === 'function' ? updater(state.rodaTrackOrder) : updater;
     const nextOrder = sanitizeRodaTrackOrder(rawOrder, state.tracks);
@@ -2028,15 +2045,82 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const isLinkedSlave = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
       const isLinkMaster = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
 
+      let targetTrackId = trackId;
+      let targetTrack = clickedTrack;
+      if (isLinkMaster && clickedTrack?.linkedToTrackId) {
+        targetTrackId = Number(clickedTrack.linkedToTrackId);
+        const master = state.tracks.find(t => t.id === targetTrackId);
+        if (master) targetTrack = master;
+      } else if (patternId !== null && patternId !== undefined) {
+        const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
+        if (ownerTrack) {
+          targetTrackId = ownerTrack.id;
+          targetTrack = ownerTrack;
+        }
+      }
+
+      const pattern = targetTrack?.patterns?.find(p => p.id === patternId);
+      const stepsPerMeasure = 16;
+      const spanMeasures = pattern ? Math.max(1, Math.round((pattern.steps || stepsPerMeasure) / stepsPerMeasure)) : 1;
+
+      let nextTotal = state.totalMeasures;
+      let nextTracks = [...state.tracks];
+      let nextTimeSigs = [...state.measureTimeSigs];
+      let nextBpms = [...state.measureBpms];
+      let nextBpmTransitions = [...state.measureBpmTransitions];
+      let nextVols = [...state.measureVols];
+      let nextVolTransitions = [...state.measureVolTransitions];
+      let nextSignals = [...state.measureSignals];
+
+      const requiredTotal = measureIdx + spanMeasures;
+      if (requiredTotal > nextTotal) {
+        nextTotal = requiredTotal;
+        const expandArray = <T>(arr: T[], fillValue: T): T[] => {
+          const next = [...(arr || [])];
+          while (next.length < nextTotal) next.push(fillValue);
+          return next;
+        };
+        nextTimeSigs = expandArray(nextTimeSigs, state.timeSig || '4/4');
+        nextBpms = expandArray(nextBpms, state.bpm || 100);
+        nextBpmTransitions = expandArray(nextBpmTransitions, 'immediate');
+        nextVols = expandArray(nextVols, 100);
+        nextVolTransitions = expandArray(nextVolTransitions, 'immediate');
+        nextSignals = expandArray(nextSignals, null);
+        nextTracks = nextTracks.map(t => ({
+          ...t,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+          measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+          measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
+          patterns: t.patterns.map(p => ({
+            ...p,
+            measureAssignments: expandArray(p.measureAssignments || [], false),
+            measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined
+          }))
+        }));
+      }
+
       if (isLinkedSlave) {
         return {
-          tracks: state.tracks.map(t => {
+          totalMeasures: nextTotal,
+          measureTimeSigs: nextTimeSigs,
+          measureBpms: nextBpms,
+          measureBpmTransitions: nextBpmTransitions,
+          measureVols: nextVols,
+          measureVolTransitions: nextVolTransitions,
+          measureSignals: nextSignals,
+          tracks: nextTracks.map(t => {
             if (t.id === trackId) {
               const overrides = { ...(t.patternOverrides || {}) };
-              if (patternId === undefined) {
-                delete overrides[measureIdx];
-              } else {
-                overrides[measureIdx] = patternId;
+              for (let offset = 0; offset < spanMeasures; offset++) {
+                const m = measureIdx + offset;
+                if (patternId === undefined) {
+                  delete overrides[m];
+                } else {
+                  overrides[m] = patternId;
+                }
               }
               return { ...t, patternOverrides: overrides };
             }
@@ -2046,30 +2130,29 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         };
       }
 
-      const isToadaTrackId = isToadaBus(state.tracks.find(t => t.id === trackId) || {});
-      
-      let targetTrackId = trackId;
-      if (isLinkMaster && clickedTrack) {
-        targetTrackId = Number(clickedTrack.linkedToTrackId);
-      } else if (patternId !== null && patternId !== undefined) {
-        const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
-        if (ownerTrack) {
-          targetTrackId = ownerTrack.id;
-        }
-      }
-
-      const puxTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-      const coroTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const isToadaTrackId = isToadaBus(clickedTrack || {});
+      const puxTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 
       return {
-        tracks: state.tracks.map(t => {
+        totalMeasures: nextTotal,
+        measureTimeSigs: nextTimeSigs,
+        measureBpms: nextBpms,
+        measureBpmTransitions: nextBpmTransitions,
+        measureVols: nextVols,
+        measureVolTransitions: nextVolTransitions,
+        measureSignals: nextSignals,
+        tracks: nextTracks.map(t => {
           // Si on efface explicitement depuis la ligne maîtresse Toada (silence global de la toada)
           if (isToadaTrackId && patternId === null && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
             return {
               ...t,
               patterns: t.patterns.map(p => {
                 const assign = [...p.measureAssignments];
-                assign[measureIdx] = false;
+                while (assign.length < nextTotal) assign.push(false);
+                for (let offset = 0; offset < spanMeasures; offset++) {
+                  assign[measureIdx + offset] = false;
+                }
                 return { ...p, measureAssignments: assign };
               })
             };
@@ -2080,7 +2163,10 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               ...t,
               patterns: t.patterns.map(p => {
                 const assign = [...p.measureAssignments];
-                assign[measureIdx] = p.id === patternId;
+                while (assign.length < nextTotal) assign.push(false);
+                for (let offset = 0; offset < spanMeasures; offset++) {
+                  assign[measureIdx + offset] = p.id === patternId;
+                }
                 return { ...p, measureAssignments: assign };
               })
             };
@@ -4055,10 +4141,31 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
 // ---------------------------------------------------------
 export interface InstrumentPatternsClipboard {
   sourceTrackId: number;
-  sourceInstrumentIdx: number;
-  sourceInstId: string;
-  sourceFamily: string;
+  sourceType: string;
+  sourceName: string;
   patterns: Pattern[];
+  timelineAssignments?: Record<string, boolean[]>;
+  sourceInstrumentIdx?: number;
+  sourceInstId?: string;
+  sourceFamily?: string;
+}
+
+export interface VoiceStepData {
+  note: string;
+  syllable: string;
+  role: 'P' | 'C' | '0';
+  isProlongation?: boolean;
+}
+
+export interface VoiceStepsClipboard {
+  steps: VoiceStepData[];
+}
+
+export interface SelectedStepRange {
+  start: { isPreRoll: boolean; step: number };
+  end: { isPreRoll: boolean; step: number };
+  patternId?: number;
+  trackId?: number;
 }
 
 export interface ClipboardSlice {
@@ -4066,6 +4173,7 @@ export interface ClipboardSlice {
   copiedSection: any | null;
   instrumentPatternsClipboard: InstrumentPatternsClipboard | null;
   vocalNotesClipboard: string[] | null;
+  voiceStepsClipboard: VoiceStepsClipboard | null;
 
   setCopiedPattern: (pattern: Pattern | null) => void;
   setCopiedSection: (section: any | null) => void;
@@ -4073,9 +4181,12 @@ export interface ClipboardSlice {
   handleCopySongSection: (section: SongSection) => void;
   handlePasteSongSection: (destStartMeasure: number) => void;
   copyAllTrackPatterns: (trackId: number) => void;
-  pasteAllTrackPatterns: (targetTrackId: number, mode: 'libraryOnly' | 'libraryAndTimeline') => void;
-  copySelectedNotesRange: (rangeOverride?: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null) => void;
+  pasteAllTrackPatterns: (targetTrackId: number, modeOrApplyTimeline?: boolean | 'libraryOnly' | 'libraryAndTimeline') => void;
+  copySelectedNotesRange: (rangeOverride?: SelectedStepRange | null) => void;
   pasteNotesOnlyStartingAt: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number) => void;
+  copyVoiceStepsRange: (rangeOverride?: SelectedStepRange | null, trackIdOverride?: number, patternIdOverride?: number) => void;
+  cutVoiceStepsRange: (rangeOverride?: SelectedStepRange | null, trackIdOverride?: number, patternIdOverride?: number) => void;
+  pasteVoiceSteps: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number, notesOnly?: boolean) => void;
 }
 
 const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice> = (set, get) => ({
@@ -4083,11 +4194,12 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
   copiedSection: null,
   instrumentPatternsClipboard: null,
   vocalNotesClipboard: null,
+  voiceStepsClipboard: null,
 
-  copySelectedNotesRange: (rangeOverride) => {
+  copyVoiceStepsRange: (rangeOverride, trackIdOverride, patternIdOverride) => {
     const state = get();
-    const range = rangeOverride || state.selectedStepRange;
-    let effectiveRange = range;
+    let effectiveRange: SelectedStepRange | null = rangeOverride || state.selectedStepRange;
+
     if (!effectiveRange && state.selectedStepIdx !== null && state.selectedStepIdx !== undefined) {
       const isPreRoll = Boolean(state.selectedStepIsPreRoll);
       effectiveRange = {
@@ -4095,116 +4207,501 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
         end: { isPreRoll, step: state.selectedStepIdx }
       };
     }
-    if (!effectiveRange) return;
 
-    const editingTrackId = state.editingTrackId;
-    let track = state.tracks.find(t => t.id === editingTrackId || String(t.id) === String(editingTrackId));
+    // Fallback DOM si le store n'avait pas encore enregistré le pas focalisé
+    if (!effectiveRange && typeof document !== 'undefined') {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const cellEl = activeEl?.closest?.('.voice-step-cell, [data-step-type="voice"], [data-step-index]');
+      if (cellEl) {
+        const stepAttr = cellEl.getAttribute('data-step-index');
+        const isPreRollAttr = cellEl.getAttribute('data-is-preroll');
+        if (stepAttr !== null) {
+          const step = parseInt(stepAttr, 10);
+          const isPreRoll = isPreRollAttr === 'true';
+          effectiveRange = {
+            start: { isPreRoll, step },
+            end: { isPreRoll, step }
+          };
+          set({ selectedStepIdx: step, selectedStepIsPreRoll: isPreRoll });
+        }
+      }
+    }
+
+    if (!effectiveRange) {
+      console.warn('⚠️ [Toada Copy] Aucune plage ni cellule vocale sélectionnée.');
+      return;
+    }
+
+    // Résolution robuste de la piste
+    let targetTrackId = trackIdOverride;
+    if (targetTrackId === undefined || targetTrackId === null) {
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const cellEl = activeEl?.closest?.('[data-track-id]');
+        if (cellEl) {
+          const tAttr = cellEl.getAttribute('data-track-id');
+          if (tAttr) targetTrackId = parseInt(tAttr, 10);
+        }
+      }
+    }
+    if (targetTrackId === undefined || targetTrackId === null) {
+      targetTrackId = state.editingTrackId ?? undefined;
+    }
+
+    let track = targetTrackId !== undefined
+      ? state.tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId))
+      : undefined;
+
+    if (!track) {
+      // Trouver une piste vocale réelle avec des motifs non vides (exclure les bus dossiers)
+      track = state.tracks.find(t => {
+        const instId = instrumentsConfig[t.instrumentIdx]?.id;
+        const isVoiceType = instId === 'puxador' || instId === 'coro' || String(t.id).includes('coro') || String(t.id).includes('puxador');
+        return isVoiceType && !t.isBusFolder && t.patterns && t.patterns.length > 0;
+      });
+    }
     if (!track) {
       track = state.tracks.find(t => {
         const instId = instrumentsConfig[t.instrumentIdx]?.id;
-        return instId === 'puxador' || instId === 'coro' || String(t.id).includes('coro') || String(t.id).includes('puxador') || isToadaBus(t);
+        return (instId === 'puxador' || instId === 'coro') && t.patterns && t.patterns.length > 0;
       });
     }
-    if (!track) return;
+    if (!track) {
+      console.warn('⚠️ [Toada Copy] Aucune piste vocale trouvée.');
+      return;
+    }
 
-    const pattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
-    if (!pattern) return;
+    // Résolution robuste du motif source selon l'ordre strict :
+    // 1er choix : patternIdOverride
+    // 2e choix : effectiveRange?.patternId
+    // 3e choix : data-pattern-id sur document.activeElement
+    // 4e choix : state.selectedPatternId
+    // 5e choix : track.selectedPatternId
+    let targetPatternId = patternIdOverride;
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      if (effectiveRange?.patternId !== undefined && effectiveRange?.patternId !== null && effectiveRange?.patternId !== 0) {
+        targetPatternId = effectiveRange.patternId;
+      }
+    }
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const cellEl = activeEl?.closest?.('[data-pattern-id]');
+        if (cellEl) {
+          const pAttr = cellEl.getAttribute('data-pattern-id');
+          if (pAttr) targetPatternId = parseInt(pAttr, 10);
+        }
+      }
+    }
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      targetPatternId = state.selectedPatternId ?? undefined;
+    }
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      targetPatternId = track.selectedPatternId ?? undefined;
+    }
 
-    const timeSig = (pattern as any).timeSignature || state.metadata?.ritmo || '4/4';
-    const preRollStepsCount = pattern.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+    let pattern = targetPatternId !== undefined
+      ? track.patterns.find(p => p.id === targetPatternId || String(p.id) === String(targetPatternId))
+      : undefined;
 
+    if (!pattern && track.patterns && track.patterns.length > 0) {
+      pattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
+    }
+    if (!pattern) {
+      console.warn('⚠️ [Toada Copy] Aucun motif trouvé pour la piste', track.id);
+      return;
+    }
+
+    const instId = instrumentsConfig[track.instrumentIdx]?.id;
+    const isCoro = instId === 'coro' || String(track.id).toLowerCase().includes('coro') || track.customName?.toLowerCase().includes('coro');
+    const defaultVoiceRole: 'P' | 'C' = isCoro ? 'C' : 'P';
+
+    const preRollStepsCount = pattern.preRollActiveSteps?.length || 16;
     const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollStepsCount + p.step);
     const minLinear = Math.min(toLinear(effectiveRange.start), toLinear(effectiveRange.end));
     const maxLinear = Math.max(toLinear(effectiveRange.start), toLinear(effectiveRange.end));
 
-    const copiedNotes: string[] = [];
+    const isStepActiveVal = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
+
+    const copiedSteps: VoiceStepData[] = [];
     for (let l = minLinear; l <= maxLinear; l++) {
       if (l < preRollStepsCount) {
         const note = pattern.preRollNotes?.[l] || '';
-        copiedNotes.push(note);
+        const syllable = pattern.preRollLyrics?.[l] || '';
+        const act = pattern.preRollActiveSteps?.[l];
+        const role: 'P' | 'C' | '0' = (act === 'P' || act === 'C')
+          ? act
+          : (isStepActiveVal(act) ? defaultVoiceRole : '0');
+
+        const curActive = isStepActiveVal(act);
+        const prevAct = l > 0 ? pattern.preRollActiveSteps?.[l - 1] : 0;
+        const prevActive = isStepActiveVal(prevAct);
+        const curNoteTrim = (note || '').trim();
+        const prevNote = l > 0 ? (pattern.preRollNotes?.[l - 1] || '').trim() : '';
+        const isProlongation = isVoiceStepProlongation(
+          curActive,
+          prevActive,
+          curNoteTrim,
+          prevNote,
+          syllable
+        );
+
+        copiedSteps.push({ note, syllable, role, isProlongation });
       } else {
         const stepIdx = l - preRollStepsCount;
         const note = pattern.notes?.[stepIdx] || '';
-        copiedNotes.push(note);
+        const syllable = pattern.lyrics?.[stepIdx] || '';
+        const act = pattern.activeSteps?.[stepIdx];
+        const role: 'P' | 'C' | '0' = (act === 'P' || act === 'C')
+          ? act
+          : (isStepActiveVal(act) ? defaultVoiceRole : '0');
+
+        const curActive = isStepActiveVal(act);
+        const prevAct = stepIdx > 0 ? pattern.activeSteps?.[stepIdx - 1] : (pattern.preRollActiveSteps?.[preRollStepsCount - 1] || 0);
+        const prevActive = isStepActiveVal(prevAct);
+        const curNoteTrim = (note || '').trim();
+        const prevNote = stepIdx > 0 ? (pattern.notes?.[stepIdx - 1] || '').trim() : (pattern.preRollNotes?.[preRollStepsCount - 1] || '').trim();
+        const isProlongation = isVoiceStepProlongation(
+          curActive,
+          prevActive,
+          curNoteTrim,
+          prevNote,
+          syllable
+        );
+
+        copiedSteps.push({ note, syllable, role, isProlongation });
       }
     }
 
-    set({ vocalNotesClipboard: copiedNotes });
+    set({
+      voiceStepsClipboard: { steps: copiedSteps },
+      vocalNotesClipboard: copiedSteps.map(s => s.note)
+    });
+
+    console.log('📋 [Toada Copy Source]', {
+      patternId: pattern.id,
+      patternName: pattern.name,
+      stepsCount: copiedSteps.length
+    });
+    console.log('✅ [Toada Copied Steps]', copiedSteps.length, copiedSteps);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
     }
   },
 
-  pasteNotesOnlyStartingAt: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number) => {
+  cutVoiceStepsRange: (rangeOverride, trackIdOverride, patternIdOverride) => {
     const state = get();
-    const clipboard = state.vocalNotesClipboard;
-    if (!clipboard || clipboard.length === 0) return;
+    let effectiveRange: SelectedStepRange | null = rangeOverride || state.selectedStepRange;
+    if (!effectiveRange && state.selectedStepIdx !== null && state.selectedStepIdx !== undefined) {
+      const isPreRoll = Boolean(state.selectedStepIsPreRoll);
+      effectiveRange = {
+        start: { isPreRoll, step: state.selectedStepIdx },
+        end: { isPreRoll, step: state.selectedStepIdx }
+      };
+    }
+    if (!effectiveRange && typeof document !== 'undefined') {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const cellEl = activeEl?.closest?.('.voice-step-cell, [data-step-type="voice"], [data-step-index]');
+      if (cellEl) {
+        const stepAttr = cellEl.getAttribute('data-step-index');
+        const isPreRollAttr = cellEl.getAttribute('data-is-preroll');
+        if (stepAttr !== null) {
+          const step = parseInt(stepAttr, 10);
+          const isPreRoll = isPreRollAttr === 'true';
+          effectiveRange = {
+            start: { isPreRoll, step },
+            end: { isPreRoll, step }
+          };
+          set({ selectedStepIdx: step, selectedStepIsPreRoll: isPreRoll });
+        }
+      }
+    }
+    if (!effectiveRange) return;
 
-    const track = state.tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId));
+    // 1. Sauvegarde préalable de l'état pour Undo atomique unique
+    state.pushUndoState();
+
+    // 2. Copier d'abord la sélection dans le presse-papier
+    state.copyVoiceStepsRange(effectiveRange, trackIdOverride, patternIdOverride);
+
+    let targetTrackId = trackIdOverride;
+    if (targetTrackId === undefined || targetTrackId === null) {
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const cellEl = activeEl?.closest?.('[data-track-id]');
+        if (cellEl) {
+          const tAttr = cellEl.getAttribute('data-track-id');
+          if (tAttr) targetTrackId = parseInt(tAttr, 10);
+        }
+      }
+    }
+    if (targetTrackId === undefined || targetTrackId === null) {
+      targetTrackId = state.editingTrackId ?? undefined;
+    }
+
+    let track = targetTrackId !== undefined
+      ? state.tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId))
+      : undefined;
+
+    if (!track) {
+      track = state.tracks.find(t => {
+        const instId = instrumentsConfig[t.instrumentIdx]?.id;
+        const isVoiceType = instId === 'puxador' || instId === 'coro' || String(t.id).includes('coro') || String(t.id).includes('puxador');
+        return isVoiceType && !t.isBusFolder && t.patterns && t.patterns.length > 0;
+      });
+    }
     if (!track) return;
-    const pattern = track.patterns.find(p => p.id === targetPatternId || String(p.id) === String(targetPatternId));
+
+    // Résolution robuste du motif source selon l'ordre strict :
+    let targetPatternId = patternIdOverride;
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      if (effectiveRange?.patternId !== undefined && effectiveRange?.patternId !== null && effectiveRange?.patternId !== 0) {
+        targetPatternId = effectiveRange.patternId;
+      }
+    }
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const cellEl = activeEl?.closest?.('[data-pattern-id]');
+        if (cellEl) {
+          const pAttr = cellEl.getAttribute('data-pattern-id');
+          if (pAttr) targetPatternId = parseInt(pAttr, 10);
+        }
+      }
+    }
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      targetPatternId = state.selectedPatternId ?? undefined;
+    }
+    if (targetPatternId === undefined || targetPatternId === null || targetPatternId === 0) {
+      targetPatternId = track.selectedPatternId ?? undefined;
+    }
+
+    let pattern = targetPatternId !== undefined
+      ? track.patterns.find(p => p.id === targetPatternId || String(p.id) === String(targetPatternId))
+      : undefined;
+
+    if (!pattern && track.patterns && track.patterns.length > 0) {
+      pattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
+    }
     if (!pattern) return;
 
-    const instId = instrumentsConfig[track.instrumentIdx]?.id;
-    const isCoro = instId === 'coro' || String(track.id).toLowerCase().includes('coro') || track.customName?.toLowerCase().includes('coro');
-    const voiceSymbol: 'P' | 'C' = isCoro ? 'C' : 'P';
-
-    const timeSig = (pattern as any).timeSignature || state.metadata?.ritmo || '4/4';
-    const preRollStepsCount = pattern.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+    const preRollStepsCount = pattern.preRollActiveSteps?.length || 16;
     const patternSteps = pattern.steps || 16;
 
+    const toLinear = (p: { isPreRoll: boolean; step: number }) => p.isPreRoll ? p.step : (preRollStepsCount + p.step);
+    const minLinear = Math.min(toLinear(effectiveRange.start), toLinear(effectiveRange.end));
+    const maxLinear = Math.max(toLinear(effectiveRange.start), toLinear(effectiveRange.end));
+
+    // Préparer les tableaux clonés
     const preRollNotes = [...(pattern.preRollNotes || Array(preRollStepsCount).fill(''))];
     while (preRollNotes.length < preRollStepsCount) preRollNotes.push('');
+    const preRollLyrics = [...(pattern.preRollLyrics || Array(preRollStepsCount).fill(''))];
+    while (preRollLyrics.length < preRollStepsCount) preRollLyrics.push('');
     const preRollActiveSteps = [...(pattern.preRollActiveSteps || Array(preRollStepsCount).fill(0))];
     while (preRollActiveSteps.length < preRollStepsCount) preRollActiveSteps.push(0);
 
     const notes = [...(pattern.notes || Array(patternSteps).fill(''))];
     while (notes.length < patternSteps) notes.push('');
+    const lyrics = [...(pattern.lyrics || Array(patternSteps).fill(''))];
+    while (lyrics.length < patternSteps) lyrics.push('');
     const activeSteps = [...(pattern.activeSteps || Array(patternSteps).fill(0))];
     while (activeSteps.length < patternSteps) activeSteps.push(0);
 
-    let currentIsPreRoll = startIsPreRoll;
-    let currentStep = startStepIdx;
+    // 3. Vider proprement chaque pas sur place SANS décaler les autres pas
+    for (let l = minLinear; l <= maxLinear; l++) {
+      if (l < preRollStepsCount) {
+        preRollNotes[l] = '';
+        preRollLyrics[l] = '';
+        preRollActiveSteps[l] = '0';
+      } else {
+        const stepIdx = l - preRollStepsCount;
+        if (stepIdx < patternSteps) {
+          notes[stepIdx] = '';
+          lyrics[stepIdx] = '';
+          activeSteps[stepIdx] = '0';
+        }
+      }
+    }
 
-    for (let i = 0; i < clipboard.length; i++) {
-      const noteVal = clipboard[i];
+    // Déterminer le pas d'ancrage de début à partir de minLinear (sécurité sélection inversée)
+    const anchorIsPreRoll = minLinear < preRollStepsCount;
+    const anchorStep = anchorIsPreRoll ? minLinear : (minLinear - preRollStepsCount);
 
-      if (currentIsPreRoll) {
-        if (currentStep < preRollStepsCount) {
-          preRollNotes[currentStep] = noteVal;
-          if (noteVal && noteVal.trim() !== '') {
-            const act = preRollActiveSteps[currentStep];
-            if (!act || act === 0 || act === '0') {
-              preRollActiveSteps[currentStep] = voiceSymbol;
-            }
-          }
-          currentStep++;
-        } else {
-          currentIsPreRoll = false;
-          currentStep = 0;
-          if (currentStep < patternSteps) {
-            notes[currentStep] = noteVal;
-            if (noteVal && noteVal.trim() !== '') {
-              const act = activeSteps[currentStep];
-              if (!act || act === 0 || act === '0') {
-                activeSteps[currentStep] = voiceSymbol;
+    // 4. Mettre à jour atomiquement tracks, selectedStepIdx, selectedStepIsPreRoll et vider selectedStepRange
+    set(prev => ({
+      tracks: prev.tracks.map(t => {
+        if (t.id === track.id || String(t.id) === String(track.id)) {
+          return {
+            ...t,
+            patterns: t.patterns.map(p => {
+              if (p.id === pattern.id || String(p.id) === String(pattern.id)) {
+                return {
+                  ...p,
+                  notes,
+                  lyrics,
+                  activeSteps,
+                  preRollNotes,
+                  preRollLyrics,
+                  preRollActiveSteps
+                };
               }
-            }
-            currentStep++;
+              return p;
+            })
+          };
+        }
+        return t;
+      }),
+      tracksVersion: prev.tracksVersion + 1,
+      selectedStepIdx: anchorStep,
+      selectedStepIsPreRoll: anchorIsPreRoll,
+      selectedStepRange: null
+    }));
+  },
+
+  pasteVoiceSteps: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number, notesOnly = false) => {
+    const state = get();
+    let clipboardSteps: VoiceStepData[] = [];
+    if (state.voiceStepsClipboard?.steps && state.voiceStepsClipboard.steps.length > 0) {
+      clipboardSteps = state.voiceStepsClipboard.steps;
+    } else if (state.vocalNotesClipboard && state.vocalNotesClipboard.length > 0) {
+      clipboardSteps = state.vocalNotesClipboard.map(n => ({
+        note: n,
+        syllable: '',
+        role: n ? 'P' : '0'
+      }));
+    }
+
+    if (clipboardSteps.length === 0) return;
+
+    let track = state.tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId));
+    if (!track) {
+      track = state.tracks.find(t => {
+        const instId = instrumentsConfig[t.instrumentIdx]?.id;
+        const isVoiceType = instId === 'puxador' || instId === 'coro' || String(t.id).includes('coro') || String(t.id).includes('puxador');
+        return isVoiceType && !t.isBusFolder && t.patterns && t.patterns.length > 0;
+      });
+    }
+    if (!track) return;
+
+    let finalTargetPatternId: number | undefined = targetPatternId;
+    if (finalTargetPatternId === undefined || finalTargetPatternId === null || finalTargetPatternId === 0) {
+      if (typeof document !== 'undefined') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        const cellEl = activeEl?.closest?.('[data-pattern-id]');
+        if (cellEl) {
+          const pAttr = cellEl.getAttribute('data-pattern-id');
+          if (pAttr) finalTargetPatternId = parseInt(pAttr, 10);
+        }
+      }
+    }
+    if (finalTargetPatternId === undefined || finalTargetPatternId === null || finalTargetPatternId === 0) {
+      finalTargetPatternId = state.selectedPatternId ?? undefined;
+    }
+    if (finalTargetPatternId === undefined || finalTargetPatternId === null || finalTargetPatternId === 0) {
+      finalTargetPatternId = track.selectedPatternId ?? undefined;
+    }
+
+    let pattern = finalTargetPatternId !== undefined
+      ? track.patterns.find(p => p.id === finalTargetPatternId || String(p.id) === String(finalTargetPatternId))
+      : undefined;
+
+    if (!pattern && track.patterns && track.patterns.length > 0) {
+      pattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
+    }
+    if (!pattern) return;
+
+    console.log('📋 [Toada Paste Target]', {
+      patternId: pattern.id,
+      patternName: pattern.name,
+      targetStep: startStepIdx,
+      targetIsPreRoll: startIsPreRoll
+    });
+
+    const instId = instrumentsConfig[track.instrumentIdx]?.id;
+    const isCoro = instId === 'coro' || String(track.id).toLowerCase().includes('coro') || track.customName?.toLowerCase().includes('coro');
+    // Consigne 1 : Conversion automatique du rôle vocal (force 'P' pour puxador, 'C' pour coro)
+    const defaultVoiceRole: 'P' | 'C' = isCoro ? 'C' : 'P';
+
+    // Consigne 2 : Borne dynamique de l'anacrouse
+    const preRollStepsCount = pattern.preRollActiveSteps?.length || 16;
+    const patternSteps = pattern.steps || 16;
+
+    const preRollNotes = [...(pattern.preRollNotes || Array(preRollStepsCount).fill(''))];
+    while (preRollNotes.length < preRollStepsCount) preRollNotes.push('');
+    const preRollLyrics = [...(pattern.preRollLyrics || Array(preRollStepsCount).fill(''))];
+    while (preRollLyrics.length < preRollStepsCount) preRollLyrics.push('');
+    const preRollActiveSteps = [...(pattern.preRollActiveSteps || Array(preRollStepsCount).fill(0))];
+    while (preRollActiveSteps.length < preRollStepsCount) preRollActiveSteps.push(0);
+
+    const notes = [...(pattern.notes || Array(patternSteps).fill(''))];
+    while (notes.length < patternSteps) notes.push('');
+    const lyrics = [...(pattern.lyrics || Array(patternSteps).fill(''))];
+    while (lyrics.length < patternSteps) lyrics.push('');
+    const activeSteps = [...(pattern.activeSteps || Array(patternSteps).fill(0))];
+    while (activeSteps.length < patternSteps) activeSteps.push(0);
+
+    const startLinear = startIsPreRoll ? startStepIdx : (preRollStepsCount + startStepIdx);
+
+    for (let i = 0; i < clipboardSteps.length; i++) {
+      const stepData = clipboardSteps[i];
+      const currentLinear = startLinear + i;
+      const isProlongation = Boolean(stepData.isProlongation);
+      const isHoldN = isVoiceHoldNote(stepData.note);
+      const isHoldS = stepData.syllable === '-' || stepData.syllable === '───' || isProlongation;
+      const isHoldStep = isProlongation || isHoldN || isHoldS;
+
+      if (currentLinear < preRollStepsCount) {
+        // Dans l'anacrouse
+        const prevNote = currentLinear > 0 ? preRollNotes[currentLinear - 1] : '';
+        const effectiveNote = stepData.note || (isHoldStep ? prevNote : '');
+
+        if (notesOnly) {
+          preRollNotes[currentLinear] = effectiveNote;
+          if (effectiveNote && effectiveNote.trim() !== '') {
+            preRollActiveSteps[currentLinear] = defaultVoiceRole;
+          } else if (isHoldStep && prevNote) {
+            preRollActiveSteps[currentLinear] = defaultVoiceRole;
+          }
+        } else {
+          preRollNotes[currentLinear] = effectiveNote;
+          preRollLyrics[currentLinear] = stepData.syllable;
+          if ((effectiveNote && effectiveNote.trim() !== '') || (isHoldStep && prevNote)) {
+            preRollActiveSteps[currentLinear] = defaultVoiceRole;
+          } else if (stepData.role && stepData.role !== '0') {
+            preRollActiveSteps[currentLinear] = defaultVoiceRole;
+          } else {
+            preRollActiveSteps[currentLinear] = 0;
           }
         }
       } else {
-        if (currentStep < patternSteps) {
-          notes[currentStep] = noteVal;
-          if (noteVal && noteVal.trim() !== '') {
-            const act = activeSteps[currentStep];
-            if (!act || act === 0 || act === '0') {
-              activeSteps[currentStep] = voiceSymbol;
-            }
-          }
-          currentStep++;
-        } else {
+        // Traversée vers la Mesure 1 (corps principal)
+        const stepIdx = currentLinear - preRollStepsCount;
+        if (stepIdx >= patternSteps) {
+          // Arrêt propre en fin de motif sans déborder
           break;
+        }
+
+        const prevNote = stepIdx > 0 ? notes[stepIdx - 1] : (preRollStepsCount > 0 ? preRollNotes[preRollStepsCount - 1] : '');
+        const effectiveNote = stepData.note || (isHoldStep ? prevNote : '');
+
+        if (notesOnly) {
+          notes[stepIdx] = effectiveNote;
+          if (effectiveNote && effectiveNote.trim() !== '') {
+            activeSteps[stepIdx] = defaultVoiceRole;
+          } else if (isHoldStep && prevNote) {
+            activeSteps[stepIdx] = defaultVoiceRole;
+          }
+        } else {
+          notes[stepIdx] = effectiveNote;
+          lyrics[stepIdx] = stepData.syllable;
+          if ((effectiveNote && effectiveNote.trim() !== '') || (isHoldStep && prevNote)) {
+            activeSteps[stepIdx] = defaultVoiceRole;
+          } else if (stepData.role && stepData.role !== '0') {
+            activeSteps[stepIdx] = defaultVoiceRole;
+          } else {
+            activeSteps[stepIdx] = 0;
+          }
         }
       }
     }
@@ -4213,16 +4710,18 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
 
     set(prev => ({
       tracks: prev.tracks.map(t => {
-        if (t.id === targetTrackId || String(t.id) === String(targetTrackId)) {
+        if (t.id === track.id || String(t.id) === String(track.id)) {
           return {
             ...t,
             patterns: t.patterns.map(p => {
-              if (p.id === targetPatternId || String(p.id) === String(targetPatternId)) {
+              if (p.id === pattern.id || String(p.id) === String(pattern.id)) {
                 return {
                   ...p,
                   notes,
+                  lyrics,
                   activeSteps,
                   preRollNotes,
+                  preRollLyrics,
                   preRollActiveSteps
                 };
               }
@@ -4234,6 +4733,14 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
       }),
       tracksVersion: prev.tracksVersion + 1
     }));
+  },
+
+  copySelectedNotesRange: (rangeOverride) => {
+    get().copyVoiceStepsRange(rangeOverride);
+  },
+
+  pasteNotesOnlyStartingAt: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number) => {
+    get().pasteVoiceSteps(targetTrackId, targetPatternId, startIsPreRoll, startStepIdx, true);
   },
 
   setCopiedPattern: (pattern) => set({ copiedPattern: pattern }),
@@ -4370,21 +4877,40 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
     const inst = instrumentsConfig[effectiveTrack.instrumentIdx] || instrumentsConfig[rawTrack.instrumentIdx];
     const instId = inst?.id || (isToadaBus(rawTrack) ? 'toada' : '');
     const family = getInstrumentFamily(instId);
+    const sourceType = (instId || '').toLowerCase();
+    const sourceName = rawTrack.customName || inst?.name || (state.lang === 'fr' ? 'Piste' : 'Faixa');
 
     const clonedPatterns: Pattern[] = JSON.parse(JSON.stringify(effectiveTrack.patterns || []));
+
+    const timelineAssignments: Record<string, boolean[]> = {};
+    clonedPatterns.forEach(p => {
+      if (p.measureAssignments) {
+        timelineAssignments[String(p.id)] = [...p.measureAssignments];
+      }
+    });
 
     set({
       instrumentPatternsClipboard: {
         sourceTrackId: rawTrack.id,
+        sourceType,
+        sourceName,
         sourceInstrumentIdx: effectiveTrack.instrumentIdx,
         sourceInstId: instId,
         sourceFamily: family,
-        patterns: clonedPatterns
+        patterns: clonedPatterns,
+        timelineAssignments
       }
     });
+
+    window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
+    const count = clonedPatterns.length;
+    const msg = state.lang === 'fr'
+      ? `${count} motif${count > 1 ? 's' : ''} copié${count > 1 ? 's' : ''}`
+      : `${count} padrão(ões) copiado(s)`;
+    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: msg } }));
   },
 
-  pasteAllTrackPatterns: (targetTrackId: number, mode: 'libraryOnly' | 'libraryAndTimeline') => {
+  pasteAllTrackPatterns: (targetTrackId: number, modeOrApplyTimeline: boolean | 'libraryOnly' | 'libraryAndTimeline' = false) => {
     const state = get();
     const clip = state.instrumentPatternsClipboard;
     if (!clip || !clip.patterns || clip.patterns.length === 0) return;
@@ -4405,20 +4931,31 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
       if (vocalChild) effectiveTargetTrack = vocalChild;
     }
 
-    if (!canTransferPatterns(clip, effectiveTargetTrack)) return;
+    const sourceType = (clip.sourceType || clip.sourceInstId || '').toLowerCase();
+    const targetInst = instrumentsConfig[effectiveTargetTrack.instrumentIdx];
+    const targetType = (targetInst?.id || (isToadaBus(effectiveTargetTrack) ? 'toada' : '')).toLowerCase();
+
+    if (!canTransferPatterns(sourceType || clip, targetType || effectiveTargetTrack)) return;
 
     state.pushUndoState();
 
-    const targetInst = instrumentsConfig[effectiveTargetTrack.instrumentIdx];
-    const targetInstId = targetInst?.id || '';
-    const isVocalTarget = targetInstId === 'puxador' || targetInstId === 'coro' || String(effectiveTargetTrack.id).includes('coro') || String(effectiveTargetTrack.id).includes('puxador');
-    const vocalRole: 'P' | 'C' = (targetInstId === 'coro' || String(effectiveTargetTrack.id).toLowerCase().includes('coro')) ? 'C' : 'P';
+    const isVocalTarget = targetType === 'puxador' || targetType === 'coro' || String(effectiveTargetTrack.id).includes('coro') || String(effectiveTargetTrack.id).includes('puxador');
+    const vocalRole: 'P' | 'C' = (targetType === 'coro' || String(effectiveTargetTrack.id).toLowerCase().includes('coro')) ? 'C' : 'P';
 
     const totalMeasures = state.totalMeasures || 4;
+    const applyTimeline = typeof modeOrApplyTimeline === 'boolean'
+      ? modeOrApplyTimeline
+      : modeOrApplyTimeline === 'libraryAndTimeline';
 
-    const newPatterns: Pattern[] = clip.patterns.map((p, idx) => {
+    const existingPatterns = [...(effectiveTargetTrack.patterns || [])];
+    const accNewPatterns: Pattern[] = [];
+
+    clip.patterns.forEach((p, idx) => {
       const clonedP: Pattern = JSON.parse(JSON.stringify(p));
-      clonedP.id = Date.now() + Math.floor(Math.random() * 10000) + idx;
+      clonedP.id = Date.now() + Math.floor(Math.random() * 100000) + idx;
+
+      // Garantir l'unicité et l'incrémentation via getNextPatternName
+      clonedP.name = getNextPatternName([...existingPatterns, ...accNewPatterns], p.name, state.lang || 'fr');
 
       if (isVocalTarget && clonedP.activeSteps) {
         clonedP.activeSteps = convertStepsToVocalRole(clonedP.activeSteps, vocalRole);
@@ -4427,7 +4964,7 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
         }
       }
 
-      if (mode === 'libraryOnly') {
+      if (!applyTimeline) {
         clonedP.measureAssignments = Array(totalMeasures).fill(false);
       } else {
         const assignments = clonedP.measureAssignments ? [...clonedP.measureAssignments] : [];
@@ -4435,22 +4972,31 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
         clonedP.measureAssignments = assignments.slice(0, totalMeasures);
       }
 
-      return clonedP;
+      accNewPatterns.push(clonedP);
     });
 
     const targetId = effectiveTargetTrack.id;
+    const updatedPatterns = [...existingPatterns, ...accNewPatterns];
+
     set(curr => ({
       tracks: curr.tracks.map(t => {
         if (t.id === targetId || String(t.id) === String(targetId)) {
           return {
             ...t,
-            patterns: newPatterns,
-            selectedPatternId: newPatterns[0]?.id || 0
+            patterns: updatedPatterns,
+            selectedPatternId: accNewPatterns[0]?.id || t.selectedPatternId || updatedPatterns[0]?.id || 0
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: (curr.tracksVersion || 0) + 1
     }));
+
+    const count = accNewPatterns.length;
+    const msg = state.lang === 'fr'
+      ? `${count} motif${count > 1 ? 's' : ''} collé${count > 1 ? 's' : ''}`
+      : `${count} padrão(ões) colado(s)`;
+    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: msg } }));
   }
 });
 
@@ -4469,10 +5015,11 @@ export interface ProjectSettingsSlice {
   isEcoMode: boolean;
   ecoConfig: EcoConfig;
   editingTrackId: number | null;
+  selectedPatternId: number | null;
   selectedStepIdx: number | null;
   selectedStepIsPreRoll: boolean;
   selectedSubIndex: 0 | 1 | null;
-  selectedStepRange: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null;
+  selectedStepRange: SelectedStepRange | null;
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
@@ -4490,7 +5037,8 @@ export interface ProjectSettingsSlice {
   toggleEcoOption: (key: keyof EcoConfig) => void;
   setEditingTrackId: (id: number | null) => void;
   setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
-  setSelectedStepRange: (range: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null) => void;
+  setSelectedStepIndex: (idx: number | null, isPreRoll?: boolean) => void;
+  setSelectedStepRange: (range: SelectedStepRange | null) => void;
   setVocalTransposeSteps: (steps: number) => void;
   incrementVocalTransposeSteps: () => void;
   decrementVocalTransposeSteps: () => void;
@@ -4530,6 +5078,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     disableAnimations: detectEcoMode()
   },
   editingTrackId: null,
+  selectedPatternId: null,
   selectedStepIdx: null,
   selectedStepIsPreRoll: false,
   selectedSubIndex: null,
@@ -4588,6 +5137,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   }),
   setEditingTrackId: (id) => set({ editingTrackId: id }),
   setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex, selectedStepRange: null }),
+  setSelectedStepIndex: (idx, isPreRoll = false) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: null, selectedStepRange: null }),
   setSelectedStepRange: (range) => set({ selectedStepRange: range }),
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
   incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
@@ -4793,18 +5343,19 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   isConsoleDetached: false,
   isTimelineDetached: false,
   isInstrumentEditorDetached: false,
-  toggleLinearDawDetached: () => set((state) => ({ isLinearDawDetached: !state.isLinearDawDetached })),
-  toggleCircleSequencerDetached: () => set((state) => ({ isCircleSequencerDetached: !state.isCircleSequencerDetached })),
-  toggleConsoleDetached: () => set((state) => ({ isConsoleDetached: !state.isConsoleDetached })),
-  toggleTimelineDetached: () => set((state) => ({ isTimelineDetached: !state.isTimelineDetached })),
-  toggleInstrumentEditorDetached: () => set((state) => ({ isInstrumentEditorDetached: !state.isInstrumentEditorDetached })),
-  setDetachedPanelsState: (panels) => set((state) => ({
-    ...(panels.mixer !== undefined ? { isConsoleDetached: panels.mixer } : {}),
-    ...(panels.roda !== undefined ? { isCircleSequencerDetached: panels.roda } : {}),
-    ...(panels.detailEditor !== undefined ? { isInstrumentEditorDetached: panels.detailEditor } : {}),
-    ...(panels.linearDaw !== undefined ? { isLinearDawDetached: panels.linearDaw } : {}),
-    ...(panels.timeline !== undefined ? { isTimelineDetached: panels.timeline } : {}),
-  })),
+  // 🛡️ Mode multi-fenêtres temporairement neutralisé : sanctuarisation du mode mono-fenêtre
+  toggleLinearDawDetached: () => {},
+  toggleCircleSequencerDetached: () => {},
+  toggleConsoleDetached: () => {},
+  toggleTimelineDetached: () => {},
+  toggleInstrumentEditorDetached: () => {},
+  setDetachedPanelsState: () => set({
+    isLinearDawDetached: false,
+    isCircleSequencerDetached: false,
+    isConsoleDetached: false,
+    isTimelineDetached: false,
+    isInstrumentEditorDetached: false,
+  }),
 
   timelineContextMenu: null,
   activeTimelineCell: null,
@@ -5992,5 +6543,9 @@ export const getTrackFamilyIds = (
 
   return Array.from(familySet);
 };
+
+if (typeof window !== 'undefined') {
+  (window as any).useSequencerStore = useSequencerStore;
+}
 
 

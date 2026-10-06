@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { canTransferPatterns, getInstrumentFamily } from '../../utils/instrumentCompatibility';
+import { XiloTarget } from '../XiloIcons';
 
 interface InstrumentHeaderContextMenuProps {
   trackId: number;
@@ -101,7 +102,7 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
         }}
         className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer border-b border-[#1a1a1a]/15"
       >
-        <span className="text-sm">🎯</span>
+        <XiloTarget size={16} className="shrink-0" />
         <span>{lang === 'fr' ? "S'entraîner sur ce pupitre (Jouer avec)" : "Treinar neste naipe (Tocar Junto)"}</span>
       </button>
 

@@ -358,7 +358,7 @@ export const i18n = {
     shortcutSpecialToolsDesc: "Barulho, Clique de baqueta, Borda / Corpo",
     tocarJunto: "Tocar Junto",
     modoTreino: "Modo Treino",
-    treinarNesteNaipe: "🎯 Treinar neste naipe (Tocar Junto)",
+    treinarNesteNaipe: "Treinar neste naipe (Tocar Junto)",
     basePura: "Base pura",
     comVariacoes: "Com variações",
     sairTreino: "Sair do treino"
@@ -568,7 +568,7 @@ export const i18n = {
     shortcutSpecialToolsDesc: "Barulho, Clic baguettes, Bord / Corps",
     tocarJunto: "Jouer avec",
     modoTreino: "Mode Entraînement",
-    treinarNesteNaipe: "🎯 S'entraîner sur ce pupitre (Jouer avec)",
+    treinarNesteNaipe: "S'entraîner sur ce pupitre (Jouer avec)",
     basePura: "Base pure",
     comVariacoes: "Avec variations",
     sairTreino: "Quitter l'entraînement"

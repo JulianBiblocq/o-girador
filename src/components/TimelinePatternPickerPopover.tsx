@@ -115,6 +115,12 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
   // Gestion des écouteurs de fermeture (anti-fermeture immédiate + escape + scroll)
   useEffect(() => {
     let isAttached = false;
+    const mountTime = Date.now();
+    const initialScrollEl = document.getElementById('timeline-scroll-container');
+    const initialScrollLeft = initialScrollEl ? initialScrollEl.scrollLeft : 0;
+    const initialScrollTop = initialScrollEl ? initialScrollEl.scrollTop : 0;
+    const initialWinScrollX = window.scrollX;
+    const initialWinScrollY = window.scrollY;
 
     const handlePointerDown = (e: PointerEvent) => {
       if (!isAttached) return;
@@ -130,15 +136,29 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
       }
     };
 
-    const handleScrollOrWheel = () => {
-      onClose();
+    const handleScrollOrWheel = (e: Event) => {
+      // Ignorer tout scroll interne à la popover elle-même (qui a overflow-y-auto)
+      if (popoverRef.current && popoverRef.current.contains(e.target as Node)) {
+        return;
+      }
+      // Ignorer systématiquement les événements de scroll pendant les 150 premières millisecondes (stabilisation)
+      if (Date.now() - mountTime < 150) {
+        return;
+      }
+      // Ne refermer que si le delta de défilement provoqué dépasse 4 pixels
+      const curScrollEl = document.getElementById('timeline-scroll-container');
+      const dX = curScrollEl ? Math.abs(curScrollEl.scrollLeft - initialScrollLeft) : Math.abs(window.scrollX - initialWinScrollX);
+      const dY = curScrollEl ? Math.abs(curScrollEl.scrollTop - initialScrollTop) : Math.abs(window.scrollY - initialWinScrollY);
+      if (dX > 4 || dY > 4 || e.type === 'wheel') {
+        onClose();
+      }
     };
 
-    // Micro-délai pour immuniser contre le 2e clic du double-clic
+    // Délai de 150ms pour immuniser contre le 2e clic du double-clic et le calage initial
     const timer = setTimeout(() => {
       isAttached = true;
       window.addEventListener('pointerdown', handlePointerDown);
-    }, 50);
+    }, 150);
 
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('close-popups', onClose);
@@ -156,7 +176,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
   }, [onClose]);
 
   useEffect(() => {
-    popoverRef.current?.focus();
+    popoverRef.current?.focus({ preventScroll: true });
   }, []);
 
   const handleSelect = (selectedPatternId: number | null | undefined) => {

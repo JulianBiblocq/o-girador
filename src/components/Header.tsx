@@ -307,7 +307,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         id: 'detach',
         label: lang === 'fr' ? 'Détacher dans une fenêtre' : 'Separar em uma janela',
         icon: '↗',
-        onClick: onDetach,
+        disabled: true,
+        disabledReason: lang === 'fr' ? '[ Bêta — Bientôt disponible ]' : '[ Beta — Em breve ]',
+        onClick: () => {},
       },
       {
         id: 'fullscreen',
@@ -1056,13 +1058,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <XiloRoda size={14} className="shrink-0" /> RODA
           </button>
-          <button
-            onClick={() => useSequencerStore.getState().toggleCircleSequencerDetached()}
-            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
-            title={lang === 'fr' ? 'Détacher' : 'Separar'}
-          >
-            <ExternalLink size={14} />
-          </button>
         </div>
 
         {/* PISTES / DAW LINEAIRE */}
@@ -1084,13 +1079,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
           </button>
-          <button
-            onClick={() => useSequencerStore.getState().toggleLinearDawDetached()}
-            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
-            title={lang === 'fr' ? 'Détacher' : 'Separar'}
-          >
-            <ExternalLink size={14} />
-          </button>
         </div>
 
         {/* MIXER */}
@@ -1108,13 +1096,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
           >
             <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
-          </button>
-          <button
-            onClick={() => useSequencerStore.getState().toggleConsoleDetached()}
-            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
-            title={lang === 'fr' ? 'Détacher' : 'Separar'}
-          >
-            <ExternalLink size={14} />
           </button>
         </div>
 
@@ -1134,13 +1115,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
           </button>
-          <button
-            onClick={() => useSequencerStore.getState().toggleTimelineDetached()}
-            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
-            title={lang === 'fr' ? 'Détacher' : 'Separar'}
-          >
-            <ExternalLink size={14} />
-          </button>
         </div>
 
         {/* ÉDITEUR */}
@@ -1158,15 +1132,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             title={lang === 'fr' ? "Éditeur d'instrument détaillé" : "Editor de instrumento detalhado"}
           >
             <Edit3 size={14} className="shrink-0" /> {lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
-          </button>
-          <button
-            onClick={() => onToggleDetachInstrumentEditor ? onToggleDetachInstrumentEditor() : useSequencerStore.getState().toggleInstrumentEditorDetached()}
-            className={`flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full ${
-              isInstrumentEditorDetached ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : ''
-            }`}
-            title={lang === 'fr' ? 'Détacher' : 'Separar'}
-          >
-            <ExternalLink size={14} />
           </button>
         </div>
       </div>

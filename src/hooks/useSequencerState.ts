@@ -1135,6 +1135,7 @@ export function useSequencerState() {
 
           const nextPatterns = t.patterns.map(p => {
             if (p.id === targetPatternId) {
+              const targetSteps = patternToPaste.steps;
               let nextActiveSteps = [...patternToPaste.activeSteps];
               let nextPreRollActiveSteps = patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined;
               if (isDestVocal2) {
@@ -1143,15 +1144,38 @@ export function useSequencerState() {
                   nextPreRollActiveSteps = convertStepsToVocalRole(nextPreRollActiveSteps, vocalRole2);
                 }
               }
+              let nextLyrics = patternToPaste.lyrics ? [...patternToPaste.lyrics] : [];
+              let nextNotes = patternToPaste.notes ? [...patternToPaste.notes] : [];
+
+              while (nextActiveSteps.length < targetSteps) nextActiveSteps.push(0);
+              nextActiveSteps.length = targetSteps;
+              while (nextLyrics.length < targetSteps) nextLyrics.push('');
+              nextLyrics.length = targetSteps;
+              while (nextNotes.length < targetSteps) nextNotes.push('');
+              nextNotes.length = targetSteps;
+
+              let nextVolumes = patternToPaste.volumes ? [...patternToPaste.volumes] : Array(targetSteps).fill(80);
+              while (nextVolumes.length < targetSteps) nextVolumes.push(80);
+              nextVolumes.length = targetSteps;
+
+              let nextDecays = patternToPaste.decays ? [...patternToPaste.decays] : Array(targetSteps).fill(100);
+              while (nextDecays.length < targetSteps) nextDecays.push(100);
+              nextDecays.length = targetSteps;
+
+              let nextMicrotimings = patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(targetSteps).fill(0);
+              while (nextMicrotimings.length < targetSteps) nextMicrotimings.push(0);
+              nextMicrotimings.length = targetSteps;
+
               return {
                 ...p,
                 name: p.name,
+                steps: targetSteps,
                 activeSteps: nextActiveSteps,
-                lyrics: [...patternToPaste.lyrics],
-                notes: [...patternToPaste.notes],
-                volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
-                decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
-                microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
+                lyrics: nextLyrics,
+                notes: nextNotes,
+                volumes: nextVolumes,
+                decays: nextDecays,
+                microtimings: nextMicrotimings,
                 beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,
                 variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
                 preRollActiveSteps: nextPreRollActiveSteps,
@@ -1222,6 +1246,7 @@ export function useSequencerState() {
       }
       return t;
     }));
+    useSequencerStore.setState((s) => ({ tracksVersion: s.tracksVersion + 1 }));
   };
 
   const handleLoadLibraryPattern = (trackId: number, targetPatternId: number, libPattern: any) => {

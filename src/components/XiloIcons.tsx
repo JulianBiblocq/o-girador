@@ -584,5 +584,35 @@ export const XiloFanion: React.FC<XiloIconProps> = ({ size = 16, className = '',
   </svg>
 );
 
+// 🎯 Cible / Entraînement Cordel (Xilo Woodcut Target)
+export const XiloTarget: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={`xilo-icon shrink-0 ${className}`} 
+    {...props}
+  >
+    {/* Cercle extérieur taillé au burin */}
+    <circle cx="12" cy="12" r="9.5" strokeWidth="2" />
+    {/* Cercle intermédiaire gravé */}
+    <circle cx="12" cy="12" r="5.5" strokeWidth="1.8" />
+    {/* Point d'impact / réticule central plein */}
+    <circle cx="12" cy="12" r="2.2" fill="currentColor" strokeWidth="0" />
+    {/* 4 Encoches de visée taillées à la gouge (réticule artisanal) */}
+    <path d="M12,1.2 L12,4.5" strokeWidth="2" />
+    <path d="M12,19.5 L12,22.8" strokeWidth="2" />
+    <path d="M1.2,12 L4.5,12" strokeWidth="2" />
+    <path d="M19.5,12 L22.8,12" strokeWidth="2" />
+  </svg>
+);
+
+export const CordelTarget = XiloTarget;
+
 
 

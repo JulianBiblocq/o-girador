@@ -180,8 +180,21 @@ function buildFlatSongSchedule(
 
       const effectiveStepCount = stepTickMap.length;
 
+      const stepsPerMeasure = beats * 4;
+      const patternSpan = Math.max(1, Math.round((activePattern.steps || stepsPerMeasure) / stepsPerMeasure));
+      let stepOffset = 0;
+      if (patternSpan > 1) {
+        let startM = measureIdx;
+        while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) {
+          startM--;
+        }
+        const relIdx = (measureIdx - startM) % patternSpan;
+        stepOffset = relIdx * stepsPerMeasure;
+      }
+
       for (let step = 0; step < effectiveStepCount; step++) {
-        const rawState = stepsToPlay[step];
+        const actualStep = stepOffset + step;
+        const rawState = stepsToPlay[actualStep];
         if (!rawState || rawState === 0 || rawState === '0') continue;
 
         const tickIdx = stepTickMap[step];
@@ -217,7 +230,7 @@ function buildFlatSongSchedule(
           if (targetKey === 't') targetKey = 'B';
         }
 
-        const rawStepVol = effectiveVolumes?.[step];
+        const rawStepVol = effectiveVolumes?.[actualStep];
         let baseVol = Array.isArray(rawStepVol) ? (rawStepVol[strokeIndex] ?? 80) : (rawStepVol ?? 80);
         if (baseVol === null || isNaN(baseVol)) baseVol = 80;
         const volVariation = (nextRandom() * 2 - 1) * (baseVol * 0.15);
@@ -226,13 +239,13 @@ function buildFlatSongSchedule(
 
         const stepVolMultiplier = finalVol / 100;
 
-        const rawStepDecay = effectiveDecays?.[step];
+        const rawStepDecay = effectiveDecays?.[actualStep];
         let rawDecay = Array.isArray(rawStepDecay) ? (rawStepDecay[strokeIndex] ?? 100) : (rawStepDecay ?? 100);
         if (rawDecay === null || isNaN(rawDecay)) rawDecay = 100;
         let stepDecayMultiplier = rawDecay / 100;
         if (isNaN(stepDecayMultiplier) || stepDecayMultiplier < 0) stepDecayMultiplier = 1.0;
 
-        const rawStepMicro = effectiveMicrotimings?.[step];
+        const rawStepMicro = effectiveMicrotimings?.[actualStep];
         let rawMicro = Array.isArray(rawStepMicro) ? (rawStepMicro[strokeIndex] ?? 0) : (rawStepMicro ?? 0);
         if (rawMicro === null || isNaN(rawMicro)) rawMicro = 0;
         const microtimingPct = rawMicro;

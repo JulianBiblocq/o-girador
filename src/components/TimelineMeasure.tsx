@@ -12,6 +12,8 @@ interface TimelineMeasureProps {
   patternId: number;
   patternIdx: number;
   steps: number;
+  spanMeasures?: number;
+  relativeIdx?: number;
   beatResolutions?: number[];
   sectionColor: string;
   isSectionStart: boolean;
@@ -73,6 +75,8 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   patternId,
   patternIdx,
   steps,
+  spanMeasures = 1,
+  relativeIdx = 0,
   beatResolutions,
   sectionColor,
   isSectionStart,
@@ -133,6 +137,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
   const isLongPressTriggeredRef = React.useRef(false);
+  const lastTouchEndTimeRef = React.useRef<number>(0);
 
   React.useEffect(() => {
     return () => {
@@ -272,10 +277,25 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           }
         }
       }}
-      onTouchEnd={() => {
+      onTouchEnd={(e) => {
         if (longPressTimerRef.current) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
+        }
+        if (isLongPressTriggeredRef.current) {
+          isLongPressTriggeredRef.current = false;
+          return;
+        }
+        const now = Date.now();
+        if (now - lastTouchEndTimeRef.current < 300) {
+          // Double-tap tactile détecté sur tablette
+          if (!isPanningActive && !isToada) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            onOpenPatternPicker?.(trackId, mIdx, rect);
+          }
+          lastTouchEndTimeRef.current = 0;
+        } else {
+          lastTouchEndTimeRef.current = now;
         }
       }}
       onTouchCancel={() => {
@@ -303,77 +323,154 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
               onTouchStart={e => e.stopPropagation()}
             >
               {toadaVocalBadges ? (
-                <div className="flex items-center gap-1 max-w-[calc(100%-8px)] overflow-hidden whitespace-nowrap h-[20px]">
-                  {toadaVocalBadges.pPtnName && (
-                    <div 
-                      className="flex items-center gap-1 bg-[#8b2a1a]/20 border border-[#8b2a1a] rounded px-1.5 py-px shadow-sm shrink-0 h-[20px]"
-                      title={`Puxador: ${toadaVocalBadges.pPtnName}`}
-                    >
-                      <span className="text-[9px] font-cactus font-bold text-[#8b2a1a] dark:text-[#f39c12] leading-tight">P</span>
-                      <span className="text-[9px] font-cactus font-bold text-[var(--cordel-text)] truncate max-w-[60px] leading-tight select-none">
-                        {toadaVocalBadges.pPtnName}
-                      </span>
-                    </div>
-                  )}
-                  {toadaVocalBadges.cPtnName && (
-                    <div 
-                      className="flex items-center gap-1 bg-[#00838f]/20 border border-[#00838f] rounded px-1.5 py-px shadow-sm shrink-0 h-[20px]"
-                      title={`Coro: ${toadaVocalBadges.cPtnName}`}
-                    >
-                      <span className="text-[9px] font-cactus font-bold text-[#00838f] dark:text-[#4dd0e1] leading-tight">C</span>
-                      <span className="text-[9px] font-cactus font-bold text-[var(--cordel-text)] truncate max-w-[60px] leading-tight select-none">
-                        {toadaVocalBadges.cPtnName}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                relativeIdx > 0 ? (
+                  <div className="flex items-center gap-1 max-w-[calc(100%-8px)] overflow-hidden whitespace-nowrap h-[20px]">
+                    {toadaVocalBadges.pPtnName && (
+                      <div 
+                        className="flex items-center gap-1 bg-[#8b2a1a]/15 border border-dashed border-[#8b2a1a]/50 rounded px-1.5 py-px shadow-sm shrink-0 h-[20px]"
+                        title={`Puxador: ${toadaVocalBadges.pPtnName} [${relativeIdx + 1}/${spanMeasures}]`}
+                      >
+                        <span className="text-[9px] font-cactus font-bold text-[#8b2a1a] dark:text-[#f39c12] leading-tight">P</span>
+                        <span className="text-[8px] font-cactus font-bold text-[var(--cordel-text)]/75 leading-tight select-none">
+                          [{relativeIdx + 1}/${spanMeasures}]
+                        </span>
+                      </div>
+                    )}
+                    {toadaVocalBadges.cPtnName && (
+                      <div 
+                        className="flex items-center gap-1 bg-[#00838f]/15 border border-dashed border-[#00838f]/50 rounded px-1.5 py-px shadow-sm shrink-0 h-[20px]"
+                        title={`Coro: ${toadaVocalBadges.cPtnName} [${relativeIdx + 1}/${spanMeasures}]`}
+                      >
+                        <span className="text-[9px] font-cactus font-bold text-[#00838f] dark:text-[#4dd0e1] leading-tight">C</span>
+                        <span className="text-[8px] font-cactus font-bold text-[var(--cordel-text)]/75 leading-tight select-none">
+                          [{relativeIdx + 1}/${spanMeasures}]
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 max-w-[calc(100%-8px)] overflow-hidden whitespace-nowrap h-[20px]">
+                    {toadaVocalBadges.pPtnName && (
+                      <div 
+                        className="flex items-center gap-1 bg-[#8b2a1a]/20 border border-[#8b2a1a] rounded px-1.5 py-px shadow-sm shrink-0 h-[20px]"
+                        title={`Puxador: ${toadaVocalBadges.pPtnName}`}
+                      >
+                        <span className="text-[9px] font-cactus font-bold text-[#8b2a1a] dark:text-[#f39c12] leading-tight">P</span>
+                        <span className="text-[9px] font-cactus font-bold text-[var(--cordel-text)] truncate max-w-[60px] leading-tight select-none">
+                          {toadaVocalBadges.pPtnName}
+                        </span>
+                      </div>
+                    )}
+                    {toadaVocalBadges.cPtnName && (
+                      <div 
+                        className="flex items-center gap-1 bg-[#00838f]/20 border border-[#00838f] rounded px-1.5 py-px shadow-sm shrink-0 h-[20px]"
+                        title={`Coro: ${toadaVocalBadges.cPtnName}`}
+                      >
+                        <span className="text-[9px] font-cactus font-bold text-[#00838f] dark:text-[#4dd0e1] leading-tight">C</span>
+                        <span className="text-[9px] font-cactus font-bold text-[var(--cordel-text)] truncate max-w-[60px] leading-tight select-none">
+                          {toadaVocalBadges.cPtnName}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
-                <div className={`flex items-center gap-1 ${
-                  isSelectedCell
-                    ? 'bg-[var(--cordel-bg)] border-2 border-[#8b2a1a] shadow-[0_0_6px_rgba(139,42,26,0.5)]'
-                    : 'bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50'
-                } rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]`}>
-                  <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
-                    {isFollowingMaster && <span className="mr-0.5 opacity-60">🔗</span>}
-                    {activePatternName || (lang === 'fr' ? 'Silence' : 'Silêncio')}
-                    {hasChildOverrides && <span className="text-amber-500 ml-1 font-sans" title={lang === 'fr' ? 'Variation individuelle active' : 'Variação individual activa'}>✦</span>}
-                  </span>
-                  {!isToada && <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>}
-                  
-                  {!isToada && (
-                    <select
-                      value={isSlave && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
-                      onFocus={() => {
-                        useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
-                      }}
-                      onChange={e => {
-                        useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
-                        const v = e.target.value;
-                        onPatternAssignForMeasure(
-                          trackId,
-                          v === 'follow' ? undefined : (v === 'silence' ? null : Number(v)),
-                          mIdx,
-                        );
-                      }}
-                      className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
-                      title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
-                    >
-                      {isSlave && (
-                        <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                          {lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}
+                relativeIdx > 0 ? (
+                  <div 
+                    className={`flex items-center gap-1 ${
+                      isSelectedCell
+                        ? 'bg-[var(--cordel-bg)] border-2 border-[#8b2a1a] shadow-[0_0_6px_rgba(139,42,26,0.5)]'
+                        : 'bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-dashed border-[var(--cordel-border)]/40'
+                    } rounded px-1.5 py-px shadow-sm relative h-[20px]`}
+                    title={`${activePatternName || ''} [${relativeIdx + 1}/${spanMeasures}]`}
+                  >
+                    <span className="text-[9px] font-cactus font-bold tracking-wider uppercase text-[var(--cordel-text)]/80 leading-tight select-none flex items-center gap-0.5">
+                      <span className="opacity-60 text-[8px]">🔗</span>
+                      <span>[{relativeIdx + 1}/${spanMeasures}]</span>
+                    </span>
+                    {!isToada && <span className="text-[7px] opacity-40 ml-0.5">▼</span>}
+                    {!isToada && (
+                      <select
+                        value={isSlave && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
+                        onFocus={() => {
+                          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                        }}
+                        onChange={e => {
+                          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                          const v = e.target.value;
+                          onPatternAssignForMeasure(
+                            trackId,
+                            v === 'follow' ? undefined : (v === 'silence' ? null : Number(v)),
+                            mIdx,
+                          );
+                        }}
+                        className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                        title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                      >
+                        {isSlave && (
+                          <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                            {lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}
+                          </option>
+                        )}
+                        <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                          {lang === 'fr' ? '— Silence' : '— Silêncio'}
                         </option>
-                      )}
-                      <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                        {lang === 'fr' ? '— Silence' : '— Silêncio'}
-                      </option>
-                      {patternsList.map((p, pidx) => (
-                        <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                          {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                        {patternsList.map((p, pidx) => (
+                          <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                            {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ) : (
+                  <div className={`flex items-center gap-1 ${
+                    isSelectedCell
+                      ? 'bg-[var(--cordel-bg)] border-2 border-[#8b2a1a] shadow-[0_0_6px_rgba(139,42,26,0.5)]'
+                      : 'bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50'
+                  } rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]`}>
+                    <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
+                      {isFollowingMaster && <span className="mr-0.5 opacity-60">🔗</span>}
+                      {activePatternName || (lang === 'fr' ? 'Silence' : 'Silêncio')}
+                      {hasChildOverrides && <span className="text-amber-500 ml-1 font-sans" title={lang === 'fr' ? 'Variation individuelle active' : 'Variação individual activa'}>✦</span>}
+                    </span>
+                    {!isToada && <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>}
+                    
+                    {!isToada && (
+                      <select
+                        value={isSlave && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
+                        onFocus={() => {
+                          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                        }}
+                        onChange={e => {
+                          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                          const v = e.target.value;
+                          onPatternAssignForMeasure(
+                            trackId,
+                            v === 'follow' ? undefined : (v === 'silence' ? null : Number(v)),
+                            mIdx,
+                          );
+                        }}
+                        className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                        title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                      >
+                        {isSlave && (
+                          <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                            {lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}
+                          </option>
+                        )}
+                        <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                          {lang === 'fr' ? '— Silence' : '— Silêncio'}
                         </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                        {patternsList.map((p, pidx) => (
+                          <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                            {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )
               )}
 
               {!isToada && patternId !== -1 && instType !== 'voice' && instId !== 'apito' && variationsCount > 0 && (
@@ -476,6 +573,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                                 patternId={patternId}
                                 measureIdx={mIdx}
                                 stepIdx={sIdx}
+                                patternStepOffset={(relativeIdx || 0) * 16}
                                 stepsCount={steps}
                                 trackIdx={trackIdx}
                                 patternIdx={patternIdx}
@@ -531,39 +629,53 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                 }}
               />
             ) : (
-              <>
+              <div className="relative w-full h-full group">
                 <div
-                  className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
+                  className="w-full h-full opacity-[0.05] group-hover:opacity-10 border border-dashed border-[var(--cordel-border)]/30 rounded transition-opacity"
                   style={{
                     backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
                     backgroundSize: '8px 8px',
                   }}
                 />
                 {!isMinZoom && (
-                  <select
-                    value="silence"
-                    onChange={e => {
-                      const v = e.target.value;
-                      onPatternAssignForMeasure(
-                        trackId,
-                        v === 'silence' ? null : Number(v),
-                        mIdx,
-                      );
-                    }}
-                    className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
-                    title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
-                  >
-                    <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                      {lang === 'fr' ? '— Silence' : '— Silêncio'}
-                    </option>
-                    {patternsList.map((p, pidx) => (
-                      <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                        {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                  <>
+                    <span className="text-[6px] opacity-0 group-hover:opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none transition-opacity">▼</span>
+                    <select
+                      value="silence"
+                      onFocus={() => {
+                        useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                      }}
+                      onChange={e => {
+                        useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                        const v = e.target.value;
+                        onPatternAssignForMeasure(
+                          trackId,
+                          v === 'silence' ? null : Number(v),
+                          mIdx,
+                        );
+                      }}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (isPanningActive || isToada) return;
+                        const rect = (e.currentTarget.parentElement || e.currentTarget).getBoundingClientRect();
+                        onOpenPatternPicker?.(trackId, mIdx, rect);
+                      }}
+                      className="absolute right-0 top-0 bottom-0 w-6 bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                      title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                    >
+                      <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                        {lang === 'fr' ? '— Silence' : '— Silêncio'}
                       </option>
-                    ))}
-                  </select>
+                      {patternsList.map((p, pidx) => (
+                        <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                          {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 )}
-              </>
+              </div>
             )
           ) : (
             <div
@@ -572,6 +684,12 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
               } border rounded-sm transition-all relative overflow-hidden ${
                 isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''
               }`}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (isPanningActive || isToada) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                onOpenPatternPicker?.(trackId, mIdx, rect);
+              }}
               style={
                 isToada
                   ? (isToadaComposite
@@ -599,18 +717,21 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                   : {
                       backgroundColor: `${instMixerBg}cc`,
                       borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
-                      borderLeftWidth: '3px',
-                      borderLeftColor: instColors['D'] || instColors['E'] || 'var(--cordel-border)',
+                      borderLeftWidth: relativeIdx > 0 ? '1px' : '3px',
+                      borderLeftStyle: relativeIdx > 0 ? 'dashed' : 'solid',
+                      borderLeftColor: relativeIdx > 0
+                        ? `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}60`
+                        : (instColors['D'] || instColors['E'] || 'var(--cordel-border)'),
                     }
               }
               title={
                 isToada
                   ? (isToadaComposite
-                    ? `Toada: [P] ${toadaVocalBadges?.pPtnName} · [C] ${toadaVocalBadges?.cPtnName}`
+                    ? `Toada: [P] ${toadaVocalBadges?.pPtnName} · [C] ${toadaVocalBadges?.cPtnName}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''}`
                     : toadaVocalBadges?.pPtnName
-                    ? `Toada (Puxador): ${toadaVocalBadges.pPtnName}`
-                    : `Toada (Coro): ${toadaVocalBadges?.cPtnName}`)
-                  : `${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')} (${instColors['text']})`
+                    ? `Toada (Puxador): ${toadaVocalBadges.pPtnName}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''}`
+                    : `Toada (Coro): ${toadaVocalBadges?.cPtnName}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''}`)
+                  : `${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''} (${instColors['text']})`
               }
             >
               {!isMinZoom && (
@@ -619,10 +740,18 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                     <div className="flex items-center gap-1 overflow-hidden truncate max-w-full whitespace-nowrap">
                       {toadaVocalBadges.pPtnName && (
                         <span 
-                          className="font-cactus text-[8px] font-bold text-[#8b2a1a] dark:text-[#f39c12] truncate max-w-[48px]"
-                          title={`Puxador: ${toadaVocalBadges.pPtnName}`}
+                          className="font-cactus text-[8px] font-bold text-[#8b2a1a] dark:text-[#f39c12] truncate max-w-[48px] flex items-center gap-0.5"
+                          title={`Puxador: ${toadaVocalBadges.pPtnName} [${relativeIdx + 1}/${spanMeasures}]`}
                         >
-                          [P] {toadaVocalBadges.pPtnName}
+                          <span>[P]</span>
+                          {relativeIdx > 0 ? (
+                            <span className="flex items-center gap-0.5">
+                              <span className="opacity-60 text-[7px]">🔗</span>
+                              <span>[{relativeIdx + 1}/${spanMeasures}]</span>
+                            </span>
+                          ) : (
+                            <span className="truncate">{toadaVocalBadges.pPtnName}</span>
+                          )}
                         </span>
                       )}
                       {toadaVocalBadges.pPtnName && toadaVocalBadges.cPtnName && (
@@ -630,13 +759,26 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                       )}
                       {toadaVocalBadges.cPtnName && (
                         <span 
-                          className="font-cactus text-[8px] font-bold text-[#00838f] dark:text-[#4dd0e1] truncate max-w-[48px]"
-                          title={`Coro: ${toadaVocalBadges.cPtnName}`}
+                          className="font-cactus text-[8px] font-bold text-[#00838f] dark:text-[#4dd0e1] truncate max-w-[48px] flex items-center gap-0.5"
+                          title={`Coro: ${toadaVocalBadges.cPtnName} [${relativeIdx + 1}/${spanMeasures}]`}
                         >
-                          [C] {toadaVocalBadges.cPtnName}
+                          <span>[C]</span>
+                          {relativeIdx > 0 ? (
+                            <span className="flex items-center gap-0.5">
+                              <span className="opacity-60 text-[7px]">🔗</span>
+                              <span>[{relativeIdx + 1}/${spanMeasures}]</span>
+                            </span>
+                          ) : (
+                            <span className="truncate">{toadaVocalBadges.cPtnName}</span>
+                          )}
                         </span>
                       )}
                     </div>
+                  ) : relativeIdx > 0 ? (
+                    <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)]/80 pr-3 flex items-center gap-0.5">
+                      <span className="opacity-60 text-[8px]">🔗</span>
+                      <span>[{relativeIdx + 1}/{spanMeasures}]</span>
+                    </span>
                   ) : (
                     <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] pr-3">
                       {activePatternName}
@@ -659,7 +801,14 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                           mIdx,
                         );
                       }}
-                      className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (isPanningActive || isToada) return;
+                        const rect = (e.currentTarget.closest('.macro-pattern-block') || e.currentTarget).getBoundingClientRect();
+                        onOpenPatternPicker?.(trackId, mIdx, rect);
+                      }}
+                      className="absolute right-0 top-0 bottom-0 w-6 bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
                       title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
                     >
                       <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
@@ -727,6 +876,8 @@ export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next)
          prev.patternId === next.patternId &&
          prev.patternIdx === next.patternIdx &&
          prev.steps === next.steps &&
+         prev.spanMeasures === next.spanMeasures &&
+         prev.relativeIdx === next.relativeIdx &&
          prev.sectionColor === next.sectionColor &&
          prev.isSectionStart === next.isSectionStart &&
          prev.isSectionEnd === next.isSectionEnd &&

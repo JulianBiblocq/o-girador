@@ -588,6 +588,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   const handleEmptySlotPointerDown = (e: React.PointerEvent, mIdx: number) => {
     if (e.button !== 0) return; // Clic gauche seulement
+    if (useSequencerStore.getState().copiedSection) {
+      e.stopPropagation();
+      onPasteSection(mIdx);
+      return;
+    }
     setIsDraggingRange(true);
     setDragStartMeasure(mIdx);
     setDragCurrentMeasure(mIdx);
@@ -601,6 +606,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   };
 
   const handlePlusClick = (mIdx: number) => {
+    if (useSequencerStore.getState().copiedSection) {
+      onPasteSection(mIdx);
+      return;
+    }
     const maxLimit = Math.max(64, totalMeasures);
     const start = mIdx;
     const end = Math.min(maxLimit - 1, mIdx + 3);
@@ -1583,7 +1592,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   return (
                     <div
                       key={mIdx}
-                      className="group relative border-r border-dashed border-[var(--cordel-border)]/15 hover:bg-black/[0.03] flex items-center justify-center cursor-crosshair select-none pointer-events-auto"
+                      className={`group relative border-r border-dashed border-[var(--cordel-border)]/15 hover:bg-black/[0.03] flex items-center justify-center select-none pointer-events-auto ${
+                        copiedSection ? 'cursor-pointer' : 'cursor-crosshair'
+                      }`}
                       style={{
                         width: `${MEASURE_W}px`,
                         minWidth: `${MEASURE_W}px`,
@@ -1592,17 +1603,19 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       onPointerDown={(e) => handleEmptySlotPointerDown(e, mIdx)}
                       onPointerEnter={() => handleEmptySlotPointerEnter(mIdx)}
                     >
-                      {/* Hover '+' button */}
-                      <button
-                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-[1px_1px_3px_rgba(0,0,0,0.3)] hover:scale-110 cursor-pointer z-20 pointer-events-auto"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePlusClick(mIdx);
-                        }}
-                        title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
-                      >
-                        ＋
-                      </button>
+                      {/* Hover '+' button (masqué si une section est prête à coller) */}
+                      {!copiedSection && (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-[1px_1px_3px_rgba(0,0,0,0.3)] hover:scale-110 cursor-pointer z-20 pointer-events-auto"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlusClick(mIdx);
+                          }}
+                          title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
+                        >
+                          ＋
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -1895,16 +1908,17 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 return (
                   <button
                     key={`paste-sec-${mIdx}`}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       onPasteSection(mIdx);
                     }}
                     onMouseEnter={() => setHoveredPasteMeasure(mIdx)}
                     onMouseLeave={() => setHoveredPasteMeasure(null)}
-                    className="absolute top-1 bottom-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-800 dark:text-emerald-300 font-sans font-bold text-[9px] px-2 rounded border border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all hover:scale-105 shadow-[1px_1px_2px_rgba(0,0,0,0.15)]"
+                    className="absolute inset-y-0.5 bg-emerald-600/25 hover:bg-emerald-600/45 text-emerald-800 dark:text-emerald-200 font-sans font-bold text-[9px] px-1 border-x border-y border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all shadow-[inset_0_0_4px_rgba(16,185,129,0.2)]"
                     style={{
-                      left: `${mIdx * MEASURE_W + 4}px`,
-                      width: `${Math.min(100, MEASURE_W - 8)}px`,
+                      left: `${mIdx * MEASURE_W}px`,
+                      width: `${MEASURE_W}px`,
                     }}
                     title={lang === 'fr' ? `Coller à la mesure ${mIdx + 1}` : `Colar no compasso ${mIdx + 1}`}
                   >

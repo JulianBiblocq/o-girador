@@ -13,6 +13,7 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, isDarkText } from '../data';
 import { getBusColor, getTopParentBusId, getBusNoteColor, getContrastColor, getTrackDisplayName } from '../utils/colorHelpers';
 import { XiloChisel } from './XiloIcons';
+import { isVoiceStepProlongation } from '../utils/musicTheory';
 
 export interface DawTrackRowProps {
   track: TrackGroup;
@@ -346,11 +347,21 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
                           const nextNote = (stepIdx < (curPat?.steps ?? 16) - 1) ? (curPat?.notes?.[stepIdx + 1] || '').trim() : '';
                           const nextSyl = (stepIdx < (curPat?.steps ?? 16) - 1) ? (curPat?.lyrics?.[stepIdx + 1] || '').trim() : '';
 
-                          const sameNotePrev = (curNote && prevNote === curNote) || (!curNote && !prevNote && prevVal === val);
-                          isProlongation = Boolean(prevIsActive && sameNotePrev && (!curSyl || curSyl === ''));
+                          isProlongation = isVoiceStepProlongation(
+                            isActiveCell,
+                            prevIsActive,
+                            curNote,
+                            prevNote,
+                            curSyl
+                          );
 
-                          const sameNoteNext = (curNote && nextNote === curNote) || (!curNote && !nextNote && nextVal === val);
-                          isFollowedByProlongation = Boolean(nextIsActive && sameNoteNext && (!nextSyl || nextSyl === ''));
+                          isFollowedByProlongation = isVoiceStepProlongation(
+                            nextIsActive,
+                            isActiveCell,
+                            nextNote,
+                            curNote,
+                            nextSyl
+                          );
                         }
                       }
 

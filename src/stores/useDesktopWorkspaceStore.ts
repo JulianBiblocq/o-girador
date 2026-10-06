@@ -16,7 +16,16 @@ function loadStoredLayouts(): DesktopWorkspaceLayout[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // 🛡️ Sanctuarisation mono-fenêtre : forcer detached: false sur tous les panneaux mémorisés
+    return parsed.map((layout: DesktopWorkspaceLayout) => ({
+      ...layout,
+      detachedPanels: {
+        mixer: { ...layout.detachedPanels?.mixer, detached: false },
+        roda: { ...layout.detachedPanels?.roda, detached: false },
+        detailEditor: { ...layout.detachedPanels?.detailEditor, detached: false },
+      }
+    }));
   } catch (err) {
     console.warn('[useDesktopWorkspaceStore] Erreur lors de la lecture du localStorage:', err);
     return [];
@@ -67,15 +76,15 @@ export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get)
       createdAt: Date.now(),
       detachedPanels: {
         mixer: {
-          detached: isConsoleDetached,
+          detached: false,
           bounds: mixerBounds,
         },
         roda: {
-          detached: isCircleSequencerDetached,
+          detached: false,
           bounds: rodaBounds,
         },
         detailEditor: {
-          detached: isInstrumentEditorDetached,
+          detached: false,
           bounds: detailBounds,
         },
       },
@@ -99,52 +108,16 @@ export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get)
     const layout = get().layouts.find(l => l.id === layoutId);
     if (!layout) return false;
 
-    const { detachedPanels, uiState } = layout;
+    const { uiState } = layout;
 
-    // 1. Panneau Mixeur / Console
-    if (detachedPanels.mixer) {
-      if (detachedPanels.mixer.detached) {
-        if (detachedPanels.mixer.bounds) {
-          detachedWindowManager.setPendingBounds('mixer', detachedPanels.mixer.bounds);
-          if (detachedWindowManager.isPanelOpen('mixer')) {
-            detachedWindowManager.applyBoundsToOpenWindow('mixer', detachedPanels.mixer.bounds);
-          }
-        }
-        useSequencerStore.getState().setDetachedPanelsState({ mixer: true });
-      } else {
-        useSequencerStore.getState().setDetachedPanelsState({ mixer: false });
-      }
-    }
-
-    // 2. Panneau Roda (CircleSequencer)
-    if (detachedPanels.roda) {
-      if (detachedPanels.roda.detached) {
-        if (detachedPanels.roda.bounds) {
-          detachedWindowManager.setPendingBounds('roda', detachedPanels.roda.bounds);
-          if (detachedWindowManager.isPanelOpen('roda')) {
-            detachedWindowManager.applyBoundsToOpenWindow('roda', detachedPanels.roda.bounds);
-          }
-        }
-        useSequencerStore.getState().setDetachedPanelsState({ roda: true });
-      } else {
-        useSequencerStore.getState().setDetachedPanelsState({ roda: false });
-      }
-    }
-
-    // 3. Panneau Éditeur d'Instrument
-    if (detachedPanels.detailEditor) {
-      if (detachedPanels.detailEditor.detached) {
-        if (detachedPanels.detailEditor.bounds) {
-          detachedWindowManager.setPendingBounds('detailEditor', detachedPanels.detailEditor.bounds);
-          if (detachedWindowManager.isPanelOpen('detailEditor')) {
-            detachedWindowManager.applyBoundsToOpenWindow('detailEditor', detachedPanels.detailEditor.bounds);
-          }
-        }
-        useSequencerStore.getState().setDetachedPanelsState({ detailEditor: true });
-      } else {
-        useSequencerStore.getState().setDetachedPanelsState({ detailEditor: false });
-      }
-    }
+    // 🛡️ Mode multi-fenêtres neutralisé : tous les panneaux restent ancrés dans la fenêtre principale
+    useSequencerStore.getState().setDetachedPanelsState({
+      mixer: false,
+      roda: false,
+      detailEditor: false,
+      linearDaw: false,
+      timeline: false,
+    });
 
     // 4. État UI
     if (uiState?.isTracksCollapsed !== undefined) {
