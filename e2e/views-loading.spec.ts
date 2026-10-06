@@ -17,35 +17,35 @@ test.describe('Validation du Chargement des Vues et Modules Dynamiques', () => {
       const loaded: Record<string, boolean | string> = {};
 
       try {
-        const m = await import('/src/components/ConsoleMixer.tsx');
+        const m = await import('../src/components/ConsoleMixer.tsx');
         loaded['ConsoleMixer'] = typeof m.ConsoleMixer === 'object' || typeof m.ConsoleMixer === 'function';
       } catch (err: any) {
         loaded['ConsoleMixer'] = err.message;
       }
 
       try {
-        const m = await import('/src/components/CircleSequencer.tsx');
+        const m = await import('../src/components/CircleSequencer.tsx');
         loaded['CircleSequencer'] = typeof m.CircleSequencer === 'object' || typeof m.CircleSequencer === 'function';
       } catch (err: any) {
         loaded['CircleSequencer'] = err.message;
       }
 
       try {
-        const m = await import('/src/components/DawLinearSequencer.tsx');
+        const m = await import('../src/components/DawLinearSequencer.tsx');
         loaded['DawLinearSequencer'] = typeof m.DawLinearSequencer === 'object' || typeof m.DawLinearSequencer === 'function';
       } catch (err: any) {
         loaded['DawLinearSequencer'] = err.message;
       }
 
       try {
-        const m = await import('/src/components/TimelineSequencer.tsx');
+        const m = await import('../src/components/TimelineSequencer.tsx');
         loaded['TimelineSequencer'] = typeof m.TimelineSequencer === 'object' || typeof m.TimelineSequencer === 'function';
       } catch (err: any) {
         loaded['TimelineSequencer'] = err.message;
       }
 
       try {
-        const m = await import('/src/components/AdminPanel.tsx');
+        const m = await import('../src/components/AdminPanel.tsx');
         loaded['AdminPanel'] = typeof m.AdminPanel === 'object' || typeof m.AdminPanel === 'function';
       } catch (err: any) {
         loaded['AdminPanel'] = err.message;
@@ -76,7 +76,7 @@ test.describe('Validation du Chargement des Vues et Modules Dynamiques', () => {
     await page.waitForFunction(() => 'firebaseAuth' in window);
 
     const helperStatus = await page.evaluate(async () => {
-      const { lazyWithRetry } = await import('/src/utils/lazyWithRetry.ts');
+      const { lazyWithRetry } = await import('../src/utils/lazyWithRetry.ts');
       return typeof lazyWithRetry === 'function';
     });
 
@@ -89,7 +89,7 @@ test.describe('Validation du Chargement des Vues et Modules Dynamiques', () => {
     await page.waitForFunction(() => 'firebaseAuth' in window);
 
     const isLoaded = await page.evaluate(async () => {
-      const mod = await import('/src/components/TransportBar.tsx');
+      const mod = await import('../src/components/TransportBar.tsx');
       return typeof mod.TransportBar === 'object' || typeof mod.TransportBar === 'function';
     });
 
@@ -102,7 +102,7 @@ test.describe('Validation du Chargement des Vues et Modules Dynamiques', () => {
     await page.waitForFunction(() => 'firebaseAuth' in window);
 
     const status = await page.evaluate(async () => {
-      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
       const isTracksInitiallyCollapsed = useSequencerStore.getState().isTracksCollapsed;
       return { isTracksInitiallyCollapsed };
     });

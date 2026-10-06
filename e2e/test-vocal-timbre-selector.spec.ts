@@ -37,7 +37,7 @@ test.describe("Sélecteur de timbre vocal dans l'Inspecteur acoustique", () => {
   test("Affiche le sélecteur de timbre pour Puxador et permet de commuter les 5 presets en direct", async ({ page }) => {
     // 1. S'assurer qu'une piste vocale (Puxador ou Coro) existe et ouvrir son inspecteur
     const voiceTrackId = await page.evaluate(async () => {
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
       const store = (window as any).__SEQUENCER_STORE__.getState();
       
       let track = store.tracks.find((t: any) => {
@@ -119,7 +119,7 @@ test.describe("Sélecteur de timbre vocal dans l'Inspecteur acoustique", () => {
 
     // 4. Basculer sur un fût percussif (ex: Marcante) et vérifier que le sélecteur vocal disparaît
     await page.evaluate(async () => {
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const drumTrack = store.tracks.find((t: any) => {
         const inst = instrumentsConfig[t.instrumentIdx];

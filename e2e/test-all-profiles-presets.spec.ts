@@ -12,7 +12,7 @@ test('Tester fetchCloudPresets pour tous les profils types', async ({ page }) =>
     const signIn = window.signInWithEmailAndPassword;
     await signIn(auth, 'playwright@ogirador.com', 'playwrighttest');
 
-    const { fetchCloudPresets } = await import('/src/cloudLibrary.ts');
+    const { fetchCloudPresets } = await import('../src/cloudLibrary.ts');
 
     const profilesToTest = [
       { name: '1. Visiteur non connecté (null)', uid: null, role: 'visiteur', mestreId: null, groupId: null, canWrite: false },

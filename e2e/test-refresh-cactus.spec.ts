@@ -19,7 +19,7 @@ test('Chargement fiable du morceau vedette (Cactus 🌵) après rafraîchissemen
   // 2. Synchroniser le miroir Firestore pour Samambaia si besoin
   await page.evaluate(async () => {
     // @ts-ignore
-    const { setDefaultGroupPreset, getDefaultGroupPresetId } = await import('/src/cloudGroups.ts');
+    const { setDefaultGroupPreset, getDefaultGroupPresetId } = await import('../src/cloudGroups.ts');
     const curDefault = await getDefaultGroupPresetId('Samambaia');
     if (!curDefault) {
       await setDefaultGroupPreset('Samambaia', '29dIDjgc2vPuDnwjiy9V', 'mestre');
@@ -31,7 +31,7 @@ test('Chargement fiable du morceau vedette (Cactus 🌵) après rafraîchissemen
   // Vérifier le preset par défaut résolu
   const resolvedDefault = await page.evaluate(async () => {
     // @ts-ignore
-    const { getDefaultGroupPresetId } = await import('/src/cloudGroups.ts');
+    const { getDefaultGroupPresetId } = await import('../src/cloudGroups.ts');
     return await getDefaultGroupPresetId('Samambaia');
   });
   console.log('Resolved default preset ID for Samambaia:', resolvedDefault);
@@ -48,7 +48,7 @@ test('Chargement fiable du morceau vedette (Cactus 🌵) après rafraîchissemen
   // 4. Vérifier que les pistes du morceau vedette (Opanijé / 8 pistes) sont bien chargées
   const storeState = await page.evaluate(async () => {
     // @ts-ignore
-    const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+    const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
     const store = useSequencerStore.getState();
     return {
       tracksCount: store.tracks.length,
@@ -85,7 +85,7 @@ test('Chargement fiable du morceau vedette (Cactus 🌵) après rafraîchissemen
   // Vérifier qu'en désactivant le loop et en lançant la lecture, isPlaybackEndingRef stoppe proprement sans rejouer la mesure
   const playbackResult = await page.evaluate(async () => {
     // @ts-ignore
-    const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+    const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
     // Forcer 1 mesure pour un test rapide
     useSequencerStore.getState().setIsLooping(false);
     return { isLooping: useSequencerStore.getState().isLooping };

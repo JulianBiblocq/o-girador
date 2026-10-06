@@ -12,7 +12,7 @@ test.describe('Catalogue Cloud Samambaia', () => {
       const signIn = window.signInWithEmailAndPassword;
       await signIn(auth, 'playwright@ogirador.com', 'playwrighttest');
 
-      const { fetchCloudPresets } = await import('/src/cloudLibrary.ts');
+      const { fetchCloudPresets } = await import('../src/cloudLibrary.ts');
       // Simulated member: role 'membre', mestreId null, groupId 'Samambaia'
       const list = await fetchCloudPresets('dummy_member_uid', 'membre', null, 'Samambaia');
       return list.map(p => ({ id: p.id, name: p.name, ownerId: p.ownerId, visibility: p.visibility }));
@@ -42,7 +42,7 @@ test.describe('Catalogue Cloud Samambaia', () => {
       const signIn = window.signInWithEmailAndPassword;
       await signIn(auth, 'playwright@ogirador.com', 'playwrighttest');
 
-      const { fetchCloudPresets } = await import('/src/cloudLibrary.ts');
+      const { fetchCloudPresets } = await import('../src/cloudLibrary.ts');
       // Lowercase groupId 'samambaia'
       const list = await fetchCloudPresets('some_user_samambaia_lower', 'membre', null, 'samambaia');
       return list.map(p => p.name);

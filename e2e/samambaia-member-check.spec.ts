@@ -35,8 +35,8 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
       }, { merge: true });
 
       // Importer les fonctions cloud
-      const { fetchCloudPresets, getCloudPreset } = await import('/src/cloudLibrary.ts');
-      const { checkIsAdmin } = await import('/src/contexts/AuthContext.tsx');
+      const { fetchCloudPresets, getCloudPreset } = await import('../src/cloudLibrary.ts');
+      const { checkIsAdmin } = await import('../src/contexts/AuthContext.tsx');
 
       const userProfile = {
         uid,
@@ -103,7 +103,7 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
         mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'
       }, { merge: true });
 
-      const { savePresetToCloud, fetchCloudPresets, deleteCloudPreset } = await import('/src/cloudLibrary.ts');
+      const { savePresetToCloud, fetchCloudPresets, deleteCloudPreset } = await import('../src/cloudLibrary.ts');
 
       const dummyPreset: any = {
         name: `Test Perso Membre ${Date.now()}`,
@@ -216,8 +216,8 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
       // 2. L'élève se reconnecte maintenant avec ses droits de co-auteur actifs
       await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
 
-      const { fetchCloudPresets, savePresetToCloud, deleteCloudPreset, getCloudPreset } = await import('/src/cloudLibrary.ts');
-      const { checkIsAdmin } = await import('/src/contexts/AuthContext.tsx');
+      const { fetchCloudPresets, savePresetToCloud, deleteCloudPreset, getCloudPreset } = await import('../src/cloudLibrary.ts');
+      const { checkIsAdmin } = await import('../src/contexts/AuthContext.tsx');
 
       const userProfile = {
         uid: eleveUid,
@@ -353,7 +353,7 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
       // 2. Reconnexion en tant qu'élève co-auteur
       await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
 
-      const { fetchCloudPresets, savePresetToCloud, getCloudPreset } = await import('/src/cloudLibrary.ts');
+      const { fetchCloudPresets, savePresetToCloud, getCloudPreset } = await import('../src/cloudLibrary.ts');
 
       const presets = await fetchCloudPresets(eleveUid, 'eleve', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia');
       

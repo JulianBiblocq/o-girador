@@ -24,7 +24,7 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
     // S'assurer que Puxador et Coro sont présents pour générer le bus Toada
     await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
       const puxExists = store.tracks.some((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
       const coroExists = store.tracks.some((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || String(t.id) === 'coro');
 
@@ -73,15 +73,15 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
 
     // Déverrouiller et initialiser l'audio
     await page.evaluate(async () => {
-      const { useAudioStore } = await import('/src/stores/useAudioStore.ts');
+      const { useAudioStore } = await import('../src/stores/useAudioStore.ts');
       useAudioStore.getState().unlockAudio();
     });
 
     // Attendre que le busChannel de Toada soit créé et actif
     await page.waitForFunction(async () => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
-      const { isToadaBus } = await import('/src/stores/useSequencerStore.ts');
-      const { busChannels, channels } = await import('/src/audio/effectsChain.ts');
+      const { isToadaBus } = await import('../src/stores/useSequencerStore.ts');
+      const { busChannels, channels } = await import('../src/audio/effectsChain.ts');
       const toada = store?.tracks?.find((t: any) => isToadaBus(t));
       if (!toada) return false;
       const busChannel = busChannels[toada.id] || busChannels[String(toada.id)];
@@ -92,11 +92,11 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
     const topologyAudit = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const tracks = store.tracks;
-      const { isToadaBus } = await import('/src/stores/useSequencerStore.ts');
-      const { channels, busChannels, masterVolumeNode, trackInputs } = await import('/src/audio/effectsChain.ts');
-      const { audioEngine } = await import('/src/hooks/useAudioSync.ts');
-      const { resolveVocalOutputNode } = await import('/src/audio/vocalEngineService.ts');
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { isToadaBus } = await import('../src/stores/useSequencerStore.ts');
+      const { channels, busChannels, masterVolumeNode, trackInputs } = await import('../src/audio/effectsChain.ts');
+      const { audioEngine } = await import('../src/hooks/useAudioSync.ts');
+      const { resolveVocalOutputNode } = await import('../src/audio/vocalEngineService.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       const toadaTrack = tracks.find((t: any) => isToadaBus(t));
       const puxTrack = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
@@ -161,7 +161,7 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
     // Vérifier l'application sur le nœud audio busChannels[toadaTrack.id]
     await page.waitForTimeout(200);
     const busVolAfterZero = await page.evaluate(async (toadaId) => {
-      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const { busChannels } = await import('../src/audio/effectsChain.ts');
       const bus = busChannels[toadaId] || busChannels[String(toadaId)];
       return bus ? bus.volume.value : null;
     }, topologyAudit.toadaTrackId);
@@ -177,7 +177,7 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
 
     await page.waitForTimeout(200);
     const busVolAfter100 = await page.evaluate(async (toadaId) => {
-      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const { busChannels } = await import('../src/audio/effectsChain.ts');
       const bus = busChannels[toadaId] || busChannels[String(toadaId)];
       return bus ? bus.volume.value : null;
     }, topologyAudit.toadaTrackId);
@@ -194,7 +194,7 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
 
     await page.waitForTimeout(200);
     const busPanLeft = await page.evaluate(async (toadaId) => {
-      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const { busChannels } = await import('../src/audio/effectsChain.ts');
       const bus = busChannels[toadaId] || busChannels[String(toadaId)];
       return bus ? bus.pan.value : null;
     }, topologyAudit.toadaTrackId);
@@ -208,7 +208,7 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
 
     await page.waitForTimeout(200);
     const busPanRight = await page.evaluate(async (toadaId) => {
-      const { busChannels } = await import('/src/audio/effectsChain.ts');
+      const { busChannels } = await import('../src/audio/effectsChain.ts');
       const bus = busChannels[toadaId] || busChannels[String(toadaId)];
       return bus ? bus.pan.value : null;
     }, topologyAudit.toadaTrackId);
@@ -224,9 +224,9 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
     const muteAudit = await page.evaluate(async (toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const tracks = store.tracks;
-      const { getEffectiveMuteState } = await import('/src/stores/useSequencerStore.ts');
-      const { busChannels } = await import('/src/audio/effectsChain.ts');
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { getEffectiveMuteState } = await import('../src/stores/useSequencerStore.ts');
+      const { busChannels } = await import('../src/audio/effectsChain.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       const pux = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coro = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
@@ -263,8 +263,8 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
     const toadaSoloAudit = await page.evaluate(async (toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const tracks = store.tracks;
-      const { getEffectiveMuteState } = await import('/src/stores/useSequencerStore.ts');
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { getEffectiveMuteState } = await import('../src/stores/useSequencerStore.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       const pux = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coro = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
@@ -294,7 +294,7 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
 
     await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
       const pux = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       if (pux) {
         store.handleTrackSoloToggle(pux.id);
@@ -305,8 +305,8 @@ test.describe('Raccordement complet du Bus Toada dans le graphe audio', () => {
     const puxSoloAudit = await page.evaluate(async (toadaId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const tracks = store.tracks;
-      const { getEffectiveMuteState } = await import('/src/stores/useSequencerStore.ts');
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { getEffectiveMuteState } = await import('../src/stores/useSequencerStore.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       const pux = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
       const coro = tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');

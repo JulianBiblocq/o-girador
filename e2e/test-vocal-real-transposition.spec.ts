@@ -35,7 +35,7 @@ test.describe("Transposition réelle et dynamique des notes vocales", () => {
     // 1. Initialiser la piste vocale (Puxador) avec D4 au pas 0 et paroles
     const { trackId, patternId } = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
       
       let voiceTrack = store.tracks.find((t: any) => {
         const inst = instrumentsConfig[t.instrumentIdx];

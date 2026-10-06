@@ -20,7 +20,7 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
     // Attendre le chargement de Tone et débloquer l'AudioContext
     await page.waitForFunction(async () => {
       try {
-        const { getTone } = await import('/src/ToneLoader.ts');
+        const { getTone } = await import('../src/ToneLoader.ts');
         const Tone = getTone();
         if (Tone.context.state !== 'running') {
           await Tone.start();
@@ -34,12 +34,12 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
     // Isolation IndexedDB : Nettoyage strict d'O GiradorDB avant chaque scénario
     await page.evaluate(async () => {
       try {
-        const { clearAllRecordings } = await import('/src/db.ts');
+        const { clearAllRecordings } = await import('../src/db.ts');
         await clearAllRecordings();
       } catch (_) {}
 
       try {
-        const { useAudioStore } = await import('/src/audio/vocalEngineService.ts');
+        const { useAudioStore } = await import('../src/audio/vocalEngineService.ts');
         useAudioStore.setState({
           recordingStatus: 'inactive',
           targetPatternId: null,
@@ -57,8 +57,8 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
   // ══════════════════════════════════════════════════════════════════════════
   test('Scénario 1 : Armement et instanciation MediaRecorder dès le décompte (T=0) avec capture anacrouse', async ({ page }) => {
     const result = await page.evaluate(async () => {
-      const { vocalEngineService, useAudioStore, useSequencerStore } = await import('/src/audio/vocalEngineService.ts');
-      const { getTone } = await import('/src/ToneLoader.ts');
+      const { vocalEngineService, useAudioStore, useSequencerStore } = await import('../src/audio/vocalEngineService.ts');
+      const { getTone } = await import('../src/ToneLoader.ts');
       const Tone = getTone();
 
       // Préparer un pattern cible sur une piste voix
@@ -143,8 +143,8 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
   // ══════════════════════════════════════════════════════════════════════════
   test('Scénario 2 : Punch-out stoppe le Transport, coupe le MediaRecorder et libère le micro matériel', async ({ page }) => {
     const result = await page.evaluate(async () => {
-      const { vocalEngineService, useAudioStore, useSequencerStore } = await import('/src/audio/vocalEngineService.ts');
-      const { getTone } = await import('/src/ToneLoader.ts');
+      const { vocalEngineService, useAudioStore, useSequencerStore } = await import('../src/audio/vocalEngineService.ts');
+      const { getTone } = await import('../src/ToneLoader.ts');
       const Tone = getTone();
 
       const testPatternId = 8882;
@@ -228,9 +228,9 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
   test('Scénario 3 : Ouverture VocalValidationModal, persistance des peaks et Nudge CSS sans re-render React', async ({ page }) => {
     // 1. Initialiser tempRecording dans le store pour afficher la modale
     await page.evaluate(async () => {
-      const { useAudioStore, useSequencerStore } = await import('/src/audio/vocalEngineService.ts');
-      const { audioBufferToWav } = await import('/src/utils/audioBufferUtils.ts');
-      const { getTone } = await import('/src/ToneLoader.ts');
+      const { useAudioStore, useSequencerStore } = await import('../src/audio/vocalEngineService.ts');
+      const { audioBufferToWav } = await import('../src/utils/audioBufferUtils.ts');
+      const { getTone } = await import('../src/ToneLoader.ts');
       const Tone = getTone();
 
       const testPatternId = 8883;
@@ -308,9 +308,9 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
   // ══════════════════════════════════════════════════════════════════════════
   test('Scénario 4 : renderTrimmedVocalBuffer applique les micro-fades (10ms/30ms), parité sampleRate et persistance IndexedDB', async ({ page }) => {
     const result = await page.evaluate(async () => {
-      const { renderTrimmedVocalBuffer, audioBufferToWav } = await import('/src/utils/audioBufferUtils.ts');
-      const { useAudioStore } = await import('/src/audio/vocalEngineService.ts');
-      const { saveVocalRecording, getVocalRecording } = await import('/src/db.ts');
+      const { renderTrimmedVocalBuffer, audioBufferToWav } = await import('../src/utils/audioBufferUtils.ts');
+      const { useAudioStore } = await import('../src/audio/vocalEngineService.ts');
+      const { saveVocalRecording, getVocalRecording } = await import('../src/db.ts');
 
       const sampleRate = 48000;
       const numChannels = 1;
@@ -395,8 +395,8 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
   // ══════════════════════════════════════════════════════════════════════════
   test('Scénario 5 : vocalBuffers neutralise le synthé virtuel tout en maintenant le défilement visuel des pas et paroles', async ({ page }) => {
     const result = await page.evaluate(async () => {
-      const { vocalEngineService, useAudioStore, useSequencerStore } = await import('/src/audio/vocalEngineService.ts');
-      const { getTone } = await import('/src/ToneLoader.ts');
+      const { vocalEngineService, useAudioStore, useSequencerStore } = await import('../src/audio/vocalEngineService.ts');
+      const { getTone } = await import('../src/ToneLoader.ts');
       const Tone = getTone();
 
       const testPatternId = 8885;

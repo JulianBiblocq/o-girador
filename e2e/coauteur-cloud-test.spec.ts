@@ -18,7 +18,7 @@ test.describe.serial('Test Co-Auteur et Partage de Groupe Cloud', () => {
       const userCred = await signIn(auth, 'mestre@ogirador.com', 'playwrighttest');
       const mestreUid = userCred.user.uid;
 
-      const { saveSectionToCloud } = await import('/src/cloudSections.ts');
+      const { saveSectionToCloud } = await import('../src/cloudSections.ts');
 
       const dummySectionData = {
         numMeasures: 1,
@@ -56,7 +56,7 @@ test.describe.serial('Test Co-Auteur et Partage de Groupe Cloud', () => {
       const userCred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
       const eleveUid = userCred.user.uid;
 
-      const { fetchCloudSections } = await import('/src/cloudSections.ts');
+      const { fetchCloudSections } = await import('../src/cloudSections.ts');
 
       // L'élève a le groupId Samambaia
       const sections = await fetchCloudSections(eleveUid, 'eleve', null, 'Samambaia');
@@ -109,7 +109,7 @@ test.describe.serial('Test Co-Auteur et Partage de Groupe Cloud', () => {
     await page.waitForFunction(() => 'firebaseAuth' in window);
 
     const checkResult = await page.evaluate(async () => {
-      const { checkIsAdmin } = await import('/src/contexts/AuthContext.tsx');
+      const { checkIsAdmin } = await import('../src/contexts/AuthContext.tsx');
       
       // Profil élève normal -> pas admin
       const eleveProfile: any = { role: 'eleve', canWriteSequenciador: false };

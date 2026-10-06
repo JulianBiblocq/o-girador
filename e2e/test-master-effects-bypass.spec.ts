@@ -23,7 +23,7 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     // Déverrouiller l'audio
     await page.evaluate(async () => {
-      const { useAudioStore } = await import('/src/stores/useAudioStore.ts');
+      const { useAudioStore } = await import('../src/stores/useAudioStore.ts');
       useAudioStore.getState().unlockAudio();
     });
 
@@ -60,7 +60,7 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     const distoStateAfterClick = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterDistortionVolumeNode, distortionNode } = await import('/src/audio/effectsChain.ts');
+      const { masterDistortionVolumeNode, distortionNode } = await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.disto,
         gainVal: masterDistortionVolumeNode ? masterDistortionVolumeNode.gain.value : null,
@@ -92,7 +92,7 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     const revStateAfterClick = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterReverbVolumeNode, reverbNode } = await import('/src/audio/effectsChain.ts');
+      const { masterReverbVolumeNode, reverbNode } = await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.reverb,
         gainVal: masterReverbVolumeNode ? masterReverbVolumeNode.gain.value : null,
@@ -123,7 +123,7 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     const compStateAfterClick = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterCompressorNode } = await import('/src/audio/effectsChain.ts');
+      const { masterCompressorNode } = await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.compressor,
         threshold: masterCompressorNode ? masterCompressorNode.threshold.value : null,
@@ -148,7 +148,7 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
     await page.waitForTimeout(250);
     const compStateReactivated = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterCompressorNode } = await import('/src/audio/effectsChain.ts');
+      const { masterCompressorNode } = await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.compressor,
         threshold: masterCompressorNode ? masterCompressorNode.threshold.value : null,

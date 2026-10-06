@@ -34,7 +34,7 @@ test.describe("Audition solo de motif vocal (Puxador et Coro)", () => {
     // 1. Configurer un motif avec notes sur Puxador (non assigné à la mesure 0)
     const { puxTrackId, patternId } = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       // Vider l'historique d'attaque vocal pour repartir de zéro
       (window as any).__VOICE_ATTACK_HISTORY__ = [];
@@ -126,7 +126,7 @@ test.describe("Audition solo de motif vocal (Puxador et Coro)", () => {
     // 1. Configurer un motif avec notes sur Coro
     const { coroTrackId, patternId } = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       // Vider l'historique d'attaque vocal
       (window as any).__VOICE_ATTACK_HISTORY__ = [];

@@ -35,7 +35,7 @@ test.describe("Activation et application du Balanço sur Puxador et Coro", () =>
     // 1. Initialiser ou repérer les pistes Puxador et Coro
     const { puxTrackId, coroTrackId } = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { instrumentsConfig } = await import('/src/data.ts');
+      const { instrumentsConfig } = await import('../src/data.ts');
 
       const pux = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
       const coro = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || String(t.id) === 'coro');
@@ -104,7 +104,7 @@ test.describe("Activation et application du Balanço sur Puxador et Coro", () =>
 
     // 8. Validation mathématique de getBalancoOffsetSec pour Puxador et Coro
     const offsetCalculations = await page.evaluate(async ({ puxId, coroId }) => {
-      const { getBalancoOffsetSec } = await import('/src/utils/balancoUtils.ts');
+      const { getBalancoOffsetSec } = await import('../src/utils/balancoUtils.ts');
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const pux = store.tracks.find((trk: any) => String(trk.id) === String(puxId));
       const coro = store.tracks.find((trk: any) => String(trk.id) === String(coroId));

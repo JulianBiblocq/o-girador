@@ -9,7 +9,7 @@ test.describe('Passerelle Organizador ➔ Sequenciador', () => {
     // Initialement droitier par défaut
     const initialHandedness = await page.evaluate(async () => {
       // @ts-ignore
-      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
       return useSequencerStore.getState().isLeftHanded;
     });
     expect(initialHandedness).toBe(false);
@@ -17,7 +17,7 @@ test.describe('Passerelle Organizador ➔ Sequenciador', () => {
     // Simulation de l'héritage d'un profil gaucher
     const isGaucherApplied = await page.evaluate(async () => {
       // @ts-ignore
-      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
       // Simuler l'effet de AuthContext lors de la lecture d'un profil gaucher
       const rawData = { lateralite: 'gaucher' };
       const isLeft = (rawData as any).lateralite === 'gaucher' || (rawData as any).isLeftHanded === true;
@@ -29,7 +29,7 @@ test.describe('Passerelle Organizador ➔ Sequenciador', () => {
     // Simulation de la déconnexion et reset obligatoire
     const isResetAfterLogout = await page.evaluate(async () => {
       // @ts-ignore
-      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
       // Règle de sécurité 2 : useSequencerStore.getState().setIsLeftHanded(false) lors de la déconnexion
       useSequencerStore.getState().setIsLeftHanded(false);
       return useSequencerStore.getState().isLeftHanded;
@@ -48,7 +48,7 @@ test.describe('Passerelle Organizador ➔ Sequenciador', () => {
       const signIn = window.signInWithEmailAndPassword;
       await signIn(auth, 'playwright@ogirador.com', 'playwrighttest');
 
-      const { fetchCloudPresets } = await import('/src/cloudLibrary.ts');
+      const { fetchCloudPresets } = await import('../src/cloudLibrary.ts');
       // Membre Organizador Samambaia avec role 'membre'
       const list = await fetchCloudPresets('uid_membre_organizador', 'membre', null, 'Samambaia');
       return list.map(p => p.name);

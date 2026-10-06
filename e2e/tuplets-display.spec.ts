@@ -34,7 +34,7 @@ test.describe('Affichage des subdivisions (Triolets & Sextolets) dans Pistas et 
 
     // 3. Modifier la résolution d'une piste pour avoir un triolet (3 pas sur le temps 1)
     await page.evaluate(async () => {
-      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
       const store = useSequencerStore.getState();
       const track = store.tracks[0];
       if (track && track.patterns && track.patterns[0]) {
@@ -57,7 +57,7 @@ test.describe('Affichage des subdivisions (Triolets & Sextolets) dans Pistas et 
 
     // 5. Modifier le temps 2 pour avoir un sextolet (6 pas)
     await page.evaluate(async () => {
-      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const { useSequencerStore } = await import('../src/stores/useSequencerStore.ts');
       const store = useSequencerStore.getState();
       const track = store.tracks[0];
       if (track && track.patterns && track.patterns[0]) {

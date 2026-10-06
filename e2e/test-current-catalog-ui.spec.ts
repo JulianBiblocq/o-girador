@@ -49,7 +49,7 @@ test('Diagnostiquer le contenu du menu Projet et le catalogue dans le séquenceu
 
   // 3. Inspect raw fetchCloudPresets
   const presetsFromDirectCall = await page.evaluate(async () => {
-    const { fetchCloudPresets } = await import('/src/cloudLibrary.ts');
+    const { fetchCloudPresets } = await import('../src/cloudLibrary.ts');
     // @ts-ignore
     const auth = window.firebaseAuth;
     const user = auth?.currentUser;
