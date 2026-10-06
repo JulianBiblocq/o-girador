@@ -325,7 +325,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       >
       {/* ── Sticky track header ── */}
       <div
-        className={`timeline-sticky-header sticky left-0 z-30 bg-[#f4ecd8] dark:bg-[#1a1a1a] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
+        className={`timeline-sticky-header sticky left-0 z-30 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
           isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')
         }`}
         style={{ 
@@ -371,7 +371,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                 onChange={e => setNameVal(e.target.value)}
                 onBlur={handleRenameSubmit}
                 onKeyDown={handleKeyDown}
-                className="font-cactus font-bold text-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 outline-none max-w-[120px] text-left"
+                className="font-cactus font-bold text-sm bg-transparent text-[var(--cordel-text)] focus:bg-[var(--cordel-bg)] cordel-border-sm px-1 py-0.5 outline-none max-w-[120px] text-left"
                 autoFocus
                 onClick={e => e.stopPropagation()}
                 onMouseDown={e => e.stopPropagation()}
@@ -402,7 +402,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             }}
             className={`p-0.5 rounded cursor-pointer shrink-0 flex items-center justify-center transition-all ml-auto pointer-events-auto ${
               isAutomationOpen
-                ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-black shadow-sm'
+                ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)] shadow-sm'
                 : 'bg-transparent hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] border border-transparent hover:border-[var(--cordel-border)]/30'
             }`}
             style={{ width: '22px', height: '22px' }}
