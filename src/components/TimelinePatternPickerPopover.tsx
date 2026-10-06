@@ -196,12 +196,12 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
         top: `${position.top}px`,
         left: `${position.left}px`,
       }}
-      className="bg-[#f4ecd8] dark:bg-[#25201b] border-2 border-[#1a1a1a] dark:border-[#f4ecd8]/80 shadow-[4px_4px_0px_#1a1a1a] dark:shadow-[4px_4px_0px_#f4ecd8] font-cactus z-50 p-1 min-w-[160px] max-w-[240px] max-h-[260px] overflow-y-auto custom-scrollbar select-none outline-none"
+      className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0px_var(--cordel-border)] font-cactus z-50 p-1 min-w-[160px] max-w-[240px] max-h-[260px] overflow-y-auto custom-scrollbar select-none outline-none"
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
     >
       {/* En-tête : Piste & Numéro de mesure */}
-      <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--cordel-text)] border-b border-[#1a1a1a]/20 dark:border-[#f4ecd8]/20 flex items-center justify-between mb-1">
+      <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--cordel-text)] border-b border-[var(--cordel-border)]/20 flex items-center justify-between mb-1">
         <span className="truncate pr-2">{trackTitle}</span>
         <span className="text-[10px] opacity-60 shrink-0 font-sans font-bold">
           M{measureIdx + 1}
@@ -216,8 +216,8 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
             onClick={() => handleSelect(undefined)}
             className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
               isFollowingMaster
-                ? 'bg-[#8b2a1a]/15 dark:bg-[#8b2a1a]/30 font-bold text-[#8b2a1a] dark:text-[#f39c12]'
-                : 'hover:bg-[#1a1a1a]/5 dark:hover:bg-white/10 text-[var(--cordel-text)]'
+                ? 'bg-[var(--cordel-text)]/15 font-bold text-[var(--cordel-text)]'
+                : 'hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]'
             }`}
           >
             <div className="flex items-center gap-1.5 truncate">
@@ -227,7 +227,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
               </span>
             </div>
             {isFollowingMaster && (
-              <span className="text-xs font-bold text-[#8b2a1a] dark:text-[#f39c12] ml-2 shrink-0">
+              <span className="text-xs font-bold text-[var(--comp-color,#d4af37)] ml-2 shrink-0">
                 ✓
               </span>
             )}
@@ -240,13 +240,13 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
           onClick={() => handleSelect(null)}
           className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
             !isFollowingMaster && activePatternId === null
-              ? 'bg-[#1a1a1a]/10 dark:bg-white/10 font-bold text-[var(--cordel-text)]'
-              : 'hover:bg-[#1a1a1a]/5 dark:hover:bg-white/5 text-[var(--cordel-text)] opacity-85'
+              ? 'bg-[var(--cordel-text)]/15 font-bold text-[var(--cordel-text)]'
+              : 'hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] opacity-85'
           }`}
         >
           <div className="flex items-center gap-2 truncate">
             <div
-              className="w-3.5 h-3.5 rounded border border-[#1a1a1a]/40 dark:border-white/40 shrink-0 opacity-40"
+              className="w-3.5 h-3.5 rounded border border-[var(--cordel-border)]/40 shrink-0 opacity-40"
               style={{
                 backgroundImage:
                   'repeating-linear-gradient(45deg, currentColor 0, currentColor 1px, transparent 0, transparent 4px)',
@@ -257,7 +257,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
             </span>
           </div>
           {!isFollowingMaster && activePatternId === null && (
-            <span className="text-xs font-bold text-[#8b2a1a] dark:text-[#f39c12] ml-2 shrink-0">
+            <span className="text-xs font-bold text-[var(--comp-color,#d4af37)] ml-2 shrink-0">
               ✓
             </span>
           )}
@@ -265,7 +265,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
 
         {/* Séparateur si des motifs existent */}
         {patternsList.length > 0 && (
-          <div className="my-0.5 border-t border-[#1a1a1a]/15 dark:border-white/15" />
+          <div className="my-0.5 border-t border-[var(--cordel-border)]/20" />
         )}
 
         {/* Liste des motifs disponibles */}
@@ -278,13 +278,13 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
               onClick={() => handleSelect(p.id)}
               className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
                 isSelected
-                  ? 'bg-[#8b2a1a]/15 dark:bg-[#8b2a1a]/30 font-bold text-[#8b2a1a] dark:text-[#f39c12]'
-                  : 'hover:bg-[#1a1a1a]/5 dark:hover:bg-white/5 text-[var(--cordel-text)]'
+                  ? 'bg-[var(--cordel-text)]/15 font-bold text-[var(--cordel-text)]'
+                  : 'hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]'
               }`}
             >
               <div className="flex items-center gap-2 min-w-0 truncate">
                 <span
-                  className="w-3 h-3 rounded-full shrink-0 border border-black/20 shadow-xs"
+                  className="w-3 h-3 rounded-full shrink-0 border border-[var(--cordel-border)]/40 shadow-xs"
                   style={{ backgroundColor: instColor }}
                 />
                 <span className="truncate">
@@ -293,7 +293,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
                 </span>
               </div>
               {isSelected && (
-                <span className="text-xs font-bold text-[#8b2a1a] dark:text-[#f39c12] ml-2 shrink-0">
+                <span className="text-xs font-bold text-[var(--comp-color,#d4af37)] ml-2 shrink-0">
                   ✓
                 </span>
               )}
