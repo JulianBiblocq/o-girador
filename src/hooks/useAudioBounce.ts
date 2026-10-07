@@ -9,6 +9,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAudio } from '../contexts/AudioContext';
 import { telemetryService } from '../services/telemetryService';
+import { normalizeAudioBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
 
 /**
  * Hook pour le rendu Temps-Réel (Bounce) de la séquence active.
@@ -111,7 +112,7 @@ export function useAudioBounce() {
       // 5. Clôture STRICTE de l'enregistrement pour éliminer tout rebond ou échantillon de la mesure 0
       // 🛡️ VIGILANCE 2 : Tone.getDestination().disconnect(recorder) -> await recorder.stop() -> audio.handleStop()
       Tone.getDestination().disconnect(recorder);
-      const blob = await recorder.stop();
+      const rawBlob = await recorder.stop();
       recorder.dispose();
       audio.handleStop();
       
@@ -119,8 +120,22 @@ export function useAudioBounce() {
       state.setIsLooping(previousIsLooping);
       state.setCurrentLoopIteration(previousLoopIteration);
 
+      // Normalisation crête transparente (-0.5 dBFS)
+      let finalBlob = rawBlob;
+      try {
+        const arrayBuffer = await rawBlob.arrayBuffer();
+        const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+        if (rawCtx && typeof rawCtx.decodeAudioData === 'function') {
+          const decoded = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
+          normalizeAudioBuffer(decoded, -0.5);
+          finalBlob = audioBufferToWav(decoded);
+        }
+      } catch (normErr) {
+        console.warn("[Audio Bounce] Normalisation non bloquante ignorée sur erreur :", normErr);
+      }
+
       setEstEnCalcul(false);
-      return blob;
+      return finalBlob;
 
     } catch (err: any) {
       console.error("[Export Danse] Erreur bloquante durant l'enregistrement :", err);

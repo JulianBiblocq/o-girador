@@ -579,6 +579,7 @@ export const vouVadiarPreset: Preset = {
   bpm: 83,
   timeSig: "4/4",
   version: 2,
+  audioScaleVersion: 2,
   circles: [
     {
       id: 1,
@@ -591,7 +592,7 @@ export const vouVadiarPreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 4,
@@ -604,7 +605,7 @@ export const vouVadiarPreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 90
+      volumeVal: 68
     },
     {
       id: 5,
@@ -617,7 +618,7 @@ export const vouVadiarPreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 62
+      volumeVal: 47
     },
     {
       id: 6,
@@ -630,7 +631,7 @@ export const vouVadiarPreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 8,
@@ -643,7 +644,7 @@ export const vouVadiarPreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 1779,
@@ -656,7 +657,7 @@ export const vouVadiarPreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     }
   ]
 };
@@ -665,6 +666,7 @@ export const baqueDeImalePreset: Preset = {
   bpm: 77,
   timeSig: "4/4",
   version: 2,
+  audioScaleVersion: 2,
   circles: [
     {
       id: 1,
@@ -677,7 +679,7 @@ export const baqueDeImalePreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 2,
@@ -690,7 +692,7 @@ export const baqueDeImalePreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 4,
@@ -703,7 +705,7 @@ export const baqueDeImalePreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 5,
@@ -716,7 +718,7 @@ export const baqueDeImalePreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     },
     {
       id: 6,
@@ -729,7 +731,7 @@ export const baqueDeImalePreset: Preset = {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100
+      volumeVal: 75
     }
   ]
 };

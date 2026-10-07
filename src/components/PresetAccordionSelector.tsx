@@ -130,6 +130,8 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                 canSetDefaultPreset ? (
                   <button
                     type="button"
+                    data-testid={isDefault ? "cactus-default-preset" : "cactus-preset-toggle"}
+                    aria-label={isDefault ? "Cactus 🌵" : "Épingler le morceau"}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSetDefaultPreset?.(isDefault ? null : p.id);
@@ -154,6 +156,8 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   </button>
                 ) : isDefault ? (
                   <span
+                    data-testid="cactus-default-preset"
+                    aria-label="Cactus 🌵"
                     title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
                     style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
                     className="shrink-0 p-1 select-none leading-none text-xl font-cactus-star text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] inline-flex items-center justify-center"
@@ -199,6 +203,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           <div className="flex flex-col cordel-border-sm bg-[var(--cordel-bg)] overflow-hidden">
             <button
               type="button"
+              data-testid="group-catalog-samambaia"
               onClick={() => setIsGroupOpen((prev) => !prev)}
               className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
             >

@@ -92,140 +92,33 @@ export function useSequencerHistory({
   };
 
   const pushUndoState = (customTracksState?: TrackGroup[]) => {
-    // 1. Snapshot SYNCHRONE (Vital : il faut capturer l'état *maintenant*)
-    const stateToSave = customTracksState ? customTracksState : tracksRef.current;
-    const clonedStructure: StructureSnapshot = {
-      totalMeasures: useSequencerStore.getState().totalMeasures,
-      measureTimeSigs: [...measureTimeSigsRef.current],
-      measureBpms: [...measureBpmsRef.current],
-      measureBpmTransitions: [...measureBpmTransitionsRef.current],
-      measureVols: [...measureVolsRef.current],
-      measureVolTransitions: [...measureVolTransitionsRef.current],
-      songSections: [...songSectionsRef.current],
-      songMarkers: [...(songMarkersRef.current || [])],
-    };
-
-    // Synchronisation synchrone du store Zustand pour être paré immédiatement à Ctrl+Z
     useSequencerStore.getState().pushUndoState(customTracksState);
-    
-    // 2. Mise à jour DIFFÉRÉE (On libère le thread immédiatement)
-    const deferredSave = () => {
-      const nextTracksHistory = [...tracksHistoryRef.current, stateToSave].slice(-10);
-      setTracksHistory(nextTracksHistory);
-      setTracksRedoHistory([]);
-
-      const nextStructureHistory = [...songStructureHistoryRef.current, clonedStructure].slice(-10);
-      setSongStructureHistory(nextStructureHistory);
-      setSongStructureRedoHistory([]);
-
-      syncStoreHistory(nextTracksHistory, [], nextStructureHistory, []);
-    };
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(deferredSave);
-    } else {
-      setTimeout(deferredSave, 0);
-    }
   };
 
   const handleUndo = () => {
-    if (tracksHistoryRef.current.length === 0) return;
-
-    const currentTracks = tracksRef.current;
-    const currentStructure: StructureSnapshot = {
-      totalMeasures: useSequencerStore.getState().totalMeasures,
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current,
-      songMarkers: songMarkersRef.current,
-    };
-
-    const nextTracksRedoHistory = [...tracksRedoHistoryRef.current, currentTracks];
-    const nextSongStructureRedoHistory = [...songStructureRedoHistoryRef.current, currentStructure];
-
-    setTracksRedoHistory(nextTracksRedoHistory);
-    setSongStructureRedoHistory(nextSongStructureRedoHistory);
-
-    const nextTracksHistory = [...tracksHistoryRef.current];
-    const previousTracksState = nextTracksHistory.pop();
-    if (previousTracksState) {
-      setTracks(previousTracksState);
-    }
-    setTracksHistory(nextTracksHistory);
-
-    if (songStructureHistoryRef.current.length > 0) {
-      const nextStructureHistory = [...songStructureHistoryRef.current];
-      const previousStructureState = nextStructureHistory.pop();
-      if (previousStructureState) {
-        if (previousStructureState.totalMeasures !== undefined) {
-          useSequencerStore.getState().setTotalMeasures(previousStructureState.totalMeasures, true);
-        }
-        setMeasureTimeSigs(previousStructureState.measureTimeSigs);
-        setMeasureBpms(previousStructureState.measureBpms);
-        setMeasureBpmTransitions(previousStructureState.measureBpmTransitions);
-        setMeasureVols(previousStructureState.measureVols);
-        setMeasureVolTransitions(previousStructureState.measureVolTransitions);
-        if (previousStructureState.songSections) setSongSections(previousStructureState.songSections);
-        if (previousStructureState.songMarkers) setSongMarkers(previousStructureState.songMarkers);
-      }
-      setSongStructureHistory(nextStructureHistory);
-      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory, nextStructureHistory, nextSongStructureRedoHistory);
-    } else {
-      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory);
-    }
+    useSequencerStore.getState().handleUndo();
+    const store = useSequencerStore.getState();
+    setTracks(store.tracks);
+    setMeasureBpms(store.measureBpms);
+    setMeasureBpmTransitions(store.measureBpmTransitions);
+    setMeasureVols(store.measureVols);
+    setMeasureVolTransitions(store.measureVolTransitions);
+    setMeasureTimeSigs(store.measureTimeSigs);
+    if (store.songSections) setSongSections(store.songSections);
+    if (store.songMarkers) setSongMarkers(store.songMarkers);
   };
 
   const handleRedo = () => {
-    if (tracksRedoHistoryRef.current.length === 0) return;
-
-    const currentTracks = tracksRef.current;
-    const currentStructure: StructureSnapshot = {
-      totalMeasures: useSequencerStore.getState().totalMeasures,
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current,
-      songMarkers: songMarkersRef.current,
-    };
-
-    const nextTracksHistory = [...tracksHistoryRef.current, currentTracks];
-    const nextSongStructureHistory = [...songStructureHistoryRef.current, currentStructure];
-
-    setTracksHistory(nextTracksHistory);
-    setSongStructureHistory(nextSongStructureHistory);
-
-    const nextTracksRedoHistory = [...tracksRedoHistoryRef.current];
-    const nextTracksState = nextTracksRedoHistory.pop();
-    if (nextTracksState) {
-      setTracks(nextTracksState);
-    }
-    setTracksRedoHistory(nextTracksRedoHistory);
-
-    if (songStructureRedoHistoryRef.current.length > 0) {
-      const nextSongStructureRedoHistory = [...songStructureRedoHistoryRef.current];
-      const nextStructureState = nextSongStructureRedoHistory.pop();
-      if (nextStructureState) {
-        if (nextStructureState.totalMeasures !== undefined) {
-          useSequencerStore.getState().setTotalMeasures(nextStructureState.totalMeasures, true);
-        }
-        setMeasureTimeSigs(nextStructureState.measureTimeSigs);
-        setMeasureBpms(nextStructureState.measureBpms);
-        setMeasureBpmTransitions(nextStructureState.measureBpmTransitions);
-        setMeasureVols(nextStructureState.measureVols);
-        setMeasureVolTransitions(nextStructureState.measureVolTransitions);
-        if (nextStructureState.songSections) setSongSections(nextStructureState.songSections);
-        if (nextStructureState.songMarkers) setSongMarkers(nextStructureState.songMarkers);
-      }
-      setSongStructureRedoHistory(nextSongStructureRedoHistory);
-      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory, nextSongStructureHistory, nextSongStructureRedoHistory);
-    } else {
-      syncStoreHistory(nextTracksHistory, nextTracksRedoHistory);
-    }
+    useSequencerStore.getState().handleRedo();
+    const store = useSequencerStore.getState();
+    setTracks(store.tracks);
+    setMeasureBpms(store.measureBpms);
+    setMeasureBpmTransitions(store.measureBpmTransitions);
+    setMeasureVols(store.measureVols);
+    setMeasureVolTransitions(store.measureVolTransitions);
+    setMeasureTimeSigs(store.measureTimeSigs);
+    if (store.songSections) setSongSections(store.songSections);
+    if (store.songMarkers) setSongMarkers(store.songMarkers);
   };
 
   const clearHistory = () => {

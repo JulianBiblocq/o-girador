@@ -37,7 +37,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
         if (isEcoRef.current) {
           lastLevelRef.current = 0;
           if (gaugeRef.current) {
-            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
           }
           animationFrameId = null;
           return; // Break the rAF loop when eco mode is active
@@ -84,15 +84,16 @@ export const VUMeter: React.FC<VUMeterProps> = ({
           if (targetScale > currentScale) {
             currentScale = targetScale; // instant attack
           } else {
-            // Slower, smoother decay (was 0.90 / 0.10)
+            // Slower, smoother decay
             currentScale = currentScale * 0.97 + targetScale * 0.03; 
           }
           lastLevelRef.current = currentScale;
           
           if (gaugeRef.current) {
+            const maskScale = Math.max(0, Math.min(1, 1 - currentScale));
             gaugeRef.current.style.transform = orientation === 'vertical' 
-              ? `scaleY(${currentScale})` 
-              : `scaleX(${currentScale})`;
+              ? `scaleY(${maskScale})` 
+              : `scaleX(${maskScale})`;
           }
         } catch (e) {
           console.error("Error reading track meter value:", e);
@@ -117,7 +118,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
           }
           lastLevelRef.current = 0;
           if (gaugeRef.current) {
-            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
           }
         }
       }
@@ -126,7 +127,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     if (!isActive || !isPlaying) {
       lastLevelRef.current = 0;
       if (gaugeRef.current) {
-        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
       }
       return () => {
         unsubscribe();
@@ -147,12 +148,22 @@ export const VUMeter: React.FC<VUMeterProps> = ({
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
+      {/* 1. Colonne avec dégradé vertical fixe Cordel (signal faible vert d'eau -> énergie ocre -> crête rouge terracotta) */}
+      <div
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{
+          background: orientation === 'vertical'
+            ? 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)'
+            : 'linear-gradient(to right, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)',
+        }}
+      />
+      {/* 2. Masque opaque descendant piloté en GPU (scaleY) de 1 (masqué) à 0 (dévoilé) */}
       <div
         ref={gaugeRef}
-        className="absolute bottom-0 left-0 bg-[var(--cordel-border)] w-full h-full"
+        className="absolute inset-0 bg-[var(--cordel-bg)] w-full h-full pointer-events-none"
         style={{
-          transform: orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)',
-          transformOrigin: orientation === 'vertical' ? 'bottom' : 'left',
+          transform: orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)',
+          transformOrigin: orientation === 'vertical' ? 'top' : 'right',
           transition: 'none',
         }}
       />

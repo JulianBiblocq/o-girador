@@ -4,6 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Transposition réelle et dynamique des notes vocales", () => {
   test.beforeEach(async ({ page }) => {
@@ -17,10 +18,7 @@ test.describe("Transposition réelle et dynamique des notes vocales", () => {
 
     await page.goto('/');
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible()) {
-      await entraBtn.click();
-    }
+    await ensureStudioLoaded(page);
 
     await page.waitForFunction(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();

@@ -1320,7 +1320,7 @@ export function useSequencerState() {
   const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => {
     pushUndoState();
     setSongSections(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color, level: level || 0 } : s);
+      const next = prev.map(s => (s.id === id || String(s.id) === String(id)) ? { ...s, name, startMeasure: start, endMeasure: end, color, level: level || 0 } : s);
       next.sort((a, b) => a.startMeasure - b.startMeasure);
       return next;
     });
@@ -2163,7 +2163,7 @@ export function useSequencerState() {
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
@@ -2195,7 +2195,7 @@ export function useSequencerState() {
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: 0,
         reverbVal: 0,
         panVal: 0,
@@ -2226,7 +2226,7 @@ export function useSequencerState() {
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: 0,
         reverbVal: 0,
         panVal: 0,
@@ -2266,7 +2266,7 @@ export function useSequencerState() {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100,
+      volumeVal: 75,
       selectedPatternId: 0,
       reverbVal: 0,
       panVal: 0,

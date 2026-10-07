@@ -1157,7 +1157,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
                   willChange: 'transform',
                   width: `${bufferPxWidth}px`,
                 }}
-                className="absolute top-0 bottom-0 left-0 z-10"
+                className="absolute top-0 bottom-0 left-0 z-10 will-change-transform"
               >
                 {/* Waveform body layer : clic maintenu déplace l'onde (Directive A.2) */}
                 <div

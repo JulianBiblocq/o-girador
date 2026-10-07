@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "__Secure-YNID",
-      "value": "22.YT=AOCXzsi3kcpfHQyNOzjwAJspLEjt-tjSzfQb1QS0YddqpvfF5kYd3sPMX0jyfZxd31-Fa_vEa2N374juDS0ys0BH8xOv4Buo786PQI_QU01FkUu9Cg-RolklFfGEx1d7bnWnIZzvEov_eW8DAHr7c-ez2dT4IXx6vorLpzFjit728pOqce0O5DLVkolsaSM9wgDtKJeVdEq8tZlbyfFftRH6CbnaUbYWSfqN2X-NzYI6yV2Ra2y08f2MXp7TK3gAOuzvhdGGpsoKaLoasqtSTXhwAEM9EphbmlTpD_i4agrDrtfsUZCFFRpzOSP8WIylb_UwFiSHxVA0LIKeWtV6BA",
+      "value": "22.YT=FJGb7OEmNz2FRS0pA43nd--ZiWkuTuxswpad_qBXcnDzAanTmUBf8CQy7f23IT72DiB8nYhGbUvGLxl0zJzVKE2h1Lna8w4safMRVDsJX0UP0H5hXk2fjFpGhWwvHaPCAs82uDmGm6xlwpNDWqktYI9k_xiJniZImV20GDIYd0HATu2QoYEdHLLq2Owtvwq1Qbi_3AVO76eYRFJI78iOoYRSdGA9MzNYeIth5sIZQ_qvT9U0PxHPXkLDNAW2wFdiGU0tNKLx_eUXGKNXxcO_uriSj86DytDn8MNkajF6Dde1CB7BeA-0iWG8fMt3nuYIoeZaF3T6FuHL3WxGhdrWCQ",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806877149.879374,
+      "expires": 1806923357.251321,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -14,7 +14,7 @@
     },
     {
       "name": "YSC",
-      "value": "yTrHC_4MxM8",
+      "value": "RcIAWWw6fIo",
       "domain": ".youtube.com",
       "path": "/",
       "expires": -1,
@@ -23,36 +23,36 @@
       "sameSite": "None"
     },
     {
-      "name": "VISITOR_INFO1_LIVE",
-      "value": "DCLv8lngktE",
+      "name": "__Secure-ROLLOUT_TOKEN",
+      "value": "CNbPjfus_KOZugEQ2IzOq-KnlwMY2IzOq-KnlwM%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806877149.879454,
+      "expires": 1806923358.251423,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "VISITOR_INFO1_LIVE",
+      "value": "hABc4URvbms",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1806923358.25147,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "VISITOR_PRIVACY_METADATA",
-      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgJw%3D%3D",
+      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgJA%3D%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806877149.879473,
+      "expires": 1806923358.251483,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
-    },
-    {
-      "name": "__Secure-ROLLOUT_TOKEN",
-      "value": "CJSd66GgloLXqAEQhvrtmbamlwMYhvrtmbamlwM%3D",
-      "domain": ".youtube.com",
-      "path": "/",
-      "expires": 1806877149.879494,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None",
-      "partitionKey": "http://localhost",
-      "_crHasCrossSiteAncestor": true
     }
   ],
   "origins": [
@@ -61,7 +61,7 @@
       "localStorage": [
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_22",
-          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791325150019,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791371358377,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "ogirador_has_seen_welcome",
@@ -69,7 +69,7 @@
         },
         {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "374"
+          "value": "340"
         },
         {
           "name": "oGirador_reverb_decay",
@@ -84,12 +84,16 @@
           "value": "pt"
         },
         {
-          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_50",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1791325152874}"
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_iTDwSJ1qS5kNRkUwn6z0",
+          "value": "{\"activeTargetIds\":[16,24,52],\"updateTimeMs\":1791371361965}"
+        },
+        {
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_52",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1791371361935}"
         },
         {
           "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"4rXpnIZ4qOztQNfu1qVQ\",\"onlineState\":\"Online\"}"
+          "value": "{\"clientId\":\"iTDwSJ1qS5kNRkUwn6z0\",\"onlineState\":\"Online\"}"
         },
         {
           "name": "o-girador-theme",
@@ -97,19 +101,15 @@
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_16",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1791325152740}"
-        },
-        {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_4rXpnIZ4qOztQNfu1qVQ",
-          "value": "{\"activeTargetIds\":[16,24,50],\"updateTimeMs\":1791325152776}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1791371361935}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_26",
-          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791325150018,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791371358378,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_24",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1791325152740}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1791371361935}"
         },
         {
           "name": "girador_last_loaded_preset_id",
@@ -130,11 +130,11 @@
       "localStorage": [
         {
           "name": "ytidb::LAST_RESULT_ENTRY_KEY",
-          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1793917152510,\"creation\":1791325152510}"
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1793963361746,\"creation\":1791371361746}"
         },
         {
           "name": "yt-icons-last-purged",
-          "value": "1788733150274"
+          "value": "1789816159484"
         }
       ]
     }

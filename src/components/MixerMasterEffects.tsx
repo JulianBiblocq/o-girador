@@ -151,6 +151,7 @@ export const MixerMasterEffects: React.FC = () => {
           <DragNumberBox 
             label={t('reverbTime')}
             value={masterFX.reverb.time}
+            defaultValue={50}
             onChange={(val) => setMasterFxParam('reverb', 'time', val)}
             onAudioDrag={handleReverbTimeDrag}
             fillColor="var(--reverb-color)"
@@ -159,6 +160,7 @@ export const MixerMasterEffects: React.FC = () => {
           <DragNumberBox 
             label={t('reverbVol')}
             value={masterFX.reverb.returnVolume}
+            defaultValue={0}
             onChange={(val) => setMasterFxVolume('reverb', val)}
             onAudioDrag={handleReverbDrag}
             fillColor="var(--reverb-color)"
@@ -214,6 +216,7 @@ export const MixerMasterEffects: React.FC = () => {
           <DragNumberBox 
             label={t('distoDrive')}
             value={masterFX.distortion.drive}
+            defaultValue={0}
             onChange={(val) => setMasterFxParam('distortion', 'drive', val)}
             onAudioDrag={handleDistortionDriveDrag}
             fillColor="var(--disto-color)"
@@ -222,6 +225,7 @@ export const MixerMasterEffects: React.FC = () => {
           <DragNumberBox 
             label={t('distoVol')}
             value={masterFX.distortion.returnVolume}
+            defaultValue={0}
             onChange={(val) => setMasterFxVolume('distortion', val)}
             onAudioDrag={handleDistortionDrag}
             fillColor="var(--disto-color)"

@@ -11,6 +11,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { playVoicePitchLive, releaseVoicePitchLive } from '../audio/vocalSynthService';
+import { faderPositionToDb, faderPositionToGain } from '../utils/audioMath';
 
 /* CPU / Audio justification: This MIDI event listener runs outside the React render cycle (bypass).
    Upon receiving MIDI Note On, Pitch Bend, or CC messages:
@@ -586,10 +587,9 @@ export const useMidiController = () => {
 
           // 1. Audio bypass immédiat
           const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
-          if (channelNode) {
-            const gain = Math.max(0.00001, volumeVal / 100);
-            const db = volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
-            channelNode.volume.rampTo(db, 0.02);
+          if (channelNode && channelNode.volume) {
+            const db = faderPositionToDb(volumeVal);
+            channelNode.volume.rampTo(Number.isFinite(db) ? db : -100, 0.02);
           }
 
           // 2. DOM Direct bypass (Zero Render Thrashing 60 FPS)
@@ -604,8 +604,7 @@ export const useMidiController = () => {
           // Master Fader (Canal 8 en MCU)
           // 1. Audio bypass immédiat
           if (masterVolumeNode && masterVolumeNode.gain) {
-            const db = volumeVal === 0 ? -Infinity : -40 + (volumeVal / 100) * 46;
-            const gain = Tone.dbToGain(db);
+            const gain = faderPositionToGain(volumeVal);
             masterVolumeNode.gain.rampTo(gain, 0.02);
           }
 
@@ -759,10 +758,9 @@ export const useMidiController = () => {
 
             // 1. Audio bypass immédiat
             const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
-            if (channelNode) {
-              const gain = Math.max(0.00001, volumeVal / 100);
-              const db = volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
-              channelNode.volume.rampTo(db, 0.02);
+            if (channelNode && channelNode.volume) {
+              const db = faderPositionToDb(volumeVal);
+              channelNode.volume.rampTo(Number.isFinite(db) ? db : -100, 0.02);
             }
 
             // 2. DOM Direct bypass (Zero Render Thrashing 60 FPS)
@@ -776,8 +774,7 @@ export const useMidiController = () => {
           } else if (faderIdx === 'master') {
             // Master Fader
             if (masterVolumeNode && masterVolumeNode.gain) {
-              const db = volumeVal === 0 ? -Infinity : -40 + (volumeVal / 100) * 46;
-              const gain = Tone.dbToGain(db);
+              const gain = faderPositionToGain(volumeVal);
               masterVolumeNode.gain.rampTo(gain, 0.02);
             }
 

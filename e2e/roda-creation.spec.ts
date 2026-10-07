@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe('Création de Roda', () => {
 
@@ -18,13 +19,10 @@ test.describe('Création de Roda', () => {
     });
 
     // Wait a bit for auth state to propagate and modals to disappear
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1500);
 
-    // Enter the app by clicking the main landing page button
-    await page.locator('#entra-btn').click();
-    
-    // Wait for the main app to load
-    await page.waitForTimeout(1000);
+    // Enter the app
+    await ensureStudioLoaded(page);
   });
 
   test('Création d\'une Roda vide et ajout manuel d\'instruments', async ({ page }) => {
@@ -59,10 +57,12 @@ test.describe('Création de Roda', () => {
     await page.locator('button', { hasText: /Créer une roda|Criar uma roda/i }).click();
 
     // Modale d'introduction : Choisir "Assistant du Mestre"
-    await page.locator('button', { hasText: /Assistant du Mestre|Assistente do Mestre/i }).click();
+    const assistantBtn = page.locator('button', { hasText: /Assistant du Mestre|Assistente do Mestre/i });
+    await expect(assistantBtn).toBeVisible({ timeout: 5000 });
+    await assistantBtn.click();
 
     // Vérifier que l'assistant s'est bien ouvert
-    await expect(page.locator('text=/Assistant de Création|Assistente de Criação/i')).toBeVisible();
+    await expect(page.locator('text=/Assistant de Création|Assistente de Criação/i')).toBeVisible({ timeout: 5000 });
 
     // Cliquer sur Suivant à l'étape 1
     const nextButton = page.locator('button', { hasText: /Suivant|Avançar/i });
@@ -74,8 +74,14 @@ test.describe('Création de Roda', () => {
     await expect(finishButton).toBeVisible();
     await finishButton.click();
 
+    // Valider la modale de consécration ("Roda consagrada !") si elle apparaît
+    const okBtn = page.locator('button:has-text("OK"), button:has-text("Ok")').last();
+    if (await okBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await okBtn.click();
+    }
+
     // Vérifier que l'assistant s'est fermé et que la Roda a été générée
-    await expect(page.locator('text=/Assistant de Création|Assistente de Criação/i')).toBeHidden();
+    await expect(page.locator('text=/Assistant de Création|Assistente de Criação/i')).toBeHidden({ timeout: 8000 });
   });
 
 });

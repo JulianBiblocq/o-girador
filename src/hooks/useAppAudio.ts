@@ -13,6 +13,7 @@ import { getLocalLibrary } from '../library';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../data';
 import { getDefaultGroupPresetId } from '../cloudGroups';
 import { vocalEngineService } from '../audio/vocalEngineService';
+import { CURRENT_AUDIO_SCALE_VERSION } from '../utils/audioMath';
 
 export function useAppAudio() {
   const audio = useAudio();
@@ -380,6 +381,7 @@ export function useAppAudio() {
         masterDistortion: state.masterFX?.distortion?.returnVolume,
         masterDistortionDrive: state.masterFX?.distortion?.drive,
         globalSwing: audioRef.current.globalSwing,
+        audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION,
       };
 
       workerRef.current?.postMessage({ type: 'SAVE_AUTOSAVE', payload: dataToSave });

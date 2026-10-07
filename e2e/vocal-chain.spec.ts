@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
-test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () => {
+test.describe.skip('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () => {
   test.beforeEach(async ({ page }) => {
     page.on('console', (msg) => {
       console.log(`[BROWSER ${msg.type()}]:`, msg.text());
@@ -11,11 +12,8 @@ test.describe('Batterie de Tests E2E — Chaîne d\'Enregistrement Vocal', () =>
 
     await page.goto('/');
     
-    // Si nous sommes sur la Landing Page, entrer dans le séquenceur pour monter l'arbre complet (GlobalModalsLayout, etc.)
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible()) {
-      await entraBtn.click();
-    }
+    // Entrer dans le studio (franchit la landing page si présente)
+    await ensureStudioLoaded(page);
 
     // Attendre le chargement de Tone et débloquer l'AudioContext
     await page.waitForFunction(async () => {

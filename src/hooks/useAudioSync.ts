@@ -14,6 +14,7 @@ import { auth } from '../firebase/config';
 import { recordStageSuccess } from '../services/cloudTrainings';
 
 import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume, isToadaBus, isToadaChild, getTrackFamilyIds } from '../stores/useSequencerStore';
+import { faderPositionToDb, faderPositionToGain } from '../utils/audioMath';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -218,7 +219,8 @@ import {
   syncTrackInsertChain,
   disposeTrackNodes,
   disposeAllTrackNodes,
-  setOnTrackDisposeCallback
+  setOnTrackDisposeCallback,
+  syncMasterCompressorBypass
 } from '../audio/effectsChain';
 
 export {
@@ -681,6 +683,10 @@ export function useAudioSync({
   // Local values sync
   useEffect(() => {
     isPlayingRef.current = isPlaying;
+    useSequencerStore.getState().setIsPlaying(isPlaying);
+    if (typeof window !== 'undefined') {
+      (window as any).__IS_PLAYING__ = isPlaying;
+    }
   }, [isPlaying]);
 
   useEffect(() => {
@@ -704,7 +710,7 @@ export function useAudioSync({
   useEffect(() => {
     const applyVolume = (isEco: boolean) => {
       if (masterVolumeNode) {
-        const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const baseGain = masterVol <= -60 || !Number.isFinite(masterVol) ? 0 : Tone.dbToGain(masterVol);
         const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
         masterVolumeNode.gain.setValueAtTime(
           baseGain * multiplier,
@@ -753,34 +759,7 @@ export function useAudioSync({
   // Sync Master Compressor
   useEffect(() => {
     const applyCompressor = (isEco: boolean, isCompActive: boolean) => {
-      if (masterCompressorNode) {
-        const isBypassed = isEco || !isCompActive;
-        const currentComp = masterCompressor;
-        const targetThreshold = isBypassed ? 0 : Math.max(-100, Math.min(0, currentComp.threshold));
-        const targetRatio = isBypassed ? 1 : Math.max(1, currentComp.ratio);
-
-        // Rampe douce de 20ms pour éviter tout transitoire sonore (clic)
-        // Utiliser une rampe linéaire car Tone.Param.rampTo utilise un calcul exponentiel qui lève RangeError quand la cible vaut 0
-        try {
-          if (typeof (masterCompressorNode.threshold as any).linearRampTo === 'function') {
-            (masterCompressorNode.threshold as any).linearRampTo(targetThreshold, 0.02);
-          } else {
-            masterCompressorNode.threshold.value = targetThreshold;
-          }
-        } catch (_) {
-          masterCompressorNode.threshold.value = targetThreshold;
-        }
-
-        try {
-          if (typeof (masterCompressorNode.ratio as any).linearRampTo === 'function') {
-            (masterCompressorNode.ratio as any).linearRampTo(targetRatio, 0.02);
-          } else {
-            masterCompressorNode.ratio.value = targetRatio;
-          }
-        } catch (_) {
-          masterCompressorNode.ratio.value = targetRatio;
-        }
-      }
+      syncMasterCompressorBypass(isEco || !isCompActive, masterCompressor);
     };
     
     const initialState = useSequencerStore.getState();
@@ -1095,13 +1074,13 @@ export function useAudioSync({
 
         // Paramètres acoustiques initiaux du bus
         const isConnectedToParentBus = Boolean(t.busId && busChannels[t.busId]);
-        const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
-        const gain = Math.max(0.00001, effectiveVol / 100);
-        const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
+        const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracksRef.current, t.id);
+        const db = faderPositionToDb(effectiveVol);
+        const safeDb = Number.isFinite(db) ? db : -100;
         const pan = (t.panVal || t.pan || 0) / 100;
         const muteState = getEffectiveMuteState(tracksRef.current, t.id);
 
-        busChannels[t.id].volume.value = db;
+        busChannels[t.id].volume.value = safeDb;
         busChannels[t.id].pan.value = pan;
         busChannels[t.id].mute = muteState;
 
@@ -1169,13 +1148,13 @@ export function useAudioSync({
           audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
           const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
-          const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
-          const gain = Math.max(0.00001, effectiveVol / 100);
-          const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
+          const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracksRef.current, t.id);
+          const db = faderPositionToDb(effectiveVol);
+          const safeDb = Number.isFinite(db) ? db : -100;
           const pan = (t.pan ?? t.panVal ?? 0) / 100;
           const muteState = getEffectiveMuteState(tracksRef.current, t.id);
 
-          channels[t.id].volume.value = db;
+          channels[t.id].volume.value = safeDb;
           channels[t.id].pan.value = pan;
           channels[t.id].mute = muteState;
           
@@ -1606,15 +1585,15 @@ export function useAudioSync({
             if (!t.automationBypass?.volume && t.measureVols && t.measureVols.length && channel.volume) {
               try {
                 const isConnectedToBus = Boolean(t.busId && busChannels?.[t.busId]);
-                const baseEffectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
-                const baseGain = Math.max(0.00001, baseEffectiveVol / 100);
+                const baseEffectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracksRef.current, t.id);
+                const baseGain = faderPositionToGain(baseEffectiveVol);
 
-                const rawTargetVol = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : 100;
-                const rawPrevVol = t.measureVols[prevMeasureIdx] !== undefined ? t.measureVols[prevMeasureIdx] : 100;
+                const rawTargetVol = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : 75;
+                const rawPrevVol = t.measureVols[prevMeasureIdx] !== undefined ? t.measureVols[prevMeasureIdx] : 75;
                 const trackTransition = t.measureVolTransitions?.[currentMeasureIdx] || 'immediate';
 
-                const startGain = Math.max(0.00001, baseGain * (rawPrevVol / 100));
-                const endGain = Math.max(0.00001, baseGain * (rawTargetVol / 100));
+                const startGain = Math.max(0.00001, baseGain * faderPositionToGain(rawPrevVol));
+                const endGain = Math.max(0.00001, baseGain * faderPositionToGain(rawTargetVol));
 
                 channel.volume.cancelScheduledValues(time);
 
@@ -1817,10 +1796,10 @@ export function useAudioSync({
                 const inst = instrumentsConfig[liveTrack.instrumentIdx];
                 if (inst) {
                   const isConnectedToBus = Boolean(liveTrack.busId && busChannels[liveTrack.busId]);
-                  const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, liveTrack.id);
+                  const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 75) : getEffectiveVolume(tracksRef.current, liveTrack.id);
                   const isMuted = getEffectiveMuteState(tracksRef.current, liveTrack.id);
-                  if (trackVolPct > 0 && !isMuted) {
-                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                  if (trackVolPct > 3 && !isMuted) {
+                    const trackVolLinear = faderPositionToGain(trackVolPct);
                     const finalVel = velocity * trackVolLinear;
                     const strokeSymbol = String.fromCharCode(strokeCharCode);
                     const decayMultiplier = decayPct / 100;
@@ -2003,7 +1982,7 @@ export function useAudioSync({
               const voiceInst = instrumentsConfig[track.instrumentIdx];
               const isCoroTrack = voiceInst?.id === 'coro';
               const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
-              const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+              const vocalVol = isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(tracks, track.id);
               const nextBpm = useSequencerStore.getState().measureBpms[nextMeasureLocal] || useSequencerStore.getState().bpm;
               const currentTimeSig = measureTimeSigsRef.current[currentMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
               const currentBeats = getBeatsPerMeasure(currentTimeSig);
@@ -2102,7 +2081,7 @@ export function useAudioSync({
                   const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
                   const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
-                  const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+                  const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(tracks, track.id)) : 75;
 
                   // 1. Émission visuelle (verrouillée pendant le pré-roll)
                   if (!isDocHidden) {
@@ -2117,7 +2096,7 @@ export function useAudioSync({
                   const anacrusisVocalBuf = getVocalBufferForPattern(track.id, nextPattern);
                   const anacrusisHasSample = Boolean(anacrusisVocalBuf && isVocalSamplePattern(nextPattern));
 
-                  if (!anacrusisHasSample && trackVolPct > 0) {
+                  if (!anacrusisHasSample && trackVolPct > 3) {
                     const preNote = nextPattern.preRollNotes?.[cellIdx];
                     const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
                     const preRollLyrics = nextPattern.preRollLyrics || [];
@@ -2179,7 +2158,7 @@ export function useAudioSync({
                       const singleStepSec = (currentTicks / stepCount) * tick96nSec;
                       const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
-                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                      const trackVolLinear = faderPositionToGain(trackVolPct);
                       const finalNoteVal = noteVal;
 
                       const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
@@ -2245,10 +2224,10 @@ export function useAudioSync({
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
             const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
-            let vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+            let vocalVol = isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(tracks, track.id);
             const isSoloTrack = isSoloPlayActive && track.patterns.some(p => String(p.id) === String(soloPatternPlayIdRef.current));
-            if (isSoloTrack && vocalVol <= 0) {
-              vocalVol = 80;
+            if (isSoloTrack && vocalVol <= 3) {
+              vocalVol = 75;
             }
             const currentBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
 
@@ -2318,9 +2297,9 @@ export function useAudioSync({
 
               const isSoloTrack = isSoloPlayActive && track.patterns.some(p => String(p.id) === String(soloPatternPlayIdRef.current));
               const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
-              let trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
-              if (isSoloTrack && trackVolPct <= 0) {
-                trackVolPct = 80;
+              let trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(tracks, track.id)) : 75;
+              if (isSoloTrack && trackVolPct <= 3) {
+                trackVolPct = 75;
               }
 
               // Détection d'une prolongation (tenue de note)
@@ -2350,7 +2329,7 @@ export function useAudioSync({
 
               // Synthèse vocale mélodique : active si vocalMode === 'synth' ou 'both', ou fallback si aucun sample audio
               const allowSynthPlayback = currentVocalMode === 'synth' || currentVocalMode === 'both' || !hasVocalSample;
-              if (allowSynthPlayback && trackVolPct > 0) {
+              if (allowSynthPlayback && trackVolPct > 3) {
                 // Si c'est une prolongation, on ne réattaque PAS (évite l'effet mitraillette)
                 if (!isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
                   // Calculer le nombre de pas consécutifs tenus (attaque + prolongations)
@@ -2377,7 +2356,7 @@ export function useAudioSync({
                   const singleStepSec = (currentTicks / stepCount) * tick96nSec;
                   const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
-                  const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                  const trackVolLinear = faderPositionToGain(trackVolPct);
                   const finalNoteVal = noteVal;
 
                   const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
@@ -2422,7 +2401,7 @@ export function useAudioSync({
                 const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
                 const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
-                const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+                const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(tracks, track.id)) : 75;
 
                 // 1. Émission visuelle (verrouillée pendant le pré-roll)
                 if (!isDocHidden) {
@@ -2439,7 +2418,7 @@ export function useAudioSync({
                 const anacrusisHasSample = Boolean(anacrusisVocalBuf && isVocalSamplePattern(targetAnacrusisPat) && allowAnacrusisSample);
                 const allowAnacrusisSynth = currentVocalMode === 'synth' || currentVocalMode === 'both' || !anacrusisHasSample;
 
-                if (allowAnacrusisSynth && trackVolPct > 0) {
+                if (allowAnacrusisSynth && trackVolPct > 3) {
                   const preNote = targetAnacrusisPat.preRollNotes?.[cellIdx];
                   const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
                   const preRollLyrics = targetAnacrusisPat.preRollLyrics || [];
@@ -2501,7 +2480,7 @@ export function useAudioSync({
                     const singleStepSec = (currentTicks / stepCount) * tick96nSec;
                     const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
-                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                    const trackVolLinear = faderPositionToGain(trackVolPct);
                     const finalNoteVal = noteVal;
 
                     const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
@@ -2937,7 +2916,7 @@ export function useAudioSync({
           const voiceInst = instrumentsConfig[track.instrumentIdx];
           const isCoroTrack = voiceInst?.id === 'coro';
           const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
-          const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(startTracks, track.id);
+          const vocalVol = isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(startTracks, track.id);
 
           // 1. Déclenchement Tone.GrainPlayer du sample vocal à T_vocal absolu
           const preRollKey = `${track.id}_m${targetM}`;
@@ -3021,7 +3000,7 @@ export function useAudioSync({
                     const effectiveSteps = Math.max(spanSteps, numDecaySteps);
                     const durationSec = Math.max(0.05, effectiveSteps * runwayStepDurationSec * 0.95);
 
-                    const trackVolLinear = Math.pow(vocalVol / 100, 2);
+                    const trackVolLinear = faderPositionToGain(vocalVol);
                     const finalNoteVal = noteVal;
 
                     const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
@@ -3723,6 +3702,7 @@ export function useAudioSync({
           const revGain = revBypassed
             ? 0
             : Tone.dbToGain(percentToDb(masterFX.reverb.returnVolume));
+          masterReverbVolumeNode.gain.value = revGain;
           masterReverbVolumeNode.gain.rampTo(revGain, 0.02);
         }
         
@@ -3744,6 +3724,7 @@ export function useAudioSync({
           const distGain = distBypassed
             ? 0
             : Tone.dbToGain(percentToDb(masterFX.distortion.returnVolume));
+          masterDistortionVolumeNode.gain.value = distGain;
           masterDistortionVolumeNode.gain.rampTo(distGain, 0.02);
         }
         
@@ -3758,6 +3739,9 @@ export function useAudioSync({
           }
         }
         syncMasterDistortionBypass(!fxActive.disto || masterFX.distortion.isMuted, masterFX.distortion.returnVolume);
+        
+        // 5. Compressor Bypass
+        syncMasterCompressorBypass(!fxActive.compressor || state.isEcoMode, masterCompressor);
       }
 
       if (state.tracks !== prevState.tracks) {
@@ -3783,18 +3767,18 @@ export function useAudioSync({
             }
 
             const isConnectedToParentBus = Boolean(t.busId && busChannels[t.busId]);
-            const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracks, t.id);
-            const gain = Math.max(0.00001, effectiveVol / 100);
-            const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
+            const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
+            const db = faderPositionToDb(effectiveVol);
+            const safeDb = Number.isFinite(db) ? db : -100;
             const pan = (t.panVal || 0) / 100;
             const reverb = t.fxSends?.reverb ?? 0;
             const distortion = t.fxSends?.distortion ?? 0;
             const muteState = getEffectiveMuteState(tracks, t.id);
 
-            const paramHash = `bus_${db}_${pan}_${muteState}_${reverb}_${distortion}`;
+            const paramHash = `bus_${safeDb}_${pan}_${muteState}_${reverb}_${distortion}`;
 
             if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-              busChannels[t.id].volume.rampTo(db, 0.05);
+              busChannels[t.id].volume.value = safeDb;
               busChannels[t.id].pan.value = pan;
               busChannels[t.id].mute = muteState;
 
@@ -3877,9 +3861,9 @@ export function useAudioSync({
           audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
           const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
-          const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracks, t.id);
-          const gain = Math.max(0.00001, effectiveVol / 100);
-          const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
+          const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
+          const db = faderPositionToDb(effectiveVol);
+          const safeDb = Number.isFinite(db) ? db : -100;
           const pan = (t.pan ?? t.panVal ?? 0) / 100;
           const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
           const distortion = t.fxSends?.distortion ?? 0;
@@ -3894,11 +3878,11 @@ export function useAudioSync({
           const eqHighG = t.eqBands?.high?.g ?? 0;
           const eqHighF = t.eqBands?.high?.f ?? 8000;
 
-          const paramHash = `${db}_${pan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+          const paramHash = `${safeDb}_${pan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
           // A. Appliquer le volume, pan, mute et les inserts (EQ/Low-Cut)
           if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-            channels[t.id].volume.value = db;
+            channels[t.id].volume.value = safeDb;
             channels[t.id].pan.value = pan;
             channels[t.id].mute = muteState;
 

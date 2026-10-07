@@ -16,6 +16,7 @@ import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL, i18n, instruments
 import { vocalEngineService } from '../audio/vocalEngineService';
 import { Preset, Pattern, TrackGroup, TimeSignature, MasterFX } from '../types';
 import { migrateCirclesToTracks } from '../migration';
+import { CURRENT_AUDIO_SCALE_VERSION } from '../utils/audioMath';
 import { useAuth, checkHasFullPlaybackAccess } from './AuthContext';
 // Web Audio recording variables
 let wavRecordingBuffersL: Float32Array[] = [];
@@ -162,7 +163,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
 
-  const [masterVol, setMasterVol] = useState<number>(-10);
+  const [masterVol, setMasterVol] = useState<number>(0);
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
   const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
   const [reverbDecay, setReverbDecay] = useState<number>(() => {
@@ -438,6 +439,22 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loadedTracks = migrateCirclesToTracks(oldCircles, loadedMeasures);
         loadedTracks.forEach(t => t.patterns.forEach(ptn => normalizePatternData(ptn, t.instrumentIdx, loadedMeasures)));
       }
+
+      // Migration rétrocompatible des anciens presets (audioScaleVersion !== 2)
+      // Évite le piège du +6 dB involontaire sur les presets historiques stockés à 100
+      const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
+      if (!isAudioV2) {
+        loadedTracks.forEach(t => {
+          if (t.volumeVal === 100 || t.volumeVal === undefined) {
+            t.volumeVal = 75;
+          } else {
+            t.volumeVal = Math.round(t.volumeVal * 0.75);
+          }
+          if (t.measureVols && Array.isArray(t.measureVols)) {
+            t.measureVols = t.measureVols.map((v: number) => (v === 100 ? 75 : Math.round(v * 0.75)));
+          }
+        });
+      }
       
       const promises: Promise<void>[] = [];
       loadedTracks.forEach(t => {
@@ -550,8 +567,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         : Array(loadedMeasures).fill('immediate');
 
       const loadedVols = p.measureVols && Array.isArray(p.measureVols)
-        ? p.measureVols.map((v: number) => Math.round(v))
-        : Array(loadedMeasures).fill(100);
+        ? p.measureVols.map((v: number) => {
+            const rounded = Math.round(v);
+            return !isAudioV2 ? (rounded === 100 ? 75 : Math.round(rounded * 0.75)) : rounded;
+          })
+        : Array(loadedMeasures).fill(75);
 
       const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions)
         ? p.measureVolTransitions
@@ -610,6 +630,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       if (p.masterVol !== undefined && typeof p.masterVol === 'number' && !isNaN(p.masterVol)) {
         setMasterVol(p.masterVol);
+      } else {
+        setMasterVol(0);
       }
 
       // Restauration robuste et sécurisée de MasterFX (Distorsion, Réverbe, Mute)
@@ -873,7 +895,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isLoopRegionActive: storeState.isLoopRegionActive,
       loopMode: storeState.loopMode,
       isLoopExitRequested: false,
-      isLooping: sequencer.isLooping
+      isLooping: sequencer.isLooping,
+      audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION
     };
   };
 

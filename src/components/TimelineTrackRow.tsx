@@ -631,7 +631,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           measureWidth={currentMeasureW}
           values={
             automationParam === 'volume'
-              ? (trackAutomationData?.measureVols || Array(totalMeasures).fill(trackAutomationData?.volumeVal ?? 100))
+              ? (trackAutomationData?.measureVols || Array(totalMeasures).fill(trackAutomationData?.volumeVal ?? 75))
               : automationParam === 'pan'
               ? (trackAutomationData?.measurePans || Array(totalMeasures).fill(trackAutomationData?.panVal ?? 0))
               : (trackAutomationData?.measureReverbSends || Array(totalMeasures).fill(trackAutomationData?.reverbVal ?? 0))

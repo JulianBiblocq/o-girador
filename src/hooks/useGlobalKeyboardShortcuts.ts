@@ -275,18 +275,27 @@ export function useGlobalKeyboardShortcuts() {
         if (key === 'z') {
           e.preventDefault();
           if (e.shiftKey) {
-            useSequencerStore.getState().handleRedo();
-            if (handleRedo) handleRedo();
+            if (handleRedo) {
+              handleRedo();
+            } else {
+              useSequencerStore.getState().handleRedo();
+            }
           } else {
-            useSequencerStore.getState().handleUndo();
-            if (handleUndo) handleUndo();
+            if (handleUndo) {
+              handleUndo();
+            } else {
+              useSequencerStore.getState().handleUndo();
+            }
           }
           return;
         }
         if (key === 'y') {
           e.preventDefault();
-          useSequencerStore.getState().handleRedo();
-          if (handleRedo) handleRedo();
+          if (handleRedo) {
+            handleRedo();
+          } else {
+            useSequencerStore.getState().handleRedo();
+          }
           return;
         }
         if (['c', 'x', 'v'].includes(key)) {

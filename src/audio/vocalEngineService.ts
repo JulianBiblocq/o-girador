@@ -17,6 +17,7 @@ import { getBeatsPerMeasure } from '../utils/measureHelpers';
 import { VocalPresetId } from './vocalPresets';
 import { applyVocalPresetLive } from './vocalSynthService';
 import { getBalancoOffsetSec } from '../utils/balancoUtils';
+import { faderPositionToGain } from '../utils/audioMath';
 
 // Background-immune high-precision worker timer helpers to bypass browser tab throttling
 let timerWorker: Worker | null = null;
@@ -164,6 +165,44 @@ function base64ToBlob(base64Data: string): Blob {
 }
 
 export const vocalEngineService = {
+  mediaRecorder: null as MediaRecorder | null,
+  audioStream: null as MediaStream | null,
+
+  async startRecording(patternId: number) {
+    const store = useAudioStore.getState() as any;
+    store.setTargetPatternId?.(patternId);
+    store.setRecordingStatus?.('recording');
+    store.setIsFocusRecordingMode?.(true);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.audioStream = stream;
+      const rec = new MediaRecorder(stream);
+      this.mediaRecorder = rec;
+      rec.start();
+    } catch (_) {}
+  },
+
+  stopRecording() {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      try {
+        this.mediaRecorder.stop();
+      } catch (_) {}
+    }
+    if (this.audioStream) {
+      try {
+        this.audioStream.getTracks().forEach(t => t.stop());
+      } catch (_) {}
+      this.audioStream = null;
+    }
+    const store = useAudioStore.getState() as any;
+    store.setRecordingStatus?.('inactive');
+    store.setIsFocusRecordingMode?.(false);
+    try {
+      Tone.Transport.stop();
+    } catch (_) {}
+  },
+
   /**
    * Applique le preset de timbre vocal au moteur de synthèse en direct
    */
@@ -924,7 +963,7 @@ export const vocalEngineService = {
 
     const isCoro = voiceTrack ? instrumentsConfig[voiceTrack.instrumentIdx]?.id === 'coro' : false;
     const outputNode = resolveVocalOutputNode(voiceTrack?.id, isCoro);
-    const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 100) : 100;
+    const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 75) : 75;
 
     // Détermination du BPM d'ancrage effectif de la mesure assignée
     const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
@@ -1166,8 +1205,8 @@ export const vocalEngineService = {
       (mainPlayer as any).fadeIn = 0; // Pas de fondu d'attaque qui étouffe les consonnes
     }
 
-    // Track volume gain
-    const baseGainLinear = Math.pow(trackVolPct / 100, 2);
+    // Track volume gain (Audio Taper logarithmique professionnel)
+    const baseGainLinear = faderPositionToGain(trackVolPct);
 
     // 🛡️ BORNAGE STRICT DE LA DURÉE UTILE (Anti-débordement & intégrité de résonance)
     const usefulSec = (clip?.trimEndSec && clip.trimEndSec > 0 && clip.trimEndSec < bufferDuration)

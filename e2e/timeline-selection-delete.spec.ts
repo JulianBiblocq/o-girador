@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Timeline Multi-Selection & Batch Deletion (DAW Standards)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:5174/?view=timeline');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(2000);
-    }
+    await ensureStudioLoaded(page);
 
     // Attendre que les pistes du preset initial soient complètement chargées
     await page.waitForFunction(() => {

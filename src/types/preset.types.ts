@@ -100,6 +100,7 @@ export interface Preset {
   isLooping?: boolean;
   isLoopExitRequested?: boolean;
   version?: number;
+  audioScaleVersion?: number;
   rodaTrackOrder?: number[];
 }
 

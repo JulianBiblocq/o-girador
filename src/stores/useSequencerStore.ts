@@ -11,6 +11,7 @@ import { instrumentsConfig } from '../data';
 import { transposeNoteString, isVoiceStepProlongation, isVoiceHoldSyllable, isVoiceHoldNote } from '../utils/musicTheory';
 import { canTransferPatterns, convertStepsToVocalRole, getInstrumentFamily } from '../utils/instrumentCompatibility';
 import { getNextPatternName } from '../utils/patternNaming';
+import { faderPositionToGain, gainToFaderPosition } from '../utils/audioMath';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
@@ -157,7 +158,7 @@ export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
       isMute: false,
       isSolo: false,
       isHidden: false,
-      volumeVal: 100,
+      volumeVal: 75,
       selectedPatternId: 0,
       isBusFolder: true,
       isFolded: false,
@@ -835,13 +836,15 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handleTrackMuteToggle: (id) => {
     set((state) => ({
-      tracks: state.tracks.map((t) => t.id === id ? { ...t, isMute: !t.isMute } : t)
+      tracks: state.tracks.map((t) => (t.id === id || String(t.id) === String(id)) ? { ...t, isMute: !t.isMute } : t),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
   handleTrackSoloToggle: (id) => {
     set((state) => ({
-      tracks: state.tracks.map((t) => t.id === id ? { ...t, isSolo: !t.isSolo } : t)
+      tracks: state.tracks.map((t) => (t.id === id || String(t.id) === String(id)) ? { ...t, isSolo: !t.isSolo } : t),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -1002,9 +1005,9 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     set((state) => ({
       tracks: state.tracks.map((t) => {
         if (t.id === trackId) {
-          const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 100);
+          const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 75);
           while (currentVols.length < totalM) {
-            currentVols.push(t.volumeVal ?? 100);
+            currentVols.push(t.volumeVal ?? 75);
           }
           currentVols[mIdx] = val;
           return { ...t, measureVols: currentVols };
@@ -1354,7 +1357,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               isMute: false,
               isSolo: false,
               isHidden: false,
-              volumeVal: 100,
+              volumeVal: 75,
               selectedPatternId: masterTrack.selectedPatternId,
               isBusFolder: true,
               isLinkFolder: true,
@@ -1588,7 +1591,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: masterTrack.selectedPatternId,
         isBusFolder: true,
         isLinkFolder: true,
@@ -1641,7 +1644,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
@@ -1689,7 +1692,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
@@ -1739,7 +1742,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 75,
         selectedPatternId: masterTrack.selectedPatternId,
         isBusFolder: true,
         isLinkFolder: true,
@@ -1875,7 +1878,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           isLinkMaster: options.includeStructure ? t.isLinkMaster : undefined,
           busId: newBusId,
           linkedToTrackId: newLinkedToTrackId,
-          volumeVal: options.includeVolumePan ? (t.volumeVal ?? 100) : 100,
+          volumeVal: options.includeVolumePan ? (t.volumeVal ?? 75) : 75,
           pan: options.includeVolumePan ? (t.pan ?? 0) : 0,
           panVal: options.includeVolumePan ? (t.panVal ?? 0) : 0,
           eqBands: options.includeEQ && t.eqBands ? JSON.parse(JSON.stringify(t.eqBands)) : undefined,
@@ -2088,7 +2091,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         nextSignals = expandArray(nextSignals, null);
         nextTracks = nextTracks.map(t => ({
           ...t,
-          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
           measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
           measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
           measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -2235,12 +2238,12 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         nextTimeSigs = expandArray(nextTimeSigs, curr.timeSig);
         nextBpms = expandArray(nextBpms, curr.bpm);
         nextBpmTransitions = expandArray(nextBpmTransitions, 'immediate');
-        nextVols = expandArray(nextVols, 100);
+        nextVols = expandArray(nextVols, 75);
         nextVolTransitions = expandArray(nextVolTransitions, 'immediate');
         nextSignals = expandArray(nextSignals, null);
         nextTracks = nextTracks.map(t => ({
           ...t,
-          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
           measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
           measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
           measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -2342,8 +2345,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             let nextTrans = t.measureVolTransitions;
             if (t.measureVols) {
               const vols = [...t.measureVols];
-              while (vols.length < nextTotal) vols.push(t.volumeVal ?? 100);
-              vols[targetIdx] = vols[srcIdx] !== undefined ? vols[srcIdx] : (t.volumeVal ?? 100);
+              while (vols.length < nextTotal) vols.push(t.volumeVal ?? 75);
+              vols[targetIdx] = vols[srcIdx] !== undefined ? vols[srcIdx] : (t.volumeVal ?? 75);
               nextVols = vols;
             }
             if (t.measureVolTransitions) {
@@ -2447,7 +2450,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         nextSignals = expandArray(nextSignals, null);
         nextTracks = nextTracks.map(t => ({
           ...t,
-          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
           measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
           measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
           measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -2557,9 +2560,9 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             let nextTrans = t.measureVolTransitions;
             if (t.measureVols) {
               const vols = [...t.measureVols];
-              while (vols.length < nextTotal) vols.push(t.volumeVal ?? 100);
+              while (vols.length < nextTotal) vols.push(t.volumeVal ?? 75);
               for (let step = 1; step <= count; step++) {
-                vols[srcIdx + step] = vols[srcIdx] !== undefined ? vols[srcIdx] : (t.volumeVal ?? 100);
+                vols[srcIdx + step] = vols[srcIdx] !== undefined ? vols[srcIdx] : (t.volumeVal ?? 75);
               }
               nextVols = vols;
             }
@@ -3037,7 +3040,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         measureSignals: expandArray(state.measureSignals, null),
         tracks: state.tracks.map(t => ({
           ...t,
-          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
           measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
           measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
           measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -3145,9 +3148,9 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         set((s) => ({
           tracks: s.tracks.map((t) => {
             if (t.id === trackId) {
-              const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 100);
+              const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 75);
               while (currentVols.length < totalM) {
-                currentVols.push(t.volumeVal ?? 100);
+                currentVols.push(t.volumeVal ?? 75);
               }
               for (let i = start; i <= end; i++) {
                 currentVols[i] = value;
@@ -3356,12 +3359,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
           measureTimeSigs: expandArray(state.measureTimeSigs, state.timeSig),
           measureBpms: expandArray(state.measureBpms, state.bpm),
           measureBpmTransitions: expandArray(state.measureBpmTransitions, 'immediate'),
-          measureVols: expandArray(state.measureVols, 100),
+          measureVols: expandArray(state.measureVols, 75),
           measureVolTransitions: expandArray(state.measureVolTransitions, 'immediate'),
           measureSignals: expandArray(state.measureSignals, null),
           tracks: state.tracks.map(t => ({
             ...t,
-            measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+            measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
             measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
             measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
             measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -3382,7 +3385,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     get().pushUndoState();
     set((state) => {
       const next = state.songSections.map(s => 
-        s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color: color || s.color, level: level || s.level } : s
+        (s.id === id || String(s.id) === String(id)) ? { ...s, name, startMeasure: start, endMeasure: end, color: color || s.color, level: level || s.level } : s
       );
       next.sort((a, b) => a.startMeasure - b.startMeasure);
       const targetTotal = Math.max(state.totalMeasures, end + 1);
@@ -3400,12 +3403,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
           measureTimeSigs: expandArray(state.measureTimeSigs, state.timeSig),
           measureBpms: expandArray(state.measureBpms, state.bpm),
           measureBpmTransitions: expandArray(state.measureBpmTransitions, 'immediate'),
-          measureVols: expandArray(state.measureVols, 100),
+          measureVols: expandArray(state.measureVols, 75),
           measureVolTransitions: expandArray(state.measureVolTransitions, 'immediate'),
           measureSignals: expandArray(state.measureSignals, null),
           tracks: state.tracks.map(t => ({
             ...t,
-            measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+            measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
             measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
             measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
             measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -3461,7 +3464,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         const prevIdx = Math.max(0, targetStartM - 1);
         const refSig = state.measureTimeSigs[prevIdx] || state.timeSig;
         const refBpm = state.measureBpms[prevIdx] || state.bpm;
-        const refVol = state.measureVols[prevIdx] !== undefined ? state.measureVols[prevIdx] : 100;
+        const refVol = state.measureVols[prevIdx] !== undefined ? state.measureVols[prevIdx] : 75;
 
         const spliceArray = <T>(arr: T[], fillVal: T): T[] => {
           const next = [...(arr || [])];
@@ -3497,7 +3500,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 
         // Décaler et insérer sur les pistes
         const nextTracks = state.tracks.map(t => {
-          const nextVols = t.measureVols ? spliceArray(t.measureVols, t.measureVols[prevIdx] ?? t.volumeVal ?? 100) : undefined;
+          const nextVols = t.measureVols ? spliceArray(t.measureVols, t.measureVols[prevIdx] ?? t.volumeVal ?? 75) : undefined;
           const nextVolTrans = t.measureVolTransitions ? spliceArray(t.measureVolTransitions, 'immediate' as const) : undefined;
           const nextPans = t.measurePans ? spliceArray(t.measurePans, t.measurePans[prevIdx] ?? t.panVal ?? t.pan ?? 0) : undefined;
           const nextPanTrans = t.measurePanTransitions ? spliceArray(t.measurePanTransitions, 'immediate' as const) : undefined;
@@ -3863,7 +3866,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         }),
         tracks: state.tracks.map(t => ({
           ...t,
-          measureVols: t.measureVols ? spliceArray(t.measureVols, t.measureVols[prevIdx] ?? t.volumeVal ?? 100) : undefined,
+          measureVols: t.measureVols ? spliceArray(t.measureVols, t.measureVols[prevIdx] ?? t.volumeVal ?? 75) : undefined,
           measureVolTransitions: t.measureVolTransitions ? spliceArray(t.measureVolTransitions, 'immediate' as const) : undefined,
           measurePans: t.measurePans ? spliceArray(t.measurePans, t.measurePans[prevIdx] ?? t.panVal ?? t.pan ?? 0) : undefined,
           measurePanTransitions: t.measurePanTransitions ? spliceArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -3896,12 +3899,14 @@ export interface PlaybackSlice {
   isLoopBypassed: boolean; // True when loop is bypassed and finishing linear sequence
   isLoopExitRequested: boolean;
   isPreRolling: boolean; // True pendant le décompte pré-roll (count-in) avant la mesure 1
+  isPlaying: boolean;
 
   handleSetLoopStart: (measure: number | null) => void;
   handleSetLoopEnd: (measure: number | null) => void;
   handleClearLoop: () => void;
   setIsLoopRegionActive: (val: boolean | ((prev: boolean) => boolean)) => void;
   setIsLooping: (looping: boolean) => void;
+  setIsPlaying: (playing: boolean) => void;
   setLoopMode: (mode: 'infinite' | number) => void;
   setCurrentLoopIteration: (iteration: number) => void;
   setIsLoopBypassed: (bypassed: boolean) => void;
@@ -3921,6 +3926,7 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
   loopEndMeasure: null,
   isLoopRegionActive: true,
   isLooping: true,
+  isPlaying: false,
   loopMode: 'infinite',
   currentLoopIteration: 1,
   isLoopBypassed: false,
@@ -3975,6 +3981,7 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
   handleClearLoop: () => set({ loopStartMeasure: null, loopEndMeasure: null, isLoopRegionActive: false }),
   setIsLoopRegionActive: (updater) => set(state => ({ isLoopRegionActive: typeof updater === 'function' ? (updater as any)(state.isLoopRegionActive) : updater })),
   setIsLooping: (looping) => set({ isLooping: looping }),
+  setIsPlaying: (playing) => set({ isPlaying: playing }),
 });
 
 // ---------------------------------------------------------
@@ -5588,12 +5595,12 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
         nextTimeSigs = expandArray(nextTimeSigs, curr.timeSig);
         nextBpms = expandArray(nextBpms, curr.bpm);
         nextBpmTransitions = expandArray(nextBpmTransitions, 'immediate');
-        nextVols = expandArray(nextVols, 100);
+        nextVols = expandArray(nextVols, 75);
         nextVolTransitions = expandArray(nextVolTransitions, 'immediate');
         nextSignals = expandArray(nextSignals, null);
         nextTracks = nextTracks.map(t => ({
           ...t,
-          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 75) : undefined,
           measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
           measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
           measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
@@ -5708,7 +5715,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
               if (destTrack.measureVols) {
                 destTrack.measureVols[targetIdx] = destTrack.measureVols[m] !== undefined
                   ? destTrack.measureVols[m]
-                  : (destTrack.volumeVal ?? 100);
+                  : (destTrack.volumeVal ?? 75);
               }
               if (destTrack.measureVolTransitions) {
                 destTrack.measureVolTransitions[targetIdx] = destTrack.measureVolTransitions[m] || 'immediate';
@@ -6216,8 +6223,8 @@ export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] =
   return nextMetaList;
 };
 
-export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean => {
-  const track = tracks.find(t => t.id === trackId);
+export const getEffectiveMuteState = (tracks: any[], trackId: number | string): boolean => {
+  const track = tracks.find(t => t.id === trackId || String(t.id) === String(trackId));
   if (!track) return true;
 
   const hasAnySolo = tracks.some(t => t.isSolo);
@@ -6225,10 +6232,10 @@ export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean =
   // Checks recursively if any parent (via busId or linkedToTrackId) is soloed
   const isAnyParentSolo = (currentTrack: any): boolean => {
     let current: any = currentTrack;
-    const visited = new Set<number>();
+    const visited = new Set<string>();
     while (current) {
-      if (visited.has(current.id)) break;
-      visited.add(current.id);
+      if (visited.has(String(current.id))) break;
+      visited.add(String(current.id));
       
       const parentId: string | number | undefined = current.busId || current.linkedToTrackId;
       if (!parentId) break;
@@ -6246,10 +6253,10 @@ export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean =
 
   // Checks recursively if any child descendant is soloed
   const isAnyDescendantSolo = (currentTrack: TrackGroup): boolean => {
-    const visited = new Set<number>();
+    const visited = new Set<string>();
     const check = (node: TrackGroup): boolean => {
-      if (visited.has(node.id)) return false;
-      visited.add(node.id);
+      if (visited.has(String(node.id))) return false;
+      visited.add(String(node.id));
       
       const children = tracks.filter(t => 
         (t.busId && String(t.busId) === String(node.id)) || 
@@ -6268,10 +6275,10 @@ export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean =
   // Checks recursively if any parent is muted
   const isAnyParentMuted = (currentTrack: any): boolean => {
     let current: any = currentTrack;
-    const visited = new Set<number>();
+    const visited = new Set<string>();
     while (current) {
-      if (visited.has(current.id)) break;
-      visited.add(current.id);
+      if (visited.has(String(current.id))) break;
+      visited.add(String(current.id));
       
       const parentId: string | number | undefined = current.busId || current.linkedToTrackId;
       if (!parentId) break;
@@ -6290,8 +6297,9 @@ export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean =
   // 1. Recursive Solo check
   let isAllowedToPlayBySolo = true;
   if (hasAnySolo) {
+    const isParentBusSolo = Boolean(track.busId && tracks.some(t => String(t.id) === String(track.busId) && t.isSolo));
     const isSelfSolo = track.isSolo === true;
-    isAllowedToPlayBySolo = isSelfSolo || isAnyParentSolo(track) || isAnyDescendantSolo(track);
+    isAllowedToPlayBySolo = isSelfSolo || isParentBusSolo || isAnyParentSolo(track) || isAnyDescendantSolo(track);
   }
 
   // 1.5. Dynamic CPU Overload Muting (Hysteresis-based throttling)
@@ -6320,33 +6328,33 @@ export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean =
   return !isAllowedToPlayBySolo || isSelfMuted || isParentMuted;
 };
 
-export const getEffectiveVolume = (tracks: any[], trackId: number): number => {
-  const track = tracks.find(t => t.id === trackId);
-  if (!track) return 100;
+export const getEffectiveVolume = (tracks: any[], trackId: number | string): number => {
+  const track = tracks.find(t => t.id === trackId || String(t.id) === String(trackId));
+  if (!track) return 75;
   
-  let effectiveVolume = track.volumeVal ?? 100;
+  let effectiveGain = faderPositionToGain(track.volumeVal ?? 75);
   
   // Recursively multiply by parent volumes
   let current: any = track;
-  const visited = new Set<number>();
+  const visited = new Set<string>();
   while (current) {
-    if (visited.has(current.id)) break;
-    visited.add(current.id);
+    if (visited.has(String(current.id))) break;
+    visited.add(String(current.id));
     
     const parentId: string | number | undefined = current.busId || current.linkedToTrackId;
     if (!parentId) break;
     
     const parent: any = tracks.find(t => String(t.id) === String(parentId));
     if (parent) {
-      const parentVol = parent.volumeVal ?? 100;
-      effectiveVolume = (effectiveVolume * parentVol) / 100;
+      const parentGain = faderPositionToGain(parent.volumeVal ?? 75);
+      effectiveGain *= parentGain;
       current = parent;
     } else {
       break;
     }
   }
   
-  return effectiveVolume;
+  return gainToFaderPosition(effectiveGain);
 };
 
 export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] => {

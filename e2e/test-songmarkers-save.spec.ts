@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test('Test complet : Sauvegarde, Restauration & Décalage dynamique des repères, boucles et signaux', async ({ page }) => {
   await page.goto('http://localhost:5174/?view=timeline');
   await page.waitForTimeout(1000);
 
   // Click Entrer na Roda si landing page
-  const entraBtn = page.locator('#entra-btn');
-  if (await entraBtn.isVisible()) {
-    await entraBtn.click();
-    await page.waitForTimeout(1000);
-  }
+  await ensureStudioLoaded(page);
 
   // Fermer la modale d'introduction si ouverte
   const closeIntro = page.locator('button:has-text("Créer Roda vide"), button:has-text("Criar Roda vazia")');

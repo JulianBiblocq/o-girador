@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Éditeur d'instrument", () => {
   test.beforeEach(async ({ page }) => {
@@ -18,9 +19,8 @@ test.describe("Éditeur d'instrument", () => {
 
     await page.waitForTimeout(2000);
 
-    // Enter the app by clicking the main landing page button
-    await page.locator('#entra-btn').click();
-    await page.waitForTimeout(1000);
+    // Enter the app by clicking the main landing page button if visible
+    await ensureStudioLoaded(page);
     
     // Create an empty Roda and add Marcante
     await page.locator('button', { hasText: 'Menu' }).click();

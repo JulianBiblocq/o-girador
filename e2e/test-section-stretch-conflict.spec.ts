@@ -1,16 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Étirement de section sur la Timeline avec détection de collision (Insérer vs Écraser)", () => {
   test.beforeEach(async ({ page }) => {
     // 1. Charger l'application en vue Timeline
     await page.goto('http://localhost:5174/?view=timeline');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     // Attendre que le store et les pistes soient prêts
     await page.waitForFunction(() => {

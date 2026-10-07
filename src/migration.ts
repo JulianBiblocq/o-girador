@@ -54,7 +54,7 @@ export function migrateCirclesToTracks(circles: Circle[], totalMeasures: number)
       isMute: groupCircles[0].isMute,
       isSolo: groupCircles[0].isSolo,
       isHidden: groupCircles[0].isHidden,
-      volumeVal: groupCircles[0].volumeVal,
+      volumeVal: (groupCircles[0].volumeVal === 100 || groupCircles[0].volumeVal === undefined) ? 75 : Math.round(groupCircles[0].volumeVal * 0.75),
       selectedPatternId: patterns[0].id,
       radius: groupCircles[0].radius,
       reverbVal: 0,

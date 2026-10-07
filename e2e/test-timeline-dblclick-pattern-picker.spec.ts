@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Timeline Floating Pattern Picker on Double-Click", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:5174/?view=timeline');
     await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     await page.waitForFunction(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();

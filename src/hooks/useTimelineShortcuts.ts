@@ -331,14 +331,20 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
       if (isUndoKey) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        useSequencerStore.getState().handleUndo();
-        if (handleUndo) handleUndo();
+        if (handleUndo) {
+          handleUndo();
+        } else {
+          useSequencerStore.getState().handleUndo();
+        }
         return;
       } else if (isRedoKey) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        useSequencerStore.getState().handleRedo();
-        if (handleRedo) handleRedo();
+        if (handleRedo) {
+          handleRedo();
+        } else {
+          useSequencerStore.getState().handleRedo();
+        }
         return;
       }
     };

@@ -4,14 +4,17 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
+  timeout: 45000,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 3,
   reporter: 'html',
   globalSetup: './e2e/global-setup.ts',
-  use: { screenshot: 'only-on-failure',
+  use: { 
+    screenshot: 'only-on-failure',
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
     storageState: 'e2e/storageState.json',
+    permissions: ['midi', 'midi-sysex'],
   },
   projects: [
     {

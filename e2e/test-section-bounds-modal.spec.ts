@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:5174/?view=timeline');
     await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     await page.waitForFunction(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
@@ -137,7 +134,7 @@ test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
     // Vérifier la mise à jour dans le store
     const updated = await page.evaluate((secId) => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
-      return (store?.songSections || []).find((s: any) => s.id === secId);
+      return (store?.songSections || []).find((s: any) => s.id === secId || String(s.id) === String(secId));
     }, initialBounds!.id);
 
     expect(updated.endMeasure).toBe(expectedEnd - 1);
@@ -148,7 +145,7 @@ test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
 
     const restored = await page.evaluate((secId) => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
-      return (store?.songSections || []).find((s: any) => s.id === secId);
+      return (store?.songSections || []).find((s: any) => s.id === secId || String(s.id) === String(secId));
     }, initialBounds!.id);
 
     expect(restored.endMeasure).toBe(initialBounds!.end - 1);

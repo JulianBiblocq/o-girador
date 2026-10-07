@@ -4,6 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Activation et application du Balanço sur Puxador et Coro", () => {
   test.beforeEach(async ({ page }) => {
@@ -17,10 +18,7 @@ test.describe("Activation et application du Balanço sur Puxador et Coro", () =>
 
     await page.goto('/');
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible()) {
-      await entraBtn.click();
-    }
+    await ensureStudioLoaded(page);
 
     await page.waitForFunction(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
@@ -55,7 +53,12 @@ test.describe("Activation et application du Balanço sur Puxador et Coro", () =>
 
     // 3. Régler le Balanço de Puxador à 100% sur le preset 'maracatu-trad' (Maracatu Nagô)
     await presetSelect.selectOption('maracatu-trad');
-    await balancoSlider.fill('100');
+    await balancoSlider.evaluate((el: HTMLInputElement) => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      nativeSetter ? nativeSetter.call(el, '100') : (el.value = '100');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
 
     // Vérifier l'affichage du pourcentage
     const amountLabel = page.getByTestId('track-balanco-amount-label');
@@ -81,7 +84,12 @@ test.describe("Activation et application du Balanço sur Puxador et Coro", () =>
 
     // 6. Régler le Balanço de Coro à 0% sur le preset 'straight' (Binaire droit / Quantisé)
     await presetSelect.selectOption('straight');
-    await balancoSlider.fill('0');
+    await balancoSlider.evaluate((el: HTMLInputElement) => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      nativeSetter ? nativeSetter.call(el, '0') : (el.value = '0');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     await expect(amountLabel).toHaveText('0%');
 
     // 7. Vérifier dans le store que Coro est à 0% / straight et que Puxador est TOUJOURS à 100% / maracatu-trad

@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test('Chargement effectif d un preset depuis le catalogue Cloud public', async ({ page }) => {
   await page.goto('http://localhost:5174/');
   await page.waitForTimeout(1000);
 
-  // Click ENTRA NA RODA
-  const entraBtn = page.locator('#entra-btn');
-  if (await entraBtn.isVisible()) {
-    await entraBtn.click();
-    await page.waitForTimeout(1000);
-  }
+  // Franchir la landing page si nécessaire
+  await ensureStudioLoaded(page);
 
   // Open Menu
   const menuBtn = page.locator('button:has-text("Menu")').first();

@@ -36,7 +36,8 @@ import { getLastAudibleTick } from '../audio/visualTickBuffer';
 import { SaveWorkspaceTemplateModal } from './SaveWorkspaceTemplateModal';
 import { DragNumberBox } from './DragNumberBox';
 import { XiloEQ, XiloCompressor, XiloMestre, XiloScroll } from './XiloIcons';
-import { metroChannel, masterVolumeNode, masterEQNode, masterCompressorNode } from '../audio/effectsChain';
+import { metroChannel, masterVolumeNode, masterEQNode, masterCompressorNode, syncMasterCompressorBypass } from '../audio/effectsChain';
+import { dbToFaderPosition, faderPositionToDb, faderPositionToGain, faderPositionToDbString } from '../utils/audioMath';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -230,8 +231,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     if (masterFaderHandleRef.current) {
       masterFaderHandleRef.current.style.transform = 'translateY(0px)';
       if (masterFaderTextRef.current) {
-        const manualVal = Math.max(0, Math.min(100, Math.round(((masterVolRef.current + 40) / 46) * 100)));
-        masterFaderTextRef.current.textContent = String(manualVal);
+        const manualVal = dbToFaderPosition(masterVolRef.current);
+        masterFaderTextRef.current.textContent = faderPositionToDbString(manualVal);
       }
     }
   };
@@ -261,19 +262,19 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
         const mVols = measureVolsRef.current;
         if (mVols && mVols.length > 0) {
-          const rawStart = mVols[prevM] !== undefined ? mVols[prevM] : 100;
-          const rawEnd = mVols[currentM] !== undefined ? mVols[currentM] : 100;
+          const rawStart = mVols[prevM] !== undefined ? mVols[prevM] : 75;
+          const rawEnd = mVols[currentM] !== undefined ? mVols[currentM] : 75;
           const trans = measureVolTransitionsRef.current?.[currentM] || 'immediate';
           const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
 
           if (masterFaderHandleRef.current) {
-            const manualVal = Math.max(0, Math.min(100, Math.round(((masterVolRef.current + 40) / 46) * 100)));
+            const manualVal = dbToFaderPosition(masterVolRef.current);
             const travel = masterTravelRangeRef.current || 90;
             const deltaY = ((manualVal - interpVol) / 100) * travel;
             masterFaderHandleRef.current.style.transform = `translateY(${deltaY}px)`;
           }
           if (masterFaderTextRef.current) {
-            masterFaderTextRef.current.textContent = String(Math.round(interpVol));
+            masterFaderTextRef.current.textContent = faderPositionToDbString(interpVol);
           }
         }
       }
@@ -301,34 +302,33 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const handleMasterAudioDrag = (val: number) => {
     if (masterVolumeNode && masterVolumeNode.gain) {
-      const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
-      const gain = Tone.dbToGain(db);
+      const gain = faderPositionToGain(val);
       masterVolumeNode.gain.rampTo(gain, 0.05);
     }
   };
 
   const handleMasterEQLowAudioDrag = (val: number) => {
     if (masterEQNode && masterEQNode.low) {
-      masterEQNode.low.rampTo(val, 0.05);
+      masterEQNode.low.rampTo(val, 0.02);
     }
   };
 
   const handleMasterEQMidAudioDrag = (val: number) => {
     if (masterEQNode && masterEQNode.mid) {
-      masterEQNode.mid.rampTo(val, 0.05);
+      masterEQNode.mid.rampTo(val, 0.02);
     }
   };
 
   const handleMasterEQHighAudioDrag = (val: number) => {
     if (masterEQNode && masterEQNode.high) {
-      masterEQNode.high.rampTo(val, 0.05);
+      masterEQNode.high.rampTo(val, 0.02);
     }
   };
 
   const handleMasterCompThresholdAudioDrag = (val: number) => {
     if (masterCompressorNode && masterCompressorNode.threshold) {
       try {
-        masterCompressorNode.threshold.rampTo(val, 0.05);
+        masterCompressorNode.threshold.rampTo(val, 0.02);
       } catch (_) {}
     }
   };
@@ -336,7 +336,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const handleMasterCompRatioAudioDrag = (val: number) => {
     if (masterCompressorNode && masterCompressorNode.ratio) {
       try {
-        masterCompressorNode.ratio.rampTo(val, 0.05);
+        masterCompressorNode.ratio.rampTo(val, 0.02);
       } catch (_) {}
     }
   };
@@ -401,8 +401,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     if (!isActive || !isPlaying) {
       lastMasterLeftRef.current = 0;
       lastMasterRightRef.current = 0;
-      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
-      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
+      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
+      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
       if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
       return;
     }
@@ -421,8 +421,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       if (!isPlayingRef.current) {
         lastMasterLeftRef.current = 0;
         lastMasterRightRef.current = 0;
-        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
-        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
+        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
+        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
         if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
         idleTimerId = setTimeout(() => {
           animationFrameId = requestAnimationFrame(updateMasterMeter);
@@ -435,19 +435,30 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
       if (liveLeftMeter && liveRightMeter) {
         try {
-          const leftDb = liveLeftMeter.getValue() as number;
-          const rightDb = liveRightMeter.getValue() as number;
+          const rawLeft = liveLeftMeter.getValue();
+          const rawRight = liveRightMeter.getValue();
 
-          const clampedLeftDb = Math.max(-80, Math.min(6, leftDb));
-          const clampedRightDb = Math.max(-80, Math.min(6, rightDb));
+          let leftDb = Array.isArray(rawLeft) ? Math.max(...rawLeft) : rawLeft;
+          let rightDb = Array.isArray(rawRight) ? Math.max(...rawRight) : rawRight;
+
+          // Garde-fou silence / NaN / -Infinity
+          if (!Number.isFinite(leftDb) || leftDb <= -60) {
+            leftDb = -60;
+          }
+          if (!Number.isFinite(rightDb) || rightDb <= -60) {
+            rightDb = -60;
+          }
+
+          const clampedLeftDb = Math.max(-60, Math.min(6, leftDb));
+          const clampedRightDb = Math.max(-60, Math.min(6, rightDb));
           const maxDb = Math.max(clampedLeftDb, clampedRightDb);
 
           if (dbTextRef.current) {
-            dbTextRef.current.innerText = maxDb <= -79 ? '-∞ dB' : `${Math.round(maxDb)} dB`;
+            dbTextRef.current.innerText = maxDb <= -59 ? '-∞ dB' : `${Math.round(maxDb)} dB`;
           }
 
           // Left channel lissage
-          const targetLeftScale = Math.max(0, Math.min(1, (clampedLeftDb + 60) / 65));
+          const targetLeftScale = clampedLeftDb <= -59 ? 0 : Math.max(0, Math.min(1, (clampedLeftDb + 60) / 66));
           let currentLeftScale = lastMasterLeftRef.current;
           if (targetLeftScale > currentLeftScale) {
             currentLeftScale = targetLeftScale; // instant attack
@@ -457,7 +468,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           lastMasterLeftRef.current = currentLeftScale;
 
           // Right channel lissage
-          const targetRightScale = Math.max(0, Math.min(1, (clampedRightDb + 60) / 65));
+          const targetRightScale = clampedRightDb <= -59 ? 0 : Math.max(0, Math.min(1, (clampedRightDb + 60) / 66));
           let currentRightScale = lastMasterRightRef.current;
           if (targetRightScale > currentRightScale) {
             currentRightScale = targetRightScale; // instant attack
@@ -467,10 +478,12 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           lastMasterRightRef.current = currentRightScale;
 
           if (vuMeterLeftRef.current) {
-            vuMeterLeftRef.current.style.transform = `scaleY(${currentLeftScale})`;
+            const maskLeft = Math.max(0, Math.min(1, 1 - currentLeftScale));
+            vuMeterLeftRef.current.style.transform = `scaleY(${maskLeft})`;
           }
           if (vuMeterRightRef.current) {
-            vuMeterRightRef.current.style.transform = `scaleY(${currentRightScale})`;
+            const maskRight = Math.max(0, Math.min(1, 1 - currentRightScale));
+            vuMeterRightRef.current.style.transform = `scaleY(${maskRight})`;
           }
         } catch (e) {
           console.error("Error reading master meter value:", e);
@@ -479,8 +492,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         if (dbTextRef.current) {
           dbTextRef.current.innerText = 'NO MTR';
         }
-        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
-        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
+        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
+        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
       }
       animationFrameId = requestAnimationFrame(updateMasterMeter);
     };
@@ -490,8 +503,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
       if (idleTimerId) clearTimeout(idleTimerId);
-      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
-      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
+      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
+      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
     };
   }, [isPlaying, isActive]);
 
@@ -1275,7 +1288,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                         data-testid="master-power-compressor"
                         onClick={(e) => {
                           e.stopPropagation();
+                          const nextActive = !isCompressorActive;
                           toggleMasterEffectActive('compressor');
+                          syncMasterCompressorBypass(!nextActive, masterCompressor);
                         }}
                         className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
                           isCompressorActive
@@ -1295,6 +1310,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <DragNumberBox 
                       label={t('compThreshold')}
                       value={masterCompressor.threshold}
+                      defaultValue={-20}
                       onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
                       onAudioDrag={handleMasterCompThresholdAudioDrag}
                       fillColor="var(--comp-color, #d4af37)"
@@ -1306,6 +1322,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <DragNumberBox 
                       label={t('compRatio')}
                       value={masterCompressor.ratio}
+                      defaultValue={4}
                       onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
                       onAudioDrag={handleMasterCompRatioAudioDrag}
                       fillColor="var(--comp-color, #d4af37)"
@@ -1351,25 +1368,25 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     isMasterVolActive ? 'opacity-50 pointer-events-none' : ''
                   }`}>
                     <MixerVolumeFader
-                      value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
+                      value={dbToFaderPosition(masterVol ?? 0)}
+                      defaultValue={75}
                       thumbWidth={44}
                       thumbHeight={24}
-                      fontSize="text-[11px]"
+                      fontSize="text-[10px]"
                       isMaster={true}
                       faderColor="var(--master-fader-thumb)"
-                      textColor="#f4ecd8"
+                      textColor="var(--cordel-cream, var(--cordel-bg))"
                       faderHandleRef={masterFaderHandleRef}
                       valueTextRefProp={masterFaderTextRef}
                       travelRangeRef={masterTravelRangeRef}
                       onChange={(val) => {
-                        const db = val === 0 ? -40 : -40 + (val / 100) * 46;
+                        const db = faderPositionToDb(val);
                         onMasterVolChange(db);
                       }}
                       onAudioDrag={(val) => {
                         if (masterVolumeNode && masterVolumeNode.gain) {
-                           const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
-                           const gain = Tone.dbToGain(db);
-                           masterVolumeNode.gain.rampTo(gain, 0.05);
+                           const gain = faderPositionToGain(val);
+                           masterVolumeNode.gain.rampTo(gain, 0.02);
                         }
                       }}
                     />
@@ -1380,18 +1397,28 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <div className="flex flex-col items-center gap-1 h-full justify-end shrink-0 w-8">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Meter</span>
                   <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] border border-[var(--master-border)]/40 relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
-                    <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                    <div 
+                      className="flex-1 h-full relative overflow-hidden pointer-events-none"
+                      style={{
+                        background: 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)'
+                      }}
+                    >
                       <div
                         ref={vuMeterLeftRef}
-                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
-                        style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                        className="meter-vertical absolute inset-0 bg-[var(--cordel-bg)] w-full h-full pointer-events-none"
+                        style={{ transform: 'scaleY(1)', transformOrigin: 'top', transition: 'none' }}
                       />
                     </div>
-                    <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                    <div 
+                      className="flex-1 h-full relative overflow-hidden pointer-events-none"
+                      style={{
+                        background: 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)'
+                      }}
+                    >
                       <div
                         ref={vuMeterRightRef}
-                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
-                        style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                        className="meter-vertical absolute inset-0 bg-[var(--cordel-bg)] w-full h-full pointer-events-none"
+                        style={{ transform: 'scaleY(1)', transformOrigin: 'top', transition: 'none' }}
                       />
                     </div>
                   </div>
@@ -1422,18 +1449,28 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               <div className="flex flex-col items-center gap-1 shrink-0 w-8 h-[280px] pb-2">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--master-header-text)]/60 shrink-0">Meter</span>
                 <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] border border-[var(--master-border)]/40 relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
-                  <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                  <div 
+                    className="flex-1 h-full relative overflow-hidden pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)'
+                    }}
+                  >
                     <div
                       ref={vuMeterLeftRef}
-                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
-                      style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                      className="meter-vertical absolute inset-0 bg-[var(--cordel-bg)] w-full h-full pointer-events-none"
+                      style={{ transform: 'scaleY(1)', transformOrigin: 'top', transition: 'none' }}
                     />
                   </div>
-                  <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                  <div 
+                    className="flex-1 h-full relative overflow-hidden pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)'
+                    }}
+                  >
                     <div
                       ref={vuMeterRightRef}
-                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
-                      style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                      className="meter-vertical absolute inset-0 bg-[var(--cordel-bg)] w-full h-full pointer-events-none"
+                      style={{ transform: 'scaleY(1)', transformOrigin: 'top', transition: 'none' }}
                     />
                   </div>
                 </div>

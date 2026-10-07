@@ -11,10 +11,12 @@ import { storage, db, auth } from '../firebase/config';
 import { telemetryService } from '../services/telemetryService';
 import { SavedPattern, TimeSignature, SavedSectionData, Preset } from '../types';
 import { useSequencerStore, getEffectiveVolume } from '../stores/useSequencerStore';
+import { faderPositionToDb } from '../utils/audioMath';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers';
 import { encoderWav } from '../utils/encodeurWav';
+import { normalizeAudioBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
 const CLOUD_PATTERNS_COLLECTION = 'patterns';
 import { CLOUD_SECTIONS_COLLECTION } from '../cloudSections';
 import { instrumentAudioConfigs } from '../data/audioConfig';
@@ -199,6 +201,11 @@ export function useCloudAudioBounce() {
       // L'encodage MediaRecorder va jouer le buffer en temps réel (silencieusement)
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
+      try {
+        normalizeAudioBuffer(nativeBuffer, -0.5);
+      } catch (normErr) {
+        console.warn("[Cloud Bounce] Normalisation motif ignorée sur erreur :", normErr);
+      }
       const webmBlob = await encoderWav(nativeBuffer);
 
       let audioUrl: string | null = null;
@@ -284,10 +291,11 @@ export function useCloudAudioBounce() {
           const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
           if (!audioConfig) continue;
 
-          // Channel setup
-          const effectiveVol = track.id !== undefined ? getEffectiveVolume(sectionData.tracks, track.id) : (track.volumeVal ?? 100);
+          // Channel setup (Audio Taper logarithmique professionnel)
+          const effectiveVol = track.id !== undefined ? getEffectiveVolume(sectionData.tracks, track.id) : (track.volumeVal ?? 75);
+          const channelDb = faderPositionToDb(effectiveVol);
           const channel = new Tone.Channel({
-            volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
+            volume: Number.isFinite(channelDb) ? channelDb : -100,
             pan: track.panVal !== undefined ? track.panVal / 100 : (track.pan !== undefined ? track.pan / 100 : 0)
           }).connect(masterEQ);
           
@@ -416,6 +424,11 @@ export function useCloudAudioBounce() {
 
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
+      try {
+        normalizeAudioBuffer(nativeBuffer, -0.5);
+      } catch (normErr) {
+        console.warn("[Cloud Bounce] Normalisation section ignorée sur erreur :", normErr);
+      }
       const webmBlob = await encoderWav(nativeBuffer);
 
       let audioUrl: string | null = null;
@@ -777,7 +790,7 @@ export function useCloudAudioBounce() {
       // 1. Déconnexion immédiate du recorder
       // 2. Arrêt du recorder et extraction du blob audio
       // 3. Arrêt des moteurs audio
-      setStage(87, "Finalisation de l'audio...", "Finalizando o áudio...");
+      setStage(87, "Normalisation & Finalisation de l'audio...", "Normalização e finalização do áudio...");
       try {
         Tone.getDestination().disconnect(recorder);
       } catch (_) {}
@@ -788,6 +801,21 @@ export function useCloudAudioBounce() {
       } catch (_) {}
       audioEngine?.stop();
       audio.handleStop();
+
+      // Normalisation crête transparente (-0.5 dBFS) sur le master audio enregistré
+      let finalAudioBlob: Blob = audioBlob;
+      try {
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+        if (rawCtx && typeof rawCtx.decodeAudioData === 'function') {
+          // slice(0) pour éviter que decodeAudioData ne détache le buffer
+          const decoded = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
+          normalizeAudioBuffer(decoded, -0.5);
+          finalAudioBlob = audioBufferToWav(decoded);
+        }
+      } catch (normErr) {
+        console.warn("[Cloud Bounce] Normalisation non bloquante ignorée sur erreur :", normErr);
+      }
 
       // Restauration immédiate des paramètres de lecture
       useTransportStore.getState().setIsMetroOn(prevMetro);
@@ -807,9 +835,11 @@ export function useCloudAudioBounce() {
       setStage(88, "Téléversement vers le Cloud...", "Enviando para a nuvem...");
       let audioUrl: string | null = null;
       try {
-        const storageRef = ref(storage, `bounces/presets/${presetId}.webm`);
-        const blobType = audioBlob.type || 'audio/webm;codecs=opus';
-        const uploadTask = uploadBytesResumable(storageRef, audioBlob, { contentType: blobType });
+        const isWav = finalAudioBlob.type.includes('wav');
+        const ext = isWav ? 'wav' : 'webm';
+        const storageRef = ref(storage, `bounces/presets/${presetId}.${ext}`);
+        const blobType = finalAudioBlob.type || (isWav ? 'audio/wav' : 'audio/webm;codecs=opus');
+        const uploadTask = uploadBytesResumable(storageRef, finalAudioBlob, { contentType: blobType });
 
         uploadTask.on('state_changed', (snapshot) => {
           if (snapshot.totalBytes > 0) {

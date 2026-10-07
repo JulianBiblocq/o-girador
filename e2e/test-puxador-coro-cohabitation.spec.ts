@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Puxador & Coro Vocal Cohabitation", () => {
   test("Puxador and Coro can coexist on the same measure without erasing each other", async ({ page }) => {
     await page.goto('http://localhost:5174/?view=timeline');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     // Wait for store to be ready
     await page.waitForFunction(() => {

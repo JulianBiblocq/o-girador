@@ -1,20 +1,25 @@
-import React, { useRef, useEffect } from 'react';
-import { getTone } from '../ToneLoader';
-import { channels, busChannels } from '../hooks/useAudioSync';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-function safeGetTone() {
-  try {
-    return getTone();
-  } catch {
-    return null;
-  }
-}
+import React, { useRef, useEffect } from 'react';
+import { channels, busChannels } from '../hooks/useAudioSync';
+import { 
+  faderPositionToDb, 
+  faderPositionToDbString, 
+  UNITY_GAIN_FADER_POSITION,
+  CUTOFF_FADER_POSITION,
+  dbToFaderPosition,
+  parseDbInput
+} from '../utils/audioMath';
 
 interface MixerVolumeFaderProps {
   trackId?: number;
-  value: number; // 0 to 100
+  value: number; // 0 to 100 (75 = 0.0 dB Unity Gain)
   onChange: (val: number) => void;
   onAudioDrag?: (val: number) => void;
+  defaultValue?: number;
   faderColor?: string;
   textColor?: string;
   height?: number;
@@ -32,6 +37,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   value,
   onChange,
   onAudioDrag,
+  defaultValue = UNITY_GAIN_FADER_POSITION,
   faderColor,
   textColor = 'var(--cordel-text)',
   height,
@@ -46,8 +52,22 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   const resolvedFaderColor = faderColor || (isMaster ? 'var(--master-fader-thumb)' : '#d4af37');
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
+  const cartoucheRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const rectRef = useRef<DOMRect | null>(null);
+  const lastTouchTimeRef = useRef<number>(0);
+  const lastCartoucheTouchTimeRef = useRef<number>(0);
+
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
 
   const setThumbRef = (el: HTMLDivElement | null) => {
     (visualThumbRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -65,43 +85,48 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
 
   const [measuredHeight, setMeasuredHeight] = React.useState(height || 115);
   const containerRef = useRef<HTMLDivElement>(null);
+  const trackAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (height) {
       setMeasuredHeight(height);
       return;
     }
-    if (!containerRef.current) return;
+    if (!trackAreaRef.current) return;
     const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
+      for (const entry of entries) {
         const rect = entry.contentRect;
         if (rect.height > 0) {
           setMeasuredHeight(rect.height);
         }
       }
     });
-    observer.observe(containerRef.current);
+    observer.observe(trackAreaRef.current);
     return () => observer.disconnect();
   }, [height]);
 
-  // Configuration géométrique correspondant au design (avec valeurs dynamiques ou par défaut)
-  const containerHeight = height || (measuredHeight > 60 ? measuredHeight : 60);
-  const faderHeight = containerHeight - 16; // préserve 8px de padding en haut et en bas
+  // Dimensions géométriques de la course utile (Track Area)
+  const trackAreaHeight = height ? height - 20 : (measuredHeight > 40 ? measuredHeight : 60);
   const resolvedThumbHeight = thumbHeight || 20;
-  const travelRange = faderHeight - resolvedThumbHeight;
-  const topPadding = 8; // padding fixe de 8px en haut
+  const resolvedThumbWidth = thumbWidth || (isMaster ? 44 : 32);
+  const topPadding = 6;
+  const bottomPadding = 6;
+  const travelRange = Math.max(10, trackAreaHeight - topPadding - bottomPadding - resolvedThumbHeight);
 
   if (travelRangeRef) {
     travelRangeRef.current = travelRange;
   }
 
-  // Calcule la position "top" en pixels en fonction de la valeur
+  // Calcule la position "top" en pixels en fonction de la valeur (0 à 100)
   const getTopPosition = (val: number) => {
-    const ratio = 1 - val / 100;
+    const ratio = 1 - Math.max(0, Math.min(100, val)) / 100;
     return ratio * travelRange + topPadding;
   };
 
-  // Met à jour le gain de Tone.js directement via l'Audio API
+  // Position exacte du repère Unity Gain (75 % de hauteur utile depuis le bas = 25 % depuis le haut)
+  const unityTop = 0.25 * travelRange + topPadding + resolvedThumbHeight / 2;
+
+  // Met à jour l'audio en direct sans re-render React (Zero Render Thrashing)
   const updateAudioNode = (val: number) => {
     if (onAudioDrag) {
       onAudioDrag(val);
@@ -109,23 +134,79 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     }
     if (trackId !== undefined) {
       const channelNode = channels[trackId] || (busChannels ? busChannels[trackId] : undefined);
-      if (channelNode) {
-        const gain = Math.max(0.00001, val / 100);
-        const toneInstance = safeGetTone();
-        const db = val === 0 ? -Infinity : toneInstance ? toneInstance.gainToDb(gain) : 0;
-        channelNode.volume.rampTo(db, 0.05);
+      if (channelNode && channelNode.volume) {
+        const db = faderPositionToDb(val);
+        // Si <= 3 (-Infinity), descendre à -100 dB pour garantir la coupure absolue sans erreur WebAudio
+        const safeDb = Number.isFinite(db) ? db : -100;
+        channelNode.volume.rampTo(safeDb, 0.02);
       }
     }
   };
 
-  // Calcule la valeur du volume en fonction de la position verticale (clientY)
+  // Réinitialisation instantanée à Unity Gain (75 = 0.0 dB / defaultValue)
+  const resetToUnity = (e?: React.SyntheticEvent | Event) => {
+    if (e) {
+      if (typeof (e as any).preventDefault === 'function') (e as any).preventDefault();
+      if (typeof (e as any).stopPropagation === 'function') (e as any).stopPropagation();
+    }
+    setIsEditing(false);
+    const unityPos = defaultValue !== undefined ? defaultValue : UNITY_GAIN_FADER_POSITION;
+    const topPx = getTopPosition(unityPos);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.top = `${topPx}px`;
+    }
+    if (valueTextRef.current) {
+      valueTextRef.current.textContent = faderPositionToDbString(unityPos);
+    }
+    updateAudioNode(unityPos);
+    onChange(unityPos);
+  };
+
+  // Clic simple sur la cartouche : bascule en mode saisie numérique
+  const handleCartoucheClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentVal = value ?? defaultValue ?? UNITY_GAIN_FADER_POSITION;
+    const currentDb = faderPositionToDb(currentVal);
+    let str = '';
+    if (!Number.isFinite(currentDb) || currentDb <= -60) {
+      str = '-inf';
+    } else if (Math.abs(currentDb) < 0.05) {
+      str = '0.0';
+    } else if (currentDb > 0) {
+      str = `+${currentDb.toFixed(1)}`;
+    } else {
+      const isClean = Math.abs(Math.round(currentDb) - currentDb) < 0.08;
+      str = isClean ? `${Math.round(currentDb)}` : currentDb.toFixed(1);
+    }
+    setInputValue(str);
+    setIsEditing(true);
+  };
+
+  // Validation de la saisie numérique en dB
+  const commitInput = () => {
+    if (!isEditing) return;
+    setIsEditing(false);
+    const dbVal = parseDbInput(inputValue);
+    const newPos = Math.round(dbToFaderPosition(dbVal));
+    const topPx = getTopPosition(newPos);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.top = `${topPx}px`;
+    }
+    if (valueTextRef.current) {
+      valueTextRef.current.textContent = faderPositionToDbString(newPos);
+    }
+    updateAudioNode(newPos);
+    onChange(newPos);
+  };
+
+  // Calcule la valeur (0-100) en fonction du pointer vertical
   const calculateValueFromPointer = (clientY: number) => {
     const rect = rectRef.current;
     if (!rect) return value;
     const relativeY = clientY - rect.top;
 
     const startY = topPadding + resolvedThumbHeight / 2;
-    const endY = containerHeight - topPadding - resolvedThumbHeight / 2;
+    const endY = trackAreaHeight - bottomPadding - resolvedThumbHeight / 2;
     const totalTravel = endY - startY;
 
     if (totalTravel <= 0) return 0;
@@ -142,21 +223,21 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch (_) {}
 
-    if (containerRef.current) {
-      rectRef.current = containerRef.current.getBoundingClientRect();
+    if (trackAreaRef.current) {
+      rectRef.current = trackAreaRef.current.getBoundingClientRect();
     }
 
     const val = calculateValueFromPointer(e.clientY);
 
-    // 1. Déplacement immédiat du bouton visuel
+    // 1. Déplacement immédiat du curseur visuel
     const topPx = getTopPosition(val);
     if (visualThumbRef.current) {
       visualThumbRef.current.style.top = `${topPx}px`;
     }
 
-    // 2. Mise à jour immédiate du texte
+    // 2. Mise à jour immédiate du texte en dB (Zero Render Thrashing)
     if (valueTextRef.current) {
-      valueTextRef.current.textContent = String(val);
+      valueTextRef.current.textContent = faderPositionToDbString(val);
     }
 
     // 3. Mise à jour directe du volume Web Audio API (Tone.js)
@@ -169,18 +250,15 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
 
     const val = calculateValueFromPointer(e.clientY);
 
-    // 1. Déplacement immédiat du bouton visuel
     const topPx = getTopPosition(val);
     if (visualThumbRef.current) {
       visualThumbRef.current.style.top = `${topPx}px`;
     }
 
-    // 2. Mise à jour immédiate du texte
     if (valueTextRef.current) {
-      valueTextRef.current.textContent = String(val);
+      valueTextRef.current.textContent = faderPositionToDbString(val);
     }
 
-    // 3. Mise à jour directe du volume Web Audio API (Tone.js)
     updateAudioNode(val);
   };
 
@@ -197,13 +275,23 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     onChange(val);
   };
 
-  // Native non-passive Touch listener fallback for strict mobile browser gesture blocking
+  // Écouteur tactile natif non-passif pour blocage strict des gestes et détection de double-tap
   useEffect(() => {
-    const el = containerRef.current;
+    const el = trackAreaRef.current;
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length > 0) {
+        const now = performance.now();
+        // Protection anti-zoom tablette + reset double-tap (< 300 ms)
+        if (now - lastTouchTimeRef.current < 300) {
+          e.preventDefault();
+          lastTouchTimeRef.current = 0;
+          resetToUnity(e);
+          return;
+        }
+        lastTouchTimeRef.current = now;
+
         e.preventDefault();
         isDraggingRef.current = true;
         rectRef.current = el.getBoundingClientRect();
@@ -214,7 +302,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
           visualThumbRef.current.style.top = `${topPx}px`;
         }
         if (valueTextRef.current) {
-          valueTextRef.current.textContent = String(val);
+          valueTextRef.current.textContent = faderPositionToDbString(val);
         }
         updateAudioNode(val);
       }
@@ -230,7 +318,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
           visualThumbRef.current.style.top = `${topPx}px`;
         }
         if (valueTextRef.current) {
-          valueTextRef.current.textContent = String(val);
+          valueTextRef.current.textContent = faderPositionToDbString(val);
         }
         updateAudioNode(val);
       }
@@ -260,21 +348,47 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [containerHeight]);
+  }, [trackAreaHeight]);
 
-  // Synchronisation lorsque la valeur change depuis l'extérieur (ex: presets)
+  // Écouteur tactile natif non-passif pour détection de double-tap (< 300 ms) sur le cartouche dB
   useEffect(() => {
-    if (!isDraggingRef.current) {
-      const topPx = getTopPosition(value);
+    const el = cartoucheRef.current;
+    if (!el) return;
+
+    const handleCartoucheTouch = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const now = performance.now();
+        if (now - lastCartoucheTouchTimeRef.current < 300) {
+          e.preventDefault();
+          lastCartoucheTouchTimeRef.current = 0;
+          resetToUnity(e);
+          setIsEditing(false);
+          return;
+        }
+        lastCartoucheTouchTimeRef.current = now;
+      }
+    };
+
+    el.addEventListener('touchstart', handleCartoucheTouch, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', handleCartoucheTouch);
+    };
+  }, [defaultValue, trackAreaHeight]);
+
+  // Synchronisation lorsque la valeur change depuis l'extérieur (ex: chargement de preset)
+  useEffect(() => {
+    if (!isDraggingRef.current && !isEditing) {
+      const activeVal = value ?? defaultValue ?? UNITY_GAIN_FADER_POSITION;
+      const topPx = getTopPosition(activeVal);
       if (visualThumbRef.current) {
         visualThumbRef.current.style.top = `${topPx}px`;
       }
       if (valueTextRef.current) {
-        valueTextRef.current.textContent = String(value);
+        valueTextRef.current.textContent = faderPositionToDbString(activeVal);
       }
-      updateAudioNode(value);
+      updateAudioNode(activeVal);
     }
-  }, [value, trackId, containerHeight]);
+  }, [value, defaultValue, trackId, trackAreaHeight, isEditing]);
 
   // Haute performance : Écouteur direct d'événement MIDI Fader (Bypass React & Zero Render Thrashing)
   useEffect(() => {
@@ -289,7 +403,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
         visualThumbRef.current.style.top = `${topPx}px`;
       }
       if (valueTextRef.current) {
-        valueTextRef.current.textContent = String(val);
+        valueTextRef.current.textContent = faderPositionToDbString(val);
       }
     };
 
@@ -300,53 +414,137 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="flex justify-center items-center relative w-10 select-none h-full cursor-pointer touch-none"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      className="flex flex-col justify-between items-center relative w-full select-none h-full touch-none"
       style={{ 
         height: height !== undefined ? `${height}px` : '100%',
         minHeight: height !== undefined ? `${height}px` : '60px'
       }}
     >
-      {/* 1. La fente du fader (Visuel en arrière-plan) */}
-      <div 
-        className="absolute w-1 bg-[var(--cordel-border)] pointer-events-none z-0"
-        style={{ top: `${topPadding}px`, bottom: `${topPadding}px` }}
-      ></div>
-
-      {/* 2. Le bouton visuel (Thumb) avec texte centré en Flexbox */}
+      {/* Zone utile de déplacement du fader */}
       <div
-        ref={setThumbRef}
-        className={`absolute shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors ${
-          isMaster ? 'master-fader-thumb' : 'cordel-border-sm'
-        }`}
-        style={{
-          width: `${thumbWidth || (isMaster ? 44 : 32)}px`,
-          height: `${resolvedThumbHeight}px`,
-          left: `calc(50% - ${(thumbWidth || (isMaster ? 44 : 32)) / 2}px)`,
-          top: `${getTopPosition(value)}px`,
-          backgroundColor: resolvedFaderColor,
-          borderColor: isMaster ? 'var(--master-border, var(--cordel-border))' : 'var(--cordel-border)',
-        }}
+        ref={trackAreaRef}
+        className="flex-1 w-full relative flex items-center justify-center min-h-[44px] cursor-pointer touch-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onDoubleClick={resetToUnity}
       >
-        {/* Repère central net du Fader Master (Haute lisibilité mode jour et nuit) */}
-        {isMaster && (
+        {/* 1. La fente du fader (rainure en arrière-plan) */}
+        <div 
+          className="absolute w-1 bg-[var(--cordel-border)] pointer-events-none z-0"
+          style={{ top: `${topPadding}px`, bottom: `${bottomPadding}px` }}
+        />
+
+        {/* 2. Repères visuels francs de sérigraphie à 75 % (Unity Gain 0.0 dB / U) */}
+        {/* Repère gauche (U) */}
+        <div
+          className="absolute flex items-center justify-end pointer-events-none z-0"
+          style={{
+            top: `${unityTop}px`,
+            right: `calc(50% + ${(resolvedThumbWidth / 2) + 2}px)`,
+            transform: 'translateY(-50%)',
+          }}
+        >
+          <span className="text-[8px] font-mono font-black text-[var(--cordel-text)] opacity-80 mr-0.5 select-none leading-none">
+            U
+          </span>
+          <div className="w-1.5 h-[1.5px] bg-[var(--cordel-border)] opacity-85" />
+        </div>
+
+        {/* Repère central sur la rainure */}
+        <div
+          className="absolute w-2.5 h-[1px] bg-[var(--cordel-border)] opacity-70 pointer-events-none z-0 -translate-x-1/2 left-1/2"
+          style={{
+            top: `${unityTop}px`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+
+        {/* Repère droit (0 dB) */}
+        <div
+          className="absolute flex items-center pointer-events-none z-0"
+          style={{
+            top: `${unityTop}px`,
+            left: `calc(50% + ${(resolvedThumbWidth / 2) + 2}px)`,
+            transform: 'translateY(-50%)',
+          }}
+        >
+          <div className="w-1.5 h-[1.5px] bg-[var(--cordel-border)] opacity-85" />
+          <span className="text-[8px] font-mono font-black text-[var(--cordel-text)] opacity-80 ml-0.5 select-none leading-none">
+            0
+          </span>
+        </div>
+
+        {/* 3. Le bouton visuel (Thumb) avec ligne centrale haute précision */}
+        <div
+          ref={setThumbRef}
+          className={`absolute shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors ${
+            isMaster ? 'master-fader-thumb' : 'cordel-border-sm'
+          }`}
+          style={{
+            width: `${resolvedThumbWidth}px`,
+            height: `${resolvedThumbHeight}px`,
+            left: `calc(50% - ${resolvedThumbWidth / 2}px)`,
+            top: `${getTopPosition(value)}px`,
+            backgroundColor: resolvedFaderColor,
+            borderColor: isMaster ? 'var(--master-border, var(--cordel-border))' : 'var(--cordel-border)',
+          }}
+        >
+          {/* Ligne centrale nette pour alignement au millimètre sur le repère 75 % */}
           <div
-            className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-[#f4ecd8] opacity-90 shadow-[0_1px_1px_rgba(0,0,0,0.8)] pointer-events-none"
+            className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-[var(--cordel-cream,var(--cordel-bg))] opacity-90 shadow-[0_1px_1px_rgba(0,0,0,0.8)] pointer-events-none"
             aria-hidden="true"
           />
+        </div>
+      </div>
+
+      {/* 4. Cartouche numérique sous le fader : retour dynamique au format dB & double-clic/saisie directe */}
+      <div 
+        ref={cartoucheRef}
+        data-testid="fader-db-cartouche"
+        onClick={!isEditing ? handleCartoucheClick : undefined}
+        onDoubleClick={(e) => {
+          resetToUnity(e);
+          setIsEditing(false);
+        }}
+        title="Cliquer pour éditer, double-cliquer pour réinitialiser à 0.0 dB"
+        className="shrink-0 w-12 min-w-[48px] max-w-[48px] h-[19px] flex items-center justify-center mt-0.5 px-0.5 py-[1.5px] rounded-[2px] bg-[#1a1a1a] border border-[#3d3830] shadow-xs cursor-pointer select-none overflow-hidden hover:border-[#5a5245] hover:bg-[#242424] active:scale-95 transition-all text-[#f4ecd8]"
+      >
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') {
+                commitInput();
+              } else if (e.key === 'Escape') {
+                setIsEditing(false);
+              }
+            }}
+            onBlur={() => {
+              commitInput();
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              resetToUnity(e);
+              setIsEditing(false);
+            }}
+            className="w-full h-full text-center bg-transparent border-none outline-none font-mono tabular-nums font-bold text-[10px] p-0 m-0 leading-none cursor-text select-all text-[#f4ecd8]"
+            style={{ color: '#f4ecd8' }}
+          />
+        ) : (
+          <span
+            ref={setTextRef}
+            className={`${fontSize || 'text-[10px]'} w-full text-center font-mono tabular-nums font-bold select-none tracking-tight leading-none truncate pointer-events-none text-[#f4ecd8]`}
+            style={{ color: '#f4ecd8' }}
+          >
+            {faderPositionToDbString(value ?? defaultValue ?? UNITY_GAIN_FADER_POSITION)}
+          </span>
         )}
-        <span
-          ref={setTextRef}
-          className={`${fontSize || 'text-[10px]'} font-black font-mono select-none relative z-10 ${
-            isMaster ? 'px-1.5 py-[0.5px] rounded-[2px] bg-[#1a1a1a]/85 text-[#f4ecd8] border border-[#f4ecd8]/40 shadow-xs' : ''
-          }`}
-          style={isMaster ? undefined : { color: textColor }}
-        >
-          {value}
-        </span>
       </div>
     </div>
   );

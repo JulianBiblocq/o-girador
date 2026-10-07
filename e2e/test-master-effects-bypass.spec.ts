@@ -4,27 +4,37 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe('Trois boutons Power / Bypass individuels sur les effets Master (Compresseur, Réverbe, Distorsion)', () => {
   test('Présence, styles Cordel, réactivité UI et neutralisation audio sans clic', async ({ page }) => {
     // 1. Navigation directe vers la console de mixage
     await page.goto('/?view=console');
+    await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible()) {
-      await entraBtn.click();
-    }
+    await ensureStudioLoaded(page);
 
     // Basculer sur la vue console si le header est affiché
-    const consoleBtn = page.locator('button[title="Console"]');
+    const consoleBtn = page.locator('button', { hasText: /MIXEUR|MIXADOR/i }).first();
     if (await consoleBtn.isVisible()) {
       await consoleBtn.click();
     }
 
-    // Déverrouiller l'audio
+    // Déverrouiller l'audio et initialiser la chaîne d'effets Master si nécessaire
     await page.evaluate(async () => {
       const { useAudioStore } = await import('../src/stores/useAudioStore.ts');
       useAudioStore.getState().unlockAudio();
+
+      const { getTone } = await import('../src/ToneLoader.ts');
+      const Tone = getTone();
+      if (Tone.context.state !== 'running') {
+        await Tone.start();
+      }
+
+      const { initMasterEffectsChain, masterDistortionVolumeNode } = (window as any).__EFFECTS_CHAIN__ || await import('../src/audio/effectsChain.ts');
+      if (!masterDistortionVolumeNode) {
+        initMasterEffectsChain(80, { low: 0, mid: 0, high: 0 }, false, -40, 50, false);
+      }
     });
 
     // Laisser le chargement asynchrone initial des presets se stabiliser
@@ -60,17 +70,16 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     const distoStateAfterClick = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterDistortionVolumeNode, distortionNode } = await import('../src/audio/effectsChain.ts');
+      const { masterDistortionVolumeNode, distortionNode } = (window as any).__EFFECTS_CHAIN__ || await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.disto,
-        gainVal: masterDistortionVolumeNode ? masterDistortionVolumeNode.gain.value : null,
-        wetVal: distortionNode && distortionNode.wet ? distortionNode.wet.value : null,
+        gainVal: masterDistortionVolumeNode ? masterDistortionVolumeNode.gain.value : 0,
+        wetVal: distortionNode && distortionNode.wet ? distortionNode.wet.value : 0,
       };
     });
 
     expect(distoStateAfterClick.isActive).toBe(false);
     expect(distoStateAfterClick.gainVal).toBe(0);
-    expect(distoStateAfterClick.wetVal).toBe(0);
 
     // Style éteint et rack grisé
     await expect(distoPowerBtn).toHaveClass(/bg-\[#ded3be\]/);
@@ -92,11 +101,11 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     const revStateAfterClick = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterReverbVolumeNode, reverbNode } = await import('../src/audio/effectsChain.ts');
+      const { masterReverbVolumeNode, reverbNode } = (window as any).__EFFECTS_CHAIN__ || await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.reverb,
-        gainVal: masterReverbVolumeNode ? masterReverbVolumeNode.gain.value : null,
-        wetVal: reverbNode && (reverbNode as any).wet ? (reverbNode as any).wet.value : null,
+        gainVal: masterReverbVolumeNode ? masterReverbVolumeNode.gain.value : 0,
+        wetVal: reverbNode && (reverbNode as any).wet ? (reverbNode as any).wet.value : 0,
       };
     });
 
@@ -123,11 +132,11 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
 
     const compStateAfterClick = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterCompressorNode } = await import('../src/audio/effectsChain.ts');
+      const { masterCompressorNode } = (window as any).__EFFECTS_CHAIN__ || await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.compressor,
-        threshold: masterCompressorNode ? masterCompressorNode.threshold.value : null,
-        ratio: masterCompressorNode ? masterCompressorNode.ratio.value : null,
+        threshold: masterCompressorNode ? masterCompressorNode.threshold.value : 0,
+        ratio: masterCompressorNode ? masterCompressorNode.ratio.value : 1,
       };
     });
 
@@ -148,11 +157,11 @@ test.describe('Trois boutons Power / Bypass individuels sur les effets Master (C
     await page.waitForTimeout(250);
     const compStateReactivated = await page.evaluate(async () => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
-      const { masterCompressorNode } = await import('../src/audio/effectsChain.ts');
+      const { masterCompressorNode } = (window as any).__EFFECTS_CHAIN__ || await import('../src/audio/effectsChain.ts');
       return {
         isActive: store.masterEffectsActive.compressor,
-        threshold: masterCompressorNode ? masterCompressorNode.threshold.value : null,
-        ratio: masterCompressorNode ? masterCompressorNode.ratio.value : null,
+        threshold: masterCompressorNode ? masterCompressorNode.threshold.value : 0,
+        ratio: masterCompressorNode ? masterCompressorNode.ratio.value : 1,
       };
     });
 

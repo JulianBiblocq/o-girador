@@ -4,6 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Sélecteur de timbre vocal dans l'Inspecteur acoustique", () => {
   test.beforeEach(async ({ page }) => {
@@ -22,10 +23,7 @@ test.describe("Sélecteur de timbre vocal dans l'Inspecteur acoustique", () => {
     await page.goto('/');
 
     // Entrer dans le studio si nous sommes sur la landing page
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible()) {
-      await entraBtn.click();
-    }
+    await ensureStudioLoaded(page);
 
     // Attendre le chargement initial du store global
     await page.waitForFunction(() => {

@@ -1,14 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test('Diagnostiquer le contenu du menu Projet et le catalogue dans le séquenceur', async ({ page }) => {
   await page.goto('http://localhost:5174/');
   await page.waitForTimeout(1000);
 
-  // Click ENTRA NA RODA
-  const entraBtn = page.locator('#entra-btn');
-  await entraBtn.waitFor({ state: 'visible', timeout: 10000 });
-  await entraBtn.click();
-  await page.waitForTimeout(1500);
+  // Franchir la landing page si nécessaire
+  await ensureStudioLoaded(page);
 
   // Function to inspect the select
   const inspectSelect = async (contextLabel: string) => {

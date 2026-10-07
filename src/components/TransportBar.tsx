@@ -662,6 +662,7 @@ const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, ima
         {/* Play & Loop: Colles quasiment ensemble */}
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
           <button
+            data-testid="transport-play-btn"
             onClick={handleTogglePlay}
             disabled={audio.isLoading}
             className={`w-12 h-12 sm:w-14 sm:h-14 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${

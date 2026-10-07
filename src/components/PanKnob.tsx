@@ -6,6 +6,7 @@ interface PanKnobProps {
   trackId?: number; // Needed for audio sync
   value: number; // -100 to 100
   onChange: (val: number) => void;
+  defaultValue?: number;
   label?: string;
   showLabels?: boolean;
   panKnobRef?: React.RefObject<SVGGElement | null>;
@@ -15,6 +16,7 @@ export const PanKnob: React.FC<PanKnobProps> = ({
   trackId,
   value,
   onChange,
+  defaultValue = 0,
   label = "Pan",
   showLabels = true,
   panKnobRef
@@ -27,8 +29,10 @@ export const PanKnob: React.FC<PanKnobProps> = ({
   const startXRef = useRef(0);
   const startValueRef = useRef(0);
   const lastAudioUpdateTimeRef = useRef(0);
+  const lastTouchTimeRef = useRef<number>(0);
   const THROTTLE_MS = 25; // 40 Hz limit for audio updates during drag
 
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const rotationGroupRef = useRef<SVGGElement>(null);
 
@@ -84,16 +88,50 @@ export const PanKnob: React.FC<PanKnobProps> = ({
         const targetPan = val / 100;
         if (track.isBusFolder) {
           if (busChannels && busChannels[track.id]) {
-            busChannels[track.id].pan.rampTo(targetPan, 0.05);
+            busChannels[track.id].pan.rampTo(targetPan, 0.02);
           }
         } else {
           if (channels && channels[track.id]) {
-            channels[track.id].pan.rampTo(targetPan, 0.05);
+            channels[track.id].pan.rampTo(targetPan, 0.02);
           }
         }
       }
     }
   };
+
+  // Réinitialisation instantanée au neutre / defaultValue (Centre = 0)
+  const resetToDefault = () => {
+    const resetVal = defaultValue !== undefined ? defaultValue : 0;
+    updateVisuals(resetVal);
+    updateAudio(resetVal, true);
+    React.startTransition(() => {
+      onChangeRef.current(resetVal);
+    });
+  };
+
+  // Écouteur tactile natif non-passif pour détection de double-tap (< 300 ms) et protection anti-zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const now = performance.now();
+        if (now - lastTouchTimeRef.current < 300) {
+          e.preventDefault();
+          lastTouchTimeRef.current = 0;
+          resetToDefault();
+          return;
+        }
+        lastTouchTimeRef.current = now;
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+    };
+  }, [defaultValue, trackId]);
 
   // Pointer drag events for precise vertical/horizontal dragging with pointer capture
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -154,14 +192,11 @@ export const PanKnob: React.FC<PanKnobProps> = ({
     });
   };
 
-  // Double-click to snap back to exact center (0)
+  // Double-click to snap back to exact center (defaultValue)
   const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    updateVisuals(0);
-    updateAudio(0, true);
-    React.startTransition(() => {
-      onChangeRef.current(0);
-    });
+    resetToDefault();
   };
 
   // Accessibility keyboard handler
@@ -180,9 +215,13 @@ export const PanKnob: React.FC<PanKnobProps> = ({
   const panTitle = `Pan: ${value === 0 ? 'Centro' : value > 0 ? 'D' + value : 'E' + Math.abs(value)}`;
 
   return (
-    <div className="flex flex-col items-center gap-0.5 select-none shrink-0 touch-none">
-      <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">{label}</span>
+    <div 
+      className="flex flex-col items-center gap-0.5 select-none shrink-0 touch-none"
+      onDoubleClick={handleDoubleClick}
+    >
+      <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 cursor-default">{label}</span>
       <div
+        ref={containerRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

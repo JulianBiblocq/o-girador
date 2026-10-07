@@ -66,6 +66,18 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   const [promptValue, setPromptValue] = useState("");
   const [promptTargetIdx, setPromptTargetIdx] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (!promptOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPromptOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [promptOpen]);
+
   const getVPadding = (h: number) => h > 40 ? 16 : 2;
 
   const getYFromValue = (val: number, height: number) => {
@@ -370,6 +382,8 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
 
     let lastClickTime = 0;
     let lastClickIdx = -1;
+    let hasMoved = false;
+    let startY = 0;
 
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as SVGElement;
@@ -377,6 +391,8 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         e.stopPropagation();
         const idx = parseInt(target.dataset.idx, 10);
         const now = Date.now();
+        hasMoved = false;
+        startY = e.clientY;
 
         // Robust double-click / double-tap detection for desktop & tablets
         if (now - lastClickTime < 350 && lastClickIdx === idx) {
@@ -440,6 +456,10 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       const val = getValueFromY(y, rect.height);
       const roundedVal = Math.round(val);
       
+      if (Math.abs(e.clientY - startY) > 2) {
+        hasMoved = true;
+      }
+
       if (localValuesRef.current[draggedIdx] !== roundedVal) {
         localValuesRef.current[draggedIdx] = roundedVal;
         renderSvg(); // Re-render vanilla SVG without React state update (Zero Render Thrashing)
@@ -456,6 +476,12 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           svg.releasePointerCapture(e.pointerId);
         }
       } catch (_) {}
+
+      if (!hasMoved) {
+        svgRectRef.current = null;
+        return;
+      }
+      hasMoved = false;
       
       const finalVal = localValuesRef.current[draggedIdx];
       const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
@@ -685,8 +711,15 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
 
       {/* Custom Prompt Modal */}
       {promptOpen && promptTargetIdx !== null && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-             onPointerDown={(e) => e.stopPropagation()} // Stop it from leaking
+        <div
+          data-testid="automation-prompt-modal"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setPromptOpen(false);
+            }
+            e.stopPropagation();
+          }}
         >
           <div className="bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] rounded shadow-2xl p-6 w-[320px] animate-in fade-in zoom-in duration-200">
             <h3 className="font-cactus text-xl mb-4 text-[#f4ecd8]">
@@ -726,6 +759,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
             />
             <div className="flex justify-end gap-2">
               <button 
+                data-testid="automation-prompt-cancel"
                 onClick={() => setPromptOpen(false)}
                 className="px-4 py-2 text-sm cordel-border hover:bg-black/10 transition-colors rounded text-[#f4ecd8]"
               >

@@ -43,6 +43,10 @@ export interface AudioState {
   setVoiceInputMode: (mode: 'free' | 'step') => void;
   vocalPreset: VocalPresetId;
   setVocalPreset: (preset: VocalPresetId) => void;
+  recordingStatus?: string;
+  isFocusRecordingMode?: boolean;
+  setRecordingStatus?: (status: string) => void;
+  setIsFocusRecordingMode?: (focus: boolean) => void;
 }
 
 export type VocalPresetId = 'guide' | 'rhodes' | 'pifano' | 'organ' | 'pluck';
@@ -55,6 +59,10 @@ export const useAudioStore = create<AudioState>((set) => ({
   vocalBlobs: {},
   vocalBuffers: {},
   tempRecording: null,
+  recordingStatus: 'inactive',
+  isFocusRecordingMode: false,
+  setRecordingStatus: (status) => set({ recordingStatus: status }),
+  setIsFocusRecordingMode: (focus) => set({ isFocusRecordingMode: focus }),
   chorusDensity: 0.0,
   isVocalGuideEnabled: true,
   selectedVocalPatternId: null,

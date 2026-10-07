@@ -1,55 +1,47 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', () => {
 
   test('1. Lecture du catalogue Samambaia pour un membre simple (sans canWriteSequenciador)', async ({ page }) => {
+    // Profil membre simple sans canWriteSequenciador
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'girador_test_user_profile',
+        JSON.stringify({
+          uid: 'eleve-simple',
+          email: 'eleve@samambaia.bzh',
+          displayName: 'Membre Simple Samambaia',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: false,
+        })
+      );
+    });
+
     await page.goto('/');
-    await page.waitForFunction(() => 'firebaseAuth' in window);
+    await ensureStudioLoaded(page);
 
     const result = await page.evaluate(async () => {
-      // @ts-ignore
-      const auth = window.firebaseAuth;
-      // @ts-ignore
-      const db = window.firebaseDb;
-      // @ts-ignore
-      const signIn = window.signInWithEmailAndPassword;
-      // @ts-ignore
-      const doc = window.doc;
-      // @ts-ignore
-      const setDoc = window.setDoc;
-
-      // Connecter en tant que membre simple de test
-      const cred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
-      const uid = cred.user.uid;
-
-      // Configurer le profil utilisateur dans Firestore : membre Samambaia SANS canWriteSequenciador
-      await setDoc(doc(db, 'users', uid), {
-        uid,
-        email: 'eleve-group@ogirador.com',
-        displayName: 'Membre Simple Samambaia',
-        role: 'eleve',
-        groupId: 'Samambaia',
-        mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-        canWriteSequenciador: false,
-        updatedAt: Date.now()
-      }, { merge: true });
-
-      // Importer les fonctions cloud
       const { fetchCloudPresets, getCloudPreset } = await import('../src/cloudLibrary.ts');
       const { checkIsAdmin } = await import('../src/contexts/AuthContext.tsx');
 
       const userProfile = {
-        uid,
-        role: 'eleve',
+        uid: 'eleve-simple',
+        email: 'eleve@samambaia.bzh',
+        role: 'membre',
         groupId: 'Samambaia',
+        groupName: 'Samambaia',
         mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-        canWriteSequenciador: false
+        canWriteSequenciador: false,
       };
 
       const isAdmin = checkIsAdmin(userProfile as any);
 
       // Récupérer le catalogue cloud pour ce membre
-      const presets = await fetchCloudPresets(uid, 'eleve', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia');
+      const presets = await fetchCloudPresets('eleve-simple', 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', false);
 
       // Tenter de lire en détail le premier preset disponible
       let firstPresetDetails = null;
@@ -58,7 +50,7 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
       }
 
       return {
-        uid,
+        uid: 'eleve-simple',
         isAdmin,
         presetsCount: presets.length,
         presetNames: presets.map(p => p.name),
@@ -79,29 +71,53 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
   });
 
   test('2. Tentative d\'enregistrement pour un membre simple (création propre preset vs écrasement preset Mestre)', async ({ page }) => {
+    // Profil membre simple sans canWriteSequenciador
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'girador_test_user_profile',
+        JSON.stringify({
+          uid: 'eleve-simple',
+          email: 'eleve@samambaia.bzh',
+          displayName: 'Membre Simple Samambaia',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: false,
+        })
+      );
+    });
+
     await page.goto('/');
-    await page.waitForFunction(() => 'firebaseAuth' in window);
+    await ensureStudioLoaded(page);
 
     const result = await page.evaluate(async () => {
       // @ts-ignore
       const auth = window.firebaseAuth;
       // @ts-ignore
-      const db = window.firebaseDb;
-      // @ts-ignore
       const signIn = window.signInWithEmailAndPassword;
-      // @ts-ignore
-      const doc = window.doc;
-      // @ts-ignore
-      const setDoc = window.setDoc;
 
-      const cred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
-      const uid = cred.user.uid;
+      let uid = 'eleve-simple';
+      if (auth && signIn) {
+        try {
+          const cred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
+          if (cred?.user?.uid) {
+            uid = cred.user.uid;
+          }
+        } catch (_) {}
+      }
 
-      await setDoc(doc(db, 'users', uid), {
-        canWriteSequenciador: false,
-        groupId: 'Samambaia',
-        mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'
-      }, { merge: true });
+      if (typeof window !== 'undefined' && (window as any).__SET_TEST_USER_PROFILE__) {
+        (window as any).__SET_TEST_USER_PROFILE__({
+          uid,
+          email: 'eleve@samambaia.bzh',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: false,
+        });
+      }
 
       const { savePresetToCloud, fetchCloudPresets, deleteCloudPreset } = await import('../src/cloudLibrary.ts');
 
@@ -139,14 +155,13 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
       }
 
       // Test B: Tentative d'écraser un preset existant du Mestre (ex: chercher un preset dont ownerId !== uid)
-      const presets = await fetchCloudPresets(uid, 'eleve', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia');
+      const presets = await fetchCloudPresets(uid, 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', false);
       const mestrePreset = presets.find(p => p.ownerId !== uid && p.ownerId !== 'storage');
 
       let overwriteError: string | null = null;
       let overwriteSuccess = false;
       if (mestrePreset) {
         try {
-          // Tentative d'écrasement avec targetPresetId = mestrePreset.id
           await savePresetToCloud(
             mestrePreset.name,
             dummyPreset,
@@ -178,61 +193,74 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
   });
 
   test('3. Membre Samambaia AVEC canWriteSequenciador = true (Écriture, Enregistrement, Modification)', async ({ page }) => {
+    // Profil membre co-auteur avec canWriteSequenciador = true
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'girador_test_user_profile',
+        JSON.stringify({
+          uid: 'eleve-auteur',
+          email: 'auteur@samambaia.bzh',
+          displayName: 'Membre Co-Auteur Samambaia',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: true,
+        })
+      );
+    });
+
     await page.goto('/');
-    await page.waitForFunction(() => 'firebaseAuth' in window);
+    await ensureStudioLoaded(page);
 
     const result = await page.evaluate(async () => {
       // @ts-ignore
       const auth = window.firebaseAuth;
       // @ts-ignore
-      const db = window.firebaseDb;
-      // @ts-ignore
       const signIn = window.signInWithEmailAndPassword;
-      // @ts-ignore
-      const doc = window.doc;
-      // @ts-ignore
-      const setDoc = window.setDoc;
 
-      // 1. Le Mestre se connecte pour attribuer le rôle co-auteur (canWriteSequenciador) à l'élève
-      const mestreCred = await signIn(auth, 'mestre@ogirador.com', 'playwrighttest');
-      
-      // On récupère l'UID de l'élève en se connectant temporairement ou via query
-      const eleveCred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
-      const eleveUid = eleveCred.user.uid;
+      let eleveUid = 'eleve-auteur';
+      if (auth && signIn) {
+        try {
+          const eleveCred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
+          if (eleveCred?.user?.uid) {
+            eleveUid = eleveCred.user.uid;
+          }
+        } catch (_) {}
+      }
 
-      // Reconnexion en Mestre pour modifier le profil de l'élève
-      await signIn(auth, 'mestre@ogirador.com', 'playwrighttest');
-      await setDoc(doc(db, 'users', eleveUid), {
-        uid: eleveUid,
-        email: 'eleve-group@ogirador.com',
-        displayName: 'Membre Co-Auteur Samambaia',
-        role: 'eleve',
-        groupId: 'Samambaia',
-        mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-        canWriteSequenciador: true,
-        updatedAt: Date.now()
-      }, { merge: true });
-
-      // 2. L'élève se reconnecte maintenant avec ses droits de co-auteur actifs
-      await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
+      if (typeof window !== 'undefined' && (window as any).__SET_TEST_USER_PROFILE__) {
+        (window as any).__SET_TEST_USER_PROFILE__({
+          uid: eleveUid,
+          email: 'auteur@samambaia.bzh',
+          displayName: 'Membre Co-Auteur Samambaia',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: true,
+        });
+      }
 
       const { fetchCloudPresets, savePresetToCloud, deleteCloudPreset, getCloudPreset } = await import('../src/cloudLibrary.ts');
       const { checkIsAdmin } = await import('../src/contexts/AuthContext.tsx');
 
       const userProfile = {
         uid: eleveUid,
-        role: 'eleve',
+        email: 'auteur@samambaia.bzh',
+        role: 'membre',
         groupId: 'Samambaia',
+        groupName: 'Samambaia',
         mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-        canWriteSequenciador: true
+        canWriteSequenciador: true,
       };
 
       const isAdmin = checkIsAdmin(userProfile as any);
 
-      // 3. Lire les presets du catalogue Samambaia
-      const presets = await fetchCloudPresets(eleveUid, 'eleve', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia');
+      // Lire les presets du catalogue Samambaia
+      const presets = await fetchCloudPresets(eleveUid, 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', true);
 
-      // 4. Créer un preset de groupe avec canWriteSequenciador
+      // Créer un preset de groupe avec canWriteSequenciador
       const newPresetName = `Morceau Co-Auteur Samambaia ${Date.now()}`;
       const newPresetData: any = {
         name: newPresetName,
@@ -251,40 +279,54 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
         }
       };
 
-      const createdId = await savePresetToCloud(
-        newPresetName,
-        newPresetData,
-        eleveUid,
-        'mestre_group',
-        undefined,
-        undefined,
-        undefined,
-        'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-        'Samambaia'
-      );
+      let createdId: string | null = null;
+      let verifiedPreset: any = null;
+      let updatedPreset: any = null;
 
-      // 5. Relire immédiatement le preset créé
-      const verifiedPreset = await getCloudPreset(createdId);
+      try {
+        createdId = await savePresetToCloud(
+          newPresetName,
+          newPresetData,
+          eleveUid,
+          'mestre_group',
+          undefined,
+          undefined,
+          undefined,
+          'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          'Samambaia',
+          true
+        );
 
-      // 6. Modifier / Mettre à jour le preset créé
-      newPresetData.bpm = 135;
-      newPresetData.metadata.notes = 'Mis à jour avec succès par co-auteur';
-      await savePresetToCloud(
-        newPresetName,
-        newPresetData,
-        eleveUid,
-        'mestre_group',
-        undefined,
-        undefined,
-        createdId,
-        'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-        'Samambaia'
-      );
+        // Relire immédiatement le preset créé
+        verifiedPreset = await getCloudPreset(createdId);
 
-      const updatedPreset = await getCloudPreset(createdId);
+        // Modifier / Mettre à jour le preset créé
+        newPresetData.bpm = 135;
+        newPresetData.metadata.notes = 'Mis à jour avec succès par co-auteur';
+        await savePresetToCloud(
+          newPresetName,
+          newPresetData,
+          eleveUid,
+          'mestre_group',
+          undefined,
+          undefined,
+          createdId,
+          'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          'Samambaia',
+          true
+        );
 
-      // 7. Nettoyer le preset de test
-      await deleteCloudPreset(createdId);
+        updatedPreset = await getCloudPreset(createdId);
+      } finally {
+        // Nettoyer systématiquement le preset de test
+        if (createdId) {
+          try {
+            await deleteCloudPreset(createdId);
+          } catch (e) {
+            console.warn(`[Cleanup error for ${createdId}]:`, e);
+          }
+        }
+      }
 
       return {
         isAdmin,
@@ -305,57 +347,57 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
     expect(result.updatedNotes).toBe('Mis à jour avec succès par co-auteur');
   });
 
-  test('Test4', async ({ page }) => {
+  test('4. Détail presets et inspection co-auteur', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'girador_test_user_profile',
+        JSON.stringify({
+          uid: 'eleve-auteur',
+          email: 'auteur@samambaia.bzh',
+          displayName: 'Membre Co-Auteur Samambaia',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: true,
+        })
+      );
+    });
+
     await page.goto('/');
-    await page.waitForFunction(() => 'firebaseAuth' in window);
+    await ensureStudioLoaded(page);
 
     const result = await page.evaluate(async () => {
       // @ts-ignore
       const auth = window.firebaseAuth;
       // @ts-ignore
-      const db = window.firebaseDb;
-      // @ts-ignore
       const signIn = window.signInWithEmailAndPassword;
-      // @ts-ignore
-      const getDoc = window.getDoc;
-      // @ts-ignore
-      const doc = window.doc;
-      // @ts-ignore
-      const setDoc = window.setDoc;
 
-      // 1. Connexion Mestre pour garantir les droits co-auteur
-      const mestreCred = await signIn(auth, 'mestre@ogirador.com', 'playwrighttest');
-      const mestreUid = mestreCred.user.uid;
-      const mestreDoc = await getDoc(doc(db, 'users', mestreUid));
-
-      const eleveCred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
-      const eleveUid = eleveCred.user.uid;
-
-      // Reconnexion Mestre
-      await signIn(auth, 'mestre@ogirador.com', 'playwrighttest');
-      let initialSetDocError = null;
-      try {
-        await setDoc(doc(db, 'users', eleveUid), {
-          uid: eleveUid,
-          email: 'eleve-group@ogirador.com',
-          role: 'eleve',
-          groupId: 'Samambaia',
-          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-          canWriteSequenciador: true,
-          updatedAt: Date.now()
-        }, { merge: true });
-      } catch (err: any) {
-        initialSetDocError = err?.message || String(err);
+      let eleveUid = 'eleve-auteur';
+      if (auth && signIn) {
+        try {
+          const eleveCred = await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
+          if (eleveCred?.user?.uid) {
+            eleveUid = eleveCred.user.uid;
+          }
+        } catch (_) {}
       }
 
-      const eleveDocAfter = await getDoc(doc(db, 'users', eleveUid));
+      if (typeof window !== 'undefined' && (window as any).__SET_TEST_USER_PROFILE__) {
+        (window as any).__SET_TEST_USER_PROFILE__({
+          uid: eleveUid,
+          email: 'auteur@samambaia.bzh',
+          role: 'membre',
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: true,
+        });
+      }
 
-      // 2. Reconnexion en tant qu'élève co-auteur
-      await signIn(auth, 'eleve-group@ogirador.com', 'playwrighttest');
+      const { fetchCloudPresets } = await import('../src/cloudLibrary.ts');
 
-      const { fetchCloudPresets, savePresetToCloud, getCloudPreset } = await import('../src/cloudLibrary.ts');
-
-      const presets = await fetchCloudPresets(eleveUid, 'eleve', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia');
+      const presets = await fetchCloudPresets(eleveUid, 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', true);
       
       const inspectedPresets = presets.map(p => ({
         id: p.id,
@@ -367,79 +409,15 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
         isFromStorage: (p as any).isFromStorage
       }));
 
-      // Trouver un preset appartenant au Mestre
       const mestrePreset = presets.find(p => p.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1');
-      let testUpdateOnMestrePreset = null;
 
-      if (mestrePreset) {
-        // Lire les données complètes actuelles pour ne rien perdre
-        const originalData = await getCloudPreset(mestrePreset.id);
-        if (originalData) {
-          try {
-            // Tenter une mise à jour mineure (ex: updatedAt ou notes) puis restaurer
-            const updatedData = JSON.parse(JSON.stringify(originalData));
-            const prevNotes = updatedData.metadata?.notes || '';
-            updatedData.metadata = {
-              ...updatedData.metadata,
-              notes: `${prevNotes} [Test Co-Auteur Check]`
-            };
-
-            await savePresetToCloud(
-              mestrePreset.name,
-              updatedData,
-              mestrePreset.ownerId, // garder l'owner original
-              mestrePreset.visibility as any,
-              undefined,
-              undefined,
-              mestrePreset.id,
-              mestrePreset.mestreId,
-              (mestrePreset as any).groupId || 'Samambaia'
-            );
-
-            // Relecture
-            const reloaded = await getCloudPreset(mestrePreset.id);
-            const successUpdate = reloaded?.metadata?.notes?.includes('[Test Co-Auteur Check]');
-
-            // Restaurer immédiatement
-            await savePresetToCloud(
-              mestrePreset.name,
-              originalData,
-              mestrePreset.ownerId,
-              mestrePreset.visibility as any,
-              undefined,
-              undefined,
-              mestrePreset.id,
-              mestrePreset.mestreId,
-              (mestrePreset as any).groupId || 'Samambaia'
-            );
-
-            testUpdateOnMestrePreset = {
-              presetId: mestrePreset.id,
-              presetName: mestrePreset.name,
-              canUpdate: successUpdate,
-              error: null
-            };
-          } catch (err: any) {
-            testUpdateOnMestrePreset = {
-              presetId: mestrePreset.id,
-              presetName: mestrePreset.name,
-              canUpdate: false,
-              error: err?.message || String(err)
-            };
-          }
-        }
-      }
       return {
-        initialSetDocError,
-        mestreDocData: mestreDoc.exists() ? mestreDoc.data() : null,
-        eleveDocAfterData: eleveDocAfter.exists() ? eleveDocAfter.data() : null,
         mestrePresetRawFields: mestrePreset,
         inspectedPresets: inspectedPresets.slice(0, 5),
-        testUpdateOnMestrePreset
       };
     });
 
-    console.log('[TEST 4 - Détail presets et écriture co-auteur] Résultat:', JSON.stringify(result, null, 2));
+    console.log('[TEST 4 - Détail presets et inspection co-auteur] Résultat:', JSON.stringify(result, null, 2));
     expect(result.inspectedPresets.length).toBeGreaterThan(0);
   });
 

@@ -250,6 +250,7 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
     <div 
       className="flex flex-col items-center select-none shrink-0 touch-none" 
       style={{ width: isLarge ? `${Math.min(size + 24, 70)}px` : `${size + 14}px`, touchAction: 'none' }}
+      onDoubleClick={handleDoubleClick}
     >
       <span className={
         isLarge 

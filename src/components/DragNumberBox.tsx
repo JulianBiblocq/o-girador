@@ -5,6 +5,7 @@ interface DragNumberBoxProps {
   value: number;
   onChange: (val: number) => void;
   onAudioDrag?: (val: number) => void;
+  defaultValue?: number;
   className?: string;
   disabled?: boolean;
   min?: number;
@@ -23,6 +24,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   value, 
   onChange, 
   onAudioDrag,
+  defaultValue = 0,
   className = '', 
   disabled = false,
   min,
@@ -41,6 +43,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   const startValRef = useRef<number>(0);
   const currentValRef = useRef<number>(value);
   const isDraggingRef = useRef<boolean>(false);
+  const lastTouchTimeRef = useRef<number>(0);
 
   const setGaugeRef = (el: HTMLDivElement | null) => {
     if (gaugeRef) {
@@ -176,6 +179,59 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     }
   };
 
+  const resetToDefault = () => {
+    if (disabled) return;
+    const resetVal = defaultValue !== undefined ? defaultValue : 0;
+    currentValRef.current = resetVal;
+    if (valueSpanRef.current) {
+      valueSpanRef.current.textContent = formatValue(resetVal);
+    }
+    if (containerRef.current) {
+      const fillStyles = getFillStyles(resetVal);
+      containerRef.current.style.setProperty('--fill-left', fillStyles.left);
+      containerRef.current.style.setProperty('--fill-width', fillStyles.width);
+    }
+    if (gaugeRef && 'current' in gaugeRef && gaugeRef.current) {
+      gaugeRef.current.style.transform = `scaleX(${Math.max(0, Math.min(1, (resetVal - actualMin) / (range || 1)))})`;
+    }
+    if (onAudioDragRef.current) {
+      onAudioDragRef.current(resetVal);
+    }
+    onChange(resetVal);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    resetToDefault();
+  };
+
+  // Écouteur tactile natif non-passif pour détection de double-tap (< 300 ms) et protection anti-zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (disabled) return;
+      if (e.touches.length > 0) {
+        const now = performance.now();
+        if (now - lastTouchTimeRef.current < 300) {
+          e.preventDefault();
+          lastTouchTimeRef.current = 0;
+          resetToDefault();
+          return;
+        }
+        lastTouchTimeRef.current = now;
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+    };
+  }, [disabled, defaultValue, actualMin, range]);
+
   const initialStyles = getFillStyles(value);
   const zeroPos = range > 0 ? Math.max(0, Math.min(100, ((0 - actualMin) / range) * 100)) : 50;
 
@@ -197,6 +253,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
       style={{ ...styleObject, ...style }}
       className={`digital-fader flex items-center justify-between px-1.5 py-0.5 text-[9px] font-bold select-none border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[1px_1px_0_var(--cordel-border)] transition-all ${
         disabled 

@@ -1,6 +1,6 @@
 import { db, storage } from './firebase/config';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { ref, listAll, getDownloadURL } from 'firebase/storage';
+import { ref, listAll, getDownloadURL, deleteObject } from 'firebase/storage';
 import { CloudPreset, Preset } from './types';
 import LZString from 'lz-string';
 
@@ -47,8 +47,14 @@ export async function getCloudPreset(presetId: string): Promise<Preset | null> {
 /**
  * Supprime un preset Cloud de Firestore.
  */
-export async function deleteCloudPreset(presetId: string): Promise<void> {
+export async function deleteCloudPreset(presetId: string, audioUrl?: string | null): Promise<void> {
   presetCache.delete(presetId);
+  if (audioUrl) {
+    try {
+      const storageRef = ref(storage, audioUrl);
+      await deleteObject(storageRef);
+    } catch (_) {}
+  }
   await deleteDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId));
 }
 

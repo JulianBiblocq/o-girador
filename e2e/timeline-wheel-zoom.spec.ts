@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Timeline DAW Horizontal Wheel Zoom (Ctrl + Wheel)", () => {
   test("Ctrl + Wheel zooms in and out within [60, 320] px bounds, anchors scroll, and prevents native page zoom", async ({ page }) => {
@@ -7,13 +8,9 @@ test.describe("Timeline DAW Horizontal Wheel Zoom (Ctrl + Wheel)", () => {
     page.on('console', msg => console.log('PAGE:', msg.text()));
 
     await page.goto('http://localhost:5174/?view=timeline');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     // Wait for timeline container and store
     await page.waitForFunction(() => {
@@ -160,13 +157,9 @@ test.describe("Timeline DAW Horizontal Wheel Zoom (Ctrl + Wheel)", () => {
 
   test("Anchor Zoom: measure under mouse cursor remains stable when zooming in", async ({ page }) => {
     await page.goto('http://localhost:5174/?view=timeline');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     await page.waitForFunction(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();

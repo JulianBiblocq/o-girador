@@ -4,6 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Nettoyage du rendu des notes et activation du mode Pas-à-Pas MIDI", () => {
   test("Rendu unique de note sans superposition et activation pas-à-pas avec tolérance MIDI", async ({ page }) => {
@@ -13,11 +14,7 @@ test.describe("Nettoyage du rendu des notes et activation du mode Pas-à-Pas MID
     await page.goto('http://localhost:5174/?view=timeline');
     await page.waitForTimeout(1500);
 
-    const entraBtn = page.locator('#entra-btn');
-    if (await entraBtn.isVisible().catch(() => false)) {
-      await entraBtn.click();
-      await page.waitForTimeout(1000);
-    }
+    await ensureStudioLoaded(page);
 
     // Attendre que le store et les pistes soient prêts
     await page.waitForFunction(() => {

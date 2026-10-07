@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Mission 3 : Sculpture Indépendante des Ras / Triples Croches (Dual-Stroke)", () => {
   test.beforeEach(async ({ page }) => {
@@ -18,9 +19,8 @@ test.describe("Mission 3 : Sculpture Indépendante des Ras / Triples Croches (Du
 
     await page.waitForTimeout(2000);
 
-    // Enter the app
-    await page.locator('#entra-btn').click();
-    await page.waitForTimeout(1000);
+    // Enter the app if visible
+    await ensureStudioLoaded(page);
 
     // Create an empty Roda and add Caixa (percussion instrument with rich strokes)
     await page.locator('button', { hasText: 'Menu' }).click();

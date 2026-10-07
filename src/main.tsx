@@ -14,11 +14,13 @@ import { useAudioStore } from './stores/useAudioStore';
 import { useTransportStore } from './stores/useTransportStore';
 import { channels, busChannels } from './hooks/useAudioSync';
 import * as Tone from 'tone';
+import * as effectsChain from './audio/effectsChain';
 import './index.css';
 
 if (typeof window !== 'undefined') {
   (window as any).Tone = Tone;
   (window as any).useSequencerStore = useSequencerStore;
+  (window as any).__EFFECTS_CHAIN__ = effectsChain;
 }
 
 // Filtrer les logs de debug vocal (VOCAL DEBUG) et de scheduler pour ne pas encombrer la console F12
@@ -259,11 +261,14 @@ window.where = fbWhere;
 window.getDocs = fbGetDocs;
 // @ts-ignore
 window.updateDoc = fbUpdateDoc;
-(window as any).__SEQUENCER_STORE__ = useSequencerStore;
-(window as any).__AUDIO_STORE__ = useAudioStore;
-(window as any).__TRANSPORT_STORE__ = useTransportStore;
-(window as any).__CHANNELS__ = channels;
-(window as any).__BUS_CHANNELS__ = busChannels;
+if (import.meta.env.DEV || typeof window !== 'undefined') {
+  (window as any).useSequencerStore = useSequencerStore;
+  (window as any).__SEQUENCER_STORE__ = useSequencerStore;
+  (window as any).__AUDIO_STORE__ = useAudioStore;
+  (window as any).__TRANSPORT_STORE__ = useTransportStore;
+  (window as any).__CHANNELS__ = channels;
+  (window as any).__BUS_CHANNELS__ = busChannels;
+}
 
 
 

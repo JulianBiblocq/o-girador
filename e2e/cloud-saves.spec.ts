@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureStudioLoaded } from './helpers/navigation';
 
 const testProfiles = [
   { name: 'Mestre', email: 'mestre@ogirador.com', canSave: true },
@@ -13,6 +14,14 @@ test.describe('Sauvegardes Cloud E2E', () => {
     test.describe(`Profil: ${profile.name}`, () => {
       
       test.beforeEach(async ({ page }) => {
+        await page.route('**/firebasestorage.googleapis.com/**', route => {
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ name: 'mock-preset', tempo: 100, tracks: [], sections: [] })
+          });
+        });
+
         await page.goto('/');
 
         if (profile.email) {
@@ -44,17 +53,33 @@ test.describe('Sauvegardes Cloud E2E', () => {
         }
         
         // Clic sur 'Entrer' (landing page) si affiché
-        const entraBtn = page.locator('#entra-btn');
-        try {
-          await entraBtn.waitFor({ state: 'visible', timeout: 3000 });
-          await entraBtn.click();
-          await page.waitForTimeout(1000);
-        } catch (e) {
-          // Already entered or not present
+        await ensureStudioLoaded(page);
+      });
+
+      let currentPresetName: string | null = null;
+
+      test.afterEach(async ({ page }) => {
+        if (currentPresetName) {
+          const nameToClean = currentPresetName;
+          currentPresetName = null;
+          try {
+            await page.evaluate(async (name) => {
+              const { fetchCloudPresets, deleteCloudPreset } = await import('../src/cloudLibrary.ts');
+              const list = await fetchCloudPresets(null, 'admin', null);
+              const p = list.find((item: any) => item.name === name || item.metadata?.toada === name);
+              if (p) {
+                await deleteCloudPreset(p.id);
+                console.log(`[E2E Cleanup] Preset de test supprimé : ${name} (${p.id})`);
+              }
+            }, nameToClean);
+          } catch (e) {
+            console.warn(`[E2E Cleanup Error] Impossible de supprimer le preset ${nameToClean}:`, e);
+          }
         }
       });
 
       test('Test de Sauvegarde de Preset', async ({ page }) => {
+        test.setTimeout(60000);
         page.on('dialog', dialog => {
           console.log(`[Dialog in ${profile.name}]: ${dialog.message()}`);
           dialog.dismiss();
@@ -100,6 +125,7 @@ test.describe('Sauvegardes Cloud E2E', () => {
           // Entrer un nom
           const inputName = page.locator('input[placeholder*="Ex:"]').first();
           const presetName = `E2E Test ${profile.name} ${Date.now()}`;
+          currentPresetName = presetName;
           await inputName.fill(presetName);
           
           // Désactiver la génération audio pour accélérer le test E2E
@@ -147,12 +173,7 @@ test.describe('Sauvegardes Cloud E2E', () => {
           await page.waitForTimeout(2000);
 
           // Skip landing page again
-          const entraBtn = page.locator('#entra-btn');
-          try {
-            await entraBtn.waitFor({ state: 'visible', timeout: 5000 });
-            await entraBtn.click();
-            await page.waitForTimeout(1000);
-          } catch (e) {}
+          await ensureStudioLoaded(page);
 
           // L'intro modal s'ouvre au rechargement
           const newRodaBtn = page.locator('button', { hasText: /Créer Roda vide|Criar Roda vazia/i });
@@ -169,11 +190,25 @@ test.describe('Sauvegardes Cloud E2E', () => {
           await page.waitForTimeout(500);
 
           // Retrier jusqu'à ce que l'option soit disponible et sélectionnée
-          const presetDropdown = page.locator('select').first(); 
           await expect(async () => {
-            const optionsText = await presetDropdown.innerText();
-            expect(optionsText).toContain(`☁️ ${presetName}`);
-            await presetDropdown.selectOption({ label: `☁️ ${presetName}` });
+            const itemBtn = page.locator(`button:has-text("${presetName}")`).first();
+            const optionItem = page.locator(`option:has-text("${presetName}")`).first();
+            
+            if (await itemBtn.isVisible()) {
+              await itemBtn.click();
+            } else if (await optionItem.count() > 0) {
+              const val = await optionItem.getAttribute('value');
+              if (val) {
+                await page.locator('select').first().selectOption(val);
+              }
+            } else {
+              const groupAccordionBtn = page.locator('button', { hasText: /Catálogo|Catalogue/i }).first();
+              if (await groupAccordionBtn.isVisible()) {
+                await groupAccordionBtn.click();
+              }
+              const isAvailable = (await itemBtn.isVisible()) || (await optionItem.count() > 0);
+              expect(isAvailable).toBe(true);
+            }
           }).toPass({ timeout: 20000 });
           
           await page.waitForTimeout(1000);

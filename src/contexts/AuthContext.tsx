@@ -104,13 +104,70 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+const getInitialTestProfile = (): { user: any; profile: UserProfile } | null => {
+  try {
+    const testProfileRaw = typeof window !== 'undefined' ? localStorage.getItem('girador_test_user_profile') : null;
+    if (testProfileRaw) {
+      const testProfile = JSON.parse(testProfileRaw);
+      if (testProfile && testProfile.uid) {
+        const mockUser: any = {
+          uid: testProfile.uid,
+          email: testProfile.email || `${testProfile.uid}@samambaia.bzh`,
+          displayName: testProfile.displayName || testProfile.uid,
+        };
+        const role = testProfile.role || (testProfile.canWriteSequenciador ? 'mestre' : 'membre');
+        const profile: UserProfile = {
+          groupId: 'Samambaia',
+          groupName: 'Samambaia',
+          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          canWriteSequenciador: Boolean(testProfile.canWriteSequenciador),
+          ...testProfile,
+          role,
+          dbRole: testProfile.dbRole || role,
+        };
+        return { user: mockUser, profile };
+      }
+    }
+  } catch (_) {}
+  return null;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => getInitialTestProfile()?.user || null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => getInitialTestProfile()?.profile || null);
+  const [loading, setLoading] = useState(() => !getInitialTestProfile());
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
+
+    // Support injection profil E2E / Test via localStorage
+    const checkTestProfile = () => {
+      const initial = getInitialTestProfile();
+      if (initial) {
+        setCurrentUser(initial.user);
+        setUserProfile(initial.profile);
+        setLoading(false);
+        return true;
+      }
+      return false;
+    };
+
+    if (typeof window !== 'undefined') {
+      (window as any).__SET_TEST_USER_PROFILE__ = (p: any) => {
+        if (p) {
+          localStorage.setItem('girador_test_user_profile', JSON.stringify(p));
+          checkTestProfile();
+        } else {
+          localStorage.removeItem('girador_test_user_profile');
+        }
+      };
+    }
+
+    if (checkTestProfile()) {
+      return () => {
+        if (unsubscribeProfile) unsubscribeProfile();
+      };
+    }
 
     // Détection et traitement du jeton SSO universel (tolérance ssoToken et token)
     const searchParams = new URLSearchParams(window.location.search);
@@ -151,6 +208,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (typeof window !== 'undefined' && localStorage.getItem('girador_test_user_profile')) {
+        return; // Priorité absolue au profil de test injecté
+      }
       setCurrentUser(user);
       
       if (unsubscribeProfile) {

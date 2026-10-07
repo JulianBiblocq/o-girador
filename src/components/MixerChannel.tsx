@@ -25,6 +25,7 @@ import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
 import * as Tone from 'tone';
 import { interpolateAutomationValue } from '../utils/automationMath';
+import { faderPositionToDbString } from '../utils/audioMath';
 import { getLastAudibleTick } from '../audio/visualTickBuffer';
 import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
 
@@ -174,7 +175,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     if (resetVol && faderHandleRef.current) {
       faderHandleRef.current.style.transform = 'translateY(0px)';
       if (faderTextRef.current) {
-        faderTextRef.current.textContent = String(Math.round(t.volumeVal));
+        faderTextRef.current.textContent = faderPositionToDbString(t.volumeVal);
       }
     }
     if (resetPan && panKnobRef.current) {
@@ -228,8 +229,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
         // 1. Fader de volume motorisé (translateY)
         if (isVolActive && t.measureVols && t.measureVols.length > 0) {
-          const rawStart = t.measureVols[prevM] !== undefined ? t.measureVols[prevM] : 100;
-          const rawEnd = t.measureVols[currentM] !== undefined ? t.measureVols[currentM] : 100;
+          const rawStart = t.measureVols[prevM] !== undefined ? t.measureVols[prevM] : 75;
+          const rawEnd = t.measureVols[currentM] !== undefined ? t.measureVols[currentM] : 75;
           const trans = t.measureVolTransitions?.[currentM] || 'immediate';
           const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
 
@@ -239,7 +240,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             faderHandleRef.current.style.transform = `translateY(${deltaY}px)`;
           }
           if (faderTextRef.current) {
-            faderTextRef.current.textContent = String(Math.round(interpVol));
+            faderTextRef.current.textContent = faderPositionToDbString(interpVol);
           }
         }
 
@@ -729,6 +730,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 max={16000} 
                 step={100} 
                 value={eq.high.f} 
+                defaultValue={8000}
                 unit="Hz" 
                 size={30}
                 color="#3d8b85"
@@ -742,6 +744,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   max={15} 
                   step={1} 
                   value={eq.high.g} 
+                  defaultValue={0}
                   unit="dB" 
                   size={30}
                   isGain={true}
@@ -762,6 +765,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   max={4000} 
                   step={50} 
                   value={eq.mid.f} 
+                  defaultValue={1000}
                   unit="Hz" 
                   size={30}
                   color="#d4af37"
@@ -787,6 +791,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   max={15} 
                   step={1} 
                   value={eq.mid.g} 
+                  defaultValue={0}
                   unit="dB" 
                   size={30}
                   isGain={true}
@@ -806,6 +811,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 max={250} 
                 step={5} 
                 value={eq.low.f} 
+                defaultValue={100}
                 unit="Hz" 
                 size={30}
                 color="#8b2a1a"
@@ -819,6 +825,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   max={15} 
                   step={1} 
                   value={eq.low.g} 
+                  defaultValue={0}
                   unit="dB" 
                   size={30}
                   isGain={true}

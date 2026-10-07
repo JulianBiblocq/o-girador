@@ -74,10 +74,12 @@ export function initMasterEffectsChain(
   });
 
   const disableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? isEco;
+  const isCompActive = useSequencerStore.getState().masterEffectsActive?.compressor ?? true;
+  const isCompBypassed = disableFx || !isCompActive;
 
   masterCompressorNode = new Tone.Compressor({
-    threshold: disableFx ? 0 : -12, // Compression douce pour ne pas saturer sur mobile
-    ratio: disableFx ? 1 : 2,
+    threshold: isCompBypassed ? 0 : -12, // Compression douce pour ne pas saturer sur mobile
+    ratio: isCompBypassed ? 1 : 2,
     attack: 0.015,
     release: 0.15
   });
@@ -444,5 +446,49 @@ export function disposeAllTrackNodes() {
   const activeIds = Object.keys(channels).map(Number);
   activeIds.forEach((id) => disposeTrackNodes(id));
 }
+
+export function syncMasterCompressorBypass(
+  isBypassed: boolean,
+  currentComp?: { threshold: number; ratio: number }
+) {
+  if (!masterCompressorNode) return;
+  const targetThreshold = isBypassed ? 0 : Math.max(-100, Math.min(0, currentComp?.threshold ?? -12));
+  const targetRatio = isBypassed ? 1 : Math.max(1, currentComp?.ratio ?? 2);
+
+  try {
+    const thresh = masterCompressorNode.threshold as any;
+    if (thresh) {
+      if (typeof thresh.cancelScheduledValues === 'function') {
+        thresh.cancelScheduledValues(0);
+      }
+      thresh._initialValue = targetThreshold;
+      if (typeof thresh.setValueAtTime === 'function') {
+        thresh.setValueAtTime(targetThreshold, 0);
+      }
+      thresh.value = targetThreshold;
+    }
+    if ((masterCompressorNode as any)._compressor?.threshold) {
+      (masterCompressorNode as any)._compressor.threshold.value = targetThreshold;
+    }
+  } catch (_) {}
+
+  try {
+    const rat = masterCompressorNode.ratio as any;
+    if (rat) {
+      if (typeof rat.cancelScheduledValues === 'function') {
+        rat.cancelScheduledValues(0);
+      }
+      rat._initialValue = targetRatio;
+      if (typeof rat.setValueAtTime === 'function') {
+        rat.setValueAtTime(targetRatio, 0);
+      }
+      rat.value = targetRatio;
+    }
+    if ((masterCompressorNode as any)._compressor?.ratio) {
+      (masterCompressorNode as any)._compressor.ratio.value = targetRatio;
+    }
+  } catch (_) {}
+}
+
 
 
