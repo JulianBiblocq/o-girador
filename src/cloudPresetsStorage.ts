@@ -6,6 +6,42 @@ import LZString from 'lz-string';
 
 export const CLOUD_PRESETS_COLLECTION = 'presets';
 
+// 🛡️ SANCTUARISATION : Morceaux officiels du répertoire sanctuarisés
+export const SANCTUARIZED_PRESET_IDS = new Set<string>([
+  '29dIDjgc2vPuDnwjiy9V', // Opanijé
+  'hJFMrFdzwLezPmeTgVpE', // Vovó Falou
+  'nawSahyNqRJK09bwmbHu', // Convenção 2
+  'EcUcFC6Vd9hiKq8UR0dD', // Tem macaiba
+  'HV63gho48hxMmAXM95TN', // Breque de caixa
+  'tqsSWxMG8UbzK9FMUE1Q', // Vou vadiar carnaval
+  'Vou vadiar carnaval',
+  '_convencao_2'
+]);
+
+export function isTestPresetName(name?: string, metadata?: any): boolean {
+  const combined = `${name || ''} ${metadata?.toada || ''}`.toLowerCase();
+  return /(\btest\b|\bmock\b|\be2e\b|test perso|dummy)/i.test(combined);
+}
+
+export function isTestEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    navigator.webdriver ||
+    (window as any).__PLAYWRIGHT__ ||
+    (window as any).__TEST_ENV__ ||
+    localStorage.getItem('girador_test_user_profile')
+  );
+}
+
+export async function listStoragePath(folderPath: string): Promise<string[]> {
+  try {
+    const res = await listAll(ref(storage, folderPath));
+    return res.items.map(i => i.fullPath);
+  } catch (e: any) {
+    return [`error: ${e.message}`];
+  }
+}
+
 export const presetCache = new Map<string, Preset>();
 
 /**
@@ -48,6 +84,17 @@ export async function getCloudPreset(presetId: string): Promise<Preset | null> {
  * Supprime un preset Cloud de Firestore.
  */
 export async function deleteCloudPreset(presetId: string, audioUrl?: string | null): Promise<void> {
+  const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
+  if (SANCTUARIZED_PRESET_IDS.has(presetId)) {
+    if (!isRestoration) {
+      throw new Error(`[Sanctuarisation] Suppression formellement interdite du preset officiel sanctuarisé "${presetId}".`);
+    }
+  }
+  if (isTestEnvironment()) {
+    if (!isRestoration && !presetId.startsWith('test_e2e_')) {
+      throw new Error(`[Sanctuarisation E2E] Suppression interdite d'un preset non-E2E en contexte de test ("${presetId}"). Seuls les presets commençant par "test_e2e_" peuvent être supprimés.`);
+    }
+  }
   presetCache.delete(presetId);
   if (audioUrl) {
     try {
@@ -62,6 +109,17 @@ export async function deleteCloudPreset(presetId: string, audioUrl?: string | nu
  * Renomme un preset Cloud dans Firestore.
  */
 export async function renameCloudPreset(presetId: string, newName: string): Promise<void> {
+  const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
+  if (SANCTUARIZED_PRESET_IDS.has(presetId)) {
+    if (!isRestoration) {
+      throw new Error(`[Sanctuarisation] Renommage formellement interdit du preset officiel sanctuarisé "${presetId}".`);
+    }
+  }
+  if (isTestEnvironment()) {
+    if (!isRestoration && !presetId.startsWith('test_e2e_')) {
+      throw new Error(`[Sanctuarisation E2E] Renommage interdit d'un preset non-E2E en contexte de test ("${presetId}").`);
+    }
+  }
   const cached = presetCache.get(presetId);
   if (cached && cached.metadata) {
     cached.metadata.toada = newName;
@@ -73,6 +131,17 @@ export async function renameCloudPreset(presetId: string, newName: string): Prom
  * Bascule le statut En chantier / Publié d'un preset Cloud dans Firestore.
  */
 export async function togglePresetDraftStatus(presetId: string, currentDraft: boolean): Promise<void> {
+  const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
+  if (SANCTUARIZED_PRESET_IDS.has(presetId)) {
+    if (!isRestoration) {
+      throw new Error(`[Sanctuarisation] Modification de statut interdite sur le preset officiel sanctuarisé "${presetId}".`);
+    }
+  }
+  if (isTestEnvironment()) {
+    if (!isRestoration && !presetId.startsWith('test_e2e_')) {
+      throw new Error(`[Sanctuarisation E2E] Modification interdite d'un preset non-E2E en contexte de test ("${presetId}").`);
+    }
+  }
   const docRef = doc(db, CLOUD_PRESETS_COLLECTION, presetId);
   await updateDoc(docRef, {
     isDraft: !currentDraft,

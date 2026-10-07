@@ -3436,13 +3436,17 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       id="circle-sequencer-panel"
       className="flex-grow flex items-center justify-center bg-[var(--cordel-bg)] relative p-2.5 overflow-hidden w-full h-full select-none"
       style={{
-        backgroundImage: `url(${ASSETS_BASE_URL}Pictures/atelier.png)`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
         display: isActive ? 'flex' : 'none',
       }}
     >
+      {/* Texture d'arrière-plan asynchrone non-bloquante pour le LCP */}
+      <div
+        className="absolute inset-0 pointer-events-none bg-cover bg-center bg-no-repeat select-none z-0"
+        style={{
+          backgroundImage: `url(${ASSETS_BASE_URL}Pictures/atelier.png)`,
+        }}
+        aria-hidden="true"
+      />
       {/* Dynamic Measure Information Widgets around the Roda */}
       <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] cordel-border-sm p-1.5 px-2 md:p-2 md:px-3 shadow-[3px_3px_0px_var(--cordel-border)] md:shadow-[4px_4px_0px_var(--cordel-border)] flex flex-col items-center min-w-[115px] md:min-w-[150px] z-20 select-none">
         <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold select-none">{lang === 'pt' ? 'Compasso' : 'Mesure'}</span>

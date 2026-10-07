@@ -15,7 +15,8 @@
     "deploy-test": "cross-env DEPLOY_ENV=test vite build && npx gh-pages -d dist -e test --add",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:vocal": "playwright test e2e/vocal-chain.spec.ts"
+    "test:vocal": "playwright test e2e/vocal-chain.spec.ts",
+    "backup:presets": "node scripts/backup-cloud-presets.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

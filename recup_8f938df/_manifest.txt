@@ -1,0 +1,13 @@
+settings.json	<= 8f938df:.vscode/settings.json	42
+storageState.json	<= 8f938df:e2e/storageState.json	4571
+firebase.json	<= 8f938df:firebase.json	1973
+metadata.json	<= 8f938df:metadata.json	310
+.optimizer-cache.json	<= 8f938df:public/Mixdown/.optimizer-cache.json	6850
+manifest.json	<= 8f938df:public/manifest.json	1199
+Vou vadiar carnaval.json	<= 8f938df:public/presets/Vou vadiar carnaval.json	63355
+_convencao_2.json	<= 8f938df:public/presets/_convencao_2.json	198553
+catalog.json	<= 8f938df:public/presets/catalog.json	72
+fatras.json	<= 8f938df:public/presets/fatras.json	1375
+version.json	<= 8f938df:public/version.json	25
+runs.json	<= 8f938df:runs.json	766996
+.last-run.json	<= 8f938df:test-results/.last-run.json	45

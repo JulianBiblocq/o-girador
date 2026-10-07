@@ -149,6 +149,18 @@ export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
   }
 
   let toadaBus = list.find(t => t.isBusFolder && t.customName === 'Toada');
+  if (toadaBus) {
+    // Vérification rapide O(N) : si tous les enfants pointent déjà vers le bus, ne pas réallouer la liste
+    const allPointersOk = list.every(t => {
+      const isPux = instrumentsConfig[t.instrumentIdx]?.id === 'puxador';
+      const isCoro = instrumentsConfig[t.instrumentIdx]?.id === 'coro';
+      if (isPux || isCoro) {
+        return String(t.busId) === String(toadaBus!.id);
+      }
+      return true;
+    });
+    if (allPointersOk) return list;
+  }
   let nextList = [...list];
 
   if (!toadaBus) {
@@ -403,10 +415,14 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   },
   setTracks: (updater) => set(state => {
     let nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
+    if (nextTracks === state.tracks) return {};
     nextTracks = ensureToadaBus(nextTracks);
-    const nextRodaOrder = sanitizeRodaTrackOrder(state.rodaTrackOrder, nextTracks);
+    const isStructureSame = nextTracks.length === state.tracks.length && 
+      nextTracks.every((t: TrackGroup, i: number) => t.id === state.tracks[i]?.id && t.instrumentIdx === state.tracks[i]?.instrumentIdx && t.isHidden === state.tracks[i]?.isHidden);
+    const nextRodaOrder = isStructureSame ? state.rodaTrackOrder : sanitizeRodaTrackOrder(state.rodaTrackOrder, nextTracks);
+    const finalTracks = isStructureSame ? nextTracks : applyRadii(nextTracks, nextRodaOrder);
     return {
-      tracks: applyRadii(nextTracks, nextRodaOrder),
+      tracks: finalTracks,
       rodaTrackOrder: nextRodaOrder,
       tracksVersion: state.tracksVersion + 1
     };
@@ -1002,7 +1018,6 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       state.setGroupedAutomationValue('volume', val, trackId);
       return;
     }
-    get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
       tracks: state.tracks.map((t) => {
@@ -1015,13 +1030,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return { ...t, measureVols: currentVols };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
   handleTrackMeasureVolTransitionChange: (trackId, mIdx, val) => {
-    get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
       tracks: state.tracks.map((t) => {
@@ -1034,13 +1047,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return { ...t, measureVolTransitions: currentTrans };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
   handleTrackMeasurePanChange: (trackId, mIdx, val) => {
-    get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
       tracks: state.tracks.map((t) => {
@@ -1053,13 +1064,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return { ...t, measurePans: currentPans };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
   handleTrackMeasurePanTransitionChange: (trackId, mIdx, val) => {
-    get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
       tracks: state.tracks.map((t) => {
@@ -1072,13 +1081,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return { ...t, measurePanTransitions: currentTrans };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
   handleTrackMeasureReverbChange: (trackId, mIdx, val) => {
-    get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
       tracks: state.tracks.map((t) => {
@@ -1092,13 +1099,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return { ...t, measureReverbSends: currentReverbs };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
   handleTrackMeasureReverbTransitionChange: (trackId, mIdx, val) => {
-    get().pushUndoState();
     const totalM = get().totalMeasures || 8;
     set((state) => ({
       tracks: state.tracks.map((t) => {
@@ -1111,8 +1116,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return { ...t, measureReverbTransitions: currentTrans };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
@@ -1131,8 +1135,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
+      })
     }));
   },
 
@@ -1140,8 +1143,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     set((state) => ({
       tracks: state.tracks.map(t => 
         t.id === trackId ? { ...t, tuning } : t
-      ),
-      tracksVersion: state.tracksVersion + 1
+      )
     }));
   },
 
@@ -3984,34 +3986,40 @@ export interface HistorySlice {
   clearHistory: () => void;
 }
 
-const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (set, get) => ({
-  tracksHistory: [],
-  tracksRedoHistory: [],
-  songStructureHistory: [],
-  songStructureRedoHistory: [],
+let pendingUndoSnapshot: { tracks: TrackGroup[]; structure: StructureSnapshot } | null = null;
+let idleUndoId: any = null;
 
-  pushUndoState: (customTracksState) => {
-    const state = get();
-    const tracksToSave = customTracksState ? customTracksState : state.tracks;
-    
+const scheduleUndoIdle = (fn: () => void) => {
+  if (typeof window !== 'undefined' && typeof (window as any).requestIdleCallback === 'function') {
+    return (window as any).requestIdleCallback(fn, { timeout: 150 });
+  }
+  return setTimeout(fn, 0);
+};
+
+const cancelUndoIdle = (id: any) => {
+  if (id === null || id === undefined) return;
+  if (typeof window !== 'undefined' && typeof (window as any).cancelIdleCallback === 'function' && typeof id === 'number') {
+    (window as any).cancelIdleCallback(id);
+  } else {
+    clearTimeout(id);
+  }
+};
+
+const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (set, get) => {
+  const flushPendingUndo = () => {
+    if (idleUndoId !== null) {
+      cancelUndoIdle(idleUndoId);
+      idleUndoId = null;
+    }
+    if (!pendingUndoSnapshot) return;
+    const snapshot = pendingUndoSnapshot;
+    pendingUndoSnapshot = null;
+
     set((prev) => {
-      // Partage structurel : Stockage de la référence immuable directement
-      const nextTracksHistory = [...prev.tracksHistory, tracksToSave];
+      const nextTracksHistory = [...prev.tracksHistory, snapshot.tracks];
       if (nextTracksHistory.length > 10) nextTracksHistory.shift();
 
-      const snapStructure: StructureSnapshot = {
-        totalMeasures: prev.totalMeasures,
-        measureTimeSigs: [...prev.measureTimeSigs],
-        measureBpms: [...prev.measureBpms],
-        measureBpmTransitions: [...prev.measureBpmTransitions],
-        measureVols: [...prev.measureVols],
-        measureVolTransitions: [...prev.measureVolTransitions],
-        songSections: prev.songSections ? [...prev.songSections] : [],
-        songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
-        vocalTransposeSteps: prev.vocalTransposeSteps ?? 0,
-      };
-      
-      const nextStructureHistory = [...prev.songStructureHistory, snapStructure];
+      const nextStructureHistory = [...prev.songStructureHistory, snapshot.structure];
       if (nextStructureHistory.length > 10) nextStructureHistory.shift();
 
       return {
@@ -4021,61 +4029,103 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         songStructureHistory: nextStructureHistory,
       };
     });
-  },
+  };
 
-  handleUndo: () => {
-    const state = get();
-    if (state.tracksHistory.length === 0) return;
+  return {
+    tracksHistory: [],
+    tracksRedoHistory: [],
+    songStructureHistory: [],
+    songStructureRedoHistory: [],
 
-    set((prev) => {
-      const currentTracks = prev.tracks;
-      const currentStructure: StructureSnapshot = {
-        totalMeasures: prev.totalMeasures,
-        measureTimeSigs: [...prev.measureTimeSigs],
-        measureBpms: [...prev.measureBpms],
-        measureBpmTransitions: [...prev.measureBpmTransitions],
-        measureVols: [...prev.measureVols],
-        measureVolTransitions: [...prev.measureVolTransitions],
-        songSections: prev.songSections ? [...prev.songSections] : [],
-        songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
-        vocalTransposeSteps: prev.vocalTransposeSteps ?? 0,
+    pushUndoState: (customTracksState) => {
+      const state = get();
+      const tracksToSave = customTracksState ? customTracksState : state.tracks;
+
+      const snapStructure: StructureSnapshot = {
+        totalMeasures: state.totalMeasures,
+        measureTimeSigs: state.measureTimeSigs ? [...state.measureTimeSigs] : [],
+        measureBpms: state.measureBpms ? [...state.measureBpms] : [],
+        measureBpmTransitions: state.measureBpmTransitions ? [...state.measureBpmTransitions] : [],
+        measureVols: state.measureVols ? [...state.measureVols] : [],
+        measureVolTransitions: state.measureVolTransitions ? [...state.measureVolTransitions] : [],
+        songSections: state.songSections ? [...state.songSections] : [],
+        songMarkers: state.songMarkers ? [...state.songMarkers] : [],
+        vocalTransposeSteps: state.vocalTransposeSteps ?? 0,
       };
 
-      const nextTracksHistory = [...prev.tracksHistory];
-      const previousTracksState = nextTracksHistory.pop();
-
-      const nextStructureHistory = [...prev.songStructureHistory];
-      const previousStructureState = nextStructureHistory.pop();
-
-      const updates: Partial<SequencerStore> = {
-        tracksRedoHistory: [...prev.tracksRedoHistory, currentTracks],
-        songStructureRedoHistory: [...prev.songStructureRedoHistory, currentStructure],
-        tracksHistory: nextTracksHistory,
-        songStructureHistory: nextStructureHistory,
-        tracksVersion: (prev.tracksVersion || 0) + 1,
-      };
-
-      if (previousTracksState) updates.tracks = previousTracksState;
-      
-      if (previousStructureState) {
-        if (previousStructureState.totalMeasures !== undefined) updates.totalMeasures = previousStructureState.totalMeasures;
-        updates.measureTimeSigs = previousStructureState.measureTimeSigs;
-        updates.measureBpms = previousStructureState.measureBpms;
-        updates.measureBpmTransitions = previousStructureState.measureBpmTransitions;
-        if (previousStructureState.measureVols) updates.measureVols = previousStructureState.measureVols;
-        if (previousStructureState.measureVolTransitions) updates.measureVolTransitions = previousStructureState.measureVolTransitions;
-        if (previousStructureState.songSections) updates.songSections = previousStructureState.songSections;
-        if (previousStructureState.songMarkers) updates.songMarkers = previousStructureState.songMarkers;
-        if (previousStructureState.vocalTransposeSteps !== undefined) updates.vocalTransposeSteps = previousStructureState.vocalTransposeSteps;
+      // Si aucun cliché en attente, enregistrer immédiatement l'état de référence
+      if (!pendingUndoSnapshot) {
+        pendingUndoSnapshot = {
+          tracks: tracksToSave,
+          structure: snapStructure
+        };
       }
 
-      return updates;
-    });
-  },
+      if (idleUndoId !== null) {
+        cancelUndoIdle(idleUndoId);
+      }
 
-  handleRedo: () => {
-    const state = get();
-    if (state.tracksRedoHistory.length === 0) return;
+      // Traitement asynchrone hors du thread critique d'interaction
+      idleUndoId = scheduleUndoIdle(() => {
+        flushPendingUndo();
+      });
+    },
+
+    handleUndo: () => {
+      flushPendingUndo();
+      const state = get();
+      if (state.tracksHistory.length === 0) return;
+
+      set((prev) => {
+        const currentTracks = prev.tracks;
+        const currentStructure: StructureSnapshot = {
+          totalMeasures: prev.totalMeasures,
+          measureTimeSigs: [...prev.measureTimeSigs],
+          measureBpms: [...prev.measureBpms],
+          measureBpmTransitions: [...prev.measureBpmTransitions],
+          measureVols: [...prev.measureVols],
+          measureVolTransitions: [...prev.measureVolTransitions],
+          songSections: prev.songSections ? [...prev.songSections] : [],
+          songMarkers: prev.songMarkers ? [...prev.songMarkers] : [],
+          vocalTransposeSteps: prev.vocalTransposeSteps ?? 0,
+        };
+
+        const nextTracksHistory = [...prev.tracksHistory];
+        const previousTracksState = nextTracksHistory.pop();
+
+        const nextStructureHistory = [...prev.songStructureHistory];
+        const previousStructureState = nextStructureHistory.pop();
+
+        const updates: Partial<SequencerStore> = {
+          tracksRedoHistory: [...prev.tracksRedoHistory, currentTracks],
+          songStructureRedoHistory: [...prev.songStructureRedoHistory, currentStructure],
+          tracksHistory: nextTracksHistory,
+          songStructureHistory: nextStructureHistory,
+          tracksVersion: (prev.tracksVersion || 0) + 1,
+        };
+
+        if (previousTracksState) updates.tracks = previousTracksState;
+        
+        if (previousStructureState) {
+          if (previousStructureState.totalMeasures !== undefined) updates.totalMeasures = previousStructureState.totalMeasures;
+          updates.measureTimeSigs = previousStructureState.measureTimeSigs;
+          updates.measureBpms = previousStructureState.measureBpms;
+          updates.measureBpmTransitions = previousStructureState.measureBpmTransitions;
+          if (previousStructureState.measureVols) updates.measureVols = previousStructureState.measureVols;
+          if (previousStructureState.measureVolTransitions) updates.measureVolTransitions = previousStructureState.measureVolTransitions;
+          if (previousStructureState.songSections) updates.songSections = previousStructureState.songSections;
+          if (previousStructureState.songMarkers) updates.songMarkers = previousStructureState.songMarkers;
+          if (previousStructureState.vocalTransposeSteps !== undefined) updates.vocalTransposeSteps = previousStructureState.vocalTransposeSteps;
+        }
+
+        return updates;
+      });
+    },
+
+    handleRedo: () => {
+      flushPendingUndo();
+      const state = get();
+      if (state.tracksRedoHistory.length === 0) return;
 
     set((prev) => {
       const currentTracks = prev.tracks;
@@ -4123,8 +4173,16 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     });
   },
 
-  clearHistory: () => set({ tracksHistory: [], tracksRedoHistory: [], songStructureHistory: [], songStructureRedoHistory: [] })
-});
+    clearHistory: () => {
+      if (idleUndoId !== null) {
+        cancelUndoIdle(idleUndoId);
+        idleUndoId = null;
+      }
+      pendingUndoSnapshot = null;
+      set({ tracksHistory: [], tracksRedoHistory: [], songStructureHistory: [], songStructureRedoHistory: [] });
+    }
+  };
+};
 
 // ---------------------------------------------------------
 // 5. CLIPBOARD SLICE

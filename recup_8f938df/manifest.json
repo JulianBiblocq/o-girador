@@ -1,0 +1,52 @@
+{
+  "name": "O Girador - Sequenciador de Maracatu de Baque Virado",
+  "short_name": "O Girador",
+  "description": "Sequenciador interativo de ritmos de Maracatu de Baque Virado. Crie, visualize e escute padrões rítmicos.",
+  "start_url": "/o-girador/",
+  "scope": "/o-girador/",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#0a0807",
+  "background_color": "#0a0807",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "categories": ["music", "education"],
+  "file_handlers": [
+    {
+      "action": "/o-girador/",
+      "accept": {
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/o-girador/",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  }
+}

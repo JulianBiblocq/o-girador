@@ -31,9 +31,12 @@ const renderFallback = (labelFr: string, labelPt: string) => {
   );
 };
 
-// Xilogravura woodcut-styled custom SVG Loading Screen
+// Xilogravura woodcut-styled custom SVG Loading Screen (provides immediate LCP paint for #circle-sequencer-panel)
 const XiloLoadingSpinner: React.FC<{ lang: string }> = ({ lang }) => (
-  <div className="flex-grow w-full h-full flex flex-col justify-center items-center gap-4 bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold select-none p-6">
+  <div 
+    id="circle-sequencer-panel"
+    className="flex-grow w-full h-full flex flex-col justify-center items-center gap-4 bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold select-none p-6"
+  >
     <div className="w-16 h-16 relative flex items-center justify-center animate-spin">
       <svg className="w-full h-full text-[var(--cordel-text)]" fill="currentColor" viewBox="0 0 24 24">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5 2.24-5 5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/>

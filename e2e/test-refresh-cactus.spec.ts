@@ -75,6 +75,7 @@ test('Chargement fiable du morceau vedette (Cactus 🌵) après rafraîchissemen
   });
   console.log('Store state after refresh:', storeState);
   expect(storeState.tracksCount).toBeGreaterThanOrEqual(7);
+  expect(storeState.totalMeasures).toBe(43);
 
   // 5. Ouvrir le menu pour vérifier la présence de l'indicateur Cactus
   const menuBtn = page.locator('button:has-text("Menu")').first();

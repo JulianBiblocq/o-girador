@@ -233,14 +233,23 @@ export const GlobalErrorListener: React.FC = () => {
   );
 };
 
-import { auth as fbAuth, db as fbDb } from './firebase/config';
+import { auth as fbAuth, db as fbDb, storage as fbStorage } from './firebase/config';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc as fbDoc, setDoc as fbSetDoc, getDoc as fbGetDoc, collection as fbCollection, query as fbQuery, where as fbWhere, getDocs as fbGetDocs, updateDoc as fbUpdateDoc } from 'firebase/firestore';
+import { ref as fbRef, listAll as fbListAll, getDownloadURL as fbGetDownloadURL } from 'firebase/storage';
 
 // @ts-ignore
 window.firebaseAuth = fbAuth;
 // @ts-ignore
 window.firebaseDb = fbDb;
+// @ts-ignore
+window.firebaseStorage = fbStorage;
+// @ts-ignore
+window.storageRef = fbRef;
+// @ts-ignore
+window.storageListAll = fbListAll;
+// @ts-ignore
+window.storageGetDownloadURL = fbGetDownloadURL;
 // @ts-ignore
 window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
 // @ts-ignore

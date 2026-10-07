@@ -123,10 +123,10 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
 
       const currentTracks = (window as any).__SEQUENCER_STORE__?.getState()?.tracks || [];
       const dummyPreset: any = {
-        name: `Test Perso Membre ${Date.now()}`,
+        name: `test_e2e_perso_membre_${Date.now()}`,
         bpm: 115,
         tracks: currentTracks.length > 0 ? currentTracks : [{ id: 1, name: 'Agbê', instrumentIdx: 0, patterns: [{ id: 1, steps: 16, activeSteps: Array(16).fill(0) }] }],
-        metadata: { toada: `Test Perso Membre ${Date.now()}` }
+        metadata: { toada: `test_e2e_perso_membre_${Date.now()}` }
       };
 
       // Test A: Création d'un preset personnel
@@ -156,22 +156,37 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
         } catch(e) {}
       }
 
-      // Test B: Tentative d'écraser un preset existant du Mestre (ex: chercher un preset dont ownerId !== uid)
-      const presets = await fetchCloudPresets(uid, 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', false);
-      const mestrePreset = presets.find(p => p.ownerId !== uid && p.ownerId !== 'storage' && p.id !== '29dIDjgc2vPuDnwjiy9V' && !p.name?.toLowerCase().includes('opanij'));
-
+      // Test B: Création d'un preset jetable Mestre temporaire pour tester la tentative d'écrasement par un membre simple
+      const tempMestreName = `test_e2e_temp_mestre_${Date.now()}`;
+      let tempMestrePresetId: string | null = null;
       let overwriteError: string | null = null;
       let overwriteSuccess = false;
-      if (mestrePreset) {
+      let sanctuarizedGuardBlocked = false;
+
+      try {
+        // Le Mestre crée un preset jetable de test
+        tempMestrePresetId = await savePresetToCloud(
+          tempMestreName,
+          dummyPreset,
+          'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          'mestre_group',
+          undefined,
+          undefined,
+          undefined,
+          'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+          'Samambaia'
+        );
+
+        // L'élève tente d'écraser ce preset du Mestre
         try {
           await savePresetToCloud(
-            mestrePreset.name,
+            tempMestreName,
             dummyPreset,
             uid,
             'mestre_group',
             undefined,
             undefined,
-            mestrePreset.id,
+            tempMestrePresetId,
             'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
             'Samambaia'
           );
@@ -179,19 +194,45 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
         } catch (err: any) {
           overwriteError = err?.message || String(err);
         }
+
+        // Vérification du garde-fou de sanctuarisation sur un ID officiel
+        try {
+          await savePresetToCloud(
+            'test_e2e_sanctuarisation_block',
+            dummyPreset,
+            uid,
+            'mestre_group',
+            undefined,
+            undefined,
+            '29dIDjgc2vPuDnwjiy9V',
+            'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+            'Samambaia'
+          );
+        } catch (err: any) {
+          sanctuarizedGuardBlocked = err?.message?.includes('Sanctuarisation') || false;
+        }
+      } finally {
+        // Nettoyage impératif du preset temporaire jetable
+        if (tempMestrePresetId) {
+          try {
+            await deleteCloudPreset(tempMestrePresetId);
+          } catch (_) {}
+        }
       }
 
       return {
         createSuccess: !!createdPresetId,
         createError,
-        mestrePresetTargeted: mestrePreset ? { id: mestrePreset.id, name: mestrePreset.name, ownerId: mestrePreset.ownerId } : null,
+        tempMestreCreated: !!tempMestrePresetId,
         overwriteSuccess,
-        overwriteError
+        overwriteError,
+        sanctuarizedGuardBlocked
       };
     });
 
     console.log('[TEST 2 - Droits membre simple] Résultat:', JSON.stringify(result, null, 2));
     expect(result.createSuccess).toBe(true);
+    expect(result.sanctuarizedGuardBlocked).toBe(true);
   });
 
   test('3. Membre Samambaia AVEC canWriteSequenciador = true (Écriture, Enregistrement, Modification)', async ({ page }) => {
@@ -263,7 +304,7 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
       const presets = await fetchCloudPresets(eleveUid, 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', true);
 
       // Créer un preset de groupe avec canWriteSequenciador
-      const newPresetName = `Morceau Co-Auteur Samambaia ${Date.now()}`;
+      const newPresetName = `test_e2e_coauteur_samambaia_${Date.now()}`;
       const newPresetData: any = {
         name: newPresetName,
         bpm: 128,

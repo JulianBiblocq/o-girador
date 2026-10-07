@@ -475,6 +475,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         voiceColor,
         note,
         timeSigStr,
+        isEcoMode: state.isEcoMode,
       };
     })
   );
@@ -534,7 +535,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     bgOpacity = 0;
   }
 
-  const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const isEcoMode = stepData.isEcoMode;
   const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
   const disableHeavyEffects = isEcoMode || isMobileDevice;
 

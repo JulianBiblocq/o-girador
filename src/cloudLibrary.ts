@@ -1,16 +1,17 @@
 import { db, storage } from './firebase/config';
-import { collection, addDoc, getDocs, doc, updateDoc, query, limit, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, updateDoc, setDoc, query, limit, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
-import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized, presetCache } from './cloudPresetsStorage';
+import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized, presetCache, SANCTUARIZED_PRESET_IDS, isTestPresetName, isTestEnvironment } from './cloudPresetsStorage';
 import { useAudioStore } from './stores/useAudioStore';
 import { useSequencerStore } from './stores/useSequencerStore';
 
 export {
   CLOUD_PRESETS_COLLECTION, presetCache, getCloudPreset,
-  deleteCloudPreset, renameCloudPreset, togglePresetDraftStatus, fetchStoragePresetsJSON, isPresetAuthorized
+  deleteCloudPreset, renameCloudPreset, togglePresetDraftStatus, fetchStoragePresetsJSON, isPresetAuthorized,
+  SANCTUARIZED_PRESET_IDS, isTestPresetName, isTestEnvironment
 } from './cloudPresetsStorage';
 
 /**
@@ -29,6 +30,21 @@ export async function savePresetToCloud(
   canWriteSequenciador?: boolean,
   isDraft?: boolean
 ): Promise<string> {
+  // 🛡️ Garde-fou Sanctuarisation : Interdiction absolue d'écraser un preset officiel
+  const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
+  if (targetPresetId && SANCTUARIZED_PRESET_IDS.has(targetPresetId)) {
+    if (!isRestoration) {
+      throw new Error(`[Sanctuarisation] Écrasement formellement interdit du preset officiel sanctuarisé "${targetPresetId}".`);
+    }
+  }
+
+  // 🛡️ Garde-fou E2E : Interdiction de cibler des documents de production lors des tests
+  if (isTestEnvironment()) {
+    if (!isRestoration && targetPresetId && !targetPresetId.startsWith('test_e2e_')) {
+      throw new Error(`[Sanctuarisation E2E] Écrasement interdit en contexte de test : targetPresetId doit impérativement être préfixé par "test_e2e_". Reçu: "${targetPresetId}".`);
+    }
+  }
+
   const presetToSave = JSON.parse(JSON.stringify(presetData));
 
   // Téléversement garanti des enregistrements vocaux locaux vers Firebase Storage
@@ -120,9 +136,16 @@ export async function savePresetToCloud(
     return targetPresetId;
   } else {
     docData.createdAt = Date.now();
-    const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
-    presetCache.set(docRef.id, presetToSave);
-    return docRef.id;
+    if (isTestEnvironment()) {
+      const testId = `test_e2e_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, testId), docData);
+      presetCache.set(testId, presetToSave);
+      return testId;
+    } else {
+      const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
+      presetCache.set(docRef.id, presetToSave);
+      return docRef.id;
+    }
   }
 }
 

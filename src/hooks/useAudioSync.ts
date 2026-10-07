@@ -933,21 +933,29 @@ export function useAudioSync({
     initialActiveInstruments.sort((a, b) => a.id.localeCompare(b.id));
     lastActiveInstrumentIdsRef.current = JSON.stringify(initialActiveInstruments);
 
-    // Subscribe to Zustand for store changes (using tracksVersion)
-    const unsubSeq = useSequencerStore.subscribe((state, prevState) => {
-      if (state.tracksVersion !== prevState.tracksVersion) {
-        compile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
+    let compileTimeout: any = null;
+    const debouncedCompile = (stateTracks: any, totalM: number, mTimeSigs: any, soloId: number | null, soloVarId: string | null) => {
+      if (compileTimeout) clearTimeout(compileTimeout);
+      compileTimeout = setTimeout(() => {
+        compile(stateTracks, totalM, mTimeSigs, soloId, soloVarId);
+      }, 16);
+    };
+
+    let syncIdleId: any = null;
+    const scheduleSyncInstruments = (tracks: any[]) => {
+      if (syncIdleId) {
+        if (typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(syncIdleId);
+        else clearTimeout(syncIdleId);
       }
-      
-      if (audioEngine && state.tracks !== prevState.tracks) {
-        // Optimisation : Extraction des instruments actifs et de leurs frappes (strokes) uniques
-        const activeInstruments = state.tracks.map((t: any) => {
+      const doSync = () => {
+        if (!audioEngine) return;
+        const activeInstruments = tracks.map((t: any) => {
           const inst = instrumentsConfig[t.instrumentIdx];
           if (!inst) return null;
           
           return {
             id: inst.id,
-            activeStrokes: getActiveStrokesForTrack(t, state.tracks)
+            activeStrokes: getActiveStrokesForTrack(t, tracks)
           };
         }).filter(Boolean) as ActiveInstrumentData[];
 
@@ -957,8 +965,25 @@ export function useAudioSync({
         if (activeInstrumentsString !== lastActiveInstrumentIdsRef.current) {
           lastActiveInstrumentIdsRef.current = activeInstrumentsString;
           audioEngine.syncActiveInstrumentsMemory(activeInstruments)
-            .catch(e => {});
+            .catch(() => {});
         }
+      };
+
+      if (typeof requestIdleCallback !== 'undefined') {
+        syncIdleId = requestIdleCallback(doSync, { timeout: 100 });
+      } else {
+        syncIdleId = setTimeout(doSync, 50);
+      }
+    };
+
+    // Subscribe to Zustand for store changes (using tracksVersion)
+    const unsubSeq = useSequencerStore.subscribe((state, prevState) => {
+      if (state.tracksVersion !== prevState.tracksVersion) {
+        debouncedCompile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
+      }
+      
+      if (audioEngine && state.tracks !== prevState.tracks) {
+        scheduleSyncInstruments(state.tracks);
       }
     });
 
@@ -968,7 +993,7 @@ export function useAudioSync({
         lastSoloPatternPlayId = state.soloPatternPlayId;
         lastSoloPatternVariationId = state.soloPatternVariationId;
         const seqState = useSequencerStore.getState();
-        compile(seqState.tracks, seqState.totalMeasures, seqState.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
+        debouncedCompile(seqState.tracks, seqState.totalMeasures, seqState.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
       }
     });
 
@@ -976,28 +1001,16 @@ export function useAudioSync({
     const unsubSettings = useSequencerSettingsStore.subscribe((state, prevState) => {
       if (audioEngine && state.forcedStrokes !== prevState.forcedStrokes) {
         const seqState = useSequencerStore.getState();
-        const activeInstruments = seqState.tracks.map((t: any) => {
-          const inst = instrumentsConfig[t.instrumentIdx];
-          if (!inst) return null;
-          
-          return {
-            id: inst.id,
-            activeStrokes: getActiveStrokesForTrack(t, seqState.tracks)
-          };
-        }).filter(Boolean) as ActiveInstrumentData[];
-
-        activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
-        const activeInstrumentsString = JSON.stringify(activeInstruments);
-        
-        if (activeInstrumentsString !== lastActiveInstrumentIdsRef.current) {
-          lastActiveInstrumentIdsRef.current = activeInstrumentsString;
-          audioEngine.syncActiveInstrumentsMemory(activeInstruments)
-            .catch(e => {});
-        }
+        scheduleSyncInstruments(seqState.tracks);
       }
     });
 
     return () => {
+      if (compileTimeout) clearTimeout(compileTimeout);
+      if (syncIdleId) {
+        if (typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(syncIdleId);
+        else clearTimeout(syncIdleId);
+      }
       unsubSeq();
       unsubTransport();
       unsubSettings();
