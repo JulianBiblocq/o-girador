@@ -11,6 +11,11 @@ import { getTrackDisplayName, getBusColor, getTopParentBusId } from '../utils/co
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { Activity } from 'lucide-react';
 import { AutomationTrack } from './AutomationTrack';
+import { getTone } from '../ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 
 interface TimelineTrackRowProps {
   trackId: number;
@@ -262,6 +267,29 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
 
   const handleMeasureClick = (mIdx: number, steps: number, clickX: number) => {
+    const isPlaying = useSequencerStore.getState().isPlaying;
+    if (!isPlaying) {
+      useSequencerStore.getState().setCurrentMeasure(mIdx);
+      const Tone = safeGetTone();
+      if (Tone) {
+        try {
+          Tone.Transport.position = `${mIdx}:0:0`;
+        } catch (_) {}
+      }
+      const playheadEl = document.getElementById('timeline-playhead-line');
+      if (playheadEl) {
+        playheadEl.style.transition = 'none';
+        playheadEl.style.display = 'block';
+        playheadEl.style.transform = `translate3d(${HEADER_W + mIdx * currentMeasureW}px, 0, 0)`;
+      }
+      window.dispatchEvent(
+        new CustomEvent('o-girador-timeline-nav', {
+          detail: { mIdx, sIdx: 0 }
+        })
+      );
+      return;
+    }
+
     const ratio = Math.max(0, Math.min(1, clickX / currentMeasureW));
     const stepIdx = Math.floor(ratio * steps);
     window.dispatchEvent(

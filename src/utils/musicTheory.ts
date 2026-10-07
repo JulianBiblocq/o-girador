@@ -64,6 +64,7 @@ export const isVoiceStepProlongation = (
   prevNote: string | undefined | null,
   curSyl: string | undefined | null
 ): boolean => {
+  // Un silence / pas inactif ne peut JAMAIS être une prolongation (stoppe immédiatement toute boucle de tenue)
   if (!currentActive || !prevActive) return false;
   const curNoteTrim = (curNote || '').trim();
   const prevNoteTrim = (prevNote || '').trim();
@@ -78,11 +79,7 @@ export const isVoiceStepProlongation = (
   // Si la note courante est identique à la note précédente
   if (curNoteTrim && prevNoteTrim && curNoteTrim === prevNoteTrim) return true;
 
-  // Si la note courante est vide mais que la note précédente existe et que la syllabe est une tenue
-  if (!curNoteTrim && prevNoteTrim) return true;
-
-  // Si aucune note n'est renseignée mais que les deux pas consécutifs sont actifs et liés
-  if (!curNoteTrim && !prevNoteTrim) return true;
-
+  // Une cellule active SANS note ni symbole de tenue (paroles vides comprises) n'est pas une tenue implicite :
+  // sinon la note précédente déborderait sur toutes les cellules vides suivantes (bourdon multi-mesures).
   return false;
 };

@@ -776,6 +776,22 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       useSequencerStore.getState().setCurrentExpandedMeasureIdx(firstMatchIdx);
     }
 
+    if (!isPlaying) {
+      useSequencerStore.getState().setCurrentMeasure(clampedMeasure);
+      const Tone = safeGetTone();
+      if (Tone) {
+        try {
+          Tone.Transport.position = `${clampedMeasure}:0:0`;
+        } catch (_) {}
+      }
+      const playheadEl = document.getElementById('timeline-playhead-line');
+      if (playheadEl) {
+        playheadEl.style.transition = 'none';
+        playheadEl.style.display = 'block';
+        playheadEl.style.transform = `translate3d(${HEADER_W + clampedMeasure * MEASURE_W}px, 0, 0)`;
+      }
+    }
+
     if (seekToMeasure) {
       seekToMeasure(clampedMeasure, 0);
     } else if (handleTimelineNavigate) {
@@ -833,96 +849,122 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   // Total scrollable content width (excluding sticky header column)
   const totalContentW = totalMeasures * MEASURE_W;
 
-  // 1. Mouse wheel horizontal scroll & Ctrl+Wheel horizontal zoom (DAW standard)
+  // 1. Zoom horizontal DAW centré (Ctrl + Wheel) via un écouteur global en phase de capture sur window
+  React.useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      // Uniquement Ctrl + Molette ou Cmd + Molette
+      if (!e.ctrlKey && !e.metaKey) return;
+
+      const containerEl = containerRef.current;
+      if (!containerEl) return;
+
+      const rect = containerEl.getBoundingClientRect();
+      const isInBounds = (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      );
+      const targetNode = e.target as Node | null;
+      const isOverTimeline = isInBounds || (targetNode && containerEl.contains(targetNode)) || Boolean((e.target as Element)?.closest?.('.timeline-container'));
+
+      if (!isOverTimeline) return;
+
+      // 🛑 Bloquer impérativement le zoom natif de la page du navigateur
+      e.preventDefault();
+      e.stopPropagation();
+
+      const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      if (delta === 0) return;
+
+      const scrollEl = scrollRef.current;
+      const currentW = measureWidthRef.current || measureWidth;
+      const MIN_W = 60;
+      const MAX_W = 320;
+
+      // Facteur de zoom fluide adapté aux souris standard et pavés tactiles
+      // delta < 0 (molette avant) -> zoom avant (élargissement des mesures)
+      // delta > 0 (molette arrière) -> zoom arrière (réduction des mesures)
+      const zoomFactor = delta < 0 ? 1.15 : 0.87;
+      const targetW = Math.round(currentW * zoomFactor);
+      const clampedTargetW = Math.max(MIN_W, Math.min(MAX_W, targetW));
+
+      if (clampedTargetW === currentW) return;
+
+      // Synchronisation immédiate de la ref pour encaisser les rafales de molette sans déphasage
+      measureWidthRef.current = clampedTargetW;
+      pendingTargetWidthRef.current = clampedTargetW;
+
+      // Zoom centré : stabiliser le point temporel sous le curseur (Zero Drift Anchor)
+      if (scrollEl) {
+        const sRect = scrollEl.getBoundingClientRect();
+        const mouseViewportX = e.clientX - sRect.left;
+
+        let newScrollLeft: number;
+        if (mouseViewportX > HEADER_W) {
+          // Curseur au-dessus de la grille des mesures
+          const deltaX = mouseViewportX - HEADER_W;
+          const contentX = scrollEl.scrollLeft + deltaX;
+          newScrollLeft = contentX * (clampedTargetW / currentW) - deltaX;
+        } else {
+          // Curseur au-dessus des en-têtes de pistes (ancrage à gauche / ratio direct)
+          newScrollLeft = scrollEl.scrollLeft * (clampedTargetW / currentW);
+        }
+        newScrollLeft = Math.max(0, newScrollLeft);
+
+        // ── Anti-Clamping synchrone immédiat (Pré-extension du scrollWidth) ──
+        const newTotalContentW = totalMeasures * clampedTargetW;
+        const newTotalGridW = HEADER_W + newTotalContentW + 150;
+        if (gridRef.current) {
+          gridRef.current.style.width = `${newTotalGridW}px`;
+          gridRef.current.style.minWidth = `${newTotalGridW}px`;
+        }
+        const bgEl = scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement;
+        if (bgEl) {
+          bgEl.style.width = `max(100%, ${HEADER_W + newTotalContentW + 300}px)`;
+        }
+
+        scrollEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
+        containerEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
+        containerEl.style.setProperty('--zoom-level', String(clampedTargetW / 480));
+
+        // Application synchrone immédiate (garantie non bridée par le scrollWidth pré-étendu)
+        scrollEl.scrollLeft = newScrollLeft;
+        pendingScrollLeft.current = newScrollLeft;
+      }
+
+      if (isPlaying) {
+        React.startTransition(() => {
+          onMeasureWidthChange(clampedTargetW);
+        });
+      } else {
+        onMeasureWidthChange(clampedTargetW);
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    return () => {
+      window.removeEventListener('wheel', handleWheel, { capture: true });
+    };
+  }, [HEADER_W, totalMeasures, onMeasureWidthChange, isPlaying, measureWidth]);
+
+  // Défilement horizontal fluide standard via la molette sur le conteneur
   React.useEffect(() => {
     const containerEl = containerRef.current;
     if (!containerEl) return;
 
-    const handleWheel = (e: WheelEvent) => {
+    const handleWheelScroll = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) return;
       const scrollEl = scrollRef.current;
-
-      // ── CAS A : Ctrl + Molette ou Cmd + Molette -> Zoom horizontal DAW centré ──
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-
-        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-        if (delta === 0) return;
-
-        const currentW = measureWidthRef.current || measureWidth;
-        const MIN_W = 60;
-        const MAX_W = 320;
-
-        // Facteur de zoom fluide adapté aux souris standard et pavés tactiles
-        // delta < 0 (molette avant) -> zoom avant (élargissement des mesures)
-        // delta > 0 (molette arrière) -> zoom arrière (réduction des mesures)
-        const zoomFactor = delta < 0 ? 1.15 : 0.87;
-        const targetW = Math.round(currentW * zoomFactor);
-        const clampedTargetW = Math.max(MIN_W, Math.min(MAX_W, targetW));
-
-        if (clampedTargetW === currentW) return;
-
-        // Synchronisation immédiate de la ref pour encaisser les rafales de molette sans déphasage
-        measureWidthRef.current = clampedTargetW;
-        pendingTargetWidthRef.current = clampedTargetW;
-
-        // Zoom centré : stabiliser le point temporel sous le curseur (Zero Drift Anchor)
-        if (scrollEl) {
-          const rect = scrollEl.getBoundingClientRect();
-          const mouseViewportX = e.clientX - rect.left;
-
-          let newScrollLeft: number;
-          if (mouseViewportX > HEADER_W) {
-            // Curseur au-dessus de la grille des mesures
-            const deltaX = mouseViewportX - HEADER_W;
-            const contentX = scrollEl.scrollLeft + deltaX;
-            newScrollLeft = contentX * (clampedTargetW / currentW) - deltaX;
-          } else {
-            // Curseur au-dessus des en-têtes de pistes (ancrage à gauche / ratio direct)
-            newScrollLeft = scrollEl.scrollLeft * (clampedTargetW / currentW);
-          }
-          newScrollLeft = Math.max(0, newScrollLeft);
-
-          // ── Anti-Clamping synchrone immédiat (Pré-extension du scrollWidth) ──
-          const newTotalContentW = totalMeasures * clampedTargetW;
-          const newTotalGridW = HEADER_W + newTotalContentW + 150;
-          if (gridRef.current) {
-            gridRef.current.style.width = `${newTotalGridW}px`;
-            gridRef.current.style.minWidth = `${newTotalGridW}px`;
-          }
-          const bgEl = scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement;
-          if (bgEl) {
-            bgEl.style.width = `max(100%, ${HEADER_W + newTotalContentW + 300}px)`;
-          }
-
-          scrollEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
-          containerEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
-          containerEl.style.setProperty('--zoom-level', String(clampedTargetW / 480));
-
-          // Application synchrone immédiate (garantie non bridée par le scrollWidth pré-étendu)
-          scrollEl.scrollLeft = newScrollLeft;
-          pendingScrollLeft.current = newScrollLeft;
-        }
-
-        if (isPlaying) {
-          React.startTransition(() => {
-            onMeasureWidthChange(clampedTargetW);
-          });
-        } else {
-          onMeasureWidthChange(clampedTargetW);
-        }
-        return;
-      }
-
-      // ── CAS B : Molette normale -> Défilement horizontal fluide ──
       if (scrollEl && e.deltaY !== 0) {
         e.preventDefault();
         scrollEl.scrollLeft += e.deltaY;
       }
     };
 
-    containerEl.addEventListener('wheel', handleWheel, { passive: false });
-    return () => containerEl.removeEventListener('wheel', handleWheel);
-  }, [HEADER_W, totalMeasures, onMeasureWidthChange]);
+    containerEl.addEventListener('wheel', handleWheelScroll, { passive: false });
+    return () => containerEl.removeEventListener('wheel', handleWheelScroll);
+  }, []);
 
   // Note : Le raccourci universel Barre d'Espace (Play/Stop) est désormais sanctuarisé
   // et piloté au sommet de l'application via useGlobalTransportShortcuts en phase de capture.
@@ -1345,7 +1387,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       data-zoom={isMacro ? 'macro' : 'normal'}
       data-mobile={isMobile ? 'true' : 'false'}
       style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: isActive ? 'flex' : 'none' }}
-      className={`timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none ${isPlaying ? 'pointer-events-none' : ''}`}
+      className="timeline-sequencer-container timeline-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}

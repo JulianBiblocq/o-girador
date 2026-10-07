@@ -23,6 +23,7 @@ import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from 
 import { masterVolumeNode, channels, busChannels, trackInputs } from './audio/effectsChain';
 import { VocalPresetId, VOCAL_PRESETS } from './audio/vocalPresets';
 import { useAudioStore } from './stores/useAudioStore';
+import { sanitizeVoiceDuration, sanitizeVoiceTime, VoiceOverlapTracker, VOICE_FALLBACK_DURATION_SEC } from './audio/voiceNoteGuard';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -47,7 +48,7 @@ export class AudioEngine {
   
   // Timing variables (adaptive to device capabilities)
   public LOOKAHEAD_INTERVAL: number = 25.0; // ms
-  public SCHEDULE_AHEAD_TIME: number = 0.180; // seconds
+  public SCHEDULE_AHEAD_TIME: number = 0.250; // seconds (250 ms pour absorber les pics CPU et montages de vues)
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -100,6 +101,7 @@ export class AudioEngine {
   private instrumentVoices = new Map<string, ActiveVoice[]>(); // Track active/scheduled voices for eco mode polyphony limits
   public voiceSynths = new Map<string, any>(); // Maps trackId -> Tone.PolySynth
   public voiceSynth: any = null; // Tone.PolySynth for interactive vocal pitch preview (fallback)
+  private voiceOverlap = new VoiceOverlapTracker(); // Fins de notes programmées (anti-collision même hauteur / même piste)
   public currentVocalPreset: VocalPresetId = 'guide';
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
@@ -331,12 +333,20 @@ export class AudioEngine {
 
   private updateSchedulingParameters(): void {
     const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
-    const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    // Lookahead stable nominal (0.180s à 0.220s, borné à 0.250s max)
-    const baseAheadTime = isMobile ? 0.220 : 0.180;
-    this.SCHEDULE_AHEAD_TIME = Math.min(0.250, Math.max(baseAheadTime, hwLatency + 0.030));
+    // Lookahead stable nominal harmonisé à 250 ms (0.250s) pour absorber les rendus et montages
+    this.SCHEDULE_AHEAD_TIME = 0.250;
     this.LOOKAHEAD_INTERVAL = isMobile ? 35.0 : 25.0;
+
+    try {
+      const Tone = getTone();
+      if (Tone?.context) {
+        Tone.context.lookAhead = 0.25;
+      }
+      if (Tone?.Transport) {
+        (Tone.Transport as any).scheduleAheadTime = 0.25;
+      }
+    } catch (_) {}
 
     // Dynamically update interval of fallback timer if active and playing
     if (this.isPlaying && this.fallbackTimerId !== null) {
@@ -459,11 +469,8 @@ export class AudioEngine {
     this.activeGainNodes.clear();
     this.instrumentVoices.clear();
 
-    if (this.voiceSynth) {
-      try {
-        this.voiceSynth.releaseAll();
-      } catch (_) {}
-    }
+    // Panic vocal : libère ET dispose toutes les voix (annule aussi les attaques/releases futurs en attente)
+    this.releaseAllVoices();
   }
 
   /**
@@ -671,12 +678,63 @@ export class AudioEngine {
         : pitch;
 
       const vel = Math.max(0.1, Math.min(1.0, velocity));
-      const triggerTime = time !== undefined ? time : Tone.now();
-      const dur = typeof duration === 'string' && Tone.Time ? Tone.Time(duration).toSeconds() : duration;
-      synth.triggerAttackRelease(note, dur, triggerTime, vel);
+      const triggerTime = sanitizeVoiceTime(time !== undefined ? time : Tone.now(), Tone.now());
+      const rawDur = typeof duration === 'string' && Tone.Time ? Tone.Time(duration).toSeconds() : duration;
+      // Tone.PolySynth programme l'attaque PUIS lève une assertion si la durée n'est pas > 0 : on valide avant.
+      const dur = sanitizeVoiceDuration(rawDur);
+      if (dur === VOICE_FALLBACK_DURATION_SEC && rawDur !== VOICE_FALLBACK_DURATION_SEC) {
+        console.warn('AudioEngine.triggerVoiceAttackRelease: durée invalide, repli sûr appliqué', rawDur);
+      }
+
+      // Même note déjà en cours sur la même piste : relâcher proprement l'ancienne voix avant de réattaquer
+      const overlapKey = `${String(effectiveTrackId)}|${String(note)}`;
+      if (this.voiceOverlap.registerAndCheck(overlapKey, triggerTime, dur)) {
+        try { synth.triggerRelease([note], triggerTime); } catch (_) {}
+      }
+
+      try {
+        synth.triggerAttackRelease(note, dur, triggerTime, vel);
+      } catch (attackErr) {
+        // Filet de sécurité : une attaque éventuellement déjà programmée ne doit jamais rester sans release
+        try { synth.triggerRelease([note], triggerTime + dur); } catch (_) {}
+        throw attackErr;
+      }
     } catch (err) {
       console.error('AudioEngine.triggerVoiceAttackRelease error:', err);
     }
+  }
+
+  /**
+   * Panic vocal : coupe instantanément toutes les voix (toutes pistes) et annule les événements en attente.
+   * Le PolySynth est relâché puis disposé (Tone ignore les événements différés d'un synthé `disposed`) ;
+   * il est recréé paresseusement à la prochaine note par getOrCreateVoiceSynth().
+   */
+  public releaseAllVoices(): void {
+    const synths = new Set<any>(this.voiceSynths.values());
+    if (this.voiceSynth) synths.add(this.voiceSynth);
+    synths.forEach((synth) => {
+      try { synth.releaseAll(); } catch (_) {}
+      try { synth.disconnect(); } catch (_) {}
+      try { synth.dispose(); } catch (_) {}
+    });
+    this.voiceSynths.clear();
+    this.voiceSynth = null;
+    this.voiceOverlap.clear();
+  }
+
+  /**
+   * Coupe les voix d'UNE piste vocale (mute / désactivation) sans toucher aux autres pistes.
+   */
+  public releaseVoicesForTrack(trackId: string | number): void {
+    const key = String(trackId);
+    const synth = this.voiceSynths.get(key);
+    if (!synth) return;
+    try { synth.releaseAll(); } catch (_) {}
+    try { synth.disconnect(); } catch (_) {}
+    try { synth.dispose(); } catch (_) {}
+    this.voiceSynths.delete(key);
+    if (this.voiceSynth === synth) this.voiceSynth = null;
+    this.voiceOverlap.clearTrack(key);
   }
 
   /**

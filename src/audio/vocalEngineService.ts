@@ -1072,6 +1072,9 @@ export const vocalEngineService = {
 
     // 1. Time-stretching calculation :
     // Directive 3 : Calcul strict du playbackRate avec tolérance Math.abs(rate - 1.0) < 0.001
+    // Toada multi-mesures : le playbackRate est UNIQUEMENT le ratio de BPM (tempo courant / tempo du sample).
+    // Il ne doit jamais dépendre de la longueur de mesure ni de `pattern.steps` (64 pas = 4 mesures) :
+    // le sample est lu d'un seul bloc sur toute la phrase, déclenché une seule fois au début de bloc.
     const clipSampleBpm = clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
     const rate = clipSampleBpm ? (effectiveBpm / clipSampleBpm) : 1.0;
     const isPurePlayback = Math.abs(rate - 1.0) < 0.001;

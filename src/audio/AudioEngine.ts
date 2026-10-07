@@ -5,7 +5,7 @@ export class AudioEngine {
   private fallbackTimerId: number | null = null;
 
   private readonly LOOKAHEAD_INTERVAL = 25; // ms
-  private readonly SCHEDULE_AHEAD_TIME = 0.100; // secondes
+  private readonly SCHEDULE_AHEAD_TIME = 0.250; // secondes (250 ms)
 
   private nextTickTime: number = 0;
   private currentTickCount: number = 0;

@@ -25,6 +25,8 @@ import { useBalancoStore } from '../stores/useBalancoStore';
 import { getBalancoOffsetSec } from '../utils/balancoUtils';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
 import { isVoiceHoldSyllable, isVoiceHoldNote, isVoiceStepProlongation } from '../utils/musicTheory';
+import { resolveVocalPhraseInfo, advanceSoloPhraseMeasure, isPhraseBlockStart } from '../utils/vocalPhraseBlock';
+import { capVoiceNoteSteps } from '../utils/voiceNoteDuration';
 import {
   pushVisualTick,
   pushVisualHitTrigger,
@@ -604,6 +606,10 @@ export function useAudioSync({
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const activeSequencerVocalsRef = useRef<Map<string, { stop: () => void }>>(new Map());
   const anticipatedMeasuresRef = useRef<Set<string>>(new Set());
+  // Pistes vocales déjà coupées (mute / désactivation) : évite de relâcher les voix à chaque tick.
+  const mutedVoiceTracksRef = useRef<Set<number | string>>(new Set());
+  // Mesure relative dans la phrase en mode solo / pré-écoute (modulo span) : ref pure, aucun re-render.
+  const soloPhraseMeasureRef = useRef<number>(0);
   const lastElapsedSecRef = useRef<number>(0);
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
@@ -639,6 +645,7 @@ export function useAudioSync({
       globalSwingRef.current = state.globalSwing;
       metroVolumeRef.current = state.metroVolume;
       metroSoundRef.current = state.metroSound;
+      if (soloPatternPlayIdRef.current !== state.soloPatternPlayId) soloPhraseMeasureRef.current = 0;
       soloPatternPlayIdRef.current = state.soloPatternPlayId;
       soloPatternVariationIdRef.current = state.soloPatternVariationId;
       
@@ -1004,6 +1011,16 @@ export function useAudioSync({
       try {
         await loadTone();
 
+        // 🛡️ Coussin de confort CPU / Anti-buffer underflow (Lookahead 250 ms)
+        try {
+          if (Tone.context) {
+            Tone.context.lookAhead = 0.25;
+          }
+          if (Tone.Transport) {
+            (Tone.Transport as any).scheduleAheadTime = 0.25;
+          }
+        } catch (_) {}
+
         // Guard: Context Closed (Fail-safe)
         if (Tone.getContext().state === 'closed') {
           Tone.setContext(new Tone.Context());
@@ -1239,6 +1256,7 @@ export function useAudioSync({
           useSequencerStore.getState().setIsLoopBypassed(false);
           if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
+            soloPhraseMeasureRef.current = 0;
           } else {
             measureCountRef.current = measureCountRef.current % (totalMeasuresRef.current || 1);
           }
@@ -1255,6 +1273,13 @@ export function useAudioSync({
           nextStepIdx = 0;
           if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
+            // Solo multi-mesures : la mesure de phrase avance (modulo span) à chaque rebouclage
+            soloPhraseMeasureRef.current = advanceSoloPhraseMeasure(
+              soloPhraseMeasureRef.current,
+              tracksRef.current,
+              soloPatternPlayIdRef.current,
+              getBeatsPerMeasure(measureTimeSigsRef.current[0] || '4/4')
+            );
           } else {
             const currentMeasureIdx = measureCountRef.current;
 
@@ -1939,6 +1964,16 @@ export function useAudioSync({
             canPlay = hasSolo ? track.isSolo : !track.isMute;
           }
 
+          // Mute / désactivation de la piste vocale : coupe immédiatement ses voix (une seule fois par transition)
+          if (!canPlay) {
+            if (!mutedVoiceTracksRef.current.has(track.id)) {
+              mutedVoiceTracksRef.current.add(track.id);
+              audioEngine?.releaseVoicesForTrack(track.id);
+            }
+          } else if (mutedVoiceTracksRef.current.size > 0) {
+            mutedVoiceTracksRef.current.delete(track.id);
+          }
+
           // 🛡️ ÉTANCHÉITÉ TRACKID & ANTICIPATION SUR PISTE SILENCIEUSE :
           // Résolution de nextMeasureLocal en tenant compte de la région de boucle active (Directive A)
           let nextMeasureLocal: number;
@@ -1950,9 +1985,20 @@ export function useAudioSync({
             nextMeasureLocal = (currentMeasureLocal + 1) % (totalMeasuresRef.current || 1);
           }
 
-          const nextPattern = isSoloPlayActive
+          const rawNextPattern = isSoloPlayActive
             ? (track.patterns.find(p => String(p.id) === String(soloPatternPlayIdRef.current)) || null)
             : track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
+          // Toada multi-mesures : l'anacrouse / le sample n'est armé que si la mesure suivante ouvre un bloc.
+          // Au rebouclage (fin M4 → M1, région de boucle comprise) la mesure cible est de nouveau un début de bloc :
+          // le réarmement cyclique n'est donc jamais bloqué par anticipatedMeasuresRef.
+          const nextPhrase = rawNextPattern ? resolveVocalPhraseInfo({
+            pattern: rawNextPattern,
+            measureIdx: nextMeasureLocal,
+            beatsPerMeasure: getBeatsPerMeasure(measureTimeSigsRef.current[nextMeasureLocal] || '4/4'),
+            isSolo: isSoloPlayActive,
+            soloMeasureCounter: soloPhraseMeasureRef.current + 1,
+          }) : null;
+          const nextPattern = (rawNextPattern && nextPhrase && nextPhrase.isBlockStart) ? rawNextPattern : null;
           let scheduledNextVocalKey: string | null = null;
 
           // Évaluation de l'anacrouse entrante dès la seconde moitié de la mesure (Pas 8 / tick >= currentTicks / 2)
@@ -2056,7 +2102,7 @@ export function useAudioSync({
 
             // Si la mesure courante est muette sur cette piste, traiter les éventuelles syllabes d'anacrouse de nextPattern
             if (canPlay && nextPattern && nextPattern.preRollActiveSteps) {
-              const stepCount = nextPattern.steps || 16;
+              const stepCount = nextPhrase ? nextPhrase.cellsPerMeasure : (nextPattern.steps || 16);
               if (stepIdx % (currentTicks / stepCount) === 0) {
                 const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
                 const preRollState = nextPattern.preRollActiveSteps[cellIdx];
@@ -2154,7 +2200,7 @@ export function useAudioSync({
                       const decayVal = nextPattern.preRollDecays?.[cellIdx] ?? 10;
                       const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                       const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
-                      const effectiveSteps = Math.max(spanSteps, numDecaySteps);
+                      const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: nextPattern.preRollActiveSteps, startIdx: cellIdx + spanSteps, totalSteps: preRollTotal });
                       const singleStepSec = (currentTicks / stepCount) * tick96nSec;
                       const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
@@ -2176,10 +2222,19 @@ export function useAudioSync({
             continue;
           }
 
-          const currentKey = `${track.id}_m${currentMeasureLocal}`;
+          // Position de la mesure courante dans la phrase (Toada multi-mesures) : la clé de verrouillage
+          // est celle du DÉBUT DE BLOC, commune aux mesures 1..N, pour ne jamais relancer le sample en cours de phrase.
+          const phrase = resolveVocalPhraseInfo({
+            pattern: activePattern,
+            measureIdx: currentMeasureLocal,
+            beatsPerMeasure: getBeatsPerMeasure(measureTimeSigsRef.current[currentMeasureLocal] || '4/4'),
+            isSolo: isSoloPlayActive,
+            soloMeasureCounter: soloPhraseMeasureRef.current,
+          });
+          const currentKey = `${track.id}_m${phrase.blockStartMeasure}`;
 
-          // En mode solo au pas 0 : réarmement immédiat pour permettre la ré-attaque propre du sample vocal au rebouclage
-          if (isSoloPlayActive && stepIdx === 0) {
+          // En mode solo au pas 0 (début de bloc) : réarmement immédiat pour permettre la ré-attaque propre du sample vocal au rebouclage
+          if (isSoloPlayActive && stepIdx === 0 && phrase.isBlockStart) {
             anticipatedMeasuresRef.current.delete(currentKey);
             activeSequencerVocalsRef.current.delete(currentKey);
           }
@@ -2210,7 +2265,10 @@ export function useAudioSync({
           // Rappel 2 : Si anticipatedMeasuresRef.current.has(currentKey), le chant est déjà en train de jouer : NE PAS TOUCHER !
           const isAlreadyAnticipated = anticipatedMeasuresRef.current.has(currentKey);
 
-          if (hasVocalSample && stepIdx === 0 && !isAlreadyAnticipated && !activeSequencerVocalsRef.current.has(currentKey)) {
+          // Mesures de continuation (!isBlockStart) : aucun déclenchement ni coupure, le sample se déroule seul.
+          // Toada multi-mesures : au début de bloc, une clé active non anticipée est périmée (tour de boucle précédent) → ne bloque pas.
+          const canStartSampleHere = phrase.isBlockStart && (phrase.span > 1 || !activeSequencerVocalsRef.current.has(currentKey));
+          if (hasVocalSample && stepIdx === 0 && !isAlreadyAnticipated && canStartSampleHere) {
             // 🛡️ FIN DE GUILLOTINE : Couper l'ancien lecteur sur cette piste uniquement si un nouveau chant démarre
             activeSequencerVocalsRef.current.forEach((handle, key) => {
               if (key.startsWith(`${track.id}_`) && key !== currentKey) {
@@ -2271,17 +2329,21 @@ export function useAudioSync({
 
           // 2. Traitement des pas du motif (Karaoké & Synthé)
           // CRITIQUE : NE PAS bloquer la surbrillance des pas ni le défilement des paroles (Karaoké)
+          // Indexation ABSOLUE dans la phrase : la cadence se calcule sur les pas d'UNE mesure (cellsPerMeasure),
+          // puis le décalage stepOffset (mesure relative × pas/mesure) donne l'indice dans le motif complet.
           const stepCount = effectivePatternForSteps.steps;
-          if (stepIdx % (currentTicks / stepCount) === 0) {
-            const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
+          const ticksPerStep = currentTicks / phrase.cellsPerMeasure;
+          if (stepIdx % ticksPerStep === 0) {
+            const localCell = Math.floor(stepIdx / ticksPerStep);
+            const cellIdx = phrase.stepOffset + localCell;
             const state = effectivePatternForSteps.activeSteps[cellIdx];
             const isActive = state !== undefined && state !== null && state !== 0 && state !== '0';
 
             if (isActive) {
               const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
-              const balancoOffsetSec = cellIdx === 0 ? 0 : getBalancoOffsetSec({
-                stepIdx: cellIdx,
-                steps: stepCount,
+              const balancoOffsetSec = localCell === 0 ? 0 : getBalancoOffsetSec({
+                stepIdx: localCell,
+                steps: phrase.cellsPerMeasure,
                 beatResolutions: effectivePatternForSteps.beatResolutions,
                 track,
                 pattern: effectivePatternForSteps,
@@ -2291,7 +2353,7 @@ export function useAudioSync({
               });
               const microVal = effectivePatternForSteps.microtimings?.[cellIdx] ?? 0;
               const microPct = Array.isArray(microVal) ? (microVal[0] ?? 0) : (typeof microVal === 'number' ? microVal : 0);
-              const stepDurSec = (currentTicks / stepCount) * tick96nSec;
+              const stepDurSec = ticksPerStep * tick96nSec;
               const microOffsetSec = (microPct / 100) * stepDurSec * 0.5;
               const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
@@ -2310,6 +2372,8 @@ export function useAudioSync({
 
               const preRollTotal = effectivePatternForSteps.preRollActiveSteps?.length || 0;
               const lastPreRollIdx = preRollTotal - 1;
+              // Raccord inter-mesures : dès qu'on est en cours de phrase (relIdx > 0) le pas 0 de la mesure est comparé
+              // au dernier pas de la mesure précédente (cellIdx - 1) ; l'anacrouse (preRoll) n'est référencée qu'au pas 0 absolu.
               const prevActiveState = cellIdx > 0
                 ? effectivePatternForSteps.activeSteps[cellIdx - 1]
                 : (preRollTotal > 0 ? effectivePatternForSteps.preRollActiveSteps?.[lastPreRollIdx] : 0);
@@ -2352,8 +2416,9 @@ export function useAudioSync({
                   const decayVal = effectivePatternForSteps.decays?.[cellIdx] ?? 10;
                   const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                   const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
-                  const effectiveSteps = Math.max(spanSteps, numDecaySteps);
-                  const singleStepSec = (currentTicks / stepCount) * tick96nSec;
+                  // Plafond de sécurité : la queue de decay ne déborde jamais sur la prochaine attaque / la fin du motif
+                  const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: effectivePatternForSteps.activeSteps, startIdx: cellIdx + spanSteps, totalSteps: stepCount });
+                  const singleStepSec = ticksPerStep * tick96nSec;
                   const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                   const trackVolLinear = faderPositionToGain(trackVolPct);
@@ -2376,8 +2441,12 @@ export function useAudioSync({
               }
             } else {
               // Détection d'un pas d'anacrouse sur pas libre
-              const isSolo = soloPatternPlayIdRef.current !== null && soloPatternPlayIdRef.current !== undefined;
-              const targetAnacrusisPat = isSolo ? activePattern : (nextPattern || null);
+              // Les tableaux d'anacrouse (preRoll*) sont indexés sur UNE mesure : on repasse en indice local
+              // (ombrage volontaire de cellIdx / stepCount dans ce bloc).
+              const cellIdx = localCell;
+              const stepCount = phrase.cellsPerMeasure;
+              // nextPattern couvre aussi le solo (même motif) et n'est non-nul qu'en fin de bloc (dernière mesure de la phrase).
+              const targetAnacrusisPat = nextPattern || null;
 
               const preRollState = targetAnacrusisPat?.preRollActiveSteps?.[cellIdx];
               const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
@@ -2476,7 +2545,7 @@ export function useAudioSync({
                     const decayVal = targetAnacrusisPat.preRollDecays?.[cellIdx] ?? 10;
                     const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                     const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
-                    const effectiveSteps = Math.max(spanSteps, numDecaySteps);
+                    const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: targetAnacrusisPat.preRollActiveSteps, startIdx: cellIdx + spanSteps, totalSteps: preRollTotal });
                     const singleStepSec = (currentTicks / stepCount) * tick96nSec;
                     const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
@@ -2752,6 +2821,8 @@ export function useAudioSync({
         if (!inst || inst.type !== 'voice') continue;
         const ptn = trk.patterns.find(p => p.measureAssignments[targetM]);
         if (!ptn) continue;
+        // Départ au milieu d'une Toada multi-mesures : pas d'anacrouse (le sample reste muet jusqu'au prochain bloc)
+        if (!isPhraseBlockStart(ptn, targetM, getBeatsPerMeasure(measureTimeSigsRef.current[targetM] || '4/4'), soloPatternPlayIdRef.current !== null)) continue;
         const vocalBuf = getVocalBufferForPattern(trk.id, ptn);
         const currentVocalMode = useAudioStore.getState().vocalMode;
         const allowSamplePlayback = isSamplePlaybackAllowed(currentVocalMode);
@@ -2887,6 +2958,7 @@ export function useAudioSync({
 
           const activePattern = track.patterns.find(p => p.measureAssignments[targetM]);
           if (!activePattern) continue;
+          if (!isPhraseBlockStart(activePattern, targetM, getBeatsPerMeasure(measureTimeSigsRef.current[targetM] || '4/4'), soloPatternPlayIdRef.current !== null)) continue;
 
           // Solo / Mute check
           const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
@@ -2997,7 +3069,7 @@ export function useAudioSync({
                     const decayVal = activePattern.preRollDecays?.[s] ?? 10;
                     const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                     const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
-                    const effectiveSteps = Math.max(spanSteps, numDecaySteps);
+                    const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: activePattern.preRollActiveSteps, startIdx: s + spanSteps, totalSteps: preRollTotal });
                     const durationSec = Math.max(0.05, effectiveSteps * runwayStepDurationSec * 0.95);
 
                     const trackVolLinear = faderPositionToGain(vocalVol);
@@ -3250,6 +3322,9 @@ export function useAudioSync({
     }
     audioEngine?.stop();
     audioEngine?.releaseVoicePitch();
+    // Panic vocal : coupe instantanément toute voix résiduelle (toutes pistes) et annule les notes en attente
+    audioEngine?.releaseAllVoices();
+    mutedVoiceTracksRef.current.clear();
     if (audioEngine) {
       audioEngine.currentMeasure = 0;
       audioEngine.currentStep = 0;
@@ -3479,6 +3554,9 @@ export function useAudioSync({
         audioEngine.currentMeasure = clampedM;
         audioEngine.currentStep = Math.max(0, tickIdx);
       }
+      try {
+        Tone.Transport.position = `${clampedM}:0:0`;
+      } catch (_) {}
     }
 
     // Émettre le tick de recalage (aiguille Roda à 12h, playhead début de mesure)

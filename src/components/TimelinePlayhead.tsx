@@ -41,11 +41,26 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
   useEffect(() => {
     if (measureWRef.current !== MEASURE_W) {
       isZoomingRef.current = true;
-      if (playheadRef.current) playheadRef.current.style.display = 'none';
-      if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
+      const isPlaying = useSequencerStore.getState().isPlaying;
+      if (!isPlaying) {
+        const curMeasure = useSequencerStore.getState().currentMeasure || 0;
+        if (playheadRef.current) {
+          playheadRef.current.style.display = 'block';
+          playheadRef.current.style.transition = 'none';
+          playheadRef.current.style.transform = `translate3d(${HEADER_W + curMeasure * MEASURE_W}px, 0, 0)`;
+        }
+        if (measureHighlightRef.current) {
+          measureHighlightRef.current.style.display = 'block';
+          measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + curMeasure * MEASURE_W}px, 0, 0)`;
+          measureHighlightRef.current.style.width = `${MEASURE_W}px`;
+        }
+      } else {
+        if (playheadRef.current) playheadRef.current.style.display = 'none';
+        if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
+      }
     }
     measureWRef.current = MEASURE_W;
-  }, [MEASURE_W]);
+  }, [MEASURE_W, HEADER_W]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -72,6 +87,42 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     };
     scrollEl.addEventListener('scroll', handleScroll, { passive: true });
 
+    // Positionnement initial immédiat au montage si à l'arrêt
+    const initialStoreState = useSequencerStore.getState();
+    if (!initialStoreState.isPlaying) {
+      const curMeasure = initialStoreState.currentMeasure || 0;
+      const el = playheadRef.current;
+      if (el) {
+        el.style.transition = 'none';
+        el.style.display = 'block';
+        el.style.transform = `translate3d(${HEADER_W + curMeasure * measureWRef.current}px, 0, 0)`;
+      }
+      if (measureHighlightRef.current) {
+        measureHighlightRef.current.style.transition = 'none';
+        measureHighlightRef.current.style.display = 'block';
+        measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + curMeasure * measureWRef.current}px, 0, 0)`;
+        measureHighlightRef.current.style.width = `${measureWRef.current}px`;
+      }
+    }
+
+    // Synchronisation réactive à l'arrêt : caler instantanément la playhead sur currentMeasure
+    const unsubStore = useSequencerStore.subscribe((state, prevState) => {
+      if (!state.isPlaying && (state.currentMeasure !== prevState.currentMeasure || prevState.isPlaying)) {
+        const el = playheadRef.current;
+        if (el) {
+          el.style.transition = 'none';
+          el.style.display = 'block';
+          el.style.transform = `translate3d(${HEADER_W + state.currentMeasure * measureWRef.current}px, 0, 0)`;
+        }
+        if (measureHighlightRef.current) {
+          measureHighlightRef.current.style.transition = 'none';
+          measureHighlightRef.current.style.display = 'block';
+          measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + state.currentMeasure * measureWRef.current}px, 0, 0)`;
+          measureHighlightRef.current.style.width = `${measureWRef.current}px`;
+        }
+      }
+    });
+
     const handleTick = (detail: {
       step: number;
       measure: number;
@@ -91,14 +142,13 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       if (!el) return;
 
       if (step < 0) {
-        livePlaybackRef.current = { step: -1, measure: 0, ratio: 0, iteration: 1, measureStartTime: 0, measureDuration: 0 };
-        lastExactXRef.current = -1;
+        const curMeasure = useSequencerStore.getState().currentMeasure || measure || 0;
+        livePlaybackRef.current = { step: -1, measure: curMeasure, ratio: 0, iteration: 1, measureStartTime: 0, measureDuration: 0 };
+        lastExactXRef.current = curMeasure * measureWRef.current;
         el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W}px, 0, 0)`;
+        el.style.transform = `translate3d(${HEADER_W + curMeasure * measureWRef.current}px, 0, 0)`;
         el.style.display = 'block';
         if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
-        if (scrollEl) scrollEl.scrollLeft = 0;
-        layoutCache.current.lastScrollX = 0;
         return;
       }
 
@@ -118,23 +168,19 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
 
       // 3. GESTION DU PAUSE (isPaused === true)
       if (isPaused) {
+        const curMeasure = useSequencerStore.getState().currentMeasure ?? measure ?? 0;
+        el.style.transition = 'none';
+        el.style.display = 'block';
         if (isNavigation) {
-          // Si on est en pause MAIS qu'on navigue manuellement (clic sur la règle)
-          // on veut que l'aiguille aille exactement à l'endroit cliqué, sans animation.
-          el.style.transition = 'none';
+          // Navigation manuelle (clic sur règle ou mesure)
           const exactX = measure * measureWRef.current + ratio * measureWRef.current;
           el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
           lastExactXRef.current = exactX;
         } else {
-          // Pause normale (bouton stop) : on fige l'animation en cours
-          try {
-            const computedStyle = window.getComputedStyle(el);
-            const matrix = new WebKitCSSMatrix(computedStyle.transform);
-            const pausedX = matrix.m41;
-            el.style.transition = 'none';
-            el.style.transform = `translate3d(${pausedX}px, 0, 0)`;
-            lastExactXRef.current = pausedX - HEADER_W;
-          } catch (_) {}
+          // Arrêt normal : positionner directement sur currentMeasure sans masquer
+          const stoppedX = curMeasure * measureWRef.current;
+          el.style.transform = `translate3d(${HEADER_W + stoppedX}px, 0, 0)`;
+          lastExactXRef.current = stoppedX;
         }
         return;
       }
@@ -235,6 +281,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     subscribeToTick(handleTick);
 
     return () => {
+      unsubStore();
       unsubscribeFromTick(handleTick);
       resizeObserver.disconnect();
       scrollEl.removeEventListener('scroll', handleScroll);
@@ -260,6 +307,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       />
       <div
         ref={playheadRef}
+        id="timeline-playhead-line"
         className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-[15] ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
         style={{
           left: 0,
