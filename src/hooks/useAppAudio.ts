@@ -103,9 +103,13 @@ export function useAppAudio() {
           }
         }
 
-        // Si trainingId est présent, le hook useTrainingUrlHandler prend le relais
-        // pour charger le preset et armer le Speed Trainer de façon atomique
-        if (urlParams.has('trainingId')) {
+        // Si trainingId ou un deep link de la Banque de Ressources est présent, les hooks dédiés prennent le relais
+        if (
+          urlParams.has('trainingId') ||
+          urlParams.has('loadPreset') ||
+          urlParams.has('loadSection') ||
+          urlParams.has('editPatternId')
+        ) {
           return true;
         }
 

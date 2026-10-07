@@ -134,6 +134,14 @@ export function useTrainingUrlHandler({ audio, changeViewMode, alertAsync }: Use
 
     const isTocarJuntoRequested = tocarJuntoParam === '1' || tocarJuntoParam === 'true' || Boolean(roleParam);
 
+    if (
+      !trainingId &&
+      !isTocarJuntoRequested &&
+      (searchParams.has('loadPreset') || searchParams.has('loadSection') || searchParams.has('editPatternId'))
+    ) {
+      return;
+    }
+
     if (!trainingId && !presetId && !isTocarJuntoRequested) return;
 
     // Réinitialisation du verrou d'armement pour cette nouvelle requête

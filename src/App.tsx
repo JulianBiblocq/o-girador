@@ -50,6 +50,7 @@ import { useThemeManager } from './hooks/useThemeManager';
 import { useWallpaper } from './hooks/useWallpaper';
 import { useMidiController } from './hooks/useMidiController';
 import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler';
+import { useDeepLinkLoader } from './hooks/useDeepLinkLoader';
 import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu';
 import { startSession, endSession } from './utils/O-Girador-Tracker';
 import { VisitorAuthModal } from './components/VisitorAuthModal';
@@ -84,7 +85,8 @@ export default function App() {
   } = sequencer;
   const audio = useAudio();
   useGlobalTransportShortcuts(audio.handleTogglePlay);
-  const { hasAccess, userProfile, updateUserPreference, isAdmin } = useAuth();
+  const { hasAccess, userProfile, updateUserPreference, isAdmin, loading: authLoading } = useAuth();
+  useDeepLinkLoader({ audio, sequencer, authLoading });
 
   React.useEffect(() => {
     const fullPlaybackAccess = checkHasFullPlaybackAccess(userProfile, isAdmin);
@@ -271,6 +273,19 @@ export default function App() {
   } = useWallpaper();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleAppToast = (e: any) => {
+      const msg = e.detail?.message || e.detail;
+      if (msg) {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 3500);
+      }
+    };
+    window.addEventListener('app-toast', handleAppToast);
+    return () => window.removeEventListener('app-toast', handleAppToast);
+  }, []);
+
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
   const isDetailView = editingTrackId !== null;
