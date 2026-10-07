@@ -717,13 +717,13 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                         borderLeftColor: '#00838f',
                       })
                   : {
-                      backgroundColor: `${instMixerBg}cc`,
-                      borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
+                      backgroundColor: `${instMixerBg || '#1a1a1a'}cc`,
+                      borderColor: `${instColors?.['D'] || instColors?.['E'] || 'var(--cordel-border)'}40`,
                       borderLeftWidth: relativeIdx > 0 ? '1px' : '3px',
                       borderLeftStyle: relativeIdx > 0 ? 'dashed' : 'solid',
                       borderLeftColor: relativeIdx > 0
-                        ? `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}60`
-                        : (instColors['D'] || instColors['E'] || 'var(--cordel-border)'),
+                        ? `${instColors?.['D'] || instColors?.['E'] || 'var(--cordel-border)'}60`
+                        : (instColors?.['D'] || instColors?.['E'] || 'var(--cordel-border)'),
                     }
               }
               title={
@@ -733,7 +733,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                     : toadaVocalBadges?.pPtnName
                     ? `Toada (Puxador): ${toadaVocalBadges.pPtnName}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''}`
                     : `Toada (Coro): ${toadaVocalBadges?.cPtnName}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''}`)
-                  : `${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''} (${instColors['text']})`
+                  : `${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')}${spanMeasures > 1 ? ` [${relativeIdx + 1}/${spanMeasures}]` : ''}${instColors?.['text'] ? ` (${instColors['text']})` : ''}`
               }
             >
               {!isMinZoom && (
@@ -832,7 +832,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                     {activePatternActiveSteps?.map((val: any, sIdx: number) => {
                       const isActive = val !== 0 && val !== '';
                       if (!isActive) return null;
-                      const bg = instColors[val as string] || '#111';
+                      const bg = instColors?.[val as string] || '#111';
                       return (
                         <span
                           key={sIdx}

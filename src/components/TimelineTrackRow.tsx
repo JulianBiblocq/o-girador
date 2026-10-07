@@ -447,8 +447,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             let toadaVocalBadges: { pPtnName?: string; cPtnName?: string } | undefined = undefined;
 
             if (isToada) {
-              const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
-              const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+              const pPtn = puxTrack?.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx]));
+              const cPtn = coroTrack?.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx]));
 
               // Synthèse passive Toada permanente (dépliée ET repliée)
               if (pPtn && cPtn) {
@@ -485,8 +485,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               }
 
               const toadaPatternsList: Pattern[] = [];
-              if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
-              if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
+              if (puxTrack?.patterns) toadaPatternsList.push(...puxTrack.patterns);
+              if (coroTrack?.patterns) toadaPatternsList.push(...coroTrack.patterns);
               currentPatternsList = toadaPatternsList;
             } else if (isLinkedChild && trackMeta) {
               const parentBus = useSequencerStore.getState().tracks.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
@@ -497,30 +497,30 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                   activePattern = null;
                   isOverridden = true;
                 } else if (override !== undefined) {
-                  activePattern = parentBus.patterns.find(p => p.id === override) || null;
+                  activePattern = parentBus.patterns?.find(p => p.id === override) || null;
                   isOverridden = true;
                 } else {
-                  activePattern = parentBus.patterns.find(p => p.measureAssignments[mIdx]) || null;
+                  activePattern = parentBus.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx])) || null;
                   isOverridden = false;
                 }
                 activeTrack = parentBus;
-                currentPatternsList = parentBus.patterns;
+                currentPatternsList = parentBus.patterns || [];
                 currentTrackIdx = tracksMeta.findIndex(t => t.id === parentBus.id);
               }
             } else {
-              activePattern = trackData.patterns.find((p: any) => p.measureAssignments[mIdx]);
+              activePattern = trackData.patterns?.find((p: any) => Boolean(p.measureAssignments?.[mIdx])) || null;
               activeTrack = trackData;
             }
 
-            const patternIdx = activePattern && activeTrack ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
-            const steps = activePattern ? activePattern.steps : 16;
+            const patternIdx = activePattern && activeTrack?.patterns ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
+            const steps = activePattern?.steps ?? 16;
             const stepsPerMeasure = 16;
-            const spanMeasures = activePattern ? Math.max(1, Math.round((activePattern.steps || stepsPerMeasure) / stepsPerMeasure)) : 1;
+            const spanMeasures = activePattern ? Math.max(1, Math.round(((activePattern.steps ?? stepsPerMeasure)) / stepsPerMeasure)) : 1;
 
             let startM = mIdx;
             if (activePattern && spanMeasures > 1) {
               if (isOverridden && trackMeta?.patternOverrides) {
-                while (startM > 0 && trackMeta.patternOverrides[startM - 1] === activePattern.id) {
+                while (startM > 0 && trackMeta.patternOverrides?.[startM - 1] === activePattern.id) {
                   startM--;
                 }
               } else {
@@ -536,7 +536,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             const sliceSteps = activePattern?.activeSteps ? activePattern.activeSteps.slice(stepStart, stepEnd) : undefined;
 
             // Find if there is a section covering this measure
-            const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
+            const measureSection = (songSections || []).find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
             const isSectionStart = !!(measureSection && mIdx === measureSection.startMeasure);
             const isSectionEnd = !!(measureSection && mIdx === measureSection.endMeasure);
             const sectionColor = measureSection?.color || '';
@@ -576,17 +576,17 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                 instId={isLinkedChild ? inst.id : currentInst.id}
                 instType={isLinkedChild ? inst.type : currentInst.type}
                 lang={lang}
-                activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern ? activePattern.name : null)}
-                patternsList={currentPatternsList}
+                activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern?.name ?? null)}
+                patternsList={currentPatternsList || []}
                 signalDropdownOpen={uiContext.signalDropdownOpen}
                 onPatternAssignForMeasure={onPatternAssignForMeasure}
                 onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
                 measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] ?? true}
-                variationsCount={activePattern?.variations?.length || 0}
+                variationsCount={activePattern?.variations?.length ?? 0}
                 isMacro={isMacro}
                 isMinZoom={isMinZoom}
-                instColors={isLinkedChild ? inst.colors : currentInst.colors}
-                instMixerBg={isLinkedChild ? inst.mixerBg : currentInst.mixerBg}
+                instColors={isLinkedChild ? (inst?.colors || {}) : (currentInst?.colors || inst?.colors || {})}
+                instMixerBg={isLinkedChild ? (inst?.mixerBg || '#1a1a1a') : (currentInst?.mixerBg || inst?.mixerBg || '#1a1a1a')}
                 activePatternActiveSteps={sliceSteps}
                 onMeasureClick={handleMeasureClick}
                 isLinkedChild={!!isLinkedChild}

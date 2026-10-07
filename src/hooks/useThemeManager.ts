@@ -52,6 +52,7 @@ export function useThemeManager({ lang }: UseThemeManagerOptions) {
   useEffect(() => {
     const theme = isDarkMode ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.classList.toggle('dark', isDarkMode);
     localStorage.setItem('o-girador-theme', theme);
   }, [isDarkMode]);
 

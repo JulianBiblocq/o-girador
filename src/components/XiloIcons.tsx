@@ -614,5 +614,32 @@ export const XiloTarget: React.FC<XiloIconProps> = ({ size = 16, className = '',
 
 export const CordelTarget = XiloTarget;
 
+// ⏳ Sablier Cordel / Attente ou En chantier (Xilo Woodcut Hourglass)
+export const XiloHourglass: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={`xilo-icon ${className}`} 
+    {...props}
+  >
+    {/* Base et sommet gravés (plateaux de bois) */}
+    <path d="M4,3 L20,3" strokeWidth="2.5" />
+    <path d="M4,21 L20,21" strokeWidth="2.5" />
+    {/* Ampoules de verre taillées au burin */}
+    <path d="M6,3 C6,10 11,11.5 11,12 C11,12.5 6,14 6,21" />
+    <path d="M18,3 C18,10 13,11.5 13,12 C13,12.5 18,14 18,21" />
+    {/* Grain de sable / filament d'écoulement */}
+    <path d="M12,11.5 L12,14" strokeWidth="1.8" strokeDasharray="1 1" />
+    {/* Tas de sable inférieur */}
+    <path d="M8,19 C10,17.5 14,17.5 16,19" fill="currentColor" fillOpacity="0.3" strokeWidth="1.5" />
+  </svg>
+);
+
 
 

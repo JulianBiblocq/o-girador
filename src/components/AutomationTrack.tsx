@@ -58,7 +58,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   
   // Local state for dragging to satisfy Zero Render Thrashing
   const draggingIdxRef = useRef<number | null>(null);
-  const localValuesRef = useRef<number[]>([...values]);
+  const localValuesRef = useRef<number[]>(Array.isArray(values) ? [...values] : []);
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Custom prompt modal states
@@ -137,7 +137,8 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
 
     for (let i = 0; i < totalMeasures; i++) {
       const nodeX = i * measureWidth + measureWidth / 2;
-      const val = currentValues[i] !== undefined ? currentValues[i] : (type === 'pan' ? 0 : min);
+      const defaultVal = type === 'tempo' ? 100 : (type === 'pan' ? 0 : (type === 'volume' ? 75 : min));
+      const val = (currentValues && currentValues[i] !== undefined) ? currentValues[i] : defaultVal;
       const nodeY = getYFromValue(val, height);
 
       nodeXCoords.push(nodeX);
@@ -150,7 +151,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         const prevX = nodeXCoords[i - 1];
         const prevY = nodeYCoords[i - 1];
         const boundaryX = i * measureWidth;
-        const trans = transitions[i] || 'immediate';
+        const trans = (transitions && transitions[i]) || 'immediate';
 
         if (trans === 'immediate') {
           // Sharp step at the exact measure boundary
@@ -329,7 +330,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           icon.setAttribute('font-weight', 'bold');
           icon.setAttribute('pointer-events', 'none');
           
-          const trans = transitions[i] || 'immediate';
+          const trans = (transitions && transitions[i]) || 'immediate';
           if (trans === 'immediate') icon.textContent = '⎍';
           else if (trans === 'ramp') icon.textContent = '↗';
           else icon.textContent = '〰';
@@ -370,7 +371,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   // Sync local ref when props change (only when not dragging)
   useEffect(() => {
     if (draggingIdxRef.current === null) {
-      localValuesRef.current = [...values];
+      localValuesRef.current = Array.isArray(values) ? [...values] : [];
       renderSvg();
     }
   }, [values, transitions, totalMeasures, measureWidth, isExpanded, renderSvg]);

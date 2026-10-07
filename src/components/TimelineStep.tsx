@@ -272,7 +272,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         const masterInst = masterTrack ? instrumentsConfig[masterTrack.instrumentIdx] : null;
 
         if (parentBus) {
-          const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
+          const masterPattern = parentBus.patterns?.find(p => Boolean(p.measureAssignments?.[measureIdx])) || parentBus.patterns?.[0];
           masterVal = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
         }
 
@@ -334,7 +334,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
           ? state.tracks.find(p => p.id === parentBusTrackId)
           : state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
         if (parentBus) {
-          const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
+          const masterPattern = parentBus.patterns?.find(p => Boolean(p.measureAssignments?.[measureIdx])) || parentBus.patterns?.[0];
           const val = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
           resolvedVal = val;
           resolvedNote = masterPattern?.notes?.[actualStepIdx] ?? '';

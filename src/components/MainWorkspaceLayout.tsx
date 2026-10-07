@@ -310,7 +310,12 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
               className={isFadingIn && renderedView === 'timeline' ? 'fade-in-view-slow' : ''}
             >
               {renderedView === 'timeline' && (
-                <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
+                <ErrorBoundary 
+                  fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}
+                  onError={(error, errorInfo) => {
+                    console.error('[TimelineSequencer Mount Error]:', error, errorInfo);
+                  }}
+                >
                   <TimelineSequencer
                     isMobile={isMobile}
                     measureWidth={measureWidth}

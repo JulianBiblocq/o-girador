@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AudioContextType } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 export type ViewMode =
   | 'landing'
@@ -123,6 +124,7 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     const isHeavyView = ['admin'].includes(targetView);
 
     const applyViewChange = () => {
+      useSequencerStore.getState().setEditingTrackId(null);
       setViewMode(targetView);
       if (targetView === 'console' || targetView === 'timeline') {
         setActiveRightPanelRef.current(null);

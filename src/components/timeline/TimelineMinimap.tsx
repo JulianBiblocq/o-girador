@@ -383,10 +383,10 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
             if (!inst) return null;
             return (
               <div key={track.id} className="h-1 w-full relative">
-                {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-                  const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
+                {totalMeasures > 0 && Array.from({ length: totalMeasures }).map((_, mIdx) => {
+                  const activePattern = track.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx]));
                   if (!activePattern) return null;
-                  const bg = inst.colors['D'] || inst.colors['E'] || '#3b82f6';
+                  const bg = inst.colors?.['D'] || inst.colors?.['E'] || '#3b82f6';
                   return (
                     <div 
                       key={mIdx}

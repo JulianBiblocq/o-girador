@@ -2051,11 +2051,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               .map((_, mIdx) => ({ mIdx }))
               .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
               .map(({ mIdx }) => {
-                const mTimeSig = measureTimeSigs[mIdx] || '4/4';
-                const mBpm = measureBpms[mIdx] || 100;
-                const mTransition = measureBpmTransitions[mIdx] || 'immediate';
-                const mVol = measureVols[mIdx] !== undefined ? measureVols[mIdx] : 100;
-                const mVolTransition = measureVolTransitions[mIdx] || 'immediate';
+                const mTimeSig = measureTimeSigs?.[mIdx] || '4/4';
+                const mBpm = measureBpms?.[mIdx] || 105;
+                const mTransition = measureBpmTransitions?.[mIdx] || 'immediate';
+                const mVol = (measureVols && measureVols[mIdx] !== undefined) ? measureVols[mIdx] : 100;
+                const mVolTransition = measureVolTransitions?.[mIdx] || 'immediate';
                 const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
 
                 const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
@@ -2311,8 +2311,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             trackId={null}
             totalMeasures={totalMeasures}
             measureWidth={MEASURE_W}
-            values={measureBpms}
-            transitions={measureBpmTransitions}
+            values={measureBpms || []}
+            transitions={measureBpmTransitions || []}
             onChangeValue={onMeasureBpmChange}
             onChangeTransition={onMeasureTransitionChange}
             min={40}
@@ -2326,8 +2326,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             trackId={null}
             totalMeasures={totalMeasures}
             measureWidth={MEASURE_W}
-            values={measureVols}
-            transitions={measureVolTransitions}
+            values={measureVols || []}
+            transitions={measureVolTransitions || []}
             onChangeValue={onMeasureVolChange}
             onChangeTransition={onMeasureVolTransitionChange}
             min={0}
