@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { Copy, Scissors, Clipboard, CopyPlus, Repeat, Trash2, Link } from 'lucide-react';
 import { instrumentsConfig } from '../data';
+import { Pattern } from '../types';
+import { TimelinePatternMiniCard } from './timeline/TimelinePatternMiniCard';
+import { resolveActivePatternForCell, cloneAndIsolatePatternOnMeasure } from '../utils/timelinePatternResolver';
 
 export const TimelineContextMenu: React.FC = () => {
   const menuData = useSequencerStore((state) => state.timelineContextMenu);
@@ -14,6 +17,8 @@ export const TimelineContextMenu: React.FC = () => {
   const assign = useSequencerStore((state) => state.handleTimelinePatternAssign);
   const lang = useSequencerStore((state) => state.lang);
   const tracks = useSequencerStore((state) => state.tracks);
+  const isLeftHanded = useSequencerStore((state) => state.isLeftHanded);
+  const totalMeasures = useSequencerStore((state) => state.totalMeasures);
   const copyTimelineSelection = useSequencerStore((state) => state.copyTimelineSelection);
   const cutTimelineSelection = useSequencerStore((state) => state.cutTimelineSelection);
   const pasteTimelineClipboard = useSequencerStore((state) => state.pasteTimelineClipboard);
@@ -30,9 +35,18 @@ export const TimelineContextMenu: React.FC = () => {
       return;
     }
 
-    // Viewport collision adjustment
-    const menuWidth = 190;
-    const menuHeight = 310;
+    // Viewport collision adjustment (prend en compte la présence d'un motif pour le gabarit)
+    const { activePattern: previewPattern } = resolveActivePatternForCell(
+      menuData.trackId,
+      menuData.measureIdx,
+      menuData.patternId,
+      useSequencerStore.getState().tracks
+    );
+    const isMulti = useSequencerStore.getState().selectedTimelineCells.length > 1;
+    const hasPatternCard = !isMulti && previewPattern !== null;
+
+    const menuWidth = hasPatternCard ? 240 : 190;
+    const menuHeight = hasPatternCard ? 440 : 290;
     const padding = 12;
 
     const safeX = Math.max(padding, Math.min(menuData.x, window.innerWidth - menuWidth - padding));
@@ -63,13 +77,49 @@ export const TimelineContextMenu: React.FC = () => {
   if (!menuData || !coords) return null;
 
   const targetTrack = tracks.find((t) => t.id === menuData.trackId);
+  const { activePattern, ownerTrack } = resolveActivePatternForCell(
+    menuData.trackId,
+    menuData.measureIdx,
+    menuData.patternId,
+    tracks
+  );
+  const effectiveOwnerTrack = ownerTrack || targetTrack;
   const instInfo = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
+  const cardInst = effectiveOwnerTrack ? instrumentsConfig[effectiveOwnerTrack.instrumentIdx] : instInfo;
   const trackTitle = targetTrack?.customName || instInfo?.name || (lang === 'fr' ? 'Piste' : 'Faixa');
 
   const isSlave = !!(targetTrack?.linkedToTrackId && !targetTrack.isLinkFolder && !targetTrack.isLinkMaster);
   const isOverridden = isSlave && targetTrack?.patternOverrides?.[menuData.measureIdx] !== undefined;
 
   const hasMultiSelect = selectedTimelineCells.length > 1;
+  const hasPattern = !hasMultiSelect && activePattern !== null;
+
+  const handleEditPattern = () => {
+    if (!activePattern || !effectiveOwnerTrack) return;
+    closeMenu();
+    useSequencerStore.getState().setSelectedPatternId(effectiveOwnerTrack.id, activePattern.id);
+    useSequencerStore.getState().setEditingTrackId(effectiveOwnerTrack.id);
+  };
+
+  const handleMakeUniqueAndEdit = () => {
+    if (!activePattern || !effectiveOwnerTrack || !targetTrack) return;
+    closeMenu();
+    useSequencerStore.getState().pushUndoState();
+
+    const { updatedTracks, newPatternId } = cloneAndIsolatePatternOnMeasure(
+      effectiveOwnerTrack,
+      targetTrack,
+      activePattern,
+      menuData.measureIdx,
+      totalMeasures,
+      lang,
+      useSequencerStore.getState().tracks
+    );
+
+    useSequencerStore.getState().setTracks(updatedTracks);
+    useSequencerStore.getState().setSelectedPatternId(effectiveOwnerTrack.id, newPatternId);
+    useSequencerStore.getState().setEditingTrackId(effectiveOwnerTrack.id);
+  };
 
   const handleCopy = () => {
     if (!hasMultiSelect) {
@@ -134,7 +184,9 @@ export const TimelineContextMenu: React.FC = () => {
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-50 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1.5 min-w-[190px] select-none text-xs font-cactus animate-in fade-in zoom-in-95 duration-75"
+      className={`fixed z-50 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1.5 ${
+        hasPattern ? 'w-[240px]' : 'min-w-[190px]'
+      } max-h-[calc(100vh-24px)] overflow-y-auto select-none text-xs font-cactus animate-in fade-in zoom-in-95 duration-75`}
       style={{ left: `${coords.x}px`, top: `${coords.y}px` }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => {
@@ -151,6 +203,23 @@ export const TimelineContextMenu: React.FC = () => {
           {hasMultiSelect ? `${selectedTimelineCells.length} ${lang === 'fr' ? 'mes.' : 'comp.'}` : `M${menuData.measureIdx + 1}`}
         </span>
       </div>
+
+      {/* Mini-Carte Cordel d'aperçu de motif + Actions d'édition (si motif présent et pas de multi-sélection) */}
+      {hasPattern && activePattern && (
+        <>
+          <TimelinePatternMiniCard
+            pattern={activePattern}
+            track={effectiveOwnerTrack}
+            inst={cardInst}
+            measureIdx={menuData.measureIdx}
+            lang={lang}
+            isLeftHanded={isLeftHanded}
+            onEditPattern={handleEditPattern}
+            onMakeUniqueAndEdit={handleMakeUniqueAndEdit}
+          />
+          <div className="my-1 border-b border-[#1a1a1a]/30" />
+        </>
+      )}
 
       {/* Action: Copier */}
       <button

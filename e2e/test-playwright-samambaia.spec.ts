@@ -57,8 +57,5 @@ test('Membre Samambaia connecté voit bien le catalogue privé Samambaia', async
 
   // 8. Cliquer sur le morceau du groupe et vérifier la mise à jour de l'URL (?loadPreset=)
   await opanijeBtn.click();
-  await page.waitForTimeout(1000);
-  const currentUrl = page.url();
-  console.log('URL after clicking preset:', currentUrl);
-  expect(currentUrl).toContain('loadPreset=');
+  await expect(page).toHaveURL(/loadPreset=/, { timeout: 10000 });
 });

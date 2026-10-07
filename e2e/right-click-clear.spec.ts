@@ -118,16 +118,34 @@ test.describe("Effacement au Clic Droit (Workflow Express FL Studio)", () => {
     const stepContainer = page.locator('.percussion-step-container').first();
     await stepContainer.waitFor({ state: 'visible', timeout: 10000 });
 
-    const emptyStep = page.locator('.step-input-cell').nth(1);
-    await expect(emptyStep).toBeVisible();
-
-    // État initial du store pour vérifier l'absence de mutation inutile
-    const initialTrackState = await page.evaluate(() => {
+    const emptyIndex = await page.evaluate(() => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const track = store.tracks.find((t: any) => t.id === store.editingTrackId);
-      const pattern = track?.patterns?.find((p: any) => p.id === track.selectedPatternId);
-      return JSON.stringify(pattern?.activeSteps);
+      const pattern = track?.patterns?.[0];
+      const idx = pattern?.activeSteps?.findIndex((s: any) => s === 0 || s === '' || s === null || s === undefined);
+      return idx !== -1 ? idx : 1;
     });
+    const emptyStep = page.locator('.step-input-cell').nth(emptyIndex);
+    await expect(emptyStep).toBeVisible();
+
+    // Sélectionner explicitement le motif cible affiché (premier motif)
+    const targetPatternId = await page.evaluate(() => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      const track = store.tracks.find((t: any) => t.id === store.editingTrackId);
+      const firstPat = track?.patterns?.[0];
+      if (track && firstPat) {
+        store.setSelectedPatternId(track.id, firstPat.id);
+      }
+      return firstPat?.id;
+    });
+
+    // État initial du store pour vérifier l'absence de mutation inutile
+    const initialTrackState = await page.evaluate((patId) => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      const track = store.tracks.find((t: any) => t.id === store.editingTrackId);
+      const pattern = track?.patterns?.find((p: any) => p.id === (patId || track.selectedPatternId));
+      return JSON.stringify(pattern?.activeSteps);
+    }, targetPatternId);
 
     // Le pas d'index 1 est vide par défaut. Clic droit ne doit rien changer
     const valueBefore = await emptyStep.inputValue().catch(() => '')
@@ -142,12 +160,12 @@ test.describe("Effacement au Clic Droit (Workflow Express FL Studio)", () => {
     expect(valueAfter?.trim()).toBe('');
 
     // Confirmer que le clic droit sur un silence ne déclenche aucune mutation inutile
-    const afterTrackState = await page.evaluate(() => {
+    const afterTrackState = await page.evaluate((patId) => {
       const store = (window as any).__SEQUENCER_STORE__.getState();
       const track = store.tracks.find((t: any) => t.id === store.editingTrackId);
-      const pattern = track?.patterns?.find((p: any) => p.id === track.selectedPatternId);
+      const pattern = track?.patterns?.find((p: any) => p.id === (patId || track.selectedPatternId));
       return JSON.stringify(pattern?.activeSteps);
-    });
+    }, targetPatternId);
 
     expect(afterTrackState).toBe(initialTrackState);
   });
@@ -186,12 +204,12 @@ test.describe("Effacement au Clic Droit (Workflow Express FL Studio)", () => {
     const subIndexOne = firstStepContainer.locator('[data-sub-index="1"]').first();
 
     if (await subIndexZero.isVisible()) {
-      await subIndexZero.click({ button: 'right' });
+      await subIndexZero.click({ button: 'right', force: true });
       await page.waitForTimeout(300);
 
       // 4. Effectuer le second clic droit pour vider complètement la cellule
       if (await subIndexOne.isVisible()) {
-        await subIndexOne.click({ button: 'right' });
+        await subIndexOne.click({ button: 'right', force: true });
       } else {
         await firstStepContainer.click({ button: 'right', force: true });
       }
@@ -210,8 +228,8 @@ test.describe("Effacement au Clic Droit (Workflow Express FL Studio)", () => {
     const stepContainer = page.locator('.percussion-step-container').first();
     await stepContainer.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Trouver un pas vide
-    const emptyStep = page.locator('.step-input-cell').first();
+    // Trouver un pas vide (index 1)
+    const emptyStep = page.locator('.step-input-cell').nth(1);
     await expect(emptyStep).toBeVisible();
 
     // Clic droit sur un pas vide : ne doit PAS poser de note

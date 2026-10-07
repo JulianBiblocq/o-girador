@@ -12,6 +12,7 @@ import { transposeNoteString, isVoiceStepProlongation, isVoiceHoldSyllable, isVo
 import { canTransferPatterns, convertStepsToVocalRole, getInstrumentFamily } from '../utils/instrumentCompatibility';
 import { getNextPatternName } from '../utils/patternNaming';
 import { faderPositionToGain, gainToFaderPosition } from '../utils/audioMath';
+import { resizePatternBeatResolution, resizePatternAllBeatsResolution, clampStepIndex } from '../utils/vocalTimingUtils';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
@@ -93,6 +94,7 @@ export interface TrackSlice {
   handleTrackStepDecayChange?: (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => void;
   handleTrackStepMicrotimingChange?: (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => void;
   handlePatternBeatResolutionChange: (patternId: number, beatIndex: number, newResolution: number) => void;
+  handleSetPatternAllBeatsResolution: (patternId: number, newResolution: number) => void;
   handleCreateBus: (trackId: number, name: string) => void;
   handleCreateCustomBus: (trackIds: number[], name: string) => void;
   handleCreateCustomLinkGroup: (masterTrackId: number, slaveTrackIds: number[], name: string) => void;
@@ -2826,77 +2828,58 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handlePatternBeatResolutionChange: (patternId, beatIndex, newResolution) => {
     get().pushUndoState();
-    set((state) => ({
-      tracks: state.tracks.map(t => {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              let currentRes = p.beatResolutions;
-              if (!currentRes) {
-                let inferredBeats = 4;
-                if (state.timeSig === '3/4') inferredBeats = 3;
-                if (state.timeSig === '2/4' || state.timeSig === '6/8') inferredBeats = 2;
-                if (state.timeSig === '12/8') inferredBeats = 4;
-                
-                let stepsPerBeat = Math.floor(p.steps / inferredBeats);
-                if (stepsPerBeat === 0) stepsPerBeat = 4;
-                
-                currentRes = Array(inferredBeats).fill(stepsPerBeat);
-                const total = currentRes.reduce((a, b) => a + b, 0);
-                if (total !== p.steps) {
-                   currentRes[currentRes.length - 1] += (p.steps - total);
-                }
-              }
+    set((state) => {
+      let targetPatternSteps: number | null = null;
+      const updatedTracks = state.tracks.map(t => ({
+        ...t,
+        patterns: t.patterns.map(p => {
+          if (p.id === patternId) {
+            const { updatedPattern, targetSteps } = resizePatternBeatResolution(p, beatIndex, newResolution, state.timeSig);
+            targetPatternSteps = targetSteps;
+            return updatedPattern as Pattern;
+          }
+          return p;
+        })
+      }));
 
-              if (beatIndex >= currentRes.length) return p;
-              
-              const oldRes = currentRes[beatIndex];
-              if (oldRes === newResolution) return p;
+      const nextSelectedStep = (state.selectedPatternId === patternId && targetPatternSteps !== null)
+        ? clampStepIndex(state.selectedStepIdx, targetPatternSteps)
+        : state.selectedStepIdx;
 
-              const nextRes = [...currentRes];
-              nextRes[beatIndex] = newResolution;
-              const targetSteps = p.steps - oldRes + newResolution;
+      return {
+        tracks: updatedTracks,
+        selectedStepIdx: nextSelectedStep,
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
 
-              const startIndex = currentRes.slice(0, beatIndex).reduce((sum, val) => sum + val, 0);
+  handleSetPatternAllBeatsResolution: (patternId, newResolution) => {
+    get().pushUndoState();
+    set((state) => {
+      let targetPatternSteps: number | null = null;
+      const updatedTracks = state.tracks.map(t => ({
+        ...t,
+        patterns: t.patterns.map(p => {
+          if (p.id === patternId) {
+            const { updatedPattern, targetSteps } = resizePatternAllBeatsResolution(p, newResolution, state.timeSig);
+            targetPatternSteps = targetSteps;
+            return updatedPattern as Pattern;
+          }
+          return p;
+        })
+      }));
 
-              const spliceArray = <T,>(arr: T[] | undefined, defaultVal: T, oldR: number, newR: number, dontCopy: boolean = false) => {
-                if (!arr) return undefined;
-                const copy = [...arr];
-                const replacement = Array(newR).fill(defaultVal);
-                if (!dontCopy) {
-                  for (let i = 0; i < Math.min(oldR, newR); i++) {
-                    replacement[i] = copy[startIndex + i];
-                  }
-                }
-                copy.splice(startIndex, oldR, ...replacement);
-                return copy;
-              };
+      const nextSelectedStep = (state.selectedPatternId === patternId && targetPatternSteps !== null)
+        ? clampStepIndex(state.selectedStepIdx, targetPatternSteps)
+        : state.selectedStepIdx;
 
-              const pVolumes = p.volumes || Array(p.steps).fill(80);
-              const pDecays = p.decays || Array(p.steps).fill(100);
-              const pMicro = p.microtimings || Array(p.steps).fill(0);
-              const pLyrics = p.lyrics || Array(p.steps).fill('');
-              const pNotes = p.notes || Array(p.steps).fill('');
-
-              return {
-                ...p,
-                steps: targetSteps,
-                beatResolutions: nextRes,
-                activeSteps: spliceArray(p.activeSteps, 0, oldRes, newResolution) as (string | number)[],
-                lyrics: spliceArray(pLyrics, '', oldRes, newResolution),
-                notes: spliceArray(pNotes, '', oldRes, newResolution),
-                volumes: spliceArray(pVolumes, 80, oldRes, newResolution),
-                decays: spliceArray(pDecays, 100, oldRes, newResolution),
-                microtimings: spliceArray(pMicro, 0, oldRes, newResolution, newResolution === 3 || newResolution === 6),
-              } as Pattern;
-            }
-            return p;
-          })
-        };
-      }),
-      tracksVersion: state.tracksVersion + 1
-    }));
+      return {
+        tracks: updatedTracks,
+        selectedStepIdx: nextSelectedStep,
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
   }
 });
 

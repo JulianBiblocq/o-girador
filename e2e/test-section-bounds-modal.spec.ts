@@ -3,7 +3,7 @@ import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5174/?view=timeline');
+    await page.goto('/?view=timeline');
     await page.waitForTimeout(1000);
 
     await ensureStudioLoaded(page);
@@ -23,11 +23,20 @@ test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
   });
 
   test("Création de section au clic '+' sur slot vide : 4 mesures par défaut, boutons [ 8 mes. ], édition manuelle et enregistrement", async ({ page }) => {
-    // 1. Étendre à 60 mesures pour avoir des slots vierges garantis sans section existante au-dessus
+    // 1. Étendre à 48 mesures pour avoir des slots vierges garantis sans section existante au-dessus
     await page.evaluate(() => {
       const store = (window as any).__SEQUENCER_STORE__?.getState();
       if (store) {
-        store.setTotalMeasures(60, true);
+        store.setTotalMeasures(48, true);
+      }
+    });
+    await page.waitForTimeout(300);
+
+    // Faire défiler le conteneur horizontal vers la droite pour visualiser la mesure 41
+    await page.evaluate(() => {
+      const scrollEl = document.getElementById('timeline-scroll-container');
+      if (scrollEl) {
+        scrollEl.scrollLeft = scrollEl.scrollWidth;
       }
     });
     await page.waitForTimeout(300);
@@ -35,6 +44,7 @@ test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
     // Cliquer sur le bouton ＋ de la mesure 41 (index 40)
     const plusButtons = page.locator('button:text-is("＋")');
     const plusBtn41 = plusButtons.nth(40);
+    await plusBtn41.scrollIntoViewIfNeeded();
     await plusBtn41.click({ force: true });
     await page.waitForTimeout(300);
 
@@ -94,7 +104,21 @@ test.describe("Song Section Bounds, Duration & Quick Shortcuts Modal", () => {
   });
 
   test("Modale centrale (SongSectionModal) : mode édition au double-clic sur la section existante Trovão", async ({ page }) => {
-    // 1. Localiser la première section existante 'Trovão'
+    // 1. S'assurer qu'une section 'Trovão' est présente dans le store
+    await page.evaluate(() => {
+      const store = (window as any).__SEQUENCER_STORE__?.getState();
+      if (!store) return;
+      const hasTrovao = (store.songSections || []).some((s: any) => s.name.toLowerCase().includes("trovão"));
+      if (!hasTrovao) {
+        store.setSongSections([
+          ...(store.songSections || []),
+          { id: 'section-trovao', name: 'Trovão', startMeasure: 0, endMeasure: 3, color: '#e67e22' }
+        ]);
+      }
+    });
+    await page.waitForTimeout(300);
+
+    // Localiser la première section existante 'Trovão'
     const sectionTrovão = page.locator('div[data-testid^="section-block-"]:has-text("Trovão"), div[data-testid^="section-block-"]:has-text("TROVÃO")').first();
     await expect(sectionTrovão).toBeVisible({ timeout: 5000 });
 

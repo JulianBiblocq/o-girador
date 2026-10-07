@@ -1884,6 +1884,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}
                     onPointerDown={(e) => handleSectionBlockPointerDown(e, section)}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingSection(section);
+                      setSectionModalOpen(true);
+                    }}
                     style={{
                       left: `${startX}px`,
                       width: `${width - 8}px`, // 4px margin left & right

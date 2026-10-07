@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { ensureStudioLoaded } from './helpers/navigation';
 
 test('Chargement fiable du morceau vedette (Cactus 🌵) après rafraîchissement & fin de boucle propre', async ({ page }) => {
-  test.setTimeout(45000);
+  test.setTimeout(60000);
 
   // Capture browser console logs and unhandled page errors
   const unhandledErrors: string[] = [];

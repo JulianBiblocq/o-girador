@@ -1764,12 +1764,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     <>
       <div
         data-testid="instrument-detail-editor-modal"
-        className={`bg-[#f4ecd8] ${isDetached ? 'w-full h-full' : 'cordel-border-sm'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
+        className={`bg-[#f4ecd8] ${isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
         style={isDetached ? { width: '100%', height: '100%' } : {
-          maxWidth: isMobile ? '100%' : '1400px',
+          maxWidth: isMobile ? '100%' : '80rem',
           width: isMobile ? '98vw' : '95vw',
-          height: isMobile ? 'calc(100dvh - 30px)' : '92vh',
-          maxHeight: isMobile ? 'calc(100dvh - 30px)' : '960px',
+          height: isMobile ? 'calc(100% - 0.25rem)' : 'calc(100% - 0.5rem)',
+          maxHeight: '100%',
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
@@ -2916,7 +2916,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center"
+      className="fixed top-[70px] bottom-0 left-0 right-0 z-[300] flex items-center justify-center p-2 sm:p-3"
       style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}

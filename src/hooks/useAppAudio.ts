@@ -221,24 +221,30 @@ export function useAppAudio() {
           try {
             const { getCloudPreset } = await import('../cloudLibrary');
             const cloudPreset = await getCloudPreset(lastPresetId);
-            if (cloudPreset) {
+            if (cloudPreset && Array.isArray(cloudPreset.tracks) && cloudPreset.tracks.length > 0) {
               await audio.applyPreset(cloudPreset);
               audio.setActivePresetName(`cloud:${lastPresetId}`);
               restoredFromLocalStorage = true;
+            } else {
+              localStorage.removeItem('girador_last_loaded_preset_id');
             }
           } catch (err) {
             console.warn('[O Girador] Failed to restore from localStorage preset ID, falling back to IndexedDB:', err);
+            localStorage.removeItem('girador_last_loaded_preset_id');
           }
         }
 
         // Priorité 2 : autosave IndexedDB
         if (!restoredFromLocalStorage) {
           try {
-            const { getAutosave } = await import('../db');
+            const { getAutosave, clearAutosave } = await import('../db');
             const savedState = await getAutosave();
-            if (savedState) {
+            if (savedState && Array.isArray(savedState.tracks) && savedState.tracks.length > 0) {
               await audio.applyPreset(savedState);
               restoredFromLocalStorage = true;
+            } else if (savedState) {
+              // Autosave sans pistes ou corrompu : purger pour débloquer le chargement du catalogue par défaut
+              await clearAutosave().catch(() => {});
             }
           } catch (err) {
             console.error('[O Girador] Failed to restore autosave from IndexedDB:', err);
@@ -272,9 +278,13 @@ export function useAppAudio() {
               try {
                 const defaultPresetId = await getDefaultGroupPresetId(groupId);
                 if (defaultPresetId) {
-                  audio.setActivePresetName(`cloud:${defaultPresetId}`);
-                  await audio.loadFallbackPreset(`cloud:${defaultPresetId}`);
-                  return;
+                  const { getCloudPreset } = await import('../cloudLibrary');
+                  const cloudPreset = await getCloudPreset(defaultPresetId);
+                  if (cloudPreset && Array.isArray(cloudPreset.tracks) && cloudPreset.tracks.length > 0) {
+                    audio.setActivePresetName(`cloud:${defaultPresetId}`);
+                    await audio.applyPreset(cloudPreset);
+                    return;
+                  }
                 }
               } catch (e) {
                 console.warn('[useAppAudio] Erreur check default group preset:', e);
@@ -346,6 +356,9 @@ export function useAppAudio() {
 
     const performSave = () => {
       const state = useSequencerStore.getState();
+      if (!state.tracks || !Array.isArray(state.tracks) || state.tracks.length === 0) {
+        return;
+      }
       const tracksCopy = state.tracks.map((t: any) => ({
         ...t,
         patterns: t.patterns.map((p: any) => {

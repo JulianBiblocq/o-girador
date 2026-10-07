@@ -183,6 +183,9 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     server: {
+      port: 5174,
+      strictPort: true, // Interdit à Vite de basculer silencieusement sur un autre port
+      host: '0.0.0.0',  // Permet l'accès réseau local (tablette / mobile)
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

@@ -25,6 +25,16 @@ test.describe("Activation et application du Balanço sur Puxador et Coro", () =>
       return Boolean(store && store.tracks && store.tracks.length > 0);
     }, { timeout: 15000 });
 
+    await page.waitForFunction(() => {
+      const tracks = (window as any).useSequencerStore?.getState?.()?.tracks || [];
+      return tracks.some((t: any) => 
+        t.instrumentRoleKey === 'puxador' || 
+        t.instrumentRoleKey === 'coro' || 
+        t.name?.toLowerCase().includes('puxador') ||
+        t.id === 'puxador'
+      );
+    }, { timeout: 10000 });
+
     // Laisser le chargement asynchrone des morceaux se stabiliser
     await page.waitForTimeout(2000);
   });

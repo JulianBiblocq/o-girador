@@ -15,13 +15,20 @@ export const ECOSYSTEM_DOMAINS = Object.freeze({
 export type EcosystemAppKey = keyof typeof ECOSYSTEM_DOMAINS;
 
 export const LOCAL_DEV_PORTS: Record<EcosystemAppKey, number> = Object.freeze({
-  hub: 5173,
-  orquestrador: 5173,
+  hub: 5170,
+  orquestrador: 5170,
   sequenciador: 5174,
   organizador: 5175,
   dancador: 5176,
-  mostrador: 5173,
+  mostrador: 5170,
 });
+
+export const ECOSYSTEM_LOCAL_URLS = {
+  ORQUESTRADOR: 'http://localhost:5170',
+  SEQUENCIADOR: 'http://localhost:5174',
+  ORGANIZADOR: 'http://localhost:5175',
+  DANCADOR: 'http://localhost:5176',
+} as const;
 
 export function isLocalEnvironment(): boolean {
   if (typeof window === 'undefined') return false;

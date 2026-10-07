@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { ensureStudioLoaded } from './helpers/navigation';
 
 test('Test complet : Sauvegarde, Restauration & Décalage dynamique des repères, boucles et signaux', async ({ page }) => {
-  await page.goto('http://localhost:5174/?view=timeline');
+  await page.goto('/?view=timeline');
   await page.waitForTimeout(1000);
 
   // Click Entrer na Roda si landing page
@@ -18,7 +18,17 @@ test('Test complet : Sauvegarde, Restauration & Décalage dynamique des repères
   // 1. Initialiser un état propre avec repère, boucle et signaux sur la mesure 1 (index 1)
   const initialSetup = await page.evaluate(() => {
     const store = (window as any).__SEQUENCER_STORE__;
+    (window as any).useSequencerStore?.getState?.().setSongMarkers?.([]);
     if (!store) return null;
+
+    // Débloquer l'accès complet pour autoriser l'insertion de mesures
+    store.setState({
+      hasFullPlaybackAccess: true,
+      maxMeasuresAllowed: null,
+    });
+
+    // Réinitialiser les repères existants préchargés par le preset pour isoler le test
+    store.getState().setSongMarkers([]);
 
     // Créer un repère sur la mesure 1 (0-indexed = mesure 1)
     store.getState().handleCreateSongMarker('Refrain Maracatu', 1, '#8b2a1a');

@@ -12,7 +12,7 @@ import { telemetryService } from './services/telemetryService';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { useAudioStore } from './stores/useAudioStore';
 import { useTransportStore } from './stores/useTransportStore';
-import { channels, busChannels } from './hooks/useAudioSync';
+import { channels, busChannels } from './audio/effectsChain';
 import * as Tone from 'tone';
 import * as effectsChain from './audio/effectsChain';
 import './index.css';

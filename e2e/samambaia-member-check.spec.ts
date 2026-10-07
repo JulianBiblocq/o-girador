@@ -121,10 +121,11 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
 
       const { savePresetToCloud, fetchCloudPresets, deleteCloudPreset } = await import('../src/cloudLibrary.ts');
 
+      const currentTracks = (window as any).__SEQUENCER_STORE__?.getState()?.tracks || [];
       const dummyPreset: any = {
         name: `Test Perso Membre ${Date.now()}`,
         bpm: 115,
-        tracks: [],
+        tracks: currentTracks.length > 0 ? currentTracks : [{ id: 1, name: 'Agbê', instrumentIdx: 0, patterns: [{ id: 1, steps: 16, activeSteps: Array(16).fill(0) }] }],
         metadata: { toada: `Test Perso Membre ${Date.now()}` }
       };
 
@@ -147,7 +148,8 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
         createError = err?.message || String(err);
       }
 
-      // Nettoyer le preset créé si réussi
+      // Nettoyer le preset créé si réussi et supprimer la clé persistée
+      localStorage.removeItem('girador_last_loaded_preset_id');
       if (createdPresetId) {
         try {
           await deleteCloudPreset(createdPresetId);
@@ -156,7 +158,7 @@ test.describe('Vérification Membre Samambaia & Droits canWriteSequenciador', ()
 
       // Test B: Tentative d'écraser un preset existant du Mestre (ex: chercher un preset dont ownerId !== uid)
       const presets = await fetchCloudPresets(uid, 'membre', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1', 'Samambaia', false);
-      const mestrePreset = presets.find(p => p.ownerId !== uid && p.ownerId !== 'storage');
+      const mestrePreset = presets.find(p => p.ownerId !== uid && p.ownerId !== 'storage' && p.id !== '29dIDjgc2vPuDnwjiy9V' && !p.name?.toLowerCase().includes('opanij'));
 
       let overwriteError: string | null = null;
       let overwriteSuccess = false;

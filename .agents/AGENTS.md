@@ -53,3 +53,15 @@ Si du code est généré ou modifié, ces règles doivent être strictement resp
   1. `cmd /c "npx tsc --noEmit"` : 0 erreur TypeScript.
   2. `cmd /c "npm run build"` : compilation Vite de production réussie.
 - **Tolérance zéro** : Aucune tâche ne peut être considérée comme terminée si l'une de ces deux commandes échoue.
+
+---
+
+## RÈGLE STRICTE DES PORTS LOCAUX (ÉCOSYSTÈME O GIRADOR)
+- Cet agent doit respecter la cartographie des ports :
+  * Orquestrad'Or : 5170
+  * Séquenciad'Or : 5174
+  * Organizad'Or : 5175
+  * Dançad'Or : 5176
+- Interdiction de modifier le port local sans instruction explicite.
+- `strictPort: true` est obligatoire : si le port est occupé, tuer les processus résiduels au lieu de changer de port.
+- Les tests E2E et les liens de navigation locale doivent pointer rigoureusement vers ces ports dédiés.

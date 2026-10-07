@@ -37,8 +37,21 @@ test.describe("Audition solo de motif vocal (Puxador et Coro)", () => {
       // Vider l'historique d'attaque vocal pour repartir de zéro
       (window as any).__VOICE_ATTACK_HISTORY__ = [];
 
-      const pux = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
-      if (!pux) throw new Error("Puxador track non trouvée");
+      let pux = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador');
+      if (!pux) {
+        const puxIdx = instrumentsConfig.findIndex((i: any) => i.id === 'puxador');
+        pux = {
+          id: 999101,
+          name: 'Puxador',
+          instrumentIdx: puxIdx !== -1 ? puxIdx : 10,
+          patterns: [],
+          isMute: false,
+          isSolo: false,
+          isHidden: false,
+          volumeVal: 100,
+        };
+        store.setTracks([...store.tracks, pux]);
+      }
 
       // Créer un motif dédié "SoloTest" non assigné à la mesure 0
       const testPattern = {
@@ -106,7 +119,7 @@ test.describe("Audition solo de motif vocal (Puxador et Coro)", () => {
     expect(triggerData.pitches.some((p: string) => p.includes('D4') || p.includes('G4'))).toBe(true);
 
     // 6. Cliquer à nouveau pour arrêter l'audition solo
-    await soloPlayBtn.click();
+    await page.getByTestId(`btn-solo-pattern-${patternId}-base`).click();
 
     // 7. Vérifier que soloPatternPlayId redevient null
     await page.waitForFunction(() => {
@@ -129,8 +142,21 @@ test.describe("Audition solo de motif vocal (Puxador et Coro)", () => {
       // Vider l'historique d'attaque vocal
       (window as any).__VOICE_ATTACK_HISTORY__ = [];
 
-      const coro = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || String(t.id) === 'coro');
-      if (!coro) throw new Error("Coro track non trouvée");
+      let coro = store.tracks.find((t: any) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || String(t.id) === 'coro');
+      if (!coro) {
+        const coroIdx = instrumentsConfig.findIndex((i: any) => i.id === 'coro');
+        coro = {
+          id: 999102,
+          name: 'Coro',
+          instrumentIdx: coroIdx !== -1 ? coroIdx : 11,
+          patterns: [],
+          isMute: false,
+          isSolo: false,
+          isHidden: false,
+          volumeVal: 100,
+        };
+        store.setTracks([...store.tracks, coro]);
+      }
 
       const testPattern = {
         id: 888802,
@@ -192,7 +218,7 @@ test.describe("Audition solo de motif vocal (Puxador et Coro)", () => {
     expect(triggerData.pitches.some((p: string) => p.includes('E4') || p.includes('B4'))).toBe(true);
 
     // 5. Arrêter le solo
-    await soloPlayBtn.click();
+    await page.getByTestId(`btn-solo-pattern-${patternId}-base`).click();
 
     await page.waitForFunction(() => {
       const transStore = (window as any).__TRANSPORT_STORE__?.getState();

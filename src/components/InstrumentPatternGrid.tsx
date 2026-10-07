@@ -21,6 +21,7 @@ import { getContrastColor } from '../utils/colorHelpers';
 import { useWindow } from '../contexts/WindowContext';
 import { CordelContextMenu } from './ui/CordelContextMenu';
 import { isVoiceStepProlongation } from '../utils/musicTheory';
+import { VoicePatternGridSection } from './instrument-editor/VoicePatternGridSection';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
   if (val === undefined) return fallback;
@@ -545,6 +546,7 @@ interface VoiceStepCellProps {
   preRollLength?: number;
   isProlongation?: boolean;
   isFollowedByProlongation?: boolean;
+  isFirstInBeat?: boolean;
 }
 
 const VoiceStepCellComponent = ({
@@ -580,7 +582,8 @@ const VoiceStepCellComponent = ({
   focusVoiceStep,
   onVoiceStepClear,
   isProlongation = false,
-  isFollowedByProlongation = false
+  isFollowedByProlongation = false,
+  isFirstInBeat
 }: VoiceStepCellProps) => {
   const lang = useSequencerStore(state => state.lang);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
@@ -862,8 +865,10 @@ const VoiceStepCellComponent = ({
     }
   };
 
+  const isFirstInBeatVal = isFirstInBeat !== undefined ? isFirstInBeat : (i % 4 === 0);
+
   return (
-    <div className={`relative flex-1 min-w-0 select-none ${isProlongation && (i % 4 !== 0) ? '-ml-1 sm:-ml-2 z-10' : ''}`}>
+    <div className={`relative flex-1 min-w-0 select-none ${isProlongation && !isFirstInBeatVal ? '-ml-1 sm:-ml-2 z-10' : ''}`}>
       {/* Axis vertical centerline (0%) behind steps */}
       <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
       
@@ -1179,10 +1184,13 @@ const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) 
          prev.isInRange === next.isInRange &&
          prev.preRollLength === next.preRollLength &&
          prev.isProlongation === next.isProlongation &&
-         prev.isFollowedByProlongation === next.isFollowedByProlongation;
+         prev.isFollowedByProlongation === next.isFollowedByProlongation &&
+         prev.isFirstInBeat === next.isFirstInBeat;
 };
 
-const VoiceStepCell = React.memo(VoiceStepCellComponent, areVoicePropsEqual);
+export const VoiceStepCell = React.memo(VoiceStepCellComponent, areVoicePropsEqual);
+export type { VoiceStepCellProps };
+
 
 const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   trackId,
@@ -1243,10 +1251,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const currentTrackIdRef = React.useRef(trackId);
   currentTrackIdRef.current = trackId;
   const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
+  const handleSetPatternAllBeatsResolution = useSequencerStore(state => state.handleSetPatternAllBeatsResolution);
   const [voiceStepContextMenu, setVoiceStepContextMenu] = useState<{ x: number; y: number; stepIdx: number; isPreRoll: boolean } | null>(null);
 
   const timeSig = (pattern as any)?.timeSignature || useSequencerStore.getState().metadata?.ritmo || '4/4';
-  const preRollLengthComputed = pattern?.preRollActiveSteps?.length || (timeSig === '12/8' ? 12 : 16);
+  const isTupletPattern = Array.isArray(pattern?.beatResolutions) && pattern.beatResolutions.length >= 4 && pattern.beatResolutions.slice(0, 4).every(r => r === 3);
+  const preRollLengthComputed = pattern?.preRollActiveSteps?.length || (isTupletPattern ? 12 : (timeSig === '12/8' ? 12 : 16));
 
   const isStepInRange = React.useCallback((
     range: { start: { isPreRoll: boolean; step: number }; end: { isPreRoll: boolean; step: number } } | null,
@@ -3696,19 +3706,30 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         <div className="flex flex-col w-full gap-2">
           {/* Pre-roll (Mesure -1) Section */}
           {(() => {
-            const preRollGroups = [
-              [0, 1, 2, 3],
-              [4, 5, 6, 7],
-              [8, 9, 10, 11],
-              [12, 13, 14, 15]
-            ];
+            const preRollBeats = 4;
+            const resArray = Array.isArray(pattern?.beatResolutions) && pattern.beatResolutions.length >= preRollBeats
+              ? pattern.beatResolutions.slice(0, preRollBeats)
+              : Array(preRollBeats).fill(4);
+
+            const preRollGroups: number[][] = [];
+            let preAcc = 0;
+            for (let b = 0; b < preRollBeats; b++) {
+              const res = resArray[b] || 4;
+              const grp: number[] = [];
+              for (let s = 0; s < res; s++) {
+                grp.push(preAcc + s);
+              }
+              preRollGroups.push(grp);
+              preAcc += res;
+            }
+            const preRollTotalSteps = preAcc;
 
             const getPreRollStepsCount = () => {
               if (!pattern?.preRollActiveSteps) return 0;
-              for (let i = 0; i < 16; i++) {
+              for (let i = 0; i < preRollTotalSteps; i++) {
                 const stepVal = pattern.preRollActiveSteps[i];
                 if (stepVal && stepVal !== 0 && stepVal !== '0') {
-                  return 16 - i;
+                  return preRollTotalSteps - i;
                 }
               }
               return 0;
@@ -3718,7 +3739,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
             const renderPreRollGroup = (group: number[], groupIdx: number) => (
               <div key={`preroll-group-${groupIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm">
-                {group.map((i) => {
+                {group.map((i, indexInGroup) => {
                   const state = pattern?.preRollActiveSteps?.[i] ?? 0;
                   const syl = pattern?.preRollLyrics?.[i] || '';
                   const note = pattern?.preRollNotes?.[i] || '';
@@ -3730,9 +3751,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   const curNoteTrim = (note || '').trim();
                   const prevActive = i > 0 ? isStepActive(pattern?.preRollActiveSteps?.[i - 1]) : false;
                   const prevNote = i > 0 ? (pattern?.preRollNotes?.[i - 1] || '').trim() : '';
-                  const nextActive = i < 15 ? isStepActive(pattern?.preRollActiveSteps?.[i + 1]) : false;
-                  const nextNote = i < 15 ? (pattern?.preRollNotes?.[i + 1] || '').trim() : '';
-                  const nextSyl = i < 15 ? (pattern?.preRollLyrics?.[i + 1] || '').trim() : '';
+                  const nextActive = i < preRollTotalSteps - 1 ? isStepActive(pattern?.preRollActiveSteps?.[i + 1]) : false;
+                  const nextNote = i < preRollTotalSteps - 1 ? (pattern?.preRollNotes?.[i + 1] || '').trim() : '';
+                  const nextSyl = i < preRollTotalSteps - 1 ? (pattern?.preRollLyrics?.[i + 1] || '').trim() : '';
 
                   const isProlongation = isVoiceStepProlongation(
                     currentActive,
@@ -3773,12 +3794,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       preRollLength={preRollLengthComputed}
                       isProlongation={isProlongation}
                       isFollowedByProlongation={isFollowedByProlongation}
+                      isFirstInBeat={indexInGroup === 0}
                       onVoiceStepClear={handleVoicePreRollStepClear}
                       onMouseDown={handleVoicePreRollMouseDown}
                       onContextMenu={(e) => handleVoiceContextMenu(e, i, true)}
                       onVoiceTypeToggle={() => {}}
                       onVoiceSylChange={handleVoicePreRollSylChange}
-                      onVoiceNoteChange={handleVoicePreRollNoteChange}
+                      onVoiceNoteChange={handleVoiceNoteChange}
                       onVoiceNoteBlur={handleVoicePreRollNoteBlur}
                       onFocusStep={(idx) => handleVoiceFocusStep(idx, true)}
                       onVoiceNav={handleVoiceNav}
@@ -3788,6 +3810,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                 })}
               </div>
             );
+
 
             return (
               <div 
@@ -3864,141 +3887,38 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             onTouchMove={handleGridTouchMove}
             onTouchEnd={handleGridTouchEnd}
           >
-            {(() => {
-              const numMeasures = Math.max(1, Math.ceil((pattern?.steps ?? 16) / 16));
-              const rows: React.ReactNode[] = [];
-              for (let m = 0; m < numMeasures; m++) {
-                const startStep = m * 16;
-                const measureGroups = [
-                  [startStep, startStep + 1, startStep + 2, startStep + 3],
-                  [startStep + 4, startStep + 5, startStep + 6, startStep + 7],
-                  [startStep + 8, startStep + 9, startStep + 10, startStep + 11],
-                  [startStep + 12, startStep + 13, startStep + 14, startStep + 15]
-                ];
+            <VoicePatternGridSection
+              trackId={trackId}
+              pattern={pattern}
+              timeSig={(pattern as any)?.timeSignature || useSequencerStore.getState().timeSig}
+              lang={lang}
+              isTupletEditMode={isTupletEditMode}
+              selectedPatternId={selectedPatternId}
+              selectedStepIdx={selectedStepIdx}
+              selectedStepIsPreRoll={selectedStepIsPreRoll}
+              selectedStepRange={selectedStepRange}
+              isMultiSelectActive={isMultiSelectActive}
+              preRollLengthComputed={preRollLengthComputed}
+              swingOffsets={swingOffsets}
+              isStepInRange={isStepInRange}
+              handlePatternBeatResolutionChange={handlePatternBeatResolutionChange}
+              handleSetPatternAllBeatsResolution={handleSetPatternAllBeatsResolution}
+              handleDeletePatternMeasure={handleDeletePatternMeasure}
+              handleVoiceStepClear={handleVoiceStepClear}
+              handleVoiceTouchStart={handleVoiceTouchStart}
+              handleVoiceMouseDown={handleVoiceMouseDown}
+              handleVoiceMouseEnter={handleVoiceMouseEnter}
+              handleVoiceTypeToggle={handleVoiceTypeToggle}
+              handleVoiceSylChange={handleVoiceSylChange}
+              handleVoiceNoteChange={handleVoiceNoteChange}
+              handleVoiceNoteBlur={handleVoiceNoteBlur}
+              handleVoiceFocusStep={handleVoiceFocusStep}
+              handleVoiceContextMenu={handleVoiceContextMenu}
+              handleSelectStepForSculpt={handleSelectStepForSculpt}
+              handleVoiceNav={handleVoiceNav}
+              focusVoiceStep={focusVoiceStep}
+            />
 
-                const renderMainGroup = (group: number[], groupIdx: number) => (
-                  <div key={`group-${m}-${groupIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm">
-                    {group.map((i) => {
-                      if (i >= (pattern?.steps ?? 16)) return null;
-                      const state = pattern?.activeSteps?.[i];
-                      const syl = pattern?.lyrics?.[i] || '';
-                      const note = pattern?.notes?.[i] || '';
-                      const isSelected = selectedPatternId === pattern.id && selectedStepIdx === i && Boolean(selectedStepIsPreRoll) === false;
-
-                      const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
-                      const currentActive = isStepActive(state);
-                      const curNoteTrim = (note || '').trim();
-                      const prevActive = i > 0 ? isStepActive(pattern?.activeSteps?.[i - 1]) : false;
-                      const prevNote = i > 0 ? (pattern?.notes?.[i - 1] || '').trim() : '';
-                      const nextActive = i < (pattern?.steps ?? 16) - 1 ? isStepActive(pattern?.activeSteps?.[i + 1]) : false;
-                      const nextNote = i < (pattern?.steps ?? 16) - 1 ? (pattern?.notes?.[i + 1] || '').trim() : '';
-                      const nextSyl = i < (pattern?.steps ?? 16) - 1 ? (pattern?.lyrics?.[i + 1] || '').trim() : '';
-
-                      const isProlongation = isVoiceStepProlongation(
-                        currentActive,
-                        prevActive,
-                        curNoteTrim,
-                        prevNote,
-                        syl
-                      );
-
-                      const isFollowedByProlongation = isVoiceStepProlongation(
-                        nextActive,
-                        currentActive,
-                        nextNote,
-                        curNoteTrim,
-                        nextSyl
-                      );
-
-                      // Calculate total micro-timing shift (manual + pre-calculated global swing)
-                      const manualMicro = pattern?.microtimings?.[i] ?? 0;
-                      const manualMicroNum = getSculptNumber(manualMicro, 0);
-                      const swingOffset = swingOffsets[i] || 0;
-                      const totalShift = Math.max(-100, Math.min(100, manualMicroNum + swingOffset));
-                      const shiftPx = (totalShift / 100) * 8; // Max 8px shift
-
-                      const isLinked = Boolean(syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '');
-
-                      return (
-                        <VoiceStepCell
-                          key={i}
-                          i={i}
-                          steps={pattern?.steps ?? 16}
-                          trackId={trackId}
-                          patternId={pattern.id}
-                          state={state}
-                          syl={syl}
-                          note={note}
-                          isSelected={isSelected}
-                          isInRange={isStepInRange(selectedStepRange, false, i, preRollLengthComputed)}
-                          preRollLength={preRollLengthComputed}
-                          isMultiSelectActive={isMultiSelectActive}
-                          manualMicro={manualMicro}
-                          totalShift={totalShift}
-                          shiftPx={shiftPx}
-                          isLinked={isLinked}
-                          volume={pattern.volumes?.[i] ?? 100}
-                          decay={pattern.decays?.[i] ?? 10}
-                          isProlongation={isProlongation}
-                          isFollowedByProlongation={isFollowedByProlongation}
-                          onVoiceStepClear={handleVoiceStepClear}
-                          onTouchStart={handleVoiceTouchStart}
-                          onMouseDown={handleVoiceMouseDown}
-                          onMouseEnter={handleVoiceMouseEnter}
-                          onVoiceTypeToggle={handleVoiceTypeToggle}
-                          onVoiceSylChange={handleVoiceSylChange}
-                          onVoiceNoteChange={handleVoiceNoteChange}
-                          onVoiceNoteBlur={handleVoiceNoteBlur}
-                          onFocusStep={(idx) => handleVoiceFocusStep(idx, false)}
-                          onContextMenu={(e) => handleVoiceContextMenu(e, i, false)}
-                          onSelectForSculpt={handleSelectStepForSculpt}
-                          onVoiceNav={handleVoiceNav}
-                          focusVoiceStep={focusVoiceStep}
-                        />
-                      );
-                    })}
-                  </div>
-                );
-
-                rows.push(
-                  <div key={`measure-row-${m}`} className="flex flex-col gap-1 w-full">
-                    <div className="text-[9px] font-bold text-[#1a1a1a]/40 tracking-wider uppercase pl-1 flex items-center gap-2">
-                      <span>{lang === 'fr' ? `Mesure ${m + 1}` : `Compasso ${m + 1}`}</span>
-                      {pattern.steps > 16 && (
-                        <button
-                          onClick={async () => {
-                            const confirmMsg = lang === 'fr'
-                              ? `Supprimer la mesure ${m + 1} du motif ? Cette action est irréversible.`
-                              : `Excluir o compasso ${m + 1} do padrão? Esta ação é irreversível.`;
-                            const confirmed = await confirmAsync(confirmMsg);
-                            if (!confirmed) return;
-                            handleDeletePatternMeasure(trackId, pattern.id, m);
-                          }}
-                          className="text-[#8b2a1a] hover:text-[#a63d2d] transition-colors p-0.5 hover:bg-[#8b2a1a]/10 rounded cursor-pointer"
-                          title={lang === 'fr' ? "Supprimer cette mesure" : "Excluir este compasso"}
-                        >
-                          <Trash2 className="w-2.5 h-2.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1.5 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md">
-                      {/* Ligne 1 : Temps 1 (pas 0 à 3) et Temps 2 (pas 4 à 7) */}
-                      <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
-                        {renderMainGroup(measureGroups[0], 0)}
-                        {renderMainGroup(measureGroups[1], 1)}
-                      </div>
-                      {/* Ligne 2 : Temps 3 (pas 8 à 11) et Temps 4 (pas 12 à 15) */}
-                      <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
-                        {renderMainGroup(measureGroups[2], 2)}
-                        {renderMainGroup(measureGroups[3], 3)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              return <div className="flex flex-col gap-2.5 w-full">{rows}</div>;
-            })()}
             
             {/* Live Karaoke Preview */}
             {(() => {

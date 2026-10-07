@@ -27,6 +27,7 @@ import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineServic
 import { isVoiceHoldSyllable, isVoiceHoldNote, isVoiceStepProlongation } from '../utils/musicTheory';
 import { resolveVocalPhraseInfo, advanceSoloPhraseMeasure, isPhraseBlockStart } from '../utils/vocalPhraseBlock';
 import { capVoiceNoteSteps } from '../utils/voiceNoteDuration';
+import { matchVocalStepAtTick } from '../utils/vocalTimingUtils';
 import {
   pushVisualTick,
   pushVisualHitTrigger,
@@ -2102,17 +2103,25 @@ export function useAudioSync({
 
             // Si la mesure courante est muette sur cette piste, traiter les éventuelles syllabes d'anacrouse de nextPattern
             if (canPlay && nextPattern && nextPattern.preRollActiveSteps) {
-              const stepCount = nextPhrase ? nextPhrase.cellsPerMeasure : (nextPattern.steps || 16);
-              if (stepIdx % (currentTicks / stepCount) === 0) {
-                const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
+              const preBeats = getBeatsPerMeasure(measureTimeSigsRef.current[currentMeasureLocal] || '4/4');
+              const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+              const preStepMatch = matchVocalStepAtTick(
+                stepIdx,
+                nextPattern.beatResolutions,
+                preBeats,
+                currentTicks,
+                currentMeasureBpm
+              );
+
+              if (preStepMatch !== null) {
+                const cellIdx = preStepMatch.localCell;
                 const preRollState = nextPattern.preRollActiveSteps[cellIdx];
                 const isPreActive = preRollState !== undefined && preRollState !== null && preRollState !== 0 && preRollState !== '0';
 
                 if (isPreActive) {
-                  const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
                   const balancoOffsetSec = getBalancoOffsetSec({
                     stepIdx: cellIdx,
-                    steps: stepCount,
+                    steps: nextPhrase ? nextPhrase.cellsPerMeasure : (nextPattern.steps || 16),
                     beatResolutions: nextPattern.beatResolutions,
                     track,
                     pattern: nextPattern,
@@ -2122,7 +2131,7 @@ export function useAudioSync({
                   });
                   const preRollMicroVal = nextPattern.preRollMicrotimings?.[cellIdx] ?? nextPattern.microtimings?.[cellIdx] ?? 0;
                   const preRollMicroPct = Array.isArray(preRollMicroVal) ? (preRollMicroVal[0] ?? 0) : (typeof preRollMicroVal === 'number' ? preRollMicroVal : 0);
-                  const stepDurSec = (currentTicks / stepCount) * tick96nSec;
+                  const stepDurSec = preStepMatch.singleStepSec;
                   const microOffsetSec = (preRollMicroPct / 100) * stepDurSec * 0.5;
                   const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
@@ -2201,7 +2210,7 @@ export function useAudioSync({
                       const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                       const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
                       const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: nextPattern.preRollActiveSteps, startIdx: cellIdx + spanSteps, totalSteps: preRollTotal });
-                      const singleStepSec = (currentTicks / stepCount) * tick96nSec;
+                      const singleStepSec = preStepMatch.singleStepSec;
                       const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                       const trackVolLinear = faderPositionToGain(trackVolPct);
@@ -2332,15 +2341,24 @@ export function useAudioSync({
           // Indexation ABSOLUE dans la phrase : la cadence se calcule sur les pas d'UNE mesure (cellsPerMeasure),
           // puis le décalage stepOffset (mesure relative × pas/mesure) donne l'indice dans le motif complet.
           const stepCount = effectivePatternForSteps.steps;
-          const ticksPerStep = currentTicks / phrase.cellsPerMeasure;
-          if (stepIdx % ticksPerStep === 0) {
-            const localCell = Math.floor(stepIdx / ticksPerStep);
+          const beatsInMeasure = getBeatsPerMeasure(measureTimeSigsRef.current[currentMeasureLocal] || '4/4');
+          const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
+          const vocalStepMatch = matchVocalStepAtTick(
+            stepIdx,
+            effectivePatternForSteps.beatResolutions,
+            beatsInMeasure,
+            currentTicks,
+            currentMeasureBpm
+          );
+
+          if (vocalStepMatch !== null) {
+            const localCell = vocalStepMatch.localCell;
+            const singleStepSec = vocalStepMatch.singleStepSec;
             const cellIdx = phrase.stepOffset + localCell;
             const state = effectivePatternForSteps.activeSteps[cellIdx];
             const isActive = state !== undefined && state !== null && state !== 0 && state !== '0';
 
             if (isActive) {
-              const currentMeasureBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
               const balancoOffsetSec = localCell === 0 ? 0 : getBalancoOffsetSec({
                 stepIdx: localCell,
                 steps: phrase.cellsPerMeasure,
@@ -2353,7 +2371,7 @@ export function useAudioSync({
               });
               const microVal = effectivePatternForSteps.microtimings?.[cellIdx] ?? 0;
               const microPct = Array.isArray(microVal) ? (microVal[0] ?? 0) : (typeof microVal === 'number' ? microVal : 0);
-              const stepDurSec = ticksPerStep * tick96nSec;
+              const stepDurSec = singleStepSec;
               const microOffsetSec = (microPct / 100) * stepDurSec * 0.5;
               const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
@@ -2418,7 +2436,6 @@ export function useAudioSync({
                   const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
                   // Plafond de sécurité : la queue de decay ne déborde jamais sur la prochaine attaque / la fin du motif
                   const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: effectivePatternForSteps.activeSteps, startIdx: cellIdx + spanSteps, totalSteps: stepCount });
-                  const singleStepSec = ticksPerStep * tick96nSec;
                   const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                   const trackVolLinear = faderPositionToGain(trackVolPct);
@@ -2465,7 +2482,7 @@ export function useAudioSync({
                 });
                 const preRollMicroVal = targetAnacrusisPat.preRollMicrotimings?.[cellIdx] ?? targetAnacrusisPat.microtimings?.[cellIdx] ?? 0;
                 const preRollMicroPct = Array.isArray(preRollMicroVal) ? (preRollMicroVal[0] ?? 0) : (typeof preRollMicroVal === 'number' ? preRollMicroVal : 0);
-                const stepDurSec = (currentTicks / stepCount) * tick96nSec;
+                const stepDurSec = singleStepSec;
                 const microOffsetSec = (preRollMicroPct / 100) * stepDurSec * 0.5;
                 const triggerTime = time + balancoOffsetSec + microOffsetSec;
 
@@ -2546,7 +2563,6 @@ export function useAudioSync({
                     const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                     const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
                     const effectiveSteps = capVoiceNoteSteps({ spanSteps, decaySteps: numDecaySteps, activeSteps: targetAnacrusisPat.preRollActiveSteps, startIdx: cellIdx + spanSteps, totalSteps: preRollTotal });
-                    const singleStepSec = (currentTicks / stepCount) * tick96nSec;
                     const durationSec = Math.max(0.05, effectiveSteps * singleStepSec * 0.95);
 
                     const trackVolLinear = faderPositionToGain(trackVolPct);

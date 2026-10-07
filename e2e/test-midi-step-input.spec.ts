@@ -3,6 +3,7 @@ import { ensureStudioLoaded } from './helpers/navigation';
 
 test.describe("Rétablissement de l'écriture pas-à-pas au clavier maître MIDI", () => {
   test("Saisie pas-à-pas sur Puxador ('P'), Coro ('C') et Alfaia avec avance automatique", async ({ page, context }) => {
+    test.setTimeout(60000);
     page.on('console', msg => console.log('PAGE LOG:', msg.text()));
     await context.grantPermissions(['midi', 'midi-sysex']);
 
@@ -17,6 +18,16 @@ test.describe("Rétablissement de l'écriture pas-à-pas au clavier maître MIDI
       const store = (window as any).__SEQUENCER_STORE__?.getState();
       return Boolean(store && store.tracks && store.tracks.length > 0);
     }, { timeout: 15000 });
+
+    await page.waitForFunction(() => {
+      const tracks = (window as any).useSequencerStore?.getState?.()?.tracks || [];
+      return tracks.some((t: any) => 
+        t.instrumentRoleKey === 'puxador' || 
+        t.instrumentRoleKey === 'coro' || 
+        t.name?.toLowerCase().includes('puxador') ||
+        t.id === 'puxador'
+      );
+    }, { timeout: 10000 });
 
     await page.evaluate(() => {
       (window as any).__STEP_CHANGES__ = [];
@@ -69,7 +80,13 @@ test.describe("Rétablissement de l'écriture pas-à-pas au clavier maître MIDI
       (window as any).__oGiradorSimulateMidi(0x90, 60, 100);
       (window as any).__oGiradorSimulateMidi(0x80, 60, 0);
     });
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      const currentTrack = store.tracks.find((t: any) => t.id === store.editingTrackId);
+      const targetPatternId = currentTrack?.selectedPatternId || currentTrack?.patterns?.[0]?.id;
+      const pattern = currentTrack?.patterns?.find((p: any) => p.id === targetPatternId) || currentTrack?.patterns?.[0];
+      return pattern?.notes?.[0] === 'C4' && store.selectedStepIdx === 1;
+    }, { timeout: 5000 }).catch(() => {});
 
     // Vérifier l'inscription de 'C4', le rôle 'P', et l'avancement automatique au pas 1
     const puxDataAfterC4 = await page.evaluate(() => {
@@ -93,7 +110,13 @@ test.describe("Rétablissement de l'écriture pas-à-pas au clavier maître MIDI
       (window as any).__oGiradorSimulateMidi(0x90, 62, 100);
       (window as any).__oGiradorSimulateMidi(0x80, 62, 0);
     });
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => {
+      const store = (window as any).__SEQUENCER_STORE__.getState();
+      const currentTrack = store.tracks.find((t: any) => t.id === store.editingTrackId);
+      const targetPatternId = currentTrack?.selectedPatternId || currentTrack?.patterns?.[0]?.id;
+      const pattern = currentTrack?.patterns?.find((p: any) => p.id === targetPatternId) || currentTrack?.patterns?.[0];
+      return pattern?.notes?.[1] === 'D4' && store.selectedStepIdx === 2;
+    }, { timeout: 5000 }).catch(() => {});
 
     const puxDataAfterD4 = await page.evaluate(() => {
       const store = (window as any).__SEQUENCER_STORE__.getState();

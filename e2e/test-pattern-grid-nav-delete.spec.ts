@@ -15,6 +15,16 @@ test.describe("Comportement contextuel de Suppr et Navigation fluide aux flèche
       return Boolean(store && store.tracks && store.tracks.length > 0);
     }, { timeout: 15000 });
 
+    await page.waitForFunction(() => {
+      const tracks = (window as any).useSequencerStore?.getState?.()?.tracks || [];
+      return tracks.some((t: any) => 
+        t.instrumentRoleKey === 'puxador' || 
+        t.instrumentRoleKey === 'coro' || 
+        t.name?.toLowerCase().includes('puxador') ||
+        t.id === 'puxador'
+      );
+    }, { timeout: 10000 });
+
     // Ouvrir l'éditeur de détail pour la piste vocale Puxador
     await page.evaluate(() => {
       const store = (window as any).__SEQUENCER_STORE__.getState();

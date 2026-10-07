@@ -142,7 +142,9 @@ test.describe("Timeline Zoom (Ctrl + Wheel), Playhead Alignment & Audio Lookahea
       }));
     }, targetMeasure);
 
-    await page.waitForTimeout(150);
+    await page.waitForFunction((target) => {
+      return (window as any).__SEQUENCER_STORE__?.getState().currentMeasure === target;
+    }, targetMeasure, { timeout: 5000 }).catch(() => {});
 
     // Vérifier les états :
     // 1. currentMeasure synchronisé

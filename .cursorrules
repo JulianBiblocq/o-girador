@@ -1,0 +1,16 @@
+# Directives d'Agent & Règles Cursor — Séquenciad'Or
+
+## RÈGLE STRICTE DES PORTS LOCAUX (ÉCOSYSTÈME O GIRADOR)
+- Cet agent doit respecter la cartographie des ports :
+  * Orquestrad'Or : 5170
+  * Séquenciad'Or : 5174
+  * Organizad'Or : 5175
+  * Dançad'Or : 5176
+- Interdiction de modifier le port local sans instruction explicite.
+- `strictPort: true` est obligatoire : si le port est occupé, tuer les processus résiduels au lieu de changer de port.
+- Les tests E2E et les liens de navigation locale doivent pointer rigoureusement vers ces ports dédiés.
+
+---
+### 🛡️ Gouvernance Centralisée des Règles Firebase & Sécurité (Strict)
+- Les règles d'accès (`firestore.rules` et `storage.rules`) sont exclusivement pilotées, modifiées et déployées par le projet maître (**Orchestrad'Or** / backend commun).
+- Interdiction formelle de créer, modifier ou déployer des règles Firebase depuis ce dépôt.

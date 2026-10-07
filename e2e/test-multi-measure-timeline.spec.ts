@@ -68,7 +68,12 @@ test.describe("Multi-Measure Pattern Support on Timeline", () => {
       return { trackId, testPatternId };
     });
 
-    await page.waitForTimeout(500);
+    await page.waitForFunction(({ trackId, testPatternId }) => {
+      const store = (window as any).__SEQUENCER_STORE__?.getState?.();
+      const track = store?.tracks?.find((t: any) => t.id === trackId);
+      const p = track?.patterns?.find((ptn: any) => ptn.id === testPatternId);
+      return Boolean(p && p.measureAssignments && p.measureAssignments[1] === true);
+    }, patternInfo, { timeout: 5000 }).catch(() => {});
 
     // 3. Vérifications dans le Store
     const assignments = await page.evaluate(({ trackId, testPatternId }) => {

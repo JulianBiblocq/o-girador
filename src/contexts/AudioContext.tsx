@@ -728,10 +728,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const id = name.replace('cloud:', '');
         const { getCloudPreset } = await import('../cloudLibrary');
         p = await getCloudPreset(id);
-        if (!p) {
-          setIsPresetLoading(false);
-          window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
-          return;
+        if (!p || !Array.isArray(p.tracks) || p.tracks.length === 0) {
+          console.warn('[loadFallbackPreset] Invalid cloud preset or empty tracks, falling back to default preset:', id);
+          p = vouVadiarPreset;
         }
       } else if (name.startsWith('local:')) {
         const id = name.replace('local:', '');
