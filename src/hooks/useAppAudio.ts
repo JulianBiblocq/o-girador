@@ -453,20 +453,31 @@ export function useAppAudio() {
       lastNotesSignatureRef.current = getStateSignature(initialState);
     }
 
-    const unsub = useSequencerStore.subscribe((state) => {
+    // Debounce non-bloquant : ne jamais calculer getStateSignature dans le listener synchrone (Zero INP penalty)
+    const checkAndPerformSave = () => {
+      const state = useSequencerStore.getState();
       const currentSig = getStateSignature(state);
       if (currentSig !== lastNotesSignatureRef.current) {
         lastNotesSignatureRef.current = currentSig;
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(performSave, 1500);
+        performSave();
       }
+    };
+
+    const unsub = useSequencerStore.subscribe(() => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(checkAndPerformSave, { timeout: 1000 });
+        } else {
+          checkAndPerformSave();
+        }
+      }, 1500);
     });
 
     // Écouter l'événement 'force-autosave' pour les sauvegardes cloud immédiates
     const handleForceAutosave = () => {
       clearTimeout(timeoutId);
-      // Petit délai pour laisser le setState du metadata se propager au store
-      timeoutId = setTimeout(performSave, 100);
+      timeoutId = setTimeout(checkAndPerformSave, 100);
     };
     window.addEventListener('force-autosave', handleForceAutosave);
 

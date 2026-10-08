@@ -8,7 +8,7 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loadTone } from '../ToneLoader';
-import { useAudioSync, audioEngine, masterVolumeNode } from '../hooks/useAudioSync';
+import { useAudioSync, audioEngine, masterVolumeNode, invalidateAudioParamsCache } from '../hooks/useAudioSync';
 import { useSequencer } from './SequencerContext';
 import { getVocalRecording, saveVocalRecording } from '../db';
 import { getLocalLibrary, savePresetToLibrary } from '../library';
@@ -455,6 +455,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         });
       }
+
+      // Assainissement systématique des paramètres de mixage des pistes
+      loadedTracks.forEach(t => {
+        t.volumeVal = typeof t.volumeVal === 'number' && !isNaN(t.volumeVal) ? t.volumeVal : 75;
+        const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal)
+          ? t.panVal
+          : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);
+        t.panVal = rawPan;
+        t.pan = rawPan;
+        t.isMute = Boolean(t.isMute);
+        t.isSolo = Boolean(t.isSolo);
+        if (!t.fxSends) {
+          t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
+        }
+      });
       
       const promises: Promise<void>[] = [];
       loadedTracks.forEach(t => {
@@ -707,6 +722,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       sequencer.measureCountRef.current = 0;
+      sequencer.tracksRef.current = loadedTracks;
+      invalidateAudioParamsCache();
       audioSync.setCurrentMeasure(0);
       audioSync.setIsLoading(false);
     } catch (err) {
@@ -846,7 +863,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const getCurrentPresetData = (): Preset => {
     const tracksCopy = JSON.parse(JSON.stringify(useSequencerStore.getState().tracks));
-    tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
+    tracksCopy.forEach((t: any) => {
+      t.patterns?.forEach((p: any) => { delete p.vocalAudioData; });
+      // Assainissement et persistance explicite des mixages de piste
+      t.volumeVal = typeof t.volumeVal === 'number' && !isNaN(t.volumeVal) ? t.volumeVal : 75;
+      const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal)
+        ? t.panVal
+        : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);
+      t.panVal = rawPan;
+      t.pan = rawPan;
+      t.isMute = Boolean(t.isMute);
+      t.isSolo = Boolean(t.isSolo);
+    });
 
     const currentPreRoll = useTransportStore.getState().preRollSettings;
     const activeVocalPreset = useAudioStore.getState().vocalPreset || 'guide';

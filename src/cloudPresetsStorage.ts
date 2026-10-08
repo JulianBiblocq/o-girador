@@ -129,16 +129,25 @@ export async function renameCloudPreset(presetId: string, newName: string): Prom
 
 /**
  * Bascule le statut En chantier / Publié d'un preset Cloud dans Firestore.
+ * 🛡️ Sanctuarisation intelligente : La modification exclusive de visibilité (isDraft)
+ * est autorisée pour le Mestre / Admin sur les morceaux du répertoire officiel.
  */
-export async function togglePresetDraftStatus(presetId: string, currentDraft: boolean): Promise<void> {
+export async function togglePresetDraftStatus(
+  presetId: string,
+  currentDraft: boolean,
+  userRole?: string,
+  userUid?: string
+): Promise<void> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
+  const isMestre = userRole === 'mestre' || userRole === 'admin' || userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+
   if (SANCTUARIZED_PRESET_IDS.has(presetId)) {
-    if (!isRestoration) {
-      throw new Error(`[Sanctuarisation] Modification de statut interdite sur le preset officiel sanctuarisé "${presetId}".`);
+    if (!isRestoration && !isMestre) {
+      throw new Error(`[Sanctuarisation] Seul le Mestre est autorisé à modifier la visibilité du preset officiel sanctuarisé "${presetId}".`);
     }
   }
   if (isTestEnvironment()) {
-    if (!isRestoration && !presetId.startsWith('test_e2e_')) {
+    if (!isRestoration && !presetId.startsWith('test_e2e_') && !isMestre) {
       throw new Error(`[Sanctuarisation E2E] Modification interdite d'un preset non-E2E en contexte de test ("${presetId}").`);
     }
   }

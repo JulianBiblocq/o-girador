@@ -150,7 +150,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
-  const { hasAccess, userProfile, isAdmin } = useAuth();
+  const { hasAccess, userProfile, isAdmin, currentUser } = useAuth();
   const toggleSettings = useSequencerSettingsStore((state) => state.toggleSettings);
   const isInstrumentEditorDetached = useSequencerStore((state) => state.isInstrumentEditorDetached);
 
@@ -165,8 +165,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     handleAddTrackInstrument,
   } = sequencer;
 
-  const tracksHistory = useSequencerStore(state => state.tracksHistory);
-  const tracksRedoHistory = useSequencerStore(state => state.tracksRedoHistory);
+  // Sélecteurs atomiques booléens (Zero Render Thrashing : évite le re-render complet du Header à chaque micro-action)
+  const canUndo = useSequencerStore(state => state.tracksHistory.length > 0);
+  const canRedo = useSequencerStore(state => state.tracksRedoHistory.length > 0);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const metadata = useSequencerStore(state => state.metadata);
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
@@ -197,9 +198,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   };
   const onAddInstrument = handleAddTrackInstrument;
   const onUndo = handleUndo;
-  const canUndo = tracksHistory.length > 0;
   const onRedo = handleRedo;
-  const canRedo = tracksRedoHistory.length > 0;
   const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
 
   // Menu contextuel Cordel sur les onglets de navigation principale (Zone 1)
@@ -362,7 +361,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
   const queryClient = useQueryClient();
 
-  const isMestre = userProfile?.role === 'mestre' || (userProfile as any)?.dbRole === 'mestre';
+  const isMestre = Boolean(
+    userProfile?.role === 'mestre' ||
+    (userProfile as any)?.dbRole === 'mestre' ||
+    userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    currentUser?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'
+  );
   const isEditor = Boolean(isAdmin || isMestre || userProfile?.canWriteSequenciador);
 
   const activePresetId = preset?.startsWith('cloud:') ? preset.replace('cloud:', '') : preset;
@@ -380,10 +384,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     });
 
     try {
-      await togglePresetDraftStatus(presetId, currentDraft);
+      await togglePresetDraftStatus(
+        presetId,
+        currentDraft,
+        userProfile?.role || (userProfile as any)?.dbRole || (isAdmin ? 'admin' : undefined),
+        userProfile?.uid || currentUser?.uid
+      );
     } catch (err: any) {
       console.error('Failed to toggle preset draft status:', err);
-      alert(err?.message || (lang === 'pt' ? 'Erro ao alterar visibilidade' : 'Erreur lors de la modification de la visibilité'));
+      await sequencer.alertAsync(
+        err?.message || (lang === 'pt' ? 'Erro ao alterar visibilidade' : 'Erreur lors de la modification de la visibilité')
+      );
     } finally {
       await queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
     }
@@ -399,7 +410,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       );
     } catch (err: any) {
       console.error('Failed to set default group preset:', err);
-      alert(err.message || 'Erreur lors de la mise à jour du morceau de travail');
+      await sequencer.alertAsync(err.message || 'Erreur lors de la mise à jour du morceau de travail');
     }
   };
 
@@ -426,16 +437,20 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const [infoDropOpen, setInfoDropOpen] = useState(false);
   const infoDropRef = useRef<HTMLDivElement>(null);
 
-  const handleShareApp = () => {
+  const handleShareApp = async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
-      navigator.share({
-        title: 'O Girador',
-        text: 'O Girador - Sequenciador de Maracatu',
-        url: window.location.href,
-      }).catch(() => {});
+      try {
+        await navigator.share({
+          title: 'O Girador',
+          text: 'O Girador - Sequenciador de Maracatu',
+          url: window.location.href,
+        });
+      } catch (_) {}
     } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      alert(lang === 'pt' ? 'Link copiado!' : 'Lien copié !');
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        await sequencer.alertAsync(lang === 'pt' ? 'Link copiado!' : 'Lien copié !');
+      } catch (_) {}
     }
   };
 

@@ -173,13 +173,12 @@ const PercussionStepCell = React.memo(({
   return (
     <div
       key={i}
-      className="step-cell percussion-step-container flex flex-col items-center select-none relative"
+      className="step-cell percussion-step-container flex flex-col items-center select-none relative w-full min-w-0 flex-1"
       data-track-id={trackId}
       data-pattern-id={patternId}
       data-step-index={i}
       style={{
-        width: isSextuplet || isTriplet || isOcto ? 'auto' : '40px',
-        flex: isSextuplet || isTriplet || isOcto ? '1' : 'none',
+        width: '100%',
         cursor: activeTool === 'scissors' ? (Array.isArray(val) ? GLUE_CURSOR : SCISSORS_CURSOR) : undefined
       }}
       onContextMenu={(e) => {
@@ -204,7 +203,8 @@ const PercussionStepCell = React.memo(({
                 : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
           }`}
           style={{
-            width: isSextuplet || isTriplet || isOcto ? 'calc(100% - 2px)' : '38px',
+            width: 'calc(100% - 2px)',
+            maxWidth: isSextuplet || isTriplet || isOcto ? undefined : '44px',
             height: isSextuplet || isTriplet ? '48px' : '38px',
             transform: `translateX(${shiftPx}px)`,
             background: `linear-gradient(135deg, ${splitLeftColor || '#666'} 48%, #1a1a1a 48%, #1a1a1a 52%, ${splitRightColor || '#666'} 52%)`,
@@ -335,7 +335,8 @@ const PercussionStepCell = React.memo(({
           }`}
           style={{
             ...colorStyle,
-            width: isSextuplet || isTriplet || isOcto ? 'calc(100% - 2px)' : '38px',
+            width: 'calc(100% - 2px)',
+            maxWidth: isSextuplet || isTriplet || isOcto ? undefined : '44px',
             height: isSextuplet || isTriplet ? '48px' : '38px',
             transform: `translateX(${shiftPx}px)`,
             cursor: activeTool === 'scissors' ? SCISSORS_CURSOR : undefined,
@@ -353,7 +354,7 @@ const PercussionStepCell = React.memo(({
       )}
       {/* Sculpting micro-bars — Zone isolée pour sélection Escultor sans écrasement d'outil */}
       <div
-        className="w-full mt-1.5 z-10 relative select-none min-h-[20px] py-0.5"
+        className="w-full min-w-0 mt-1.5 z-10 relative select-none min-h-[20px] py-0.5"
         style={{ touchAction: 'manipulation' }}
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
@@ -493,7 +494,7 @@ const PercussionStepCell = React.memo(({
     prevProps.isMultiSelected === nextProps.isMultiSelected &&
     prevProps.isFocused === nextProps.isFocused &&
     prevProps.selectedSubIndex === nextProps.selectedSubIndex &&
-    prevProps.activeTool === nextProps.activeTool &&
+    ((prevProps.activeTool === 'scissors') === (nextProps.activeTool === 'scissors')) &&
     prevProps.shiftPx === nextProps.shiftPx &&
     prevProps.splitLeftColor === nextProps.splitLeftColor &&
     prevProps.splitRightColor === nextProps.splitRightColor &&
@@ -4037,7 +4038,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       ) : (
         /* ──── Instrument step grid ──── */
         <div
-          className="step-boxes flex flex-wrap gap-y-4 gap-x-5 lg:gap-x-7"
+          className="step-boxes grid grid-cols-4 gap-2 lg:gap-3 w-full"
           id={`detail-steps-${trackId}-${pattern.id}`}
           onTouchMove={handleGridTouchMove}
           onTouchEnd={handleGridTouchEnd}
@@ -4064,7 +4065,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               const isOcto = group.length === 8;
               
               return (
-                <div key={groupIdx} className="flex flex-col gap-1 shrink-0">
+                <div key={groupIdx} className="flex flex-col gap-1 w-full min-w-0">
                   {isTupletEditMode && (
                     <div className="flex justify-center mb-1">
                       <select 
@@ -4079,7 +4080,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       </select>
                     </div>
                   )}
-                  <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : isOcto ? 'flex gap-1' : 'flex gap-4'}`} style={{ width: '220px' }}>
+                  <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative w-full min-w-0 ${isSextuplet ? 'h-[72px]' : isTriplet ? 'grid grid-cols-3 gap-1' : isOcto ? 'grid grid-cols-8 gap-0.5' : 'grid grid-cols-4 gap-1'}`}>
                     {group.map((i, indexInGroup) => {
                       const val = pattern?.activeSteps?.[i];
                       const displayVal = getDisplayVal(val);
@@ -4133,19 +4134,19 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
                       const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
-                      let wrapperClasses = "relative flex flex-col items-center";
-                      let wrapperStyle: React.CSSProperties = { width: '40px' };
+                      let wrapperClasses = "relative flex flex-col items-center w-full min-w-0 flex-1";
+                      let wrapperStyle: React.CSSProperties = {};
                       
                       if (isSextuplet) {
                         wrapperClasses = "absolute flex flex-col items-center justify-center top-1.5 z-10 hover:z-20";
                         wrapperStyle = { 
-                          width: '54.8px', 
-                          left: `${6 + indexInGroup * 27.4}px`
+                          width: '16.6%', 
+                          left: `${indexInGroup * 16.6}%`
                         };
                       } else if (isTriplet) {
-                        wrapperStyle = { width: '48px' };
+                        wrapperClasses = "relative flex flex-col items-center w-full min-w-0 flex-1";
                       } else if (isOcto) {
-                        wrapperStyle = { width: '18px' };
+                        wrapperClasses = "relative flex flex-col items-center w-full min-w-0 flex-1";
                       }
 
                       return (

@@ -3991,7 +3991,7 @@ let idleUndoId: any = null;
 
 const scheduleUndoIdle = (fn: () => void) => {
   if (typeof window !== 'undefined' && typeof (window as any).requestIdleCallback === 'function') {
-    return (window as any).requestIdleCallback(fn, { timeout: 150 });
+    return (window as any).requestIdleCallback(fn, { timeout: 300 });
   }
   return setTimeout(fn, 0);
 };
@@ -4005,6 +4005,28 @@ const cancelUndoIdle = (id: any) => {
   }
 };
 
+const deepCloneTracks = (tracks: TrackGroup[]): TrackGroup[] => {
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(tracks);
+    } catch (_) {}
+  }
+  try {
+    return JSON.parse(JSON.stringify(tracks));
+  } catch (_) {
+    return tracks.map(t => ({
+      ...t,
+      patterns: t.patterns.map(p => ({
+        ...p,
+        activeSteps: [...p.activeSteps],
+        volumes: p.volumes ? [...p.volumes] : undefined,
+        decays: p.decays ? [...p.decays] : undefined,
+        microtimings: p.microtimings ? [...p.microtimings] : undefined,
+      }))
+    }));
+  }
+};
+
 const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (set, get) => {
   const flushPendingUndo = () => {
     if (idleUndoId !== null) {
@@ -4015,8 +4037,11 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     const snapshot = pendingUndoSnapshot;
     pendingUndoSnapshot = null;
 
+    // Copie profonde exécutée asynchronement en période Idle (hors du thread critique d'interaction)
+    const clonedTracks = deepCloneTracks(snapshot.tracks);
+
     set((prev) => {
-      const nextTracksHistory = [...prev.tracksHistory, snapshot.tracks];
+      const nextTracksHistory = [...prev.tracksHistory, clonedTracks];
       if (nextTracksHistory.length > 10) nextTracksHistory.shift();
 
       const nextStructureHistory = [...prev.songStructureHistory, snapshot.structure];
@@ -4053,7 +4078,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         vocalTransposeSteps: state.vocalTransposeSteps ?? 0,
       };
 
-      // Si aucun cliché en attente, enregistrer immédiatement l'état de référence
+      // Si aucun cliché en attente, enregistrer immédiatement l'état de référence initial (Debounce O(1))
       if (!pendingUndoSnapshot) {
         pendingUndoSnapshot = {
           tracks: tracksToSave,
@@ -4065,7 +4090,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         cancelUndoIdle(idleUndoId);
       }
 
-      // Traitement asynchrone hors du thread critique d'interaction
+      // Traitement asynchrone hors du chemin critique d'interaction
       idleUndoId = scheduleUndoIdle(() => {
         flushPendingUndo();
       });

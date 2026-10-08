@@ -106,19 +106,27 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
               {isGroupList && canEdit && (
                 <button
                   type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onToggleDraft?.(p.id, !!p.isDraft);
+                    onToggleDraft?.(p.id, p.isDraft === true);
                   }}
                   title={
-                    p.isDraft
+                    p.isDraft === true
                       ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
                       : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
                   }
                   className="shrink-0 p-1 cursor-pointer flex items-center justify-center transition-transform hover:scale-110 leading-none"
                 >
-                  {p.isDraft ? (
+                  {p.isDraft === true ? (
                     <XiloHourglass
                       size={14}
                       className="shrink-0 text-[var(--cordel-text)] opacity-60 hover:opacity-90 transition-opacity"
@@ -192,7 +200,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
 
   const visiblePrivatePresets = canEdit
     ? privateCloudPresets
-    : privateCloudPresets.filter((p) => !p.isDraft);
+    : privateCloudPresets.filter((p) => p.isDraft !== true);
+
+  const visiblePublicPresets = canEdit
+    ? publicCloudPresets
+    : publicCloudPresets.filter((p) => p.isDraft !== true);
 
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
@@ -240,11 +252,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
             <span className="flex items-center gap-1.5 truncate">
               <span className="text-sm leading-none">☁️</span>
               <span className="truncate">{publicTitle}</span>
-              <span className="text-[10px] opacity-60 font-sans">({publicCloudPresets.length})</span>
+              <span className="text-[10px] opacity-60 font-sans">({visiblePublicPresets.length})</span>
             </span>
             <span className="text-[9px] opacity-70 ml-1">{isPublicOpen ? '▼' : '▶'}</span>
           </button>
-          {isPublicOpen && renderPresetList(publicCloudPresets, '☁️', lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)')}
+          {isPublicOpen && renderPresetList(visiblePublicPresets, '☁️', lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)')}
         </div>
 
         {localPresets.length > 0 && (
@@ -298,13 +310,13 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           <optgroup label={groupTitle}>
             {visiblePrivatePresets.map((p) => (
               <option key={`og:${p.id}`} value={`cloud:${p.id}`}>
-                {p.isDraft ? '⏳ ' : ''}{p.name}
+                {p.isDraft === true ? '⏳ ' : ''}{p.name}
               </option>
             ))}
           </optgroup>
         )}
         <optgroup label={publicTitle}>
-          {publicCloudPresets.map((p) => (<option key={`op:${p.id}`} value={`cloud:${p.id}`}>☁️ {p.name}</option>))}
+          {visiblePublicPresets.map((p) => (<option key={`op:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '⏳ ' : ''}☁️ {p.name}</option>))}
         </optgroup>
       </select>
     </div>

@@ -368,7 +368,28 @@ const percentToDb = (percent: number): number => {
   return 40 * Math.log10(normalized);
 };
 
+/**
+ * Normalise la valeur de panoramique pour Tone.js (Tone.Channel.pan attend [-1.0, 1.0]).
+ * Protège contre l'injection d'une valeur brute (ex. 100%) qui saturerait le nœud Web Audio.
+ */
+export function normalizePanForTone(panOrPanVal: number | undefined | null): number {
+  if (panOrPanVal === undefined || panOrPanVal === null || isNaN(panOrPanVal)) return 0;
+  const val = Number(panOrPanVal);
+  const normalized = Math.abs(val) > 1 ? val / 100 : val;
+  return Math.max(-1, Math.min(1, normalized));
+}
 
+let globalInvalidateAudioParamsCache: (() => void) | null = null;
+
+/**
+ * Invalide immédiatement le cache de référence des paramètres audio (lastAppliedTracksParamsRef).
+ * Force Tone.js à réappliquer immédiatement tous les volumes, pans et mutes au prochain cycle.
+ */
+export function invalidateAudioParamsCache(): void {
+  if (globalInvalidateAudioParamsCache) {
+    globalInvalidateAudioParamsCache();
+  }
+}
 
 const instrumentIds = ['caixa', 'tarol', 'marcante', 'meiao', 'repique', 'gongue', 'agbe', 'apito'];
 
@@ -616,6 +637,21 @@ export function useAudioSync({
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
   const lastAppliedTracksParamsRef = useRef<Record<string, string>>({});
   const lastAppliedBussesRef = useRef<Record<string, string | null>>({});
+
+  // Méthode impérative d'invalidation de cache pour applyPreset / rechargements
+  const resetAudioParamsCache = useCallback(() => {
+    lastAppliedTracksParamsRef.current = {};
+    lastAppliedBussesRef.current = {};
+  }, []);
+
+  useEffect(() => {
+    globalInvalidateAudioParamsCache = resetAudioParamsCache;
+    return () => {
+      if (globalInvalidateAudioParamsCache === resetAudioParamsCache) {
+        globalInvalidateAudioParamsCache = null;
+      }
+    };
+  }, [resetAudioParamsCache]);
 
   // FLAT SONG SCHEDULE REFERENCES
   const flatCompiledScheduleRef = useRef<Float32Array | null>(null);
@@ -1108,7 +1144,7 @@ export function useAudioSync({
         const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracksRef.current, t.id);
         const db = faderPositionToDb(effectiveVol);
         const safeDb = Number.isFinite(db) ? db : -100;
-        const pan = (t.panVal || t.pan || 0) / 100;
+        const pan = normalizePanForTone(t.panVal ?? t.pan);
         const muteState = getEffectiveMuteState(tracksRef.current, t.id);
 
         busChannels[t.id].volume.value = safeDb;
@@ -1182,7 +1218,7 @@ export function useAudioSync({
           const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracksRef.current, t.id);
           const db = faderPositionToDb(effectiveVol);
           const safeDb = Number.isFinite(db) ? db : -100;
-          const pan = (t.pan ?? t.panVal ?? 0) / 100;
+          const pan = normalizePanForTone(t.panVal ?? t.pan);
           const muteState = getEffectiveMuteState(tracksRef.current, t.id);
 
           channels[t.id].volume.value = safeDb;
@@ -3877,7 +3913,7 @@ export function useAudioSync({
             const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
             const db = faderPositionToDb(effectiveVol);
             const safeDb = Number.isFinite(db) ? db : -100;
-            const pan = (t.panVal || 0) / 100;
+            const pan = normalizePanForTone(t.panVal ?? t.pan);
             const reverb = t.fxSends?.reverb ?? 0;
             const distortion = t.fxSends?.distortion ?? 0;
             const muteState = getEffectiveMuteState(tracks, t.id);
@@ -3971,7 +4007,7 @@ export function useAudioSync({
           const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
           const db = faderPositionToDb(effectiveVol);
           const safeDb = Number.isFinite(db) ? db : -100;
-          const pan = (t.pan ?? t.panVal ?? 0) / 100;
+          const pan = normalizePanForTone(t.panVal ?? t.pan);
           const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
           const distortion = t.fxSends?.distortion ?? 0;
           const muteState = getEffectiveMuteState(tracks, t.id);
@@ -4082,6 +4118,7 @@ export function useAudioSync({
     handleTimelineNavigate,
     launchSpeedTrainer,
     stopSpeedTrainerAudio,
+    invalidateAudioParamsCache: resetAudioParamsCache,
     // Scheduling references/refs needed by circle sequencer/etc.
     isPlayingRef,
     currentStepIndexRef,

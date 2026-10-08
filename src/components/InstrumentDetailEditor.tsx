@@ -2103,7 +2103,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               }
                               cardTouchStartPosRef.current = null;
                             }}
-                            className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2 select-none"
+                            className="flex flex-wrap items-center gap-2 border-b-[2px] border-[#1a1a1a] pb-2 select-none"
                           >
                             {/* Reorder handle */}
                             {(track.patterns?.length || 0) > 1 && (
@@ -2337,7 +2337,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             </div>
 
                             {/* Steps selector */}
-                            <div className="flex items-center gap-1.5 ml-auto">
+                            <div className="flex items-center gap-1.5 sm:ml-auto">
                               <span className="text-[11px] font-bold uppercase">{t('stepsNum')}</span>
                               <select
                                 value={ptn.steps}
@@ -2354,7 +2354,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             {displayedPatterns.length > 1 && !isSlave && (
                               <button
                                 onClick={() => onDeletePattern(ptn.id)}
-                                className="text-[#8b2a1a] font-bold text-xs px-2 py-1 cordel-border-sm cordel-button hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer"
+                                className="text-[#8b2a1a] font-bold text-xs px-2 py-1 cordel-border-sm cordel-button hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                               >
                                 ✕ {lang === 'fr' ? 'Suppr.' : 'Excluir'}
                               </button>
