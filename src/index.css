@@ -1042,8 +1042,8 @@ body.eco-mode #center-afficheur {
 /* Uncontrolled Paper-colored Textarea */
 .xilo-textarea {
   background-color: #fcf9f2;
-  color: var(--cordel-border, #1a1a1a);
-  border: 3px solid var(--cordel-border, #1a1a1a);
+  color: #1a1a1a;
+  border: 3px solid #1a1a1a;
   border-radius: 8px 12px 6px 10px / 10px 6px 12px 8px;
   font-family: inherit;
   font-size: 0.825rem;
@@ -1052,6 +1052,7 @@ body.eco-mode #center-afficheur {
   padding: 0.5rem;
   resize: none;
   width: 100%;
+  color-scheme: light;
   box-shadow: inset 1px 1.5px 3px rgba(0, 0, 0, 0.12);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }

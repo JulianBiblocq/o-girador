@@ -92,6 +92,8 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
       onClick={onClose}
     >
       <div
+        data-theme="light"
+        style={{ colorScheme: 'light' }}
         className="bg-[#f4ecd8] border-4 border-[#1a1a1a] shadow-[6px_6px_0px_rgba(0,0,0,1)] rounded-[2px_6px_3px_5px] max-w-2xl w-full flex flex-col max-h-[90vh] relative text-[#1a1a1a] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
@@ -217,7 +219,7 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
                     : 'Racontez l\'histoire du rythme, de la toada, des mestres, anecdotes...'
                 }
                 rows={12}
-                className="xilo-textarea w-full p-3.5 text-sm sm:text-base leading-relaxed resize-y font-sans min-h-[200px]"
+                className="xilo-textarea w-full p-3.5 text-sm sm:text-base leading-relaxed resize-y font-sans min-h-[200px] text-[#1a1a1a] bg-[#fcf9f2] border-3 border-[#1a1a1a]"
                 autoFocus
               />
             </div>
