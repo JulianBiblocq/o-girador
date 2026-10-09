@@ -59,7 +59,6 @@ export function useAppAudio() {
 
   // Load Preset catalog and decode initial composition from URL query/hash or local storage.
   useEffect(() => {
-    if (audio.isLoading || authLoading) return;
     if (hasLoadedInitialPreset.current) return;
     hasLoadedInitialPreset.current = true;
 
@@ -313,7 +312,7 @@ export function useAppAudio() {
           vocalEngineService.rehydrateVocalBuffers(useSequencerStore.getState().tracks).catch(() => {});
         });
     });
-  }, [audio, authLoading]);
+  }, [audio]);
 
   // PWA File & URL Handler: handle files opened via the OS file handler or URLs via focus-existing
   useEffect(() => {

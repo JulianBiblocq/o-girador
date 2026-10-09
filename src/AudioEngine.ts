@@ -1345,6 +1345,18 @@ export class AudioEngine {
     time?: number
   ): void {
     const Tone = getTone();
+    if (this.audioContext && this.audioContext.state !== 'running') {
+      this.audioContext.resume().catch(() => {});
+    }
+    if (Tone && Tone.context && Tone.context.state !== 'running') {
+      if (typeof (Tone.context as any).resume === 'function') {
+        (Tone.context as any).resume().catch(() => {});
+      }
+      Tone.start().catch(() => {});
+    }
+    if (!useAudioStore.getState().isAudioUnlocked) {
+      useAudioStore.getState().unlockAudio();
+    }
 
     // Déclenche le chargement en arrière-plan si pas encore chargé
     this.loadInstrumentSamples(instrumentId).catch(console.error);

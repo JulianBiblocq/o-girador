@@ -545,7 +545,7 @@ export function useAudioSync({
   const getTicksPerMeasureRef = useRef<(idx: number) => number>(() => 96);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const compilerWorkerRef = useRef<Worker | null>(null);
   const isEcoModeRef = useRef(false);
@@ -881,13 +881,11 @@ export function useAudioSync({
 
   // Sync Transport BPM
   useEffect(() => {
-    if (!isAudioUnlocked) return;
     Tone.Transport.bpm.value = bpm;
-  }, [bpm, isAudioUnlocked]);
+  }, [bpm]);
 
   // Reset Destination Volume to neutral and process deferred reverb when stopped
   useEffect(() => {
-    if (!isAudioUnlocked) return;
     if (!isPlaying) {
       try {
         Tone.Destination.volume.setValueAtTime(0, Tone.context.currentTime);
@@ -898,7 +896,7 @@ export function useAudioSync({
         setDeferredReverbActivation(false);
       }
     }
-  }, [isPlaying, isAudioUnlocked]);
+  }, [isPlaying]);
 
   // Instancier le Web Worker de compilation une seule fois au montage du composant
   useEffect(() => {
@@ -1059,8 +1057,6 @@ export function useAudioSync({
 
   // Initialize stable Audio Engine Nodes
   useEffect(() => {
-    if (!isAudioUnlocked) return;
-
     const initAudio = async () => {
       try {
         await loadTone();
@@ -2720,9 +2716,10 @@ export function useAudioSync({
       
       stopAllNativeOscillators();
     };
-  }, [isAudioUnlocked]);
+  }, []);
 
   const handleTogglePlayRef = useRef<((playOptions?: { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number }) => Promise<void>) | null>(null);
+  const isStartingRef = useRef(false);
 
   // ─── VisibilityChange & Mobile Auto-Pause ────────────────────────────
   // When screen turns off or app is backgrounded (document.hidden === true):
@@ -2753,38 +2750,21 @@ export function useAudioSync({
   }, []);
 
   const handleTogglePlay = useCallback(async (playOptions?: { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number } | any) => {
-    const options = (playOptions && typeof playOptions === 'object' && !('nativeEvent' in playOptions) && !('target' in playOptions))
-      ? (playOptions as { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number })
-      : undefined;
-    if (import.meta.env.DEV) {
-    }
-    // 🛡️ UNLOCK GUARD: Réveiller le moteur audio s'il n'avait pas été déverrouillé (arrivée directe sur la Roda)
-    if (!useAudioStore.getState().isAudioUnlocked) {
-      useAudioStore.getState().unlockAudio();
-    }
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+    try {
+      const options = (playOptions && typeof playOptions === 'object' && !('nativeEvent' in playOptions) && !('target' in playOptions))
+        ? (playOptions as { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number })
+        : undefined;
+      if (import.meta.env.DEV) {
+      }
+      // 🛡️ UNLOCK GUARD: Réveiller le moteur audio s'il n'avait pas été déverrouillé (arrivée directe sur la Roda)
+      if (!useAudioStore.getState().isAudioUnlocked) {
+        useAudioStore.getState().unlockAudio();
+      }
 
     // 🛡️ SYNC CHECK: Resume context synchronously inside the user event click stack to bypass Safari autoplay block
     const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-    if (rawCtx && rawCtx.state !== 'running') {
-      try {
-        rawCtx.resume();
-      } catch (e) {
-        // console.warn("AudioContext resume failed:", e);
-      }
-    }
-    if (Tone.context && Tone.context.state !== 'running') {
-      try {
-        Tone.context.resume();
-      } catch (e) {
-        // console.warn("AudioContext resume failed:", e);
-      }
-    }
-    if (Tone.start) {
-      try {
-        Tone.start();
-      } catch (_) {}
-    }
-
     if (rawCtx && rawCtx.state !== 'running') {
       try {
         await rawCtx.resume();
@@ -2798,6 +2778,11 @@ export function useAudioSync({
       } catch (e) {
         // console.warn("AudioContext resume failed:", e);
       }
+    }
+    if (Tone.start) {
+      try {
+        await Tone.start();
+      } catch (_) {}
     }
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
@@ -3375,7 +3360,10 @@ export function useAudioSync({
         try { cb(detail); } catch (err) { console.error(err); }
       });
     }
-  }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
+  } finally {
+    isStartingRef.current = false;
+  }
+}, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
   handleTogglePlayRef.current = handleTogglePlay;
 
   const handleStop = useCallback(() => {

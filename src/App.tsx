@@ -118,27 +118,6 @@ export default function App() {
     return () => window.removeEventListener('show-visitor-auth-mandatory', handleShowAuth);
   }, []);
 
-  React.useEffect(() => {
-    const handleFirstUserGesture = () => {
-      if (!useAudioStore.getState().isAudioUnlocked) {
-        useAudioStore.getState().unlockAudio();
-      }
-      try {
-        if (Tone.context && Tone.context.state !== 'running') {
-          Tone.context.resume().catch(() => {});
-          Tone.start().catch(() => {});
-        }
-      } catch (_) {}
-    };
-    window.addEventListener('pointerdown', handleFirstUserGesture, { once: true, passive: true });
-    window.addEventListener('keydown', handleFirstUserGesture, { once: true, passive: true });
-    window.addEventListener('touchstart', handleFirstUserGesture, { once: true, passive: true });
-    return () => {
-      window.removeEventListener('pointerdown', handleFirstUserGesture);
-      window.removeEventListener('keydown', handleFirstUserGesture);
-      window.removeEventListener('touchstart', handleFirstUserGesture);
-    };
-  }, []);
 
   React.useEffect(() => {
     // 🎙️ Réhydratation automatique des enregistrements vocaux en RAM au montage de l'application
