@@ -12,7 +12,7 @@ import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useA
 import { useAudioStore } from '../stores/useAudioStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { getStrokePairs, getWheelNuanceState, STEP_OPTIONS } from '../utils/instrumentStrokes';
+import { getStrokePairs, getWheelNuanceState } from '../utils/instrumentStrokes';
 import { getNextPatternName } from '../utils/patternNaming';
 import { canTransferPatterns } from '../utils/instrumentCompatibility';
 import { createPortal } from 'react-dom';
@@ -47,13 +47,15 @@ import { StrokeWritingDock } from './instrument-editor/StrokeWritingDock';
 import { useBalancoStore } from '../stores/useBalancoStore';
 import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
+import { MetricDivisionSelector } from './instrument-editor/MetricDivisionSelector';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { VocalWorkflowStepper } from './VocalWorkflowStepper';
-import { XiloChisel, XiloMegaphone } from './XiloIcons';
+import { XiloChisel } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { InstrumentHeaderContextMenu } from './instrument-editor/InstrumentHeaderContextMenu';
 import { InstrumentAddPickerPopover } from './instrument-editor/InstrumentAddPickerPopover';
 import { CordelContextMenu, CordelMenuItem } from './ui/CordelContextMenu';
+import { formatMeasureRanges } from '../utils/formatMeasures';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -62,8 +64,8 @@ const SortablePatternWrapper = ({ id, children, className, style: propStyle }: a
 };
 
 const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[], lang: string) => {
-  const pattern = parentBusTrack.patterns.find((p: any) => p.id === patternId);
-  if (!pattern) return [];
+  const pattern = parentBusTrack?.patterns?.find((p: any) => p.id === patternId);
+  if (!pattern || !pattern.measureAssignments) return [];
 
   const totalMeasures = pattern.measureAssignments.length;
   const songSections = useSequencerStore.getState().songSections;
@@ -1102,10 +1104,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   useEffect(() => {
     (window as any).oGiradorDetailEditorOpen = true;
+    (window as any).oGiradorVocalEditorOpen = isVocalContext;
     return () => {
       (window as any).oGiradorDetailEditorOpen = false;
+      (window as any).oGiradorVocalEditorOpen = false;
     };
-  }, []);
+  }, [isVocalContext]);
 
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { soloPatternPlayIdRef.current = soloPatternPlayId; }, [soloPatternPlayId]);
@@ -1265,6 +1269,38 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setExpandedFolders(prev => ({ ...prev, [folder]: !prev[folder] }));
   };
 
+  const handleInspectorCopyActivePattern = React.useCallback(() => {
+    const targetId = selectedPatternId || activePattern?.id;
+    const p = displayedPatterns.find(pt => pt.id === targetId);
+    if (p && onCopyPattern) {
+      onCopyPattern(p);
+    }
+  }, [selectedPatternId, activePattern?.id, displayedPatterns, onCopyPattern]);
+
+  const handleInspectorPasteActivePattern = React.useCallback(() => {
+    const targetId = selectedPatternId || activePattern?.id;
+    if (targetId && onPastePattern) {
+      onPastePattern(targetId);
+    }
+  }, [selectedPatternId, activePattern?.id, onPastePattern]);
+
+  const handleInspectorSaveActivePattern = React.useCallback(() => {
+    const targetId = selectedPatternId || activePattern?.id;
+    const p = displayedPatterns.find(pt => pt.id === targetId);
+    if (targetId) {
+      setSaveModalPatternId(targetId);
+      setSavePatternName(p?.name || '');
+      setSavePatternFolder(existingFolders[0] || 'Général');
+    }
+  }, [selectedPatternId, activePattern?.id, displayedPatterns, existingFolders]);
+
+  const handleInspectorLoadActivePattern = React.useCallback(() => {
+    const targetId = selectedPatternId || activePattern?.id;
+    if (targetId) {
+      setLoadModalPatternId(targetId);
+    }
+  }, [selectedPatternId, activePattern?.id]);
+
   // Ensure we always call the latest onStopSoloPattern, but ONLY on component unmount
   const stopSoloRef = useRef(onStopSoloPattern);
   useEffect(() => {
@@ -1310,8 +1346,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         if (lastActiveId !== null) {
           const oldCard = patternDOMRefs.current.get(lastActiveId);
           if (oldCard) {
-            oldCard.style.boxShadow = oldCard.getAttribute('data-selected') === 'true' ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb';
-            oldCard.style.borderColor = oldCard.getAttribute('data-selected') === 'true' ? '#1a1a1a' : '#999';
+            oldCard.style.boxShadow = oldCard.getAttribute('data-selected') === 'true' ? '3px 3px 0px 0px #1a1a1a' : '1px 1px 0px 0px #bbb';
+            oldCard.style.borderColor = oldCard.getAttribute('data-selected') === 'true' ? '#1a1a1a' : '#bbb';
           }
           const oldBadge = badgeDOMRefs.current.get(lastActiveId);
           if (oldBadge) {
@@ -1323,8 +1359,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         if (activeId !== null) {
           const newCard = patternDOMRefs.current.get(activeId);
           if (newCard) {
-            newCard.style.boxShadow = '4px 4px 0px 0px #8b2a1a';
-            newCard.style.borderColor = '#8b2a1a';
+            newCard.style.boxShadow = '3px 3px 0px 0px #1a1a1a';
+            newCard.style.borderColor = '#1a1a1a';
           }
           const newBadge = badgeDOMRefs.current.get(activeId);
           if (newBadge) {
@@ -1618,7 +1654,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         Boolean(activeEl?.isContentEditable) ||
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
-        Boolean(target?.isContentEditable);
+        Boolean(target?.isContentEditable) ||
+        Boolean(activeEl?.classList?.contains('v-syl')) ||
+        Boolean(target?.classList?.contains('v-syl'));
 
       // Barrière 1 : Saisie de texte (seule Escape blur le champ)
       if (isTextEntry) {
@@ -1630,8 +1668,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         return;
       }
 
-      // Barrière 2 : Touche Escape ferme immédiatement l'éditeur d'instrument
+      // Barrière 2 : Touche Escape ferme immédiatement l'éditeur d'instrument (sauf si un dialogue de confirmation est ouvert)
       if (e.key === 'Escape') {
+        if (document.querySelector('[data-testid="custom-dialog-backdrop"]')) {
+          return;
+        }
         e.preventDefault();
         handleClose();
         return;
@@ -1660,6 +1701,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       // ─────────────────────────────────────────────────────────────
       // SÉLECTION DU PINCEAU & NUANCES AU CLAVIER (Hors focus de pas)
       // ─────────────────────────────────────────────────────────────
+
+      // Neutralisation totale des raccourcis et pré-écoutes percussives en contexte vocal
+      if (isVocalContext || (track as any)?.type === 'voice' || inst?.type === 'voice') {
+        if (onKeyDown) onKeyDown(e);
+        return;
+      }
 
       // Flèches ↑ / ↓ : Ajuster la nuance du pinceau actif entre fort et faible
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -1764,21 +1811,30 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     <>
       <div
         data-testid="instrument-detail-editor-modal"
-        className={`bg-[#f4ecd8] ${isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
-        style={isDetached ? { width: '100%', height: '100%' } : {
+        data-theme="light"
+        data-instrument-detail-editor={isVocalContext ? "voice" : "percussion"}
+        data-voice-editor={isVocalContext ? "true" : "false"}
+        className={`bg-[#ece4d0] ${isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
+        style={isDetached ? { width: '100%', height: '100%', colorScheme: 'light' } : {
           maxWidth: isMobile ? '100%' : '80rem',
           width: isMobile ? '98vw' : '95vw',
           height: isMobile ? 'calc(100% - 0.25rem)' : 'calc(100% - 0.5rem)',
           maxHeight: '100%',
           boxShadow: '8px 8px 0px 0px #1a1a1a',
+          colorScheme: 'light',
         }}
       >
+        {/* Calque d'arrière-plan vectoriel (papier peint Cordel) */}
+        <div 
+          className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg opacity-15" 
+          aria-hidden="true" 
+        />
         {isClosing && !isDetached && (
-          <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-10 pointer-events-auto" />
+          <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-20 pointer-events-auto" />
         )}
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
-          className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0"
+          className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0 relative z-10"
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
           {/* Gauche : Commutateur Puxador / Coro (ou Nom de l'instrument) + Ruban */}
@@ -1850,37 +1906,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
             </div>
 
-            {/* Centre : Bouton contextuel Audio 2-en-1 en contexte vocal */}
+            {/* Centre : Guide vocal discret [ ? Guide ] en contexte vocal */}
             {isVocalContext && (
               <div className="flex items-center justify-center shrink-0 flex-shrink-0 px-2">
-                <input
-                  type="file"
-                  ref={headerAudioInputRef}
-                  accept="audio/*,.wav,.ogg,.mp3"
-                  className="hidden"
-                  onChange={handleHeaderAudioImport}
+                <VocalWorkflowStepper
+                  patternId={selectedPatternId ?? activePattern?.id}
+                  trackId={effectiveEditTrackId}
+                  isCoro={isCoroActive}
                 />
-                {!hasAudio ? (
-                  <button
-                    type="button"
-                    onClick={() => headerAudioInputRef.current?.click()}
-                    className="flex items-center gap-1.5 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-3 py-1.5 rounded-sm font-cactus font-bold text-xs uppercase text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shrink-0 flex-shrink-0"
-                    title={lang === 'fr' ? "Importer un fichier audio (.wav, .ogg, .mp3)" : "Importar arquivo de áudio"}
-                  >
-                    <FolderOpen size={14} className="shrink-0" />
-                    <span>{lang === 'fr' ? '📁 IMPORTER AUDIO' : '📁 IMPORTAR ÁUDIO'}</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleOpenAlignment}
-                    className="flex items-center gap-1.5 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-3 py-1.5 rounded-sm font-cactus font-bold text-xs uppercase text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 active:shadow-none shrink-0 flex-shrink-0"
-                    title={lang === 'fr' ? "Ajuster le calage, trim et tempo du sample audio" : "Ajustar alinhamento, trim e andamento"}
-                  >
-                    <span className="shrink-0">✏️</span>
-                    <span>{lang === 'fr' ? 'AJUSTER LE CALAGE' : 'AJUSTAR O CALADO'}</span>
-                  </button>
-                )}
               </div>
             )}
 
@@ -2002,10 +2035,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         </div>
 
         {/* ═══════════════════ CORPS CENTRAL (Grille + Inspecteur) ═══════════════════ */}
-        <div className="w-full flex-1 flex overflow-hidden min-h-0 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="w-full flex-1 flex overflow-hidden min-h-0 relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
           
           {/* Zone gauche (flex-1 overflow-y-auto) : Grille et gestion des motifs */}
-          <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0 bg-transparent text-[#1a1a1a] relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
             {isSlave && (
               <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[#d4af37]/20 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] text-xs font-bold text-[#1a1a1a] shrink-0 select-none rounded-xs">
                 <span className="text-base">🔗</span>
@@ -2015,15 +2048,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     : 'Instrumento vinculado — Padrões sincronizados com o mestre'}
                 </span>
               </div>
-            )}
-
-            {/* Stepper vocal didactique (« Poser sa voix ») uniquement pour le contexte vocal */}
-            {isVocalContext && (
-              <VocalWorkflowStepper
-                patternId={selectedPatternId ?? activePattern?.id}
-                trackId={effectiveEditTrackId}
-                isCoro={isCoroActive}
-              />
             )}
 
             <div className={`flex flex-col gap-6 ${isSlave ? 'opacity-55 pointer-events-none select-none' : ''}`}>
@@ -2045,400 +2069,288 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             }
                           }}
                           data-pattern-card={ptn.id}
+                          data-pattern-id={ptn.id}
                           data-selected={isSelected}
                           onClick={() => {
                             onSelectPattern(ptn.id);
                             setSelectedPatternId(ptn.id);
                             setSelectedVariationId(null);
                           }}
-                          className={`cordel-border-sm p-4 flex flex-col gap-3 transition-all cursor-pointer ${
-                            isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]/75 hover:bg-[#ece4d0]'
+                          className={`p-4 flex flex-col gap-3 transition-all duration-150 cursor-pointer rounded-xs ${
+                            isSelected
+                              ? 'border-2 border-[#8b2a1a] shadow-[3px_3px_0px_#8b2a1a] bg-[#f9f5ea]'
+                              : 'border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.15)] bg-[#f0e6d2]/80 hover:bg-[#f0e6d2]'
                           } ${armedPatternId === ptn.id ? 'cordel-arm-pulse' : ''}`}
-                          style={{
-                            ...style,
-                            boxShadow: armedPatternId === ptn.id ? undefined : (isSelected ? '4px 4px 0px 0px #8b2a1a' : '2px 2px 0px 0px #bbb'),
-                            borderColor: armedPatternId === ptn.id ? undefined : (isSelected ? '#8b2a1a' : '#bbb'),
-                            borderWidth: isSelected ? '3px' : '2px',
-                          }}
+                          style={style}
                         >
-                          {/* Pattern Header */}
-                          <div
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleOpenPatternCardMenu(ptn, e.clientX, e.clientY);
-                            }}
-                            onTouchStart={(e) => {
-                              if (e.touches.length === 1) {
-                                const touch = e.touches[0];
-                                cardTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
-                                cardLongPressTimerRef.current = setTimeout(() => {
-                                  handleOpenPatternCardMenu(ptn, touch.clientX, touch.clientY);
-                                  cardLongPressTimerRef.current = null;
-                                }, 400);
-                              }
-                            }}
-                            onTouchMove={(e) => {
-                              if (cardLongPressTimerRef.current && cardTouchStartPosRef.current && e.touches.length === 1) {
-                                const touch = e.touches[0];
-                                const dx = Math.abs(touch.clientX - cardTouchStartPosRef.current.x);
-                                const dy = Math.abs(touch.clientY - cardTouchStartPosRef.current.y);
-                                if (dx > 10 || dy > 10) {
-                                  clearTimeout(cardLongPressTimerRef.current);
-                                  cardLongPressTimerRef.current = null;
-                                }
-                              }
-                            }}
-                            onTouchEnd={() => {
-                              if (cardLongPressTimerRef.current) {
-                                clearTimeout(cardLongPressTimerRef.current);
-                                cardLongPressTimerRef.current = null;
-                              }
-                              cardTouchStartPosRef.current = null;
-                            }}
-                            onTouchCancel={() => {
-                              if (cardLongPressTimerRef.current) {
-                                clearTimeout(cardLongPressTimerRef.current);
-                                cardLongPressTimerRef.current = null;
-                              }
-                              cardTouchStartPosRef.current = null;
-                            }}
-                            className="flex flex-wrap items-center gap-2 border-b-[2px] border-[#1a1a1a] pb-2 select-none"
-                          >
-                            {/* Reorder handle */}
-                            {(track.patterns?.length || 0) > 1 && (
-                              <div
-                                {...attributes}
-                                {...listeners}
-                                className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
-                                title={lang === 'fr' ? "Glisser pour réordonner les motifs" : "Arrastar para reordenar os padrões"}
-                              >
-                                <GripVertical size={16} />
-                              </div>
-                            )}
-                            <input
-                              type="radio"
-                              checked={isSelected}
-                              onChange={() => onSelectPattern(ptn.id)}
-                              className="w-4 h-4 accent-[#1a1a1a] cursor-pointer"
-                            />
-                            {editingPatternId === ptn.id ? (
-                              <input
-                                type="text"
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                onBlur={() => handleSave(ptn.id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSave(ptn.id);
-                                  if (e.key === 'Escape') setEditingPatternId(null);
-                                }}
-                                className="font-cactus font-bold text-sm bg-transparent border-b border-[#1a1a1a] outline-none text-[#1a1a1a] px-1 py-0.5"
-                                autoFocus
-                                onFocus={(e) => e.target.select()}
-                              />
-                            ) : (
-                              <span
-                                className={`font-cactus font-bold cursor-pointer select-none ${
-                                  isSelected ? 'text-[#1a1a1a] text-base' : 'text-[#666] text-sm'
-                                }`}
-                                onClick={() => onSelectPattern(ptn.id)}
-                                onDoubleClick={() => {
-                                  setEditingPatternId(ptn.id);
-                                  setEditName(ptn.name || '');
-                                }}
-                                title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
-                              >
-                                {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
-                              </span>
-                            )}
-
-                            {editingPatternId !== ptn.id && isMobile && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingPatternId(ptn.id);
-                                  setEditName(ptn.name || '');
-                                }}
-                                className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
-                                title={lang === 'fr' ? 'Renommer' : 'Renomear'}
-                              >
-                                 <XiloChisel size={10} />
-                              </button>
-                            )}
-
-                            {isSelected ? (
-                              <span
-                                ref={(el) => {
-                                  if (el) {
-                                    badgeDOMRefs.current.set(ptn.id, el);
-                                  } else {
-                                    badgeDOMRefs.current.delete(ptn.id);
-                                  }
-                                }}
-                                data-active-badge={ptn.id}
-                                className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-2 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]"
-                              >
-                                ▶ {lang === 'fr' ? 'ÉDITION ACTIVE' : 'EDIÇÃO ATIVA'}
-                              </span>
-                            ) : (
-                              <span
-                                ref={(el) => {
-                                  if (el) {
-                                    badgeDOMRefs.current.set(ptn.id, el);
-                                  } else {
-                                    badgeDOMRefs.current.delete(ptn.id);
-                                  }
-                                }}
-                                data-active-badge={ptn.id}
-                                className="text-[#666] text-[9px] uppercase px-1.5 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none"
-                              >
-                                {lang === 'fr' ? 'Cliquer pour activer' : 'Clique para ativar'}
-                              </span>
-                            )}
-
-                            <button
-                              data-testid={`btn-solo-pattern-${ptn.id}-ensemble`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble') {
-                                  onStopSoloPattern && onStopSoloPattern();
-                                } else {
-                                  onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'ensemble');
-                                }
-                              }}
-                              className={`p-1 rounded-sm transition-colors ml-2 ${
-                                soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble'
-                                  ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                                  : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-                              }`}
-                              title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif complet en solo (Base + Variations)' : 'Ouvir este padrão completo em solo')}
-                            >
-                              {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                            </button>
-
-                            {/* Bouton ARM / Badge ARMÉ (masqué en contexte vocal / Toada) */}
-                            {!isVocalContext && (
-                              armedPatternId === ptn.id ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleArmPattern(track.id, ptn.id);
-                                  }}
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm bg-[#e67e22] text-[#1a1a1a] shadow-sm transition-all cursor-pointer select-none flex items-center gap-1.5 ml-1.5 animate-pulse"
-                                  title={lang === 'fr' ? "Motif armé pour l'enregistrement (cliquer pour désarmer)" : "Padrão armado para gravação (clique para desarmar)"}
-                                >
-                                  <span className="w-2 h-2 rounded-full bg-[#8b2a1a] shrink-0" />
-                                  <span>● {lang === 'fr' ? 'ARMÉ / PRÊT' : 'ARMADO / PRONTO'}</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleArmPattern(track.id, ptn.id);
-                                  }}
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:border-[#1a1a1a] bg-transparent transition-all cursor-pointer select-none flex items-center gap-1 ml-1.5"
-                                  title={lang === 'fr' ? "Armer ce motif pour l'enregistrement MIDI" : "Armar este padrão para gravação MIDI"}
-                                >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]/40 shrink-0" />
-                                  <span>ARM</span>
-                                </button>
-                              )
-                            )}
-
-                            <button
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => {
-                                setSaveModalPatternId(ptn.id);
-                                setSavePatternName(ptn.name || '');
-                                setSavePatternFolder(existingFolders[0] || 'Général');
-                              }}
-                              className="p-1 rounded-sm transition-colors ml-4 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
-                              title={lang === 'fr' ? 'Sauvegarder le motif dans le catalogue' : 'Salvar o padrão no catálogo'}
-                            >
-                              💾
-                            </button>
-
-                            <button
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => {
-                                setLoadModalPatternId(ptn.id);
-                              }}
-                              className="p-1 rounded-sm transition-colors ml-1 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
-                              title={lang === 'fr' ? 'Ouvrir le catalogue' : 'Abrir o catálogo'}
-                            >
-                              📂
-                            </button>
-
-                            {/* Copy/Paste buttons */}
-                            <div className="flex gap-1 ml-4">
-                              <button
-                                onClick={() => onCopyPattern && onCopyPattern(ptn)}
-                                className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
-                                title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
-                              >
-                                📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
-                              </button>
-                              <button
-                                onClick={() => onPastePattern && onPastePattern(ptn.id)}
-                                disabled={!canPaste}
-                                className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
-                                  canPaste 
-                                    ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                                }`}
-                                title={lang === 'fr' ? 'Coller le motif copié' : 'Colar o padrão copiado'}
-                              >
-                                📥 {lang === 'fr' ? 'Coller' : 'Colar'}
-                              </button>
-                            </div>
-
-                            {/* Pattern Balanço Controller (Preset Override + Local Amount) */}
-                            <div className="hidden md:flex items-center gap-1.5 bg-[#f4ecd8] px-2 py-0.5 rounded border-[1px] border-[#1a1a1a] text-[10px] font-bold ml-4 select-none text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]">
-                              <span className="whitespace-nowrap text-xs" title={lang === 'fr' ? 'Balanço (Motif)' : 'Balanço (Padrão)'}>⚖️</span>
-
-                              {/* Menu déroulant de surcharge par pattern */}
-                              <select
-                                value={ptn.balancoPresetId || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value || undefined;
-                                  const amount = ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100);
-                                  handlePatternBalancoChange(effectiveEditTrackId, ptn.id, val, amount);
-                                }}
-                                className="bg-white border border-[#1a1a1a] px-1 py-0.5 text-[10px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[125px] truncate"
-                                title={lang === 'fr' ? "Surcharge de preset pour ce motif" : "Substituição de preset para este padrão"}
-                              >
-                                <option value="">
-                                  {lang === 'fr' ? "Hériter de l'instrument" : 'Herdar do instrumento'}
-                                </option>
-                                {balancoPresets.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.name}
-                                  </option>
-                                ))}
-                              </select>
-
-                              {/* Curseur de dosage local du pattern */}
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100)}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value, 10);
-                                  handlePatternBalancoChange(effectiveEditTrackId, ptn.id, ptn.balancoPresetId, val);
-                                }}
-                                className="w-14 h-1.5 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
-                                style={{ accentColor: '#8b2a1a' }}
-                                title={lang === 'fr' ? "Dosage local du balanço pour ce motif" : "Dosagem local do balanço para este padrão"}
-                              />
-                              <span className="w-6 text-right font-cactus text-[11px]">
-                                {ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100)}%
-                              </span>
-                            </div>
-
-                            {/* Steps selector */}
-                            <div className="flex items-center gap-1.5 sm:ml-auto">
-                              <span className="text-[11px] font-bold uppercase">{t('stepsNum')}</span>
-                              <select
-                                value={ptn.steps}
-                                onChange={(e) => onStepsChange(ptn.id, parseInt(e.target.value))}
-                                className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm px-2 py-0.5 text-xs font-bold cursor-pointer outline-none font-cactus"
-                              >
-                                {STEP_OPTIONS.map((n) => (
-                                  <option key={n} value={n}>{n}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Delete pattern */}
-                            {displayedPatterns.length > 1 && !isSlave && (
-                              <button
-                                onClick={() => onDeletePattern(ptn.id)}
-                                className="text-[#8b2a1a] font-bold text-xs px-2 py-1 cordel-border-sm cordel-button hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                              >
-                                ✕ {lang === 'fr' ? 'Suppr.' : 'Excluir'}
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Pattern Usage Info */}
-                          {(() => {
-                            const usage = getPatternUsage(ptn.id, track, tracksMeta, lang);
-                            return (
-                              <div className="flex flex-wrap items-center gap-2 text-[10px] bg-[#eaddcf]/30 p-1.5 px-2.5 rounded-sm border border-[#1a1a1a]/10 mb-2">
-                                <span className="font-bold text-[#1a1a1a]/60 uppercase tracking-wider flex items-center gap-1.5 select-none">
-                                  <XiloMegaphone size={12} className="text-[#1a1a1a]/60" />
-                                  {lang === 'fr' ? 'Joué par :' : 'Tocado por :'}
-                                </span>
-                                {usage.length === 0 ? (
-                                  <span className="inline-flex items-center gap-1 bg-[#8b2a1a]/5 text-[#8b2a1a]/85 px-2 py-0.5 rounded-sm text-[10px] border border-[#8b2a1a]/15 font-semibold">
-                                    ⚠️ {lang === 'fr' ? 'Non utilisé dans le morceau' : 'Não utilizado na música'}
-                                  </span>
-                                ) : (
-                                  usage.map((u, uIdx) => (
-                                    <span 
-                                      key={uIdx} 
-                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium border ${
-                                        u.isMaster 
-                                          ? 'bg-amber-50/40 border-amber-900/10 text-amber-900/80' 
-                                          : 'bg-blue-50/40 border-blue-900/10 text-blue-900/80'
-                                      }`}
-                                    >
-                                      <span className="font-bold opacity-90">{u.trackName}</span>
-                                      <span className="opacity-60">({lang === 'fr' ? 'mesures' : 'compassos'} : {u.measures.join(', ')})</span>
-                                    </span>
-                                  ))
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          {/* Interactive Step Grid */}
-                          {/* Resolution header & Tuplet edit tools */}
+                          {/* Pattern Header & Resolution monobloc */}
                           {(() => {
                             const totalVarProb = (ptn.variations || [])
                               .filter(v => !v.playFirstTimeOnly)
                               .reduce((acc, v) => acc + v.probability, 0);
                             const baseProb = Math.max(0, 100 - totalVarProb);
+                            const usage = getPatternUsage(ptn.id, track, tracksMeta, lang);
+
                             return (
-                              <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-3">
-                                  <span>{lang === 'fr' ? 'Probabilité du motif maître :' : 'Probabilidade do padrão base :'} {baseProb}%</span>
+                              <div
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleOpenPatternCardMenu(ptn, e.clientX, e.clientY);
+                                }}
+                                onTouchStart={(e) => {
+                                  if (e.touches.length === 1) {
+                                    const touch = e.touches[0];
+                                    cardTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+                                    cardLongPressTimerRef.current = setTimeout(() => {
+                                      handleOpenPatternCardMenu(ptn, touch.clientX, touch.clientY);
+                                      cardLongPressTimerRef.current = null;
+                                    }, 400);
+                                  }
+                                }}
+                                onTouchMove={(e) => {
+                                  if (cardLongPressTimerRef.current && cardTouchStartPosRef.current && e.touches.length === 1) {
+                                    const touch = e.touches[0];
+                                    const dx = Math.abs(touch.clientX - cardTouchStartPosRef.current.x);
+                                    const dy = Math.abs(touch.clientY - cardTouchStartPosRef.current.y);
+                                    if (dx > 10 || dy > 10) {
+                                      clearTimeout(cardLongPressTimerRef.current);
+                                      cardLongPressTimerRef.current = null;
+                                    }
+                                  }
+                                }}
+                                onTouchEnd={() => {
+                                  if (cardLongPressTimerRef.current) {
+                                    clearTimeout(cardLongPressTimerRef.current);
+                                    cardLongPressTimerRef.current = null;
+                                  }
+                                  cardTouchStartPosRef.current = null;
+                                }}
+                                onTouchCancel={() => {
+                                  if (cardLongPressTimerRef.current) {
+                                    clearTimeout(cardLongPressTimerRef.current);
+                                    cardLongPressTimerRef.current = null;
+                                  }
+                                  cardTouchStartPosRef.current = null;
+                                }}
+                                className="flex flex-wrap items-center justify-between gap-2 border-b-[2px] border-[#1a1a1a] pb-1.5 select-none"
+                              >
+                                {/* Groupe gauche : Contrôles d'édition du motif + Assignation (« Joué par ») */}
+                                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                  {/* Reorder handle */}
+                                  {(track.patterns?.length || 0) > 1 && (
+                                    <div
+                                      {...attributes}
+                                      {...listeners}
+                                      className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
+                                      title={lang === 'fr' ? "Glisser pour réordonner les motifs" : "Arrastar para reordenar os padrões"}
+                                    >
+                                      <GripVertical size={16} />
+                                    </div>
+                                  )}
+                                  <input
+                                    type="radio"
+                                    checked={isSelected}
+                                    onChange={() => onSelectPattern(ptn.id)}
+                                    className="w-4 h-4 accent-[#1a1a1a] cursor-pointer"
+                                  />
+                                  {editingPatternId === ptn.id ? (
+                                    <input
+                                      type="text"
+                                      value={editName}
+                                      onChange={(e) => setEditName(e.target.value)}
+                                      onBlur={() => handleSave(ptn.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSave(ptn.id);
+                                        if (e.key === 'Escape') setEditingPatternId(null);
+                                      }}
+                                      className="w-32 shrink-0 font-cactus font-bold text-sm px-1.5 py-0.5 rounded border border-[#1a1a1a] bg-[#f4ecd8] outline-none text-[#1a1a1a]"
+                                      autoFocus
+                                      onFocus={(e) => e.target.select()}
+                                    />
+                                  ) : (
+                                    <span
+                                      className={`w-32 shrink-0 truncate font-cactus font-bold text-sm cursor-pointer select-none px-1.5 py-0.5 rounded border border-transparent ${
+                                        isSelected ? 'text-[#1a1a1a]' : 'text-[#666]'
+                                      }`}
+                                      onClick={() => onSelectPattern(ptn.id)}
+                                      onDoubleClick={() => {
+                                        setEditingPatternId(ptn.id);
+                                        setEditName(ptn.name || '');
+                                      }}
+                                      title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
+                                    >
+                                      {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
+                                    </span>
+                                  )}
+
+                                  {editingPatternId !== ptn.id && isMobile && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingPatternId(ptn.id);
+                                        setEditName(ptn.name || '');
+                                      }}
+                                      className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
+                                      title={lang === 'fr' ? 'Renommer' : 'Renomear'}
+                                    >
+                                       <XiloChisel size={10} />
+                                    </button>
+                                  )}
+
+                                  {isSelected ? (
+                                    <span
+                                      ref={(el) => {
+                                        if (el) {
+                                          badgeDOMRefs.current.set(ptn.id, el);
+                                        } else {
+                                          badgeDOMRefs.current.delete(ptn.id);
+                                        }
+                                      }}
+                                      data-active-badge={ptn.id}
+                                      className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]"
+                                    >
+                                      ▶ {lang === 'fr' ? 'ACTIF' : 'ATIVO'}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      ref={(el) => {
+                                        if (el) {
+                                          badgeDOMRefs.current.set(ptn.id, el);
+                                        } else {
+                                          badgeDOMRefs.current.delete(ptn.id);
+                                        }
+                                      }}
+                                      data-active-badge={ptn.id}
+                                      className="text-[#666] text-[9px] uppercase px-1 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none cursor-pointer"
+                                      onClick={() => onSelectPattern(ptn.id)}
+                                    >
+                                      {lang === 'fr' ? 'Activer' : 'Ativar'}
+                                    </span>
+                                  )}
+
                                   <button
-                                    data-testid={`btn-solo-pattern-${ptn.id}-base`}
+                                    data-testid={`btn-solo-pattern-${ptn.id}-ensemble`}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {
+                                      if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble') {
                                         onStopSoloPattern && onStopSoloPattern();
                                       } else {
-                                        onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'base');
+                                        onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'ensemble');
                                       }
                                     }}
                                     className={`p-1 rounded-sm transition-colors ${
-                                      soloPatternPlayId === ptn.id && soloPatternVariationId === 'base'
+                                      soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble'
                                         ? 'bg-[#8b2a1a] text-[#f4ecd8]'
                                         : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
                                     }`}
-                                    title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo')}
+                                    title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif complet en solo (Base + Variations)' : 'Ouvir este padrão completo em solo')}
                                   >
-                                    {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                                    {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                                   </button>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => setIsTupletEditMode(!isTupletEditMode)}
-                                    className={`px-2 py-1 text-[10px] rounded-sm transition-colors border ${
-                                      isTupletEditMode
-                                        ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
-                                        : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/20 hover:bg-[#1a1a1a]/5'
-                                    }`}
-                                    title={lang === 'fr' ? 'Éditer les divisions (Triolet, Sextolet...)' : 'Editar divisões (Tercina, Sextina...)'}
-                                  >
-                                    {lang === 'fr' ? '⚙️ Divisions (Triolets...)' : '⚙️ Divisões (Tercinas...)'}
-                                  </button>
-                                  {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
-                                    <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
+
+                                  {/* Bouton ARM / Badge ARMÉ (masqué en contexte vocal / Toada) */}
+                                  {!isVocalContext && (
+                                    armedPatternId === ptn.id ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleArmPattern(track.id, ptn.id);
+                                        }}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm bg-[#e67e22] text-[#1a1a1a] shadow-sm transition-all cursor-pointer select-none flex items-center gap-1.5 animate-pulse"
+                                        title={lang === 'fr' ? "Motif armé pour l'enregistrement (cliquer pour désarmer)" : "Padrão armado para gravação (clique para desarmar)"}
+                                      >
+                                        <span className="w-2 h-2 rounded-full bg-[#8b2a1a] shrink-0" />
+                                        <span>● {lang === 'fr' ? 'ARMÉ' : 'ARMADO'}</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleArmPattern(track.id, ptn.id);
+                                        }}
+                                        className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:border-[#1a1a1a] bg-transparent transition-all cursor-pointer select-none flex items-center gap-1"
+                                        title={lang === 'fr' ? "Armer ce motif pour l'enregistrement MIDI" : "Armar este padrão para gravação MIDI"}
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]/40 shrink-0" />
+                                        <span>ARM</span>
+                                      </button>
+                                    )
                                   )}
+
+                                  {/* Assignation Joué par & mesures synthétisées */}
+                                  {usage.length === 0 ? (
+                                    <div className="shrink-0 flex items-center gap-1 text-[11px] text-[#1a1a1a]/40 select-none">
+                                      <span className="opacity-40 text-[11px]">⚠️</span>
+                                      <span className="italic">{lang === 'fr' ? 'Non assigné' : 'Não atribuído'}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="shrink-0 flex items-center gap-1.5 text-xs text-[#1a1a1a]/70 select-none">
+                                      <span className="opacity-60 text-[11px]">🔊</span>
+                                      {usage.map((u, uIdx) => (
+                                        <div key={uIdx} className="flex items-center gap-1">
+                                          <span className="font-bold text-[11px] uppercase tracking-wider">{u.trackName}</span>
+                                          <span className="font-mono text-[11px] font-bold bg-[#1a1a1a]/5 px-1 py-0.5 rounded border border-[#1a1a1a]/20">
+                                            {formatMeasureRanges(u.measures, lang)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Groupe droite : Probabilité motif maître + Sélecteur de division */}
+                                <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+                                  <div
+                                    className="h-6 px-2 py-0.5 rounded-[2px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] inline-flex items-center font-cactus font-bold text-[11px] uppercase tracking-wider tabular-nums select-none shrink-0 bg-[#f4ecd8] text-[#1a1a1a]"
+                                    title={lang === 'fr' ? 'Probabilité du motif maître' : 'Probabilidade do padrão base'}
+                                  >
+                                    {lang === 'fr' ? 'PROBA' : 'PROB'} : {baseProb}%
+                                  </div>
+
+                                  <div className="shrink-0">
+                                    <MetricDivisionSelector
+                                      steps={ptn.steps}
+                                      patternId={ptn.id}
+                                      lang={lang}
+                                      onChangeSteps={onStepsChange}
+                                    />
+                                  </div>
+                                  {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
+                                    <span className="text-[#8b2a1a] text-[10px] shrink-0">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
+                                  )}
+
+                                  {/* Bouton direct de suppression de motif [ ✕ ] */}
+                                  <button
+                                    type="button"
+                                    disabled={displayedPatterns.length <= 1}
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (displayedPatterns.length <= 1) return;
+                                      const patternName = ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`;
+                                      const confirmed = await sequencer.confirmAsync(
+                                        lang === 'fr'
+                                          ? `Voulez-vous vraiment supprimer le motif "${patternName}" ?`
+                                          : `Deseja realmente excluir o padrão "${patternName}"?`
+                                      );
+                                      if (!confirmed) return;
+                                      onDeletePattern(ptn.id);
+                                      if (selectedPatternId === ptn.id) {
+                                        const remaining = displayedPatterns.filter(p => p.id !== ptn.id);
+                                        if (remaining.length > 0) {
+                                          setSelectedPatternId(remaining[0].id);
+                                        }
+                                      }
+                                    }}
+                                    className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${
+                                      displayedPatterns.length <= 1
+                                        ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]'
+                                        : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'
+                                    }`}
+                                    title={lang === 'fr' ? 'Supprimer ce motif' : 'Excluir este padrão'}
+                                  >
+                                    ✕
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -2592,7 +2504,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </div>
 
           {/* ─── Zone droite fixe (270px, border-l) : Panneau StrokeInspectorPanel ─── */}
-          <div className="hidden lg:flex shrink-0 w-[270px] h-full flex-col overflow-hidden border-l-[3px] border-[#1a1a1a] bg-[#ece4d0]">
+          <div className="hidden lg:flex shrink-0 w-[270px] h-full flex-col overflow-hidden border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] relative z-10">
             <StrokeInspectorPanel
               trackId={effectiveEditTrackId}
               instrument={inst}
@@ -2600,45 +2512,66 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               isLeftHanded={isLeftHanded}
               activeTool={activeTool}
               patternId={selectedPatternId || activePattern?.id}
+              patterns={displayedPatterns}
+              canPaste={canPaste}
+              balancoPresets={balancoPresets}
+              onSelectPattern={onSelectPattern}
+              onAddPattern={onAddPattern}
+              onCopyPattern={handleInspectorCopyActivePattern}
+              onPastePattern={handleInspectorPasteActivePattern}
+              onSavePattern={handleInspectorSaveActivePattern}
+              onLoadPattern={handleInspectorLoadActivePattern}
+              onDeletePattern={onDeletePattern}
+              onBalancoChange={handlePatternBalancoChange}
+              isVoice={isVocalContext}
+              hasVocalRecording={hasAudio}
+              onOpenAlignment={handleOpenAlignment}
+              onImportAudio={handleHeaderAudioImport}
             />
           </div>
         </div>
 
         {/* ═══════════════════ PIED DE PAGE GLOBAL (Dock pleine largeur) ═══════════════════ */}
-        {isVocalContext ? (
-          <VoicePianoDock
-            trackId={effectiveEditTrackId}
-            patternId={selectedPatternId || activePattern?.id || displayedPatterns[0]?.id || 0}
-            selectedStepIdx={selectedStepIdx}
-            setSelectedStepIdx={setSelectedStepIdx}
-            selectedStepIsPreRoll={selectedStepIsPreRoll}
-            setSelectedStepIsPreRoll={setSelectedStepIsPreRoll}
-            lang={lang}
-            patternSteps={activePattern?.steps || 16}
-          />
-        ) : (
-          <StrokeWritingDock
-            trackId={effectiveEditTrackId}
-            instrument={inst}
-            lang={lang}
-            isLeftHanded={isLeftHanded}
-            activeTool={activeTool}
-            onSelectTool={handleDockSelectTool}
-            isAlternating={isAlternating}
-            onToggleAlternating={() => setIsAlternating(prev => !prev)}
-            onOpenBottomSheet={() => setIsInspectorMobileOpen(true)}
-          />
-        )}
+        <div className="relative z-10 shrink-0">
+          {isVocalContext ? (
+            <VoicePianoDock
+              trackId={effectiveEditTrackId}
+              patternId={selectedPatternId || activePattern?.id || displayedPatterns[0]?.id || 0}
+              selectedStepIdx={selectedStepIdx}
+              setSelectedStepIdx={setSelectedStepIdx}
+              selectedStepIsPreRoll={selectedStepIsPreRoll}
+              setSelectedStepIsPreRoll={setSelectedStepIsPreRoll}
+              lang={lang}
+              patternSteps={activePattern?.steps || 16}
+            />
+          ) : (
+            <StrokeWritingDock
+              trackId={effectiveEditTrackId}
+              instrument={inst}
+              lang={lang}
+              isLeftHanded={isLeftHanded}
+              activeTool={activeTool}
+              onSelectTool={handleDockSelectTool}
+              isAlternating={isAlternating}
+              onToggleAlternating={() => setIsAlternating(prev => !prev)}
+              onOpenBottomSheet={() => setIsInspectorMobileOpen(true)}
+            />
+          )}
+        </div>
       </div>
 
     {/* ─── Mobile/Tablet Portrait Bottom Sheet Drawer (< 1024px) ─── */}
     {isInspectorMobileOpen && (
       <div
         className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+        data-theme="light"
+        style={{ colorScheme: 'light' }}
         onClick={() => setIsInspectorMobileOpen(false)}
       >
         <div
-          className="bg-[#ece4d0] border-t-[3px] border-[#1a1a1a] rounded-t-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+          className="bg-[#ece4d0] text-[#1a1a1a] border-t-[3px] border-[#1a1a1a] rounded-t-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+          data-theme="light"
+          style={{ colorScheme: 'light' }}
           onClick={(e) => e.stopPropagation()}
         >
           <StrokeInspectorPanel
@@ -2648,6 +2581,21 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             isLeftHanded={isLeftHanded}
             activeTool={activeTool}
             patternId={selectedPatternId || activePattern?.id}
+            patterns={displayedPatterns}
+            canPaste={canPaste}
+            balancoPresets={balancoPresets}
+            onSelectPattern={onSelectPattern}
+            onAddPattern={onAddPattern}
+            onCopyPattern={handleInspectorCopyActivePattern}
+            onPastePattern={handleInspectorPasteActivePattern}
+            onSavePattern={handleInspectorSaveActivePattern}
+            onLoadPattern={handleInspectorLoadActivePattern}
+            onDeletePattern={onDeletePattern}
+            onBalancoChange={handlePatternBalancoChange}
+            isVoice={isVocalContext}
+            hasVocalRecording={hasAudio}
+            onOpenAlignment={handleOpenAlignment}
+            onImportAudio={handleHeaderAudioImport}
             isMobileDrawer={true}
             onCloseMobileDrawer={() => setIsInspectorMobileOpen(false)}
           />
@@ -2657,7 +2605,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
       {/* Load Pattern Modal */}
       {loadModalPatternId !== null && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setLoadModalPatternId(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" data-theme="light" style={{ colorScheme: 'light' }} onClick={() => setLoadModalPatternId(null)}>
           <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6 border-b-2 border-[#1a1a1a] pb-2">
               <h3 className="font-cactus text-3xl font-bold text-[#1a1a1a]">
@@ -2765,7 +2713,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
       {/* Save Pattern Modal */}
       {saveModalPatternId !== null && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSaveModalPatternId(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" data-theme="light" style={{ colorScheme: 'light' }} onClick={() => setSaveModalPatternId(null)}>
           <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-sm w-full rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={e => e.stopPropagation()}>
             <h3 className="font-cactus text-2xl font-bold text-[#1a1a1a] mb-4">
               {lang === 'fr' ? 'Sauvegarder dans le catalogue' : 'Salvar no catálogo'}
@@ -2908,7 +2856,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   if (isDetached) {
     return (
-      <div className="w-full h-full relative overflow-hidden flex flex-col">
+      <div className="w-full h-full relative overflow-hidden flex flex-col bg-[#ece4d0] text-[#1a1a1a]" data-theme="light" style={{ colorScheme: 'light' }}>
         {wrapperContent}
       </div>
     );
@@ -2917,7 +2865,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   return createPortal(
     <div
       className="fixed top-[70px] bottom-0 left-0 right-0 z-[300] flex items-center justify-center p-2 sm:p-3"
-      style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.72)', colorScheme: 'light' }}
+      data-theme="light"
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
     >

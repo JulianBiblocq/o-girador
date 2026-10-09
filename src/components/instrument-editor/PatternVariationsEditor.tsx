@@ -233,20 +233,25 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
     if (activeTool === 'scissors') return;
 
     let strokeToApply: string | number;
-    if (activeTool === '0' || activeTool === '') {
+    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
       strokeToApply = 0;
     } else if (isAlternating) {
       strokeToApply = getAlternatingStroke(stepIdx, activeTool, inst.id, inst.type, lang, isLeftHanded);
+    } else if (isInitialClick) {
+      const currentSubVal = Array.isArray(currentVal) ? currentVal[0] : currentVal;
+      strokeToApply = getNextNuanceState(currentSubVal as string | number, activeTool, inst.id, inst.type, lang, isLeftHanded);
     } else {
       strokeToApply = activeTool;
     }
 
-    // Si clic direct sur la case possédant déjà cette frappe, cycle de nuances
-    if (isInitialClick && String(currentVal) === String(strokeToApply)) {
-      strokeToApply = getNextNuanceState(currentVal as string | number, activeTool, inst.id, inst.type, lang, isLeftHanded);
+    let finalVal: string | [string, string] = String(strokeToApply);
+    if (Array.isArray(currentVal)) {
+      const arr = [...currentVal] as [string, string];
+      arr[0] = String(strokeToApply);
+      finalVal = arr;
     }
 
-    onVariationStepValueChange && onVariationStepValueChange(ptn.id, variationId, stepIdx, String(strokeToApply));
+    onVariationStepValueChange && onVariationStepValueChange(ptn.id, variationId, stepIdx, finalVal as any);
 
     // Pré-écoute sonore
     if (strokeToApply !== 0 && strokeToApply !== '0' && audioEngine) {
@@ -306,20 +311,28 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                 </label>
 
                 {!variation.playFirstTimeOnly ? (
-                  <>
-                    <span className="text-[10px] uppercase font-bold text-[#666]">Prob:</span>
+                  <div
+                    className="h-6 px-2 py-0.5 rounded-[2px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] inline-flex items-center font-cactus font-bold text-[11px] uppercase tracking-wider tabular-nums select-none shrink-0 bg-[#f4ecd8] text-[#1a1a1a]"
+                    title={lang === 'fr' ? 'Probabilité de la variation' : 'Probabilidade da variação'}
+                  >
+                    <span>{lang === 'fr' ? 'PROBA' : 'PROB'} :&nbsp;</span>
                     <input
                       type="number"
                       min="0"
                       max="100"
                       value={variation.probability}
                       onChange={(e) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(ptn.id, variation.id, parseInt(e.target.value) || 0)}
-                      className="w-12 text-xs bg-[#f4ecd8] border border-[#1a1a1a] p-0.5 text-center font-bold"
+                      className="bg-transparent border-0 outline-none p-0 text-center font-cactus font-bold text-[11px] w-7 text-[#1a1a1a]"
                     />
-                    <span className="text-[10px] font-bold text-[#666]">%</span>
-                  </>
+                    <span>%</span>
+                  </div>
                 ) : (
-                  <span className="text-[10px] font-bold text-[#8b2a1a] bg-[#8b2a1a]/10 px-1.5 py-0.5 rounded-sm">100% ({lang === 'fr' ? 'Entrée' : 'Entrada'})</span>
+                  <span
+                    className="h-6 px-2 py-0.5 rounded-[2px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] inline-flex items-center font-cactus font-bold text-[11px] uppercase tracking-wider tabular-nums select-none shrink-0 bg-[#8b2a1a]/10 text-[#8b2a1a]"
+                    title={lang === 'fr' ? "Variation d'amorce (joue au 1er passage)" : 'Variação de levada (toca na 1ª vez)'}
+                  >
+                    {lang === 'fr' ? '1ÈRE FOIS' : '1ª VEZ'} : 100%
+                  </span>
                 )}
               </div>
               <button
@@ -577,8 +590,8 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               selectedStepIdx === i && selectedVariationId === variation.id
                                 ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
                                 : (val === 0 || val === '0' || !val)
-                                  ? 'bg-[#ece4d0] text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-black/40 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
-                                  : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
+                                  ? 'bg-[#ece4d0] text-[#1a1a1a] border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
+                                  : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]'
                             }`}
                             style={{
                               width: '34px',

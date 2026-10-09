@@ -26,8 +26,10 @@ function buildFlatSongSchedule(
   let accumulatedTicks = 0;
   const patternPlayCounts = new Map<string, number>();
 
-  for (let measureIdx = 0; measureIdx < totalMeasures; measureIdx++) {
-    const timeSig = measureTimeSigs[measureIdx] || '4/4';
+  const effectiveTotalMeasures = isSoloPlayActive ? Math.max(totalMeasures, 2) : totalMeasures;
+
+  for (let measureIdx = 0; measureIdx < effectiveTotalMeasures; measureIdx++) {
+    const timeSig = measureTimeSigs[measureIdx] || measureTimeSigs[0] || '4/4';
     const parts = timeSig.split('/');
     const beats = parseInt(parts[0], 10);
     const beatUnit = parseInt(parts[1], 10);
@@ -119,6 +121,10 @@ function buildFlatSongSchedule(
         }
         // Si le mode solo vise la base, on ignore les variations
         else if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId === 'base') {
+          matchedVariation = null;
+        }
+        // En mode solo, dès le 2ᵉ tour (measureIdx >= 1), ignorer l'amorce et jouer la tourne de base
+        else if (isSoloPlayActive && soloPatternPlayId === activePattern.id && measureIdx >= 1) {
           matchedVariation = null;
         }
         else {

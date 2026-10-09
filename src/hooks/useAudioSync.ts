@@ -611,6 +611,7 @@ export function useAudioSync({
   const globalSwingRef = useRef<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58], swingIntensity: 100 });
   const soloPatternPlayIdRef = useRef<number | null>(null);
   const soloPatternVariationIdRef = useRef<string | null>(null);
+  const soloLoopCycleRef = useRef<number>(0);
   const savedSoloMuteStateRef = useRef<{
     trackId?: number | string;
     trackMuted?: boolean;
@@ -682,7 +683,10 @@ export function useAudioSync({
       globalSwingRef.current = state.globalSwing;
       metroVolumeRef.current = state.metroVolume;
       metroSoundRef.current = state.metroSound;
-      if (soloPatternPlayIdRef.current !== state.soloPatternPlayId) soloPhraseMeasureRef.current = 0;
+      if (soloPatternPlayIdRef.current !== state.soloPatternPlayId) {
+        soloPhraseMeasureRef.current = 0;
+        soloLoopCycleRef.current = 0;
+      }
       soloPatternPlayIdRef.current = state.soloPatternPlayId;
       soloPatternVariationIdRef.current = state.soloPatternVariationId;
       
@@ -1305,6 +1309,7 @@ export function useAudioSync({
           useSequencerStore.getState().setCurrentLoopIteration(1);
           useSequencerStore.getState().setIsLoopBypassed(false);
           if (soloPatternPlayIdRef.current !== null) {
+            soloLoopCycleRef.current = 0;
             measureCountRef.current = 0;
             soloPhraseMeasureRef.current = 0;
           } else {
@@ -1322,7 +1327,8 @@ export function useAudioSync({
         } else if (stepIdx === currentTicks - 1) {
           nextStepIdx = 0;
           if (soloPatternPlayIdRef.current !== null) {
-            measureCountRef.current = 0;
+            soloLoopCycleRef.current++;
+            measureCountRef.current = soloLoopCycleRef.current >= 1 ? 1 : 0;
             // Solo multi-mesures : la mesure de phrase avance (modulo span) à chaque rebouclage
             soloPhraseMeasureRef.current = advanceSoloPhraseMeasure(
               soloPhraseMeasureRef.current,
@@ -1530,9 +1536,9 @@ export function useAudioSync({
           currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, measureTimeSigsRef.current);
         }
 
-        const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
-        const _measureForUI = isNaN(currentMeasureIdx) ? 0 : currentMeasureIdx;
         const _currentTicks = isNaN(currentTicks) || currentTicks <= 0 ? 96 : currentTicks;
+        const _stepForUI = isNaN(stepIdx) ? 0 : (stepIdx % _currentTicks);
+        const _measureForUI = soloPatternPlayIdRef.current !== null ? 0 : (isNaN(currentMeasureIdx) ? 0 : currentMeasureIdx);
         const ratioVal = _stepForUI / _currentTicks;
 
         const rawCtx = Tone.getContext().rawContext as AudioContext;
@@ -1562,8 +1568,8 @@ export function useAudioSync({
             measure: _measureForUI,
             maxTicks: _currentTicks,
             ratio: ratioVal,
-            visualStep16: Math.floor(ratioVal * 16),
-            visualStep12: Math.floor(ratioVal * 12),
+            visualStep16: Math.floor(ratioVal * 16) % 16,
+            visualStep12: Math.floor(ratioVal * 12) % 12,
             time,
             iteration: sectionIterationRef.current,
             measureStartTime: measureStartTimeSec,
@@ -2369,8 +2375,18 @@ export function useAudioSync({
           // Résolution de la variation active si soloPatternVariationId est spécifié
           const soloVarId = soloPatternVariationIdRef.current;
           let effectivePatternForSteps: Pattern = activePattern;
-          if (isSoloPlayActive && soloVarId && soloVarId !== 'base' && soloVarId !== 'ensemble' && activePattern.variations) {
-            const matchedVar = activePattern.variations.find(v => v.id === soloVarId) as any;
+          if (isSoloPlayActive && activePattern.variations) {
+            let matchedVar: any = null;
+            if (soloVarId && soloVarId !== 'base' && soloVarId !== 'ensemble') {
+              matchedVar = activePattern.variations.find(v => v.id === soloVarId) as any;
+            } else if (soloVarId === 'base') {
+              matchedVar = null;
+            } else if (soloLoopCycleRef.current === 0) {
+              matchedVar = activePattern.variations.find(v => v.playFirstTimeOnly) as any;
+            } else {
+              matchedVar = null;
+            }
+
             if (matchedVar) {
               effectivePatternForSteps = {
                 ...activePattern,
@@ -3308,6 +3324,7 @@ export function useAudioSync({
       activeSequencerVocalsRef.current.clear();
       useSequencerStore.getState().resetFirstPassRegistry();
       anticipatedMeasuresRef.current.clear();
+      soloLoopCycleRef.current = 0;
       lastElapsedSecRef.current = 0;
       setIsPlaying(false);
       setMediaSessionState('paused');
@@ -3524,6 +3541,7 @@ export function useAudioSync({
 
     setSoloPatternPlayId(patternId);
     setSoloPatternVariationId(variationId || null);
+    soloLoopCycleRef.current = 0;
     currentStepIndexRef.current = -1;
     measureCountRef.current = 0;
     isPlaybackEndingRef.current = false;
@@ -3570,6 +3588,7 @@ export function useAudioSync({
 
     setSoloPatternPlayId(null);
     setSoloPatternVariationId(null);
+    soloLoopCycleRef.current = 0;
     if (isPlayingRef.current) {
       handleStop();
     }
@@ -3585,6 +3604,7 @@ export function useAudioSync({
 
     measureCountRef.current = clampedM;
     sectionIterationRef.current = 1;
+    soloLoopCycleRef.current = 0;
     useSequencerStore.getState().resetFirstPassRegistry();
     setCurrentMeasure(clampedM);
     hasFinishedRef.current = false;

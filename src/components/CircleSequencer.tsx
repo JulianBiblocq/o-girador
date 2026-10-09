@@ -1424,7 +1424,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     }
 
     for (let i = 0; i < sourceTrack.patterns.length; i++) {
-      if (sourceTrack.patterns[i].measureAssignments[measureIdx]) {
+      if (sourceTrack.patterns[i]?.measureAssignments?.[measureIdx]) {
         return sourceTrack.patterns[i].id;
       }
     }

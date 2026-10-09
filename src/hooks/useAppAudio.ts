@@ -124,6 +124,12 @@ export function useAppAudio() {
               cloudPreset = await getCloudPreset(loadPresetId);
             }
             if (cloudPreset) {
+              const meta = cloudPreset.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' };
+              meta.morceauId = loadPresetId;
+              cloudPreset.metadata = meta;
+              try {
+                localStorage.setItem('girador_last_loaded_preset_id', loadPresetId);
+              } catch (_) {}
               await audio.applyPreset(cloudPreset);
               window.history.replaceState({}, document.title, window.location.pathname);
               return true;
@@ -222,6 +228,9 @@ export function useAppAudio() {
             const { getCloudPreset } = await import('../cloudLibrary');
             const cloudPreset = await getCloudPreset(lastPresetId);
             if (cloudPreset && Array.isArray(cloudPreset.tracks) && cloudPreset.tracks.length > 0) {
+              const meta = cloudPreset.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' };
+              meta.morceauId = lastPresetId;
+              cloudPreset.metadata = meta;
               await audio.applyPreset(cloudPreset);
               audio.setActivePresetName(`cloud:${lastPresetId}`);
               restoredFromLocalStorage = true;
@@ -281,6 +290,9 @@ export function useAppAudio() {
                   const { getCloudPreset } = await import('../cloudLibrary');
                   const cloudPreset = await getCloudPreset(defaultPresetId);
                   if (cloudPreset && Array.isArray(cloudPreset.tracks) && cloudPreset.tracks.length > 0) {
+                    const meta = cloudPreset.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' };
+                    meta.morceauId = defaultPresetId;
+                    cloudPreset.metadata = meta;
                     audio.setActivePresetName(`cloud:${defaultPresetId}`);
                     await audio.applyPreset(cloudPreset);
                     return;

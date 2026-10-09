@@ -14,7 +14,8 @@ import { VocalTimbreSelector } from './VocalTimbreSelector';
 import { isDarkText } from '../../data';
 import { getStrokePairs, strokeExistsForInstrument } from '../../utils/instrumentStrokes';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
-import { X, Volume2, Clock, Scissors } from 'lucide-react';
+import { X, Volume2, Clock, Scissors, Sliders, FolderOpen } from 'lucide-react';
+import { PatternInspectorHeader, BalancoPresetItem } from './PatternInspectorHeader';
 
 interface StrokeInspectorPanelProps {
   trackId: number;
@@ -31,6 +32,22 @@ interface StrokeInspectorPanelProps {
   patternId?: number;
   onCloseMobileDrawer?: () => void;
   isMobileDrawer?: boolean;
+  // Pilotage centralisé des motifs
+  patterns?: any[];
+  canPaste?: boolean;
+  balancoPresets?: BalancoPresetItem[];
+  onSelectPattern?: (patternId: number) => void;
+  onAddPattern?: () => void;
+  onCopyPattern?: (pattern: any) => void;
+  onPastePattern?: (patternId: number) => void;
+  onSavePattern?: (patternId: number) => void;
+  onLoadPattern?: (patternId: number) => void;
+  onDeletePattern?: (patternId: number) => void;
+  onBalancoChange?: (trackId: number, patternId: number, presetId: string | undefined, amount: number) => void;
+  isVoice?: boolean;
+  hasVocalRecording?: boolean;
+  onOpenAlignment?: () => void;
+  onImportAudio?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.memo(({
@@ -42,11 +59,26 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   patternId,
   onCloseMobileDrawer,
   isMobileDrawer = false,
+  patterns,
+  canPaste = false,
+  balancoPresets = [],
+  onSelectPattern,
+  onAddPattern,
+  onCopyPattern,
+  onPastePattern,
+  onSavePattern,
+  onLoadPattern,
+  onDeletePattern,
+  onBalancoChange,
+  isVoice: isVoiceProp,
+  hasVocalRecording = false,
+  onOpenAlignment,
+  onImportAudio,
 }) => {
   const isFr = lang === 'fr';
   const isEraser = activeTool === '0' || activeTool === '';
   const isScissors = activeTool === 'scissors';
-  const isVoice = instrument?.type === 'voice' || instrument?.id === 'puxador' || instrument?.id === 'coro';
+  const isVoice = isVoiceProp ?? (instrument?.type === 'voice' || instrument?.id === 'puxador' || instrument?.id === 'coro');
   const getInstrumentLabel = useInstrumentLabel();
 
   // Store selectors
@@ -54,6 +86,18 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const setTracks = useSequencerStore(state => state.setTracks);
   const pushUndoState = useSequencerStore(state => state.pushUndoState);
   const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps);
+
+  const effectivePatterns = patterns || track?.patterns || [];
+  const pitchOffset = track?.tuning || 0;
+  const isTunableDrum = useMemo(() => {
+    const id = instrument?.id?.toLowerCase() || '';
+    const type = instrument?.type?.toLowerCase() || '';
+    return (
+      ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'].includes(id) ||
+      type === 'alfaia' ||
+      type === 'caixa'
+    );
+  }, [instrument?.id, instrument?.type]);
 
   const handleTranspose = React.useCallback((semitones: number) => {
     const currentPatternId = patternId || track?.selectedPatternId || track?.patterns?.[0]?.id;
@@ -403,6 +447,98 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
         )}
       </div>
 
+      {/* ─── Bloc 1 : Gestion centralisée du motif actif (Sélecteur & Actions) ─── */}
+      {effectivePatterns.length > 0 && onSelectPattern && onAddPattern && (
+        <div className="border-b-2 border-[#1a1a1a]/15 pb-3 mb-3 shrink-0">
+          <PatternInspectorHeader
+            patterns={effectivePatterns}
+            selectedPatternId={patternId || track?.selectedPatternId || effectivePatterns[0]?.id}
+            trackId={trackId}
+            lang={lang}
+            canPaste={canPaste}
+            balancoPresets={balancoPresets}
+            onSelectPattern={onSelectPattern}
+            onAddPattern={onAddPattern}
+            onCopyPattern={() => {
+              const currentId = patternId || track?.selectedPatternId || effectivePatterns[0]?.id;
+              const p = effectivePatterns.find(pt => pt.id === currentId);
+              if (p && onCopyPattern) onCopyPattern(p);
+            }}
+            onPastePattern={() => {
+              const targetId = patternId || track?.selectedPatternId || effectivePatterns[0]?.id;
+              if (targetId && onPastePattern) onPastePattern(targetId);
+            }}
+            onSavePattern={() => {
+              const targetId = patternId || track?.selectedPatternId || effectivePatterns[0]?.id;
+              if (targetId && onSavePattern) onSavePattern(targetId);
+            }}
+            onLoadPattern={() => {
+              const targetId = patternId || track?.selectedPatternId || effectivePatterns[0]?.id;
+              if (targetId && onLoadPattern) onLoadPattern(targetId);
+            }}
+            onDeletePattern={onDeletePattern}
+            onBalancoChange={onBalancoChange}
+            isVoice={isVoice}
+          />
+        </div>
+      )}
+
+      {/* ─── Bloc 2 : Vocal (Actions Audio) OU Percussif (Frappes & Nuances) ─── */}
+      {isVoice ? (
+        <div className="flex flex-col gap-2 p-2.5 bg-[#f4ecd8] border-2 border-[#1a1a1a] rounded-sm shadow-[2px_2px_0px_#1a1a1a] select-none mb-3">
+          <div className="flex items-center justify-between border-b border-[#1a1a1a]/15 pb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]/70">
+              {isFr ? 'Audio du motif' : 'Áudio do padrão'}
+            </span>
+            <span className="text-[10px] font-mono font-bold text-[#8b2a1a]">
+              {hasVocalRecording ? (isFr ? 'Enregistré' : 'Gravado') : (isFr ? 'Aucun' : 'Nenhum')}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            {hasVocalRecording ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onOpenAlignment}
+                  className="flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-xs font-bold font-cactus text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                  title={isFr ? "Ajuster le calage, trim et tempo du sample audio" : "Ajustar alinhamento, trim e andamento"}
+                >
+                  <Sliders size={13} className="text-[#8b2a1a]" />
+                  <span>{isFr ? '🎚️ Ajuster le calage' : '🎚️ Ajustar alinhamento'}</span>
+                </button>
+
+                <label className="flex items-center justify-center gap-1.5 w-full py-1 px-2 bg-[#f4ecd8] hover:bg-[#1a1a1a]/5 border border-[#1a1a1a]/40 rounded text-[11px] font-bold font-cactus text-[#1a1a1a]/80 cursor-pointer transition-colors">
+                  <FolderOpen size={12} />
+                  <span>{isFr ? '📁 Remplacer le fichier' : '📁 Substituir arquivo'}</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={onImportAudio}
+                    className="hidden"
+                  />
+                </label>
+              </>
+            ) : (
+              <label className="flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-xs font-bold font-cactus text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5">
+                <FolderOpen size={13} className="text-[#8b2a1a]" />
+                <span>{isFr ? '📁 Importer un audio' : '📁 Importar áudio'}</span>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={onImportAudio}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]/60 mb-2">
+            {isFr ? 'Frappes & Nuances' : 'Toques & Nuances'}
+          </div>
+
       {/* CAS 1 : Gomme active */}
       {isEraser ? (
         <div className="bg-[#f4ecd8] cordel-border-sm p-3.5 flex flex-col items-center justify-center text-center gap-2 text-[#1a1a1a] shadow-sm">
@@ -527,70 +663,87 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
           )}
         </div>
       )}
+      </>
+      )}
 
       {/* Section Lutherie du Fût (Accordage / Pitch) ou Timbre Vocal & Transposition */}
-      <div className="border-t border-[#1a1a1a]/20 pt-1.5 flex flex-col gap-2 mt-auto shrink-0">
-        {isVoice ? (
-          <>
-            {/* Widget Transposition vocale */}
-            <div className="flex flex-col gap-1 bg-[#f4ecd8] p-2 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-sm select-none">
-              <span className="font-cactus font-bold text-xs uppercase tracking-wide text-[#1a1a1a]">
-                {isFr ? 'Transposition' : 'Transposição'}
-              </span>
-              <div className="flex items-center justify-between gap-1 mt-0.5">
-                {/* Raccourci -7 (Quinte descendante) */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(-7)}
-                  title={isFr ? '-7 demi-tons (Quinte descendante)' : '-7 semitons (Quinta descendente)'}
-                  className="px-2 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-xs font-cactus shrink-0"
-                >
-                  -7
-                </button>
+      {(isVoice || isTunableDrum) && (
+        <div className="border-t border-[#1a1a1a]/20 pt-1 flex flex-col gap-1.5 mt-auto shrink-0">
+          {isVoice ? (
+            <>
+              {/* Widget Transposition vocale sur deux lignes */}
+              <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] p-2 rounded-sm select-none">
+                {/* Ligne 1 : Titre */}
+                <div className="text-xs font-cactus font-bold uppercase tracking-wider text-[#1a1a1a] mb-1.5">
+                  {isFr ? 'Transposition' : 'Transposição'}
+                </div>
 
-                {/* Bouton -1 demi-ton */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(-1)}
-                  title={isFr ? '-1 demi-ton' : '-1 semitom'}
-                  className="w-7 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-sm font-cactus shrink-0"
-                >
-                  -
-                </button>
+                {/* Ligne 2 : Grille / Flex des 5 commandes */}
+                <div className="flex items-center justify-between gap-1.5">
+                  {/* -7 st */}
+                  <button
+                    type="button"
+                    onClick={() => handleTranspose(-7)}
+                    className="flex-1 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] font-cactus font-bold text-xs rounded transition-colors"
+                    title={isFr ? 'Transposer de -7 demi-tons (Quinte descendante)' : 'Transpor -7 semitons (Quinta descendente)'}
+                  >
+                    -7
+                  </button>
 
-                {/* Compteur de transposition relative */}
-                <span className="w-8 text-center font-cactus text-base font-black text-[#8b2a1a] tabular-nums">
-                  {vocalTransposeSteps > 0 ? `+${vocalTransposeSteps}` : vocalTransposeSteps}
-                </span>
+                  {/* -1 st */}
+                  <button
+                    type="button"
+                    onClick={() => handleTranspose(-1)}
+                    className="w-7 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] font-cactus font-bold text-xs rounded transition-colors"
+                    title={isFr ? 'Transposer de -1 demi-ton' : 'Transpor -1 semitom'}
+                  >
+                    -
+                  </button>
 
-                {/* Bouton +1 demi-ton */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(1)}
-                  title={isFr ? '+1 demi-ton' : '+1 semitom'}
-                  className="w-7 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-sm font-cactus shrink-0"
-                >
-                  +
-                </button>
+                  {/* Compteur central */}
+                  <span className="w-8 text-center font-cactus font-black text-sm text-[#8b2a1a] tabular-nums">
+                    {vocalTransposeSteps > 0 ? `+${vocalTransposeSteps}` : vocalTransposeSteps}
+                  </span>
 
-                {/* Raccourci +7 (Quinte ascendante) */}
-                <button
-                  type="button"
-                  onClick={() => handleTranspose(7)}
-                  title={isFr ? '+7 demi-tons (Quinte ascendante)' : '+7 semitons (Quinta ascendente)'}
-                  className="px-2 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-center cursor-pointer transition-colors font-bold text-xs font-cactus shrink-0"
-                >
-                  +7
-                </button>
+                  {/* +1 st */}
+                  <button
+                    type="button"
+                    onClick={() => handleTranspose(1)}
+                    className="w-7 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] font-cactus font-bold text-xs rounded transition-colors"
+                    title={isFr ? 'Transposer de +1 demi-ton' : 'Transpor +1 semitom'}
+                  >
+                    +
+                  </button>
+
+                  {/* +7 st */}
+                  <button
+                    type="button"
+                    onClick={() => handleTranspose(7)}
+                    className="flex-1 h-7 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] font-cactus font-bold text-xs rounded transition-colors"
+                    title={isFr ? 'Transposer de +7 demi-tons (Quinte ascendante)' : 'Transpor +7 semitons (Quinta ascendente)'}
+                  >
+                    +7
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <VocalTimbreSelector lang={lang} />
-          </>
-        ) : (
-          <PercussionTuningControl trackId={trackId} onPreview={handlePreviewDrum} showPreviewButton={true} />
-        )}
-      </div>
+              <VocalTimbreSelector lang={lang} />
+            </>
+          ) : (
+            <details className="border-t-2 border-[#1a1a1a]/20 pt-2 mt-2 group">
+              <summary className="text-xs font-bold uppercase tracking-wider cursor-pointer list-none flex items-center justify-between py-1 select-none [&::-webkit-details-marker]:hidden">
+                <span>
+                  {isFr ? 'Accorder le tambour' : 'Afinar o tambor'} ({pitchOffset > 0 ? `+${pitchOffset}` : pitchOffset} st)
+                </span>
+                <span className="transition-transform group-open:rotate-90">▸</span>
+              </summary>
+              <div className="pt-2">
+                <PercussionTuningControl trackId={trackId} onPreview={handlePreviewDrum} showPreviewButton={true} />
+              </div>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 });

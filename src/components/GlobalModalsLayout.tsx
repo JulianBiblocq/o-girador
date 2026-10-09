@@ -92,6 +92,26 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
 
   const modalRoot = document.getElementById('modal-root') || document.body;
 
+  // Keyboard event capture for customDialog (Enter to confirm, Escape to cancel without bubbling to underlying editors)
+  React.useEffect(() => {
+    if (!customDialog) return;
+    const handleCaptureKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        setCustomDialog(null);
+        customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
+      } else if (e.key === 'Enter' && customDialog.type !== 'prompt') {
+        e.stopPropagation();
+        e.preventDefault();
+        setCustomDialog(null);
+        customDialog.onResolve(true);
+      }
+    };
+    window.addEventListener('keydown', handleCaptureKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleCaptureKeyDown, { capture: true });
+  }, [customDialog, setCustomDialog]);
+
   const content = (
     <>
       {/* Export Menu Modal (Level 2: z-[100]) */}
@@ -122,10 +142,22 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
         />
       )}
 
-      {/* Custom Dialog (Alert / Confirm / Prompt) (Level 4: z-[300]) */}
-      {customDialog && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-text text-sm">
-          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text">
+      {/* Custom Dialog (Alert / Confirm / Prompt) (Mounted at document.body with sovereign priority: z-[100050]) */}
+      {customDialog && typeof document !== 'undefined' && createPortal(
+        <div
+          data-testid="custom-dialog-backdrop"
+          className="fixed inset-0 z-[100050] flex items-center justify-center bg-black/80 backdrop-blur-xs select-text text-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && customDialog.type !== 'alert') {
+              setCustomDialog(null);
+              customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
+            }
+          }}
+        >
+          <div
+            className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[6px_6px_0_var(--cordel-border)] p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text z-[100050]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="font-cactus font-bold text-base border-b-2 border-[var(--cordel-border)] pb-2 select-none">
               {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (sequencer.lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (sequencer.lang === 'pt' ? 'Confirmação' : 'Confirmation') : (sequencer.lang === 'pt' ? 'Entrada' : 'Saisie')}
             </div>
@@ -134,6 +166,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
               <input
                 id="custom-prompt-input"
                 type="text"
+                autoFocus
                 autoComplete="off"
                 className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-1.5 text-xs outline-none focus:bg-[var(--cordel-text)] focus:text-[var(--cordel-bg)]"
                 defaultValue={customDialog.defaultValue}
@@ -149,6 +182,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
             <div className="flex justify-end gap-2.5 mt-2 select-none">
               {customDialog.type !== 'alert' && (
                 <button
+                  type="button"
                   onClick={() => {
                     setCustomDialog(null);
                     customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
@@ -159,6 +193,8 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
                 </button>
               )}
               <button
+                type="button"
+                autoFocus={customDialog.type !== 'prompt'}
                 onClick={() => {
                   const input = document.getElementById('custom-prompt-input') as HTMLInputElement;
                   setCustomDialog(null);
@@ -168,14 +204,16 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
                     customDialog.onResolve(true);
                   }
                 }}
-                className="px-4 py-1 text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
+                className="px-4 py-1 text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer focus:ring-2 focus:ring-[var(--cordel-border)] focus:outline-none"
               >
                 {customDialog.confirmLabel || (sequencer.lang === 'pt' ? 'OK' : 'Valider')}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
 
       {/* Cloud Section Modals */}
       <Suspense fallback={null}>

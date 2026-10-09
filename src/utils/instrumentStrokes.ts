@@ -733,21 +733,31 @@ export function getStrokePairs(instId: string, instType: string, lang: string, i
       };
     }).filter(p => !!p.strong);
 
-    // Bouton unique pour les Flas (Fla Aberto F/f + Fla Slap V/v)
+    // Outil F : Fla ouvert (F / f)
     const fStrong = allStrokes.find(s => s.symbol === 'F');
     const fWeak = allStrokes.find(s => s.symbol === 'f');
-    const vStrong = allStrokes.find(s => s.symbol === 'V');
-    const vWeak = allStrokes.find(s => s.symbol === 'v');
-
     if (fStrong) {
-      const flaStrokes = [fStrong, fWeak, vStrong, vWeak].filter(Boolean) as StrokeDef[];
+      const strokes = [fStrong, fWeak].filter(Boolean) as StrokeDef[];
       pairs.push({
         id: 'F',
         strong: fStrong,
         weak: fWeak,
-        third: vStrong,
-        strokes: flaStrokes,
-        mainLabel: isFr ? 'Flas' : 'Flas'
+        strokes,
+        mainLabel: isFr ? 'Fla ouvert' : 'Fla aberto'
+      });
+    }
+
+    // Outil V : Fla claqué (V / v)
+    const vStrong = allStrokes.find(s => s.symbol === 'V');
+    const vWeak = allStrokes.find(s => s.symbol === 'v');
+    if (vStrong) {
+      const strokes = [vStrong, vWeak].filter(Boolean) as StrokeDef[];
+      pairs.push({
+        id: 'V',
+        strong: vStrong,
+        weak: vWeak,
+        strokes,
+        mainLabel: isFr ? 'Fla claqué' : 'Fla slap'
       });
     }
 
@@ -1172,16 +1182,6 @@ export function getNextNuanceState(
     return '0';
   }
 
-  // Cas spécifique Timbal Flas : au clic / tap, cycle Fla Aberto fort (F) -> faible (f) -> efface (0), ou si Slap V -> v -> 0
-  if (instId === 'timbal' && (activeTool === 'F' || activeTool === 'f' || activeTool === 'V' || activeTool === 'v')) {
-    if (norm === '0' || norm === '') return 'F';
-    if (norm === 'F') return 'f';
-    if (norm === 'f') return '0';
-    if (norm === 'V') return 'v';
-    if (norm === 'v') return '0';
-    return 'F';
-  }
-
   const pairs = getStrokePairs(instId, instType, lang, isLeftHanded);
   const matchedPair = pairs.find(
     p => p.id === activeTool || p.strong.symbol === activeTool || p.strokes.some(s => s.symbol === activeTool)
@@ -1231,13 +1231,6 @@ export function getWheelNuanceState(
   const norm = String(currentVal ?? '0').trim();
   if (norm === '0' || norm === '') return norm;
 
-  // Cas spécifique Timbal : bascule entre Fla Aberto (F/f) et Fla Slap (V/v) à la molette
-  if (instId === 'timbal') {
-    if (norm === 'F' && direction === 'down') return 'V';
-    if (norm === 'V' && direction === 'up') return 'F';
-    if (norm === 'f' && direction === 'down') return 'v';
-    if (norm === 'v' && direction === 'up') return 'f';
-  }
 
   const pairs = getStrokePairs(instId, instType, lang, isLeftHanded);
   const matchedPair = pairs.find(

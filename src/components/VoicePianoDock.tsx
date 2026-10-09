@@ -8,7 +8,7 @@ import { playVoicePitchLive, releaseVoicePitchLive } from '../audio/vocalSynthSe
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { Ear, Edit3, Eraser } from 'lucide-react';
+import { Ear, Edit3, Eraser, ChevronDown } from 'lucide-react';
 
 interface VoicePianoDockProps {
   trackId: number;
@@ -78,6 +78,7 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
   const voiceInputMode = useAudioStore(state => state.voiceInputMode);
   const setVoiceInputMode = useAudioStore(state => state.setVoiceInputMode);
 
+  const [isPianoExpanded, setIsPianoExpanded] = useState<boolean>(true);
   const [activeNotes, setActiveNotes] = useState<Set<string>>(new Set());
   const activeNotesRef = useRef<Set<string>>(new Set());
   const midiHighlightTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -254,9 +255,16 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
   const isFr = lang === 'fr';
 
   return (
-    <div className="w-full bg-[#f4ede2] border-t-[3px] border-[#1a1a1a] px-3 py-2 shrink-0 flex flex-col md:flex-row items-center justify-between gap-3 shadow-[0_-2px_6px_rgba(0,0,0,0.06)] z-30 select-none">
+    <div
+      data-voice-piano-dock="true"
+      className={`w-full bg-[#f4ede2] border-t-[3px] border-[#1a1a1a] px-3 shrink-0 flex items-center justify-between gap-3 shadow-[0_-2px_6px_rgba(0,0,0,0.06)] z-30 select-none ${
+        isPianoExpanded ? 'py-2 flex-col md:flex-row' : 'py-1 flex-row'
+      }`}
+    >
       {/* ─── Panneau de gauche : Commutateur de mode & Statut du pas ─── */}
-      <div className="flex flex-row md:flex-col items-center md:items-start justify-between w-full md:w-auto shrink-0 gap-2 border-b md:border-b-0 md:border-r border-[#1a1a1a]/15 pb-2 md:pb-0 md:pr-3">
+      <div className={`flex flex-row items-center justify-between w-full md:w-auto shrink-0 gap-2 ${
+        isPianoExpanded ? 'md:flex-col md:items-start border-b md:border-b-0 md:border-r border-[#1a1a1a]/15 pb-2 md:pb-0 md:pr-3' : ''
+      }`}>
         {/* Toggle Mode Segmenté Cordel */}
         <div className="flex items-center gap-1 bg-[#ece4d0] p-1 rounded-md border border-[#1a1a1a]/20 shadow-xs">
           <button
@@ -289,7 +297,7 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
           </button>
         </div>
 
-        {/* Indicateur Pas actif & Bouton Gomme */}
+        {/* Indicateur Pas actif, Bouton Gomme & Bouton Clavier Repliable */}
         <div className="flex items-center gap-2 text-[10px] font-medium text-[#1a1a1a]/80">
           <span className="font-mono bg-[#ece4d0] px-1.5 py-0.5 rounded border border-[#1a1a1a]/15">
             {selectedStepIsPreRoll 
@@ -309,91 +317,109 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo(({
           >
             <Eraser className="w-3 h-3" />
           </button>
+
+          {/* Bouton bascule déplier / replier le clavier */}
+          <button
+            type="button"
+            onClick={() => setIsPianoExpanded(prev => !prev)}
+            className="px-2 py-1 rounded bg-[#ece4d0] hover:bg-[#e2d5bd] text-[#1a1a1a] text-[11px] font-bold border border-[#1a1a1a]/20 shadow-xs flex items-center gap-1 cursor-pointer transition-colors ml-1"
+            title={isFr ? (isPianoExpanded ? "Replier le clavier piano" : "Déplier le clavier piano") : (isPianoExpanded ? "Recolher teclado" : "Expandir teclado")}
+          >
+            <span>🎹</span>
+            <span className="hidden sm:inline">{isFr ? 'Clavier' : 'Teclado'}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isPianoExpanded ? 'rotate-0' : '-rotate-90'}`} />
+          </button>
         </div>
       </div>
 
-      {/* ─── Clavier Piano Virtuel (3 octaves : C3 à C6) ─── */}
-      <div className="relative flex-1 w-full min-w-0 h-[88px] sm:h-[96px] flex rounded-b-md overflow-hidden bg-[#1a1a1a] p-0.5 border-2 border-[#1a1a1a] shadow-inner select-none">
-        {/* Touches blanches */}
-        <div className="flex w-full h-full">
+      {/* ─── Clavier Piano Virtuel (3 octaves : C3 à C6) ou bandeau compact ─── */}
+      {!isPianoExpanded ? (
+        <div className="flex-1 text-center text-[11px] font-mono text-[#1a1a1a]/60 py-1 hidden md:block">
+          {isFr ? '⌨️ Clavier replié — Contrôleur MIDI & frappes clavier actifs' : '⌨️ Teclado recolhido — Controlador MIDI ativo'}
+        </div>
+      ) : (
+        <div className="relative flex-1 w-full min-w-0 h-[88px] sm:h-[96px] flex rounded-b-md overflow-hidden bg-[#1a1a1a] p-0.5 border-2 border-[#1a1a1a] shadow-inner select-none">
+          {/* Touches blanches */}
+          <div className="flex w-full h-full">
+            {WHITE_KEYS.map((keyDef, idx) => {
+              const isNoteActive = activeNotes.has(keyDef.note);
+
+              return (
+                <button
+                  key={keyDef.note}
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handleNoteDown(keyDef.note);
+                  }}
+                  onPointerUp={() => handleNoteUp(keyDef.note)}
+                  onPointerLeave={() => handleNoteUp(keyDef.note)}
+                  onPointerCancel={() => handleNoteUp(keyDef.note)}
+                  className={`relative flex-1 h-full border-r border-[#1a1a1a] last:border-r-0 rounded-b-[3px] flex flex-col justify-end items-center pb-1 transition-colors duration-75 cursor-pointer touch-none ${
+                    isNoteActive
+                      ? 'bg-[#e07a5f] text-white shadow-inner'
+                      : 'bg-[#fcf8ef] hover:bg-[#f5ebd7] text-[#1a1a1a]/70 active:bg-[#e07a5f] active:text-white'
+                  }`}
+                  title={keyDef.note}
+                >
+                  {/* Libellé gravé en bas de chaque Do (C) */}
+                  {keyDef.isC ? (
+                    <span className="text-[9px] sm:text-[10px] font-black font-mono tracking-tighter opacity-90 pb-0.5">
+                      {keyDef.note}
+                    </span>
+                  ) : (
+                    <span className="text-[7px] sm:text-[8px] font-mono opacity-30 pb-0.5 hidden sm:inline">
+                      {keyDef.name}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Touches noires superposées (centrées à cheval sur les lignes mitoyennes des blanches) */}
           {WHITE_KEYS.map((keyDef, idx) => {
-            const isNoteActive = activeNotes.has(keyDef.note);
+            if (!keyDef.hasSharp || !keyDef.sharpNote) return null;
+
+            const sharpNote = keyDef.sharpNote;
+            const isSharpActive = activeNotes.has(sharpNote);
+
+            // Calcul géométrique précis : la touche noire fait 65% de la largeur d'une blanche, centrée à cheval
+            // La touche blanche idx termine à ((idx + 1) / 22) * 100%
+            const leftPercent = ((idx + 1) / 22) * 100;
 
             return (
               <button
-                key={keyDef.note}
+                key={sharpNote}
                 type="button"
                 onPointerDown={(e) => {
                   e.preventDefault();
-                  handleNoteDown(keyDef.note);
+                  e.stopPropagation();
+                  handleNoteDown(sharpNote);
                 }}
-                onPointerUp={() => handleNoteUp(keyDef.note)}
-                onPointerLeave={() => handleNoteUp(keyDef.note)}
-                onPointerCancel={() => handleNoteUp(keyDef.note)}
-                className={`relative flex-1 h-full border-r border-[#1a1a1a] last:border-r-0 rounded-b-[3px] flex flex-col justify-end items-center pb-1 transition-colors duration-75 cursor-pointer touch-none ${
-                  isNoteActive
-                    ? 'bg-[#e07a5f] text-white shadow-inner'
-                    : 'bg-[#fcf8ef] hover:bg-[#f5ebd7] text-[#1a1a1a]/70 active:bg-[#e07a5f] active:text-white'
+                onPointerUp={() => handleNoteUp(sharpNote)}
+                onPointerLeave={() => handleNoteUp(sharpNote)}
+                onPointerCancel={() => handleNoteUp(sharpNote)}
+                style={{
+                  left: `${leftPercent}%`,
+                  width: 'calc(100% / 22 * 0.65)',
+                  transform: 'translateX(-50%)'
+                }}
+                className={`absolute top-0 h-[58%] z-20 rounded-b-[2px] border border-[#2d2d2d] cursor-pointer touch-none transition-colors duration-75 flex items-end justify-center pb-1 ${
+                  isSharpActive
+                    ? 'bg-[#c25e38] text-white shadow-inner'
+                    : 'bg-[#1a1a1a] hover:bg-[#2c2c2c] active:bg-[#c25e38] shadow-md'
                 }`}
-                title={keyDef.note}
+                title={sharpNote}
               >
-                {/* Libellé gravé en bas de chaque Do (C) */}
-                {keyDef.isC ? (
-                  <span className="text-[9px] sm:text-[10px] font-black font-mono tracking-tighter opacity-90 pb-0.5">
-                    {keyDef.note}
-                  </span>
-                ) : (
-                  <span className="text-[7px] sm:text-[8px] font-mono opacity-30 pb-0.5 hidden sm:inline">
-                    {keyDef.name}
-                  </span>
-                )}
+                <span className="text-[6px] font-mono text-white/40 hidden sm:inline leading-none">
+                  #
+                </span>
               </button>
             );
           })}
         </div>
-
-        {/* Touches noires superposées (centrées à cheval sur les lignes mitoyennes des blanches) */}
-        {WHITE_KEYS.map((keyDef, idx) => {
-          if (!keyDef.hasSharp || !keyDef.sharpNote) return null;
-
-          const sharpNote = keyDef.sharpNote;
-          const isSharpActive = activeNotes.has(sharpNote);
-
-          // Calcul géométrique précis : la touche noire fait 65% de la largeur d'une blanche, centrée à cheval
-          // La touche blanche idx termine à ((idx + 1) / 22) * 100%
-          const leftPercent = ((idx + 1) / 22) * 100;
-
-          return (
-            <button
-              key={sharpNote}
-              type="button"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleNoteDown(sharpNote);
-              }}
-              onPointerUp={() => handleNoteUp(sharpNote)}
-              onPointerLeave={() => handleNoteUp(sharpNote)}
-              onPointerCancel={() => handleNoteUp(sharpNote)}
-              style={{
-                left: `${leftPercent}%`,
-                width: 'calc(100% / 22 * 0.65)',
-                transform: 'translateX(-50%)'
-              }}
-              className={`absolute top-0 h-[58%] z-20 rounded-b-[2px] border border-[#2d2d2d] cursor-pointer touch-none transition-colors duration-75 flex items-end justify-center pb-1 ${
-                isSharpActive
-                  ? 'bg-[#c25e38] text-white shadow-inner'
-                  : 'bg-[#1a1a1a] hover:bg-[#2c2c2c] active:bg-[#c25e38] shadow-md'
-              }`}
-              title={sharpNote}
-            >
-              <span className="text-[6px] font-mono text-white/40 hidden sm:inline leading-none">
-                #
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      )}
     </div>
   );
 });

@@ -1294,12 +1294,16 @@ export class AudioEngine {
 
     let normSymbol = strokeSymbol;
 
+    // Normalisations universelles des déclinaisons de main virtuelles vers les buffers audio existants
+    if (normSymbol === 'f') normSymbol = 'F';
+    else if (normSymbol === 'v') normSymbol = 'V';
+    else if (normSymbol === 'r') normSymbol = 'R';
+
     // Normalizations for legacy sequencer symbol compatibilities
     // Note: G→E normalization for Alfaias removed — symbols are now canonical and unambiguous.
     if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
       if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
       else if (normSymbol === 'C') normSymbol = 'c';
-      else if (normSymbol === 'f') normSymbol = 'F';
     } else if (instrumentId === 'timbal') {
       if (normSymbol === 'f') normSymbol = 'F';
       else if (normSymbol === 'v') normSymbol = 'V';
@@ -1349,13 +1353,15 @@ export class AudioEngine {
     if (!config) return;
 
     let normSymbol = strokeSymbol;
+
+    // Normalisations universelles des déclinaisons de main virtuelles vers les buffers audio existants
+    if (normSymbol === 'f') normSymbol = 'F';
+    else if (normSymbol === 'v') normSymbol = 'V';
+    else if (normSymbol === 'r') normSymbol = 'R';
+
     if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
       if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
       else if (normSymbol === 'C') normSymbol = 'c';
-      else if (normSymbol === 'f') normSymbol = 'F';
-    } else if (instrumentId === 'timbal') {
-      if (normSymbol === 'f') normSymbol = 'F';
-      else if (normSymbol === 'v') normSymbol = 'V';
     }
 
     const strokesMap = this.strokesMaps.get(instrumentId);

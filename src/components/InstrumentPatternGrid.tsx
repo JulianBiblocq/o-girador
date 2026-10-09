@@ -200,7 +200,7 @@ const PercussionStepCell = React.memo(({
               ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
               : (isFocused && (selectedSubIndex === null || selectedSubIndex === undefined))
                 ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-                : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
+                : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]'
           }`}
           style={{
             width: 'calc(100% - 2px)',
@@ -306,7 +306,7 @@ const PercussionStepCell = React.memo(({
       ) : (
         <input
           type="text"
-          value={val === 0 ? '' : val}
+          value={val === 0 || val === '0' || !val ? '' : val}
           readOnly={isMultiSelectActive || activeTool === 'scissors'}
           tabIndex={activeTool === 'scissors' ? -1 : undefined}
           onMouseDown={(e) => onMouseDown(e, i, val)}
@@ -330,8 +330,8 @@ const PercussionStepCell = React.memo(({
               : isFocused
                 ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
                 : val === 0 || val === '0' || !val
-                  ? 'bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-black/40 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
-                  : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
+                  ? 'bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
+                  : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]'
           }`}
           style={{
             ...colorStyle,
@@ -884,12 +884,12 @@ const VoiceStepCellComponent = ({
             : isInRange
               ? '!border-2 !border-amber-500/90 bg-amber-500/25 shadow-[0_0_8px_rgba(245,158,11,0.6)] rounded-none m-[1px]'
               : isProlongation && isFollowedByProlongation
-                ? 'border-y border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0'
+                ? 'border-y border-[#1a1a1a] shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] mx-0'
                 : isProlongation && !isFollowedByProlongation
-                  ? 'border-y border-r border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
+                  ? 'border-y border-r border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none my-[1px] mr-[1px] ml-0'
                   : !isProlongation && isFollowedByProlongation
-                    ? 'border-y border-l border-[#1a1a1a] dark:border-black/60 shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
-                    : 'border border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none m-[1px]'
+                    ? 'border-y border-l border-[#1a1a1a] shadow-[0px_1px_0px_#1a1a1a] rounded-none my-[1px] ml-[1px] mr-0'
+                    : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]'
         }`}
         style={{
           transform: `translateX(${shiftPx}px)`,
@@ -1251,6 +1251,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   currentPatternRef.current = pattern;
   const currentTrackIdRef = React.useRef(trackId);
   currentTrackIdRef.current = trackId;
+  const activeToolRef = React.useRef(activeTool);
+  activeToolRef.current = activeTool;
+  const isAlternatingRef = React.useRef(isAlternating);
+  isAlternatingRef.current = isAlternating;
   const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
   const handleSetPatternAllBeatsResolution = useSequencerStore(state => state.handleSetPatternAllBeatsResolution);
   const [voiceStepContextMenu, setVoiceStepContextMenu] = useState<{ x: number; y: number; stepIdx: number; isPreRoll: boolean } | null>(null);
@@ -1534,24 +1538,31 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
     isMouseDownRef.current = true;
 
-    // Apply directly the active tool from dock, with parity alternation if active
+    // Injection directe de l'outil actif avec cycle de nuances ou alternance de parité
+    const tool = activeToolRef.current;
+    const isAlt = isAlternatingRef.current;
+
     let strokeToApply: string | number;
-    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
+    if (tool === '0' || tool === '' || tool === undefined) {
       strokeToApply = 0;
-    } else if (isAlternating) {
-      strokeToApply = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
+    } else if (isAlt) {
+      strokeToApply = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
     } else {
-      strokeToApply = activeTool;
+      const currentSubVal = (subIndex !== undefined && Array.isArray(value))
+        ? value[subIndex]
+        : (Array.isArray(value) ? value[0] : value);
+      strokeToApply = getNextNuanceState(currentSubVal, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
     }
 
-    paintValueRef.current = strokeToApply;
+    paintValueRef.current = strokeToApply === '0' ? 0 : strokeToApply;
 
     let finalVal: string | number | [string, string] = strokeToApply;
-    if (subIndex !== undefined && Array.isArray(value)) {
+    if (Array.isArray(value)) {
       const arr = [...value] as [string, string];
-      arr[subIndex] = String(strokeToApply);
+      const targetSub = subIndex !== undefined ? subIndex : 0;
+      arr[targetSub] = String(strokeToApply);
       finalVal = arr;
-      setSelectedSubIndex(subIndex);
+      setSelectedSubIndex(targetSub);
     } else {
       setSelectedSubIndex(null);
     }
@@ -1562,13 +1573,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
     }
 
-    // Sound preview
-    if (strokeToApply !== 0 && strokeToApply !== '0') {
+    // Sound preview immédiate et synchrone
+    const noteToPreview = Array.isArray(finalVal)
+      ? (subIndex !== undefined ? finalVal[subIndex] : finalVal[0])
+      : finalVal;
+
+    if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '' && noteToPreview !== undefined) {
       try {
         if (audioEngine) {
-          const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
-          const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
-          audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
+          const rawVol = pattern?.volumes?.[idx];
+          const rawDec = pattern?.decays?.[idx];
+          const subIdx = subIndex ?? 0;
+          const vol = (getSculptNumber(Array.isArray(rawVol) ? rawVol[subIdx] : rawVol, 100)) / 100;
+          const dec = (getSculptNumber(Array.isArray(rawDec) ? rawDec[subIdx] : rawDec, 100)) / 100;
+          audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
         }
       } catch (_) {}
     }
@@ -1580,17 +1598,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       handleClearStep(idx);
       return;
     }
-    if (activeTool === 'scissors') return; // Glisser/drag désactivé pour l'outil ciseau
+    if (activeToolRef.current === 'scissors') return; // Glisser/drag désactivé pour l'outil ciseau
     if (isMultiSelectActive) {
       handleStepMouseEnterMulti(idx);
       return;
     }
     if (isMouseDownRef.current) {
+      const tool = activeToolRef.current;
+      const isAlt = isAlternatingRef.current;
+
       let strokeToApply: string | number;
-      if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
+      if (tool === '0' || tool === '' || tool === undefined) {
         strokeToApply = 0;
-      } else if (isAlternating) {
-        strokeToApply = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
+      } else if (isAlt) {
+        strokeToApply = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
       } else {
         strokeToApply = paintValueRef.current;
       }
@@ -1604,8 +1625,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (strokeToApply !== 0 && strokeToApply !== '0') {
         try {
           if (audioEngine) {
-            const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
-            const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
+            const rawVol = pattern?.volumes?.[idx];
+            const rawDec = pattern?.decays?.[idx];
+            const vol = (getSculptNumber(Array.isArray(rawVol) ? rawVol[0] : rawVol, 100)) / 100;
+            const dec = (getSculptNumber(Array.isArray(rawDec) ? rawDec[0] : rawDec, 100)) / 100;
             audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
           }
         } catch (_) {}
@@ -1806,26 +1829,36 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
     // Instantaneous Tap State Machine without lag:
     // Empty -> Strong -> Weak -> 0
-    let currentVal = value;
-    if (Array.isArray(value)) {
-      currentVal = subIndex !== undefined ? value[subIndex] : value[0];
+    const tool = activeToolRef.current;
+    const isAlt = isAlternatingRef.current;
+
+    const currentSubVal = (subIndex !== undefined && Array.isArray(value))
+      ? value[subIndex]
+      : (Array.isArray(value) ? value[0] : value);
+
+    let nextVal: string | number;
+    if (tool === '0' || tool === '' || tool === undefined) {
+      nextVal = 0;
+    } else if (isAlt) {
+      nextVal = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
+    } else {
+      nextVal = getNextNuanceState(
+        currentSubVal,
+        tool,
+        instrument?.id,
+        instrument?.type,
+        lang,
+        isLeftHanded
+      );
     }
 
-    const nextVal = getNextNuanceState(
-      currentVal,
-      activeTool,
-      instrument?.id,
-      instrument?.type,
-      lang,
-      isLeftHanded
-    );
-
     let finalVal: string | number | [string, string] = nextVal;
-    if (subIndex !== undefined && Array.isArray(value)) {
+    if (Array.isArray(value)) {
       const arr = [...value] as [string, string];
-      arr[subIndex] = String(nextVal);
+      const targetSub = subIndex !== undefined ? subIndex : 0;
+      arr[targetSub] = String(nextVal);
       finalVal = arr;
-      setSelectedSubIndex(subIndex);
+      setSelectedSubIndex(targetSub);
     } else {
       setSelectedSubIndex(null);
     }
@@ -1839,16 +1872,23 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     setSelectedStepIdx(idx);
     setSelectedStepIndices([idx]);
 
-    if (nextVal !== '0' && nextVal !== 0 && nextVal !== '') {
+    const noteToPreview = Array.isArray(finalVal)
+      ? (subIndex !== undefined ? finalVal[subIndex] : finalVal[0])
+      : finalVal;
+
+    if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '' && noteToPreview !== undefined) {
       try {
         if (audioEngine) {
-          const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
-          const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
-          audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+          const rawVol = pattern?.volumes?.[idx];
+          const rawDec = pattern?.decays?.[idx];
+          const subIdx = subIndex ?? 0;
+          const vol = (getSculptNumber(Array.isArray(rawVol) ? rawVol[subIdx] : rawVol, 100)) / 100;
+          const dec = (getSculptNumber(Array.isArray(rawDec) ? rawDec[subIdx] : rawDec, 100)) / 100;
+          audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
         }
       } catch (_) {}
     }
-  }, [isMultiSelectActive, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded, selectedVariationId, trackId, pattern?.id, pattern?.activeSteps, pattern?.volumes, pattern?.decays, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
+  }, [isMultiSelectActive, activeTool, isAlternating, instrument?.id, instrument?.type, lang, isLeftHanded, selectedVariationId, trackId, pattern?.id, pattern?.activeSteps, pattern?.volumes, pattern?.decays, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
 
   const handleCellChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     if (activeTool === 'scissors') {

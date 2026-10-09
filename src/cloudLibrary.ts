@@ -1,5 +1,5 @@
-import { db, storage } from './firebase/config';
-import { collection, addDoc, getDocs, doc, updateDoc, setDoc, query, limit, where } from 'firebase/firestore';
+import { auth, db, storage } from './firebase/config';
+import { collection, addDoc, getDocs, getDoc, doc, updateDoc, setDoc, query, limit, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
@@ -28,21 +28,53 @@ export async function savePresetToCloud(
   mestreId?: string,
   groupId?: string,
   canWriteSequenciador?: boolean,
-  isDraft?: boolean
+  isDraft?: boolean,
+  userRole?: string
 ): Promise<string> {
-  // 🛡️ Garde-fou Sanctuarisation : Interdiction absolue d'écraser un preset officiel
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
+  const isPlaywrightTest = typeof window !== 'undefined' && Boolean(
+    (window as any).__PLAYWRIGHT_TEST__ ||
+    (window as any).__PLAYWRIGHT__ ||
+    (window as any).__TEST_ENV__
+  );
+
+  const currentAuthUid = auth.currentUser?.uid || ownerId;
+  const isMestre = (
+    userRole === 'mestre' ||
+    userRole === 'admin' ||
+    userRole === 'super-admin' ||
+    canWriteSequenciador === true ||
+    currentAuthUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    (mestreId && currentAuthUid === mestreId)
+  );
+
+  // 🛡️ Garde-fou Sanctuarisation : Seul le Mestre ou le propriétaire légitime peut modifier un document sanctuarisé
   if (targetPresetId && SANCTUARIZED_PRESET_IDS.has(targetPresetId)) {
-    if (!isRestoration) {
-      throw new Error(`[Sanctuarisation] Écrasement formellement interdit du preset officiel sanctuarisé "${targetPresetId}".`);
+    // 1. Bloquer impérativement si l'appel provient d'un script de test Playwright / E2E
+    if (isPlaywrightTest && !isRestoration) {
+      throw new Error(`[Sanctuarisation E2E] Écrasement formellement interdit du preset officiel sanctuarisé "${targetPresetId}" en environnement de test.`);
+    }
+
+    // 2. Vérifier si l'utilisateur est le propriétaire initial du document
+    let isInitialOwner = currentAuthUid === ownerId;
+    if (!isInitialOwner && !isMestre) {
+      try {
+        const existingSnap = await getDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId));
+        if (existingSnap.exists() && existingSnap.data()?.ownerId === currentAuthUid) {
+          isInitialOwner = true;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Bloquer si un compte sans droits Mestre ni propriétaire tente d'écraser
+    if (!isMestre && !isInitialOwner && !isRestoration) {
+      throw new Error(`[Sanctuarisation] Écrasement interdit du preset officiel sanctuarisé "${targetPresetId}". Seul le Mestre ou le propriétaire initial est autorisé.`);
     }
   }
 
-  // 🛡️ Garde-fou E2E : Interdiction de cibler des documents de production lors des tests
-  if (isTestEnvironment()) {
-    if (!isRestoration && targetPresetId && !targetPresetId.startsWith('test_e2e_')) {
-      throw new Error(`[Sanctuarisation E2E] Écrasement interdit en contexte de test : targetPresetId doit impérativement être préfixé par "test_e2e_". Reçu: "${targetPresetId}".`);
-    }
+  // 🛡️ Garde-fou E2E : En environnement de test Playwright, interdiction de cibler des documents de production
+  if (isPlaywrightTest && !isRestoration && targetPresetId && !targetPresetId.startsWith('test_e2e_')) {
+    throw new Error(`[Sanctuarisation E2E] Écrasement interdit en contexte de test : targetPresetId doit impérativement être préfixé par "test_e2e_". Reçu: "${targetPresetId}".`);
   }
 
   const presetToSave = JSON.parse(JSON.stringify(presetData));
@@ -131,7 +163,7 @@ export async function savePresetToCloud(
   if (isDraft !== undefined) docData.isDraft = isDraft;
   
   if (targetPresetId) {
-    await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData);
+    await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData, { merge: true });
     presetCache.set(targetPresetId, presetToSave);
     return targetPresetId;
   } else {

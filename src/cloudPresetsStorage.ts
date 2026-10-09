@@ -26,10 +26,9 @@ export function isTestPresetName(name?: string, metadata?: any): boolean {
 export function isTestEnvironment(): boolean {
   if (typeof window === 'undefined') return false;
   return Boolean(
-    navigator.webdriver ||
+    (window as any).__PLAYWRIGHT_TEST__ ||
     (window as any).__PLAYWRIGHT__ ||
-    (window as any).__TEST_ENV__ ||
-    localStorage.getItem('girador_test_user_profile')
+    (window as any).__TEST_ENV__
   );
 }
 

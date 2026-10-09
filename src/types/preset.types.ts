@@ -48,6 +48,7 @@ export interface PresetMetadata {
   descriptionFr?: string;
   preRollSettings?: PreRollSettings;
   vocalPreset?: string;
+  morceauId?: string;
 }
 
 export interface Circle {

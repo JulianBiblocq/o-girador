@@ -390,30 +390,41 @@ export const useMidiController = () => {
       // --- VÉRIFICATION DU CONTEXTE VOCAL (Priorité absolue) ---
       const seqStore = useSequencerStore.getState();
       const editingTrackId = (seqStore as any).editingTrackId;
-      const editingTrack = seqStore.tracks.find(t => t.id === editingTrackId);
+      const editingTrack = seqStore.tracks.find(t => t.id === editingTrackId || String(t.id) === String(editingTrackId));
       const isEditingVoice = isVoiceTrack(editingTrack);
+      const armedTrack = seqStore.tracks.find(t => t.id === seqStore.armedTrackId || String(t.id) === String(seqStore.armedTrackId));
+
+      const activeTrack = isEditingVoice && editingTrack 
+        ? editingTrack 
+        : (editingTrack ?? armedTrack ?? null);
+
+      const hasVoiceEditorInDom = typeof document !== 'undefined' && Boolean(
+        document.querySelector('[data-voice-piano-dock]') ||
+        document.querySelector('[data-instrument-detail-editor="voice"]') ||
+        (window as any).oGiradorVocalEditorOpen
+      );
+
+      const isVoiceContext = Boolean(
+        (activeTrack as any)?.type === 'voice' || 
+        String(activeTrack?.id) === 'toada' || 
+        String(activeTrack?.id) === 'puxador' || 
+        String(activeTrack?.id) === 'coro' ||
+        String(activeTrack?.id).toLowerCase().includes('toada') ||
+        String(activeTrack?.id).toLowerCase().includes('puxador') ||
+        String(activeTrack?.id).toLowerCase().includes('coro') ||
+        activeTrack?.customName === 'Toada' ||
+        activeTrack?.customName === 'Puxador' ||
+        activeTrack?.customName === 'Coro' ||
+        isEditingVoice ||
+        isVoiceTrack(activeTrack) ||
+        hasVoiceEditorInDom
+      );
 
       const state = useMidiStore.getState();
       const target = state.mappings[note];
 
-      let trackIdToPlay: number | string | null = null;
-      let activeTrack: any = null;
-
-      if (isEditingVoice && editingTrack) {
-        trackIdToPlay = editingTrack.id;
-        activeTrack = editingTrack;
-      } else {
-        trackIdToPlay = target ? target.trackId : seqStore.armedTrackId;
-        if (trackIdToPlay === null && editingTrackId !== undefined && editingTrackId !== null) {
-          trackIdToPlay = editingTrackId;
-        }
-        activeTrack = seqStore.tracks.find(t => t.id === trackIdToPlay) || seqStore.tracks.find(t => isVoiceTrack(t));
-      }
-
-      const isVoice = isVoiceTrack(activeTrack);
-
       // --- BRANCHE VOCALE ULTRA-PRIORITAIRE (Bypass MCU & Zero-Latency) ---
-      if (isVoice && (isNoteOn || isNoteOff)) {
+      if (isVoiceContext && (isNoteOn || isNoteOff)) {
         const instId = instrumentsConfig[activeTrack?.instrumentIdx ?? -1]?.id;
         const isCoro = instId === 'coro' || String(activeTrack?.id).toLowerCase().includes('coro') || activeTrack?.customName?.toLowerCase().includes('coro');
         const voiceSymbol: 'P' | 'C' = isCoro ? 'C' : 'P';
@@ -440,9 +451,12 @@ export const useMidiController = () => {
             }
           }
 
+          if (audioEngine) {
+            audioEngine.releaseVoicePitch(noteName);
+          }
           releaseVoicePitchLive(noteName);
           window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName, active: false } }));
-          return;
+          return; // INTERRUPTION FERME ET IMMÉDIATE
         }
 
         // B. Attaque (Note On avec velocity > 0)
@@ -462,13 +476,17 @@ export const useMidiController = () => {
           }
 
           // 1. Déclenchement sonore immédiat garanti (Zero Latence, Zero Throttle)
-          playVoicePitchLive(noteName, velocity / 127.0);
+          if (audioEngine) {
+            audioEngine.triggerVoicePitch(noteName, velocity / 127.0);
+          } else {
+            playVoicePitchLive(noteName, velocity / 127.0);
+          }
           window.dispatchEvent(new CustomEvent('o-girador-voice-key-active', { detail: { note: noteName, active: true } }));
 
           // Si l'utilisateur est en mode 'free' (jeu libre sans écriture pas-à-pas)
           const voiceInputMode = useAudioStore.getState().voiceInputMode || 'free';
           if (voiceInputMode === 'free') {
-            return;
+            return; // INTERRUPTION FERME ET IMMÉDIATE
           }
 
           // Initialisation automatique au pas 0 de la mesure active si aucun pas n'est formellement sélectionné
@@ -901,6 +919,11 @@ export const useMidiController = () => {
 
       // 4. Live Mode: Percussion notes (Note On & Note Off)
       if (isNoteOff) {
+        return;
+      }
+
+      // Verrou défensif d'étanchéité : aucun déclenchement percussif si contexte vocal
+      if (isVoiceContext) {
         return;
       }
 

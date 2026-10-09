@@ -748,6 +748,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!p || !Array.isArray(p.tracks) || p.tracks.length === 0) {
           console.warn('[loadFallbackPreset] Invalid cloud preset or empty tracks, falling back to default preset:', id);
           p = vouVadiarPreset;
+        } else {
+          if (!p.metadata) p.metadata = {} as any;
+          p.metadata.morceauId = id;
+          try {
+            localStorage.setItem('girador_last_loaded_preset_id', id);
+          } catch (_) {}
         }
       } else if (name.startsWith('local:')) {
         const id = name.replace('local:', '');

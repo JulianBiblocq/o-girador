@@ -72,6 +72,7 @@
 }
 
 [data-theme='light'] {
+  color-scheme: light;
   --cordel-bg: #f4ecd8;
   --cordel-text: #1a1a1a;
   --cordel-border: #1a1a1a;
