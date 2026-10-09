@@ -124,7 +124,7 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     const isHeavyView = ['admin'].includes(targetView);
 
     const applyViewChange = () => {
-      useSequencerStore.getState().setEditingTrackId(null);
+      useSequencerStore.getState().closeDetailEditor();
       setViewMode(targetView);
       if (targetView === 'console' || targetView === 'timeline') {
         setActiveRightPanelRef.current(null);

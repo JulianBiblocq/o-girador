@@ -5109,6 +5109,7 @@ export interface ProjectSettingsSlice {
   toggleEcoMode: () => void;
   toggleEcoOption: (key: keyof EcoConfig) => void;
   setEditingTrackId: (id: number | null) => void;
+  closeDetailEditor: () => void;
   setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
   setSelectedStepIndex: (idx: number | null, isPreRoll?: boolean) => void;
   setSelectedStepRange: (range: SelectedStepRange | null) => void;
@@ -5209,6 +5210,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     };
   }),
   setEditingTrackId: (id) => set({ editingTrackId: id }),
+  closeDetailEditor: () => set({ editingTrackId: null }),
   setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex, selectedStepRange: null }),
   setSelectedStepIndex: (idx, isPreRoll = false) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: null, selectedStepRange: null }),
   setSelectedStepRange: (range) => set({ selectedStepRange: range }),

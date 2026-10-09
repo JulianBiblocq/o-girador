@@ -28,7 +28,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
   const [name, setName] = useState(defaultName || '');
   const [visibility, setVisibility] = useState<CatalogVisibility>('mestre_group');
   const [isSaving, setIsSaving] = useState(false);
-  const [autoGenerateAudio, setAutoGenerateAudio] = useState(true);
+  // 🛡️ Option « Générer l'audio » décochée par défaut à l'ouverture (sauvegarde Firestore instantanée)
+  const [autoGenerateAudio, setAutoGenerateAudio] = useState(false);
 
   const { genererEtUploaderPresetCloudBounce, isBouncingCloud, progress, stepLabel } = useCloudAudioBounce();
 
@@ -241,7 +242,7 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         userProfile.uid,
         finalVisibility,
         undefined,
-        undefined,
+        undefined, // 🛡️ audioUrl undefined : préserve scrupuleusement l'audioUrl existant dans Firestore via { merge: true } sans l'écraser
         targetDocId,
         myGroupMestreId || undefined,
         myGroupId,

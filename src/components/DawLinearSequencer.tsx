@@ -86,16 +86,12 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   const defaultBeats = getBeatsFromTimeSig(timeSig);
 
   // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page),
-  // assurer isTracksCollapsed: false et initialiser editingTrackId avec la première piste si null pour empêcher tout démontage de sécurité
+  // et assurer isTracksCollapsed: false
   useEffect(() => {
     useSequencerStore.setState({ isTracksCollapsed: false });
     useSequencerStore.getState().setTracks(prev =>
       prev.map(t => t.isLinkFolder ? { ...t, isSequencerFolded: true } : t)
     );
-    const { tracks, editingTrackId, setEditingTrackId } = useSequencerStore.getState();
-    if (editingTrackId === null && tracks.length > 0) {
-      setEditingTrackId(tracks[0].id);
-    }
   }, []);
 
   const currentWindow = useWindow();

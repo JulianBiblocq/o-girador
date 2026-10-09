@@ -19,7 +19,8 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
   const [name, setName] = useState(section.name);
   const [visibility, setVisibility] = useState<CatalogVisibility>('private');
   const [isSaving, setIsSaving] = useState(false);
-  const [autoGenerateAudio, setAutoGenerateAudio] = useState(true);
+  // 🛡️ Option « Générer l'audio » décochée par défaut à l'ouverture
+  const [autoGenerateAudio, setAutoGenerateAudio] = useState(false);
 
   const { genererEtUploaderSectionCloudBounce, isBouncingCloud } = useCloudAudioBounce();
 

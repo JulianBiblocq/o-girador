@@ -61,8 +61,15 @@ export function getNextPatternName(
   }
 
   // 2. Duplication / Collage créant un nouveau motif avec baseName fourni
-  const cleaned = cleanPatternBaseName(baseName);
-  const numberEndingMatch = cleaned.match(/^(.*?)\s*(\d+)$/);
+  const cleanBase = cleanPatternBaseName(baseName.trim());
+
+  // 🛡️ Si le nom n'existe pas encore sur la piste cible : le conserver immédiatement sans incrément
+  if (!existingNames.has(cleanBase.toLowerCase())) {
+    return cleanBase;
+  }
+
+  // Si et seulement si le nom existe déjà sur la piste cible : incrémenter pour résoudre le conflit
+  const numberEndingMatch = cleanBase.match(/^(.*?)\s*(\d+)$/);
 
   if (numberEndingMatch) {
     const rawRadical = numberEndingMatch[1].trim();
@@ -80,11 +87,11 @@ export function getNextPatternName(
   } else {
     // Si le nom ne se termine pas par un nombre (ex: "Base", "Virada", "Solo")
     let candidateNum = 2;
-    let candidate = `${cleaned} ${candidateNum}`;
+    let candidate = `${cleanBase} ${candidateNum}`;
 
     while (existingNames.has(candidate.toLowerCase())) {
       candidateNum++;
-      candidate = `${cleaned} ${candidateNum}`;
+      candidate = `${cleanBase} ${candidateNum}`;
     }
     return candidate;
   }

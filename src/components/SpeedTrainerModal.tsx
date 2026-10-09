@@ -1104,14 +1104,14 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
   );
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 select-none">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs pt-16 sm:pt-20 pb-4 px-4 select-none">
       <div 
-        className="w-full max-w-[500px] bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[6px_6px_0px_#1a1a1a] flex flex-col overflow-hidden text-[#1a1a1a] animate-in fade-in zoom-in-95 duration-150"
+        className="w-full max-w-[500px] max-h-[calc(100dvh-5rem)] bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[6px_6px_0px_#1a1a1a] flex flex-col overflow-hidden text-[#1a1a1a] animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-b-2 border-[#1a1a1a] flex items-center justify-between gap-2">
+        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-b-2 border-[#1a1a1a] flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-7 h-7 rounded-none bg-amber-500/20 border border-amber-600 flex items-center justify-center text-amber-700 shadow-[1px_1px_0px_#1a1a1a] shrink-0">
               <XiloLightning size={16} />
@@ -1171,7 +1171,7 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
         </div>
 
         {/* Tabs Selector : 2 onglets pour tous (élèves & Mestres), 3 onglets pour les Mestres */}
-        <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2 overflow-x-auto">
+        <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2 overflow-x-auto shrink-0">
           {/* Onglet 1 : Jouer avec (Tocar Junto) */}
           <button
             type="button"
@@ -1219,7 +1219,7 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
 
         {/* Live Active Banner if Speed Trainer is active */}
         {isActive && activeTab === 'speedTrainer' && (
-          <div className="bg-amber-500/15 border-b-2 border-amber-600/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-amber-900">
+          <div className="bg-amber-500/15 border-b-2 border-amber-600/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-amber-900 shrink-0">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
@@ -1241,7 +1241,7 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
           const inst = activeTrack ? instrumentsConfig[activeTrack.instrumentIdx] : null;
           const name = activeTrack?.customName || inst?.name || 'Pupitre';
           return (
-            <div className="bg-[#c25e38]/15 border-b-2 border-[#c25e38]/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-[#8b2a1a]">
+            <div className="bg-[#c25e38]/15 border-b-2 border-[#c25e38]/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-[#8b2a1a] shrink-0">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#c25e38] opacity-75"></span>
@@ -1259,7 +1259,7 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
         })()}
 
         {/* Body Content */}
-        <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto max-h-[72vh]">
+        <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
           {activeTab === 'tocarJunto' ? (
             /* --- ONGLET 1 : JOUER AVEC (TOCAR JUNTO) --- */
             <div className="flex flex-col gap-4">
@@ -1814,7 +1814,7 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
         </div>
 
         {/* Footer Actions (Tocar Junto, Speed Trainer & Mestre Challenges) */}
-        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2">
+        <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2 shrink-0">
           {activeTab === 'tocarJunto' ? (
             <>
               {/* Bouton principal (Gauche) */}

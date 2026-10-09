@@ -171,6 +171,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const metadata = useSequencerStore(state => state.metadata);
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
+  const storeEditingTrackId = useSequencerStore(state => state.editingTrackId);
+  const isEditorOpen = storeEditingTrackId !== null && !isInstrumentEditorDetached;
 
   const {
     globalSwing,
@@ -789,11 +791,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           {/* RODA */}
           <button
             onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
               onViewModeToggle('roda');
               if (onMobileTabToggle) onMobileTabToggle('roda');
+              useSequencerStore.setState({ isTracksCollapsed: true });
             }}
             className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-              viewMode === 'roda' && mobileTab === 'roda'
+              !isEditorOpen && viewMode === 'roda' && mobileTab === 'roda' && isTracksCollapsed
                 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                 : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
@@ -805,15 +809,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           {/* MIXADOR (MOBILE ONLY TRACK MIXER / DAW LINEAIRE) */}
           {isMobile && (
             <button
-              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
+                useSequencerStore.getState().closeDetailEditor();
                 onViewModeToggle('roda');
                 if (onMobileTabToggle) onMobileTabToggle('mixer');
                 useSequencerStore.setState({ isTracksCollapsed: false });
               }}
               className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-                viewMode === 'roda' && mobileTab === 'mixer'
+                !isEditorOpen && viewMode === 'roda' && (mobileTab === 'mixer' || !isTracksCollapsed)
                   ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                   : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
               }`}
@@ -825,9 +829,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
           {/* CONSOLE */}
           <button
-            onClick={() => onViewModeToggle('console')}
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('console');
+            }}
             className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-              viewMode === 'console'
+              !isEditorOpen && viewMode === 'console'
                 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                 : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
@@ -838,9 +845,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
           {/* TIMELINE */}
           <button
-            onClick={() => onViewModeToggle('timeline')}
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('timeline');
+            }}
             className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-              viewMode === 'timeline'
+              !isEditorOpen && viewMode === 'timeline'
                 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                 : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
@@ -1055,119 +1065,123 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       </div>
 
       {/* CENTER: Main Core Actions */}
-      {(() => {
-        const isEditorOpen = editingTrackId !== null && !isInstrumentEditorDetached;
+      <div className="flex items-center justify-center gap-4">
+        {/* RODA */}
+        <div
+          {...createTabTouchHandlers('roda', 'RODA')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
+          <button
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('roda');
+              useSequencerStore.setState({ isTracksCollapsed: true });
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              !isEditorOpen && viewMode === 'roda' && isTracksCollapsed
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
+          >
+            <XiloRoda size={14} className="shrink-0" /> RODA
+          </button>
+        </div>
 
-        return (
-          <div className="flex items-center justify-center gap-4">
-            {/* RODA */}
-            <div
-              {...createTabTouchHandlers('roda', 'RODA')}
-              className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-            >
-              <button
-                onClick={() => {
-                  useSequencerStore.getState().setEditingTrackId(null);
-                  onViewModeToggle('roda');
-                  useSequencerStore.setState({ isTracksCollapsed: true });
-                }}
-                className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-                  !isEditorOpen && viewMode === 'roda' && isTracksCollapsed
-                    ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                }`}
-                title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
-              >
-                <XiloRoda size={14} className="shrink-0" /> RODA
-              </button>
-            </div>
+        {/* PISTES / DAW LINEAIRE */}
+        <div
+          {...createTabTouchHandlers('pistes', lang === 'fr' ? 'PISTES' : 'PISTAS')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('roda');
+              useSequencerStore.setState({ isTracksCollapsed: false });
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              !isEditorOpen && viewMode === 'roda' && !isTracksCollapsed
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
+          >
+            <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
+          </button>
+        </div>
 
-            {/* PISTES / DAW LINEAIRE */}
-            <div
-              {...createTabTouchHandlers('pistes', lang === 'fr' ? 'PISTES' : 'PISTAS')}
-              className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-            >
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  useSequencerStore.getState().setEditingTrackId(null);
-                  onViewModeToggle('roda');
-                  useSequencerStore.setState({ isTracksCollapsed: false });
-                }}
-                className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-                  !isEditorOpen && viewMode === 'roda' && !isTracksCollapsed
-                    ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                }`}
-                title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
-              >
-                <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
-              </button>
-            </div>
+        {/* MIXER */}
+        <div
+          {...createTabTouchHandlers('mixer', lang === 'fr' ? 'MIXEUR' : 'MIXADOR')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
+          <button
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('console');
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              !isEditorOpen && viewMode === 'console'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
+          >
+            <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
+          </button>
+        </div>
 
-            {/* MIXER */}
-            <div
-              {...createTabTouchHandlers('mixer', lang === 'fr' ? 'MIXEUR' : 'MIXADOR')}
-              className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-            >
-              <button
-                onClick={() => {
-                  useSequencerStore.getState().setEditingTrackId(null);
-                  onViewModeToggle('console');
-                }}
-                className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-                  !isEditorOpen && viewMode === 'console'
-                    ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                }`}
-                title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
-              >
-                <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
-              </button>
-            </div>
+        {/* TIMELINE */}
+        <div
+          {...createTabTouchHandlers('timeline', lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
+          <button
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('timeline');
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              !isEditorOpen && viewMode === 'timeline'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
+          >
+            <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
+          </button>
+        </div>
 
-            {/* TIMELINE */}
-            <div
-              {...createTabTouchHandlers('timeline', lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR')}
-              className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-            >
-              <button
-                onClick={() => {
-                  useSequencerStore.getState().setEditingTrackId(null);
-                  onViewModeToggle('timeline');
-                }}
-                className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-                  !isEditorOpen && viewMode === 'timeline'
-                    ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                }`}
-                title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
-              >
-                <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
-              </button>
-            </div>
-
-            {/* ÉDITEUR */}
-            <div
-              {...createTabTouchHandlers('editor', lang === 'fr' ? 'ÉDITEUR' : 'EDITOR')}
-              className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-            >
-              <button
-                onClick={() => onOpenInstrumentEditor?.()}
-                className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-                  isEditorOpen
-                    ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                }`}
-                title={lang === 'fr' ? "Éditeur d'instrument détaillé" : "Editor de instrumento detalhado"}
-              >
-                <Edit3 size={14} className="shrink-0" /> {lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+        {/* ÉDITEUR */}
+        <div
+          {...createTabTouchHandlers('editor', lang === 'fr' ? 'ÉDITEUR' : 'EDITOR')}
+          className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
+        >
+          <button
+            onClick={() => {
+              if (onOpenInstrumentEditor) {
+                onOpenInstrumentEditor();
+              } else {
+                const state = useSequencerStore.getState();
+                if (state.editingTrackId !== null) {
+                  state.closeDetailEditor();
+                } else if (state.tracks.length > 0) {
+                  state.setEditingTrackId(state.tracks[0].id);
+                }
+              }
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              isEditorOpen
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? "Éditeur d'instrument détaillé" : "Editor de instrumento detalhado"}
+          >
+            <Edit3 size={14} className="shrink-0" /> {lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
+          </button>
+        </div>
+      </div>
 
       {/* RIGHT: Auxiliary */}
       <div className="flex-1 flex items-center justify-end flex-wrap gap-2.5">
