@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "__Secure-YNID",
-      "value": "22.YT=vnXcGMv-b3PUMTjC6UWNqcK5IXEW07fIz2Q2VtvYxwkjXmWZ9vUNFXr91pogsmUGaurF3K28W-_TzlZvNSx4ONVnAb1VRm0vTs1HwMDF-diTwteLllTxwMNNnNKw2en--O6jmIN4ikzq1AgRJHC24ryOxVI7EN_FbU8XAxK0rUM3XV6JA9D8PtpXje9JnXapO6RoWjLUdsj1K3ZM4W4mTXHsLHL3VdO5WE1BcwtPCNgvtFn5gSGsRyELh7kqJwnEAXFO0ta2ZBclapj9SQj2wbSQN4kHAH38tlA62-G342bENohBb9xh4RgapLqmqCj0eWFZHEJtZloH6xYXkcHabg",
+      "value": "22.YT=F_Ph7NkFaiVow0iBMPudHY8g0b_LNu6CiNhnoMwz6MNjpUyMO4VX2E9ANxWyhFqgcFSgTV9sLJ_FdYPEepn5M4-WPUvalgHOjJebAiI7moW5-8lwExeuIa0_5IgctxGk8knpe3h0-OBcQ2MOO-kZeDvoc_Jyc7vnIalScvFv41fG5VcgmkfpsFxC07HPYZaz-E_oHCS-tt3B-wDu9F_jNMQIOjgj7UYxKOwYohtJMd-E02gjTXxyCchwG0Cc8IRr1Y-7T6iM4bPakPgQrzU9nY-bhXsnsV6s09Z15BRZST9_z945FE1Pl3mzib7ug46xnACZsSM_Jz2KpaPoe83hFg",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806966422.629421,
+      "expires": 1806970414.367477,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -14,7 +14,7 @@
     },
     {
       "name": "YSC",
-      "value": "InZPl-putZs",
+      "value": "gTsiZ3kgxBY",
       "domain": ".youtube.com",
       "path": "/",
       "expires": -1,
@@ -24,10 +24,10 @@
     },
     {
       "name": "__Secure-ROLLOUT_TOKEN",
-      "value": "CIuEyYu4ka6tCRD_0MHigqmXAxj_0MHigqmXAw%3D%3D",
+      "value": "COD4yPKj3p6HORDDx_jRkamXAxjDx_jRkamXAw%3D%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806966422.629494,
+      "expires": 1806970414.367567,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None",
@@ -36,20 +36,20 @@
     },
     {
       "name": "VISITOR_INFO1_LIVE",
-      "value": "NT7GzvH9kQI",
+      "value": "v47phtmdPeg",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806966422.629534,
+      "expires": 1806970414.367606,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "VISITOR_PRIVACY_METADATA",
-      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgRA%3D%3D",
+      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgOQ%3D%3D",
       "domain": ".youtube.com",
       "path": "/",
-      "expires": 1806966422.629551,
+      "expires": 1806970414.367621,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
@@ -60,20 +60,20 @@
       "origin": "http://localhost:5174",
       "localStorage": [
         {
-          "name": "oGirador_master_reverb_vol",
-          "value": "70"
-        },
-        {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_22",
-          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791414423243,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791418414495,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "ogirador_has_seen_welcome",
           "value": "true"
         },
         {
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_GFzNLoFnHaQmR8U4SY0u",
+          "value": "{\"activeTargetIds\":[16,24,50],\"updateTimeMs\":1791418419163}"
+        },
+        {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "336"
+          "value": "309"
         },
         {
           "name": "oGirador_reverb_decay",
@@ -88,12 +88,12 @@
           "value": "pt"
         },
         {
-          "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"fGssLKFQdDczlS5xViyd\",\"onlineState\":\"Online\"}"
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_50",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1791418419162}"
         },
         {
-          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_52",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1791414426855}"
+          "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
+          "value": "{\"clientId\":\"GFzNLoFnHaQmR8U4SY0u\",\"onlineState\":\"Online\"}"
         },
         {
           "name": "o-girador-theme",
@@ -101,19 +101,15 @@
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_16",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1791414426855}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1791418419162}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_26",
-          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791414423242,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1791418414527,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_24",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1791414426855}"
-        },
-        {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_fGssLKFQdDczlS5xViyd",
-          "value": "{\"activeTargetIds\":[16,24,52],\"updateTimeMs\":1791414426871}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1791418419162}"
         },
         {
           "name": "girador_last_loaded_preset_id",
@@ -122,6 +118,10 @@
         {
           "name": "o_girador_left_handed",
           "value": "false"
+        },
+        {
+          "name": "oGirador_master_reverb_vol",
+          "value": "70"
         }
       ]
     },
@@ -130,11 +130,11 @@
       "localStorage": [
         {
           "name": "ytidb::LAST_RESULT_ENTRY_KEY",
-          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1794006426137,\"creation\":1791414426137}"
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1794010418368,\"creation\":1791418418369}"
         },
         {
           "name": "yt-icons-last-purged",
-          "value": "1789945623823"
+          "value": "1789863216002"
         }
       ]
     }
