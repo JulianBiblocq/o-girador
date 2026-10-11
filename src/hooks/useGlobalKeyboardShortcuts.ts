@@ -10,6 +10,22 @@ import { inputManager } from './useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 
+/**
+ * Vérifie si un élément HTML est un vrai champ de saisie textuelle actif.
+ * Exclut explicitement les faders/sliders (<input type="range">), boutons, checkboxes, etc.
+ */
+function isActualTextEntry(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) {
+    const type = (el.type || 'text').toLowerCase();
+    const textTypes = ['text', 'search', 'password', 'email', 'number', 'tel', 'url'];
+    return textTypes.includes(type) && !el.readOnly && !el.disabled;
+  }
+  return false;
+}
+
 export function useGlobalKeyboardShortcuts() {
   const audio = useAudio();
   const sequencer = useSequencer();
@@ -21,10 +37,14 @@ export function useGlobalKeyboardShortcuts() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((window as any).oGiradorDetailEditorOpen) return;
+      // 🛡️ Ignorer immédiatement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (inputManager) inputManager.handleKeyDown(e);
     };
     const handleGlobalKeyUp = (e: KeyboardEvent) => {
       if ((window as any).oGiradorDetailEditorOpen) return;
+      // 🛡️ Ignorer immédiatement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (inputManager) inputManager.handleKeyUp(e);
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -42,18 +62,7 @@ export function useGlobalKeyboardShortcuts() {
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
 
-      const isTargetInput = target instanceof HTMLInputElement || 
-                            target instanceof HTMLTextAreaElement || 
-                            target instanceof HTMLSelectElement || 
-                            Boolean(target?.isContentEditable);
-
-      const isFocusedInput = activeEl?.tagName === 'INPUT' ||
-                             activeEl?.tagName === 'SELECT' ||
-                             activeEl?.tagName === 'TEXTAREA' ||
-                             activeEl?.id === 'letras-textarea' ||
-                             Boolean(activeEl?.isContentEditable);
-
-      const isInput = isTargetInput || isFocusedInput;
+      const isInput = isActualTextEntry(target) || isActualTextEntry(activeEl);
 
       // ─────────────────────────────────────────────────────────────
       // BARRIÈRE 1 : Saisie de texte
@@ -115,13 +124,7 @@ export function useGlobalKeyboardShortcuts() {
 
       // 3. Entrée ou Home : Remettre la tête de lecture au début absolu (Mesure 0, Temps 1)
       if (e.key === 'Enter' || e.key === 'Home') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isInput
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -152,13 +155,7 @@ export function useGlobalKeyboardShortcuts() {
 
       // 6. Navigation par Mesures au Clavier (ArrowLeft / ArrowRight)
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isInput
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -184,13 +181,7 @@ export function useGlobalKeyboardShortcuts() {
       const isNextMeasureKey = e.key === '>' || e.key === '.' || e.code === 'NumpadAdd' || (e.key === '+' && !e.ctrlKey && !e.metaKey);
 
       if (isPrevMeasureKey || isNextMeasureKey) {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isInput
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -211,13 +202,7 @@ export function useGlobalKeyboardShortcuts() {
 
       // 7. Ctrl+D / Cmd+D : Dupliquer la sélection multiple OU la mesure active vers m+1
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isInput
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -248,13 +233,7 @@ export function useGlobalKeyboardShortcuts() {
 
       // 7.5. Touche Suppr / Delete / Backspace : Vider la sélection timeline (passer en silence)
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const curActive = document.activeElement as HTMLElement | null;
-        if (
-          curActive?.tagName === 'INPUT' ||
-          curActive?.tagName === 'TEXTAREA' ||
-          curActive?.isContentEditable ||
-          isInput
-        ) {
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
           return;
         }
 
@@ -339,7 +318,7 @@ export function useGlobalKeyboardShortcuts() {
                 if (targetMeasureIdx !== null) {
                   store.handlePasteSongSection(targetMeasureIdx);
                 }
-              } else if (store.timelineClipboard && store.activeTimelineCell) {
+              } else if (store.timelineClipboard && (store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0))) {
                 store.pasteTimelineClipboard();
               }
             }
@@ -347,13 +326,7 @@ export function useGlobalKeyboardShortcuts() {
           }
         }
         if (key === 'a') {
-          const curActive = document.activeElement as HTMLElement | null;
-          if (
-            curActive?.tagName === 'INPUT' ||
-            curActive?.tagName === 'TEXTAREA' ||
-            curActive?.isContentEditable ||
-            isInput
-          ) {
+          if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
             return;
           }
 

@@ -285,7 +285,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
         }
 
         // Sinon, coller le presse-papier de cellules de mesures
-        if (store.timelineClipboard && store.activeTimelineCell) {
+        if (store.timelineClipboard && (store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0))) {
           e.preventDefault();
           e.stopPropagation();
           store.pasteTimelineClipboard();

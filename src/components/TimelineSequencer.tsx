@@ -683,6 +683,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   // Écouteur global keydown pour la saisie clavier directe sur la case survolée (Étape 5)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 0. Exclusion stricte des raccourcis avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
       // 1. Exclusion si en cours de lecture (Contrainte 1)
       if (isPlaying) {
         return;

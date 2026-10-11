@@ -4860,7 +4860,10 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
       assignments,
       childSections
     };
-    set({ copiedSection: data });
+    set({
+      copiedSection: data,
+      timelineClipboard: null
+    });
   },
 
   handlePasteSongSection: (destStartMeasure) => {
@@ -5919,7 +5922,8 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
       timelineClipboard: {
         spanMeasures,
         entries
-      }
+      },
+      copiedSection: null
     });
   },
 
@@ -5994,8 +5998,13 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   },
 
   pasteTimelineClipboard: () => {
-    const clipboard = get().timelineClipboard;
-    const activeCell = get().activeTimelineCell;
+    const state = get();
+    const clipboard = state.timelineClipboard;
+    const activeCell = state.activeTimelineCell || (
+      state.selectedTimelineCells && state.selectedTimelineCells.length > 0
+        ? { trackId: state.selectedTimelineCells[0].trackId, measureIdx: state.selectedTimelineCells[0].mIdx }
+        : null
+    );
     if (!clipboard || !activeCell || clipboard.entries.length === 0) return;
 
     const targetM = activeCell.measureIdx;

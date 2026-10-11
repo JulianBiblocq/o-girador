@@ -78,6 +78,9 @@ export class InputManager {
    * Global keydown handler.
    */
   public handleKeyDown = (e: KeyboardEvent): void => {
+    // 🛡️ Ignorer impérativement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
     if (!this.activeInstrumentId) return;
 
     // Bypass if typing inside form inputs, textareas, etc.
@@ -136,6 +139,9 @@ export class InputManager {
    * Global keyup handler.
    */
   public handleKeyUp = (e: KeyboardEvent): void => {
+    // 🛡️ Ignorer impérativement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
     if (!this.activeInstrumentId) return;
 
     const config = instrumentAudioConfigs.find(c => c.id === this.activeInstrumentId);
