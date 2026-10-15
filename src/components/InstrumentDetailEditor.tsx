@@ -50,6 +50,7 @@ import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { MetricDivisionSelector } from './instrument-editor/MetricDivisionSelector';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { VocalWorkflowStepper } from './VocalWorkflowStepper';
+import { ImportToadaButton } from './ImportToadaButton';
 import { XiloChisel } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { InstrumentHeaderContextMenu } from './instrument-editor/InstrumentHeaderContextMenu';
@@ -1906,14 +1907,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
             </div>
 
-            {/* Centre : Guide vocal discret [ ? Guide ] en contexte vocal */}
+            {/* Centre : Guide vocal discret [ ? Guide ] et Bouton Importer Toada en contexte vocal */}
             {isVocalContext && (
-              <div className="flex items-center justify-center shrink-0 flex-shrink-0 px-2">
+              <div className="flex items-center justify-center shrink-0 flex-shrink-0 px-2 gap-2">
                 <VocalWorkflowStepper
                   patternId={selectedPatternId ?? activePattern?.id}
                   trackId={effectiveEditTrackId}
                   isCoro={isCoroActive}
                 />
+                <ImportToadaButton lang={lang} />
               </div>
             )}
 
