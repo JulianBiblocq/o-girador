@@ -1,7 +1,7 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import * as Tone from 'tone';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice, WorkspaceTemplate, TrainingSlice } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice, WorkspaceTemplate, TrainingSlice, ToadaConductorSlot } from '../types';
 import { createSpeedTrainerSlice } from './slices/speedTrainerSlice';
 import { createTrainingSlice } from './slices/trainingSlice';
 
@@ -13,6 +13,7 @@ import { canTransferPatterns, convertStepsToVocalRole, getInstrumentFamily } fro
 import { getNextPatternName } from '../utils/patternNaming';
 import { faderPositionToGain, gainToFaderPosition } from '../utils/audioMath';
 import { resizePatternBeatResolution, resizePatternAllBeatsResolution, clampStepIndex } from '../utils/vocalTimingUtils';
+import { deployToadaCycle } from '../utils/toadaArrangement';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
@@ -33,8 +34,13 @@ export interface TrackSlice {
   armedTrackId: number | null;
   armedPatternId: number | null;
   isPatternRecording: boolean;
+  toadaConductorSlots: ToadaConductorSlot[];
+  pendingToadaQuickDeploy: { measureIdx: number } | null;
   
   // Actions
+  setToadaConductorSlots: (slots: ToadaConductorSlot[]) => void;
+  setPendingToadaQuickDeploy: (val: { measureIdx: number } | null) => void;
+  deployToadaCycleAtMeasure: (startMeasureIdx: number) => void;
   toggleMasterEffectActive: (effect: 'compressor' | 'reverb' | 'disto') => void;
   setMasterEffectsActive: (active: Partial<MasterEffectsActiveState>) => void;
   setIsLetraActive: (val: boolean | ((prev: boolean) => boolean)) => void;
@@ -333,6 +339,14 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   armedTrackId: null,
   armedPatternId: null,
   isPatternRecording: false,
+  toadaConductorSlots: [],
+  setToadaConductorSlots: (slots) => set({ toadaConductorSlots: slots }),
+  pendingToadaQuickDeploy: null,
+  setPendingToadaQuickDeploy: (val) => set({ pendingToadaQuickDeploy: val }),
+  deployToadaCycleAtMeasure: (startMeasureIdx) => {
+    get().pushUndoState();
+    set((state) => deployToadaCycle(state, startMeasureIdx));
+  },
   toggleArmPattern: (trackId, patternId) => set(state => {
     const isCurrentlyArmed = state.armedPatternId === patternId;
     const nextArmed = isCurrentlyArmed ? null : patternId;

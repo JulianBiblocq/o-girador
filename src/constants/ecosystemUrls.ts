@@ -10,6 +10,7 @@ export const ECOSYSTEM_DOMAINS = Object.freeze({
   organizador: 'https://organizador.o-girador.com',
   dancador: 'https://dancador.o-girador.com',
   mostrador: 'https://mostrador.o-girador.com',
+  vocalLab: 'https://o-girador-vocal-lab.web.app',
 } as const);
 
 export type EcosystemAppKey = keyof typeof ECOSYSTEM_DOMAINS;
@@ -21,6 +22,7 @@ export const LOCAL_DEV_PORTS: Record<EcosystemAppKey, number> = Object.freeze({
   organizador: 5175,
   dancador: 5176,
   mostrador: 5170,
+  vocalLab: 5177,
 });
 
 export const ECOSYSTEM_LOCAL_URLS = {
@@ -28,6 +30,7 @@ export const ECOSYSTEM_LOCAL_URLS = {
   SEQUENCIADOR: 'http://localhost:5174',
   ORGANIZADOR: 'http://localhost:5175',
   DANCADOR: 'http://localhost:5176',
+  VOCAL_LAB: 'http://localhost:5177',
 } as const;
 
 export function isLocalEnvironment(): boolean {

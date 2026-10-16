@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSequencerStore } from '../stores/useSequencerStore';
-import { Copy, Scissors, Clipboard, CopyPlus, Repeat, Trash2, Link } from 'lucide-react';
+import { useSequencerStore, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
+import { Copy, Scissors, Clipboard, CopyPlus, Repeat, Trash2, Link, Music } from 'lucide-react';
 import { instrumentsConfig } from '../data';
 import { Pattern } from '../types';
 import { TimelinePatternMiniCard } from './timeline/TimelinePatternMiniCard';
@@ -24,6 +24,8 @@ export const TimelineContextMenu: React.FC = () => {
   const pasteTimelineClipboard = useSequencerStore((state) => state.pasteTimelineClipboard);
   const deleteSelectedTimelineCells = useSequencerStore((state) => state.deleteSelectedTimelineCells);
   const timelineClipboard = useSequencerStore((state) => state.timelineClipboard);
+  const toadaConductorSlots = useSequencerStore((state) => state.toadaConductorSlots);
+  const deployToadaCycleAtMeasure = useSequencerStore((state) => state.deployToadaCycleAtMeasure);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
@@ -93,6 +95,26 @@ export const TimelineContextMenu: React.FC = () => {
 
   const hasMultiSelect = selectedTimelineCells.length > 1;
   const hasPattern = !hasMultiSelect && activePattern !== null;
+
+  const isToadaTrack = Boolean(
+    targetTrack && (
+      isToadaBus(targetTrack) ||
+      isToadaChild(targetTrack, tracks) ||
+      instrumentsConfig[targetTrack.instrumentIdx]?.id === 'puxador' ||
+      instrumentsConfig[targetTrack.instrumentIdx]?.id === 'coro' ||
+      String(targetTrack.id) === 'toada'
+    )
+  );
+  const showToadaDeploy = !hasMultiSelect && isToadaTrack && toadaConductorSlots && toadaConductorSlots.length > 0;
+
+  const handleDeployToada = () => {
+    deployToadaCycleAtMeasure(menuData.measureIdx);
+    closeMenu();
+    const msg = lang === 'fr'
+      ? `Tour de Toada déroulé dès M${menuData.measureIdx + 1}`
+      : `Toada desenrolada a partir de M${menuData.measureIdx + 1}`;
+    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: msg } }));
+  };
 
   const handleEditPattern = () => {
     if (!activePattern || !effectiveOwnerTrack) return;
@@ -284,6 +306,25 @@ export const TimelineContextMenu: React.FC = () => {
       </button>
 
       <div className="my-1 border-b border-[#1a1a1a]/30" />
+
+      {/* Action: Dérouler le tour de Toada */}
+      {showToadaDeploy && (
+        <>
+          <button
+            type="button"
+            onClick={handleDeployToada}
+            className="w-full text-left px-2 py-1.5 font-bold flex items-center gap-2 transition-all hover:bg-[#9a3412] hover:text-white active:translate-x-0.5 cursor-pointer text-xs text-[#9a3412] bg-[#9a3412]/10"
+          >
+            <Music size={13} className="shrink-0" />
+            <span>
+              {lang === 'fr'
+                ? `Dérouler le tour de Toada ici (dès M${menuData.measureIdx + 1})`
+                : `Desenrolar Toada aqui (a partir de M${menuData.measureIdx + 1})`}
+            </span>
+          </button>
+          <div className="my-1 border-b border-[#1a1a1a]/30" />
+        </>
+      )}
 
       {/* Action: Dupliquer */}
       <button

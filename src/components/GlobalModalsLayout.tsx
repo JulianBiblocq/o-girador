@@ -11,6 +11,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { ExportMenuModal } from './ExportMenuModal';
 import { useAudioStore } from '../stores/useAudioStore';
 import { VocalValidationModal } from './VocalValidationModal';
+import { ToadaQuickDeployPrompt } from './ToadaQuickDeployPrompt';
 
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { WindowPortal } from './WindowPortal';
@@ -293,6 +294,9 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
       )}
 
 
+
+      {/* Toada Quick Deploy Prompt */}
+      <ToadaQuickDeployPrompt />
 
       {/* Vocal Validation Interception Modal */}
       {tempRecording !== null && (

@@ -51,6 +51,7 @@ import { MetricDivisionSelector } from './instrument-editor/MetricDivisionSelect
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { VocalWorkflowStepper } from './VocalWorkflowStepper';
 import { ImportToadaButton } from './ImportToadaButton';
+import { AtelierVocalButton } from './AtelierVocalButton';
 import { XiloChisel } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { InstrumentHeaderContextMenu } from './instrument-editor/InstrumentHeaderContextMenu';
@@ -1916,6 +1917,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   isCoro={isCoroActive}
                 />
                 <ImportToadaButton lang={lang} />
+                <AtelierVocalButton lang={lang} />
               </div>
             )}
 

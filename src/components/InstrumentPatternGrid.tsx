@@ -22,6 +22,8 @@ import { useWindow } from '../contexts/WindowContext';
 import { CordelContextMenu } from './ui/CordelContextMenu';
 import { isVoiceStepProlongation } from '../utils/musicTheory';
 import { VoicePatternGridSection } from './instrument-editor/VoicePatternGridSection';
+import { VoiceAnacrusisSection } from './voice/VoiceAnacrusisSection';
+import { VocalGrooveNudgeControl } from './voice/VocalGrooveNudgeControl';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
   if (val === undefined) return fallback;
@@ -3745,149 +3747,34 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       {isTouchDevice && renderSelectionToolbar(pattern)}      {instrument.type === 'voice' ? (
         /* ──── Voice step grid ──── */
         <div className="flex flex-col w-full gap-2">
+          {/* Micro-Calage Groove (nudgeMs) */}
+          <VocalGrooveNudgeControl
+            trackId={trackId}
+            pattern={pattern}
+            lang={lang}
+          />
+
           {/* Pre-roll (Mesure -1) Section */}
-          {(() => {
-            const preRollBeats = 4;
-            const resArray = Array.isArray(pattern?.beatResolutions) && pattern.beatResolutions.length >= preRollBeats
-              ? pattern.beatResolutions.slice(0, preRollBeats)
-              : Array(preRollBeats).fill(4);
-
-            const preRollGroups: number[][] = [];
-            let preAcc = 0;
-            for (let b = 0; b < preRollBeats; b++) {
-              const res = resArray[b] || 4;
-              const grp: number[] = [];
-              for (let s = 0; s < res; s++) {
-                grp.push(preAcc + s);
-              }
-              preRollGroups.push(grp);
-              preAcc += res;
-            }
-            const preRollTotalSteps = preAcc;
-
-            const getPreRollStepsCount = () => {
-              if (!pattern?.preRollActiveSteps) return 0;
-              for (let i = 0; i < preRollTotalSteps; i++) {
-                const stepVal = pattern.preRollActiveSteps[i];
-                if (stepVal && stepVal !== 0 && stepVal !== '0') {
-                  return preRollTotalSteps - i;
-                }
-              }
-              return 0;
-            };
-
-            const preRollStepsCount = getPreRollStepsCount();
-
-            const renderPreRollGroup = (group: number[], groupIdx: number) => (
-              <div key={`preroll-group-${groupIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm">
-                {group.map((i, indexInGroup) => {
-                  const state = pattern?.preRollActiveSteps?.[i] ?? 0;
-                  const syl = pattern?.preRollLyrics?.[i] || '';
-                  const note = pattern?.preRollNotes?.[i] || '';
-                  const volume = pattern?.preRollVolumes?.[i] ?? 100;
-                  const decay = pattern?.preRollDecays?.[i] ?? 10;
-
-                  const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
-                  const currentActive = isStepActive(state);
-                  const curNoteTrim = (note || '').trim();
-                  const prevActive = i > 0 ? isStepActive(pattern?.preRollActiveSteps?.[i - 1]) : false;
-                  const prevNote = i > 0 ? (pattern?.preRollNotes?.[i - 1] || '').trim() : '';
-                  const nextActive = i < preRollTotalSteps - 1 ? isStepActive(pattern?.preRollActiveSteps?.[i + 1]) : false;
-                  const nextNote = i < preRollTotalSteps - 1 ? (pattern?.preRollNotes?.[i + 1] || '').trim() : '';
-                  const nextSyl = i < preRollTotalSteps - 1 ? (pattern?.preRollLyrics?.[i + 1] || '').trim() : '';
-
-                  const isProlongation = isVoiceStepProlongation(
-                    currentActive,
-                    prevActive,
-                    curNoteTrim,
-                    prevNote,
-                    syl
-                  );
-
-                  const isFollowedByProlongation = isVoiceStepProlongation(
-                    nextActive,
-                    currentActive,
-                    nextNote,
-                    curNoteTrim,
-                    nextSyl
-                  );
-
-                  return (
-                    <VoiceStepCell
-                      key={`preroll-cell-${i}`}
-                      i={i}
-                      steps={pattern?.steps || 16}
-                      trackId={trackId}
-                      patternId={pattern.id}
-                      state={state}
-                      syl={syl}
-                      note={note}
-                      isSelected={selectedPatternId === pattern.id && selectedStepIdx === i && Boolean(selectedStepIsPreRoll) === true}
-                      isMultiSelectActive={false}
-                      manualMicro={0}
-                      totalShift={0}
-                      shiftPx={0}
-                      isLinked={false}
-                      volume={volume}
-                      decay={decay}
-                      isPreRoll={true}
-                      isInRange={isStepInRange(selectedStepRange, true, i, preRollLengthComputed)}
-                      preRollLength={preRollLengthComputed}
-                      isProlongation={isProlongation}
-                      isFollowedByProlongation={isFollowedByProlongation}
-                      isFirstInBeat={indexInGroup === 0}
-                      onVoiceStepClear={handleVoicePreRollStepClear}
-                      onMouseDown={handleVoicePreRollMouseDown}
-                      onContextMenu={(e) => handleVoiceContextMenu(e, i, true)}
-                      onVoiceTypeToggle={() => {}}
-                      onVoiceSylChange={handleVoicePreRollSylChange}
-                      onVoiceNoteChange={handleVoiceNoteChange}
-                      onVoiceNoteBlur={handleVoicePreRollNoteBlur}
-                      onFocusStep={(idx) => handleVoiceFocusStep(idx, true)}
-                      onVoiceNav={handleVoiceNav}
-                      focusVoiceStep={focusVoiceStep}
-                    />
-                  );
-                })}
-              </div>
-            );
-
-
-            return (
-              <div 
-                className="pre-roll-section w-full mb-1 p-3.5 rounded border border-dashed border-[#1a1a1a]/30"
-                style={{
-                  background: 'repeating-linear-gradient(45deg, rgba(200, 200, 200, 0.15), rgba(200, 200, 200, 0.15) 10px, rgba(160, 160, 160, 0.1) 10px, rgba(160, 160, 160, 0.1) 20px)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)'
-                }}
-              >
-                <div className="text-[11px] font-bold text-[#8b2a1a] mb-2 tracking-wide uppercase select-none flex items-center gap-1.5">
-                  <span>🎙️ {lang === 'fr' ? 'Mesure -1 : Anacrouse (Pre-roll)' : 'Compasso -1 : Anacruse (Pre-roll)'}</span>
-                  {preRollStepsCount > 0 && (
-                    <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[8px] font-bold px-1.5 py-px rounded-full animate-pulse">
-                      +{preRollStepsCount} {lang === 'fr' ? 'pas' : 'passos'}
-                    </span>
-                  )}
-                  <span className="text-[9px] text-[#555] font-normal normal-case italic ml-auto">
-                    ({lang === 'fr' ? 'La première syllabe détermine la durée' : 'A primeira sílaba determina a duração'})
-                  </span>
-                </div>
-                <div 
-                  className="step-boxes flex flex-col gap-1.5 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md"
-                  id={`preroll-voice-${trackId}-${pattern.id}`}
-                >
-                  <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
-                    {renderPreRollGroup(preRollGroups[0], 0)}
-                    {renderPreRollGroup(preRollGroups[1], 1)}
-                  </div>
-                  <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
-                    {renderPreRollGroup(preRollGroups[2], 2)}
-                    {renderPreRollGroup(preRollGroups[3], 3)}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          <VoiceAnacrusisSection
+            pattern={pattern}
+            trackId={trackId}
+            lang={lang}
+            selectedPatternId={selectedPatternId}
+            selectedStepIdx={selectedStepIdx}
+            selectedStepIsPreRoll={selectedStepIsPreRoll}
+            selectedStepRange={selectedStepRange}
+            preRollLengthComputed={preRollLengthComputed}
+            isStepInRange={isStepInRange}
+            handleVoicePreRollStepClear={handleVoicePreRollStepClear}
+            handleVoicePreRollMouseDown={handleVoicePreRollMouseDown}
+            handleVoiceContextMenu={handleVoiceContextMenu}
+            handleVoicePreRollSylChange={handleVoicePreRollSylChange}
+            handleVoiceNoteChange={handleVoiceNoteChange}
+            handleVoicePreRollNoteBlur={handleVoicePreRollNoteBlur}
+            handleVoiceFocusStep={handleVoiceFocusStep}
+            handleVoiceNav={handleVoiceNav}
+            focusVoiceStep={focusVoiceStep}
+          />
 
           {/* Controls bar with [+ Allonger le pattern] Button */}
           <div className="flex justify-between items-center mb-1 mt-3 px-1 select-none">

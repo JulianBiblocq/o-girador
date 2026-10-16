@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
 import { Pattern } from '../types';
+import { checkAndTriggerToadaQuickPrompt } from '../utils/toadaArrangement';
 
 export interface TimelinePatternPickerPopoverProps {
   trackId: number;
@@ -181,6 +182,9 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
 
   const handleSelect = (selectedPatternId: number | null | undefined) => {
     handleTimelinePatternAssign(trackId, selectedPatternId, measureIdx);
+    if (selectedPatternId !== null && selectedPatternId !== undefined) {
+      checkAndTriggerToadaQuickPrompt(trackId, selectedPatternId, measureIdx);
+    }
     onClose();
   };
 

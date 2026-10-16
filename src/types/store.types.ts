@@ -38,6 +38,7 @@ export interface Pattern {
   vocalNudge?: number;
   vocalTrimStart?: number;
   vocalClip?: VocalClipMeta;
+  hasVocalAudio?: boolean;
   beatResolutions?: number[]; // Added for tuplet support
   swingIntensity?: number;
   balancoPresetId?: string;
@@ -49,6 +50,7 @@ export interface Pattern {
   preRollVolumes?: StepSculptValue[];
   preRollDecays?: StepSculptValue[];
   preRollMicrotimings?: StepSculptValue[];
+  hasAnacrusis?: boolean;
 }
 
 export interface VocalClipMeta {
@@ -261,4 +263,8 @@ export interface TrainingSlice extends TrainingState {
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;
 }
-
+export interface ToadaConductorSlot {
+  puxadorPatternId?: number;
+  coroPatternId?: number;
+  measuresCount: number;
+}
