@@ -59,8 +59,9 @@ export function useDeepLinkLoader({ audio, sequencer, authLoading }: UseDeepLink
     const loadPresetId = searchParams.get('loadPreset');
     const loadSectionId = searchParams.get('loadSection');
     const editPatternId = searchParams.get('editPatternId');
+    const loadToadaId = searchParams.get('loadToadaId');
 
-    if (!loadPresetId && !loadSectionId && !editPatternId) {
+    if (!loadPresetId && !loadSectionId && !editPatternId && !loadToadaId) {
       return;
     }
 
@@ -69,6 +70,22 @@ export function useDeepLinkLoader({ audio, sequencer, authLoading }: UseDeepLink
 
     const executeLoader = async () => {
       try {
+        if (loadToadaId) {
+          const { fetchCloudToadaById } = await import('../services/cloudToadas');
+          const toadaPack = await fetchCloudToadaById(loadToadaId);
+          if (toadaPack) {
+            const { importToadaPackIntoSequencer } = await import('../utils/toadaPackImporter');
+            await importToadaPackIntoSequencer(null, { pack: toadaPack, deployStartMeasureIdx: 0 });
+            cleanUrlParams(['loadToadaId']);
+            const name = toadaPack.project?.title || toadaPack.metadata?.title || 'Toada';
+            notifyToast('success', `Toada ${name} importée et déroulée dès M1`);
+          } else {
+            cleanUrlParams(['loadToadaId']);
+            notifyToast('error', 'Toada Cloud introuvable');
+          }
+          return;
+        }
+
         // 1. Chargement d'un Morceau complet (?loadPreset)
         if (loadPresetId) {
           const { getCloudPreset } = await import('../cloudLibrary');

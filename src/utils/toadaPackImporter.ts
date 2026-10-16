@@ -19,8 +19,7 @@ export interface ToadaImportOptions {
 }
 
 function base64ToBlob(b64: string): Blob {
-  const clean = b64.replace(/^data:audio\/\w+;base64,/, '');
-  const bin = atob(clean);
+  const bin = atob(b64.replace(/^data:audio\/\w+;base64,/, ''));
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Blob([bytes], { type: 'audio/wav' });
@@ -28,8 +27,8 @@ function base64ToBlob(b64: string): Blob {
 
 function isBlankPattern(p?: Pattern): boolean {
   if (!p) return true;
-  const hasNotes = p.notes && p.notes.some((n) => n && n !== '' && n !== '───');
-  const hasActive = p.activeSteps && p.activeSteps.some((s) => s && s !== 0 && s !== '───');
+  const hasNotes = p.notes?.some((n) => n && n !== '' && n !== '───');
+  const hasActive = p.activeSteps?.some((s) => s && s !== 0 && s !== '───');
   return !hasNotes && !hasActive && !p.vocalClip && p.vocalMode !== 'micro';
 }
 
@@ -46,22 +45,19 @@ function getOrCreateTrack(tracks: TrackGroup[], role: 'puxador' | 'coro'): Track
 }
 
 export async function importToadaPackIntoSequencer(
-  file: File,
+  file: File | null,
   options: ToadaImportOptions = {}
 ): Promise<{ success: boolean; count: number }> {
-  const pack = options.pack || JSON.parse(await file.text());
+  const pack = options.pack || (file ? JSON.parse(await file.text()) : null);
   if (!pack?.patterns || !Array.isArray(pack.patterns)) throw new Error('Fichier Toada invalide');
 
   const store = useSequencerStore.getState();
   let tracks = [...store.tracks];
-  const puxTrack = getOrCreateTrack(tracks, 'puxador');
-  const coroTrack = getOrCreateTrack(tracks, 'coro');
+  const puxTrack = getOrCreateTrack(tracks, 'puxador'), coroTrack = getOrCreateTrack(tracks, 'coro');
   if (!tracks.some((t) => t.id === puxTrack.id)) tracks.push(puxTrack);
   if (!tracks.some((t) => t.id === coroTrack.id)) tracks.push(coroTrack);
-
   const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
-  const patIdMap = new Map<string, number>();
-  const convertedPats: Array<{ pat: Pattern; role: 'puxador' | 'coro'; origId: string }> = [];
+  const patIdMap = new Map<string, number>(), convertedPats: Array<{ pat: Pattern; role: 'puxador' | 'coro'; origId: string }> = [];
 
   for (let i = 0; i < pack.patterns.length; i++) {
     const p = pack.patterns[i];
@@ -82,26 +78,37 @@ export async function importToadaPackIntoSequencer(
     const existingPat = targetTrack.patterns?.find((ep) => ep.name === p.name || String(ep.id) === p.id);
     const existingNudge = existingPat?.vocalClip?.nudgeMs ?? 0;
 
+    let wavBlob: Blob | null = null;
     if (variant?.audioBase64) {
-      const wavBlob = base64ToBlob(variant.audioBase64);
+      wavBlob = base64ToBlob(variant.audioBase64);
+    } else if (variant?.audioUrl || p.audioUrl) {
+      try {
+        const resp = await fetch(variant?.audioUrl || p.audioUrl);
+        if (resp.ok) wavBlob = await resp.blob();
+      } catch (err) {
+        console.warn('[toadaPackImporter] Échec fetch audioUrl:', err);
+      }
+    }
+
+    if (wavBlob) {
       const audioBuffer = await rawCtx.decodeAudioData(await wavBlob.arrayBuffer());
       await saveVocalRecording(numId, wavBlob);
       if (String(numId) !== p.id) await saveVocalRecording(p.id, wavBlob);
       const aStore = useAudioStore.getState();
       const roleTrackId = role === 'coro' ? coroTrack.id : puxTrack.id;
       [numId, String(numId), p.id, `${roleTrackId}_${numId}`, `${roleTrackId}_${String(numId)}`].forEach((k) => {
-        aStore.setVocalBuffer(k, audioBuffer); aStore.addVocalBlob(k, wavBlob);
+        aStore.setVocalBuffer(k, audioBuffer); aStore.addVocalBlob(k, wavBlob!);
       });
       clipMeta = {
         id: numId, patternId: numId, baseBpm: effectiveBpm, sampleBpm: effectiveBpm,
-        trimStartSec: variant.trimStartSec ?? 0,
-        trimEndSec: variant.trimEndSec ?? (variant.durationSec || audioBuffer.duration),
+        trimStartSec: variant?.trimStartSec ?? 0,
+        trimEndSec: variant?.trimEndSec ?? (variant?.durationSec || audioBuffer.duration),
         nudgeMs: existingNudge, anacrusisBeats: hasAnacrusis ? 4 : 0, anacrusisSec: hasAnacrusis ? anacrusisDurationSec : 0,
         startOffsetSec: hasAnacrusis ? -anacrusisDurationSec : 0, updatedAt: Date.now(),
       };
     }
 
-    const newPat = convertToadaPattern(p, role, numId, effectiveBpm, store.totalMeasures, clipMeta, Boolean(variant?.audioBase64));
+    const newPat = convertToadaPattern(p, role, numId, effectiveBpm, store.totalMeasures, clipMeta, Boolean(wavBlob));
     convertedPats.push({ pat: newPat, role, origId: p.id });
   }
 
@@ -129,13 +136,12 @@ export async function importToadaPackIntoSequencer(
   if (pack.project?.title) store.setMetadata({ ...store.metadata, toada: pack.project.title });
   useAudioStore.getState().setVocalMode('voice');
 
-  if (options.deployStartMeasureIdx !== null && options.deployStartMeasureIdx !== undefined) {
-    store.deployToadaCycleAtMeasure(options.deployStartMeasureIdx);
-    const mNum = options.deployStartMeasureIdx + 1;
-    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: `Toada déroulée dès M${mNum} (${pack.patterns.length} patterns)` } }));
-  } else {
-    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: `Toada importée dans Détail Instrument (${pack.patterns.length} patterns)` } }));
-  }
+  const deployed = options.deployStartMeasureIdx !== null && options.deployStartMeasureIdx !== undefined;
+  if (deployed) store.deployToadaCycleAtMeasure(options.deployStartMeasureIdx!);
+  const toastMsg = deployed
+    ? `Toada déroulée dès M${options.deployStartMeasureIdx! + 1} (${pack.patterns.length} patterns)`
+    : `Toada importée dans Détail Instrument (${pack.patterns.length} patterns)`;
+  window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: toastMsg } }));
 
   return { success: true, count: pack.patterns.length };
 }
