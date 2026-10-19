@@ -6,6 +6,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CordelOptions, defaultCordelOptions, processCordelEffectBase64 } from '../../utils/cordelEffect';
 
+const PhotoBatchImporterModal = React.lazy(() => import('./PhotoBatchImporterModal'));
+
 export interface MusicalPhotoBoothModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +38,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
   const [beatsCount, setBeatsCount] = useState<number>(4);
   const [bpm, setBpm] = useState<number>(initialBpm);
   const [signalName, setSignalName] = useState<string>('');
+  const [isBatchOpen, setIsBatchOpen] = useState<boolean>(false);
   
   // Prise de vue en cours
   const [currentStepIdx, setCurrentStepIdx] = useState<number>(0); // 0 to beatsCount - 1
@@ -740,6 +743,14 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
             >
               🎬 {lang === 'fr' ? `Démarrer la séance (${beatsCount} trames)` : `Iniciar sessão (${beatsCount} quadros)`}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBatchOpen(true)}
+              className="w-full py-2 bg-black/5 hover:bg-black/10 text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold uppercase text-xs tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              📂 {lang === 'fr' ? 'Importer par lot (Plusieurs photos)' : 'Importar em lote (Várias fotos)'}
+            </button>
           </div>
         )}
 
@@ -1178,6 +1189,20 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               </button>
             </div>
           </div>
+        )}
+
+        {isBatchOpen && (
+          <React.Suspense fallback={null}>
+            <PhotoBatchImporterModal
+              isOpen={isBatchOpen}
+              onClose={() => setIsBatchOpen(false)}
+              onSaveBatch={(signals) => {
+                signals.forEach((s) => onSave(s));
+                onClose();
+              }}
+              lang={lang}
+            />
+          </React.Suspense>
         )}
 
       </div>

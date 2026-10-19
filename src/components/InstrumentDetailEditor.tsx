@@ -48,6 +48,8 @@ import { useBalancoStore } from '../stores/useBalancoStore';
 import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { MetricDivisionSelector } from './instrument-editor/MetricDivisionSelector';
+import { useMidiStepInput } from '../hooks/editor/useMidiStepInput';
+import { useInstrumentEditorKeyboard } from '../hooks/editor/useInstrumentEditorKeyboard';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { VocalWorkflowStepper } from './VocalWorkflowStepper';
 import { ImportToadaButton } from './ImportToadaButton';
@@ -548,66 +550,32 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
       if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-        const instConfig = currentTrack ? instrumentsConfig[currentTrack.instrumentIdx] : null;
-        const isVocal = Boolean(
-          currentTrack?.customName === 'Toada' ||
-          currentTrack?.customName === 'Puxador' ||
-          currentTrack?.customName === 'Coro' ||
-          instConfig?.type === 'voice' ||
-          instConfig?.id === 'puxador' ||
-          instConfig?.id === 'coro' ||
-          instConfig?.id === 'toada'
-        );
-        if (isVocal) return;
-        e.preventDefault();
-        togglePatternRecording();
+        const t = useSequencerStore.getState().tracks.find(tr => tr.id === trackId);
+        const c = t ? instrumentsConfig[t.instrumentIdx] : null;
+        const isV = Boolean(t?.customName === 'Toada' || t?.customName === 'Puxador' || t?.customName === 'Coro' || c?.type === 'voice' || c?.id === 'puxador' || c?.id === 'coro' || c?.id === 'toada');
+        if (!isV) { e.preventDefault(); togglePatternRecording(); }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [togglePatternRecording]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePatternRecording, trackId]);
 
   // Mode Live Erase (Effacement direct via Backspace et Delete maintenus)
   const isLiveErasingRef = useRef(false);
-
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        const target = e.target as HTMLElement | null;
-        if (
-          target?.tagName === 'INPUT' ||
-          target?.tagName === 'TEXTAREA' ||
-          target?.isContentEditable
-        ) {
-          return;
-        }
-        isLiveErasingRef.current = true;
-      }
+    const onDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
+      if (e.key === 'Backspace' || e.key === 'Delete') isLiveErasingRef.current = true;
     };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        isLiveErasingRef.current = false;
-      }
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'Backspace' || e.key === 'Delete') isLiveErasingRef.current = false;
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
   }, []);
 
   const balancoPresets = useBalancoStore(state => state.presets);
@@ -1458,6 +1426,54 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
+  const [isMidiStepActive, setIsMidiStepActive] = useState<boolean>(false);
+
+  const currentActivePtn = displayedPatterns.find(p => p.id === selectedPatternId) || displayedPatterns[0];
+  const curStepVal = currentActivePtn?.activeSteps?.[selectedStepIdx ?? 0];
+
+  useMidiStepInput({
+    isActive: isMidiStepActive,
+    isVoice: isVocalContext,
+    selectedStepIdx,
+    selectedSubIndex,
+    totalSteps: currentActivePtn?.steps || 16,
+    isSplitCurrentStep: Array.isArray(curStepVal),
+    onWritePercussion: (sIdx, sub, stroke) => {
+      if (!currentActivePtn) return;
+      const cur = currentActivePtn.activeSteps?.[sIdx];
+      let finalVal: any = stroke;
+      if (Array.isArray(cur) && (sub === 0 || sub === 1)) {
+        const arr = [...cur] as [string, string];
+        arr[sub] = stroke;
+        finalVal = arr;
+      }
+      onStepValueChange(currentActivePtn.id, sIdx, finalVal);
+    },
+    onWriteVoice: (sIdx, noteName) => {
+      if (!currentActivePtn) return;
+      onVoiceNoteChange(currentActivePtn.id, sIdx, noteName);
+    },
+    onAdvance: (nextIdx, nextSub) => {
+      setSelectedStepIdx(nextIdx);
+      setSelectedStepIndices([nextIdx]);
+      setSelectedSubIndex(nextSub);
+    },
+    playPercussionPreview: (stroke) => {
+      if (audioEngine && track) {
+        try {
+          const isWeak = stroke === stroke.toLowerCase();
+          audioEngine.playNote(track.id, stroke, Tone.now(), isWeak ? 0.6 : 0.95, isWeak ? 0.8 : 1.0);
+        } catch (_) {}
+      }
+    },
+    playVoicePreview: (noteName) => {
+      if (audioEngine && track) {
+        try {
+          audioEngine.playNote(track.id, noteName, Tone.now(), 0.9, 1.0);
+        } catch (_) {}
+      }
+    },
+  });
 
   // Synchronisation descendante : de l'éditeur local vers useSequencerStore
   useEffect(() => {
@@ -1642,170 +1658,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
   }, [handleClose]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (isSettingsOpen) return;
-      if (e.defaultPrevented) return;
-
-      const activeEl = document.activeElement as HTMLElement | null;
-      const target = e.target as HTMLElement | null;
-
-      const isTextEntry = 
-        activeEl?.tagName === 'INPUT' ||
-        activeEl?.tagName === 'TEXTAREA' ||
-        Boolean(activeEl?.isContentEditable) ||
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        Boolean(target?.isContentEditable) ||
-        Boolean(activeEl?.classList?.contains('v-syl')) ||
-        Boolean(target?.classList?.contains('v-syl'));
-
-      // Barrière 1 : Saisie de texte (seule Escape blur le champ)
-      if (isTextEntry) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          activeEl?.blur();
-          target?.blur();
-        }
-        return;
-      }
-
-      // Barrière 2 : Touche Escape ferme immédiatement l'éditeur d'instrument (sauf si un dialogue de confirmation est ouvert)
-      if (e.key === 'Escape') {
-        if (document.querySelector('[data-testid="custom-dialog-backdrop"]')) {
-          return;
-        }
-        e.preventDefault();
-        handleClose();
-        return;
-      }
-
-      // Raccourci Tab pour basculer alternativement entre Puxador et Coro (hors saisie de texte)
-      if (e.key === 'Tab' && isVocalContext && puxTrack && coroTrack) {
-        e.preventDefault();
-        const target = isCoroActive ? puxTrack : coroTrack;
-        handleSwitchVocalTrack(target);
-        return;
-      }
-
-      // Si le focus est sur une cellule de pas de grille ou qu'un pas est ciblé, laisser la cellule traiter
-      const isCellTarget = 
-        Boolean(activeEl?.closest?.('.step-boxes')) || 
-        Boolean(activeEl?.closest?.('.step-input-cell')) ||
-        Boolean(target?.closest?.('.step-boxes')) || 
-        Boolean(target?.closest?.('.step-input-cell'));
-
-      if (isCellTarget || selectedStepIdx !== null) {
-        if (onKeyDown) onKeyDown(e);
-        return;
-      }
-
-      // ─────────────────────────────────────────────────────────────
-      // SÉLECTION DU PINCEAU & NUANCES AU CLAVIER (Hors focus de pas)
-      // ─────────────────────────────────────────────────────────────
-
-      // Neutralisation totale des raccourcis et pré-écoutes percussives en contexte vocal
-      if (isVocalContext || (track as any)?.type === 'voice' || inst?.type === 'voice') {
-        if (onKeyDown) onKeyDown(e);
-        return;
-      }
-
-      // Flèches ↑ / ↓ : Ajuster la nuance du pinceau actif entre fort et faible
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const dir = e.key === 'ArrowUp' ? 'up' : 'down';
-        const nextTool = getWheelNuanceState(activeTool, dir, inst.id, inst.type, lang, isLeftHanded);
-        if (nextTool && String(nextTool) !== activeTool) {
-          const toolStr = String(nextTool);
-          setActiveTool(toolStr);
-          if (toolStr !== '0' && audioEngine && track) {
-            const isWeak = dir === 'down';
-            try {
-              audioEngine.playNote(track.id, toolStr, Tone.now(), isWeak ? 0.6 : 0.95, isWeak ? 0.8 : 1.0);
-            } catch (_) {}
-          }
-        }
-        return;
-      }
-
-      // 0, Backspace ou Suppr : Sélectionne l'outil Gomme ('0')
-      if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
-        e.preventDefault();
-        setActiveTool('0');
-        return;
-      }
-
-      // Sélection directe d'un outil par lettre (d, e, g, a, s, p, t...)
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
-        const pairs = getStrokePairs(inst.id, inst.type, lang, isLeftHanded);
-        const char = e.key;
-        const isUpper = char === char.toUpperCase() && char !== char.toLowerCase();
-
-        // 1. Recherche par paire de timbres
-        const matchingPair = pairs.find((p) => {
-          return (
-            p.id.toLowerCase() === char.toLowerCase() ||
-            p.strong.shortcut.toLowerCase() === char.toLowerCase() ||
-            p.strong.symbol.toLowerCase() === char.toLowerCase() ||
-            p.strokes.some((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase())
-          );
-        });
-
-        if (matchingPair) {
-          e.preventDefault();
-          let targetSymbol: string;
-          let isWeak = false;
-          if (isUpper) {
-            targetSymbol = matchingPair.strong.symbol;
-            isWeak = false;
-          } else {
-            if (matchingPair.weak) {
-              targetSymbol = matchingPair.weak.symbol;
-              isWeak = true;
-            } else {
-              targetSymbol = matchingPair.strong.symbol;
-              isWeak = false;
-            }
-          }
-
-          setActiveTool(targetSymbol);
-
-          // Pré-écoute sonore feutrée (faible) ou franche (forte)
-          if (audioEngine && track) {
-            try {
-              const vol = isWeak ? 0.6 : 0.95;
-              const dec = isWeak ? 0.8 : 1.0;
-              audioEngine.playNote(track.id, targetSymbol, Tone.now(), vol, dec);
-            } catch (_) {}
-          }
-          return;
-        }
-
-        // 2. Outils autonomes directs (B: Barulho, C: Clic baguettes, X: Aro/Corps)
-        const upperChar = char.toUpperCase();
-        if (['B', 'C', 'X'].includes(upperChar)) {
-          const allSymbols = pairs.flatMap((p) => p.strokes.map((s) => s.symbol));
-          const hasUpper = allSymbols.includes(upperChar);
-          const hasLower = allSymbols.includes(char.toLowerCase());
-          if (hasUpper || hasLower) {
-            e.preventDefault();
-            const symbolToSelect = (isUpper || !hasLower) ? upperChar : char.toLowerCase();
-            setActiveTool(symbolToSelect);
-            if (audioEngine && track) {
-              try {
-                audioEngine.playNote(track.id, symbolToSelect, Tone.now(), isUpper ? 0.95 : 0.6, isUpper ? 1.0 : 0.8);
-              } catch (_) {}
-            }
-            return;
-          }
-        }
-      }
-
-      if (onKeyDown) onKeyDown(e);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack]);
+  useInstrumentEditorKeyboard({
+    isSettingsOpen,
+    isVocalContext,
+    track,
+    inst,
+    lang,
+    isLeftHanded,
+    selectedStepIdx,
+    activeTool,
+    setActiveTool,
+    handleClose,
+    onKeyDown,
+    puxTrack,
+    coroTrack,
+    isCoroActive,
+    handleSwitchVocalTrack,
+  });
 
   if (!track) return null;
 
@@ -1994,6 +1863,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   )}
                 </div>
               )}
+
+              {/* Bouton Pas-à-pas MIDI (Voix & Percussions) */}
+              <div className="flex items-center mr-1 shrink-0 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsMidiStepActive(v => !v)}
+                  className={`h-8 px-2.5 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 flex-shrink-0 ${
+                    isMidiStepActive
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-md border-2 border-[#1a1a1a]'
+                      : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-black/10 border border-[#1a1a1a]'
+                  }`}
+                  title={lang === 'fr' ? "Saisie MIDI pas-à-pas (Note On -> pas suivant)" : "Entrada MIDI passo a passo (Note On -> próximo passo)"}
+                >
+                  <span>🎹</span>
+                  <span className="hidden sm:inline">{lang === 'fr' ? 'Pas-à-pas' : 'Passo a passo'}</span>
+                </button>
+              </div>
 
               {/* Mute */}
               <button

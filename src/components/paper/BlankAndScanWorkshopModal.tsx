@@ -45,44 +45,49 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[300] flex items-center justify-center p-3 select-none">
       <div className="bg-[var(--cordel-bg,#f4ecd8)] text-[var(--cordel-text,#1a1a1a)] border-4 border-[var(--cordel-border,#1a1a1a)] shadow-[8px_8px_0px_rgba(0,0,0,1)] w-full max-w-4xl max-h-[92vh] flex flex-col relative overflow-hidden">
-        {/* EN-TÊTE CORDEl */}
-        <div className="flex justify-between items-center px-4 py-2.5 bg-[var(--cordel-bg)] border-b-3 border-black">
+        {/* EN-TÊTE CORDEL HAUT CONTRASTE */}
+        <div className="flex justify-between items-center px-4 py-3 bg-[#1a1a1a] text-[#f4ecd8] border-b-3 border-black">
           <div className="flex items-center gap-2">
-            <span className="text-xl">🎼</span>
-            <h2 className="font-cactus text-2xl font-bold uppercase tracking-wider text-[#1a1a1a]">
+            <Printer className="w-5 h-5 text-[#d99b26]" />
+            <h2 className="font-cactus text-2xl font-bold uppercase tracking-wider text-[#f4ecd8]">
               {lang === 'fr' ? 'Grand Atelier Papier Cordel' : 'Grande Oficina de Papel Cordel'}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center text-xl font-bold hover:scale-110 cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-xl font-bold text-[#f4ecd8] hover:text-[#d99b26] cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* 3 ONGLETS PRINCIPAUX */}
-        <div className="flex border-b-2 border-black bg-black/5">
+        {/* 3 ONGLETS PRINCIPAUX HAUT CONTRASTE */}
+        <div className="flex border-b-2 border-black bg-[#1a1a1a]">
           {[
-            { id: 'sheets', labelFr: '🖨️ Imprimer Fiches & Légende', labelPt: '🖨️ Imprimir Folhas & Legenda', lock: false },
-            { id: 'scanner', labelFr: '📸 Scanner & Assembler', labelPt: '📸 Scanner & Montar', lock: false },
-            { id: 'reserve', labelFr: '⚡ Réserve JSON Mestre', labelPt: '⚡ Reserva JSON Mestre', lock: !canImport },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as PaperTabType)}
-              className={`flex-1 py-2 px-2 text-center font-cactus font-bold text-xs uppercase border-r-2 border-black transition-colors cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-[var(--cordel-wood,#8b2a1a)] text-[#f4ecd8]'
-                  : 'bg-[var(--cordel-bg,#f4ecd8)] text-[#1a1a1a] hover:bg-black/10'
-              }`}
-            >
-              <span>{lang === 'fr' ? tab.labelFr : tab.labelPt}</span>
-              {tab.lock && <span className="ml-1 text-[10px]">🔒</span>}
-            </button>
-          ))}
+            { id: 'sheets', labelFr: 'Imprimer Fiches & Légende', labelPt: 'Imprimir Folhas & Legenda', icon: Printer, lock: false },
+            { id: 'scanner', labelFr: 'Scanner & Assembler', labelPt: 'Scanner & Montar', icon: Camera, lock: false },
+            { id: 'reserve', labelFr: 'Réserve JSON Mestre', labelPt: 'Reserva JSON Mestre', icon: Zap, lock: !canImport },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as PaperTabType)}
+                className={`flex-1 py-2.5 px-2 text-center font-cactus font-bold text-xs uppercase border-r-2 border-black transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                  isActive
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-[inset_0_-2px_0_#d99b26]'
+                    : 'bg-[#2b2b2b] text-[#f4ecd8] hover:bg-[#383838]'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#f4ecd8]' : 'text-[#d99b26]'}`} />
+                <span>{lang === 'fr' ? tab.labelFr : tab.labelPt}</span>
+                {tab.lock && <span className="ml-1 text-[10px] text-[#d99b26]">🔒</span>}
+              </button>
+            );
+          })}
         </div>
 
         {/* CONTENU DE L'ONGLET ACTIF */}

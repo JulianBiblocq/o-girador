@@ -1074,15 +1074,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <RedoIcon className="w-4 h-4" />
           </button>
         </div>
-
-        {/* Bouton Atelier Papier Cordel (Desktop) */}
-        {onOpenPaperWorkshop && (
-          <PaperWorkshopButton
-            lang={lang}
-            onClick={() => onOpenPaperWorkshop()}
-            className="ml-2 hidden lg:flex"
-          />
-        )}
       </div>
 
       {/* CENTER: Main Core Actions */}

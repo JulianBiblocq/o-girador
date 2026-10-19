@@ -24,6 +24,7 @@ import { isVoiceStepProlongation } from '../utils/musicTheory';
 import { VoicePatternGridSection } from './instrument-editor/VoicePatternGridSection';
 import { VoiceAnacrusisSection } from './voice/VoiceAnacrusisSection';
 import { VocalGrooveNudgeControl } from './voice/VocalGrooveNudgeControl';
+import { usePatternGridKeyboard } from '../hooks/editor/usePatternGridKeyboard';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
   if (val === undefined) return fallback;
@@ -724,14 +725,17 @@ const VoiceStepCellComponent = ({
           }
         }
       }
-      // Cas 2 : Tout le texte est sélectionné, champ vide ou champ note : effacement atomique complet et recul
+      // Cas 2 : Tout le texte est sélectionné, champ vide ou champ note : effacement contextuel et recul
       e.preventDefault();
       e.stopPropagation();
-      onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
-      if (focusVoiceStep) {
-        focusVoiceStep(i - 1, field, isPreRoll);
+      if (field === 'syl') {
+        onVoiceSylChange?.(trackId, patternId, i, '');
+        if (focusVoiceStep) focusVoiceStep(i - 1, 'syl', isPreRoll);
+        else onVoiceNav(input, 'ArrowLeft', 'syl');
       } else {
-        onVoiceNav(input, 'ArrowLeft', field);
+        onVoiceNoteChange?.(trackId, patternId, i, '');
+        if (focusVoiceStep) focusVoiceStep(i - 1, 'note', isPreRoll);
+        else onVoiceNav(input, 'ArrowLeft', 'note');
       }
       return;
     }
@@ -753,10 +757,14 @@ const VoiceStepCellComponent = ({
           }
         }
       }
-      // Cas 2 : Tout le texte est sélectionné, champ vide ou champ note : effacement atomique complet sur place
+      // Cas 2 : Tout le texte est sélectionné, champ vide ou champ note : effacement contextuel sur place
       e.preventDefault();
       e.stopPropagation();
-      onVoiceStepClear?.(trackId, patternId, i, Boolean(isPreRoll));
+      if (field === 'syl') {
+        onVoiceSylChange?.(trackId, patternId, i, '');
+      } else {
+        onVoiceNoteChange?.(trackId, patternId, i, '');
+      }
       return;
     }
 
@@ -3528,130 +3536,25 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [focusVoiceStep]);
 
-  /* Écouteur global pour touches Delete / Backspace / Flèches sur un pas unique sélectionné hors input */
-  useEffect(() => {
-    if (isMultiSelectActive || selectedStepIdx === null) return;
-
-    const handleSingleStepKeyDown = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement;
-      // Ne pas interférer si l'utilisateur est déjà dans un input modifiable (qui a son propre onKeyDown)
-      if (
-        activeEl &&
-        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
-        !(activeEl as HTMLInputElement).readOnly
-      ) {
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      const isVoice = instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada';
-      const idx = selectedStepIdx;
-
-      if (e.key === 'Delete') {
-        e.preventDefault();
-        e.stopPropagation();
-        if (isVoice) {
-          handleVoiceStepClear(trackId, pattern.id, idx, selectedStepIsPreRoll);
-        } else {
-          useSequencerStore.getState().pushUndoState();
-          const currentVal = pattern?.activeSteps?.[idx];
-          let finalVal: any = 0;
-          if (Array.isArray(currentVal) && (selectedSubIndex === 0 || selectedSubIndex === 1)) {
-            const arr = [...currentVal] as [string, string];
-            arr[selectedSubIndex] = '0';
-            finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
-          } else {
-            finalVal = 0;
-            setSelectedSubIndex(null);
-          }
-          if (selectedVariationId) {
-            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
-          } else {
-            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
-          }
-        }
-        return;
-      }
-
-      if (e.key === 'Backspace') {
-        e.preventDefault();
-        e.stopPropagation();
-        if (isVoice) {
-          handleVoiceStepClear(trackId, pattern.id, idx, selectedStepIsPreRoll);
-          focusVoiceStep(idx - 1, 'syl', selectedStepIsPreRoll);
-        } else {
-          useSequencerStore.getState().pushUndoState();
-          const currentVal = pattern?.activeSteps?.[idx];
-          let finalVal: any = 0;
-          if (Array.isArray(currentVal) && selectedSubIndex === 1) {
-            const arr = [...currentVal] as [string, string];
-            arr[1] = '0';
-            finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
-            setSelectedSubIndex(0);
-            focusCell(idx, 0);
-          } else if (Array.isArray(currentVal) && selectedSubIndex === 0) {
-            const arr = [...currentVal] as [string, string];
-            arr[0] = '0';
-            finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
-            if (idx > 0) {
-              const prevIdx = idx - 1;
-              const prevVal = pattern?.activeSteps?.[prevIdx];
-              setSelectedStepIdx(prevIdx);
-              setSelectedStepIndices([prevIdx]);
-              setSelectedSubIndex(Array.isArray(prevVal) ? 1 : null);
-              focusCell(prevIdx, Array.isArray(prevVal) ? 1 : null);
-            }
-          } else {
-            finalVal = 0;
-            setSelectedSubIndex(null);
-            if (idx > 0) {
-              const prevIdx = idx - 1;
-              const prevVal = pattern?.activeSteps?.[prevIdx];
-              setSelectedStepIdx(prevIdx);
-              setSelectedStepIndices([prevIdx]);
-              setSelectedSubIndex(Array.isArray(prevVal) ? 1 : null);
-              focusCell(prevIdx, Array.isArray(prevVal) ? 1 : null);
-            }
-          }
-          if (selectedVariationId) {
-            handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
-          } else {
-            handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
-          }
-        }
-        return;
-      }
-
-      if (isVoice) {
-        const patternSteps = pattern?.steps || 16;
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          e.stopPropagation();
-          focusVoiceStep(idx + 1, 'syl', selectedStepIsPreRoll);
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          e.stopPropagation();
-          focusVoiceStep(idx - 1, 'syl', selectedStepIsPreRoll);
-        } else if (e.key === 'ArrowDown') {
-          if ((idx % 16) < 8 && idx + 8 < patternSteps) {
-            e.preventDefault();
-            e.stopPropagation();
-            focusVoiceStep(idx + 8, 'syl', selectedStepIsPreRoll);
-          }
-        } else if (e.key === 'ArrowUp') {
-          if ((idx % 16) >= 8) {
-            e.preventDefault();
-            e.stopPropagation();
-            focusVoiceStep(idx - 8, 'syl', selectedStepIsPreRoll);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleSingleStepKeyDown);
-    return () => window.removeEventListener('keydown', handleSingleStepKeyDown);
-  }, [isMultiSelectActive, selectedStepIdx, selectedStepIsPreRoll, selectedSubIndex, pattern?.id, pattern?.steps, pattern?.activeSteps, selectedVariationId, trackId, instrument?.type, handleVariationStepValueChange, handleTrackStepValueChange, handleVoiceStepClear, focusVoiceStep, focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
+  /* Écouteur global délégé au hook usePatternGridKeyboard (Navigation flèches pas scindés & Delete) */
+  usePatternGridKeyboard({
+    isMultiSelectActive,
+    selectedStepIdx,
+    selectedSubIndex,
+    selectedStepIsPreRoll,
+    pattern,
+    trackId,
+    isVoice: instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada',
+    selectedVariationId,
+    handleVariationStepValueChange,
+    handleTrackStepValueChange,
+    handleVoiceStepClear,
+    focusVoiceStep,
+    focusCell,
+    setSelectedStepIdx,
+    setSelectedStepIndices,
+    setSelectedSubIndex,
+  });
 
   const getDisplayVal = (val: string | number | [string, string] | undefined): string => {
     if (val === undefined || val === 0 || val === '0') return '';

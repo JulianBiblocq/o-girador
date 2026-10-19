@@ -33,8 +33,8 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
   return (
     <div className="flex flex-col gap-4 text-xs font-sans text-[var(--cordel-text,#1a1a1a)]">
       {/* 1. CHOIX DE LA FEUILLE */}
-      <div className="flex flex-col gap-1.5 p-3 bg-black/5 border-2 border-[var(--cordel-border,#1a1a1a)]">
-        <label className="font-cactus font-bold uppercase text-[11px] text-[var(--cordel-wood,#8b2a1a)]">
+      <div className="flex flex-col gap-1.5 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
+        <label className="font-cactus font-bold uppercase text-[12px] text-[#d99b26] tracking-wide">
           {lang === 'fr' ? '1. Type de Fiche Vierge' : '1. Tipo de Folha em Branco'}
         </label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -42,26 +42,31 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
             { id: 'isolated', fr: 'Feuille A — Patterns Isolés', pt: 'Folha A — Padrões Isolados' },
             { id: 'sections', fr: 'Feuille B — Multi-Instruments', pt: 'Folha B — Multi-Instrumentos' },
             { id: 'sequence', fr: 'Feuille C — Conducteur Séquence', pt: 'Folha C — Condutor de Sequência' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setSheetType(item.id as BlankSheetType)}
-              className={`p-2 font-bold text-left border-2 cursor-pointer transition-colors ${
-                sheetType === item.id ? 'bg-[var(--cordel-wood,#8b2a1a)] text-[#f4ecd8] border-black' : 'bg-white border-[#1a1a1a]/30'
-              }`}
-            >
-              {lang === 'fr' ? item.fr : item.pt}
-            </button>
-          ))}
+          ].map((item) => {
+            const isSel = sheetType === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSheetType(item.id as BlankSheetType)}
+                className={`p-2.5 text-left border-2 cursor-pointer transition-colors shadow-[2px_2px_0px_#1a1a1a] ${
+                  isSel
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black'
+                    : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a] hover:bg-[#fff9ea]'
+                }`}
+              >
+                {lang === 'fr' ? item.fr : item.pt}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* 2. MODE DE GRILLE & PUPITRES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Mode de Grille */}
-        <div className="flex flex-col gap-1.5 p-3 bg-black/5 border-2 border-[var(--cordel-border,#1a1a1a)]">
-          <label className="font-cactus font-bold uppercase text-[11px] text-[var(--cordel-wood,#8b2a1a)]">
+        <div className="flex flex-col gap-1.5 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
+          <label className="font-cactus font-bold uppercase text-[12px] text-[#d99b26] tracking-wide">
             {lang === 'fr' ? '2. Mode de Grille' : '2. Modo da Grelha'}
           </label>
           <div className="grid grid-cols-3 gap-1.5">
@@ -72,24 +77,29 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
               { id: '12/8', label: '12/8 (12 pas)' },
               { id: 'free_portrait', label: lang === 'fr' ? 'Libre 24 (Port.)' : 'Livre 24 (Ret.)' },
               { id: 'free_landscape', label: lang === 'fr' ? 'Libre 32 (Pays.)' : 'Livre 32 (Pais.)' },
-            ].map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setGridMode(m.id as GridMode)}
-                className={`py-1 px-1.5 text-[10px] font-bold border ${
-                  gridMode === m.id ? 'bg-black text-white border-black' : 'bg-white border-black/30'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
+            ].map((m) => {
+              const isSel = gridMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setGridMode(m.id as GridMode)}
+                  className={`py-1.5 px-1 text-[10px] border-2 cursor-pointer transition-colors shadow-[1px_1px_0px_#1a1a1a] ${
+                    isSel
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black'
+                      : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a] hover:bg-[#fff9ea]'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Pupitres Cochables */}
-        <div className="flex flex-col gap-1.5 p-3 bg-black/5 border-2 border-[var(--cordel-border,#1a1a1a)]">
-          <label className="font-cactus font-bold uppercase text-[11px] text-[var(--cordel-wood,#8b2a1a)]">
+        <div className="flex flex-col gap-1.5 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
+          <label className="font-cactus font-bold uppercase text-[12px] text-[#d99b26] tracking-wide">
             {lang === 'fr' ? '3. Pupitres à imprimer' : '3. Naipes para imprimir'}
           </label>
           <div className="flex flex-wrap gap-1.5">
@@ -100,7 +110,11 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
                   key={p.code}
                   type="button"
                   onClick={() => togglePupitre(p.code)}
-                  className={`px-2 py-0.5 text-[10px] font-bold border ${active ? 'bg-black text-white' : 'bg-white text-black/60'}`}
+                  className={`px-2 py-1 text-[10px] border-2 cursor-pointer transition-colors shadow-[1px_1px_0px_#1a1a1a] ${
+                    active
+                      ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black'
+                      : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a] hover:bg-[#fff9ea]'
+                  }`}
                 >
                   {p.code.toUpperCase()} ({lang === 'fr' ? p.nameFr : p.namePt})
                 </button>
@@ -108,8 +122,8 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
             })}
           </div>
           {pupitres.includes('al') && (
-            <label className="flex items-center gap-1.5 mt-1 font-bold text-[10px] cursor-pointer">
-              <input type="checkbox" checked={includeVarLine} onChange={(e) => setIncludeVarLine(e.target.checked)} />
+            <label className="flex items-center gap-1.5 mt-1.5 font-bold text-[10px] cursor-pointer text-[#1a1a1a]">
+              <input type="checkbox" checked={includeVarLine} onChange={(e) => setIncludeVarLine(e.target.checked)} className="accent-[#8b2a1a]" />
               <span>{lang === 'fr' ? 'Sous-ligne Alfaias [+1 ligne Variation ↳Me/Rp]' : 'Sublinha Alfaias [+1 linha Variação ↳Me/Rp]'}</span>
             </label>
           )}
