@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTimelineAutomationGroup } from '../hooks/timeline/useTimelineAutomationGroup';
+import { computeTimelinePositions } from '../utils/timeline/timelineMeasureWidths';
 
 export interface AutomationTrackProps {
   type: 'tempo' | 'volume' | 'pan' | 'reverb';
@@ -98,12 +99,18 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     return min + percent * (max - min);
   };
 
-  const totalWidth = totalMeasures * measureWidth;
+  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
+  const timeSig = useSequencerStore(state => state.timeSig);
+  const { widths, leftPositions, totalContentW } = React.useMemo(() => {
+    return computeTimelinePositions(totalMeasures, measureWidth, measureTimeSigs, timeSig);
+  }, [totalMeasures, measureWidth, measureTimeSigs, timeSig]);
+
+  const totalWidth = totalContentW;
 
   const renderSvg = useCallback(() => {
     if (!svgRef.current) return;
     const height = isExpanded ? 80 : 30;
-    const totalW = totalMeasures * measureWidth;
+    const totalW = totalContentW;
     
     // Set explicit SVG dimensions
     svgRef.current.setAttribute('width', totalW.toString());
@@ -131,13 +138,15 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       svgRef.current.appendChild(zeroLine);
     }
 
-    // Create Path with centered nodes: Xm = m * measureWidth + measureWidth / 2
+    // Create Path with centered nodes: Xm = leftPositions[m] + widths[m] / 2
     let d = '';
     const nodeXCoords: number[] = [];
     const nodeYCoords: number[] = [];
 
     for (let i = 0; i < totalMeasures; i++) {
-      const nodeX = i * measureWidth + measureWidth / 2;
+      const mLeft = leftPositions[i] ?? (i * measureWidth);
+      const mW = widths[i] ?? measureWidth;
+      const nodeX = mLeft + mW / 2;
       const defaultVal = type === 'tempo' ? 100 : (type === 'pan' ? 0 : (type === 'volume' ? 75 : min));
       const val = (currentValues && currentValues[i] !== undefined) ? currentValues[i] : defaultVal;
       const nodeY = getYFromValue(val, height);
@@ -151,7 +160,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       } else {
         const prevX = nodeXCoords[i - 1];
         const prevY = nodeYCoords[i - 1];
-        const boundaryX = i * measureWidth;
+        const boundaryX = mLeft;
         const trans = (transitions && transitions[i]) || 'immediate';
 
         if (trans === 'immediate') {
@@ -207,8 +216,9 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
     if (isSelectedTrack && selectedAutomationRange) {
       const selStart = Math.min(selectedAutomationRange.start, selectedAutomationRange.end);
       const selEnd = Math.max(selectedAutomationRange.start, selectedAutomationRange.end);
-      const selX = selStart * measureWidth;
-      const selW = (selEnd - selStart + 1) * measureWidth;
+      const selX = leftPositions[selStart] ?? (selStart * measureWidth);
+      const selEndRight = (leftPositions[selEnd] ?? (selEnd * measureWidth)) + (widths[selEnd] ?? measureWidth);
+      const selW = selEndRight - selX;
 
       const selRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       selRect.setAttribute('x', selX.toString());
@@ -300,7 +310,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         // 4. Transition Toggle Button (if i > 0, placed at measure boundary)
         if (i > 0) {
           const prevY = nodeYCoords[i - 1];
-          const midX = i * measureWidth; // Exactly on measure boundary
+          const midX = leftPositions[i] ?? (i * measureWidth); // Exactly on measure boundary
           const midY = (y + prevY) / 2;
           
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -342,7 +352,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         }
       }
     }
-  }, [totalMeasures, measureWidth, transitions, min, max, color, isExpanded, isBypassed, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId]);
+  }, [totalMeasures, measureWidth, transitions, min, max, color, isExpanded, isBypassed, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId, widths, leftPositions, totalContentW]);
  
   const autoGroup = useTimelineAutomationGroup({
     type,
@@ -679,7 +689,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
                 className={`border-l border-white/20 h-full cursor-pointer hover:bg-white/5 transition-colors ${
                   isSelected ? 'bg-amber-500/20 shadow-[inset_0_2px_0_#e67e22]' : ''
                 }`}
-                style={{ width: `${measureWidth}px`, minWidth: `${measureWidth}px` }}
+                style={{ width: `${widths[i] ?? measureWidth}px`, minWidth: `${widths[i] ?? measureWidth}px` }}
               />
             );
           })}

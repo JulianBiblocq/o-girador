@@ -51,6 +51,7 @@ export interface Pattern {
   preRollDecays?: StepSculptValue[];
   preRollMicrotimings?: StepSculptValue[];
   hasAnacrusis?: boolean;
+  vocalVariantKeys?: string[];
 }
 
 export interface VocalClipMeta {
@@ -65,6 +66,7 @@ export interface VocalClipMeta {
   anacrusisBeats: number;    // Débordement éventuel avant le temps 1 (en temps musicaux)
   anacrusisSec?: number;     // Durée réelle de l'anacrouse en secondes
   startOffsetSec?: number;   // Décalage temporel signé par rapport au Temps 1 (- = anacrouse, + = départ différé / syncope)
+  variantKeys?: string[];    // Clés des déclinaisons vocales disponibles (ex: spd74_pit0, spd100_pit-8)
   // Backward-compatibility aliases
   offsetStart?: number;      // Legacy alias for trimStartSec
   startTimeDelay?: number;   // Legacy alias for nudgeSec

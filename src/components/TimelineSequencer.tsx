@@ -40,6 +40,7 @@ import { AutomationTrack } from './AutomationTrack';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { TimelinePatternPickerPopover } from './TimelinePatternPickerPopover';
 import { useTimelineMultiSelection } from '../hooks/timeline/useTimelineMultiSelection';
+import { computeTimelinePositions, getSectionBounds, findMeasureIndexAtX } from '../utils/timeline/timelineMeasureWidths';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -111,6 +112,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const timeSig = useSequencerStore(state => state.timeSig);
   const measureTimeSigs = useSequencerStore(useShallow(state => state.measureTimeSigs));
   const measureBpms = useSequencerStore(useShallow(state => state.measureBpms));
   const measureBpmTransitions = useSequencerStore(useShallow(state => state.measureBpmTransitions));
@@ -700,7 +702,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     if (relativeX < 0) {
       targetMeasure = 0;
     } else {
-      targetMeasure = Math.floor(relativeX / MEASURE_W);
+      targetMeasure = findMeasureIndexAtX(relativeX, measureLeftPositions, measureWidths);
     }
     const clampedMeasure = Math.max(0, Math.min(targetMeasure, tMeasures - 1));
 
@@ -729,7 +731,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       if (playheadEl) {
         playheadEl.style.transition = 'none';
         playheadEl.style.display = 'block';
-        playheadEl.style.transform = `translate3d(${HEADER_W + clampedMeasure * MEASURE_W}px, 0, 0)`;
+        const mLeft = measureLeftPositions[clampedMeasure] ?? (clampedMeasure * MEASURE_W);
+        playheadEl.style.transform = `translate3d(${HEADER_W + mLeft}px, 0, 0)`;
       }
     }
 
@@ -787,8 +790,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
 
 
-  // Total scrollable content width (excluding sticky header column)
-  const totalContentW = totalMeasures * MEASURE_W;
+  // Total scrollable content width & positions cumulées proportionnelles (2/4 = 50%, 3/4 = 75%)
+  const { widths: measureWidths, leftPositions: measureLeftPositions, totalContentW } = React.useMemo(() => {
+    return computeTimelinePositions(totalMeasures, MEASURE_W, measureTimeSigs, timeSig);
+  }, [totalMeasures, MEASURE_W, measureTimeSigs, timeSig]);
 
   // 1. Zoom horizontal DAW centré (Ctrl + Wheel) via un écouteur global en phase de capture sur window
   React.useEffect(() => {
@@ -1031,7 +1036,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     if ((e.target as HTMLElement).closest('[data-marker]')) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    let measureIdx = Math.floor(clickX / MEASURE_W);
+    let measureIdx = findMeasureIndexAtX(clickX, measureLeftPositions, measureWidths);
     measureIdx = Math.max(0, Math.min(totalMeasures - 1, measureIdx));
     
     setEditingMarker(null);
@@ -1215,7 +1220,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       ghost.style.pointerEvents = 'none';
       ghost.style.zIndex = '50';
       ghost.style.display = 'flex';
-      const startLeft = (endMeasure + 1) * MEASURE_W;
+      const startLeft = measureLeftPositions[endMeasure + 1] ?? ((endMeasure + 1) * MEASURE_W);
       ghost.style.left = `${startLeft}px`;
       el.parentElement?.appendChild(ghost);
     }
@@ -1229,9 +1234,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       
       if (ghost) {
         ghost.innerHTML = ''; 
+        const secW = getSectionBounds(startMeasure, endMeasure, measureLeftPositions, measureWidths).width;
         for(let i = 0; i < currentCopies; i++) {
           const block = document.createElement('div');
-          block.style.width = `${sectionLength * MEASURE_W - 8}px`;
+          block.style.width = `${Math.max(16, secW - 8)}px`;
           block.style.height = '100%';
           block.style.backgroundColor = section.color || '#eaddcf';
           block.style.opacity = '0.5';
@@ -1313,10 +1319,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   } as React.CSSProperties;
 
   const contextValue = React.useMemo(() => ({
-    MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang,
+    MEASURE_W, HEADER_W, totalContentW, measureWidths, measureLeftPositions, isMobile, isMacro, isMinZoom, isPanningActive, lang,
     signalDropdownOpen, setSignalDropdownOpen,
     onOpenPatternPicker: handleOpenPatternPicker,
-  }), [MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen, handleOpenPatternPicker]);
+  }), [MEASURE_W, HEADER_W, totalContentW, measureWidths, measureLeftPositions, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen, handleOpenPatternPicker]);
 
   if (!trackIds) return null;
 
@@ -1410,7 +1416,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
               {/* Render Section Markers */}
               {songMarkers.map((marker) => {
-                const posX = marker.measure * MEASURE_W;
+                const posX = measureLeftPositions[marker.measure] ?? (marker.measure * MEASURE_W);
                 return (
                   <div
                     key={`marker-${marker.id}`}
@@ -1564,8 +1570,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       <div
                         key={mIdx}
                         style={{
-                          width: `${MEASURE_W}px`,
-                          minWidth: `${MEASURE_W}px`,
+                          width: `${measureWidths[mIdx] ?? MEASURE_W}px`,
+                          minWidth: `${measureWidths[mIdx] ?? MEASURE_W}px`,
                           height: '100%'
                         }}
                       />
@@ -1578,8 +1584,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         copiedSection ? 'cursor-pointer' : 'cursor-crosshair'
                       }`}
                       style={{
-                        width: `${MEASURE_W}px`,
-                        minWidth: `${MEASURE_W}px`,
+                        width: `${measureWidths[mIdx] ?? MEASURE_W}px`,
+                        minWidth: `${measureWidths[mIdx] ?? MEASURE_W}px`,
                         height: '100%'
                       }}
                       onPointerDown={(e) => handleEmptySlotPointerDown(e, mIdx)}
@@ -1605,16 +1611,23 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
               {/* Highlight selection during drag */}
               {isDraggingRange && dragStartMeasure !== null && dragCurrentMeasure !== null && (
-                <div
-                  className="absolute bg-blue-500/25 border-2 border-dashed border-blue-500 pointer-events-none rounded-sm"
-                  style={{
-                    left: `${Math.min(dragStartMeasure, dragCurrentMeasure) * MEASURE_W + 4}px`,
-                    width: `${(Math.abs(dragCurrentMeasure - dragStartMeasure) + 1) * MEASURE_W - 8}px`,
-                    top: '4px',
-                    bottom: '4px',
-                    zIndex: 30
-                  }}
-                />
+                (() => {
+                  const selStartM = Math.min(dragStartMeasure, dragCurrentMeasure);
+                  const selEndM = Math.max(dragStartMeasure, dragCurrentMeasure);
+                  const b = getSectionBounds(selStartM, selEndM, measureLeftPositions, measureWidths);
+                  return (
+                    <div
+                      className="absolute bg-blue-500/25 border-2 border-dashed border-blue-500 pointer-events-none rounded-sm"
+                      style={{
+                        left: `${b.left + 4}px`,
+                        width: `${Math.max(0, b.width - 8)}px`,
+                        top: '4px',
+                        bottom: '4px',
+                        zIndex: 30
+                      }}
+                    />
+                  );
+                })()
               )}
 
               {/* Quick Section Creator Popover */}
@@ -1622,7 +1635,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 <div
                   className="absolute z-[85] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-3 border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] flex flex-col gap-2 rounded-sm"
                   style={{
-                    left: `${quickSectionRange.start * MEASURE_W + 4}px`,
+                    left: `${(measureLeftPositions[quickSectionRange.start] ?? (quickSectionRange.start * MEASURE_W)) + 4}px`,
                     top: '100%',
                     marginTop: '4px',
                     width: '260px',
@@ -1809,8 +1822,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               )}
 
               {songSections.map((section) => {
-                const startX = section.startMeasure * MEASURE_W;
-                const width = (section.endMeasure - section.startMeasure + 1) * MEASURE_W;
+                const { left: startX, width } = getSectionBounds(section.startMeasure, section.endMeasure, measureLeftPositions, measureWidths);
                 const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
                 const level = section.level || 0;
                 const topOffset = (maxLevel - level) * 26 + 4;
@@ -1904,8 +1916,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     onMouseLeave={() => setHoveredPasteMeasure(null)}
                     className="absolute inset-y-0.5 bg-emerald-600/25 hover:bg-emerald-600/45 text-emerald-800 dark:text-emerald-200 font-sans font-bold text-[9px] px-1 border-x border-y border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all shadow-[inset_0_0_4px_rgba(16,185,129,0.2)]"
                     style={{
-                      left: `${mIdx * MEASURE_W}px`,
-                      width: `${MEASURE_W}px`,
+                      left: `${measureLeftPositions[mIdx] ?? (mIdx * MEASURE_W)}px`,
+                      width: `${measureWidths[mIdx] ?? MEASURE_W}px`,
                     }}
                     title={lang === 'fr' ? `Coller à la mesure ${mIdx + 1}` : `Colar no compasso ${mIdx + 1}`}
                   >
@@ -1917,12 +1929,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               {/* Ghost preview block */}
               {copiedSection && hoveredPasteMeasure !== null && (
                 (() => {
+                  const pasteEnd = hoveredPasteMeasure + copiedSection.length - 1;
+                  const pb = getSectionBounds(hoveredPasteMeasure, pasteEnd, measureLeftPositions, measureWidths);
                   return (
                     <div
                       className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded border border-dashed pointer-events-none opacity-50 z-20 animate-pulse"
                       style={{
-                        left: `${hoveredPasteMeasure * MEASURE_W}px`,
-                        width: `${copiedSection.length * MEASURE_W - 8}px`,
+                        left: `${pb.left}px`,
+                        width: `${Math.max(0, pb.width - 8)}px`,
                         marginLeft: '4px',
                         backgroundColor: copiedSection.color || '#f19066',
                         color: '#1a1a1a',
@@ -2030,7 +2044,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
             {/* Left spacer column */}
             {visibleRange.start > 0 && (
-              <div style={{ width: `${visibleRange.start * MEASURE_W}px`, minWidth: `${visibleRange.start * MEASURE_W}px` }} className="shrink-0" />
+              <div style={{ width: `${measureLeftPositions[visibleRange.start] ?? (visibleRange.start * MEASURE_W)}px`, minWidth: `${measureLeftPositions[visibleRange.start] ?? (visibleRange.start * MEASURE_W)}px` }} className="shrink-0" />
             )}
 
             {/* Measure labels */}
@@ -2069,8 +2083,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         : ''
                     }`}
                     style={{
-                      width: MEASURE_W,
-                      minWidth: MEASURE_W,
+                      width: measureWidths[mIdx] ?? MEASURE_W,
+                      minWidth: measureWidths[mIdx] ?? MEASURE_W,
                       height: '100%',
                     }}
                 >
@@ -2256,7 +2270,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
             {/* Right spacer column */}
             {visibleRange.end < totalMeasures - 1 && (
-              <div style={{ width: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px`, minWidth: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px` }} className="shrink-0" />
+              <div style={{ width: `${Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * MEASURE_W)))}px`, minWidth: `${Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * MEASURE_W)))}px` }} className="shrink-0" />
             )}
 
             {/* Quick Add Measure Button */}

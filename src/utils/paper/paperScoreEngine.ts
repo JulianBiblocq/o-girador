@@ -1,19 +1,23 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Moteur de décodage des partitions papier et séquences Cordel (< 140 lignes).
+ * Moteur de décodage des partitions papier et intégration séquences (< 115 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';
 import { parsePupitreHeader } from './paperNomenclatureHelper';
+import { expandSequenceTokens } from './paperSequenceExpander';
+
+export { expandSequenceTokens, expandSequenceTokens as expandSequenceString };
 
 export const parseStepValue = (raw: any): PaperStepValue => {
-  if (raw === undefined || raw === null || raw === '' || raw === ' ' || raw === '-' || raw === 0 || raw === '0') {
+  if (raw === undefined || raw === null || raw === '' || raw === ' ' || raw === 0 || raw === '0') {
     return 0;
   }
+  const s = String(Array.isArray(raw) ? raw[0] : raw).trim();
+  if (s === '-') return '-'; // Tiret de silence forcé
   if (Array.isArray(raw)) {
     return raw.length >= 2 ? [String(raw[0]).trim(), String(raw[1]).trim()] : (raw[0] ?? 0);
   }
-  const s = String(raw).trim();
   if (s.includes('/') || (s.includes('|') && s !== '||' && s !== '|')) {
     const parts = s.includes('/') ? s.split('/') : s.split('|');
     return [parts[0].trim() || '0', parts[1].trim() || '0'];
@@ -25,6 +29,10 @@ export const sanitizePatternSteps = (rawSteps: any[], targetLength = 16): PaperS
   const result: PaperStepValue[] = [];
   for (let i = 0; i < rawSteps.length; i++) {
     const s = String(rawSteps[i]).trim();
+    if (s === '...' || s === '…') {
+      while (result.length < targetLength) result.push(0);
+      break;
+    }
     if (s === '||' || s === 'END') break; // Troncature nette à la double barre
     result.push(parseStepValue(rawSteps[i]));
   }
@@ -57,10 +65,10 @@ export const resolveSectionPatterns = (
     const targets = parsed.targetCodes.length > 0 ? parsed.targetCodes : [cleanLabel.toLowerCase()];
 
     // Gestion du mot-clé Base / Idem
-    const isBaseKeyword = (typeof val === 'string' && /^(base|idem)$/i.test(val.trim())) ||
-      (Array.isArray(val) && val.length === 1 && typeof val[0] === 'string' && /^(base|idem)$/i.test(val[0].trim()));
+    const isBase = (typeof val === 'string' && /^(base|idem|%)$/i.test(val.trim())) ||
+      (Array.isArray(val) && val.length === 1 && typeof val[0] === 'string' && /^(base|idem|%)$/i.test(val[0].trim()));
 
-    if (isBaseKeyword) {
+    if (isBase) {
       for (const t of targets) {
         resolved[t] = basePatterns[t] ? [...basePatterns[t]!] : Array(targetLength).fill(0);
         lastMasterSteps = resolved[t]!;
@@ -71,46 +79,30 @@ export const resolveSectionPatterns = (
     if (Array.isArray(val)) {
       const sanitized = sanitizePatternSteps(val, targetLength);
       if (parsed.isVariation) {
-        // Héritage automatique des cases vides depuis la ligne maîtresse au-dessus
-        const childSteps = sanitized.map((st, idx) => (st === 0 || st === '0' ? (lastMasterSteps[idx] ?? 0) : st));
+        // Règle du Temps Vide vs Tiret (-) sur sous-ligne de variation
+        const childSteps: PaperStepValue[] = [];
+        for (let beat = 0; beat < targetLength / 4; beat++) {
+          const beatSlice = sanitized.slice(beat * 4, beat * 4 + 4);
+          const isEntireBeatEmpty = beatSlice.every((st) => st === 0);
+
+          if (isEntireBeatEmpty) {
+            // Recopie automatique du temps de la ligne maîtresse
+            for (let s = 0; s < 4; s++) childSteps.push(lastMasterSteps[beat * 4 + s] ?? 0);
+          } else {
+            // Traitement case par case : tiret '-' = vrai silence (0), sinon valeur
+            for (let s = 0; s < 4; s++) {
+              const val = beatSlice[s];
+              childSteps.push(val === '-' ? 0 : (val === 0 ? (lastMasterSteps[beat * 4 + s] ?? 0) : val));
+            }
+          }
+        }
         for (const t of targets) resolved[t] = childSteps;
       } else {
-        lastMasterSteps = sanitized;
-        for (const t of targets) resolved[t] = sanitized;
+        const cleanMaster = sanitized.map((s) => (s === '-' ? 0 : s));
+        lastMasterSteps = cleanMaster;
+        for (const t of targets) resolved[t] = cleanMaster;
       }
     }
   }
   return resolved;
-};
-
-export const expandSequenceString = (seqStr: string): string[] => {
-  let cleaned = seqStr.replace(/\s+/g, ' ').trim();
-  if (!cleaned) return [];
-
-  // Dérouler les crochets : [ A | B ] x2
-  cleaned = cleaned.replace(/\[\s*(.*?)\s*\]\s*(?:[xX*×](\d+))?/gi, (_, body, repeatStr) => {
-    const times = repeatStr ? parseInt(repeatStr, 10) : 1;
-    return Array(times).fill(body.trim()).join(' | ');
-  });
-
-  // Dérouler les reprises ||: A | B :|| xN
-  cleaned = cleaned.replace(/\|\|:\s*(.*?)\s*:\|\|\s*(?:[xX*×](\d+))?/gi, (_, body, repeatStr) => {
-    const times = repeatStr ? parseInt(repeatStr, 10) : 2;
-    return Array(times).fill(body.trim()).join(' | ');
-  });
-
-  const tokens = cleaned.split(/[|,\n]/).map((t) => t.trim()).filter(Boolean);
-  const result: string[] = [];
-
-  for (const token of tokens) {
-    const multMatch = token.match(/^(.*?)\s*([xX*×])\s*(\d+)$/);
-    if (multMatch) {
-      const name = multMatch[1].trim();
-      const count = parseInt(multMatch[3], 10) || 1;
-      for (let i = 0; i < count; i++) result.push(name);
-    } else {
-      result.push(token);
-    }
-  }
-  return result;
 };

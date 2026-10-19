@@ -25,6 +25,7 @@ import { VoicePatternGridSection } from './instrument-editor/VoicePatternGridSec
 import { VoiceAnacrusisSection } from './voice/VoiceAnacrusisSection';
 import { VocalGrooveNudgeControl } from './voice/VocalGrooveNudgeControl';
 import { usePatternGridKeyboard } from '../hooks/editor/usePatternGridKeyboard';
+import { usePaperVigilanceStore } from '../stores/usePaperVigilanceStore';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
   if (val === undefined) return fallback;
@@ -1916,6 +1917,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     } else {
       handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
     }
+    const vigilanceStore = usePaperVigilanceStore.getState();
+    const pt = vigilanceStore.points.find((p) => p.patternId === pattern.id && p.stepIndex === idx);
+    if (pt) vigilanceStore.removePoint(pt.id);
   }, [activeTool, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
 
   const focusCell = React.useCallback((stepIdx: number, subIndex?: 0 | 1 | null) => {
@@ -1935,6 +1939,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
     }
   }, []);
+
+  const activeVigilanceFocus = usePaperVigilanceStore((state) => state.activeFocusPoint);
+  useEffect(() => {
+    if (activeVigilanceFocus && activeVigilanceFocus.patternId === pattern.id) {
+      focusCell(activeVigilanceFocus.stepIndex);
+      setSelectedStepIdx(activeVigilanceFocus.stepIndex);
+    }
+  }, [activeVigilanceFocus, pattern.id, focusCell, setSelectedStepIdx]);
 
   const handleCellKeyDown = React.useCallback((
     e: React.KeyboardEvent<any>,
@@ -3867,29 +3879,50 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         </div>
       ) : (
         /* ──── Instrument step grid ──── */
-        <div
-          className="step-boxes grid grid-cols-4 gap-2 lg:gap-3 w-full"
-          id={`detail-steps-${trackId}-${pattern.id}`}
-          onTouchMove={handleGridTouchMove}
-          onTouchEnd={handleGridTouchEnd}
-        >
-          {(() => {
-            const groups: number[][] = [];
-            let accumulated = 0;
-            const defaultBeats = 4;
-            const beatRes = pattern?.beatResolutions || Array(defaultBeats).fill(4);
-            for (let b = 0; b < beatRes.length; b++) {
-              const res = beatRes[b];
-              const group: number[] = [];
-              for (let i = 0; i < res; i++) {
-                if (accumulated + i < (pattern?.steps ?? 16)) {
-                  group.push(accumulated + i);
-                }
+        (() => {
+          const patTimeSig = (pattern as any)?.timeSignature || useSequencerStore.getState().timeSig || '4/4';
+          const stepsCount = pattern?.steps ?? 16;
+          let beatsPerMeasure = 4;
+          if (patTimeSig === '2/4' || patTimeSig === '6/8' || stepsCount === 8) beatsPerMeasure = 2;
+          else if (patTimeSig === '3/4' || patTimeSig === '9/8' || stepsCount === 12) beatsPerMeasure = 3;
+          else if (patTimeSig === '12/8') beatsPerMeasure = 4;
+          else {
+            const parsed = parseInt(patTimeSig.split('/')[0], 10);
+            if (Number.isFinite(parsed) && parsed > 0) beatsPerMeasure = parsed;
+          }
+
+          const totalBeats = Math.max(1, Math.ceil(stepsCount / 4));
+          const effectiveBeats = (stepsCount <= 8 && beatsPerMeasure === 2) ? 2 : (stepsCount <= 12 && beatsPerMeasure === 3) ? 3 : totalBeats;
+
+          const gridColsClass = beatsPerMeasure === 2
+            ? 'grid-cols-2 max-w-2xl mx-auto'
+            : beatsPerMeasure === 3
+            ? 'grid-cols-3 max-w-4xl mx-auto'
+            : 'grid-cols-4';
+
+          const groups: number[][] = [];
+          let accumulated = 0;
+          const beatRes = pattern?.beatResolutions?.slice(0, effectiveBeats) || Array(effectiveBeats).fill(4);
+          for (let b = 0; b < effectiveBeats; b++) {
+            const res = beatRes[b] || 4;
+            const group: number[] = [];
+            for (let i = 0; i < res; i++) {
+              if (accumulated + i < stepsCount) {
+                group.push(accumulated + i);
               }
-              if (group.length > 0) groups.push(group);
-              accumulated += res;
             }
-            return groups.map((group, groupIdx) => {
+            if (group.length > 0) groups.push(group);
+            accumulated += res;
+          }
+
+          return (
+            <div
+              className={`step-boxes grid ${gridColsClass} gap-2 lg:gap-3 w-full`}
+              id={`detail-steps-${trackId}-${pattern.id}`}
+              onTouchMove={handleGridTouchMove}
+              onTouchEnd={handleGridTouchEnd}
+            >
+              {groups.map((group, groupIdx) => {
               const isTriplet = group.length === 3;
               const isSextuplet = group.length === 6;
               const isOcto = group.length === 8;
@@ -3979,8 +4012,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                         wrapperClasses = "relative flex flex-col items-center w-full min-w-0 flex-1";
                       }
 
+                      const isVigilanceTarget = activeVigilanceFocus?.patternId === pattern.id && activeVigilanceFocus?.stepIndex === i;
+
                       return (
-                        <div key={i} className={wrapperClasses} style={wrapperStyle}>
+                        <div key={i} className={`${wrapperClasses} ${isVigilanceTarget ? 'ring-2 ring-[#d97706] ring-offset-2 rounded animate-pulse z-20' : ''}`} style={wrapperStyle}>
                           {/* Axis vertical centerline (0%) behind steps */}
                           <div className="absolute top-[12px] bottom-[15px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
 
@@ -4026,9 +4061,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   </div>
                 </div>
               );
-            });
-          })()}
-        </div>
+            })}
+          </div>
+        );
+      })()
       )}
 
       {/* Menu contextuel Cordel pour le pas vocal (Copier mélodie, Coller notes seules, Effacer le pas) */}

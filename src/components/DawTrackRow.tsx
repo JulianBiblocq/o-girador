@@ -260,11 +260,12 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
       {(() => {
         const patternForSteps = isGhostStep ? masterActivePattern : activePattern;
         const stepsCount = patternForSteps?.steps ?? 16;
-        const beatRes = patternForSteps?.beatResolutions || Array(defaultBeats).fill(4);
+        const effectiveBeats = stepsCount <= 8 ? Math.min(defaultBeats, 2) : stepsCount <= 12 ? Math.min(defaultBeats, 3) : defaultBeats;
+        const beatRes = patternForSteps?.beatResolutions || Array(effectiveBeats).fill(4);
 
         // Keep trackResolutionsRef updated synchronously during render (Zero Layout Thrashing)
         trackResolutionsRef.current[String(track.id)] = {
-          beats: defaultBeats,
+          beats: effectiveBeats,
           resArray: beatRes,
           totalSteps: stepsCount,
         };
@@ -272,7 +273,7 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
         // Compute step index groups per beat
         const beatGroups: number[][] = [];
         let accumulated = 0;
-        for (let b = 0; b < defaultBeats; b++) {
+        for (let b = 0; b < effectiveBeats; b++) {
           const res = beatRes[b] ?? 4;
           const group: number[] = [];
           for (let i = 0; i < res; i++) {

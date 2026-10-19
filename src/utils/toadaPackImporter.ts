@@ -13,16 +13,11 @@ import { buildToadaConductorSlots } from './toadaArrangement';
 import { convertToadaPattern, isStepActive } from './toadaPatternConverter';
 import type { TrackGroup, Pattern, VocalClipMeta } from '../types/store.types';
 
+import { importPatternVariants, base64ToBlob } from './vocal/toadaVariantImporter';
+
 export interface ToadaImportOptions {
   deployStartMeasureIdx?: number | null;
   pack?: any;
-}
-
-function base64ToBlob(b64: string): Blob {
-  const bin = atob(b64.replace(/^data:audio\/\w+;base64,/, ''));
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: 'audio/wav' });
 }
 
 function isBlankPattern(p?: Pattern): boolean {
@@ -90,12 +85,14 @@ export async function importToadaPackIntoSequencer(
       }
     }
 
+    const loadedVariantKeys = await importPatternVariants(p.variants, numId, p.id, targetTrack.id, rawCtx);
+
     if (wavBlob) {
       const audioBuffer = await rawCtx.decodeAudioData(await wavBlob.arrayBuffer());
       await saveVocalRecording(numId, wavBlob);
       if (String(numId) !== p.id) await saveVocalRecording(p.id, wavBlob);
       const aStore = useAudioStore.getState();
-      const roleTrackId = role === 'coro' ? coroTrack.id : puxTrack.id;
+      const roleTrackId = targetTrack.id;
       [numId, String(numId), p.id, `${roleTrackId}_${numId}`, `${roleTrackId}_${String(numId)}`].forEach((k) => {
         aStore.setVocalBuffer(k, audioBuffer); aStore.addVocalBlob(k, wavBlob!);
       });
@@ -105,10 +102,12 @@ export async function importToadaPackIntoSequencer(
         trimEndSec: variant?.trimEndSec ?? (variant?.durationSec || audioBuffer.duration),
         nudgeMs: existingNudge, anacrusisBeats: hasAnacrusis ? 4 : 0, anacrusisSec: hasAnacrusis ? anacrusisDurationSec : 0,
         startOffsetSec: hasAnacrusis ? -anacrusisDurationSec : 0, updatedAt: Date.now(),
+        variantKeys: loadedVariantKeys.length > 0 ? loadedVariantKeys : undefined,
       };
     }
 
     const newPat = convertToadaPattern(p, role, numId, effectiveBpm, store.totalMeasures, clipMeta, Boolean(wavBlob));
+    if (loadedVariantKeys.length > 0) newPat.vocalVariantKeys = loadedVariantKeys;
     convertedPats.push({ pat: newPat, role, origId: p.id });
   }
 

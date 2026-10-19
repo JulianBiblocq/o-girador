@@ -48,6 +48,7 @@ import { useBalancoStore } from '../stores/useBalancoStore';
 import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { MetricDivisionSelector } from './instrument-editor/MetricDivisionSelector';
+import { PaperVigilanceBanner } from './paper/PaperVigilanceBanner';
 import { useMidiStepInput } from '../hooks/editor/useMidiStepInput';
 import { useInstrumentEditorKeyboard } from '../hooks/editor/useInstrumentEditorKeyboard';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
@@ -1923,6 +1924,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </button>
             </div>
         </div>
+
+        {/* ═══════════════════ BANDEAU VIGILANCE ATELIER PAPIER ═══════════════════ */}
+        <PaperVigilanceBanner lang={lang} />
 
         {/* ═══════════════════ CORPS CENTRAL (Grille + Inspecteur) ═══════════════════ */}
         <div className="w-full flex-1 flex overflow-hidden min-h-0 relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>

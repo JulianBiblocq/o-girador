@@ -5,6 +5,8 @@ export interface TimelineUIContextType {
   MEASURE_W: number;
   HEADER_W: number;
   totalContentW: number;
+  measureWidths?: number[];
+  measureLeftPositions?: number[];
   isMobile: boolean;
   isMacro: boolean;
   isMinZoom: boolean;
@@ -16,3 +18,4 @@ export interface TimelineUIContextType {
 }
 
 export const TimelineUIContext = React.createContext<TimelineUIContextType | null>(null);
+

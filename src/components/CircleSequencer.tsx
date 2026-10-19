@@ -2344,16 +2344,22 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const stateVal = stateRef.current;
         const measureIdx = (live && live.step >= 0) ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure);
         const activeTimeSig = stateVal.measureTimeSigs ? (stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4') : (stateVal.timeSig || '4/4');
-        const activeBeats = parseInt(activeTimeSig.split('/')[0], 10) || 4;
+        const sigStr = String(activeTimeSig);
+        const patSteps = activePattern.steps || 16;
+        let resolvedBeats = parseInt(sigStr.split('/')[0], 10) || 4;
+        if (sigStr === '2/4' || sigStr === '6/8' || patSteps <= 8) {
+          resolvedBeats = 2;
+        } else if (sigStr === '3/4' || sigStr === '9/8' || patSteps === 12) {
+          resolvedBeats = 3;
+        } else if (sigStr === '12/8') {
+          resolvedBeats = 4;
+        }
 
-        const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
-        const stepCount = activePattern.steps;
+        const beatRes = activePattern.beatResolutions?.slice(0, resolvedBeats) || Array(resolvedBeats).fill(4);
+        const anglePerBeat = (Math.PI * 2) / resolvedBeats;
         const stepAngles: number[] = [];
         
-        const beatRes = activePattern.beatResolutions || Array(activeBeats).fill(4);
-        const anglePerBeat = (Math.PI * 2) / activeBeats;
-        
-        for (let b = 0; b < activeBeats; b++) {
+        for (let b = 0; b < resolvedBeats; b++) {
           const res = beatRes[b] || 4;
           const anglePerStep = anglePerBeat / res;
           const beatStartAngle = -Math.PI / 2 + (b * anglePerBeat);
@@ -2363,6 +2369,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
 
         const effectiveStepCount = stepAngles.length;
+        const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * effectiveStepCount) : -1;
+        const stepCount = effectiveStepCount;
 
         // ── VOIX : TRAÎNÉE DE GOUACHE (PUXADOR / CORO) & PASTILLES ÉPURÉES ──
         const isVoiceTrack = isToada || currentInst.type === 'voice';

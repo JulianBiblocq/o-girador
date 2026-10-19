@@ -1,18 +1,20 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Injection atomique d'une partition papier transcrite dans le SequencerStore (< 140 lignes).
+ * Injection atomique d'une partition papier transcrite et points de vigilance (< 135 lignes).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
-import { PaperPreset, PupitreCode, PaperStepValue } from '../../types/paperWorkshop.types';
+import { PaperPreset, PaperStepValue } from '../../types/paperWorkshop.types';
 import { Pattern, SongSection, TrackGroup } from '../../types/store.types';
+import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 
 export const injectPaperScoreToStore = (
   preset: PaperPreset,
   sequenceOverride?: string[],
   reusableSectionNames?: Set<string>,
-  lang: 'fr' | 'pt' = 'fr'
+  lang: 'fr' | 'pt' = 'fr',
+  openOnFirstVigilance = false
 ): { success: boolean; measuresCount: number } => {
   const store = useSequencerStore.getState();
   store.pushUndoState();
@@ -25,8 +27,7 @@ export const injectPaperScoreToStore = (
 
   const updatedTracks: TrackGroup[] = store.tracks.map((track) => {
     const instId = instrumentsConfig[track.instrumentIdx]?.id || '';
-    let specificCode = '';
-    let groupCode = '';
+    let specificCode = '', groupCode = '';
     if (instId === 'marcante') { specificCode = 'mc'; groupCode = 'al'; }
     else if (instId === 'meiao') { specificCode = 'me'; groupCode = 'al'; }
     else if (instId === 'repique') { specificCode = 'rp'; groupCode = 'al'; }
@@ -55,6 +56,11 @@ export const injectPaperScoreToStore = (
         notes: Array(16).fill(''),
         measureAssignments: Array(totalMeasures).fill(false),
       });
+
+      usePaperVigilanceStore.getState().linkPointsToTrack(sectionName, specificCode, track.id, patId);
+      if (groupCode !== specificCode) {
+        usePaperVigilanceStore.getState().linkPointsToTrack(sectionName, groupCode, track.id, patId);
+      }
     });
 
     sequence.forEach((secName, mIdx) => {
@@ -67,11 +73,8 @@ export const injectPaperScoreToStore = (
 
   store.setTracks(updatedTracks);
 
-  // Construction des SongSections
   const sections: SongSection[] = [];
-  let currentSecName = '';
-  let startM = 0;
-
+  let currentSecName = '', startM = 0;
   sequence.forEach((name, idx) => {
     if (name !== currentSecName) {
       if (currentSecName !== '') {
@@ -81,14 +84,11 @@ export const injectPaperScoreToStore = (
       startM = idx;
     }
   });
-
   if (currentSecName !== '') {
     sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentSecName, startMeasure: startM, endMeasure: sequence.length - 1, color: '#8b2a1a' });
   }
-
   store.setSongSections(sections);
 
-  // Sauvegarde sélective des sections réutilisables dans le cache local
   if (reusableSectionNames && reusableSectionNames.size > 0) {
     try {
       const savedSections: any[] = JSON.parse(localStorage.getItem('girador_custom_reusable_sections') || '[]');
@@ -100,10 +100,16 @@ export const injectPaperScoreToStore = (
     } catch {}
   }
 
-  const reusableNotice = reusableSectionNames && reusableSectionNames.size > 0
-    ? ` (+ ${reusableSectionNames.size} section(s) réutilisable(s))`
-    : '';
+  if (openOnFirstVigilance) {
+    const firstPt = usePaperVigilanceStore.getState().points.find((p) => p.trackId && p.patternId);
+    if (firstPt && firstPt.trackId && firstPt.patternId) {
+      store.setEditingTrackId(firstPt.trackId);
+      store.setSelectedPatternId(firstPt.patternId);
+      usePaperVigilanceStore.getState().setActiveFocusPoint(firstPt);
+    }
+  }
 
+  const reusableNotice = reusableSectionNames && reusableSectionNames.size > 0 ? ` (+ ${reusableSectionNames.size} section(s) réutilisable(s))` : '';
   const msg = lang === 'fr'
     ? `Partition "${preset.name}" injectée avec succès (${totalMeasures}m)${reusableNotice} !`
     : `Partitura "${preset.name}" injetada (${totalMeasures}m)${reusableNotice}!`;

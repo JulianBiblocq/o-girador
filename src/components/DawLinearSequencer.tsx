@@ -83,7 +83,9 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     return parseInt(sig?.split('/')[0], 10) || 4;
   };
 
-  const defaultBeats = getBeatsFromTimeSig(timeSig);
+  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
+  const activeTimeSig = (measureTimeSigs && measureTimeSigs[currentMeasure]) || timeSig;
+  const defaultBeats = getBeatsFromTimeSig(activeTimeSig);
 
   // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page),
   // et assurer isTracksCollapsed: false

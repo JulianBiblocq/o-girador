@@ -42,17 +42,18 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   onToggleAutomation
 }) => {
   const uiContext = useContext(TimelineUIContext);
-  
   if (!uiContext) return null;
   const { 
     HEADER_W, 
-    totalContentW, 
+    totalContentW = 0, 
     isMobile, 
     isMacro, 
     isMinZoom, 
     isPanningActive, 
     lang, 
     onOpenPatternPicker,
+    measureWidths,
+    measureLeftPositions,
   } = uiContext;
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
@@ -280,7 +281,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       if (playheadEl) {
         playheadEl.style.transition = 'none';
         playheadEl.style.display = 'block';
-        playheadEl.style.transform = `translate3d(${HEADER_W + mIdx * currentMeasureW}px, 0, 0)`;
+        const mLeft = measureLeftPositions?.[mIdx] ?? (mIdx * currentMeasureW);
+        playheadEl.style.transform = `translate3d(${HEADER_W + mLeft}px, 0, 0)`;
       }
       window.dispatchEvent(
         new CustomEvent('o-girador-timeline-nav', {
@@ -290,7 +292,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       return;
     }
 
-    const ratio = Math.max(0, Math.min(1, clickX / currentMeasureW));
+    const mWidth = measureWidths?.[mIdx] ?? currentMeasureW;
+    const ratio = Math.max(0, Math.min(1, clickX / mWidth));
     const stepIdx = Math.floor(ratio * steps);
     window.dispatchEvent(
       new CustomEvent('o-girador-timeline-nav', {
@@ -329,9 +332,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     useSequencerStore.getState().toggleTrackAutomationBypass(trackId, automationParam);
   }, [trackId, automationParam]);
 
-  const leftSpacerWidth = Math.max(0, visibleRange.start) * currentMeasureW;
+  const leftSpacerWidth = measureLeftPositions?.[visibleRange.start] ?? (Math.max(0, visibleRange.start) * currentMeasureW);
   const rightSpacerCount = Math.max(0, totalMeasures - 1 - visibleRange.end);
-  const rightSpacerWidth = rightSpacerCount * currentMeasureW;
+  const rightSpacerWidth = totalContentW && measureLeftPositions 
+    ? Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * currentMeasureW)))
+    : rightSpacerCount * currentMeasureW;
 
   const puxTrack = isToada 
     ? useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') 
@@ -593,7 +598,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
                 trackId={isLinkedChild && trackMeta ? trackMeta.id : currentTrackId}
                 trackIdx={isLinkedChild && trackMeta ? trackIndex : currentTrackIdx}
                 instrumentIdx={isLinkedChild && trackMeta ? trackMeta.instrumentIdx : currentInstrumentIdx}
-                currentMeasureW={currentMeasureW}
+                currentMeasureW={measureWidths?.[mIdx] ?? currentMeasureW}
                 patternId={activePattern ? activePattern.id : -1}
                 patternIdx={patternIdx}
                 steps={stepsPerMeasure}

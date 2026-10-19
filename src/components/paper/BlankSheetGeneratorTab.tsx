@@ -5,8 +5,7 @@
  */
 import React, { useState } from 'react';
 import { BlankSheetType, GridMode } from '../../types/paperWorkshop.types';
-import { exportBlankSheetToPdf } from '../../utils/paper/blankSheetPdfExport';
-import { printLegendOnly } from '../../utils/exportTablature';
+import { exportBlankSheetToPdf, printCompletePaperLegend } from '../../utils/paper/blankSheetPdfExport';
 import { BlankSheetPupitreSelector } from './BlankSheetPupitreSelector';
 import { BlankSheetLivePreview } from './BlankSheetLivePreview';
 import { Printer, BookOpen, PenTool } from 'lucide-react';
@@ -120,7 +119,7 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
             <button type="button" onClick={handlePrint} className="flex-1 py-2 px-3 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black cursor-pointer">
               <Printer className="w-4 h-4" /> <span>{lang === 'fr' ? 'Imprimer la Fiche' : 'Imprimir Folha'}</span>
             </button>
-            <button type="button" onClick={() => printLegendOnly()} className="py-2 px-3 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white cursor-pointer">
+            <button type="button" onClick={() => printCompletePaperLegend(lang)} className="py-2 px-3 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white cursor-pointer">
               <BookOpen className="w-4 h-4" /> <span>{lang === 'fr' ? 'Légende Complète A4' : 'Legenda A4'}</span>
             </button>
           </div>

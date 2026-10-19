@@ -18,6 +18,7 @@ import { VocalPresetId } from './vocalPresets';
 import { applyVocalPresetLive } from './vocalSynthService';
 import { getBalancoOffsetSec } from '../utils/balancoUtils';
 import { faderPositionToGain } from '../utils/audioMath';
+import { resolveVocalPlaybackBuffer } from '../utils/vocal/vocalPlaybackHelper';
 
 // Background-immune high-precision worker timer helpers to bypass browser tab throttling
 let timerWorker: Worker | null = null;
@@ -293,6 +294,11 @@ export const vocalEngineService = {
               const pid = rec.patternId;
               const numPid = Number(pid);
               const strPid = String(pid);
+              const isVariantKey = typeof pid === 'string' && pid.includes('__');
+              const basePid = isVariantKey ? pid.split('__')[0] : pid;
+              const numBasePid = Number(basePid);
+              const strBasePid = String(basePid);
+              const variantPart = isVariantKey ? pid.split('__')[1] : null;
 
               // Trouver la piste et le pattern associés dans allTracks (par patternId OU vocalClip.id)
               let matchingPattern: any = null;
@@ -301,16 +307,24 @@ export const vocalEngineService = {
                   if (!p) return false;
                   const match = (
                     p.id === pid || String(p.id) === strPid || (!isNaN(numPid) && Number(p.id) === numPid) ||
+                    p.id === basePid || String(p.id) === strBasePid || (!isNaN(numBasePid) && Number(p.id) === numBasePid) ||
                     (p.vocalClip && (
                       p.vocalClip.id === pid ||
                       String(p.vocalClip.id) === strPid ||
-                      (!isNaN(numPid) && Number(p.vocalClip.id) === numPid)
+                      (!isNaN(numPid) && Number(p.vocalClip.id) === numPid) ||
+                      p.vocalClip.id === basePid ||
+                      String(p.vocalClip.id) === strBasePid ||
+                      (!isNaN(numBasePid) && Number(p.vocalClip.id) === numBasePid)
                     ))
                   );
                   if (match) matchingPattern = p;
                   return match;
                 })
               );
+
+              if (matchingPattern && variantPart) {
+                matchingPattern.vocalVariantKeys = Array.from(new Set([...(matchingPattern.vocalVariantKeys || []), variantPart]));
+              }
 
               const compositeKey = matchingTrack ? `${matchingTrack.id}_${pid}` : null;
               const currentBuffers = useAudioStore.getState().vocalBuffers;
@@ -1070,15 +1084,20 @@ export const vocalEngineService = {
     const anchorMeasureBpm = sequencerStore.measureBpms[initialMeasureIdx % (sequencerStore.measureBpms.length || 1)] || sequencerStore.bpm;
     const effectiveBpm = currentBpm || anchorMeasureBpm;
 
-    // 1. Time-stretching calculation :
-    // Directive 3 : Calcul strict du playbackRate avec tolérance Math.abs(rate - 1.0) < 0.001
-    // Toada multi-mesures : le playbackRate est UNIQUEMENT le ratio de BPM (tempo courant / tempo du sample).
-    // Il ne doit jamais dépendre de la longueur de mesure ni de `pattern.steps` (64 pas = 4 mesures) :
-    // le sample est lu d'un seul bloc sur toute la phrase, déclenché une seule fois au début de bloc.
+    // 1. Time-stretching & variant anti-distortion calculation :
     const clipSampleBpm = clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
-    const rate = clipSampleBpm ? (effectiveBpm / clipSampleBpm) : 1.0;
-    const isPurePlayback = Math.abs(rate - 1.0) < 0.001;
-    const playbackRate = isPurePlayback ? 1.0 : ((Number.isFinite(rate) && rate > 0) ? rate : 1.0);
+    const resolved = resolveVocalPlaybackBuffer(
+      ptnRef,
+      voiceTrack,
+      effectiveBpm,
+      clipSampleBpm,
+      audioBuffer,
+      store.vocalBuffers
+    );
+    const activeAudioBuffer = resolved.buffer;
+    const playbackRate = resolved.playbackRate;
+    const residualDetuneCents = resolved.detuneCents;
+    const isPurePlayback = !resolved.isVariant && Math.abs(playbackRate - 1.0) < 0.001;
 
     // 2. Mathématique du calage temporel (Anacrouse ou Départ différé / Syncope)
     const beatDurationSec = 60 / effectiveBpm;
@@ -1114,7 +1133,7 @@ export const vocalEngineService = {
 
     // Calcul de l'instant de déclenchement sur la timeline
     const triggerTime = measureStartTime + triggerOffsetSec + (nudgeMs / 1000) + balancoOffset;
-    const bufferDuration = audioBuffer.duration;
+    const bufferDuration = activeAudioBuffer.duration;
     const actualStartTime = triggerTime >= 0 ? triggerTime : 0;
 
     // 3. Cycle de vie propre de oldPlayer :
@@ -1185,9 +1204,10 @@ export const vocalEngineService = {
     });
 
     // 4. Instancier et armer immédiatement la nouvelle voix pour triggerTime
+    const playerKey = resolved.isVariant ? `${compositeKey}__${resolved.variantKey}` : compositeKey;
     const activeEntry = this.getOrCreateVocalPlayer(
-      compositeKey,
-      audioBuffer,
+      playerKey,
+      activeAudioBuffer,
       outputNode,
       isCoroTrack,
       trackId,
@@ -1199,7 +1219,9 @@ export const vocalEngineService = {
     mainPlayer.playbackRate = playbackRate;
     if (activeEntry.grainPlayer) {
       activeEntry.grainPlayer.playbackRate = playbackRate;
+      try { (activeEntry.grainPlayer as any).detune = residualDetuneCents; } catch (_) {}
     }
+    try { (mainPlayer as any).detune = residualDetuneCents; } catch (_) {}
     mainPlayer.loop = false; // 🛡️ SÉCURITÉ ANTI-LOOP IMPÉRATIVE : forcé systématiquement avant chaque déclenchement
     if (isPurePlayback && activeEntry.directPlayer) {
       activeEntry.directPlayer.fadeIn = 0.01;

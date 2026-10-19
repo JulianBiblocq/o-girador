@@ -1,13 +1,13 @@
 /**
  * VoiceAnacrusisSection.tsx
- * Section Anacrouse (Mesure -1) du pattern vocal avec masquage/depliage Cordel (< 140 lignes).
+ * Section Anacrouse (Mesure -1) du pattern vocal avec masquage/dépliage Cordel (< 130 lignes).
  */
 import React, { useState } from 'react';
 import type { Pattern } from '../../types/store.types';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
 import { VoiceStepCell } from '../InstrumentPatternGrid';
 
-interface VoiceAnacrusisSectionProps {
+interface VoiceAnacrusisProps {
   pattern: Pattern;
   trackId: number;
   lang: string;
@@ -30,13 +30,14 @@ interface VoiceAnacrusisSectionProps {
 
 const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
 
-export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisSectionProps> = (props) => {
+export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisProps> = (props) => {
   const { pattern, trackId, lang } = props;
-  const hasActiveNotes = pattern.preRollActiveSteps?.some(isStepActive) ?? false;
-  const [isExpanded, setIsExpanded] = useState<boolean>(() => pattern.hasAnacrusis !== false || hasActiveNotes);
+  const hasActiveNotes = (pattern?.preRollActiveSteps?.some(isStepActive) ?? false) ||
+    (pattern?.preRollLyrics?.some((l) => Boolean(l && l.trim())) ?? false) ||
+    (pattern?.preRollNotes?.some((n) => Boolean(n && n.trim())) ?? false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(() => Boolean(pattern?.hasAnacrusis) || hasActiveNotes);
 
-  const resArray = Array.isArray(pattern?.beatResolutions) && pattern.beatResolutions.length >= 4
-    ? pattern.beatResolutions.slice(0, 4) : [4, 4, 4, 4];
+  const resArray = Array.isArray(pattern?.beatResolutions) && pattern.beatResolutions.length >= 4 ? pattern.beatResolutions.slice(0, 4) : [4, 4, 4, 4];
   const preRollGroups: number[][] = [];
   let preAcc = 0;
   for (let b = 0; b < 4; b++) {
@@ -46,9 +47,7 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisSectionProps> = (prop
     preAcc += res;
   }
   const preRollTotalSteps = preAcc;
-  const activeCount = pattern?.preRollActiveSteps?.reduce((acc: number, val, i) => {
-    return isStepActive(val) && acc === 0 ? preRollTotalSteps - i : acc;
-  }, 0) || 0;
+  const activeCount = pattern?.preRollActiveSteps?.reduce((acc: number, val, i) => isStepActive(val) && acc === 0 ? preRollTotalSteps - i : acc, 0) || 0;
 
   if (!isExpanded && !hasActiveNotes) {
     return (
@@ -56,7 +55,7 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisSectionProps> = (prop
         <button
           type="button"
           onClick={() => setIsExpanded(true)}
-          className="px-3 py-1 bg-[#8b2a1a]/10 hover:bg-[#8b2a1a]/20 text-[#8b2a1a] border border-dashed border-[#8b2a1a]/40 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5"
+          className="px-3 py-1 bg-[var(--cordel-accent,#8b2a1a)]/10 hover:bg-[var(--cordel-accent,#8b2a1a)]/20 text-[var(--cordel-accent,#8b2a1a)] border border-dashed border-[var(--cordel-accent,#8b2a1a)]/40 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5"
         >
           <span>➕</span>
           <span>{lang === 'fr' ? 'Ajouter une anacrouse (M-1)' : 'Adicionar anacruse (M-1)'}</span>
@@ -66,7 +65,7 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisSectionProps> = (prop
   }
 
   const renderGroup = (group: number[], gIdx: number) => (
-    <div key={`preroll-grp-${gIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm">
+    <div key={`preroll-grp-${gIdx}`} className="flex-1 min-w-0 flex gap-1 sm:gap-2 justify-between p-1 bg-[var(--cordel-bg-secondary,#ece4d0)]/40 border border-[var(--cordel-border,#1a1a1a)]/10 rounded-sm">
       {group.map((i, idxInGrp) => {
         const state = pattern?.preRollActiveSteps?.[i] ?? 0;
         const syl = pattern?.preRollLyrics?.[i] || '';
@@ -101,33 +100,33 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisSectionProps> = (prop
 
   return (
     <div
-      className="pre-roll-section w-full mb-1 p-3.5 rounded border border-dashed border-[#1a1a1a]/30"
+      className="pre-roll-section w-full mb-1 p-3.5 rounded border border-dashed border-[var(--cordel-border,#1a1a1a)]/30"
       style={{
         background: 'repeating-linear-gradient(45deg, rgba(200, 200, 200, 0.15), rgba(200, 200, 200, 0.15) 10px, rgba(160, 160, 160, 0.1) 10px, rgba(160, 160, 160, 0.1) 20px)',
         backgroundColor: 'rgba(0, 0, 0, 0.05)',
       }}
     >
-      <div className="text-[11px] font-bold text-[#8b2a1a] mb-2 tracking-wide uppercase select-none flex items-center gap-1.5">
+      <div className="text-[11px] font-bold text-[var(--cordel-accent,#8b2a1a)] mb-2 tracking-wide uppercase select-none flex items-center gap-1.5">
         <span>🎙️ {lang === 'fr' ? 'Mesure -1 : Anacrouse (Pre-roll)' : 'Compasso -1 : Anacruse (Pre-roll)'}</span>
         {activeCount > 0 && (
-          <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[8px] font-bold px-1.5 py-px rounded-full animate-pulse">
+          <span className="bg-[var(--cordel-accent,#8b2a1a)] text-[var(--cordel-bg,#f4ecd8)] text-[8px] font-bold px-1.5 py-px rounded-full animate-pulse">
             +{activeCount} {lang === 'fr' ? 'pas' : 'passos'}
           </span>
         )}
-        <span className="text-[9px] text-[#555] font-normal normal-case italic ml-auto">
+        <span className="text-[9px] text-[var(--cordel-muted,#555)] font-normal normal-case italic ml-auto">
           ({lang === 'fr' ? 'La première syllabe détermine la durée' : 'A primeira sílaba determina a duração'})
         </span>
         {!hasActiveNotes && (
           <button
             type="button"
             onClick={() => setIsExpanded(false)}
-            className="text-[10px] text-[#777] hover:text-[#8b2a1a] normal-case underline ml-2 cursor-pointer"
+            className="text-[10px] text-[var(--cordel-muted,#777)] hover:text-[var(--cordel-accent,#8b2a1a)] normal-case underline ml-2 cursor-pointer"
           >
             {lang === 'fr' ? 'Masquer' : 'Ocultar'}
           </button>
         )}
       </div>
-      <div className="step-boxes flex flex-col gap-1.5 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md" id={`preroll-voice-${trackId}-${pattern.id}`}>
+      <div className="step-boxes flex flex-col gap-1.5 w-full p-1 bg-[var(--cordel-bg-secondary,#ece4d0)]/10 border border-[var(--cordel-border,#1a1a1a)]/15 rounded-md" id={`preroll-voice-${trackId}-${pattern.id}`}>
         <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
           {renderGroup(preRollGroups[0], 0)}
           {renderGroup(preRollGroups[1], 1)}

@@ -18,6 +18,9 @@ export const VocalGrooveNudgeControl: React.FC<VocalGrooveNudgeControlProps> = (
   pattern,
   lang,
 }) => {
+  const hasAudioClip = Boolean(pattern.vocalClip || pattern.hasVocalAudio);
+  if (!hasAudioClip) return null;
+
   const nudgeMs = pattern.vocalClip?.nudgeMs ?? 0;
 
   const updateNudge = (val: number) => {
