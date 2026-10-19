@@ -1,16 +1,17 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Dictionnaire des pupitres et symboles de frappe Cordel (< 110 lignes).
+ * Dictionnaire des pupitres et symboles de frappe Cordel (< 60 lignes).
  */
 import { PupitreCode, PupitreInfo } from '../../types/paperWorkshop.types';
+export { renderHandwritingGuideHTML } from './paperHandwritingGuide';
 
 export const PUPITRES_REGISTRY: PupitreInfo[] = [
-  { code: 'al', nameFr: 'Alfaias', namePt: 'Alfaias', instId: 'marcante', symbolMemo: 'D (Droite/Dir), d (Faible/Fraca), E/e (Gauche/Esq), S (Salto), V (Volta), B (Barulho)' },
-  { code: 'cx', nameFr: 'Caixas', namePt: 'Caixas', instId: 'caixa', symbolMemo: 'D/d (Droite/Dir), E/e (Gauche/Esq), R (Rimshot), F (Flam), C (Coup sec)' },
+  { code: 'al', nameFr: 'Alfaias', namePt: 'Alfaias', instId: 'marcante', symbolMemo: 'D (Droite/Dir), d (Faible), E/e (Gauche), S (Salto), V (Volta), B (Barulho)' },
+  { code: 'cx', nameFr: 'Caixas', namePt: 'Caixas', instId: 'caixa', symbolMemo: 'D/d (Droite/Dir), E/e (Gauche), R (Rimshot), F (Flam), C (Coup sec)' },
   { code: 'gg', nameFr: 'Gonguê', namePt: 'Gonguê', instId: 'gongue', symbolMemo: 'G (Grave / Aberto), A (Aigu / Fechado / Abafado)' },
   { code: 'ab', nameFr: 'Agbe / Abê', namePt: 'Agbe / Abê', instId: 'agbe', symbolMemo: 'D (Base droite), E (Base gauche), d/e (Tapote), S (Salto), R (Rolar)' },
-  { code: 'mi', nameFr: 'Mineiro', namePt: 'Mineiro', instId: 'mineiro', symbolMemo: 'P/p (Pousser / Frente), T/t (Tirer / Trás), L (Côté / Lado), B (Barulho)' },
+  { code: 'mi', nameFr: 'Mineiro', namePt: 'Mineiro', instId: 'mineiro', symbolMemo: 'P/p (Pousser / Frente), T/t (Tirer / Trás), L (Côté), B (Barulho)' },
   { code: 'tb', nameFr: 'Timbal', namePt: 'Timbal', instId: 'timbal', symbolMemo: 'O (Open / Aberto), S (Slap), B (Bass / Grave), T (Touch)' },
   { code: 'td', nameFr: 'Toada (Voix)', namePt: 'Toada (Voz)', instId: 'puxador', symbolMemo: 'Paroles / Letras, P (Puxador), C (Coro), || (Fin de phrase)' },
 ];
@@ -35,7 +36,7 @@ export const generateMemoFooterHTML = (pupitres: PupitreCode[], lang: 'fr' | 'pt
         ${selected.map((p) => `<div><strong>${p.code.toUpperCase()} (${lang === 'fr' ? p.nameFr : p.namePt}) :</strong> ${p.symbolMemo}</div>`).join('')}
       </div>
       <div style="margin-top: 3px; color: #555; font-style: italic;">
-        ${lang === 'fr' ? 'Case vide = Silence (0)  •  Double barre || = Fin/Coupure du motif  •  Mot-clé "Base" = reprise du motif étalon' : 'Casa vazia = Silêncio (0)  •  Barra dupla || = Fim do motivo  •  Palavra-chave "Base" = repete o motivo padrão'}
+        ${lang === 'fr' ? 'Case vide = Silence (0)  •  Double barre || = Fin/Coupure  •  Mot-clé "Base" = reprise étalon' : 'Casa vazia = Silêncio (0)  •  Barra dupla || = Fim  •  Palavra-chave "Base" = padrão'}
       </div>
     </div>
   `;

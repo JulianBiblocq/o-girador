@@ -6,7 +6,7 @@
 
 export type PaperTabType = 'sheets' | 'scanner' | 'reserve';
 
-export type BlankSheetType = 'isolated' | 'sections' | 'sequence';
+export type BlankSheetType = 'isolated' | 'sections' | 'sequence' | 'universal';
 
 export type GridMode = '4/4' | '2/4' | '3/4' | '12/8' | 'free_portrait' | 'free_landscape';
 
@@ -23,8 +23,13 @@ export interface PupitreInfo {
 export interface BlankSheetOptions {
   sheetType: BlankSheetType;
   gridMode: GridMode;
-  pupitres: PupitreCode[];
+  pupitres: string[];
   includeVariationLine: boolean; // Al sous-ligne ↳Me/Rp
+  freeLinesCount?: number;
+  conductorMeasures?: number;
+  conductorTitle?: string;
+  hasDoubleSections?: boolean;
+  hasToadaLine?: boolean;
   sectionName?: string;
   bpm?: number;
 }

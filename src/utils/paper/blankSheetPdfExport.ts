@@ -4,7 +4,7 @@
  * Orchestrateur d'impression des fiches vierges Cordel (< 140 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';
-import { renderBlankSheetA, renderBlankSheetB, renderBlankSheetC } from './blankSheetHtmlTemplates';
+import { renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal } from './blankSheetHtmlTemplates';
 
 export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | 'pt'): void => {
   let content = '';
@@ -15,8 +15,10 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
     content = renderBlankSheetA(options, lang);
   } else if (options.sheetType === 'sections') {
     content = renderBlankSheetB(options, lang);
-  } else {
+  } else if (options.sheetType === 'sequence') {
     content = renderBlankSheetC(options, lang);
+  } else {
+    content = renderBlankSheetUniversal(options, lang);
   }
 
   const printWindow = window.open('', '_blank', 'width=900,height=700');

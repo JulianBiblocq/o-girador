@@ -68,3 +68,22 @@ export const PRESET_ARUANDA: PaperPreset = {
   sequenceString: aruandaSeqStr,
   defaultSequence: expandSequenceString(aruandaSeqStr),
 };
+
+const etudeCaixaSeqStr = 'Luanda PR x3 | 3 | Q/R';
+
+export const PRESET_ETUDE_CAIXA: PaperPreset = {
+  id: 'etude_caixa',
+  name: 'Étude Caixa (Luanda PR / 3 / Q/R)',
+  bpm: 100,
+  timeSig: '4/4',
+  totalMeasures: 5,
+  linkedAlfaias: false,
+  pupitres: ['cx'],
+  patterns: {
+    'Luanda PR': { cx: ['D','e','d','e', 'd','e','d','e', 'd','E','d','e', 'd','E','d','e'] },
+    '3': { cx: ['D','e','D','e', 'D','e','d','e', 'd','E','d','e', 'd','E','d','e'] },
+    'Q/R': { cx: ['d','e','d','e', 'd','e','d','e', 'd','E','d','E', 'D','e','d','e'] },
+  },
+  sequenceString: etudeCaixaSeqStr,
+  defaultSequence: expandSequenceString(etudeCaixaSeqStr),
+};

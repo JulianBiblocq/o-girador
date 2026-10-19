@@ -2,6 +2,7 @@ import { TrackGroup, SongSection, PresetMetadata } from '../types';
 import { instrumentsConfig } from '../data';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { renderHandwritingGuideHTML } from './paper/paperHandwritingGuide';
 
 const getInstrumentLabel = (instId: string, isFirstBlock: boolean, track?: TrackGroup) => {
   const customLabel = track?.customName || useNomenclatureStore.getState().getInstrumentLabel(track || instId);
@@ -500,6 +501,7 @@ const generateLegendHTML = (forcePageBreak: boolean = true, lang: string = 'fr')
         <li style="margin-bottom: 8px;"><strong>||: &nbsp; &nbsp; :||</strong> : Barres de reprise. Indique qu'il faut répéter la section.</li>
         <li style="margin-bottom: 8px;"><strong>(Levée / 1ère fois uniquement)</strong> : Indique une phrase de transition à jouer juste avant d'entrer dans une variation.</li>
       </ul>
+      ${renderHandwritingGuideHTML(lang as any)}
     </div>
   `;
 };

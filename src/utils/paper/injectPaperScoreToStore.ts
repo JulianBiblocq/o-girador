@@ -8,22 +8,10 @@ import { instrumentsConfig } from '../../data';
 import { PaperPreset, PupitreCode, PaperStepValue } from '../../types/paperWorkshop.types';
 import { Pattern, SongSection, TrackGroup } from '../../types/store.types';
 
-const mapPupitreToInstId = (code: PupitreCode): string => {
-  const map: Record<PupitreCode, string> = {
-    al: 'marcante',
-    cx: 'caixa',
-    gg: 'gongue',
-    ab: 'agbe',
-    mi: 'mineiro',
-    tb: 'timbal',
-    td: 'puxador',
-  };
-  return map[code] || 'marcante';
-};
-
 export const injectPaperScoreToStore = (
   preset: PaperPreset,
   sequenceOverride?: string[],
+  reusableSectionNames?: Set<string>,
   lang: 'fr' | 'pt' = 'fr'
 ): { success: boolean; measuresCount: number } => {
   const store = useSequencerStore.getState();
@@ -32,72 +20,54 @@ export const injectPaperScoreToStore = (
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
 
-  // 1. Mise à jour du BPM et des mesures
   store.setBpm(preset.bpm || 96);
   store.setTotalMeasures(totalMeasures);
 
-  // 2. Création et injection des patterns sur les pistes correspondantes
   const updatedTracks: TrackGroup[] = store.tracks.map((track) => {
-    const inst = instrumentsConfig[track.instrumentIdx];
-    const instId = inst?.id || '';
+    const instId = instrumentsConfig[track.instrumentIdx]?.id || '';
+    let specificCode = '';
+    let groupCode = '';
+    if (instId === 'marcante') { specificCode = 'mc'; groupCode = 'al'; }
+    else if (instId === 'meiao') { specificCode = 'me'; groupCode = 'al'; }
+    else if (instId === 'repique') { specificCode = 'rp'; groupCode = 'al'; }
+    else if (instId.includes('alfaia')) { specificCode = 'al'; groupCode = 'al'; }
+    else if (instId === 'caixa') { specificCode = 'cx'; groupCode = 'cx'; }
+    else if (instId === 'tarol') { specificCode = 'tr'; groupCode = 'cx'; }
+    else if (instId === 'gongue') { specificCode = 'gg'; groupCode = 'gg'; }
+    else if (instId === 'agbe') { specificCode = 'ab'; groupCode = 'ab'; }
+    else if (instId === 'mineiro') { specificCode = 'mi'; groupCode = 'mi'; }
+    else if (instId === 'timbal') { specificCode = 'tb'; groupCode = 'tb'; }
+    else if (instId === 'puxador' || instId === 'coro' || instId === 'toada') { specificCode = 'td'; groupCode = 'td'; }
+    if (!groupCode) return track;
 
-    // Trouver le pupitre qui cible cet instrument
-    let matchedPupitre: PupitreCode | null = null;
-    if (instId.includes('alfaia') || instId === 'marcante' || (preset.linkedAlfaias && (instId === 'meiao' || instId === 'repique'))) {
-      matchedPupitre = 'al';
-    } else if (instId === 'caixa' || instId === 'tarol') {
-      matchedPupitre = 'cx';
-    } else if (instId === 'gongue') {
-      matchedPupitre = 'gg';
-    } else if (instId === 'agbe') {
-      matchedPupitre = 'ab';
-    } else if (instId === 'mineiro') {
-      matchedPupitre = 'mi';
-    } else if (instId === 'timbal') {
-      matchedPupitre = 'tb';
-    } else if (instId === 'puxador' || instId === 'coro' || instId === 'toada') {
-      matchedPupitre = 'td';
-    }
-
-    if (!matchedPupitre) return track;
-
-    // Construire la liste des patterns pour cette piste
     const newPatterns: Pattern[] = [];
     const timelinePatterns: Array<number | null> = Array(totalMeasures).fill(null);
 
     Object.entries(preset.patterns).forEach(([sectionName, pupitreMap], idx) => {
-      const rawSteps: PaperStepValue[] = (pupitreMap as any)[matchedPupitre!] || Array(16).fill(0);
+      const rawSteps: PaperStepValue[] = (pupitreMap as any)[specificCode] || (pupitreMap as any)[groupCode] || Array(16).fill(0);
       const patId = track.id * 1000 + idx + 1;
-      const activeSteps = rawSteps.map((s) => (s === 0 ? 0 : s));
-
       newPatterns.push({
         id: patId,
         name: sectionName,
         steps: 16,
-        activeSteps,
+        activeSteps: rawSteps.map((s) => (s === 0 ? 0 : s)),
         lyrics: Array(16).fill(''),
         notes: Array(16).fill(''),
         measureAssignments: Array(totalMeasures).fill(false),
       });
     });
 
-    // Remplir le conducteur (timelinePatterns) selon la séquence ordonnée
     sequence.forEach((secName, mIdx) => {
       const pat = newPatterns.find((p) => p.name.toLowerCase() === secName.toLowerCase());
       if (pat) timelinePatterns[mIdx] = pat.id;
     });
 
-    return {
-      ...track,
-      patterns: newPatterns,
-      timelinePatterns,
-      selectedPatternId: newPatterns[0]?.id ?? 0,
-    };
+    return { ...track, patterns: newPatterns, timelinePatterns, selectedPatternId: newPatterns[0]?.id ?? 0 };
   });
 
   store.setTracks(updatedTracks);
 
-  // 3. Construction des sections logiques (SongSections)
+  // Construction des SongSections
   const sections: SongSection[] = [];
   let currentSecName = '';
   let startM = 0;
@@ -105,13 +75,7 @@ export const injectPaperScoreToStore = (
   sequence.forEach((name, idx) => {
     if (name !== currentSecName) {
       if (currentSecName !== '') {
-        sections.push({
-          id: `sec-${sections.length + 1}-${Date.now()}`,
-          name: currentSecName,
-          startMeasure: startM,
-          endMeasure: idx - 1,
-          color: '#8b2a1a',
-        });
+        sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentSecName, startMeasure: startM, endMeasure: idx - 1, color: '#8b2a1a' });
       }
       currentSecName = name;
       startM = idx;
@@ -119,21 +83,30 @@ export const injectPaperScoreToStore = (
   });
 
   if (currentSecName !== '') {
-    sections.push({
-      id: `sec-${sections.length + 1}-${Date.now()}`,
-      name: currentSecName,
-      startMeasure: startM,
-      endMeasure: sequence.length - 1,
-      color: '#8b2a1a',
-    });
+    sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentSecName, startMeasure: startM, endMeasure: sequence.length - 1, color: '#8b2a1a' });
   }
 
   store.setSongSections(sections);
 
-  // 4. Notification visuelle
+  // Sauvegarde sélective des sections réutilisables dans le cache local
+  if (reusableSectionNames && reusableSectionNames.size > 0) {
+    try {
+      const savedSections: any[] = JSON.parse(localStorage.getItem('girador_custom_reusable_sections') || '[]');
+      reusableSectionNames.forEach((secName) => {
+        const secPatterns = preset.patterns[secName] || {};
+        savedSections.push({ id: `sec-${Date.now()}-${Math.random()}`, name: secName, patterns: secPatterns, bpm: preset.bpm, createdAt: Date.now() });
+      });
+      localStorage.setItem('girador_custom_reusable_sections', JSON.stringify(savedSections));
+    } catch {}
+  }
+
+  const reusableNotice = reusableSectionNames && reusableSectionNames.size > 0
+    ? ` (+ ${reusableSectionNames.size} section(s) réutilisable(s))`
+    : '';
+
   const msg = lang === 'fr'
-    ? `Partition "${preset.name}" injectée avec succès (${totalMeasures} mesures) !`
-    : `Partitura "${preset.name}" injetada com sucesso (${totalMeasures} compassos)!`;
+    ? `Partition "${preset.name}" injectée avec succès (${totalMeasures}m)${reusableNotice} !`
+    : `Partitura "${preset.name}" injetada (${totalMeasures}m)${reusableNotice}!`;
   window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: msg } }));
 
   return { success: true, measuresCount: totalMeasures };

@@ -27,9 +27,8 @@ export interface NomenclatureState {
   activeStyle: StyleId;
   currentGroupId: string | null;
   customNomenclature: Partial<Record<MaracatuRoleKey, string>> | null;
+  customNomenclatureAbbr: Partial<Record<MaracatuRoleKey, string>> | null;
   isLoading: boolean;
-
-  // Actions
   setActiveStyle: (style: StyleId) => void;
   setCustomNomenclature: (nomenclature: Partial<Record<MaracatuRoleKey, string>> | null) => void;
   syncGroupNomenclature: (groupId: string | null | undefined) => void;
@@ -43,15 +42,13 @@ export const useNomenclatureStore = create<NomenclatureState>((set, get) => ({
   activeStyle: 'maracatu',
   currentGroupId: null,
   customNomenclature: null,
+  customNomenclatureAbbr: null,
   isLoading: false,
 
   setActiveStyle: (style: StyleId) => {
     set({ activeStyle: style });
-    // Re-trigger normalization if we already have a group subscription
     const currentGroupId = get().currentGroupId;
-    if (currentGroupId) {
-      get().syncGroupNomenclature(currentGroupId);
-    }
+    if (currentGroupId) get().syncGroupNomenclature(currentGroupId);
   },
 
   setCustomNomenclature: (nomenclature) => {
@@ -60,31 +57,13 @@ export const useNomenclatureStore = create<NomenclatureState>((set, get) => ({
 
   syncGroupNomenclature: (groupId: string | null | undefined) => {
     const trimmedId = groupId ? groupId.trim() : null;
-
-    // Solo or logged-out user: immediate fallback to default, no Firestore overhead
     if (!trimmedId) {
-      if (activeUnsubscribe) {
-        activeUnsubscribe();
-        activeUnsubscribe = null;
-      }
-      set({ 
-        currentGroupId: null, 
-        customNomenclature: null, 
-        isLoading: false 
-      });
+      if (activeUnsubscribe) { activeUnsubscribe(); activeUnsubscribe = null; }
+      set({ currentGroupId: null, customNomenclature: null, customNomenclatureAbbr: null, isLoading: false });
       return;
     }
-
-    // Already subscribed to this exact group
-    if (activeUnsubscribe && get().currentGroupId === trimmedId) {
-      return;
-    }
-
-    // Unsubscribe previous group listener if any
-    if (activeUnsubscribe) {
-      activeUnsubscribe();
-      activeUnsubscribe = null;
-    }
+    if (activeUnsubscribe && get().currentGroupId === trimmedId) return;
+    if (activeUnsubscribe) { activeUnsubscribe(); activeUnsubscribe = null; }
 
     set({ currentGroupId: trimmedId, isLoading: true });
 
@@ -97,22 +76,24 @@ export const useNomenclatureStore = create<NomenclatureState>((set, get) => ({
             const data = docSnap.data();
             const rawNomenclature = data?.nomenclature as GroupNomenclatureData | undefined;
             const normalized = normalizeGroupNomenclature(rawNomenclature, get().activeStyle);
+            const rawAbbr = (data?.nomenclatureAbbr?.maracatu || data?.nomenclatureAbbr) as Partial<Record<MaracatuRoleKey, string>> | undefined;
             set({ 
               customNomenclature: Object.keys(normalized).length > 0 ? normalized : null, 
+              customNomenclatureAbbr: rawAbbr && Object.keys(rawAbbr).length > 0 ? rawAbbr : null,
               isLoading: false 
             });
           } else {
-            set({ customNomenclature: null, isLoading: false });
+            set({ customNomenclature: null, customNomenclatureAbbr: null, isLoading: false });
           }
         },
         (error) => {
           console.warn('[NomenclatureStore] Erreur écoute nomenclature association :', error);
-          set({ customNomenclature: null, isLoading: false });
+          set({ customNomenclature: null, customNomenclatureAbbr: null, isLoading: false });
         }
       );
     } catch (e) {
       console.warn('[NomenclatureStore] Exception syncGroupNomenclature :', e);
-      set({ customNomenclature: null, isLoading: false });
+      set({ customNomenclature: null, customNomenclatureAbbr: null, isLoading: false });
     }
   },
 

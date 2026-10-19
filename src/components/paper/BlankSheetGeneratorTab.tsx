@@ -1,158 +1,137 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Onglet 1 : Générateur des 3 fiches vierges Cordel et Légende A4 (< 145 lignes).
+ * Onglet 1 : Générateur des fiches vierges Cordel et Aperçu A4 (< 145 lignes).
  */
 import React, { useState } from 'react';
-import { BlankSheetOptions, BlankSheetType, GridMode, PupitreCode } from '../../types/paperWorkshop.types';
+import { BlankSheetType, GridMode } from '../../types/paperWorkshop.types';
 import { exportBlankSheetToPdf } from '../../utils/paper/blankSheetPdfExport';
 import { printLegendOnly } from '../../utils/exportTablature';
-import { PUPITRES_REGISTRY, generateMemoFooterText } from '../../utils/paper/paperLegendHelper';
-import { Printer, BookOpen } from 'lucide-react';
+import { BlankSheetPupitreSelector } from './BlankSheetPupitreSelector';
+import { BlankSheetLivePreview } from './BlankSheetLivePreview';
+import { Printer, BookOpen, PenTool } from 'lucide-react';
 
 export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }) => {
   const [sheetType, setSheetType] = useState<BlankSheetType>('sections');
   const [gridMode, setGridMode] = useState<GridMode>('4/4');
-  const [pupitres, setPupitres] = useState<PupitreCode[]>(['al', 'cx', 'gg', 'ab', 'mi']);
+  const [pupitres, setPupitres] = useState<string[]>(['al', 'cx', 'gg', 'ab', 'mi']);
+  const [linkAlfaias, setLinkAlfaias] = useState(true);
+  const [busCaixas, setBusCaixas] = useState(false);
+  const [busSementes, setBusSementes] = useState(false);
   const [includeVarLine, setIncludeVarLine] = useState(true);
+  const [freeLinesCount, setFreeLinesCount] = useState(0);
 
-  const togglePupitre = (code: PupitreCode) => {
-    setPupitres((prev) => (prev.includes(code) ? (prev.length > 1 ? prev.filter((c) => c !== code) : prev) : [...prev, code]));
+  const [conductorTitle, setConductorTitle] = useState('');
+  const [conductorBpm, setConductorBpm] = useState<number | undefined>(undefined);
+  const [conductorMeasures, setConductorMeasures] = useState(32);
+  const [hasDoubleSections, setHasDoubleSections] = useState(true);
+  const [hasToadaLine, setHasToadaLine] = useState(true);
+
+  const togglePupitre = (code: string) => {
+    setPupitres((p) => (p.includes(code) ? (p.length > 1 ? p.filter((c) => c !== code) : p) : [...p, code]));
   };
 
-  const handlePrintSheet = () => {
-    const options: BlankSheetOptions = {
-      sheetType,
-      gridMode,
-      pupitres,
-      includeVariationLine: includeVarLine,
-    };
-    exportBlankSheetToPdf(options, lang);
+  const handlePrint = () => {
+    exportBlankSheetToPdf({
+      sheetType, gridMode, pupitres, includeVariationLine: includeVarLine, freeLinesCount, conductorMeasures,
+      conductorTitle: conductorTitle ? `${conductorTitle} ${conductorBpm ? `| ♩=${conductorBpm}` : ''}` : undefined,
+      hasDoubleSections, hasToadaLine,
+    }, lang);
   };
 
   return (
-    <div className="flex flex-col gap-4 text-xs font-sans text-[var(--cordel-text,#1a1a1a)]">
-      {/* 1. CHOIX DE LA FEUILLE */}
-      <div className="flex flex-col gap-1.5 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
-        <label className="font-cactus font-bold uppercase text-[12px] text-[#d99b26] tracking-wide">
+    <div className="flex flex-col gap-2 text-xs font-sans text-[#1a1a1a]">
+      <div className="flex flex-col gap-1 p-2 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
+        <label className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a]">
           {lang === 'fr' ? '1. Type de Fiche Vierge' : '1. Tipo de Folha em Branco'}
         </label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
           {[
             { id: 'isolated', fr: 'Feuille A — Patterns Isolés', pt: 'Folha A — Padrões Isolados' },
             { id: 'sections', fr: 'Feuille B — Multi-Instruments', pt: 'Folha B — Multi-Instrumentos' },
-            { id: 'sequence', fr: 'Feuille C — Conducteur Séquence', pt: 'Folha C — Condutor de Sequência' },
-          ].map((item) => {
-            const isSel = sheetType === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSheetType(item.id as BlankSheetType)}
-                className={`p-2.5 text-left border-2 cursor-pointer transition-colors shadow-[2px_2px_0px_#1a1a1a] ${
-                  isSel
-                    ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black'
-                    : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a] hover:bg-[#fff9ea]'
-                }`}
-              >
-                {lang === 'fr' ? item.fr : item.pt}
-              </button>
-            );
-          })}
+            { id: 'sequence', fr: 'Feuille C — Conducteur', pt: 'Folha C — Condutor Sequência' },
+            { id: 'universal', fr: 'Feuille D — 100% Vierge', pt: 'Folha D — 100% Livre', isUni: true },
+          ].map((item) => (
+            <button key={item.id} type="button" onClick={() => { setSheetType(item.id as BlankSheetType); if (item.isUni && gridMode !== 'free_landscape') setGridMode('free_portrait'); }} className={`p-1.5 text-left border-2 cursor-pointer shadow-[2px_2px_0px_#1a1a1a] flex items-center gap-1 ${sheetType === item.id ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black' : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a]'}`}>
+              {item.isUni && <PenTool className="w-3.5 h-3.5 flex-shrink-0" />}
+              <span className="truncate">{lang === 'fr' ? item.fr : item.pt}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* 2. MODE DE GRILLE & PUPITRES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Mode de Grille */}
-        <div className="flex flex-col gap-1.5 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
-          <label className="font-cactus font-bold uppercase text-[12px] text-[#d99b26] tracking-wide">
-            {lang === 'fr' ? '2. Mode de Grille' : '2. Modo da Grelha'}
-          </label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { id: '4/4', label: '4/4 (16 pas)' },
-              { id: '2/4', label: '2/4 (8 pas)' },
-              { id: '3/4', label: '3/4 (12 pas)' },
-              { id: '12/8', label: '12/8 (12 pas)' },
-              { id: 'free_portrait', label: lang === 'fr' ? 'Libre 24 (Port.)' : 'Livre 24 (Ret.)' },
-              { id: 'free_landscape', label: lang === 'fr' ? 'Libre 32 (Pays.)' : 'Livre 32 (Pais.)' },
-            ].map((m) => {
-              const isSel = gridMode === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setGridMode(m.id as GridMode)}
-                  className={`py-1.5 px-1 text-[10px] border-2 cursor-pointer transition-colors shadow-[1px_1px_0px_#1a1a1a] ${
-                    isSel
-                      ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black'
-                      : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a] hover:bg-[#fff9ea]'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Pupitres Cochables */}
-        <div className="flex flex-col gap-1.5 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)]">
-          <label className="font-cactus font-bold uppercase text-[12px] text-[#d99b26] tracking-wide">
-            {lang === 'fr' ? '3. Pupitres à imprimer' : '3. Naipes para imprimir'}
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {PUPITRES_REGISTRY.map((p) => {
-              const active = pupitres.includes(p.code);
-              return (
-                <button
-                  key={p.code}
-                  type="button"
-                  onClick={() => togglePupitre(p.code)}
-                  className={`px-2 py-1 text-[10px] border-2 cursor-pointer transition-colors shadow-[1px_1px_0px_#1a1a1a] ${
-                    active
-                      ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black'
-                      : 'bg-[#f4ecd8] text-[#1a1a1a] font-semibold border-[#1a1a1a] hover:bg-[#fff9ea]'
-                  }`}
-                >
-                  {p.code.toUpperCase()} ({lang === 'fr' ? p.nameFr : p.namePt})
-                </button>
-              );
-            })}
-          </div>
-          {pupitres.includes('al') && (
-            <label className="flex items-center gap-1.5 mt-1.5 font-bold text-[10px] cursor-pointer text-[#1a1a1a]">
-              <input type="checkbox" checked={includeVarLine} onChange={(e) => setIncludeVarLine(e.target.checked)} className="accent-[#8b2a1a]" />
-              <span>{lang === 'fr' ? 'Sous-ligne Alfaias [+1 ligne Variation ↳Me/Rp]' : 'Sublinha Alfaias [+1 linha Variação ↳Me/Rp]'}</span>
-            </label>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+        <div className="lg:col-span-2 flex flex-col gap-2">
+          {sheetType === 'universal' ? (
+            <div className="flex flex-col gap-1.5 p-2 bg-black/10 border-2 border-[#1a1a1a]">
+              <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a] flex items-center gap-1">
+                <PenTool className="w-3.5 h-3.5" /> {lang === 'fr' ? 'Options Feuille Universelle (Tout à la main) :' : 'Opções Folha Universal :'}
+              </span>
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className="font-bold text-[10px]">{lang === 'fr' ? 'Format carreaux :' : 'Formato :'}</span>
+                {[
+                  { id: 'free_portrait', l: lang === 'fr' ? '24 carreaux (Portrait)' : '24 casas (Retrato)' },
+                  { id: 'free_landscape', l: lang === 'fr' ? '32 carreaux (Paysage)' : '32 casas (Paisagem)' },
+                ].map((m) => (
+                  <button key={m.id} type="button" onClick={() => setGridMode(m.id as GridMode)} className={`px-2 py-0.5 text-[10px] border cursor-pointer ${gridMode === m.id ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black' : 'bg-[#f4ecd8] text-[#1a1a1a] border-black/30'}`}>{m.l}</button>
+                ))}
+              </div>
+              <p className="text-[10px] italic text-black/70 m-0">
+                {lang === 'fr' ? 'Grands carreaux libres avec cases marge [____], cases [×__] et 2 lignes conducteur en bas.' : 'Casas livres com margem [____], casas [×__] e 2 linhas condutor.'}
+              </p>
+            </div>
+          ) : sheetType === 'sequence' ? (
+            <div className="flex flex-col gap-1.5 p-2 bg-black/10 border-2 border-[#1a1a1a]">
+              <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a]">Options Conducteur (Feuille C) :</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                <input type="text" placeholder={lang === 'fr' ? 'Titre du Morceau' : 'Título'} value={conductorTitle} onChange={(e) => setConductorTitle(e.target.value)} className="p-1 bg-white border border-black font-cactus text-xs" />
+                <input type="number" placeholder="BPM (ex: 96)" value={conductorBpm || ''} onChange={(e) => setConductorBpm(Number(e.target.value) || undefined)} className="p-1 bg-white border border-black font-mono text-xs" />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                <label className="flex items-center gap-1 cursor-pointer font-bold text-[10px]">
+                  <input type="checkbox" checked={hasDoubleSections} onChange={(e) => setHasDoubleSections(e.target.checked)} className="accent-[#8b2a1a]" />
+                  <span>{lang === 'fr' ? 'Double ligne Sections' : 'Linha dupla Seções'}</span>
+                </label>
+                <label className="flex items-center gap-1 cursor-pointer font-bold text-[10px]">
+                  <input type="checkbox" checked={hasToadaLine} onChange={(e) => setHasToadaLine(e.target.checked)} className="accent-[#8b2a1a]" />
+                  <span>{lang === 'fr' ? 'Ligne Toada / Chant' : 'Linha Toada'}</span>
+                </label>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1 p-2 bg-black/10 border-2 border-[#1a1a1a]">
+                <label className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a]">{lang === 'fr' ? '2. Mode de Grille (16 pas)' : '2. Modo da Grelha'}</label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
+                  {[{ id: '4/4', l: '4/4 (16p)' }, { id: '2/4', l: '2/4 (8p)' }, { id: '3/4', l: '3/4 (12p)' }, { id: '12/8', l: '12/8' }, { id: 'free_portrait', l: 'Libre 24' }, { id: 'free_landscape', l: 'Libre 32' }].map((m) => (
+                    <button key={m.id} type="button" onClick={() => setGridMode(m.id as GridMode)} className={`py-1 text-[10px] border cursor-pointer ${gridMode === m.id ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-black' : 'bg-[#f4ecd8] text-[#1a1a1a] border-black/30'}`}>{m.l}</button>
+                  ))}
+                </div>
+              </div>
+              <BlankSheetPupitreSelector
+                pupitres={pupitres} onTogglePupitre={togglePupitre} linkAlfaias={linkAlfaias} onToggleLinkAlfaias={setLinkAlfaias}
+                busCaixas={busCaixas} onToggleBusCaixas={setBusCaixas} busSementes={busSementes} onToggleBusSementes={setBusSementes}
+                includeVarLine={includeVarLine} onToggleIncludeVarLine={setIncludeVarLine} freeLinesCount={freeLinesCount} onChangeFreeLinesCount={setFreeLinesCount} lang={lang}
+              />
+            </>
           )}
+
+          <div className="flex flex-wrap gap-2 pt-0.5">
+            <button type="button" onClick={handlePrint} className="flex-1 py-2 px-3 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black cursor-pointer">
+              <Printer className="w-4 h-4" /> <span>{lang === 'fr' ? 'Imprimer la Fiche' : 'Imprimir Folha'}</span>
+            </button>
+            <button type="button" onClick={() => printLegendOnly()} className="py-2 px-3 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white cursor-pointer">
+              <BookOpen className="w-4 h-4" /> <span>{lang === 'fr' ? 'Légende Complète A4' : 'Legenda A4'}</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* 3. ACTIONS D'IMPRESSION */}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button
-          type="button"
-          onClick={handlePrintSheet}
-          className="flex-1 py-2 px-3 bg-[var(--cordel-wood,#8b2a1a)] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black transition-colors cursor-pointer"
-        >
-          <Printer className="w-4 h-4" />
-          <span>{lang === 'fr' ? 'Imprimer la Fiche Sélectionnée' : 'Imprimir Folha Selecionada'}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => printLegendOnly()}
-          className="py-2 px-3 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white transition-colors cursor-pointer"
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>{lang === 'fr' ? 'Légende Complète A4' : 'Legenda Completa A4'}</span>
-        </button>
-      </div>
-
-      {/* 4. BANDEAU MÉMO INFÉRIEUR */}
-      <div className="p-2 border border-black/20 bg-white/60 font-mono text-[9px] text-[#444] rounded-sm truncate">
-        {generateMemoFooterText(pupitres, lang)}
+        <div className="flex justify-center items-start">
+          <BlankSheetLivePreview
+            sheetType={sheetType} gridMode={gridMode} pupitres={pupitres} includeVarLine={includeVarLine} freeLinesCount={freeLinesCount}
+            conductorMeasures={conductorMeasures} conductorTitle={conductorTitle} hasDoubleSections={hasDoubleSections} hasToadaLine={hasToadaLine} lang={lang}
+          />
+        </div>
       </div>
     </div>
   );
