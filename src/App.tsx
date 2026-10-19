@@ -57,6 +57,10 @@ import { VisitorAuthModal } from './components/VisitorAuthModal';
 import { SpeedTrainerModal } from './components/SpeedTrainerModal';
 import { WallpaperShowcaseModal } from './components/WallpaperShowcaseModal';
 
+const BlankAndScanWorkshopModal = React.lazy(() =>
+  import('./components/paper/BlankAndScanWorkshopModal').then((m) => ({ default: m.BlankAndScanWorkshopModal }))
+);
+
 export default function App() {
   // Désactivation globale du menu contextuel natif du navigateur (DAW immersion)
   useDisableNativeContextMenu();
@@ -73,6 +77,20 @@ export default function App() {
   const isWizardOpen = useWizardStore((state) => state.isWizardOpen);
   const setIntroModalOpen = useWizardStore((state) => state.setIntroModalOpen);
   const setWizardOpen = useWizardStore((state) => state.setWizardOpen);
+
+  // Grand Atelier Papier Cordel
+  const [isPaperWorkshopOpen, setIsPaperWorkshopOpen] = useState(false);
+  const [paperWorkshopInitialTab, setPaperWorkshopInitialTab] = useState<'sheets' | 'scanner' | 'reserve'>('sheets');
+
+  useEffect(() => {
+    const handleOpenPaperEvent = (e: any) => {
+      const tab = e?.detail?.tab || 'sheets';
+      setPaperWorkshopInitialTab(tab);
+      setIsPaperWorkshopOpen(true);
+    };
+    window.addEventListener('open-paper-workshop', handleOpenPaperEvent);
+    return () => window.removeEventListener('open-paper-workshop', handleOpenPaperEvent);
+  }, []);
 
   // Consume contexts
   const sequencer = useSequencer();
@@ -783,6 +801,10 @@ export default function App() {
         onToggleDetachInstrumentEditor={handleToggleDetachInstrumentEditor}
         editingTrackId={editingTrackId}
         onOpenWallpaperModal={openWallpaperModal}
+        onOpenPaperWorkshop={(tab) => {
+          if (tab) setPaperWorkshopInitialTab(tab);
+          setIsPaperWorkshopOpen(true);
+        }}
       />
 
       {/* Main Workspace workspace containing expanding grids layouts */}
@@ -918,6 +940,16 @@ export default function App() {
         onToggleDarkMode={toggleDarkMode}
         lang={sequencer.lang}
       />
+
+      {isPaperWorkshopOpen && (
+        <Suspense fallback={null}>
+          <BlankAndScanWorkshopModal
+            isOpen={isPaperWorkshopOpen}
+            onClose={() => setIsPaperWorkshopOpen(false)}
+            initialTab={paperWorkshopInitialTab}
+          />
+        </Suspense>
+      )}
 
     </div>
       )}

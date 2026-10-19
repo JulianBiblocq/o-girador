@@ -13,6 +13,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { BoutonExportDanse } from './BoutonExportDanse';
+import { PaperWorkshopButton } from './paper/PaperWorkshopButton';
 import { AudioFader } from './AudioFader';
 import { GlobalSwingModal } from './GlobalSwingModal';
 import { Language } from '../types';
@@ -120,6 +121,7 @@ interface HeaderProps {
   onToggleDetachInstrumentEditor?: () => void;
   editingTrackId?: number | null;
   onOpenWallpaperModal?: () => void;
+  onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
 }
 
 const HeaderComponent: React.FC<HeaderProps> = ({
@@ -147,6 +149,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onToggleDetachInstrumentEditor,
   editingTrackId = null,
   onOpenWallpaperModal,
+  onOpenPaperWorkshop,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -593,6 +596,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
+                  <button onClick={() => {
+                    onOpenPaperWorkshop?.();
+                    setMobileMenuOpen(false);
+                  }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-wood)] hover:text-[#f4ecd8] cursor-pointer text-left w-full col-span-2 mt-1">
+                    <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? '🎼 Atelier Papel' : '🎼 Atelier Papier'}
+                  </button>
                   <button onClick={() => { onCloudSave?.(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full col-span-2 mt-1 border-none transition-colors">
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
                   </button>
@@ -976,6 +985,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onExportTablature?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
+                  <button onClick={() => { onOpenPaperWorkshop?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-wood)] hover:text-[#f4ecd8] cursor-pointer w-full col-span-2">
+                    <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? '🎼 Atelier Papel' : '🎼 Atelier Papier'}
+                  </button>
                   <button onClick={() => { onCloudSave?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full col-span-2 mt-1 border-none transition-colors">
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
                   </button>
@@ -1062,6 +1074,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <RedoIcon className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Bouton Atelier Papier Cordel (Desktop) */}
+        {onOpenPaperWorkshop && (
+          <PaperWorkshopButton
+            lang={lang}
+            onClick={() => onOpenPaperWorkshop()}
+            className="ml-2 hidden lg:flex"
+          />
+        )}
       </div>
 
       {/* CENTER: Main Core Actions */}

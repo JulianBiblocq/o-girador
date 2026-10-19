@@ -137,6 +137,13 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
+      // 3bis. Ctrl+Shift+I : Ouvrir le Grand Atelier Papier Cordel (Réserve Mestre)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('open-paper-workshop', { detail: { tab: 'reserve' } }));
+        return;
+      }
+
       // 4. O : Ouvrir / Fermer A Oficina
       if (e.key.toLowerCase() === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
