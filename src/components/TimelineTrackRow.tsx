@@ -362,6 +362,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           transformOrigin: '0 0',
           borderLeft: busColor ? `4px solid ${busColor}` : undefined
         }}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('button, input')) return;
+          useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey);
+        }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
           {(trackMeta?.isLinkMaster || isToada) && (

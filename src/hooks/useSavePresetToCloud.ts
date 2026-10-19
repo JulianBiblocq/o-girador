@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, checkHasFullPlaybackAccess } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { CatalogVisibility, Preset, CloudPreset } from '../types';
@@ -30,6 +30,9 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
   const [isSaving, setIsSaving] = useState(false);
   // 🛡️ Option « Générer l'audio » décochée par défaut à l'ouverture (sauvegarde Firestore instantanée)
   const [autoGenerateAudio, setAutoGenerateAudio] = useState(false);
+  const [isDraft, setIsDraft] = useState<boolean>(() => {
+    return Boolean((presetData as any)?.isDraft ?? false);
+  });
 
   const { genererEtUploaderPresetCloudBounce, isBouncingCloud, progress, stepLabel } = useCloudAudioBounce();
 
@@ -125,6 +128,12 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
     : false;
   const isOwnPreset = matchedPreset ? matchedPreset.ownerId === userProfile?.uid : false;
   const canUpdate = isMestre || isAdmin || (!isLocked && isOwnPreset);
+
+  useEffect(() => {
+    if (matchedPreset && matchedPreset.isDraft !== undefined) {
+      setIsDraft(Boolean(matchedPreset.isDraft));
+    }
+  }, [matchedPreset]);
 
   const handleSave = async (options?: { forceNew?: boolean }) => {
     if (!name.trim()) return;
@@ -235,7 +244,6 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         finalVisibility = 'admin_global';
       }
 
-      const preservedDraft = matchedPreset?.isDraft;
       const presetId = await savePresetToCloud(
         presetName,
         finalPresetData,
@@ -247,7 +255,7 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         myGroupMestreId || undefined,
         myGroupId,
         userProfile.canWriteSequenciador,
-        preservedDraft,
+        isDraft,
         userProfile.role
       );
 
@@ -277,7 +285,7 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
             myGroupMestreId || undefined,
             myGroupId,
             userProfile.canWriteSequenciador,
-            preservedDraft,
+            isDraft,
             userProfile.role
           );
         } catch (audioErr) {
@@ -336,6 +344,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
     isExistingPreset,
     isLocked,
     isMestre,
-    canUpdate
+    canUpdate,
+    isDraft,
+    setIsDraft
   };
 }

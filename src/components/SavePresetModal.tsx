@@ -26,6 +26,8 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
     isExistingPreset,
     isLocked,
     isMestre,
+    isDraft,
+    setIsDraft,
   } = useSavePresetToCloud(props);
 
   return (
@@ -88,6 +90,26 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
             />
             <label htmlFor="autoGenerateAudio" className="text-sm font-bold cursor-pointer">
               {lang === 'fr' ? 'Générer l\'audio' : 'Gerar áudio'}
+            </label>
+          </div>
+
+          {/* Option Mode Brouillon / Chantier */}
+          <div className="flex items-center gap-2 p-3 bg-black/5 border-2 border-[var(--cordel-border,#1a1a1a)]">
+            <input
+              type="checkbox"
+              id="isDraftPreset"
+              checked={isDraft}
+              onChange={(e) => setIsDraft(e.target.checked)}
+              disabled={isSaving || isBouncingCloud}
+              className="w-4 h-4 accent-[var(--cordel-wood,#8b2a1a)]"
+            />
+            <label htmlFor="isDraftPreset" className="text-xs font-bold cursor-pointer flex items-center gap-1.5">
+              <span>⏳</span>
+              <span>
+                {lang === 'fr' 
+                  ? 'Enregistrer en mode Brouillon / Chantier (masqué aux élèves)' 
+                  : 'Salvar em modo Rascunho / Canteiro (oculto aos alunos)'}
+              </span>
             </label>
           </div>
         </div>

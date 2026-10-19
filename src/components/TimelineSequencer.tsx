@@ -29,7 +29,8 @@ import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
 import { TimelineMinimap } from './timeline/TimelineMinimap';
 import { SongSectionModal } from './timeline/SongSectionModal';
-import { SectionStretchConflictModal } from './timeline/SectionStretchConflictModal';
+import { SectionCollisionModal } from './timeline/SectionCollisionModal';
+import { checkSectionStretchCollision, executeSectionStretch } from '../utils/timeline/sectionStretchResolver';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { hasContentInRange } from '../utils/timelineCollision';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
@@ -38,6 +39,7 @@ import { XiloChisel, XiloMagnet } from './XiloIcons';
 import { AutomationTrack } from './AutomationTrack';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { TimelinePatternPickerPopover } from './TimelinePatternPickerPopover';
+import { useTimelineMultiSelection } from '../hooks/timeline/useTimelineMultiSelection';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -680,75 +682,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     propsRef.current = { totalMeasures, measureTimeSigs };
   });
 
-  // Écouteur global keydown pour la saisie clavier directe sur la case survolée (Étape 5)
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // 0. Exclusion stricte des raccourcis avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      // 1. Exclusion si en cours de lecture (Contrainte 1)
-      if (isPlaying) {
-        return;
-      }
-
-      // 2. Exclusion stricte des champs de saisie de texte
-      const activeEl = document.activeElement;
-      if (activeEl && (
-        activeEl.tagName === 'INPUT' ||
-        activeEl.tagName === 'TEXTAREA' ||
-        activeEl.getAttribute('contenteditable') === 'true'
-      )) {
-        return;
-      }
-
-      // Touche Escape pour fermer la popup ou vider la cellule
-      if (e.key === 'Escape') {
-        const isPopupOpen = useTimelineEditStore.getState().activeStepKey !== null;
-        if (isPopupOpen) {
-          useTimelineEditStore.getState().closeEditor();
-          e.preventDefault();
-        } else {
-          const hovered = (window as any).activeHoveredStep;
-          if (hovered) {
-            sequencer.handleTrackStepValueChange(
-              hovered.trackId,
-              hovered.patternId,
-              hovered.stepIdx,
-              '0'
-            );
-            e.preventDefault();
-          }
-        }
-        return;
-      }
-
-      // Vérifier s'il y a une cellule survolée
-      const hovered = (window as any).activeHoveredStep;
-      if (!hovered) return;
-
-      const { trackId, patternId, stepIdx, allowedStrokes } = hovered;
-
-      // Touche '0' ou 'Backspace' ou 'Delete' pour vider le pas
-      if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
-        sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, '0');
-        e.preventDefault();
-        return;
-      }
-
-      // Si la touche correspond à l'un des raccourcis autorisés (insensible à la casse)
-      const targetStroke = allowedStrokes.find(
-        (s: string) => String(s).toLowerCase() === e.key.toLowerCase()
-      );
-
-      if (targetStroke) {
-        sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, String(targetStroke));
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isPlaying]);
+  // Gestion unifiée de la multi-sélection, raccourcis timeline et frappes sur cellules
+  useTimelineMultiSelection({
+    isPlaying,
+    onTrackStepValueChange: sequencer.handleTrackStepValueChange,
+  });
 
   const lastScrubbedMeasureRef = React.useRef<number>(-1);
 
@@ -1321,22 +1259,21 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           handleStop();
         }
 
-        const count = currentCopies * sectionLength;
-        const targetStart = endMeasure + 1;
-        const targetEnd = endMeasure + count;
+        const { hasCollision, targetRange } = checkSectionStretchCollision(
+          section,
+          currentCopies,
+          useSequencerStore.getState().tracks
+        );
 
-        const currentTracks = useSequencerStore.getState().tracks;
-        const hasConflict = hasContentInRange(targetStart, targetEnd, currentTracks);
-
-        if (hasConflict) {
+        if (hasCollision) {
           setStretchConflict({
             isOpen: true,
             section,
-            targetRange: { start: targetStart, end: targetEnd },
+            targetRange,
           });
         } else {
           // Plage entièrement vierge : extension directe sans dialogue
-          useSequencerStore.getState().stretchSongSection(section.id, targetEnd, 'overwrite');
+          executeSectionStretch(section.id, targetRange.end, 'overwrite');
         }
       }
     };
@@ -1351,13 +1288,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   const handleConfirmStretchInsert = () => {
     if (!stretchConflict.section || !stretchConflict.targetRange) return;
-    useSequencerStore.getState().stretchSongSection(stretchConflict.section.id, stretchConflict.targetRange.end, 'insert');
+    executeSectionStretch(stretchConflict.section.id, stretchConflict.targetRange.end, 'insert');
     setStretchConflict({ isOpen: false, section: null, targetRange: null });
   };
 
   const handleConfirmStretchOverwrite = () => {
     if (!stretchConflict.section || !stretchConflict.targetRange) return;
-    useSequencerStore.getState().stretchSongSection(stretchConflict.section.id, stretchConflict.targetRange.end, 'overwrite');
+    executeSectionStretch(stretchConflict.section.id, stretchConflict.targetRange.end, 'overwrite');
     setStretchConflict({ isOpen: false, section: null, targetRange: null });
   };
 
@@ -2438,7 +2375,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       />
 
       {/* ══════════ SECTION STRETCH CONFLICT MODAL ══════════ */}
-      <SectionStretchConflictModal
+      <SectionCollisionModal
         isOpen={stretchConflict.isOpen}
         section={stretchConflict.section}
         targetRange={stretchConflict.targetRange}

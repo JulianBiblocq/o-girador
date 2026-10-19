@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useTimelineAutomationGroup } from '../hooks/timeline/useTimelineAutomationGroup';
 
 export interface AutomationTrackProps {
   type: 'tempo' | 'volume' | 'pan' | 'reverb';
@@ -342,6 +343,17 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       }
     }
   }, [totalMeasures, measureWidth, transitions, min, max, color, isExpanded, isBypassed, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId]);
+ 
+  const autoGroup = useTimelineAutomationGroup({
+    type,
+    trackId: trackId ?? null,
+    min,
+    max,
+    totalMeasures,
+    localValuesRef,
+    renderSvg,
+    onChangeValue,
+  });
 
   const handlePromptSubmit = useCallback(() => {
     if (promptTargetIdx !== null) {
@@ -419,15 +431,8 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           svg.setPointerCapture(e.pointerId);
         } catch (_) {}
 
-        // Automation selection (simple click / Shift + click)
-        if (type === 'tempo' || type === 'volume') {
-          selectAutomationMeasure(
-            type === 'tempo' ? 'bpm' : 'volume',
-            idx,
-            e.shiftKey,
-            trackId ?? null
-          );
-        }
+        // Automation selection & group dragging
+        autoGroup.onPointerDown(idx, e.shiftKey);
       } else if (target.tagName === 'rect' || target.tagName === 'text') {
         const parent = target.parentNode as SVGElement;
         if (parent && parent.dataset && parent.dataset.transIdx) {
@@ -455,16 +460,12 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       if (y > rect.height) y = rect.height;
       
       const val = getValueFromY(y, rect.height);
-      const roundedVal = Math.round(val);
       
       if (Math.abs(e.clientY - startY) > 2) {
         hasMoved = true;
       }
 
-      if (localValuesRef.current[draggedIdx] !== roundedVal) {
-        localValuesRef.current[draggedIdx] = roundedVal;
-        renderSvg(); // Re-render vanilla SVG without React state update (Zero Render Thrashing)
-      }
+      autoGroup.onPointerMove(draggedIdx, val);
     };
 
     const handlePointerUp = (e: PointerEvent) => {
@@ -483,21 +484,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         return;
       }
       hasMoved = false;
-      
-      const finalVal = localValuesRef.current[draggedIdx];
-      const isTypeMatch = (type === 'tempo' && selectedAutomationType === 'bpm') || (type === 'volume' && selectedAutomationType === 'volume');
-      const isTrackMatch = (trackId ?? null) === (selectedAutomationTrackId ?? null);
-      if (
-        isTypeMatch &&
-        isTrackMatch &&
-        selectedAutomationRange &&
-        draggedIdx >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
-        draggedIdx <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end)
-      ) {
-        setGroupedAutomationValue(type === 'tempo' ? 'bpm' : 'volume', finalVal, trackId ?? null);
-      } else {
-        onChangeValue(draggedIdx, finalVal);
-      }
+      autoGroup.onPointerUp(draggedIdx);
       
       svgRectRef.current = null;
     };
@@ -537,7 +524,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [isExpanded, max, min, onChangeTransition, onChangeValue, renderSvg, transitions, type, selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, trackId, selectAutomationMeasure, setGroupedAutomationValue]);
+  }, [isExpanded, max, min, onChangeTransition, autoGroup, transitions]);
 
   const height = isExpanded ? 80 : 30;
 

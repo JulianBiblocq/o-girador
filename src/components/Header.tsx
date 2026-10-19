@@ -10,7 +10,8 @@ import {
   Download,
   ExternalLink,
   Edit3,
-  HelpCircle
+  HelpCircle,
+  Hourglass
 } from 'lucide-react';
 import { BoutonExportDanse } from './BoutonExportDanse';
 import { PaperWorkshopButton } from './paper/PaperWorkshopButton';
@@ -379,6 +380,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     p.id === activePresetId ||
     (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
   );
+  const loadedPublicPreset = publicCloudPresets.find(p =>
+    p.id === activePresetId ||
+    (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
+  );
+  const currentLoadedPreset = loadedGroupPreset || loadedPublicPreset;
+  const isCurrentDraft = Boolean(currentLoadedPreset?.isDraft || (metadata as any)?.isDraft);
 
   const handleToggleDraft = async (presetId: string, currentDraft: boolean) => {
     const nextDraft = !currentDraft;
@@ -795,6 +802,23 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           </span>
         </div>
 
+        {/* Badge Chantier sur Mobile */}
+        {isCurrentDraft && (
+          <button
+            type="button"
+            onClick={() => {
+              if (currentLoadedPreset) {
+                handleToggleDraft(currentLoadedPreset.id, true);
+              }
+            }}
+            className="flex items-center gap-1 px-1.5 py-0.5 bg-[#f4ecd8] text-[#8b2a1a] border border-[#8b2a1a] font-cactus font-bold text-[10px] uppercase rounded cursor-pointer shrink-0 shadow-[1px_1px_0px_#1a1a1a]"
+            title={lang === 'fr' ? 'Morceau en Chantier' : 'Música em Rascunho'}
+          >
+            <Hourglass size={11} className="text-[#8b2a1a] shrink-0" />
+            <span>{lang === 'fr' ? 'Chantier' : 'Rascunho'}</span>
+          </button>
+        )}
+
         {/* Right: Quick actions (View Switcher and Add Instrument) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* RODA */}
@@ -902,6 +926,23 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           </div>
           {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans pt-0.5">v{version}</span>}
         </div>
+
+        {/* Badge Chantier / Brouillon si le morceau en cours est un brouillon */}
+        {isCurrentDraft && (
+          <button
+            type="button"
+            onClick={() => {
+              if (currentLoadedPreset) {
+                handleToggleDraft(currentLoadedPreset.id, true);
+              }
+            }}
+            className="flex items-center gap-1.5 px-2 py-1 bg-[#f4ecd8] hover:bg-[#eaddcf] text-[#8b2a1a] border-2 border-[#8b2a1a] font-cactus font-bold text-xs uppercase tracking-wider rounded cursor-pointer transition-colors shadow-[2px_2px_0px_#1a1a1a] shrink-0"
+            title={lang === 'fr' ? 'Morceau en Chantier (Cliquer pour publier)' : 'Música em Rascunho (Clique para publicar)'}
+          >
+            <Hourglass size={13} className="text-[#8b2a1a] shrink-0" />
+            <span>{lang === 'fr' ? 'Chantier' : 'Rascunho'}</span>
+          </button>
+        )}
         
         <div className="relative ml-2" ref={projectDropRef}>
           <button
