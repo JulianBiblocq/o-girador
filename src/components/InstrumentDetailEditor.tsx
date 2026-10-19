@@ -1710,7 +1710,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
           {/* Gauche : Commutateur Puxador / Coro (ou Nom de l'instrument) + Ruban */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
               <div className="w-[150px] min-w-[150px] shrink-0 flex-shrink-0 flex items-center">
                 {isVocalContext && puxTrack && coroTrack ? (
                   <div className="w-full flex items-stretch h-7 rounded border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] overflow-hidden bg-[#f4ecd8] select-none shrink-0 flex-shrink-0">
@@ -1749,8 +1749,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 )}
               </div>
 
-              {/* Ruban de navigation rapide des pupitres (Protection absolue : shrink-0 sans contrainte max-w écrasante) */}
-              <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 shrink-0 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {/* Ruban de navigation rapide des pupitres (Scrollable horizontalement à la molette) */}
+              <div
+                className="flex items-center gap-1.5 sm:gap-2 px-1 py-1 flex-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY;
+                  }
+                }}
+              >
                 {visibleTrackIds.map((vTrackId) => (
                   <PupitreRibbonChip
                     key={vTrackId}
@@ -1791,8 +1798,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
             )}
 
-            {/* Droite : Balanço + REC + Mute / Solo / Detach / Close */}
-            <div className="flex items-center gap-2 shrink-0 flex-shrink-0">
+            {/* Droite : Balanço + REC + Mute / Solo / Close */}
+            <div className="flex items-center gap-2 shrink-0 ml-2 pr-1">
               {/* Balanço Controller for all tracks (Preset + Amount) */}
               {targetBalancoTrack && (
                 <div className="flex items-center gap-2.5 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] shrink-0 flex-shrink-0">
@@ -1865,23 +1872,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 </div>
               )}
 
-              {/* Bouton Pas-à-pas MIDI (Voix & Percussions) */}
-              <div className="flex items-center mr-1 shrink-0 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsMidiStepActive(v => !v)}
-                  className={`h-8 px-2.5 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 flex-shrink-0 ${
-                    isMidiStepActive
-                      ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-md border-2 border-[#1a1a1a]'
-                      : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-black/10 border border-[#1a1a1a]'
-                  }`}
-                  title={lang === 'fr' ? "Saisie MIDI pas-à-pas (Note On -> pas suivant)" : "Entrada MIDI passo a passo (Note On -> próximo passo)"}
-                >
-                  <span>🎹</span>
-                  <span className="hidden sm:inline">{lang === 'fr' ? 'Pas-à-pas' : 'Passo a passo'}</span>
-                </button>
-              </div>
-
               {/* Mute */}
               <button
                 onClick={onMuteToggle}
@@ -1912,7 +1902,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               <button
                 onClick={handleClose}
                 disabled={isClosing}
-                className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1 shrink-0 flex-shrink-0"
+                className="w-8 h-8 shrink-0 flex items-center justify-center bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1"
+                title={lang === 'fr' ? 'Fermer' : 'Fechar'}
               >
                 {isClosing ? (
                   <svg className="w-5 h-5 animate-spin text-[#f4ecd8]" fill="currentColor" viewBox="0 0 24 24">
