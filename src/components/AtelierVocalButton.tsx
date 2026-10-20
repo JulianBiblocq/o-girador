@@ -21,15 +21,15 @@ export const AtelierVocalButton: React.FC<AtelierVocalButtonProps> = ({
   const handleOpenVocalLab = () => {
     const targetUrl = getEcosystemUrl('vocalLab');
     launchWithSSO(targetUrl, {
-      appLabel: lang === 'fr' ? 'Cantador (Atelier Vocal)' : 'Cantador (Oficina Vocal)',
+      appLabel: 'Cantador',
       appKey: 'vocalLab',
     });
   };
 
-  const label = lang === 'fr' ? 'Cantador (Atelier Vocal)' : 'Cantador (Oficina Vocal)';
+  const label = 'Cantador';
   const tooltip = lang === 'fr'
-    ? "Ouvrir Cantador — Atelier Vocal (O Girador)"
-    : "Abrir Cantador — Oficina Vocal (O Girador)";
+    ? "Ouvrir Cantador (O Girador)"
+    : "Abrir Cantador (O Girador)";
 
   return (
     <button

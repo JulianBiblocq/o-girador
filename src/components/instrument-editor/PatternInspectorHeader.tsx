@@ -85,7 +85,7 @@ export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps> = Rea
       </div>
 
       <PatternInspectorActions
-        isFr={isFr} activePattern={activePattern} canPaste={canPaste}
+        isFr={isFr} activePattern={activePattern} canPaste={canPaste} isVoice={isVoice}
         onCopyPattern={onCopyPattern ? () => onCopyPattern(activePattern) : undefined}
         onPastePattern={onPastePattern && activePattern ? () => onPastePattern(activePattern.id) : undefined}
         onSavePattern={onSavePattern && activePattern ? () => onSavePattern(activePattern.id) : undefined}

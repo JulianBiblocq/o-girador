@@ -87,7 +87,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
       <PatternInspectorHeader
         trackId={trackId} instrumentName={getInstrumentLabel({ id: instrument.id, customName: instrument.name })}
         patterns={effectivePatterns} currentPatternId={patternId || track?.selectedPatternId || track?.patterns?.[0]?.id}
-        canPaste={canPaste} lang={lang} balancoPresets={balancoPresets}
+        canPaste={canPaste} lang={lang} balancoPresets={balancoPresets} isVoice={isVoice}
         onSelectPattern={onSelectPattern} onAddPattern={onAddPattern} onCopyPattern={onCopyPattern}
         onPastePattern={onPastePattern} onSavePattern={onSavePattern} onLoadPattern={onLoadPattern}
         onDeletePattern={onDeletePattern} onBalancoChange={onBalancoChange}

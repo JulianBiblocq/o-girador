@@ -29,23 +29,15 @@ export const VocalClipInspectorSection: React.FC<VocalClipInspectorSectionProps>
 
       <div className="flex flex-col gap-1.5">
         {hasVocalRecording ? (
-          <>
-            <button
-              type="button"
-              onClick={onOpenAlignment}
-              className="flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-xs font-bold font-cactus text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
-              title={isFr ? 'Ajuster le calage, trim et tempo du sample audio' : 'Ajustar alinhamento, trim e andamento'}
-            >
-              <Sliders size={13} className="text-[#8b2a1a]" />
-              <span>{isFr ? '🎚️ Ajuster le calage' : '🎚️ Ajustar alinhamento'}</span>
-            </button>
-
-            <label className="flex items-center justify-center gap-1.5 w-full py-1 px-2 bg-[#f4ecd8] hover:bg-[#1a1a1a]/5 border border-[#1a1a1a]/40 rounded text-[11px] font-bold font-cactus text-[#1a1a1a]/80 cursor-pointer transition-colors">
-              <FolderOpen size={12} />
-              <span>{isFr ? '📁 Remplacer le fichier' : '📁 Substituir arquivo'}</span>
-              <input type="file" accept="audio/*" onChange={onImportAudio} className="hidden" />
-            </label>
-          </>
+          <button
+            type="button"
+            onClick={onOpenAlignment}
+            className="flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-xs font-bold font-cactus text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+            title={isFr ? 'Ajuster le calage, trim et tempo du sample audio' : 'Ajustar alinhamento, trim e andamento'}
+          >
+            <Sliders size={13} className="text-[#8b2a1a]" />
+            <span>{isFr ? '🎚️ Ajuster le calage' : '🎚️ Ajustar alinhamento'}</span>
+          </button>
         ) : (
           <label className="flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-[#f4ecd8] hover:bg-[#fffdf9] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded text-xs font-bold font-cactus text-[#1a1a1a] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5">
             <FolderOpen size={13} className="text-[#8b2a1a]" />

@@ -63,12 +63,12 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
           <input
             type="text" value={editName} onChange={(e) => setEditName(e.target.value)} onBlur={() => handleSaveName(ptn.id)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(ptn.id); if (e.key === 'Escape') setEditingPatternId(null); }}
-            className="w-32 shrink-0 font-cactus font-bold text-sm px-1.5 py-0.5 rounded border border-[#1a1a1a] bg-[#f4ecd8] outline-none text-[#1a1a1a]"
+            className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 font-cactus font-bold text-sm px-1.5 py-0.5 rounded border border-[#1a1a1a] bg-[#f4ecd8] outline-none text-[#1a1a1a]`}
             autoFocus onFocus={(e) => e.target.select()}
           />
         ) : (
           <span
-            className={`w-32 shrink-0 truncate font-cactus font-bold text-sm cursor-pointer select-none px-1.5 py-0.5 rounded border border-transparent ${isSelected ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
+            className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 truncate font-cactus font-bold text-sm cursor-pointer select-none px-1.5 py-0.5 rounded border border-transparent ${isSelected ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
             onClick={() => onSelectPattern(ptn.id)} onDoubleClick={() => { setEditingPatternId(ptn.id); setEditName(ptn.name || ''); }}
           >
             {ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
@@ -113,9 +113,11 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
         )}
       </div>
       <div className="flex items-center gap-2.5 shrink-0 ml-auto">
-        <div className="h-6 px-2 py-0.5 rounded-[2px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] inline-flex items-center font-cactus font-bold text-[11px] uppercase tabular-nums select-none bg-[#f4ecd8] text-[#1a1a1a]">
-          {lang === 'fr' ? 'PROBA' : 'PROB'} : {baseProb}%
-        </div>
+        {!isVocalContext && (
+          <div className="h-6 px-2 py-0.5 rounded-[2px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] inline-flex items-center font-cactus font-bold text-[11px] uppercase tabular-nums select-none bg-[#f4ecd8] text-[#1a1a1a]">
+            {lang === 'fr' ? 'PROBA' : 'PROB'} : {baseProb}%
+          </div>
+        )}
         <MetricDivisionSelector steps={ptn.steps} patternId={ptn.id} lang={lang} onChangeSteps={onStepsChange} />
         <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]' : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'}`}>✕</button>
       </div>

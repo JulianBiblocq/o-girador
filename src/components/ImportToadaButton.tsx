@@ -83,7 +83,7 @@ export const ImportToadaButton: React.FC<ImportToadaButtonProps> = ({ lang = 'fr
 
   const label = isLoading
     ? (lang === 'fr' ? 'Chargement...' : 'Carregando...')
-    : (lang === 'fr' ? '☁️ Charger Toada' : '☁️ Carregar Toada');
+    : (lang === 'fr' ? 'Charger Toada' : 'Carregar Toada');
 
   return (
     <>

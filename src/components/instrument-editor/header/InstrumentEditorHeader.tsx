@@ -7,9 +7,6 @@ import React from 'react';
 import { Play, Square } from 'lucide-react';
 import { PupitreRibbon } from './PupitreRibbon';
 import { HeaderBalancoControl } from './HeaderBalancoControl';
-import { VocalWorkflowStepper } from '../../VocalWorkflowStepper';
-import { ImportToadaButton } from '../../ImportToadaButton';
-import { AtelierVocalButton } from '../../AtelierVocalButton';
 import { InstrumentEditorHeaderProps } from './headerTypes';
 
 export type { InstrumentEditorHeaderProps };
@@ -70,14 +67,6 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
           lang={lang}
         />
       </div>
-
-      {isVocalContext && (
-        <div className="flex items-center justify-center shrink-0 flex-shrink-0 px-2 gap-2">
-          <VocalWorkflowStepper patternId={selectedPatternId ?? activePatternId} trackId={effectiveEditTrackId} isCoro={isCoroActive} />
-          <ImportToadaButton lang={lang} />
-          <AtelierVocalButton lang={lang} />
-        </div>
-      )}
 
       <div className="flex items-center gap-2 shrink-0 ml-2 pr-1">
         <HeaderBalancoControl
