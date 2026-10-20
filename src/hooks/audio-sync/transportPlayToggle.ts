@@ -11,6 +11,7 @@ import { executePreRollCountdown } from './audioSyncPreRollPlanner';
 import { executeTransportPause, TransportPauseContext } from './transportPause';
 import { checkStartingVocalAnacrusis } from './startingAnacrusisChecker';
 import { AudioEngine } from '../../AudioEngine';
+import { getAudioEngine } from './audioEngineNodes';
 
 export interface PlayToggleContext extends TransportPauseContext {
   isStartingRef: { current: boolean }; isPlayingRef: { current: boolean };
@@ -30,6 +31,7 @@ export async function handleTogglePlay(
   if (ctx.isStartingRef.current) return;
   ctx.isStartingRef.current = true;
   try {
+    const activeEngine = ctx.audioEngine || getAudioEngine();
     if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
 
     const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
@@ -50,10 +52,10 @@ export async function handleTogglePlay(
       }
       ctx.isPlaybackEndingRef.current = false;
       ctx.lastPlayedSignalIdRef.current = null;
-      ctx.audioEngine?.stopAllBarulho();
+      activeEngine?.stopAllBarulho();
 
-      if (ctx.audioEngine && ctx.audioEngine.bufferPool.size === 0) {
-        try { await ctx.audioEngine.loadAllSamples(); } catch (_) {}
+      if (activeEngine && activeEngine.bufferPool.size === 0) {
+        try { await activeEngine.loadAllSamples(); } catch (_) {}
       }
 
       const pendingRehydration = vocalEngineService.getRehydratingPromise();
@@ -113,11 +115,11 @@ export async function handleTogglePlay(
         useSequencerStore.getState().setIsPreRolling(false);
       }
 
-      if (ctx.audioEngine) {
-        ctx.audioEngine.currentMeasure = targetM;
-        ctx.audioEngine.currentStep = 0;
-        ctx.audioEngine.schedulingMeasure = targetM;
-        ctx.audioEngine.schedulingStep = 0;
+      if (activeEngine) {
+        activeEngine.currentMeasure = targetM;
+        activeEngine.currentStep = 0;
+        activeEngine.schedulingMeasure = targetM;
+        activeEngine.schedulingStep = 0;
       }
       ctx.currentStepIndexRef.current = -1;
       ctx.measureCountRef.current = targetM;
@@ -126,7 +128,7 @@ export async function handleTogglePlay(
         Tone.Transport.position = `${targetM}:0:0`;
         Tone.Transport.start(scheduledMusicStartTime);
       }
-      ctx.audioEngine?.start(scheduledMusicStartTime);
+      activeEngine?.start(scheduledMusicStartTime);
       ctx.setIsPlaying(true);
       ctx.isPlayingRef.current = true;
       requestWakeLock();

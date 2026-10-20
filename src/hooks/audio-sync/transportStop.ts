@@ -6,6 +6,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { releaseWakeLock } from './wakeLockHelper';
 import { tickSubscribers } from './audioSyncTypes';
 import { AudioEngine } from '../../AudioEngine';
+import { getAudioEngine } from './audioEngineNodes';
 
 export interface TransportStopContext {
   autoStopTimeoutRef: { current: number | null };
@@ -15,7 +16,7 @@ export interface TransportStopContext {
   pendingIterationRef: { current: number | null };
   soloPatternPlayIdRef: { current: number | null };
   mutedVoiceTracksRef: { current: Set<string | number> };
-  hitTriggersRef: { current: Map<number, any> };
+  hitTriggersRef: { current: any };
   lastPlayedPatternRef: { current: Record<number, any> };
   isPreRollActiveRef: { current: boolean };
   preRollRemainingMeasuresRef: { current: number };
@@ -58,17 +59,18 @@ export function executeTransportStop(ctx: TransportStopContext): void {
     ctx.setSoloPatternPlayId(null);
   }
 
-  ctx.audioEngine?.stop();
-  ctx.audioEngine?.releaseVoicePitch();
-  ctx.audioEngine?.releaseAllVoices();
+  const activeEngine = ctx.audioEngine || getAudioEngine();
+  activeEngine?.stop();
+  activeEngine?.releaseVoicePitch();
+  activeEngine?.releaseAllVoices();
   ctx.mutedVoiceTracksRef.current.clear();
 
-  if (ctx.audioEngine) {
-    ctx.audioEngine.currentMeasure = 0;
-    ctx.audioEngine.currentStep = 0;
-    ctx.audioEngine.schedulingMeasure = 0;
-    ctx.audioEngine.schedulingStep = 0;
-    ctx.audioEngine.purgeScheduledHits();
+  if (activeEngine) {
+    activeEngine.currentMeasure = 0;
+    activeEngine.currentStep = 0;
+    activeEngine.schedulingMeasure = 0;
+    activeEngine.schedulingStep = 0;
+    activeEngine.purgeScheduledHits();
   }
 
   Tone.Draw.cancel();
@@ -85,7 +87,7 @@ export function executeTransportStop(ctx: TransportStopContext): void {
     Tone.Transport.seconds = 0;
   } catch (_) {}
 
-  ctx.audioEngine?.stopAllBarulho();
+  activeEngine?.stopAllBarulho();
   stopAllNativeOscillators();
   ctx.isPreRollActiveRef.current = false;
   ctx.preRollRemainingMeasuresRef.current = 0;

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { UseAudioSyncProps, TickCallbackDetail } from './audioSyncTypes';
-import { GlobalSwing, Track } from '../../types';
+import { GlobalSwing, Track, HitTriggerPool } from '../../types';
 
 export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const isPlayingRef = useRef(false);
@@ -35,7 +35,7 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const isLoopingRef = useRef(true);
   const isPlaybackEndingRef = useRef(false);
 
-  const hitTriggersRef = useRef(new Map<number, any>());
+  const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef(new Set<number>());
   const autoStopTimeoutRef = useRef<number | null>(null);
   const speedTrainerTimeoutsRef = useRef<number[]>([]);

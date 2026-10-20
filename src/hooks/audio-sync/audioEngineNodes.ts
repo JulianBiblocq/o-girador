@@ -42,6 +42,14 @@ export function setInputManager(manager: InputManager | null): void {
   inputManager = manager;
 }
 
+export function getAudioEngine(): AudioEngine | null {
+  return audioEngine;
+}
+
+export function getInputManager(): InputManager | null {
+  return inputManager;
+}
+
 export {
   masterVolumeNode,
   masterEQNode as masterEQ,

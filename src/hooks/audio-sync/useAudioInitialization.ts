@@ -20,7 +20,7 @@ export interface AudioInitProps {
   maxTicksRef: { current: number };
   absoluteTickCountRef: { current: number };
   currentMeasureStartTickRef: { current: number };
-  hitTriggersRef: { current: Map<number, any> };
+  hitTriggersRef: { current: any };
   engineTimeoutsRef: { current: Set<number> };
   isAudioInitializedRef: { current: boolean };
   lastAppliedBussesRef: { current: any };
@@ -80,6 +80,8 @@ export function useAudioInitialization(p: AudioInitProps): void {
             }
           }
         });
+
+        startVisualLoop(rawCtx, hitTriggersRef);
 
         const handlePreviewVoice = (e: Event) => {
           const note = (e as CustomEvent).detail;

@@ -4,7 +4,7 @@ import { getActiveStrokesForTrack } from './audio-sync/strokeNormalization';
 import { isVocalSamplePattern, isSamplePlaybackAllowed, getVocalBufferForPattern } from './audio-sync/vocalSampleHelpers';
 import { normalizePanForTone, invalidateAudioParamsCache, setGlobalInvalidateAudioParamsCache } from './audio-sync/audioParamsCache';
 import {
-  audioEngine, inputManager, masterVolumeNode, masterEQ, masterEQNode,
+  audioEngine, getAudioEngine, inputManager, masterVolumeNode, masterEQ, masterEQNode,
   masterCompressor, masterCompressorNode, masterReverbVolumeNode,
   masterDistortionVolumeNode, reverbNode, distortionNode, metroChannel,
   channels, meters, busChannels, busMeters, trackInputs, reverbSends, distortionSends, voiceSynths
@@ -69,16 +69,16 @@ export function useAudioSync(props: UseAudioSyncProps) {
   });
 
   onTickRef.current = (time: number) => executeTickStep(time, {
-    ...refs, trackInputs, channels, busChannels, masterVolumeNode: masterVolumeNode as any, audioEngine, handleStop: onStop, setCurrentMeasure,
+    ...refs, trackInputs, channels, busChannels, masterVolumeNode: masterVolumeNode as any, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure,
   });
 
   useEffect(() => {
     const handleVis = () => {
       if (document.hidden) {
-        if (refs.isPlayingRef.current) executeTransportStop({ ...refs, audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure });
+        if (refs.isPlayingRef.current) executeTransportStop({ ...refs, audioEngine: getAudioEngine(), setIsPlaying, setSoloPatternPlayId, setCurrentMeasure });
       } else {
         purgeVisualTickBuffer(); resetVisualTickBuffer(); flushVisualBuffers();
-        refs.hitTriggersRef.current.clear(); audioEngine?.purgeScheduledHits();
+        refs.hitTriggersRef.current.clear(); getAudioEngine()?.purgeScheduledHits();
       }
     };
     document.addEventListener('visibilitychange', handleVis);
@@ -86,37 +86,37 @@ export function useAudioSync(props: UseAudioSyncProps) {
   }, [setCurrentMeasure, setSoloPatternPlayId, refs]);
 
   const onStop = useCallback(() => executeTransportStop({
-    ...refs, audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure,
+    ...refs, audioEngine: getAudioEngine(), setIsPlaying, setSoloPatternPlayId, setCurrentMeasure,
   }), [setCurrentMeasure, setSoloPatternPlayId, refs]);
 
   const onTogglePlay = useCallback((opts?: any) => handleTogglePlay(opts, {
-    ...refs, trackInputs, channels, busChannels, audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure,
+    ...refs, trackInputs, channels, busChannels, audioEngine: getAudioEngine(), setIsPlaying, setSoloPatternPlayId, setCurrentMeasure,
   }), [setCurrentMeasure, setSoloPatternPlayId, refs]);
 
   const onStartSolo = useCallback((id: number, vId?: string) => handleStartSoloPattern(id, vId, {
-    ...refs, channels, busChannels, audioEngine, setSoloPatternPlayId,
+    ...refs, channels, busChannels, audioEngine: getAudioEngine(), setSoloPatternPlayId,
     setSoloPatternVariationId, setCurrentMeasure, setIsPlaying, setIsLoading, handleStop: onStop,
   }), [onStop, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
 
   const onStopSolo = useCallback(() => handleStopSoloPattern({
-    ...refs, channels, busChannels, audioEngine, setSoloPatternPlayId,
+    ...refs, channels, busChannels, audioEngine: getAudioEngine(), setSoloPatternPlayId,
     setSoloPatternVariationId, setCurrentMeasure, setIsPlaying, setIsLoading, handleStop: onStop,
   }), [onStop, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
 
   const onSeek = useCallback((m: number, s: number = 0, st?: number) => seekToMeasure(m, s, st, {
-    ...refs, audioEngine, setCurrentMeasure,
+    ...refs, audioEngine: getAudioEngine(), setCurrentMeasure,
   }), [setCurrentMeasure, refs]);
 
   const onNavigate = useCallback((m: number, s: number, st?: number, it: number = 1) => handleTimelineNavigate(m, s, st, it, {
-    ...refs, audioEngine, setCurrentMeasure,
+    ...refs, audioEngine: getAudioEngine(), setCurrentMeasure,
   }), [setCurrentMeasure, refs]);
 
   const onLaunchSpeedTrainer = useCallback((cfg: any) => launchSpeedTrainer(cfg, {
-    ...refs, audioEngine, handleStop: onStop, setCurrentMeasure, setIsPlaying,
+    ...refs, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure, setIsPlaying,
   }), [onStop, setCurrentMeasure, refs]);
 
   const onStopSpeedTrainer = useCallback(() => stopSpeedTrainerAudio({
-    ...refs, audioEngine, handleStop: onStop, setCurrentMeasure, setIsPlaying,
+    ...refs, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure, setIsPlaying,
   }), [onStop, setCurrentMeasure, refs]);
 
   return useMemo(() => ({

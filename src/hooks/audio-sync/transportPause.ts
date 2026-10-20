@@ -6,13 +6,14 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { releaseWakeLock } from './wakeLockHelper';
 import { tickSubscribers } from './audioSyncTypes';
 import { AudioEngine } from '../../AudioEngine';
+import { getAudioEngine } from './audioEngineNodes';
 
 export interface TransportPauseContext {
   isPreRollActiveRef: { current: boolean };
   preRollRemainingMeasuresRef: { current: number };
   audioEngine: AudioEngine | null;
   anchoredMeasureStartSecRef: { current: number };
-  hitTriggersRef: { current: Map<number, any> };
+  hitTriggersRef: { current: any };
   activeSequencerVocalsRef: { current: Map<string, any> };
   anticipatedMeasuresRef: { current: Set<string> };
   soloLoopCycleRef: { current: number };
@@ -30,7 +31,8 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   ctx.isPreRollActiveRef.current = false;
   ctx.preRollRemainingMeasuresRef.current = 0;
   useSequencerStore.getState().setIsPreRolling(false);
-  ctx.audioEngine?.stop();
+  const activeEngine = ctx.audioEngine || getAudioEngine();
+  activeEngine?.stop();
   Tone.Transport.pause();
   ctx.anchoredMeasureStartSecRef.current = -1;
   Tone.Draw.cancel();
@@ -38,8 +40,8 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   purgeVisualTickBuffer();
   ctx.hitTriggersRef.current.clear();
 
-  ctx.audioEngine?.stopAllBarulho();
-  ctx.audioEngine?.releaseVoicePitch();
+  activeEngine?.stopAllBarulho();
+  activeEngine?.releaseVoicePitch();
   stopAllNativeOscillators();
 
   vocalEngineService.stopAllVocalPlayback();
