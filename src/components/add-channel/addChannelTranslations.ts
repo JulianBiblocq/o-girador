@@ -1,0 +1,49 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+export const addChannelTranslations: Record<string, Record<string, string>> = {
+  fr: {
+    title: 'Ajouter un canal',
+    tabAudio: 'Piste Audio',
+    tabSection: 'Section (Bus)',
+    tabLink: 'Maître / Esclave',
+    searchPlaceholder: 'Rechercher un instrument...',
+    noTracksBus: "Aucune piste individuelle dans le projet pour créer un bus. Ajoutez d'abord des pistes audio.",
+    noTracksLink: "Aucune piste individuelle dans le projet pour créer une liaison. Ajoutez d'abord des pistes audio.",
+    selectBusTracks: 'Sélectionnez les pistes à regrouper dans le bus :',
+    busNameLabel: 'Nom du bus audio :',
+    btnCreateBus: 'Créer le bus',
+    selectMaster: 'Sélectionnez la piste Maître (1 seule) :',
+    selectSlaves: 'Sélectionnez les pistes Esclaves :',
+    linkGroupNameLabel: 'Nom du groupe de liaison :',
+    btnCreateLink: 'Créer la liaison',
+    errorNoMaster: 'Veuillez sélectionner une piste Maître.',
+    errorNoSlaves: 'Veuillez sélectionner au moins une piste Esclave.',
+    errorNoBusTracks: 'Veuillez sélectionner au moins une piste pour le bus.',
+    errorNoBusName: 'Veuillez saisir un nom pour le bus.',
+    errorNoLinkName: 'Veuillez saisir un nom pour la liaison.',
+  },
+  pt: {
+    title: 'Adicionar canal',
+    tabAudio: 'Pista de Áudio',
+    tabSection: 'Seção (Bus)',
+    tabLink: 'Mestre / Escravo',
+    searchPlaceholder: 'Buscar instrumento...',
+    noTracksBus: 'Nenhuma pista no projeto para criar um bus. Adicione pistas de áudio primeiro.',
+    noTracksLink: 'Nenhuma pista no projeto para criar um vínculo. Adicione pistas de áudio primeiro.',
+    selectBusTracks: 'Selecione as pistas para agrupar no bus:',
+    busNameLabel: 'Nome do bus de áudio:',
+    btnCreateBus: 'Criar bus',
+    selectMaster: 'Selecione a pista Mestre (apenas 1):',
+    selectSlaves: 'Selecione as pistas Escravas:',
+    linkGroupNameLabel: 'Nome do grupo de vínculo:',
+    btnCreateLink: 'Criar vínculo',
+    errorNoMaster: 'Selecione uma pista Mestre.',
+    errorNoSlaves: 'Selecione pelo menos uma pista Escrava.',
+    errorNoBusTracks: 'Selecione pelo menos uma pista para o bus.',
+    errorNoBusName: 'Digite um nome para o bus.',
+    errorNoLinkName: 'Digite um nome para o vínculo.',
+  },
+};

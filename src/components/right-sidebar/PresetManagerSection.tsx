@@ -1,9 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { PresetMetadata, Language, RhythmSignal } from '../../types';
-import { CordelImageEditor } from '../CordelImageEditor';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { PresetMetadata, Language } from '../../types';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 import { EditSignalModal } from '../signals/EditSignalModal';
-import type { CordelOptions } from '../../utils/cordelEffect';
+import { SignalLocalCard } from './preset-manager/SignalLocalCard';
+import { SignalAddForm } from './preset-manager/SignalAddForm';
+import { usePresetManagerSignals } from './preset-manager/usePresetManagerSignals';
 
 interface PresetManagerSectionProps {
   metadata: PresetMetadata;
@@ -12,243 +18,30 @@ interface PresetManagerSectionProps {
   userProfile: any;
 }
 
-const SignalLocalCard: React.FC<{
-  sig: RhythmSignal;
-  lang: Language;
-  onEdit: (sig: RhythmSignal) => void;
-  onDelete: (id: string) => void;
-}> = ({ sig, lang, onEdit, onDelete }) => {
-  const [hasError, setHasError] = useState(false);
-
-  // Priorité absolue aux trames Base64
-  const imageSource = (sig.frames && sig.frames[0] && sig.frames[0].startsWith('data:'))
-    ? sig.frames[0]
-    : (sig.image && sig.image.startsWith('data:'))
-      ? sig.image
-      : (sig.image || '');
-
-  const initials = sig.name
-    ? sig.name
-        .split(' ')
-        .filter(Boolean)
-        .map((w) => w[0]?.toUpperCase())
-        .slice(0, 2)
-        .join('')
-    : 'SG';
-
-  return (
-    <div
-      onClick={() => onEdit(sig)}
-      className="relative group bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden flex flex-col items-center justify-center aspect-square border-[var(--cordel-border)] cursor-pointer hover:border-[var(--cordel-wood)] transition-all"
-      title={sig.name}
-    >
-      {imageSource && !hasError ? (
-        <img
-          src={imageSource}
-          alt={sig.name}
-          onError={() => setHasError(true)}
-          className="w-full h-full object-cover transition-transform group-hover:scale-105"
-        />
-      ) : (
-        <div className="w-full h-full bg-[#f4ecd8] flex flex-col items-center justify-center p-2 text-center border border-dashed border-[#1a1a1a]/30">
-          <div className="w-10 h-10 rounded-full border border-[#1a1a1a] flex items-center justify-center font-cactus font-bold text-base text-[var(--cordel-wood)] bg-black/5 mb-0.5">
-            {initials}
-          </div>
-          <span className="text-[8px] font-cactus font-bold uppercase text-black/60 truncate max-w-full px-1">
-            {sig.name}
-          </span>
-        </div>
-      )}
-
-      {/* Titre au survol */}
-      <div className="absolute inset-x-0 bottom-0 bg-black/75 p-1 flex flex-col text-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <span className="text-[10px] font-bold text-white truncate px-1">{sig.name}</span>
-      </div>
-
-      <div className="absolute top-1 left-1 bg-gray-500 text-white text-[8px] font-bold px-1 cordel-border-sm">
-        Local
-      </div>
-
-      {sig.frames && sig.frames.length > 1 && (
-        <div className="absolute bottom-1 left-1 bg-black/80 text-white text-[7px] font-bold px-1 border border-white/30 group-hover:opacity-0 transition-opacity">
-          {sig.frames.length}T
-        </div>
-      )}
-
-      <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(sig);
-          }}
-          className="bg-amber-600 text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm hover:bg-amber-700 cursor-pointer shadow-sm"
-          title={lang === 'fr' ? 'Éditer le nom ou reprendre' : 'Editar nome ou recapturar'}
-        >
-          ✏️
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(sig.id);
-          }}
-          className="bg-[#8b2a1a] text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm hover:bg-red-700 cursor-pointer shadow-sm"
-          title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-        >
-          🗑️
-        </button>
-      </div>
-    </div>
-  );
-};
-
 export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
   metadata,
   onMetadataChange,
   lang,
-  userProfile,
 }) => {
-  const [showAddSignalForm, setShowAddSignalForm] = useState(false);
-  const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
-  const [localSignalToEdit, setLocalSignalToEdit] = useState<RhythmSignal | null>(null);
-  const retakeTargetLocalIdRef = useRef<string | null>(null);
-  const [pendingSignalImage, setPendingSignalImage] = useState<string | null>(null);
-  const [pendingSignalName, setPendingSignalName] = useState('');
-  const [useCordelEffect, setUseCordelEffect] = useState(true);
-  const [rawSignalFrames, setRawSignalFrames] = useState<string[]>([]);
-
-  const compressAndResizeImage = (fileOrBlob: File | Blob, callback: (base64: string) => void) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxDim = 500;
-
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
-          callback(compressedBase64);
-        }
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(fileOrBlob);
-  };
-
-  const handleSignalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      compressAndResizeImage(file, (base64) => {
-        if (!pendingSignalName) {
-          const nameWithoutExt = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
-          setPendingSignalName(nameWithoutExt.substring(0, 30));
-        }
-        if (useCordelEffect) {
-          setRawSignalFrames([base64]);
-        } else {
-          setPendingSignalImage(base64);
-        }
-      });
-    }
-    e.target.value = '';
-  };
-
-  const handlePhotoBoothSave = (signalData: {
-    name: string;
-    image: string;
-    frames: string[];
-    rawFrames?: string[];
-    cordelOptions?: CordelOptions;
-    frameOverrides?: Record<number, Partial<CordelOptions>>;
-    beatsCount: number;
-    mirrorHorizontal?: boolean;
-  }) => {
-    // Si on renouvelle la prise de vue d'un signal existant
-    if (retakeTargetLocalIdRef.current) {
-      const targetId = retakeTargetLocalIdRef.current;
-      retakeTargetLocalIdRef.current = null;
-      const prev = metadata.rhythmSignals || [];
-      const updated = prev.map((s) =>
-        s.id === targetId
-          ? {
-              ...s,
-              name: signalData.name,
-              image: signalData.image,
-              frames: signalData.frames,
-              rawFrames: signalData.rawFrames,
-              cordelOptions: signalData.cordelOptions,
-              frameOverrides: signalData.frameOverrides,
-              beatsCount: signalData.beatsCount,
-              mirrorHorizontal: signalData.mirrorHorizontal,
-            }
-          : s
-      );
-      onMetadataChange({ ...metadata, rhythmSignals: updated });
-      setIsPhotoBoothOpen(false);
-      return;
-    }
-
-    const newSignal: RhythmSignal = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: signalData.name,
-      image: signalData.image,
-      frames: signalData.frames,
-      rawFrames: signalData.rawFrames,
-      cordelOptions: signalData.cordelOptions,
-      frameOverrides: signalData.frameOverrides,
-      beatsCount: signalData.beatsCount,
-      mirrorHorizontal: signalData.mirrorHorizontal,
-      createdAt: Date.now(),
-    };
-    const prev = metadata.rhythmSignals || [];
-    onMetadataChange({ ...metadata, rhythmSignals: [...prev, newSignal] });
-    setIsPhotoBoothOpen(false);
-  };
-
-  const handleSaveEditSignal = (updatedSignal: any) => {
-    const prev = metadata.rhythmSignals || [];
-    const updated = prev.map((s) => (s.id === updatedSignal.id ? { ...s, ...updatedSignal } : s));
-    onMetadataChange({ ...metadata, rhythmSignals: updated });
-    setLocalSignalToEdit(null);
-  };
-
-  const handleAddLocalSignal = () => {
-    if (!pendingSignalImage) return;
-    const finalName = pendingSignalName.trim() || (lang === 'fr' ? 'Signal sans nom' : 'Sinal sem nome');
-
-    const newSignal = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: finalName,
-      image: pendingSignalImage,
-    };
-    const prev = metadata.rhythmSignals || [];
-    onMetadataChange({ ...metadata, rhythmSignals: [...prev, newSignal] });
-    setPendingSignalImage(null);
-    setPendingSignalName('');
-    setShowAddSignalForm(false);
-  };
-
-  const handleDeleteLocalSignal = (id: string) => {
-    const updated = (metadata.rhythmSignals || []).filter((s) => s.id !== id);
-    onMetadataChange({ ...metadata, rhythmSignals: updated });
-  };
+  const {
+    showAddSignalForm,
+    setShowAddSignalForm,
+    isPhotoBoothOpen,
+    setIsPhotoBoothOpen,
+    localSignalToEdit,
+    setLocalSignalToEdit,
+    retakeTargetLocalIdRef,
+    pendingSignalImage,
+    setPendingSignalImage,
+    pendingSignalName,
+    setPendingSignalName,
+    rawSignalFrames,
+    setRawSignalFrames,
+    handleSignalFileChange,
+    handlePhotoBoothSave,
+    handleSaveEditSignal,
+    handleAddLocalSignal,
+  } = usePresetManagerSignals({ metadata, onMetadataChange, lang });
 
   return (
     <div className="xilo-feedback-container flex flex-col gap-2 mt-2">
@@ -257,12 +50,9 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
       </span>
       <div className="flex flex-col gap-2">
         <span className="text-[8px] text-[var(--cordel-text)] opacity-60 leading-tight">
-          {lang === 'fr'
-            ? 'Ces images sont stockées localement dans votre projet.'
-            : 'Estas imagens são armazenadas localmente no seu projeto.'}
+          {lang === 'fr' ? 'Ces images sont stockées localement dans votre projet.' : 'Estas imagens são armazenadas localmente no seu projeto.'}
         </span>
 
-        {/* Galerie des signaux locaux */}
         {(metadata?.rhythmSignals || []).length > 0 && (
           <div className="grid grid-cols-2 gap-2 mt-1">
             {(metadata.rhythmSignals || []).map((sig) => (
@@ -271,104 +61,30 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
                 sig={sig}
                 lang={lang}
                 onEdit={(s) => setLocalSignalToEdit(s)}
-                onDelete={handleDeleteLocalSignal}
+                onDelete={(id) => onMetadataChange({ ...metadata, rhythmSignals: (metadata.rhythmSignals || []).filter((s) => s.id !== id) })}
               />
             ))}
           </div>
         )}
 
-        {/* Form Trigger */}
-        {!pendingSignalImage && rawSignalFrames.length === 0 && !showAddSignalForm && (
-          <button
-            onClick={() => setShowAddSignalForm(true)}
-            className="w-full py-2 mt-3 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-cactus font-bold text-xs uppercase tracking-wider cordel-border-sm hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            ➕ {lang === 'fr' ? 'Nouveau Signal Local' : 'Novo Sinal Local'}
-          </button>
-        )}
+        <SignalAddForm
+          showAddSignalForm={showAddSignalForm}
+          setShowAddSignalForm={setShowAddSignalForm}
+          pendingSignalImage={pendingSignalImage}
+          setPendingSignalImage={setPendingSignalImage}
+          pendingSignalName={pendingSignalName}
+          setPendingSignalName={setPendingSignalName}
+          rawSignalFrames={rawSignalFrames}
+          setRawSignalFrames={setRawSignalFrames}
+          onOpenPhotoBooth={() => {
+            setShowAddSignalForm(false);
+            setIsPhotoBoothOpen(true);
+          }}
+          onFileChange={handleSignalFileChange}
+          onAddSignal={handleAddLocalSignal}
+          lang={lang}
+        />
 
-        {/* Add Form */}
-        {!pendingSignalImage && rawSignalFrames.length === 0 && showAddSignalForm ? (
-          <div className="flex flex-col gap-2 mt-3 border border-[var(--cordel-border)] border-dashed p-2.5 bg-black/5">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[10px] text-[var(--cordel-text)] font-bold uppercase font-cactus">
-                {lang === 'fr' ? 'Créer un Signal Local' : 'Criar um Sinal Local'}
-              </span>
-              <button
-                onClick={() => setShowAddSignalForm(false)}
-                className="text-[12px] font-bold text-[var(--cordel-text)] hover:text-red-700 px-2 cursor-pointer"
-                title={lang === 'fr' ? 'Fermer' : 'Fechar'}
-              >
-                ✖
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddSignalForm(false);
-                  setIsPhotoBoothOpen(true);
-                }}
-                className="py-2 bg-[var(--cordel-wood)] text-white font-cactus font-bold text-xs uppercase tracking-wider cordel-border-sm hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center gap-2"
-              >
-                📸 {lang === 'fr' ? 'Photo-cabine Musicale (Cadencée)' : 'Cabine de Fotos Musical'}
-              </button>
-              <div className="flex items-center gap-2">
-                <label className="flex-1 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[10px] font-bold cordel-border-sm text-center cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex items-center justify-center gap-1">
-                  📁 {lang === 'fr' ? 'Importer une image fixe' : 'Importar imagem fixa'}
-                  <input type="file" accept="image/*" onChange={handleSignalFileChange} className="hidden" />
-                </label>
-              </div>
-            </div>
-          </div>
-        ) : rawSignalFrames.length > 0 ? (
-          <CordelImageEditor
-            frames={rawSignalFrames}
-            lang={lang}
-            onComplete={(result) => {
-              setPendingSignalImage(result);
-              setRawSignalFrames([]);
-            }}
-            onCancel={() => setRawSignalFrames([])}
-          />
-        ) : pendingSignalImage ? (
-          <div className="flex flex-col gap-2 mt-3">
-            <img src={pendingSignalImage} alt="preview" className="w-full max-h-24 object-contain bg-black/10 cordel-border-sm" />
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? 'Nom du signal…' : 'Nome do sinal…'}
-              value={pendingSignalName}
-              onChange={(e) => setPendingSignalName(e.target.value)}
-              className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddLocalSignal();
-              }}
-              autoFocus
-            />
-            <div className="flex gap-2 mt-1">
-              <button
-                onClick={handleAddLocalSignal}
-                disabled={!pendingSignalName.trim()}
-                className={`flex-1 py-1 bg-black text-white cordel-border-sm text-[10px] font-bold ${
-                  !pendingSignalName.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
-                }`}
-              >
-                {lang === 'fr' ? 'Ajouter' : 'Adicionar'}
-              </button>
-              <button
-                onClick={() => {
-                  setPendingSignalImage(null);
-                  setPendingSignalName('');
-                }}
-                className="py-1 px-3 bg-gray-300 text-black text-[10px] font-bold cordel-border-sm hover:opacity-85 cursor-pointer"
-              >
-                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Modale Photo-cabine musicale */}
         <MusicalPhotoBoothModal
           isOpen={isPhotoBoothOpen}
           onClose={() => {
@@ -379,9 +95,8 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
           lang={lang}
         />
 
-        {/* Modale d'Édition du signal local (Nom / Reprise de vue) */}
         <EditSignalModal
-          isOpen={!!localSignalToEdit}
+          isOpen={Boolean(localSignalToEdit)}
           onClose={() => setLocalSignalToEdit(null)}
           signal={localSignalToEdit}
           onSave={handleSaveEditSignal}

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, User, Shield, Image as ImageIcon, Upload, Link } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { UserDropdownMenu } from './google-login/UserDropdownMenu';
 
 interface GoogleLoginButtonProps {
   className?: string;
@@ -19,12 +18,10 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   align = 'auto',
   size = 'normal',
 }) => {
-  const { currentUser, userProfile, signInWithGoogle, logout, loading, updateUserProfileField, isAdmin } = useAuth();
+  const { currentUser, userProfile, signInWithGoogle, logout, loading, isAdmin } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [computedAlign, setComputedAlign] = useState<'left' | 'right'>(align === 'left' ? 'left' : 'right');
-  const [isUploading, setIsUploading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -34,15 +31,10 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     }
     if (dropdownRef.current) {
       const rect = dropdownRef.current.getBoundingClientRect();
-      if (rect.left < window.innerWidth / 2) {
-        setComputedAlign('left');
-      } else {
-        setComputedAlign('right');
-      }
+      setComputedAlign(rect.left < window.innerWidth / 2 ? 'left' : 'right');
     }
   }, [dropdownOpen, align]);
 
-  // Handle click outside to close dropdown
   useEffect(() => {
     function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -56,81 +48,6 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, []);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentUser) return;
-    
-    // Only accept images
-    if (!file.type.startsWith('image/')) {
-      alert("Veuillez sélectionner une image.");
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      
-      // Read file and resize via Canvas to keep it small for Firestore (Base64)
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = async () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 300;
-          const MAX_HEIGHT = 300;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Compress to webp or jpeg
-          const dataUrl = canvas.toDataURL('image/webp', 0.8);
-          
-          // Verify size (Firestore limit is 1MB per document)
-          if (dataUrl.length > 800000) {
-            alert("L'image est trop volumineuse même après compression.");
-            setIsUploading(false);
-            return;
-          }
-
-          try {
-            const userDocRef = doc(db, 'users', currentUser.uid);
-            await updateDoc(userDocRef, { groupLogoUrl: dataUrl });
-            alert("Votre logo a été mis à jour avec succès ! Rechargez la page pour voir les changements.");
-          } catch (err) {
-            console.error("Erreur Firestore:", err);
-            alert("Erreur lors de la sauvegarde.");
-          } finally {
-            setIsUploading(false);
-            setDropdownOpen(false);
-          }
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-      
-    } catch (error) {
-      console.error("Erreur générale:", error);
-      alert("Une erreur est survenue.");
-      setIsUploading(false);
-      setDropdownOpen(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -166,100 +83,16 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         </button>
 
         {dropdownOpen && (
-          <div className={`absolute top-12 ${computedAlign === 'left' ? 'left-0' : 'right-0'} bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[220px] max-w-[calc(100vw-24px)] z-[1000] flex flex-col p-3 gap-3 select-none box-border`}>
-            <div className="flex flex-col border-b border-[var(--cordel-border)]/30 pb-2 gap-2">
-              <div>
-                <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
-                  {userProfile.displayName}
-                  {isAdmin && <span title={lang === 'fr' ? 'Administrateur' : 'Administrador'}><Shield size={12} className="text-[#8b2a1a]" /></span>}
-                </span>
-                <span className="text-[10px] font-sans text-[var(--cordel-text)] opacity-60 truncate block">
-                  {userProfile.email}
-                </span>
-              </div>
-
-
-              {/* Résumé profil en lecture seule hérité d'Organizador */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-1 pt-1 border-t border-[var(--cordel-border)]/20">
-                {(userProfile.groupName || userProfile.groupId) && (
-                  <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] flex items-center gap-1">
-                    🥁 {userProfile.groupName || userProfile.groupId}
-                  </span>
-                )}
-                <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                  {userProfile.role === 'admin'
-                    ? (lang === 'fr' ? '🛡️ Admin' : '🛡️ Admin')
-                    : userProfile.role === 'mestre'
-                    ? (lang === 'fr' ? '👑 Maître' : '👑 Mestre')
-                    : userProfile.role === 'membre'
-                    ? (lang === 'fr' ? '🥁 Membre' : '🥁 Membro')
-                    : userProfile.role === 'eleve'
-                    ? (lang === 'fr' ? '🎓 Élève' : '🎓 Aluno')
-                    : (lang === 'fr' ? '👤 Visiteur' : '👤 Visitante')}
-                </span>
-                {userProfile.lateralite && (
-                  <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                    {userProfile.lateralite === 'gaucher' ? (lang === 'fr' ? '🫲 Gaucher' : '🫲 Canhoto') : (lang === 'fr' ? '🫱 Droitier' : '🫱 Destro')}
-                  </span>
-                )}
-              </div>
-            </div>
-            {isAdmin && onAdminClick && (
-              <button
-                onClick={() => {
-                  setDropdownOpen(false);
-                  onAdminClick();
-                }}
-                className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#8b2a1a] border border-[#8b2a1a] font-cactus font-bold text-xs hover:bg-[#8b2a1a] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>{lang === 'fr' ? 'Administration' : 'Administração'}</span>
-              </button>
-            )}
-
-            {(userProfile.role === 'mestre' || isAdmin) && (
-              <>
-                <button
-                  onClick={() => {
-                    const url = `${window.location.origin}${window.location.pathname}?invite=${currentUser.uid}`;
-                    navigator.clipboard.writeText(url);
-                    alert(lang === 'fr' ? "Lien d'invitation copié ! Envoyez-le à vos élèves pour qu'ils rejoignent votre groupe." : "Link de convite copiado! Envie-o para seus alunos para entrarem no grupo.");
-                    setDropdownOpen(false);
-                  }}
-                  className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#27ae60] border border-[#27ae60] font-cactus font-bold text-xs hover:bg-[#27ae60] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
-                >
-                  <Link className="w-3.5 h-3.5" />
-                  <span>{lang === 'fr' ? 'Inviter des élèves' : 'Convidar alunos'}</span>
-                </button>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
-                  className="hidden" 
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#2980b9] border border-[#2980b9] font-cactus font-bold text-xs hover:bg-[#2980b9] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {isUploading ? <span className="animate-spin">⚙️</span> : <Upload className="w-3.5 h-3.5" />}
-                  <span>{lang === 'fr' ? 'Mon étendard' : 'Meu Estandarte'}</span>
-                </button>
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                setDropdownOpen(false);
-                logout();
-              }}
-              className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-cactus font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>{lang === 'fr' ? 'Se déconnecter' : 'Sair da conta'}</span>
-            </button>
-          </div>
+          <UserDropdownMenu
+            userProfile={userProfile}
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            computedAlign={computedAlign}
+            lang={lang}
+            onAdminClick={onAdminClick}
+            onClose={() => setDropdownOpen(false)}
+            onLogout={logout}
+          />
         )}
       </div>
     );
@@ -276,10 +109,9 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         title={lang === 'fr' ? 'Se connecter avec Google' : 'Conectar com o Google'}
       >
         <svg viewBox="0 0 24 24" className={svgDim} fill="currentColor">
-          <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.211 4.113-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.558 0 2.973.568 4.072 1.503L21.05 4.41C18.665 2.195 15.602 1 11.916 1 5.887 1 11.916 5.887 11.916 11.916S5.887 22.83 11.916 22.83c6.177 0 10.99-4.346 10.99-10.914 0-.648-.073-1.28-.2-1.63H12.24z"/>
+          <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.113-5.211 4.113-3.467 0-6.277-2.81-6.277-6.277s2.81-6.277 6.277-6.277c1.558 0 2.973.568 4.072 1.503L21.05 4.41C18.665 2.195 15.602 1 11.916 1 5.887 1 11.916 5.887 11.916 11.916S5.887 22.83 11.916 22.83c6.177 0 10.99-4.346 10.99-10.914 0-.648-.073-1.28-.2-1.63H12.24z" />
         </svg>
       </button>
     </div>
   );
 };
-

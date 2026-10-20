@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { XiloMegaphone, XiloHourglass } from './XiloIcons';
+import { PresetAccordionSection } from './preset-accordion/PresetAccordionSection';
+import { PresetAccordionLocalSection } from './preset-accordion/PresetAccordionLocalSection';
+import { PresetAccordionSelectFallback } from './preset-accordion/PresetAccordionSelectFallback';
 
 export interface PresetAccordionSelectorProps {
   lang: 'pt' | 'fr';
@@ -42,9 +44,6 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
 }) => {
   const [isGroupOpen, setIsGroupOpen] = useState(showGroupCatalogue);
   const [isPublicOpen, setIsPublicOpen] = useState(!showGroupCatalogue);
-  const [isLocalOpen, setIsLocalOpen] = useState(false);
-
-  const resolvedGroupLogo = groupLogo || '/Pictures/logo-samambaia.png';
 
   useEffect(() => {
     setIsGroupOpen(showGroupCatalogue);
@@ -66,145 +65,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
 
   const groupTitle = lang === 'pt' ? `Catálogo ${groupLabel || 'do Grupo'}` : `Catalogue ${groupLabel || 'du Groupe'}`;
   const publicTitle = lang === 'pt' ? 'Catálogo Público' : 'Catalogue Public';
+  const isItemActive = (val: string, name: string): boolean =>
+    Boolean(activePreset === val || (currentSongTitle && currentSongTitle.trim().toLowerCase() === name.trim().toLowerCase()));
 
-  const isItemActive = (val: string, name: string) =>
-    activePreset === val || (currentSongTitle && currentSongTitle.trim().toLowerCase() === name.trim().toLowerCase());
-
-  const renderPresetList = (
-    items: Array<{ id: string; name: string; isDraft?: boolean }>,
-    icon: string,
-    emptyMsg: string,
-    isGroupList: boolean = false
-  ) => (
-    <div className="flex flex-col gap-1 p-1.5 pt-0 max-h-56 overflow-y-auto border-t border-[var(--cordel-border)]/20">
-      {isCloudPresetsLoading && items.length === 0 ? (
-        <div className="px-2 py-2 text-xs italic text-[var(--cordel-subtext)] text-center">
-          {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
-        </div>
-      ) : items.length > 0 ? (
-        items.map((p) => {
-          const active = isItemActive(`cloud:${p.id}`, p.name);
-          const isDefault = isGroupList && defaultPresetId === p.id;
-          return (
-            <div key={`cloud:${p.id}`} className="flex items-center gap-1 w-full min-w-0">
-              <button
-                type="button"
-                title={p.name}
-                onClick={() => handleItemClick(`cloud:${p.id}`, p.id)}
-                className={`flex-1 text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
-                  active ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                }`}
-              >
-                <span className="flex items-center gap-1.5 min-w-0 flex-1">
-                  {icon ? <span className="text-xs shrink-0">{icon}</span> : null}
-                  <span className="truncate">{p.name}</span>
-                </span>
-                {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
-              </button>
-
-              {/* Bascule de visibilité Chantier / Publié (spécifique aux morceaux de groupe pour les éditeurs) */}
-              {isGroupList && canEdit && (
-                <button
-                  type="button"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onToggleDraft?.(p.id, p.isDraft === true);
-                  }}
-                  title={
-                    p.isDraft === true
-                      ? (lang === 'pt' ? 'Em obras (oculto dos alunos) - Clique para publicar' : 'En chantier (masqué aux élèves) - Cliquer pour publier')
-                      : (lang === 'pt' ? 'Publicado para o grupo - Clique para passar a obras' : 'Publié pour le groupe - Cliquer pour passer en chantier')
-                  }
-                  className="shrink-0 p-1 cursor-pointer flex items-center justify-center transition-transform hover:scale-110 leading-none"
-                >
-                  {p.isDraft === true ? (
-                    <XiloHourglass
-                      size={14}
-                      className="shrink-0 text-[var(--cordel-text)] opacity-60 hover:opacity-90 transition-opacity"
-                    />
-                  ) : (
-                    <XiloMegaphone
-                      size={14}
-                      className="shrink-0 text-[#c25e38] dark:text-[#e07a5f] hover:opacity-90 transition-colors"
-                    />
-                  )}
-                </button>
-              )}
-
-              {/* Épingle Cactus (Astérisque Cordel) du morceau vedette (spécifique au groupe) */}
-              {isGroupList && (
-                canSetDefaultPreset ? (
-                  <button
-                    type="button"
-                    data-testid={isDefault ? "cactus-default-preset" : "cactus-preset-toggle"}
-                    aria-label={isDefault ? "Cactus 🌵" : "Épingler le morceau"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSetDefaultPreset?.(isDefault ? null : p.id);
-                    }}
-                    title={
-                      lang === 'pt'
-                        ? (isDefault ? 'Ritmo de referência ativo (clique para desafixar)' : 'Fixar como ritmo de referência do grupo')
-                        : (isDefault ? 'Morceau de travail actif (cliquer pour désépingler)' : 'Épingler comme morceau de travail du groupe')
-                    }
-                    className="shrink-0 p-1 cursor-pointer flex items-center justify-center transition-transform hover:scale-110"
-                  >
-                    <span
-                      style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                      className={`font-cactus-star text-xl select-none leading-none inline-flex items-center justify-center transform transition-colors ${
-                        isDefault
-                          ? 'text-[#2d6a4f] dark:text-amber-400 drop-shadow-none dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]'
-                          : 'text-[var(--cordel-text)] opacity-20 hover:opacity-80 transition-opacity'
-                      }`}
-                    >
-                      *
-                    </span>
-                  </button>
-                ) : isDefault ? (
-                  <span
-                    data-testid="cactus-default-preset"
-                    aria-label="Cactus 🌵"
-                    title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
-                    style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus-star text-[#2d6a4f] dark:text-amber-400 drop-shadow-none dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] inline-flex items-center justify-center"
-                  >
-                    *
-                  </span>
-                ) : (
-                  <span
-                    aria-hidden="true"
-                    style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus-star text-[var(--cordel-text)] opacity-20 inline-flex items-center justify-center"
-                  >
-                    *
-                  </span>
-                )
-              )}
-            </div>
-          );
-        })
-      ) : (
-        <div className="px-2 py-2 text-xs italic text-[var(--cordel-subtext)] text-center">{emptyMsg}</div>
-      )}
-    </div>
-  );
-
-  const visiblePrivatePresets = canEdit
-    ? privateCloudPresets
-    : privateCloudPresets.filter((p) => p.isDraft !== true);
-
-  const visiblePublicPresets = canEdit
-    ? publicCloudPresets
-    : publicCloudPresets.filter((p) => p.isDraft !== true);
+  const visiblePrivate = canEdit ? privateCloudPresets : privateCloudPresets.filter((p) => p.isDraft !== true);
+  const visiblePublic = canEdit ? publicCloudPresets : publicCloudPresets.filter((p) => p.isDraft !== true);
 
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
@@ -219,107 +84,63 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
 
       <div className="flex flex-col gap-1.5 w-full">
         {showGroupCatalogue && (
-          <div className="flex flex-col cordel-border-sm bg-[var(--cordel-bg)] overflow-hidden">
-            <button
-              type="button"
-              data-testid="group-catalog-samambaia"
-              onClick={() => setIsGroupOpen((prev) => !prev)}
-              className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
-            >
-              <span className="flex items-center gap-1.5 truncate">
-                <span className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] rounded-xs p-0.5 mr-2 shrink-0 shadow-xs border border-black/10">
-                  <img
-                    src={resolvedGroupLogo}
-                    alt=""
-                    className="w-full h-full object-contain"
-                  />
-                </span>
-                <span className="truncate">{groupTitle}</span>
-                <span className="text-[10px] opacity-60 font-sans">({visiblePrivatePresets.length})</span>
-              </span>
-              <span className="text-[9px] opacity-70 ml-1">{isGroupOpen ? '▼' : '▶'}</span>
-            </button>
-            {isGroupOpen && renderPresetList(visiblePrivatePresets, '', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)', true)}
-          </div>
+          <PresetAccordionSection
+            testId="group-catalog-samambaia"
+            isOpen={isGroupOpen}
+            onToggle={() => setIsGroupOpen((prev) => !prev)}
+            title={groupTitle}
+            count={visiblePrivate.length}
+            logo={groupLogo || '/Pictures/logo-samambaia.png'}
+            items={visiblePrivate}
+            itemIcon=""
+            emptyMsg={lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)'}
+            isGroupList={true}
+            isLoading={isCloudPresetsLoading}
+            defaultPresetId={defaultPresetId}
+            canEdit={canEdit}
+            canSetDefaultPreset={canSetDefaultPreset}
+            lang={lang}
+            isItemActive={isItemActive}
+            onItemClick={handleItemClick}
+            onToggleDraft={onToggleDraft}
+            onSetDefaultPreset={onSetDefaultPreset}
+          />
         )}
 
-        <div className="flex flex-col cordel-border-sm bg-[var(--cordel-bg)] overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setIsPublicOpen((prev) => !prev)}
-            className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
-          >
-            <span className="flex items-center gap-1.5 truncate">
-              <span className="text-sm leading-none">☁️</span>
-              <span className="truncate">{publicTitle}</span>
-              <span className="text-[10px] opacity-60 font-sans">({visiblePublicPresets.length})</span>
-            </span>
-            <span className="text-[9px] opacity-70 ml-1">{isPublicOpen ? '▼' : '▶'}</span>
-          </button>
-          {isPublicOpen && renderPresetList(visiblePublicPresets, '☁️', lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)')}
-        </div>
+        <PresetAccordionSection
+          isOpen={isPublicOpen}
+          onToggle={() => setIsPublicOpen((prev) => !prev)}
+          title={publicTitle}
+          count={visiblePublic.length}
+          icon="☁️"
+          items={visiblePublic}
+          itemIcon="☁️"
+          emptyMsg={lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)'}
+          isLoading={isCloudPresetsLoading}
+          lang={lang}
+          isItemActive={isItemActive}
+          onItemClick={handleItemClick}
+        />
 
-        {localPresets.length > 0 && (
-          <div className="flex flex-col cordel-border-sm bg-[var(--cordel-bg)] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsLocalOpen((prev) => !prev)}
-              className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
-            >
-              <span className="flex items-center gap-1.5 truncate">
-                <span className="text-sm leading-none">💾</span>
-                <span className="truncate">{lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}</span>
-                <span className="text-[10px] opacity-60 font-sans">({localPresets.length})</span>
-              </span>
-              <span className="text-[9px] opacity-70 ml-1">{isLocalOpen ? '▼' : '▶'}</span>
-            </button>
-            {isLocalOpen && (
-              <div className="flex flex-col gap-1 p-1.5 pt-0 max-h-48 overflow-y-auto border-t border-[var(--cordel-border)]/20">
-                {localPresets.map((name) => (
-                  <button
-                    key={`local:${name}`}
-                    type="button"
-                    title={name}
-                    onClick={() => handleItemClick(`local:${name}`)}
-                    className={`w-full text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
-                      isItemActive(`local:${name}`, name) ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 min-w-0 flex-1"><span className="text-xs shrink-0">💾</span><span className="truncate">{name}</span></span>
-                    {isItemActive(`local:${name}`, name) && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <PresetAccordionLocalSection
+          localPresets={localPresets}
+          lang={lang}
+          isItemActive={isItemActive}
+          onItemClick={(name) => handleItemClick(name)}
+        />
       </div>
 
-      <select
-        aria-hidden="true"
-        tabIndex={-1}
-        className="sr-only"
-        value={activePreset}
-        onChange={(e) => {
-          const val = e.target.value;
-          handleItemClick(val, val.startsWith('cloud:') ? val.replace('cloud:', '') : undefined);
-        }}
-      >
-        <option value="" disabled>{currentSongTitle || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}</option>
-        {showGroupCatalogue && (
-          <optgroup label={groupTitle}>
-            {visiblePrivatePresets.map((p) => (
-              <option key={`og:${p.id}`} value={`cloud:${p.id}`}>
-                {p.isDraft === true ? '⏳ ' : ''}{p.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        <optgroup label={publicTitle}>
-          {visiblePublicPresets.map((p) => (<option key={`op:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '⏳ ' : ''}☁️ {p.name}</option>))}
-        </optgroup>
-      </select>
+      <PresetAccordionSelectFallback
+        activePreset={activePreset}
+        currentSongTitle={currentSongTitle}
+        lang={lang}
+        showGroupCatalogue={showGroupCatalogue}
+        groupTitle={groupTitle}
+        publicTitle={publicTitle}
+        visiblePrivate={visiblePrivate}
+        visiblePublic={visiblePublic}
+        onSelect={handleItemClick}
+      />
     </div>
   );
 };
-

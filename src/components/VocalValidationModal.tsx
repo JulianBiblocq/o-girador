@@ -3,30 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { vocalEngineService } from '../audio/vocalEngineService';
 import { useAudio } from '../contexts/AudioContext';
 import { X, Scissors } from 'lucide-react';
 import { AudioAlignmentEditor } from './AudioAlignmentEditor';
-import { VocalClipMeta } from '../types/store.types';
-import { getBeatsPerMeasure } from '../utils/measureHelpers';
-import { saveVocalRecording } from '../db';
+import { useVocalValidationAudio } from './vocal-validation/useVocalValidationAudio';
+import { useVocalValidationSave } from './vocal-validation/useVocalValidationSave';
 
 export const VocalValidationModal: React.FC = () => {
   const tempRecording = useAudioStore((state) => state.tempRecording);
   const setTempRecording = useAudioStore((state) => state.setTempRecording);
   const { handleStop } = useAudio();
-
-  const [loading, setLoading] = useState(true);
-  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
-
-  const [initialTrimStartSec, setInitialTrimStartSec] = useState(0);
-  const [initialTrimEndSec, setInitialTrimEndSec] = useState(0);
-  const [initialNudgeMs, setInitialNudgeMs] = useState(0);
-  const [preRollDurationSec, setPreRollDurationSec] = useState(0);
 
   const tracks = useSequencerStore((state) => state.tracks);
   const bpm = useSequencerStore((state) => state.bpm);
@@ -42,105 +32,22 @@ export const VocalValidationModal: React.FC = () => {
     ? voiceTrack.patterns?.find((p) => Number(p.id) === Number(tempRecording.patternId))
     : null;
 
-  // Escape key support to cleanly cancel and kill audio
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleCancel();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  // Decode temporary recording audio data on mount
-  useEffect(() => {
-    if (!tempRecording || !targetPattern) return;
-
-    let active = true;
-    setLoading(true);
-    setAudioBuffer(null);
-
-    const decode = async () => {
-      // Find measure BPM & Time Signature
-      const storeTargetMeasure = useAudioStore.getState().targetMeasureIdx;
-      const initialMeasureIdx = tempRecording.targetMeasureIdx !== undefined && tempRecording.targetMeasureIdx !== null
-        ? tempRecording.targetMeasureIdx
-        : (storeTargetMeasure !== null && storeTargetMeasure !== undefined)
-          ? storeTargetMeasure
-          : (targetPattern.measureAssignments.indexOf(true) !== -1 ? targetPattern.measureAssignments.indexOf(true) : 0);
-      const targetBpm = measureBpms[initialMeasureIdx % (measureBpms.length || 1)] || bpm;
-      const targetSig = measureTimeSigs[initialMeasureIdx % (measureTimeSigs.length || 1)] || '4/4';
-      const beatsCount = getBeatsPerMeasure(targetSig);
-      const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || (targetSig as string) === '12/8';
-      const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
-      
-      // Dégagement visuel Runway garanti d'au moins 1 mesure (preRollSec)
-      const preRollSec = beatsCount * beatDurationSec;
-      setPreRollDurationSec(preRollSec);
-
-      const setupBufferAndTrims = (buffer: AudioBuffer) => {
-        setAudioBuffer(buffer);
-        const existingClip = targetPattern.vocalClip;
-
-        // Règle absolue du Buffer Slicing (Zéro double-offset) :
-        // Le buffer utile commence strictement à 0. Ne jamais réappliquer preRollSec - anacrusisSec.
-        setInitialTrimStartSec(0);
-        setInitialTrimEndSec(buffer.duration);
-        setInitialNudgeMs(existingClip?.nudgeMs ?? 0);
-      };
-
-      // 1. Si tempRecording dispose déjà d'un AudioBuffer décodé (Import direct)
-      if (tempRecording.audioBuffer) {
-        if (active) {
-          setupBufferAndTrims(tempRecording.audioBuffer);
-          setLoading(false);
-        }
-        return;
-      }
-
-      // 2. Décodage du blob si nécessaire
-      if (!tempRecording.blob || tempRecording.blob.size === 0) {
-        console.error("🎙️ [AUDIO] Blob d'enregistrement vide ou inexistant.");
-        if (active) setLoading(false);
-        return;
-      }
-
-      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-      if (rawCtx && rawCtx.state === 'suspended') {
-        try {
-          await rawCtx.resume();
-        } catch (e) {
-          console.warn("🎙️ [AUDIO] Context resume warning:", e);
-        }
-      }
-
-      try {
-        const arrayBuffer = await tempRecording.blob.arrayBuffer();
-        const buffer = await rawCtx.decodeAudioData(arrayBuffer);
-        if (active) {
-          setupBufferAndTrims(buffer);
-        }
-      } catch (err) {
-        console.error('🎙️ [VOCAL ENGINE] Error decoding temporary recording:', err);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    handleStop();
-    decode();
-
-    return () => {
-      active = false;
-    };
-  }, [tempRecording, targetPattern, bpm, measureBpms, measureTimeSigs, handleStop]);
-
-  if (!tempRecording || !targetPattern || !voiceTrack) return null;
+  const {
+    loading,
+    setLoading,
+    audioBuffer,
+    initialTrimStartSec,
+    initialTrimEndSec,
+    initialNudgeMs,
+    preRollDurationSec,
+  } = useVocalValidationAudio({
+    tempRecording,
+    targetPattern,
+    bpm,
+    measureBpms,
+    measureTimeSigs,
+    handleStop,
+  });
 
   const handleCancel = () => {
     try {
@@ -152,83 +59,28 @@ export const VocalValidationModal: React.FC = () => {
     setTempRecording(null);
   };
 
-  const handleSave = async (cleanBuffer: AudioBuffer, wavBlob: Blob, meta: VocalClipMeta) => {
-    setLoading(true);
-    try {
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
-    } catch (_) {}
-    handleStop();
+  const { handleSave } = useVocalValidationSave({
+    tempRecording,
+    voiceTrack,
+    tracks,
+    handleStop,
+    setLoading,
+    setTempRecording,
+  });
 
-    try {
-      // 1. Persistance asynchrone sécurisée du WAV dans IndexedDB (patternId number et string)
-      await vocalEngineService.saveValidatedRecording(tempRecording.patternId, wavBlob);
-      await saveVocalRecording(tempRecording.patternId, wavBlob);
-      await saveVocalRecording(String(tempRecording.patternId), wavBlob);
-      if (!isNaN(Number(tempRecording.patternId))) {
-        await saveVocalRecording(Number(tempRecording.patternId), wavBlob);
-      }
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleCancel();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-      // 2. Mise en cache RAM immédiate de l'AudioBuffer sous patternId et composite `${track.id}_${patternId}`
-      useAudioStore.getState().setVocalBuffer(tempRecording.patternId, cleanBuffer);
-      useAudioStore.getState().setVocalBuffer(String(tempRecording.patternId), cleanBuffer);
-      useAudioStore.getState().addVocalBlob(tempRecording.patternId, wavBlob);
-      useAudioStore.getState().addVocalBlob(String(tempRecording.patternId), wavBlob);
-      if (!isNaN(Number(tempRecording.patternId))) {
-        useAudioStore.getState().setVocalBuffer(Number(tempRecording.patternId), cleanBuffer);
-        useAudioStore.getState().addVocalBlob(Number(tempRecording.patternId), wavBlob);
-      }
-      if (voiceTrack?.id) {
-        const compositeKey = `${voiceTrack.id}_${tempRecording.patternId}`;
-        useAudioStore.getState().setVocalBuffer(compositeKey, cleanBuffer);
-        useAudioStore.getState().addVocalBlob(compositeKey, wavBlob);
-        const compositeKeyStr = `${voiceTrack.id}_${String(tempRecording.patternId)}`;
-        useAudioStore.getState().setVocalBuffer(compositeKeyStr, cleanBuffer);
-        useAudioStore.getState().addVocalBlob(compositeKeyStr, wavBlob);
-      }
-
-      // 3. Update sequencer store pattern metadata
-      useSequencerStore.getState().setTracks(
-        tracks.map((t) => {
-          if (t.id === voiceTrack.id) {
-            return {
-              ...t,
-              patterns: t.patterns.map((p) => {
-                if (p.id === tempRecording.patternId || String(p.id) === String(tempRecording.patternId) || (!isNaN(Number(tempRecording.patternId)) && Number(p.id) === Number(tempRecording.patternId))) {
-                  return {
-                    ...p,
-                    vocalMode: 'micro',
-                    vocalClip: meta,
-                    vocalAudioUrl: undefined, // 🛡️ CRITIQUE: Invalidation formelle de l'URL distante pour forcer le téléversement du nouveau WAV dans Firebase Storage lors de la sauvegarde
-                    // Clean legacy single fields
-                    vocalNudge: undefined,
-                    vocalTrimStart: undefined,
-                    vocalBaseBpm: meta.sampleBpm ?? meta.baseBpm,
-                    vocalBpmSync: true,
-                  };
-                }
-                return p;
-              }),
-            };
-          }
-          return t;
-        })
-      );
-
-      // 4. Disarm track and close modal
-      useAudioStore.getState().setTargetPatternId(null);
-      setTempRecording(null);
-    } catch (err) {
-      console.error('🎙️ [VOCAL ENGINE] Error validating and saving vocal sample:', err);
-      setLoading(false);
-    }
-  };
+  if (!tempRecording || !targetPattern || !voiceTrack) return null;
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#121212]/85 backdrop-blur-sm p-4 select-none">
       <div className="bg-[#ece4d0] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_#1a1a1a] p-6 max-w-4xl w-full flex flex-col gap-5 font-mono rounded-sm max-h-[95vh] overflow-y-auto">
-        
-        {/* Header */}
         <div className="flex justify-between items-center border-b-4 border-[#1a1a1a] pb-3">
           <h2 className="font-cactus font-black text-2xl text-[#8b2a1a] tracking-wider uppercase flex items-center gap-2">
             <Scissors className="w-6 h-6" />
@@ -236,6 +88,7 @@ export const VocalValidationModal: React.FC = () => {
           </h2>
           <button
             onClick={handleCancel}
+            type="button"
             className="p-1 hover:bg-[#8b2a1a] hover:text-[#fdfaf2] border-2 border-transparent hover:border-[#1a1a1a] transition-all cursor-pointer rounded-sm"
           >
             <X className="w-6 h-6" />
@@ -252,6 +105,7 @@ export const VocalValidationModal: React.FC = () => {
             <p className="text-sm font-bold text-[#8b2a1a]">Échec du décodage de l'enregistrement (flux audio vide ou format non supporté).</p>
             <button
               onClick={handleCancel}
+              type="button"
               className="px-4 py-2 bg-[#8b2a1a] text-[#fdfaf2] font-cactus font-bold text-sm uppercase rounded-sm border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#6e2114]"
             >
               Fermer

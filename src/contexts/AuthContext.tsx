@@ -1,93 +1,20 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, signInWithCustomToken } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { createContext, useContext, useState } from 'react';
+import { User, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { UserProfile, UserRole, AuthContextType, checkIsAdmin, checkHasFullPlaybackAccess } from './auth/authTypes';
+import { getInitialTestProfile } from './auth/authTestProfile';
+import { useAuthSyncEffect } from './auth/useAuthSyncEffect';
 
-export type UserRole = 'visiteur' | 'eleve' | 'membre' | 'mestre' | 'admin';
-
-export interface UserProfile {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  role: UserRole;
-  dbRole?: string | null;
-  createdAt: number;
-  isDarkMode?: boolean;
-  isLeftHanded?: boolean;
-  lateralite?: 'droitier' | 'gaucher';
-  mestreId?: string | null;
-  groupLogoUrl?: string | null;
-  maxEleves?: number;
-  mestreMessage?: string;
-  signatureUrl?: string;
-  instrument?: string;
-  customSwingOffsets?: [number, number, number, number];
-  customSwingIntensity?: number;
-  hasDancaAccess?: boolean;
-  canWriteSequenciador?: boolean;
-  canWriteDansador?: boolean;
-  canWriteOrchestrador?: boolean;
-  groupName?: string;
-  groupId?: string;
-  isSystemAdmin?: boolean;
-  isPremium?: boolean;
-}
-
-interface AuthContextType {
-  currentUser: User | null;
-  userProfile: UserProfile | null;
-  loading: boolean;
-  signInWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-  hasAccess: (requiredRole: UserRole) => boolean;
-  updateUserPreference: (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => Promise<void>;
-  updateUserProfileField: (key: string, value: any) => Promise<void>;
-  isAdmin: boolean;
-  hasFullPlaybackAccess: boolean;
-}
-
-const roleLevels: Record<UserRole, number> = {
-  visiteur: 0,
-  eleve: 1,
-  membre: 1,
-  mestre: 2,
-  admin: 3
-};
-
-export const checkIsAdmin = (profile: UserProfile | null | undefined): boolean => {
-  if (!profile) return false;
-  const actualRole = profile.dbRole || profile.role;
-  return (
-    actualRole === 'admin' ||
-    actualRole === 'super-admin' ||
-    actualRole === 'mestre' ||
-    actualRole === 'mestri' ||
-    profile.canWriteSequenciador === true ||
-    profile.isSystemAdmin === true
-  );
-};
-
-export const checkHasFullPlaybackAccess = (userProfile: UserProfile | null | undefined, isAdmin?: boolean): boolean => {
-  if (!userProfile) return false;
-  const role = (userProfile.dbRole || userProfile.role || '').toLowerCase();
-  const groupId = (userProfile.groupId || '').trim().toLowerCase();
-  return Boolean(
-    isAdmin ||
-    userProfile.isSystemAdmin ||
-    userProfile.isPremium ||
-    role === 'mestre' ||
-    role === 'mestri' ||
-    role === 'admin' ||
-    role === 'super-admin' ||
-    role === 'membre' ||
-    groupId === 'samambaia' ||
-    Boolean(userProfile.groupId) ||
-    userProfile.canWriteSequenciador
-  );
-};
+export type { UserRole, UserProfile } from './auth/authTypes';
+export { checkIsAdmin, checkHasFullPlaybackAccess } from './auth/authTypes';
 
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
@@ -104,293 +31,12 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const getInitialTestProfile = (): { user: any; profile: UserProfile } | null => {
-  try {
-    const testProfileRaw = typeof window !== 'undefined' ? localStorage.getItem('girador_test_user_profile') : null;
-    if (testProfileRaw) {
-      const testProfile = JSON.parse(testProfileRaw);
-      if (testProfile && testProfile.uid) {
-        const mockUser: any = {
-          uid: testProfile.uid,
-          email: testProfile.email || `${testProfile.uid}@samambaia.bzh`,
-          displayName: testProfile.displayName || testProfile.uid,
-        };
-        const role = testProfile.role || (testProfile.canWriteSequenciador ? 'mestre' : 'membre');
-        const profile: UserProfile = {
-          groupId: 'Samambaia',
-          groupName: 'Samambaia',
-          mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-          canWriteSequenciador: Boolean(testProfile.canWriteSequenciador),
-          ...testProfile,
-          role,
-          dbRole: testProfile.dbRole || role,
-        };
-        return { user: mockUser, profile };
-      }
-    }
-  } catch (_) {}
-  return null;
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => getInitialTestProfile()?.user || null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => getInitialTestProfile()?.profile || null);
   const [loading, setLoading] = useState(() => !getInitialTestProfile());
 
-  useEffect(() => {
-    let unsubscribeProfile: (() => void) | undefined;
-
-    // Support injection profil E2E / Test via localStorage
-    const checkTestProfile = () => {
-      const initial = getInitialTestProfile();
-      if (initial) {
-        setCurrentUser(initial.user);
-        setUserProfile(initial.profile);
-        setLoading(false);
-        return true;
-      }
-      return false;
-    };
-
-    if (typeof window !== 'undefined') {
-      (window as any).__SET_TEST_USER_PROFILE__ = (p: any) => {
-        if (p) {
-          localStorage.setItem('girador_test_user_profile', JSON.stringify(p));
-          checkTestProfile();
-        } else {
-          localStorage.removeItem('girador_test_user_profile');
-        }
-      };
-    }
-
-    if (checkTestProfile()) {
-      return () => {
-        if (unsubscribeProfile) unsubscribeProfile();
-      };
-    }
-
-    // Détection et traitement du jeton SSO universel (tolérance ssoToken et token)
-    const searchParams = new URLSearchParams(window.location.search);
-    const ssoToken = searchParams.get('ssoToken') || searchParams.get('token');
-    let isSSOPending = Boolean(ssoToken);
-
-    if (ssoToken) {
-      // Nettoyage immédiat de l'URL pour ne pas laisser traîner le jeton dans l'historique
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete('ssoToken');
-      cleanUrl.searchParams.delete('token');
-      window.history.replaceState({}, document.title, cleanUrl.toString());
-
-      let tokenUid: string | null = null;
-      try {
-        const parts = ssoToken.split('.');
-        if (parts.length === 3) {
-          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-          tokenUid = payload.uid || payload.sub || null;
-        }
-      } catch (e) {
-        // Ignorer l'erreur de décodage local
-      }
-
-      if (auth.currentUser && tokenUid && auth.currentUser.uid === tokenUid) {
-        isSSOPending = false;
-      } else {
-        setLoading(true);
-        signInWithCustomToken(auth, ssoToken)
-          .catch((err) => {
-            console.warn("[Séquenciad'Or SSO] Erreur lors de la connexion par jeton personnalisé :", err);
-            setLoading(false);
-          })
-          .finally(() => {
-            isSSOPending = false;
-          });
-      }
-    }
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (typeof window !== 'undefined' && localStorage.getItem('girador_test_user_profile')) {
-        return; // Priorité absolue au profil de test injecté
-      }
-      setCurrentUser(user);
-      
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-        unsubscribeProfile = undefined;
-      }
-
-      if (user) {
-        // Fetch or create user profile in Firestore
-        const userRef = doc(db, 'users', user.uid);
-        
-        unsubscribeProfile = onSnapshot(userRef, async (docSnap) => {
-          if (docSnap.exists()) {
-            const profile = docSnap.data() as UserProfile;
-            
-            // Check for pending invite if they are a 'visiteur'
-            const pendingInvite = sessionStorage.getItem('o-girador-invite');
-            if (pendingInvite && profile.role === 'visiteur') {
-              const mestreRef = doc(db, 'users', pendingInvite);
-              const mestreSnap = await getDoc(mestreRef);
-              if (mestreSnap.exists()) {
-                const mestreData = mestreSnap.data() as UserProfile;
-                let canJoin = true;
-                if (mestreData.maxEleves && mestreData.maxEleves > 0) {
-                  const elevesQuery = query(collection(db, 'users'), where('mestreId', '==', pendingInvite));
-                  const elevesSnapshot = await getDocs(elevesQuery);
-                  if (elevesSnapshot.size >= mestreData.maxEleves) {
-                    canJoin = false;
-                    alert(`Le Mestre ${mestreData.displayName || ''} a atteint sa limite maximale d'élèves.`);
-                  }
-                }
-                if (canJoin) {
-                  profile.role = 'eleve';
-                  profile.mestreId = pendingInvite;
-                  await updateDoc(userRef, { role: 'eleve', mestreId: pendingInvite });
-                  alert(`Vous êtes maintenant élève du Mestre ${mestreData.displayName || ''} !`);
-                }
-              }
-              sessionStorage.removeItem('o-girador-invite');
-            }
-            
-            // 1. Latéralité héritée automatiquement depuis Organizador (Zero Render Thrashing)
-            const rawData = docSnap.data();
-            const isLeftHanded = (rawData as any).lateralite === 'gaucher' || (rawData as any).isLeftHanded === true;
-            useSequencerStore.getState().setIsLeftHanded(isLeftHanded);
-            profile.lateralite = (rawData as any).lateralite || (isLeftHanded ? 'gaucher' : 'droitier');
-            profile.isLeftHanded = isLeftHanded;
-
-            // Auto-resolve Mestre for members belonging to an association/group (e.g. Samambaia)
-            const extractedGroupId = (
-              profile.groupId ||
-              (rawData as any).group ||
-              (rawData as any).associationId ||
-              (rawData as any).association ||
-              (rawData as any).groupName ||
-              ''
-            ).trim().toLowerCase();
-
-            const isOtherDistinctGroup = 
-              extractedGroupId &&
-              !extractedGroupId.includes('samambaia') &&
-              !extractedGroupId.includes('sammbia');
-
-            const isSamambaiaOrEditor = 
-              !isOtherDistinctGroup ||
-              profile.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-              extractedGroupId.includes('samambaia') || 
-              extractedGroupId.includes('sammbia') || 
-              String((rawData as any).groupName || '').toLowerCase().includes('samambaia') ||
-              rawData.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-              Boolean(profile.canWriteSequenciador || (rawData as any).canWriteSequenciador);
-
-            if (isSamambaiaOrEditor) {
-              // Injection synchrone immédiate en mémoire pour Samambaia et les adhérents
-              const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-              const targetGroupName = 'Samambaia';
-              const targetGroupId = rawData.groupId || 'Samambaia';
-              profile.mestreId = targetMestreId;
-              profile.groupName = targetGroupName;
-              profile.groupId = targetGroupId;
-              if (profile.role === 'visiteur' || !profile.role) {
-                profile.role = 'membre';
-              }
-
-              // CONSIGNES DE SÉCURITÉ 1 : Prévention stricte de boucle infinie Firestore
-              if (rawData.mestreId !== targetMestreId || rawData.groupName !== targetGroupName || !rawData.groupId) {
-                const updatePayload: Record<string, any> = { 
-                  mestreId: targetMestreId, 
-                  groupName: targetGroupName,
-                  groupId: targetGroupId
-                };
-                updateDoc(userRef, updatePayload).catch((e) => {
-                  console.warn('[AuthContext] Échec persistance profil Samambaia:', e);
-                });
-              }
-            } else if (extractedGroupId) {
-              const normalizedGroupId = extractedGroupId;
-              profile.groupId = normalizedGroupId;
-
-              // Normaliser le groupId dans Firestore si autorisé
-              if (rawData.groupId !== normalizedGroupId && checkIsAdmin(profile)) {
-                updateDoc(userRef, { groupId: normalizedGroupId }).catch(() => {});
-              }
-
-              if (rawData.mestreId) {
-                profile.mestreId = rawData.mestreId;
-              }
-            }
-
-            if ((profile.role === 'mestre' || (profile.dbRole as any) === 'mestre') && !profile.mestreId) {
-              profile.mestreId = user.uid;
-            }
-            
-            setUserProfile({ ...profile, dbRole: profile.dbRole || profile.role });
-            useNomenclatureStore.getState().syncGroupNomenclature(profile.groupId || null);
-          } else {
-            let initialRole: UserRole = 'visiteur';
-            let initialMestreId: string | null = null;
-            
-            // Check for pending invite
-            const pendingInvite = sessionStorage.getItem('o-girador-invite');
-            if (pendingInvite) {
-              const mestreRef = doc(db, 'users', pendingInvite);
-              const mestreSnap = await getDoc(mestreRef);
-              if (mestreSnap.exists()) {
-                const mestreData = mestreSnap.data() as UserProfile;
-                let canJoin = true;
-                if (mestreData.maxEleves && mestreData.maxEleves > 0) {
-                  const elevesQuery = query(collection(db, 'users'), where('mestreId', '==', pendingInvite));
-                  const elevesSnapshot = await getDocs(elevesQuery);
-                  if (elevesSnapshot.size >= mestreData.maxEleves) {
-                    canJoin = false;
-                    alert(`Le Mestre ${mestreData.displayName || ''} a atteint sa limite maximale d'élèves.`);
-                  }
-                }
-                if (canJoin) {
-                  initialRole = 'eleve';
-                  initialMestreId = pendingInvite;
-                  alert(`Bienvenue ! Vous avez été ajouté comme élève du Mestre ${mestreData.displayName || ''}.`);
-                }
-              }
-              sessionStorage.removeItem('o-girador-invite');
-            }
-
-            const newProfile: UserProfile = {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              role: initialRole === 'visiteur' ? 'membre' : initialRole,
-              mestreId: initialMestreId || 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-              groupId: 'Samambaia',
-              groupName: 'Samambaia',
-              createdAt: Date.now(),
-            };
-            await setDoc(userRef, newProfile, { merge: true });
-            
-            setUserProfile({ ...newProfile, dbRole: newProfile.dbRole || newProfile.role });
-            useNomenclatureStore.getState().syncGroupNomenclature('Samambaia');
-          }
-          setLoading(false);
-        });
-      } else {
-        setUserProfile(null);
-        useNomenclatureStore.getState().syncGroupNomenclature(null);
-        // CONSIGNES DE SÉCURITÉ 2 : Nettoyage à la déconnexion
-        useSequencerStore.getState().setIsLeftHanded(false);
-        if (!isSSOPending) {
-          setLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-      }
-    };
-  }, []);
+  useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading });
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
@@ -406,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       useNomenclatureStore.getState().syncGroupNomenclature(null);
-      // CONSIGNES DE SÉCURITÉ 2 : Nettoyage à la déconnexion
       useSequencerStore.getState().setIsLeftHanded(false);
     } catch (error) {
       console.error('Error signing out', error);
@@ -414,10 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const hasAccess = (requiredRole: UserRole): boolean => {
-    if (requiredRole === 'admin') {
-      return checkIsAdmin(userProfile);
-    }
-    return true; // TEMPORAIRE: Désactivation des autres restrictions
+    if (requiredRole === 'admin') return checkIsAdmin(userProfile);
+    return true;
   };
 
   const updateUserPreference = async (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => {
@@ -442,19 +85,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isAdmin = checkIsAdmin(userProfile);
+  const hasFullPlaybackAccess = checkHasFullPlaybackAccess(userProfile, isAdmin);
+
   return (
-    <AuthContext.Provider value={{ 
-      currentUser, 
-      userProfile, 
-      loading, 
-      signInWithGoogle, 
-      logout,
-      hasAccess,
-      updateUserPreference,
-      updateUserProfileField,
-      isAdmin: checkIsAdmin(userProfile),
-      hasFullPlaybackAccess: checkHasFullPlaybackAccess(userProfile, checkIsAdmin(userProfile)),
-    }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        userProfile,
+        loading,
+        signInWithGoogle,
+        logout,
+        hasAccess,
+        updateUserPreference,
+        updateUserProfileField,
+        isAdmin,
+        hasFullPlaybackAccess,
+      }}
+    >
       {!loading && children}
     </AuthContext.Provider>
   );
