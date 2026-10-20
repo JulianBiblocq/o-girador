@@ -3,45 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { GripHorizontal, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useAudioStore } from '../stores/useAudioStore';
-import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
-import { DragNumberBox } from './DragNumberBox';
-import { PanKnob } from './PanKnob';
-import { MixerVolumeFader } from './MixerVolumeFader';
+import { instrumentsConfig } from '../data';
 import { useAudio } from '../contexts/AudioContext';
-import { useSequencer } from '../contexts/SequencerContext';
-import { VUMeter } from './VUMeter';
-import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
-import { MixerKnob } from './MixerKnob';
-import { MixerSlantedDivider } from './MixerSlantedDivider';
-import { eqNodes } from '../audio/effectsChain';
+import { computeChannelStripStyles } from './mixer/channels/channelStripStyles';
+import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutomation';
+import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
+import { ChannelStripBody } from './mixer/channels/ChannelStripBody';
+import { BaseChannelStripProps } from './mixer/channels/channelStripTypes';
 
-interface MixerFolderBusProps {
-  trackId: number;
-  index: number;
-  isActive?: boolean;
-  busPosition?: 'first' | 'middle' | 'last' | 'none';
-  linkPosition?: 'first' | 'middle' | 'last' | 'none';
-  isDragOver?: boolean;
-  dropIndicator?: 'left' | 'right' | null;
-  activeWagonSize?: number;
-  isWagonMember?: boolean;
-  isDraggingWagon?: boolean;
-  channelOrdinal?: string;
-  midiFaderIndex?: number | null;
-  isUnderMidiControl?: boolean;
-}
+export type MixerFolderBusProps = BaseChannelStripProps;
 
 const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   trackId,
-  index,
+  channelOrdinal,
+  midiFaderIndex = null,
+  isUnderMidiControl = false,
   isActive = true,
   busPosition = 'none',
   linkPosition = 'none',
@@ -50,638 +30,112 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   activeWagonSize = 1,
   isWagonMember = false,
   isDraggingWagon = false,
-  channelOrdinal,
-  midiFaderIndex = null,
-  isUnderMidiControl = false,
 }) => {
-  const sequencer = useSequencer();
-  const audio = useAudio();
-  const { isPlaying } = audio;
-
-  const storeLang = useSequencerStore(state => state.lang);
-  const lang = sequencer?.lang || storeLang || 'pt';
+  const { isPlaying } = useAudio();
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
-  const hasSolo = tracksMeta.some(t => t.isSolo);
+  const lang = useSequencerStore(state => state.lang);
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const isEcoMode = useSequencerStore(state => state.isEcoMode);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [nameVal, setNameVal] = useState(track?.customName || 'Bus');
-  const liveMeasureRef = useRef<number>(-1);
+  const isVolActive = !!(track?.measureVols && track.measureVols.length > 0 && !track?.automationBypass?.volume);
+  const isPanActive = !!(track?.measurePans && track.measurePans.length > 0 && !track?.automationBypass?.pan);
+  const isRevActive = !!(track?.measureReverbSends && track.measureReverbSends.length > 0 && !track?.automationBypass?.reverb);
 
-  useEffect(() => {
-    if (!isActive) {
-      liveMeasureRef.current = -1;
-      return;
-    }
-
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
-      const { step, measure } = detail;
-      if (step < 0) {
-        liveMeasureRef.current = -1;
-        return;
-      }
-      liveMeasureRef.current = measure;
-    };
-    subscribeToTick(handleTick);
-    return () => {
-      unsubscribeFromTick(handleTick);
-    };
-  }, [isActive]);
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: `track-${trackId}`,
+  const { faderHandleRef, faderTextRef, travelRangeRef, panKnobRef, reverbGaugeRef, reverbTextRef } = useChannelStripAutomation({
+    track,
+    isPlaying,
+    isEcoMode,
+    totalMeasures,
+    isVolActive,
+    isPanActive,
+    isRevActive,
   });
 
-  const style: React.CSSProperties = {
-    transform: transform ? (
-      activeWagonSize > 1 && !isWagonMember
-        ? CSS.Transform.toString({
-            ...transform,
-            x: transform.x * activeWagonSize,
-          })
-        : CSS.Transform.toString(transform)
-    ) : undefined,
-    transition,
-    opacity: isWagonMember && isDraggingWagon ? 0.25 : undefined,
-    zIndex: isDragging ? 50 : 1,
-  };
-
-  useEffect(() => {
-    if (track?.customName) {
-      setNameVal(track.customName);
-    }
-  }, [track?.customName]);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `track-${trackId}` });
+  const [nameVal, setNameVal] = useState<string>(track?.customName || 'Bus');
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
 
   if (!track) return null;
+  const inst = instrumentsConfig[track.instrumentIdx] || { id: 'bus', name: 'Bus', color: '#8b2a1a' };
+  const displayName = track.customName || 'Bus';
+  const isMuted = getEffectiveMuteState(tracksMeta, trackId);
 
-  const handleRenameSubmit = () => {
-    if (nameVal.trim()) {
-      useSequencerStore.getState().setTracks(prev =>
-        prev.map(t => t.id === trackId ? { ...t, customName: nameVal.trim() } : t)
-      );
-    }
-    setIsEditing(false);
-  };
+  const { groupStyle, linkStyle, faderColor, faderTextColor, paddingTop, paddingBottom, style } = computeChannelStripStyles({
+    track,
+    tracksMeta,
+    inst,
+    busPosition,
+    linkPosition,
+    isDragOver,
+    transform,
+    transition,
+    activeWagonSize,
+    isWagonMember,
+    isDraggingWagon,
+  });
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRenameSubmit();
-    } else if (e.key === 'Escape') {
-      setNameVal(track.customName || 'Bus');
-      setIsEditing(false);
-    }
-  };
+  const childTracks = tracksMeta.filter(t => String(t.busId) === String(trackId));
+  const customDeleteMessage = childTracks.length > 0
+    ? (lang === 'fr' ? `Attention : le bus "${displayName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?` : `Atenção: o bus "${displayName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`)
+    : undefined;
 
-  const onDelete = async () => {
-    const childTracks = useSequencerStore.getState().tracks.filter(t => String(t.busId) === String(trackId));
-    const busName = track.customName || 'Bus';
-    
-    let confirmMsg: string;
-    if (childTracks.length > 0) {
-      confirmMsg = lang === 'fr' 
-        ? `Attention : le bus "${busName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?` 
-        : lang === 'pt'
-        ? `Atenção: o bus "${busName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`
-        : `Warning: the bus "${busName}" contains ${childTracks.length} track(s). Deleting it will also delete all associated tracks. Do you want to continue?`;
-    } else {
-      confirmMsg = lang === 'fr' 
-        ? `Supprimer définitivement le bus "${busName}" ?` 
-        : lang === 'pt'
-        ? `Excluir definitivamente o bus "${busName}"?`
-        : `Permanently delete the bus "${busName}"?`;
-    }
-
-    if (await sequencer.confirmAsync(confirmMsg)) {
-      useSequencerStore.getState().pushUndoState();
-      useSequencerStore.getState().setTracks(prev => {
-        return prev.filter(t => t.id !== trackId && String(t.busId) !== String(trackId));
-      });
-    }
-  };
-
-  const onVolumeChange = (val: number) => {
-    useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
-  };
-
-  const onPanChange = (val: number) => {
-    useSequencerStore.getState().handleTrackPanChange(trackId, val);
-  };
-
-  const onMuteToggle = () => {
-    useSequencerStore.getState().handleTrackMuteToggle(trackId);
-  };
-
-  const onSoloToggle = () => {
-    useSequencerStore.getState().handleTrackSoloToggle(trackId);
-  };
-
-  const onReverbChange = (val: number) => {
-    useSequencerStore.getState().setTrackFxSend(trackId, 'reverb', val);
-  };
-
-  const onDistortionChange = (val: number) => {
-    useSequencerStore.getState().setTrackFxSend(trackId, 'distortion', val);
-  };
-
-  const handleReverbAudioDrag = React.useCallback((val: number) => {
-    const sendNode = reverbSends[trackId];
-    if (sendNode) {
-      const gain = Math.max(0.00001, val / 100);
-      const targetDb = val === 0 ? -Infinity : (40 * Math.log10(gain));
-      try {
-        sendNode.gain.value = targetDb;
-      } catch (_) {}
-    }
-  }, [trackId]);
-
-  const handleDistortionAudioDrag = React.useCallback((val: number) => {
-    const sendNode = distortionSends[trackId];
-    if (sendNode) {
-      const gain = Math.max(0.00001, val / 100);
-      const targetDb = val === 0 ? -Infinity : (40 * Math.log10(gain));
-      try {
-        sendNode.gain.value = targetDb;
-      } catch (_) {}
-    }
-  }, [trackId]);
-
-  const topBusId = getTopParentBusId(track, tracksMeta) || String(trackId);
-  const busColor = getBusColor(topBusId, tracksMeta, instrumentsConfig);
-  const faderTextColor = getContrastColor(busColor);
-
-  const highlightColor = busColor || 'var(--cordel-wood)';
-  const borderWidth = isDragOver ? '5px' : '3px';
-
-  const groupStyle: React.CSSProperties = {};
-  if (isDragOver) {
-    groupStyle.backgroundColor = `color-mix(in srgb, var(--cordel-bg) 82%, ${highlightColor} 18%)`;
-    groupStyle.boxShadow = `0 0 22px ${highlightColor}77, inset 0 0 15px ${highlightColor}22`;
-  }
-
-  if (busPosition !== 'none') {
-    groupStyle.marginRight = '0px';
-    groupStyle.borderTop = `${borderWidth} solid ${highlightColor}`;
-    groupStyle.borderBottom = `${borderWidth} solid ${highlightColor}`;
-
-    if (busPosition === 'first') {
-      groupStyle.borderLeft = `${borderWidth} solid ${highlightColor}`;
-      groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    } else if (busPosition === 'middle') {
-      groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-      groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    } else if (busPosition === 'last') {
-      groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-      groupStyle.borderRight = `${borderWidth} solid ${highlightColor}`;
-      groupStyle.marginRight = '16px';
-    }
-  } else {
-    groupStyle.borderTop = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
-    groupStyle.borderBottom = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
-    groupStyle.borderLeft = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
-    groupStyle.borderRight = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
-    groupStyle.marginRight = '16px';
-  }
-
-  const linkColor = busColor;
-  const linkBorderWidth = isDragOver ? '4px' : '2.5px';
-  const linkStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '3px',
-    bottom: '3px',
-    left: '3px',
-    right: '3px',
-    pointerEvents: 'none',
-    zIndex: 2,
-    borderTop: `${linkBorderWidth} solid ${linkColor}`,
-    borderBottom: `${linkBorderWidth} solid ${linkColor}`,
-  };
-
-  if (linkPosition === 'first') {
-    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
-    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-  } else if (linkPosition === 'middle') {
-    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-  } else if (linkPosition === 'last') {
-    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
-  } else if (linkPosition === 'none' && track.isLinkFolder) {
-    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
-    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
-  }
-
-  if (isDragOver && linkPosition !== 'none') {
-    linkStyle.boxShadow = `0 0 12px ${linkColor}66`;
-  }
-
-  const borderThicknessTop = isDragOver ? 5 : 3;
-  const borderThicknessBottom = isDragOver ? 5 : 3;
-  const paddingTop = Math.max(0, 3 - borderThicknessTop);
-  const paddingBottom = Math.max(0, 3 - borderThicknessBottom);
-
-  const lowCut = track.lowCut ?? false;
-  const eq = track.eqBands ?? {
-    low: { f: 100, g: 0 },
-    mid: { f: 1000, g: 0, q: 'wide' },
-    high: { f: 8000, g: 0 }
-  };
-
-  const isEQModified = eq.low.g !== 0 || eq.low.f !== 100 ||
-                      eq.mid.g !== 0 || eq.mid.f !== 1000 ||
-                      eq.high.g !== 0 || eq.high.f !== 8000;
-
-  const handleLowCutToggle = () => {
-    useSequencerStore.getState().handleTrackLowCutToggle(trackId);
-  };
-
-  const handleEQChange = (bands: Partial<typeof eq>) => {
-    useSequencerStore.getState().handleTrackEQChange(trackId, bands);
-  };
-
-  const handleEQReset = () => {
-    if (isEQModified) {
-      useSequencerStore.getState().handleTrackEQReset(trackId);
-    }
-  };
-
-  const handleHFAudioDrag = (val: number) => {
-    const node = eqNodes[trackId];
-    if (node) {
-      try { node.high.frequency.value = val; } catch (_) {}
-    }
-  };
-  const handleHGAudioDrag = (val: number) => {
-    const node = eqNodes[trackId];
-    if (node) {
-      try { node.high.gain.value = val; } catch (_) {}
-    }
-  };
-  const handleMFAudioDrag = (val: number) => {
-    const node = eqNodes[trackId];
-    if (node) {
-      try { node.mid.frequency.value = val; } catch (_) {}
-    }
-  };
-  const handleMGAudioDrag = (val: number) => {
-    const node = eqNodes[trackId];
-    if (node) {
-      try { node.mid.gain.value = val; } catch (_) {}
-    }
-  };
-  const handleLFAudioDrag = (val: number) => {
-    const node = eqNodes[trackId];
-    if (node) {
-      try { node.low.frequency.value = val; } catch (_) {}
-    }
-  };
-  const handleLGAudioDrag = (val: number) => {
-    const node = eqNodes[trackId];
-    if (node) {
-      try { node.low.gain.value = val; } catch (_) {}
-    }
-  };
-
-    const isMuted = getEffectiveMuteState(tracksMeta, trackId);
   return (
     <div
       ref={setNodeRef}
       data-track-id={trackId}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
-        isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
-      } ${busPosition === 'none' ? 'cordel-border' : ''} ${
-        isDragOver ? 'z-20' : ''
-      }`}
+        isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
+      } ${busPosition === 'none' ? 'cordel-border' : ''}`}
       style={{
         ...style,
         ...groupStyle,
         paddingTop: `${paddingTop}px`,
         paddingBottom: `${12 + paddingBottom}px`,
-        zIndex: isDragging ? 50 : 1,
-        '--fader-thumb-bg': busColor,
-        '--fader-thumb-border': 'var(--cordel-border)',
+        zIndex: isDragging ? 50 : (isDragOver ? 20 : 1),
+        ['--fader-thumb-bg' as string]: faderColor,
+        ['--fader-thumb-border' as string]: 'var(--cordel-border)',
       } as React.CSSProperties}
     >
-      {linkPosition !== 'none' && (
-        <div style={linkStyle} className="rounded-sm" />
-      )}
-      {dropIndicator === 'left' && (
-        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
-      )}
-      {dropIndicator === 'right' && (
-        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
-      )}
+      {(linkPosition !== 'none' || !track.isBusFolder) && <div style={linkStyle} className="rounded-sm" />}
+      {dropIndicator === 'left' && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />}
+      {dropIndicator === 'right' && <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />}
 
-      {/* Niveau 6 (Tout en haut) : En-tête */}
-      <div 
-        className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between w-full"
-        style={{ zIndex: isDragging ? 60 : 10 }}
-      >
-        {/* Outils */}
-        <div className="flex justify-between items-center w-full min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div 
-              {...attributes}
-              {...listeners}
-              className="flex items-center justify-center p-0.5 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none shrink-0"
-              title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
-            >
-              <GripHorizontal size={16} />
-            </div>
+      <ChannelStripHeader
+        track={track}
+        inst={inst}
+        channelOrdinal={channelOrdinal}
+        midiFaderIndex={midiFaderIndex}
+        isUnderMidiControl={isUnderMidiControl}
+        displayName={displayName}
+        attributes={attributes}
+        listeners={listeners}
+        isEditingName={isEditingName}
+        nameVal={nameVal}
+        setNameVal={setNameVal}
+        handleRenameSubmit={() => { if (nameVal.trim()) useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, customName: nameVal.trim() } : t)); setIsEditingName(false); }}
+        setIsEditingName={setIsEditingName}
+        customDeleteMessage={customDeleteMessage}
+      />
 
-            {/* Numérotation ordonnée & Témoin Contrôleur MIDI fusionné */}
-            {channelOrdinal && (
-              <span
-                className={`font-mono text-[10px] font-bold tracking-tight select-none shrink-0 transition-colors ${
-                  isUnderMidiControl
-                    ? "bg-[#ea580c] text-[#f4ecd8] px-1.5 py-0.5 rounded shadow-xs"
-                    : "text-[var(--cordel-text)]/60 px-1 py-0.5"
-                }`}
-                title={isUnderMidiControl ? (midiFaderIndex ? `Contrôle physique actif (Fader ${midiFaderIndex})` : "Contrôle physique actif") : undefined}
-              >
-                {channelOrdinal}
-              </span>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-1 shrink-0">
-            <button 
-              onClick={onDelete} 
-              className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
-              title={lang === 'fr' ? (track.isLinkFolder ? 'Supprimer le groupe' : 'Supprimer le bus') : (track.isLinkFolder ? 'Excluir o grupo' : 'Excluir o bus')}
-            >
-              <Trash2 size={11} />
-            </button>
-          </div>
-        </div>
-
-        {/* Instrument Selector / Dropdown Trigger */}
-        <div className="relative flex items-center w-full">
-          {isEditing ? (
-            <input
-              type="text"
-              value={nameVal}
-              onChange={(e) => setNameVal(e.target.value)}
-              onBlur={handleRenameSubmit}
-              onKeyDown={handleKeyDown}
-              className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full"
-              autoFocus
-            />
-          ) : (
-            <div 
-              onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                setIsEditing(true);
-              }}
-              title={lang === 'fr' ? "Clic: plier/déplier | Double-clic: renommer" : "Clique: dobrar/desdobrar | Clique duplo: renomear"}
-              className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]"
-            >
-              <span className="font-cactus truncate">{track.isFolded ? '▼' : '▶'} {track.customName || 'Bus'}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Inner Controls Stack (Responsive / Elastic Vertical Layout) */}
-      <div className="flex-1 flex flex-col p-1.5 gap-1.5 justify-start items-center w-full min-h-0 overflow-hidden">
-        
-        {/* Section EQ */}
-        <div className="w-full flex flex-col shrink-0">
-          <div className="w-full flex flex-col gap-1 shrink px-0.5">
-            {/* Reset button row */}
-            <div className="flex justify-end w-full">
-              <button
-                onClick={handleEQReset}
-                className={`w-5 h-5 flex items-center justify-center cordel-border-sm transition-colors rounded-sm ${
-                  isEQModified 
-                    ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] hover:opacity-90' 
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/30 border-[var(--cordel-border)]/20 cursor-default opacity-55'
-                }`}
-                title={lang === 'fr' ? "Réinitialiser l'égaliseur" : "Redefinir equalizador"}
-                disabled={!isEQModified}
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73" />
-                </svg>
-              </button>
-            </div>
-
-            {/* HF / HG in diagonal */}
-            <div className="flex justify-between w-full items-start">
-              <MixerKnob 
-                label="HF" 
-                min={4000} 
-                max={16000} 
-                step={100} 
-                value={eq.high.f} 
-                defaultValue={8000}
-                unit="Hz" 
-                size={30}
-                color="#3d8b85"
-                onChange={(v) => handleEQChange({ high: { f: v, g: eq.high.g } })} 
-                onAudioDrag={handleHFAudioDrag}
-              />
-              <div className="pt-2">
-                <MixerKnob 
-                  label="HG" 
-                  min={-15} 
-                  max={15} 
-                  step={1} 
-                  value={eq.high.g} 
-                  defaultValue={0}
-                  unit="dB" 
-                  size={30}
-                  isGain={true}
-                  onChange={(v) => handleEQChange({ high: { f: eq.high.f, g: v } })} 
-                  onAudioDrag={handleHGAudioDrag}
-                />
-              </div>
-            </div>
-
-            <MixerSlantedDivider />
-
-            {/* MF / MG in diagonal, Q button under MF */}
-            <div className="flex justify-between w-full items-start">
-              <div className="flex flex-col items-center gap-1.5">
-                <MixerKnob 
-                  label="MF" 
-                  min={250} 
-                  max={4000} 
-                  step={50} 
-                  value={eq.mid.f} 
-                  defaultValue={1000}
-                  unit="Hz" 
-                  size={30}
-                  color="#d4af37"
-                  onChange={(v) => handleEQChange({ mid: { f: v, g: eq.mid.g, q: eq.mid.q } })} 
-                  onAudioDrag={handleMFAudioDrag}
-                />
-                <div className="flex flex-col items-center">
-                  <button 
-                    onClick={() => handleEQChange({ mid: { ...eq.mid, q: eq.mid.q === 'narrow' ? 'wide' : 'narrow' } })}
-                    className={`w-6 h-3.5 text-[7px] font-black cordel-border-sm flex items-center justify-center transition-colors rounded-sm ${
-                      eq.mid.q === 'narrow' ? 'bg-[#d4af37] text-black border-[#d4af37]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                    }`}
-                  >
-                    {eq.mid.q === 'narrow' ? 'N' : 'W'}
-                  </button>
-                  <span className="text-[5.5px] font-black opacity-40 uppercase tracking-wide mt-0.5">Q</span>
-                </div>
-              </div>
-              <div className="pt-2">
-                <MixerKnob 
-                  label="MG" 
-                  min={-15} 
-                  max={15} 
-                  step={1} 
-                  value={eq.mid.g} 
-                  defaultValue={0}
-                  unit="dB" 
-                  size={30}
-                  isGain={true}
-                  onChange={(v) => handleEQChange({ mid: { f: eq.mid.f, g: v, q: eq.mid.q } })} 
-                  onAudioDrag={handleMGAudioDrag}
-                />
-              </div>
-            </div>
-
-            <MixerSlantedDivider />
-
-            {/* LF / LG in diagonal */}
-            <div className="flex justify-between w-full items-start">
-              <MixerKnob 
-                label="LF" 
-                min={50} 
-                max={250} 
-                step={5} 
-                value={eq.low.f} 
-                defaultValue={100}
-                unit="Hz" 
-                size={30}
-                color="#8b2a1a"
-                onChange={(v) => handleEQChange({ low: { f: v, g: eq.low.g } })} 
-                onAudioDrag={handleLFAudioDrag}
-              />
-              <div className="pt-2">
-                <MixerKnob 
-                  label="LG" 
-                  min={-15} 
-                  max={15} 
-                  step={1} 
-                  value={eq.low.g} 
-                  defaultValue={0}
-                  unit="dB" 
-                  size={30}
-                  isGain={true}
-                  onChange={(v) => handleEQChange({ low: { f: eq.low.f, g: v } })} 
-                  onAudioDrag={handleLGAudioDrag}
-                />
-              </div>
-            </div>
-
-            <MixerSlantedDivider />
-
-            {/* Low-Cut Button Row */}
-            <div className="flex justify-between w-full items-center">
-              <button 
-                onClick={handleLowCutToggle}
-                className={`w-6 h-6 cordel-border-sm flex items-center justify-center p-0.5 transition-colors rounded-sm ${
-                  lowCut ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                }`}
-                title="Low Cut 80Hz"
-              >
-                <svg width="16" height="12" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-95 pointer-events-none">
-                  <path d="M 2 14 L 10 3 L 22 3" />
-                </svg>
-              </button>
-              <span className="text-[6.5px] font-black opacity-35 uppercase tracking-widest pr-2 select-none">80Hz</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Section FX */}
-        <div className="w-full flex flex-col gap-1.5 px-0.5 shrink-0">
-          <DragNumberBox 
-            label="Dst" 
-            value={track.fxSends?.distortion ?? 0} 
-            onChange={onDistortionChange}
-            onAudioDrag={handleDistortionAudioDrag}
-            fillColor="var(--disto-color)"
-            className="w-full text-[8px] px-1 py-0.5 shrink"
-          />
-          <DragNumberBox 
-            label="Rev" 
-            value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
-            onChange={onReverbChange}
-            onAudioDrag={handleReverbAudioDrag}
-            fillColor="var(--reverb-color)"
-            className="w-full text-[8px] px-1 py-0.5 shrink"
-          />
-        </div>
-
-        {/* Section PAN */}
-        <div className="w-full flex flex-col items-center shrink-0">
-          <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
-          <div className="flex justify-center w-full">
-            <PanKnob 
-              trackId={trackId}
-              value={track.panVal ?? track.pan ?? 0} 
-              onChange={onPanChange}
-              label="PAN"
-              showLabels={false}
-            />
-          </div>
-        </div>
-
-        {/* Section VOL */}
-        <div className="w-full flex flex-col flex-grow min-h-[60px] overflow-hidden">
-          <div className="flex-grow flex-1 min-h-[60px] h-auto flex justify-center gap-2 items-stretch w-full py-1.5 overflow-hidden">
-            <div className="flex flex-col items-center flex-1 h-full min-w-0">
-              <MixerVolumeFader
-                trackId={trackId}
-                value={track.volumeVal}
-                onChange={onVolumeChange}
-                faderColor={busColor}
-                textColor={faderTextColor}
-              />
-            </div>
-            <div className="flex flex-col items-center w-5 h-full justify-center">
-              <VUMeter
-                trackId={trackId}
-                instrumentId="bus"
-                isPlaying={isPlaying && isActive}
-                isActive={isActive}
-                orientation="vertical"
-                className="w-2 h-full bg-[var(--cordel-bg)] cordel-border-sm"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Niveau 1 (Tout en bas) : Mute & Solo - fixed size */}
-        <div className="flex gap-1.5 w-full justify-center shrink-0 border-t border-[var(--cordel-border)]/20 pt-1.5">
-          <button 
-            data-testid={`bus-mute-${trackId}`}
-            onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
-            className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
-              (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title="Mute"
-          >
-            M
-          </button>
-          <button 
-            data-testid={`bus-solo-${trackId}`}
-            onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
-            className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
-              track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title="Solo"
-          >
-            S
-          </button>
-        </div>
-      </div>
+      <ChannelStripBody
+        track={track}
+        inst={inst}
+        lang={lang}
+        isPlaying={isPlaying}
+        isActive={isActive}
+        isVolActive={isVolActive}
+        isPanActive={isPanActive}
+        isRevActive={isRevActive}
+        faderColor={faderColor}
+        faderTextColor={faderTextColor}
+        faderHandleRef={faderHandleRef}
+        faderTextRef={faderTextRef}
+        travelRangeRef={travelRangeRef}
+        panKnobRef={panKnobRef}
+        reverbGaugeRef={reverbGaugeRef}
+        reverbTextRef={reverbTextRef}
+      />
     </div>
   );
 };
