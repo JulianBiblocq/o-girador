@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { CordelMenuItem } from './CordelContextMenu';
+import { CordelMenuItem } from './cordelContextMenuTypes';
 import { CordelContextSubMenu } from './CordelContextSubMenu';
 
 interface CordelContextMenuItemProps {

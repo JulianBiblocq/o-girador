@@ -65,28 +65,28 @@ export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.mem
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2 bg-[#f4ecd8] cordel-border-sm px-2.5 py-1 shrink-0">
+    <div className="flex flex-col gap-2 w-full min-w-0 box-border">
+      <div className="flex items-center justify-between gap-2 bg-[#f4ecd8] cordel-border-sm px-2.5 py-1 shrink-0 w-full min-w-0 box-border">
         <span className="font-cactus font-bold text-xs text-[#1a1a1a] truncate">{currentPair?.mainLabel || activeTool}</span>
-        <span className="text-[10px] text-[#8b2a1a] font-mono font-bold">{strokeChain}</span>
+        <span className="text-[10px] text-[#8b2a1a] font-mono font-bold shrink-0">{strokeChain}</span>
       </div>
 
       {currentPair?.strokes && currentPair.strokes.length === 1 ? (
-        <div className="flex flex-col gap-2">{renderCol(currentPair.strokes[0], false)}</div>
+        <div className="flex flex-col gap-2 w-full min-w-0 box-border">{renderCol(currentPair.strokes[0], false)}</div>
       ) : currentPair?.strokes && currentPair.strokes.length === 2 ? (
-        <div className="flex flex-row gap-2">{renderCol(currentPair.strokes[0], false)}{renderCol(currentPair.strokes[1], true)}</div>
+        <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(currentPair.strokes[0], false)}{renderCol(currentPair.strokes[1], true)}</div>
       ) : currentPair?.strokes && currentPair.strokes.length === 3 ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-row gap-2">{renderCol(currentPair.strokes[0], false)}{renderCol(currentPair.strokes[1], true)}</div>
-          <div className="flex flex-row gap-2">{renderCol(currentPair.strokes[2], true)}</div>
+        <div className="flex flex-col gap-2 w-full min-w-0 box-border">
+          <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(currentPair.strokes[0], false)}{renderCol(currentPair.strokes[1], true)}</div>
+          <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(currentPair.strokes[2], true)}</div>
         </div>
       ) : currentPair?.strokes && currentPair.strokes.length >= 4 ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-row gap-2">{renderCol(currentPair.strokes[0], false)}{renderCol(currentPair.strokes[1], true)}</div>
-          <div className="flex flex-row gap-2">{renderCol(currentPair.strokes[2], false)}{renderCol(currentPair.strokes[3], true)}</div>
+        <div className="flex flex-col gap-2 w-full min-w-0 box-border">
+          <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(currentPair.strokes[0], false)}{renderCol(currentPair.strokes[1], true)}</div>
+          <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(currentPair.strokes[2], false)}{renderCol(currentPair.strokes[3], true)}</div>
         </div>
       ) : (
-        <div className="flex flex-row gap-2">{renderCol({ symbol: activeStrongSym, label: activeStrongSym }, false)}</div>
+        <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol({ symbol: activeStrongSym, label: activeStrongSym }, false)}</div>
       )}
     </div>
   );

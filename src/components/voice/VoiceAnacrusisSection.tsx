@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import type { Pattern } from '../../types/store.types';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
-import { VoiceStepCell } from '../InstrumentPatternGrid';
+import { VoiceStepCell } from '../instrument-editor/grid/VoiceStepCell';
 
 interface VoiceAnacrusisProps {
   pattern: Pattern;

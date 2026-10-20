@@ -37,8 +37,8 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
   const currentDecayRef = useRef<number>(stats.avgDecay);
 
   return (
-    <div className="flex-1 min-w-0 bg-[#f4ecd8] cordel-border-sm p-2 flex flex-col gap-2 shadow-sm">
-      <div className="flex items-center gap-1.5 border-b border-[#1a1a1a]/15 pb-1">
+    <div className="flex-1 min-w-0 bg-[#f4ecd8] cordel-border-sm p-2.5 flex flex-col gap-2 shadow-sm w-full box-border">
+      <div className="flex items-center gap-1.5 border-b border-[#1a1a1a]/15 pb-1 w-full min-w-0">
         <div
           onClick={() => {
             if (audioEngine) {
@@ -53,7 +53,7 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
         >
           {symbol}
         </div>
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <span className="font-cactus font-bold text-[11px] text-[#1a1a1a] truncate">{label}</span>
           <span className="text-[9px] text-[#666] font-mono leading-tight truncate">
             {isWeak ? (isFr ? 'Déclinaison' : 'Variação') : (isFr ? 'Coup Fort' : 'Toque Forte')} [{symbol}]
@@ -61,10 +61,10 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a]">
-          <span className="flex items-center gap-1 text-[9px] text-[#666]"><Volume2 size={12} className="text-green-700" />Volume :</span>
-          <span ref={volLabelRef} className="font-mono text-green-800">{stats.avgVolume}%</span>
+      <div className="flex flex-col gap-1 w-full min-w-0">
+        <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a] w-full min-w-0">
+          <span className="flex items-center gap-1 text-[9px] text-[#666] truncate"><Volume2 size={12} className="text-green-700 shrink-0" />Volume :</span>
+          <span ref={volLabelRef} className="font-mono text-green-800 shrink-0 ml-1">{stats.avgVolume}%</span>
         </div>
         <input
           type="range" min="0" max="100" defaultValue={stats.avgVolume}
@@ -83,12 +83,12 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a]">
-          <span className="flex items-center gap-1 text-[9px] text-[#666]">
-            <Clock size={12} className="text-amber-600" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
+      <div className="flex flex-col gap-1 w-full min-w-0">
+        <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a] w-full min-w-0">
+          <span className="flex items-center gap-1 text-[9px] text-[#666] truncate">
+            <Clock size={12} className="text-amber-600 shrink-0" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
           </span>
-          <span ref={decayLabelRef} className="font-mono text-amber-800">{stats.avgDecay}%</span>
+          <span ref={decayLabelRef} className="font-mono text-amber-800 shrink-0 ml-1">{stats.avgDecay}%</span>
         </div>
         <input
           type="range" min="10" max="100" defaultValue={stats.avgDecay}

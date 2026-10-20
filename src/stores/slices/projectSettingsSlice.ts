@@ -104,12 +104,8 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
       vocalTransposeSteps: nextSteps,
     });
 
-    if (noteToPreview) {
-      import('../../hooks/useAudioSync')
-        .then(({ audioEngine }) => {
-          if (audioEngine) audioEngine.triggerVoiceAttackRelease(noteToPreview, '8n');
-        })
-        .catch(() => {});
+    if (noteToPreview && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
     }
   },
   handleExtractLyrics: () => {

@@ -72,7 +72,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const { getStrokeStats, applyMacroVolumeDelta, applyMacroDecayDelta } = useStrokeInspectorStats(trackId, isVoice);
 
   return (
-    <div className={`flex flex-col gap-2 p-2.5 overflow-y-auto max-h-full ${isMobileDrawer ? 'w-full' : 'w-72 border-l border-[#1a1a1a]/20 bg-[#efe7d3]'}`}>
+    <div className={`flex flex-col gap-2.5 p-3 sm:px-4 sm:py-3 overflow-y-auto overflow-x-hidden max-h-full w-full min-w-0 box-border ${isMobileDrawer ? '' : 'bg-[#efe7d3]'}`}>
       {isMobileDrawer && (
         <div className="flex items-center justify-between pb-1 border-b border-[#1a1a1a]/20">
           <span className="font-cactus font-bold text-xs uppercase text-[#1a1a1a]">

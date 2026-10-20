@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
-import { VoiceKeyCtx } from './voiceStepClipboardAndEdit';
+import { VoiceKeyCtx } from './voiceKeyCtx';
 
 export function handleVoiceUndoAndPaste(
   e: React.KeyboardEvent<HTMLInputElement>,

@@ -8,7 +8,7 @@ import { TrackGroup } from '../../types';
 import { EngineTuning } from './engineTuning';
 import { EngineStrokePlayback } from './engineStrokePlayback';
 import { ALFAIA_INSTRUMENTS } from './engineTypes';
-import type { NotePlayerDeps } from './engineNotePlayer';
+import type { NotePlayerDeps } from './enginePlayerTypes';
 
 export class EngineExecuteStroke {
   public static execute(

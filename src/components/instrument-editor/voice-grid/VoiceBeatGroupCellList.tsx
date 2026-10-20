@@ -6,7 +6,7 @@
 import React from 'react';
 import { Pattern, StepSculptValue } from '../../../types';
 import { isVoiceStepProlongation } from '../../../utils/musicTheory';
-import { VoiceStepCell } from '../../InstrumentPatternGrid';
+import { VoiceStepCell } from '../grid/VoiceStepCell';
 
 const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100): number => {
   if (val === undefined) return fallback;

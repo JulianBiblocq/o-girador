@@ -7,27 +7,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { CordelContextMenuItem } from './CordelContextMenuItem';
+import { CordelMenuItem, CordelContextMenuProps } from './cordelContextMenuTypes';
 
-export interface CordelMenuItem {
-  id?: string;
-  label?: string;
-  icon?: React.ReactNode | string;
-  onClick?: () => void;
-  disabled?: boolean;
-  disabledReason?: string;
-  isDestructive?: boolean;
-  isSeparator?: boolean;
-  subItems?: CordelMenuItem[];
-}
-
-export interface CordelContextMenuProps {
-  x: number;
-  y: number;
-  title?: string;
-  items: CordelMenuItem[];
-  onClose: () => void;
-  minWidth?: number;
-}
+export type { CordelMenuItem, CordelContextMenuProps };
 
 export const CordelContextMenu: React.FC<CordelContextMenuProps> = ({
   x,

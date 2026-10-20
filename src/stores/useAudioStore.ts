@@ -96,27 +96,19 @@ export const useAudioStore = create<AudioState>((set) => ({
   vocalPreset: 'guide',
   setVocalPreset: (preset) => {
     set({ vocalPreset: preset });
-    try {
-      import('../audio/vocalSynthService').then(({ applyVocalPresetLive }) => {
-        applyVocalPresetLive(preset);
-      });
-    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vocal-apply-preset-live', { detail: preset }));
+    }
   },
   vocalMode: 'voice',
   setVocalMode: (mode) => {
     set({ vocalMode: mode });
-    if (mode === 'synth') {
-      try {
-        import('../audio/vocalEngineService').then(({ vocalEngineService }) => {
-          vocalEngineService.stopAllVocalPlayback();
-        });
-      } catch (_) {}
-    } else if (mode === 'voice') {
-      try {
-        import('../hooks/useAudioSync').then(({ audioEngine }) => {
-          audioEngine?.releaseVoicePitch();
-        });
-      } catch (_) {}
+    if (typeof window !== 'undefined') {
+      if (mode === 'synth') {
+        window.dispatchEvent(new CustomEvent('vocal-stop-all-playback'));
+      } else if (mode === 'voice') {
+        window.dispatchEvent(new CustomEvent('vocal-release-voice-pitch'));
+      }
     }
   },
 }));

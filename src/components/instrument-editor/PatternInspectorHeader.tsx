@@ -55,12 +55,12 @@ export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps> = Rea
     : (activePattern?.swingIntensity !== undefined ? activePattern.swingIntensity : 100);
 
   return (
-    <div className="flex flex-col gap-2.5 pb-2.5 border-b-2 border-[#1a1a1a]/20">
-      <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2.5 pb-2.5 border-b-2 border-[#1a1a1a]/20 w-full min-w-0 box-border">
+      <div className="flex flex-col gap-1 w-full min-w-0 box-border">
         <label className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]/70 select-none">
           {isFr ? 'Motif actif' : 'Padrão ativo'}
         </label>
-        <div className="flex items-center gap-1.5 w-full">
+        <div className="flex items-center gap-2 w-full min-w-0 box-border">
           <select
             value={activePattern?.id || currentPatternId}
             onChange={(e) => handlePatternChange(Number(e.target.value))}

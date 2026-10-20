@@ -4,7 +4,7 @@
  */
 
 import * as Tone from 'tone';
-import { audioEngine } from '../hooks/useAudioSync';
+import { audioEngine } from '../hooks/audio-sync/audioEngineNodes';
 import { useAudioStore } from '../stores/useAudioStore';
 import { VocalPresetId, VOCAL_PRESETS } from './vocalPresets';
 
@@ -35,9 +35,12 @@ export const applyVocalPresetLive = (presetId: VocalPresetId): void => {
  * Assure le déverrouillage et le démarrage du contexte audio Web Audio / Tone.js
  */
 export const ensureAudioContextRunning = async (): Promise<void> => {
-  if (!useAudioStore.getState().isAudioUnlocked) {
-    useAudioStore.getState().unlockAudio();
-  }
+  try {
+    const { useAudioStore } = await import('../stores/useAudioStore');
+    if (!useAudioStore.getState().isAudioUnlocked) {
+      useAudioStore.getState().unlockAudio();
+    }
+  } catch (_) {}
   try {
     if (Tone.context && Tone.context.state !== 'running') {
       await Tone.context.resume().catch(() => {});

@@ -2,8 +2,6 @@
  * O Girador - Vocal Engine Service Orchestrator
  */
 
-import { useAudioStore } from '../stores/useAudioStore';
-import { useSequencerStore } from '../stores/useSequencerStore';
 import { VocalPresetId } from './vocalPresets';
 import { applyVocalPresetLive } from './vocalSynthService';
 import { workerSetTimeout, workerClearTimeout } from './vocal/vocalWorkerTimer';
@@ -15,7 +13,7 @@ import { VocalRehydration } from './vocal/vocalRehydration';
 import { VocalOffsetScanner } from './vocal/vocalOffsetScanner';
 import { VocalSequencerPlayer } from './vocal/vocalSequencerPlayer';
 
-export { useAudioStore, useSequencerStore, workerSetTimeout, workerClearTimeout, resolveVocalOutputNode };
+export { workerSetTimeout, workerClearTimeout, resolveVocalOutputNode };
 export type { ActiveVocal };
 
 export const vocalEngineService = {

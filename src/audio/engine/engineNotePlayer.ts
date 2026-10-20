@@ -13,19 +13,10 @@ import { EngineRoundRobin } from './engineRoundRobin';
 import { EngineVoiceGuard } from './engineVoiceGuard';
 import { EngineSampleLoader } from './engineSampleLoader';
 import { PlaybackContext } from './engineStrokePlayback';
+import { NotePlayerDeps } from './enginePlayerTypes';
 import { EngineExecuteStroke } from './engineExecuteStroke';
 
-export interface NotePlayerDeps {
-  playbackCtx: PlaybackContext;
-  sampleLoader: EngineSampleLoader;
-  roundRobin: EngineRoundRobin;
-  voiceGuard: EngineVoiceGuard;
-  configMap: Map<string, InstrumentAudioConfig>;
-  strokesMaps: Map<string, Map<string, StrokeMapping>>;
-  trackLookupMap: Map<string, TrackGroup>;
-  timeSlotHitCounts: Map<number, number>;
-  getSchedulingMeasure: () => number;
-}
+export type { NotePlayerDeps };
 
 export class EngineNotePlayer {
   public static buildDeps(

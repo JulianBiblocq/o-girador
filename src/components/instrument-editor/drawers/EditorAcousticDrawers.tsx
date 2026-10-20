@@ -51,7 +51,7 @@ export const EditorAcousticDrawers: React.FC<EditorAcousticDrawersProps> = React
   return (
     <>
       {/* ─── Zone droite fixe desktop (>= 1024px) ─── */}
-      <div className="hidden lg:flex shrink-0 w-[270px] h-full flex-col overflow-hidden border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] relative z-10">
+      <div className="hidden lg:flex shrink-0 w-[340px] sm:w-[360px] h-full flex-col overflow-y-auto overflow-x-hidden border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] relative z-10 box-border">
         <StrokeInspectorPanel {...panelProps} />
       </div>
 
