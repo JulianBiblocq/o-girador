@@ -1,0 +1,98 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { Pattern, Language } from '../../../types';
+import { PatternUsageItem } from '../../../utils/editorPatternUsage';
+
+export interface PatternCardHeaderProps {
+  ptn: Pattern;
+  ptnIdx: number;
+  isSelected: boolean;
+  isVocalContext: boolean;
+  totalPatternsCount: number;
+  editingPatternId: number | null;
+  editName: string;
+  setEditingPatternId: (id: number | null) => void;
+  setEditName: (name: string) => void;
+  handleSaveName: (patternId: number) => void;
+  onSelectPattern: (patternId: number) => void;
+  onDeletePattern: (patternId: number) => void;
+  onStepsChange: (patternId: number, steps: number) => void;
+  armedPatternId: number | null;
+  toggleArmPattern: (trackId: number, patternId: number) => void;
+  trackId: number;
+  soloPatternPlayId?: number | null;
+  soloPatternVariationId?: string | null;
+  onPlaySoloPattern?: (patternId: number, variationId?: string) => void;
+  onStopSoloPattern?: () => void;
+  usage: PatternUsageItem[];
+  lang: Language;
+  isMobile: boolean;
+  attributes?: any;
+  listeners?: any;
+  badgeRef?: (el: HTMLElement | null) => void;
+  onOpenContextMenu: (ptn: Pattern, x: number, y: number) => void;
+}
+
+export interface SortablePatternCardProps {
+  ptn: Pattern;
+  ptnIdx: number;
+  isSelected: boolean;
+  isVocalContext: boolean;
+  track: any;
+  inst: any;
+  effectiveEditTrackId: number;
+  totalPatternsCount: number;
+  selectedPatternId: number;
+  setSelectedPatternId: React.Dispatch<React.SetStateAction<number>>;
+  selectedStepIdx: number | null;
+  setSelectedStepIdx: React.Dispatch<React.SetStateAction<number | null>>;
+  selectedStepIndices: number[];
+  setSelectedStepIndices: React.Dispatch<React.SetStateAction<number[]>>;
+  selectedVariationId: string | null;
+  setSelectedVariationId: React.Dispatch<React.SetStateAction<string | null>>;
+  selectedSubIndex: 0 | 1 | null;
+  setSelectedSubIndex: React.Dispatch<React.SetStateAction<0 | 1 | null>>;
+  isTupletEditMode: boolean;
+  isMultiSelectActive: boolean;
+  setIsMultiSelectActive: React.Dispatch<React.SetStateAction<boolean>>;
+  selectedStepIsPreRoll: boolean;
+  setSelectedStepIsPreRoll: React.Dispatch<React.SetStateAction<boolean>>;
+  onStepTouchStart?: any;
+  onCopyPattern?: any;
+  onPastePattern?: any;
+  canPaste?: boolean;
+  activeTool: string;
+  isAlternating: boolean;
+  isLeftHanded: boolean;
+  isTouchDevice: boolean;
+  lang: Language;
+  isMobile: boolean;
+  armedPatternId: number | null;
+  toggleArmPattern: (trackId: number, patternId: number) => void;
+  editingPatternId: number | null;
+  editName: string;
+  setEditingPatternId: (id: number | null) => void;
+  setEditName: (name: string) => void;
+  handleSaveName: (patternId: number) => void;
+  onSelectPattern: (patternId: number) => void;
+  onDeletePattern: (patternId: number) => void;
+  onStepsChange: (patternId: number, steps: number) => void;
+  soloPatternPlayId: number | null;
+  soloPatternVariationId: string | null;
+  onPlaySoloPattern?: (patternId: number, variationId?: string) => void;
+  onStopSoloPattern?: () => void;
+  onTogglePatternVariationFirstTimeOnly: any;
+  onUpdatePatternVariationProbability: any;
+  onDeletePatternVariation: any;
+  onVariationStepValueChange: any;
+  onAddPatternVariation: any;
+  getStepSwingPercent: (stepIdx: number, steps: number, beatResolutions?: any) => number;
+  usage: PatternUsageItem[];
+  patternDOMRefs: React.MutableRefObject<Map<number, HTMLElement>>;
+  badgeDOMRefs: React.MutableRefObject<Map<number, HTMLElement>>;
+  onOpenContextMenu: (ptn: Pattern, x: number, y: number) => void;
+}

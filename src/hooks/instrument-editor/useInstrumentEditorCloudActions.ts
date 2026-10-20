@@ -15,7 +15,7 @@ export interface UseInstrumentEditorCloudActionsParams {
   currentTimeSig: string;
   lang: string;
   sequencer: any;
-  genererEtUploaderCloudBounce: (docId: string, savedPattern: any, bpm: number, sig: string) => Promise<any>;
+  genererEtUploaderCloudBounce: (docId: string, savedPattern: any, bpm: number, sig: any) => Promise<any>;
   onLoadLibraryPattern?: (targetPatternId: number, libraryPattern: any) => void;
 }
 
