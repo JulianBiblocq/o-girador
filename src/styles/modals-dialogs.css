@@ -1,0 +1,100 @@
+
+body.has-wallpaper-damas::before {
+  opacity: var(--wallpaper-opacity, 0.16);
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-gravure::before {
+  opacity: var(--wallpaper-opacity, 0.16);
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
+}
+
+/* Classes pour les prévisualisations dans la modale */
+.wallpaper-mask-rosace {
+  background-color: var(--cordel-text);
+  -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+.wallpaper-mask-damas {
+  background-color: var(--cordel-text);
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+.wallpaper-damas-mask {
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg') !important;
+  mask-image: url('/textures/pattern-maracatu-damas.svg') !important;
+  -webkit-mask-repeat: repeat !important;
+  mask-repeat: repeat !important;
+  -webkit-mask-size: 120px 120px !important;
+  mask-size: 120px 120px !important;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.wallpaper-mask-gravure {
+  background-color: var(--cordel-text);
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
+}
+
+/* ==========================================================================
+   FOND EN TROMPE-L'ŒIL DANS LA TABLE DE MIXAGE, LE SÉQUENCEUR ET LA RODA
+   - Révélé dans les zones libres / vides sans pistes
+   - Zéro dégradation des performances (isolation GPU hardware)
+   - Doublement des préfixes WebKit pour Safari iOS & macOS
+   - Dynamique : suit le motif actif sélectionné (Option B / Damas par défaut)
+   ========================================================================== */
+
+.wallpaper-surface-bg,
+.wallpaper-mixer-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--wallpaper-opacity, 0.16);
+  background-color: var(--cordel-text);
+  transform: translateZ(0);
+  will-change: transform;
+  transition: opacity 0.3s ease;
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+/* Calibrage spécifique LandingPage (papier beige cordel) */
+#landing-page {
+  --cordel-text: #1a1a1a;
+  --wallpaper-opacity: 0.12;
+}
+
+#landing-page .wallpaper-surface-bg {
+  position: fixed;
+  inset: 0;
+}

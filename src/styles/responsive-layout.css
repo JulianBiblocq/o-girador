@@ -1,0 +1,114 @@
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #120e0c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2420;
+  border: 1px solid #eaddcf;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #eaddcf;
+}
+
+/* Specific wider scrollbar for the linear sequencer instrument tracks */
+#timeline-scroll-container {
+  scroll-behavior: auto !important;
+}
+
+#timeline-scroll-container::-webkit-scrollbar {
+  width: 16px;
+  height: 10px;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-track {
+  background: #181310;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-thumb {
+  background: #3e332c;
+  border: 2px solid #eaddcf;
+  border-radius: 4px;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #eaddcf;
+}
+
+/* === MOBILE & TABLET RESPONSIVE LAYOUT (portrait/medium screens) === */
+@media (max-width: 1023px) {
+  /* Main workspace becomes vertical flex */
+  #main-workspace.mobile-stack {
+    flex-direction: column !important;
+    height: auto !important;
+    flex-grow: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Mixer panel: full width, h-full, scrollable internally */
+  #left-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 100% !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    /* Order 2: after roda */
+    order: 2;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #mixer-section {
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+  
+  #tracks-mixer-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Circle sequencer: full width, fits main space */
+  #circle-sequencer-panel {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 340px !important;
+    order: 1;
+    flex-shrink: 0 !important;
+  }
+
+  /* Right sidebar: full width, h-full, scrollable internally */
+  #right-sidebar-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 100% !important;
+    user-select: none;
+    border-left: none !important;
+    border-top: none !important;
+    order: 3;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Override inner h-full divs on mobile to scroll internally */
+  #right-sidebar-panel > div {
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+
+  /* Header: allow wrapping on mobile */
+  #top-bar {
+    min-height: auto !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+}

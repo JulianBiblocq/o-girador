@@ -1,0 +1,101 @@
+.digital-fader::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--zero-pos, 50%);
+  width: 2px;
+  background-color: var(--fader-border-color, currentColor);
+  opacity: 0.2;
+  z-index: 1;
+  pointer-events: none;
+  display: var(--show-center-line, none);
+}
+
+/* Ensure child text content sits on top of absolute pseudo-elements */
+.digital-fader > span {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* Master Volume Fader Visual Thumb with Gravure border */
+.master-fader-thumb {
+  border: 2px solid var(--master-border, var(--cordel-border, #1a1a1a)) !important;
+  box-shadow: 1px 1px 0 var(--master-border, var(--cordel-border, #1a1a1a)) !important;
+  background-color: var(--master-fader-thumb, #8b2a1a) !important;
+}
+
+/* Master console strip 2px border frame & custom background */
+.cordel-master-strip {
+  border: 2px solid var(--master-border, var(--cordel-border, #1a1a1a));
+  background-color: var(--cordel-master-bg, var(--cordel-bg));
+  box-shadow: 0 4px 10px var(--cordel-shadow-color);
+  border-radius: 3px;
+}
+
+/* Eliminate 300ms click delay on mobile/tablet devices by disabling double-tap zoom */
+button,
+[role="button"],
+.cursor-pointer,
+select,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+/* Phase 1: Pattern Arming Pulse (Zero-Reflow GPU friendly: border-color and box-shadow only) */
+@keyframes cordel-arm-pulse {
+  0%, 100% {
+    border-color: #e67e22;
+    box-shadow: 0 0 0 2px #e67e22, 0 0 10px rgba(230, 126, 34, 0.4);
+  }
+  50% {
+    border-color: #d35400;
+    box-shadow: 0 0 0 2px #d35400, 0 0 20px rgba(211, 84, 0, 0.7);
+  }
+}
+
+.cordel-arm-pulse {
+  animation: cordel-arm-pulse 1.8s ease-in-out infinite !important;
+  border-color: #e67e22 !important;
+}
+
+/* Lifted mixer strips during solid block drag & drop (Zero Reflow: box-shadow, filter & z-index only) */
+.mixer-strip-lifted {
+  box-shadow: 0 20px 38px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.35) !important;
+  filter: brightness(1.05) contrast(1.02);
+  transition: none !important;
+  z-index: 50 !important;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   PAPIER PEINT TROMPE-L'ŒIL MARACATU (FILIGRANE VEILLÉ SANS SACRIFICE 60FPS)
+   - Technique: mask-image vectoriel alimenté par var(--cordel-text)
+   - Isolation GPU stricte via body::before avec position: fixed et z-index négatif
+   - Zéro dégradation des perfs audio / aiguille de la Roda
+   - Support WebKit / Safari (iOS & macOS) via double préfixe constructeur
+   ========================================================================== */
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -10;
+  opacity: 0;
+  background-color: var(--cordel-text);
+  transform: translateZ(0);
+  transition: opacity 0.3s ease;
+}
+
+body.has-wallpaper-rosace::before {
+  opacity: var(--wallpaper-opacity, 0.16);
+  -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}

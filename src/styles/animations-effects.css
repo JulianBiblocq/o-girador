@@ -1,0 +1,107 @@
+
+/* Variantes pour conteneurs sombres permanents (châssis DAW, volet gauche Roda) */
+.wallpaper-surface-dark {
+  background-color: #f4ecd8 !important;
+  opacity: 0.16;
+}
+
+body.has-wallpaper-gravure .wallpaper-surface-bg,
+body.has-wallpaper-gravure .wallpaper-mixer-bg {
+  opacity: var(--wallpaper-opacity, 0.16);
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
+}
+
+body.has-wallpaper-rosace .wallpaper-surface-bg,
+body.has-wallpaper-rosace .wallpaper-mixer-bg {
+  opacity: var(--wallpaper-opacity, 0.16);
+  -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-damas .wallpaper-surface-bg,
+body.has-wallpaper-damas .wallpaper-mixer-bg {
+  opacity: var(--wallpaper-opacity, 0.16);
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-none .wallpaper-surface-bg,
+body.has-wallpaper-none .wallpaper-mixer-bg,
+body.has-wallpaper-none .wallpaper-surface-dark {
+  opacity: 0 !important;
+}
+
+/* ==========================================================================
+   LANDING PAGE — VITRINE CORDELETTE, ESTAMPES VIVANTES & LIVRETS DE CORDEL
+   ========================================================================== */
+
+@keyframes cordelSwing {
+  0% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.2deg); }
+  100% { transform: rotate(-1.5deg); }
+}
+
+.cordel-booklet {
+  transform-origin: top center;
+  will-change: transform;
+  animation-name: cordelSwing;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.cordel-booklet:hover,
+.cordel-booklet:focus-within {
+  animation-play-state: paused;
+  transform: scale(1.02) rotate(0deg) !important;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cordel-booklet-1 { animation-duration: 4.6s; animation-delay: 0s; }
+.cordel-booklet-2 { animation-duration: 5.2s; animation-delay: -1.4s; }
+.cordel-booklet-3 { animation-duration: 4.8s; animation-delay: -0.8s; }
+.cordel-booklet-4 { animation-duration: 5.4s; animation-delay: -2.1s; }
+
+.cordel-instrument-card {
+  will-change: transform;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.cordel-instrument-card:active {
+  transform: scale(0.93) !important;
+}
+
+/* ============================================================================
+   FILTRE D'USURE LINOGRAVURE / XYLOGRAVURE (.lino-distressed)
+   Simule l'encrage artisanal, les micro-aspérités et le tampon écaillé.
+   ============================================================================ */
+.lino-distressed {
+  filter: url(#lino-filter);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-block;
+  letter-spacing: 0.08em;
+  text-shadow: 0.5px 0.5px 0px rgba(139, 42, 26, 0.2);
+}
+
+.cordel-stamp-red {
+  color: #8b2a1a;
+  border: 2px solid #8b2a1a;
+  border-radius: 2px 3px 2px 4px;
+  box-shadow: inset 0 0 0 1px rgba(139, 42, 26, 0.25), 2px 2px 0px rgba(139, 42, 26, 0.3);
+  letter-spacing: 0.18em;
+  transform: rotate(-1deg);
+}

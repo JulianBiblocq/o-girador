@@ -1,0 +1,98 @@
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
+@font-face {
+  font-family: 'Cactus';
+  src: url('/fonts/Cactus Regular.otf') format('opentype'),
+       url('../public/fonts/Cactus Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Dark mode is default */
+  --cordel-bg: #1a1a1a;
+  --cordel-text: #f4ecd8;
+  --cordel-border: #f4ecd8;
+  --cordel-wood: #8b2a1a;
+  /* --cordel-master-bg: #121212; -- Old charcoal tint */
+  --cordel-master-bg: #251c1a; /* Deeper earth-red tinted dark background (10% #8b2a1a) */
+  --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
+  --title-text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  --title-drop-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  /* Master Strip Tokens (Dark default) */
+  --master-header-bg: #0f0f0f;
+  --master-header-text: #f4ecd8;
+  --master-border: #f4ecd8;
+  --master-fader-thumb: #8b2a1a;
+  --master-comp-bg: rgba(212, 175, 55, 0.08);
+  --comp-color: #d4af37;
+  --eq-low-color: #8b2a1a;
+  --eq-mid-color: #d4af37;
+  --eq-high-color: #3d8b85;
+  --reverb-color: #2a5c8a;
+  --disto-color: #c25e1a;
+  --wallpaper-opacity: 0.16;
+  --wallpaper-mixer-opacity: 0.16;
+}
+
+/* Master Strip Custom Range Slider Styles */
+.master-fader {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.master-fader::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: #2a2a2a;
+  border-radius: 3px;
+  border: 1px solid var(--master-border);
+}
+
+.master-fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 24px;
+  background: var(--master-fader-thumb);
+  border: 1.5px solid var(--master-border);
+  border-radius: 2px;
+  margin-top: -10px;
+  box-shadow: 1px 1px 0px rgba(0,0,0,0.5);
+  cursor: ew-resize;
+}
+
+.master-fader:focus {
+  outline: none;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --cordel-bg: #f4ecd8;
+  --cordel-text: #1a1a1a;
+  --cordel-border: #1a1a1a;
+  --cordel-wood: #8b2a1a;
+  /* --cordel-master-bg: #eae1cd; -- Old antique beige */
+  --cordel-master-bg: #e7d5c1; /* Deeper earth-red tinted light background (12% #8b2a1a) */
+  --cordel-shadow-color: rgba(26, 26, 26, 0.25); /* Ombre sombre classique */
+  --title-text-shadow: none;
+  --title-drop-shadow: none;
+
+  /* Master Strip Tokens (Light mode) */
+  --master-header-bg: #1a1a1a;
+  --master-header-text: #f4ecd8;
+  --master-border: #1a1a1a;
+  --master-fader-thumb: #8b2a1a;
+  --master-comp-bg: rgba(212, 175, 55, 0.06);
+  --comp-color: #c49618;
+  --eq-low-color: #8b2a1a;
+  --eq-mid-color: #d4af37;
+  --eq-high-color: #3d8b85;
+  --reverb-color: #2a5c8a;
+  --disto-color: #c25e1a;
+  --wallpaper-opacity: 0.12;
+  --wallpaper-mixer-opacity: 0.12;
+}

@@ -1,0 +1,101 @@
+
+/* Pour les faders verticaux, on bloque le scroll vertical mais on autorise le pan horizontal (nécessaire sur Webkit vertical-lr) */
+.vertical-fader {
+  touch-action: pan-x !important;
+}
+
+/* Pour les faders normaux (horizontaux), on bloque le scroll horizontal */
+input[type="range"]:not(.vertical-fader) {
+  touch-action: pan-y !important;
+}
+
+@keyframes roda-shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  20% { transform: translate(-2px, -2px) rotate(-1deg); }
+  40% { transform: translate(-3px, 0px) rotate(1deg); }
+  60% { transform: translate(3px, 2px) rotate(0deg); }
+  80% { transform: translate(1px, -1px) rotate(1deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+.shake-active {
+  animation: roda-shake 0.3s ease-in-out;
+}
+
+/* --- ECO MODE OVERRIDES --- */
+body.eco-mode #center-afficheur {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+/* --- iOS Safari Auto-Zoom Prevention --- */
+/* 🛡️ FIX (Audit P2): Prevent iOS Safari from zooming in on input focus
+   when font-size is < 16px. Uses @supports for iOS-only targeting. */
+@supports (-webkit-touch-callout: none) {
+  /* Step grid inputs (pattern cells) — keep visual size but prevent zoom */
+  .step-boxes input[type="text"],
+  .v-card input[type="text"] {
+    font-size: 16px !important;
+    /* Scale down visually to preserve the compact layout */
+    transform: scale(0.625);
+    transform-origin: center center;
+    width: 160% !important;
+    height: 160% !important;
+    margin: -30% !important;
+  }
+
+  /* Number inputs (steps count, BPM, etc.) */
+  input[type="number"] {
+    font-size: 16px !important;
+  }
+}
+
+.will-change-transform {
+  will-change: transform, background-color, border-color;
+  transform: translateZ(0);
+}
+
+/* Styles pour la timeline d'affichage rythmique pure (ConsoleMixer) */
+.visual-timeline-grid {
+  display: grid;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--cordel-text) 3%, transparent);
+  padding: 6px;
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+  box-shadow: 2px 2px 0px var(--cordel-shadow-color);
+}
+
+.visual-timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--cordel-text) 3%, transparent);
+  padding: 6px;
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+  box-shadow: 2px 2px 0px var(--cordel-shadow-color);
+}
+
+.visual-step-led {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 14px;
+  background-color: color-mix(in srgb, var(--cordel-text) 10%, transparent);
+  border-radius: 1px;
+  transition: background-color 0.08s ease, transform 0.08s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visual-step-led.has-hit {
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+}

@@ -1,0 +1,100 @@
+.xilo-mandala:hover {
+  transform: scale(1.18);
+}
+
+.xilo-mandala:hover svg .mandala-bg,
+.xilo-mandala:hover ~ .xilo-mandala svg .mandala-bg {
+  fill: var(--cordel-border, #1a1a1a) !important;
+}
+
+.xilo-mandala:hover svg .mandala-details,
+.xilo-mandala:hover ~ .xilo-mandala svg .mandala-details {
+  stroke: var(--cordel-bg, #f4ecd8) !important;
+}
+
+/* Uncontrolled Paper-colored Textarea */
+.xilo-textarea {
+  background-color: #fcf9f2;
+  color: #1a1a1a;
+  border: 3px solid #1a1a1a;
+  border-radius: 8px 12px 6px 10px / 10px 6px 12px 8px;
+  font-family: inherit;
+  font-size: 0.825rem;
+  line-height: 1.25rem;
+  outline: none;
+  padding: 0.5rem;
+  resize: none;
+  width: 100%;
+  color-scheme: light;
+  box-shadow: inset 1px 1.5px 3px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.xilo-textarea:focus {
+  border-color: var(--color-wood-red, #8b2a1a);
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--color-wood-red, #8b2a1a);
+}
+
+/* Carved Wood submit block button */
+.xilo-submit-btn {
+  background-color: var(--cordel-border, #1a1a1a);
+  color: var(--cordel-bg, #f4ecd8);
+  border: 3px solid var(--cordel-border, #1a1a1a);
+  border-radius: 4px 6px 3px 5px / 5px 3px 6px 4px;
+  font-family: var(--font-cactus, monospace);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.65rem 1rem;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.xilo-submit-btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.85);
+}
+
+.xilo-submit-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.85);
+}
+
+/* Digital Fader (DragNumberBox with fill gauge) */
+.digital-fader {
+  position: relative;
+  background-color: transparent !important;
+  border: 2px solid var(--fader-border-color, var(--cordel-border, #1a1a1a));
+  color: var(--fader-text-color, var(--cordel-text, #1a1a1a));
+  box-shadow: 1px 1px 0 var(--fader-border-color, var(--cordel-border, #1a1a1a));
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+/* Pseudo-element for fill gauge */
+.digital-fader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--fill-left, 0%);
+  width: var(--fill-width, 0%);
+  background-color: var(--fader-fill-color, currentColor);
+  opacity: var(--fader-fill-opacity, 0.12);
+  transition: opacity 0.15s ease;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Active fill gauge state during drag */
+.digital-fader.is-dragging::before {
+  opacity: var(--fader-drag-opacity, 0.30);
+}
+
+
+/* Center vertical line for bipolar mode */

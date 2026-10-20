@@ -1,0 +1,103 @@
+
+/* Prevent decorative images from capturing touch events to avoid dragging conflicts */
+.track-mixer img,
+.vertical-track-mixer img,
+.console-mixer img,
+#top-bar img {
+  pointer-events: none !important;
+}
+
+/* Pour les faders verticaux, on bloque le scroll vertical mais on autorise le pan horizontal (nécessaire sur Webkit vertical-lr) */
+.vertical-fader {
+  touch-action: pan-x !important;
+}
+
+/* Pour les faders normaux (horizontaux), on bloque le scroll horizontal */
+input[type="range"]:not(.vertical-fader) {
+  touch-action: pan-y !important;
+}
+
+@keyframes roda-shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  20% { transform: translate(-2px, -2px) rotate(-1deg); }
+  40% { transform: translate(-3px, 0px) rotate(1deg); }
+  60% { transform: translate(3px, 2px) rotate(0deg); }
+  80% { transform: translate(1px, -1px) rotate(1deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* === PRINT STYLE FOR TABLATURE === */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+
+  #print-tablature-area, #print-tablature-area * {
+    visibility: visible;
+  }
+
+  #print-tablature-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background-color: white !important;
+    color: black !important;
+    border: none !important;
+    padding: 10px !important;
+    margin: 0 !important;
+  }
+
+  .tab-inst-name {
+    width: 70px !important;
+    max-width: 70px !important;
+    font-size: 8px !important;
+    padding-right: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .tab-system-table {
+    font-size: 8px !important;
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  .tab-barline {
+    font-size: 8px !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+    width: 6px !important;
+  }
+
+  .tab-step-cell {
+    font-size: 8px !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Disable touch scroll actions and text selection on step grids and touch selector to guarantee smooth touch gestures */
+.step-boxes,
+.step-boxes * {
+  touch-action: pan-y !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Restore user-select for text inputs so iOS Safari keyboard can focus them */
+.step-boxes input[type="text"] {
+  -webkit-user-select: auto !important;
+  user-select: auto !important;
+}

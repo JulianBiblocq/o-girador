@@ -1,0 +1,105 @@
+
+
+body {
+  font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--cordel-bg);
+  color: var(--cordel-text);
+  transition: background-color 0.3s, color 0.3s;
+  isolation: isolate;
+}
+
+#root {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@theme {
+  --font-sans: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-cactus: "Cactus", "Cinzel Decorative", Georgia, serif;
+}
+
+/* Brazilian Cordel and Cactus display visual typography (only for strict targets, others fallback to system font) */
+#header-title-text,
+#header-title-text-mobile,
+.panel-title,
+.font-cactus-display,
+.font-cactus-symbol {
+  font-family: "Cactus", "Cinzel Decorative", "Courier New", Georgia, serif !important;
+  letter-spacing: 2px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-shadow: var(--title-text-shadow);
+}
+
+.font-cactus-star {
+  font-family: "Cactus", "Cinzel Decorative", Georgia, serif !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+}
+
+#header-title-text {
+  filter: var(--title-drop-shadow);
+}
+
+.font-cactus {
+  font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom Web Audio Recorder glow pulse keyframe */
+@keyframes pulse-red-record-gpu {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-red {
+  position: relative;
+}
+.animate-pulse-red::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 10px 4px rgba(231, 76, 60, 0.7);
+  pointer-events: none;
+  animation: pulse-red-record-gpu 1.5s infinite;
+  will-change: transform, opacity;
+}
+
+/* Real-time karaoke singing highlight styles */
+.lyric-word {
+  transition: all 0.1s ease-in-out;
+  display: inline-block;
+  padding: 0 2px;
+}
+
+.lyric-word.highlight {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+  color: #ffffff !important;
+  transform: scale(1.12);
+  z-index: 10;
+  position: relative;
+}
