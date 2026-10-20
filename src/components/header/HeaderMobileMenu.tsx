@@ -1,0 +1,134 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Download } from 'lucide-react';
+import { HeaderProfileSection } from './HeaderProfileSection';
+import { HeaderProjectDropdownContent } from './HeaderProjectDropdownContent';
+import { HeaderMobileEditSection } from './HeaderMobileEditSection';
+import { HeaderMobileDisplaySection } from './HeaderMobileDisplaySection';
+import { HeaderHelpSection } from './HeaderHelpSection';
+
+interface HeaderMobileMenuProps {
+  lang: 'pt' | 'fr';
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  onLangToggle: () => void;
+  showInstallButton?: boolean;
+  onInstallClick?: () => void;
+  onAdminClick?: () => void;
+  onOpenSwingModal: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  preset: string;
+  songTitle?: string;
+  publicCloudPresets: any[];
+  privateCloudPresets: any[];
+  localPresets: string[];
+  isCloudPresetsLoading: boolean;
+  showGroupCatalogue: boolean;
+  groupLabel: string;
+  groupLogo: string;
+  defaultPresetId: string | null;
+  canSetDefaultPreset: boolean;
+  canEdit: boolean;
+  onSetDefaultPreset: (id: string | null) => void;
+  onToggleDraft: (id: string, currentDraft: boolean) => void;
+  onPresetChange: (val: string) => void;
+  onExportTablature?: () => void;
+  onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
+  onCloudSave?: () => void;
+  mobileTab?: 'roda' | 'mixer' | 'toada';
+  onMobileTabToggle?: (tab: 'roda' | 'mixer' | 'toada') => void;
+  activeRightPanel?: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
+  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais') => void;
+  onViewModeToggle: (mode: any) => void;
+  onOpenWallpaperModal?: () => void;
+}
+
+export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const closeMenu = () => setMobileMenuOpen(false);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        closeMenu();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2" ref={mobileMenuRef}>
+      <button
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        className="w-9 h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-lg hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
+      >
+        ☰
+      </button>
+
+      {mobileMenuOpen && (
+        <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] max-h-[80vh] overflow-y-auto z-[999] flex flex-col p-3 gap-4">
+          {props.showInstallButton && props.onInstallClick && (
+            <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+              <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
+                📲 PWA
+              </span>
+              <button
+                onClick={() => {
+                  props.onInstallClick?.();
+                  closeMenu();
+                }}
+                className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[#e67e22] text-[#1a1a1a] hover:opacity-90 font-bold font-cactus uppercase cordel-border-sm cursor-pointer"
+              >
+                <Download className="w-4 h-4 shrink-0" />
+                {props.lang === 'pt' ? 'Instalar App' : "Installer l'app"}
+              </button>
+            </div>
+          )}
+
+          <HeaderProfileSection
+            lang={props.lang}
+            onAdminClick={props.onAdminClick}
+            onOpenSwingModal={props.onOpenSwingModal}
+            onCloseMenu={closeMenu}
+          />
+
+          <HeaderProjectDropdownContent {...props} onCloseMenu={closeMenu} />
+
+          <HeaderMobileEditSection
+            lang={props.lang}
+            canUndo={props.canUndo}
+            canRedo={props.canRedo}
+            onUndo={props.onUndo}
+            onRedo={props.onRedo}
+            onCloseMenu={closeMenu}
+          />
+
+          <HeaderMobileDisplaySection
+            lang={props.lang}
+            isDarkMode={props.isDarkMode}
+            onToggleDarkMode={props.onToggleDarkMode}
+            onLangToggle={props.onLangToggle}
+            onCloseMenu={closeMenu}
+          />
+
+          <HeaderHelpSection
+            lang={props.lang}
+            onToggleRightPanel={props.onToggleRightPanel}
+            onMobileTabToggle={props.onMobileTabToggle}
+            onViewModeToggle={props.onViewModeToggle}
+            onOpenWallpaperModal={props.onOpenWallpaperModal}
+            onCloseMenu={closeMenu}
+          />
+        </div>
+      )}
+    </div>
+  );
+};

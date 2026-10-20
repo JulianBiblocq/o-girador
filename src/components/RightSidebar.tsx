@@ -4,25 +4,22 @@
  */
 
 import React from 'react';
-import { Language, TrackGroup } from '../types';
-import { i18n, instrumentsConfig, getMaxTicks } from '../data';
-// import { parseCordelFormatting } from '../utils/cordelFormatter';
+import { Language, PresetMetadata, CloudRhythmSignal } from '../types';
+import { i18n } from '../data';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
-import { PresetMetadata, CloudRhythmSignal } from '../types';
-import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
-import { XiloInfo, XiloScroll, XiloHand, XiloBook, XiloChat } from './XiloIcons';
 import { LyricsAuthorshipModal } from './LyricsAuthorshipModal';
 import { DescriptionModal } from './DescriptionModal';
-import { Feather } from 'lucide-react';
 import { lazyWithRetry } from '../utils/lazyWithRetry';
+import { useRightSidebarKaraoke } from './right-sidebar/useRightSidebarKaraoke';
+import { RightSidebarDropdown } from './right-sidebar/RightSidebarDropdown';
+import { RightSidebarMetadataTab } from './right-sidebar/RightSidebarMetadataTab';
+import { RightSidebarToadaTab } from './right-sidebar/RightSidebarToadaTab';
+import { RightSidebarSignalsTab } from './right-sidebar/RightSidebarSignalsTab';
 
 const ShortcutsGuide = lazyWithRetry(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })), 'ShortcutsGuide');
-const PresetManagerSection = lazyWithRetry(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })), 'PresetManagerSection');
-const CloudLibraryTab = lazyWithRetry(() => import('./right-sidebar/CloudLibraryTab').then(m => ({ default: m.CloudLibraryTab })), 'CloudLibraryTab');
 const FeedbackSection = lazyWithRetry(() => import('./right-sidebar/FeedbackSection').then(m => ({ default: m.FeedbackSection })), 'FeedbackSection');
 
 interface RightSidebarProps {
@@ -50,192 +47,19 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 }) => {
   const sequencer = useSequencer();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-  const toadaInputRef = React.useRef<HTMLInputElement>(null);
-  const nacaoInputRef = React.useRef<HTMLInputElement>(null);
-  const compositorInputRef = React.useRef<HTMLInputElement>(null);
-  const ritmoInputRef = React.useRef<HTMLInputElement>(null);
-  const youtubeInputRef = React.useRef<HTMLInputElement>(null);
-  const letrasRef = React.useRef<HTMLTextAreaElement>(null);
-  const tracks = useSequencerStore(state => {
-    if (!visible) return EMPTY_ARRAY;
-    return state.tracks;
-  });
-  const { userProfile, hasAccess } = useAuth();
+  const karaokeContainerRef = React.useRef<HTMLDivElement>(null);
+  const tracks = useSequencerStore(state => visible ? state.tracks : EMPTY_ARRAY);
+  const { userProfile } = useAuth();
   
   const [showAuthorshipModal, setShowAuthorshipModal] = React.useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = React.useState(false);
-  const karaokeContainerRef = React.useRef<HTMLDivElement>(null);
-  const activeTokensRef = React.useRef<HTMLElement[]>([]);
   const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
 
-  React.useEffect(() => {
-    if (!visible || subTab !== 'toada') {
-      activeTokensRef.current.forEach(el => {
-        el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
-        el.style.backgroundColor = 'transparent';
-        el.style.color = 'var(--cordel-text)';
-      });
-      activeTokensRef.current = [];
-      return;
-    }
-
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
-      if (useSequencerStore.getState().isEcoMode || !karaokeContainerRef.current) {
-        if (activeTokensRef.current.length > 0) {
-          activeTokensRef.current.forEach(el => {
-            el.classList.remove('scale-110');
-            el.style.backgroundColor = 'transparent';
-            el.style.color = 'var(--cordel-text)';
-            el.style.boxShadow = 'none';
-          });
-          activeTokensRef.current = [];
-        }
-        return;
-      }
-
-      const { step, maxTicks } = detail;
-      const totalMeasures = useSequencerStore.getState().totalMeasures || 1;
-      const rawMeasure = useSequencerStore.getState().currentMeasure;
-      const safeMeasure = Math.max(0, Math.min(rawMeasure, totalMeasures - 1));
-      const currentTracks = useSequencerStore.getState().tracks;
-
-      const puxTrack = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-      const coroTrack = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-
-      const puxActivePattern = puxTrack?.patterns?.find(p => p.measureAssignments?.[safeMeasure]);
-      const coroActivePattern = coroTrack?.patterns?.find(p => p.measureAssignments?.[safeMeasure]);
-
-      const puxHasNotes = Boolean(
-        puxActivePattern?.activeSteps &&
-        Object.values(puxActivePattern.activeSteps).some(v => v && v !== 0 && v !== '0')
-      );
-      const coroHasNotes = Boolean(
-        coroActivePattern?.activeSteps &&
-        Object.values(coroActivePattern.activeSteps).some(v => v && v !== 0 && v !== '0')
-      );
-
-      // Calcul du pas physique courant
-      let currentStep = -999;
-      if ((detail as any).isPreRoll) {
-        const preRollBeat = (detail as any).preRollBeat;
-        const ratio = (detail as any).ratio || (step / maxTicks);
-        const preRollStep = preRollBeat !== undefined
-          ? Math.min(15, preRollBeat * 4 + Math.floor(ratio * 4))
-          : Math.min(15, Math.floor(ratio * 16));
-        currentStep = preRollStep - 16;
-      } else if (maxTicks > 0) {
-        currentStep = Math.floor((step / maxTicks) * 16);
-      }
-
-      // Identification stricte du rôle actif sur la mesure
-      let activeRole: 'puxador' | 'coro' | 'none' = 'none';
-
-      if ((detail as any).isPreRoll) {
-        const puxPre = puxActivePattern?.preRollActiveSteps;
-        const coroPre = coroActivePattern?.preRollActiveSteps;
-        const hasPuxPre = Boolean(puxPre && Object.values(puxPre).some(v => v && v !== 0 && v !== '0'));
-        const hasCoroPre = Boolean(coroPre && Object.values(coroPre).some(v => v && v !== 0 && v !== '0'));
-        if (hasPuxPre) activeRole = 'puxador';
-        else if (hasCoroPre) activeRole = 'coro';
-      } else {
-        if (puxHasNotes && coroHasNotes) {
-          const puxHit = Boolean(puxActivePattern?.activeSteps?.[currentStep] && puxActivePattern.activeSteps[currentStep] !== 0);
-          const coroHit = Boolean(coroActivePattern?.activeSteps?.[currentStep] && coroActivePattern.activeSteps[currentStep] !== 0);
-          if (puxHit && !coroHit) activeRole = 'puxador';
-          else if (coroHit && !puxHit) activeRole = 'coro';
-          else activeRole = 'puxador';
-        } else if (puxHasNotes) {
-          activeRole = 'puxador';
-        } else if (coroHasNotes) {
-          activeRole = 'coro';
-        }
-      }
-
-      // 1. Mise à jour de l'opacité des blocs Puxador et Coro
-      const puxBlock = karaokeContainerRef.current.querySelector<HTMLElement>('[data-role-block="puxador"]');
-      const coroBlock = karaokeContainerRef.current.querySelector<HTMLElement>('[data-role-block="coro"]');
-
-      if (puxBlock) {
-        puxBlock.style.opacity = activeRole === 'puxador' ? '1' : (activeRole === 'coro' ? '0.35' : '0.6');
-      }
-      if (coroBlock) {
-        coroBlock.style.opacity = activeRole === 'coro' ? '1' : (activeRole === 'puxador' ? '0.35' : '0.6');
-      }
-
-      // 2. Éteindre impérativement tous les tokens précédents pour éviter toute rémanence
-      activeTokensRef.current.forEach(el => {
-        el.classList.remove('scale-110');
-        el.style.backgroundColor = 'transparent';
-        el.style.color = 'var(--cordel-text)';
-        el.style.boxShadow = 'none';
-      });
-      activeTokensRef.current = [];
-
-      // 3. Si aucun rôle n'est actif sur la mesure (instrumentale), aucune illumination
-      if (activeRole === 'none') {
-        return;
-      }
-
-      // 4. Illumination exclusive des tokens du rôle actif UNIQUEMENT
-      const targetPatternId = activeRole === 'puxador' ? puxActivePattern?.id : coroActivePattern?.id;
-      const roleHighlightBg = activeRole === 'puxador' ? '#c25e38' : '#1e40af';
-      const roleShadow = activeRole === 'puxador' ? '0 0 8px rgba(194, 94, 56, 0.6)' : '0 0 8px rgba(30, 64, 175, 0.6)';
-
-      const selector = `[data-karaoke-token][data-role="${activeRole}"]`;
-      const roleTokens = karaokeContainerRef.current.querySelectorAll<HTMLElement>(selector);
-
-      roleTokens.forEach(el => {
-        const patternId = Number(el.dataset.patternId);
-        const stepIdx = Number(el.dataset.stepIdx);
-
-        if (targetPatternId !== undefined && patternId !== targetPatternId) {
-          return;
-        }
-
-        if (stepIdx === currentStep) {
-          el.classList.add('scale-110');
-          el.style.backgroundColor = roleHighlightBg;
-          el.style.color = '#ffffff';
-          el.style.boxShadow = roleShadow;
-          activeTokensRef.current.push(el);
-        }
-      });
-    };
-
-    subscribeToTick(handleTick);
-    return () => {
-      unsubscribeFromTick(handleTick);
-      activeTokensRef.current.forEach(el => {
-        el.classList.remove('scale-110');
-        el.style.backgroundColor = 'transparent';
-        el.style.color = 'var(--cordel-text)';
-        el.style.boxShadow = 'none';
-      });
-      activeTokensRef.current = [];
-    };
-  }, [visible, subTab]);
+  useRightSidebarKaraoke(visible, subTab, karaokeContainerRef);
 
   const audio = useAudio();
-
-  const {
-    lang,
-    letras,
-    setLetras: onLetrasChange,
-    metadata,
-    bpm = 120,
-    timeSig,
-    handleExtractLyrics: onExtractLyrics,
-  } = sequencer;
-
-  const {
-    isPlaying = false,
-    handleTogglePlay: onTogglePlay,
-  } = audio;
-
-  const currentMeasure = useSequencerStore(state => visible ? state.currentMeasure : 0);
-  const totalMeasures = useSequencerStore(state => state.totalMeasures);
-
-  const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
+  const { lang, letras, setLetras: onLetrasChange, metadata, handleExtractLyrics: onExtractLyrics } = sequencer;
+  const { isPlaying = false } = audio;
 
   const onMetadataChange = (newMeta: PresetMetadata) => {
     sequencer.setMetadata(newMeta);
@@ -247,621 +71,60 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 
   const getCurrentDescription = React.useCallback((meta?: PresetMetadata, currentLang: Language = lang) => {
     if (!meta) return '';
-    if (currentLang === 'pt') {
-      return meta.descriptionPt || meta.description || meta.descriptionFr || '';
-    } else {
-      return meta.descriptionFr || meta.descriptionPt || meta.description || '';
-    }
+    return currentLang === 'pt' ? (meta.descriptionPt || meta.description || meta.descriptionFr || '') : (meta.descriptionFr || meta.descriptionPt || meta.description || '');
   }, [lang]);
 
   const handleSaveDescriptionFromModal = React.useCallback(({ descriptionPt, descriptionFr }: { descriptionPt: string; descriptionFr: string }) => {
     if (!metadata) return;
-    const updatedMeta: PresetMetadata = {
-      ...metadata,
-      descriptionPt,
-      descriptionFr,
-      description: descriptionPt || descriptionFr || metadata.description || '',
-    };
+    const updatedMeta: PresetMetadata = { ...metadata, descriptionPt, descriptionFr, description: descriptionPt || descriptionFr || metadata.description || '' };
     onMetadataChange(updatedMeta);
-    if (textareaRef.current) {
-      textareaRef.current.value = getCurrentDescription(updatedMeta, lang);
-    }
+    if (textareaRef.current) textareaRef.current.value = getCurrentDescription(updatedMeta, lang);
   }, [metadata, getCurrentDescription, lang]);
 
-  const [dropdownOpen, setDropdownOpen] = React.useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent | TouchEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, []);
-
-  // Synchronize uncontrolled inputs when metadata or letras change (e.g. on preset load or file import)
-  React.useEffect(() => {
-    if (metadata) {
-      if (toadaInputRef.current) toadaInputRef.current.value = metadata.toada || '';
-      if (nacaoInputRef.current) nacaoInputRef.current.value = metadata.nacao || '';
-      if (compositorInputRef.current) compositorInputRef.current.value = metadata.compositor || '';
-      if (ritmoInputRef.current) ritmoInputRef.current.value = metadata.ritmo || '';
-      if (youtubeInputRef.current) youtubeInputRef.current.value = metadata.youtubeUrl || '';
-      if (textareaRef.current) {
-        textareaRef.current.value = getCurrentDescription(metadata, lang);
-      }
-    }
-  }, [metadata, lang, getCurrentDescription]);
-
-  React.useEffect(() => {
-    if (letrasRef.current) {
-      letrasRef.current.value = letras || '';
-    }
-  }, [letras]);
-
-  const t = (key: string) => {
-    const section = i18n[lang];
-    return (section as any)[key] || key;
-  };
-
+  const t = (key: string) => ((i18n[lang] as any)[key] || key);
 
   React.useEffect(() => {
     if (activePanel) {
-      if (activePanel === 'legend') setSubTab('legendes');
-      else if (activePanel === 'letras') setSubTab('toada');
-      else if (activePanel === 'info') setSubTab('info');
-      else if (activePanel === 'sinais') setSubTab('sinais');
-      else if (activePanel === 'feedback') setSubTab('feedback');
+      const map: Record<string, typeof subTab> = { legend: 'legendes', letras: 'toada', info: 'info', sinais: 'sinais', feedback: 'feedback' };
+      if (map[activePanel]) setSubTab(map[activePanel]);
     }
   }, [activePanel]);
 
   if (isMobile && !activePanel) return null;
 
-  const [overrideOrientation, setOverrideOrientation] = React.useState<'auto' | 'portrait' | 'landscape'>('auto');
-
-  React.useEffect(() => {
-    setOverrideOrientation('auto');
-  }, [metadata.youtubeUrl]);
-
-  const isDetectedShort = Boolean(
-    metadata.youtubeUrl && (
-      metadata.youtubeUrl.includes('/shorts/') ||
-      metadata.youtubeUrl.includes('youtube.com/shorts')
-    )
-  );
-
-  const isPortrait = overrideOrientation === 'auto' ? isDetectedShort : overrideOrientation === 'portrait';
-
-  const getYouTubeEmbedUrl = (url: string) => {
-    if (!url) return '';
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
-    const videoId = match ? match[1] : null;
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
-  };
-
   return (
     <>
-      <div
-        id="right-sidebar-panel"
-        style={{ display: visible ? 'flex' : 'none' }}
-        className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]"
-      >
-        {/* Calque de fond en filigrane d'estampe Cordel */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg"
-          style={{ transform: 'translateZ(0)' }}
-        />
+      <div id="right-sidebar-panel" style={{ display: visible ? 'flex' : 'none' }} className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]">
+        <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg" style={{ transform: 'translateZ(0)' }} />
         <div className="flex flex-col p-5 h-full overflow-hidden relative z-[1]">
-          {/* Sub-tab Selector & Mobile Close Button aligned side-by-side */}
-          <div className="flex gap-2 items-center mb-4 shrink-0 mt-1">
-            <div className="flex-grow relative" ref={dropdownRef}>
-              {(() => {
-                const options = [
-                  { value: 'info', label: lang === 'fr' ? 'Informations' : 'Informações', Icon: XiloInfo, panel: 'info' as const },
-                  { value: 'toada', label: 'Toada', Icon: XiloScroll, panel: 'letras' as const },
-                  { value: 'sinais', label: lang === 'fr' ? 'Signes' : 'Sinais', Icon: XiloHand, panel: 'info' as const },
-                  { value: 'legendes', label: t('legend'), Icon: XiloBook, panel: 'legend' as const },
-                  { value: 'feedback', label: lang === 'fr' ? 'Note & Avis' : 'Nota & Opinião', Icon: XiloChat, panel: 'feedback' as const },
-                ];
-                const activeOption = options.find(o => o.value === subTab) || options[0];
+          <RightSidebarDropdown subTab={subTab} setSubTab={setSubTab} onTogglePanel={onTogglePanel} lang={lang} t={t} isMobile={isMobile} />
 
-                return (
-                  <>
-                    <button
-                      onClick={() => setDropdownOpen(!dropdownOpen)}
-                      className="w-full py-2 pl-3 pr-8 font-cactus font-bold text-[12px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none flex items-center gap-2 select-none justify-between h-[36px]"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <activeOption.Icon size={14} className="shrink-0" />
-                        <span className="truncate">{activeOption.label}</span>
-                      </div>
-                      <span className="text-[10px] shrink-0 opacity-80">▼</span>
-                    </button>
-                    
-                    {dropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-[var(--cordel-bg)] cordel-border-sm shadow-[3px_3px_0_var(--cordel-border)] z-50 flex flex-col py-1 max-h-[220px] overflow-y-auto custom-scrollbar">
-                        {options.map((opt) => (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              setSubTab(opt.value as any);
-                              onTogglePanel(opt.panel, true);
-                              setDropdownOpen(false);
-                            }}
-                            className={`flex items-center gap-2 px-3 py-2 text-[11px] font-cactus uppercase font-bold transition-colors w-full text-left cursor-pointer ${
-                              subTab === opt.value
-                                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
-                            }`}
-                          >
-                            <opt.Icon size={13} className="shrink-0" />
-                            <span className="truncate">{opt.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-            {isMobile && (
-              <button
-                onClick={() => onTogglePanel('letras')}
-                className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-3 py-2 text-sm font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors h-full flex items-center justify-center shrink-0"
-              >
-                ✖
-              </button>
-            )}
-          </div>
-
-          {/* TAB 4: Légendes */}
           {subTab === 'legendes' && (
             <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
-              <React.Suspense fallback={null}>
-                <div className="xilo-feedback-container flex flex-col gap-2">
-                  <ShortcutsGuide
-                    lang={lang}
-                    t={t}
-                  />
-                </div>
-              </React.Suspense>
-            </div>
-          )}
-{subTab === 'toada' && (
-            <div className="flex flex-col flex-grow overflow-hidden min-h-0">
-              <div className="flex items-center justify-between mb-1 shrink-0">
-                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus text-left">
-                  {lang === 'fr' ? 'Paroles de la Toada' : 'Letra da Toada'}
-                </span>
-                
-                <button 
-                  onClick={() => setShowAuthorshipModal(true)}
-                  className="flex items-center gap-1 opacity-60 hover:opacity-100 text-[var(--cordel-text)] transition-opacity"
-                  title="C'est votre texte ?"
-                >
-                  <Feather size={14} />
-                </button>
-              </div>
-              
-              <div className="xilo-feedback-container flex flex-col flex-grow overflow-hidden min-h-0 p-4 gap-2 mb-1">
-                <textarea
-                  ref={letrasRef}
-                  id="letras-textarea"
-                  placeholder={t('letrasPlaceholder')}
-                  defaultValue={letras}
-                  onBlur={(e) => {
-                    if (e.target.value !== letras) {
-                      onLetrasChange(e.target.value);
-                    }
-                  }}
-                  className="xilo-textarea h-[120px] min-h-[80px] mb-3 shrink-0"
-                />
-                
-                {onExtractLyrics && (
-                  <button
-                    onClick={onExtractLyrics}
-                    className="w-full py-1.5 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer mb-3 shrink-0 flex items-center justify-center gap-1.5"
-                    title={t('extractBtn')}
-                  >
-                    <span>{t('extractBtn')}</span>
-                  </button>
-                )}
-                
-                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left flex items-center gap-1.5">
-                  🎙️ {lang === 'fr' ? 'Letra da Toada (Ao Vivo)' : 'Letra da Toada (Ao Vivo)'}
-                </span>
-
-                {/* Karaoke / Letra Viewer Container */}
-                <div ref={karaokeContainerRef} className="flex-grow overflow-y-auto min-h-0 pr-1 custom-scrollbar">
-                {(() => {
-                  const voiceTracks = tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.type === 'voice' && !t.isMute);
-                  if (voiceTracks.length === 0) {
-                    return (
-                      <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-6 italic opacity-70">
-                        {lang === 'fr' 
-                          ? 'Ajoutez une piste de voix (non mutée) pour voir la letra.'
-                          : 'Adicione uma faixa de Voz/Coro (não mutada) para ver a letra.'}
-                      </div>
-                    );
-                  }
-
-                  type Token = { trackId: number; patternId: number; stepIdx: number; displayText: string; hasSpace: boolean; color: string; instIdx: number; role: 'puxador' | 'coro'; isBreak?: boolean };
-
-                  const extractRoleTokens = (track: TrackGroup | undefined, role: 'puxador' | 'coro'): Token[][] => {
-                    if (!track) return [];
-                    const allTokens: Token[] = [];
-
-                    track.patterns.forEach((ptn: any) => {
-                      let addedTokensForPattern = false;
-
-                      // Tokens d'anacrouse (Pre-roll : pas i - 16)
-                      if (ptn.preRollActiveSteps && ptn.preRollLyrics) {
-                        for (let i = 0; i < 16; i++) {
-                          const state = ptn.preRollActiveSteps[i];
-                          const lyric = ptn.preRollLyrics[i];
-                          if (!state || state === 0 || !lyric || lyric.trim() === '' || lyric.trim() === '-') continue;
-                          const color = role === 'puxador' ? '#c25e38' : '#1e40af';
-                          const hasSpace = lyric.endsWith(' ') || lyric.endsWith('  ');
-                          const displayText = lyric.replace(/-$/, '').trim();
-                          allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: i - 16, displayText, hasSpace, color, instIdx: track.instrumentIdx, role });
-                          addedTokensForPattern = true;
-                        }
-                      }
-
-                      for (let i = 0; i < ptn.steps; i++) {
-                        const state = ptn.activeSteps[i];
-                        const lyric = ptn.lyrics[i];
-                        if (!state || state === 0 || !lyric || lyric.trim() === '' || lyric.trim() === '-') continue;
-                        const color = role === 'puxador' ? '#c25e38' : '#1e40af';
-                        const hasSpace = lyric.endsWith(' ') || lyric.endsWith('  ');
-                        const displayText = lyric.replace(/-$/, '').trim();
-                        allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: i, displayText, hasSpace, color, instIdx: track.instrumentIdx, role });
-                        addedTokensForPattern = true;
-                      }
-
-                      if (addedTokensForPattern) {
-                        allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: -1, displayText: '', hasSpace: false, color: '', instIdx: track.instrumentIdx, role, isBreak: true });
-                      }
-                    });
-
-                    // Reconstitution des mots
-                    const words: Token[][] = [];
-                    let currentWord: Token[] = [];
-                    allTokens.forEach(tok => {
-                      if (tok.isBreak) {
-                        if (currentWord.length > 0) {
-                          words.push(currentWord);
-                          currentWord = [];
-                        }
-                        words.push([tok]);
-                        return;
-                      }
-                      currentWord.push(tok);
-                      if (tok.hasSpace) {
-                        words.push(currentWord);
-                        currentWord = [];
-                      }
-                    });
-                    if (currentWord.length > 0) words.push(currentWord);
-
-                    return words;
-                  };
-
-                  const puxTrack = voiceTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-                  const coroTrack = voiceTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-
-                  const puxWords = extractRoleTokens(puxTrack, 'puxador');
-                  const coroWords = extractRoleTokens(coroTrack, 'coro');
-
-                  if (puxWords.length === 0 && coroWords.length === 0) {
-                    return (
-                      <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-6 italic opacity-70">
-                        {lang === 'fr'
-                          ? 'Saisissez des paroles sur le Puxador ou le Coro.'
-                          : 'Digite letras no Puxador ou no Coro.'}
-                      </div>
-                    );
-                  }
-
-                  const renderWordBlock = (words: Token[][], role: 'puxador' | 'coro', label: string, badgeBg: string, borderColor: string) => {
-                    if (words.length === 0) return null;
-                    return (
-                      <div
-                        data-role-block={role}
-                        className={`transition-opacity duration-200 border-2 ${borderColor} bg-[#f4ecd8]/60 p-2.5 rounded-sm flex flex-col gap-1.5 mb-2.5 cordel-shadow-sm`}
-                      >
-                        <div className="flex items-center justify-between border-b border-black/10 pb-1">
-                          <span className={`${badgeBg} text-white text-[9px] font-cactus font-bold uppercase px-2 py-0.5 rounded-xs tracking-wider shadow-xs`}>
-                            {label}
-                          </span>
-                          <span className="text-[9px] font-cactus font-bold uppercase opacity-60">
-                            {role === 'puxador' ? (lang === 'fr' ? 'Solo' : 'Solo') : (lang === 'fr' ? 'Chœur' : 'Coro')}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-y-1.5 gap-x-2 text-sm md:text-base font-bold font-sans leading-relaxed">
-                          {words.map((word, wordIdx) => {
-                            if (word[0].isBreak) {
-                              return <div key={`break-${role}-${wordIdx}`} className="w-full h-1" />;
-                            }
-                            return (
-                              <span key={`word-${role}-${wordIdx}`} className="inline">
-                                {word.map((tok, idx) => (
-                                  <span
-                                    key={`${tok.trackId}-${tok.patternId}-${tok.stepIdx}-${idx}`}
-                                    data-karaoke-token="true"
-                                    data-role={tok.role}
-                                    data-inst-idx={tok.instIdx}
-                                    data-pattern-id={tok.patternId}
-                                    data-step-idx={tok.stepIdx}
-                                    className="transition-all duration-75 font-bold rounded-xs px-0.5 inline-block"
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      color: 'var(--cordel-text)',
-                                      marginRight: tok.hasSpace ? '5px' : '0px',
-                                    }}
-                                  >
-                                    {tok.displayText}
-                                  </span>
-                                ))}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm p-2 font-sans flex flex-col gap-1">
-                      {renderWordBlock(puxWords, 'puxador', 'PUXADOR', 'bg-[#c25e38]', 'border-[#c25e38]/30')}
-                      {renderWordBlock(coroWords, 'coro', 'CORO', 'bg-[#1e40af]', 'border-[#1e40af]/30')}
-                    </div>
-                  );
-                })()}
-              </div>
-              </div>
+              <React.Suspense fallback={null}><div className="xilo-feedback-container flex flex-col gap-2"><ShortcutsGuide lang={lang} t={t} /></div></React.Suspense>
             </div>
           )}
 
-          {/* Tab 2: Informations */}
+          {subTab === 'toada' && (
+            <RightSidebarToadaTab lang={lang} t={t} letras={letras} onLetrasChange={onLetrasChange} onExtractLyrics={onExtractLyrics} onOpenAuthorshipModal={() => setShowAuthorshipModal(true)} tracks={tracks} karaokeContainerRef={karaokeContainerRef} />
+          )}
+
           {subTab === 'info' && (
-            <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
-              {metadata && onMetadataChange ? (
-                <div className="xilo-feedback-container flex flex-col gap-2">
-                  <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1">
-                    {t('metaInfo')}
-                  </span>
-                  <input
-                    ref={toadaInputRef}
-                    type="text"
-                    placeholder={t('metaToada')}
-                    defaultValue={metadata.toada}
-                    onBlur={(e) => {
-                      if (e.target.value !== metadata.toada) {
-                        onMetadataChange({ ...metadata, toada: e.target.value });
-                      }
-                    }}
-                    className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
-                  />
-                  <input
-                    ref={nacaoInputRef}
-                    type="text"
-                    placeholder={t('metaNacao')}
-                    defaultValue={metadata.nacao}
-                    onBlur={(e) => {
-                      if (e.target.value !== metadata.nacao) {
-                        onMetadataChange({ ...metadata, nacao: e.target.value });
-                      }
-                    }}
-                    className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
-                  />
-                  <input
-                    ref={compositorInputRef}
-                    type="text"
-                    placeholder={t('metaCompositor')}
-                    defaultValue={metadata.compositor}
-                    onBlur={(e) => {
-                      if (e.target.value !== metadata.compositor) {
-                        onMetadataChange({ ...metadata, compositor: e.target.value });
-                      }
-                    }}
-                    className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
-                  />
-                  <input
-                    ref={ritmoInputRef}
-                    type="text"
-                    placeholder={t('metaRitmo')}
-                    defaultValue={metadata.ritmo}
-                    onBlur={(e) => {
-                      if (e.target.value !== metadata.ritmo) {
-                        onMetadataChange({ ...metadata, ritmo: e.target.value });
-                      }
-                    }}
-                    className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
-                  />
-                  <input
-                    ref={youtubeInputRef}
-                    type="text"
-                    placeholder={lang === 'pt' ? 'Link do YouTube' : 'Lien YouTube'}
-                    defaultValue={metadata.youtubeUrl || ''}
-                    onBlur={(e) => {
-                      if (e.target.value !== (metadata.youtubeUrl || '')) {
-                        onMetadataChange({ ...metadata, youtubeUrl: e.target.value });
-                      }
-                    }}
-                    className="bg-transparent border-b border-[var(--cordel-border)]/30 text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
-                  />
-                  {metadata.youtubeUrl && getYouTubeEmbedUrl(metadata.youtubeUrl) && (
-                    <div className="mt-2.5 flex flex-col items-center w-full">
-                      <div className="w-full flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase font-cactus opacity-75 flex items-center gap-1">
-                          📹 {lang === 'fr' 
-                            ? (isPortrait ? 'Format smartphone (9:16)' : 'Format paysage (16:9)') 
-                            : (isPortrait ? 'Formato celular (9:16)' : 'Formato paisagem (16:9)')}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setOverrideOrientation(isPortrait ? 'landscape' : 'portrait')}
-                          className="px-2 py-0.5 text-[10px] font-cactus font-bold uppercase cordel-border-sm bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                          title={isPortrait 
-                            ? (lang === 'fr' ? '🖥️ Format paysage (16:9)' : '🖥️ Formato paisagem (16:9)')
-                            : (lang === 'fr' ? '📱 Format smartphone (9:16)' : '📱 Formato smartphone (9:16)')
-                          }
-                        >
-                          {isPortrait ? '🖥️ 16:9' : '📱 9:16'}
-                        </button>
-                      </div>
-
-                      <div className={`overflow-hidden transition-all duration-200 ${
-                        isPortrait
-                          ? 'aspect-[9/16] max-h-[460px] w-auto mx-auto rounded-none border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)]'
-                          : 'aspect-video w-full rounded-none border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)]'
-                      }`}>
-                        <iframe 
-                          width="100%" 
-                          height="100%" 
-                          src={getYouTubeEmbedUrl(metadata.youtubeUrl)} 
-                          title="YouTube Video"
-                          frameBorder="0" 
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                          allowFullScreen
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {/* Story / Description Header & Read More Button */}
-                  <div className="flex items-center justify-between mt-3 mb-1">
-                    <span className="text-[11px] font-bold text-[var(--cordel-text)] uppercase font-cactus tracking-wide flex items-center gap-1">
-                      📜 {lang === 'fr' ? 'Histoire & Contexte' : 'História & Contexto'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsDescriptionModalOpen(true)}
-                      className="cordel-border-sm bg-[#8b2a1a] hover:bg-[#1a1a1a] text-[#f4ecd8] px-2.5 py-1 text-[11px] font-cactus font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#1a1a1a]"
-                      title={lang === 'fr' ? "Ouvrir l'histoire en entier (Pop-up)" : 'Abrir história completa (Pop-up)'}
-                    >
-                      📖 {lang === 'fr' ? 'Lire plus' : 'Ler mais'}
-                    </button>
-                  </div>
-
-                  <textarea
-                    ref={textareaRef}
-                    placeholder={lang === 'pt' ? 'Descrição / História do ritmo...' : 'Description / Histoire du rythme...'}
-                    defaultValue={getCurrentDescription(metadata, lang)}
-                    onBlur={(e) => {
-                      const val = e.target.value;
-                      if (lang === 'pt') {
-                        if (val !== (metadata.descriptionPt || metadata.description || '')) {
-                          onMetadataChange({
-                            ...metadata,
-                            descriptionPt: val,
-                            description: val,
-                          });
-                        }
-                      } else {
-                        if (val !== (metadata.descriptionFr || '')) {
-                          onMetadataChange({
-                            ...metadata,
-                            descriptionFr: val,
-                          });
-                        }
-                      }
-                    }}
-                    rows={3}
-                    className="xilo-textarea max-h-32 overflow-y-auto custom-scrollbar resize-none"
-                    style={{ minHeight: '64px' }}
-                  />
-                </div>
-              ) : (
-                <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-10 italic opacity-70">
-                  {lang === 'fr' 
-                    ? 'Aucune métadonnée disponible pour ce rythme.' 
-                    : 'Nenhuma informação disponível para este ritmo.'}
-                </div>
-              )}
-            </div>
+            metadata ? <RightSidebarMetadataTab metadata={metadata} onMetadataChange={onMetadataChange} lang={lang} t={t} textareaRef={textareaRef} getCurrentDescription={getCurrentDescription} onOpenDescriptionModal={() => setIsDescriptionModalOpen(true)} /> : <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-10 italic opacity-70">{lang === 'fr' ? 'Aucune métadonnée disponible pour ce rythme.' : 'Nenhuma informação disponível para este ritmo.'}</div>
           )}
 
-          {/* Tab: Sinais */}
           {subTab === 'sinais' && (
-            <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0 flex flex-col gap-2">
-              <div className="xilo-feedback-container flex flex-col gap-2">
-                <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
-                  🥁 {lang === 'fr' ? 'Signes du rythme' : 'Sinais do ritmo'}
-                </span>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[8px] text-[var(--cordel-text)] opacity-60 leading-tight">
-                    {lang === 'fr'
-                      ? 'Ces images s\'affichent en transparence dans la Roda et peuvent être assignées à des mesures dans la Timeline.'
-                      : 'Estas imagens aparecem em transparência na Roda e podem ser atribuídas a compassos na Timeline.'}
-                  </span>
-                  {onToggleHideGlobalSignals && (
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none mt-1">
-                      <input 
-                        type="checkbox" 
-                        checked={hideGlobalSignals || false} 
-                        onChange={onToggleHideGlobalSignals}
-                        className="w-3 h-3 cursor-pointer"
-                      />
-                      <span className="text-[10px] text-[var(--cordel-text)] font-bold">
-                        {lang === 'fr' ? '🙈 Masquer les signaux officiels globaux' : '🙈 Ocultar sinais oficiais globais'}
-                      </span>
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              <React.Suspense fallback={null}>
-                {metadata && (
-                  <PresetManagerSection
-                    metadata={metadata}
-                    onMetadataChange={onMetadataChange!}
-                    lang={lang}
-                    userProfile={userProfile}
-                  />
-                )}
-              </React.Suspense>
-
-              <React.Suspense fallback={null}>
-                <CloudLibraryTab
-                  mestreSignals={mestreSignals || []}
-                  refreshMestreSignals={refreshMestreSignals}
-                  userProfile={userProfile}
-                  lang={lang}
-                />
-              </React.Suspense>
-            </div>
+            <RightSidebarSignalsTab metadata={metadata} onMetadataChange={onMetadataChange} lang={lang} userProfile={userProfile} mestreSignals={mestreSignals} refreshMestreSignals={refreshMestreSignals} hideGlobalSignals={hideGlobalSignals} onToggleHideGlobalSignals={onToggleHideGlobalSignals} />
           )}
 
-          {subTab === 'feedback' && (
-            <React.Suspense fallback={null}>
-              <FeedbackSection />
-            </React.Suspense>
-          )}
-
+          {subTab === 'feedback' && <React.Suspense fallback={null}><FeedbackSection /></React.Suspense>}
         </div>
       </div>
 
       {metadata && (
-        <DescriptionModal
-          isOpen={isDescriptionModalOpen}
-          onClose={() => setIsDescriptionModalOpen(false)}
-          metadata={metadata}
-          onSaveDescription={handleSaveDescriptionFromModal}
-          lang={lang}
-          isPlaying={isPlaying}
-        />
+        <DescriptionModal isOpen={isDescriptionModalOpen} onClose={() => setIsDescriptionModalOpen(false)} metadata={metadata} onSaveDescription={handleSaveDescriptionFromModal} lang={lang} isPlaying={isPlaying} />
       )}
-
-      {showAuthorshipModal && (
-        <LyricsAuthorshipModal onClose={() => setShowAuthorshipModal(false)} />
-      )}
+      {showAuthorshipModal && <LyricsAuthorshipModal onClose={() => setShowAuthorshipModal(false)} />}
     </>
   );
 };
