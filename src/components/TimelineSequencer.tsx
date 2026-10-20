@@ -3,26 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus, getVisibleTimelineTrackIds } from '../stores/useSequencerStore';
-import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
-import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
-
-function safeGetTone() {
-  try { return getTone(); } catch { return null; }
-}
-import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal, CloudRhythmSignal, SongMarker } from '../types';
-import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText, getVisualStrokeSymbol } from '../data';
-import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { useShallow } from 'zustand/react/shallow';
+import { useSequencerStore, getVisibleTimelineTrackIds } from '../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
+import { SongSection, CloudRhythmSignal } from '../types';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import { TimelinePlayhead } from './TimelinePlayhead';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { StepEditorPopup } from './StepEditorPopup';
-import { useTimelineEditStore } from '../stores/useTimelineEditStore';
 import { useSequencer } from '../contexts/SequencerContext';
-
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useAudio } from '../contexts/AudioContext';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
@@ -30,17 +20,23 @@ import { useAuth } from '../contexts/AuthContext';
 import { TimelineMinimap } from './timeline/TimelineMinimap';
 import { SongSectionModal } from './timeline/SongSectionModal';
 import { SectionCollisionModal } from './timeline/SectionCollisionModal';
-import { checkSectionStretchCollision, executeSectionStretch } from '../utils/timeline/sectionStretchResolver';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
-import { hasContentInRange } from '../utils/timelineCollision';
-import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 import { TimelineContextMenu } from './TimelineContextMenu';
-import { XiloChisel, XiloMagnet } from './XiloIcons';
 import { AutomationTrack } from './AutomationTrack';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { TimelinePatternPickerPopover } from './TimelinePatternPickerPopover';
 import { useTimelineMultiSelection } from '../hooks/timeline/useTimelineMultiSelection';
-import { computeTimelinePositions, getSectionBounds, findMeasureIndexAtX } from '../utils/timeline/timelineMeasureWidths';
+import { computeTimelinePositions } from '../utils/timeline/timelineMeasureWidths';
+
+import { useTimelineViewport } from '../hooks/timeline/useTimelineViewport';
+import { useTimelinePinchPan } from '../hooks/timeline/useTimelinePinchPan';
+import { useTimelineScrubbing } from '../hooks/timeline/useTimelineScrubbing';
+import { useTimelineSectionInteractions } from '../hooks/timeline/useTimelineSectionInteractions';
+import { useTimelineSectionStretch } from '../hooks/timeline/useTimelineSectionStretch';
+import { useTimelineMarkerInteractions } from '../hooks/timeline/useTimelineMarkerInteractions';
+import { TimelineMarkerRulerRow } from './timeline/TimelineMarkerRulerRow';
+import { TimelineSectionsRow } from './timeline/TimelineSectionsRow';
+import { TimelineRulerRow } from './timeline/TimelineRulerRow';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -62,14 +58,6 @@ interface TimelineSequencerProps {
   ) => void;
 }
 
-const HEADER_W = 180;
-
-
-function getDisplayVal(val: string | number) {
-  if (val === 0 || val === '0' || !val) return '';
-  return String(val);
-}
-
 export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   isMobile,
   measureWidth,
@@ -83,34 +71,21 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 }) => {
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
-  const [insertMeasuresPrompt, setInsertMeasuresPrompt] = React.useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
-  const [insertAmountStr, setInsertAmountStr] = React.useState("1");
+  const [insertMeasuresPrompt, setInsertMeasuresPrompt] = useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
+  const [insertAmountStr, setInsertAmountStr] = useState("1");
   const { isPlaying, seekToMeasure, handleTimelineNavigate, handleStop } = useAudio();
-  const isPlayingRef = React.useRef(isPlaying);
-  isPlayingRef.current = isPlaying;
 
-  // État du modal d'arbitrage de conflit d'étirement de section
-  const [stretchConflict, setStretchConflict] = React.useState<{
-    isOpen: boolean;
-    section: SongSection | null;
-    targetRange: { start: number; end: number } | null;
-  }>({
-    isOpen: false,
-    section: null,
-    targetRange: null,
-  });
-
-  // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
-  React.useEffect(() => {
+  // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage
+  useEffect(() => {
     useSequencerStore.getState().setTracks(prev =>
       prev.map(t => t.isLinkFolder ? { ...t, isSequencerFolded: true } : t)
     );
   }, []);
 
-  // Raccourcis universels DAW & Timeline (Navigation, Transport, Duplication Ctrl+D)
+  // Raccourcis universels DAW & Timeline
   useTimelineShortcuts();
 
-  // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
+  // Sélecteurs atomiques Zustand
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const timeSig = useSequencerStore(state => state.timeSig);
   const measureTimeSigs = useSequencerStore(useShallow(state => state.measureTimeSigs));
@@ -130,17 +105,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const {
     lang,
     metadata,
-    letras,
-    handleTrackMuteToggle: onMuteToggle,
-    handleTrackSoloToggle: onSoloToggle,
-    handleTimelinePatternAssign: onPatternAssignForMeasure,
-    handleTimelinePatternVariationToggle: onPatternVariationToggleForMeasure,
     handleMeasureTimeSigChange: onMeasureTimeSigChange,
     handleMeasureBpmChange: onMeasureBpmChange,
     handleMeasureTransitionChange: onMeasureTransitionChange,
     handleMeasureVolChange: onMeasureVolChange,
     handleMeasureVolTransitionChange: onMeasureVolTransitionChange,
-    handleTotalMeasuresChange: onTotalMeasuresChange,
     handleCreateSongSection: onCreateSection,
     handleUpdateSongSection: onUpdateSection,
     handleUpdateSectionRepeat: onUpdateSectionRepeat,
@@ -152,12 +121,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handlePasteSongSection: onPasteSection,
     handleSetLoopStart: onSetLoopStart,
     handleSetLoopEnd: onSetLoopEnd,
-    handleClearLoop: onClearLoop,
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
   } = sequencer;
-  
-  const duplicateSectionBlock = useSequencerStore(state => state.duplicateSectionBlock);
+
   const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
   const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
   const isMultiSelectMode = useSequencerStore(state => state.isMultiSelectMode);
@@ -165,36 +132,29 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const selectedTimelineCellsCount = useSequencerStore(state => state.selectedTimelineCells.length);
   const clearTimelineSelection = useSequencerStore(state => state.clearTimelineSelection);
   const clearAutomationSelection = useSequencerStore(state => state.clearAutomationSelection);
-  const selectedAutomationType = useSequencerStore(state => state.selectedAutomationType);
-  const selectedAutomationTrackId = useSequencerStore(state => state.selectedAutomationTrackId);
-  const selectedAutomationRange = useSequencerStore(state => state.selectedAutomationRange);
-  const selectAutomationMeasure = useSequencerStore(state => state.selectAutomationMeasure);
   const trackIds = useSequencerStore(useShallow(state => getVisibleTimelineTrackIds(state)));
 
   const localRhythmSignals = metadata?.rhythmSignals || [];
-  const rhythmSignals = [
+  const rhythmSignals = useMemo(() => [
     ...mestreSignals.map(s => ({ id: s.id, name: s.name, image: s.imageUrl, isCloud: true })),
     ...localRhythmSignals.map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))
-  ];
+  ], [mestreSignals, localRhythmSignals]);
 
-  const onMeasureSignalChange = (mIdx: number, sigId: string | null) => {
+  const onMeasureSignalChange = useCallback((mIdx: number, sigId: string | null) => {
     sequencer.setMeasureSignals((prev: (string | null)[]) => {
       const arr = [...prev];
       while (arr.length <= mIdx) arr.push(null);
       arr[mIdx] = sigId;
       return arr;
     });
-  };
+  }, [sequencer]);
 
   const [expandedAutomationTrackIds, setExpandedAutomationTrackIds] = useState<Set<number>>(() => new Set());
   const toggleAutomationTrack = useCallback((trackId: number) => {
     setExpandedAutomationTrackIds(prev => {
       const next = new Set(prev);
-      if (next.has(trackId)) {
-        next.delete(trackId);
-      } else {
-        next.add(trackId);
-      }
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
       return next;
     });
   }, []);
@@ -213,439 +173,20 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const MEASURE_W = measureWidth;
   const isMacro = MEASURE_W <= 240;
   const isMinZoom = MEASURE_W <= 120;
-  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const gridRef = React.useRef<HTMLDivElement>(null);
 
-  React.useLayoutEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.style.transform = '';
-    }
-  }, [MEASURE_W]);
-
-  const handleZoom = React.useCallback((targetWidth: number) => {
-    if (MEASURE_W === targetWidth) return;
-    
-    if (isPlaying && gridRef.current) {
-      const ratio = targetWidth / MEASURE_W;
-      gridRef.current.style.transform = `scaleX(${ratio})`;
-      setTimeout(() => {
-        React.startTransition(() => {
-          onMeasureWidthChange(targetWidth);
-        });
-      }, 10);
-    } else {
-      onMeasureWidthChange(targetWidth);
-    }
-  }, [MEASURE_W, isPlaying, onMeasureWidthChange]);
-
-  // --- Horizontal measures virtualization ---
-  // Si totalMeasures <= 48 : AUCUNE VIRTUALISATION.
-  // Toutes les mesures restent montées -> zéro re-render et zéro unmount/mount au scroll (60 FPS constants)
-  const [visibleRange, setVisibleRange] = React.useState(() => {
-    if (totalMeasures <= 48) {
-      return { start: 0, end: Math.max(0, totalMeasures - 1) };
-    }
-    const initialWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    const initialVisible = Math.ceil((initialWidth - HEADER_W) / MEASURE_W);
-    return { start: 0, end: Math.min(totalMeasures - 1, initialVisible + 8) };
-  });
-
-  const isRangeScheduledRef = useRef(false);
-  const viewportCacheRef = useRef({
-    width: typeof window !== 'undefined' ? window.innerWidth - HEADER_W : 1200,
-    lastScrollLeft: 0,
-  });
-
-  const updateVisibleRange = React.useCallback((immediate = false) => {
-    // Si totalMeasures <= 48 : forcer visibleRange à couvrir l'ensemble du morceau
-    if (totalMeasures <= 48) {
-      setVisibleRange(prev => {
-        if (prev.start === 0 && prev.end === totalMeasures - 1) return prev;
-        return { start: 0, end: Math.max(0, totalMeasures - 1) };
-      });
-      return;
-    }
-
-    const computeRange = () => {
-      const scrollLeft = viewportCacheRef.current.lastScrollLeft;
-      const viewportWidth = viewportCacheRef.current.width;
-      const currentMeasureW = measureWidthRef.current;
-
-      const buffer = 8; // Buffer généreux de 8 mesures pour anticiper sans détruire
-      let start = Math.max(0, Math.floor(scrollLeft / currentMeasureW) - buffer);
-      const end = Math.min(
-        totalMeasures - 1,
-        Math.ceil((scrollLeft + viewportWidth) / currentMeasureW) + buffer
-      );
-
-      if (start > end) {
-        start = Math.max(0, end - buffer);
-      }
-
-      React.startTransition(() => {
-        setVisibleRange(prev => {
-          if (prev.start === start && prev.end === end) return prev;
-          return { start, end };
-        });
-      });
-    };
-
-    if (immediate) {
-      computeRange();
-    } else {
-      if (isRangeScheduledRef.current) return;
-      isRangeScheduledRef.current = true;
-      requestAnimationFrame(() => {
-        isRangeScheduledRef.current = false;
-        computeRange();
-      });
-    }
-  }, [totalMeasures]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
-    viewportCacheRef.current.width = el.clientWidth - HEADER_W;
-
-    const handleScroll = () => {
-      viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
-      // 🛡️ ZERO RENDER THRASHING (Vigilance 3) :
-      // Interdiction stricte de déclencher updateVisibleRange ou tout setState au scroll pendant la lecture
-      if (!isPlayingRef.current && totalMeasures > 48) {
-        updateVisibleRange(false);
-      }
-    };
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    updateVisibleRange(true);
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (entries[0]) {
-        viewportCacheRef.current.width = entries[0].contentRect.width - HEADER_W;
-      }
-      updateVisibleRange(true);
-    });
-    resizeObserver.observe(el);
-
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      resizeObserver.disconnect();
-    };
-  }, [updateVisibleRange, scrollRef.current, isActive, totalMeasures, HEADER_W]);
-
-  useEffect(() => {
-    updateVisibleRange(true);
-  }, [measureWidth, totalMeasures, updateVisibleRange]);
-
-  // 🛡️ Gestion de la virtualisation en lecture / arrêt :
-  // Pendant la lecture, monter l'ensemble des mesures si totalMeasures > 48 pour garantir zéro unmount/mount au scroll
-  // À l'arrêt, restaurer immédiatement la virtualisation propre
-  useEffect(() => {
-    if (isPlaying) {
-      if (totalMeasures > 48) {
-        setVisibleRange({ start: 0, end: Math.max(0, totalMeasures - 1) });
-      }
-    } else {
-      updateVisibleRange(true);
-    }
-  }, [isPlaying, totalMeasures, updateVisibleRange]);
-
-  // 🛡️ FIX (Audit): Centralized AbortController for all drag/drop events
-  const dragAbortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (dragAbortControllerRef.current) {
-        dragAbortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const measureWidthRef = useRef(measureWidth);
-  const pendingTargetWidthRef = useRef<number | null>(null);
-  const initialPinchDist = useRef<number | null>(null);
-  const initialMeasureWidth = useRef<number>(0);
 
-  useEffect(() => {
-    if (pendingTargetWidthRef.current !== null) {
-      if (measureWidth === pendingTargetWidthRef.current) {
-        pendingTargetWidthRef.current = null;
-      }
-      return;
-    }
-    measureWidthRef.current = measureWidth;
-  }, [measureWidth]);
+  const [toolMode] = useState<'cursor' | 'hand'>('cursor');
+  const [isSpacePressed] = useState<boolean>(false);
+  const [snapMode, setSnapMode] = useState<'measure' | 'beat' | 'none'>('measure');
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+  const [sectionModalOpen, setSectionModalOpen] = useState<boolean>(false);
+  const [editingSection, setEditingSection] = useState<SongSection | null>(null);
+  const [signalDropdownOpen, setSignalDropdownOpen] = useState<number | null>(null);
 
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        initialPinchDist.current = dist;
-        initialMeasureWidth.current = measureWidthRef.current;
-        e.preventDefault();
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && initialPinchDist.current !== null) {
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        if (dist > 0) {
-          const factor = dist / initialPinchDist.current;
-          let targetW = Math.round(initialMeasureWidth.current * factor);
-          targetW = Math.max(120, Math.min(960, targetW));
-          onMeasureWidthChange(targetW);
-        }
-        e.preventDefault();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) {
-        initialPinchDist.current = null;
-      }
-    };
-
-    el.addEventListener('touchstart', handleTouchStart, { passive: false });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd, { passive: false });
-    el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
-      el.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [onMeasureWidthChange]);
-
-  // Cache O(1) pour stocker les références DOM sans provoquer de re-rendu
-  const sequencerCache = useRef({
-    lastMeasure: null as number | null,
-    stepsCount: 16,
-    stepElementsMap: new Map<number, HTMLElement[]>(),
-    activeElements: [] as HTMLElement[]
-  });
-
-  // high-frequency DOM manipulation for playback highlighting (Zero Render Thrashing)
-  useEffect(() => {
-    if (!isActive) {
-      sequencerCache.current.activeElements.forEach(el => {
-        el.classList.remove('live-playhead-highlight');
-      });
-      sequencerCache.current.activeElements = [];
-      return;
-    }
-
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
-      
-      const cache = sequencerCache.current;
-
-      const isEco = useSequencerStore.getState().isEcoMode || (window as any).oGiradorVisualEcoMode;
-      if (isEco) return;
-
-      if (step < 0) {
-        cache.lastMeasure = null;
-        cache.stepElementsMap.clear();
-        cache.activeElements.forEach((el) => {
-          el.classList.remove('live-playhead-highlight');
-        });
-        cache.activeElements = [];
-        return;
-      }
-
-      // 1. MISE EN CACHE (Exécutée UNIQUEMENT lors d'un changement de mesure)
-      if (measure !== cache.lastMeasure) {
-        cache.lastMeasure = measure;
-        cache.stepElementsMap.clear();
-        cache.stepsCount = 16;
-
-        if (containerRef.current) {
-          const cells = containerRef.current.querySelectorAll<HTMLElement>(
-            `.timeline-step[data-measure="${measure}"]`
-          );
-
-          cells.forEach((el) => {
-            const stepAttr = el.getAttribute('data-step');
-            const stepsAttr = el.getAttribute('data-steps');
-            
-            if (stepAttr !== null) {
-              const stepIdx = parseInt(stepAttr, 10);
-              if (!cache.stepElementsMap.has(stepIdx)) {
-                cache.stepElementsMap.set(stepIdx, []);
-              }
-              cache.stepElementsMap.get(stepIdx)!.push(el);
-            }
-            if (stepsAttr !== null) {
-              cache.stepsCount = parseInt(stepsAttr, 10);
-            }
-          });
-        }
-      }
-
-      // 2. NETTOYAGE CIBLÉ DE L'ANCIENNE FRAME (0 requête DOM synchrone)
-      cache.activeElements.forEach((el) => {
-        el.classList.remove('live-playhead-highlight');
-      });
-      cache.activeElements = []; 
-
-      // 3. APPLICATION DU NOUVEAU SURLIGNAGE VIA CACHE O(1)
-      const activeStepIdx = Math.floor(ratio * cache.stepsCount);
-      const elementsToHighlight = cache.stepElementsMap.get(activeStepIdx);
-      if (elementsToHighlight) {
-        elementsToHighlight.forEach((el) => {
-          el.classList.add('live-playhead-highlight');
-          cache.activeElements.push(el); // Sauvegarde pour nettoyage au tick suivant
-        });
-      }
-    };
-
-    subscribeToTick(handleTick);
-
-    return () => {
-      unsubscribeFromTick(handleTick);
-      // Nettoyage de sécurité au démontage
-      sequencerCache.current.activeElements.forEach((el) => {
-        el.classList.remove('live-playhead-highlight');
-      });
-      sequencerCache.current.activeElements = [];
-      sequencerCache.current.lastMeasure = null;
-      sequencerCache.current.stepElementsMap.clear();
-    };
-  }, [isActive]);
-
-  // Navigation & Snapping States
-  const [toolMode] = React.useState<'cursor' | 'hand'>('cursor');
-  const [isSpacePressed, setIsSpacePressed] = React.useState<boolean>(false);
-  const [snapMode, setSnapMode] = React.useState<'measure' | 'beat' | 'none'>('measure');
-  const [snapGuideX, setSnapGuideX] = React.useState<number | null>(null);
-
-  const isPanningActive = toolMode === 'hand' || isSpacePressed;
-  
-  // Refs for panning state
-  const isPanningDragging = React.useRef<boolean>(false);
-  const panPointerId = React.useRef<number | null>(null);
-  const panStartX = React.useRef<number>(0);
-  const panStartY = React.useRef<number>(0);
-  const panStartScrollLeft = React.useRef<number>(0);
-  const panStartScrollTop = React.useRef<number>(0);
-
-
-
-  // Song Section modals state
-  const [sectionModalOpen, setSectionModalOpen] = React.useState<boolean>(false);
-  const [editingSection, setEditingSection] = React.useState<SongSection | null>(null);
-  
-  // Marker modal state
-  const [markerModalOpen, setMarkerModalOpen] = React.useState<boolean>(false);
-  const [editingMarker, setEditingMarker] = React.useState<SongMarker | null>(null);
-  const [defaultMarkerMeasure, setDefaultMarkerMeasure] = React.useState<number>(1);
-
-  const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
-  const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
-  const [activeRepeatDropdownSectionId, setActiveRepeatDropdownSectionId] = useState<string | null>(null);
-  const [snapDropdownOpen, setSnapDropdownOpen] = useState<boolean>(false);
-  const snapDropdownRef = useRef<HTMLDivElement>(null);
-
-  // States for Click & Drag section creation (Proposal 2)
-  const [isDraggingRange, setIsDraggingRange] = React.useState<boolean>(false);
-  const [dragStartMeasure, setDragStartMeasure] = React.useState<number | null>(null);
-  const [dragCurrentMeasure, setDragCurrentMeasure] = React.useState<number | null>(null);
-  const [quickSectionRange, setQuickSectionRange] = React.useState<{ start: number; end: number } | null>(null);
-  const [quickSectionName, setQuickSectionName] = React.useState<string>('');
-  const [quickSectionColor, setQuickSectionColor] = React.useState<string>('#f19066');
-  const [quickSectionLevel, setQuickSectionLevel] = React.useState<number>(0);
-
-  // Global pointerup listener to finalize dragging
-  React.useEffect(() => {
-    const handleGlobalPointerUp = () => {
-      if (isDraggingRange && dragStartMeasure !== null && dragCurrentMeasure !== null) {
-        const start = Math.min(dragStartMeasure, dragCurrentMeasure);
-        const end = Math.max(dragStartMeasure, dragCurrentMeasure);
-        
-        setQuickSectionRange({ start, end });
-        setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
-        setQuickSectionColor('#f19066');
-        setQuickSectionLevel(0);
-      }
-      setIsDraggingRange(false);
-      setDragStartMeasure(null);
-      setDragCurrentMeasure(null);
-    };
-
-    window.addEventListener('pointerup', handleGlobalPointerUp);
-    return () => {
-      window.removeEventListener('pointerup', handleGlobalPointerUp);
-    };
-  }, [isDraggingRange, dragStartMeasure, dragCurrentMeasure, lang, songSections.length]);
-
-  const handleEmptySlotPointerDown = (e: React.PointerEvent, mIdx: number) => {
-    if (e.button !== 0) return; // Clic gauche seulement
-    if (useSequencerStore.getState().copiedSection) {
-      e.stopPropagation();
-      onPasteSection(mIdx);
-      return;
-    }
-    setIsDraggingRange(true);
-    setDragStartMeasure(mIdx);
-    setDragCurrentMeasure(mIdx);
-    setQuickSectionRange(null); // ferme la popover existante
-  };
-
-  const handleEmptySlotPointerEnter = (mIdx: number) => {
-    if (isDraggingRange && dragStartMeasure !== null) {
-      setDragCurrentMeasure(mIdx);
-    }
-  };
-
-  const handlePlusClick = (mIdx: number) => {
-    if (useSequencerStore.getState().copiedSection) {
-      onPasteSection(mIdx);
-      return;
-    }
-    const maxLimit = Math.max(64, totalMeasures);
-    const start = mIdx;
-    const end = Math.min(maxLimit - 1, mIdx + 3);
-    setQuickSectionRange({ start, end });
-    setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
-    setQuickSectionColor('#f19066');
-    setQuickSectionLevel(0);
-  };
-
-  const handleQuickSectionCreate = () => {
-    if (!quickSectionRange) return;
-    const name = quickSectionName.trim() || (lang === 'fr' ? 'Sans titre' : 'Sem título');
-    onCreateSection(
-      name,
-      quickSectionRange.start,
-      quickSectionRange.end,
-      quickSectionColor,
-      1, // default repeatCount
-      quickSectionLevel
-    );
-    setQuickSectionRange(null);
-  };
-
-  useEffect(() => {
-    const handleGlobalClick = () => {
-      setActiveRepeatDropdownSectionId(null);
-      setSnapDropdownOpen(false);
-    };
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, []);
-
+  // Mesures dépliées & étiquettes de mesures
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
 
   const measureLabelsMap = useMemo(() => {
@@ -667,21 +208,133 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     return map;
   }, [expanded, totalMeasures, lang]);
 
-  // Tablature state and logic removed (lifted to App.tsx)
+  // Positions proportionnelles
+  const { widths: measureWidths, leftPositions: measureLeftPositions, totalContentW } = useMemo(() => {
+    return computeTimelinePositions(totalMeasures, MEASURE_W, measureTimeSigs, timeSig);
+  }, [totalMeasures, MEASURE_W, measureTimeSigs, timeSig]);
 
-  const isScrubbing = useRef(false);
-  const pendingScrollLeft = useRef<number | null>(null);
-  const propsRef = useRef({ totalMeasures, measureTimeSigs });
-  
-  React.useLayoutEffect(() => {
-    if (pendingScrollLeft.current !== null && scrollRef.current) {
-      scrollRef.current.scrollLeft = Math.max(0, pendingScrollLeft.current);
-      pendingScrollLeft.current = null;
-    }
-  }, [measureWidth]);
+  // 1. Hook Viewport (Virtualisation intelligente)
+  const { visibleRange } = useTimelineViewport({
+    totalMeasures,
+    measureWidth: MEASURE_W,
+    headerWidth: HEADER_W,
+    scrollRef,
+    isPlaying,
+    isActive,
+  });
 
-  useEffect(() => {
-    propsRef.current = { totalMeasures, measureTimeSigs };
+  // 2. Hook Pinch & Pan (Gestes & Zoom DAW)
+  const {
+    pendingScrollLeft,
+    handleZoom,
+    isPanningActive,
+    handleViewportPointerDown,
+    handleViewportPointerMove,
+    handleViewportPointerUp,
+  } = useTimelinePinchPan({
+    containerRef,
+    scrollRef,
+    gridRef,
+    measureWidth: MEASURE_W,
+    headerWidth: HEADER_W,
+    totalMeasures,
+    isPlaying,
+    onMeasureWidthChange,
+    toolMode,
+    isSpacePressed,
+    isMultiSelectMode,
+    clearTimelineSelection,
+    clearAutomationSelection,
+  });
+
+  // 3. Hook Scrubbing (Règle temporelle & transport)
+  const {
+    handleRulerPointerDown,
+    handleRulerPointerMove,
+    handleRulerPointerUp,
+  } = useTimelineScrubbing({
+    scrollRef,
+    headerWidth: HEADER_W,
+    measureWidth: MEASURE_W,
+    measureWidths,
+    measureLeftPositions,
+    totalMeasures,
+    expanded,
+    isPlaying,
+    seekToMeasure,
+    handleTimelineNavigate,
+  });
+
+  // 4. Hook Section Interactions (Création au drag, déplacement)
+  const {
+    isDraggingRange,
+    dragStartMeasure,
+    dragCurrentMeasure,
+    quickSectionRange,
+    setQuickSectionRange,
+    quickSectionName,
+    setQuickSectionName,
+    quickSectionColor,
+    setQuickSectionColor,
+    quickSectionLevel,
+    setQuickSectionLevel,
+    snapGuideX,
+    setSnapGuideX,
+    handleEmptySlotPointerDown,
+    handleEmptySlotPointerEnter,
+    handlePlusClick,
+    handleQuickSectionCreate,
+    handleSectionBlockPointerDown,
+  } = useTimelineSectionInteractions({
+    totalMeasures,
+    measureWidth: MEASURE_W,
+    songSections,
+    snapMode,
+    headerWidth: HEADER_W,
+    lang,
+    copiedSection,
+    onPasteSection,
+    onCreateSection,
+    onUpdateSection,
+    toolMode,
+    isSpacePressed,
+  });
+
+  // 5. Hook Section Stretch (Étirement et arbitrage de conflit)
+  const {
+    stretchConflict,
+    handleResizePointerDown,
+    handleConfirmStretchInsert,
+    handleConfirmStretchOverwrite,
+    handleCancelStretchConflict,
+  } = useTimelineSectionStretch({
+    measureWidth: MEASURE_W,
+    measureWidths,
+    measureLeftPositions,
+    isPlaying,
+    handleStop,
+  });
+
+  // 6. Hook Marker Interactions (Création, édition & drag repères)
+  const {
+    markerModalOpen,
+    setMarkerModalOpen,
+    editingMarker,
+    setEditingMarker,
+    defaultMarkerMeasure,
+    handleMarkerRulerDblClick,
+    handleMarkerPointerDown,
+  } = useTimelineMarkerInteractions({
+    totalMeasures,
+    measureWidth: MEASURE_W,
+    measureWidths,
+    measureLeftPositions,
+    headerWidth: HEADER_W,
+    snapMode,
+    setSnapGuideX,
+    onUpdateMarker,
+    toolMode,
+    isSpacePressed,
   });
 
   // Gestion unifiée de la multi-sélection, raccourcis timeline et frappes sur cellules
@@ -690,625 +343,92 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     onTrackStepValueChange: sequencer.handleTrackStepValueChange,
   });
 
-  const lastScrubbedMeasureRef = React.useRef<number>(-1);
+  // High-frequency DOM manipulation for playback highlighting (Zero Render Thrashing)
+  const sequencerCache = useRef({
+    lastMeasure: null as number | null,
+    stepsCount: 16,
+    stepElementsMap: new Map<number, HTMLElement[]>(),
+    activeElements: [] as HTMLElement[],
+  });
 
-  const handleRulerSeek = (clientX: number) => {
-    if (!scrollRef.current) return;
-    const rect = scrollRef.current.getBoundingClientRect();
-    const relativeX = clientX - rect.left - HEADER_W + scrollRef.current.scrollLeft;
-    const { totalMeasures: tMeasures } = propsRef.current;
-    
-    let targetMeasure = 0;
-    if (relativeX < 0) {
-      targetMeasure = 0;
-    } else {
-      targetMeasure = findMeasureIndexAtX(relativeX, measureLeftPositions, measureWidths);
-    }
-    const clampedMeasure = Math.max(0, Math.min(targetMeasure, tMeasures - 1));
-
-    // 🛡️ Garde-fou sur le scrubbing en lecture (Consigne 2) :
-    // Ne déclencher seekToMeasure que si clampedMeasure !== lastScrubbedMeasureRef.current
-    if (clampedMeasure === lastScrubbedMeasureRef.current) return;
-    lastScrubbedMeasureRef.current = clampedMeasure;
-
-    // Trouver la première itération correspondante dans expanded si applicable
-    const firstMatchIdx = expanded.findIndex(item => item.baseMeasure === clampedMeasure);
-    const targetIteration = firstMatchIdx !== -1 ? expanded[firstMatchIdx].iteration : 1;
-    
-    if (firstMatchIdx !== -1) {
-      useSequencerStore.getState().setCurrentExpandedMeasureIdx(firstMatchIdx);
+  useEffect(() => {
+    if (!isActive) {
+      sequencerCache.current.activeElements.forEach(el => {
+        el.classList.remove('live-playhead-highlight');
+      });
+      sequencerCache.current.activeElements = [];
+      return;
     }
 
-    if (!isPlaying) {
-      useSequencerStore.getState().setCurrentMeasure(clampedMeasure);
-      const Tone = safeGetTone();
-      if (Tone) {
-        try {
-          Tone.Transport.position = `${clampedMeasure}:0:0`;
-        } catch (_) {}
-      }
-      const playheadEl = document.getElementById('timeline-playhead-line');
-      if (playheadEl) {
-        playheadEl.style.transition = 'none';
-        playheadEl.style.display = 'block';
-        const mLeft = measureLeftPositions[clampedMeasure] ?? (clampedMeasure * MEASURE_W);
-        playheadEl.style.transform = `translate3d(${HEADER_W + mLeft}px, 0, 0)`;
-      }
-    }
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
+      const cache = sequencerCache.current;
+      const isEco = useSequencerStore.getState().isEcoMode || (window as any).oGiradorVisualEcoMode;
+      if (isEco) return;
 
-    if (seekToMeasure) {
-      seekToMeasure(clampedMeasure, 0);
-    } else if (handleTimelineNavigate) {
-      handleTimelineNavigate(clampedMeasure, 0, 16);
-    }
-
-    window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { 
-      detail: { 
-        mIdx: clampedMeasure, 
-        sIdx: 0,
-        iteration: targetIteration
-      } 
-    }));
-  };
-
-  const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (['INPUT', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
-    if (target.closest('button, select, input, .ruler-detailed')) return;
-    
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (!scrollRef.current) return;
-    const rect = scrollRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    if (clickX < HEADER_W) return; // En-tête gauche figé
-
-    // Capture de pointeur pour scrubbing fluide sans décrochage
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch (_) {}
-
-    isScrubbing.current = true;
-    lastScrubbedMeasureRef.current = -1; // Réinitialiser pour forcer la prise en compte du clic
-    handleRulerSeek(e.clientX);
-    e.preventDefault();
-  };
-
-  const handleRulerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isScrubbing.current) return;
-    handleRulerSeek(e.clientX);
-  };
-
-  const handleRulerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isScrubbing.current) {
-      isScrubbing.current = false;
-      lastScrubbedMeasureRef.current = -1;
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch (_) {}
-    }
-  };
-
-
-
-  // Total scrollable content width & positions cumulées proportionnelles (2/4 = 50%, 3/4 = 75%)
-  const { widths: measureWidths, leftPositions: measureLeftPositions, totalContentW } = React.useMemo(() => {
-    return computeTimelinePositions(totalMeasures, MEASURE_W, measureTimeSigs, timeSig);
-  }, [totalMeasures, MEASURE_W, measureTimeSigs, timeSig]);
-
-  // 1. Zoom horizontal DAW centré (Ctrl + Wheel) via un écouteur global en phase de capture sur window
-  React.useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      // Uniquement Ctrl + Molette ou Cmd + Molette
-      if (!e.ctrlKey && !e.metaKey) return;
-
-      const containerEl = containerRef.current;
-      if (!containerEl) return;
-
-      const rect = containerEl.getBoundingClientRect();
-      const isInBounds = (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
-      );
-      const targetNode = e.target as Node | null;
-      const isOverTimeline = isInBounds || (targetNode && containerEl.contains(targetNode)) || Boolean((e.target as Element)?.closest?.('.timeline-container'));
-
-      if (!isOverTimeline) return;
-
-      // 🛑 Bloquer impérativement le zoom natif de la page du navigateur
-      e.preventDefault();
-      e.stopPropagation();
-
-      const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-      if (delta === 0) return;
-
-      const scrollEl = scrollRef.current;
-      const currentW = measureWidthRef.current || measureWidth;
-      const MIN_W = 60;
-      const MAX_W = 320;
-
-      // Facteur de zoom fluide adapté aux souris standard et pavés tactiles
-      // delta < 0 (molette avant) -> zoom avant (élargissement des mesures)
-      // delta > 0 (molette arrière) -> zoom arrière (réduction des mesures)
-      const zoomFactor = delta < 0 ? 1.15 : 0.87;
-      const targetW = Math.round(currentW * zoomFactor);
-      const clampedTargetW = Math.max(MIN_W, Math.min(MAX_W, targetW));
-
-      if (clampedTargetW === currentW) return;
-
-      // Synchronisation immédiate de la ref pour encaisser les rafales de molette sans déphasage
-      measureWidthRef.current = clampedTargetW;
-      pendingTargetWidthRef.current = clampedTargetW;
-
-      // Zoom centré : stabiliser le point temporel sous le curseur (Zero Drift Anchor)
-      if (scrollEl) {
-        const sRect = scrollEl.getBoundingClientRect();
-        const mouseViewportX = e.clientX - sRect.left;
-
-        let newScrollLeft: number;
-        if (mouseViewportX > HEADER_W) {
-          // Curseur au-dessus de la grille des mesures
-          const deltaX = mouseViewportX - HEADER_W;
-          const contentX = scrollEl.scrollLeft + deltaX;
-          newScrollLeft = contentX * (clampedTargetW / currentW) - deltaX;
-        } else {
-          // Curseur au-dessus des en-têtes de pistes (ancrage à gauche / ratio direct)
-          newScrollLeft = scrollEl.scrollLeft * (clampedTargetW / currentW);
-        }
-        newScrollLeft = Math.max(0, newScrollLeft);
-
-        // ── Anti-Clamping synchrone immédiat (Pré-extension du scrollWidth) ──
-        const newTotalContentW = totalMeasures * clampedTargetW;
-        const newTotalGridW = HEADER_W + newTotalContentW + 150;
-        if (gridRef.current) {
-          gridRef.current.style.width = `${newTotalGridW}px`;
-          gridRef.current.style.minWidth = `${newTotalGridW}px`;
-        }
-        const bgEl = scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement;
-        if (bgEl) {
-          bgEl.style.width = `max(100%, ${HEADER_W + newTotalContentW + 300}px)`;
-        }
-
-        scrollEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
-        containerEl.style.setProperty('--measure-width', `${clampedTargetW}px`);
-        containerEl.style.setProperty('--zoom-level', String(clampedTargetW / 480));
-
-        // Application synchrone immédiate (garantie non bridée par le scrollWidth pré-étendu)
-        scrollEl.scrollLeft = newScrollLeft;
-        pendingScrollLeft.current = newScrollLeft;
-      }
-
-      if (isPlaying) {
-        React.startTransition(() => {
-          onMeasureWidthChange(clampedTargetW);
+      if (step < 0) {
+        cache.lastMeasure = null;
+        cache.stepElementsMap.clear();
+        cache.activeElements.forEach((el) => {
+          el.classList.remove('live-playhead-highlight');
         });
-      } else {
-        onMeasureWidthChange(clampedTargetW);
-      }
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-    return () => {
-      window.removeEventListener('wheel', handleWheel, { capture: true });
-    };
-  }, [HEADER_W, totalMeasures, onMeasureWidthChange, isPlaying, measureWidth]);
-
-  // Défilement horizontal fluide standard via la molette sur le conteneur
-  React.useEffect(() => {
-    const containerEl = containerRef.current;
-    if (!containerEl) return;
-
-    const handleWheelScroll = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) return;
-      const scrollEl = scrollRef.current;
-      if (scrollEl && e.deltaY !== 0) {
-        e.preventDefault();
-        scrollEl.scrollLeft += e.deltaY;
-      }
-    };
-
-    containerEl.addEventListener('wheel', handleWheelScroll, { passive: false });
-    return () => containerEl.removeEventListener('wheel', handleWheelScroll);
-  }, []);
-
-  // Note : Le raccourci universel Barre d'Espace (Play/Stop) est désormais sanctuarisé
-  // et piloté au sommet de l'application via useGlobalTransportShortcuts en phase de capture.
-
-  // 2. Scrubbing ruler handler (Global mouse move/up listener)
-  React.useEffect(() => {
-    let rafId: number | null = null;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isScrubbing.current) {
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          handleRulerSeek(e.clientX);
-        });
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (isScrubbing.current) {
-        const touch = e.touches[0];
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          handleRulerSeek(touch.clientX);
-        });
-        e.preventDefault();
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (isScrubbing.current) {
-        isScrubbing.current = false;
-        lastScrubbedMeasureRef.current = -1;
-        if (rafId) cancelAnimationFrame(rafId);
-      }
-    };
-
-    const handleTouchEnd = () => {
-      if (isScrubbing.current) {
-        isScrubbing.current = false;
-        lastScrubbedMeasureRef.current = -1;
-        if (rafId) cancelAnimationFrame(rafId);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, []);
-
-
-
-  // Viewport Panning logic
-  const handleViewportPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const isHandMode = toolMode === 'hand' || isSpacePressed;
-    const targetEl = e.target as HTMLElement;
-    const isClickingEmpty = targetEl === scrollRef.current || 
-                            targetEl === gridRef.current || 
-                            targetEl?.classList?.contains('grid-lines-overlay') ||
-                            targetEl?.classList?.contains('wallpaper-surface-bg');
-
-    if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
-      clearTimelineSelection();
-      clearAutomationSelection();
-    }
-
-    if (e.button === 0 && (isHandMode || isClickingEmpty)) {
-      isPanningDragging.current = true;
-      panPointerId.current = e.pointerId;
-      const el = e.currentTarget;
-      if (typeof el.setPointerCapture === 'function') {
-        el.setPointerCapture(e.pointerId);
-      }
-      
-      panStartX.current = e.clientX;
-      panStartY.current = e.clientY;
-      panStartScrollLeft.current = el.scrollLeft;
-      panStartScrollTop.current = el.scrollTop;
-      
-      el.classList.add('panning-dragging');
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  const handleViewportPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isPanningDragging.current && e.pointerId === panPointerId.current) {
-      const dx = e.clientX - panStartX.current;
-      const dy = e.clientY - panStartY.current;
-      const el = e.currentTarget;
-      el.scrollLeft = panStartScrollLeft.current - dx;
-      el.scrollTop = panStartScrollTop.current - dy;
-      
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  const handleViewportPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isPanningDragging.current && e.pointerId === panPointerId.current) {
-      isPanningDragging.current = false;
-      panPointerId.current = null;
-      const el = e.currentTarget;
-      if (typeof el.releasePointerCapture === 'function') {
-        el.releasePointerCapture(e.pointerId);
-      }
-      el.classList.remove('panning-dragging');
-      e.stopPropagation();
-    }
-  };
-
-
-
-  // Section Marker double-click and drag handlers
-  const handleMarkerRulerDblClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('[data-marker]')) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    let measureIdx = findMeasureIndexAtX(clickX, measureLeftPositions, measureWidths);
-    measureIdx = Math.max(0, Math.min(totalMeasures - 1, measureIdx));
-    
-    setEditingMarker(null);
-    setDefaultMarkerMeasure(measureIdx + 1);
-    setMarkerModalOpen(true);
-  };
-
-  const handleMarkerPointerDown = (e: React.PointerEvent<HTMLDivElement>, marker: SongMarker) => {
-    if (toolMode === 'hand' || isSpacePressed) return;
-    if (e.button !== 0) return;
-    const el = e.currentTarget;
-    if (typeof el.setPointerCapture === 'function') {
-      el.setPointerCapture(e.pointerId);
-    }
-    el.setAttribute('data-has-moved', 'false');
-    
-    const startX = e.clientX;
-    const startMeasure = marker.measure;
-    
-    const handlePointerMove = (moveEv: PointerEvent) => {
-      const dx = moveEv.clientX - startX;
-      if (Math.abs(dx) > 3) {
-        el.setAttribute('data-has-moved', 'true');
-      }
-      
-      const proposedStart = startMeasure + (dx / MEASURE_W);
-      
-      let snappedStart = marker.measure;
-      if (snapMode === 'measure') {
-        snappedStart = Math.round(proposedStart);
-      } else if (snapMode === 'beat') {
-        snappedStart = Math.round(proposedStart * 4) / 4;
-      } else {
-        snappedStart = proposedStart;
-      }
-      
-      snappedStart = Math.max(0, Math.min(totalMeasures - 1, snappedStart));
-      const currentLeft = snappedStart * MEASURE_W;
-      
-      el.style.left = `${currentLeft}px`;
-      
-      if (snapMode !== 'none') {
-        setSnapGuideX(HEADER_W + currentLeft);
-      } else {
-        setSnapGuideX(null);
-      }
-    };
-    
-    const handlePointerUp = () => {
-      if (typeof el.releasePointerCapture === 'function') {
-        el.releasePointerCapture(e.pointerId);
-      }
-      if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-      setSnapGuideX(null);
-      
-      const finalLeft = parseFloat(el.style.left) || (marker.measure * MEASURE_W);
-      const finalStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(finalLeft / MEASURE_W)));
-      
-      if (finalStart !== marker.measure) {
-        onUpdateMarker(marker.id, marker.name, finalStart, marker.color);
-      } else {
-        el.style.left = `${marker.measure * MEASURE_W}px`;
-      }
-    };
-    
-    if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-    dragAbortControllerRef.current = new AbortController();
-    const { signal } = dragAbortControllerRef.current;
-    
-    window.addEventListener('pointermove', handlePointerMove, { signal });
-    window.addEventListener('pointerup', handlePointerUp, { signal });
-    e.stopPropagation();
-  };
-
-  // Section Block Drag-and-Drop Handler (Smart Snapping & Level Dragging)
-  const handleSectionBlockPointerDown = (e: React.PointerEvent<HTMLDivElement>, section: SongSection) => {
-    if (toolMode === 'hand' || isSpacePressed) return;
-    if ((e.target as HTMLElement).closest('button')) return;
-    if (e.button !== 0) return;
-    
-    const el = e.currentTarget;
-    if (typeof el.setPointerCapture === 'function') {
-      el.setPointerCapture(e.pointerId);
-    }
-    
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startMeasure = section.startMeasure;
-    const startLevel = section.level || 0;
-    const duration = section.endMeasure - section.startMeasure;
-    const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
-    
-    const handlePointerMove = (moveEv: PointerEvent) => {
-      const dx = moveEv.clientX - startX;
-      const dy = moveEv.clientY - startY;
-      
-      const proposedStart = startMeasure + (dx / MEASURE_W);
-      let snappedStart = section.startMeasure;
-      if (snapMode === 'measure') {
-        snappedStart = Math.round(proposedStart);
-      } else if (snapMode === 'beat') {
-        snappedStart = Math.round(proposedStart * 4) / 4;
-      } else {
-        snappedStart = proposedStart;
-      }
-      
-      snappedStart = Math.max(0, Math.min(totalMeasures - 1 - duration, snappedStart));
-      const currentLeft = snappedStart * MEASURE_W;
-      el.style.left = `${currentLeft}px`;
-      
-      const proposedLevel = Math.max(0, Math.min(2, startLevel + Math.round(-dy / 26)));
-      const currentTop = (maxLevel - proposedLevel) * 26 + 4;
-      el.style.top = `${currentTop}px`;
-      
-      if (snapMode !== 'none') {
-        setSnapGuideX(HEADER_W + currentLeft);
-      } else {
-        setSnapGuideX(null);
-      }
-    };
-    
-    const handlePointerUp = () => {
-      if (typeof el.releasePointerCapture === 'function') {
-        el.releasePointerCapture(e.pointerId);
-      }
-      if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-      setSnapGuideX(null);
-      
-      const finalLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
-      const finalStart = Math.max(0, Math.min(totalMeasures - 1 - duration, Math.round(finalLeft / MEASURE_W)));
-      const finalEnd = finalStart + duration;
-      
-      const finalTop = parseFloat(el.style.top) ?? ((maxLevel - (section.level || 0)) * 26 + 4);
-      const finalLevel = Math.max(0, Math.min(2, maxLevel - Math.round((finalTop - 4) / 26)));
-      
-      if (finalStart !== section.startMeasure || finalLevel !== (section.level || 0)) {
-        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color, finalLevel);
-      } else {
-        el.style.left = `${section.startMeasure * MEASURE_W}px`;
-        el.style.top = `${((maxLevel - (section.level || 0)) * 26 + 4)}px`;
-      }
-    };
-    
-    if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-    dragAbortControllerRef.current = new AbortController();
-    const { signal } = dragAbortControllerRef.current;
-    
-    window.addEventListener('pointermove', handlePointerMove, { signal });
-    window.addEventListener('pointerup', handlePointerUp, { signal });
-    e.stopPropagation();
-  };
-
-  // Section boundary resizing handler with magnetic snapping (Proposal 2)
-  const handleResizePointerDown = (
-    e: React.PointerEvent<HTMLDivElement>,
-    section: SongSection,
-    edge: 'left' | 'right'
-  ) => {
-    e.stopPropagation(); // Avoid triggering block dragging
-    if (e.button !== 0) return;
-
-    const el = e.currentTarget.parentElement as HTMLDivElement;
-    if (!el) return;
-    if (typeof el.setPointerCapture === 'function') {
-      el.setPointerCapture(e.pointerId);
-    }
-
-    const startX = e.clientX;
-    const startMeasure = section.startMeasure;
-    const endMeasure = section.endMeasure;
-    const sectionLength = endMeasure - startMeasure + 1;
-
-    let currentCopies = 0;
-    let ghost: HTMLDivElement | null = null;
-
-    if (edge === 'right') {
-      ghost = document.createElement('div');
-      ghost.style.position = 'absolute';
-      ghost.style.top = el.style.top;
-      ghost.style.height = el.style.height;
-      ghost.style.pointerEvents = 'none';
-      ghost.style.zIndex = '50';
-      ghost.style.display = 'flex';
-      const startLeft = measureLeftPositions[endMeasure + 1] ?? ((endMeasure + 1) * MEASURE_W);
-      ghost.style.left = `${startLeft}px`;
-      el.parentElement?.appendChild(ghost);
-    }
-
-    const handlePointerMove = (moveEv: PointerEvent) => {
-      const dx = moveEv.clientX - startX;
-      const measureDelta = dx / MEASURE_W;
-
-      // Right edge drag -> Ghost clones
-      currentCopies = Math.max(0, Math.round(measureDelta / sectionLength));
-      
-      if (ghost) {
-        ghost.innerHTML = ''; 
-        const secW = getSectionBounds(startMeasure, endMeasure, measureLeftPositions, measureWidths).width;
-        for(let i = 0; i < currentCopies; i++) {
-          const block = document.createElement('div');
-          block.style.width = `${Math.max(16, secW - 8)}px`;
-          block.style.height = '100%';
-          block.style.backgroundColor = section.color || '#eaddcf';
-          block.style.opacity = '0.5';
-          block.style.borderRadius = '0.25rem';
-          block.style.border = '1.5px solid #1a1a1a';
-          block.style.marginRight = '8px';
-          ghost.appendChild(block);
-        }
-      }
-    };
-
-    const handlePointerUp = () => {
-      if (typeof el.releasePointerCapture === 'function') {
-        el.releasePointerCapture(e.pointerId);
-      }
-      if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-
-      if (ghost && ghost.parentElement) {
-        ghost.parentElement.removeChild(ghost);
+        cache.activeElements = [];
+        return;
       }
 
-      if (currentCopies > 0) {
-        // Sécurité A: Interrompre la lecture si isPlaying avant de modifier la grille ou d'ouvrir le modal
-        if (isPlaying) {
-          handleStop();
-        }
+      if (measure !== cache.lastMeasure) {
+        cache.lastMeasure = measure;
+        cache.stepElementsMap.clear();
+        cache.stepsCount = 16;
 
-        const { hasCollision, targetRange } = checkSectionStretchCollision(
-          section,
-          currentCopies,
-          useSequencerStore.getState().tracks
-        );
+        if (containerRef.current) {
+          const cells = containerRef.current.querySelectorAll<HTMLElement>(
+            `.timeline-step[data-measure="${measure}"]`
+          );
 
-        if (hasCollision) {
-          setStretchConflict({
-            isOpen: true,
-            section,
-            targetRange,
+          cells.forEach((el) => {
+            const stepAttr = el.getAttribute('data-step');
+            const stepsAttr = el.getAttribute('data-steps');
+            if (stepAttr !== null) {
+              const stepIdx = parseInt(stepAttr, 10);
+              if (!cache.stepElementsMap.has(stepIdx)) {
+                cache.stepElementsMap.set(stepIdx, []);
+              }
+              cache.stepElementsMap.get(stepIdx)!.push(el);
+            }
+            if (stepsAttr !== null) {
+              cache.stepsCount = parseInt(stepsAttr, 10);
+            }
           });
-        } else {
-          // Plage entièrement vierge : extension directe sans dialogue
-          executeSectionStretch(section.id, targetRange.end, 'overwrite');
         }
+      }
+
+      cache.activeElements.forEach((el) => {
+        el.classList.remove('live-playhead-highlight');
+      });
+      cache.activeElements = [];
+
+      const activeStepIdx = Math.floor(ratio * cache.stepsCount);
+      const elementsToHighlight = cache.stepElementsMap.get(activeStepIdx);
+      if (elementsToHighlight) {
+        elementsToHighlight.forEach((el) => {
+          el.classList.add('live-playhead-highlight');
+          cache.activeElements.push(el);
+        });
       }
     };
 
-    if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
-    dragAbortControllerRef.current = new AbortController();
-    const { signal } = dragAbortControllerRef.current;
-
-    window.addEventListener('pointermove', handlePointerMove, { signal });
-    window.addEventListener('pointerup', handlePointerUp, { signal });
-  };
-
-  const handleConfirmStretchInsert = () => {
-    if (!stretchConflict.section || !stretchConflict.targetRange) return;
-    executeSectionStretch(stretchConflict.section.id, stretchConflict.targetRange.end, 'insert');
-    setStretchConflict({ isOpen: false, section: null, targetRange: null });
-  };
-
-  const handleConfirmStretchOverwrite = () => {
-    if (!stretchConflict.section || !stretchConflict.targetRange) return;
-    executeSectionStretch(stretchConflict.section.id, stretchConflict.targetRange.end, 'overwrite');
-    setStretchConflict({ isOpen: false, section: null, targetRange: null });
-  };
-
-  const handleCancelStretchConflict = () => {
-    setStretchConflict({ isOpen: false, section: null, targetRange: null });
-  };
-
-
+    subscribeToTick(handleTick);
+    return () => {
+      unsubscribeFromTick(handleTick);
+      sequencerCache.current.activeElements.forEach((el) => {
+        el.classList.remove('live-playhead-highlight');
+      });
+      sequencerCache.current.activeElements = [];
+      sequencerCache.current.lastMeasure = null;
+      sequencerCache.current.stepElementsMap.clear();
+    };
+  }, [isActive]);
 
   const zoomStyles = {
     '--zoom-level': String(measureWidth / 480),
@@ -1318,7 +438,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     userSelect: 'none',
   } as React.CSSProperties;
 
-  const contextValue = React.useMemo(() => ({
+  const contextValue = useMemo(() => ({
     MEASURE_W, HEADER_W, totalContentW, measureWidths, measureLeftPositions, isMobile, isMacro, isMinZoom, isPanningActive, lang,
     signalDropdownOpen, setSignalDropdownOpen,
     onOpenPatternPicker: handleOpenPatternPicker,
@@ -1328,1167 +448,379 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   return (
     <TimelineUIContext.Provider value={contextValue}>
-    <div
-      ref={containerRef}
-      data-zoom={isMacro ? 'macro' : 'normal'}
-      data-mobile={isMobile ? 'true' : 'false'}
-      style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: isActive ? 'flex' : 'none' }}
-      className="timeline-sequencer-container timeline-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}
-      <TimelineMinimap
-        scrollRef={scrollRef}
-        pendingScrollLeftRef={pendingScrollLeft}
-        totalMeasures={totalMeasures}
-        measureWidth={MEASURE_W}
-        onMeasureWidthChange={onMeasureWidthChange}
-      />
-
       <div
-        id="timeline-scroll-container"
-        ref={scrollRef}
-        style={{ scrollBehavior: 'auto' }}
-        onPointerDown={handleViewportPointerDown}
-        onPointerMove={handleViewportPointerMove}
-        onPointerUp={handleViewportPointerUp}
-        onPointerCancel={handleViewportPointerUp}
-        onClick={(e) => {
-          const targetEl = e.target as HTMLElement;
-          const isClickingEmpty = targetEl === scrollRef.current || 
-                                  targetEl === gridRef.current || 
-                                  targetEl?.classList?.contains('grid-lines-overlay') ||
-                                  targetEl?.classList?.contains('wallpaper-surface-bg');
-          if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
-            clearTimelineSelection();
-            clearAutomationSelection();
-          }
-        }}
-        className={`flex-grow overflow-x-auto overflow-y-auto relative custom-scrollbar ${
-          isPanningActive ? 'cursor-grab select-none' : ''
-        }`}
+        ref={containerRef}
+        data-zoom={isMacro ? 'macro' : 'normal'}
+        data-mobile={isMobile ? 'true' : 'false'}
+        style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: isActive ? 'flex' : 'none' }}
+        className="timeline-sequencer-container timeline-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
+        onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Calque de fond en filigrane gravure couvrant l'ensemble du défilement et l'espace vide à droite */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg"
-          style={{
-            width: `max(100%, ${HEADER_W + totalContentW + 300}px)`,
-            minHeight: '100%',
-            transform: 'translateZ(0)',
-          }}
+        {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}
+        <TimelineMinimap
+          scrollRef={scrollRef}
+          pendingScrollLeftRef={pendingScrollLeft}
+          totalMeasures={totalMeasures}
+          measureWidth={MEASURE_W}
+          onMeasureWidthChange={onMeasureWidthChange}
         />
 
-        {/* 
-          We use a single wrapper with explicit width so the ruler row and
-          every track row share the same coordinate space.
-        */}
-        <div 
-          ref={gridRef}
-          className="relative timeline-scroll-grid z-[1]" 
-          style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
+        <div
+          id="timeline-scroll-container"
+          ref={scrollRef}
+          style={{ scrollBehavior: 'auto' }}
+          onPointerDown={handleViewportPointerDown}
+          onPointerMove={handleViewportPointerMove}
+          onPointerUp={handleViewportPointerUp}
+          onPointerCancel={handleViewportPointerUp}
+          onClick={(e) => {
+            const targetEl = e.target as HTMLElement;
+            const isClickingEmpty = targetEl === scrollRef.current || 
+                                    targetEl === gridRef.current || 
+                                    targetEl?.classList?.contains('grid-lines-overlay') ||
+                                    targetEl?.classList?.contains('wallpaper-surface-bg');
+            if (isClickingEmpty && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isMultiSelectMode) {
+              clearTimelineSelection();
+              clearAutomationSelection();
+            }
+          }}
+          className={`flex-grow overflow-x-auto overflow-y-auto relative custom-scrollbar ${
+            isPanningActive ? 'cursor-grab select-none' : ''
+          }`}
         >
-
-          {/* ══════════ MARKER RULER ROW (📍 NEW) ══════════ */}
+          {/* Calque de fond en filigrane gravure */}
           <div
-            className="flex h-6 border-b border-[var(--cordel-border)]/15 bg-[var(--cordel-bg)]/50 relative select-none"
-            style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
-          >
-            {/* Sticky Label */}
-            <div
-              className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[9px] font-bold uppercase shrink-0 text-[var(--cordel-text)]/40 ${
-                isMobile ? 'px-1.5' : 'px-3'
-              }`}
-              style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
-            >
-              <span>{isMobile ? 'Rep.' : (lang === 'fr' ? 'Repères' : 'Marcadores')}</span>
-            </div>
-
-            {/* Marker Ruler Track Area */}
-            <div 
-              className="flex-grow relative h-full cursor-copy"
-              onDoubleClick={handleMarkerRulerDblClick}
-            >
-              {songMarkers.length === 0 && (
-                <div className="absolute inset-0 flex items-center pl-4 text-[8px] text-[var(--cordel-text)]/20 italic pointer-events-none">
-                  {lang === 'fr' ? 'Double-cliquez ici pour ajouter un repère' : 'Double-clique aqui para adicionar um marcador'}
-                </div>
-              )}
-
-              {/* Render Section Markers */}
-              {songMarkers.map((marker) => {
-                const posX = measureLeftPositions[marker.measure] ?? (marker.measure * MEASURE_W);
-                return (
-                  <div
-                    key={`marker-${marker.id}`}
-                    data-marker="true"
-                    className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
-                      isPanningActive ? 'pointer-events-none' : ''
-                    }`}
-                    style={{
-                      left: `${posX}px`,
-                      backgroundColor: marker.color || '#f19066',
-                    }}
-                    onPointerDown={(e) => handleMarkerPointerDown(e, marker)}
-                    onClick={(e) => {
-                      if ((e.currentTarget as HTMLElement).dataset.hasMoved === 'true') return;
-                      e.stopPropagation();
-                      setEditingMarker(marker);
-                      setMarkerModalOpen(true);
-                    }}
-                  >
-                    <span className="whitespace-nowrap truncate max-w-[140px]">📍 {marker.name.replace(/\n/g, ' / ')}</span>
-                    <span 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteMarker(marker.id);
-                      }}
-                      className="opacity-70 hover:opacity-100 cursor-pointer ml-1 text-[11px]"
-                      title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-                    >
-                      &times;
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ══════════ SECTIONS ROW ══════════ */}
-          <div
-            className="flex border-b border-[var(--cordel-border)]/30 bg-[var(--cordel-bg)]/80 relative"
-            style={{ 
-              width: `${HEADER_W + totalContentW + 150}px`, 
-              minWidth: `${HEADER_W + totalContentW + 150}px`,
-              height: `${32 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 26)}px`,
-              zIndex: (activeRepeatDropdownSectionId !== null || snapDropdownOpen) ? 60 : undefined
+            className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg"
+            style={{
+              width: `max(100%, ${HEADER_W + totalContentW + 300}px)`,
+              minHeight: '100%',
+              transform: 'translateZ(0)',
             }}
-          >
-            {/* Sticky header */}
-            <div
-              className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[11px] font-bold uppercase shrink-0 ${
-                isMobile ? 'px-1.5' : 'px-2'
-              }`}
-              style={{ width: HEADER_W, minWidth: HEADER_W }}
-            >
-              {/* Titre "SECTIONS" harmonisé avec "REPÈRES" */}
-              <span className="text-[9px] font-cactus font-bold uppercase text-[var(--cordel-text)]/60 truncate select-none">
-                {isMobile ? 'Sect.' : (lang === 'fr' ? 'Sections' : 'Seções')}
-              </span>
-
-              <div className="flex items-center gap-1 shrink-0">
-                {/* Aimant compact avec menu déroulant */}
-                <div className="relative" ref={snapDropdownRef}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSnapDropdownOpen(!snapDropdownOpen);
-                    }}
-                    className={`w-5 h-5 flex items-center justify-center rounded cordel-border-sm cursor-pointer transition-colors ${
-                      snapMode !== 'none'
-                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'
-                    }`}
-                    title={
-                      snapMode === 'measure'
-                        ? (lang === 'fr' ? 'Magnétisme : Mesure' : 'Atração : Compasso')
-                        : snapMode === 'beat'
-                        ? (lang === 'fr' ? 'Magnétisme : Temps' : 'Atração : Tempo')
-                        : (lang === 'fr' ? 'Magnétisme : Libre' : 'Atração : Livre')
-                    }
-                  >
-                    <XiloMagnet size={11} className={snapMode === 'none' ? 'opacity-40' : ''} />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {snapDropdownOpen && (
-                    <div
-                      className="absolute top-full left-0 mt-1 z-[100] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm shadow-[3px_3px_0px_rgba(0,0,0,1)] py-1 min-w-[115px] flex flex-col gap-0.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={() => {
-                          setSnapMode('measure');
-                          setSnapDropdownOpen(false);
-                        }}
-                        className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${
-                          snapMode === 'measure' ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''
-                        }`}
-                      >
-                        <span>{lang === 'fr' ? 'Mesure' : 'Compasso'}</span>
-                        {snapMode === 'measure' && <span className="font-bold">✓</span>}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSnapMode('beat');
-                          setSnapDropdownOpen(false);
-                        }}
-                        className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${
-                          snapMode === 'beat' ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''
-                        }`}
-                      >
-                        <span>{lang === 'fr' ? 'Temps' : 'Tempos'}</span>
-                        {snapMode === 'beat' && <span className="font-bold">✓</span>}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSnapMode('none');
-                          setSnapDropdownOpen(false);
-                        }}
-                        className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${
-                          snapMode === 'none' ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''
-                        }`}
-                      >
-                        <span>{lang === 'fr' ? 'Libre' : 'Livre'}</span>
-                        {snapMode === 'none' && <span className="font-bold">✓</span>}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bouton Créer Section */}
-                <button
-                  onClick={() => {
-                    setEditingSection(null);
-                    setSectionModalOpen(true);
-                  }}
-                  className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5 h-5"
-                  title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
-                >
-                  <span>➕</span>
-                  {!isMobile && <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>}
-                </button>
-              </div>
-            </div>
-
-            {/* Space where sections will render */}
-            <div className="flex-grow relative h-full">
-              {/* Grid of empty measure slots for click-and-drag section creation */}
-              <div className="absolute inset-0 flex pointer-events-none z-0">
-                {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-                  if (mIdx < visibleRange.start || mIdx > visibleRange.end) {
-                    return (
-                      <div
-                        key={mIdx}
-                        style={{
-                          width: `${measureWidths[mIdx] ?? MEASURE_W}px`,
-                          minWidth: `${measureWidths[mIdx] ?? MEASURE_W}px`,
-                          height: '100%'
-                        }}
-                      />
-                    );
-                  }
-                  return (
-                    <div
-                      key={mIdx}
-                      className={`group relative border-r border-dashed border-[var(--cordel-border)]/15 hover:bg-black/[0.03] flex items-center justify-center select-none pointer-events-auto ${
-                        copiedSection ? 'cursor-pointer' : 'cursor-crosshair'
-                      }`}
-                      style={{
-                        width: `${measureWidths[mIdx] ?? MEASURE_W}px`,
-                        minWidth: `${measureWidths[mIdx] ?? MEASURE_W}px`,
-                        height: '100%'
-                      }}
-                      onPointerDown={(e) => handleEmptySlotPointerDown(e, mIdx)}
-                      onPointerEnter={() => handleEmptySlotPointerEnter(mIdx)}
-                    >
-                      {/* Hover '+' button (masqué si une section est prête à coller) */}
-                      {!copiedSection && (
-                        <button
-                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-[1px_1px_3px_rgba(0,0,0,0.3)] hover:scale-110 cursor-pointer z-20 pointer-events-auto"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePlusClick(mIdx);
-                          }}
-                          title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
-                        >
-                          ＋
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Highlight selection during drag */}
-              {isDraggingRange && dragStartMeasure !== null && dragCurrentMeasure !== null && (
-                (() => {
-                  const selStartM = Math.min(dragStartMeasure, dragCurrentMeasure);
-                  const selEndM = Math.max(dragStartMeasure, dragCurrentMeasure);
-                  const b = getSectionBounds(selStartM, selEndM, measureLeftPositions, measureWidths);
-                  return (
-                    <div
-                      className="absolute bg-blue-500/25 border-2 border-dashed border-blue-500 pointer-events-none rounded-sm"
-                      style={{
-                        left: `${b.left + 4}px`,
-                        width: `${Math.max(0, b.width - 8)}px`,
-                        top: '4px',
-                        bottom: '4px',
-                        zIndex: 30
-                      }}
-                    />
-                  );
-                })()
-              )}
-
-              {/* Quick Section Creator Popover */}
-              {quickSectionRange && (
-                <div
-                  className="absolute z-[85] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-3 border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] flex flex-col gap-2 rounded-sm"
-                  style={{
-                    left: `${(measureLeftPositions[quickSectionRange.start] ?? (quickSectionRange.start * MEASURE_W)) + 4}px`,
-                    top: '100%',
-                    marginTop: '4px',
-                    width: '260px',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between border-b border-[var(--cordel-border)]/20 pb-1">
-                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-80">
-                      {lang === 'fr' 
-                        ? `NOUVELLE SECTION (M. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})` 
-                        : `NOVA SEÇÃO (C. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})`}
-                    </span>
-                    <button 
-                      type="button"
-                      className="text-xs hover:text-red-500 font-bold cursor-pointer"
-                      onClick={() => setQuickSectionRange(null)}
-                    >✕</button>
-                  </div>
-                  
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Nom' : 'Nome'}</label>
-                    <input
-                      type="text"
-                      value={quickSectionName}
-                      onChange={(e) => setQuickSectionName(e.target.value)}
-                      placeholder={lang === 'fr' ? "ex: Couplet" : "ex: Verso"}
-                      className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1 text-xs font-bold outline-none text-[var(--cordel-text)] focus:bg-[var(--cordel-border)]/10"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleQuickSectionCreate();
-                        if (e.key === 'Escape') setQuickSectionRange(null);
-                      }}
-                    />
-                  </div>
-
-                  {/* Intervalle Début / Fin, Durée et Raccourcis rapides */}
-                  {(() => {
-                    const maxLimit = Math.max(64, totalMeasures);
-                    const duration = quickSectionRange.end - quickSectionRange.start + 1;
-                    return (
-                      <div className="flex flex-col gap-1.5 p-2 bg-[var(--cordel-border)]/10 rounded cordel-border-sm">
-                        <div className="flex gap-2">
-                          <div className="flex flex-col gap-0.5 flex-1">
-                            <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Mesure début' : 'Medida inicial'}</label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={quickSectionRange.end + 1}
-                              value={quickSectionRange.start + 1}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                if (isNaN(val)) return;
-                                const clampedStart = Math.max(1, Math.min(maxLimit, val));
-                                const startIdx = clampedStart - 1;
-                                setQuickSectionRange(prev => {
-                                  if (!prev) return null;
-                                  const endIdx = startIdx > prev.end ? startIdx : prev.end;
-                                  return { ...prev, start: startIdx, end: endIdx };
-                                });
-                              }}
-                              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-1.5 py-0.5 text-xs font-bold outline-none text-[var(--cordel-text)] text-center"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-0.5 flex-1">
-                            <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Mesure fin' : 'Medida final'}</label>
-                            <input
-                              type="number"
-                              min={quickSectionRange.start + 1}
-                              max={maxLimit}
-                              value={quickSectionRange.end + 1}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                if (isNaN(val)) return;
-                                const clampedEnd = Math.max(1, Math.min(maxLimit, val));
-                                const endIdx = clampedEnd - 1;
-                                setQuickSectionRange(prev => {
-                                  if (!prev) return null;
-                                  const startIdx = endIdx < prev.start ? endIdx : prev.start;
-                                  return { ...prev, start: startIdx, end: endIdx };
-                                });
-                              }}
-                              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-1.5 py-0.5 text-xs font-bold outline-none text-[var(--cordel-text)] text-center"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Indicateur de durée et Raccourcis rapides */}
-                        <div className="flex items-center justify-between pt-1 border-t border-[var(--cordel-border)]/20">
-                          <span className="text-[8px] font-bold text-[var(--cordel-text)] opacity-90">
-                            {lang === 'fr' ? `Durée : ${duration} mesure${duration > 1 ? 's' : ''}` : `Duração: ${duration} compasso${duration > 1 ? 's' : ''}`}
-                          </span>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setQuickSectionRange(prev => prev ? ({ ...prev, end: Math.min(maxLimit - 1, prev.start + 1) }) : null)}
-                              className="px-1.5 py-0.5 text-[8px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
-                            >
-                              [ 2 mes. ]
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setQuickSectionRange(prev => prev ? ({ ...prev, end: Math.min(maxLimit - 1, prev.start + 3) }) : null)}
-                              className="px-1.5 py-0.5 text-[8px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
-                            >
-                              [ 4 mes. ]
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setQuickSectionRange(prev => prev ? ({ ...prev, end: Math.min(maxLimit - 1, prev.start + 7) }) : null)}
-                              className="px-1.5 py-0.5 text-[8px] font-bold bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-sm transition-colors cursor-pointer"
-                            >
-                              [ 8 mes. ]
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Level / Imbrication Selector */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? "Niveau d'imbrication" : "Nível de aninhamento"}</label>
-                    <select
-                      value={quickSectionLevel}
-                      onChange={(e) => setQuickSectionLevel(parseInt(e.target.value, 10))}
-                      className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-1 text-[10px] font-bold text-[var(--cordel-text)] outline-none cursor-pointer"
-                    >
-                      <option value={0}>{lang === 'fr' ? 'Niveau 0 (Base)' : 'Nível 0 (Base)'}</option>
-                      <option value={1}>{lang === 'fr' ? 'Niveau 1 (Groupe)' : 'Nível 1 (Grupo)'}</option>
-                      <option value={2}>{lang === 'fr' ? 'Niveau 2 (Super-groupe)' : 'Nível 2 (Super-grupo)'}</option>
-                    </select>
-                  </div>
-
-                  {/* Colors row */}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Couleur' : 'Cor'}</label>
-                    <div className="flex gap-1.5 justify-center py-1">
-                      {[
-                        '#e08283', // Rouge
-                        '#f19066', // Orange
-                        '#f5cd79', // Jaune
-                        '#55efc4', // Vert d'eau
-                        '#74b9ff', // Bleu pastel
-                        '#a29bfe', // Violet doux
-                        '#eaddcf'  // Beige
-                      ].map((color) => (
-                        <button
-                          type="button"
-                          key={color}
-                          onClick={() => setQuickSectionColor(color)}
-                          className={`w-4.5 h-4.5 rounded-full cursor-pointer border border-black/35 transition-transform ${
-                            quickSectionColor === color ? 'scale-120 ring-1 ring-[var(--cordel-text)]' : 'hover:scale-110'
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1 mt-1">
-                    <button
-                      type="button"
-                      onClick={handleQuickSectionCreate}
-                      className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:opacity-95 transition-opacity cursor-pointer text-center"
-                    >
-                      ➕ {lang === 'fr' ? 'Créer la section' : 'Criar seção'}
-                    </button>
-                    
-                    {onLoadCloudSection && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onLoadCloudSection(quickSectionRange.start);
-                          setQuickSectionRange(null);
-                        }}
-                        className="w-full bg-emerald-600 text-white font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:bg-emerald-700 transition-colors cursor-pointer text-center"
-                      >
-                        ☁️ {lang === 'fr' ? 'Insérer section enregistrée' : 'Inserir seção gravada'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {songSections.map((section) => {
-                const { left: startX, width } = getSectionBounds(section.startMeasure, section.endMeasure, measureLeftPositions, measureWidths);
-                const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
-                const level = section.level || 0;
-                const topOffset = (maxLevel - level) * 26 + 4;
-
-                return (
-                  <div
-                    key={section.id}
-                    data-testid={`section-block-${section.name}`}
-                    data-section-id={section.id}
-                    className={`absolute flex items-center justify-between px-6 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
-                      isPanningActive ? 'pointer-events-none' : ''
-                    }`}
-                    onPointerDown={(e) => handleSectionBlockPointerDown(e, section)}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setEditingSection(section);
-                      setSectionModalOpen(true);
-                    }}
-                    style={{
-                      left: `${startX}px`,
-                      width: `${width - 8}px`, // 4px margin left & right
-                      marginLeft: '4px',
-                      top: `${topOffset}px`,
-                      height: '24px',
-                      backgroundColor: section.color || '#eaddcf',
-                      color: '#1a1a1a', // Toujours lisible en noir sur fond coloré
-                      borderColor: '#1a1a1a',
-                      borderWidth: '1.5px',
-                      zIndex: activeRepeatDropdownSectionId === section.id ? 70 : 10
-                    }}
-                  >
-                    {/* Left resize handle (REMOVED per Mission 1) */}
-
-                    {/* Right resize handle */}
-                    <div
-                      data-testid={`section-resize-right-${section.id}`}
-                      data-section-name={section.name}
-                      className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize flex items-center justify-center hover:bg-black/15 select-none z-20 rounded-r"
-                      onPointerDown={(e) => handleResizePointerDown(e, section, 'right')}
-                      title={lang === 'fr' ? "Étendre à droite" : "Estender para direita"}
-                    >
-                      <div className="flex gap-[0.5px]">
-                        <div className="w-[1px] h-2 bg-black/40" />
-                        <div className="w-[1px] h-2 bg-black/40" />
-                        <div className="w-[1px] h-2 bg-black/40" />
-                      </div>
-                    </div>
-
-                    <span 
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setEditingSection(section);
-                        setSectionModalOpen(true);
-                      }}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      className="truncate max-w-[65%] font-cactus uppercase tracking-wider cursor-pointer hover:underline z-10"
-                      title={lang === 'fr' ? 'Double-cliquez pour modifier' : 'Duplo clique para editar'}
-                    >
-                      {section.name}
-                    </span>
-                    <div className="flex gap-1 shrink-0 z-10">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteSection(section.id);
-                        }}
-                        className="bg-red-800/80 hover:bg-red-800 text-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
-                        title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Paste buttons in the sections bar */}
-              {copiedSection && Array.from({ length: totalMeasures })
-                .map((_, mIdx) => ({ mIdx }))
-                .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
-                .map(({ mIdx }) => {
-                return (
-                  <button
-                    key={`paste-sec-${mIdx}`}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPasteSection(mIdx);
-                    }}
-                    onMouseEnter={() => setHoveredPasteMeasure(mIdx)}
-                    onMouseLeave={() => setHoveredPasteMeasure(null)}
-                    className="absolute inset-y-0.5 bg-emerald-600/25 hover:bg-emerald-600/45 text-emerald-800 dark:text-emerald-200 font-sans font-bold text-[9px] px-1 border-x border-y border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all shadow-[inset_0_0_4px_rgba(16,185,129,0.2)]"
-                    style={{
-                      left: `${measureLeftPositions[mIdx] ?? (mIdx * MEASURE_W)}px`,
-                      width: `${measureWidths[mIdx] ?? MEASURE_W}px`,
-                    }}
-                    title={lang === 'fr' ? `Coller à la mesure ${mIdx + 1}` : `Colar no compasso ${mIdx + 1}`}
-                  >
-                    📋 {lang === 'fr' ? `Coller M.${mIdx + 1}` : `Colar C.${mIdx + 1}`}
-                  </button>
-                );
-              })}
-
-              {/* Ghost preview block */}
-              {copiedSection && hoveredPasteMeasure !== null && (
-                (() => {
-                  const pasteEnd = hoveredPasteMeasure + copiedSection.length - 1;
-                  const pb = getSectionBounds(hoveredPasteMeasure, pasteEnd, measureLeftPositions, measureWidths);
-                  return (
-                    <div
-                      className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded border border-dashed pointer-events-none opacity-50 z-20 animate-pulse"
-                      style={{
-                        left: `${pb.left}px`,
-                        width: `${Math.max(0, pb.width - 8)}px`,
-                        marginLeft: '4px',
-                        backgroundColor: copiedSection.color || '#f19066',
-                        color: '#1a1a1a',
-                        borderColor: '#1a1a1a',
-                        borderWidth: '1.5px',
-                      }}
-                    >
-                      <span className="truncate max-w-[80%] font-cactus uppercase tracking-wider">
-                        {copiedSection.name} ({lang === 'fr' ? 'Aperçu' : 'Prévia'})
-                      </span>
-                    </div>
-                  );
-                })()
-              )}
-            </div>
-          </div>
-
-          {/* ══════════ RULER ROW ══════════ */}
-          <div
-            className="flex min-h-14 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-50 bg-[var(--cordel-bg)] cursor-pointer select-none relative"
-            style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
-            onPointerDown={handleRulerPointerDown}
-            onPointerMove={handleRulerPointerMove}
-            onPointerUp={handleRulerPointerUp}
-            onPointerCancel={handleRulerPointerUp}
-          >
-             {/* Sticky corner */}
-             <div
-               className={`timeline-sticky-header sticky left-0 z-60 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex flex-col items-center justify-center gap-1 ${
-                 isMobile ? 'px-1.5' : 'px-3'
-               }`}
-               style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
-             >
-                {/* Sélecteur de Zoom */}
-                <div className="flex items-center bg-[var(--cordel-text)]/5 rounded p-0.5 cordel-border-sm w-full max-w-[160px] pointer-events-auto">
-                  <button 
-                    onClick={() => {
-                      const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-                      const farWidth = Math.max(20, Math.floor((screenW - HEADER_W - 50) / totalMeasures));
-                      handleZoom(farWidth);
-                    }} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W <= Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
-                    title={lang === 'fr' ? 'Vue éloignée' : 'Visão distante'}
-                  >L</button>
-                  <button 
-                    onClick={() => handleZoom(60)} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 && MEASURE_W < 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
-                    title={lang === 'fr' ? 'Vue moyenne' : 'Visão média'}
-                  >M</button>
-                  <button 
-                    onClick={() => handleZoom(120)} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W >= 120 && MEASURE_W <= 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
-                    title={lang === 'fr' ? 'Vue proche' : 'Visão próxima'}
-                  >S</button>
-                  <button 
-                    onClick={() => {
-                      if (isPlaying) {
-                        sequencer.alertAsync(lang === 'fr' ? 'La vue macro n\'est pas disponible pendant la lecture pour préserver les performances audio.' : 'A visão macro não está disponível durante a reprodução para preservar o desempenho do áudio.');
-                        return;
-                      }
-                      handleZoom(320);
-                    }} 
-                    className={`flex flex-col items-center justify-center flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
-                    title={lang === 'fr' ? 'Vue détaillée (macro)' : 'Visão detalhada (macro)'}
-                  >
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor">
-                      <path d="M12 2C10.5 4.5 10 7 12 9.5C14 7 13.5 4.5 12 2ZM12 22C13.5 19.5 14 17 12 14.5C10 17 10.5 19.5 12 22ZM2 12C4.5 13.5 7 14 9.5 12C7 10 4.5 10.5 2 12ZM22 12C19.5 10.5 17 10 14.5 12C17 14 19.5 13.5 22 12Z" />
-                      <path d="M4.9 4.9C6.7 6.7 8 7 9.5 9.5C8 7 6.7 8 4.9 4.9ZM19.1 19.1C17.3 17.3 16 17 14.5 14.5C16 17 17.3 16 19.1 19.1ZM19.1 4.9C17.3 6.7 17 8 14.5 9.5C17 8 16 6.7 19.1 4.9ZM4.9 19.1C6.7 17.3 7 16 9.5 14.5C7 16 8 17.3 4.9 19.1Z" />
-                      <circle cx="12" cy="12" r="2" fill="var(--cordel-bg)" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Bouton Toggle Multi-Sélection Tactile */}
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleMultiSelectMode();
-                  }}
-                  className={`w-full max-w-[160px] py-0.5 px-1.5 text-[9px] font-bold rounded flex items-center justify-center gap-1 transition-colors border pointer-events-auto cursor-pointer ${
-                    isMultiSelectMode
-                      ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] shadow-sm animate-pulse'
-                      : selectedTimelineCellsCount > 0
-                      ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] border-[var(--cordel-border)]/40 hover:bg-[var(--cordel-text)]/15'
-                      : 'bg-transparent text-[var(--cordel-text)]/60 border-dashed border-[var(--cordel-border)]/30 hover:bg-[var(--cordel-text)]/5'
-                  }`}
-                  title={
-                    lang === 'fr'
-                      ? isMultiSelectMode
-                        ? 'Mode sélection tactile actif (touchez pour sélectionner plusieurs mesures)'
-                        : 'Activer le mode sélection multiple (tactile)'
-                      : isMultiSelectMode
-                        ? 'Modo de seleção tátil ativo (toque para selecionar várias medidas)'
-                        : 'Ativar modo de seleção múltipla (tátil)'
-                  }
-                >
-                  <span className="text-[10px] leading-none">{isMultiSelectMode ? '☑' : '☐'}</span>
-                  <span className="uppercase tracking-wider">
-                    {lang === 'fr' ? 'Sélection' : 'Seleção'}
-                    {selectedTimelineCellsCount > 0 ? ` (${selectedTimelineCellsCount})` : ''}
-                  </span>
-                </button>
-             </div>
-
-            {/* Left spacer column */}
-            {visibleRange.start > 0 && (
-              <div style={{ width: `${measureLeftPositions[visibleRange.start] ?? (visibleRange.start * MEASURE_W)}px`, minWidth: `${measureLeftPositions[visibleRange.start] ?? (visibleRange.start * MEASURE_W)}px` }} className="shrink-0" />
-            )}
-
-            {/* Measure labels */}
-            {Array.from({ length: totalMeasures })
-              .map((_, mIdx) => ({ mIdx }))
-              .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
-              .map(({ mIdx }) => {
-                const mTimeSig = measureTimeSigs?.[mIdx] || '4/4';
-                const mBpm = measureBpms?.[mIdx] || 105;
-                const mTransition = measureBpmTransitions?.[mIdx] || 'immediate';
-                const mVol = (measureVols && measureVols[mIdx] !== undefined) ? measureVols[mIdx] : 100;
-                const mVolTransition = measureVolTransitions?.[mIdx] || 'immediate';
-                const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
-
-                const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
-                const isBpmSelected = Boolean(
-                  selectedAutomationType === 'bpm' &&
-                  selectedAutomationTrackId === null &&
-                  selectedAutomationRange &&
-                  mIdx >= Math.min(selectedAutomationRange.start, selectedAutomationRange.end) &&
-                  mIdx <= Math.max(selectedAutomationRange.start, selectedAutomationRange.end)
-                );
-
-                return (
-                  <div
-                    key={mIdx}
-                    className={`group flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-all border-r shrink-0 relative ${
-                      (mIdx + 1) % 4 === 0
-                        ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
-                        : 'border-r-[var(--cordel-border)]/30'
-                    } ${
-                      isBpmSelected ? 'bg-amber-500/15 border-t-2 border-t-[#e67e22]' : ''
-                    } ${
-                      loopStartMeasure !== null && loopEndMeasure !== null
-                        ? (isInLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80 dark:border-t-gray-400/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
-                        : ''
-                    }`}
-                    style={{
-                      width: measureWidths[mIdx] ?? MEASURE_W,
-                      minWidth: measureWidths[mIdx] ?? MEASURE_W,
-                      height: '100%',
-                    }}
-                >
-                  {isInLoop && (
-                    <div
-                      className="absolute top-[-4px] left-0 right-0 h-3 cursor-pointer z-50 hover:bg-white/20 transition-colors"
-                      title={isLoopRegionActive ? (lang === 'fr' ? 'Désactiver la sélection' : 'Desativar seleção') : (lang === 'fr' ? 'Activer la sélection' : 'Ativar seleção')}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        sequencer.setIsLoopRegionActive(!isLoopRegionActive);
-                      }}
-                    />
-                  )}
-                  <div className="ruler-measure-header flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
-                    <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0 cursor-pointer">
-                      <span className="bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 px-1 py-0.5 rounded transition-colors font-bold">{measureLabelsMap.get(mIdx)}</span>
-                      
-                      {/* Loop Delimiters */}
-                      <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onSetLoopStart(mIdx); }}
-                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${loopStartMeasure === mIdx ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'}`}
-                        > [ </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onSetLoopEnd(mIdx); }}
-                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${loopEndMeasure === mIdx ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'}`}
-                        > ] </button>
-                      </div>
-                    </span>
-
-                    {/* Time Signature */}
-                    <div className="ruler-detailed">
-                      <select
-                        value={mTimeSig}
-                        onChange={e => onMeasureTimeSigChange(mIdx, e.target.value as TimeSignature)}
-                        className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[8px] font-bold rounded cordel-border-sm px-0.5 py-px outline-none cursor-pointer"
-                        title={lang === 'fr' ? 'Signature rythmique' : 'Assinatura de tempo'}
-                      >
-                        <option value="4/4">4/4</option>
-                        <option value="3/4">3/4</option>
-                        <option value="2/4">2/4</option>
-                        <option value="6/8">6/8</option>
-                        <option value="12/8">12/8</option>
-                      </select>
-                    </div>
-
-                    {/* Structure Controls Duo [ + ] et [ × ] */}
-                    <div
-                      className={`flex items-center gap-1 shrink-0 ${
-                        MEASURE_W < 70
-                          ? 'hidden group-hover:flex absolute inset-0 justify-center items-center bg-[var(--cordel-bg)]/85 z-20 pointer-events-none'
-                          : ''
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onInsertMeasure && onInsertMeasure(mIdx, 1);
-                        }}
-                        className="w-5 h-5 flex items-center justify-center text-xs font-bold bg-[#1a1a1a]/10 hover:bg-[#1a1a1a] hover:text-[#f4ecd8] dark:bg-white/10 dark:hover:bg-white dark:hover:text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-white/30 rounded transition-colors cursor-pointer select-none pointer-events-auto shadow-xs"
-                        title={lang === 'fr' ? `Insérer une mesure avant M.${mIdx + 1}` : `Inserir compasso antes de C.${mIdx + 1}`}
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        disabled={totalMeasures <= 1}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (totalMeasures <= 1) return;
-                          if (await sequencer.confirmAsync(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
-                            onDeleteMeasure && onDeleteMeasure(mIdx);
-                          }
-                        }}
-                        className={`w-5 h-5 flex items-center justify-center text-xs font-bold border rounded transition-colors select-none pointer-events-auto shadow-xs ${
-                          totalMeasures <= 1
-                            ? 'opacity-30 cursor-not-allowed border-transparent bg-black/5 dark:bg-white/5'
-                            : 'bg-[#1a1a1a]/10 hover:bg-rose-700 hover:text-white dark:bg-white/10 dark:hover:bg-rose-600 dark:hover:text-white border-[#1a1a1a]/30 dark:border-white/30 cursor-pointer'
-                        }`}
-                        title={lang === 'fr' ? `Supprimer la mesure ${mIdx + 1}` : `Excluir compasso ${mIdx + 1}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Rhythm Signal */}
-                  {(() => {
-                    const sigId = measureSignals[mIdx] ?? null;
-                    const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
-                    return (
-                      <div className="flex items-center w-full mt-1 mb-0.5 relative px-1">
-                        {activeSig ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
-                            }}
-                            className="flex items-center gap-1 px-1 py-0.5 bg-[var(--cordel-border)]/10 hover:bg-[var(--cordel-border)]/20 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] w-full justify-center shadow-sm border border-[var(--cordel-border)]/20"
-                            title={activeSig.name}
-                          >
-                            {activeSig.image ? (
-                              <img src={activeSig.image} alt={activeSig.name} className="w-4 h-4 object-contain flex-shrink-0" />
-                            ) : (
-                              <span className="text-[10px] flex-shrink-0 leading-none">📢</span>
-                            )}
-                            <span className="ruler-detailed truncate">{activeSig.name}</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
-                            }}
-                            className="w-full h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)]/40 border border-dashed border-[var(--cordel-border)]/30 rounded text-[9px] font-bold hover:bg-[var(--cordel-border)]/30 hover:text-[var(--cordel-text)] transition-colors cursor-pointer"
-                            title={lang === 'fr' ? 'Assigner un signal' : 'Atribuir um sinal'}
-                          >
-                            + {lang === 'fr' ? 'Signal' : 'Sinal'}
-                          </button>
-                        )}
-                        
-                        {/* Dropdown */}
-                        {signalDropdownOpen === mIdx && (
-                          <div
-                            className="absolute top-full left-0 z-[100] bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-shadow min-w-[140px] flex flex-col py-1"
-                            style={{ marginTop: 2 }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            <button
-                              onClick={() => {
-                                onMeasureSignalChange?.(mIdx, null);
-                                setSignalDropdownOpen(null);
-                              }}
-                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left"
-                            >
-                              <span className="text-xs opacity-50">✕</span>
-                              <span className="opacity-70">{lang === 'fr' ? 'Aucun' : 'Nenhum'}</span>
-                            </button>
-                            <div className="border-t border-[var(--cordel-border)]/20 my-0.5" />
-                            {rhythmSignals
-                              .filter(sig => enabledSignalIds === null || enabledSignalIds.includes(sig.id))
-                              .map(sig => (
-                              <button
-                                key={sig.id}
-                                onClick={() => {
-                                  onMeasureSignalChange?.(mIdx, sig.id);
-                                  setSignalDropdownOpen(null);
-                                }}
-                                className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left ${
-                                  sigId === sig.id ? 'bg-[var(--cordel-border)]/30' : ''
-                                }`}
-                              >
-                                {sig.image ? (
-                                  <img src={sig.image} alt={sig.name} className="w-6 h-6 object-contain flex-shrink-0" />
-                                ) : (
-                                  <span className="text-[12px] w-6 h-6 flex items-center justify-center bg-black/10 rounded flex-shrink-0 leading-none">📢</span>
-                                )}
-                                <span className="truncate">{sig.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  <div className="flex w-full opacity-50 text-[8px] pb-0.5 mt-auto">
-                    {Array.from({ length: localBeats }).map((_, b) => (
-                      <span
-                        key={b}
-                        className="text-left pl-1 border-l border-[var(--cordel-border)]/10"
-                        style={{ width: `${100 / localBeats}%` }}
-                      >
-                        {b + 1}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Right spacer column */}
-            {visibleRange.end < totalMeasures - 1 && (
-              <div style={{ width: `${Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * MEASURE_W)))}px`, minWidth: `${Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * MEASURE_W)))}px` }} className="shrink-0" />
-            )}
-
-            {/* Quick Add Measure Button */}
-            <div
-              className="px-4 z-40 bg-[var(--cordel-bg)] border-r border-[var(--cordel-border)]/30 flex items-center justify-start h-full shrink-0"
-              style={{ width: 150, minWidth: 150 }}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => {
-                  setInsertAmountStr("1");
-                  setInsertMeasuresPrompt({ isOpen: true, targetIdx: null });
-                }}
-                className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-full"
-                title={lang === 'fr' ? 'Ajouter une mesure' : 'Adicionar compasso'}
-                style={{ height: '28px' }}
-              >
-                <span>➕</span>
-                <span>{lang === 'fr' ? 'Mesure' : 'Compasso'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* ══════════ SIGNAUX DU RYTHME ROW ══════════ */}
-          {/* Signaux déplacés vers le panneau compas (CompassoSelector) */}
-          {/* <RhythmSignalsRow
-            totalMeasures={totalMeasures}
-            rhythmSignals={rhythmSignals}
-            measureSignals={measureSignals}
-            onMeasureSignalChange={onMeasureSignalChange}
-            visibleRange={visibleRange}
-          /> */}
-
-          {/* ══════════ AUTOMATION TRACKS ══════════ */}
-          <AutomationTrack
-            type="tempo"
-            trackId={null}
-            totalMeasures={totalMeasures}
-            measureWidth={MEASURE_W}
-            values={measureBpms || []}
-            transitions={measureBpmTransitions || []}
-            onChangeValue={onMeasureBpmChange}
-            onChangeTransition={onMeasureTransitionChange}
-            min={40}
-            max={240}
-            color="#f19066"
-            lang={lang}
-            headerWidth={HEADER_W}
-          />
-          <AutomationTrack
-            type="volume"
-            trackId={null}
-            totalMeasures={totalMeasures}
-            measureWidth={MEASURE_W}
-            values={measureVols || []}
-            transitions={measureVolTransitions || []}
-            onChangeValue={onMeasureVolChange}
-            onChangeTransition={onMeasureVolTransitionChange}
-            min={0}
-            max={100}
-            color="#55efc4"
-            lang={lang}
-            headerWidth={HEADER_W}
-            isBypassed={isMasterVolumeBypassed}
-            onToggleBypass={toggleMasterVolumeBypass}
           />
 
-          {/* ══════════ TRACK ROWS ══════════ */}
-          {trackIds.map(trackId => (
-            <TimelineTrackRow 
-              key={trackId} 
-              trackId={trackId} 
-              visibleRange={visibleRange} 
-              currentMeasureW={MEASURE_W} 
-              onStepTouchStart={onStepTouchStart}
-              isAutomationOpen={expandedAutomationTrackIds.has(trackId)}
-              onToggleAutomation={() => toggleAutomationTrack(trackId)}
+          <div 
+            ref={gridRef}
+            className="relative timeline-scroll-grid z-[1]" 
+            style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
+          >
+            {/* ══════════ MARKER RULER ROW (📍 NEW) ══════════ */}
+            <TimelineMarkerRulerRow
+              headerWidth={HEADER_W}
+              totalContentW={totalContentW}
+              isMobile={isMobile}
+              lang={lang}
+              songMarkers={songMarkers}
+              measureLeftPositions={measureLeftPositions}
+              measureWidth={MEASURE_W}
+              isPanningActive={isPanningActive}
+              onMarkerRulerDblClick={handleMarkerRulerDblClick}
+              onMarkerPointerDown={handleMarkerPointerDown}
+              onMarkerClick={(marker) => {
+                if (seekToMeasure) seekToMeasure(marker.measure, 0);
+                else if (handleTimelineNavigate) handleTimelineNavigate(marker.measure, 0, 16);
+              }}
+              onMarkerEdit={(marker) => {
+                setEditingMarker(marker);
+                setMarkerModalOpen(true);
+              }}
+              onDeleteMarker={onDeleteMarker}
             />
-          ))}
-          {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
-          <TimelinePlayhead isActive={isActive} />
 
-          {/* ══════════ SNAP GUIDE (📍 NEW) ══════════ */}
-          {snapGuideX !== null && (
-            <div 
-              className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 shadow-[0_0_8px_#f1c40f] z-50 pointer-events-none"
-              style={{ left: `${snapGuideX}px` }}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* 📍 NEW - Panning Hotkey overlay tooltip (similar to sandbox) */}
-      {isPanningActive && (
-        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] cordel-shadow z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
-          <span>✋ {lang === 'fr' ? 'Mode Déplacement Actif' : 'Modo Arrastar Ativo'}</span>
-          <span className="text-[8px] opacity-60 normal-case">{lang === 'fr' ? '(Glissez le fond pour scroller)' : '(Arraste o fundo para rolar)'}</span>
-        </div>
-      )}
-
-
-
-      {/* ══════════ SECTION FORM MODAL ══════════ */}
-      <SongSectionModal
-        isOpen={sectionModalOpen}
-        onClose={() => setSectionModalOpen(false)}
-        editingSection={editingSection}
-        totalMeasures={totalMeasures}
-        lang={lang}
-        onCreateSection={onCreateSection}
-        onUpdateSection={onUpdateSection}
-        onSaveCloudSection={onSaveCloudSection}
-        onLoadCloudSection={onLoadCloudSection}
-      />
-
-      {/* ══════════ SECTION STRETCH CONFLICT MODAL ══════════ */}
-      <SectionCollisionModal
-        isOpen={stretchConflict.isOpen}
-        section={stretchConflict.section}
-        targetRange={stretchConflict.targetRange}
-        lang={lang}
-        onInsert={handleConfirmStretchInsert}
-        onOverwrite={handleConfirmStretchOverwrite}
-        onCancel={handleCancelStretchConflict}
-      />
-
-      {/* ══════════ MARKER FORM MODAL ══════════ */}
-      <SongMarkerModal
-        isOpen={markerModalOpen}
-        onClose={() => setMarkerModalOpen(false)}
-        editingMarker={editingMarker}
-        defaultMeasure={defaultMarkerMeasure}
-        totalMeasures={totalMeasures}
-        lang={lang}
-        onCreateMarker={onCreateMarker}
-        onUpdateMarker={onUpdateMarker}
-      />
-
-      <StepEditorPopup />
-      <TimelineContextMenu />
-      {/* ══════════ INSERT MEASURES PROMPT MODAL ══════════ */}
-      {insertMeasuresPrompt.isOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-6 rounded cordel-border w-full max-w-sm cordel-shadow text-center font-cactus relative">
-            <h3 className="text-xl font-bold mb-4 uppercase tracking-wider">
-              {lang === 'fr' ? 'Ajouter des mesures' : 'Adicionar compassos'}
-            </h3>
-            <p className="mb-4 text-sm font-sans font-bold">
-              {lang === 'fr' ? 'Combien de mesures voulez-vous ajouter ?' : 'Quantos compassos deseja adicionar?'}
-            </p>
-            <input
-              type="number"
-              min="1"
-              max="64"
-              value={insertAmountStr}
-              onChange={(e) => setInsertAmountStr(e.target.value)}
-              className="w-24 text-center bg-[var(--cordel-border)]/10 border-2 border-[var(--cordel-border)] rounded px-2 py-1 mb-6 text-xl font-bold font-sans outline-none focus:border-emerald-600"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const amount = parseInt(insertAmountStr, 10);
-                  if (!isNaN(amount) && amount > 0) {
-                    const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
-                    const newTotal = Math.min(64, totalMeasures + amount);
-                    const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
-                    if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
-                      useSequencerStore.getState().openSubscriptionModal();
-                    } else {
-                      onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
-                    }
-                    setInsertMeasuresPrompt({ isOpen: false, targetIdx: null });
-                  }
-                }
+            {/* ══════════ SECTIONS ROW ══════════ */}
+            <TimelineSectionsRow
+              headerWidth={HEADER_W}
+              totalContentW={totalContentW}
+              isMobile={isMobile}
+              lang={lang}
+              songSections={songSections}
+              snapMode={snapMode}
+              setSnapMode={setSnapMode}
+              onOpenCreateSectionModal={() => {
+                setEditingSection(null);
+                setSectionModalOpen(true);
+              }}
+              measureLeftPositions={measureLeftPositions}
+              measureWidths={measureWidths}
+              isDraggingRange={isDraggingRange}
+              dragStartMeasure={dragStartMeasure}
+              dragCurrentMeasure={dragCurrentMeasure}
+              emptySlotsProps={{
+                totalMeasures,
+                visibleRange,
+                measureWidths,
+                measureWidth: MEASURE_W,
+                copiedSection,
+                lang,
+                onEmptySlotPointerDown: handleEmptySlotPointerDown,
+                onEmptySlotPointerEnter: handleEmptySlotPointerEnter,
+                onPlusClick: handlePlusClick,
+              }}
+              bannersProps={{
+                songSections,
+                totalMeasures,
+                visibleRange,
+                measureWidths,
+                measureLeftPositions,
+                measureWidth: MEASURE_W,
+                isPanningActive,
+                copiedSection,
+                lang,
+                onSectionBlockPointerDown: handleSectionBlockPointerDown,
+                onResizePointerDown: handleResizePointerDown,
+                onEditSection: (section) => {
+                  setEditingSection(section);
+                  setSectionModalOpen(true);
+                },
+                onDeleteSection,
+                onCopySection,
+                onPasteSection,
+              }}
+              quickPopoverProps={{
+                quickSectionRange,
+                quickSectionName,
+                quickSectionColor,
+                quickSectionLevel,
+                totalMeasures,
+                measureLeftPositions,
+                measureWidth: MEASURE_W,
+                lang,
+                onClose: () => setQuickSectionRange(null),
+                onNameChange: setQuickSectionName,
+                onColorChange: setQuickSectionColor,
+                onLevelChange: setQuickSectionLevel,
+                onRangeChange: setQuickSectionRange,
+                onCreate: handleQuickSectionCreate,
+                onLoadCloudSection,
               }}
             />
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => setInsertMeasuresPrompt({ isOpen: false, targetIdx: null })}
-                className="px-4 py-2 cordel-border-sm cordel-button bg-[var(--cordel-wood)] text-[#f4ecd8] font-bold"
-              >
-                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
-              </button>
-              <button
-                onClick={() => {
-                  const amount = parseInt(insertAmountStr, 10);
-                  if (!isNaN(amount) && amount > 0) {
-                    const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
-                    const newTotal = Math.min(64, totalMeasures + amount);
-                    const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
-                    if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
-                      useSequencerStore.getState().openSubscriptionModal();
-                    } else {
-                      onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
-                    }
-                    setInsertMeasuresPrompt({ isOpen: false, targetIdx: null });
-                  }
-                }}
-                className="px-4 py-2 cordel-border-sm cordel-button bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:scale-105 transition-transform"
-              >
-                {lang === 'fr' ? 'Ajouter' : 'Adicionar'}
-              </button>
-            </div>
+
+            {/* ══════════ RULER ROW ══════════ */}
+            <TimelineRulerRow
+              headerWidth={HEADER_W}
+              totalContentW={totalContentW}
+              isMobile={isMobile}
+              lang={lang}
+              totalMeasures={totalMeasures}
+              measureWidth={MEASURE_W}
+              measureWidths={measureWidths}
+              measureLeftPositions={measureLeftPositions}
+              visibleRange={visibleRange}
+              loopStartMeasure={loopStartMeasure}
+              loopEndMeasure={loopEndMeasure}
+              isLoopRegionActive={isLoopRegionActive}
+              setIsLoopRegionActive={(active) => sequencer.setIsLoopRegionActive(active)}
+              measureTimeSigs={measureTimeSigs}
+              measureLabelsMap={measureLabelsMap}
+              measureSignals={measureSignals}
+              rhythmSignals={rhythmSignals}
+              enabledSignalIds={enabledSignalIds}
+              signalDropdownOpen={signalDropdownOpen}
+              setSignalDropdownOpen={setSignalDropdownOpen}
+              onMeasureSignalChange={onMeasureSignalChange}
+              onSetLoopStart={onSetLoopStart}
+              onSetLoopEnd={onSetLoopEnd}
+              onMeasureTimeSigChange={onMeasureTimeSigChange}
+              onInsertMeasure={onInsertMeasure}
+              onDeleteMeasure={onDeleteMeasure}
+              confirmAsync={sequencer.confirmAsync}
+              onPointerDown={handleRulerPointerDown}
+              onPointerMove={handleRulerPointerMove}
+              onPointerUp={handleRulerPointerUp}
+              onZoom={handleZoom}
+              isMultiSelectMode={isMultiSelectMode}
+              selectedTimelineCellsCount={selectedTimelineCellsCount}
+              toggleMultiSelectMode={toggleMultiSelectMode}
+              onOpenAddMeasuresModal={() => {
+                setInsertAmountStr("1");
+                setInsertMeasuresPrompt({ isOpen: true, targetIdx: null });
+              }}
+              isPlaying={isPlaying}
+              alertAsync={sequencer.alertAsync}
+            />
+
+            {/* ══════════ AUTOMATION TRACKS ══════════ */}
+            <AutomationTrack
+              type="tempo"
+              trackId={null}
+              totalMeasures={totalMeasures}
+              measureWidth={MEASURE_W}
+              values={measureBpms || []}
+              transitions={measureBpmTransitions || []}
+              onChangeValue={onMeasureBpmChange}
+              onChangeTransition={onMeasureTransitionChange}
+              min={40}
+              max={240}
+              color="#f19066"
+              lang={lang}
+              headerWidth={HEADER_W}
+            />
+            <AutomationTrack
+              type="volume"
+              trackId={null}
+              totalMeasures={totalMeasures}
+              measureWidth={MEASURE_W}
+              values={measureVols || []}
+              transitions={measureVolTransitions || []}
+              onChangeValue={onMeasureVolChange}
+              onChangeTransition={onMeasureVolTransitionChange}
+              min={0}
+              max={100}
+              color="#55efc4"
+              lang={lang}
+              headerWidth={HEADER_W}
+              isBypassed={isMasterVolumeBypassed}
+              onToggleBypass={toggleMasterVolumeBypass}
+            />
+
+            {/* ══════════ TRACK ROWS ══════════ */}
+            {trackIds.map(trackId => (
+              <TimelineTrackRow 
+                key={trackId} 
+                trackId={trackId} 
+                visibleRange={visibleRange} 
+                currentMeasureW={MEASURE_W} 
+                onStepTouchStart={onStepTouchStart}
+                isAutomationOpen={expandedAutomationTrackIds.has(trackId)}
+                onToggleAutomation={() => toggleAutomationTrack(trackId)}
+              />
+            ))}
+
+            {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
+            <TimelinePlayhead isActive={isActive} />
+
+            {/* ══════════ SNAP GUIDE ══════════ */}
+            {snapGuideX !== null && (
+              <div 
+                className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 shadow-[0_0_8px_#f1c40f] z-50 pointer-events-none"
+                style={{ left: `${snapGuideX}px` }}
+              />
+            )}
           </div>
         </div>
-      )}
 
-      {/* Floating Pattern Picker Popover on Double-Click */}
-      {pickerState && (
-        <TimelinePatternPickerPopover
-          trackId={pickerState.trackId}
-          measureIdx={pickerState.measureIdx}
-          anchorRect={pickerState.rect}
-          onClose={() => setPickerState(null)}
+        {/* Panning Hotkey overlay tooltip */}
+        {isPanningActive && (
+          <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] cordel-shadow z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
+            <span>✋ {lang === 'fr' ? 'Mode Déplacement Actif' : 'Modo Arrastar Ativo'}</span>
+            <span className="text-[8px] opacity-60 normal-case">{lang === 'fr' ? '(Glissez le fond pour scroller)' : '(Arraste o fundo para rolar)'}</span>
+          </div>
+        )}
+
+        {/* ══════════ SECTION FORM MODAL ══════════ */}
+        <SongSectionModal
+          isOpen={sectionModalOpen}
+          onClose={() => setSectionModalOpen(false)}
+          editingSection={editingSection}
+          totalMeasures={totalMeasures}
+          lang={lang}
+          onCreateSection={onCreateSection}
+          onUpdateSection={onUpdateSection}
+          onSaveCloudSection={onSaveCloudSection}
+          onLoadCloudSection={onLoadCloudSection}
         />
-      )}
-    </div>
+
+        {/* ══════════ SECTION STRETCH CONFLICT MODAL ══════════ */}
+        <SectionCollisionModal
+          isOpen={stretchConflict.isOpen}
+          section={stretchConflict.section}
+          targetRange={stretchConflict.targetRange}
+          lang={lang}
+          onInsert={handleConfirmStretchInsert}
+          onOverwrite={handleConfirmStretchOverwrite}
+          onCancel={handleCancelStretchConflict}
+        />
+
+        {/* ══════════ MARKER FORM MODAL ══════════ */}
+        <SongMarkerModal
+          isOpen={markerModalOpen}
+          onClose={() => setMarkerModalOpen(false)}
+          editingMarker={editingMarker}
+          defaultMeasure={defaultMarkerMeasure}
+          totalMeasures={totalMeasures}
+          lang={lang}
+          onCreateMarker={onCreateMarker}
+          onUpdateMarker={onUpdateMarker}
+        />
+
+        <StepEditorPopup />
+        <TimelineContextMenu />
+
+        {/* ══════════ INSERT MEASURES PROMPT MODAL ══════════ */}
+        {insertMeasuresPrompt.isOpen && (
+          <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+            <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-6 rounded cordel-border w-full max-w-sm cordel-shadow text-center font-cactus relative">
+              <h3 className="text-xl font-bold mb-4 uppercase tracking-wider">
+                {lang === 'fr' ? 'Ajouter des mesures' : 'Adicionar compassos'}
+              </h3>
+              <p className="mb-4 text-sm font-sans font-bold">
+                {lang === 'fr' ? 'Combien de mesures voulez-vous ajouter ?' : 'Quantos compassos deseja adicionar?'}
+              </p>
+              <input
+                type="number"
+                min="1"
+                max="64"
+                value={insertAmountStr}
+                onChange={(e) => setInsertAmountStr(e.target.value)}
+                className="w-24 text-center bg-[var(--cordel-border)]/10 border-2 border-[var(--cordel-border)] rounded px-2 py-1 mb-6 text-xl font-bold font-sans outline-none focus:border-emerald-600"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const amount = parseInt(insertAmountStr, 10);
+                    if (!isNaN(amount) && amount > 0) {
+                      const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
+                      const newTotal = Math.min(64, totalMeasures + amount);
+                      const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
+                      if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
+                        useSequencerStore.getState().openSubscriptionModal();
+                      } else {
+                        onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
+                      }
+                      setInsertMeasuresPrompt({ isOpen: false, targetIdx: null });
+                    }
+                  }
+                }}
+              />
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => setInsertMeasuresPrompt({ isOpen: false, targetIdx: null })}
+                  className="px-4 py-2 cordel-border-sm cordel-button bg-[var(--cordel-wood)] text-[#f4ecd8] font-bold"
+                >
+                  {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+                </button>
+                <button
+                  onClick={() => {
+                    const amount = parseInt(insertAmountStr, 10);
+                    if (!isNaN(amount) && amount > 0) {
+                      const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
+                      const newTotal = Math.min(64, totalMeasures + amount);
+                      const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
+                      if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
+                        useSequencerStore.getState().openSubscriptionModal();
+                      } else {
+                        onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
+                      }
+                      setInsertMeasuresPrompt({ isOpen: false, targetIdx: null });
+                    }
+                  }}
+                  className="px-4 py-2 cordel-border-sm cordel-button bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:scale-105 transition-transform"
+                >
+                  {lang === 'fr' ? 'Ajouter' : 'Adicionar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Pattern Picker Popover on Double-Click */}
+        {pickerState && (
+          <TimelinePatternPickerPopover
+            trackId={pickerState.trackId}
+            measureIdx={pickerState.measureIdx}
+            anchorRect={pickerState.rect}
+            onClose={() => setPickerState(null)}
+          />
+        )}
+      </div>
     </TimelineUIContext.Provider>
   );
 }, (prev, next) => {
