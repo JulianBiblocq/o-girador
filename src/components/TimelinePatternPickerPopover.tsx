@@ -4,307 +4,111 @@ import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
 import { Pattern } from '../types';
 import { checkAndTriggerToadaQuickPrompt } from '../utils/toadaArrangement';
+import { TimelinePatternPickerList } from './timeline/TimelinePatternPickerList';
 
 export interface TimelinePatternPickerPopoverProps {
-  trackId: number;
-  measureIdx: number;
-  anchorRect: DOMRect;
-  onClose: () => void;
+  trackId: number; measureIdx: number; anchorRect: DOMRect; onClose: () => void;
 }
 
 export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopoverProps> = ({
-  trackId,
-  measureIdx,
-  anchorRect,
-  onClose,
+  trackId, measureIdx, anchorRect, onClose,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number }>({
-    top: anchorRect.bottom + 4,
-    left: Math.max(8, Math.min(anchorRect.left, window.innerWidth - 200)),
-  });
+  const [pos, setPos] = useState({ top: anchorRect.bottom + 4, left: Math.max(8, Math.min(anchorRect.left, window.innerWidth - 200)) });
 
-  const tracks = useSequencerStore((state) => state.tracks);
-  const handleTimelinePatternAssign = useSequencerStore((state) => state.handleTimelinePatternAssign);
-  const lang = useSequencerStore((state) => state.lang);
+  const tracks = useSequencerStore((s) => s.tracks);
+  const assign = useSequencerStore((s) => s.handleTimelinePatternAssign);
+  const lang = useSequencerStore((s) => s.lang);
 
   const targetTrack = tracks.find((t) => t.id === trackId);
-  const instInfo = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
-  const trackTitle = targetTrack?.customName || instInfo?.name || (lang === 'fr' ? 'Piste' : 'Faixa');
-  const instColor = instInfo?.colors?.['D'] || instInfo?.color || instInfo?.mixerBg || '#e67e22';
+  const inst = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
+  const trackTitle = targetTrack?.customName || inst?.name || (lang === 'fr' ? 'Piste' : 'Faixa');
+  const instColor = inst?.colors?.['D'] || inst?.color || inst?.mixerBg || '#e67e22';
+  const isSlave = Boolean(targetTrack?.linkedToTrackId && !targetTrack.isLinkFolder && !targetTrack.isLinkMaster);
 
-  const isSlave = Boolean(
-    targetTrack?.linkedToTrackId && !targetTrack.isLinkFolder && !targetTrack.isLinkMaster
-  );
-
-  // Détermination de la liste des motifs
   let patternsList: Pattern[] = [];
   if (targetTrack) {
     if (isToadaBus(targetTrack)) {
-      const puxTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-      const coroTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-      patternsList = [...(puxTrack?.patterns || []), ...(coroTrack?.patterns || [])];
+      const pux = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      patternsList = [...(pux?.patterns || []), ...(coro?.patterns || [])];
     } else if (targetTrack.linkedToTrackId && !targetTrack.isLinkFolder) {
-      const parentBus = tracks.find(
-        (p) => String(p.id) === String(targetTrack.linkedToTrackId) && p.isLinkFolder
-      );
+      const parentBus = tracks.find((p) => String(p.id) === String(targetTrack.linkedToTrackId) && p.isLinkFolder);
       patternsList = parentBus ? parentBus.patterns : targetTrack.patterns;
-    } else {
-      patternsList = targetTrack.patterns;
-    }
+    } else patternsList = targetTrack.patterns;
   }
 
-  // Détermination du motif actif pour cette mesure
   let activePatternId: number | null | undefined = null;
   let isFollowingMaster = false;
-
   if (isSlave) {
-    const override = targetTrack?.patternOverrides?.[measureIdx];
-    if (override === null) {
-      activePatternId = null; // Silence explicite
-    } else if (override !== undefined) {
-      activePatternId = override;
-    } else {
-      // Suivre le maître
+    const ov = targetTrack?.patternOverrides?.[measureIdx];
+    if (ov === null) activePatternId = null;
+    else if (ov !== undefined) activePatternId = ov;
+    else {
       isFollowingMaster = true;
-      const parentBus = tracks.find(
-        (p) => String(p.id) === String(targetTrack?.linkedToTrackId) && p.isLinkFolder
-      );
-      const masterPtn = parentBus?.patterns.find((p) => p.measureAssignments[measureIdx]);
-      activePatternId = masterPtn ? masterPtn.id : null;
+      const parentBus = tracks.find((p) => String(p.id) === String(targetTrack?.linkedToTrackId) && p.isLinkFolder);
+      activePatternId = parentBus?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? null;
     }
   } else if (targetTrack && isToadaBus(targetTrack)) {
-    const puxTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-    const coroTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-    const pPtn = puxTrack?.patterns.find((p) => p.measureAssignments[measureIdx]);
-    const cPtn = coroTrack?.patterns.find((p) => p.measureAssignments[measureIdx]);
-    activePatternId = pPtn?.id ?? cPtn?.id ?? null;
+    const pux = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coro = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+    activePatternId = pux?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? coro?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? null;
   } else {
-    const activePtn = targetTrack?.patterns.find((p) => p.measureAssignments[measureIdx]);
-    activePatternId = activePtn ? activePtn.id : null;
+    activePatternId = targetTrack?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? null;
   }
 
-  // Calcul du positionnement dynamique (collision viewport)
   useLayoutEffect(() => {
     if (!popoverRef.current) return;
-    const rect = popoverRef.current.getBoundingClientRect();
-    const margin = 8;
-    let top = anchorRect.bottom + 4;
-    let left = anchorRect.left;
-
-    // Débordement en bas : on bascule au-dessus de la cellule
-    if (top + rect.height > window.innerHeight - margin) {
-      const above = anchorRect.top - rect.height - 4;
-      if (above >= margin) {
-        top = above;
-      } else {
-        top = Math.max(margin, window.innerHeight - rect.height - margin);
-      }
-    }
-
-    // Bornage horizontal
-    if (left + rect.width > window.innerWidth - margin) {
-      left = Math.max(margin, window.innerWidth - rect.width - margin);
-    }
-    if (left < margin) {
-      left = margin;
-    }
-
-    setPosition({ top, left });
+    const r = popoverRef.current.getBoundingClientRect(), m = 8;
+    let top = anchorRect.bottom + 4, left = anchorRect.left;
+    if (top + r.height > window.innerHeight - m) top = anchorRect.top - r.height - 4 >= m ? anchorRect.top - r.height - 4 : Math.max(m, window.innerHeight - r.height - m);
+    if (left + r.width > window.innerWidth - m) left = Math.max(m, window.innerWidth - r.width - m);
+    setPos({ top, left: Math.max(m, left) });
   }, [anchorRect]);
 
-  // Gestion des écouteurs de fermeture (anti-fermeture immédiate + escape + scroll)
   useEffect(() => {
-    let isAttached = false;
-    const mountTime = Date.now();
-    const initialScrollEl = document.getElementById('timeline-scroll-container');
-    const initialScrollLeft = initialScrollEl ? initialScrollEl.scrollLeft : 0;
-    const initialScrollTop = initialScrollEl ? initialScrollEl.scrollTop : 0;
-    const initialWinScrollX = window.scrollX;
-    const initialWinScrollY = window.scrollY;
+    let attached = false;
+    const t0 = Date.now(), sc = document.getElementById('timeline-scroll-container');
+    const sL = sc?.scrollLeft || 0, sT = sc?.scrollTop || 0, wX = window.scrollX, wY = window.scrollY;
 
-    const handlePointerDown = (e: PointerEvent) => {
-      if (!isAttached) return;
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+    const onDown = (e: PointerEvent) => { if (attached && popoverRef.current && !popoverRef.current.contains(e.target as Node)) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    const onScroll = (e: Event) => {
+      if ((popoverRef.current && popoverRef.current.contains(e.target as Node)) || Date.now() - t0 < 150) return;
+      const dX = sc ? Math.abs(sc.scrollLeft - sL) : Math.abs(window.scrollX - wX);
+      const dY = sc ? Math.abs(sc.scrollTop - sT) : Math.abs(window.scrollY - wY);
+      if (dX > 4 || dY > 4 || e.type === 'wheel') onClose();
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-
-    const handleScrollOrWheel = (e: Event) => {
-      // Ignorer tout scroll interne à la popover elle-même (qui a overflow-y-auto)
-      if (popoverRef.current && popoverRef.current.contains(e.target as Node)) {
-        return;
-      }
-      // Ignorer systématiquement les événements de scroll pendant les 150 premières millisecondes (stabilisation)
-      if (Date.now() - mountTime < 150) {
-        return;
-      }
-      // Ne refermer que si le delta de défilement provoqué dépasse 4 pixels
-      const curScrollEl = document.getElementById('timeline-scroll-container');
-      const dX = curScrollEl ? Math.abs(curScrollEl.scrollLeft - initialScrollLeft) : Math.abs(window.scrollX - initialWinScrollX);
-      const dY = curScrollEl ? Math.abs(curScrollEl.scrollTop - initialScrollTop) : Math.abs(window.scrollY - initialWinScrollY);
-      if (dX > 4 || dY > 4 || e.type === 'wheel') {
-        onClose();
-      }
-    };
-
-    // Délai de 150ms pour immuniser contre le 2e clic du double-clic et le calage initial
-    const timer = setTimeout(() => {
-      isAttached = true;
-      window.addEventListener('pointerdown', handlePointerDown);
-    }, 150);
-
-    window.addEventListener('keydown', handleKeyDown, true);
-    window.addEventListener('close-popups', onClose);
-    window.addEventListener('scroll', handleScrollOrWheel, true);
-    window.addEventListener('wheel', handleScrollOrWheel, { passive: true });
-
+    const timer = setTimeout(() => { attached = true; }, 150);
+    window.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    window.addEventListener('wheel', onScroll, { capture: true, passive: true });
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown, true);
-      window.removeEventListener('close-popups', onClose);
-      window.removeEventListener('scroll', handleScrollOrWheel, true);
-      window.removeEventListener('wheel', handleScrollOrWheel);
+      clearTimeout(timer); window.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, { capture: true }); window.removeEventListener('wheel', onScroll, { capture: true });
     };
   }, [onClose]);
 
-  useEffect(() => {
-    popoverRef.current?.focus({ preventScroll: true });
-  }, []);
-
-  const handleSelect = (selectedPatternId: number | null | undefined) => {
-    handleTimelinePatternAssign(trackId, selectedPatternId, measureIdx);
-    if (selectedPatternId !== null && selectedPatternId !== undefined) {
-      checkAndTriggerToadaQuickPrompt(trackId, selectedPatternId, measureIdx);
-    }
+  const handleSelect = (pId: number | null | undefined) => {
+    useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx });
+    assign(trackId, pId, measureIdx);
     onClose();
+    if (typeof pId === 'number') checkAndTriggerToadaQuickPrompt(trackId, pId, measureIdx);
   };
 
   return createPortal(
     <div
       ref={popoverRef}
-      tabIndex={-1}
-      data-testid="timeline-pattern-picker-popover"
-      data-track-id={trackId}
-      data-measure-idx={measureIdx}
-      style={{
-        position: 'fixed',
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-      }}
-      className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0px_var(--cordel-border)] font-cactus z-50 p-1 min-w-[160px] max-w-[240px] max-h-[260px] overflow-y-auto custom-scrollbar select-none outline-none"
+      className="fixed z-[100] bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1 w-[200px] select-none font-cactus animate-in fade-in zoom-in-95 duration-75"
+      style={{ top: `${pos.top}px`, left: `${pos.left}px` }}
       onClick={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
     >
-      {/* En-tête : Piste & Numéro de mesure */}
-      <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--cordel-text)] border-b border-[var(--cordel-border)]/20 flex items-center justify-between mb-1">
-        <span className="truncate pr-2">{trackTitle}</span>
-        <span className="text-[10px] opacity-60 shrink-0 font-sans font-bold">
-          M{measureIdx + 1}
-        </span>
+      <div className="px-2 py-1 border-b border-[#1a1a1a]/30 font-bold text-xs uppercase tracking-wider flex items-center justify-between text-[#1a1a1a]/80">
+        <span className="truncate">{trackTitle}</span>
+        <span className="font-mono text-[10px] text-[#1a1a1a]/50">M{measureIdx + 1}</span>
       </div>
-
-      <div className="flex flex-col gap-0.5">
-        {/* Option Suivre le maître si piste liée */}
-        {isSlave && (
-          <button
-            type="button"
-            onClick={() => handleSelect(undefined)}
-            className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
-              isFollowingMaster
-                ? 'bg-[var(--cordel-text)]/15 font-bold text-[var(--cordel-text)]'
-                : 'hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]'
-            }`}
-          >
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="text-xs">🔗</span>
-              <span className="truncate">
-                {lang === 'fr' ? 'Suivre le maître' : 'Seguir mestre'}
-              </span>
-            </div>
-            {isFollowingMaster && (
-              <span className="text-xs font-bold text-[var(--comp-color,#d4af37)] ml-2 shrink-0">
-                ✓
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* Option Silence */}
-        <button
-          type="button"
-          onClick={() => handleSelect(null)}
-          className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
-            !isFollowingMaster && activePatternId === null
-              ? 'bg-[var(--cordel-text)]/15 font-bold text-[var(--cordel-text)]'
-              : 'hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] opacity-85'
-          }`}
-        >
-          <div className="flex items-center gap-2 truncate">
-            <div
-              className="w-3.5 h-3.5 rounded border border-[var(--cordel-border)]/40 shrink-0 opacity-40"
-              style={{
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, currentColor 0, currentColor 1px, transparent 0, transparent 4px)',
-              }}
-            />
-            <span className="truncate italic">
-              {lang === 'fr' ? '— Silence' : '— Silêncio'}
-            </span>
-          </div>
-          {!isFollowingMaster && activePatternId === null && (
-            <span className="text-xs font-bold text-[var(--comp-color,#d4af37)] ml-2 shrink-0">
-              ✓
-            </span>
-          )}
-        </button>
-
-        {/* Séparateur si des motifs existent */}
-        {patternsList.length > 0 && (
-          <div className="my-0.5 border-t border-[var(--cordel-border)]/20" />
-        )}
-
-        {/* Liste des motifs disponibles */}
-        {patternsList.map((p, pidx) => {
-          const isSelected = !isFollowingMaster && activePatternId === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => handleSelect(p.id)}
-              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center justify-between transition-colors ${
-                isSelected
-                  ? 'bg-[var(--cordel-text)]/15 font-bold text-[var(--cordel-text)]'
-                  : 'hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]'
-              }`}
-            >
-              <div className="flex items-center gap-2 min-w-0 truncate">
-                <span
-                  className="w-3 h-3 rounded-full shrink-0 border border-[var(--cordel-border)]/40 shadow-xs"
-                  style={{ backgroundColor: instColor }}
-                />
-                <span className="truncate">
-                  {p.vocalMode === 'micro' ? '🎙️ ' : ''}
-                  {p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
-                </span>
-              </div>
-              {isSelected && (
-                <span className="text-xs font-bold text-[var(--comp-color,#d4af37)] ml-2 shrink-0">
-                  ✓
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <TimelinePatternPickerList patternsList={patternsList} activePatternId={activePatternId} isSlave={isSlave} isFollowingMaster={isFollowingMaster} instColor={instColor} lang={lang} onSelect={handleSelect} />
     </div>,
     document.body
   );

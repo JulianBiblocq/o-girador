@@ -1,12 +1,8 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useContext } from 'react';
 import { TimelineUIContext } from '../../contexts/TimelineUIContext';
 import { XiloHand } from '../XiloIcons';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { RhythmSignalCell } from './RhythmSignalCell';
 
 interface RhythmSignalsRowProps {
   totalMeasures: number;
@@ -16,53 +12,14 @@ interface RhythmSignalsRowProps {
   visibleRange: { start: number; end: number };
 }
 
-const TimelineSignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, image }) => {
-  const [hasError, setHasError] = React.useState(false);
-  const initials = name
-    ? name.split(' ').filter(Boolean).map((w) => w[0]?.toUpperCase()).slice(0, 2).join('')
-    : 'SG';
-
-  if (!image || hasError) {
-    return (
-      <span className="w-6 h-6 flex items-center justify-center bg-black/10 text-[8px] font-cactus font-bold text-[var(--cordel-wood)] leading-none rounded flex-shrink-0">
-        {initials}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={image}
-      alt={name}
-      onError={() => setHasError(true)}
-      className="w-6 h-6 object-contain flex-shrink-0"
-    />
-  );
-};
-
 const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
-  totalMeasures,
-  rhythmSignals,
-  measureSignals,
-  onMeasureSignalChange,
-  visibleRange = { start: 0, end: 8 },
+  totalMeasures, rhythmSignals, measureSignals, onMeasureSignalChange, visibleRange = { start: 0, end: 8 },
 }) => {
   const uiContext = useContext(TimelineUIContext);
-  if (!uiContext) {
-    throw new Error('RhythmSignalsRow must be used within a TimelineUIContext.Provider');
-  }
+  if (!uiContext) throw new Error('RhythmSignalsRow must be used within TimelineUIContext');
 
-  const {
-    MEASURE_W,
-    HEADER_W,
-    totalContentW,
-    isMobile,
-    lang,
-    signalDropdownOpen,
-    setSignalDropdownOpen,
-  } = uiContext;
-
-  const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
+  const { MEASURE_W, HEADER_W, totalContentW, isMobile, lang, signalDropdownOpen, setSignalDropdownOpen } = uiContext;
+  const enabledSignalIds = useSequencerSettingsStore((s) => s.enabledSignalIds);
 
   if (rhythmSignals.length === 0) return null;
 
@@ -71,11 +28,8 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
       className="flex border-b border-[var(--cordel-border)]/20 h-8 relative"
       style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
     >
-      {/* Sticky header */}
       <div
-        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${
-          isMobile ? 'px-1' : 'px-2'
-        }`}
+        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${isMobile ? 'px-1' : 'px-2'}`}
         style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <span className="text-base flex items-center justify-center"><XiloHand size={14} className="shrink-0" /></span>
@@ -86,117 +40,23 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
         )}
       </div>
 
-      {/* Left spacer column */}
       {visibleRange.start > 0 && (
         <div style={{ width: `${visibleRange.start * MEASURE_W}px`, minWidth: `${visibleRange.start * MEASURE_W}px` }} className="shrink-0" />
       )}
 
-      {/* Measure signal cells */}
       {Array.from({ length: totalMeasures })
         .map((_, mIdx) => ({ mIdx }))
         .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
-        .map(({ mIdx }) => {
-          const sigId = measureSignals[mIdx] ?? null;
-          const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
-          const isCurrentMeasure = false;
-
-          return (
-            <div
-              key={mIdx}
-              className={`border-r border-[var(--cordel-border)]/20 flex items-center justify-center shrink-0 ${
-                isCurrentMeasure ? 'bg-[var(--cordel-border)]/10' : ''
-              }`}
-              style={{
-                width: MEASURE_W,
-                minWidth: MEASURE_W,
-                height: '100%',
-              }}
-            >
-            {activeSig ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
-                }}
-                className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--cordel-border)]/20 hover:bg-[var(--cordel-border)]/40 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] max-w-full"
-                title={activeSig.name}
-              >
-                <TimelineSignalMiniThumb name={activeSig.name} image={activeSig.image} />
-                <span className="ruler-detailed truncate max-w-[70px]">{activeSig.name}</span>
-              </button>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
-                }}
-                className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)]/40 border border-dashed border-[var(--cordel-border)]/30 rounded text-[10px] font-bold hover:bg-[var(--cordel-border)]/20 hover:text-[var(--cordel-text)] transition-colors cursor-pointer"
-                title={lang === 'fr' ? 'Assigner un signal' : 'Atribuir um sinal'}
-              >
-                +
-              </button>
-            )}
-
-            {/* Dropdown de sélection */}
-            {signalDropdownOpen === mIdx && (
-              <div
-                className="absolute top-full left-0 z-50 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-shadow min-w-[140px] flex flex-col py-1"
-                style={{ marginTop: 2 }}
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Aucun signal */}
-                <button
-                  onClick={() => {
-                    onMeasureSignalChange?.(mIdx, null);
-                    setSignalDropdownOpen(null);
-                  }}
-                  className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left"
-                >
-                  <span className="text-xs opacity-50">✕</span>
-                  <span className="opacity-70">{lang === 'fr' ? 'Aucun' : 'Nenhum'}</span>
-                </button>
-                <div className="border-t border-[var(--cordel-border)]/20 my-0.5" />
-                {rhythmSignals
-                  .filter(sig => enabledSignalIds === null || enabledSignalIds.includes(sig.id))
-                  .map(sig => (
-                  <button
-                    key={sig.id}
-                    onClick={() => {
-                      onMeasureSignalChange?.(mIdx, sig.id);
-                      setSignalDropdownOpen(null);
-                    }}
-                    className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left ${
-                      sigId === sig.id ? 'bg-[var(--cordel-border)]/30' : ''
-                    }`}
-                  >
-                    <TimelineSignalMiniThumb name={sig.name} image={sig.image} />
-                    <span className="truncate">{sig.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* Right spacer column */}
-      {visibleRange.end < totalMeasures - 1 && (
-        <div style={{ width: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px`, minWidth: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px` }} className="shrink-0" />
-      )}
-
-      {/* Spacer */}
-      <div 
-        className="h-full shrink-0"
-        style={{ width: 150, minWidth: 150 }} 
-      />
+        .map(({ mIdx }) => (
+          <RhythmSignalCell
+            key={mIdx} mIdx={mIdx} MEASURE_W={MEASURE_W} sigId={measureSignals[mIdx] ?? null}
+            rhythmSignals={rhythmSignals} enabledSignalIds={enabledSignalIds || []}
+            signalDropdownOpen={signalDropdownOpen} lang={lang}
+            setSignalDropdownOpen={setSignalDropdownOpen} onMeasureSignalChange={onMeasureSignalChange}
+          />
+        ))}
     </div>
   );
 };
 
-export const RhythmSignalsRow = React.memo(RhythmSignalsRowComponent, (prev, next) => {
-  return prev.totalMeasures === next.totalMeasures &&
-         prev.rhythmSignals === next.rhythmSignals &&
-         prev.measureSignals === next.measureSignals &&
-         prev.visibleRange.start === next.visibleRange.start &&
-         prev.visibleRange.end === next.visibleRange.end;
-});
+export const RhythmSignalsRow = React.memo(RhythmSignalsRowComponent);
