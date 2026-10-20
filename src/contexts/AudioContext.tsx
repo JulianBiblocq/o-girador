@@ -1,161 +1,21 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { useTransportStore } from '../stores/useTransportStore';
-import { useAudioStore } from '../stores/useAudioStore';
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { loadTone } from '../ToneLoader';
-import { useAudioSync, audioEngine, masterVolumeNode, invalidateAudioParamsCache } from '../hooks/useAudioSync';
+import { useAudioSync } from '../hooks/useAudioSync';
 import { useSequencer } from './SequencerContext';
-import { getVocalRecording, saveVocalRecording } from '../db';
-import { getLocalLibrary, savePresetToLibrary } from '../library';
-import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL, i18n, instrumentsConfig } from '../data';
-import { vocalEngineService } from '../audio/vocalEngineService';
-import { Preset, Pattern, TrackGroup, TimeSignature, MasterFX } from '../types';
-import { migrateCirclesToTracks } from '../migration';
-import { CURRENT_AUDIO_SCALE_VERSION } from '../utils/audioMath';
 import { useAuth, checkHasFullPlaybackAccess } from './AuthContext';
-// Web Audio recording variables
-let wavRecordingBuffersL: Float32Array[] = [];
-let wavRecordingBuffersR: Float32Array[] = [];
-let recorderNode: AudioWorkletNode | null = null;
-let isolatedRecordingContext: AudioContext | null = null;
-let streamDestination: any = null;
-let streamSource: MediaStreamAudioSourceNode | null = null;
+import { getLocalLibrary, savePresetToLibrary } from '../library';
+import { i18n } from '../data';
+import { AudioContextType } from './audio/audioContextTypes';
+import { useAudioEffectsState } from './audio/useAudioEffectsState';
+import { useAudioRecordingState } from './audio/useAudioRecordingState';
+import { executeApplyPreset } from './audio/audioPresetApplier';
+import { fetchFallbackPresetData } from './audio/audioPresetLoader';
+import { buildCurrentPresetData } from './audio/audioPresetDataBuilder';
+import { handleTimeSigChange as resizeTimeSig } from './audio/audioTimeSigService';
 
-export type AudioContextType = ReturnType<typeof useAudioSync> & {
-  masterVol: number;
-  setMasterVol: React.Dispatch<React.SetStateAction<number>>;
-  masterEQ: { low: number; mid: number; high: number };
-  setMasterEQ: React.Dispatch<React.SetStateAction<{ low: number; mid: number; high: number }>>;
-  masterCompressor: { threshold: number; ratio: number };
-  setMasterCompressor: React.Dispatch<React.SetStateAction<{ threshold: number; ratio: number }>>;
-  reverbDecay: number;
-  setReverbDecay: React.Dispatch<React.SetStateAction<number>>;
-  masterReverbVol: number;
-  setMasterReverbVol: React.Dispatch<React.SetStateAction<number>>;
-  activeKeyboardInstrumentId: string | null;
-  setActiveKeyboardInstrumentId: React.Dispatch<React.SetStateAction<string | null>>;
-  
-  // Recording
-  isRecording: boolean;
-  recordingSeconds: number;
-  handleAudioRecordingToggle: () => Promise<void>;
-
-  // Presets
-  applyPreset: (p: any) => Promise<void>;
-  loadFallbackPreset: (name: string) => Promise<void>;
-  handlePresetSelect: (value: string) => Promise<void>;
-  handleSaveState: () => Promise<void>;
-  handleLoadState: (file: File) => void;
-
-  handleSaveToLocal: () => Promise<void>;
-  getCurrentPresetData: () => Preset;
-  handleLoadLocalPreset: (name: string) => Promise<void>;
-  activePresetName: string;
-  setActivePresetName: React.Dispatch<React.SetStateAction<string>>;
-  handleTimeSigChange: (selectValue: TimeSignature) => Promise<void>;
-  isCompiling: boolean;
-  isPresetLoading: boolean;
-};
+export * from './audio/audioContextTypes';
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
-
-// Helpers for base64 vocal recording conversion
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
-const base64ToBlob = (base64Data: string): Blob => {
-  const parts = base64Data.split(';base64,');
-  let contentType = '';
-  let rawBase64 = base64Data;
-  if (parts.length === 2) {
-    contentType = parts[0].replace('data:', '');
-    rawBase64 = parts[1];
-  }
-  const sliceSize = 512;
-  const byteCharacters = atob(rawBase64);
-  const byteArrays: Uint8Array[] = [];
-
-  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-    const slice = byteCharacters.slice(offset, offset + sliceSize);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
-  }
-
-  return new Blob(byteArrays as BlobPart[], { type: contentType || 'audio/webm' });
-};
-
-function bufferToWav(leftBuffers: Float32Array[], rightBuffers: Float32Array[], sampleRate: number): Blob {
-  let totalLength = 0;
-  for (let i = 0; i < leftBuffers.length; i++) {
-    totalLength += leftBuffers[i].length;
-  }
-
-  const mergedLeft = new Float32Array(totalLength);
-  const mergedRight = new Float32Array(totalLength);
-  let offset = 0;
-  for (let i = 0; i < leftBuffers.length; i++) {
-    mergedLeft.set(leftBuffers[i], offset);
-    mergedRight.set(rightBuffers[i], offset);
-    offset += leftBuffers[i].length;
-  }
-
-  const interleaved = new Float32Array(totalLength * 2);
-  for (let i = 0; i < totalLength; i++) {
-    interleaved[i * 2] = mergedLeft[i];
-    interleaved[i * 2 + 1] = mergedRight[i];
-  }
-
-  const buffer = new ArrayBuffer(44 + interleaved.length * 2);
-  const view = new DataView(buffer);
-
-  writeString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + interleaved.length * 2, true);
-  writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 2, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 4, true);
-  view.setUint16(32, 4, true);
-  view.setUint16(34, 16, true);
-  writeString(view, 36, 'data');
-  view.setUint32(40, interleaved.length * 2, true);
-
-  let index = 44;
-  for (let i = 0; i < interleaved.length; i++) {
-    const sample = Math.max(-1, Math.min(1, interleaved[i]));
-    const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-    view.setInt16(index, intSample, true);
-    index += 2;
-  }
-
-  return new Blob([view], { type: 'audio/wav' });
-}
-
-function writeString(view: DataView, offset: number, string: string) {
-  for (let i = 0; i < string.length; i++) {
-    view.setUint8(offset + i, string.charCodeAt(i));
-  }
-}
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { userProfile, isAdmin } = useAuth();
@@ -163,56 +23,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
 
-  const [masterVol, setMasterVol] = useState<number>(0);
-  const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
-  const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
-  const [reverbDecay, setReverbDecay] = useState<number>(() => {
-    const saved = localStorage.getItem('oGirador_reverb_decay');
-    return saved ? parseFloat(saved) : 2.5;
-  });
-  const [masterReverbVol, setMasterReverbVol] = useState<number>(() => {
-    const saved = localStorage.getItem('oGirador_master_reverb_vol');
-    return saved ? parseFloat(saved) : 0;
-  });
-  const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
-
+  const fxState = useAudioEffectsState();
+  const { isRecording, recordingSeconds, handleAudioRecordingToggle } = useAudioRecordingState();
   const [activePresetName, setActivePresetName] = useState<string>('');
   const [isPresetLoading, setIsPresetLoading] = useState<boolean>(false);
 
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
-
-  useEffect(() => {
-    localStorage.setItem('oGirador_reverb_decay', reverbDecay.toString());
-  }, [reverbDecay]);
-
-  useEffect(() => {
-    localStorage.setItem('oGirador_master_reverb_vol', masterReverbVol.toString());
-  }, [masterReverbVol]);
-
-  const t = (key: string) => {
-    return (i18n[sequencer.lang] as any)[key] || key;
-  };
-
-  useEffect(() => {
-    let interval: any = null;
-    if (isRecording) {
-      interval = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      setRecordingSeconds(0);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRecording]);
-
   const audioSync = useAudioSync({
     tracksRef: sequencer.tracksRef,
-    totalMeasures: totalMeasures,
+    totalMeasures,
     totalMeasuresRef: sequencer.totalMeasuresRef,
-    measureTimeSigs: measureTimeSigs,
+    measureTimeSigs,
     measureTimeSigsRef: sequencer.measureTimeSigsRef,
     measureBpms: sequencer.measureBpms,
     measureBpmsRef: sequencer.measureBpmsRef,
@@ -228,921 +48,98 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isLoopingRef: sequencer.isLoopingRef,
     songSectionsRef: sequencer.songSectionsRef,
     activeVariationsRef: sequencer.activeVariationsRef,
-
-
     isPlayingRef: sequencer.isPlayingRef,
     currentStepIndexRef: sequencer.currentStepIndexRef,
     measureCountRef: sequencer.measureCountRef,
     lastPlayedSignalIdRef: sequencer.lastPlayedSignalIdRef,
     setIsPlayingRef: sequencer.setIsPlayingRef,
-
     bpm: sequencer.bpm,
     isLeftHanded: sequencer.isLeftHanded,
-    activeKeyboardInstrumentId,
-    masterVol,
-    masterEQ,
-    masterCompressor,
-    masterReverbVol,
-    reverbDecay
+    activeKeyboardInstrumentId: fxState.activeKeyboardInstrumentId,
+    masterVol: fxState.masterVol,
+    masterEQ: fxState.masterEQ,
+    masterCompressor: fxState.masterCompressor,
+    masterReverbVol: fxState.masterReverbVol,
+    reverbDecay: fxState.reverbDecay
   });
 
-  const normalizePatternData = (p: Pattern, instIdx: number, targetMeasures: number) => {
-    if (!p.notes) p.notes = Array(p.steps).fill('');
-    if (!p.lyrics) p.lyrics = Array(p.steps).fill('');
-    if (!p.activeSteps) p.activeSteps = Array(p.steps).fill(0);
-
-    // Isolation absolue anacrouse vs mesure principale (anti-référence partagée)
-    if (p.preRollActiveSteps && p.preRollActiveSteps === p.activeSteps) {
-      p.preRollActiveSteps = [...p.preRollActiveSteps];
-    }
-    if (p.preRollLyrics && p.preRollLyrics === p.lyrics) {
-      p.preRollLyrics = [...p.preRollLyrics];
-    }
-    if (p.preRollNotes && p.preRollNotes === p.notes) {
-      p.preRollNotes = [...p.preRollNotes];
-    }
-    if (p.preRollVolumes && p.preRollVolumes === p.volumes) {
-      p.preRollVolumes = [...p.preRollVolumes];
-    }
-    if (p.preRollDecays && p.preRollDecays === p.decays) {
-      p.preRollDecays = [...p.preRollDecays];
-    }
-    
-    // Assainissement absolu de measureAssignments (Support objets Firestore, tableaux d'indices et tableaux booléens)
-    if (!p.measureAssignments) {
-      p.measureAssignments = Array(targetMeasures).fill(false);
-    } else if (!Array.isArray(p.measureAssignments)) {
-      // Cas Firestore / Object Map: { "1": "...", "3": "..." } ou { "0": true }
-      const rawObj = p.measureAssignments as any;
-      const normalized = Array(targetMeasures).fill(false);
-      Object.entries(rawObj).forEach(([k, v]) => {
-        const mIdx = parseInt(k, 10);
-        if (!isNaN(mIdx) && mIdx >= 0 && mIdx < targetMeasures) {
-          normalized[mIdx] = Boolean(v);
-        }
-      });
-      p.measureAssignments = normalized;
-    } else if (p.measureAssignments.length > 0 && typeof p.measureAssignments[0] === 'number') {
-      // Cas liste d'indices de mesures (1-based ou 0-based)
-      const numList = p.measureAssignments as unknown as number[];
-      const normalized = Array(targetMeasures).fill(false);
-      const isOneBased = numList.some(n => n === targetMeasures);
-      numList.forEach(n => {
-        const idx = isOneBased ? n - 1 : n;
-        if (idx >= 0 && idx < targetMeasures) {
-          normalized[idx] = true;
-        }
-      });
-      p.measureAssignments = normalized;
-    } else if (p.measureAssignments.length < targetMeasures) {
-      const currentLen = p.measureAssignments.length;
-      for (let i = currentLen; i < targetMeasures; i++) {
-        p.measureAssignments.push(p.measureAssignments[0] || false);
-      }
-    } else if (p.measureAssignments.length > targetMeasures) {
-      p.measureAssignments = p.measureAssignments.slice(0, targetMeasures);
-    }
-
-    // Normalisation de vocalMode pour motifs vocaux avec sample
-    if (
-      p.vocalMode === 'audio' ||
-      p.vocalMode === 'recorded' ||
-      (p.vocalClip && p.vocalMode !== 'synth') ||
-      Boolean(p.vocalAudioData) ||
-      Boolean(p.vocalAudioUrl)
-    ) {
-      p.vocalMode = 'micro';
-    }
-
-    const sanitizeSculptValue = (raw: any, defaultVal: number): number | [number, number] => {
-      if (Array.isArray(raw)) {
-        const v0 = Number(raw[0]);
-        const v1 = Number(raw[1]);
-        return [isNaN(v0) ? defaultVal : v0, isNaN(v1) ? defaultVal : v1];
-      }
-      const val = Number(raw);
-      return isNaN(val) ? defaultVal : val;
-    };
-
-    if (!p.volumes || p.volumes.length !== p.steps) {
-      const existing = p.volumes || [];
-      p.volumes = Array(p.steps).fill(100);
-      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
-        p.volumes[i] = sanitizeSculptValue(existing[i], 100);
-      }
-    } else {
-      for (let i = 0; i < p.steps; i++) {
-        p.volumes[i] = sanitizeSculptValue(p.volumes[i], 100);
-      }
-    }
-
-    if (!p.decays || p.decays.length !== p.steps) {
-      const existing = p.decays || [];
-      p.decays = Array(p.steps).fill(100);
-      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
-        p.decays[i] = sanitizeSculptValue(existing[i], 100);
-      }
-    } else {
-      for (let i = 0; i < p.steps; i++) {
-        p.decays[i] = sanitizeSculptValue(p.decays[i], 100);
-      }
-    }
-
-    if (!p.microtimings || p.microtimings.length !== p.steps) {
-      const existing = p.microtimings || [];
-      p.microtimings = Array(p.steps).fill(0);
-      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
-        p.microtimings[i] = sanitizeSculptValue(existing[i], 0);
-      }
-    } else {
-      for (let i = 0; i < p.steps; i++) {
-        p.microtimings[i] = sanitizeSculptValue(p.microtimings[i], 0);
-      }
-    }
-  };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const applyPreset = useCallback(async (p: any) => {
     setIsPresetLoading(true);
     try {
-      vocalEngineService.disposeAllVocalPlayers();
-      useSequencerStore.getState().resetFirstPassRegistry();
-      sequencer.clearHistory();
-      sequencer.setMetadata({
-        toada: p.metadata?.toada || '',
-        nacao: p.metadata?.nacao || '',
-        compositor: p.metadata?.compositor || '',
-        ritmo: p.metadata?.ritmo || '',
-        rhythmSignals: p.metadata?.rhythmSignals || [],
-        ...(p.metadata || {})
-      });
-      
-      let loadedTracks: TrackGroup[] = [];
-      let loadedMeasures = p.totalMeasures || 8;
-      const version = p.version || 1;
-
-      if (p.tracks) {
-        loadedTracks = JSON.parse(JSON.stringify(p.tracks));
-        if (version < 2) {
-          loadedTracks.forEach(t => {
-            if (t.instrumentIdx >= 4) {
-              t.instrumentIdx += 1;
-            }
-          });
-        }
-        if (version < 3) {
-          loadedTracks.forEach(t => {
-            if (t.instrumentIdx === 8) {
-              const isApito = t.patterns.some(p => p.activeSteps && p.activeSteps.some(s => s === 'W' || s === 'w'));
-              if (!isApito) {
-                t.instrumentIdx = 9;
-              }
-            } else if (t.instrumentIdx > 8) {
-              t.instrumentIdx = 9;
-            }
-          });
-        }
-        // Clamp any out-of-bounds instrumentIdx
-        loadedTracks.forEach(t => {
-          if (t.instrumentIdx >= instrumentsConfig.length) {
-            t.instrumentIdx = instrumentsConfig.length - 1;
-          }
-        });
-        loadedTracks.forEach(t => t.patterns.forEach(ptn => normalizePatternData(ptn, t.instrumentIdx, loadedMeasures)));
-      } else if (p.circles) {
-        const oldCircles = JSON.parse(JSON.stringify(p.circles));
-        if (version < 2) {
-          oldCircles.forEach((c: any) => {
-            if (c.instrumentIdx >= 4) {
-              c.instrumentIdx += 1;
-            }
-          });
-        }
-        if (version < 3) {
-          oldCircles.forEach((c: any) => {
-            if (c.instrumentIdx === 8) {
-              const isApito = c.activeSteps && c.activeSteps.some((s: any) => s === 'W' || s === 'w');
-              if (!isApito) {
-                c.instrumentIdx = 9;
-              }
-            } else if (c.instrumentIdx > 8) {
-              c.instrumentIdx = 9;
-            }
-          });
-        }
-        // Clamp any out-of-bounds instrumentIdx
-        oldCircles.forEach((c: any) => {
-          if (c.instrumentIdx >= instrumentsConfig.length) {
-            c.instrumentIdx = instrumentsConfig.length - 1;
-          }
-        });
-        loadedTracks = migrateCirclesToTracks(oldCircles, loadedMeasures);
-        loadedTracks.forEach(t => t.patterns.forEach(ptn => normalizePatternData(ptn, t.instrumentIdx, loadedMeasures)));
-      }
-
-      // Migration rétrocompatible des anciens presets (audioScaleVersion !== 2)
-      // Évite le piège du +6 dB involontaire sur les presets historiques stockés à 100
-      const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
-      if (!isAudioV2) {
-        loadedTracks.forEach(t => {
-          if (t.volumeVal === 100 || t.volumeVal === undefined) {
-            t.volumeVal = 75;
-          } else {
-            t.volumeVal = Math.round(t.volumeVal * 0.75);
-          }
-          if (t.measureVols && Array.isArray(t.measureVols)) {
-            t.measureVols = t.measureVols.map((v: number) => (v === 100 ? 75 : Math.round(v * 0.75)));
-          }
-        });
-      }
-
-      // Assainissement systématique des paramètres de mixage des pistes
-      loadedTracks.forEach(t => {
-        t.volumeVal = typeof t.volumeVal === 'number' && !isNaN(t.volumeVal) ? t.volumeVal : 75;
-        const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal)
-          ? t.panVal
-          : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);
-        t.panVal = rawPan;
-        t.pan = rawPan;
-        t.isMute = Boolean(t.isMute);
-        t.isSolo = Boolean(t.isSolo);
-        if (!t.fxSends) {
-          t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
-        }
-      });
-      
-      const promises: Promise<void>[] = [];
-      loadedTracks.forEach(t => {
-        const inst = instrumentsConfig[t.instrumentIdx];
-        const isVocalTrack = Boolean(
-          inst?.type === 'voice' ||
-          inst?.id === 'toada' ||
-          inst?.id === 'puxador' ||
-          inst?.id === 'coro' ||
-          t.instrumentIdx >= 10 ||
-          (t.patterns && t.patterns.some((p: any) => p && (p.vocalClip || p.vocalAudioData || p.vocalAudioUrl || p.vocalMode === 'micro' || p.vocalMode === 'audio' || p.vocalMode === 'recorded')))
-        );
-        if (isVocalTrack) {
-          t.patterns.forEach(ptn => {
-            const patternId = ptn.id;
-            const clipId = ptn.vocalClip?.id;
-            if (ptn.vocalAudioData) {
-              const b64 = ptn.vocalAudioData;
-              delete ptn.vocalAudioData;
-              promises.push(
-                (async () => {
-                  try {
-                    const blob = base64ToBlob(b64);
-                    await saveVocalRecording(patternId, blob);
-                    if (clipId && String(clipId) !== String(patternId)) {
-                      await saveVocalRecording(clipId, blob);
-                    }
-                  } catch (err) {
-                    console.error(`Failed to save vocal recording for pattern ${patternId}:`, err);
-                  }
-                })()
-              );
-            } else if (ptn.vocalAudioUrl) {
-              const url = ptn.vocalAudioUrl;
-              promises.push(
-                (async () => {
-                  try {
-                    // Contournement strict du cache HTTP navigateur via horodatage
-                    const fetchUrl = url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`;
-                    const response = await fetch(fetchUrl);
-                    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                    const blob = await response.blob();
-                    await saveVocalRecording(patternId, blob);
-                    useAudioStore.getState().addVocalBlob(patternId, blob);
-                    useAudioStore.getState().addVocalBlob(String(patternId), blob);
-                    if (clipId && String(clipId) !== String(patternId)) {
-                      await saveVocalRecording(clipId, blob);
-                      useAudioStore.getState().addVocalBlob(clipId, blob);
-                      useAudioStore.getState().addVocalBlob(String(clipId), blob);
-                    }
-                  } catch (err) {
-                    console.error(`Failed to download and save vocal recording from ${url}:`, err);
-                  }
-                })()
-              );
-            }
-          });
-        }
-      });
-
-      if (promises.length > 0) {
-        try {
-          await Promise.all(promises);
-        } catch (err) {
-          console.error("Error restoring vocal recordings from base64:", err);
-        }
-      }
-
-      // Sanitize and restore rodaTrackOrder (Retrocompatibilité & Assainissement)
-      const loadedTrackIds = new Set(loadedTracks.map(t => t.id));
-      const rawRodaOrder = Array.isArray(p.rodaTrackOrder) ? p.rodaTrackOrder : [];
-      const validExisting = rawRodaOrder.filter((id: any) => typeof id === 'number' && loadedTrackIds.has(id));
-      const missing = loadedTracks.map(t => t.id).filter(id => !validExisting.includes(id));
-      const finalRodaOrder = [...validExisting, ...missing];
-
-      useSequencerStore.setState({ 
-        rodaTrackOrder: finalRodaOrder,
-        totalMeasures: loadedMeasures,
-        tracksVersion: useSequencerStore.getState().tracksVersion + 1,
-        isLetraActive: false
-      });
-      useSequencerStore.getState().setTracks(loadedTracks);
-      useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);
-      useSequencerStore.getState().resetSpeedTrainerConfig();
-
-      // Réhydratation automatique des enregistrements vocaux (IndexedDB -> RAM)
-      try {
-        await vocalEngineService.rehydrateVocalBuffers(loadedTracks);
-      } catch (err) {
-        console.error("🎙️ [VOCAL REHYDRATE] Error during applyPreset rehydration:", err);
-      }
-
-      sequencer.setTotalMeasures(loadedMeasures, true);
-      sequencer.setBpmRaw(Math.round(p.bpm || 90));
-      sequencer.setTimeSig(p.timeSig || '4/4');
-
-      const defaultBpm = Math.round(p.bpm || 90);
-      const defaultTimeSig = p.timeSig || '4/4';
-
-      const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms)
-        ? p.measureBpms.map((b: number) => Math.round(b))
-        : Array(loadedMeasures).fill(defaultBpm);
-
-      const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs)
-        ? p.measureTimeSigs
-        : Array(loadedMeasures).fill(defaultTimeSig);
-
-      const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions)
-        ? p.measureBpmTransitions
-        : Array(loadedMeasures).fill('immediate');
-
-      const loadedVols = p.measureVols && Array.isArray(p.measureVols)
-        ? p.measureVols.map((v: number) => {
-            const rounded = Math.round(v);
-            return !isAudioV2 ? (rounded === 100 ? 75 : Math.round(rounded * 0.75)) : rounded;
-          })
-        : Array(loadedMeasures).fill(75);
-
-      const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions)
-        ? p.measureVolTransitions
-        : Array(loadedMeasures).fill('immediate');
-
-      sequencer.setMeasureBpms(loadedBpms);
-      sequencer.setMeasureTimeSigs(loadedTimeSigs);
-      sequencer.setMeasureBpmTransitions(loadedBpmTransitions);
-      sequencer.setMeasureVols(loadedVols);
-      sequencer.setMeasureVolTransitions(loadedVolTransitions);
-
-      useSequencerStore.getState().clearLoopExitRequest();
-      useSequencerStore.getState().setIsLoopBypassed(false);
-      useSequencerStore.getState().setCurrentLoopIteration(1);
-      useSequencerStore.getState().setLoopMode(p.loopMode !== undefined ? p.loopMode : 'infinite');
-      sequencer.setLoopStartMeasure(p.loopStartMeasure !== undefined ? p.loopStartMeasure : null);
-      sequencer.setLoopEndMeasure(p.loopEndMeasure !== undefined ? p.loopEndMeasure : null);
-      sequencer.setIsLoopRegionActive(p.isLoopRegionActive !== undefined ? p.isLoopRegionActive : true);
-      if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
-
-      const loadedSections = (p.songSections && Array.isArray(p.songSections))
-        ? JSON.parse(JSON.stringify(p.songSections))
-        : [];
-      useSequencerStore.setState({ songSections: loadedSections });
-      useSequencerStore.getState().setSongSections(loadedSections);
-      if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
-      sequencer.setSongSections(loadedSections);
-
-      const loadedMarkers = (p.songMarkers && Array.isArray(p.songMarkers))
-        ? JSON.parse(JSON.stringify(p.songMarkers))
-        : [];
-      useSequencerStore.setState({ songMarkers: loadedMarkers });
-      useSequencerStore.getState().setSongMarkers(loadedMarkers);
-      if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
-      sequencer.setSongMarkers(loadedMarkers);
-
-      const loadedSignals = (p.measureSignals && Array.isArray(p.measureSignals))
-        ? JSON.parse(JSON.stringify(p.measureSignals))
-        : Array(loadedMeasures).fill(null);
-      useSequencerStore.setState({ measureSignals: loadedSignals });
-      useSequencerStore.getState().setMeasureSignals(loadedSignals);
-      if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
-      sequencer.setMeasureSignals(loadedSignals);
-
-      if (p.masterEQ) {
-        setMasterEQ(p.masterEQ);
-      } else {
-        setMasterEQ({ low: 0, mid: 0, high: 0 });
-      }
-
-      if (p.masterCompressor) {
-        setMasterCompressor(p.masterCompressor);
-      } else {
-        setMasterCompressor({ threshold: -20, ratio: 4 });
-      }
-
-      if (p.masterVol !== undefined && typeof p.masterVol === 'number' && !isNaN(p.masterVol)) {
-        setMasterVol(p.masterVol);
-      } else {
-        setMasterVol(0);
-      }
-
-      // Restauration robuste et sécurisée de MasterFX (Distorsion, Réverbe, Mute)
-      const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
-      const rawMasterFX = p.masterFX;
-
-      // Calcul sécurisé du temps de réverbe pour anciens presets
-      let fallbackReverbTime = 30;
-      if (isValidNum(p.reverbDecay)) {
-        fallbackReverbTime = Math.max(0, Math.min(100, Math.round(((p.reverbDecay - 0.5) / 7.5) * 100)));
-      } else if ((p as any).reverbType) {
-        const oldType = (p as any).reverbType;
-        if (oldType === 'hall') fallbackReverbTime = Math.round(((4.5 - 0.5) / 7.5) * 100);
-        else if (oldType === 'studio') fallbackReverbTime = Math.round(((2.5 - 0.5) / 7.5) * 100);
-        else fallbackReverbTime = Math.round(((1.5 - 0.5) / 7.5) * 100);
-      }
-
-      const loadedMasterFX: MasterFX = {
-        reverb: {
-          returnVolume: isValidNum(rawMasterFX?.reverb?.returnVolume)
-            ? rawMasterFX.reverb.returnVolume
-            : (isValidNum(p.masterReverbVol) ? p.masterReverbVol : 70),
-          time: isValidNum(rawMasterFX?.reverb?.time)
-            ? rawMasterFX.reverb.time
-            : fallbackReverbTime,
-          isMuted: typeof rawMasterFX?.reverb?.isMuted === 'boolean' ? rawMasterFX.reverb.isMuted : false,
-        },
-        distortion: {
-          returnVolume: isValidNum(rawMasterFX?.distortion?.returnVolume)
-            ? rawMasterFX.distortion.returnVolume
-            : (isValidNum(p.masterDistortion) ? p.masterDistortion : 0),
-          drive: isValidNum(rawMasterFX?.distortion?.drive)
-            ? rawMasterFX.distortion.drive
-            : (isValidNum(p.masterDistortionDrive) ? p.masterDistortionDrive : 20),
-          isMuted: typeof rawMasterFX?.distortion?.isMuted === 'boolean' ? rawMasterFX.distortion.isMuted : false,
-        },
-      };
-
-      useSequencerStore.getState().setMasterFX(loadedMasterFX);
-      useSequencerStore.getState().setMasterEffectsActive({
-        compressor: true,
-        reverb: true,
-        disto: true
-      });
-      setMasterReverbVol(loadedMasterFX.reverb.returnVolume);
-      setReverbDecay(0.5 + 7.5 * (loadedMasterFX.reverb.time / 100));
-
-      if (p.globalSwing) {
-        audioSync.setGlobalSwing(p.globalSwing);
-      } else if (p.isSwingOn !== undefined) {
-        audioSync.setGlobalSwing(p.isSwingOn ? { mode: 'maracatu', customOffsets: [0, 8, -29, -58] } : { mode: 'off', customOffsets: [0, 8, -29, -58] });
-      } else {
-        audioSync.setGlobalSwing({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
-      }
-
-      // Sync refs
-      sequencer.totalMeasuresRef.current = loadedMeasures;
-      sequencer.measureBpmsRef.current = loadedBpms;
-      sequencer.measureTimeSigsRef.current = loadedTimeSigs;
-      sequencer.measureBpmTransitionsRef.current = loadedBpmTransitions;
-      sequencer.measureVolsRef.current = loadedVols;
-      sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
-      if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
-      if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
-      if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
-      if (p.metadata?.preRollSettings || p.preRollSettings) {
-        useTransportStore.getState().setPreRollSettings(p.metadata?.preRollSettings || p.preRollSettings);
-      }
-
-      const targetVocalPreset = p.vocalPreset || p.metadata?.vocalPreset;
-      if (targetVocalPreset) {
-        useAudioStore.getState().setVocalPreset(targetVocalPreset as any);
-      }
-
-      sequencer.measureCountRef.current = 0;
-      sequencer.tracksRef.current = loadedTracks;
-      invalidateAudioParamsCache();
-      audioSync.setCurrentMeasure(0);
-      audioSync.setIsLoading(false);
-    } catch (err) {
-      console.error("Failed to apply preset:", err);
-      audioSync.setIsLoading(false);
-      throw err;
+      await executeApplyPreset(p, sequencer, audioSync, fxState);
     } finally {
-      setTimeout(() => {
-        setIsPresetLoading(false);
-      }, 300);
+      setTimeout(() => setIsPresetLoading(false), 300);
     }
-  }, []);
+  }, [audioSync, sequencer, fxState]);
+
+  const t = useCallback((k: string) => (i18n[sequencer.lang as keyof typeof i18n] as any)?.[k] || k, [sequencer.lang]);
 
   const loadFallbackPreset = useCallback(async (name: string) => {
     setIsPresetLoading(true);
     try {
-      let p;
-      if (name.startsWith('cloud:')) {
-        const id = name.replace('cloud:', '');
-        const { getCloudPreset } = await import('../cloudLibrary');
-        p = await getCloudPreset(id);
-        if (!p || !Array.isArray(p.tracks) || p.tracks.length === 0) {
-          console.warn('[loadFallbackPreset] Invalid cloud preset or empty tracks, falling back to default preset:', id);
-          p = vouVadiarPreset;
-        } else {
-          if (!p.metadata) p.metadata = {} as any;
-          p.metadata.morceauId = id;
-          try {
-            localStorage.setItem('girador_last_loaded_preset_id', id);
-          } catch (_) {}
-        }
-      } else if (name.startsWith('local:')) {
-        const id = name.replace('local:', '');
-        const localLib = await getLocalLibrary();
-        p = localLib[id];
-        if (!p) {
-          setIsPresetLoading(false);
-          window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
-          return;
-        }
-      } else if (name.endsWith('.json')) {
-        try {
-          const response = await fetch(`${ASSETS_BASE_URL}presets/${encodeURI(name)}`);
-          if (!response.ok) throw new Error('Network response was not ok');
-          p = await response.json();
-        } catch (error) {
-          console.error('Error fetching preset:', error);
-          setIsPresetLoading(false);
-          window.alert(t('invalidFile'));
-          return;
-        }
-      } else {
-        p = name === 'baque-de-imale' ? baqueDeImalePreset : vouVadiarPreset;
-      }
-      await applyPreset(p);
-    } catch (err) {
-      console.error('loadFallbackPreset error:', err);
+      const p = await fetchFallbackPresetData(name, sequencer.lang, t);
+      if (p) await applyPreset(p);
+    } finally {
       setIsPresetLoading(false);
-      throw err;
     }
-  }, [applyPreset]);
+  }, [applyPreset, sequencer.lang, t]);
 
-  const handlePresetSelect = async (value: string) => {
-    setIsPresetLoading(true);
+  const handlePresetSelect = useCallback(async (value: string) => {
     setActivePresetName(value);
     if (typeof window !== 'undefined') {
       try {
         const url = new URL(window.location.href);
-        if (value.startsWith('cloud:')) {
-          url.searchParams.set('loadPreset', value.replace('cloud:', ''));
-        } else {
-          url.searchParams.delete('loadPreset');
-        }
+        if (value.startsWith('cloud:')) url.searchParams.set('loadPreset', value.replace('cloud:', ''));
+        else url.searchParams.delete('loadPreset');
         window.history.replaceState(null, '', url.toString());
-      } catch (e) {
-        console.warn('URL sync error:', e);
-      }
+      } catch (_) {}
     }
     await loadFallbackPreset(value);
-  };
+  }, [loadFallbackPreset]);
 
-  const handleTimeSigChange = async (selectValue: TimeSignature) => {
-    const shouldResize = await sequencer.confirmAsync(t('confirmResize'));
-    if (shouldResize) {
-      sequencer.pushUndoState();
-      sequencer.setTimeSig(selectValue);
-      audioSync.currentStepIndexRef.current = -1;
-      audioSync.setCurrentMeasure(0);
-      
-      let targetSteps = 16;
-      if (selectValue === '3/4' || selectValue === '6/8') targetSteps = 12;
-      if (selectValue === '2/4') targetSteps = 8;
-      if (selectValue === '12/8') targetSteps = 24;
+  const getCurrentPresetData = useCallback(() => {
+    return buildCurrentPresetData(sequencer, fxState.masterEQ, fxState.masterCompressor, fxState.masterVol, audioSync);
+  }, [sequencer, fxState, audioSync]);
 
-      const tracks = useSequencerStore.getState().tracks;
-      const resizedList = tracks.map((t) => {
-        const nextPatterns = t.patterns.map(p => {
-          const nextStepsArr = Array(targetSteps).fill(0);
-          const nextLyrics = Array(targetSteps).fill('');
-          const nextNotes = Array(targetSteps).fill('');
-          const nextVols = Array(targetSteps).fill(80);
-          const nextDecays = Array(targetSteps).fill(100);
-
-          for (let idx = 0; idx < Math.min(targetSteps, p.steps); idx++) {
-            nextStepsArr[idx] = p.activeSteps[idx];
-            nextLyrics[idx] = p.lyrics?.[idx] || '';
-            nextNotes[idx] = p.notes?.[idx] || '';
-            if (p.volumes && p.volumes[idx] !== undefined) nextVols[idx] = p.volumes[idx];
-            if (p.decays && p.decays[idx] !== undefined) nextDecays[idx] = p.decays[idx];
-          }
-
-          return {
-            ...p,
-            steps: targetSteps,
-            activeSteps: nextStepsArr,
-            lyrics: nextLyrics,
-            notes: nextNotes,
-            volumes: nextVols,
-            decays: nextDecays,
-            microtimings: Array(targetSteps).fill(0)
-          };
-        });
-        return { ...t, patterns: nextPatterns };
-      });
-
-      useSequencerStore.getState().setTracks(resizedList);
-    }
-  };
-
-  // [DEPRECATED - Transition 100% Cloud]
-  // L'exportation manuelle en fichier .json local a été retirée au profit du catalogue Cloud.
-  const handleSaveState = async () => {
-    console.warn('[O Girador] O salvamento local em arquivo JSON foi desativado. Use o catálogo Cloud.');
-  };
-
-  // [DEPRECATED - Transition 100% Cloud]
-  // L'importation manuelle de fichier .json local a été retirée au profit du catalogue Cloud.
-  const handleLoadState = (_file: File) => {
-    console.warn('[O Girador] A importação de arquivos JSON locais foi desativada. Use o catálogo Cloud.');
-  };
-
-
-
-  const getCurrentPresetData = (): Preset => {
-    const tracksCopy = JSON.parse(JSON.stringify(useSequencerStore.getState().tracks));
-    tracksCopy.forEach((t: any) => {
-      t.patterns?.forEach((p: any) => { delete p.vocalAudioData; });
-      // Assainissement et persistance explicite des mixages de piste
-      t.volumeVal = typeof t.volumeVal === 'number' && !isNaN(t.volumeVal) ? t.volumeVal : 75;
-      const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal)
-        ? t.panVal
-        : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);
-      t.panVal = rawPan;
-      t.pan = rawPan;
-      t.isMute = Boolean(t.isMute);
-      t.isSolo = Boolean(t.isSolo);
-    });
-
-    const currentPreRoll = useTransportStore.getState().preRollSettings;
-    const activeVocalPreset = useAudioStore.getState().vocalPreset || 'guide';
-
-    const cleanMetadata = sequencer.metadata ? {
-      ...sequencer.metadata,
-      vocalPreset: activeVocalPreset,
-      partitionImage: undefined,
-      preRollSettings: currentPreRoll,
-    } : undefined;
-
-    const storeState = useSequencerStore.getState();
-
-    return {
-      bpm: sequencer.bpm,
-      timeSig: sequencer.timeSig,
-      version: 3,
-      vocalPreset: activeVocalPreset,
-      totalMeasures: storeState.totalMeasures,
-      tracks: tracksCopy,
-      rodaTrackOrder: storeState.rodaTrackOrder,
-      letras: sequencer.letras,
-      metadata: cleanMetadata,
-      preRollSettings: currentPreRoll,
-      measureTimeSigs: storeState.measureTimeSigs,
-      measureBpms: sequencer.measureBpms,
-      measureBpmTransitions: sequencer.measureBpmTransitions,
-      measureVols: sequencer.measureVols,
-      measureVolTransitions: sequencer.measureVolTransitions,
-      songSections: Array.isArray(storeState.songSections) ? JSON.parse(JSON.stringify(storeState.songSections)) : [],
-      songMarkers: Array.isArray(storeState.songMarkers) ? JSON.parse(JSON.stringify(storeState.songMarkers)) : [],
-      measureSignals: Array.isArray(storeState.measureSignals) ? JSON.parse(JSON.stringify(storeState.measureSignals)) : Array(storeState.totalMeasures).fill(null),
-      masterEQ,
-      masterCompressor,
-      masterVol,
-      masterReverbVol: storeState.masterFX.reverb.returnVolume,
-      reverbDecay: 0.5 + 7.5 * (storeState.masterFX.reverb.time / 100),
-      masterFX: storeState.masterFX,
-      masterDistortion: storeState.masterFX.distortion.returnVolume,
-      masterDistortionDrive: storeState.masterFX.distortion.drive,
-      isSwingOn: audioSync.globalSwing.mode !== 'off',
-      globalSwing: audioSync.globalSwing,
-      loopStartMeasure: storeState.loopStartMeasure,
-      loopEndMeasure: storeState.loopEndMeasure,
-      isLoopRegionActive: storeState.isLoopRegionActive,
-      loopMode: storeState.loopMode,
-      isLoopExitRequested: false,
-      isLooping: sequencer.isLooping,
-      audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION
-    };
-  };
-
-  const handleSaveToLocal = async () => {
-    try {
-      const name = sequencer.metadata?.toada?.trim() || 'Sem Título';
-      
-      const isFree = !checkHasFullPlaybackAccess(userProfile, isAdmin);
-      if (isFree) {
-        const library = await getLocalLibrary();
-        const existingCount = Object.keys(library).length;
-        if (existingCount >= 3 && !library[name]) {
-          await sequencer.alertAsync(sequencer.lang === 'fr' 
-            ? 'Vous avez atteint la limite de 3 morceaux locaux pour un compte gratuit. Mettez à niveau votre compte via Orchestrador pour sauvegarder en illimité.' 
-            : 'Você atingiu o limite de 3 músicas locais para uma conta gratuita. Atualize sua conta via Orchestrador para salvar ilimitado.');
-          return;
-        }
-      }
-
-      const dataToSave = getCurrentPresetData();
-      await savePresetToLibrary(name, dataToSave);
-      window.alert(t('presetSavedLocal') || (sequencer.lang === 'fr' ? 'Sauvegardé localement !' : 'Salvo localmente!'));
-    } catch (err) {
-      console.error("Local save failed:", err);
-    }
-  };
-
-  const handleLoadLocalPreset = async (name: string) => {
-    try {
-      const library = await getLocalLibrary();
-      const p = library[name];
-      if (p) {
-        await applyPreset(p);
-      }
-    } catch (err) {
-      console.error("Local load failed:", err);
-    }
-  };
-
-  // Recording
-  const handleAudioRecordingToggle = async () => {
-    if (!isRecording) {
-      wavRecordingBuffersL = [];
-      wavRecordingBuffersR = [];
-
-      try {
-        const Tone = await loadTone();
-        if (Tone.context && Tone.context.state !== 'running') {
-          try {
-            await Tone.context.resume();
-          } catch (e) {
-            // console.warn("AudioContext resume failed:", e);
-          }
-        }
-        
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        try {
-          isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback', sampleRate: 44100 });
-        } catch (_) {
-          isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
-        }
-        
-        const workletUrl = import.meta.env.BASE_URL + 'recorder-worklet.js';
-        
-        try {
-          await isolatedRecordingContext.audioWorklet.addModule(workletUrl);
-        } catch (e) {
-          console.error("Échec 1: addModule sur contexte isolé", e);
-          throw e;
-        }
-        
-        try {
-          recorderNode = new AudioWorkletNode(isolatedRecordingContext, 'recorder-worklet', {
-            numberOfInputs: 1,
-            numberOfOutputs: 1
-          });
-        } catch (e) {
-          console.error("Échec 2: new AudioWorkletNode", e);
-          throw e;
-        }
-        
-        recorderNode.port.onmessage = (e: MessageEvent) => {
-          if (e.data && e.data.left && e.data.right) {
-            wavRecordingBuffersL.push(e.data.left);
-            wavRecordingBuffersR.push(e.data.right);
-          }
-        };
-
-        if (masterVolumeNode) {
-          try {
-            streamDestination = Tone.context.createMediaStreamDestination();
-            masterVolumeNode.connect(streamDestination);
-            
-            streamSource = isolatedRecordingContext.createMediaStreamSource(streamDestination.stream);
-            
-            streamSource.connect(recorderNode as unknown as AudioNode);
-          } catch (e) {
-            console.error("Échec 3: connexion MediaStream master -> recorder", e);
-            throw e;
-          }
-        }
-        
-        try {
-          recorderNode.connect(isolatedRecordingContext.destination);
-        } catch (e) {
-          console.error("Échec 4: connexion recorder -> destination", e);
-          throw e;
-        }
-        
-        setIsRecording(true);
-      } catch (error) {
-        console.error("Échec de la séquence Worklet :", error);
-      }
-    } else {
-      const exportSampleRate = isolatedRecordingContext ? isolatedRecordingContext.sampleRate : 44100;
-      
-      if (recorderNode) {
-        try { recorderNode.disconnect(); } catch(e) {}
-        recorderNode = null;
-      }
-      if (masterVolumeNode && streamDestination) {
-        try { masterVolumeNode.disconnect(streamDestination); } catch(e) {}
-      }
-      if (streamSource) {
-        try { streamSource.disconnect(); } catch(e) {}
-        streamSource = null;
-      }
-      if (isolatedRecordingContext) {
-        try { isolatedRecordingContext.close(); } catch(e) {}
-        isolatedRecordingContext = null;
-      }
-      streamDestination = null;
-      
-      setIsRecording(false);
-
-      if (wavRecordingBuffersL.length > 0) {
-        const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, exportSampleRate);
-        const url = URL.createObjectURL(wavBlob);
-        const downloadLink = document.createElement('a');
-        downloadLink.download = 'O Girador_Export.wav';
-        downloadLink.href = url;
-        downloadLink.click();
-        
-        wavRecordingBuffersL = [];
-        wavRecordingBuffersR = [];
+  const handleSaveToLocal = useCallback(async () => {
+    const name = sequencer.metadata?.toada?.trim() || 'Sem Título';
+    if (!checkHasFullPlaybackAccess(userProfile, isAdmin)) {
+      const lib = await getLocalLibrary();
+      if (Object.keys(lib).length >= 3 && !lib[name]) {
+        await sequencer.alertAsync(sequencer.lang === 'fr' ? 'Limite de 3 morceaux atteinte.' : 'Limite de 3 músicas atingida.');
+        return;
       }
     }
-  };
+    await savePresetToLibrary(name, getCurrentPresetData());
+    window.alert(t('presetSavedLocal') || (sequencer.lang === 'fr' ? 'Sauvegardé localement !' : 'Salvo localmente!'));
+  }, [sequencer, userProfile, isAdmin, getCurrentPresetData, t]);
 
-  const value: AudioContextType = React.useMemo(() => ({
+  const handleLoadLocalPreset = useCallback(async (name: string) => {
+    const lib = await getLocalLibrary();
+    if (lib[name]) await applyPreset(lib[name]);
+  }, [applyPreset]);
+
+  const value: AudioContextType = useMemo(() => ({
     ...audioSync,
-    masterVol,
-    setMasterVol,
-    masterEQ,
-    setMasterEQ,
-    masterCompressor,
-    setMasterCompressor,
-    reverbDecay,
-    setReverbDecay,
-    masterReverbVol,
-    setMasterReverbVol,
-    activeKeyboardInstrumentId,
-    setActiveKeyboardInstrumentId,
-    isRecording,
-    recordingSeconds,
-    handleAudioRecordingToggle,
-    applyPreset,
-    loadFallbackPreset,
-    handlePresetSelect,
-    handleSaveState,
-    handleLoadState,
-
-    handleSaveToLocal,
-    getCurrentPresetData,
-    handleLoadLocalPreset,
-    activePresetName,
-    setActivePresetName,
-    handleTimeSigChange,
+    ...fxState,
+    isRecording, recordingSeconds, handleAudioRecordingToggle,
+    applyPreset, loadFallbackPreset, handlePresetSelect,
+    handleSaveState: async () => {}, handleLoadState: () => {},
+    handleSaveToLocal, getCurrentPresetData, handleLoadLocalPreset,
+    activePresetName, setActivePresetName,
+    handleTimeSigChange: (sig) => resizeTimeSig(sig, sequencer, audioSync),
     isPresetLoading
   }), [
-    audioSync,
-    masterVol,
-    masterEQ,
-    masterCompressor,
-    reverbDecay,
-    masterReverbVol,
-    activeKeyboardInstrumentId,
-    isRecording,
-    recordingSeconds,
-    activePresetName,
-    applyPreset,
-    loadFallbackPreset,
-    handlePresetSelect,
-    handleSaveState,
-    handleLoadState,
-    handleSaveToLocal,
-    getCurrentPresetData,
-    handleLoadLocalPreset,
-    handleTimeSigChange,
-    isPresetLoading
+    audioSync, fxState, isRecording, recordingSeconds, handleAudioRecordingToggle,
+    applyPreset, loadFallbackPreset, handlePresetSelect, handleSaveToLocal, getCurrentPresetData,
+    handleLoadLocalPreset, activePresetName, sequencer, isPresetLoading
   ]);
 
-  return (
-    <AudioContext.Provider value={value}>
-      {children}
-    </AudioContext.Provider>
-  );
+  return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;
 };
 
 export const useAudio = (): AudioContextType => {
   const context = useContext(AudioContext);
-  if (!context) {
-    throw new Error('useAudio must be used within an AudioProvider');
-  }
+  if (!context) throw new Error('useAudio must be used within an AudioProvider');
   return context;
 };
