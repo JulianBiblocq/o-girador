@@ -7,7 +7,6 @@ import { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import { audioEngine } from '../../hooks/useAudioSync';
-import { getTone } from '../../ToneLoader';
 import { sortTracksByRodaOrder } from './sortTracksByRodaOrder';
 import { drawAlfaiaBackground } from './drawAlfaiaBackground';
 import { computeStickAngle } from './computeStickAngle';
@@ -18,7 +17,6 @@ import { drawCenterKaraoke } from './drawCenterKaraoke';
 import { useThemeColors } from './useThemeColors';
 import { getAudioTime } from './circleAudioTime';
 import { Ripple, LivePlaybackState } from './circleSequencerTypes';
-
 
 export function useCirclePlayheadRaf(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -71,7 +69,9 @@ export function useCirclePlayheadRaf(
       const time = performance.now();
       const seqState = useSequencerStore.getState();
       const isEco = seqState.ecoConfig?.disableAnimations ?? seqState.isEcoMode;
-      const targetSize = isEco ? 600 : 1200;
+      const isMobileDevice = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
+      const shouldScaleDown = isEco || isMobileDevice;
+      const targetSize = shouldScaleDown ? 600 : 1200;
 
       if (currentCanvasSize !== targetSize) {
         canvas.width = targetSize; canvas.height = targetSize;
@@ -88,7 +88,7 @@ export function useCirclePlayheadRaf(
 
       const sortedTracks = sortTracksByRodaOrder(tracks, localRodaOrder);
       const activeVisibleTracks = sortedTracks.filter(t => !t.isHidden && t.instrumentIdx !== undefined);
-      const isHeavyDisabled = isEco || stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768);
+      const isHeavyDisabled = isEco || isMobileDevice;
 
       if (hitTriggersRef?.current && !isHeavyDisabled) {
         processHitTriggers(hitTriggersRef.current, localRawTracks, activeVisibleTracks, getLiveActivePatternId, theme.themeText, ripples);
@@ -96,20 +96,20 @@ export function useCirclePlayheadRaf(
 
       ctx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
       ctx.save();
-      if (isEco) ctx.scale(0.5, 0.5);
+      if (shouldScaleDown) ctx.scale(0.5, 0.5);
 
       if (lastTimeSig !== localTimeSig || lastTicks !== localTicks) {
         isBgCached = false; lastTimeSig = localTimeSig; lastTicks = localTicks;
       }
       if (!isBgCached && bgCtx) {
-        drawAlfaiaBackground(bgCtx, currentCanvasSize, isEco, localTimeSig, localTicks, 600, 600, theme);
+        drawAlfaiaBackground(bgCtx, currentCanvasSize, shouldScaleDown, localTimeSig, localTicks, 600, 600, theme);
         isBgCached = true;
       }
 
       ctx.restore();
       ctx.drawImage(bgCanvas, 0, 0);
       ctx.save();
-      if (isEco) ctx.scale(0.5, 0.5);
+      if (shouldScaleDown) ctx.scale(0.5, 0.5);
 
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
       const stickAngle = computeStickAngle(live, isCurrentlyPlaying, getAudioTime(), isEco, usePerformanceStore.getState().disablePlayheadRAF, frozenStickAngleRef);

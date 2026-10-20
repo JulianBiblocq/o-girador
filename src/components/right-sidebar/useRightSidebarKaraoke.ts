@@ -27,7 +27,7 @@ export function useRightSidebarKaraoke(
     }
 
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
-      if (useSequencerStore.getState().isEcoMode || !karaokeContainerRef.current) {
+      if (!karaokeContainerRef.current) {
         if (activeTokensRef.current.length > 0) {
           activeTokensRef.current.forEach(el => {
             el.classList.remove('scale-110');

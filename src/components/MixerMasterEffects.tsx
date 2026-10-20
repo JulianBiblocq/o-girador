@@ -17,7 +17,9 @@ export const MixerMasterEffects: React.FC = () => {
   const masterFX = useSequencerStore(useShallow((state) => state.masterFX));
   const isReverbActive = useSequencerStore((state) => state.masterEffectsActive?.reverb ?? true);
   const isDistoActive = useSequencerStore((state) => state.masterEffectsActive?.disto ?? true);
-  const { setMasterFxVolume, setMasterFxParam, toggleMasterEffectActive } = useSequencerStore();
+  const setMasterFxVolume = useSequencerStore((state) => state.setMasterFxVolume);
+  const setMasterFxParam = useSequencerStore((state) => state.setMasterFxParam);
+  const toggleMasterEffectActive = useSequencerStore((state) => state.toggleMasterEffectActive);
 
   return (
     <div className="flex w-full text-[var(--cordel-text)] overflow-hidden relative pb-0.5 transition-colors select-none">

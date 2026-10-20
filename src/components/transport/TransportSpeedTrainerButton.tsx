@@ -8,6 +8,9 @@ import { XiloLightning } from '../XiloIcons';
 import { CordelTarget } from '../ui/CordelTarget';
 import { instrumentsConfig } from '../../data';
 
+import { useSequencerStore, selectTracksMeta } from '../../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
+
 interface TransportSpeedTrainerButtonProps {
   isSpeedTrainerActive: boolean;
   speedTrainerTourCount: number;
@@ -15,7 +18,7 @@ interface TransportSpeedTrainerButtonProps {
   speedTrainerCountdown: number | null;
   tocarJuntoActive: boolean;
   tocarJuntoTrackId: number | null;
-  storeTracks: any[];
+  storeTracks?: any[];
   openSpeedTrainerModal: () => void;
   lang: string;
 }
@@ -27,11 +30,14 @@ export const TransportSpeedTrainerButton: React.FC<TransportSpeedTrainerButtonPr
   speedTrainerCountdown,
   tocarJuntoActive,
   tocarJuntoTrackId,
-  storeTracks,
   openSpeedTrainerModal,
   lang,
 }) => {
-  const targetTrack = tocarJuntoActive ? storeTracks.find(t => t.id === tocarJuntoTrackId) : null;
+  const targetTrack = useSequencerStore(useShallow((state) => {
+    if (!tocarJuntoActive || !tocarJuntoTrackId) return null;
+    const meta = selectTracksMeta(state).find(t => t.id === tocarJuntoTrackId);
+    return meta ? { customName: meta.customName, instrumentIdx: meta.instrumentIdx } : null;
+  }));
   const targetInst = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
   const trackLabel = targetTrack?.customName || targetInst?.name || (lang === 'fr' ? 'Pupitre' : 'Naipe');
 

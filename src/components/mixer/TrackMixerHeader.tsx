@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../../data';
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerStore, selectTracksMeta } from '../../stores/useSequencerStore';
 import type { TrackGroup as Track } from '../../types';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
@@ -30,7 +30,7 @@ export const TrackMixerHeader: React.FC<TrackMixerHeaderProps> = ({
   const sequencer = useSequencer();
   const { alertAsync } = sequencer;
   const lang = useSequencerStore(state => state.lang);
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracks = useSequencerStore(selectTracksMeta);
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
   const isLetraActive = useSequencerStore(state => state.isLetraActive);

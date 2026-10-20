@@ -14,6 +14,7 @@ import { getBusColor, getTopParentBusId, getTrackDisplayName } from '../utils/co
 import { DawTrackRowHeader } from './daw/DawTrackRowHeader';
 import { DawStepGrid } from './daw/DawStepGrid';
 import { resolveDawPattern, computeBeatGroups } from './daw/dawStepMath';
+import { areDawTrackRowPropsEqual } from './daw/dawTrackRowComparator';
 
 export interface DawTrackRowProps {
   track: TrackGroup;
@@ -29,22 +30,12 @@ export interface DawTrackRowProps {
   trackResolutionsRef: React.MutableRefObject<Record<string, { beats: number; resArray: number[]; totalSteps: number }>>;
 }
 
-export const DawTrackRow: React.FC<DawTrackRowProps> = ({
-  track,
-  trackIdx,
-  tracks,
-  currentMeasure,
-  defaultBeats,
-  lang,
-  isLeftHanded,
-  sequencer,
-  handleStepClick,
-  registerStepRef,
-  trackResolutionsRef,
+const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
+  track, trackIdx, tracks, currentMeasure, defaultBeats, lang,
+  isLeftHanded, sequencer, handleStepClick, registerStepRef, trackResolutionsRef,
 }) => {
   const isLinkedSlave = !!(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
-  const isToadaChildTrack = isToadaChild(track, tracks);
-  const isChild = isLinkedSlave || isToadaChildTrack;
+  const isChild = isLinkedSlave || isToadaChild(track, tracks);
   const isToada = isToadaBus(track);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -84,11 +75,7 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
   const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : null;
 
   const { activePattern, masterActivePattern, isGhostStep } = resolveDawPattern({
-    track,
-    tracks,
-    currentMeasure,
-    effectiveTrack,
-    isLinkedSlave,
+    track, tracks, currentMeasure, effectiveTrack, isLinkedSlave,
   });
 
   const patternForSteps = isGhostStep ? masterActivePattern : activePattern;
@@ -103,7 +90,6 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
   };
 
   if (!inst) return null;
-
   const displayName = isToada ? 'Toada' : (isChild ? `↳ ${getTrackDisplayName(track, tracks)}` : getTrackDisplayName(track, tracks));
 
   return (
@@ -125,7 +111,6 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
         tracks={tracks}
         sequencer={sequencer}
       />
-
       <DawStepGrid
         beatGroups={beatGroups}
         track={track}
@@ -144,3 +129,5 @@ export const DawTrackRow: React.FC<DawTrackRowProps> = ({
     </div>
   );
 };
+
+export const DawTrackRow = React.memo(DawTrackRowComponent, areDawTrackRowPropsEqual);

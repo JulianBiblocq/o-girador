@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -53,6 +58,11 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
   const toggleLinearDawDetached = useSequencerStore((state) => state.toggleLinearDawDetached);
   const toggleCircleSequencerDetached = useSequencerStore((state) => state.toggleCircleSequencerDetached);
 
+  const shouldRenderMixer = isMobile ? mobileTab === 'mixer' : isTracksCollapsed;
+  const shouldRenderRoda = isMobile ? mobileTab === 'roda' : isTracksCollapsed;
+  const shouldRenderDaw = !isMobile && !isTracksCollapsed;
+  const shouldRenderSidebar = isMobile ? mobileTab === 'toada' : true;
+
   return (
     <div
       style={{ display: viewMode === 'roda' ? 'flex' : 'none' }}
@@ -74,11 +84,11 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
         </WindowPortal>
       )}
 
-      {!isMobile && !isTracksCollapsed ? (
-        <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
+      {shouldRenderDaw && (
+        <div className="flex-1 min-w-0 flex flex-col">
           {!isLinearDawDetached ? (
             <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
-              <DawLinearSequencer isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} />
+              <DawLinearSequencer isActive={viewMode === 'roda'} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} />
             </ErrorBoundary>
           ) : (
             <div className="flex-1 min-w-0 flex flex-col justify-center items-center p-4">
@@ -89,35 +99,34 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
             </div>
           )}
         </div>
-      ) : (
-        <>
-          <div style={{ display: (!isMobile || mobileTab === 'mixer') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
-              <Mixer onStepTouchStart={onStepTouchStart} isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')} setEditingTrackId={setEditingTrackId} isMobile={isMobile} />
-            </ErrorBoundary>
-          </div>
-          <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
-            {!isCircleSequencerDetached ? (
-              <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
-                <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')} />
-              </ErrorBoundary>
-            ) : (
-              <div className="flex-1 min-w-0 flex flex-col justify-center items-center p-4">
-                <p className="mb-4 text-center">{lang === 'fr' ? 'La Roda est détachée dans une autre fenêtre.' : 'A Roda está separada em outra janela.'}</p>
-                <button onClick={toggleCircleSequencerDetached} className="btn-cordel px-4 py-2 border-2 border-[var(--cordel-text)] rounded shadow-[4px_4px_0_var(--cordel-text)] font-bold bg-[var(--cordel-bg)] text-[var(--cordel-text)] transition-colors hover:opacity-80">
-                  {lang === 'fr' ? 'Rattacher' : 'Reanexar'}
-                </button>
-              </div>
-            )}
-          </div>
-        </>
       )}
 
-      <div style={{ display: (!isMobile || mobileTab === 'toada') ? 'contents' : 'none' }}>
-        <ErrorBoundary fallback={renderFallback('Panneau Latéral', 'Painel Lateral')}>
-          <RightSidebar activePanel={activeRightPanel} onTogglePanel={onToggleRightPanel} isMobile={isMobile} mestreSignals={filteredMestreSignals} refreshMestreSignals={refreshMestreSignals} hideGlobalSignals={hideGlobalSignals} onToggleHideGlobalSignals={onToggleHideGlobalSignals} visible={viewMode === 'roda' && (!isMobile || mobileTab === 'toada')} />
+      {shouldRenderMixer && (
+        <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
+          <Mixer onStepTouchStart={onStepTouchStart} isActive={viewMode === 'roda'} setEditingTrackId={setEditingTrackId} isMobile={isMobile} />
         </ErrorBoundary>
-      </div>
+      )}
+
+      {shouldRenderRoda && (
+        !isCircleSequencerDetached ? (
+          <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
+            <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} isActive={viewMode === 'roda'} />
+          </ErrorBoundary>
+        ) : (
+          <div className="flex-1 min-w-0 flex flex-col justify-center items-center p-4">
+            <p className="mb-4 text-center">{lang === 'fr' ? 'La Roda est détachée dans une autre fenêtre.' : 'A Roda está separada em outra janela.'}</p>
+            <button onClick={toggleCircleSequencerDetached} className="btn-cordel px-4 py-2 border-2 border-[var(--cordel-text)] rounded shadow-[4px_4px_0_var(--cordel-text)] font-bold bg-[var(--cordel-bg)] text-[var(--cordel-text)] transition-colors hover:opacity-80">
+              {lang === 'fr' ? 'Rattacher' : 'Reanexar'}
+            </button>
+          </div>
+        )
+      )}
+
+      {shouldRenderSidebar && (
+        <ErrorBoundary fallback={renderFallback('Panneau Latéral', 'Painel Lateral')}>
+          <RightSidebar activePanel={activeRightPanel} onTogglePanel={onToggleRightPanel} isMobile={isMobile} mestreSignals={filteredMestreSignals} refreshMestreSignals={refreshMestreSignals} hideGlobalSignals={hideGlobalSignals} onToggleHideGlobalSignals={onToggleHideGlobalSignals} visible={viewMode === 'roda'} />
+        </ErrorBoundary>
+      )}
     </div>
   );
 };

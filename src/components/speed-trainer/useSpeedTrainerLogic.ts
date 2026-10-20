@@ -32,8 +32,6 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
   const setTocarJuntoIsMuted = useSequencerStore((state) => state.setTocarJuntoIsMuted);
   const setIsolateBaseOnly = useSequencerStore((state) => state.setIsolateBaseOnly);
   const setActiveAoVivoTrackId = useSequencerStore((state) => state.setActiveAoVivoTrackId);
-  const isEcoMode = useSequencerStore((state) => state.isEcoMode);
-  const toggleEcoMode = useSequencerStore((state) => state.toggleEcoMode);
 
   const [activeTab, setActiveTab] = useState<SpeedTrainerTab>('tocarJunto');
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
@@ -115,7 +113,6 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
     setTocarJuntoIsMuted(isMutedOption);
     if (showAoVivoSticks) {
       setActiveAoVivoTrackId(selectedTrackId);
-      if (isEcoMode) toggleEcoMode();
     } else {
       setActiveAoVivoTrackId(null);
     }
@@ -126,7 +123,7 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
     const sMeasure = st.isLoopRegionActive && st.loopStartMeasure !== null ? st.loopStartMeasure : st.currentMeasure;
     if (audio.isPlayingRef?.current || (audio as any).isPlaying) audio.handleStop();
     audio.handleTogglePlay({ forcePreRoll: true, targetMeasure: sMeasure });
-  }, [selectedTrackId, selectedBaseOnly, selectedMuteScope, isMutedOption, showAoVivoSticks, isEcoMode, setTocarJuntoTrack, setTocarJuntoMuteScope, setTocarJuntoIsMuted, setActiveAoVivoTrackId, toggleEcoMode, changeViewMode, handleClose, audio]);
+  }, [selectedTrackId, selectedBaseOnly, selectedMuteScope, isMutedOption, showAoVivoSticks, setTocarJuntoTrack, setTocarJuntoMuteScope, setTocarJuntoIsMuted, setActiveAoVivoTrackId, changeViewMode, handleClose, audio]);
 
   const handleQuitOrCancel = useCallback(() => {
     if (tocarJuntoActive) { setTocarJuntoTrack(null); setActiveAoVivoTrackId(null); }

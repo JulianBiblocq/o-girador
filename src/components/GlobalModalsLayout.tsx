@@ -9,15 +9,15 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudioStore } from '../stores/useAudioStore';
 import { ErrorBoundary } from './ErrorBoundary';
-import { ExportMenuModal } from './ExportMenuModal';
 import { VocalValidationModal } from './VocalValidationModal';
 import { ToadaQuickDeployPrompt } from './ToadaQuickDeployPrompt';
-import { VisitorAuthModal } from './VisitorAuthModal';
-import { SubscriptionModal } from './SubscriptionModal';
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { CordelCustomDialogPortal } from './modals/CordelCustomDialogPortal';
 import { InstrumentDetailEditorOverlay } from './modals/InstrumentDetailEditorOverlay';
 
+const ExportMenuModal = lazyWithRetry(() => import('./ExportMenuModal').then((m) => ({ default: m.ExportMenuModal })), 'ExportMenuModal');
+const VisitorAuthModal = lazyWithRetry(() => import('./VisitorAuthModal').then((m) => ({ default: m.VisitorAuthModal })), 'VisitorAuthModal');
+const SubscriptionModal = lazyWithRetry(() => import('./SubscriptionModal').then((m) => ({ default: m.SubscriptionModal })), 'SubscriptionModal');
 const SaveSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then((m) => ({ default: m.SaveSectionModal })), 'SaveSectionModal');
 const LoadSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then((m) => ({ default: m.LoadSectionModal })), 'LoadSectionModal');
 const AoVivoOverlay = lazyWithRetry(() => import('./AoVivoOverlay').then((m) => ({ default: m.AoVivoOverlay })), 'AoVivoOverlay');
@@ -53,32 +53,11 @@ interface GlobalModalsLayoutProps {
   ) => void;
 }
 
-export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
-  showExportMenu,
-  setShowExportMenu,
-  selectedExportTracks,
-  setSelectedExportTracks,
-  selectedAnnexTracks,
-  setSelectedAnnexTracks,
-  executeExport,
-  printLegendOnly,
-  customDialog,
-  setCustomDialog,
-  sectionToSave,
-  setSectionToSave,
-  loadSectionInsertMeasure,
-  setLoadSectionInsertMeasure,
-  isMobile,
-  mobileTab,
-  viewMode,
-  toastMessage,
-  handleStepTouchStart,
-}) => {
+export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => {
   const sequencer = useSequencer();
   const editingTrackId = useSequencerStore((state) => state.editingTrackId);
   const setEditingTrackId = useSequencerStore((state) => state.setEditingTrackId);
   const tempRecording = useAudioStore((state) => state.tempRecording);
-
   const isVisitorAuthModalOpen = useSequencerStore((state) => state.isVisitorAuthModalOpen);
   const closeVisitorAuthModal = useSequencerStore((state) => state.closeVisitorAuthModal);
   const isSubscriptionModalOpen = useSequencerStore((state) => state.isSubscriptionModalOpen);
@@ -88,49 +67,47 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
 
   const content = (
     <>
-      {showExportMenu && (
-        <ExportMenuModal
-          onClose={() => setShowExportMenu(false)}
-          selectedExportTracks={selectedExportTracks}
-          setSelectedExportTracks={setSelectedExportTracks}
-          selectedAnnexTracks={selectedAnnexTracks}
-          setSelectedAnnexTracks={setSelectedAnnexTracks}
-          executeExport={executeExport}
-          printLegendOnly={printLegendOnly}
-          lang={sequencer.lang}
-        />
-      )}
-
-      {isVisitorAuthModalOpen && <VisitorAuthModal lang={sequencer.lang} onClose={closeVisitorAuthModal} />}
-      {isSubscriptionModalOpen && <SubscriptionModal lang={sequencer.lang} onClose={closeSubscriptionModal} />}
-
-      <CordelCustomDialogPortal customDialog={customDialog} setCustomDialog={setCustomDialog} lang={sequencer.lang} />
-
       <Suspense fallback={null}>
-        {sectionToSave && <SaveSectionModal section={sectionToSave} onClose={() => setSectionToSave(null)} lang={sequencer.lang} />}
-        {loadSectionInsertMeasure !== null && (
-          <LoadSectionModal insertAtMeasure={loadSectionInsertMeasure} onClose={() => setLoadSectionInsertMeasure(null)} lang={sequencer.lang} />
+        {props.showExportMenu && (
+          <ExportMenuModal
+            onClose={() => props.setShowExportMenu(false)}
+            selectedExportTracks={props.selectedExportTracks}
+            setSelectedExportTracks={props.setSelectedExportTracks}
+            selectedAnnexTracks={props.selectedAnnexTracks}
+            setSelectedAnnexTracks={props.setSelectedAnnexTracks}
+            executeExport={props.executeExport}
+            printLegendOnly={props.printLegendOnly}
+            lang={sequencer.lang}
+          />
+        )}
+        {isVisitorAuthModalOpen && <VisitorAuthModal lang={sequencer.lang} onClose={closeVisitorAuthModal} />}
+        {isSubscriptionModalOpen && <SubscriptionModal lang={sequencer.lang} onClose={closeSubscriptionModal} />}
+        {props.sectionToSave && <SaveSectionModal section={props.sectionToSave} onClose={() => props.setSectionToSave(null)} lang={sequencer.lang} />}
+        {props.loadSectionInsertMeasure !== null && (
+          <LoadSectionModal insertAtMeasure={props.loadSectionInsertMeasure} onClose={() => props.setLoadSectionInsertMeasure(null)} lang={sequencer.lang} />
         )}
       </Suspense>
+
+      <CordelCustomDialogPortal customDialog={props.customDialog} setCustomDialog={props.setCustomDialog} lang={sequencer.lang} />
 
       <InstrumentDetailEditorOverlay
         editingTrackId={editingTrackId}
         onClose={() => setEditingTrackId(null)}
-        isMobile={isMobile}
+        isMobile={props.isMobile}
         lang={sequencer.lang}
-        handleStepTouchStart={handleStepTouchStart}
+        handleStepTouchStart={props.handleStepTouchStart}
         setEditingTrackId={setEditingTrackId}
       />
 
-      {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && (
+      {props.viewMode === 'roda' && (!props.isMobile || props.mobileTab === 'roda') && (
         <ErrorBoundary fallback={null}>
           <AoVivoOverlay />
         </ErrorBoundary>
       )}
 
-      {toastMessage && (
+      {props.toastMessage && (
         <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
-          {toastMessage}
+          {props.toastMessage}
         </div>
       )}
 

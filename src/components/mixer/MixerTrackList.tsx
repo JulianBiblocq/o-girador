@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { TrackMixer } from '../TrackMixer';
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerStore, selectTracksMeta } from '../../stores/useSequencerStore';
 
 interface MixerTrackListProps {
   trackIds: string[];
@@ -43,7 +43,7 @@ export const MixerTrackList: React.FC<MixerTrackListProps> = ({
   onOpenDetailEditor,
   onStepTouchStart,
 }) => {
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracks = useSequencerStore(selectTracksMeta);
   const handleReorderRodaTracks = useSequencerStore(state => state.handleReorderRodaTracks);
 
   const [activeDragTrackId, setActiveDragTrackId] = useState<number | null>(null);

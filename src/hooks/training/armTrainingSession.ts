@@ -89,7 +89,6 @@ export function executeArmTrainingSession({
     if (targetTrack) {
       store.setTocarJuntoTrack(targetTrack.id, pendingBaseOnly);
       store.setActiveAoVivoTrackId(targetTrack.id);
-      if (store.isEcoMode) store.toggleEcoMode();
 
       const trackDisplayName =
         (targetTrack as any).name ||

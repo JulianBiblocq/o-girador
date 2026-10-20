@@ -5,6 +5,8 @@
 
 import { useEffect } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
+import { getLastAudibleTick } from '../../audio/visualTickBuffer';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { LivePlaybackState } from './circleSequencerTypes';
 import { computeDisplayMeasure } from './computeDisplayMeasure';
@@ -93,6 +95,23 @@ export function useCircleTickSync(
 
     subscribeToTick(handleTick);
     window.addEventListener('o-girador-measure-queued', handleMeasureQueued);
+
+    // Initialisation immédiate au montage sans attendre le prochain tick audio
+    const lastTick = getLastAudibleTick();
+    if (lastTick && lastTick.drawTime > 0) {
+      handleTick(lastTick);
+    } else {
+      const curMeasure = useSequencerStore.getState().currentMeasure;
+      const { displayMeasure, displayTotal } = computeDisplayMeasure(expandedRef.current, totalMeasures, curMeasure, 1);
+      if (measureDisplayRef.current) measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+      livePlaybackRef.current = {
+        step: 0, measure: curMeasure, maxTicks: 96, ratio: 0, iteration: 1, time: 0,
+        measureStartTime: 0, measureDuration: 0, isPreRoll: false
+      };
+      frozenStickAngleRef.current = -Math.PI / 2;
+      updateOverlay(displayMeasure - 1, curMeasure, 0, false);
+    }
+
     return () => {
       unsubscribeFromTick(handleTick);
       window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);

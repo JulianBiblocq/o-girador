@@ -1,10 +1,10 @@
 import { useMemo, useEffect } from 'react';
 import { TrackGroup } from '../../types';
-import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../../stores/useSequencerStore';
+import { useSequencerStore, selectTracksMeta, isLinearDAWVisibleTrack, isToadaBus } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 
 export function useDawVisibleTracks() {
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracksMeta = useSequencerStore(selectTracksMeta);
   const rodaTrackOrder = useSequencerStore(state => state.rodaTrackOrder);
 
   useEffect(() => {
@@ -15,6 +15,7 @@ export function useDawVisibleTracks() {
   }, []);
 
   const visibleTracks = useMemo(() => {
+    const tracks = useSequencerStore.getState().tracks;
     const topLevelList: TrackGroup[] = [];
     tracks.forEach(t => {
       if (isLinearDAWVisibleTrack(t, tracks)) {
@@ -53,13 +54,13 @@ export function useDawVisibleTracks() {
       }
     });
     return finalList;
-  }, [tracks, rodaTrackOrder]);
+  }, [tracksMeta, rodaTrackOrder]);
 
   const sortableTrackIds = useMemo(() => visibleTracks.map(t => `track-${t.id}`), [visibleTracks]);
   const visibleTrackIds = useMemo(() => visibleTracks.map(t => t.id).join('-'), [visibleTracks]);
 
   return {
-    tracks,
+    tracks: useSequencerStore.getState().tracks,
     visibleTracks,
     sortableTrackIds,
     visibleTrackIds,

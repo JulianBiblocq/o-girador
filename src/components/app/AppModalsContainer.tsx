@@ -6,19 +6,22 @@
 import React, { Suspense } from 'react';
 import { TouchStrokeSelector } from '../TouchStrokeSelector';
 import { GlobalModalsLayout } from '../GlobalModalsLayout';
-import { SavePresetModal } from '../SavePresetModal';
-import { NewSongIntroModal } from '../NewSongIntroModal';
-import { VisitorAuthModal } from '../VisitorAuthModal';
-import { WizardOverlay } from '../WizardOverlay';
-import { SettingsPage } from '../SettingsPage';
-import { SpeedTrainerModal } from '../SpeedTrainerModal';
-import { WallpaperShowcaseModal } from '../WallpaperShowcaseModal';
+import { AppModalsOverlayModals } from './AppModalsOverlayModals';
 import { useWizardStore } from '../../stores/useWizardStore';
-import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
 
-const BlankAndScanWorkshopModal = React.lazy(() =>
-  import('../paper/BlankAndScanWorkshopModal').then((m) => ({ default: m.BlankAndScanWorkshopModal }))
+const SavePresetModal = lazyWithRetry(
+  () => import('../SavePresetModal').then((m) => ({ default: m.SavePresetModal })),
+  'SavePresetModal'
+);
+const NewSongIntroModal = lazyWithRetry(
+  () => import('../NewSongIntroModal').then((m) => ({ default: m.NewSongIntroModal })),
+  'NewSongIntroModal'
+);
+const VisitorAuthModal = lazyWithRetry(
+  () => import('../VisitorAuthModal').then((m) => ({ default: m.VisitorAuthModal })),
+  'VisitorAuthModal'
 );
 
 interface AppModalsContainerProps {
@@ -57,9 +60,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   sequencer,
   changeViewMode,
 }) => {
-  const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
   const isIntroModalOpen = useWizardStore((state) => state.isIntroModalOpen);
-  const isWizardOpen = useWizardStore((state) => state.isWizardOpen);
   const setIntroModalOpen = useWizardStore((state) => state.setIntroModalOpen);
   const setWizardOpen = useWizardStore((state) => state.setWizardOpen);
 
@@ -81,52 +82,38 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
 
       <GlobalModalsLayout {...modalLayoutProps} />
 
-      {saveModalProps.showSavePresetModal && saveModalProps.presetDataToSave && (
-        <SavePresetModal
-          presetData={saveModalProps.presetDataToSave}
-          defaultName={saveModalProps.presetDataToSave.metadata?.toada || ''}
-          onClose={() => saveModalProps.setShowSavePresetModal(false)}
-          lang={lang as any}
-        />
-      )}
-
-      {isIntroModalOpen && (
-        <NewSongIntroModal
-          onClose={() => setIntroModalOpen(false)}
-          onClearSong={() => { setIntroModalOpen(false); sequencer.handleClear(); }}
-          onStartWizard={() => { setIntroModalOpen(false); setWizardOpen(true); }}
-          onSelectTemplate={(template) => { setIntroModalOpen(false); useSequencerStore.getState().handleCreateFromTemplate(template, audio); }}
-          lang={lang as any}
-        />
-      )}
-
-      {visitorAuthProps.showMandatoryVisitorModal && (
-        <VisitorAuthModal lang={lang as any} onClose={() => visitorAuthProps.setShowMandatoryVisitorModal(false)} isMandatory={true} />
-      )}
-
-      {isWizardOpen && <WizardOverlay onClose={() => setWizardOpen(false)} lang={lang as any} />}
-      {isSettingsOpen && <SettingsPage mestreSignals={mestreSignals} />}
-      <SpeedTrainerModal changeViewMode={changeViewMode} />
-
-      <WallpaperShowcaseModal
-        isOpen={wallpaperProps.isWallpaperModalOpen}
-        onClose={wallpaperProps.closeWallpaperModal}
-        currentWallpaper={wallpaperProps.wallpaper}
-        onApplyWallpaper={wallpaperProps.setWallpaper}
-        isDarkMode={wallpaperProps.isDarkMode}
-        onToggleDarkMode={wallpaperProps.toggleDarkMode}
-        lang={lang as any}
-      />
-
-      {paperWorkshopProps.isPaperWorkshopOpen && (
-        <Suspense fallback={null}>
-          <BlankAndScanWorkshopModal
-            isOpen={paperWorkshopProps.isPaperWorkshopOpen}
-            onClose={() => paperWorkshopProps.setIsPaperWorkshopOpen(false)}
-            initialTab={paperWorkshopProps.paperWorkshopInitialTab}
+      <Suspense fallback={null}>
+        {saveModalProps.showSavePresetModal && saveModalProps.presetDataToSave && (
+          <SavePresetModal
+            presetData={saveModalProps.presetDataToSave}
+            defaultName={saveModalProps.presetDataToSave.metadata?.toada || ''}
+            onClose={() => saveModalProps.setShowSavePresetModal(false)}
+            lang={lang as any}
           />
-        </Suspense>
-      )}
+        )}
+
+        {isIntroModalOpen && (
+          <NewSongIntroModal
+            onClose={() => setIntroModalOpen(false)}
+            onClearSong={() => { setIntroModalOpen(false); sequencer.handleClear(); }}
+            onStartWizard={() => { setIntroModalOpen(false); setWizardOpen(true); }}
+            onSelectTemplate={(template) => { setIntroModalOpen(false); useSequencerStore.getState().handleCreateFromTemplate(template, audio); }}
+            lang={lang as any}
+          />
+        )}
+
+        {visitorAuthProps.showMandatoryVisitorModal && (
+          <VisitorAuthModal lang={lang as any} onClose={() => visitorAuthProps.setShowMandatoryVisitorModal(false)} isMandatory={true} />
+        )}
+      </Suspense>
+
+      <AppModalsOverlayModals
+        lang={lang}
+        wallpaperProps={wallpaperProps}
+        paperWorkshopProps={paperWorkshopProps}
+        mestreSignals={mestreSignals}
+        changeViewMode={changeViewMode}
+      />
     </>
   );
 };

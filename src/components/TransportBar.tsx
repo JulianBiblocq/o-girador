@@ -44,7 +44,6 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
   const bpm = useSequencerStore(state => state.bpm);
   const tocarJuntoActive = useSequencerStore(state => state.tocarJuntoActive);
   const tocarJuntoTrackId = useSequencerStore(state => state.tocarJuntoTrackId);
-  const storeTracks = useSequencerStore(state => state.tracks);
 
   const preRollSettings = useTransportStore((state) => state.preRollSettings);
   const setPreRollSettings = useTransportStore((state) => state.setPreRollSettings);
@@ -85,7 +84,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <TransportMetronomeSection isMetroOn={isMetroOn} setIsMetroOn={setIsMetroOn} preRollSettings={preRollSettings} setPreRollSettings={setPreRollSettings} availableSignals={availableSignals} lang={lang} t={t} />
         <TransportBpmControl bpm={bpm} setBpm={setBpm} lang={lang} />
-        <TransportSpeedTrainerButton isSpeedTrainerActive={isSpeedTrainerActive} speedTrainerTourCount={speedTrainerTourCount} speedTrainerCurrentBpm={speedTrainerCurrentBpm} speedTrainerCountdown={speedTrainerCountdown} tocarJuntoActive={tocarJuntoActive} tocarJuntoTrackId={tocarJuntoTrackId} storeTracks={storeTracks} openSpeedTrainerModal={openSpeedTrainerModal} lang={lang} />
+        <TransportSpeedTrainerButton isSpeedTrainerActive={isSpeedTrainerActive} speedTrainerTourCount={speedTrainerTourCount} speedTrainerCurrentBpm={speedTrainerCurrentBpm} speedTrainerCountdown={speedTrainerCountdown} tocarJuntoActive={tocarJuntoActive} tocarJuntoTrackId={tocarJuntoTrackId} openSpeedTrainerModal={openSpeedTrainerModal} lang={lang} />
       </div>
 
       <TransportPlaybackButtons handleStop={audio.handleStop} handleTogglePlay={audio.handleTogglePlay} isLoading={audio.isLoading} isPlaying={audio.isPlaying} isLooping={sequencer.isLooping} setIsLooping={sequencer.setIsLooping} loopMode={loopMode} currentLoopIteration={currentLoopIteration} isLoopBypassed={isLoopBypassed} isLoopExitRequested={isLoopExitRequested} handleAudioRecordingToggle={audio.handleAudioRecordingToggle} isRecording={audio.isRecording} recordingSeconds={audio.recordingSeconds} lang={lang} />
