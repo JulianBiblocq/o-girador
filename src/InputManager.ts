@@ -9,7 +9,12 @@
  */
 
 import { AudioEngine } from './AudioEngine';
-import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
+import { instrumentAudioConfigs } from './data/audioConfig';
+import {
+  applyHandedness,
+  findMatchingStroke,
+  isBarulhoStroke,
+} from './input/inputStrokeMatcher';
 
 export class InputManager {
   private audioEngine: AudioEngine;
@@ -23,151 +28,67 @@ export class InputManager {
 
   constructor(audioEngine: AudioEngine) {
     this.audioEngine = audioEngine;
-
-    // Stop all barulhos if the user switches tabs or the window loses focus
     window.addEventListener('blur', this.handleBlur);
   }
 
-  /**
-   * Cleans up global listeners to prevent memory leaks.
-   */
   public dispose(): void {
     window.removeEventListener('blur', this.handleBlur);
   }
 
-  /**
-   * Sets the active instrument ID to route keyboard strikes to.
-   */
   public setActiveInstrument(instrumentId: string | null): void {
     this.activeInstrumentId = instrumentId;
   }
 
-  /**
-   * Sets the global left-handed preference.
-   */
   public setLeftHanded(isLeft: boolean): void {
     this.isLeftHanded = isLeft;
   }
 
-  /**
-   * Register a callback to notify UI components (e.g. for hits animations).
-   */
   public setOnStrokeTriggered(callback: (instrumentId: string, strokeSymbol: string) => void): void {
     this.onStrokeTriggered = callback;
   }
 
-  /**
-   * Maps left-handed / right-handed symmetrical key stroke switches.
-   */
-  private applyHandedness(key: string, config: InstrumentAudioConfig): string {
-    if (!config.leftHandedSupport || !this.isLeftHanded) return key;
-    const map: Record<string, string> = {
-      D: 'E',
-      E: 'D',
-      Q: 'D',
-      d: 'e',
-      e: 'd',
-      q: 'd',
-      R: 'r',
-      r: 'R'
-    };
-    return map[key] ?? key;
-  }
-
-  /**
-   * Global keydown handler.
-   */
   public handleKeyDown = (e: KeyboardEvent): void => {
-    // 🛡️ Ignorer impérativement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-
     if (!this.activeInstrumentId) return;
 
-    // Bypass if typing inside form inputs, textareas, etc.
     const activeTag = document.activeElement?.tagName || '';
-    if (activeTag === 'INPUT' || activeTag === 'SELECT' || activeTag === 'TEXTAREA' || document.activeElement?.id === 'letras-textarea') {
+    if (
+      activeTag === 'INPUT' ||
+      activeTag === 'SELECT' ||
+      activeTag === 'TEXTAREA' ||
+      document.activeElement?.id === 'letras-textarea'
+    ) {
       return;
     }
 
-    const config = instrumentAudioConfigs.find(c => c.id === this.activeInstrumentId);
+    const config = instrumentAudioConfigs.find((c) => c.id === this.activeInstrumentId);
     if (!config) return;
 
-    const keyStr = this.applyHandedness(e.key, config);
-
-    // Find the mapped stroke
-    let matchedStroke: StrokeMapping | null = null;
-    let matchedSymbol: string | null = null;
-
-    for (const stroke of config.strokes) {
-      if (stroke.caseSensitive) {
-        if (stroke.keys.includes(keyStr)) {
-          matchedStroke = stroke;
-          matchedSymbol = stroke.symbol;
-          break;
-        }
-      } else {
-        const found = stroke.keys.some(k => k.toLowerCase() === keyStr.toLowerCase());
-        if (found) {
-          matchedStroke = stroke;
-          matchedSymbol = stroke.symbol;
-          break;
-        }
-      }
-    }
+    const keyStr = applyHandedness(e.key, config, this.isLeftHanded);
+    const { matchedStroke, matchedSymbol } = findMatchingStroke(keyStr, config);
 
     if (matchedStroke && matchedSymbol) {
-      // Prevent browser default actions (like arrow scroll or space-play conflicts)
       e.preventDefault();
+      if (e.repeat) return;
 
-      // Prevent OS repeat events from firing repeatedly
-      if (e.repeat) {
-        return;
-      }
-
-      // Play stroke (isLiveHold: true pour permettre le jeu continu des boucles Barulho jusqu'au keyup)
       const now = this.audioEngine.getCurrentTime();
       this.audioEngine.playNote(this.activeInstrumentId, matchedSymbol, now, 1.0, 1.0, true);
 
-      // Trigger UI callback
       if (this.onStrokeTriggered) {
         this.onStrokeTriggered(this.activeInstrumentId, matchedSymbol);
       }
     }
   };
 
-  /**
-   * Global keyup handler.
-   */
   public handleKeyUp = (e: KeyboardEvent): void => {
-    // 🛡️ Ignorer impérativement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-
     if (!this.activeInstrumentId) return;
 
-    const config = instrumentAudioConfigs.find(c => c.id === this.activeInstrumentId);
+    const config = instrumentAudioConfigs.find((c) => c.id === this.activeInstrumentId);
     if (!config) return;
 
-    const keyStr = this.applyHandedness(e.key, config);
-
-    // Find if this key is a barulho sound to stop it
-    let isBarulhoKey = false;
-    for (const stroke of config.strokes) {
-      if (stroke.isBarulho) {
-        if (stroke.caseSensitive) {
-          if (stroke.keys.includes(keyStr)) {
-            isBarulhoKey = true;
-            break;
-          }
-        } else {
-          if (stroke.keys.some(k => k.toLowerCase() === keyStr.toLowerCase())) {
-            isBarulhoKey = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (isBarulhoKey) {
+    const keyStr = applyHandedness(e.key, config, this.isLeftHanded);
+    if (isBarulhoStroke(keyStr, config)) {
       e.preventDefault();
       this.audioEngine.stopBarulho(this.activeInstrumentId);
     }
