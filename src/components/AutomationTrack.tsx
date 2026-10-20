@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTimelineAutomationGroup } from '../hooks/timeline/useTimelineAutomationGroup';
 import { computeTimelinePositions } from '../utils/timeline/timelineMeasureWidths';
@@ -41,13 +42,13 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   const [isExpanded, setIsExpanded] = useState(true);
   const [promptState, setPromptState] = useState<{ isOpen: boolean; idx: number | null; val: number }>({ isOpen: false, idx: null, val: 0 });
 
-  const selectedAutomationType = useSequencerStore(s => s.selectedAutomationType);
-  const selectedAutomationTrackId = useSequencerStore(s => s.selectedAutomationTrackId);
-  const selectedAutomationRange = useSequencerStore(s => s.selectedAutomationRange);
-  const selectAutomationMeasure = useSequencerStore(s => s.selectAutomationMeasure);
-  const setGroupedAutomationValue = useSequencerStore(s => s.setGroupedAutomationValue);
-  const measureTimeSigs = useSequencerStore(s => s.measureTimeSigs);
-  const timeSig = useSequencerStore(s => s.timeSig);
+  const { selectedAutomationType, selectedAutomationTrackId, selectedAutomationRange, selectAutomationMeasure, setGroupedAutomationValue, measureTimeSigs, timeSig } = useSequencerStore(
+    useShallow(s => ({
+      selectedAutomationType: s.selectedAutomationType, selectedAutomationTrackId: s.selectedAutomationTrackId,
+      selectedAutomationRange: s.selectedAutomationRange, selectAutomationMeasure: s.selectAutomationMeasure,
+      setGroupedAutomationValue: s.setGroupedAutomationValue, measureTimeSigs: s.measureTimeSigs, timeSig: s.timeSig,
+    }))
+  );
 
   const localValuesRef = useRef<number[]>(Array.isArray(values) ? [...values] : []);
   const { widths, leftPositions, totalContentW } = useMemo(

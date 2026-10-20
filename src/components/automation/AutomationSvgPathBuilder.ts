@@ -1,15 +1,11 @@
 export const getYFromValue = (val: number, h: number, min: number, max: number): number => {
-  const pad = h > 40 ? 16 : 2;
-  const clamped = Math.max(min, Math.min(max, val));
-  const range = max - min;
-  const pct = range === 0 ? 0.5 : (clamped - min) / range;
-  return h - pad - pct * (h - pad * 2);
+  const pad = h > 40 ? 16 : 2, clamped = Math.max(min, Math.min(max, val)), range = max - min;
+  return h - pad - (range === 0 ? 0.5 : (clamped - min) / range) * (h - pad * 2);
 };
 
 export const getValueFromY = (y: number, h: number, min: number, max: number): number => {
   const pad = h > 40 ? 16 : 2;
-  const pct = Math.max(0, Math.min(1, 1 - (y - pad) / (h - pad * 2)));
-  return min + pct * (max - min);
+  return min + Math.max(0, Math.min(1, 1 - (y - pad) / (h - pad * 2))) * (max - min);
 };
 
 export interface SvgRenderParams {
