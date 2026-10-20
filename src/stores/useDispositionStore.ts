@@ -5,29 +5,10 @@
 
 import { create } from 'zustand';
 import { DispositionPreset } from '../types/disposition.types';
-
-const LOCAL_STORAGE_KEY = 'girador_user_dispositions';
-
-const loadInitialLocalDispositions = (): DispositionPreset[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {
-    console.warn('Erreur lors du chargement des dispositions locales:', e);
-  }
-  return [];
-};
-
-const saveDispositionsToStorage = (presets: DispositionPreset[]) => {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(presets));
-  } catch (e) {
-    console.warn('Erreur lors de la sauvegarde des dispositions locales:', e);
-  }
-};
+import {
+  loadInitialLocalDispositions,
+  saveDispositionsToStorage,
+} from './helpers/dispositionStorageHelper';
 
 export interface DispositionStoreState {
   dispositions: DispositionPreset[];
@@ -84,7 +65,6 @@ export const useDispositionStore = create<DispositionStoreState>((set, get) => (
         const { saveDispositionToCloud } = await import('../cloudDispositions');
         const cloudId = await saveDispositionToCloud(newPreset, userRole, canWriteSequenciador);
 
-        // Mise à jour de l'ID avec l'ID Firestore
         const presetWithCloudId: DispositionPreset = {
           ...newPreset,
           id: cloudId
@@ -131,16 +111,11 @@ export const useDispositionStore = create<DispositionStoreState>((set, get) => (
       const cloudDispositions = await fetchCloudDispositions(userUid, groupId, mestreId, userRole, canWriteSequenciador);
       const currentDispositions = get().dispositions;
 
-      // Fusion sans doublon : on fusionne par ID
       const mergedMap = new Map<string, DispositionPreset>();
-
-      // On place d'abord les locales
       currentDispositions.forEach((d) => mergedMap.set(d.id, d));
-      // Puis les cloud écrasent ou complètent
       cloudDispositions.forEach((d) => mergedMap.set(d.id, d));
 
       const mergedList = Array.from(mergedMap.values());
-      // Tri par date de création décroissante
       mergedList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
       saveDispositionsToStorage(mergedList);

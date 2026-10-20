@@ -1,0 +1,50 @@
+import { Language, PresetMetadata } from '../../types';
+import { EcoConfig } from '../helpers/ecoModeDetector';
+import { SelectedStepRange } from './clipboardSliceTypes';
+
+export interface ProjectSettingsSlice {
+  letras: string;
+  metadata: PresetMetadata;
+  isLeftHanded: boolean;
+  lang: Language;
+  vocalCalibrationLatencyMs: number;
+  isEcoMode: boolean;
+  ecoConfig: EcoConfig;
+  editingTrackId: number | null;
+  selectedPatternId: number | null;
+  selectedStepIdx: number | null;
+  selectedStepIsPreRoll: boolean;
+  selectedSubIndex: 0 | 1 | null;
+  selectedStepRange: SelectedStepRange | null;
+  vocalTransposeSteps: number;
+  isTracksCollapsed: boolean;
+  isPreviewMode: boolean;
+  hasFullPlaybackAccess: boolean;
+  isVisitorAuthModalOpen: boolean;
+  isSubscriptionModalOpen: boolean;
+
+  setLetras: (letras: string) => void;
+  setMetadata: (metadata: PresetMetadata) => void;
+  setIsLeftHanded: (val: boolean) => void;
+  setLang: (lang: Language) => void;
+  setVocalCalibrationLatencyMs: (val: number) => void;
+  handleExtractLyrics: () => void;
+  toggleEcoMode: () => void;
+  toggleEcoOption: (key: keyof EcoConfig) => void;
+  setEditingTrackId: (id: number | null) => void;
+  closeDetailEditor: () => void;
+  setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
+  setSelectedStepIndex: (idx: number | null, isPreRoll?: boolean) => void;
+  setSelectedStepRange: (range: SelectedStepRange | null) => void;
+  setVocalTransposeSteps: (steps: number) => void;
+  incrementVocalTransposeSteps: () => void;
+  decrementVocalTransposeSteps: () => void;
+  transposePatternNotes: (trackId: number, patternId: string | number, semitones: number) => void;
+  toggleTracksCollapsed: () => void;
+  setIsPreviewMode: (val: boolean) => void;
+  setHasFullPlaybackAccess: (val: boolean) => void;
+  openVisitorAuthModal: () => void;
+  closeVisitorAuthModal: () => void;
+  openSubscriptionModal: () => void;
+  closeSubscriptionModal: () => void;
+}

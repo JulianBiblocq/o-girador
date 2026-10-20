@@ -1,80 +1,12 @@
 import { create } from 'zustand';
+import {
+  PlacedInstrument,
+  SwingIntensities,
+  SongInfo,
+  WizardState,
+} from './types/wizardStoreTypes';
 
-export interface PlacedInstrument {
-  id: string;
-  instrumentType: string; // 'marcante', 'meiao', 'repique', 'caixa', 'tarol', 'gongue', 'agbe', 'mineiro', 'timbal'
-  x: number; // relative position in % (0 - 100)
-  y: number; // relative position in % (0 - 100)
-}
-
-export interface SwingIntensities {
-  alfaias: number;
-  caixas: number;
-  sementes: number;
-  gongue: number;
-  timbal: number;
-}
-
-export interface SongInfo {
-  rodaName: string;
-  toadaName: string;
-  nacaoName: string;
-  composer: string;
-  mainRythm: string;
-  youtubeUrl: string;
-}
-
-interface WizardState {
-  isIntroModalOpen: boolean;
-  isWizardOpen: boolean;
-  step: number;
-  wizardData: {
-    rhythm?: string;
-    tempo?: number;
-    [key: string]: any;
-  };
-  placedInstruments: PlacedInstrument[];
-  hasToada: boolean;
-  
-  // Step 2 Musical Configuration & Identity
-  wizardLang: 'fr' | 'pt';
-  alfaiaGroupingMode: 'bloc' | 'distinct';
-  selectedBasePatternId: string | null; // ID of classic base pattern
-  selectedSwingId: string; // 'maracatu' | 'off' | 'custom' ...
-  swingIntensities: SwingIntensities;
-  selectedSignIds: string[]; // Multi-selection array of Signes/Blasons
-  songInfo: SongInfo;
-  bpm: number;
-  timeSig: string;
-  instrumentTunings: Record<string, number>; // Semitones -6 à +6 par type d'instrument
-  selectedBalancoId: string;                 // ID du preset de balanço (défaut: 'maracatu-trad')
-  
-  setIntroModalOpen: (open: boolean) => void;
-  setWizardOpen: (open: boolean) => void;
-  setStep: (step: number) => void;
-  updateWizardData: (data: Partial<WizardState['wizardData']>) => void;
-  addPlacedInstrument: (type: string, x: number, y: number) => void;
-  updatePlacedInstrumentPosition: (id: string, x: number, y: number) => void;
-  removePlacedInstrument: (id: string) => void;
-  setPlacedInstruments: (instruments: PlacedInstrument[]) => void;
-  toggleToada: () => void;
-  setHasToada: (hasToada: boolean) => void;
-  
-  // Step 2 Actions
-  toggleWizardLang: () => void;
-  setAlfaiaGroupingMode: (mode: 'bloc' | 'distinct') => void;
-  setSelectedSwingId: (id: string) => void;
-  setSwingIntensity: (family: keyof SwingIntensities, value: number) => void;
-  toggleSignId: (id: string) => void;
-  setSelectedBasePatternId: (id: string | null) => void;
-  updateSongInfo: (field: keyof SongInfo, value: string) => void;
-  setBpm: (bpm: number) => void;
-  setTimeSig: (timeSig: string) => void;
-  setInstrumentTuning: (instrumentType: string, semitones: number) => void;
-  setSelectedBalancoId: (balancoId: string) => void;
-  
-  resetWizard: () => void;
-}
+export type { PlacedInstrument, SwingIntensities, SongInfo };
 
 export const useWizardStore = create<WizardState>((set) => ({
   isIntroModalOpen: false,
@@ -83,20 +15,19 @@ export const useWizardStore = create<WizardState>((set) => ({
   wizardData: {},
   placedInstruments: [],
   hasToada: false,
-  
-  // Step 2 Default State
+
   wizardLang: 'fr',
   alfaiaGroupingMode: 'bloc',
   selectedBasePatternId: null,
   selectedSwingId: 'maracatu',
   swingIntensities: {
-    alfaias: 100, // 100% by default
+    alfaias: 100,
     caixas: 100,
     sementes: 100,
     gongue: 100,
     timbal: 100,
   },
-  selectedSignIds: [], // Empty initially
+  selectedSignIds: [],
   songInfo: {
     rodaName: '',
     toadaName: '',
@@ -109,7 +40,7 @@ export const useWizardStore = create<WizardState>((set) => ({
   timeSig: '4/4',
   instrumentTunings: {},
   selectedBalancoId: 'maracatu-trad',
-  
+
   setIntroModalOpen: (isIntroModalOpen) => set({ isIntroModalOpen }),
   setWizardOpen: (isWizardOpen) => set({ isWizardOpen }),
   setStep: (step) => set({ step }),
@@ -134,8 +65,7 @@ export const useWizardStore = create<WizardState>((set) => ({
   setPlacedInstruments: (placedInstruments) => set({ placedInstruments }),
   toggleToada: () => set((state) => ({ hasToada: !state.hasToada })),
   setHasToada: (hasToada) => set({ hasToada }),
-  
-  // Step 2 Actions
+
   toggleWizardLang: () => set((state) => ({ wizardLang: state.wizardLang === 'fr' ? 'pt' : 'fr' })),
   setAlfaiaGroupingMode: (alfaiaGroupingMode) => set({ alfaiaGroupingMode }),
   setSelectedSwingId: (selectedSwingId) => set({ selectedSwingId }),
@@ -166,7 +96,7 @@ export const useWizardStore = create<WizardState>((set) => ({
     }
   })),
   setSelectedBalancoId: (selectedBalancoId) => set({ selectedBalancoId }),
-  
+
   resetWizard: () => set({
     isIntroModalOpen: false,
     isWizardOpen: false,

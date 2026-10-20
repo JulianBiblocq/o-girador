@@ -5,46 +5,13 @@
 
 import { create } from 'zustand';
 import { WorkspaceTemplate } from '../types/workspaceTemplate.types';
+import { WorkspaceTemplateStoreState } from './types/workspaceTemplateStoreTypes';
+import {
+  loadInitialLocalTemplates,
+  saveTemplatesToStorage,
+} from './helpers/workspaceTemplateStorageHelper';
 
-const LOCAL_STORAGE_KEY = 'girador_workspace_templates';
-
-const loadInitialLocalTemplates = (): WorkspaceTemplate[] => {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (e) {
-    console.warn('Erreur lors du chargement des gabarits locaux:', e);
-  }
-  return [];
-};
-
-const saveTemplatesToStorage = (templates: WorkspaceTemplate[]) => {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(templates));
-  } catch (e) {
-    console.warn('Erreur lors de la sauvegarde des gabarits locaux:', e);
-  }
-};
-
-export interface WorkspaceTemplateStoreState {
-  templates: WorkspaceTemplate[];
-  isLoadingCloud: boolean;
-  isSyncing: boolean;
-
-  setTemplates: (templates: WorkspaceTemplate[]) => void;
-  addTemplate: (
-    templateData: Omit<WorkspaceTemplate, 'id' | 'createdAt' | 'updatedAt'>,
-    userRole?: string
-  ) => Promise<WorkspaceTemplate>;
-  updateTemplateName: (id: string, newName: string) => Promise<void>;
-  renameTemplate: (id: string, newName: string) => Promise<void>;
-  deleteTemplate: (id: string) => Promise<void>;
-  syncCloudTemplates: (userUid: string | null, userRole?: string) => Promise<void>;
-  syncWithCloud: (userUid: string | null, userRole?: string) => Promise<void>;
-}
+export type { WorkspaceTemplateStoreState };
 
 const initialLocalTemplates = loadInitialLocalTemplates();
 
@@ -72,13 +39,11 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
       updatedAt: now
     };
 
-    // 1. Sauvegarde locale immédiate (Local-First)
     const currentList = get().templates;
     const updatedLocally = [newTemplate, ...currentList.filter((t) => t.id !== localId)];
     saveTemplatesToStorage(updatedLocally);
     set({ templates: updatedLocally });
 
-    // 2. Synchronisation Cloud si connecté
     if (!isOfflineOrGuest) {
       try {
         const { saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
@@ -108,14 +73,12 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
     const cleanName = newName.trim();
     if (!cleanName) return;
 
-    // 1. Mise à jour locale
     const updated = get().templates.map((t) =>
       t.id === id ? { ...t, name: cleanName, updatedAt: Date.now() } : t
     );
     saveTemplatesToStorage(updated);
     set({ templates: updated });
 
-    // 2. Mise à jour Cloud si doc distant
     if (!id.startsWith('tpl_local_')) {
       try {
         const { updateWorkspaceTemplateNameInCloud } = await import('../cloudWorkspaceTemplates');
@@ -127,12 +90,10 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
   },
 
   deleteTemplate: async (id: string) => {
-    // 1. Suppression locale
     const remaining = get().templates.filter((t) => t.id !== id);
     saveTemplatesToStorage(remaining);
     set({ templates: remaining });
 
-    // 2. Suppression Cloud si doc distant
     if (!id.startsWith('tpl_local_')) {
       try {
         const { deleteWorkspaceTemplateFromCloud } = await import('../cloudWorkspaceTemplates');
@@ -152,7 +113,6 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
       const cloudTemplates = await fetchCloudWorkspaceTemplates(userUid);
       const currentTemplates = get().templates;
 
-      // Fusion sans doublon par ID
       const mergedMap = new Map<string, WorkspaceTemplate>();
       currentTemplates.forEach((t) => mergedMap.set(t.id, t));
       cloudTemplates.forEach((t) => mergedMap.set(t.id, t));

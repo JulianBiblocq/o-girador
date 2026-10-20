@@ -1,57 +1,7 @@
 import { create } from 'zustand';
+import { TempRecordingData, AudioState, VocalPresetId } from './types/audioStoreTypes';
 
-export interface TempRecordingData {
-  patternId: number;
-  trackId?: string | number;
-  blob?: Blob;
-  audioBuffer?: AudioBuffer;
-  isImported?: boolean;
-  targetMeasureIdx?: number;
-  sampleBpm?: number;
-}
-
-export interface AudioState {
-  targetPatternId: number | null;
-  targetMeasureIdx: number | null;
-  vocalBlobs: Record<string | number, Blob>;
-  vocalBuffers: Record<string | number, AudioBuffer>;
-  tempRecording: TempRecordingData | null;
-  chorusDensity: number;
-  isVocalGuideEnabled: boolean;
-  selectedVocalPatternId: number | null;
-  isAudioUnlocked: boolean;
-  selectedOutputDeviceId: string | null;
-  availableOutputDevices: Array<{ deviceId: string; label: string }>;
-  setSelectedOutputDeviceId: (id: string | null) => void;
-  refreshAudioOutputDevices: () => Promise<void>;
-  setTargetPatternId: (id: number | null) => void;
-  setTargetMeasureIdx: (idx: number | null) => void;
-  setTempRecording: (temp: TempRecordingData | null) => void;
-  setChorusDensity: (density: number) => void;
-  setIsVocalGuideEnabled: (enabled: boolean) => void;
-  addVocalBlob: (patternId: string | number, blob: Blob) => void;
-  removeVocalBlob: (patternId: string | number) => void;
-  addVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
-  setVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
-  setVocalBuffersBatch: (entries: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }>) => void;
-  removeVocalBuffer: (patternId: string | number) => void;
-  setSelectedVocalPatternId: (id: number | null) => void;
-  unlockAudio: () => void;
-  vocalMode: 'voice' | 'synth' | 'both';
-  setVocalMode: (mode: 'voice' | 'synth' | 'both') => void;
-  voiceInputMode: 'free' | 'step';
-  setVoiceInputMode: (mode: 'free' | 'step') => void;
-  vocalPreset: VocalPresetId;
-  setVocalPreset: (preset: VocalPresetId) => void;
-  recordingStatus?: string;
-  isFocusRecordingMode?: boolean;
-  setRecordingStatus?: (status: string) => void;
-  setIsFocusRecordingMode?: (focus: boolean) => void;
-}
-
-export type VocalPresetId = 'guide' | 'rhodes' | 'pifano' | 'organ' | 'pluck';
-
-
+export type { TempRecordingData, AudioState, VocalPresetId };
 
 export const useAudioStore = create<AudioState>((set) => ({
   targetPatternId: null,
