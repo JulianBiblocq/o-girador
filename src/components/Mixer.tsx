@@ -3,40 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState, useRef, useEffect, lazy, Suspense } from 'react';
-import {
-  DndContext,
-  PointerSensor,
-  useSensors,
-  useSensor,
-  DragEndEvent,
-  TouchSensor,
-  pointerWithin,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { TrackMixer } from './TrackMixer';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
+import React from 'react';
+import { i18n } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
-import { useAudio } from '../contexts/AudioContext';
-import { meters } from '../hooks/useAudioSync';
-import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
-import { useShallow } from 'zustand/react/shallow';
-import { Pattern, TrackGroup } from '../types';
-import { useWindow } from '../contexts/WindowContext';
-
-const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
-const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
-  const key = `${id}_${isHidden}_${isSolo}_${isMute}`;
-  let obj = trackListCache.get(key);
-  if (!obj) {
-    obj = { id, isHidden, isSolo, isMute };
-    trackListCache.set(key, obj);
-  }
-  return obj;
-};
+import { useMixerTrackList } from './mixer/useMixerTrackList';
+import { MixerHeader } from './mixer/MixerHeader';
+import { MixerTrackList } from './mixer/MixerTrackList';
 
 interface MixerProps {
   onStepTouchStart?: (
@@ -60,252 +32,40 @@ const MixerComponent: React.FC<MixerProps> = ({
   setEditingTrackId,
   isMobile = false,
 }) => {
-  const sequencer = useSequencer();
-
-  const {
-    lang,
-  } = sequencer;
-
-  const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
-  const toggleTracksCollapsed = useSequencerStore(state => state.toggleTracksCollapsed);
-
-  // Zustand actions and states
-  const handleReorderRodaTracks = useSequencerStore(state => state.handleReorderRodaTracks);
-  const tracks = useSequencerStore(state => state.tracks);
-
-  const [activeDragTrackId, setActiveDragTrackId] = useState<number | null>(null);
-  const [overDragTrackId, setOverDragTrackId] = useState<number | null>(null);
-  
-  const trackList = useSequencerStore(
-    useShallow(state => {
-      const list: TrackGroup[] = [];
-      state.tracks.forEach(t => {
-        if (isToadaChild(t, state.tracks)) {
-          // Never display children in the left panel sequence list
-          return;
-        }
-        if (isToadaBus(t)) {
-          list.push(t);
-          return;
-        }
-        if (isSequencerVisibleTrack(t, state.tracks)) {
-          list.push(t);
-        }
-      });
-
-      const rodaOrder = state.rodaTrackOrder;
-      if (rodaOrder && rodaOrder.length > 0) {
-        const orderMap = new Map(rodaOrder.map((id, index) => [id, index]));
-        list.sort((a, b) => {
-          const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
-          const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
-          return idxA - idxB;
-        });
-      }
-
-      return list.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute));
-    })
-  );
-
-  const trackIdsNumbers = trackList.map(t => t.id);
-  const trackIds = useMemo(() => trackIdsNumbers.map(id => `track-${id}`), [trackIdsNumbers]);
-
+  const { lang = 'pt' } = useSequencer();
   const t = (key: string) => (i18n[lang] as any)[key] || key;
-  
-  const onOpenDetailEditor = React.useCallback((id: number) => {
-    setEditingTrackId(id);
-  }, [setEditingTrackId]);
+  const { trackIds, trackIdsNumbers } = useMixerTrackList();
 
-  const currentWindow = useWindow();
-  
-  const [addDropOpen, setAddDropOpen] = useState(false);
-  const addDropRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent | TouchEvent) {
-      if (addDropRef.current && !addDropRef.current.contains(e.target as Node)) {
-        setAddDropOpen(false);
-      }
-    }
-    
-    if (addDropOpen) {
-      currentWindow.document.addEventListener('mousedown', handleClickOutside);
-      currentWindow.document.addEventListener('touchstart', handleClickOutside);
-    }
-    return () => {
-      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
-      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [addDropOpen, currentWindow]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
-    })
+  const onOpenDetailEditor = React.useCallback(
+    (id: number) => {
+      setEditingTrackId(id);
+    },
+    [setEditingTrackId]
   );
-
-  const handleDragStart = (event: any) => {
-    const activeId = String(event.active.id);
-    if (activeId.startsWith('track-')) {
-      setActiveDragTrackId(Number(activeId.replace('track-', '')));
-    }
-  };
-
-  const handleDragOver = (event: any) => {
-    const overId = event.over ? String(event.over.id) : null;
-    if (overId && overId.startsWith('track-')) {
-      setOverDragTrackId(Number(overId.replace('track-', '')));
-    } else {
-      setOverDragTrackId(null);
-    }
-  };
-
-  const handleDragCancel = () => {
-    setActiveDragTrackId(null);
-    setOverDragTrackId(null);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveDragTrackId(null);
-    setOverDragTrackId(null);
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const activeId = String(active.id);
-      const overId = String(over.id);
-
-      if (activeId.startsWith('track-') && overId.startsWith('track-')) {
-        const activeTrackId = Number(activeId.replace('track-', ''));
-        const overTrackId = Number(overId.replace('track-', ''));
-        handleReorderRodaTracks(activeTrackId, overTrackId);
-      }
-    }
-  };
 
   return (
     <div
       id="left-panel"
       className="relative w-[400px] min-w-[400px] h-full bg-gradient-to-b from-[#1c1815] to-[#120e0c] border-r-2 border-[#eaddcf] flex flex-col p-5 box-border z-10 transition-all duration-300 overflow-hidden"
     >
-      {/* Calque de fond en filigrane d'estampe Cordel */}
       <div
         className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-surface-dark"
         style={{ transform: 'translateZ(0)' }}
       />
 
-      <div className="border-b border-[#333] pb-2.5 mb-4 shrink-0 w-full flex items-center gap-2 relative z-30">
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleTracksCollapsed();
-          }}
-          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-sm font-extrabold cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex-shrink-0 flex items-center justify-center"
-          title={isTracksCollapsed ? t('expandSteps') : t('collapseSteps')}
-        >
-          {isTracksCollapsed ? '▶' : '◀'}
-        </button>
+      <MixerHeader t={t} />
 
-        <div className="relative flex-1" ref={addDropRef}>
-          <button
-            onClick={() => setAddDropOpen(!addDropOpen)}
-            className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-xs font-bold font-cactus uppercase transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 hover:opacity-80"
-          >
-            ➕ {t('addInst')} <span className="text-[8px] opacity-60">▼</span>
-          </button>
-          {addDropOpen && (
-            <div className="absolute top-10 left-0 w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] max-h-[calc(100vh-160px)] overflow-y-auto z-[100]">
-              {(() => {
-                const list = instrumentsConfig
-                  .map((inst, idx) => ({ inst, idx }))
-                  .filter(({ inst }) => inst.id !== 'puxador' && inst.id !== 'coro');
-                const apitoItem = list.find(item => item.inst.id === 'apito');
-                const rest = list.filter(item => item.inst.id !== 'apito');
-                const sorted = apitoItem ? [...rest, apitoItem] : list;
-                return sorted.map(({ inst, idx }) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    sequencer.handleAddTrackInstrument(idx, useSequencerStore.getState().currentMeasure);
-                    setAddDropOpen(false);
-                  }}
-                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-b border-[var(--cordel-border)] cursor-pointer"
-                >
-                  <img
-                    src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-                    alt={inst.name}
-                    className="w-5 h-5 object-contain filter invert opacity-80"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <span>{inst.name}</span>
-                </div>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div id="mixer-section" className="flex-grow overflow-y-auto pr-1 relative z-[1]">
-        <div id="tracks-mixer-container" className="flex flex-col gap-3">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={pointerWithin}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-            <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-              {trackIdsNumbers.map((trackId, idx) => {
-                const track = tracks.find(t => t.id === trackId);
-                const isDragOverBus = activeDragTrackId !== null && 
-                                      overDragTrackId === trackId && 
-                                      activeDragTrackId !== trackId && 
-                                      track?.isBusFolder &&
-                                      !tracks.find(t => t.id === activeDragTrackId)?.isBusFolder;
-
-                let dropIndicator: 'top' | 'bottom' | null = null;
-                if (activeDragTrackId !== null && overDragTrackId === trackId && activeDragTrackId !== trackId) {
-                  const activeTrack = tracks.find(t => t.id === activeDragTrackId);
-                  const isRouting = track?.isBusFolder && activeTrack && !activeTrack.isBusFolder && activeTrack.busId !== String(trackId);
-                  
-                  if (!isRouting) {
-                    const activeIdx = trackIdsNumbers.indexOf(activeDragTrackId);
-                    const overIdx = trackIdsNumbers.indexOf(trackId);
-                    if (activeIdx !== -1 && overIdx !== -1) {
-                      dropIndicator = activeIdx < overIdx ? 'bottom' : 'top';
-                    }
-                  }
-                }
-
-                return (
-                  <TrackMixer
-                    key={trackId}
-                    trackId={trackId}
-                    index={idx}
-                    totalTracks={trackIdsNumbers.length}
-                    onOpenDetailEditor={onOpenDetailEditor}
-                    isActive={isActive}
-                    isDragOver={isDragOverBus}
-                    dropIndicator={dropIndicator}
-                    isMobile={isMobile}
-                    onStepTouchStart={onStepTouchStart}
-                  />
-                );
-              })}
-            </SortableContext>
-          </DndContext>
-        </div>
-      </div>
+      <MixerTrackList
+        trackIds={trackIds}
+        trackIdsNumbers={trackIdsNumbers}
+        isActive={isActive}
+        isMobile={isMobile}
+        onOpenDetailEditor={onOpenDetailEditor}
+        onStepTouchStart={onStepTouchStart}
+      />
     </div>
   );
 };
 
 export const Mixer = React.memo(MixerComponent);
+export default Mixer;
