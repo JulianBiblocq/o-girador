@@ -1,330 +1,32 @@
-import React, { useEffect, useRef, useContext } from 'react';
+import React, { useRef, useContext } from 'react';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
-import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
-
-import { usePerformanceStore } from '../stores/usePerformanceStore';
+import { usePlayheadFollower } from './timeline/TimelinePlayheadFollower';
 
 const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
   const uiContext = useContext(TimelineUIContext);
   const playheadRef = useRef<HTMLDivElement>(null);
   const measureHighlightRef = useRef<HTMLDivElement>(null);
 
-  const livePlaybackRef = useRef<{
-    step: number;
-    measure: number;
-    ratio: number;
-    iteration: number;
-    measureStartTime?: number;
-    measureDuration?: number;
-  }>({
-    step: -1,
-    measure: 0,
-    ratio: 0,
-    iteration: 1,
-    measureStartTime: 0,
-    measureDuration: 0,
-  });
-
-  const layoutCache = useRef({
-    vw: 0,
-    lastScrollX: 0,
-  });
-
-  const lastExactXRef = useRef<number>(-1);
-
   const MEASURE_W = uiContext ? uiContext.MEASURE_W : 0;
   const HEADER_W = uiContext ? uiContext.HEADER_W : 0;
   const measureWidths = uiContext?.measureWidths;
   const measureLeftPositions = uiContext?.measureLeftPositions;
 
-  const measureWRef = useRef(MEASURE_W);
-  const measureWidthsRef = useRef(measureWidths);
-  const measureLeftPositionsRef = useRef(measureLeftPositions);
-  useEffect(() => {
-    measureWidthsRef.current = measureWidths;
-    measureLeftPositionsRef.current = measureLeftPositions;
-  }, [measureWidths, measureLeftPositions]);
-
-  const isZoomingRef = useRef(false);
-  useEffect(() => {
-    if (measureWRef.current !== MEASURE_W) {
-      isZoomingRef.current = true;
-      const isPlaying = useSequencerStore.getState().isPlaying;
-      if (!isPlaying) {
-        const curMeasure = useSequencerStore.getState().currentMeasure || 0;
-        const curLeft = measureLeftPositions?.[curMeasure] ?? (curMeasure * MEASURE_W);
-        const curW = measureWidths?.[curMeasure] ?? MEASURE_W;
-        if (playheadRef.current) {
-          playheadRef.current.style.display = 'block';
-          playheadRef.current.style.transition = 'none';
-          playheadRef.current.style.transform = `translate3d(${HEADER_W + curLeft}px, 0, 0)`;
-        }
-        if (measureHighlightRef.current) {
-          measureHighlightRef.current.style.display = 'block';
-          measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + curLeft}px, 0, 0)`;
-          measureHighlightRef.current.style.width = `${curW}px`;
-        }
-      } else {
-        if (playheadRef.current) playheadRef.current.style.display = 'none';
-        if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
-      }
-    }
-    measureWRef.current = MEASURE_W;
-  }, [MEASURE_W, HEADER_W, measureWidths, measureLeftPositions]);
-
-  useEffect(() => {
-    if (!isActive) return;
-
-    const scrollEl = document.getElementById('timeline-scroll-container');
-    if (!scrollEl) return;
-
-    // S'assurer que le conteneur n'a aucun scroll-behavior: smooth pour éliminer tout saut asynchrone
-    scrollEl.style.scrollBehavior = 'auto';
-
-    layoutCache.current.vw = scrollEl.clientWidth - HEADER_W;
-    layoutCache.current.lastScrollX = scrollEl.scrollLeft;
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (entries[0]) {
-        layoutCache.current.vw = entries[0].contentRect.width - HEADER_W;
-      }
-    });
-    resizeObserver.observe(scrollEl);
-
-    // Écouteur de scroll passif pour mettre à jour lastScrollX en cache (0 layout thrashing)
-    const handleScroll = () => {
-      layoutCache.current.lastScrollX = scrollEl.scrollLeft;
-    };
-    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
-
-    // Positionnement initial immédiat au montage si à l'arrêt
-    const initialStoreState = useSequencerStore.getState();
-    if (!initialStoreState.isPlaying) {
-      const curMeasure = initialStoreState.currentMeasure || 0;
-      const lefts = measureLeftPositionsRef.current;
-      const widths = measureWidthsRef.current;
-      const curLeft = lefts?.[curMeasure] ?? (curMeasure * measureWRef.current);
-      const curW = widths?.[curMeasure] ?? measureWRef.current;
-      const el = playheadRef.current;
-      if (el) {
-        el.style.transition = 'none';
-        el.style.display = 'block';
-        el.style.transform = `translate3d(${HEADER_W + curLeft}px, 0, 0)`;
-      }
-      if (measureHighlightRef.current) {
-        measureHighlightRef.current.style.transition = 'none';
-        measureHighlightRef.current.style.display = 'block';
-        measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + curLeft}px, 0, 0)`;
-        measureHighlightRef.current.style.width = `${curW}px`;
-      }
-    }
-
-    // Synchronisation réactive à l'arrêt : caler instantanément la playhead sur currentMeasure
-    const unsubStore = useSequencerStore.subscribe((state, prevState) => {
-      if (!state.isPlaying && (state.currentMeasure !== prevState.currentMeasure || prevState.isPlaying)) {
-        const lefts = measureLeftPositionsRef.current;
-        const widths = measureWidthsRef.current;
-        const curLeft = lefts?.[state.currentMeasure] ?? (state.currentMeasure * measureWRef.current);
-        const curW = widths?.[state.currentMeasure] ?? measureWRef.current;
-        const el = playheadRef.current;
-        if (el) {
-          el.style.transition = 'none';
-          el.style.display = 'block';
-          el.style.transform = `translate3d(${HEADER_W + curLeft}px, 0, 0)`;
-        }
-        if (measureHighlightRef.current) {
-          measureHighlightRef.current.style.transition = 'none';
-          measureHighlightRef.current.style.display = 'block';
-          measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + curLeft}px, 0, 0)`;
-          measureHighlightRef.current.style.width = `${curW}px`;
-        }
-      }
-    });
-
-    const handleTick = (detail: {
-      step: number;
-      measure: number;
-      maxTicks: number;
-      ratio?: number;
-      time?: number;
-      iteration?: number;
-      isPaused?: boolean;
-      isNavigation?: boolean;
-      measureStartTime?: number;
-      measureDuration?: number;
-      isPreRoll?: boolean;
-    }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1, isPaused = false, isNavigation = false, measureStartTime, measureDuration } = detail;
-      const el = playheadRef.current;
-
-      if (!el) return;
-
-      if (step < 0) {
-        const curMeasure = useSequencerStore.getState().currentMeasure || measure || 0;
-        livePlaybackRef.current = { step: -1, measure: curMeasure, ratio: 0, iteration: 1, measureStartTime: 0, measureDuration: 0 };
-        const lefts = measureLeftPositionsRef.current;
-        const exactX = lefts?.[curMeasure] ?? (curMeasure * measureWRef.current);
-        lastExactXRef.current = exactX;
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-        el.style.display = 'block';
-        if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
-        return;
-      }
-
-      // 2. GESTION DU PRÉCOMPTE (isPreRoll === true)
-      if (detail.isPreRoll) {
-        const lefts = measureLeftPositionsRef.current;
-        const widths = measureWidthsRef.current;
-        const exactX = lefts?.[measure] ?? (measure * measureWRef.current);
-        const curW = widths?.[measure] ?? measureWRef.current;
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-        if (measureHighlightRef.current) {
-          measureHighlightRef.current.style.display = 'block';
-          measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-          measureHighlightRef.current.style.width = `${curW}px`;
-        }
-        lastExactXRef.current = exactX;
-        return;
-      }
-
-      // 3. GESTION DU PAUSE (isPaused === true)
-      if (isPaused) {
-        const curMeasure = useSequencerStore.getState().currentMeasure ?? measure ?? 0;
-        const lefts = measureLeftPositionsRef.current;
-        const widths = measureWidthsRef.current;
-        el.style.transition = 'none';
-        el.style.display = 'block';
-        if (isNavigation) {
-          // Navigation manuelle (clic sur règle ou mesure)
-          const mLeft = lefts?.[measure] ?? (measure * measureWRef.current);
-          const mW = widths?.[measure] ?? measureWRef.current;
-          const exactX = mLeft + ratio * mW;
-          el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-          lastExactXRef.current = exactX;
-        } else {
-          // Arrêt normal : positionner directement sur currentMeasure sans masquer
-          const stoppedX = lefts?.[curMeasure] ?? (curMeasure * measureWRef.current);
-          el.style.transform = `translate3d(${HEADER_W + stoppedX}px, 0, 0)`;
-          lastExactXRef.current = stoppedX;
-        }
-        return;
-      }
-
-      const currentLive = livePlaybackRef.current;
-      const isNewMeasure = currentLive.measure !== measure || currentLive.iteration !== iteration || currentLive.step < 0 || !currentLive.measureStartTime;
-
-      if (isZoomingRef.current) {
-        if (isNewMeasure) {
-          isZoomingRef.current = false;
-        } else {
-          return; // Skip drawing until the new measure to avoid jumping
-        }
-      }
-
-      if (el.style.display !== 'block') {
-        el.style.display = 'block';
-      }
-      
-      const lefts = measureLeftPositionsRef.current;
-      const widths = measureWidthsRef.current;
-      const mLeft = lefts?.[measure] ?? (measure * measureWRef.current);
-      const mW = widths?.[measure] ?? measureWRef.current;
-
-      if (measureHighlightRef.current) {
-        if (measureHighlightRef.current.style.display !== 'block') {
-          measureHighlightRef.current.style.display = 'block';
-        }
-        // Discretely highlight the current measure column
-        const highlightX = HEADER_W + mLeft;
-        measureHighlightRef.current.style.transform = `translate3d(${highlightX}px, 0, 0)`;
-        measureHighlightRef.current.style.width = `${mW}px`;
-      }
-
-      const updatedStartTime = isNewMeasure ? (measureStartTime || currentLive.measureStartTime) : (currentLive.measureStartTime || measureStartTime);
-
-      livePlaybackRef.current = {
-        step,
-        measure,
-        ratio,
-        iteration,
-        measureStartTime: updatedStartTime,
-        measureDuration: measureDuration ?? currentLive.measureDuration,
-      };
-
-      const currentMEASURE_W = measureWRef.current;
-      const exactX = mLeft + ratio * mW;
-
-      // 3. AUTO-SCROLL / PAGINATION ATOMIQUE DANS LA MÊME FRAME
-      // Détection de rupture (Loop, Seek ou saut au début de la boucle) pour le scroll immédiat
-      const dx = exactX - lastExactXRef.current;
-      const isRupture = lastExactXRef.current === -1 || dx < 0 || Math.abs(dx) > mW * 0.5;
-
-      if (isRupture) {
-        lastExactXRef.current = exactX;
-        if (layoutCache.current.vw > 0 && scrollEl) {
-          const targetScroll = Math.max(0, exactX - layoutCache.current.vw * 0.1);
-          scrollEl.scrollLeft = targetScroll;
-          layoutCache.current.lastScrollX = targetScroll;
-        }
-      } else {
-        lastExactXRef.current = exactX;
-        
-        // Auto-scroll (page-turn) avec "Look-ahead" pour anticiper sans casser l'audio
-        const currentScrollX = layoutCache.current.lastScrollX;
-        const vw = layoutCache.current.vw;
-        // Marge de sécurité = 1.2 fois la largeur d'une mesure pour voir venir
-        const safetyMargin = mW * 1.2;
-        
-        // On déclenche le scroll si on entre dans la marge de droite, ou si on est avant le bord gauche
-        if (vw > 0 && scrollEl && (exactX > currentScrollX + vw - safetyMargin || exactX < currentScrollX)) {
-          // Recale l'aiguille à 15% de l'écran pour la suite de la lecture
-          const targetScroll = Math.max(0, exactX - vw * 0.15);
-          scrollEl.scrollLeft = targetScroll;
-          layoutCache.current.lastScrollX = targetScroll;
-        }
-      }
-
-      // 4. POSITIONNEMENT GPU DE LA BARRE DE LECTURE
-      const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
-
-      if (isUltraEco) {
-        // Mode Tier 3 (Beat Jump) : Saut de position instantané sans transition CSS
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-      } else if (isNewMeasure && measureDuration && measureDuration > 0) {
-        // 🚀 GPU CSS TRANSITION MODEL: Déclencher la transition CSS 60 FPS native au niveau du GPU par mesure
-        const startX = HEADER_W + exactX;
-        const endX = HEADER_W + mLeft + mW;
-        const remDuration = Math.max(0.1, (1 - ratio) * measureDuration);
-
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${startX}px, 0, 0)`;
-        requestAnimationFrame(() => {
-          if (el) {
-            el.style.transition = `transform ${remDuration}s linear`;
-            el.style.transform = `translate3d(${endX}px, 0, 0)`;
-          }
-        });
-      }
-    };
-
-    subscribeToTick(handleTick);
-
-    return () => {
-      unsubStore();
-      unsubscribeFromTick(handleTick);
-      resizeObserver.disconnect();
-      scrollEl.removeEventListener('scroll', handleScroll);
-    };
-  }, [HEADER_W, isActive]);
+  usePlayheadFollower({
+    playheadRef,
+    measureHighlightRef,
+    headerWidth: HEADER_W,
+    measureWidth: MEASURE_W,
+    measureWidths,
+    measureLeftPositions,
+    isActive,
+  });
 
   if (!uiContext) return null;
 
   const isEcoMode = useSequencerStore.getState().isEcoMode;
-  const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
+  const isMobileDevice = typeof window !== 'undefined' && window.innerWidth <= 768;
   const disableHeavyShadow = isEcoMode || isMobileDevice;
 
   return (
@@ -332,21 +34,15 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       <div
         ref={measureHighlightRef}
         className="absolute top-0 bottom-0 pointer-events-none z-[10] bg-[rgba(255,255,255,0.08)] mix-blend-screen"
-        style={{
-          left: 0,
-          display: 'none',
-          willChange: 'transform',
-        }}
+        style={{ left: 0, display: 'none', willChange: 'transform' }}
       />
       <div
         ref={playheadRef}
         id="timeline-playhead-line"
-        className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-[15] ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
-        style={{
-          left: 0,
-          display: 'none',
-          willChange: 'transform',
-        }}
+        className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-[15] ${
+          disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'
+        }`}
+        style={{ left: 0, display: 'none', willChange: 'transform' }}
       />
     </>
   );
