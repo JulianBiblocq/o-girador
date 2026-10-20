@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import * as Tone from 'tone';
 import { UseAudioSyncProps, tickSubscribers, subscribeToTick, unsubscribeFromTick, ScheduledNote } from './audio-sync/audioSyncTypes';
 import { getActiveStrokesForTrack } from './audio-sync/strokeNormalization';
 import { isVocalSamplePattern, isSamplePlaybackAllowed, getVocalBufferForPattern } from './audio-sync/vocalSampleHelpers';
@@ -46,6 +47,48 @@ export function useAudioSync(props: UseAudioSyncProps) {
   const setSoloPatternPlayId = useTransportStore.getState().setSoloPatternPlayId;
   const setSoloPatternVariationId = useTransportStore.getState().setSoloPatternVariationId;
 
+  // Calcul dynamique de l'intervalle de tick (tempo adaptatif, vitesse et speed trainer)
+  getTickDurationRef.current = () => {
+    if (useSequencerStore.getState().isSpeedTrainerActive) {
+      const stBpm = refs.speedTrainerCurrentBpmRef.current || useSequencerStore.getState().speedTrainerCurrentBpm || Tone.Transport.bpm.value;
+      return 2.5 / stBpm;
+    }
+    const currentMeasureIdx = refs.measureCountRef.current % (refs.totalMeasuresRef.current || 1);
+    const rawBpm = refs.measureBpmsRef.current?.[currentMeasureIdx];
+    const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? (props.bpm || useSequencerStore.getState().bpm || 100) : rawBpm;
+    return 2.5 / targetBpm;
+  };
+
+  // Synchronisation stricte de l'état de lecture React, Store Zustand et Refs partagées
+  useEffect(() => {
+    refs.isPlayingRef.current = isPlaying;
+    if (props.isPlayingRef) props.isPlayingRef.current = isPlaying;
+    useSequencerStore.getState().setIsPlaying(isPlaying);
+    if (typeof window !== 'undefined') {
+      (window as any).__IS_PLAYING__ = isPlaying;
+    }
+  }, [isPlaying, props.isPlayingRef, refs.isPlayingRef]);
+
+  useEffect(() => {
+    if (props.setIsPlayingRef) {
+      props.setIsPlayingRef.current = setIsPlaying;
+    }
+  }, [props.setIsPlayingRef]);
+
+  useEffect(() => {
+    if (props.bpm) {
+      Tone.Transport.bpm.value = props.bpm;
+    }
+  }, [props.bpm]);
+
+  useEffect(() => {
+    return useSequencerStore.subscribe((state, prev) => {
+      if (state.tocarJuntoActive !== prev.tocarJuntoActive || state.tocarJuntoTrackId !== prev.tocarJuntoTrackId) {
+        refs.familyMuteSetRef.current.clear();
+      }
+    });
+  }, [refs.familyMuteSetRef]);
+
   const { isCompiling, triggerCompile } = useCompilerWorkerSync({ flatCompiledScheduleRef: refs.flatCompiledScheduleRef });
   useEffect(() => { setGlobalInvalidateAudioParamsCache(triggerCompile); }, [triggerCompile]);
   useMetroChannelSync(refs as any);
@@ -66,6 +109,8 @@ export function useAudioSync(props: UseAudioSyncProps) {
     isAudioInitializedRef: refs.isAudioInitializedRef,
     lastAppliedBussesRef: refs.lastAppliedBussesRef, lastAppliedTracksParamsRef: refs.lastAppliedTracksParamsRef,
     onTickRef, getTickDurationRef, setIsLoading,
+    masterVol: props.masterVol, masterEQ: props.masterEQ, masterReverbVol: props.masterReverbVol,
+    metroVolumeRef: refs.metroVolumeRef, isMetroOnRef: refs.isMetroOnRef,
   });
 
   onTickRef.current = (time: number) => executeTickStep(time, {
@@ -110,6 +155,20 @@ export function useAudioSync(props: UseAudioSyncProps) {
   const onNavigate = useCallback((m: number, s: number, st?: number, it: number = 1) => handleTimelineNavigate(m, s, st, it, {
     ...refs, audioEngine: getAudioEngine(), setCurrentMeasure,
   }), [setCurrentMeasure, refs]);
+
+  useEffect(() => {
+    const handleTimelineNav = (e: Event) => {
+      const customEvent = e as CustomEvent<{ mIdx: number; sIdx: number; iteration?: number }>;
+      const { mIdx, sIdx, iteration } = customEvent.detail;
+      if (sIdx === 0) {
+        onSeek(mIdx, 0);
+      } else {
+        onNavigate(mIdx, sIdx, 16, iteration ?? 1);
+      }
+    };
+    window.addEventListener('o-girador-timeline-nav', handleTimelineNav);
+    return () => window.removeEventListener('o-girador-timeline-nav', handleTimelineNav);
+  }, [onSeek, onNavigate]);
 
   const onLaunchSpeedTrainer = useCallback((cfg: any) => launchSpeedTrainer(cfg, {
     ...refs, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure, setIsPlaying,

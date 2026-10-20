@@ -9,7 +9,9 @@ import { stopAllNativeOscillators } from '../../audio/nativeSynths';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { AudioEngine } from '../../AudioEngine';
 import { InputManager } from '../../InputManager';
-import { audioEngine, setAudioEngine, setInputManager, channels } from './audioEngineNodes';
+import { initMasterEffectsChain, trackInputs, syncTrackInsertChain } from '../../audio/effectsChain';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getAudioEngine, setAudioEngine, setInputManager, channels } from './audioEngineNodes';
 
 export interface AudioInitProps {
   tracksRef: { current: any[] };
@@ -28,6 +30,11 @@ export interface AudioInitProps {
   onTickRef: { current: (time: number) => boolean };
   getTickDurationRef: { current: () => number };
   setIsLoading: (l: boolean) => void;
+  masterVol?: number;
+  masterEQ?: { low: number; mid: number; high: number };
+  masterReverbVol?: number;
+  metroVolumeRef?: { current: number };
+  isMetroOnRef?: { current: boolean };
 }
 
 export function useAudioInitialization(p: AudioInitProps): void {
@@ -40,14 +47,25 @@ export function useAudioInitialization(p: AudioInitProps): void {
   } = p;
 
   useEffect(() => {
+    let engine: AudioEngine | null = null;
     const initAudio = async () => {
       try {
-        initBusesAudioNodes(tracksRef.current, false, lastAppliedBussesRef as any, lastAppliedTracksParamsRef as any);
-        initTrackChannelsAudioNodes(tracksRef.current, false, lastAppliedBussesRef as any, lastAppliedTracksParamsRef as any, null);
+        const isEco = useSequencerStore.getState().isEcoMode;
+        initMasterEffectsChain(
+          p.masterVol ?? 0,
+          p.masterEQ ?? { low: 0, mid: 0, high: 0 },
+          isEco,
+          p.masterReverbVol ?? 0,
+          p.metroVolumeRef?.current ?? 80,
+          p.isMetroOnRef?.current ?? false
+        );
+
+        initBusesAudioNodes(tracksRef.current, isEco, lastAppliedBussesRef as any, lastAppliedTracksParamsRef as any);
+        initTrackChannelsAudioNodes(tracksRef.current, isEco, lastAppliedBussesRef as any, lastAppliedTracksParamsRef as any, null);
         isAudioInitializedRef.current = true;
 
         const rawCtx = Tone.getContext().rawContext as AudioContext;
-        const engine = new AudioEngine(
+        engine = new AudioEngine(
           rawCtx,
           (time) => onTickRef.current(time),
           () => (getTickDurationRef.current ? getTickDurationRef.current() : 2.5 / 100),
@@ -75,8 +93,13 @@ export function useAudioInitialization(p: AudioInitProps): void {
         tracksRef.current.forEach((t) => {
           if (!t.isBusFolder) {
             const inst = instrumentsConfig[t.instrumentIdx];
-            if (inst && channels[t.id]) {
-              engine.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+            if (inst) {
+              if (!trackInputs[t.id]) {
+                trackInputs[t.id] = new Tone.Gain(1.0);
+                syncTrackInsertChain(t.id, t);
+              }
+              const gainNode = trackInputs[t.id] || channels[t.id];
+              engine?.setInstrumentChannel(t.id, inst.id, gainNode);
             }
           }
         });
@@ -110,8 +133,9 @@ export function useAudioInitialization(p: AudioInitProps): void {
           window.removeEventListener('vocal-apply-preset-live', handleApplyVocalPreset);
           stopVisualLoop();
           registerAudioEngineSyncTarget(null);
-          if (audioEngine) {
-            audioEngine.stop();
+          const activeEngine = getAudioEngine() || engine;
+          if (activeEngine) {
+            activeEngine.stop();
           }
           engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
           engineTimeoutsRef.current.clear();
@@ -120,8 +144,8 @@ export function useAudioInitialization(p: AudioInitProps): void {
       } catch (err) {
         console.error("❌ Critical error during initAudio:", err);
       } finally {
-        if (audioEngine) {
-          audioEngine.loadAllSamples().catch(() => {});
+        if (engine) {
+          engine.loadAllSamples().catch(() => {});
         }
         vocalEngineService.rehydrateVocalBuffers(tracksRef.current).catch((e) => {
           console.error("🎙️ [VOCAL REHYDRATE] Background rehydration error in initAudio:", e);

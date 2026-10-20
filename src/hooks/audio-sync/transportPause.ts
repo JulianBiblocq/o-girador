@@ -23,6 +23,7 @@ export interface TransportPauseContext {
   currentStepIndexRef: { current: number };
   maxTicksRef: { current: number };
   tickEventDetailRef: { current: any };
+  isPlayingRef: { current: boolean };
   setIsPlaying: (p: boolean) => void;
   setCurrentMeasure: (m: number) => void;
 }
@@ -53,6 +54,7 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   ctx.soloLoopCycleRef.current = 0;
   ctx.lastElapsedSecRef.current = 0;
   ctx.setIsPlaying(false);
+  ctx.isPlayingRef.current = false;
   releaseWakeLock();
 
   const totalM = ctx.totalMeasuresRef.current || 1;

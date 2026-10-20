@@ -12,6 +12,7 @@ import { executeTransportPause, TransportPauseContext } from './transportPause';
 import { checkStartingVocalAnacrusis } from './startingAnacrusisChecker';
 import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
+import { tickSubscribers } from './audioSyncTypes';
 
 export interface PlayToggleContext extends TransportPauseContext {
   isStartingRef: { current: boolean }; isPlayingRef: { current: boolean };
@@ -37,6 +38,9 @@ export async function handleTogglePlay(
     const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
     if (rawCtx && rawCtx.state !== 'running') {
       try { await rawCtx.resume(); } catch (_) {}
+    }
+    if (Tone.context && Tone.context.state !== 'running') {
+      try { await Tone.context.resume(); } catch (_) {}
     }
     if (Tone.start) {
       try { await Tone.start(); } catch (_) {}
@@ -128,6 +132,28 @@ export async function handleTogglePlay(
         Tone.Transport.position = `${targetM}:0:0`;
         Tone.Transport.start(scheduledMusicStartTime);
       }
+
+      // 🚀 RESUME ANCHOR FIX : Compensation synchrone de l'offset temporel à la reprise
+      if (ctx.anchoredMeasureStartSecRef.current === -1) {
+        const detail = ctx.tickEventDetailRef.current;
+        const ratioVal = detail.ratio || 0;
+        const targetStartTime = Tone.context.currentTime + Tone.context.lookAhead;
+        const measureDurationSec = Tone.Time('1m').toSeconds();
+
+        const newAnchor = targetStartTime - (ratioVal * measureDurationSec);
+        ctx.anchoredMeasureStartSecRef.current = newAnchor;
+
+        detail.measureStartTime = newAnchor;
+        detail.measureDuration = measureDurationSec;
+        detail.targetStartTime = targetStartTime;
+        detail.time = targetStartTime;
+        detail.isPaused = false;
+
+        tickSubscribers.forEach((cb) => {
+          try { cb(detail); } catch (err) { console.error(err); }
+        });
+      }
+
       activeEngine?.start(scheduledMusicStartTime);
       ctx.setIsPlaying(true);
       ctx.isPlayingRef.current = true;

@@ -7,7 +7,7 @@ import React from 'react';
 import * as Tone from 'tone';
 import { getMaxTicks } from '../../data';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
-import { nextRandom } from './audioParamsCache';
+import { nextRandom, getMeasureStartTick } from './audioParamsCache';
 import { advanceMeasureOnTickBoundary } from './measureAdvanceHelper';
 import { scheduleMetronomeClick } from './audioSyncMetronomeScheduler';
 import { scheduleMeasureAutomationRamps } from './audioSyncAutomationRamp';
@@ -42,6 +42,15 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
   const currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
   const currentTicks = getMaxTicks(currentTimeSig as any);
   const isDocHidden = typeof document !== 'undefined' && document.hidden;
+
+  if (ctx.currentStepIndexRef.current === -1) {
+    ctx.isPlaybackEndingRef.current = false;
+    ctx.flatArrayPointerRef.current = 0;
+    ctx.lastAbsoluteTickRef.current = -1;
+    ctx.absoluteTickCountRef.current = getMeasureStartTick(currentMeasureIdx, ctx.measureTimeSigsRef.current);
+    ctx.currentMeasureStartTickRef.current = ctx.absoluteTickCountRef.current;
+  }
+
   ctx.currentStepIndexRef.current++;
   let stepIdx = ctx.currentStepIndexRef.current;
 

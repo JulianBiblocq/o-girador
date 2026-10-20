@@ -5,7 +5,7 @@ import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStor
 import { instrumentsConfig } from '../../data';
 import { ActiveInstrumentData } from '../../AudioEngine';
 import { getActiveStrokesForTrack } from './strokeNormalization';
-import { audioEngine } from './audioEngineNodes';
+import { getAudioEngine } from './audioEngineNodes';
 
 export interface UseCompilerWorkerSyncProps {
   flatCompiledScheduleRef: React.MutableRefObject<Float64Array | null>;
@@ -72,7 +72,8 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
     triggerCompile();
 
     const scheduleSyncInstruments = (tracks: any[]) => {
-      if (!audioEngine) return;
+      const activeEngine = getAudioEngine();
+      if (!activeEngine) return;
       const activeInstruments = tracks.map((t: any) => {
         const inst = instrumentsConfig[t.instrumentIdx];
         if (!inst) return null;
@@ -82,7 +83,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
       const activeStr = JSON.stringify(activeInstruments);
       if (activeStr !== lastActiveInstrumentIdsRef.current) {
         lastActiveInstrumentIdsRef.current = activeStr;
-        audioEngine.syncActiveInstrumentsMemory(activeInstruments).catch(() => {});
+        activeEngine.syncActiveInstrumentsMemory(activeInstruments).catch(() => {});
       }
     };
 
@@ -94,7 +95,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
           compile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
         }, 16);
       }
-      if (audioEngine && state.tracks !== prevState.tracks) {
+      if (state.tracks !== prevState.tracks) {
         scheduleSyncInstruments(state.tracks);
       }
     });
@@ -108,7 +109,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
     });
 
     const unsubSettings = useSequencerSettingsStore.subscribe((state, prevState) => {
-      if (audioEngine && state.forcedStrokes !== prevState.forcedStrokes) {
+      if (state.forcedStrokes !== prevState.forcedStrokes) {
         scheduleSyncInstruments(useSequencerStore.getState().tracks);
       }
     });

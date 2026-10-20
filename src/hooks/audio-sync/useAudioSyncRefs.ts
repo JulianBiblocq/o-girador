@@ -3,21 +3,61 @@ import { UseAudioSyncProps, TickCallbackDetail } from './audioSyncTypes';
 import { GlobalSwing, Track, HitTriggerPool } from '../../types';
 
 export function useAudioSyncRefs(props: UseAudioSyncProps) {
-  const isPlayingRef = useRef(false);
+  const defaultIsPlayingRef = useRef(false);
+  const isPlayingRef = props.isPlayingRef || defaultIsPlayingRef;
   const isStartingRef = useRef(false);
-  const currentStepIndexRef = useRef(-1);
-  const measureCountRef = useRef(0);
+
+  const defaultCurrentStepIndexRef = useRef(-1);
+  const currentStepIndexRef = props.currentStepIndexRef || defaultCurrentStepIndexRef;
+
+  const defaultMeasureCountRef = useRef(0);
+  const measureCountRef = props.measureCountRef || defaultMeasureCountRef;
+
   const maxTicksRef = useRef(16);
   const absoluteTickCountRef = useRef(0);
   const currentMeasureStartTickRef = useRef(0);
-  const totalMeasuresRef = useRef(props.totalMeasures);
+
+  const defaultTotalMeasuresRef = useRef(props.totalMeasures);
+  const totalMeasuresRef = props.totalMeasuresRef || defaultTotalMeasuresRef;
   totalMeasuresRef.current = props.totalMeasures;
-  const tracksRef = useRef<Track[]>(props.tracksRef?.current as any || []);
-  tracksRef.current = props.tracksRef?.current as any || [];
-  const measureTimeSigsRef = useRef(props.measureTimeSigs);
-  measureTimeSigsRef.current = props.measureTimeSigs;
-  const measureBpmsRef = useRef(props.measureBpms);
-  measureBpmsRef.current = props.measureBpms;
+
+  const defaultTracksRef = useRef<Track[]>(props.tracksRef?.current as any || []);
+  const tracksRef = props.tracksRef || defaultTracksRef;
+
+  const defaultMeasureTimeSigsRef = useRef(props.measureTimeSigs);
+  const measureTimeSigsRef = (props.measureTimeSigsRef as any) || defaultMeasureTimeSigsRef;
+  if (!props.measureTimeSigsRef) measureTimeSigsRef.current = props.measureTimeSigs;
+
+  const defaultMeasureBpmsRef = useRef(props.measureBpms);
+  const measureBpmsRef = props.measureBpmsRef || defaultMeasureBpmsRef;
+  if (!props.measureBpmsRef) measureBpmsRef.current = props.measureBpms;
+
+  const defaultLoopStartRef = useRef<number | null>(null);
+  const loopStartRef = props.loopStartRef || defaultLoopStartRef;
+
+  const defaultLoopEndRef = useRef<number | null>(null);
+  const loopEndRef = props.loopEndRef || defaultLoopEndRef;
+
+  const defaultIsLoopRegionActiveRef = useRef(false);
+  const isLoopRegionActiveRef = props.isLoopRegionActiveRef || defaultIsLoopRegionActiveRef;
+
+  const defaultIsLoopingRef = useRef(true);
+  const isLoopingRef = props.isLoopingRef || defaultIsLoopingRef;
+
+  const defaultLastPlayedSignalIdRef = useRef<string | null>(null);
+  const lastPlayedSignalIdRef = props.lastPlayedSignalIdRef || defaultLastPlayedSignalIdRef;
+
+  const defaultSongSectionsRef = useRef<any[]>([]);
+  const songSectionsRef = (props.songSectionsRef as any) || defaultSongSectionsRef;
+
+  const defaultActiveVariationsRef = useRef<Record<number, (string | number)[]>>({});
+  const activeVariationsRef = props.activeVariationsRef || defaultActiveVariationsRef;
+
+  const defaultMeasureVolsRef = useRef<number[]>([]);
+  const measureVolsRef = props.measureVolsRef || defaultMeasureVolsRef;
+
+  const defaultMeasureSignalsRef = useRef<(string | null)[]>([]);
+  const measureSignalsRef = props.measureSignalsRef || defaultMeasureSignalsRef;
 
   const isMetroOnRef = useRef(false);
   const metroVolumeRef = useRef(80);
@@ -29,10 +69,6 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const soloPatternVariationIdRef = useRef<string | null>(null);
   const soloLoopCycleRef = useRef(0);
   const soloPhraseMeasureRef = useRef(0);
-  const isLoopRegionActiveRef = useRef(false);
-  const loopStartRef = useRef<number | null>(null);
-  const loopEndRef = useRef<number | null>(null);
-  const isLoopingRef = useRef(true);
   const isPlaybackEndingRef = useRef(false);
 
   const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
@@ -46,7 +82,6 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const anticipatedMeasuresRef = useRef(new Set<string>());
   const mutedVoiceTracksRef = useRef(new Set<string | number>());
   const lastPlayedPatternRef = useRef<Record<number, any>>({});
-  const lastPlayedSignalIdRef = useRef<string | null>(null);
 
   const anchoredMeasureStartSecRef = useRef(0);
   const anchoredMeasureIdxRef = useRef(-1);
@@ -99,5 +134,6 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
     familyMuteSetRef, savedSoloMuteStateRef, lastAppliedTracksParamsRef,
     lastAppliedBussesRef, sectionIterationRef, pendingMeasureRef,
     pendingIterationRef, hasFinishedRef, tickEventDetailRef,
+    songSectionsRef, activeVariationsRef, measureVolsRef, measureSignalsRef,
   };
 }
