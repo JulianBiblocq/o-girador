@@ -1,501 +1,52 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { instrumentsConfig, isDarkText, NEWTON_NOTE_COLORS, getVisualStrokeSymbol } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
-import { useSequencer } from '../contexts/SequencerContext';
-import { useAudio } from '../contexts/AudioContext';
-import { getBusNoteColor } from '../utils/colorHelpers';
-import { isVoiceStepProlongation } from '../utils/musicTheory';
-
+import { resolveTimelineStepData } from './timeline/TimelineStepPatternResolver';
+import { TimelineStepCellVisuals } from './timeline/TimelineStepCellVisuals';
 
 interface TimelineStepProps {
-  trackId: number;
-  patternId: number;
-  measureIdx: number;
-  stepIdx: number;
-  patternStepOffset?: number;
-  stepsCount: number;
-  // Index pré-calculés pour accès O(1)
-  trackIdx: number;
-  patternIdx: number;
-  instrumentIdx: number;
-  beatResolutions?: number[];
-  onStepTouchStart?: (
-    e: React.MouseEvent | React.TouchEvent,
-    patternId: number,
-    stepIdx: number,
-    instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void,
-    trackId: number
-  ) => void;
-  // Métadonnées structurelles pré-calculées
-  isLinkFolder?: boolean;
-  isSlave?: boolean;
-  isLinkMaster?: boolean;
-  parentBusTrackId?: number;
-  masterTrackId?: number;
-  slaveTrackIds?: number[];
-  hasChildOverrides?: boolean;
-}
-
-function getDisplayVal(val: string | number) {
-  if (val === 0 || val === '0' || !val) return '';
-  return String(val);
-}
-
-function isDarkColor(colorStr?: string): boolean {
-  if (!colorStr || colorStr === 'transparent') return false;
-  const lower = colorStr.toLowerCase().trim();
-  if (['#000', '#000000', '#111', '#111111', '#222', '#222222', '#1a1a1a', '#1c1c1c', '#2a2a2a', '#181a1b'].includes(lower)) {
-    return true;
-  }
-  if (lower.startsWith('#') && lower.length === 7) {
-    const r = parseInt(lower.substring(1, 3), 16);
-    const g = parseInt(lower.substring(3, 5), 16);
-    const b = parseInt(lower.substring(5, 7), 16);
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance < 0.22;
-  }
-  return false;
+  trackId: number; patternId: number; measureIdx: number; stepIdx: number;
+  patternStepOffset?: number; stepsCount: number; trackIdx: number; patternIdx: number;
+  instrumentIdx: number; beatResolutions?: number[];
+  onStepTouchStart?: (e: React.MouseEvent | React.TouchEvent, pId: number, sIdx: number, instId: string, val: string | number, onSel: (v: string) => void, tId: number) => void;
+  isLinkFolder?: boolean; isSlave?: boolean; isLinkMaster?: boolean;
+  parentBusTrackId?: number; masterTrackId?: number; slaveTrackIds?: number[]; hasChildOverrides?: boolean;
 }
 
 const TimelineStepComponent: React.FC<TimelineStepProps> = ({
-  trackId,
-  patternId,
-  measureIdx,
-  stepIdx,
-  patternStepOffset = 0,
-  stepsCount,
-  trackIdx,
-  patternIdx,
-  instrumentIdx,
-  beatResolutions,
-  onStepTouchStart,
-  isLinkFolder: propIsLinkFolder,
-  isSlave: propIsSlave,
-  isLinkMaster: propIsLinkMaster,
-  parentBusTrackId,
-  masterTrackId,
-  slaveTrackIds,
-  hasChildOverrides,
+  trackId, patternId, measureIdx, stepIdx, patternStepOffset = 0, stepsCount,
+  trackIdx, patternIdx, instrumentIdx, beatResolutions, isLinkFolder: propIsLinkFolder,
+  isSlave: propIsSlave, isLinkMaster: propIsLinkMaster, parentBusTrackId, masterTrackId,
+  slaveTrackIds, hasChildOverrides,
 }) => {
   const uiContext = useContext(TimelineUIContext);
-  const sequencer = useSequencer();
-  const { isPlaying } = useAudio();
 
-  // 1. Sélecteur Zustand globalisé unique, mémoïsé et hautement performant (Zero Render Thrashing)
   const stepData = useSequencerStore(
     useShallow((state) => {
-      const currentTrack = state.tracks.find(t => t.id === trackId) || state.tracks[trackIdx];
+      const currentTrack = state.tracks.find((t) => t.id === trackId) || state.tracks[trackIdx];
       if (!currentTrack) return null;
-
       const actualStepIdx = (patternStepOffset || 0) + stepIdx;
-
-      const inst = instrumentsConfig[instrumentIdx];
-      const isVoice = Boolean(
-        inst?.type === 'voice' ||
-        inst?.id === 'toada' ||
-        inst?.id === 'puxador' ||
-        inst?.id === 'coro' ||
-        currentTrack.customName === 'Toada' ||
-        currentTrack.customName === 'Puxador' ||
-        currentTrack.customName === 'Coro'
-      );
-      const isLeftHanded = state.isLeftHanded || false;
-
-      // Détection des types de pistes
       const isLinkFolder = propIsLinkFolder !== undefined ? propIsLinkFolder : !!currentTrack.isLinkFolder;
       const isSlave = propIsSlave !== undefined ? propIsSlave : !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && !currentTrack.isLinkMaster);
       const isLinkMaster = propIsLinkMaster !== undefined ? propIsLinkMaster : !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && currentTrack.isLinkMaster);
 
-      let masterVal: string | number | [string, string] = 0;
-      let esclaveVal: string | number | [string, string] = 0;
-      let resolvedVal: string | number | [string, string] = 0;
-      let resolvedNote = '';
-
-      // Variables unifiées pour le rendu visuel
-      let isSplit = false;
-      let isRightHalfOnly = false;
-      let leftText = '';
-      let leftFillColor = 'transparent';
-      let leftTxtColor = '#f4ecd8';
-      let leftIsAccent = false;
-      let leftInstId = inst?.id || '';
-      let leftState: string | number | [string, string] = '';
-
-      let rightText = '';
-      let rightFillColor = 'transparent';
-      let rightTxtColor = '#f4ecd8';
-      let rightInstId = '';
-      let rightState: string | number | [string, string] = '';
-
-      let renderCas = 0; // 0: Normal, 1: Unisson, 2: Variation, 3: Divergence, 4: Héritage Maître
-
-      if (isLinkFolder) {
-        // --- CAS PISTE DOSSIER PARENT (AFFICHE LE RÉSUMÉ COMPLET DES VARIATIONS COMME SUR LA RODA) ---
-        // 1. Résolution de la valeur Master (la piste dossier elle-même)
-        const masterPattern = currentTrack.patterns?.[patternIdx];
-        masterVal = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
-        resolvedVal = masterVal;
-        resolvedNote = masterPattern?.notes?.[actualStepIdx] ?? '';
-        const hasMasterEvent = masterVal !== 0 && masterVal !== '0' && masterVal !== '' && masterVal !== undefined && masterVal !== null;
-
-        let resolvedMasterText = '';
-        let resolvedMasterColor = 'transparent';
-        let resolvedMasterTxtColor = '#f4ecd8';
-        let resolvedMasterIsAccent = false;
-
-        if (hasMasterEvent) {
-          const visualState = getVisualStrokeSymbol(masterVal, isLeftHanded, inst.id);
-          if (visualState !== 0 && visualState !== '0') {
-            const stateStr = String(Array.isArray(visualState) ? visualState[0] : visualState);
-            resolvedMasterColor = getBusNoteColor(String(currentTrack.id), stateStr, state.tracks, instrumentsConfig);
-            resolvedMasterIsAccent = (stateStr === stateStr.toUpperCase());
-            resolvedMasterText = stateStr;
-            resolvedMasterTxtColor = isDarkText(inst.id, String(Array.isArray(masterVal) ? masterVal[0] : masterVal)) ? '#1a1a1a' : '#f4ecd8';
-          } else if (String(visualState) === '0' || String(visualState) === '-') {
-            resolvedMasterColor = '#ab5318'; // orange silence
-            resolvedMasterText = '-';
-            resolvedMasterTxtColor = '#1a1a1a';
-          }
-        }
-
-        // 2. Résolution des variations enfants (satellites)
-        const satellites: Array<{
-          color: string;
-          text: string;
-          isDark: boolean;
-          childInstId: string;
-          childState: string | number | [string, string];
-        }> = [];
-
-        if (hasChildOverrides && slaveTrackIds && slaveTrackIds.length > 0) {
-          for (let i = 0; i < slaveTrackIds.length; i++) {
-            const sId = slaveTrackIds[i];
-            const c = state.tracks.find(t => t.id === sId);
-            if (!c) continue;
-            const override = c.patternOverrides?.[measureIdx];
-            if (override !== undefined && override !== null) {
-              const childPattern = currentTrack.patterns.find(p => p.id === override);
-              if (childPattern) {
-                const childState = childPattern.activeSteps?.[actualStepIdx] ?? 0;
-                if (childState !== 0 && childState !== '') {
-                  const childInst = instrumentsConfig[c.instrumentIdx];
-                  if (childInst) {
-                    const childVisualState = getVisualStrokeSymbol(childState, isLeftHanded, childInst.id);
-                    if (childVisualState !== 0) {
-                      const primaryChildVisual = Array.isArray(childVisualState) ? childVisualState[0] : childVisualState;
-                      const childColor = childInst.colors?.[primaryChildVisual as string] || childInst.color || '#fff';
-                      satellites.push({
-                        color: childColor,
-                        text: String(primaryChildVisual),
-                        isDark: isDarkText(childInst.id, String(Array.isArray(childState) ? childState[0] : childState)),
-                        childInstId: childInst.id,
-                        childState: childState
-                      });
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        const hasVariationEvent = satellites.length > 0;
-
-        // 3. Logique décisionnelle de split identique à CircleSequencer
-        if (hasMasterEvent && hasVariationEvent) {
-          isSplit = true;
-          leftText = resolvedMasterText;
-          leftFillColor = resolvedMasterColor;
-          leftTxtColor = resolvedMasterTxtColor;
-          leftIsAccent = resolvedMasterIsAccent;
-          leftState = masterVal;
-          leftInstId = inst.id;
-
-          const rightSat = satellites[0];
-          rightText = rightSat.text;
-          rightFillColor = rightSat.color;
-          rightTxtColor = rightSat.isDark ? '#1a1a1a' : '#f4ecd8';
-          rightState = rightSat.childState;
-          rightInstId = rightSat.childInstId;
-        } else if (!hasMasterEvent && satellites.length >= 2) {
-          isSplit = true;
-          const leftSat = satellites[0];
-          leftText = leftSat.text;
-          leftFillColor = leftSat.color;
-          leftTxtColor = leftSat.isDark ? '#1a1a1a' : '#f4ecd8';
-          leftState = leftSat.childState;
-          leftInstId = leftSat.childInstId;
-
-          const rightSat = satellites[1];
-          rightText = rightSat.text;
-          rightFillColor = rightSat.color;
-          rightTxtColor = rightSat.isDark ? '#1a1a1a' : '#f4ecd8';
-          rightState = rightSat.childState;
-          rightInstId = rightSat.childInstId;
-        } else if (!hasMasterEvent && satellites.length === 1) {
-          isRightHalfOnly = true;
-          const singleSat = satellites[0];
-          rightText = singleSat.text;
-          rightFillColor = singleSat.color;
-          rightTxtColor = singleSat.isDark ? '#1a1a1a' : '#f4ecd8';
-          rightState = singleSat.childState;
-          rightInstId = singleSat.childInstId;
-        } else if (hasMasterEvent) {
-          isSplit = false;
-          leftText = resolvedMasterText;
-          leftFillColor = resolvedMasterColor;
-          leftTxtColor = resolvedMasterTxtColor;
-          leftIsAccent = resolvedMasterIsAccent;
-          leftState = masterVal;
-          leftInstId = inst.id;
-        }
-
-      } else if (isSlave) {
-        // --- CAS PISTE ESCLAVE INDIVIDUELLE ---
-        // 1. Trouver le parent lié (bus parent)
-        const parentBus = parentBusTrackId !== undefined
-          ? state.tracks.find(p => p.id === parentBusTrackId)
-          : state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
-        const parentInst = parentBus ? instrumentsConfig[parentBus.instrumentIdx] : null;
-
-        // 2. Trouver la piste Master correspondante
-        const masterTrack = masterTrackId !== undefined
-          ? state.tracks.find(t => t.id === masterTrackId)
-          : state.tracks.find(t => 
-              String(t.linkedToTrackId) === String(currentTrack.linkedToTrackId) && 
-              t.isLinkMaster
-            );
-        const masterInst = masterTrack ? instrumentsConfig[masterTrack.instrumentIdx] : null;
-
-        if (parentBus) {
-          const masterPattern = parentBus.patterns?.find(p => Boolean(p.measureAssignments?.[measureIdx])) || parentBus.patterns?.[0];
-          masterVal = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
-        }
-
-        // 3. Résoudre la valeur de l'esclave depuis les patterns d'override du parent
-        const override = currentTrack.patternOverrides?.[measureIdx];
-        if (parentBus) {
-          if (override === null) {
-            esclaveVal = 0;
-            resolvedVal = 0;
-            resolvedNote = '';
-          } else if (override !== undefined) {
-            const childPattern = parentBus.patterns.find(p => p.id === override);
-            esclaveVal = childPattern?.activeSteps?.[actualStepIdx] ?? 0;
-            resolvedVal = esclaveVal;
-            resolvedNote = childPattern?.notes?.[actualStepIdx] ?? '';
-          } else {
-            // Suit le maître (donc pas de variation propre)
-            esclaveVal = 0;
-            resolvedVal = 0;
-            resolvedNote = '';
-          }
-        }
-
-        const hasMaitre = masterVal !== 0 && masterVal !== '';
-        const hasEsclave = esclaveVal !== 0 && esclaveVal !== '';
-
-        if (hasEsclave) {
-          // Si l'esclave a sa propre note (variation active), on l'affiche PLEINE sur sa ligne
-          renderCas = 2;
-          const primaryEsclaveVal = Array.isArray(esclaveVal) ? esclaveVal[0] : esclaveVal;
-          leftFillColor = inst.colors?.[primaryEsclaveVal as string] || inst.color || '#111';
-          leftText = String(getVisualStrokeSymbol(esclaveVal, isLeftHanded, inst.id));
-          leftTxtColor = isDarkText(inst.id, String(primaryEsclaveVal)) ? '#1a1a1a' : '#f4ecd8';
-          leftState = esclaveVal;
-          leftInstId = inst.id;
-          
-          isSplit = false;
-          isRightHalfOnly = false;
-        } else if (hasMaitre) {
-          // Héritage du Maître (l'esclave ne joue rien, affiche la note du maître en filigrane, opacité réduite)
-          renderCas = 4;
-          const primaryMasterVal = Array.isArray(masterVal) ? masterVal[0] : masterVal;
-          const maitreColor = (masterInst) ? (masterInst.colors?.[primaryMasterVal as string] || masterInst.color || '#111') : '#111';
-          leftFillColor = maitreColor;
-          if (masterInst) {
-            leftText = String(getVisualStrokeSymbol(masterVal, isLeftHanded, masterInst.id));
-            leftTxtColor = isDarkText(masterInst.id, String(primaryMasterVal)) ? '#1a1a1a' : '#f4ecd8';
-            leftState = masterVal;
-            leftInstId = masterInst.id;
-          }
-          
-          isSplit = false;
-          isRightHalfOnly = false;
-        }
-      } else if (isLinkMaster) {
-        // --- CAS PISTE MAITRE DE LIAISON INDIVIDUELLE ---
-        // 1. Trouver le parent lié (bus parent)
-        const parentBus = parentBusTrackId !== undefined
-          ? state.tracks.find(p => p.id === parentBusTrackId)
-          : state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
-        if (parentBus) {
-          const masterPattern = parentBus.patterns?.find(p => Boolean(p.measureAssignments?.[measureIdx])) || parentBus.patterns?.[0];
-          const val = masterPattern?.activeSteps?.[actualStepIdx] ?? 0;
-          resolvedVal = val;
-          resolvedNote = masterPattern?.notes?.[actualStepIdx] ?? '';
-          const hasEvent = val !== 0 && val !== '';
-
-          if (hasEvent) {
-            const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-            leftState = val;
-            leftInstId = inst.id;
-
-            if (isVoice) {
-              leftText = '';
-              leftFillColor = inst.color || '#111';
-            } else {
-              const primaryVisualVal = Array.isArray(visualVal) ? visualVal[0] : visualVal;
-              leftText = String(primaryVisualVal);
-              leftFillColor = inst.colors?.[primaryVisualVal as string] || inst.color || '#111';
-              leftTxtColor = isDarkText(inst.id, String(Array.isArray(val) ? val[0] : val)) ? '#1a1a1a' : '#f4ecd8';
-            }
-          }
-        }
-      } else {
-        // --- CAS PISTE STANDARD ---
-        const pattern = (patternId !== undefined && patternId !== -1)
-          ? (currentTrack.patterns?.find(p => p.id === patternId) || currentTrack.patterns?.[patternIdx])
-          : currentTrack.patterns?.[patternIdx];
-        const val = pattern?.activeSteps?.[actualStepIdx] ?? 0;
-        resolvedVal = val;
-        resolvedNote = pattern?.notes?.[actualStepIdx] ?? '';
-        const hasEvent = val !== 0 && val !== '' && !((val as any)?.length === 0);
-
-        if (hasEvent) {
-          if (Array.isArray(val) && val.length === 2) {
-             isSplit = true;
-             
-             const visualValLeft = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);
-             leftState = val[0];
-             leftInstId = inst.id;
-             leftText = String(visualValLeft);
-             leftFillColor = inst.colors?.[visualValLeft as string] || inst.color || '#111';
-             leftTxtColor = isDarkText(inst.id, String(val[0])) ? '#1a1a1a' : '#f4ecd8';
-
-             const visualValRight = getVisualStrokeSymbol(val[1], isLeftHanded, inst.id);
-             rightState = val[1];
-             rightInstId = inst.id;
-             rightText = String(visualValRight);
-             rightFillColor = inst.colors?.[visualValRight as string] || inst.color || '#111';
-             rightTxtColor = isDarkText(inst.id, String(val[1])) ? '#1a1a1a' : '#f4ecd8';
-          } else {
-            const visualVal = getVisualStrokeSymbol(val as string | number, isLeftHanded, inst.id);
-            leftState = val as string | number;
-            leftInstId = inst.id;
-
-            if (isVoice) {
-              leftText = ''; // Géré par noteLetter en dehors du flux texte standard
-              leftFillColor = inst.color || '#111';
-            } else {
-              leftText = String(visualVal);
-              leftFillColor = inst.colors?.[visualVal as string] || inst.color || '#111';
-              leftTxtColor = isDarkText(inst.id, String(val)) ? '#1a1a1a' : '#f4ecd8';
-            }
-          }
-        }
-      }
-
-      let isProlongation = false;
-      let isFollowedByProlongation = false;
-      let syl = '';
-      let isPux = true;
-      let voiceColor = '#c25e38';
-
-      if (isVoice) {
-        const pattern = (patternId !== undefined && patternId !== -1)
-          ? (currentTrack.patterns?.find(p => p.id === patternId) || currentTrack.patterns?.[patternIdx])
-          : currentTrack.patterns?.[patternIdx];
-        const curVal = pattern?.activeSteps?.[actualStepIdx] ?? 0;
-        const curActive = curVal !== 0 && curVal !== '' && curVal !== '0' && curVal !== '-' && !((curVal as any)?.length === 0);
-        const curNote = (pattern?.notes?.[actualStepIdx] || '').trim();
-        const curSyl = (pattern?.lyrics?.[actualStepIdx] || '').trim();
-        syl = curSyl;
-
-        isPux = curVal === 'P' || inst?.id === 'puxador' || (inst?.id !== 'coro' && curVal !== 'C');
-        voiceColor = isPux ? '#c25e38' : '#2a9d8f';
-
-        if (curActive) {
-          const prevVal = actualStepIdx > 0 ? (pattern?.activeSteps?.[actualStepIdx - 1] ?? 0) : 0;
-          const prevActive = prevVal !== 0 && prevVal !== '' && prevVal !== '0' && prevVal !== '-' && !((prevVal as any)?.length === 0);
-          const prevNote = actualStepIdx > 0 ? (pattern?.notes?.[actualStepIdx - 1] || '').trim() : '';
-
-          const nextVal = (actualStepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.activeSteps?.[actualStepIdx + 1] ?? 0) : 0;
-          const nextActive = nextVal !== 0 && nextVal !== '' && nextVal !== '0' && nextVal !== '-' && !((nextVal as any)?.length === 0);
-          const nextNote = (actualStepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.notes?.[actualStepIdx + 1] || '').trim() : '';
-          const nextSyl = (actualStepIdx < (pattern?.steps ?? 16) - 1) ? (pattern?.lyrics?.[actualStepIdx + 1] || '').trim() : '';
-
-          isProlongation = isVoiceStepProlongation(
-            curActive,
-            prevActive,
-            curNote,
-            prevNote,
-            curSyl
-          );
-
-          isFollowedByProlongation = isVoiceStepProlongation(
-            nextActive,
-            curActive,
-            nextNote,
-            curNote,
-            nextSyl
-          );
-        }
-      }
-
-      // Informations complémentaires requises pour le chant ou la signature rythmique
-      const note = isVoice ? (currentTrack.patterns?.[patternIdx]?.notes?.[actualStepIdx] || '') : resolvedNote;
-      const timeSigStr = state.measureTimeSigs[measureIdx] || state.timeSig || '4/4';
-
-      return {
-        isLinkFolder,
-        isSlave,
-        masterVal,
-        esclaveVal,
-        val: resolvedVal,
-        isSplit,
-        isRightHalfOnly,
-        leftText,
-        leftFillColor,
-        leftTxtColor,
-        leftIsAccent,
-        rightText,
-        rightFillColor,
-        rightTxtColor,
-        renderCas,
-        isVoice,
-        isProlongation,
-        isFollowedByProlongation,
-        syl,
-        isPux,
-        voiceColor,
-        note,
-        timeSigStr,
-        isEcoMode: state.isEcoMode,
-      };
+      return resolveTimelineStepData(
+        currentTrack, state.tracks, actualStepIdx, patternId, patternIdx, measureIdx,
+        instrumentIdx, Boolean(state.isLeftHanded), Boolean(state.isEcoMode), isLinkFolder, isSlave, isLinkMaster,
+        parentBusTrackId, masterTrackId, slaveTrackIds, hasChildOverrides, state.measureTimeSigs, state.timeSig
+      );
     })
   );
 
   if (!uiContext || !stepData) return null;
-  const { MEASURE_W } = uiContext;
 
-  // Calcul de la position et de la subdivision dans le temps
   const defaultBeats = parseInt(stepData.timeSigStr.split('/')[0], 10) || 4;
   const beatRes = beatResolutions || Array(defaultBeats).fill(4);
-
-  let currentBeatIndex = 0;
-  let indexInBeat = 0;
-  let beatCount = 4;
-  let accumulated = 0;
-
+  let indexInBeat = 0, beatCount = 4, accumulated = 0;
   for (let b = 0; b < beatRes.length; b++) {
     const res = beatRes[b] ?? 4;
     if (stepIdx >= accumulated && stepIdx < accumulated + res) {
-      currentBeatIndex = b;
       indexInBeat = stepIdx - accumulated;
       beatCount = res;
       break;
@@ -503,183 +54,20 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     accumulated += res;
   }
 
-  const isTriplet = beatCount === 3;
-  const isSextuplet = beatCount === 6;
-
-  // Résolution de la note vocale (chant)
-  const noteLetter = stepData.note ? stepData.note.charAt(0).toUpperCase() : '';
-  const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter as keyof typeof NEWTON_NOTE_COLORS] || '#1a1a1a') : '#1a1a1a';
-
-  // Résolution géométrique du fond de la cellule
-  let stepBg = '#111';
-  let hasBackground = false;
-
-  if (stepData.isRightHalfOnly) {
-    stepBg = `linear-gradient(135deg, transparent 50%, ${stepData.rightFillColor} 50%)`;
-    hasBackground = true;
-  } else if (stepData.isSplit) {
-    stepBg = `linear-gradient(135deg, ${stepData.leftFillColor} 50%, ${stepData.rightFillColor} 50%)`;
-    hasBackground = true;
-  } else if (stepData.leftFillColor !== 'transparent') {
-    stepBg = stepData.isVoice 
-      ? (noteColor !== '#1a1a1a' ? noteColor : stepData.leftFillColor)
-      : stepData.leftFillColor;
-    hasBackground = true;
-  }
-
-  // Résolution de l'opacité
-  let bgOpacity = 1.0;
-  if (stepData.renderCas === 4) {
-    bgOpacity = 0.4;
-  } else if (!hasBackground) {
-    bgOpacity = 0;
-  }
-
-  const isEcoMode = stepData.isEcoMode;
-  const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
-  const disableHeavyEffects = isEcoMode || isMobileDevice;
-
-  const isDarkStroke = isDarkColor(stepData.leftFillColor) || (stepData.isSplit && isDarkColor(stepData.rightFillColor));
-  const cordelStepBorder = 'border border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)]';
-  const borderClass = stepData.leftIsAccent 
-    ? `${cordelStepBorder} ring-1 ring-white/60` 
-    : cordelStepBorder;
-  const scaleClass = stepData.leftIsAccent ? 'scale-120' : '';
-  const accentClass = `${scaleClass} ${borderClass}`;
-  const heavyEffectClass = disableHeavyEffects ? '' : 'transition-transform duration-75 ease-out';
-
-  let shapeClipPath: string | undefined = undefined;
-  let shapeBorderRadius: string | undefined = undefined;
-
-  if (isTriplet) {
-    shapeClipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
-    shapeBorderRadius = '0px';
-  } else if (isSextuplet) {
-    shapeClipPath = indexInBeat % 2 === 0
-      ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
-      : 'polygon(0% 0%, 100% 0%, 50% 100%)';
-    shapeBorderRadius = '0px';
-  }
-
-  // ── RENDU DÉDIÉ DES PISTES VOCALES (FUSION DES PAS TENUS PUXADOR / CORO) ──
-  if (stepData.isVoice) {
-    const hasActiveVoice = stepData.val !== 0 && stepData.val !== '' && stepData.val !== '0' && stepData.val !== '-';
-
-    if (!hasActiveVoice) {
-      return (
-        <div
-          className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none p-[1px]"
-          data-measure={measureIdx}
-          data-step={stepIdx}
-          data-track-id={trackId}
-        >
-          <div className={isTriplet || isSextuplet ? 'w-1.5 h-1.5 bg-black/20 dark:bg-white/20' : 'w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full'} />
-        </div>
-      );
-    }
-
-    const isStart = !stepData.isProlongation;
-    const isEnd = !stepData.isFollowedByProlongation;
-
-    // Bordures horizontales nettes avec alignement sous-pixel de l'ombre d'estampe sur tout le socle vocal
-    const voiceBorderClass = isStart && isEnd
-      ? 'border border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mx-[1px]'
-      : isStart
-        ? 'border-y border-l border-[#1a1a1a] dark:border-black shadow-[0px_1px_0px_#1a1a1a] dark:shadow-[0px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] ml-[1px] mr-0'
-        : isEnd
-          ? 'border-y border-r border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mr-[1px] ml-0'
-          : 'border-y border-[#1a1a1a] dark:border-black shadow-[0px_1px_0px_#1a1a1a] dark:shadow-[0px_1px_0px_rgba(0,0,0,0.8)] rounded-none my-[1px] mx-0';
-
-    // Retrait de la bordure droite du conteneur si suivi par une prolongation pour fusionner avec la cellule suivante
-    const containerBorder = stepData.isFollowedByProlongation
-      ? 'border-r-0 -mr-px z-10'
-      : 'border-r border-[var(--cordel-border)]/10 last:border-r-0';
-
-    const displayText = stepData.syl || stepData.note || (stepData.isPux ? 'P' : 'C');
-
-    return (
-      <div
-        className={`timeline-step relative h-full flex-1 ${containerBorder} flex items-center justify-center pointer-events-none select-none py-[1px]`}
-        data-measure={measureIdx}
-        data-step={stepIdx}
-        data-track-id={trackId}
-        data-pattern-id={patternId}
-      >
-        <div
-          className={`w-full h-3 md:h-3.5 flex items-center justify-center transition-all ${voiceBorderClass}`}
-          style={{
-            backgroundColor: stepData.voiceColor,
-            opacity: bgOpacity,
-          }}
-        >
-          {isStart && (
-            <span className="text-[7px] md:text-[8px] font-bold text-white leading-none truncate px-0.5 select-none">
-              {displayText}
-            </span>
-          )}
-          {!isStart && !uiContext.isMacro && !uiContext.isMinZoom && (
-            <span className="text-[6px] text-white/70 font-mono leading-none select-none">
-              ──
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none p-[1px]"
-      data-measure={measureIdx}
-      data-step={stepIdx}
-      data-steps={stepsCount}
-      data-track-id={trackId}
-      data-pattern-id={patternId}
-      data-val={Array.isArray(stepData.val) ? stepData.val.join('-') : stepData.val}
-    >
-      {hasBackground ? (
-        <div 
-          className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3 rounded-none m-[1px]' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${heavyEffectClass} ${accentClass}`}
-          style={{
-            background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
-            backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,
-            opacity: bgOpacity,
-            clipPath: shapeClipPath,
-            borderRadius: shapeBorderRadius,
-          }}
-        />
-      ) : (
-        /* Silhouette discrète pour la structure vide */
-        <div 
-          className={isTriplet || isSextuplet ? 'w-1.5 h-1.5 bg-black/20 dark:bg-white/20' : 'w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full'}
-          style={{
-            clipPath: shapeClipPath,
-          }}
-        />
-      )}
-    </div>
+    <TimelineStepCellVisuals
+      stepData={stepData} trackId={trackId} patternId={patternId} measureIdx={measureIdx}
+      stepIdx={stepIdx} stepsCount={stepsCount} isTriplet={beatCount === 3} isSextuplet={beatCount === 6}
+      indexInBeat={indexInBeat} isMacro={uiContext.isMacro} isMinZoom={uiContext.isMinZoom}
+    />
   );
 };
 
-export const TimelineStep = React.memo(TimelineStepComponent, (prevProps, nextProps) => {
-  return (
-    prevProps.trackId === nextProps.trackId &&
-    prevProps.patternId === nextProps.patternId &&
-    prevProps.measureIdx === nextProps.measureIdx &&
-    prevProps.stepIdx === nextProps.stepIdx &&
-    prevProps.patternStepOffset === nextProps.patternStepOffset &&
-    prevProps.stepsCount === nextProps.stepsCount &&
-    prevProps.trackIdx === nextProps.trackIdx &&
-    prevProps.patternIdx === nextProps.patternIdx &&
-    prevProps.instrumentIdx === nextProps.instrumentIdx &&
-    prevProps.beatResolutions === nextProps.beatResolutions &&
-    prevProps.isLinkFolder === nextProps.isLinkFolder &&
-    prevProps.isSlave === nextProps.isSlave &&
-    prevProps.isLinkMaster === nextProps.isLinkMaster &&
-    prevProps.parentBusTrackId === nextProps.parentBusTrackId &&
-    prevProps.masterTrackId === nextProps.masterTrackId &&
-    prevProps.hasChildOverrides === nextProps.hasChildOverrides &&
-    prevProps.slaveTrackIds === nextProps.slaveTrackIds
-  );
-});
-
+export const TimelineStep = React.memo(TimelineStepComponent, (p, n) => (
+  p.trackId === n.trackId && p.patternId === n.patternId && p.measureIdx === n.measureIdx &&
+  p.stepIdx === n.stepIdx && p.patternStepOffset === n.patternStepOffset && p.stepsCount === n.stepsCount &&
+  p.trackIdx === n.trackIdx && p.patternIdx === n.patternIdx && p.instrumentIdx === n.instrumentIdx &&
+  p.beatResolutions === n.beatResolutions && p.isLinkFolder === n.isLinkFolder && p.isSlave === n.isSlave &&
+  p.isLinkMaster === n.isLinkMaster && p.parentBusTrackId === n.parentBusTrackId &&
+  p.masterTrackId === n.masterTrackId && p.hasChildOverrides === n.hasChildOverrides && p.slaveTrackIds === n.slaveTrackIds
+));

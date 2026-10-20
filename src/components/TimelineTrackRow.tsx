@@ -1,727 +1,128 @@
-import React, { useContext } from 'react';
-import { Pattern } from '../types';
+import React, { useContext, useMemo, useState, useCallback } from 'react';
 import { useSequencerStore, isToadaBus, isToadaChild, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
-import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
+import { instrumentsConfig } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { TimelineMeasure } from './TimelineMeasure';
-import { useSequencer } from '../contexts/SequencerContext';
-import { getNextStepValue } from '../utils/instrumentStrokes';
 import { getTrackDisplayName, getBusColor, getTopParentBusId } from '../utils/colorHelpers';
-import { useNomenclatureStore } from '../stores/useNomenclatureStore';
-import { Activity } from 'lucide-react';
 import { AutomationTrack } from './AutomationTrack';
-import { getTone } from '../ToneLoader';
-
-function safeGetTone() {
-  try { return getTone(); } catch { return null; }
-}
+import { TimelineTrackHeader } from './timeline/TimelineTrackHeader';
+import { resolveTimelineTrackMeasureData } from './timeline/TimelineTrackToadaMirror';
 
 interface TimelineTrackRowProps {
   trackId: number;
   visibleRange: { start: number; end: number };
   currentMeasureW: number;
-  onStepTouchStart?: (
-    e: React.MouseEvent | React.TouchEvent,
-    patternId: number,
-    stepIdx: number,
-    instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void
-  ) => void;
+  onStepTouchStart?: (e: React.MouseEvent | React.TouchEvent, pId: number, sIdx: number, iId: string, val: string | number, onSel: (v: string) => void) => void;
   isAutomationOpen?: boolean;
   onToggleAutomation?: () => void;
 }
 
-const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ 
-  trackId, 
+const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
+  trackId,
   visibleRange = { start: 0, end: 8 },
   currentMeasureW,
   onStepTouchStart,
   isAutomationOpen = false,
-  onToggleAutomation
+  onToggleAutomation,
 }) => {
   const uiContext = useContext(TimelineUIContext);
   if (!uiContext) return null;
-  const { 
-    HEADER_W, 
-    totalContentW = 0, 
-    isMobile, 
-    isMacro, 
-    isMinZoom, 
-    isPanningActive, 
-    lang, 
-    onOpenPatternPicker,
-    measureWidths,
-    measureLeftPositions,
-  } = uiContext;
+  const { HEADER_W, totalContentW = 0, isMobile, isMacro, isMinZoom, isPanningActive, lang, onOpenPatternPicker, measureWidths, measureLeftPositions } = uiContext;
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
-  const trackMeta = tracksMeta.find(t => t.id === trackId);
+  const trackMeta = tracksMeta.find((t) => t.id === trackId);
   const trackInst = trackMeta ? instrumentsConfig[trackMeta.instrumentIdx] : null;
-
-  const instrumentIdx = trackMeta?.instrumentIdx ?? 0;
-  const isMute = trackMeta?.isMute ?? false;
-  const isSolo = trackMeta?.isSolo ?? false;
-  const isMaster = tracksMeta.some(t => String(t.linkedToTrackId) === String(trackId));
   const isToada = Boolean(trackMeta && isToadaBus(trackMeta as any));
+  const fullTrack = useSequencerStore((s) => (isMacro && !isToada ? s.tracks.find((t) => t.id === trackId) : null));
 
-  const [isEditingName, setIsEditingName] = React.useState(false);
-  const [nameVal, setNameVal] = React.useState(
-    trackMeta?.customName || (trackMeta ? useNomenclatureStore.getState().getInstrumentLabel(trackMeta as any) : '')
-  );
-
-  React.useEffect(() => {
-    setNameVal(trackMeta?.customName || (trackInst ? trackInst.name : ''));
-  }, [trackMeta?.customName, trackInst?.name]);
-
-  const handleRenameSubmit = () => {
-    setIsEditingName(false);
-    if (!trackMeta) return;
-    useSequencerStore.getState().setTracks(prev => prev.map(t => 
-      t.id === trackId ? { ...t, customName: nameVal.trim() || undefined } : t
-    ));
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRenameSubmit();
-    } else if (e.key === 'Escape') {
-      setIsEditingName(false);
-      setNameVal(trackMeta?.customName || (trackInst ? trackInst.name : ''));
-    }
-  };
-
-  // Subscribe to full track only in Macro mode for non-Toada tracks (where compact preview must update on step changes)
-  const fullTrack = useSequencerStore(state => {
-    if (isMacro && !isToada) {
-      return state.tracks.find(t => t.id === trackId);
-    }
-    return null;
-  });
-
-  // Stringified track structure to check for structural changes without subscribing to activeSteps/lyrics/etc.
-  const trackStructureJson = useSequencerStore(state => {
+  const trackStructureJson = useSequencerStore((state) => {
     if (isToada) {
-      const pux = state.tracks.find(curr => instrumentsConfig[curr.instrumentIdx]?.id === 'puxador');
-      const coro = state.tracks.find(curr => instrumentsConfig[curr.instrumentIdx]?.id === 'coro');
+      const pux = state.tracks.find((c) => instrumentsConfig[c.instrumentIdx]?.id === 'puxador');
+      const coro = state.tracks.find((c) => instrumentsConfig[c.instrumentIdx]?.id === 'coro');
       return JSON.stringify({
-        pux: pux?.patterns.map(p => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
-        coro: coro?.patterns.map(p => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
+        pux: pux?.patterns.map((p) => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
+        coro: coro?.patterns.map((p) => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
       });
     }
     if (isMacro) return '';
-    const t = state.tracks.find(curr => curr.id === trackId);
-    if (!t) return '';
-    return JSON.stringify(t.patterns.map(p => ({
-      id: p.id,
-      name: p.name,
-      steps: p.steps,
-      vocalMode: p.vocalMode,
-      measureAssignments: p.measureAssignments,
-      measureAllowVariations: p.measureAllowVariations,
-      variationsCount: p.variations?.length || 0,
-    })));
+    const t = state.tracks.find((c) => c.id === trackId);
+    return t ? JSON.stringify(t.patterns.map((p) => ({ id: p.id, name: p.name, steps: p.steps, vocalMode: p.vocalMode, measureAssignments: p.measureAssignments, measureAllowVariations: p.measureAllowVariations, variationsCount: p.variations?.length || 0 }))) : '';
   });
 
-  const trackAutomationData = useSequencerStore(
-    useShallow((state) => {
-      if (!isAutomationOpen) return null;
-      const t = state.tracks.find(curr => curr.id === trackId);
-      if (!t) return null;
-      return {
-        measureVols: t.measureVols,
-        volumeVal: t.volumeVal,
-        measurePans: t.measurePans,
-        panVal: t.panVal,
-        measureReverbSends: t.measureReverbSends,
-        reverbVal: t.reverbVal,
-        measureVolTransitions: t.measureVolTransitions,
-        measurePanTransitions: t.measurePanTransitions,
-        measureReverbTransitions: t.measureReverbTransitions,
-        automationBypass: t.automationBypass,
-      };
-    })
-  );
+  const autoData = useSequencerStore(useShallow((s) => {
+    if (!isAutomationOpen) return null;
+    const t = s.tracks.find((c) => c.id === trackId);
+    return t ? { measureVols: t.measureVols, volumeVal: t.volumeVal, measurePans: t.measurePans, panVal: t.panVal, measureReverbSends: t.measureReverbSends, reverbVal: t.reverbVal, measureVolTransitions: t.measureVolTransitions, measurePanTransitions: t.measurePanTransitions, measureReverbTransitions: t.measureReverbTransitions, automationBypass: t.automationBypass } : null;
+  }));
 
-  // Re-generate the track object for rendering purposes (isolated from step updates)
-  const trackData = React.useMemo(() => {
-    if (isMacro && !isToada) {
-      return fullTrack;
-    }
+  const trackData = useMemo(() => {
+    if (isMacro && !isToada) return fullTrack;
     if (!trackStructureJson && !isToada) return null;
-    return {
-      id: trackId,
-      instrumentIdx,
-      isMute,
-      isSolo,
-      isBusFolder: trackMeta?.isBusFolder,
-      isLinkFolder: trackMeta?.isLinkFolder,
-      isLinkMaster: trackMeta?.isLinkMaster,
-      customName: trackMeta?.customName,
-      patterns: isToada ? [] : (trackStructureJson ? JSON.parse(trackStructureJson) : []),
-    };
-  }, [
-    isMacro, 
-    isToada,
-    fullTrack, 
-    trackStructureJson, 
-    trackId, 
-    instrumentIdx, 
-    isMute, 
-    isSolo,
-    trackMeta?.isBusFolder,
-    trackMeta?.isLinkFolder,
-    trackMeta?.isLinkMaster,
-    trackMeta?.customName
-  ]);
+    return { id: trackId, instrumentIdx: trackMeta?.instrumentIdx ?? 0, isMute: trackMeta?.isMute ?? false, isSolo: trackMeta?.isSolo ?? false, isBusFolder: trackMeta?.isBusFolder, isLinkFolder: trackMeta?.isLinkFolder, isLinkMaster: trackMeta?.isLinkMaster, customName: trackMeta?.customName, patterns: isToada ? [] : (trackStructureJson ? JSON.parse(trackStructureJson) : []) };
+  }, [isMacro, isToada, fullTrack, trackStructureJson, trackId, trackMeta]);
 
-  const trackIndex = tracksMeta.findIndex(t => t.id === trackId);
-  const hasSolo = tracksMeta.some(t => t.isSolo);
-  
-  const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const songSections = useSequencerStore(useShallow(state => state.songSections));
-  const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
-  const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
-  const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
+  const totalMeasures = useSequencerStore((s) => s.totalMeasures);
+  const songSections = useSequencerStore(useShallow((s) => s.songSections));
+  const loopStartMeasure = useSequencerStore((s) => s.loopStartMeasure);
+  const loopEndMeasure = useSequencerStore((s) => s.loopEndMeasure);
+  const isLoopRegionActive = useSequencerStore((s) => s.isLoopRegionActive);
+  const onToggleFoldBus = useSequencerStore((s) => s.handleToggleSequencerFoldBus);
 
-  // Actions Zustand
-  const onMuteToggle = useSequencerStore(state => state.handleTrackMuteToggle);
-  const onSoloToggle = useSequencerStore(state => state.handleTrackSoloToggle);
-  const onPatternAssignForMeasure = useSequencerStore(state => state.handleTimelinePatternAssign);
-  const onPatternVariationToggleForMeasure = useSequencerStore(state => state.handleTimelinePatternVariationToggle);
-  const onToggleFoldBus = useSequencerStore(state => state.handleToggleSequencerFoldBus);
+  const [automationParam, setAutomationParam] = useState<'volume' | 'pan' | 'reverb'>('volume');
 
-  if (!trackData) return null;
-
-  const inst = instrumentsConfig[trackData.instrumentIdx];
-  if (!inst) return null;
-
-  const slaves = tracksMeta.filter(t => String(t.linkedToTrackId) === String(trackId));
-  const getPluralName = (name: string) => {
-    if (name.includes('Alfaia')) return 'Alfaias';
-    if (name === 'Caixa') return 'Caixas';
-    if (name === 'Tarol') return 'Tarols';
-    if (name === 'Agbê') return 'Agbês';
-    if (name === 'Mineiro') return 'Mineiros';
-    if (name === 'Gonguê') return 'Gonguês';
-    return name + 's';
-  };
-  const linkedSlavesTooltip = isMaster
-    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
-    : undefined;
+  if (!trackData || !trackInst) return null;
+  const trackIndex = tracksMeta.findIndex((t) => t.id === trackId);
   const isToadaChildTrack = Boolean(trackMeta && isToadaChild(trackMeta as any, tracksMeta as any));
-  const isLinkedChild = !!(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !isToadaChildTrack);
-  const isLinkedSlave = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster && !isToadaChildTrack);
+  const isLinkedSlave = Boolean(trackMeta?.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster && !isToadaChildTrack);
+  const isLinkedChild = Boolean(trackMeta?.linkedToTrackId && !trackMeta.isLinkFolder && !isToadaChildTrack);
   const isLinkFolder = Boolean(trackMeta?.isLinkFolder);
-  const isLinkMaster = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster && !isToadaChildTrack);
+  const isLinkMaster = Boolean(trackMeta?.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster && !isToadaChildTrack);
   const isChild = isLinkedSlave || isToadaChildTrack;
+  const displayName = isToada ? 'Toada' : (isChild ? `↳ ${getTrackDisplayName(trackMeta as any, tracksMeta as any)}` : getTrackDisplayName(trackMeta as any, tracksMeta as any));
 
-  const displayName = isToada
-    ? 'Toada'
-    : (isChild ? `↳ ${getTrackDisplayName(trackMeta as any, tracksMeta as any)}` : getTrackDisplayName(trackMeta as any, tracksMeta as any));
-  
-  const canPlay = !getEffectiveMuteState(tracksMeta, trackId);
+  const parentBus = trackMeta?.isLinkMaster && trackMeta.linkedToTrackId ? tracksMeta.find((p) => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder) : null;
+  const topBusId = trackMeta ? getTopParentBusId(trackMeta as any, tracksMeta as any) : null;
+  const busColor = topBusId ? getBusColor(topBusId, tracksMeta as any, instrumentsConfig) : null;
+  const isCollapsed = isToada ? Boolean(trackMeta?.isSequencerFolded) : (trackMeta?.isLinkMaster ? Boolean(parentBus?.isSequencerFolded) : false);
 
-  const sequencer = useSequencer();
+  const parentBusTrackId = (isLinkedSlave || isLinkMaster) ? tracksMeta.find((p) => String(p.id) === String(trackMeta?.linkedToTrackId) && p.isLinkFolder)?.id : undefined;
+  const masterTrackId = isLinkedSlave ? tracksMeta.find((t) => String(t.linkedToTrackId) === String(trackMeta?.linkedToTrackId) && t.isLinkMaster)?.id : undefined;
+  const slaveTrackIds = isLinkFolder ? tracksMeta.filter((t) => String(t.linkedToTrackId) === String(trackMeta?.id) && !t.isBusFolder && !t.isLinkMaster).map((t) => t.id) : undefined;
 
-  const parentBus = React.useMemo(() => {
-    if (trackMeta?.isLinkMaster && trackMeta.linkedToTrackId) {
-      return tracksMeta.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
-    }
-    return null;
-  }, [trackMeta?.isLinkMaster, trackMeta?.linkedToTrackId, tracksMeta]);
-
-  const topBusId = React.useMemo(() => {
-    if (!trackMeta) return null;
-    return getTopParentBusId(trackMeta as any, tracksMeta as any);
-  }, [trackMeta, tracksMeta]);
-
-  const busColor = React.useMemo(() => {
-    if (!topBusId) return null;
-    return getBusColor(topBusId, tracksMeta as any, instrumentsConfig);
-  }, [topBusId, tracksMeta]);
-
-  const isCollapsed = React.useMemo(() => {
-    if (isToada) return Boolean(trackMeta?.isSequencerFolded);
-    if (trackMeta?.isLinkMaster) return Boolean(parentBus?.isSequencerFolded);
-    return false;
-  }, [isToada, trackMeta?.isSequencerFolded, trackMeta?.isLinkMaster, parentBus?.isSequencerFolded]);
-
-  const handleToggleFold = () => {
-    if (isToada) {
-      onToggleFoldBus(String(trackData.id));
-    } else if (trackMeta?.isLinkMaster && parentBus) {
-      onToggleFoldBus(String(parentBus.id));
-    }
-  };
-
-  const parentBusTrackId = (isLinkedSlave || isLinkMaster)
-    ? tracksMeta.find(p => String(p.id) === String(trackMeta?.linkedToTrackId) && p.isLinkFolder)?.id
-    : undefined;
-  const masterTrackId = isLinkedSlave
-    ? tracksMeta.find(t => String(t.linkedToTrackId) === String(trackMeta?.linkedToTrackId) && t.isLinkMaster)?.id
-    : undefined;
-  const slaveTrackIds = isLinkFolder
-    ? tracksMeta.filter(t => String(t.linkedToTrackId) === String(trackMeta?.id) && !t.isBusFolder && !t.isLinkMaster).map(t => t.id)
-    : undefined;
-
-
-  const handleMeasureClick = (mIdx: number, steps: number, clickX: number) => {
-    const isPlaying = useSequencerStore.getState().isPlaying;
-    if (!isPlaying) {
-      useSequencerStore.getState().setCurrentMeasure(mIdx);
-      const Tone = safeGetTone();
-      if (Tone) {
-        try {
-          Tone.Transport.position = `${mIdx}:0:0`;
-        } catch (_) {}
-      }
-      const playheadEl = document.getElementById('timeline-playhead-line');
-      if (playheadEl) {
-        playheadEl.style.transition = 'none';
-        playheadEl.style.display = 'block';
-        const mLeft = measureLeftPositions?.[mIdx] ?? (mIdx * currentMeasureW);
-        playheadEl.style.transform = `translate3d(${HEADER_W + mLeft}px, 0, 0)`;
-      }
-      window.dispatchEvent(
-        new CustomEvent('o-girador-timeline-nav', {
-          detail: { mIdx, sIdx: 0 }
-        })
-      );
-      return;
-    }
-
-    const mWidth = measureWidths?.[mIdx] ?? currentMeasureW;
-    const ratio = Math.max(0, Math.min(1, clickX / mWidth));
-    const stepIdx = Math.floor(ratio * steps);
-    window.dispatchEvent(
-      new CustomEvent('o-girador-timeline-nav', {
-        detail: { mIdx, sIdx: stepIdx }
-      })
-    );
-  };
-
-  const [automationParam, setAutomationParam] = React.useState<'volume' | 'pan' | 'reverb'>('volume');
-
-  const handleTrackMeasureVolChange = React.useCallback((mIdx: number, val: number) => {
-    useSequencerStore.getState().handleTrackMeasureVolChange(trackId, mIdx, val);
-  }, [trackId]);
-
-  const handleTrackMeasureVolTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
-    useSequencerStore.getState().handleTrackMeasureVolTransitionChange(trackId, mIdx, val);
-  }, [trackId]);
-
-  const handleTrackMeasurePanChange = React.useCallback((mIdx: number, val: number) => {
-    useSequencerStore.getState().handleTrackMeasurePanChange(trackId, mIdx, val);
-  }, [trackId]);
-
-  const handleTrackMeasurePanTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
-    useSequencerStore.getState().handleTrackMeasurePanTransitionChange(trackId, mIdx, val);
-  }, [trackId]);
-
-  const handleTrackMeasureReverbChange = React.useCallback((mIdx: number, val: number) => {
-    useSequencerStore.getState().handleTrackMeasureReverbChange(trackId, mIdx, val);
-  }, [trackId]);
-
-  const handleTrackMeasureReverbTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
-    useSequencerStore.getState().handleTrackMeasureReverbTransitionChange(trackId, mIdx, val);
-  }, [trackId]);
-
-  const handleToggleAutomationBypass = React.useCallback(() => {
-    useSequencerStore.getState().toggleTrackAutomationBypass(trackId, automationParam);
-  }, [trackId, automationParam]);
-
-  const leftSpacerWidth = measureLeftPositions?.[visibleRange.start] ?? (Math.max(0, visibleRange.start) * currentMeasureW);
+  const leftSpacerW = measureLeftPositions?.[visibleRange.start] ?? (Math.max(0, visibleRange.start) * currentMeasureW);
   const rightSpacerCount = Math.max(0, totalMeasures - 1 - visibleRange.end);
-  const rightSpacerWidth = totalContentW && measureLeftPositions 
-    ? Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * currentMeasureW)))
-    : rightSpacerCount * currentMeasureW;
+  const rightSpacerW = totalContentW && measureLeftPositions ? Math.max(0, totalContentW - (measureLeftPositions[visibleRange.end + 1] ?? ((visibleRange.end + 1) * currentMeasureW))) : rightSpacerCount * currentMeasureW;
 
-  const puxTrack = isToada 
-    ? useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') 
-    : null;
-  const coroTrack = isToada 
-    ? useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro') 
-    : null;
+  const puxTrack = isToada ? useSequencerStore.getState().tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') : null;
+  const coroTrack = isToada ? useSequencerStore.getState().tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro') : null;
 
   return (
     <div className="flex flex-col">
-      <div
-        className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
-          !canPlay ? 'opacity-50' : ''
-        }`}
-        style={{ 
-          width: `${HEADER_W + totalContentW}px`,
-          minWidth: `${HEADER_W + totalContentW}px`,
-        }}
-      >
-      {/* ── Sticky track header ── */}
-      <div
-        className={`timeline-sticky-header sticky left-0 z-30 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
-          isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')
-        }`}
-        style={{ 
-          width: HEADER_W, 
-          minWidth: HEADER_W, 
-          transformOrigin: '0 0',
-          borderLeft: busColor ? `4px solid ${busColor}` : undefined
-        }}
-        onClick={(e) => {
-          if ((e.target as HTMLElement).closest('button, input')) return;
-          useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey);
-        }}
-      >
-        <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
-          {(trackMeta?.isLinkMaster || isToada) && (
-            <button
-              onClick={handleToggleFold}
-              className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] pointer-events-auto"
-              title={isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
-            >
-              {isCollapsed ? '▶' : '▼'}
-            </button>
-          )}
-          {isMobile ? (
-            <span className="font-mono text-[10px] text-[var(--cordel-text)]/60 shrink-0">
-              #{trackIndex + 1}
-            </span>
-          ) : null}
-          <img
-            src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-            alt={inst.name}
-            onClick={(e) => {
-              e.stopPropagation();
-              useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey);
-            }}
-            className={`track-header-icon object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
-              isMobile ? 'w-6 h-6' : 'w-8 h-8'
-            }`}
-            title={lang === 'fr' ? 'Cliquer pour sélectionner la piste' : 'Clique para selecionar a faixa'}
-          />
-
-          {!isMobile ? (
-            isEditingName ? (
-              <input
-                type="text"
-                value={nameVal}
-                onChange={e => setNameVal(e.target.value)}
-                onBlur={handleRenameSubmit}
-                onKeyDown={handleKeyDown}
-                className="font-cactus font-bold text-sm bg-transparent text-[var(--cordel-text)] focus:bg-[var(--cordel-bg)] cordel-border-sm px-1 py-0.5 outline-none max-w-[120px] text-left"
-                autoFocus
-                onClick={e => e.stopPropagation()}
-                onMouseDown={e => e.stopPropagation()}
-              />
-            ) : (
-              <span 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey);
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditingName(true);
-                }}
-                className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider cursor-pointer hover:bg-[var(--cordel-text)]/10 rounded px-1 select-none"
-                title={lang === 'fr' ? 'Cliquer pour sélectionner la piste, double-cliquer pour renommer' : 'Clique para selecionar a faixa, duplo clique para renomear'}
-              >
-                {displayName}
-              </span>
-            )
-          ) : null}
-
-          {/* Automation Curve Toggle Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleAutomation?.();
-            }}
-            className={`p-0.5 rounded cursor-pointer shrink-0 flex items-center justify-center transition-all ml-auto pointer-events-auto ${
-              isAutomationOpen
-                ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)] shadow-sm'
-                : 'bg-transparent hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] border border-transparent hover:border-[var(--cordel-border)]/30'
-            }`}
-            style={{ width: '22px', height: '22px' }}
-            title={lang === 'fr' 
-              ? (isAutomationOpen ? "Masquer l'automation de volume" : "Afficher l'automation de volume") 
-              : (isAutomationOpen ? "Ocultar automação de volume" : "Mostrar automação de volume")}
-          >
-            <Activity className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Measure cells wrapper (isolation horizontal sticky / vertical overflow) ── */}
-      <div 
-        className="flex h-full items-center overflow-hidden"
-        style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}
-      >
-        {/* Left spacer column */}
-        {visibleRange.start > 0 && (
-          <div style={{ width: `${leftSpacerWidth}px`, minWidth: `${leftSpacerWidth}px` }} className="shrink-0" />
-        )}
-
-        {/* ── Measure cells (Isolés dans TimelineMeasure.tsx pour éviter le render thrashing) ── */}
-        {Array.from({ length: totalMeasures })
-          .map((_, mIdx) => ({ mIdx }))
-          .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
-          .map(({ mIdx }) => {
-            const isToada = isToadaBus(trackData);
-
-            let activePattern: Pattern | null = null;
-            let activeTrack: any = null;
-            let currentTrackId = trackData.id;
-            let currentInstrumentIdx = trackData.instrumentIdx;
-            let currentInst = inst;
-            let currentPatternsList = trackData.patterns;
-            let currentTrackIdx = trackIndex;
-            let isOverridden = false;
-            let isSilence = false;
-
-            let isToadaComposite = false;
-            let toadaCompositePatterns: any = undefined;
-            let toadaVocalBadges: { pPtnName?: string; cPtnName?: string } | undefined = undefined;
-
-            if (isToada) {
-              const pPtn = puxTrack?.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx]));
-              const cPtn = coroTrack?.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx]));
-
-              // Synthèse passive Toada permanente (dépliée ET repliée)
-              if (pPtn && cPtn) {
-                activePattern = pPtn;
-                activeTrack = puxTrack;
-                currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
-                toadaVocalBadges = { pPtnName: pPtn.name, cPtnName: cPtn.name };
-                isToadaComposite = true;
-                toadaCompositePatterns = {
-                  puxPtn: pPtn,
-                  coroPtn: cPtn,
-                  puxTrackId: puxTrack?.id,
-                  coroTrackId: coroTrack?.id,
-                };
-              } else if (pPtn) {
-                activePattern = pPtn;
-                activeTrack = puxTrack;
-                currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
-                toadaVocalBadges = { pPtnName: pPtn.name };
-              } else if (cPtn) {
-                activePattern = cPtn;
-                activeTrack = coroTrack;
-                currentTrackIdx = tracksMeta.findIndex(t => t.id === coroTrack!.id);
-                toadaVocalBadges = { cPtnName: cPtn.name };
-              } else {
-                activePattern = null;
-                activeTrack = null;
-              }
-
-              if (activeTrack) {
-                currentTrackId = activeTrack.id;
-                currentInstrumentIdx = activeTrack.instrumentIdx;
-                currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
-              }
-
-              const toadaPatternsList: Pattern[] = [];
-              if (puxTrack?.patterns) toadaPatternsList.push(...puxTrack.patterns);
-              if (coroTrack?.patterns) toadaPatternsList.push(...coroTrack.patterns);
-              currentPatternsList = toadaPatternsList;
-            } else if (isLinkedChild && trackMeta) {
-              const parentBus = useSequencerStore.getState().tracks.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
-              if (parentBus) {
-                const override = trackMeta.isLinkMaster ? undefined : trackMeta.patternOverrides?.[mIdx];
-                if (override === null) {
-                  isSilence = true;
-                  activePattern = null;
-                  isOverridden = true;
-                } else if (override !== undefined) {
-                  activePattern = parentBus.patterns?.find(p => p.id === override) || null;
-                  isOverridden = true;
-                } else {
-                  activePattern = parentBus.patterns?.find(p => Boolean(p.measureAssignments?.[mIdx])) || null;
-                  isOverridden = false;
-                }
-                activeTrack = parentBus;
-                currentPatternsList = parentBus.patterns || [];
-                currentTrackIdx = tracksMeta.findIndex(t => t.id === parentBus.id);
-              }
-            } else {
-              activePattern = trackData.patterns?.find((p: any) => Boolean(p.measureAssignments?.[mIdx])) || null;
-              activeTrack = trackData;
-            }
-
-            const patternIdx = activePattern && activeTrack?.patterns ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
-            const steps = activePattern?.steps ?? 16;
-            const stepsPerMeasure = 16;
-            const spanMeasures = activePattern ? Math.max(1, Math.round(((activePattern.steps ?? stepsPerMeasure)) / stepsPerMeasure)) : 1;
-
-            let startM = mIdx;
-            if (activePattern && spanMeasures > 1) {
-              if (isOverridden && trackMeta?.patternOverrides) {
-                while (startM > 0 && trackMeta.patternOverrides?.[startM - 1] === activePattern.id) {
-                  startM--;
-                }
-              } else {
-                while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) {
-                  startM--;
-                }
-              }
-            }
-            const relativeIdx = activePattern && spanMeasures > 1 ? (mIdx - startM) % spanMeasures : 0;
-
-            const stepStart = relativeIdx * stepsPerMeasure;
-            const stepEnd = stepStart + stepsPerMeasure;
-            const sliceSteps = activePattern?.activeSteps ? activePattern.activeSteps.slice(stepStart, stepEnd) : undefined;
-
-            // Find if there is a section covering this measure
-            const measureSection = (songSections || []).find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
-            const isSectionStart = !!(measureSection && mIdx === measureSection.startMeasure);
-            const isSectionEnd = !!(measureSection && mIdx === measureSection.endMeasure);
-            const sectionColor = measureSection?.color || '';
-
-            const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
-            const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null
-              ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
-              : 'none' as const;
-
-            const hasChildOverrides = Boolean(
-              trackMeta?.isLinkFolder && tracksMeta.some(child => 
-                String(child.linkedToTrackId) === String(trackMeta.id) && 
-                !child.isLinkFolder && 
-                child.patternOverrides?.[mIdx] !== undefined
-              )
-            );
-
+      <div className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${!getEffectiveMuteState(tracksMeta, trackId) ? '' : 'opacity-50'}`} style={{ width: `${HEADER_W + totalContentW}px`, minWidth: `${HEADER_W + totalContentW}px` }}>
+        <TimelineTrackHeader trackId={trackId} trackIndex={trackIndex} HEADER_W={HEADER_W} isMobile={isMobile} isChild={isChild} busColor={busColor} canFold={Boolean(trackMeta?.isLinkMaster || isToada)} isCollapsed={isCollapsed} onToggleFold={() => onToggleFoldBus(String(isToada ? trackData.id : parentBus?.id))} instIconImg={trackInst.iconImg} instName={trackInst.name} displayName={displayName} customName={trackMeta?.customName} lang={lang} isAutomationOpen={isAutomationOpen} onToggleAutomation={onToggleAutomation} />
+        <div className="flex h-full items-center overflow-hidden" style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}>
+          {visibleRange.start > 0 && <div style={{ width: `${leftSpacerW}px`, minWidth: `${leftSpacerW}px` }} className="shrink-0" />}
+          {Array.from({ length: totalMeasures }).map((_, mIdx) => ({ mIdx })).filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end).map(({ mIdx }) => {
+            const m = resolveTimelineTrackMeasureData(mIdx, isToada, trackData, trackInst, trackIndex, tracksMeta, trackMeta, isLinkedChild, puxTrack, coroTrack);
+            const sec = (songSections || []).find((s) => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
+            const inLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+            const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null ? (inLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const)) : 'none' as const;
+            const pIdx = m.activePattern && m.activeTrack?.patterns ? m.activeTrack.patterns.findIndex((p: any) => p.id === m.activePattern!.id) : -1;
             return (
-              <TimelineMeasure
-                key={mIdx}
-                mIdx={mIdx}
-                trackId={isLinkedChild && trackMeta ? trackMeta.id : currentTrackId}
-                trackIdx={isLinkedChild && trackMeta ? trackIndex : currentTrackIdx}
-                instrumentIdx={isLinkedChild && trackMeta ? trackMeta.instrumentIdx : currentInstrumentIdx}
-                currentMeasureW={measureWidths?.[mIdx] ?? currentMeasureW}
-                patternId={activePattern ? activePattern.id : -1}
-                patternIdx={patternIdx}
-                steps={stepsPerMeasure}
-                spanMeasures={spanMeasures}
-                relativeIdx={relativeIdx}
-                beatResolutions={activePattern?.beatResolutions}
-                sectionColor={sectionColor}
-                isSectionStart={isSectionStart}
-                isSectionEnd={isSectionEnd}
-                loopStatus={loopStatus}
-                isPanningActive={isPanningActive}
-                instId={isLinkedChild ? inst.id : currentInst.id}
-                instType={isLinkedChild ? inst.type : currentInst.type}
-                lang={lang}
-                activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern?.name ?? null)}
-                patternsList={currentPatternsList || []}
-                signalDropdownOpen={uiContext.signalDropdownOpen}
-                onPatternAssignForMeasure={onPatternAssignForMeasure}
-                onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
-                measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] ?? true}
-                variationsCount={activePattern?.variations?.length ?? 0}
-                isMacro={isMacro}
-                isMinZoom={isMinZoom}
-                instColors={isLinkedChild ? (inst?.colors || {}) : (currentInst?.colors || inst?.colors || {})}
-                instMixerBg={isLinkedChild ? (inst?.mixerBg || '#1a1a1a') : (currentInst?.mixerBg || inst?.mixerBg || '#1a1a1a')}
-                activePatternActiveSteps={sliceSteps}
-                onMeasureClick={handleMeasureClick}
-                isLinkedChild={!!isLinkedChild}
-                isLinkMaster={isLinkMaster}
-                isLinkFolder={isLinkFolder}
-                isSlave={isLinkedSlave}
-                parentBusTrackId={parentBusTrackId}
-                masterTrackId={masterTrackId}
-                slaveTrackIds={slaveTrackIds}
-                isOverridden={isOverridden}
-                isSilence={isSilence}
-                hasChildOverrides={hasChildOverrides}
-                onStepTouchStart={onStepTouchStart}
-                isToada={isToada}
-                isToadaComposite={isToadaComposite}
-                toadaCompositePatterns={toadaCompositePatterns}
-                toadaVocalBadges={toadaVocalBadges}
-                onOpenPatternPicker={isToada ? undefined : onOpenPatternPicker}
-              />
+              <TimelineMeasure key={mIdx} mIdx={mIdx} trackId={isLinkedChild && trackMeta ? trackMeta.id : m.currentTrackId} trackIdx={isLinkedChild && trackMeta ? trackIndex : m.currentTrackIdx} instrumentIdx={isLinkedChild && trackMeta ? trackMeta.instrumentIdx : m.currentInstrumentIdx} currentMeasureW={measureWidths?.[mIdx] ?? currentMeasureW} patternId={m.activePattern?.id ?? -1} patternIdx={pIdx} steps={16} spanMeasures={m.spanMeasures} relativeIdx={m.relativeIdx} beatResolutions={m.activePattern?.beatResolutions} sectionColor={sec?.color || ''} isSectionStart={Boolean(sec && mIdx === sec.startMeasure)} isSectionEnd={Boolean(sec && mIdx === sec.endMeasure)} loopStatus={loopStatus} isPanningActive={isPanningActive} instId={isLinkedChild ? trackInst.id : m.currentInst.id} instType={isLinkedChild ? trackInst.type : m.currentInst.type} lang={lang} activePatternName={m.isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (m.activePattern?.name ?? null)} patternsList={m.currentPatternsList || []} signalDropdownOpen={uiContext.signalDropdownOpen} onPatternAssignForMeasure={useSequencerStore.getState().handleTimelinePatternAssign} onPatternVariationToggleForMeasure={useSequencerStore.getState().handleTimelinePatternVariationToggle} measureAllowVariations={m.activePattern?.measureAllowVariations?.[mIdx] ?? true} variationsCount={m.activePattern?.variations?.length ?? 0} isMacro={isMacro} isMinZoom={isMinZoom} instColors={isLinkedChild ? (trackInst?.colors || {}) : (m.currentInst?.colors || trackInst?.colors || {})} instMixerBg={isLinkedChild ? (trackInst?.mixerBg || '#1a1a1a') : (m.currentInst?.mixerBg || trackInst?.mixerBg || '#1a1a1a')} activePatternActiveSteps={m.sliceSteps} onMeasureClick={(idx, s, cX) => { const st = useSequencerStore.getState(); if (!st.isPlaying) { st.setCurrentMeasure(idx); window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: idx, sIdx: 0 } })); } else { const mW = measureWidths?.[idx] ?? currentMeasureW; window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: idx, sIdx: Math.floor(Math.max(0, Math.min(1, cX / mW)) * s) } })); } }} isLinkedChild={isLinkedChild} isLinkMaster={isLinkMaster} isLinkFolder={isLinkFolder} isSlave={isLinkedSlave} parentBusTrackId={parentBusTrackId} masterTrackId={masterTrackId} slaveTrackIds={slaveTrackIds} isOverridden={m.isOverridden} isSilence={m.isSilence} hasChildOverrides={Boolean(trackMeta?.isLinkFolder && tracksMeta.some((c) => String(c.linkedToTrackId) === String(trackMeta.id) && !c.isLinkFolder && c.patternOverrides?.[mIdx] !== undefined))} onStepTouchStart={onStepTouchStart} isToada={isToada} isToadaComposite={m.isToadaComposite} toadaCompositePatterns={m.toadaCompositePatterns} toadaVocalBadges={m.toadaVocalBadges} onOpenPatternPicker={isToada ? undefined : onOpenPatternPicker} />
             );
           })}
-
-        {/* Right spacer column */}
-        {rightSpacerCount > 0 && (
-          <div style={{ width: `${rightSpacerWidth}px`, minWidth: `${rightSpacerWidth}px` }} className="shrink-0" />
-        )}
+          {rightSpacerCount > 0 && <div style={{ width: `${rightSpacerW}px`, minWidth: `${rightSpacerW}px` }} className="shrink-0" />}
+        </div>
       </div>
-      </div>
-
       {isAutomationOpen && (
-        <AutomationTrack
-          type={automationParam}
-          trackId={trackId}
-          label={
-            automationParam === 'volume'
-              ? (lang === 'fr' ? `Vol : ${displayName}` : `Vol: ${displayName}`)
-              : automationParam === 'pan'
-              ? (lang === 'fr' ? `Pan : ${displayName}` : `Pan: ${displayName}`)
-              : (lang === 'fr' ? `Rév : ${displayName}` : `Rev: ${displayName}`)
-          }
-          totalMeasures={totalMeasures}
-          measureWidth={currentMeasureW}
-          values={
-            automationParam === 'volume'
-              ? (trackAutomationData?.measureVols || Array(totalMeasures).fill(trackAutomationData?.volumeVal ?? 75))
-              : automationParam === 'pan'
-              ? (trackAutomationData?.measurePans || Array(totalMeasures).fill(trackAutomationData?.panVal ?? 0))
-              : (trackAutomationData?.measureReverbSends || Array(totalMeasures).fill(trackAutomationData?.reverbVal ?? 0))
-          }
-          transitions={
-            automationParam === 'volume'
-              ? (trackAutomationData?.measureVolTransitions || Array(totalMeasures).fill('immediate'))
-              : automationParam === 'pan'
-              ? (trackAutomationData?.measurePanTransitions || Array(totalMeasures).fill('immediate'))
-              : (trackAutomationData?.measureReverbTransitions || Array(totalMeasures).fill('immediate'))
-          }
-          onChangeValue={
-            automationParam === 'volume'
-              ? handleTrackMeasureVolChange
-              : automationParam === 'pan'
-              ? handleTrackMeasurePanChange
-              : handleTrackMeasureReverbChange
-          }
-          onChangeTransition={
-            automationParam === 'volume'
-              ? handleTrackMeasureVolTransitionChange
-              : automationParam === 'pan'
-              ? handleTrackMeasurePanTransitionChange
-              : handleTrackMeasureReverbTransitionChange
-          }
-          onClose={onToggleAutomation}
-          min={automationParam === 'pan' ? -100 : 0}
-          max={100}
-          color={
-            automationParam === 'volume'
-              ? (inst.colors?.text || '#f19066')
-              : automationParam === 'pan'
-              ? '#38bdf8'
-              : '#c084fc'
-          }
-          lang={lang}
-          headerWidth={HEADER_W}
-          isBypassed={!!trackAutomationData?.automationBypass?.[automationParam]}
-          onToggleBypass={handleToggleAutomationBypass}
-          paramSelector={{
-            current: automationParam,
-            onChange: setAutomationParam,
-          }}
-        />
+        <AutomationTrack type={automationParam} trackId={trackId} label={automationParam === 'volume' ? `Vol : ${displayName}` : (automationParam === 'pan' ? `Pan : ${displayName}` : `Rév : ${displayName}`)} totalMeasures={totalMeasures} measureWidth={currentMeasureW} values={automationParam === 'volume' ? (autoData?.measureVols || Array(totalMeasures).fill(autoData?.volumeVal ?? 75)) : (automationParam === 'pan' ? (autoData?.measurePans || Array(totalMeasures).fill(autoData?.panVal ?? 0)) : (autoData?.measureReverbSends || Array(totalMeasures).fill(autoData?.reverbVal ?? 0)))} transitions={automationParam === 'volume' ? (autoData?.measureVolTransitions || Array(totalMeasures).fill('immediate')) : (automationParam === 'pan' ? (autoData?.measurePanTransitions || Array(totalMeasures).fill('immediate')) : (autoData?.measureReverbTransitions || Array(totalMeasures).fill('immediate')))} onChangeValue={(mIdx, val) => { if (automationParam === 'volume') useSequencerStore.getState().handleTrackMeasureVolChange(trackId, mIdx, val); else if (automationParam === 'pan') useSequencerStore.getState().handleTrackMeasurePanChange(trackId, mIdx, val); else useSequencerStore.getState().handleTrackMeasureReverbChange(trackId, mIdx, val); }} onChangeTransition={(mIdx, val) => { if (automationParam === 'volume') useSequencerStore.getState().handleTrackMeasureVolTransitionChange(trackId, mIdx, val); else if (automationParam === 'pan') useSequencerStore.getState().handleTrackMeasurePanTransitionChange(trackId, mIdx, val); else useSequencerStore.getState().handleTrackMeasureReverbTransitionChange(trackId, mIdx, val); }} onClose={onToggleAutomation} min={automationParam === 'pan' ? -100 : 0} max={100} color={automationParam === 'volume' ? (trackInst.colors?.text || '#f19066') : (automationParam === 'pan' ? '#38bdf8' : '#c084fc')} lang={lang} headerWidth={HEADER_W} isBypassed={!!autoData?.automationBypass?.[automationParam]} onToggleBypass={() => useSequencerStore.getState().toggleTrackAutomationBypass(trackId, automationParam)} paramSelector={{ current: automationParam, onChange: setAutomationParam }} />
       )}
     </div>
   );
 };
 
-export const TimelineTrackRow = React.memo(TimelineTrackRowComponent, (prev, next) => {
-  return prev.trackId === next.trackId &&
-         prev.currentMeasureW === next.currentMeasureW &&
-         prev.visibleRange.start === next.visibleRange.start &&
-         prev.visibleRange.end === next.visibleRange.end &&
-         prev.isAutomationOpen === next.isAutomationOpen;
-});
+export const TimelineTrackRow = React.memo(TimelineTrackRowComponent, (prev, next) => (
+  prev.trackId === next.trackId && prev.currentMeasureW === next.currentMeasureW && prev.visibleRange.start === next.visibleRange.start && prev.visibleRange.end === next.visibleRange.end && prev.isAutomationOpen === next.isAutomationOpen
+));
