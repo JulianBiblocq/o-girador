@@ -3,345 +3,63 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
-import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../data';
-import { Language } from '../types';
-import { getNextStepValue, getStrokesForInstrument } from '../utils/instrumentStrokes';
+import React, { useRef, useState, useEffect } from 'react';
+import { instrumentsConfig, getVisualStrokeSymbol } from '../data';
+import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
-import { getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
+import { getActiveStrokesForTrack } from '../hooks/useAudioSync';
 import { useWindow } from '../contexts/WindowContext';
+import { TouchSelectorState, TouchStrokeSelectorProps } from './touch-stroke/touchStrokeTypes';
+import { getStrokeDescription } from './touch-stroke/getStrokeDescription';
+import { useTouchStrokeGestures } from './touch-stroke/useTouchStrokeGestures';
+import { TouchStrokeChoices } from './touch-stroke/TouchStrokeChoices';
 
-export interface TouchSelectorState {
-  patternId: number;
-  stepIdx: number;
-  instId: string;
-  x: number;
-  y: number;
-  currentVal: string | number | [string, string];
-  onSelect: (val: string | [string, string], merge?: boolean) => void;
-  isStickyDefault?: boolean;
-  trackId: number;
-  isSplit?: boolean;
-}
+export type { TouchSelectorState, TouchStrokeSelectorProps };
 
-interface TouchStrokeSelectorProps {
-  selector: TouchSelectorState;
-  hoveredStroke: string | null;
-  setHoveredStroke: (val: string | null) => void;
-  onClose: () => void;
-}
-
-const getStrokeDescription = (instId: string, instType: string, stroke: string, lang: Language): string => {
-  const isPt = lang === 'pt';
-  if (stroke === '0') {
-    return isPt ? 'Silêncio' : 'Silence';
-  }
-
-  if (instId === 'timbal') {
-    switch (stroke) {
-      case 'G': return isPt ? 'Baixo (Forte - Mão Forte)' : 'Basse (Fort - Main Forte)';
-      case 'g': return isPt ? 'Baixo (Fraca - Mão Fraca)' : 'Basse (Faible - Main Faible)';
-      case 'A': return isPt ? 'Aberto (Forte - Mão Forte)' : 'Ouvert (Fort - Main Forte)';
-      case 'a': return isPt ? 'Aberto (Fraca - Mão Fraca)' : 'Ouvert (Faible - Main Faible)';
-      case 'S': return isPt ? 'Slap (Forte - Mão Forte)' : 'Claqué (Fort - Main Forte)';
-      case 's': return isPt ? 'Slap (Fraca - Mão Fraca)' : 'Claqué (Faible - Main Faible)';
-      case 'D': return isPt ? 'Dedilhado (Forte - Mão Forte)' : 'Fantôme (Fort - Main Forte)';
-      case 'd': return isPt ? 'Dedilhado (Fraca - Mão Fraca)' : 'Fantôme (Faible - Main Faible)';
-      case 'P': return isPt ? 'Preso (Forte - Mão Forte)' : 'Fermé (Fort - Main Forte)';
-      case 'p': return isPt ? 'Preso (Fraca - Mão Fraca)' : 'Fermé (Faible - Main Faible)';
-      case 'F': return isPt ? 'Fla aberto' : 'Fla ouvert';
-      case 'V': return isPt ? 'Fla slap' : 'Fla claqué';
-      case 'C': return isPt ? 'Clap (mãos)' : 'Clap (mains)';
-      case 'B': return isPt ? 'Barulho' : 'Grondement';
-      default: return stroke;
-    }
-  }
-
-  if (instId === 'caixa' || instId === 'tarol') {
-    switch (stroke) {
-      case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
-      case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-
-      case 'R': return isPt ? 'Rufada Direita' : 'Roulement court (Rufada) D';
-      case 'r': return isPt ? 'Rufada Esquerda' : 'Roulement court (Rufada) G';
-      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'F': return isPt ? 'Fla' : 'Fla';
-      case 'C': return isPt ? 'Click' : 'Click';
-      case 'B': return isPt ? 'Barulho' : 'Grondement';
-      default: return stroke;
-    }
-  }
-
-  if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
-    switch (stroke) {
-      case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
-      case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-
-      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'C': return isPt ? 'Click' : 'Click';
-      case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Bois gauche / Iguarassu)';
-      case 'B': return isPt ? 'Barulho' : 'Grondement';
-      default: return stroke;
-    }
-  }
-
-  if (instType === 'gongue') {
-    switch (stroke) {
-      case 'G': return isPt ? 'Grave Forte' : 'Grave Fort';
-      case 'g': return isPt ? 'Grave Fraco' : 'Grave Faible';
-      case 'A': return isPt ? 'Agudo Forte' : 'Aigu Fort';
-      case 'a': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
-      case 'X': return isPt ? 'Corpo do sino' : 'Corps / Flanc';
-      case 'B': return isPt ? 'Barulho' : 'Grondement';
-      default: return stroke;
-    }
-  }
-
-  if (instId === 'agbe') {
-    switch (stroke) {
-      case 'E': return isPt ? 'Esquerda (Forte)' : 'Gauche / Filet (Fort)';
-      case 'e': return isPt ? 'Esquerda (Fraca)' : 'Gauche / Filet (Faible)';
-      case 'D': return isPt ? 'Direita (Forte)' : 'Droite / Paume (Fort)';
-      case 'd': return isPt ? 'Direita (Fraca)' : 'Droite / Paume (Faible)';
-      case 'S': return isPt ? 'Salto' : 'Lancer (Salto)';
-      case 'V': return isPt ? 'Volta' : 'Retour (Volta)';
-      case 'B': return isPt ? 'Barulho' : 'Grondement';
-      default: return stroke;
-    }
-  }
-
-  if (instId === 'mineiro') {
-    switch (stroke) {
-      case 'P': return isPt ? 'Push (Forte)' : 'Pousser (Fort)';
-      case 'p': return isPt ? 'Push (Fraco)' : 'Pousser (Faible)';
-      case 'T': return isPt ? 'Pull (Forte)' : 'Tirer (Fort)';
-      case 't': return isPt ? 'Pull (Fraco)' : 'Tirer (Faible)';
-      case 'L': return isPt ? 'Lado' : 'Secousse latérale';
-      case 'B': return isPt ? 'Barulho' : 'Grondement';
-      default: return stroke;
-    }
-  }
-
-  if (instType === 'voice') {
-    switch (stroke) {
-      case 'P': return isPt ? 'Puxador' : 'Puxador';
-      case 'C': return isPt ? 'Coro' : 'Chœur';
-      default: return stroke;
-    }
-  }
-
-  return stroke;
-};
-
-const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
-  selector,
-  hoveredStroke,
-  setHoveredStroke,
-  onClose,
+export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = React.memo(({
+  selector, hoveredStroke, setHoveredStroke, onClose,
 }) => {
   const { lang, isLeftHanded = false } = useSequencer();
   const currentWindow = useWindow();
-  const hoveredStrokeRef = useRef<string | null>(null);
   const [isSticky, setIsSticky] = useState<boolean>(selector.isStickyDefault || false);
   const stickyTimeRef = useRef<number>(0);
-  
-  // Local UI states for expansion and lazy loading
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [loadingStroke, setLoadingStroke] = useState<string | null>(null);
 
   const tracks = useSequencerStore(state => state.tracks);
   const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
-  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
-
   const track = tracks.find(t => t.id === selector.trackId);
   const activeStrokes = track ? getActiveStrokesForTrack(track, tracks) : [];
 
   useEffect(() => {
-    hoveredStrokeRef.current = hoveredStroke;
-  }, [hoveredStroke]);
-
-  // Keep track of when sticky mode is activated to prevent emulated click race conditions
-  useEffect(() => {
-    if (isSticky) {
-      stickyTimeRef.current = Date.now();
-    }
+    if (isSticky) stickyTimeRef.current = Date.now();
   }, [isSticky]);
 
-  const inst = instrumentsConfig.find((i) => i.id === selector.instId);
+  const inst = instrumentsConfig.find(i => i.id === selector.instId);
   if (!inst) return null;
 
-  // Extract strokes for this specific instrument
   const strokeDefs = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
-  const instStrokes = strokeDefs.map(s => s.symbol);
-  // Include "0" (silence) at the beginning of the list
-  const allChoices = ['0', ...instStrokes];
-
-  // Filter choices based on project activity
+  const allChoices = ['0', ...strokeDefs.map(s => s.symbol)];
   const choicesToShow = allChoices.filter(stroke => {
-    if (isExpanded || stroke === '0') return true; // Always show silence
+    if (isExpanded || stroke === '0') return true;
     const forced = forcedStrokes[`${selector.trackId}:${stroke}`];
     const isActive = forced !== undefined ? forced : activeStrokes.some(s => s.toLowerCase() === stroke.toLowerCase());
-    // Always keep currently selected step value visible in clean mode
     return isActive || String(selector.currentVal) === String(stroke);
   });
 
-  useEffect(() => {
-    if (isSticky) return; // Don't register drag tracking listeners if we are in sticky mode
-
-    // 1. Touch drag-to-select tracking
-    const handleTouchMove = (e: TouchEvent) => {
-      // Prevent default page scroll/overscroll while actively dragging/sliding to select a note
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-
-      const touch = e.touches[0];
-      const element = document.elementFromPoint(touch.clientX, touch.clientY);
-      if (element) {
-        const target = element.closest('[data-stroke-val]');
-        if (target) {
-          const strokeVal = target.getAttribute('data-stroke-val');
-          if (strokeVal !== null) {
-            setHoveredStroke(strokeVal);
-          }
-        } else {
-          setHoveredStroke(null);
-        }
-      }
-    };
-
-    const handleTouchEnd = () => {
-      // If the user dragged to a DIFFERENT stroke, select it and close
-      if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
-        const isLoaded = hoveredStrokeRef.current === '0' || (audioEngine && audioEngine.isStrokeLoaded(inst.id, hoveredStrokeRef.current));
-        if (isLoaded) {
-          selector.onSelect(hoveredStrokeRef.current);
-          onClose();
-        } else {
-          // Force sticky mode so they can tap and trigger download
-          setIsSticky(true);
-        }
-      } else {
-        // Otherwise (tap or no drag change), enter sticky mode so they can view options and tap one
-        setIsSticky(true);
-      }
-    };
-
-    // 2. Mouse up validation
-    const handleMouseUp = () => {
-      // If the user dragged to a DIFFERENT stroke, select it and close
-      if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
-        const isLoaded = hoveredStrokeRef.current === '0' || (audioEngine && audioEngine.isStrokeLoaded(inst.id, hoveredStrokeRef.current));
-        if (isLoaded) {
-          selector.onSelect(hoveredStrokeRef.current);
-          onClose();
-        } else {
-          setIsSticky(true);
-        }
-      } else {
-        setIsSticky(true);
-      }
-    };
-
-    // Use passive: false to allow e.preventDefault() to freeze background scrolling
-    currentWindow.addEventListener('touchmove', handleTouchMove, { passive: false });
-    currentWindow.addEventListener('touchend', handleTouchEnd);
-    currentWindow.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      currentWindow.removeEventListener('touchmove', handleTouchMove);
-      currentWindow.removeEventListener('touchend', handleTouchEnd);
-      currentWindow.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [selector, onClose, setHoveredStroke, inst, isSticky, currentWindow]);
-
-  // 3. Sticky outside click handler
-  useEffect(() => {
-    if (!isSticky || !currentWindow) return;
-    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
-      // Cooldown of 400ms to ignore emulated mouse events after touch release
-      if (Date.now() - stickyTimeRef.current < 400) {
-        return;
-      }
-      const container = document.getElementById('touch-stroke-selector-bubble');
-      if (container && !container.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    currentWindow.addEventListener('mousedown', handleOutsideClick);
-    currentWindow.addEventListener('touchstart', handleOutsideClick);
-    return () => {
-      currentWindow.removeEventListener('mousedown', handleOutsideClick);
-      currentWindow.removeEventListener('touchstart', handleOutsideClick);
-    };
-  }, [isSticky, onClose, currentWindow]);
-
-  // 4. Keyboard shortcuts listener
-  useEffect(() => {
-    if (!currentWindow) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const targetTag = (e.target as HTMLElement).tagName?.toLowerCase();
-      if (targetTag === 'input' || targetTag === 'textarea') return;
-
-      const key = e.key;
-
-      if (key === 'Escape') {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (key === '0' || key === 'Backspace' || key === 'Delete' || key === '-') {
-        e.preventDefault();
-        selector.onSelect('0');
-        onClose();
-        return;
-      }
-
-      const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
-      const matched = strokes.find(
-        (s) => s.shortcut.toLowerCase() === key.toLowerCase() || s.symbol.toLowerCase() === key.toLowerCase()
-      );
-
-      if (matched) {
-        e.preventDefault();
-        selector.onSelect(matched.symbol);
-        onClose();
-      }
-    };
-
-    currentWindow.addEventListener('keydown', handleKeyDown);
-    return () => {
-      currentWindow.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [selector, onClose, inst, lang, isLeftHanded, currentWindow]);
+  useTouchStrokeGestures({
+    selector, inst, lang, isLeftHanded, hoveredStroke, setHoveredStroke,
+    isSticky, setIsSticky, stickyTimeRef, currentWindow, onClose,
+  });
 
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
-  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 640;
   const bubbleWidth = Math.min(270, screenWidth - 24);
-  const bubbleHeight = 150; // approximate height of the bubble
-  
-  // Bring the popup slightly closer to the center of the screen to avoid edge awkwardness
-  const idealX = (selector.x * 0.6) + (screenWidth * 0.4); 
+  const idealX = (selector.x * 0.6) + (screenWidth * 0.4);
   const leftPos = Math.max(bubbleWidth / 2 + 12, Math.min(screenWidth - bubbleWidth / 2 - 12, idealX));
-  
-  // Clamp the arrow offset so it never detaches from the bubble
-  const maxArrowOffset = bubbleWidth / 2 - 20; // 20px from edge
-  const rawArrowOffset = selector.x - leftPos;
-  const arrowOffset = Math.max(-maxArrowOffset, Math.min(maxArrowOffset, rawArrowOffset));
-
-  // Collision detection for top of screen
-  const isTooHigh = selector.y - bubbleHeight - 15 < 0;
-  
-  const transformStyle = isTooHigh 
-    ? 'translate(-50%, 0) translateY(15px)' // render below the step
-    : 'translate(-50%, -100%) translateY(-15px)'; // render above the step (default)
+  const maxArrowOffset = bubbleWidth / 2 - 20;
+  const arrowOffset = Math.max(-maxArrowOffset, Math.min(maxArrowOffset, selector.x - leftPos));
+  const isTooHigh = selector.y - 165 < 0;
 
   return (
     <div
@@ -349,192 +67,28 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
       style={{
         left: `${leftPos}px`,
         top: `${selector.y}px`,
-        transform: transformStyle,
+        transform: isTooHigh ? 'translate(-50%, 0) translateY(15px)' : 'translate(-50%, -100%) translateY(-15px)',
       }}
     >
-      {/* If rendering below, put arrow on top */}
       {isTooHigh && (
-        <div
-          className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-[#1a1a1a]"
-          style={{ 
-            marginBottom: '-2px',
-            transform: `translateX(${arrowOffset}px)`
-          }}
-        />
+        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-[#1a1a1a]" style={{ marginBottom: '-2px', transform: `translateX(${arrowOffset}px)` }} />
       )}
-      {/* Popover Bubble Container */}
-      <div 
-        id="touch-stroke-selector-bubble"
-        className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none items-center"
-        style={{ width: `${bubbleWidth}px` }}
-      >
-        {/* Helper translation header */}
+      <div id="touch-stroke-selector-bubble" className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none items-center" style={{ width: `${bubbleWidth}px` }}>
         <span className="text-[10px] font-bold border-b border-[#1a1a1a]/25 pb-1 mb-1 text-center text-[#1a1a1a] uppercase tracking-wider font-cactus w-full">
-          {hoveredStroke 
-            ? getStrokeDescription(selector.instId, inst.type, String(getVisualStrokeSymbol(hoveredStroke, isLeftHanded, inst.id)), lang) 
-            : (lang === 'fr' ? 'Glissez ou touchez un coup' : 'Arraste ou toque num golpe')}
+          {hoveredStroke ? getStrokeDescription(selector.instId, inst.type, String(getVisualStrokeSymbol(hoveredStroke, isLeftHanded, inst.id)), lang) : (lang === 'fr' ? 'Glissez ou touchez un coup' : 'Arraste ou toque num golpe')}
         </span>
-
-        {/* Choices container */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 w-full">
-          {choicesToShow.map((stroke) => {
-            const isSilence = stroke === '0';
-            const strokeVal = isSilence ? '0' : stroke;
-            const isHovered = hoveredStroke === strokeVal;
-
-            const isLoaded = isSilence || (audioEngine && audioEngine.isStrokeLoaded(inst.id, stroke));
-            const isStrokeLoading = loadingStroke === strokeVal;
-
-            const visualStroke = getVisualStrokeSymbol(stroke, isLeftHanded, inst.id);
-            let bgColor = isSilence ? '#7f8c8d' : (inst.colors[visualStroke as string] || '#111');
-            let textColor = isSilence ? '#fff' : (inst.colors.text || '#fff');
-            if (isDarkText(inst.id, String(visualStroke))) {
-              textColor = '#1a1a1a';
-            }
-
-            // Display label formatting
-            let displayLabel = String(visualStroke);
-            if (isSilence) {
-              displayLabel = 'Ø';
-            }
-
-            const handleButtonSelect = async (e: React.MouseEvent | React.TouchEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (loadingStroke) return;
-
-              if (isSilence) {
-                selector.onSelect(strokeVal);
-                onClose();
-                return;
-              }
-
-              const forced = forcedStrokes[`${selector.trackId}:${strokeVal}`];
-              const isActive = forced !== undefined ? forced : activeStrokes.some(s => s.toLowerCase() === strokeVal.toLowerCase());
-
-              if (!isLoaded && audioEngine) {
-                setLoadingStroke(strokeVal);
-                try {
-                  await audioEngine.loadStrokeSamples(inst.id, strokeVal);
-                  setStrokeForcedState(`${selector.trackId}:${strokeVal}`, true);
-                } catch (err) {
-                  console.error("Failed to load stroke sample:", err);
-                } finally {
-                  setLoadingStroke(null);
-                }
-              } else if (!isActive) {
-                // Force activation if already loaded but not currently active for the project
-                setStrokeForcedState(`${selector.trackId}:${strokeVal}`, true);
-              }
-
-              selector.onSelect(strokeVal);
-              
-              if (!isActive) {
-                // Auto-collapse (return to clean view) if the stroke was inactive
-                setIsExpanded(false);
-              } else {
-                // Fully close the selector if selecting an already active stroke
-                onClose();
-              }
-            };
-
-            return (
-              <div
-                key={stroke}
-                data-stroke-val={strokeVal}
-                onMouseEnter={() => setHoveredStroke(strokeVal)}
-                onMouseLeave={() => setHoveredStroke(null)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleButtonSelect(e);
-                }}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleButtonSelect(e);
-                }}
-                className={`w-11 h-11 flex items-center justify-center font-bold text-sm cursor-pointer transition-all border-2 ${
-                  isHovered
-                    ? 'border-[#f1c40f] scale-110 shadow-[0_0_8px_#f1c40f] z-10'
-                    : 'border-[#1a1a1a]'
-                } ${!isLoaded ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''}`}
-                style={{
-                  backgroundColor: bgColor,
-                  color: textColor,
-                }}
-              >
-                {isStrokeLoading ? (
-                  <span className="animate-spin text-[10px] pointer-events-none">⏳</span>
-                ) : (
-                  <span className="pointer-events-none">{displayLabel}</span>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Xilogravura / Woodcut style Expand Button */}
-          {allChoices.length > choicesToShow.length && !isExpanded && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsExpanded(true);
-              }}
-              className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f4ecd8] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f4ecd8] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
-              title={lang === 'fr' ? 'Déplier' : 'Expandir'}
-            >
-              +
-            </button>
-          )}
-
-          {/* Split / Glue Button */}
-          {selector.isSplit ? (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                // We pass merge = true
-                const mergedVal = Array.isArray(selector.currentVal) ? selector.currentVal[0] : String(selector.currentVal);
-                selector.onSelect(mergedVal, true);
-                onClose();
-              }}
-              className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#3498db] text-white shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#3498db] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
-              title={lang === 'fr' ? 'Recoller en croche' : 'Juntar em colcheia'}
-            >
-              💧
-            </button>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const defaultStroke = allChoices[0];
-                selector.onSelect([defaultStroke, defaultStroke]);
-                onClose();
-              }}
-              className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f1c40f] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f1c40f] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
-              title={lang === 'fr' ? 'Diviser en doubles croches' : 'Dividir em semicolcheias'}
-            >
-              ✂️
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Popover Downward Arrow (default, when rendering above) */}
-      {!isTooHigh && (
-        <div
-          className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#1a1a1a]"
-          style={{ 
-            marginTop: '-2px',
-            transform: `translateX(${arrowOffset}px)`
-          }}
+        <TouchStrokeChoices
+          selector={selector} inst={inst} isLeftHanded={isLeftHanded} choicesToShow={choicesToShow}
+          allChoices={allChoices} activeStrokes={activeStrokes} hoveredStroke={hoveredStroke}
+          setHoveredStroke={setHoveredStroke} isExpanded={isExpanded} setIsExpanded={setIsExpanded}
+          lang={lang} onClose={onClose}
         />
+      </div>
+      {!isTooHigh && (
+        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#1a1a1a]" style={{ marginTop: '-2px', transform: `translateX(${arrowOffset}px)` }} />
       )}
     </div>
   );
-};
+});
 
-export const TouchStrokeSelector = React.memo(TouchStrokeSelectorComponent);
-
+TouchStrokeSelector.displayName = 'TouchStrokeSelector';

@@ -10,6 +10,7 @@ import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { InstrumentPatternGridProps } from '../../components/instrument-editor/grid/gridTypes';
 import { VoiceStepContextMenuState } from '../../components/instrument-editor/grid/VoiceStepContextMenuModal';
 import { getGlobalClipboard, copyRelativeSteps, pasteRelativeSteps } from './relativeClipboardHelpers';
+import { isStepInRange } from './gridStepRangeHelper';
 import { useGridMultiSelectInteractions } from './useGridMultiSelectInteractions';
 import { useGridPercussionHooks } from './useGridPercussionHooks';
 import { useGridVoiceAndShortcutsHooks } from './useGridVoiceAndShortcutsHooks';
@@ -101,14 +102,6 @@ export function useGridOrchestrator(props: InstrumentPatternGridProps) {
     setSelectedStepIndices, setSelectedSubIndex, setSelectedStepIsPreRoll, setSelectedPatternId
   });
 
-  const isStepInRange = useCallback((range: any, cellIsPreRoll: boolean, cellStep: number, preRollCount: number) => {
-    if (!range) return false;
-    const getLinear = (step: number, preRoll: boolean) => preRoll ? step : (preRollCount + step);
-    const cellLinear = getLinear(cellStep, Boolean(cellIsPreRoll));
-    const startLinear = getLinear(range.start.step, Boolean(range.start.isPreRoll));
-    const endLinear = getLinear(range.end.step, Boolean(range.end.isPreRoll));
-    return cellLinear >= Math.min(startLinear, endLinear) && cellLinear <= Math.max(startLinear, endLinear);
-  }, []);
   useEffect(() => {
     setHasClipboard(!!getGlobalClipboard());
     const onChange = () => setHasClipboard(!!getGlobalClipboard());

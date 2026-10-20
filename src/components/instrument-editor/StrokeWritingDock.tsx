@@ -4,13 +4,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { isDarkText } from '../../data';
 import { getStrokePairs } from '../../utils/instrumentStrokes';
-import { Sliders, ArrowLeftRight, Scissors } from 'lucide-react';
+import { Sliders } from 'lucide-react';
+import { StrokeWritingDockPairButton } from './dock/StrokeWritingDockPairButton';
+import { StrokeWritingDockSpecialTools } from './dock/StrokeWritingDockSpecialTools';
 
 const NO_ALTERNATION_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique', 'alfaia', 'gongue', 'apito', 'puxador', 'coro', 'toada']);
 
-interface StrokeWritingDockProps {
+export interface StrokeWritingDockProps {
   trackId: number;
   instrument: {
     id: string;
@@ -21,7 +22,7 @@ interface StrokeWritingDockProps {
   };
   lang: string;
   isLeftHanded: boolean;
-  activeTool: string; // e.g. 'D', 'E', '0', 'scissors', etc.
+  activeTool: string;
   onSelectTool: (tool: string) => void;
   isAlternating?: boolean;
   onToggleAlternating?: () => void;
@@ -30,21 +31,11 @@ interface StrokeWritingDockProps {
 }
 
 export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
-  instrument,
-  lang,
-  isLeftHanded,
-  activeTool,
-  onSelectTool,
-  isAlternating = false,
-  onToggleAlternating,
-  onOpenBottomSheet,
-  showInspectorButton = true,
+  instrument, lang, isLeftHanded, activeTool, onSelectTool,
+  isAlternating = false, onToggleAlternating, onOpenBottomSheet, showInspectorButton = true,
 }) => {
   const isFr = lang === 'fr';
-
-  const pairs = useMemo(() => {
-    return getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded);
-  }, [instrument.id, instrument.type, lang, isLeftHanded]);
+  const pairs = useMemo(() => getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded), [instrument.id, instrument.type, lang, isLeftHanded]);
 
   const isEraserActive = activeTool === '0' || activeTool === '';
   const isScissorsActive = activeTool === 'scissors';
@@ -52,179 +43,29 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
 
   return (
     <div className="w-full bg-[#f4ede2] border-t-[3px] border-[#1a1a1a] px-3 py-2 shrink-0 flex items-center justify-between gap-2.5 shadow-[0_-2px_6px_rgba(0,0,0,0.06)] z-30 select-none">
-      {/* Tools list aligned directly to the left */}
       <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pl-2 pr-3 py-1.5 min-w-0 flex-1 scrollbar-none">
-        {/* Main Stroke Tool Pairs / Groups */}
-        {pairs.map((pair) => {
-          const isWeakActive = pair.weak && pair.weak.symbol === activeTool;
-          const isStrongActive = pair.strong.symbol === activeTool || pair.id === activeTool;
-          const isSelected = !isScissorsActive && !isEraserActive && (
-            isStrongActive ||
-            isWeakActive ||
-            pair.strokes.some(s => s.symbol === activeTool)
-          );
+        {pairs.map((pair) => (
+          <StrokeWritingDockPairButton
+            key={pair.id} pair={pair} instrument={instrument} activeTool={activeTool}
+            isScissorsActive={isScissorsActive} isEraserActive={isEraserActive} isFr={isFr} onSelectTool={onSelectTool}
+          />
+        ))}
 
-          const displayedStroke = isSelected && isWeakActive && pair.weak ? pair.weak : pair.strong;
-          const bgCol = instrument.colors?.[displayedStroke.colorKey] || instrument.colors?.[pair.strong.colorKey] || '#666';
-          const isDark = isDarkText(instrument.id, displayedStroke.symbol);
-          const txtCol = isDark ? '#1a1a1a' : '#f4ecd8';
-
-          const strokeChain = pair.strokes.map(s => s.symbol).join(' / ');
-
-          return (
-            <button
-              key={pair.id}
-              type="button"
-              onClick={() => {
-                if (isSelected && isStrongActive && pair.weak) {
-                  onSelectTool(pair.weak.symbol);
-                } else {
-                  onSelectTool(pair.strong.symbol);
-                }
-              }}
-              onWheel={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.deltaY < 0) {
-                  onSelectTool(pair.strong.symbol);
-                } else if (e.deltaY > 0) {
-                  onSelectTool(pair.weak ? pair.weak.symbol : pair.strong.symbol);
-                }
-              }}
-              className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border-[2px] transition-all cursor-pointer select-none shrink-0 active:scale-95 ${
-                isSelected
-                  ? 'border-[#8b2a1a] bg-[#f4ecd8] shadow-[2px_2px_0px_#8b2a1a] scale-105 z-10'
-                  : 'border-[#1a1a1a] bg-[#fdfbf7] hover:bg-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]'
-              }`}
-              title={`${pair.mainLabel} (${strokeChain}) — ${isFr ? 'Molette: Nuance | Raccourci' : 'Roda: Nuance | Tecla'}: ${pair.strong.shortcut}`}
-            >
-              {/* Stroke visual icon badge */}
-              <div
-                className={`w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner transition-colors ${
-                  isSelected && isWeakActive ? 'opacity-85 ring-1 ring-inset ring-black/20' : ''
-                }`}
-                style={{ backgroundColor: bgCol, color: txtCol }}
-              >
-                {displayedStroke.symbol}
-              </div>
-
-              {/* Label and shortcut */}
-              <div className="flex flex-col items-start leading-tight min-w-0">
-                <span className={`text-[11px] font-cactus font-bold truncate max-w-[80px] sm:max-w-[105px] ${
-                  isSelected ? 'text-[#8b2a1a]' : 'text-[#1a1a1a]'
-                }`}>
-                  {pair.mainLabel}
-                </span>
-                <span className="text-[9px] text-[#666] font-mono">
-                  {strokeChain} [{pair.strong.shortcut}]
-                </span>
-              </div>
-            </button>
-          );
-        })}
-
-        {/* Separator */}
-        <div className="h-6 w-[1px] bg-[#1a1a1a]/20 shrink-0 mx-0.5" />
-
-        {/* Mode Alternance Toggle Button (Frisé) - Uniquement pour Caixas, Tarols, Timbals, Mineiro, Agbê */}
-        {supportsAlternation && onToggleAlternating && (
-          <button
-            type="button"
-            onClick={onToggleAlternating}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border-[2px] transition-all cursor-pointer select-none shrink-0 active:scale-95 ${
-              isAlternating
-                ? 'border-[#8b2a1a] bg-[#8b2a1a] text-[#f4ecd8] shadow-[2px_2px_0px_#1a1a1a]'
-                : 'border-[#1a1a1a] bg-[#fdfbf7] hover:bg-[#f4ecd8] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
-            }`}
-            title={
-              isFr
-                ? 'Mode Alternance (Frisé) : Pas 1,3,5... Coup Fort | Pas 2,4,6... Coup Faible'
-                : 'Modo Alternância : Passo 1,3,5... Toque Forte | Passo 2,4,6... Toque Fraco'
-            }
-          >
-            <ArrowLeftRight size={14} className={isAlternating ? 'text-[#f4ecd8]' : 'text-[#8b2a1a]'} />
-            <div className="flex flex-col items-start leading-tight">
-              <span className="text-[11px] font-cactus font-bold">
-                {isFr ? 'Alternance' : 'Alternância'}
-              </span>
-              <span className={`text-[9px] font-mono ${isAlternating ? 'text-[#f4ecd8]/90' : 'text-[#666]'}`}>
-                {isAlternating ? (isFr ? 'ACTIF ⇄' : 'ATIVO ⇄') : (isFr ? 'Désactivé' : 'Inativo')}
-              </span>
-            </div>
-          </button>
-        )}
-
-        {/* Gomme / Eraser Tool */}
-        <button
-          type="button"
-          onClick={() => onSelectTool('0')}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border-[2px] transition-all cursor-pointer select-none shrink-0 active:scale-95 ${
-            isEraserActive
-              ? 'border-[#8b2a1a] bg-[#8b2a1a] text-[#f4ecd8] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10'
-              : 'border-[#1a1a1a] bg-[#fdfbf7] hover:bg-[#f4ecd8] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
-          }`}
-          title={isFr ? 'Gomme (Effacer) [0 / Del]' : 'Borracha (Apagar) [0 / Del]'}
-        >
-          <div className={`w-7 h-7 rounded-sm flex items-center justify-center font-bold text-sm border border-[#1a1a1a]/20 ${
-            isEraserActive ? 'bg-[#f4ecd8] text-[#8b2a1a]' : 'bg-[#eaddcf] text-[#1a1a1a]'
-          }`}>
-            ⌫
-          </div>
-          <div className="flex flex-col items-start leading-tight">
-            <span className={`text-[11px] font-cactus font-bold ${isEraserActive ? 'text-[#f4ecd8]' : 'text-[#1a1a1a]'}`}>
-              {isFr ? 'Gomme' : 'Borracha'}
-            </span>
-            <span className={`text-[9px] font-mono ${isEraserActive ? 'text-[#f4ecd8]/80' : 'text-[#666]'}`}>
-              [0 / Del]
-            </span>
-          </div>
-        </button>
-
-        {/* Outil Ciseau / Colle (Scissors / Glue) */}
-        <button
-          type="button"
-          onClick={() => onSelectTool(isScissorsActive ? 'D' : 'scissors')}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border-[2px] transition-all cursor-pointer select-none shrink-0 active:scale-95 ${
-            isScissorsActive
-              ? 'border-[#8b2a1a] bg-[#8b2a1a] text-[#f4ecd8] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10'
-              : 'border-[#1a1a1a] bg-[#fdfbf7] hover:bg-[#f4ecd8] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
-          }`}
-          title={
-            isFr
-              ? '✂ / 🩹 Ciseau / Colle : Clic sur un pas simple pour le scinder en triples croches, ou sur un pas scindé pour le recoller'
-              : '✂ / 🩹 Tesoura / Cola : Clique num passo para dividir em semicolcheias ou colar'
-          }
-        >
-          <div className={`px-1.5 h-7 rounded-sm flex items-center justify-center gap-1 font-bold text-xs border border-[#1a1a1a]/20 ${
-            isScissorsActive ? 'bg-[#f4ecd8] text-[#8b2a1a]' : 'bg-[#eaddcf] text-[#1a1a1a]'
-          }`}>
-            <Scissors size={14} />
-            <span className="text-[10px] opacity-70">/</span>
-            <span className="text-xs">🩹</span>
-          </div>
-          <div className="flex flex-col items-start leading-tight">
-            <span className={`text-[11px] font-cactus font-bold ${isScissorsActive ? 'text-[#f4ecd8]' : 'text-[#1a1a1a]'}`}>
-              {isFr ? 'Ciseau / Colle' : 'Tesoura / Cola'}
-            </span>
-            <span className={`text-[9px] font-mono ${isScissorsActive ? 'text-[#f4ecd8]/80' : 'text-[#666]'}`}>
-              [ ✂ / 🩹 ]
-            </span>
-          </div>
-        </button>
+        <StrokeWritingDockSpecialTools
+          supportsAlternation={supportsAlternation} isAlternating={isAlternating} onToggleAlternating={onToggleAlternating}
+          isEraserActive={isEraserActive} isScissorsActive={isScissorsActive} isFr={isFr} onSelectTool={onSelectTool}
+        />
       </div>
 
-      {/* Right zone: Mobile / Tablet Inspector trigger button */}
       {showInspectorButton && onOpenBottomSheet && (
         <button
           type="button"
           onClick={onOpenBottomSheet}
           className="flex lg:hidden items-center gap-1.5 px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm font-cactus font-bold text-xs uppercase tracking-wide shrink-0 shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
-          title={isFr ? "Ouvrir l'inspecteur de frappe et accordage" : "Abrir inspetor de toque e afinação"}
+          title={isFr ? "Ouvrir l'inspecteur de frappe et accordage" : 'Abrir inspetor de toque e afinação'}
         >
           <Sliders size={14} />
-          <span className="hidden sm:inline">
-            {isFr ? 'Inspecteur' : 'Inspetor'}
-          </span>
+          <span className="hidden sm:inline">{isFr ? 'Inspecteur' : 'Inspetor'}</span>
           {!isEraserActive && !isScissorsActive && (
             <span className="px-1 py-0.2 bg-[#f4ecd8] text-[#8b2a1a] rounded-xs font-mono font-bold text-[10px]">
               {activeTool}
