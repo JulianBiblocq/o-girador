@@ -18,7 +18,6 @@ interface TransportSpeedTrainerButtonProps {
   speedTrainerCountdown: number | null;
   tocarJuntoActive: boolean;
   tocarJuntoTrackId: number | null;
-  storeTracks?: any[];
   openSpeedTrainerModal: () => void;
   lang: string;
 }
