@@ -3,101 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type StepSculptValue = number | [number, number];
+import { Pattern } from './pattern.types';
 
-export interface PatternVariation {
-  id: string;
-  name: string;
-  steps: (string | number | [string, string])[];
-  probability: number;
-  volumes?: StepSculptValue[];
-  decays?: StepSculptValue[];
-  microtimings?: StepSculptValue[];
-  beatResolutions?: number[]; // Added for tuplet support (e.g. [4, 4, 4, 4])
-  playFirstTimeOnly?: boolean;
-}
-
-export interface Pattern {
-  id: number;
-  name: string;
-  steps: number;
-  activeSteps: (string | number | [string, string])[];
-  lyrics: string[];
-  notes: string[];
-  measureAssignments: boolean[];
-  measureAllowVariations?: boolean[];
-  volumes?: StepSculptValue[];
-  decays?: StepSculptValue[];
-  microtimings?: StepSculptValue[];
-  vocalMode?: 'synth' | 'micro' | 'audio' | 'recorded';
-  vocalLatency?: number;
-  vocalBaseBpm?: number;
-  vocalBpmSync?: boolean;
-  vocalAudioData?: string;
-  vocalAudioUrl?: string;
-  vocalNudge?: number;
-  vocalTrimStart?: number;
-  vocalClip?: VocalClipMeta;
-  hasVocalAudio?: boolean;
-  beatResolutions?: number[]; // Added for tuplet support
-  swingIntensity?: number;
-  balancoPresetId?: string;
-  balancoAmount?: number; // 0 to 100
-  variations?: PatternVariation[];
-  preRollActiveSteps?: (string | number | [string, string])[];
-  preRollLyrics?: string[];
-  preRollNotes?: string[];
-  preRollVolumes?: StepSculptValue[];
-  preRollDecays?: StepSculptValue[];
-  preRollMicrotimings?: StepSculptValue[];
-  hasAnacrusis?: boolean;
-  vocalVariantKeys?: string[];
-}
-
-export interface VocalClipMeta {
-  id?: string | number;
-  name?: string;
-  patternId?: number;
-  sampleBpm?: number;         // BPM effectif d'enregistrement ou d'origine du sample
-  baseBpm: number;           // BPM lors de la prise pour le time-stretching (rétro-compatibilité)
-  trimStartSec: number;      // Début utile du sample (0 pour un buffer nettoyé)
-  trimEndSec: number;        // Fin utile du sample (durée du buffer nettoyé)
-  nudgeMs: number;           // Décalage fin manuel (+/- ms)
-  anacrusisBeats: number;    // Débordement éventuel avant le temps 1 (en temps musicaux)
-  anacrusisSec?: number;     // Durée réelle de l'anacrouse en secondes
-  startOffsetSec?: number;   // Décalage temporel signé par rapport au Temps 1 (- = anacrouse, + = départ différé / syncope)
-  variantKeys?: string[];    // Clés des déclinaisons vocales disponibles (ex: spd74_pit0, spd100_pit-8)
-  // Backward-compatibility aliases
-  offsetStart?: number;      // Legacy alias for trimStartSec
-  startTimeDelay?: number;   // Legacy alias for nudgeSec
-  bpmSync?: boolean;         // Legacy alias
-  offsetEnd?: number;        // Legacy alias for trimEndSec
-  updatedAt?: number;        // Horodatage pour suivi de fraîcheur
-}
-
-export interface SavedPattern {
-  id: string;
-  instrumentId: string;
-  name: string;
-  folder: string;
-  steps: (string | number | [string, string])[];
-  variations: PatternVariation[];
-  volumes?: StepSculptValue[];
-  decays?: StepSculptValue[];
-  microtimings?: StepSculptValue[];
-  balancoPresetId?: string;
-  balancoAmount?: number;
-  createdAt: number;
-}
-
-export type CatalogVisibility = 'admin_global' | 'mestre_group' | 'private' | 'specific_user' | 'public';
-
-export interface CloudPattern extends SavedPattern {
-  ownerId: string;
-  visibility: CatalogVisibility;
-  mestreId?: string;
-  audioUrl?: string | null;
-}
+export * from './pattern.types';
+export * from './section.types';
 
 export interface TrackGroup {
   id: number;
@@ -108,18 +17,18 @@ export interface TrackGroup {
   isHidden: boolean;
   volumeVal: number;
   selectedPatternId: number;
-  radius?: number; // visual radius in the roda
+  radius?: number;
   reverbVal?: number;
-  panVal?: number; // -100 to 100
-  tuning?: number; // Pitch offset in semitones (-12 to +12)
-  tuningPitch?: number; // Pitch offset alias
-  pan?: number; // -100 to 100
-  swingIntensity?: number; // 0 to 100
+  panVal?: number;
+  tuning?: number;
+  tuningPitch?: number;
+  pan?: number;
+  swingIntensity?: number;
   balancoPresetId?: string;
-  balancoAmount?: number; // 0 to 100
+  balancoAmount?: number;
   fxSends?: {
-    reverb: number; // 0 to 100
-    distortion: number; // 0 to 100
+    reverb: number;
+    distortion: number;
   };
   linkedToTrackId?: string;
   busId?: string;
@@ -151,97 +60,18 @@ export interface TrackGroup {
 
 export type Track = TrackGroup;
 
-export interface CatalogItem {
-  file: string;
-  name: string;
-}
-
-export interface SongSection {
-  id: string;
-  name: string;
-  startMeasure: number; // 0-based index
-  endMeasure: number;   // 0-based index, inclusive
-  color?: string;       // couleur CSS (ex: hex)
-  repeatCount?: number; // multiplicateur de section (défaut 1)
-  level?: number;       // 0 pour base, 1 pour super-section, etc.
-}
-
-export interface SongMarker {
-  id: string;
-  name: string;
-  measure: number; // 0-based index
-  color?: string;
-}
-
-export interface SavedSectionTrack {
-  id?: number;
-  instrumentIdx: number;
-  isMute: boolean;
-  isSolo: boolean;
-  volumeVal: number;
-  reverbVal?: number;
-  panVal?: number;
-  pan?: number;
-  swingIntensity?: number;
-  balancoPresetId?: string;
-  balancoAmount?: number;
-  fxSends?: {
-    reverb: number;
-    distortion: number;
-  };
-  patterns: Pattern[]; // Patterns mapped to the section's measures
-}
-
-import { TimeSignature } from './common.types';
-
-export interface SavedSectionData {
-  numMeasures: number;
-  timeSigs: TimeSignature[];
-  vols: number[];
-  volTransitions: ('immediate' | 'ramp' | 'bezier')[];
-  signals: (string | null)[];
-  tracks: SavedSectionTrack[];
-}
-
-export interface CloudSection {
-  id: string;
-  name: string;
-  ownerId: string;
-  visibility: CatalogVisibility;
-  mestreId?: string;
-  createdAt: number;
-  data: string; // LZString compressed JSON of SavedSectionData
-  audioUrl?: string | null;
-}
-
-export interface CloudPreset {
-  id: string;
-  name: string;
-  data: string; // JSON stringified Preset (LZString compressed)
-  ownerId: string;
-  visibility: CatalogVisibility;
-  targetUserId?: string;
-  mestreId?: string | null;
-  groupId?: string | null;
-  createdAt: number;
-  isFavorite?: boolean;
-  audioUrl?: string | null;
-  isDraft?: boolean;
-  updatedAt?: number | null;
-}
-
 export interface MasterFX {
-    reverb: {
-      returnVolume: number;
-      time: number;
-      isMuted: boolean;
-    };
-    distortion: {
-      returnVolume: number;
-      drive: number;
-      isMuted: boolean;
-    };
-  }
+  reverb: {
+    returnVolume: number;
+    time: number;
+    isMuted: boolean;
+  };
+  distortion: {
+    returnVolume: number;
+    drive: number;
+    isMuted: boolean;
+  };
+}
 
 export interface VocalStateBuffers {
   vocalBuffers: Record<string | number, AudioBuffer>;
@@ -253,8 +83,8 @@ export interface TrainingState {
   tocarJuntoTrackId: number | null;
   tocarJuntoMuteScope: 'track' | 'family';
   tocarJuntoIsMuted: boolean;
-  isolateBaseOnly: boolean;          // true = neutralise les variations aléatoires
-  firstPassRegistry: Record<string, boolean>; // Clé "trackId_patternId" pour mémoriser l'amorce franchie
+  isolateBaseOnly: boolean;
+  firstPassRegistry: Record<string, boolean>;
 }
 
 export interface TrainingSlice extends TrainingState {
@@ -265,6 +95,7 @@ export interface TrainingSlice extends TrainingState {
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;
 }
+
 export interface ToadaConductorSlot {
   puxadorPatternId?: number;
   coroPatternId?: number;

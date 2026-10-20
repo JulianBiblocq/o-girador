@@ -1,27 +1,24 @@
-import React, { StrictMode, useState, useEffect } from 'react';
-import {createRoot} from 'react-dom/client';
-import {SequencerProvider} from './contexts/SequencerContext.tsx';
-import {AudioProvider} from './contexts/AudioContext.tsx';
-import App from './App.tsx';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { SequencerProvider } from './contexts/SequencerContext';
+import { AudioProvider } from './contexts/AudioContext';
+import App from './App';
 import { HelmetProvider } from 'react-helmet-async';
-import { AuthProvider } from './contexts/AuthContext.tsx';
+import { AuthProvider } from './contexts/AuthContext';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { indexedDBPersister } from './queryPersister';
-import { telemetryService } from './services/telemetryService';
-import { useSequencerStore } from './stores/useSequencerStore';
-import { useAudioStore } from './stores/useAudioStore';
-import { useTransportStore } from './stores/useTransportStore';
-import { channels, busChannels } from './audio/effectsChain';
-import * as Tone from 'tone';
-import * as effectsChain from './audio/effectsChain';
+import { TopLevelErrorBoundary } from './components/errors/TopLevelErrorBoundary';
+import { GlobalErrorListener } from './components/errors/GlobalErrorListener';
+import { setupDevGlobalBindings } from './utils/devGlobalBindings';
 import './index.css';
 
-if (typeof window !== 'undefined') {
-  (window as any).Tone = Tone;
-  (window as any).useSequencerStore = useSequencerStore;
-  (window as any).__EFFECTS_CHAIN__ = effectsChain;
-}
+setupDevGlobalBindings();
 
 // Filtrer les logs de debug vocal (VOCAL DEBUG) et de scheduler pour ne pas encombrer la console F12
 const originalLog = console.log;
@@ -46,19 +43,14 @@ export function isValidGoogleClientId(id: string | undefined | null): boolean {
   );
 }
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const hasGoogleClientId = isValidGoogleClientId(googleClientId);
-
-if (!hasGoogleClientId) {
-  // console.warn("La sauvegarde Cloud (Google Auth/Drive) est désactivée faute de clé client ID valide (VITE_GOOGLE_CLIENT_ID). L'application fonctionne en mode Offline-First.");
-}
 // Capture invite code from URL if present
-const urlParams = new URLSearchParams(window.location.search);
-const inviteCode = urlParams.get('invite');
-if (inviteCode) {
-  sessionStorage.setItem('o-girador-invite', inviteCode);
-  // Optional: clear the URL so it looks cleaner
-  window.history.replaceState({}, document.title, window.location.pathname);
+if (typeof window !== 'undefined') {
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteCode = urlParams.get('invite');
+  if (inviteCode) {
+    sessionStorage.setItem('o-girador-invite', inviteCode);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
 }
 
 const queryClient = new QueryClient({
@@ -66,220 +58,13 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes cache
-      gcTime: 1000 * 60 * 60 * 24, // 24 hours cache retention
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 60 * 24,
     },
   },
 });
 
-export class TopLevelErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error("TopLevelErrorBoundary caught an error:", error, errorInfo);
-    
-    // Send telemetry to Hub
-    try {
-      telemetryService.logError(error, 'ReactBoundary');
-    } catch (e) {
-      // Ignore telemetry failure
-    }
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: '#8b2a1a',
-          color: '#f4ecd8',
-          padding: '2rem',
-          zIndex: 999999,
-          fontFamily: 'monospace',
-          overflowY: 'auto',
-          fontSize: '13px',
-          textAlign: 'left',
-          border: '10px double #f4ecd8',
-          boxSizing: 'border-box'
-        }}>
-          <h1 style={{ fontSize: '20px', borderBottom: '2px solid #f4ecd8', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'sans-serif' }}>
-            🚨 ERREUR CRITIQUE DE RENDU (REACT)
-          </h1>
-          <p><strong>Message :</strong> {this.state.error?.message}</p>
-          <p><strong>Détails :</strong></p>
-          <pre style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '1rem', overflowX: 'auto', whiteSpace: 'pre-wrap', border: '1px solid rgba(255,255,255,0.2)' }}>
-            {this.state.error?.stack}
-          </pre>
-          <button 
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: '1.5rem',
-              padding: '0.5rem 1.2rem',
-              backgroundColor: '#f4ecd8',
-              color: '#8b2a1a',
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '3px 3px 0 #000'
-            }}
-          >
-            Recharger l'application
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-export const GlobalErrorListener: React.FC = () => {
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    const sendTelemetry = (type: string, message: string, stack?: string) => {
-      try {
-        const errorObj = new Error(message);
-        if (stack) errorObj.stack = stack;
-        telemetryService.logError(errorObj, type);
-      } catch (e) {
-        // Ignore telemetry failure
-      }
-    };
-
-    const handleError = (e: ErrorEvent) => {
-      const msg = `[Global Error] ${e.message} at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack || ''}`;
-      setErrorMsg(msg);
-      sendTelemetry('GlobalError', e.message, e.error?.stack);
-    };
-    
-    const handleRejection = (e: PromiseRejectionEvent) => {
-      const reason = e.reason;
-      const stack = reason?.stack || reason?.message || String(reason);
-      const msg = `[Promise Rejection] ${stack}`;
-      setErrorMsg(msg);
-      sendTelemetry('UnhandledRejection', String(reason?.message || reason), stack);
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
-
-  if (!errorMsg) return null;
-
-  return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: '#8b2a1a',
-      color: '#f4ecd8',
-      padding: '2rem',
-      zIndex: 999999,
-      fontFamily: 'monospace',
-      overflowY: 'auto',
-      fontSize: '13px',
-      textAlign: 'left',
-      border: '10px double #f4ecd8',
-      boxSizing: 'border-box'
-    }}>
-      <h1 style={{ fontSize: '20px', borderBottom: '2px solid #f4ecd8', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'sans-serif' }}>
-        🚨 ERREUR ASYNCHRONE DETECTEE (TABLETTE)
-      </h1>
-      <p>L'application a détecté une erreur hors du cycle de rendu standard :</p>
-      <pre style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '1rem', overflowX: 'auto', whiteSpace: 'pre-wrap', border: '1px solid rgba(255,255,255,0.2)' }}>
-        {errorMsg}
-      </pre>
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-        <button 
-          onClick={() => setErrorMsg(null)}
-          style={{
-            padding: '0.5rem 1.2rem',
-            backgroundColor: '#f4ecd8',
-            color: '#8b2a1a',
-            border: 'none',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '3px 3px 0 #000'
-          }}
-        >
-          Fermer / Ignorer
-        </button>
-        <button 
-          onClick={() => window.location.reload()}
-          style={{
-            padding: '0.5rem 1.2rem',
-            backgroundColor: 'transparent',
-            color: '#f4ecd8',
-            border: '2px solid #f4ecd8',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
-        >
-          Recharger
-        </button>
-      </div>
-    </div>
-  );
-};
-
-import { auth as fbAuth, db as fbDb, storage as fbStorage } from './firebase/config';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc as fbDoc, setDoc as fbSetDoc, getDoc as fbGetDoc, collection as fbCollection, query as fbQuery, where as fbWhere, getDocs as fbGetDocs, updateDoc as fbUpdateDoc } from 'firebase/firestore';
-import { ref as fbRef, listAll as fbListAll, getDownloadURL as fbGetDownloadURL } from 'firebase/storage';
-
-// @ts-ignore
-window.firebaseAuth = fbAuth;
-// @ts-ignore
-window.firebaseDb = fbDb;
-// @ts-ignore
-window.firebaseStorage = fbStorage;
-// @ts-ignore
-window.storageRef = fbRef;
-// @ts-ignore
-window.storageListAll = fbListAll;
-// @ts-ignore
-window.storageGetDownloadURL = fbGetDownloadURL;
-// @ts-ignore
-window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
-// @ts-ignore
-window.signInWithEmailAndPassword = signInWithEmailAndPassword;
-// @ts-ignore
-window.setDoc = fbSetDoc;
-// @ts-ignore
-window.doc = fbDoc;
-// @ts-ignore
-window.getDoc = fbGetDoc;
-// @ts-ignore
-window.collection = fbCollection;
-// @ts-ignore
-window.query = fbQuery;
-// @ts-ignore
-window.where = fbWhere;
-// @ts-ignore
-window.getDocs = fbGetDocs;
-// @ts-ignore
-window.updateDoc = fbUpdateDoc;
-if (import.meta.env.DEV || typeof window !== 'undefined') {
-  (window as any).useSequencerStore = useSequencerStore;
-  (window as any).__SEQUENCER_STORE__ = useSequencerStore;
-  (window as any).__AUDIO_STORE__ = useAudioStore;
-  (window as any).__TRANSPORT_STORE__ = useTransportStore;
-  (window as any).__CHANNELS__ = channels;
-  (window as any).__BUS_CHANNELS__ = busChannels;
-}
-
-
+export { TopLevelErrorBoundary, GlobalErrorListener };
 
 const container = document.getElementById('root')!;
 let root = (window as any).__REACT_ROOT__;

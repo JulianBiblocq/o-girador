@@ -9,22 +9,9 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { inputManager } from './useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
-
-/**
- * Vérifie si un élément HTML est un vrai champ de saisie textuelle actif.
- * Exclut explicitement les faders/sliders (<input type="range">), boutons, checkboxes, etc.
- */
-function isActualTextEntry(el: HTMLElement | null): boolean {
-  if (!el) return false;
-  if (el.isContentEditable) return true;
-  if (el instanceof HTMLTextAreaElement) return true;
-  if (el instanceof HTMLInputElement) {
-    const type = (el.type || 'text').toLowerCase();
-    const textTypes = ['text', 'search', 'password', 'email', 'number', 'tel', 'url'];
-    return textTypes.includes(type) && !el.readOnly && !el.disabled;
-  }
-  return false;
-}
+import { isActualTextEntry } from './keyboard-shortcuts/isActualTextEntry';
+import { handleDawClipboardShortcuts } from './keyboard-shortcuts/handleDawClipboardShortcuts';
+import { handleNavigationShortcuts } from './keyboard-shortcuts/handleNavigationShortcuts';
 
 export function useGlobalKeyboardShortcuts() {
   const audio = useAudio();
@@ -37,13 +24,11 @@ export function useGlobalKeyboardShortcuts() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((window as any).oGiradorDetailEditorOpen) return;
-      // 🛡️ Ignorer immédiatement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (inputManager) inputManager.handleKeyDown(e);
     };
     const handleGlobalKeyUp = (e: KeyboardEvent) => {
       if ((window as any).oGiradorDetailEditorOpen) return;
-      // 🛡️ Ignorer immédiatement les touches avec modificateurs DAW / Système (Ctrl, Cmd, Alt)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (inputManager) inputManager.handleKeyUp(e);
     };
@@ -61,38 +46,26 @@ export function useGlobalKeyboardShortcuts() {
       if (e.defaultPrevented) return;
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
-
       const isInput = isActualTextEntry(target) || isActualTextEntry(activeEl);
 
-      // ─────────────────────────────────────────────────────────────
       // BARRIÈRE 1 : Saisie de texte
-      // ─────────────────────────────────────────────────────────────
       if (isInput) {
-        // Seule la touche Escape dé-focalise le champ actif
         if (e.key === 'Escape') {
           e.preventDefault();
           activeEl?.blur();
           target?.blur();
           return;
         }
-
-        // Exception autorisée : Copier/Coller/Sélectionner sur une cellule de grille
         const isModifier = e.ctrlKey || e.metaKey;
         if (isModifier && (target?.classList.contains('step-input-cell') || activeEl?.classList.contains('step-input-cell'))) {
           const key = e.key.toLowerCase();
-          if (['z', 'y', 'a', 'x', 'c', 'v', 'd'].includes(key)) {
-            // Laisser passer vers la logique ci-dessous
-          } else {
-            return;
-          }
+          if (!['z', 'y', 'a', 'x', 'c', 'v', 'd'].includes(key)) return;
         } else {
           return;
         }
       }
 
-      // ─────────────────────────────────────────────────────────────
       // BARRIÈRE 2 : Modales & Pop-ups actives (Escape)
-      // ─────────────────────────────────────────────────────────────
       if (e.key === 'Escape') {
         e.preventDefault();
         if (typeof (window as any).oGiradorDetailEditorClose === 'function') {
@@ -109,110 +82,12 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // ─────────────────────────────────────────────────────────────
-      // BARRIÈRE 3 : Commandes de Transport & Vues
-      // ─────────────────────────────────────────────────────────────
+      // BARRIÈRE 3 : Navigation & Transport
+      if (handleNavigationShortcuts({ e, seekToMeasure, handleTimelineNavigate, setIsLooping })) return;
 
-      // 1. Espace : Transport Play / Pause — Sanctuarisé au sommet par useGlobalTransportShortcuts (capture: true)
-
-      // 2. Tab : Bascule Roda ↔ Timeline (avec neutralisation native du focus)
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent('toggle-view-mode'));
-        return;
-      }
-
-      // 3. Entrée ou Home : Remettre la tête de lecture au début absolu (Mesure 0, Temps 1)
-      if (e.key === 'Enter' || e.key === 'Home') {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
-          return;
-        }
-
-        e.preventDefault();
-        if (seekToMeasure) {
-          seekToMeasure(0, 0);
-        } else if (handleTimelineNavigate) {
-          handleTimelineNavigate(0, 0, 16);
-        }
-        return;
-      }
-
-      // 3bis. Ctrl+Shift+I : Ouvrir le Grand Atelier Papier Cordel (Réserve Mestre)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent('open-paper-workshop', { detail: { tab: 'reserve' } }));
-        return;
-      }
-
-      // 4. O : Ouvrir / Fermer A Oficina
-      if (e.key.toLowerCase() === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        useSequencerSettingsStore.getState().toggleSettings();
-        return;
-      }
-
-      // 5. L : Activer / Désactiver la boucle
-      if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        const nextLoop = !useSequencerStore.getState().isLooping;
-        useSequencerStore.getState().setIsLooping(nextLoop);
-        if (setIsLooping) setIsLooping(nextLoop);
-        return;
-      }
-
-      // 6. Navigation par Mesures au Clavier (ArrowLeft / ArrowRight)
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
-          return;
-        }
-
-        e.preventDefault();
-        const curM = useSequencerStore.getState().currentMeasure;
-        const totalM = useSequencerStore.getState().totalMeasures;
-        const delta = e.shiftKey ? 4 : 1;
-
-        const targetM = e.key === 'ArrowLeft'
-          ? Math.max(0, curM - delta)
-          : Math.min(totalM - 1, curM + delta);
-
-        if (seekToMeasure) {
-          seekToMeasure(targetM, 0);
-        } else if (handleTimelineNavigate) {
-          handleTimelineNavigate(targetM, 0, 16);
-        }
-        return;
-      }
-
-      // 6.5. Touches complémentaires DAW : < / , / NumpadSubtract / - et > / . / NumpadAdd / +
-      const isPrevMeasureKey = e.key === '<' || e.key === ',' || e.code === 'NumpadSubtract' || (e.key === '-' && !e.ctrlKey && !e.metaKey);
-      const isNextMeasureKey = e.key === '>' || e.key === '.' || e.code === 'NumpadAdd' || (e.key === '+' && !e.ctrlKey && !e.metaKey);
-
-      if (isPrevMeasureKey || isNextMeasureKey) {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
-          return;
-        }
-
-        e.preventDefault();
-        const curM = useSequencerStore.getState().currentMeasure;
-        const totalM = useSequencerStore.getState().totalMeasures;
-        const targetM = isPrevMeasureKey
-          ? Math.max(0, curM - 1)
-          : Math.min(totalM - 1, curM + 1);
-
-        if (seekToMeasure) {
-          seekToMeasure(targetM, 0);
-        } else if (handleTimelineNavigate) {
-          handleTimelineNavigate(targetM, 0, 16);
-        }
-        return;
-      }
-
-      // 7. Ctrl+D / Cmd+D : Dupliquer la sélection multiple OU la mesure active vers m+1
+      // Duplication Ctrl+D / Cmd+D
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
-          return;
-        }
-
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) return;
         const store = useSequencerStore.getState();
         if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
           e.preventDefault();
@@ -220,30 +95,19 @@ export function useGlobalKeyboardShortcuts() {
           store.duplicateSelectedCells();
           return;
         }
-
         const activeCell = store.activeTimelineCell;
         if (activeCell) {
           e.preventDefault();
           e.stopPropagation();
-          store.duplicateMeasurePattern(
-            activeCell.trackId,
-            activeCell.measureIdx,
-            activeCell.measureIdx + 1
-          );
-          store.setActiveTimelineCell({
-            trackId: activeCell.trackId,
-            measureIdx: activeCell.measureIdx + 1,
-          });
+          store.duplicateMeasurePattern(activeCell.trackId, activeCell.measureIdx, activeCell.measureIdx + 1);
+          store.setActiveTimelineCell({ trackId: activeCell.trackId, measureIdx: activeCell.measureIdx + 1 });
         }
         return;
       }
 
-      // 7.5. Touche Suppr / Delete / Backspace : Vider la sélection timeline (passer en silence)
+      // Touche Suppr / Delete / Backspace : vider sélection timeline
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
-          return;
-        }
-
+        if (isActualTextEntry(document.activeElement as HTMLElement | null)) return;
         if (!(window as any).oGiradorDetailEditorOpen) {
           const store = useSequencerStore.getState();
           if (store.selectedTimelineCells.length > 0 || store.activeTimelineCell) {
@@ -255,101 +119,8 @@ export function useGlobalKeyboardShortcuts() {
         }
       }
 
-      // 8. Modificateurs : Undo, Redo, Copy, Cut, Paste, Select All
-      if (e.ctrlKey || e.metaKey) {
-        const key = e.key.toLowerCase();
-        if (key === 'z') {
-          e.preventDefault();
-          if (e.shiftKey) {
-            if (handleRedo) {
-              handleRedo();
-            } else {
-              useSequencerStore.getState().handleRedo();
-            }
-          } else {
-            if (handleUndo) {
-              handleUndo();
-            } else {
-              useSequencerStore.getState().handleUndo();
-            }
-          }
-          return;
-        }
-        if (key === 'y') {
-          e.preventDefault();
-          if (handleRedo) {
-            handleRedo();
-          } else {
-            useSequencerStore.getState().handleRedo();
-          }
-          return;
-        }
-        if (['c', 'x', 'v'].includes(key)) {
-          const store = useSequencerStore.getState();
-          const hasTimelineTarget = Boolean(
-            store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0)
-          );
-          if (key === 'v' && store.copiedSection) {
-            let targetMeasureIdx: number | null = null;
-            if (store.activeTimelineCell) {
-              targetMeasureIdx = (store.activeTimelineCell as any).mIdx ?? store.activeTimelineCell.measureIdx;
-            } else if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
-              targetMeasureIdx = store.selectedTimelineCells[0].mIdx;
-            } else if (typeof store.currentMeasure === 'number') {
-              targetMeasureIdx = store.currentMeasure;
-            }
-            if (targetMeasureIdx !== null) {
-              e.preventDefault();
-              e.stopPropagation();
-              store.handlePasteSongSection(targetMeasureIdx);
-              return;
-            }
-          }
-          if (hasTimelineTarget) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (key === 'c') {
-              store.copyTimelineSelection();
-            } else if (key === 'x') {
-              store.cutTimelineSelection();
-            } else if (key === 'v') {
-              if (store.copiedSection) {
-                let targetMeasureIdx: number | null = null;
-                if (store.activeTimelineCell) {
-                  targetMeasureIdx = (store.activeTimelineCell as any).mIdx ?? store.activeTimelineCell.measureIdx;
-                } else if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
-                  targetMeasureIdx = store.selectedTimelineCells[0].mIdx;
-                } else if (typeof store.currentMeasure === 'number') {
-                  targetMeasureIdx = store.currentMeasure;
-                }
-                if (targetMeasureIdx !== null) {
-                  store.handlePasteSongSection(targetMeasureIdx);
-                }
-              } else if (store.timelineClipboard && (store.activeTimelineCell || (store.selectedTimelineCells && store.selectedTimelineCells.length > 0))) {
-                store.pasteTimelineClipboard();
-              }
-            }
-            return;
-          }
-        }
-        if (key === 'a') {
-          if (isActualTextEntry(document.activeElement as HTMLElement | null)) {
-            return;
-          }
-
-          if (!(window as any).oGiradorDetailEditorOpen) {
-            e.preventDefault();
-            e.stopPropagation();
-            useSequencerStore.getState().selectAllTimelineCells();
-            return;
-          }
-        }
-        if (['a', 'x', 'c', 'v', 'd'].includes(key)) {
-          e.preventDefault();
-          window.dispatchEvent(new CustomEvent('grid-shortcut', { detail: { key } }));
-          return;
-        }
-      }
+      // Pressepapiers & Éléments DAW (Ctrl/Cmd)
+      handleDawClipboardShortcuts({ e, handleUndo, handleRedo });
     };
 
     window.addEventListener('keydown', handleKeyDown);
