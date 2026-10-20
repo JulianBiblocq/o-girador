@@ -1,4 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
+import { formatDragNumberBoxValue, getDragNumberBoxFillStyles } from './controls/dragNumberBoxMath';
+import { useDragNumberBoxInteraction } from './controls/useDragNumberBoxInteraction';
 
 interface DragNumberBoxProps {
   label: string;
@@ -37,13 +39,23 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   valueTextRef,
   fillColor,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const valueSpanRef = useRef<HTMLSpanElement>(null);
-  const startYRef = useRef<number>(0);
-  const startValRef = useRef<number>(0);
-  const currentValRef = useRef<number>(value);
-  const isDraggingRef = useRef<boolean>(false);
-  const lastTouchTimeRef = useRef<number>(0);
+  const actualMin = min !== undefined ? min : 0;
+  const actualMax = max !== undefined ? max : 100;
+  const range = actualMax - actualMin;
+
+  const formatValue = (val: number) => formatDragNumberBoxValue(val, label, displayFormatter, min, max);
+
+  const {
+    containerRef,
+    valueSpanRef,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    resetToDefault,
+  } = useDragNumberBoxInteraction({
+    value, disabled, actualMin, actualMax, range, step, mode, defaultValue,
+    onChange, onAudioDrag, formatValue, gaugeRef,
+  });
 
   const setGaugeRef = (el: HTMLDivElement | null) => {
     if (gaugeRef) {
@@ -58,148 +70,6 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     }
   };
 
-  const onAudioDragRef = useRef(onAudioDrag);
-  onAudioDragRef.current = onAudioDrag;
-
-  const actualMin = min !== undefined ? min : 0;
-  const actualMax = max !== undefined ? max : 100;
-  const range = actualMax - actualMin;
-
-  const formatValue = (val: number) => {
-    if (displayFormatter) {
-      return displayFormatter(val);
-    }
-    const lowerLabel = label.toLowerCase();
-    if (lowerLabel.includes('thres') || lowerLabel.includes('seuil') || lowerLabel.includes('limiar')) {
-      return `${val} dB`;
-    }
-    if (
-      lowerLabel.includes('low') || lowerLabel.includes('mid') || lowerLabel.includes('high') ||
-      lowerLabel.includes('grave') || lowerLabel.includes('médium') || lowerLabel.includes('aigu')
-    ) {
-      return `${val > 0 ? '+' : ''}${val}`;
-    }
-    if (lowerLabel.includes('ratio')) {
-      return `${val}:1`;
-    }
-    if (min === undefined && max === undefined) {
-      return `${val}%`;
-    }
-    return `${val}`;
-  };
-
-  // Helper to calculate fill left and width percentages
-  const getFillStyles = (val: number) => {
-    if (range <= 0) return { left: '0%', width: '0%' };
-
-    if (mode === 'bipolar') {
-      const posZero = Math.max(0, Math.min(100, ((0 - actualMin) / range) * 100));
-      const posVal = Math.max(0, Math.min(100, ((val - actualMin) / range) * 100));
-      if (val >= 0) {
-        return {
-          left: `${posZero}%`,
-          width: `${posVal - posZero}%`
-        };
-      } else {
-        return {
-          left: `${posVal}%`,
-          width: `${posZero - posVal}%`
-        };
-      }
-    } else {
-      const pct = Math.max(0, Math.min(100, ((val - actualMin) / range) * 100));
-      return {
-        left: '0%',
-        width: `${pct}%`
-      };
-    }
-  };
-
-  useEffect(() => {
-    currentValRef.current = value;
-    if (valueSpanRef.current && !isDraggingRef.current) {
-      valueSpanRef.current.textContent = disabled ? '—' : formatValue(value);
-    }
-    if (containerRef.current && !isDraggingRef.current) {
-      const fillStyles = getFillStyles(value);
-      containerRef.current.style.setProperty('--fill-left', fillStyles.left);
-      containerRef.current.style.setProperty('--fill-width', fillStyles.width);
-    }
-  }, [value, disabled, min, max, label, mode]);
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    e.preventDefault();
-    containerRef.current?.setPointerCapture(e.pointerId);
-    containerRef.current?.classList.add('is-dragging');
-    startYRef.current = e.clientY;
-    startValRef.current = currentValRef.current;
-    isDraggingRef.current = true;
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || !isDraggingRef.current || !containerRef.current?.hasPointerCapture(e.pointerId)) return;
-    const dy = startYRef.current - e.clientY; // Dragging up increases value
-    // Scale: 150px drag spans the entire range
-    const delta = (dy / 150) * range;
-    let newVal = startValRef.current + delta;
-    newVal = Math.max(actualMin, Math.min(actualMax, newVal));
-    
-    if (step !== undefined) {
-      newVal = Math.round(newVal / step) * step;
-      const precision = (step.toString().split('.')[1] || '').length;
-      newVal = parseFloat(newVal.toFixed(precision));
-    } else {
-      newVal = Math.round(newVal);
-    }
-
-    currentValRef.current = newVal;
-    
-    // Direct DOM manipulation for fast rendering (Zero Render/Layout Thrashing)
-    if (valueSpanRef.current) {
-      valueSpanRef.current.textContent = formatValue(newVal);
-    }
-    if (containerRef.current) {
-      const fillStyles = getFillStyles(newVal);
-      containerRef.current.style.setProperty('--fill-left', fillStyles.left);
-      containerRef.current.style.setProperty('--fill-width', fillStyles.width);
-    }
-    if (onAudioDragRef.current) {
-      onAudioDragRef.current(newVal);
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    if (containerRef.current?.hasPointerCapture(e.pointerId)) {
-      containerRef.current.releasePointerCapture(e.pointerId);
-      containerRef.current.classList.remove('is-dragging');
-      isDraggingRef.current = false;
-      onChange(currentValRef.current);
-    }
-  };
-
-  const resetToDefault = () => {
-    if (disabled) return;
-    const resetVal = defaultValue !== undefined ? defaultValue : 0;
-    currentValRef.current = resetVal;
-    if (valueSpanRef.current) {
-      valueSpanRef.current.textContent = formatValue(resetVal);
-    }
-    if (containerRef.current) {
-      const fillStyles = getFillStyles(resetVal);
-      containerRef.current.style.setProperty('--fill-left', fillStyles.left);
-      containerRef.current.style.setProperty('--fill-width', fillStyles.width);
-    }
-    if (gaugeRef && 'current' in gaugeRef && gaugeRef.current) {
-      gaugeRef.current.style.transform = `scaleX(${Math.max(0, Math.min(1, (resetVal - actualMin) / (range || 1)))})`;
-    }
-    if (onAudioDragRef.current) {
-      onAudioDragRef.current(resetVal);
-    }
-    onChange(resetVal);
-  };
-
   const handleDoubleClick = (e: React.MouseEvent) => {
     if (disabled) return;
     e.preventDefault();
@@ -207,32 +77,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     resetToDefault();
   };
 
-  // Écouteur tactile natif non-passif pour détection de double-tap (< 300 ms) et protection anti-zoom
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (disabled) return;
-      if (e.touches.length > 0) {
-        const now = performance.now();
-        if (now - lastTouchTimeRef.current < 300) {
-          e.preventDefault();
-          lastTouchTimeRef.current = 0;
-          resetToDefault();
-          return;
-        }
-        lastTouchTimeRef.current = now;
-      }
-    };
-
-    el.addEventListener('touchstart', handleTouchStart, { passive: false });
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-    };
-  }, [disabled, defaultValue, actualMin, range]);
-
-  const initialStyles = getFillStyles(value);
+  const initialStyles = getDragNumberBoxFillStyles(value, actualMin, range, mode);
   const zeroPos = range > 0 ? Math.max(0, Math.min(100, ((0 - actualMin) / range) * 100)) : 50;
 
   const styleObject = {
@@ -261,7 +106,6 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
           : 'cursor-row-resize active:translate-y-[0.5px] active:shadow-none'
       } ${className}`}
     >
-      {/* GPU Accelerated Gauge Bar for Motorized Automation */}
       <div
         ref={setGaugeRef}
         className="absolute inset-y-0 left-0 pointer-events-none origin-left z-[1]"

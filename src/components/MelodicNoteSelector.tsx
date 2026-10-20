@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { audioEngine } from '../hooks/useAudioSync';
+import { MiniPianoKeyboard } from './controls/MiniPianoKeyboard';
 
 interface MelodicNoteSelectorProps {
   currentValue: string; // e.g. "C4", "A#3", or ""
@@ -15,15 +16,12 @@ interface MelodicNoteSelectorProps {
   lang: 'fr' | 'pt';
 }
 
-const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
 export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
   currentValue,
   onSelect,
   onClose,
   lang,
 }) => {
-  // Parse note and octave
   let activeNote = '';
   let activeOctave = '4';
 
@@ -34,9 +32,6 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
       activeOctave = match[2];
     }
   }
-
-  // Les extinctions de notes tenues sont gérées directement au onMouseUp/onTouchEnd sur les touches virtuelles
-  // et par les événements physiques Note Off dans useMidiController.ts (évite d'étouffer les notes au changement de focus).
 
   const handleNoteClick = (note: string) => {
     onSelect(`${note}${activeOctave}`);
@@ -53,11 +48,9 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
     if (activeNote) {
       onSelect(`${activeNote}${octave}`);
     } else {
-      onSelect(`C${octave}`); // default to C if no note selected yet
+      onSelect(`C${octave}`);
     }
   };
-
-  const isBlackKey = (note: string) => note.includes('#');
 
   return (
     <div className="absolute z-50 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] p-3 flex flex-col gap-2.5 w-60 select-none font-sans">
@@ -73,108 +66,17 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
         </button>
       </div>
 
-      {/* Mini Piano Roll Keyboard */}
       <div className="flex flex-col gap-1">
         <span className="text-[9px] font-bold uppercase opacity-65">
           {lang === 'fr' ? 'Clavier' : 'Teclado'}
         </span>
-        <div className="relative flex bg-[#1a1a1a] p-1 border border-[#1a1a1a]/30 h-20 w-full rounded">
-          {NOTES.map((note) => {
-            const isBlack = isBlackKey(note);
-            const isActive = activeNote === note;
-            
-            if (isBlack) {
-              // Black key rendering
-              // Find offset index for positioning black keys between white keys
-              const whiteIndex = NOTES.filter((n, idx) => idx < NOTES.indexOf(note) && !isBlackKey(n)).length;
-              const leftOffset = whiteIndex * 31 - 10;
-              
-              return (
-                <button
-                  key={note}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
-                  }}
-                  onMouseUp={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onMouseLeave={() => {
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onTouchCancel={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onClick={() => handleNoteClick(note)}
-                  style={{ left: `${leftOffset}px` }}
-                  className={`absolute top-1 z-10 w-5 h-12 border border-[#1a1a1a] cursor-pointer transition-colors ${
-                    isActive 
-                      ? 'bg-red-700 text-white' 
-                      : 'bg-black text-[#666] hover:bg-zinc-800'
-                  }`}
-                  title={note}
-                >
-                  <span className="absolute bottom-1 left-0 right-0 text-[7px] text-center font-bold">
-                    {note}
-                  </span>
-                </button>
-              );
-            } else {
-              // White key rendering
-              return (
-                <button
-                  key={note}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
-                  }}
-                  onMouseUp={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onMouseLeave={() => {
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.triggerVoicePitch(`${note}${activeOctave}`, 0.8);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onTouchCancel={(e) => {
-                    e.preventDefault();
-                    if (audioEngine) audioEngine.releaseVoicePitch(`${note}${activeOctave}`);
-                  }}
-                  onClick={() => handleNoteClick(note)}
-                  className={`w-8 h-18 border-r last:border-r-0 border-[#1a1a1a]/30 cursor-pointer flex items-end justify-center pb-1 transition-colors ${
-                    isActive 
-                      ? 'bg-red-700 text-white border-red-800' 
-                      : 'bg-white text-zinc-600 hover:bg-zinc-100'
-                  }`}
-                >
-                  <span className="text-[8px] font-bold">
-                    {note}
-                  </span>
-                </button>
-              );
-            }
-          })}
-        </div>
+        <MiniPianoKeyboard
+          activeNote={activeNote}
+          activeOctave={activeOctave}
+          onNoteClick={handleNoteClick}
+        />
       </div>
 
-      {/* Octave Selection */}
       <div className="flex flex-col gap-1">
         <span className="text-[9px] font-bold uppercase opacity-65">
           {lang === 'fr' ? 'Octave' : 'Oitava'}
@@ -196,7 +98,6 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
         </div>
       </div>
 
-      {/* Action buttons */}
       <div className="flex gap-1.5 border-t border-[#1a1a1a]/20 pt-2 mt-0.5">
         <button
           onClick={() => onSelect('')}
@@ -208,7 +109,7 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
           onClick={onClose}
           className="px-3 py-1 text-[10px] font-bold cordel-border-sm bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 cursor-pointer text-center"
         >
-          {lang === 'fr' ? 'OK' : 'OK'}
+          OK
         </button>
       </div>
     </div>
