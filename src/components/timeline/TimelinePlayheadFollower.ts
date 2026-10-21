@@ -54,6 +54,7 @@ export function usePlayheadFollower({
       const mW = widthsRef.current?.[measure] ?? measureWRef.current;
 
       if (step < 0 || isPreRoll || isPaused) {
+        live.current = { step: -1, measure: (isPaused && !isNavigation) ? (useSequencerStore.getState().currentMeasure ?? measure) : measure, ratio: 0, iteration: 1, measureStartTime: 0, measureDuration: 0 };
         const curM = (isPaused && !isNavigation) ? (useSequencerStore.getState().currentMeasure ?? measure) : measure;
         const curX = isPaused && isNavigation ? mLeft + ratio * mW : (leftsRef.current?.[curM] ?? (curM * measureWRef.current));
         lastExactXRef.current = curX;
@@ -71,7 +72,7 @@ export function usePlayheadFollower({
       }
 
       const exactX = mLeft + ratio * mW;
-      const isNewM = live.current.measure !== measure || live.current.iteration !== iteration || live.current.step < 0;
+      const isNewM = live.current.measure !== measure || live.current.iteration !== iteration || live.current.step < 0 || !live.current.measureStartTime;
       live.current = { step, measure, ratio, iteration, measureStartTime: isNewM ? (measureStartTime || live.current.measureStartTime) : live.current.measureStartTime, measureDuration: measureDuration ?? live.current.measureDuration };
       const dx = exactX - lastExactXRef.current;
       lastExactXRef.current = exactX;

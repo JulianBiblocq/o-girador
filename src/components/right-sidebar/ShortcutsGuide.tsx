@@ -12,6 +12,7 @@ import * as Tone from 'tone';
 import { ShortcutsKeyboardTab } from './shortcuts/ShortcutsKeyboardTab';
 import { ShortcutsStrokesPercussion } from './shortcuts/ShortcutsStrokesPercussion';
 import { ShortcutsStrokesOther } from './shortcuts/ShortcutsStrokesOther';
+import { ShortcutsGeneralInfo } from './shortcuts/ShortcutsGeneralInfo';
 
 export interface ShortcutsGuideProps {
   lang: Language;
@@ -93,6 +94,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
         <div className="flex flex-col gap-y-3 overflow-y-auto custom-scrollbar flex-grow pr-1">
           <ShortcutsStrokesPercussion t={t} lang={lang} renderBadge={renderBadge} shouldShowSection={shouldShowSection} isStrokeActiveForInstruments={isStrokeActiveForInstruments} />
           <ShortcutsStrokesOther t={t} lang={lang} renderBadge={renderBadge} shouldShowSection={shouldShowSection} isStrokeActiveForInstruments={isStrokeActiveForInstruments} />
+          <ShortcutsGeneralInfo t={t} lang={lang} />
         </div>
       )}
     </div>

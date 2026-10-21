@@ -60,7 +60,7 @@ export const HeaderDesktopMenu: React.FC<HeaderDesktopMenuProps> = (props) => {
       </button>
 
       {projectDropOpen && (
-        <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] z-[100] flex flex-col p-2 gap-3">
+        <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] z-[100] flex flex-col p-2 gap-3 max-h-[calc(100dvh-4.5rem)] overflow-y-auto custom-scrollbar overscroll-contain">
           <HeaderProfileSection
             lang={props.lang}
             onAdminClick={props.onAdminClick}

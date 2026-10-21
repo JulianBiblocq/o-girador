@@ -38,9 +38,9 @@ export interface TickStepContext {
 }
 
 export function executeTickStep(time: number, ctx: TickStepContext): boolean {
-  const currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
-  const currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-  const currentTicks = getMaxTicks(currentTimeSig as any);
+  let currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
+  let currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+  let currentTicks = getMaxTicks(currentTimeSig as any);
   const isDocHidden = typeof document !== 'undefined' && document.hidden;
 
   if (ctx.currentStepIndexRef.current === -1) {
@@ -58,6 +58,9 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     stepIdx = 0;
     ctx.currentStepIndexRef.current = 0;
     advanceMeasureOnTickBoundary(currentMeasureIdx, ctx);
+    currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
+    currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+    currentTicks = ctx.maxTicksRef.current;
   }
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
