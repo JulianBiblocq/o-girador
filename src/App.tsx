@@ -15,21 +15,27 @@ import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
 import { AppModalsContainer } from './components/app/AppModalsContainer';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { useSequencerStore, isToadaChild } from './stores/useSequencerStore';
-
-const MobileRehearsalRemote = lazyWithRetry(() => import('./components/mobile/MobileRehearsalRemote').then(m => ({ default: m.MobileRehearsalRemote })), 'MobileRehearsalRemote');
-const MobilePercussionMode = lazyWithRetry(() => import('./components/mobile/MobilePercussionMode').then(m => ({ default: m.MobilePercussionMode })), 'MobilePercussionMode');
-const MobileFieldToolsSheet = lazyWithRetry(() => import('./components/mobile/MobileFieldToolsSheet').then(m => ({ default: m.MobileFieldToolsSheet })), 'MobileFieldToolsSheet');
 import { useCloudPresets } from './hooks/queries/useCloudPresets';
 import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
 import { useAppAudio } from './hooks/useAppAudio';
-import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts'; import { useGlobalTransportShortcuts } from './hooks/useGlobalTransportShortcuts';
-import { useViewRouter } from './hooks/useViewRouter'; import { useThemeManager } from './hooks/useThemeManager';
-import { useWallpaper } from './hooks/useWallpaper'; import { useMidiController } from './hooks/useMidiController';
-import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler'; import { useDeepLinkLoader } from './hooks/useDeepLinkLoader';
-import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu'; import { useAppSessionTracking } from './hooks/useAppSessionTracking';
-import { useAppGroupPresetLoader } from './hooks/useAppGroupPresetLoader'; import { useAppMestreSignals } from './hooks/useAppMestreSignals';
-import { useAppExportTablature } from './hooks/useAppExportTablature'; import { useAppWorkspaceEvents } from './hooks/useAppWorkspaceEvents';
-import { useAppAuthPermissions } from './hooks/useAppAuthPermissions'; import { useIsMobileResponsive } from './hooks/useIsMobileResponsive';
+import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
+import { useGlobalTransportShortcuts } from './hooks/useGlobalTransportShortcuts';
+import { useViewRouter } from './hooks/useViewRouter';
+import { useThemeManager } from './hooks/useThemeManager';
+import { useWallpaper } from './hooks/useWallpaper';
+import { useMidiController } from './hooks/useMidiController';
+import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler';
+import { useDeepLinkLoader } from './hooks/useDeepLinkLoader';
+import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu';
+import { useAppSessionTracking } from './hooks/useAppSessionTracking';
+import { useAppGroupPresetLoader } from './hooks/useAppGroupPresetLoader';
+import { useAppMestreSignals } from './hooks/useAppMestreSignals';
+import { useAppExportTablature } from './hooks/useAppExportTablature';
+import { useAppWorkspaceEvents } from './hooks/useAppWorkspaceEvents';
+import { useAppAuthPermissions } from './hooks/useAppAuthPermissions';
+import { useIsMobileResponsive } from './hooks/useIsMobileResponsive';
+import { useScreenWakeLock } from './hooks/useScreenWakeLock';
+import { MobileRemoteRouter } from './components/mobile/MobileRemoteRouter';
 
 const LandingPage = lazyWithRetry(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })), 'LandingPage');
 
@@ -40,8 +46,8 @@ export default function App() {
   useGlobalKeyboardShortcuts();
   useMidiController();
 
-  const sequencer = useSequencer();
-  const audio = useAudio();
+  const sequencer = useSequencer(), audio = useAudio();
+  useScreenWakeLock(audio.isPlaying);
   useGlobalTransportShortcuts(audio.handleTogglePlay);
   const { hasAccess, userProfile, isAdmin, loading: authLoading } = useAuth();
   useDeepLinkLoader({ audio, sequencer, authLoading });
@@ -49,10 +55,8 @@ export default function App() {
   useAppSessionTracking(userProfile);
 
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null>('info');
-  const router = useViewRouter({ audio, setActiveRightPanel: (panel) => setActiveRightPanel(panel) });
-  const { viewMode, renderedView, isFadingIn, changeViewMode, hasManuallyOpenedAbout } = router;
-  const theme = useThemeManager({ lang: sequencer.lang });
-  const wallpaperProps = useWallpaper();
+  const { viewMode, renderedView, isFadingIn, changeViewMode, hasManuallyOpenedAbout } = useViewRouter({ audio, setActiveRightPanel: (p) => setActiveRightPanel(p) });
+  const theme = useThemeManager({ lang: sequencer.lang }), wallpaperProps = useWallpaper();
   useTrainingUrlHandler({ audio, changeViewMode, alertAsync: sequencer.alertAsync });
 
   const [showSavePresetModal, setShowSavePresetModal] = useState(false);
@@ -84,13 +88,11 @@ export default function App() {
   const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
   const [measureWidth, setMeasureWidth] = useState<number>(240);
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
-  const isMobile = useIsMobileResponsive(768);
-  const editingTrackId = useSequencerStore(state => state.editingTrackId);
+  const isMobile = useIsMobileResponsive(768), editingTrackId = useSequencerStore(state => state.editingTrackId);
 
   const handleStepTouchStart = React.useCallback((e: any, patternId: number, stepIdx: number, instId: string, currentVal: any, onSelect: any, trackId: number, isSplit?: boolean) => {
     if ('button' in e && e.button !== 0) return;
-    const target = e.currentTarget as HTMLElement;
-    const rect = target.getBoundingClientRect();
+    const target = e.currentTarget as HTMLElement, rect = target.getBoundingClientRect();
     const clickX = e.clientX ?? (e.touches?.[0]?.clientX || (rect.left + rect.width / 2));
     const clickY = e.clientY ?? (e.touches?.[0]?.clientY || rect.top);
     setTouchSelector({ patternId, stepIdx, instId, x: clickX, y: clickY, currentVal, onSelect, isStickyDefault: e.type !== 'touchstart', trackId, isSplit });
@@ -126,33 +128,11 @@ export default function App() {
       <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
         {isMobileRemoteActive ? (
           <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-[#121212] text-[#f4ecd8] font-cactus text-sm">Chargement...</div>}>
-            {mobileViewMode === 'percussion' ? (
-              <MobilePercussionMode
-                isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
-                masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
-                onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
-                onToggleStudio={() => useSequencerStore.getState().setMobileViewMode('complet')}
-                onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
-                isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
-                onOpenLyricsVideo={() => setActiveRightPanel('letras')}
-              />
-            ) : mobileViewMode === 'editeur' ? (
-              <MobileFieldToolsSheet
-                onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
-                onToggleStudio={() => useSequencerStore.getState().setMobileViewMode('complet')}
-                lang={sequencer.lang}
-              />
-            ) : (
-              <MobileRehearsalRemote
-                isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
-                masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
-                onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
-                onToggleStudio={() => useSequencerStore.getState().setMobileViewMode('complet')}
-                onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
-                isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
-                onOpenLyricsVideo={() => setActiveRightPanel('letras')}
-              />
-            )}
+            <MobileRemoteRouter
+              mobileViewMode={mobileViewMode} audio={audio} cloudPresets={cloudPresets} localPresets={localPresets} theme={theme}
+              onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
+              onOpenLyricsVideo={() => setActiveRightPanel('letras')}
+            />
           </Suspense>
         ) : (
           <>

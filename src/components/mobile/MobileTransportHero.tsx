@@ -6,6 +6,9 @@
 import React from 'react';
 import { Play, Square, RotateCcw } from 'lucide-react';
 import { useMuteGroupStore } from '../../stores/useMuteGroupStore';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useTapTempo } from '../../hooks/useTapTempo';
+import { tMobile } from '../../i18n/mobileTranslations';
 import { ALL_MUTE_GROUP_IDS } from './mobileFamilyConfig';
 
 interface Props {
@@ -19,21 +22,25 @@ export const MobileTransportHero: React.FC<Props> = ({
   isPlaying, isLoading, onTogglePlay, onStop, bpm, onChangeBpm, onResetBpm,
   loopMode, onChangeLoopMode, isLoopExitRequested, onRequestLoopExit,
 }) => {
+  const lang = useSequencerStore((s) => s.lang);
   const activeMuteGroups = useMuteGroupStore((s) => s.activeMuteGroups);
   const muteGroupAssignments = useMuteGroupStore((s) => s.muteGroupAssignments);
   const toggleMuteGroupActive = useMuteGroupStore((s) => s.toggleMuteGroupActive);
+  const { registerTap } = useTapTempo();
 
   return (
     <footer className="w-full bg-[#121212] border-t-2 border-[var(--cordel-border)] flex flex-col gap-2 p-2 shrink-0 select-none">
       {/* 1. Ligne Supérieure : Tempo, Groupes de Mute Maîtres, Boucles */}
       <div className="w-full flex items-center justify-between gap-1">
-        {/* Tempo [-5] [-1] [ BPM ↺ ] [+1] [+5] */}
+        {/* Tempo [-5] [-1] [ BPM ] [ ↺ ] [+1] [+5] */}
         <div className="h-10 flex items-center bg-[#1a1a1a] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)]">
           <button onClick={() => onChangeBpm(-5)} className="h-full px-1.5 font-mono text-xs font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90" title="-5 BPM">-5</button>
           <button onClick={() => onChangeBpm(-1)} className="h-full px-1.5 font-mono text-sm font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40" title="-1 BPM">-1</button>
-          <button onClick={onResetBpm} className="h-full px-2 font-cactus font-bold text-sm text-[var(--cordel-text)] hover:text-[#b94a2c] flex items-center gap-1 active:scale-95 border-l border-r border-[var(--cordel-border)]/40" title="Réinitialiser au tempo d'origine">
+          <button onClick={registerTap} className="h-full px-1.5 font-cactus font-bold text-sm text-[var(--cordel-text)] hover:text-[#b94a2c] flex items-center active:scale-95 border-l border-[var(--cordel-border)]/40" title="Tap Tempo">
             <span>{bpm}</span>
-            <RotateCcw size={11} className="text-[#b94a2c]" />
+          </button>
+          <button onClick={onResetBpm} className="h-full px-1.5 flex items-center justify-center text-[#b94a2c] hover:bg-white/10 active:scale-95 border-l border-r border-[var(--cordel-border)]/40" title="Reset BPM">
+            <RotateCcw size={10} />
           </button>
           <button onClick={() => onChangeBpm(1)} className="h-full px-1.5 font-mono text-sm font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90 border-r border-[var(--cordel-border)]/40" title="+1 BPM">+1</button>
           <button onClick={() => onChangeBpm(5)} className="h-full px-1.5 font-mono text-xs font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90" title="+5 BPM">+5</button>
@@ -91,15 +98,15 @@ export const MobileTransportHero: React.FC<Props> = ({
           }`}
           title="Sortir de la boucle au prochain tour"
         >
-          {isLoopExitRequested ? 'SORTIE AU TOUR SUIVANT...' : 'SORTIR AU PROCHAIN TOUR'}
+          {isLoopExitRequested ? '...' : tMobile(lang, 'exitNextLap')}
         </button>
 
         <button
           onClick={() => onTogglePlay({ forcePreRoll: true })}
           className="min-h-[44px] px-3 bg-[#1a1a1a] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase tracking-wide text-[var(--cordel-text)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] active:translate-y-0.5 shadow-[2px_2px_0px_var(--cordel-border)] shrink-0 flex items-center justify-center"
-          title="Départ avec décompte de 4 temps"
+          title="Départ avec décompte"
         >
-          DÉPART 4T
+          {tMobile(lang, 'depart4T')}
         </button>
 
         <button

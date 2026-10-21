@@ -5,7 +5,10 @@
 
 import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useShallow } from 'zustand/react/shallow';
+import { useAuth } from '../../contexts/AuthContext';
+import { getEcosystemUrl } from '../../constants/ecosystemUrls';
+import { launchWithSSO } from '../../utils/crossAppAuth';
+import { tMobile } from '../../i18n/mobileTranslations';
 
 interface Props {
   className?: string;
@@ -13,25 +16,42 @@ interface Props {
 }
 
 export const MobileViewModeSelector: React.FC<Props> = ({ className = '', lang = 'pt' }) => {
-  const { mobileViewMode, setMobileViewMode } = useSequencerStore(
-    useShallow((s) => ({
-      mobileViewMode: s.mobileViewMode || 'danse',
-      setMobileViewMode: s.setMobileViewMode,
-    }))
-  );
+  const mobileViewMode = useSequencerStore((s) => s.mobileViewMode || 'danse');
+  const setMobileViewMode = useSequencerStore((s) => s.setMobileViewMode);
+  const { userProfile, isAdmin } = useAuth();
+
+  const handleModeChange = (val: string) => {
+    if (val === 'chant') {
+      const metadata = (useSequencerStore.getState().metadata || {}) as any;
+      const songId = metadata.morceauId || metadata.songId || metadata.toada || '';
+      const toadaId = metadata.toada || '';
+      const isPrivileged = userProfile?.role === 'mestre' || !!userProfile?.mestreId || isAdmin || userProfile?.canWriteSequenciador || userProfile?.isPremium;
+
+      const query = isPrivileged
+        ? `?songId=${encodeURIComponent(songId)}&toadaId=${encodeURIComponent(toadaId)}`
+        : `?mode=eleve&songId=${encodeURIComponent(songId)}&toadaId=${encodeURIComponent(toadaId)}`;
+
+      const targetUrl = getEcosystemUrl('vocalLab', query);
+      launchWithSSO(targetUrl, { appLabel: 'Cantador', appKey: 'vocalLab', forceSameTab: false });
+      return;
+    }
+
+    setMobileViewMode(val as any);
+  };
 
   return (
     <div className={`relative flex items-center ${className}`}>
       <select
         value={mobileViewMode}
-        onChange={(e) => setMobileViewMode(e.target.value as any)}
+        onChange={(e) => handleModeChange(e.target.value)}
         className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase px-2 py-1.5 cordel-border-sm cursor-pointer shadow-[2px_2px_0_var(--cordel-border)] focus:outline-none appearance-none pr-6 tracking-wide"
-        title={lang === 'pt' ? 'Mudar Modo' : 'Changer de Mode'}
+        title={tMobile(lang, 'viewMode')}
       >
-        <option value="danse">{lang === 'pt' ? 'Modo Dança' : 'Mode Danse'}</option>
-        <option value="percussion">{lang === 'pt' ? 'Modo Percussão' : 'Mode Percussion'}</option>
-        <option value="editeur">{lang === 'pt' ? 'Modo Editor (Scan & Fotos)' : 'Mode Éditeur (Scan & Photos)'}</option>
-        <option value="complet">{lang === 'pt' ? 'Modo Completo (Studio)' : 'Mode Complet (Studio)'}</option>
+        <option value="percussion">{tMobile(lang, 'modePercussion')}</option>
+        <option value="danse">{tMobile(lang, 'modeDanse')}</option>
+        <option value="chant">{tMobile(lang, 'modeChant')}</option>
+        <option value="editeur">{tMobile(lang, 'modeEditeur')}</option>
+        <option value="complet">{tMobile(lang, 'modeComplet')}</option>
       </select>
       <span className="pointer-events-none absolute right-2 text-[10px] text-[#b94a2c]">
         ▼
