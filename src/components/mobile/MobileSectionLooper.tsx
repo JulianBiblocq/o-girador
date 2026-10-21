@@ -76,7 +76,7 @@ export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeas
     <div className="w-full bg-[#121212] px-2 py-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 select-none border-b border-[var(--cordel-border)]/40">
       <button
         onClick={handleClearLoop}
-        className={`px-2.5 py-1 text-xs font-cactus font-bold uppercase cordel-border-sm shrink-0 transition-colors shadow-[1px_1px_0px_var(--cordel-border)] ${
+        className={`min-h-[42px] px-3 py-1.5 text-xs font-cactus font-bold uppercase cordel-border-sm shrink-0 flex items-center justify-center transition-colors shadow-[2px_2px_0px_var(--cordel-border)] ${
           isAllActive ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[#1a1a1a] text-[var(--cordel-text)] hover:border-[#b94a2c]'
         }`}
       >
@@ -92,7 +92,7 @@ export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeas
           <button
             key={sec.id}
             onClick={() => handleSelectSection(sec)}
-            className={`px-2.5 py-1 text-xs font-cactus font-bold uppercase cordel-border-sm shrink-0 transition-all shadow-[1px_1px_0px_var(--cordel-border)] ${
+            className={`min-h-[42px] px-3 py-1.5 text-xs font-cactus font-bold uppercase cordel-border-sm shrink-0 flex items-center justify-center transition-all shadow-[2px_2px_0px_var(--cordel-border)] ${
               isPending
                 ? 'bg-[#b94a2c]/70 text-[#f4ecd8] border-[#f4ecd8] animate-pulse'
                 : isActive

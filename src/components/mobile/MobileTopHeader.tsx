@@ -22,12 +22,9 @@ export const MobileTopHeader: React.FC<Props> = ({
 }) => {
   return (
     <header className="w-full h-11 bg-[#121212] border-b-2 border-[var(--cordel-border)] flex items-center justify-between px-2 z-20 shrink-0 select-none gap-1.5">
-      {/* 1. Logo & Badge */}
+      {/* 1. Logo & Titre */}
       <div className="flex items-center gap-1 shrink-0">
         <span className="font-cactus font-bold text-xs sm:text-sm tracking-wider text-[var(--cordel-text)]">
-          O GIRADOR
-        </span>
-        <span className="hidden sm:inline-block bg-[#b94a2c] text-[#f4ecd8] text-[8px] font-mono font-bold px-1 py-0.5 tracking-wider uppercase border border-[var(--cordel-border)]">
           SEQUENCIADOR
         </span>
       </div>

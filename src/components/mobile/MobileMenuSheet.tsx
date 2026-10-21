@@ -4,14 +4,16 @@
  */
 
 import React from 'react';
-import { X, Sliders, Camera, FileText, Video, Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { X, Sliders, Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { MobileViewModeSelector } from './MobileViewModeSelector';
 
 interface Props {
   isOpen: boolean; onClose: () => void;
   masterEQ: { low: number; mid: number; high: number }; setMasterEQ: (eq: { low: number; mid: number; high: number }) => void;
-  onOpenPaperWorkshop: (tab?: 'sheets' | 'scanner' | 'reserve') => void; onOpenPhotoBooth: () => void;
-  onOpenLyricsVideo: () => void; lang: 'fr' | 'pt'; onToggleLang: () => void;
+  lang: 'fr' | 'pt'; onToggleLang: () => void;
   isDarkMode: boolean; onToggleDarkMode: () => void; onToggleStudio: () => void;
+  onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
+  onOpenPhotoBooth?: () => void; onOpenLyricsVideo?: () => void;
 }
 
 const EQ_PROFILES = [
@@ -22,28 +24,40 @@ const EQ_PROFILES = [
 ];
 
 export const MobileMenuSheet: React.FC<Props> = ({
-  isOpen, onClose, masterEQ, setMasterEQ, onOpenPaperWorkshop, onOpenPhotoBooth,
-  onOpenLyricsVideo, lang, onToggleLang, isDarkMode, onToggleDarkMode, onToggleStudio,
+  isOpen, onClose, masterEQ, setMasterEQ, lang, onToggleLang,
+  isDarkMode, onToggleDarkMode, onToggleStudio,
 }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 flex items-end justify-center backdrop-blur-xs select-none">
-      <div className="bg-[#121212] border-t-2 border-x-2 border-[var(--cordel-border)] w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-200">
-        {/* Header Drawer */}
-        <div className="p-2.5 border-b-2 border-[var(--cordel-border)] flex items-center justify-between bg-[#1a1a1a]">
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs select-none"
+    >
+      <div className="w-full max-w-sm max-h-[88dvh] flex flex-col bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0px_#000] overflow-hidden">
+        {/* Header fixe en haut */}
+        <div className="p-2.5 border-b-2 border-[var(--cordel-border)] flex items-center justify-between bg-[#1a1a1a] shrink-0">
           <span className="font-cactus font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]">
-            {lang === 'pt' ? 'Menu de ferramentas' : 'Menu outils & réglages'}
+            {lang === 'pt' ? 'Menu ferramentas & ajustes' : 'Menu outils & réglages'}
           </span>
-          <button onClick={onClose} className="p-1 text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-95" aria-label="Fermer">
+          <button onClick={onClose} className="p-1 text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-95 cursor-pointer" aria-label="Fermer">
             <X size={16} />
           </button>
         </div>
 
-        <div className="p-3 flex flex-col gap-3 overflow-y-auto">
-          {/* 1. Profils Égaliseur */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-mono uppercase text-[#f4ecd8]/70 tracking-wider flex items-center gap-1 font-bold">
+        {/* Conteneur interne scrollable */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scrollbar">
+          {/* 1. Sélecteur des 4 Modes tout en haut */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-mono uppercase text-[var(--cordel-text)]/70 tracking-wider font-bold">
+              {lang === 'pt' ? 'Modo de visualização' : 'Mode d’affichage'}
+            </span>
+            <MobileViewModeSelector lang={lang} />
+          </div>
+
+          {/* 2. Profils Égaliseur Master */}
+          <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--cordel-border)]/40">
+            <span className="text-[10px] font-mono uppercase text-[var(--cordel-text)]/70 tracking-wider flex items-center gap-1 font-bold">
               <Sliders size={12} className="text-[#b94a2c]" />
               {lang === 'pt' ? 'Equalização Master' : 'Égalisation Master'}
             </span>
@@ -67,39 +81,8 @@ export const MobileMenuSheet: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 2. Outils Médias & Terrain */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-mono uppercase text-[#f4ecd8]/70 tracking-wider flex items-center gap-1 font-bold">
-              <Camera size={12} className="text-[#b94a2c]" />
-              {lang === 'pt' ? 'Terreno & Mídia' : 'Terrain & Médias'}
-            </span>
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={() => { onClose(); onOpenPaperWorkshop('scanner'); }}
-                className="p-2 bg-[#1a1a1a] border border-[var(--cordel-border)] hover:border-[#b94a2c] text-[var(--cordel-text)] font-cactus font-bold text-[10px] uppercase tracking-wider flex items-center gap-2 text-left"
-              >
-                <FileText size={14} className="text-[#b94a2c]" />
-                {lang === 'pt' ? 'Escanear partitura' : 'Scanner une partition papier'}
-              </button>
-              <button
-                onClick={() => { onClose(); onOpenPhotoBooth(); }}
-                className="p-2 bg-[#1a1a1a] border border-[var(--cordel-border)] hover:border-[#b94a2c] text-[var(--cordel-text)] font-cactus font-bold text-[10px] uppercase tracking-wider flex items-center gap-2 text-left"
-              >
-                <Camera size={14} className="text-[#b94a2c]" />
-                {lang === 'pt' ? 'Fotografar sinal de Mestre' : 'Photographier un signe de Mestre'}
-              </button>
-              <button
-                onClick={() => { onClose(); onOpenLyricsVideo(); }}
-                className="p-2 bg-[#1a1a1a] border border-[var(--cordel-border)] hover:border-[#b94a2c] text-[var(--cordel-text)] font-cactus font-bold text-[10px] uppercase tracking-wider flex items-center gap-2 text-left"
-              >
-                <Video size={14} className="text-[#b94a2c]" />
-                {lang === 'pt' ? 'Letra & Vídeo' : 'Paroles & Vidéo 9:16'}
-              </button>
-            </div>
-          </div>
-
           {/* 3. Préférences Système & Bascule Studio */}
-          <div className="flex flex-col gap-2 pt-1 border-t border-[var(--cordel-border)]/40">
+          <div className="flex flex-col gap-2 pt-2 border-t border-[var(--cordel-border)]/40">
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={onToggleLang}

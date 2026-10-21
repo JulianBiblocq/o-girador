@@ -11,32 +11,29 @@ import { useShallow } from 'zustand/react/shallow';
 import { MobileTopHeader } from './MobileTopHeader';
 import { MobileCondensedConductor } from './MobileCondensedConductor';
 import { MobileSectionLooper } from './MobileSectionLooper';
-import { MobileFamilyMixer } from './MobileFamilyMixer';
+import { MobileFamilyPads } from './MobileFamilyPads';
 import { MobileLetraDrawer } from './MobileLetraDrawer';
 import { MobileTransportHero } from './MobileTransportHero';
 import { MobileMenuSheet } from './MobileMenuSheet';
 import { MobileSongPickerModal } from './MobileSongPickerModal';
-import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
-import { CloudRhythmSignal } from '../../types';
 
 interface Props {
   isPlaying: boolean; isLoading: boolean; onTogglePlay: (opts?: any) => void; onStop: () => void;
   masterEQ: { low: number; mid: number; high: number }; setMasterEQ: (eq: { low: number; mid: number; high: number }) => void;
   cloudPresets: any[]; localPresets: any[]; onPresetChange: (val: string) => void; activePreset: string;
-  onToggleStudio: () => void; onOpenPaperWorkshop: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
+  onToggleStudio: () => void; onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
   isDarkMode?: boolean; onToggleDarkMode?: () => void; onOpenLyricsVideo?: () => void;
 }
 
 export const MobileRehearsalRemote: React.FC<Props> = ({
   isPlaying, isLoading, onTogglePlay, onStop, masterEQ, setMasterEQ, cloudPresets, localPresets,
-  onPresetChange, activePreset, onToggleStudio, onOpenPaperWorkshop, isDarkMode = true,
-  onToggleDarkMode = () => {}, onOpenLyricsVideo = () => {},
+  onPresetChange, activePreset, onToggleStudio, isDarkMode = true,
+  onToggleDarkMode = () => {},
 }) => {
   const { lang, setLang, bpm, setBpm, metadata } = useSequencer();
   const audio = useAudio();
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
   const [isLetraOpen, setIsLetraOpen] = useState(false);
 
   const { loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, isTouchLocked } =
@@ -75,7 +72,7 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
       />
 
       <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
-        <MobileFamilyMixer isLocked={isTouchLocked} />
+        <MobileFamilyPads isLocked={isTouchLocked} />
         {isLetraOpen && (
           <MobileLetraDrawer
             onClose={() => setIsLetraOpen(false)}
@@ -113,29 +110,12 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
         onClose={() => setIsMenuOpen(false)}
         masterEQ={masterEQ}
         setMasterEQ={setMasterEQ}
-        onOpenPaperWorkshop={onOpenPaperWorkshop}
-        onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
-        onOpenLyricsVideo={onOpenLyricsVideo}
         lang={lang}
         onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')}
         isDarkMode={isDarkMode}
         onToggleDarkMode={onToggleDarkMode}
         onToggleStudio={onToggleStudio}
       />
-
-      {isPhotoBoothOpen && (
-        <MusicalPhotoBoothModal
-          isOpen={isPhotoBoothOpen}
-          onClose={() => setIsPhotoBoothOpen(false)}
-          onSave={(sig) => {
-            const list = useSequencerStore.getState().mestreSignals || [];
-            const newSig: CloudRhythmSignal = { ...sig, id: `sig_${Date.now()}`, mestreId: 'local' };
-            useSequencerStore.setState({ mestreSignals: [...list, newSig] });
-            setIsPhotoBoothOpen(false);
-          }}
-          lang={lang}
-        />
-      )}
     </div>
   );
 };

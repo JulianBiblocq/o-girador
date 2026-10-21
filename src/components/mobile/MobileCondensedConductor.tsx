@@ -40,20 +40,14 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
     let lastBeat = -1;
     const handleTick = (detail: any) => {
       const beat = (detail.isPreRoll && typeof detail.preRollBeat === 'number')
-        ? detail.preRollBeat
-        : Math.min(3, Math.max(0, Math.floor((detail.ratio ?? 0) * 4)));
+        ? detail.preRollBeat : Math.min(3, Math.max(0, Math.floor((detail.ratio ?? 0) * 4)));
       if (beat === lastBeat) return;
       lastBeat = beat;
       beatRefs.forEach((ref, idx) => {
         const el = ref.current;
         if (!el) return;
-        if (idx === beat) {
-          el.style.backgroundColor = '#b94a2c';
-          el.style.color = '#f4ecd8';
-        } else {
-          el.style.backgroundColor = '#1a1a1a';
-          el.style.color = 'var(--cordel-text)';
-        }
+        el.style.backgroundColor = idx === beat ? '#b94a2c' : '#1a1a1a';
+        el.style.color = idx === beat ? '#f4ecd8' : 'var(--cordel-text)';
       });
     };
     subscribeToTick(handleTick);
@@ -121,19 +115,23 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-[#1a1a1a] px-2 py-1 border border-[var(--cordel-border)] min-h-[30px]">
-        <div className="w-6 h-6 border border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[#121212] overflow-hidden">
+      {/* Conducteur & Signe du Mestre Agrandis (w-20 h-20) */}
+      <div className="flex items-center gap-2 bg-[#1a1a1a] p-1.5 border border-[var(--cordel-border)] min-h-[84px]">
+        <div className="w-20 h-20 border-2 border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[#121212] overflow-hidden shadow-[2px_2px_0px_var(--cordel-border)]">
           {signalImg ? (
             <img src={signalImg} alt={activeSignal?.name || 'Sinal'} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-[10px] opacity-40 font-mono">✋</span>
+            <span className="text-3xl opacity-40 font-mono">✋</span>
           )}
         </div>
-        <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden text-xs font-bold leading-tight">
-          {puxLyrics && <span className="text-[#c25e38] truncate">{puxLyrics}</span>}
-          {coroLyrics && <span className="text-[#1e40af] truncate">[{coroLyrics}]</span>}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 overflow-hidden">
+          <span className="font-cactus font-bold text-xs uppercase text-[#b94a2c] truncate">
+            {activeSignal?.name || activeSection?.name || 'CONDUCTEUR'}
+          </span>
+          {puxLyrics && <span className="text-[#c25e38] text-xs font-bold truncate leading-tight">{puxLyrics}</span>}
+          {coroLyrics && <span className="text-[#60a5fa] text-xs font-bold truncate leading-tight">[{coroLyrics}]</span>}
           {!puxLyrics && !coroLyrics && (
-            <span className="text-[var(--cordel-text)]/40 italic text-[10px] truncate">
+            <span className="text-[var(--cordel-text)]/50 italic text-[11px] truncate">
               {activeSection ? activeSection.name : '—'}
             </span>
           )}
