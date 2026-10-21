@@ -64,7 +64,7 @@ export const MobileSingleFaderPopover: React.FC<Props> = ({ label, volume, onCha
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs select-none"
     >
-      <div className="w-full max-w-[260px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_#000] p-4 flex flex-col items-center gap-3">
+      <div className="w-full max-w-[260px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] p-4 flex flex-col items-center gap-3">
         <div className="w-full flex items-center justify-between border-b border-[var(--cordel-border)]/40 pb-2">
           <span className="font-cactus font-bold text-base uppercase tracking-wider text-[#b94a2c]">{label}</span>
           <button onClick={onClose} className="p-1 hover:text-[#b94a2c] active:scale-95 cursor-pointer" aria-label="Fermer">
@@ -78,7 +78,7 @@ export const MobileSingleFaderPopover: React.FC<Props> = ({ label, volume, onCha
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="h-56 w-16 bg-[#121212] border-2 border-[var(--cordel-border)] relative cursor-ns-resize flex items-end justify-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.9)] overflow-hidden"
+          className="h-56 w-16 bg-[#1a1a1a] border-2 border-[var(--cordel-border)] relative cursor-ns-resize flex items-end justify-center shadow-[inset_0_2px_6px_rgba(0,0,0,0.9)] overflow-hidden"
           style={{ touchAction: 'none' }}
         >
           {/* Repère visuel 0 dB (Unity Gain à 75%) */}
@@ -97,7 +97,7 @@ export const MobileSingleFaderPopover: React.FC<Props> = ({ label, volume, onCha
 
         <button
           onClick={handleCartoucheClick}
-          className="w-full py-1.5 px-3 bg-[#1a1a1a] text-[#f4ecd8] border-2 border-[var(--cordel-border)] font-mono font-bold text-sm text-center tabular-nums shadow-[2px_2px_0_var(--cordel-border)] active:scale-95 cursor-pointer"
+          className="w-full py-1.5 px-3 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-mono font-bold text-sm text-center tabular-nums shadow-[2px_2px_0_var(--cordel-border)] active:scale-95 cursor-pointer"
           title="Double-clic pour remettre à 0.0 dB"
         >
           {faderPositionToDbString(volume)}

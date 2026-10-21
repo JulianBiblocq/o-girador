@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react';
+import { safeSuspendAudioContext } from '../../../audio/audioContextSuspendManager';
 
 export function usePhotoBoothCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -10,6 +11,7 @@ export function usePhotoBoothCamera() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
+      await safeSuspendAudioContext();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       });
@@ -54,5 +56,12 @@ export function usePhotoBoothCamera() {
     }
   }, []);
 
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      stopCamera();
+    });
+  }
+
   return { videoRef, streamRef, rawBase64ImagesRef, startCamera, stopCamera, captureCurrentFrame };
 }
+

@@ -74,7 +74,7 @@ export function renderCordelPixels(
   const finalImgData = new ImageData(workSize, workSize);
   const fData = finalImgData.data;
   const frameBorder = Math.round(15 * (workSize / outSize));
-  const grainFactor = (options.woodGrain ?? 10) / 10;
+  const grainFactor = (options.woodGrain ?? 10) / 100;
 
   for (let y = 0; y < workSize; y++) {
     for (let x = 0; x < workSize; x++) {

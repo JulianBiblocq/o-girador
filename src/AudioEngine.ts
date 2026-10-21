@@ -21,6 +21,7 @@ import { EngineNotePlayer } from './audio/engine/engineNotePlayer';
 import { EnginePurge } from './audio/engine/enginePurge';
 import { EngineVisibility } from './audio/engine/engineVisibility';
 import { EngineDisposer } from './audio/engine/engineDisposer';
+import { scheduleAudioContextAutoSuspend, safeResumeAudioContext, safeSuspendAudioContext } from './audio/audioContextSuspendManager';
 
 export type { ActiveInstrumentData };
 
@@ -75,8 +76,8 @@ export class AudioEngine {
   public get currentVocalPreset() { return this.voiceSynthManager.currentVocalPreset; } public set currentVocalPreset(v: VocalPresetId) { this.voiceSynthManager.currentVocalPreset = v; }
 
   public setOnPositionJump(cb: (step: number, measure: number) => void): void { (this.clock as any).onPositionJump = cb; }
-  public start(startTime?: number): void { this.clock.start(startTime); }
-  public stop(): void { this.clock.stop(); this.purgeScheduledHits(); this.releaseAllVoices(); }
+  public start(startTime?: number): void { safeResumeAudioContext(); this.clock.start(startTime); }
+  public stop(): void { this.clock.stop(); this.purgeScheduledHits(); this.releaseAllVoices(); scheduleAudioContextAutoSuspend(1500); }
   public forceReanchor(): void { this.clock.forceReanchor(); }
   public getIsPlaying(): boolean { return this.clock.isPlaying; }
   public getCurrentTime(): number { return this.audioContext.currentTime; }
@@ -138,7 +139,10 @@ export class AudioEngine {
       clock: this.clock, sampleLoader: this.sampleLoader, scheduledHits: this.scheduledHits,
       activeGainNodes: this.activeGainNodes, channels: this.channels, voiceSynthManager: this.voiceSynthManager
     });
-    this.unsubscribeTracks = null;
-    this.cleanupVisibility = null;
+    this.unsubscribeTracks = null; this.cleanupVisibility = null;
   }
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => { safeSuspendAudioContext(); });
 }

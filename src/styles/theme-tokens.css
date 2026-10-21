@@ -9,12 +9,21 @@
   font-display: swap;
 }
 
-:root {
+:root, [data-theme='dark'] {
+  color-scheme: dark;
   /* Dark mode is default */
-  --cordel-bg: #1a1a1a;
+  --cordel-bg: #121212;
+  --cordel-surface: #1e1b18;
   --cordel-text: #f4ecd8;
-  --cordel-border: #f4ecd8;
+  --cordel-text-muted: #d6cbb5;
+  --cordel-border: rgba(244, 236, 216, 0.35);
   --cordel-wood: #8b2a1a;
+  --cordel-accent: #b94a2c;
+  --cordel-card-btn-bg: #262220;
+  --cordel-card-btn-text: #f4ecd8;
+  --cordel-card-btn-border: rgba(244, 236, 216, 0.3);
+  --cordel-beat-odd: #1e1b18;
+  --cordel-beat-even: #292524;
   /* --cordel-master-bg: #121212; -- Old charcoal tint */
   --cordel-master-bg: #251c1a; /* Deeper earth-red tinted dark background (10% #8b2a1a) */
   --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
@@ -72,9 +81,17 @@
 [data-theme='light'] {
   color-scheme: light;
   --cordel-bg: #f4ecd8;
+  --cordel-surface: #efe6d0;
   --cordel-text: #1a1a1a;
+  --cordel-text-muted: #44403c;
   --cordel-border: #1a1a1a;
   --cordel-wood: #8b2a1a;
+  --cordel-accent: #b94a2c;
+  --cordel-card-btn-bg: #efe6d0;
+  --cordel-card-btn-text: #1a1a1a;
+  --cordel-card-btn-border: #1a1a1a;
+  --cordel-beat-odd: #f4ecd8;
+  --cordel-beat-even: #e2d5b5;
   /* --cordel-master-bg: #eae1cd; -- Old antique beige */
   --cordel-master-bg: #e7d5c1; /* Deeper earth-red tinted light background (12% #8b2a1a) */
   --cordel-shadow-color: rgba(26, 26, 26, 0.25); /* Ombre sombre classique */

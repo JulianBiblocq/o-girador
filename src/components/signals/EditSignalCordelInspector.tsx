@@ -1,5 +1,8 @@
-import React from 'react';
-import { CordelOptions, defaultCordelOptions } from '../../utils/cordelEffect';
+import React, { useState } from 'react';
+import { Sliders, RotateCcw } from 'lucide-react';
+import { CordelOptions } from '../../utils/cordelEffect';
+import { MobileSignalLightAccordion } from '../mobile/editor/MobileSignalLightAccordion';
+import { MobileSignalFramingAccordion } from '../mobile/editor/MobileSignalFramingAccordion';
 
 interface EditSignalCordelInspectorProps {
   options: CordelOptions;
@@ -14,94 +17,42 @@ export const EditSignalCordelInspector: React.FC<EditSignalCordelInspectorProps>
   onOptionsChange,
   onReset,
 }) => {
+  const [openSection, setOpenSection] = useState<'light' | 'framing' | null>('light');
+
   return (
-    <div className="border-2 border-[var(--cordel-border)] p-3 bg-black/5 flex flex-col gap-2.5">
-      <div className="flex justify-between items-center border-b border-[var(--cordel-border)]/20 pb-1">
-        <span className="font-cactus font-bold uppercase text-[11px] tracking-wider text-[var(--cordel-wood)] flex items-center gap-1">
-          📐 {lang === 'fr' ? 'Réglages de gravure Cordel' : 'Configurações de gravura Cordel'}
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-between items-center pb-0.5">
+        <span className="font-cactus font-bold uppercase text-xs text-[var(--cordel-wood)] flex items-center gap-1.5">
+          <Sliders size={13} />
+          <span>{lang === 'fr' ? 'Réglages de gravure Cordel' : 'Configurações de gravura Cordel'}</span>
         </span>
         <button
           type="button"
           onClick={onReset}
-          className="text-[9px] font-cactus font-bold uppercase underline hover:text-[var(--cordel-wood)] cursor-pointer"
+          className="text-[10px] font-cactus font-bold uppercase hover:text-[var(--cordel-wood)] cursor-pointer flex items-center gap-1 opacity-75 hover:opacity-100"
         >
-          ↺ {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
+          <RotateCcw size={10} />
+          <span>{lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex justify-between text-[10px] font-cactus font-bold uppercase">
-            <span>{lang === 'fr' ? 'Contraste Xilo' : 'Contraste Xilo'}</span>
-            <span>{options.sobelContrast ?? 50}%</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={options.sobelContrast ?? 50}
-            onChange={(e) => onOptionsChange({ sobelContrast: Number(e.target.value) })}
-            className="w-full accent-[var(--cordel-wood)]"
-          />
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <div className="flex justify-between text-[10px] font-cactus font-bold uppercase">
-            <span>{lang === 'fr' ? 'Ombres & Encre' : 'Sombras & Tinta'}</span>
-            <span>{options.shadow ?? 128}</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="255"
-            value={options.shadow ?? 128}
-            onChange={(e) => onOptionsChange({ shadow: Number(e.target.value) })}
-            className="w-full accent-[var(--cordel-wood)]"
-          />
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <div className="flex justify-between text-[10px] font-cactus font-bold uppercase">
-            <span>Zoom</span>
-            <span>{options.zoom ?? 120}%</span>
-          </div>
-          <input
-            type="range"
-            min="100"
-            max="200"
-            value={options.zoom ?? 120}
-            onChange={(e) => onOptionsChange({ zoom: Number(e.target.value) })}
-            className="w-full accent-[var(--cordel-wood)]"
-          />
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <div className="flex justify-between text-[10px] font-cactus font-bold uppercase">
-            <span>{lang === 'fr' ? 'Grain Bois' : 'Granulação'}</span>
-            <span>{options.woodGrain ?? 10}%</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="60"
-            value={options.woodGrain ?? 10}
-            onChange={(e) => onOptionsChange({ woodGrain: Number(e.target.value) })}
-            className="w-full accent-[var(--cordel-wood)]"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-[var(--cordel-border)]/20 pt-1.5 mt-0.5">
-        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-cactus font-bold uppercase">
-          <input
-            type="checkbox"
-            checked={options.isMirror ?? true}
-            onChange={(e) => onOptionsChange({ isMirror: e.target.checked })}
-            className="accent-[var(--cordel-wood)] cursor-pointer"
-          />
-          ↔️ {lang === 'fr' ? 'Effet Miroir Horizontal' : 'Efeito Espelho'}
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <MobileSignalLightAccordion
+          isOpen={openSection === 'light'}
+          onToggle={() => setOpenSection((p) => (p === 'light' ? null : 'light'))}
+          options={options}
+          onUpdate={onOptionsChange}
+          lang={lang}
+        />
+        <MobileSignalFramingAccordion
+          isOpen={openSection === 'framing'}
+          onToggle={() => setOpenSection((p) => (p === 'framing' ? null : 'framing'))}
+          options={options}
+          onUpdate={onOptionsChange}
+          lang={lang}
+        />
       </div>
     </div>
   );
 };
+

@@ -33,7 +33,7 @@ export const MobileAuthBadge: React.FC<Props> = ({ lang = 'pt' }) => {
     return (
       <button
         onClick={() => openVisitorAuthModal()}
-        className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm font-cactus font-bold text-[10px] sm:text-xs uppercase tracking-wide flex items-center gap-1 shadow-[2px_2px_0_var(--cordel-border)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] active:translate-y-0.5 cursor-pointer shrink-0"
+        className="px-2 py-1 bg-[#262220] text-[#f4ecd8] border border-[#f4ecd8]/40 font-cactus font-bold text-[10px] sm:text-xs uppercase tracking-wide flex items-center gap-1 shadow-[1px_1px_0_#000] hover:bg-[#b94a2c] active:translate-y-0.5 cursor-pointer shrink-0"
         title={lang === 'pt' ? 'Conectar-se' : 'Se connecter'}
       >
         <User size={13} className="shrink-0 text-[#b94a2c]" />
@@ -51,7 +51,7 @@ export const MobileAuthBadge: React.FC<Props> = ({ lang = 'pt' }) => {
     <div className="relative shrink-0 select-none">
       <button
         onClick={() => setShowDropdown((prev) => !prev)}
-        className="h-8 px-1.5 bg-[#1a1a1a] text-[#f4ecd8] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0_var(--cordel-border)] flex items-center gap-1.5 active:translate-y-0.5 cursor-pointer font-cactus font-bold text-xs"
+        className="h-8 px-1.5 bg-[#262220] text-[#f4ecd8] border border-[#f4ecd8]/40 shadow-[1px_1px_0_#000] flex items-center gap-1.5 active:translate-y-0.5 cursor-pointer font-cactus font-bold text-xs"
         title={currentUser?.email || displayName}
       >
         {photoURL && !imgError ? (

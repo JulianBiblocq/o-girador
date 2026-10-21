@@ -12,29 +12,24 @@ import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuff
 import { instrumentsConfig } from '../../data';
 
 interface Props {
-  isLetraOpen: boolean;
-  onToggleLetra: () => void;
-  lang?: 'fr' | 'pt';
+  isLetraOpen: boolean; onToggleLetra: () => void; lang?: 'fr' | 'pt';
 }
 
-export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang = 'pt' }) => {
+export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang: propLang }) => {
   const beatRefs = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
   const isMetroOn = useTransportStore((s) => s.isMetroOn);
   const setIsMetroOn = useTransportStore((s) => s.setIsMetroOn);
 
-  const { currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, measureSignals, mestreSignals, tracks } =
+  const { lang: sLang, currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, measureSignals, mestreSignals, tracks } =
     useSequencerStore(
       useShallow((s) => ({
-        currentMeasure: s.currentMeasure,
-        totalMeasures: s.totalMeasures,
-        loopMode: s.loopMode ?? 'infinite',
-        currentLoopIteration: s.currentLoopIteration ?? 1,
-        songSections: s.songSections || [],
-        measureSignals: s.measureSignals || [],
-        mestreSignals: s.mestreSignals || [],
-        tracks: s.tracks || [],
+        lang: s.lang, currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
+        loopMode: s.loopMode ?? 'infinite', currentLoopIteration: s.currentLoopIteration ?? 1,
+        songSections: s.songSections || [], measureSignals: s.measureSignals || [],
+        mestreSignals: s.mestreSignals || [], tracks: s.tracks || [],
       }))
     );
+  const lang = sLang || propLang || 'pt';
 
   useEffect(() => {
     let lastBeat = -1;
@@ -46,8 +41,8 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
       beatRefs.forEach((ref, idx) => {
         const el = ref.current;
         if (!el) return;
-        el.style.backgroundColor = idx === beat ? '#b94a2c' : '#1a1a1a';
-        el.style.color = idx === beat ? '#f4ecd8' : 'var(--cordel-text)';
+        el.style.backgroundColor = idx === beat ? '#b94a2c' : 'var(--cordel-card-btn-bg)';
+        el.style.color = idx === beat ? '#f4ecd8' : 'var(--cordel-card-btn-text)';
       });
     };
     subscribeToTick(handleTick);
@@ -68,7 +63,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
   const coroLyrics = coroPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
 
   return (
-    <div className="w-full bg-[#121212] px-2 py-1.5 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none">
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1.5 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none">
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1 shrink-0">
           {[1, 2, 3, 4].map((num, idx) => (
@@ -76,7 +71,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
               key={num}
               ref={beatRefs[idx]}
               className="w-5 h-5 flex items-center justify-center font-mono font-bold text-[10px] border border-[var(--cordel-border)] transition-none"
-              style={{ backgroundColor: '#1a1a1a', color: 'var(--cordel-text)' }}
+              style={{ backgroundColor: 'var(--cordel-card-btn-bg)', color: 'var(--cordel-card-btn-text)' }}
             >
               {num}
             </span>
@@ -84,10 +79,10 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         </div>
 
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-cactus font-bold text-xs uppercase text-[#b94a2c] truncate">
+          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] truncate">
             {activeSection ? activeSection.name : `M${currentMeasure + 1}`}
           </span>
-          <span className="font-mono text-[9px] text-[#f4ecd8]/60 whitespace-nowrap">
+          <span className="font-mono text-[9px] text-[var(--cordel-text-muted)] whitespace-nowrap">
             M{currentMeasure + 1}/{totalMeasures} • {loopMode === 'infinite' ? '∞' : `${currentLoopIteration}/${loopMode}`}
           </span>
         </div>
@@ -95,18 +90,18 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setIsMetroOn(!isMetroOn)}
-            className={`px-1.5 py-0.5 cordel-border-sm flex items-center gap-1 text-[9px] font-cactus font-bold uppercase ${
-              isMetroOn ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[#1a1a1a] text-[var(--cordel-text)]'
+            className={`px-1.5 py-0.5 border font-cactus font-bold uppercase text-[9px] cursor-pointer flex items-center gap-1 ${
+              isMetroOn ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
             }`}
-            title="Repère sonore sur les temps"
+            title={lang === 'pt' ? 'Guia sonoro nos tempos' : 'Repère sonore sur les temps'}
           >
             <Bell size={11} />
-            <span>Repère</span>
+            <span>{lang === 'pt' ? 'Guia' : 'Repère'}</span>
           </button>
           <button
             onClick={onToggleLetra}
-            className={`px-1.5 py-0.5 cordel-border-sm flex items-center gap-1 text-[9px] font-cactus font-bold uppercase ${
-              isLetraOpen ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[#1a1a1a] text-[var(--cordel-text)]'
+            className={`px-1.5 py-0.5 border font-cactus font-bold uppercase text-[9px] cursor-pointer flex items-center gap-1 ${
+              isLetraOpen ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
             }`}
           >
             <BookOpen size={11} />
@@ -116,8 +111,8 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
       </div>
 
       {/* Conducteur & Signe du Mestre Agrandis (w-20 h-20) */}
-      <div className="flex items-center gap-2 bg-[#1a1a1a] p-1.5 border border-[var(--cordel-border)] min-h-[84px]">
-        <div className="w-20 h-20 border-2 border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[#121212] overflow-hidden shadow-[2px_2px_0px_var(--cordel-border)]">
+      <div className="flex items-center gap-2 bg-[var(--cordel-card-btn-bg)] p-1.5 border-2 border-[var(--cordel-border)] min-h-[84px] shadow-[2px_2px_0px_#000]">
+        <div className="w-20 h-20 border-2 border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[var(--cordel-surface)] overflow-hidden shadow-[1px_1px_0px_#000]">
           {signalImg ? (
             <img src={signalImg} alt={activeSignal?.name || 'Sinal'} className="w-full h-full object-cover" />
           ) : (
@@ -129,13 +124,13 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
           )}
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 overflow-hidden">
-          <span className="font-cactus font-bold text-xs uppercase text-[#b94a2c] truncate">
-            {activeSignal?.name || activeSection?.name || 'CONDUCTEUR'}
+          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] truncate">
+            {activeSignal?.name || activeSection?.name || (lang === 'pt' ? 'CONDUTOR' : 'CONDUCTEUR')}
           </span>
           {puxLyrics && <span className="text-[#c25e38] text-xs font-bold truncate leading-tight">{puxLyrics}</span>}
-          {coroLyrics && <span className="text-[#60a5fa] text-xs font-bold truncate leading-tight">[{coroLyrics}]</span>}
+          {coroLyrics && <span className="text-[#2a9d8f] text-xs font-bold truncate leading-tight">[{coroLyrics}]</span>}
           {!puxLyrics && !coroLyrics && (
-            <span className="text-[var(--cordel-text)]/50 italic text-[11px] truncate">
+            <span className="text-[var(--cordel-text-muted)] italic text-[11px] truncate">
               {activeSection ? activeSection.name : '—'}
             </span>
           )}

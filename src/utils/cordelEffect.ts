@@ -41,7 +41,7 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   let cx = img.width / 2;
   let cy = img.height / 2;
   let boxSize = Math.min(img.width, img.height);
-  const lockFraming = options.lockFraming ?? true;
+  const lockFraming = options.lockFraming !== false;
 
   if (!isSquare && !lockFraming) {
     const sc = document.createElement('canvas');
@@ -85,7 +85,7 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   const sX = cx - cropSize / 2 + shiftX;
   const sY = cy - cropSize / 2 + shiftY;
 
-  const workSize = Math.max(outSize * 2, Math.min(720, Math.max(img.width, img.height)));
+  const workSize = Math.max(outSize * 2, Math.min(720, Math.max(360, Math.max(img.width, img.height))));
   const tc = document.createElement('canvas');
   tc.width = workSize; tc.height = workSize;
   const tctx = tc.getContext('2d', { willReadFrequently: true });
@@ -100,9 +100,9 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   const isBg = computeBackgroundMask(imgData.data, workSize, options.bgRemovalMode ?? 'none', options.bgTolerance ?? 40);
   const gray = computeLuminance(imgData.data, workSize, isBg, options.brightness ?? 0);
 
-  const sobelPct = options.sobelContrast !== undefined ? options.sobelContrast : (options.detail !== undefined ? Math.round((options.detail / 150) * 100) : 50);
+  const sobelPct = options.sobelContrast !== undefined ? options.sobelContrast : (options.detail !== undefined ? Math.round((options.detail / 150) * 100) : 55);
   const clampedSobel = Math.min(100, Math.max(0, sobelPct));
-  const detailSensibility = clampedSobel === 0 ? 9999 : 400 - (clampedSobel / 100) * 375;
+  const detailSensibility = clampedSobel === 0 ? 9999 : 400 - (clampedSobel / 100) * 380;
   const inkThreshold = options.threshold !== undefined ? options.threshold : (options.shadow ?? 128);
 
   const finalImgData = renderCordelPixels(gray, isBg, workSize, outSize, {
@@ -125,3 +125,22 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
 
   return targetCanvas.toDataURL('image/jpeg', 0.85);
 };
+
+export const compressRawFrameForArchive = (base64Img: string, maxDim = 360, quality = 0.6): Promise<string> =>
+  new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d');
+      if (!ctx) return resolve(base64Img);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(base64Img);
+    img.src = base64Img;
+  });

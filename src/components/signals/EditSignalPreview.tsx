@@ -1,4 +1,5 @@
 import React from 'react';
+import { Eye } from 'lucide-react';
 
 interface EditSignalPreviewProps {
   resolvedImage: string;
@@ -32,10 +33,11 @@ export const EditSignalPreview: React.FC<EditSignalPreviewProps> = ({
   onImgError,
 }) => {
   return (
-    <div className="flex flex-col items-center gap-2 bg-black/5 p-3 border border-[var(--cordel-border)]/30">
+    <div className="flex flex-col items-center gap-2 bg-black/5 p-3 border border-[var(--cordel-border)]/30 w-full">
       <div className="flex justify-between items-center w-full">
-        <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
-          🖼️ {lang === 'fr' ? 'Aperçu actuel :' : 'Visualização atual :'}
+        <span className="text-[10px] font-cactus font-bold uppercase opacity-75 flex items-center gap-1">
+          <Eye size={12} className="text-[var(--cordel-wood)]" />
+          <span>{lang === 'fr' ? 'Aperçu actuel :' : 'Visualização atual :'}</span>
         </span>
         <span className="text-[9px] font-cactus opacity-60">
           {isSinglePhoto
@@ -44,7 +46,7 @@ export const EditSignalPreview: React.FC<EditSignalPreviewProps> = ({
         </span>
       </div>
 
-      <div className="relative w-32 h-32 md:w-36 md:h-36 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow flex items-center justify-center">
+      <div className="relative w-full max-w-[340px] aspect-square mx-auto border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow flex items-center justify-center">
         {!showSealFallback ? (
           <img
             src={resolvedImage}

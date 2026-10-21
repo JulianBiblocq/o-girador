@@ -11,25 +11,22 @@ import { getEnsembleVocabulary } from '../../universes/styleVocabularyConfig';
 import { MOBILE_FAMILIES } from './mobileFamilyConfig';
 import { MobilePercTrackSelector } from './MobilePercTrackSelector';
 import { Users } from 'lucide-react';
-import { Track } from '../../types';
 
 interface Props {
-  primaryTrackId: number | null;
-  setPrimaryTrackId: (id: number) => void;
-  referenceTrackId: number | null;
-  setReferenceTrackId: (id: number | null) => void;
-  isLetraActive: boolean;
-  lang?: 'fr' | 'pt';
+  primaryTrackId: number | null; setPrimaryTrackId: (id: number) => void;
+  referenceTrackId: number | null; setReferenceTrackId: (id: number | null) => void;
+  isLetraActive: boolean; lang?: 'fr' | 'pt';
 }
 
 export const MobilePercControls: React.FC<Props> = ({
-  primaryTrackId, setPrimaryTrackId, referenceTrackId, setReferenceTrackId, isLetraActive, lang = 'pt',
+  primaryTrackId, setPrimaryTrackId, referenceTrackId, setReferenceTrackId, isLetraActive, lang: propLang,
 }) => {
+  const storeLang = useSequencerStore((s) => s.lang);
+  const lang = storeLang || propLang || 'pt';
   const tracks = useSequencerStore((s) => s.tracks);
   const setTracks = useSequencerStore((s) => s.setTracks);
   const getInstrumentLabel = useNomenclatureStore((s) => s.getInstrumentLabel);
-  const [isFamilyMuted, setIsFamilyMuted] = useState(false);
-  const [isRestMuted, setIsRestMuted] = useState(false);
+  const [isFamilyMuted, setIsFamilyMuted] = useState(false); const [isRestMuted, setIsRestMuted] = useState(false);
 
   const eligibleRodaTracks = tracks.filter((t) => {
     if (t.isHidden || !isSequencerVisibleTrack(t, tracks)) return false;
@@ -88,11 +85,11 @@ export const MobilePercControls: React.FC<Props> = ({
   const vocab = getEnsembleVocabulary('maracatu', lang);
 
   return (
-    <div className="w-full bg-[#121212] px-2 py-1 flex flex-col gap-1 border-b border-[var(--cordel-border)] shrink-0 select-none">
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none">
       <div className="grid grid-cols-2 gap-1.5">
         <MobilePercTrackSelector
-          label={lang === 'pt' ? 'Meu Instrumento' : 'Mon Pupitre'}
-          labelColorClass="text-[#b94a2c]"
+          label={lang === 'pt' ? 'MEU NAIPE' : 'MON PUPITRE'}
+          labelColorClass="text-[#8b2a1a]"
           selectedTrackId={primaryTrackId}
           onSelectTrackId={(id) => {
             if (id !== null) {
@@ -106,13 +103,14 @@ export const MobilePercControls: React.FC<Props> = ({
           onToggleMute={() => toggleMute(primaryTrackId)}
         />
         <MobilePercTrackSelector
-          label={lang === 'pt' ? 'Repère : [ Guia ]' : 'Repère : [ Guide ]'}
+          label={lang === 'pt' ? 'REPÈRE : [ GUIA ]' : 'REPÈRE : [ GUIDE ]'}
+          labelColorClass="text-[#8b2a1a]"
           selectedTrackId={referenceTrackId}
           onSelectTrackId={setReferenceTrackId}
           trackOptions={eligibleRodaTracks.filter((t) => t.id !== primaryTrackId)}
           getTrackName={getTrackName}
           allowNone
-          noneLabel={lang === 'pt' ? 'Nenhum' : 'Aucun'}
+          noneLabel={lang === 'pt' ? 'Nenhum (Apenas meu naipe)' : 'Aucun (Mon pupitre seul)'}
           currentTrack={referenceTrack}
           onToggleMute={() => toggleMute(referenceTrackId)}
         />
@@ -122,10 +120,10 @@ export const MobilePercControls: React.FC<Props> = ({
         <button
           onClick={toggleFamilyMute}
           disabled={!primaryFam}
-          className={`h-7 px-1.5 cordel-border-sm font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_var(--cordel-border)] active:translate-y-0.5 ${
-            !primaryFam ? 'opacity-30' : isFamilyMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#f4ecd8]' : 'bg-[#1a1a1a] text-[var(--cordel-text)] hover:border-[#b94a2c]'
+          className={`h-7 px-1.5 border font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#000] active:translate-y-0.5 cursor-pointer ${
+            !primaryFam ? 'opacity-30' : isFamilyMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#8b2a1a]'
           }`}
-          title="Couper le son de toute la famille de mon instrument"
+          title={lang === 'pt' ? 'Mutar família do meu naipe' : 'Couper le son de la famille de mon pupitre'}
         >
           <Users size={12} />
           <span className="truncate">{lang === 'pt' ? 'Mudo Família' : 'Muet Famille'} : {isFamilyMuted ? 'ON' : 'OFF'}</span>
@@ -133,10 +131,10 @@ export const MobilePercControls: React.FC<Props> = ({
 
         <button
           onClick={toggleRestOfEnsembleMute}
-          className={`h-7 px-1.5 cordel-border-sm font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_var(--cordel-border)] active:translate-y-0.5 ${
-            isRestMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#f4ecd8]' : 'bg-[#1a1a1a] text-[var(--cordel-text)] hover:border-[#b94a2c]'
+          className={`h-7 px-1.5 border font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#000] active:translate-y-0.5 cursor-pointer ${
+            isRestMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#8b2a1a]'
           }`}
-          title={`Muter / Démuter le ${vocab.restOfEnsemble}`}
+          title={lang === 'pt' ? `Mutar / Desmutar o ${vocab.restOfEnsemble}` : `Muter / Démuter le ${vocab.restOfEnsemble}`}
         >
           <span className="truncate">{vocab.restOfEnsemble} : {isRestMuted ? 'OFF' : 'ON'}</span>
         </button>

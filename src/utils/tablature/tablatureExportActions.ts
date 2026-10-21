@@ -45,6 +45,8 @@ export const exportTablatureFile = (
   URL.revokeObjectURL(url);
 };
 
+import { safeSuspendAudioContext } from '../../audio/audioContextSuspendManager';
+
 export const printTablature = (
   tracks: TrackGroup[] | string,
   annexTrackIds: Set<number>,
@@ -56,6 +58,7 @@ export const printTablature = (
   letras?: string,
   fontSize?: number
 ) => {
+  try { safeSuspendAudioContext(); } catch (_) {}
   const lang = useSequencerStore.getState().lang || 'fr';
   const defaultTitle = lang === 'fr' ? "Partition O Girador" : "Partitura O Girador";
   const title = metadata?.toada?.trim() || defaultTitle;
@@ -75,31 +78,47 @@ export const printTablature = (
   }
 
   innerContent += `<div class="tab-footer">${lang === 'fr' ? 'Généré avec O Girador' : 'Gerado com O Girador'}</div>`;
-  const printContainer = document.createElement('div');
-  printContainer.id = 'print-tablature-area';
-  const styleBlock = document.createElement('style');
-  styleBlock.textContent = `
-    @media print {
-      @page { size: landscape; margin: 0; }
-      body { background: white; }
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      #print-tablature-area { position: absolute; top: 0; left: 0; right: 0; background: white; z-index: 999999; }
-      table.print-table { width: 100%; border-collapse: collapse; border: none; }
-      table.print-table th, table.print-table td { border: none; padding: 0; }
-      .print-header-space { height: 5mm; }
-      .tab-title { font-family: 'Cactus', serif; font-size: 18px; text-align: center; margin-bottom: 5px; }
-      .tab-subtitle { font-family: sans-serif; font-size: 12px; text-align: center; margin-bottom: 20px; font-style: italic; }
-      .tab-pre { white-space: pre; font-family: monospace; font-size: ${fontSize || 13}px !important; line-height: 1.3; }
-      .tab-chunk { page-break-inside: avoid; break-inside: avoid; margin-bottom: 0.5em; }
-      .tab-footer { text-align: right; font-family: sans-serif; font-size: 10px; margin-top: 30px; color: #555; }
-      .tab-letras { margin-top: 40px; font-family: sans-serif; font-size: 12px; white-space: pre-wrap; }
-      .tab-letras h3 { margin-bottom: 10px; font-size: 14px; }
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const frameDoc = iframe.contentWindow?.document;
+  if (!frameDoc) {
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    return;
+  }
+
+  frameDoc.open();
+  frameDoc.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+    @page { size: landscape; margin: 4mm; }
+    body { background: white; color: black; margin: 0; padding: 10px; font-family: monospace; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .tab-title { font-family: serif; font-size: 18px; text-align: center; margin-bottom: 5px; }
+    .tab-subtitle { font-family: sans-serif; font-size: 12px; text-align: center; margin-bottom: 16px; font-style: italic; }
+    .tab-pre { white-space: pre; font-family: monospace; font-size: ${fontSize || 12}px !important; line-height: 1.3; }
+    .tab-chunk { page-break-inside: avoid; break-inside: avoid; margin-bottom: 0.5em; }
+    .tab-footer { text-align: right; font-family: sans-serif; font-size: 10px; margin-top: 20px; color: #555; }
+    .tab-letras { margin-top: 25px; font-family: sans-serif; font-size: 12px; white-space: pre-wrap; }
+    .tab-letras h3 { margin-bottom: 8px; font-size: 14px; }
+  </style></head><body>${innerContent}</body></html>`);
+  frameDoc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (err) {
+      console.error('[printTablature] Print error:', err);
+    } finally {
+      setTimeout(() => {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      }, 1000);
     }
-  `;
-  document.head.appendChild(styleBlock);
-  printContainer.innerHTML = `<table class="print-table"><thead><tr><td><div class="print-header-space"></div></td></tr></thead><tbody><tr><td>${innerContent}</td></tr></tbody><tfoot><tr><td><div class="print-footer-space"></div></td></tr></tfoot></table>`;
-  document.body.appendChild(printContainer);
-  window.print();
-  document.body.removeChild(printContainer);
-  document.head.removeChild(styleBlock);
+  }, 250);
 };

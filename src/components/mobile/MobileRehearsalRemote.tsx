@@ -31,15 +31,16 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
   onPresetChange, activePreset, onToggleStudio, isDarkMode = true,
   onToggleDarkMode = () => {},
 }) => {
-  const { lang, setLang, bpm, setBpm, metadata } = useSequencer();
+  const { setLang, bpm, setBpm, metadata } = useSequencer();
   const audio = useAudio();
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLetraOpen, setIsLetraOpen] = useState(false);
 
-  const { loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, isTouchLocked } =
+  const { lang, loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, isTouchLocked } =
     useSequencerStore(
       useShallow((s) => ({
+        lang: s.lang,
         loopMode: s.loopMode ?? 'infinite',
         setLoopMode: s.setLoopMode,
         isLoopExitRequested: s.isLoopExitRequested,
@@ -57,7 +58,7 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
   const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
 
   return (
-    <div className="w-full h-dvh flex flex-col bg-[#121212] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
+    <div className="w-full h-dvh flex flex-col bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
       <MobileTopHeader
         songTitle={metadata?.toada || activePreset}
         onOpenSongPicker={() => setIsSongPickerOpen(true)}

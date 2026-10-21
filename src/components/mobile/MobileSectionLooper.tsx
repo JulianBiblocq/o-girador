@@ -17,13 +17,14 @@ export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeas
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
 
   const {
-    songSections, loopStartMeasure, loopEndMeasure, isLoopRegionActive, pendingLoopRange,
+    songSections, loopStartMeasure, loopEndMeasure, isLoopRegionActive, pendingLoopRange, lang,
     setLoopStartMeasure, setLoopEndMeasure, setIsLoopRegionActive, setPendingLoopRange,
   } = useSequencerStore(
     useShallow((s) => ({
       songSections: s.songSections || [],
       loopStartMeasure: s.loopStartMeasure, loopEndMeasure: s.loopEndMeasure,
       isLoopRegionActive: s.isLoopRegionActive, pendingLoopRange: s.pendingLoopRange,
+      lang: s.lang || 'pt',
       setLoopStartMeasure: s.setLoopStartMeasure, setLoopEndMeasure: s.setLoopEndMeasure,
       setIsLoopRegionActive: s.setIsLoopRegionActive, setPendingLoopRange: s.setPendingLoopRange,
     }))
@@ -73,14 +74,14 @@ export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeas
   const isAllActive = !isLoopRegionActive && pendingLoopRange === null;
 
   return (
-    <div className="w-full bg-[#121212] px-2 py-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 select-none border-b border-[var(--cordel-border)]/40">
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 select-none border-b-2 border-[var(--cordel-border)]">
       <button
         onClick={handleClearLoop}
-        className={`min-h-[42px] px-3 py-1.5 text-xs font-cactus font-bold uppercase cordel-border-sm shrink-0 flex items-center justify-center transition-colors shadow-[2px_2px_0px_var(--cordel-border)] ${
-          isAllActive ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[#1a1a1a] text-[var(--cordel-text)] hover:border-[#b94a2c]'
+        className={`min-h-[40px] px-3 py-1.5 text-xs font-cactus font-bold uppercase border-2 shrink-0 flex items-center justify-center transition-colors shadow-[2px_2px_0px_#000] cursor-pointer ${
+          isAllActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
         }`}
       >
-        TOUT
+        {lang === 'pt' ? 'TUDO' : 'TOUT'}
       </button>
 
       {songSections.map((sec) => {
@@ -92,14 +93,14 @@ export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeas
           <button
             key={sec.id}
             onClick={() => handleSelectSection(sec)}
-            className={`min-h-[42px] px-3 py-1.5 text-xs font-cactus font-bold uppercase cordel-border-sm shrink-0 flex items-center justify-center transition-all shadow-[2px_2px_0px_var(--cordel-border)] ${
+            className={`min-h-[40px] px-3 py-1.5 text-xs font-cactus font-bold uppercase border-2 shrink-0 flex items-center justify-center transition-all shadow-[2px_2px_0px_#000] cursor-pointer ${
               isPending
-                ? 'bg-[#b94a2c]/70 text-[#f4ecd8] border-[#f4ecd8] animate-pulse'
+                ? 'bg-[#b94a2c]/70 text-[#f4ecd8] border-black animate-pulse'
                 : isActive
-                ? 'bg-[#b94a2c] text-[#f4ecd8] border-[var(--cordel-border)]'
+                ? 'bg-[#b94a2c] text-[#f4ecd8] border-black'
                 : isAnchor
-                ? 'bg-[#1a1a1a] text-[#b94a2c] border-[#b94a2c]'
-                : 'bg-[#1a1a1a] text-[var(--cordel-text)] hover:border-[#b94a2c]'
+                ? 'bg-[var(--cordel-card-btn-bg)] text-[#b94a2c] border-[#b94a2c]'
+                : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
             }`}
           >
             {sec.name}

@@ -41,11 +41,11 @@ export const MobilePercTrackSelector: React.FC<Props> = ({
         <select
           value={selectedTrackId ?? ''}
           onChange={(e) => onSelectTrackId(e.target.value ? Number(e.target.value) : null)}
-          className="flex-1 min-w-0 bg-[#1a1a1a] text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase px-1.5 py-1 cordel-border-sm cursor-pointer shadow-[1px_1px_0_var(--cordel-border)] focus:outline-none"
+          className="flex-1 min-w-0 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-xs uppercase px-1.5 py-1 border-2 border-[var(--cordel-border)] cursor-pointer shadow-[1px_1px_0_#000] focus:outline-none"
         >
-          {allowNone && <option value="">{noneLabel}</option>}
+          {allowNone && <option value="" className="bg-[var(--cordel-surface)] text-[var(--cordel-text)]">{noneLabel}</option>}
           {trackOptions.map((t) => (
-            <option key={t.id} value={t.id}>
+            <option key={t.id} value={t.id} className="bg-[var(--cordel-surface)] text-[var(--cordel-text)]">
               {getTrackName(t)}
             </option>
           ))}
@@ -53,12 +53,12 @@ export const MobilePercTrackSelector: React.FC<Props> = ({
         <button
           onClick={onToggleMute}
           disabled={!currentTrack}
-          className={`w-8 h-8 cordel-border-sm flex items-center justify-center shrink-0 shadow-[1px_1px_0_var(--cordel-border)] active:translate-y-0.5 ${
+          className={`w-8 h-8 border-2 border-[var(--cordel-border)] flex items-center justify-center shrink-0 shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
             !currentTrack
-              ? 'opacity-30 bg-[#1a1a1a] text-stone-500'
+              ? 'opacity-30 bg-[var(--cordel-card-btn-bg)] text-stone-500'
               : currentTrack.isMute
-              ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#f4ecd8]'
-              : 'bg-[#1a1a1a] text-[#27ae60] border-[#27ae60]/60'
+              ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black'
+              : 'bg-[var(--cordel-card-btn-bg)] text-[#27ae60]'
           }`}
           title={
             !currentTrack

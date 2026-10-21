@@ -41,7 +41,7 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
   const [isBlankModalOpen, setIsBlankModalOpen] = useState(false);
 
   return (
-    <div className="w-full h-dvh flex flex-col bg-[#121212] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
+    <div className="w-full h-dvh flex flex-col bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
       <MobileTopHeader
         songTitle={metadata?.toada || props.activePreset}
         onOpenSongPicker={() => setIsSongPickerOpen(true)}
@@ -50,19 +50,23 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
       />
 
       {/* Barre d'onglets Édition */}
-      <div className="flex border-b border-[var(--cordel-border)] bg-[var(--cordel-bg)] px-2 py-1.5 gap-2 shrink-0">
+      <div className="flex border-b-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] px-2 py-1.5 gap-2 shrink-0">
         <button
           onClick={() => setActiveTab('scan')}
-          className={`flex-1 py-1.5 text-xs font-mono font-bold rounded transition-colors ${
-            activeTab === 'scan' ? 'bg-[var(--cordel-accent)] text-white' : 'hover:bg-black/5 text-[var(--cordel-text)]'
+          className={`flex-1 py-1.5 text-xs font-cactus font-bold uppercase border-2 transition-colors cursor-pointer ${
+            activeTab === 'scan'
+              ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[2px_2px_0px_#000]'
+              : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-black/5'
           }`}
         >
           {tMobile(lang, 'scanTab')}
         </button>
         <button
           onClick={() => setActiveTab('signal')}
-          className={`flex-1 py-1.5 text-xs font-mono font-bold rounded transition-colors ${
-            activeTab === 'signal' ? 'bg-[var(--cordel-accent)] text-white' : 'hover:bg-black/5 text-[var(--cordel-text)]'
+          className={`flex-1 py-1.5 text-xs font-cactus font-bold uppercase border-2 transition-colors cursor-pointer ${
+            activeTab === 'signal'
+              ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[2px_2px_0px_#000]'
+              : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-black/5'
           }`}
         >
           {tMobile(lang, 'signalTab')}

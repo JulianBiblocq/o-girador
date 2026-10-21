@@ -30,7 +30,8 @@ interface Props {
 }
 
 export const MobilePercussionMode: React.FC<Props> = (props) => {
-  const { lang, setLang, bpm, metadata } = useSequencer();
+  const { setLang, bpm, metadata } = useSequencer();
+  const lang = useSequencerStore((s) => s.lang);
   const audio = useAudio();
   const tracks = useSequencerStore((s) => s.tracks);
   const currentMeasure = useSequencerStore((s) => s.currentMeasure);
@@ -95,7 +96,7 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
   const visibleTrackIds = [primaryTrackId, ...(referenceTrackId ? [referenceTrackId] : [])].filter(Boolean) as number[];
 
   return (
-    <div className="w-full h-dvh flex flex-col bg-[#121212] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
+    <div className="w-full h-dvh flex flex-col bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
       <MobileTopHeader
         songTitle={metadata?.toada || props.activePreset}
         onOpenSongPicker={() => setIsSongPickerOpen(true)}
@@ -126,7 +127,7 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       />
       {isLetraDrawerOpen && <MobileLetraDrawer onClose={() => setIsLetraDrawerOpen(false)} lang={lang} />}
       <MobileSongPickerModal isOpen={isSongPickerOpen} onClose={() => setIsSongPickerOpen(false)} localPresets={props.localPresets} cloudPresets={props.cloudPresets} activePreset={props.activePreset} onPresetChange={props.onPresetChange} lang={lang} />
-      <MobileMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} masterEQ={props.masterEQ} setMasterEQ={props.setMasterEQ} onOpenPaperWorkshop={props.onOpenPaperWorkshop} lang={lang} onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')} isDarkMode={props.isDarkMode ?? true} onToggleDarkMode={props.onToggleDarkMode ?? (() => {})} onToggleStudio={props.onToggleStudio} />
+      <MobileMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} masterEQ={props.masterEQ} setMasterEQ={props.setMasterEQ} onOpenPaperWorkshop={props.onOpenPaperWorkshop} lang={lang} onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')} isDarkMode={props.isDarkMode ?? true} onToggleDarkMode={props.onToggleDarkMode ?? (() => {})} onToggleStudio={props.onToggleStudio} primaryTrackId={primaryTrackId} referenceTrackId={referenceTrackId} />
       {isSpeedTrainerOpen && <SpeedTrainerModal changeViewMode={props.onToggleStudio} />}
     </div>
   );

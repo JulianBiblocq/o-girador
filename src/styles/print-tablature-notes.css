@@ -27,6 +27,10 @@ input[type="range"]:not(.vertical-fader) {
 }
 
 /* === PRINT STYLE FOR TABLATURE === */
+#print-tablature-area {
+  display: none !important;
+}
+
 @media print {
   body {
     background-color: white !important;
@@ -42,6 +46,7 @@ input[type="range"]:not(.vertical-fader) {
   }
 
   #print-tablature-area {
+    display: block !important;
     position: absolute;
     left: 0;
     top: 0;

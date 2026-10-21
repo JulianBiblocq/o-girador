@@ -15,7 +15,9 @@ interface Props {
   lang?: 'fr' | 'pt';
 }
 
-export const MobileViewModeSelector: React.FC<Props> = ({ className = '', lang = 'pt' }) => {
+export const MobileViewModeSelector: React.FC<Props> = ({ className = '', lang: propLang }) => {
+  const storeLang = useSequencerStore((s) => s.lang);
+  const lang = storeLang || propLang || 'pt';
   const mobileViewMode = useSequencerStore((s) => s.mobileViewMode || 'danse');
   const setMobileViewMode = useSequencerStore((s) => s.setMobileViewMode);
   const { userProfile, isAdmin } = useAuth();

@@ -10,6 +10,7 @@ import { useMuteGroupStore } from '../../stores/useMuteGroupStore';
 import { MobileFamilyDef, MuteGroupId, ALL_MUTE_GROUP_IDS } from './mobileFamilyConfig';
 import { instrumentsConfig } from '../../data';
 import { faderPositionToDbString } from '../../utils/audioMath';
+import { tMobile } from '../../i18n/mobileTranslations';
 
 interface Props {
   family: MobileFamilyDef;
@@ -19,7 +20,7 @@ interface Props {
 
 export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFader }) => {
   const longPressTimerRef = useRef<any>(null);
-
+  const lang = useSequencerStore((s) => s.lang);
   const tracks = useSequencerStore((s) => s.tracks);
   const setTracks = useSequencerStore((s) => s.setTracks);
   const vocalMode = useAudioStore((s) => s.vocalMode);
@@ -57,7 +58,7 @@ export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFade
   };
 
   return (
-    <div className={`flex flex-col h-full p-1.5 bg-[#1a1a1a] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)] ${isLocked ? 'opacity-80' : ''}`}>
+    <div className={`flex flex-col h-full p-1.5 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)] ${isLocked ? 'opacity-80' : ''}`}>
       {/* 1. En-tête : Nom + commutateur VOIX/SYNTH si toada + Badge dB */}
       <div className="shrink-0 flex items-center justify-between mb-1 gap-1">
         <span className="font-cactus font-bold text-xs uppercase text-[var(--cordel-text)] truncate">{family.label}</span>
@@ -66,10 +67,10 @@ export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFade
           <button
             onClick={() => !isLocked && setVocalMode(vocalMode === 'synth' ? 'voice' : 'synth')}
             className={`px-1 py-0.5 font-cactus font-bold text-[9px] uppercase border transition-colors ${
-              vocalMode !== 'synth' ? 'bg-[#b94a2c] text-[#f4ecd8] border-[#f4ecd8]' : 'bg-[#121212] text-[var(--cordel-text)] border-[var(--cordel-border)]'
+              vocalMode !== 'synth' ? 'bg-[#b94a2c] text-[#f4ecd8] border-[#f4ecd8]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
             }`}
           >
-            {vocalMode === 'synth' ? 'SYNTH' : 'VOIX'}
+            {vocalMode === 'synth' ? 'SYNTH' : tMobile(lang, 'voix').toUpperCase()}
           </button>
         )}
 
@@ -79,7 +80,7 @@ export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFade
           onPointerCancel={cancelLongPress}
           onContextMenu={(e) => e.preventDefault()}
           onClick={() => !isLocked && onOpenFader()}
-          className="font-mono font-bold text-[10px] text-[#f4ecd8] tabular-nums bg-[#b94a2c]/30 px-1 py-0.5 rounded-xs border border-[#b94a2c]/40 cursor-pointer active:border-[#b94a2c] shrink-0"
+          className="font-mono font-bold text-[10px] text-[var(--cordel-text)] tabular-nums bg-[#b94a2c]/20 px-1 py-0.5 rounded-xs border border-[#b94a2c]/50 cursor-pointer active:border-[#b94a2c] shrink-0"
           title="Appui long ou clic pour fader individuel"
         >
           {faderPositionToDbString(avgVol)}
@@ -94,7 +95,7 @@ export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFade
             onClick={toggleMute}
             disabled={isLocked}
             className={`flex-1 w-full text-xl font-mono font-black border-2 flex items-center justify-center transition-colors active:translate-y-0.5 ${
-              allMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#f4ecd8]' : 'bg-[#121212] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:border-[#8b2a1a]'
+              allMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#8b2a1a]'
             }`}
             title="Mute"
           >
@@ -104,7 +105,7 @@ export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFade
             onClick={toggleSolo}
             disabled={isLocked}
             className={`flex-1 w-full text-xl font-mono font-black border-2 flex items-center justify-center transition-colors active:translate-y-0.5 ${
-              anySolo ? 'bg-[#d4af37] text-black border-black font-extrabold' : 'bg-[#121212] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:border-[#d4af37]'
+              anySolo ? 'bg-[#d4af37] text-black border-black font-extrabold' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#d4af37]'
             }`}
             title="Solo"
           >
@@ -126,8 +127,8 @@ export const MobileFamilyCard: React.FC<Props> = ({ family, isLocked, onOpenFade
                   isAssigned && isActive
                     ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#f4ecd8] shadow-xs'
                     : isAssigned
-                    ? 'bg-[#d4af37]/25 text-[#d4af37] border-[#d4af37]'
-                    : 'bg-[#121212] text-[var(--cordel-text)]/40 border-[var(--cordel-border)]/40 hover:border-[var(--cordel-border)]'
+                    ? 'bg-[#d4af37]/30 text-[var(--cordel-text)] border-2 border-[#d4af37]'
+                    : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]/40 border-[var(--cordel-border)]/40 hover:border-[var(--cordel-border)]'
                 }`}
                 title={`Groupe de Mute ${gid}`}
               >

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { resolvePupitreAbbr, resolvePupitreDisplayName, saveCustomPupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
 import { Edit2, Link } from 'lucide-react';
+import { tPaper } from '../../i18n/paperWorkshopTranslations';
 
 interface Props {
   pupitres: string[];
@@ -45,25 +46,27 @@ export const BlankSheetPupitreSelector: React.FC<Props> = ({
   };
 
   const groupBtns = [
-    { label: lang === 'fr' ? 'Lier Alfaias (Al)' : 'Ligar Alfaias (Al)', active: linkAlfaias, toggle: () => onToggleLinkAlfaias(!linkAlfaias) },
-    { label: lang === 'fr' ? 'Bus Caixas (Cx+Tr)' : 'Bus Caixas (Cx+Tr)', active: busCaixas, toggle: () => onToggleBusCaixas(!busCaixas) },
-    { label: lang === 'fr' ? 'Bus Sementes (Ab+Mi)' : 'Bus Sementes (Ab+Mi)', active: busSementes, toggle: () => onToggleBusSementes(!busSementes) },
+    { label: `${tPaper(lang, 'linkAlfaias')} (Al)`, active: linkAlfaias, toggle: () => onToggleLinkAlfaias(!linkAlfaias) },
+    { label: `${tPaper(lang, 'busCaixas')} (Cx+Tr)`, active: busCaixas, toggle: () => onToggleBusCaixas(!busCaixas) },
+    { label: `${tPaper(lang, 'busSementes')} (Ab+Mi)`, active: busSementes, toggle: () => onToggleBusSementes(!busSementes) },
   ];
 
   return (
-    <div className="flex flex-col gap-2 p-3 bg-black/10 border-2 border-[var(--cordel-border,#1a1a1a)] text-xs text-[#1a1a1a]">
+    <div className="flex flex-col gap-2 p-3 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] text-xs text-[var(--cordel-text)]">
       {/* 1. BOUTONS DE LIAISON & BUS */}
-      <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-black/20">
-        <span className="font-cactus font-bold uppercase text-[10px] text-[#8b2a1a]">Groupements :</span>
+      <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-[var(--cordel-border)]/30">
+        <span className="font-cactus font-bold uppercase text-[10px] text-[#8b2a1a]">
+          {lang === 'fr' ? 'Groupements :' : 'Agrupamentos :'}
+        </span>
         {groupBtns.map((b, i) => (
-          <button key={i} type="button" onClick={b.toggle} className={`px-2 py-0.5 border font-cactus font-bold text-[10px] cursor-pointer flex items-center gap-1 ${b.active ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[#f4ecd8] text-[#1a1a1a] border-black/40'}`}>
+          <button key={i} type="button" onClick={b.toggle} className={`px-2 py-0.5 border font-cactus font-bold text-[10px] cursor-pointer flex items-center gap-1 ${b.active ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[var(--cordel-border)]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]/40'}`}>
             <Link size={10} /> <span>{b.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="text-[10px] font-bold text-[#1a1a1a]/80">
-        {lang === 'fr' ? '• Rouge = sélectionné pour l\'impression  • Parchemin = non imprimé' : '• Vermelho = impresso  • Pergaminho = não impresso'}
+      <div className="text-[10px] font-bold text-[var(--cordel-text-muted)]">
+        • {tPaper(lang, 'pupitreLegendHint')}
       </div>
 
       {/* 2. LISTE DES PUPITRES */}
@@ -73,14 +76,14 @@ export const BlankSheetPupitreSelector: React.FC<Props> = ({
           const abbr = customAbbrs[k] || resolvePupitreAbbr(k);
           const name = resolvePupitreDisplayName(k, lang);
           return (
-            <div key={k} className="flex items-center shadow-[1px_1px_0px_#1a1a1a]">
-              <button type="button" onClick={() => onTogglePupitre(k)} className={`px-2 py-1 text-[10px] border-2 cursor-pointer font-bold transition-colors ${isSelected ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a] hover:bg-[#fff9ea]'}`}>
+            <div key={k} className="flex items-center shadow-[1px_1px_0px_var(--cordel-border)]">
+              <button type="button" onClick={() => onTogglePupitre(k)} className={`px-2 py-1 text-[10px] border-2 cursor-pointer font-bold transition-colors ${isSelected ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[var(--cordel-border)]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-[#b94a2c]/20'}`}>
                 {abbr} ({name})
               </button>
               {editingCode === k ? (
-                <input type="text" autoFocus defaultValue={abbr} maxLength={4} onBlur={(e) => handleEditAbbr(k, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleEditAbbr(k, (e.target as any).value)} className="w-10 px-1 py-0.5 bg-white text-black font-mono text-[10px] border-2 border-black uppercase" />
+                <input type="text" autoFocus defaultValue={abbr} maxLength={4} onBlur={(e) => handleEditAbbr(k, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleEditAbbr(k, (e.target as any).value)} className="w-10 px-1 py-0.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] font-mono text-[10px] border-2 border-[var(--cordel-border)] uppercase" />
               ) : (
-                <button type="button" onClick={() => setEditingCode(k)} title={lang === 'fr' ? 'Modifier l\'abréviation (2 lettres)' : 'Modificar abreviação'} className="px-1 py-1 bg-black/10 hover:bg-black/20 border-y-2 border-r-2 border-[#1a1a1a] cursor-pointer text-[#1a1a1a]">
+                <button type="button" onClick={() => setEditingCode(k)} title={lang === 'fr' ? 'Modifier l\'abréviation (2 lettres)' : 'Modificar abreviação'} className="px-1 py-1 bg-[var(--cordel-card-btn-bg)] hover:bg-[#b94a2c]/30 border-y-2 border-r-2 border-[var(--cordel-border)] cursor-pointer text-[var(--cordel-card-btn-text)]">
                   <Edit2 size={10} />
                 </button>
               )}
@@ -90,17 +93,19 @@ export const BlankSheetPupitreSelector: React.FC<Props> = ({
       </div>
 
       {/* 3. SOUS-LIGNE ALFAIAS & LIGNES LIBRES */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/20">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--cordel-border)]/30">
         {pupitres.includes('al') && linkAlfaias && (
           <label className="flex items-center gap-1.5 font-bold text-[10px] cursor-pointer">
             <input type="checkbox" checked={includeVarLine} onChange={(e) => onToggleIncludeVarLine(e.target.checked)} className="accent-[#8b2a1a]" />
-            <span>{lang === 'fr' ? 'Sous-ligne Alfaias [+1 ligne ↳Me/Rp]' : 'Sublinha Alfaias [+1 linha ↳Me/Rp]'}</span>
+            <span>{tPaper(lang, 'includeVarLine')}</span>
           </label>
         )}
         <div className="flex items-center gap-1 text-[10px]">
-          <span className="font-cactus font-bold uppercase text-[#8b2a1a]">{lang === 'fr' ? '+ Lignes libres [____] :' : '+ Linhas livres [____] :'}</span>
+          <span className="font-cactus font-bold uppercase text-[#8b2a1a]">
+            + {tPaper(lang, 'freeLines')} [____] :
+          </span>
           {[0, 1, 2, 4, 8].map((num) => (
-            <button key={num} type="button" onClick={() => onChangeFreeLinesCount(num)} className={`px-1.5 py-0.5 border text-[10px] font-bold cursor-pointer ${freeLinesCount === num ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[#f4ecd8] text-[#1a1a1a] border-black/40'}`}>
+            <button key={num} type="button" onClick={() => onChangeFreeLinesCount(num)} className={`px-1.5 py-0.5 border text-[10px] font-bold cursor-pointer ${freeLinesCount === num ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[var(--cordel-border)]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]/40'}`}>
               {num}
             </button>
           ))}

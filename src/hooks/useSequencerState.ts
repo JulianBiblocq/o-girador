@@ -45,7 +45,9 @@ export function useSequencerState() {
     useSequencerStore.getState().setLang(newLang);
   }, []);
 
-  useEffect(() => { useSequencerStore.getState().setLang(lang); }, [lang]);
+  useEffect(() => useSequencerStore.subscribe((s) => {
+    if (s.lang && s.lang !== lang) _setLang(s.lang);
+  }), [lang]);
   useEffect(() => { useSequencerStore.setState({ bpm: m.bpm, timeSig: m.timeSig, isLooping: m.isLooping }); }, [m.bpm, m.timeSig, m.isLooping]);
   useEffect(() => {
     if (userProfile?.isLeftHanded !== undefined) {

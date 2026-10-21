@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 
 interface CircleInfoBadgesProps {
   timeSig: string;
@@ -17,9 +18,12 @@ export const CircleInfoBadges: React.FC<CircleInfoBadgesProps> = ({
   timeSig,
   activeBpm,
   activeVol,
-  lang,
+  lang: propLang,
   hideBpmBadge = false,
 }) => {
+  const storeLang = useSequencerStore((s) => s.lang);
+  const lang = propLang || storeLang || 'pt';
+
   return (
     <>
       <div className="absolute top-2 right-2 md:top-4 md:right-4 bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_var(--cordel-border)] md:shadow-[4px_4px_0px_var(--cordel-border)] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">

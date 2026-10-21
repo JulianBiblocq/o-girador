@@ -1,4 +1,5 @@
 import React from 'react';
+import { Timer, Play, Pause } from 'lucide-react';
 
 interface PhotoBoothReviewTimelineProps {
   frames: string[];
@@ -52,11 +53,12 @@ export const PhotoBoothReviewTimeline: React.FC<PhotoBoothReviewTimelineProps> =
             isPlaying ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white text-black hover:bg-black hover:text-white'
           }`}
         >
-          {isPlaying ? '⏸' : '▶'} {isPlaying ? (lang === 'fr' ? 'Figer' : 'Pausar') : lang === 'fr' ? 'Animer au tempo' : 'Animar no tempo'}
+          {isPlaying ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+          <span>{isPlaying ? (lang === 'fr' ? 'Figer' : 'Pausar') : lang === 'fr' ? 'Animer au tempo' : 'Animar no tempo'}</span>
         </button>
 
         <div className="flex items-center gap-1 text-xs font-bold">
-          <span>⏱️</span>
+          <Timer size={13} className="text-[#8b2a1a]" />
           <button type="button" onClick={() => onBpmChange(Math.max(40, bpm - 5))} className="w-5 h-5 bg-white border border-black cursor-pointer hover:bg-black hover:text-white">-</button>
           <span className="w-10 text-center font-cactus">{bpm}</span>
           <button type="button" onClick={() => onBpmChange(Math.min(240, bpm + 5))} className="w-5 h-5 bg-white border border-black cursor-pointer hover:bg-black hover:text-white">+</button>

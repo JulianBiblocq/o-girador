@@ -11,7 +11,8 @@ import { PaperScannerTab } from './PaperScannerTab';
 import { MestreJsonInjectorTab } from './MestreJsonInjectorTab';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { Printer, Camera, Zap, X } from 'lucide-react';
+import { Printer, Camera, Zap, X, Lock } from 'lucide-react';
+import { tPaper, PaperWorkshopI18nKey } from '../../i18n/paperWorkshopTranslations';
 
 export interface BlankAndScanWorkshopModalProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#d99b26]" />
             <h2 className="font-cactus text-2xl font-bold uppercase tracking-wider text-[#f4ecd8]">
-              {lang === 'fr' ? 'Grand Atelier Papier Cordel' : 'Grande Oficina de Papel Cordel'}
+              {tPaper(lang, 'workshopTitle')}
             </h2>
           </div>
           <button
@@ -65,9 +66,9 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
         {/* 3 ONGLETS PRINCIPAUX HAUT CONTRASTE */}
         <div className="flex border-b-2 border-black bg-[#1a1a1a]">
           {[
-            { id: 'sheets', labelFr: 'Imprimer Fiches & Légende', labelPt: 'Imprimir Folhas & Legenda', icon: Printer, lock: false },
-            { id: 'scanner', labelFr: 'Scanner & Assembler', labelPt: 'Scanner & Montar', icon: Camera, lock: false },
-            { id: 'reserve', labelFr: 'Réserve JSON Mestre', labelPt: 'Reserva JSON Mestre', icon: Zap, lock: !canImport },
+            { id: 'sheets', key: 'tabSheets' as PaperWorkshopI18nKey, icon: Printer, lock: false },
+            { id: 'scanner', key: 'tabScanner' as PaperWorkshopI18nKey, icon: Camera, lock: false },
+            { id: 'reserve', key: 'tabReserve' as PaperWorkshopI18nKey, icon: Zap, lock: !canImport },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -83,8 +84,8 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#f4ecd8]' : 'text-[#d99b26]'}`} />
-                <span>{lang === 'fr' ? tab.labelFr : tab.labelPt}</span>
-                {tab.lock && <span className="ml-1 text-[10px] text-[#d99b26]">🔒</span>}
+                <span>{tPaper(lang, tab.key)}</span>
+                {tab.lock && <Lock className="w-3 h-3 text-[#d99b26] ml-1" />}
               </button>
             );
           })}

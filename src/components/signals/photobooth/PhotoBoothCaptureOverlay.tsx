@@ -1,4 +1,5 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface PhotoBoothCaptureOverlayProps {
   phase: 'idle' | 'repositioning' | 'beat_countdown' | 'processing' | 'review';
@@ -80,7 +81,7 @@ export const PhotoBoothCaptureOverlay: React.FC<PhotoBoothCaptureOverlayProps> =
       {/* Écran de traitement en cours */}
       {phase === 'processing' && (
         <div className="absolute inset-0 bg-[#1a1a1a]/90 backdrop-blur-sm flex flex-col items-center justify-center text-[#f4ecd8] gap-3">
-          <span className="text-4xl animate-spin">⚙️</span>
+          <Loader2 className="w-10 h-10 animate-spin text-[#ffd369]" />
           <span className="font-cactus text-lg font-bold text-[#ffd369]">
             {lang === 'fr' ? 'Gravure Cordel en cours...' : 'Gravura Cordel em andamento...'}
           </span>
@@ -89,3 +90,4 @@ export const PhotoBoothCaptureOverlay: React.FC<PhotoBoothCaptureOverlayProps> =
     </div>
   );
 };
+

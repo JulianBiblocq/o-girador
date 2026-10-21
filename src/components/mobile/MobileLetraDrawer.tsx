@@ -56,8 +56,8 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt' }) => 
   }
 
   return (
-    <div className="absolute inset-0 z-30 bg-[#121212] flex flex-col overflow-hidden select-none border-t border-[var(--cordel-border)]">
-      <div className="h-10 px-3 bg-[#1a1a1a] border-b border-[var(--cordel-border)] flex items-center justify-between shrink-0">
+    <div className="absolute inset-0 z-30 bg-[var(--cordel-bg)] text-[var(--cordel-text)] flex flex-col overflow-hidden select-none border-t border-[var(--cordel-border)]">
+      <div className="h-10 px-3 bg-[var(--cordel-surface)] border-b border-[var(--cordel-border)] flex items-center justify-between shrink-0">
         <span className="font-cactus font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)] flex items-center gap-1.5">
           <Mic size={14} className="text-[#b94a2c]" />
           <span>{lang === 'pt' ? 'Letra da Toada' : 'Paroles de la Toada'}</span>
@@ -79,9 +79,9 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt' }) => 
               data-measure-row={row.measure}
               className="px-2 py-1.5 border-l-4 border-transparent transition-colors flex flex-col gap-0.5 rounded-xs"
             >
-              <span className="font-mono text-[9px] text-[#f4ecd8]/40">M{row.measure + 1}</span>
+              <span className="font-mono text-[9px] text-[var(--cordel-text-muted)]">M{row.measure + 1}</span>
               {row.pux && <div className="text-sm font-bold text-[#c25e38] font-sans leading-snug">{row.pux}</div>}
-              {row.coro && <div className="text-sm font-bold text-[#1e40af] font-sans leading-snug">[{row.coro}]</div>}
+              {row.coro && <div className="text-sm font-bold text-[#2563eb] dark:text-[#60a5fa] font-sans leading-snug">[{row.coro}]</div>}
             </div>
           ))
         ) : globalLetras ? (
@@ -89,7 +89,7 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt' }) => 
             {globalLetras}
           </pre>
         ) : (
-          <div className="text-center italic opacity-60 text-xs py-8 font-sans">
+          <div className="text-center italic text-[var(--cordel-text-muted)] text-xs py-8 font-sans">
             {lang === 'pt' ? 'Nenhuma letra disponível para este arranjo.' : 'Aucune parole disponible pour ce morceau.'}
           </div>
         )}

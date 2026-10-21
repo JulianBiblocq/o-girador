@@ -37,7 +37,7 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
       <div class="no-print" style="margin-bottom: 10px; padding: 6px 12px; background: #fdf6e2; border: 1px solid #d99b26; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
         <span><strong>O Girador</strong> — ${lang === 'fr' ? 'Aperçu avant impression A4' : 'Visualização A4'} (${orientation})</span>
         <button onclick="window.print()" style="padding: 4px 12px; background: #8b2a1a; color: #fff; border: none; font-weight: bold; cursor: pointer;">
-          🖨️ ${lang === 'fr' ? 'Lancer l\'impression' : 'Imprimir'}
+          ${lang === 'fr' ? 'Lancer l\'impression' : 'Imprimir'}
         </button>
       </div>
       <div class="page-wrapper">
@@ -71,7 +71,7 @@ export const printCompletePaperLegend = (lang: 'fr' | 'pt'): void => {
       <div class="no-print" style="margin-bottom: 10px; padding: 6px 12px; background: #fdf6e2; border: 1.5px solid #8b2a1a; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
         <span><strong>O Girador</strong> — ${isFr ? 'Légende Complète A4 (Mémo de Référence)' : 'Guia de Referência Completo A4'}</span>
         <button onclick="window.print()" style="padding: 4px 12px; background: #8b2a1a; color: #fff; border: none; font-weight: bold; cursor: pointer;">
-          🖨️ ${isFr ? 'Imprimer la Légende' : 'Imprimir Legenda'}
+          ${isFr ? 'Imprimer la Légende' : 'Imprimir Legenda'}
         </button>
       </div>
       <div style="border: 2px solid #1a1a1a; padding: 10px; background: #ffffff;">
