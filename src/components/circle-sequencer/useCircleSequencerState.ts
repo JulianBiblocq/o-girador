@@ -129,6 +129,6 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     pendingTargetExpandedIndexRef, canvasRef, measureDisplayRef, centerOverlayRef,
     centerAfficheurRef, centerOverlayImgRef, centerOverlayTintRef, centerOverlayTextRef,
     isCenterShaking, isLetraActive, toggleLetraActive, vocalMode, setVocalMode,
-    onNavigateMeasure, handleCanvasPointerDown, handleCanvasPointerMove,
+    onNavigateMeasure, handleCanvasPointerDown, handleCanvasPointerMove, isMobile: props.isMobile ?? false,
   };
 }

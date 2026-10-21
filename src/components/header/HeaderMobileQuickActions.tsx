@@ -1,4 +1,5 @@
 import React from 'react';
+import { Settings } from 'lucide-react';
 import { XiloRoda, XiloConsole, XiloTimeline, XiloDrum } from '../XiloIcons';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
@@ -31,10 +32,10 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
           useSequencerStore.getState().closeDetailEditor();
           useSequencerStore.getState().setIsMobileStudioMode(false);
         }}
-        className="px-2 h-9 flex items-center justify-center font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#d35400] text-white shadow-[2px_2px_0_#000]"
+        className="px-2 h-9 flex items-center justify-center font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#b94a2c] text-[#f4ecd8] shadow-[2px_2px_0_#000]"
         title="Retour Télécommande Répétition"
       >
-        📱 Répétition
+        RÉPÉTITION
       </button>
 
       {/* RODA */}
@@ -112,7 +113,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
         className="w-9 h-9 flex items-center justify-center font-bold text-sm cordel-border-sm cordel-button cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
         title={lang === 'pt' ? 'A Oficina (Configurações) [O]' : "L'Atelier (Paramètres) [O]"}
       >
-        ⚙️
+        <Settings size={15} />
       </button>
     </div>
   );

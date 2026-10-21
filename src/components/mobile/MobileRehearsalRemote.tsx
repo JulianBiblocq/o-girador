@@ -1,85 +1,131 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState } from 'react';
+import { useSequencer } from '../../contexts/SequencerContext';
+import { useAudio } from '../../contexts/AudioContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { MobileRehearsalHeader } from './MobileRehearsalHeader';
-import { MobileSpeakerEqSelector } from './MobileSpeakerEqSelector';
-import { MobileVisualBeatPulse } from './MobileVisualBeatPulse';
-import { MobileFamilyMixer } from './MobileFamilyMixer';
-import { MobileTransportHero } from './MobileTransportHero';
-import { MobileFieldToolsSheet } from './MobileFieldToolsSheet';
-import { PresetAccordionSelector } from '../PresetAccordionSelector';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 import { CloudRhythmSignal } from '../../types';
-import { X } from 'lucide-react';
+
+const CircleSequencer = lazyWithRetry(() => import('../CircleSequencer').then(m => ({ default: m.CircleSequencer })), 'CircleSequencer');
+import { MobileTopHeader } from './MobileTopHeader'; import { MobileStateBar } from './MobileStateBar';
+import { MobileSectionPads } from './MobileSectionPads'; import { MobileFamilyMixerBar } from './MobileFamilyMixerBar';
+import { MobileTransportBar } from './MobileTransportBar'; import { MobileMenuSheet } from './MobileMenuSheet';
+import { MobileSongPickerModal } from './MobileSongPickerModal';
 
 interface Props {
-  isPlaying: boolean;
-  isLoading: boolean;
-  onTogglePlay: (opts?: any) => void;
-  onStop: () => void;
-  masterEQ: { low: number; mid: number; high: number };
-  setMasterEQ: (eq: { low: number; mid: number; high: number }) => void;
-  cloudPresets: any[];
-  localPresets: any[];
-  onPresetChange: (val: string) => void;
-  activePreset: string;
-  onToggleStudio: () => void;
-  onOpenPaperWorkshop: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
+  isPlaying: boolean; isLoading: boolean; onTogglePlay: (opts?: any) => void; onStop: () => void;
+  masterEQ: { low: number; mid: number; high: number }; setMasterEQ: (eq: { low: number; mid: number; high: number }) => void;
+  cloudPresets: any[]; localPresets: any[]; onPresetChange: (val: string) => void; activePreset: string;
+  onToggleStudio: () => void; onOpenPaperWorkshop: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
+  isDarkMode?: boolean; onToggleDarkMode?: () => void; onOpenLyricsVideo?: () => void;
 }
 
 export const MobileRehearsalRemote: React.FC<Props> = ({
-  isPlaying,
-  isLoading,
-  onTogglePlay,
-  onStop,
-  masterEQ,
-  setMasterEQ,
-  cloudPresets,
-  localPresets,
-  onPresetChange,
-  activePreset,
-  onToggleStudio,
-  onOpenPaperWorkshop,
+  isPlaying, isLoading, onTogglePlay, onStop, masterEQ, setMasterEQ, cloudPresets, localPresets,
+  onPresetChange, activePreset, onToggleStudio, onOpenPaperWorkshop, isDarkMode = true,
+  onToggleDarkMode = () => {}, onOpenLyricsVideo = () => {},
 }) => {
+  const { lang, setLang, bpm, setBpm, metadata } = useSequencer();
+  const audio = useAudio();
   const [isLocked, setIsLocked] = useState(false);
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
-  const metadata = useSequencerStore((s) => s.metadata);
-  const lang = useSequencerStore((s) => s.lang);
 
-  const songTitle = metadata?.toada || activePreset;
+  const { currentMeasure, totalMeasures, loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, songMarkers, songSections } =
+    useSequencerStore((s) => ({
+      currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
+      loopMode: s.loopMode ?? 'infinite', setLoopMode: s.setLoopMode,
+      isLoopExitRequested: s.isLoopExitRequested, requestLoopExit: s.requestLoopExit,
+      songMarkers: s.songMarkers || [], songSections: s.songSections || []
+    }));
+  const currentIteration = (audio as any).currentLoopIteration ?? 1;
+
+  const handleNavigateMeasure = (mIdx: number) => {
+    const target = (mIdx + totalMeasures) % totalMeasures;
+    audio.handleTimelineNavigate(target, 0, 16);
+  };
+
+  const handleChangeBpm = (delta: number) => {
+    setBpm(Math.max(40, Math.min(240, bpm + delta)));
+  };
 
   return (
-    <div className="flex flex-col h-full w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden relative select-none">
-      <MobileRehearsalHeader
-        songTitle={songTitle}
-        isLocked={isLocked}
-        onToggleLock={() => setIsLocked(!isLocked)}
-        onToggleStudio={onToggleStudio}
+    <div className="w-full h-dvh flex flex-col bg-[#121212] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
+      <MobileTopHeader
+        songTitle={metadata?.toada || activePreset}
         onOpenSongPicker={() => setIsSongPickerOpen(true)}
+        onOpenMenu={() => setIsMenuOpen(true)}
       />
 
-      <MobileSpeakerEqSelector
-        currentEQ={masterEQ}
-        onApplyEQ={setMasterEQ}
-        disabled={isLocked}
+      <MobileStateBar
+        currentMeasure={currentMeasure}
+        totalMeasures={totalMeasures}
+        onNavigatePrev={() => handleNavigateMeasure(currentMeasure - 1)}
+        onNavigateNext={() => handleNavigateMeasure(currentMeasure + 1)}
+        loopMode={loopMode}
+        currentIteration={currentIteration}
+        isLocked={isLocked}
+        onToggleLock={() => setIsLocked((prev) => !prev)}
       />
 
-      <div className="px-3 pb-1">
-        <MobileVisualBeatPulse />
+      <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 relative w-full h-full flex items-center justify-center">
+          <React.Suspense fallback={null}>
+            <CircleSequencer isMobile={true} isActive={true} />
+          </React.Suspense>
+        </div>
+        <MobileSectionPads
+          songMarkers={songMarkers}
+          songSections={songSections}
+          currentMeasure={currentMeasure}
+          onNavigateSection={(m) => audio.handleTimelineNavigate(m, 0, 16)}
+        />
       </div>
 
-      <MobileFamilyMixer isLocked={isLocked} />
+      <MobileFamilyMixerBar isLocked={isLocked} />
 
-      <MobileFieldToolsSheet
-        onOpenPaperWorkshop={onOpenPaperWorkshop}
-        onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
-      />
-
-      <MobileTransportHero
+      <MobileTransportBar
         isPlaying={isPlaying}
         isLoading={isLoading}
         onTogglePlay={onTogglePlay}
         onStop={onStop}
+        bpm={bpm}
+        onChangeBpm={handleChangeBpm}
+        loopMode={loopMode}
+        onChangeLoopMode={setLoopMode}
+        isLoopExitRequested={isLoopExitRequested}
+        onRequestLoopExit={requestLoopExit}
+      />
+
+      <MobileSongPickerModal
+        isOpen={isSongPickerOpen}
+        onClose={() => setIsSongPickerOpen(false)}
+        localPresets={localPresets}
+        cloudPresets={cloudPresets}
+        activePreset={activePreset}
+        onPresetChange={onPresetChange}
+        lang={lang}
+      />
+
+      <MobileMenuSheet
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        masterEQ={masterEQ}
+        setMasterEQ={setMasterEQ}
+        onOpenPaperWorkshop={onOpenPaperWorkshop}
+        onOpenPhotoBooth={() => setIsPhotoBoothOpen(true)}
+        onOpenLyricsVideo={onOpenLyricsVideo}
+        lang={lang}
+        onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={onToggleDarkMode}
+        onToggleStudio={onToggleStudio}
       />
 
       {isPhotoBoothOpen && (
@@ -94,41 +140,6 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
           }}
           lang={lang}
         />
-      )}
-
-      {isSongPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 backdrop-blur-xs">
-          <div className="bg-[var(--cordel-bg)] cordel-border w-full max-w-sm max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-3 border-b-2 border-[var(--cordel-border)] flex items-center justify-between bg-black/5">
-              <span className="font-cactus font-bold text-sm uppercase">
-                Choisir un morceau
-              </span>
-              <button
-                onClick={() => setIsSongPickerOpen(false)}
-                className="p-1 cordel-border-sm font-bold"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="p-3 overflow-y-auto flex-1">
-              <PresetAccordionSelector
-                lang={lang}
-                activePreset={activePreset}
-                currentSongTitle={songTitle}
-                publicCloudPresets={cloudPresets.filter((p: any) => !p.isPrivate)}
-                privateCloudPresets={cloudPresets.filter((p: any) => p.isPrivate)}
-                localPresets={localPresets}
-                isCloudPresetsLoading={false}
-                showGroupCatalogue={true}
-                groupLabel="Catalogue"
-                onSelectPreset={(val) => {
-                  onPresetChange(val);
-                  setIsSongPickerOpen(false);
-                }}
-              />
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

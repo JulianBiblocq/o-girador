@@ -28,7 +28,7 @@ export function createOverlayUpdater(
     const container = centerOverlayRef.current;
     if (!container) return;
 
-    if (stateRef.current.isLetraActive) {
+    if (stateRef.current.isLetraActive && !isPreRoll) {
       if (lastOverlayStateRef.current.opacity !== '0') {
         container.style.opacity = '0';
         lastOverlayStateRef.current.opacity = '0';

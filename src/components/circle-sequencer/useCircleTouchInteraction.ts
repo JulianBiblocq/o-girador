@@ -64,9 +64,8 @@ export function useCircleTouchInteraction(
       return;
     }
 
-    const isCurrentlyPlaying = stateRef.current.isPlaying;
-    const isCurrentlyMobile = stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768);
-    if (isCurrentlyPlaying && isCurrentlyMobile) return;
+    const isCurrentlyMobile = stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth < 768);
+    if (isCurrentlyMobile) return;
 
     const currentTracks = stateRef.current.tracks;
     const currentRawTracks = stateRef.current.rawTracks;

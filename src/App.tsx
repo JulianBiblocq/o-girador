@@ -26,7 +26,7 @@ import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler'; import { 
 import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu'; import { useAppSessionTracking } from './hooks/useAppSessionTracking';
 import { useAppGroupPresetLoader } from './hooks/useAppGroupPresetLoader'; import { useAppMestreSignals } from './hooks/useAppMestreSignals';
 import { useAppExportTablature } from './hooks/useAppExportTablature'; import { useAppWorkspaceEvents } from './hooks/useAppWorkspaceEvents';
-import { useAppAuthPermissions } from './hooks/useAppAuthPermissions';
+import { useAppAuthPermissions } from './hooks/useAppAuthPermissions'; import { useIsMobileResponsive } from './hooks/useIsMobileResponsive';
 
 const LandingPage = lazyWithRetry(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })), 'LandingPage');
 
@@ -81,7 +81,7 @@ export default function App() {
   const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
   const [measureWidth, setMeasureWidth] = useState<number>(240);
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
-  const [isMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 1024);
+  const isMobile = useIsMobileResponsive(768);
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
 
   const handleStepTouchStart = React.useCallback((e: any, patternId: number, stepIdx: number, instId: string, currentVal: any, onSelect: any, trackId: number, isSplit?: boolean) => {
@@ -126,6 +126,8 @@ export default function App() {
             onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
             onToggleStudio={() => useSequencerStore.getState().setIsMobileStudioMode(true)}
             onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
+            isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
+            onOpenLyricsVideo={() => setActiveRightPanel('letras')}
           />
         ) : (
           <>
