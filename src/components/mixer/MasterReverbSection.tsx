@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import * as Tone from 'tone';
 import { DragNumberBox } from '../DragNumberBox';
 import { XiloReverb } from '../XiloIcons';
 import { masterReverbVolumeNode, reverbNode } from '../../audio/effectsChain';
 import { percentToDb, calcReverbOpacity } from './masterEffectsMath';
+import { updateMasterEffectLabelContrast } from './masterEffectsThemeHelpers';
 
 interface MasterReverbSectionProps {
   reverbTime: number;
@@ -31,14 +32,29 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
 }) => {
   const reverbBgRef = useRef<HTMLDivElement>(null);
   const reverbBadgeRef = useRef<HTMLDivElement>(null);
+  const reverbLabelRef = useRef<HTMLSpanElement>(null);
+  const currentVolRef = useRef<number>(returnVolume);
+  currentVolRef.current = returnVolume;
+
+  const syncContrast = useCallback((vol: number) => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const revOp = calcReverbOpacity(vol);
+    updateMasterEffectLabelContrast(reverbLabelRef.current, revOp, isLight, 'reverb');
+  }, []);
 
   useEffect(() => {
     const revOp = calcReverbOpacity(returnVolume);
     if (reverbBadgeRef.current) reverbBadgeRef.current.style.opacity = String(revOp);
     if (reverbBgRef.current) reverbBgRef.current.style.opacity = String(revOp * 0.15);
-  }, [returnVolume]);
+    syncContrast(returnVolume);
+
+    const observer = new MutationObserver(() => syncContrast(currentVolRef.current));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, [returnVolume, syncContrast]);
 
   const handleReverbDrag = (val: number) => {
+    currentVolRef.current = val;
     const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
     if (masterReverbVolumeNode && isReverbActive) {
       masterReverbVolumeNode.gain.rampTo(gain, 0.05);
@@ -46,6 +62,7 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
     const opacity = calcReverbOpacity(val);
     if (reverbBadgeRef.current) reverbBadgeRef.current.style.opacity = String(opacity);
     if (reverbBgRef.current) reverbBgRef.current.style.opacity = String(opacity * 0.15);
+    syncContrast(val);
   };
 
   const handleReverbTimeDrag = React.useCallback((val: number) => {
@@ -66,13 +83,16 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
       />
 
       <div className="pb-0.5 flex justify-between items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10 px-1.5">
-        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden">
+        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden border border-[#2a5c8a]">
           <div 
             ref={reverbBadgeRef}
             className="absolute inset-0 bg-[var(--reverb-color)] pointer-events-none transition-none"
             style={{ opacity: calcReverbOpacity(returnVolume) }}
           />
-          <span className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1 relative z-10 text-[#f4ecd8] drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">
+          <span
+            ref={reverbLabelRef}
+            className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1 relative z-10 transition-colors"
+          >
             <XiloReverb size={11} className="shrink-0" /> REVERB
           </span>
         </div>

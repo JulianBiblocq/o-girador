@@ -111,7 +111,7 @@ export const WizardStep2Identity: React.FC<WizardStep2IdentityProps> = ({
             onClick={onToggleLang}
             className="px-2.5 py-1.5 bg-[#ece4d0] hover:bg-[#e2d7be] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-[9px] md:text-xs shrink-0 flex items-center gap-1.5 text-[#1a1a1a]"
           >
-            {wizardLang === 'fr' ? '🇧🇷 PT' : '🇫🇷 FR'}
+            {wizardLang === 'fr' ? '🇧🇷 BR' : '🇫🇷 FR'}
           </button>
           <button
             onClick={onBack}

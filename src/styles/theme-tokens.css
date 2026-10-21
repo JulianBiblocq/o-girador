@@ -104,7 +104,10 @@
   --master-border: #1a1a1a;
   --master-fader-thumb: #8b2a1a;
   --master-comp-bg: rgba(212, 175, 55, 0.06);
-  --comp-color: #c49618;
+  --comp-color: #6b4208;
+  --comp-dyn-bg: #e6d5b8;
+  --comp-dyn-text: #5c3806;
+  --comp-dyn-border: #8a5a14;
   --eq-low-color: #8b2a1a;
   --eq-mid-color: #d4af37;
   --eq-high-color: #3d8b85;

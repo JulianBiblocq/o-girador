@@ -49,7 +49,7 @@ export const HeaderMobileDisplaySection: React.FC<HeaderMobileDisplaySectionProp
           }}
           className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
         >
-          🌐 {lang === 'pt' ? 'FR' : 'PT'}
+          🌐 {lang === 'pt' ? 'FR' : 'BR'}
         </button>
         <button
           onClick={() => {

@@ -82,11 +82,11 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
       {/* Compressor Section */}
       <div className="flex flex-col gap-0.5 border border-[var(--comp-color,#d4af37)]/40 rounded-xs p-1.5 bg-[var(--master-comp-bg)] transition-colors shadow-xs">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--comp-color,#d4af37)] flex items-center gap-1">
+          <span className="text-[10px] font-cactus font-extrabold tracking-wider text-[var(--comp-color,#d4af37)] flex items-center gap-1">
             <XiloCompressor size={11} className="shrink-0 text-[var(--comp-color,#d4af37)]" /> {t('compTitle')}
           </span>
           <div className="flex items-center gap-1.5 pointer-events-auto">
-            <span className="text-[8px] font-mono font-bold px-1 rounded-xs bg-[var(--comp-color,#d4af37)]/15 text-[var(--comp-color,#d4af37)] border border-[var(--comp-color,#d4af37)]/30 leading-tight">DYN</span>
+            <span className="text-[8px] font-mono font-bold px-1 rounded-xs bg-[var(--comp-dyn-bg,rgba(212,175,55,0.15))] text-[var(--comp-dyn-text,#d4af37)] border border-[var(--comp-dyn-border,rgba(212,175,55,0.3))] leading-tight">DYN</span>
             <button
               type="button"
               data-testid="master-power-compressor"

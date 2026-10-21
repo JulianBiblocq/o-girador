@@ -60,7 +60,7 @@ export const HeaderAuxiliaryControls: React.FC<HeaderAuxiliaryControlsProps> = (
         className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button w-12 h-[34px] flex items-center justify-center font-bold text-xs cursor-pointer shrink-0"
         title={lang === 'pt' ? 'Mudar idioma' : 'Changer de langue'}
       >
-        {lang === 'pt' ? 'FR' : 'PT'}
+        {lang === 'pt' ? 'FR' : 'BR'}
       </button>
 
       <div

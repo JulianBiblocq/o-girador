@@ -14,7 +14,10 @@ export function useMasterThemeTokens(masterContainerRef: React.RefObject<HTMLDiv
       el.style.setProperty('--master-border', theme.master.border[mode]);
       el.style.setProperty('--master-fader-thumb', theme.master.faderThumb[mode]);
       el.style.setProperty('--master-comp-bg', theme.master.compressorBg[mode]);
-      el.style.setProperty('--comp-color', theme.master.compressorColor || '#d4af37');
+      el.style.setProperty('--comp-color', isLight ? '#6b4208' : (theme.master.compressorColor || '#d4af37'));
+      el.style.setProperty('--comp-dyn-bg', isLight ? '#e6d5b8' : 'rgba(212, 175, 55, 0.15)');
+      el.style.setProperty('--comp-dyn-text', isLight ? '#5c3806' : '#d4af37');
+      el.style.setProperty('--comp-dyn-border', isLight ? '#8a5a14' : 'rgba(212, 175, 55, 0.3)');
       el.style.setProperty('--eq-low-color', theme.eq.low.color);
       el.style.setProperty('--eq-mid-color', theme.eq.mid.color);
       el.style.setProperty('--eq-high-color', theme.eq.high.color);

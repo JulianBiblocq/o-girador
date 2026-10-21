@@ -50,7 +50,7 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
             }`}
             title="Mudar para Português"
           >
-            PT
+            BR
           </button>
         </div>
 

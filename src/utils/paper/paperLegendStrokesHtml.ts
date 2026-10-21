@@ -18,7 +18,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
       <!-- Titre Section 1 -->
       <div style="font-weight: bold; font-size: 12pt; text-transform: uppercase; color: #8b2a1a; border-bottom: 2px solid #8b2a1a; padding-bottom: 2px; margin-bottom: 6px;">
         1. ${isFr ? 'TABLEAU COMPLET DES FRAPPES PAR INSTRUMENT' : 'TABELA COMPLETA DE TOQUES POR INSTRUMENTO'}
-        <span style="font-size: 10pt; font-weight: normal; color: #555; margin-left: 8px;">(${isFr ? 'MAJUSCULE = Fort │ minuscule = Faible' : 'MAIÚSCULA = Forte │ minúscula = Fraco'})</span>
+        <span style="font-size: 10pt; font-weight: normal; color: #555; margin-left: 8px;">(${isFr ? 'MAJUSCULE = Fort │ minuscule = Faible (Sauf Timbal : MAJ = Droite │ min = Gauche)' : 'MAIÚSCULA = Forte │ minúscula = Fraco (Exceto Timbal: MAI = Direita │ min = Esquerda)'})</span>
       </div>
 
       <!-- Grille des Instruments -->
@@ -52,7 +52,14 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Timbal (Tb)</td>
-            <td style="padding: 4px 6px;"><strong>G/g</strong> (Basse), <strong>A/a</strong> (Ouvert / Aberto), <strong>S/s</strong> (Claqué / Slap), <strong>D/d</strong> (Fantôme), <strong>P/p</strong> (Pressé), <strong>F/f</strong> (Fla), <strong>C</strong> (Clap), <strong>B</strong> (Barulho)</td>
+            <td style="padding: 4px 6px;">
+              <div style="background: #fff3cd; border: 1px solid #856404; padding: 2px 6px; margin-bottom: 3px; font-size: 8.5pt; font-weight: bold; color: #856404; border-radius: 2px;">
+                ${isFr ? '⚠️ Spécificité Timbal : MAJUSCULE = Main Droite │ minuscule = Main Gauche' : '⚠️ Regra do Timbal: MAIÚSCULA = Mão Direita │ minúscula = Mão Esquerda'}
+              </div>
+              ${isFr
+                ? '<strong>G/g</strong> : Basse (Droite/Gauche) • <strong>A/a</strong> : Ouvert (D/G) • <strong>S/s</strong> : Claqué/Slap (D/G) • <strong>D/d</strong> : Fantôme (D/G) • <strong>P/p</strong> : Pressé/Fermé (D/G) • <strong>F/f</strong> : Fla ouvert (D/G) • <strong>V/v</strong> : Fla claqué (D/G) • <strong>C</strong> : Clap • <strong>B</strong> : Barulho (Grondement)'
+                : '<strong>G/g</strong> : Grave (Direita/Esquerda) • <strong>A/a</strong> : Aberto (D/E) • <strong>S/s</strong> : Slap (D/E) • <strong>D/d</strong> : Fantasma (D/E) • <strong>P/p</strong> : Preso/Abafado (D/E) • <strong>F/f</strong> : Fla aberto (D/E) • <strong>V/v</strong> : Fla slap (D/E) • <strong>C</strong> : Palma • <strong>B</strong> : Barulho (Vibração)'}
+            </td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Apito (Ap)</td>

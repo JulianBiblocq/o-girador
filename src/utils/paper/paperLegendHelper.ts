@@ -12,7 +12,7 @@ export const PUPITRES_REGISTRY: PupitreInfo[] = [
   { code: 'gg', nameFr: 'Gonguê', namePt: 'Gonguê', instId: 'gongue', symbolMemo: 'G (Grave / Aberto), A (Aigu / Fechado / Abafado)' },
   { code: 'ab', nameFr: 'Agbe / Abê', namePt: 'Agbe / Abê', instId: 'agbe', symbolMemo: 'D (Base droite), E (Base gauche), d/e (Tapote), S (Salto), R (Rolar)' },
   { code: 'mi', nameFr: 'Mineiro', namePt: 'Mineiro', instId: 'mineiro', symbolMemo: 'P/p (Pousser / Frente), T/t (Tirer / Trás), L (Côté), B (Barulho)' },
-  { code: 'tb', nameFr: 'Timbal', namePt: 'Timbal', instId: 'timbal', symbolMemo: 'O (Open / Aberto), S (Slap), B (Bass / Grave), T (Touch)' },
+  { code: 'tb', nameFr: 'Timbal', namePt: 'Timbal', instId: 'timbal', symbolMemo: 'G/g (Basse D/G), A/a (Ouvert), S/s (Slap), D/d (Fantôme), P/p (Pressé), F/f, V/v, C, B • MAJ=Droite / min=Gauche' },
   { code: 'td', nameFr: 'Toada (Voix)', namePt: 'Toada (Voz)', instId: 'puxador', symbolMemo: 'Paroles / Letras, P (Puxador), C (Coro), || (Fin de phrase)' },
 ];
 
@@ -36,7 +36,7 @@ export const generateMemoFooterHTML = (pupitres: PupitreCode[], lang: 'fr' | 'pt
         ${selected.map((p) => `<div><strong>${p.code.toUpperCase()} (${lang === 'fr' ? p.nameFr : p.namePt}) :</strong> ${p.symbolMemo}</div>`).join('')}
       </div>
       <div style="margin-top: 2px; color: #555; font-style: italic; font-size: 7.5pt;">
-        ${lang === 'fr' ? 'Case vide = Silence (0)  •  Double barre || = Fin/Coupure  •  Mot-clé "Base" = reprise étalon  •  Noircir ● les ronds pour le cloud' : 'Casa vazia = Silêncio (0)  •  Barra dupla || = Fim  •  Palavra-chave "Base" = padrão  •  Preencher ● os círculos para nuvem'}
+        ${lang === 'fr' ? 'Case vide = Silence (0)  •  Double barre || = Fin/Coupure  •  Sauf Timbal : MAJ = Droite │ min = Gauche  •  Noircir ● les ronds pour le cloud' : 'Casa vazia = Silêncio (0)  •  Barra dupla || = Fim  •  Exceto Timbal: MAI = Direita │ min = Esquerda  •  Preencher ● os círculos para nuvem'}
       </div>
     </div>
   `;

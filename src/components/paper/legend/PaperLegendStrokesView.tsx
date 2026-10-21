@@ -4,6 +4,7 @@
  * Vue 1 : Tableau lisible des frappes et pupitres en gros caractères (< 135 lignes).
  */
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { resolvePupitreDisplayName } from '../../../utils/paper/paperNomenclatureHelper';
 
 interface Props {
@@ -75,13 +76,28 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       ],
     },
     {
-      code: 'tb_ap',
-      title: `${resolvePupitreDisplayName('tb', lang)} (Tb) & Apito (Ap)`,
-      subtitle: isFr ? 'Percussion main & Sifflet' : 'Percussão de mão & Apito',
+      code: 'tb',
+      title: `${resolvePupitreDisplayName('tb', lang)} (Tb)`,
+      subtitle: isFr ? 'Percussion de main' : 'Percussão de mão',
+      warning: isFr ? 'Spécificité Timbal : MAJUSCULE = Main Droite │ minuscule = Main Gauche' : 'Regra do Timbal: MAIÚSCULA = Mão Direita │ minúscula = Mão Esquerda',
       strokes: [
-        { key: 'G / A / S', desc: isFr ? 'Basse / Ouvert / Claqué (Slap)' : 'Grave / Aberto / Slap' },
-        { key: 'D / P / F', desc: isFr ? 'Fantôme / Pressé / Fla' : 'Fantasma / Preso / Fla' },
-        { key: 'W / w', desc: isFr ? 'Apito Long / Court' : 'Apito Longo / Curto' },
+        { key: 'G / g', desc: isFr ? 'Basse (Droite / Gauche)' : 'Grave (Dir / Esq)' },
+        { key: 'A / a', desc: isFr ? 'Ouvert (Droite / Gauche)' : 'Aberto (Dir / Esq)' },
+        { key: 'S / s', desc: isFr ? 'Claqué / Slap (D / G)' : 'Slap (Dir / Esq)' },
+        { key: 'D / d', desc: isFr ? 'Fantôme (Droite / Gauche)' : 'Fantasma (Dir / Esq)' },
+        { key: 'P / p', desc: isFr ? 'Pressé / Fermé (D / G)' : 'Preso / Abafado (D / E)' },
+        { key: 'F / f', desc: isFr ? 'Fla ouvert (D / G)' : 'Fla aberto (D / E)' },
+        { key: 'V / v', desc: isFr ? 'Fla claqué (D / G)' : 'Fla slap (D / E)' },
+        { key: 'C', desc: isFr ? 'Clap (Palma)' : 'Palma (Clap)' },
+        { key: 'B', desc: isFr ? 'Barulho (Grondement)' : 'Barulho (Vibração)' },
+      ],
+    },
+    {
+      code: 'ap',
+      title: 'Apito (Ap)',
+      subtitle: isFr ? 'Sifflet du Mestre' : 'Apito do Mestre',
+      strokes: [
+        { key: 'W / w', desc: isFr ? 'Sifflet Long / Court' : 'Apito Longo / Curto' },
       ],
     },
   ];
@@ -89,7 +105,7 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
   return (
     <div className="flex flex-col gap-3 p-3 text-[#1a1a1a]">
       <div className="p-2.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-center text-xs tracking-wide shadow-[2px_2px_0px_#000]">
-        {isFr ? 'MAJUSCULE = Coup Fort │ minuscule = Coup Faible' : 'MAIÚSCULA = Toque Forte │ minúscula = Toque Fraco'}
+        {isFr ? 'MAJUSCULE = Coup Fort │ minuscule = Coup Faible (Sauf Timbal : MAJ = Droite │ min = Gauche)' : 'MAIÚSCULA = Toque Forte │ minúscula = Toque Fraco (Exceto Timbal: MAI = Direita │ min = Esquerda)'}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -100,6 +116,12 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
                 <span className="font-cactus font-bold text-sm text-[#8b2a1a] uppercase">{p.title}</span>
                 <span className="text-[10px] text-black/60 italic truncate ml-1">{p.subtitle}</span>
               </div>
+              {p.warning && (
+                <div className="flex items-center gap-1.5 p-1 mb-1.5 bg-[#fef3c7] border border-[#d97706] text-[#92400e] text-[9.5px] font-bold">
+                  <AlertTriangle size={13} className="shrink-0 text-[#b45309]" />
+                  <span>{p.warning}</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                 {p.strokes.map((st) => (
                   <div key={st.key} className="flex items-center gap-1.5 text-[11px]">

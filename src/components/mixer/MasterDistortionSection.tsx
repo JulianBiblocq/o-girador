@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import * as Tone from 'tone';
 import { DragNumberBox } from '../DragNumberBox';
 import { XiloDistortion } from '../XiloIcons';
 import { masterDistortionVolumeNode, distortionNode } from '../../audio/effectsChain';
 import { percentToDb, calcDistoOpacity } from './masterEffectsMath';
+import { updateMasterEffectLabelContrast } from './masterEffectsThemeHelpers';
 
 interface MasterDistortionSectionProps {
   distortionDrive: number;
@@ -31,12 +32,26 @@ export const MasterDistortionSection: React.FC<MasterDistortionSectionProps> = (
 }) => {
   const distoBgRef = useRef<HTMLDivElement>(null);
   const distoBadgeRef = useRef<HTMLDivElement>(null);
+  const distoLabelRef = useRef<HTMLSpanElement>(null);
+  const currentDriveRef = useRef<number>(distortionDrive);
+  currentDriveRef.current = distortionDrive;
+
+  const syncContrast = useCallback((drive: number) => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const distOp = calcDistoOpacity(drive);
+    updateMasterEffectLabelContrast(distoLabelRef.current, distOp, isLight, 'disto');
+  }, []);
 
   useEffect(() => {
     const distOp = calcDistoOpacity(distortionDrive);
     if (distoBadgeRef.current) distoBadgeRef.current.style.opacity = String(distOp);
     if (distoBgRef.current) distoBgRef.current.style.opacity = String(distOp * 0.15);
-  }, [distortionDrive]);
+    syncContrast(distortionDrive);
+
+    const observer = new MutationObserver(() => syncContrast(currentDriveRef.current));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, [distortionDrive, syncContrast]);
 
   const handleDistortionDrag = (val: number) => {
     const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
@@ -46,6 +61,7 @@ export const MasterDistortionSection: React.FC<MasterDistortionSectionProps> = (
   };
 
   const handleDistortionDriveDrag = React.useCallback((val: number) => {
+    currentDriveRef.current = val;
     if (distortionNode) {
       const distVal = val / 100;
       if (distortionNode.distortion !== distVal) {
@@ -55,7 +71,8 @@ export const MasterDistortionSection: React.FC<MasterDistortionSectionProps> = (
     const opacity = calcDistoOpacity(val);
     if (distoBadgeRef.current) distoBadgeRef.current.style.opacity = String(opacity);
     if (distoBgRef.current) distoBgRef.current.style.opacity = String(opacity * 0.15);
-  }, []);
+    syncContrast(val);
+  }, [syncContrast]);
 
   return (
     <div className="flex-1 flex flex-col relative z-10 py-0.5 overflow-hidden">
@@ -66,13 +83,16 @@ export const MasterDistortionSection: React.FC<MasterDistortionSectionProps> = (
       />
 
       <div className="pb-0.5 flex justify-between items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10 px-1.5">
-        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden">
+        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden border border-[#c25e1a]">
           <div 
             ref={distoBadgeRef}
             className="absolute inset-0 bg-[var(--disto-color)] pointer-events-none transition-none"
             style={{ opacity: calcDistoOpacity(distortionDrive) }}
           />
-          <span className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1 relative z-10 text-[#f4ecd8] drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">
+          <span
+            ref={distoLabelRef}
+            className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1 relative z-10 transition-colors"
+          >
             <XiloDistortion size={10} className="shrink-0" /> DISTO
           </span>
         </div>
