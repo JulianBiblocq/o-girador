@@ -5,6 +5,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 import { MuteGroupId, MOBILE_FAMILIES } from '../components/mobile/mobileFamilyConfig';
 import { useSequencerStore } from './useSequencerStore';
 import { instrumentsConfig } from '../data';
@@ -14,6 +16,7 @@ interface MuteGroupState {
   activeMuteGroups: Record<MuteGroupId, boolean>;
   toggleFamilyInMuteGroup: (groupId: MuteGroupId, familyId: string) => void;
   toggleMuteGroupActive: (groupId: MuteGroupId) => void;
+  setAssignmentsFromCloud: (assignments: Record<MuteGroupId, string[]>) => void;
 }
 
 function syncFamilyMuteStates(
@@ -25,7 +28,6 @@ function syncFamilyMuteStates(
   const tracks = store.tracks;
   if (!tracks || tracks.length === 0) return;
 
-  // Determine for each affected family whether it is covered by at least one active mute group
   const familyMuteTarget = new Map<string, boolean>();
   for (const famId of affectedFamilyIds) {
     const isMutedByAnyActiveGroup = ([1, 2, 3, 4] as MuteGroupId[]).some(
@@ -34,8 +36,7 @@ function syncFamilyMuteStates(
     familyMuteTarget.set(famId, isMutedByAnyActiveGroup);
   }
 
-  // Find instrument IDs for each affected family
-  const affectedInstMap = new Map<string, string>(); // instId -> famId
+  const affectedInstMap = new Map<string, string>();
   for (const fam of MOBILE_FAMILIES) {
     if (familyMuteTarget.has(fam.id)) {
       fam.instrumentIds.forEach((instId) => affectedInstMap.set(instId, fam.id));
@@ -60,6 +61,19 @@ export const useMuteGroupStore = create<MuteGroupState>()(
       muteGroupAssignments: { 1: [], 2: [], 3: [], 4: [] },
       activeMuteGroups: { 1: false, 2: false, 3: false, 4: false },
 
+      setAssignmentsFromCloud: (assignments) => {
+        if (!assignments) return;
+        const normalized: Record<MuteGroupId, string[]> = {
+          1: assignments[1] || [],
+          2: assignments[2] || [],
+          3: assignments[3] || [],
+          4: assignments[4] || [],
+        };
+        set({ muteGroupAssignments: normalized });
+        const allFamIds = MOBILE_FAMILIES.map((f) => f.id);
+        syncFamilyMuteStates(normalized, get().activeMuteGroups, allFamIds);
+      },
+
       toggleFamilyInMuteGroup: (groupId, familyId) => {
         const current = get().muteGroupAssignments[groupId] || [];
         const exists = current.includes(familyId);
@@ -68,9 +82,13 @@ export const useMuteGroupStore = create<MuteGroupState>()(
 
         set({ muteGroupAssignments: nextAssignments });
 
-        // If this group is currently active, sync mute status of this family immediately
         if (get().activeMuteGroups[groupId]) {
           syncFamilyMuteStates(nextAssignments, get().activeMuteGroups, [familyId]);
+        }
+
+        const uid = auth.currentUser?.uid;
+        if (uid) {
+          setDoc(doc(db, 'users', uid), { muteGroups: nextAssignments }, { merge: true }).catch(() => {});
         }
       },
 

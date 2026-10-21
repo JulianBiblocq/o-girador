@@ -31,7 +31,11 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const isLeftHanded = props.isLeftHanded ?? sequencer.isLeftHanded;
   const tracksFromStore = useTracksWithCustomEquality(isActive);
   const rawTracks = props.tracks ?? tracksFromStore;
-  const tracks = rawTracks.filter(t => isSequencerVisibleTrack(t, rawTracks));
+  let tracks = rawTracks.filter(t => isSequencerVisibleTrack(t, rawTracks));
+  if (props.visibleTrackIds && props.visibleTrackIds.length > 0) {
+    const allowed = new Set(props.visibleTrackIds.map(String));
+    tracks = tracks.filter(t => allowed.has(String(t.id)));
+  }
   const totalMeasures = props.totalMeasures ?? useSequencerStore(state => state.totalMeasures);
   const bpm = props.bpm ?? sequencer.bpm;
   const measureBpms = props.measureBpms ?? sequencer.measureBpms;

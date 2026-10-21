@@ -57,6 +57,7 @@ export interface CircleSequencerProps {
   measureIndex?: number;
   trackId?: number;
   rodaTrackOrder?: number[];
+  visibleTrackIds?: (number | string)[];
 }
 
 export interface SyllableItem {

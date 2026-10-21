@@ -63,11 +63,14 @@ export const drawPercussionTrack = (
 
     if (!pastille.hasEvent) continue;
 
+    const maxAllowedRadius = (Math.PI * tRad / effectiveStepCount) * 0.85;
+    const finalRadiusSize = Math.min(pastille.radiusSize, maxAllowedRadius);
+
     drawSplitStepPastille(
       ctx,
       x,
       y,
-      pastille.radiusSize,
+      finalRadiusSize,
       pastille.isSplit,
       pastille.isRightHalfOnly,
       pastille.leftFillColor,

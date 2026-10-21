@@ -113,7 +113,11 @@ export function useCirclePlayheadRaf(
 
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
       const stickAngle = computeStickAngle(live, isCurrentlyPlaying, getAudioTime(), isEco, usePerformanceStore.getState().disablePlayheadRAF, frozenStickAngleRef);
-      const dynamicScale = activeVisibleTracks.length > 0 ? 1 + ((10 - Math.min(activeVisibleTracks.length, 10)) * 0.08) : 1;
+      const dynamicScale = activeVisibleTracks.length <= 2
+        ? 1.95
+        : activeVisibleTracks.length > 0
+        ? 1 + ((10 - Math.min(activeVisibleTracks.length, 10)) * 0.08)
+        : 1;
 
       drawAndUpdateRipples(ctx, ripples);
       renderTrackStepLayer(ctx, activeVisibleTracks, localRawTracks, theme.themeBorder, theme.themeWood, theme.themeText, getLiveActivePatternId, livePlaybackRef, stateRef.current, pendingTargetMeasureRef, activeVariationsRef, dynamicScale, isEco, 600, 600);

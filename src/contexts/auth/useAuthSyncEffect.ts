@@ -9,6 +9,7 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useMuteGroupStore } from '../../stores/useMuteGroupStore';
 import { UserProfile } from './authTypes';
 import { getInitialTestProfile } from './authTestProfile';
 import { resolveUserProfileAndGroup } from './authGroupResolver';
@@ -87,6 +88,9 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
           if (docSnap.exists()) {
             const resolvedProfile = await resolveUserProfileAndGroup(user, docSnap.data(), userRef);
             setUserProfile(resolvedProfile);
+            if (docSnap.data()?.muteGroups) {
+              useMuteGroupStore.getState().setAssignmentsFromCloud(docSnap.data().muteGroups);
+            }
             try {
               localStorage.setItem(
                 'girador_user_cached_profile',
