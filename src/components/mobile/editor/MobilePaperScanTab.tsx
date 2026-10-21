@@ -1,10 +1,10 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Onglet 1 Mobile : Scan Photo, Fiches Vierges A4 & Relecture Grille (< 140 lignes).
+ * Onglet 1 Mobile : Scan Photo, Fiches Vierges A4 & Relecture Grille (< 130 lignes).
  */
 import React, { useState, useRef } from 'react';
-import { Camera, Image as ImageIcon, FileText, ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { PaperPreset, PaperStepValue, PaperSequenceItem } from '../../../types/paperWorkshop.types';
 import { ALL_PAPER_PRESETS } from '../../../utils/paper/paperTranscribedPresets';
 import { factorizeSequence } from '../../paper/SequenceTagBuilder';
@@ -12,11 +12,12 @@ import { usePaperVigilanceStore } from '../../../stores/usePaperVigilanceStore';
 import { resolvePupitreAbbr } from '../../../utils/paper/paperNomenclatureHelper';
 import { injectPaperScoreToStore } from '../../../utils/paper/injectPaperScoreToStore';
 import { MobileQuickStrokePopover } from './MobileQuickStrokePopover';
+import { MobilePaperScanActionsBar } from './MobilePaperScanActionsBar';
 import { PaperLegendInAppModal } from '../../paper/PaperLegendInAppModal';
-import { tMobile } from '../../../i18n/mobileTranslations';
-
+import { PaperDictionaryInAppModal } from '../../paper/PaperDictionaryInAppModal';
 import { MobileLiveCameraBox } from './MobileLiveCameraBox';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { tMobile } from '../../../i18n/mobileTranslations';
 
 interface Props {
   onOpenBlankSheets?: () => void;
@@ -32,6 +33,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
   const [sequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(ALL_PAPER_PRESETS[0].defaultSequence));
   const [activePopover, setActivePopover] = useState<{ secName: string; pupitreKey: string; stepIndex: number; val: PaperStepValue } | null>(null);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [isDictOpen, setIsDictOpen] = useState(false);
   const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
 
   const vigilancePoints = usePaperVigilanceStore((s) => s.points), togglePoint = usePaperVigilanceStore((s) => s.togglePoint);
@@ -67,21 +69,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
 
   return (
     <div className="flex-1 flex flex-col p-2.5 gap-2.5 overflow-y-auto custom-scrollbar select-none text-[var(--cordel-text)] relative">
-      <div className="grid grid-cols-4 gap-1 shrink-0">
-        <button type="button" onClick={() => setIsLiveCameraOpen(true)} className="h-9 px-0.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-[9px] uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer">
-          <Camera size={12} className="text-[#b94a2c]" /> <span>{tMobile(lang, 'takePhoto')}</span>
-        </button>
-        <label className="h-9 px-0.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-[9px] uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer">
-          <ImageIcon size={12} className="text-[#d4a017]" /> <span>{tMobile(lang, 'gallery')}</span>
-          <input type="file" accept="image/*" className="hidden" />
-        </label>
-        <button onClick={handleOpenSheets} className="h-9 px-0.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-[9px] uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer">
-          <FileText size={12} className="text-[#2a9d8f]" /> <span>{tMobile(lang, 'blankSheets')}</span>
-        </button>
-        <button onClick={() => setIsLegendOpen(true)} className="h-9 px-0.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-[9px] uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer">
-          <BookOpen size={12} className="text-[#d4af37]" /> <span>{lang === 'fr' ? 'Légende' : 'Legenda'}</span>
-        </button>
-      </div>
+      <MobilePaperScanActionsBar onTakePhoto={() => setIsLiveCameraOpen(true)} onOpenSheets={handleOpenSheets} onOpenLegend={() => setIsLegendOpen(true)} onOpenDictionary={() => setIsDictOpen(true)} lang={lang} />
 
       <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] p-2 flex flex-col gap-1.5 shadow-[2px_2px_0px_#000]">
         <div className="flex items-center justify-between text-[11px] font-cactus">
@@ -107,14 +95,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
                     const isPoint = vigilancePoints.some((p) => p.sectionName === secName && p.roleKey === pupitreKey && p.stepIndex === i);
                     const isEven = Math.floor(i / 4) % 2 === 1;
                     return (
-                      <button
-                        key={i} type="button"
-                        onPointerDown={() => handleCellPointerDown(secName, pupitreKey, i, st)}
-                        onPointerUp={() => handleCellPointerUp(secName, pupitreKey, i)}
-                        className={`h-5 text-[9px] font-mono font-bold flex items-center justify-center transition-all ${
-                          i % 4 === 3 ? 'border-r-2 border-[var(--cordel-border)]' : 'border-r border-[var(--cordel-border)]/30'
-                        } ${isPoint ? 'bg-[#b94a2c] text-[#f4ecd8] ring-1 ring-[#f4ecd8]' : val !== '•' ? 'bg-[#2a9d8f] text-white' : isEven ? 'bg-[var(--cordel-beat-even)] text-[var(--cordel-text)]/50' : 'bg-[var(--cordel-beat-odd)] text-[var(--cordel-text)]/50'}`}
-                      >
+                      <button key={i} type="button" onPointerDown={() => handleCellPointerDown(secName, pupitreKey, i, st)} onPointerUp={() => handleCellPointerUp(secName, pupitreKey, i)} className={`h-5 text-[9px] font-mono font-bold flex items-center justify-center transition-all ${i % 4 === 3 ? 'border-r-2 border-[var(--cordel-border)]' : 'border-r border-[var(--cordel-border)]/30'} ${isPoint ? 'bg-[#b94a2c] text-[#f4ecd8] ring-1 ring-[#f4ecd8]' : val !== '•' ? 'bg-[#2a9d8f] text-white' : isEven ? 'bg-[var(--cordel-beat-even)] text-[var(--cordel-text)]/50' : 'bg-[var(--cordel-beat-odd)] text-[var(--cordel-text)]/50'}`}>
                         {isPoint ? '▪' : val}
                       </button>
                     );
@@ -141,6 +122,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
 
       {activePopover && <MobileQuickStrokePopover pupitreKey={activePopover.pupitreKey} stepIndex={activePopover.stepIndex} currentValue={activePopover.val} onSelectStroke={(newSt) => handleUpdateStroke(activePopover.secName, activePopover.pupitreKey, activePopover.stepIndex, newSt)} onClose={() => setActivePopover(null)} lang={lang} />}
       <PaperLegendInAppModal isOpen={isLegendOpen} onClose={() => setIsLegendOpen(false)} lang={lang} />
+      <PaperDictionaryInAppModal isOpen={isDictOpen} onClose={() => setIsDictOpen(false)} lang={lang} />
       <MobileLiveCameraBox isOpen={isLiveCameraOpen} onClose={() => setIsLiveCameraOpen(false)} defaultFacingMode="environment" onCapture={() => {}} lang={lang} isModal />
     </div>
   );

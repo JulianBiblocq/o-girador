@@ -34,6 +34,7 @@ export interface UserProfile {
   groupId?: string;
   isSystemAdmin?: boolean;
   isPremium?: boolean;
+  lastSequenciadorMode?: 'danse' | 'percussion' | 'editeur' | 'complet';
 }
 
 export interface AuthContextType {

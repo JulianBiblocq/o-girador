@@ -1,12 +1,15 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 130 lignes).
+ * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 140 lignes).
  */
 import { instrumentsConfig } from '../../data';
 import { PaperPreset } from '../../types/paperWorkshop.types';
-import { Pattern, SongSection, TrackGroup } from '../../types/store.types';
+import { Pattern, TrackGroup } from '../../types/store.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
+import { parseConductorVariationToken, resolveSectionFromDictionaryFallback } from './paperVariationCallParser';
+
+export { buildMergedSongSections } from './paperSectionMerger';
 
 const CODE_MAP: Record<string, string> = {
   marcante: 'mc', meiao: 'me', repique: 'rp', caixa: 'cx', tarol: 'tr',
@@ -97,11 +100,30 @@ export const assignPatternsToTracks = (
 
     sequence.forEach((rawSecName, mIdx) => {
       const isBaseWord = /^(base|idem|%)$/i.test(rawSecName.trim());
-      const targetSec = isBaseWord ? secEntries[0]?.[0] : rawSecName.trim();
-      const pat = newPatterns.find((p) => p.name.toLowerCase() === targetSec?.toLowerCase());
-      if (pat) {
-        pat.measureAssignments[mIdx] = true;
+      const parsedToken = parseConductorVariationToken(rawSecName);
+      const targetSec = isBaseWord ? secEntries[0]?.[0] : parsedToken.cleanSectionName;
+      let pat = newPatterns.find((p) => p.name.toLowerCase() === targetSec?.toLowerCase());
+
+      if (!pat && targetSec) {
+        const dictFallback = resolveSectionFromDictionaryFallback(targetSec, parsedToken.variationCalls);
+        if (dictFallback) {
+          const fbSteps = (dictFallback[specificCode] || dictFallback[groupCode] || Array(16).fill(0)) as any[];
+          const patId = isAlfaia ? 800000 + newPatterns.length + 1 : track.id * 1000 + newPatterns.length + 1;
+          pat = {
+            id: patId,
+            name: targetSec,
+            steps: 16,
+            activeSteps: fbSteps.map((s) => (s === 0 ? 0 : s)),
+            lyrics: Array(16).fill(''),
+            notes: Array(16).fill(''),
+            measureAssignments: Array(totalM).fill(false),
+            measureAllowVariations: Array(totalM).fill(true),
+          };
+          newPatterns.push(pat);
+        }
       }
+
+      if (pat) pat.measureAssignments[mIdx] = true;
     });
 
     return {
@@ -114,23 +136,4 @@ export const assignPatternsToTracks = (
       measureReverbSends: Array(totalM).fill(track.reverbVal || 0),
     };
   });
-};
-
-export const buildMergedSongSections = (sequence: string[]): SongSection[] => {
-  const sections: SongSection[] = [];
-  let currentNorm = '', startM = 0;
-  sequence.forEach((name, idx) => {
-    const norm = name.replace(/_M\d+$/i, '').trim();
-    if (norm !== currentNorm) {
-      if (currentNorm !== '') {
-        sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentNorm, startMeasure: startM, endMeasure: idx - 1, color: '#8b2a1a' });
-      }
-      currentNorm = norm;
-      startM = idx;
-    }
-  });
-  if (currentNorm !== '') {
-    sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentNorm, startMeasure: startM, endMeasure: sequence.length - 1, color: '#8b2a1a' });
-  }
-  return sections;
 };

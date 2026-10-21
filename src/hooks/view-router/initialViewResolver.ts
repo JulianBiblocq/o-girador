@@ -17,34 +17,51 @@ export function getInitialViewMode(): ViewMode {
   // 1. URL Deep Linking / parameters
   const urlParams = new URLSearchParams(window.location.search);
   const targetView = urlParams.get('view');
-  if (targetView && ['roda', 'console', 'timeline', 'admin', 'landing', 'home'].includes(targetView)) {
+  if (targetView === 'landing' || targetView === 'home') {
+    return targetView;
+  }
+  if (targetView && ['roda', 'console', 'timeline', 'admin'].includes(targetView)) {
     return targetView as ViewMode;
   }
-  if (urlParams.has('loadPreset') || urlParams.has('loadPattern') || urlParams.has('presetId') || urlParams.has('trainingId')) {
+
+  // Sauter l'accueil si paramètre d'action directe
+  const hasDirectAction =
+    urlParams.has('loadPreset') ||
+    urlParams.has('loadPattern') ||
+    urlParams.has('presetId') ||
+    urlParams.has('trainingId') ||
+    urlParams.has('mode') ||
+    urlParams.has('tocarJunto');
+
+  if (hasDirectAction) {
     return 'roda';
   }
 
   // 2. Détection synchrone du mode PWA autonome
   const isStandalonePwa =
-    typeof window !== 'undefined' && (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      Boolean((window.navigator as any).standalone)
-    );
+    window.matchMedia('(display-mode: standalone)').matches ||
+    Boolean((window.navigator as any).standalone);
 
   if (isStandalonePwa) {
     return 'roda';
   }
 
-  // 3. Utilisateur connecté ou ayant déjà vu l'accueil
-  const hasSeenWelcome = localStorage.getItem('ogirador_has_seen_welcome') === 'true';
+  // 3. Utilisateur déjà authentifié (session Firebase active ou ssoToken entrant)
+  const hasSsoToken = urlParams.has('ssoToken') || urlParams.has('token');
   const hasFirebaseAuthSession = Object.keys(localStorage).some((key) =>
     key.startsWith('firebase:authUser:')
   );
 
-  if (hasSeenWelcome || hasFirebaseAuthSession) {
+  if (hasSsoToken || hasFirebaseAuthSession) {
     return 'roda';
   }
 
-  // 4. Première visite sans compte connecté
+  // 4. Visiteur ayant déjà validé la page d'accueil
+  const hasSeenWelcome = localStorage.getItem('ogirador_has_seen_welcome') === 'true';
+  if (hasSeenWelcome) {
+    return 'roda';
+  }
+
+  // 5. Première visite sans compte connecté
   return 'landing';
 }

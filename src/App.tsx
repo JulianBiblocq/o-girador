@@ -114,7 +114,7 @@ export default function App() {
   }, []);
 
   if (viewMode === 'landing') {
-    return <><SEO /><Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}><LandingPage onEnter={() => changeViewMode('roda')} lang={sequencer.lang} onLanguageChange={sequencer.setLang} isManualOpen={hasManuallyOpenedAbout} /></Suspense></>;
+    return <><SEO /><Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}><LandingPage onEnter={() => { useSequencerStore.getState().setMobileViewMode('complet'); changeViewMode('roda'); }} lang={sequencer.lang} onLanguageChange={sequencer.setLang} isManualOpen={hasManuallyOpenedAbout} /></Suspense></>;
   }
   if (viewMode === 'home') return <><SEO /><Home onEnter={(m) => changeViewMode(m as any)} lang={sequencer.lang} /></>;
 

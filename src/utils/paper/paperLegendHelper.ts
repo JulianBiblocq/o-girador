@@ -30,13 +30,13 @@ export const generateMemoFooterHTML = (pupitres: PupitreCode[], lang: 'fr' | 'pt
   const selected = PUPITRES_REGISTRY.filter((p) => pupitres.includes(p.code));
   const title = lang === 'fr' ? 'MÉMO DES LETTRES & FRAPPES' : 'LEGENDA DE TOQUES & LETRAS';
   return `
-    <div style="margin-top: 10px; padding: 6px 10px; border: 1.5px solid #1a1a1a; font-family: monospace; font-size: 8px; line-height: 1.35; background: #faf8f2;">
-      <div style="font-weight: bold; text-transform: uppercase; margin-bottom: 3px; font-size: 9px; letter-spacing: 0.5px;">${title} :</div>
+    <div style="box-sizing: border-box; flex-shrink: 0; margin-top: auto; padding: 4px 8px; border: 1.5px solid #1a1a1a; font-family: monospace; font-size: 8pt; line-height: 1.25; background: #faf8f2;">
+      <div style="font-weight: bold; text-transform: uppercase; margin-bottom: 2px; font-size: 8.5pt; letter-spacing: 0.5px;">${title} :</div>
       <div style="display: flex; flex-wrap: wrap; gap: 8px;">
         ${selected.map((p) => `<div><strong>${p.code.toUpperCase()} (${lang === 'fr' ? p.nameFr : p.namePt}) :</strong> ${p.symbolMemo}</div>`).join('')}
       </div>
-      <div style="margin-top: 3px; color: #555; font-style: italic;">
-        ${lang === 'fr' ? 'Case vide = Silence (0)  •  Double barre || = Fin/Coupure  •  Mot-clé "Base" = reprise étalon' : 'Casa vazia = Silêncio (0)  •  Barra dupla || = Fim  •  Palavra-chave "Base" = padrão'}
+      <div style="margin-top: 2px; color: #555; font-style: italic; font-size: 7.5pt;">
+        ${lang === 'fr' ? 'Case vide = Silence (0)  •  Double barre || = Fin/Coupure  •  Mot-clé "Base" = reprise étalon  •  Noircir ● les ronds pour le cloud' : 'Casa vazia = Silêncio (0)  •  Barra dupla || = Fim  •  Palavra-chave "Base" = padrão  •  Preencher ● os círculos para nuvem'}
       </div>
     </div>
   `;

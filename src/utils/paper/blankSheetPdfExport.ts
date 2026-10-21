@@ -4,7 +4,7 @@
  * Orchestrateur d'impression des fiches vierges Cordel et Légende Complète A4 (< 145 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';
-import { renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal } from './blankSheetHtmlTemplates';
+import { renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal, renderBlankSheetDictionary } from './blankSheetHtmlTemplates';
 import { renderLegendStrokesHTML } from './paperLegendStrokesHtml';
 import { renderLegendConductorHTML } from './paperLegendConductorHtml';
 
@@ -17,6 +17,7 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
   if (options.sheetType === 'isolated') content = renderBlankSheetA(options, lang);
   else if (options.sheetType === 'sections') content = renderBlankSheetB(options, lang);
   else if (options.sheetType === 'sequence') content = renderBlankSheetC(options, lang);
+  else if ((options.sheetType as any) === 'dictionary') content = renderBlankSheetDictionary(options, lang);
   else content = renderBlankSheetUniversal(options, lang);
 
   const printWindow = window.open('', '_blank', 'width=900,height=700');
@@ -25,14 +26,34 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
     return;
   }
 
+  const pageHeight = isLandscape ? 'calc(210mm - 16mm)' : 'calc(297mm - 16mm)';
   const title = lang === 'fr' ? `Atelier Papier - Fiche ${options.sheetType.toUpperCase()}` : `Oficina Papel - Folha ${options.sheetType.toUpperCase()}`;
   printWindow.document.write(`
     <!DOCTYPE html><html><head><title>${title}</title><style>
       @page { size: A4 ${orientation}; margin: 8mm; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      body { margin: 0; padding: 6px; background: #fff; color: #1a1a1a; font-family: sans-serif; }
-      .page-wrapper { width: 100%; max-width: ${maxWidth}; margin: 0 auto; }
-      @media print { body { padding: 0; } .no-print { display: none !important; } }
+      html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: sans-serif; }
+      .page-wrapper { width: 100%; max-width: ${maxWidth}; margin: 0 auto; padding: 4px; }
+      .sheet-page {
+        width: 100%;
+        max-width: ${maxWidth};
+        height: ${pageHeight};
+        max-height: ${pageHeight};
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      @media print {
+        html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; }
+        .no-print { display: none !important; }
+        .page-wrapper { padding: 0 !important; margin: 0 !important; }
+        .sheet-page { page-break-after: avoid !important; break-inside: avoid !important; }
+      }
     </style></head><body>
       <div class="no-print" style="margin-bottom: 10px; padding: 6px 12px; background: #fdf6e2; border: 1px solid #d99b26; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
         <span><strong>O Girador</strong> — ${lang === 'fr' ? 'Aperçu avant impression A4' : 'Visualização A4'} (${orientation})</span>

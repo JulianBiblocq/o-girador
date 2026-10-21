@@ -2,11 +2,13 @@
  * paperSequenceExpander.ts
  * Déroulement intelligent des séquences Cordel : boîtes 1re/2e fois, Coda ⊕, D.S./D.C. et macros (< 120 lignes).
  */
+import { parseConductorVariationToken, ParsedVariationCall } from './paperVariationCallParser';
 
 export interface ExpandedMeasureToken {
   name: string;
   hasVariationDice?: boolean;
   forcedVariation?: string;
+  variationCalls?: ParsedVariationCall[];
 }
 
 export function expandSequenceTokens(seqStr: string): string[] {
@@ -59,13 +61,12 @@ export function expandSequenceTokens(seqStr: string): string[] {
   const result: string[] = [];
 
   for (const token of rawTokens) {
-    const multMatch = token.match(/^(.*?)\s*([xX*×])\s*(\d+)$/);
-    if (multMatch) {
-      const name = multMatch[1].trim();
-      const count = parseInt(multMatch[3], 10) || 1;
-      for (let i = 0; i < count; i++) result.push(name);
+    const parsed = parseConductorVariationToken(token);
+    if (parsed.multiplier > 1 || parsed.variationCalls.length > 0) {
+      const varSuffix = parsed.variationCalls.map((v) => `+ Var (${v.varIndices.join('-')}) ${v.rawInstrument}`).join(' ');
+      const singleToken = varSuffix ? `${parsed.cleanSectionName} ${varSuffix}` : parsed.cleanSectionName;
+      for (let i = 0; i < parsed.multiplier; i++) result.push(singleToken);
     } else {
-      // Nettoyage de notations résiduelles
       const clean = token.replace(/^(m\.\s*\d+-\d+\s*:?)/i, '').trim();
       if (clean) result.push(clean);
     }
@@ -74,17 +75,12 @@ export function expandSequenceTokens(seqStr: string): string[] {
   return result;
 }
 
-export function parseMeasureVariationTag(token: string): { name: string; hasDice: boolean; forcedVar?: string } {
-  let name = token.trim();
-  const hasDice = name.includes('⊡') || /\+\s*var/i.test(name);
-  name = name.replace(/⊡/g, '').replace(/\+\s*var/gi, '').trim();
-
-  let forcedVar: string | undefined;
-  const vMatch = name.match(/^(.*?)\s*\((v\d+)\)$/i);
-  if (vMatch) {
-    name = vMatch[1].trim();
-    forcedVar = vMatch[2].toLowerCase();
-  }
-
-  return { name, hasDice, forcedVar };
+export function parseMeasureVariationTag(token: string): { name: string; hasDice: boolean; forcedVar?: string; variationCalls?: ParsedVariationCall[] } {
+  const parsed = parseConductorVariationToken(token);
+  const hasDice = token.includes('⊡') || parsed.variationCalls.length > 0;
+  return {
+    name: parsed.cleanSectionName,
+    hasDice,
+    variationCalls: parsed.variationCalls,
+  };
 }

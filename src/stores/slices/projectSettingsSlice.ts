@@ -5,8 +5,11 @@ import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
 import { detectEcoMode } from '../helpers/ecoModeDetector';
 import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
 import { Language } from '../../types';
+import { getInitialMobileViewMode, persistMobileViewMode } from '../../utils/viewModeResolver';
 
-export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => ({
+export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => {
+  const initialMobileMode = getInitialMobileViewMode();
+  return {
   letras: '',
   metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
   isLeftHanded: false, 
@@ -30,8 +33,8 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   hasFullPlaybackAccess: false,
   isVisitorAuthModalOpen: false,
   isSubscriptionModalOpen: false,
-  isMobileStudioMode: false,
-  mobileViewMode: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'danse' : 'complet',
+  isMobileStudioMode: initialMobileMode === 'complet',
+  mobileViewMode: initialMobileMode,
   isTouchLocked: false,
 
   setLetras: (letras) => set({ letras }),
@@ -121,12 +124,22 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   closeVisitorAuthModal: () => set({ isVisitorAuthModalOpen: false }),
   openSubscriptionModal: () => set({ isSubscriptionModalOpen: true }),
   closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false }),
-  setIsMobileStudioMode: (val) => set({ isMobileStudioMode: val, mobileViewMode: val ? 'complet' : 'danse' }),
+  setIsMobileStudioMode: (val) => {
+    const mode = val ? 'complet' : 'danse';
+    persistMobileViewMode(mode);
+    set({ isMobileStudioMode: val, mobileViewMode: mode });
+  },
   toggleMobileStudioMode: () => set((state) => {
     const next = !state.isMobileStudioMode;
-    return { isMobileStudioMode: next, mobileViewMode: next ? 'complet' : 'danse' };
+    const mode = next ? 'complet' : 'danse';
+    persistMobileViewMode(mode);
+    return { isMobileStudioMode: next, mobileViewMode: mode };
   }),
-  setMobileViewMode: (mode) => set({ mobileViewMode: mode, isMobileStudioMode: mode === 'complet' }),
+  setMobileViewMode: (mode) => {
+    persistMobileViewMode(mode);
+    set({ mobileViewMode: mode, isMobileStudioMode: mode === 'complet' });
+  },
   setIsTouchLocked: (val) => set({ isTouchLocked: val }),
   toggleTouchLock: () => set((state) => ({ isTouchLocked: !state.isTouchLocked }))
-});
+  };
+};

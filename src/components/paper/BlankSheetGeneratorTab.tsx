@@ -8,8 +8,11 @@ import { BlankSheetType, GridMode } from '../../types/paperWorkshop.types';
 import { exportBlankSheetToPdf, printCompletePaperLegend } from '../../utils/paper/blankSheetPdfExport';
 import { BlankSheetPupitreSelector } from './BlankSheetPupitreSelector';
 import { BlankSheetLivePreview } from './BlankSheetLivePreview';
+import { BlankSheetPrefillSelector } from './BlankSheetPrefillSelector';
+import { BlankSheetActionButtons } from './BlankSheetActionButtons';
 import { PaperLegendInAppModal } from './PaperLegendInAppModal';
-import { Printer, BookOpen, PenTool } from 'lucide-react';
+import { PaperDictionaryInAppModal } from './PaperDictionaryInAppModal';
+import { PenTool } from 'lucide-react';
 import { tPaper } from '../../i18n/paperWorkshopTranslations';
 
 export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }) => {
@@ -21,6 +24,7 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
   const [busSementes, setBusSementes] = useState(false);
   const [includeVarLine, setIncludeVarLine] = useState(true);
   const [freeLinesCount, setFreeLinesCount] = useState(0);
+  const [prefillFamily, setPrefillFamily] = useState<string>('');
 
   const [conductorTitle, setConductorTitle] = useState('');
   const [conductorBpm, setConductorBpm] = useState<number | undefined>(undefined);
@@ -28,6 +32,7 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
   const [hasDoubleSections, setHasDoubleSections] = useState(true);
   const [hasToadaLine, setHasToadaLine] = useState(true);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [isDictOpen, setIsDictOpen] = useState(false);
 
   const togglePupitre = (code: string) => {
     setPupitres((p) => (p.includes(code) ? (p.length > 1 ? p.filter((c) => c !== code) : p) : [...p, code]));
@@ -37,7 +42,8 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
     exportBlankSheetToPdf({
       sheetType, gridMode, pupitres, includeVariationLine: includeVarLine, freeLinesCount, conductorMeasures,
       conductorTitle: conductorTitle ? `${conductorTitle} ${conductorBpm ? `| ♩=${conductorBpm}` : ''}` : undefined,
-      hasDoubleSections, hasToadaLine,
+      hasDoubleSections, hasToadaLine, bpm: conductorBpm,
+      linkAlfaias, busCaixas, busSementes, prefillFamily: prefillFamily || undefined,
     }, lang);
   };
 
@@ -62,19 +68,16 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
         </div>
       </div>
 
+      <BlankSheetPrefillSelector selectedFamily={prefillFamily} onSelectFamily={setPrefillFamily} lang={lang} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         <div className="lg:col-span-2 flex flex-col gap-2">
           {sheetType === 'universal' ? (
             <div className="flex flex-col gap-1.5 p-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)]">
-              <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a] flex items-center gap-1">
-                <PenTool className="w-3.5 h-3.5" /> {tPaper(lang, 'optionsUniversal')}
-              </span>
+              <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a] flex items-center gap-1"><PenTool className="w-3.5 h-3.5" /> {tPaper(lang, 'optionsUniversal')}</span>
               <div className="flex items-center gap-2 pt-0.5">
                 <span className="font-bold text-[10px]">{tPaper(lang, 'formatCarreaux')}</span>
-                {[
-                  { id: 'free_portrait', l: tPaper(lang, 'freePortrait24') },
-                  { id: 'free_landscape', l: tPaper(lang, 'freeLandscape32') },
-                ].map((m) => (
+                {[{ id: 'free_portrait', l: tPaper(lang, 'freePortrait24') }, { id: 'free_landscape', l: tPaper(lang, 'freeLandscape32') }].map((m) => (
                   <button key={m.id} type="button" onClick={() => setGridMode(m.id as GridMode)} className={`px-2 py-0.5 text-[10px] border cursor-pointer ${gridMode === m.id ? 'bg-[#8b2a1a] text-[#f4ecd8] font-bold border-[var(--cordel-border)]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]/40'}`}>{m.l}</button>
                 ))}
               </div>
@@ -88,14 +91,8 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
                 <input type="number" placeholder="BPM (ex: 96)" value={conductorBpm || ''} onChange={(e) => setConductorBpm(Number(e.target.value) || undefined)} className="p-1 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border border-[var(--cordel-border)] font-mono text-xs" />
               </div>
               <div className="flex flex-wrap items-center gap-3 pt-0.5">
-                <label className="flex items-center gap-1 cursor-pointer font-bold text-[10px]">
-                  <input type="checkbox" checked={hasDoubleSections} onChange={(e) => setHasDoubleSections(e.target.checked)} className="accent-[#8b2a1a]" />
-                  <span>{tPaper(lang, 'doubleLineSections')}</span>
-                </label>
-                <label className="flex items-center gap-1 cursor-pointer font-bold text-[10px]">
-                  <input type="checkbox" checked={hasToadaLine} onChange={(e) => setHasToadaLine(e.target.checked)} className="accent-[#8b2a1a]" />
-                  <span>{tPaper(lang, 'toadaLine')}</span>
-                </label>
+                <label className="flex items-center gap-1 cursor-pointer font-bold text-[10px]"><input type="checkbox" checked={hasDoubleSections} onChange={(e) => setHasDoubleSections(e.target.checked)} className="accent-[#8b2a1a]" /> <span>{tPaper(lang, 'doubleLineSections')}</span></label>
+                <label className="flex items-center gap-1 cursor-pointer font-bold text-[10px]"><input type="checkbox" checked={hasToadaLine} onChange={(e) => setHasToadaLine(e.target.checked)} className="accent-[#8b2a1a]" /> <span>{tPaper(lang, 'toadaLine')}</span></label>
               </div>
             </div>
           ) : (
@@ -108,37 +105,19 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
                   ))}
                 </div>
               </div>
-              <BlankSheetPupitreSelector
-                pupitres={pupitres} onTogglePupitre={togglePupitre} linkAlfaias={linkAlfaias} onToggleLinkAlfaias={setLinkAlfaias}
-                busCaixas={busCaixas} onToggleBusCaixas={setBusCaixas} busSementes={busSementes} onToggleBusSementes={setBusSementes}
-                includeVarLine={includeVarLine} onToggleIncludeVarLine={setIncludeVarLine} freeLinesCount={freeLinesCount} onChangeFreeLinesCount={setFreeLinesCount} lang={lang}
-              />
+              <BlankSheetPupitreSelector pupitres={pupitres} onTogglePupitre={togglePupitre} linkAlfaias={linkAlfaias} onToggleLinkAlfaias={setLinkAlfaias} busCaixas={busCaixas} onToggleBusCaixas={setBusCaixas} busSementes={busSementes} onToggleBusSementes={setBusSementes} includeVarLine={includeVarLine} onToggleIncludeVarLine={setIncludeVarLine} freeLinesCount={freeLinesCount} onChangeFreeLinesCount={setFreeLinesCount} lang={lang} />
             </>
           )}
-
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            <button type="button" onClick={handlePrint} className="flex-1 min-w-[120px] py-2 px-2.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_var(--cordel-border)] hover:bg-[#6c1f13] cursor-pointer">
-              <Printer className="w-4 h-4" /> <span>{tPaper(lang, 'printSheet')}</span>
-            </button>
-            <button type="button" onClick={() => setIsLegendOpen(true)} className="py-2 px-2.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_var(--cordel-border)] hover:border-[#8b2a1a] cursor-pointer">
-              <BookOpen className="w-4 h-4" /> <span>{tPaper(lang, 'readLegend')}</span>
-            </button>
-            <button type="button" onClick={() => printCompletePaperLegend(lang)} className="py-2 px-2.5 bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_var(--cordel-border)] hover:border-[#8b2a1a] cursor-pointer">
-              <Printer className="w-4 h-4" /> <span>{tPaper(lang, 'legendA4')}</span>
-            </button>
-          </div>
+          <BlankSheetActionButtons onPrint={handlePrint} onOpenDictionary={() => setIsDictOpen(true)} onOpenLegend={() => setIsLegendOpen(true)} onPrintLegendA4={() => printCompletePaperLegend(lang)} lang={lang} />
         </div>
 
         <div className="flex justify-center items-start">
-          <BlankSheetLivePreview
-            sheetType={sheetType} gridMode={gridMode} pupitres={pupitres} includeVarLine={includeVarLine} freeLinesCount={freeLinesCount}
-            conductorMeasures={conductorMeasures} conductorTitle={conductorTitle} hasDoubleSections={hasDoubleSections} hasToadaLine={hasToadaLine} lang={lang}
-          />
+          <BlankSheetLivePreview sheetType={sheetType} gridMode={gridMode} pupitres={pupitres} includeVarLine={includeVarLine} freeLinesCount={freeLinesCount} conductorMeasures={conductorMeasures} conductorTitle={conductorTitle} hasDoubleSections={hasDoubleSections} hasToadaLine={hasToadaLine} lang={lang} />
         </div>
       </div>
 
       <PaperLegendInAppModal isOpen={isLegendOpen} onClose={() => setIsLegendOpen(false)} lang={lang} />
+      <PaperDictionaryInAppModal isOpen={isDictOpen} onClose={() => setIsDictOpen(false)} onSelectFamily={(fam) => setPrefillFamily(fam)} lang={lang} />
     </div>
   );
 };
-

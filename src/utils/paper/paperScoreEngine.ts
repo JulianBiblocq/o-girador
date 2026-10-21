@@ -8,6 +8,7 @@ import { parsePupitreHeader } from './paperNomenclatureHelper';
 import { expandSequenceTokens } from './paperSequenceExpander';
 
 export { expandSequenceTokens, expandSequenceTokens as expandSequenceString };
+export { parseConductorVariationToken, resolveSectionFromDictionaryFallback } from './paperVariationCallParser';
 
 export const parseStepValue = (raw: any): PaperStepValue => {
   if (raw === undefined || raw === null || raw === '' || raw === ' ' || raw === 0 || raw === '0') {

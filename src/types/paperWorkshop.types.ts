@@ -6,7 +6,7 @@
 
 export type PaperTabType = 'sheets' | 'scanner' | 'reserve';
 
-export type BlankSheetType = 'isolated' | 'sections' | 'sequence' | 'universal';
+export type BlankSheetType = 'isolated' | 'sections' | 'sequence' | 'universal' | 'dictionary';
 
 export type GridMode = '4/4' | '2/4' | '3/4' | '12/8' | 'free_portrait' | 'free_landscape';
 
@@ -31,7 +31,11 @@ export interface BlankSheetOptions {
   hasDoubleSections?: boolean;
   hasToadaLine?: boolean;
   sectionName?: string;
+  prefillFamily?: string;
   bpm?: number;
+  linkAlfaias?: boolean;
+  busCaixas?: boolean;
+  busSementes?: boolean;
 }
 
 export type PaperStepValue = string | number | [string, string];

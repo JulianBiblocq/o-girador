@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAudioStore } from '../../stores/useAudioStore';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { getEcosystemUrl } from '../../constants/ecosystemUrls';
@@ -84,6 +85,7 @@ export const useLandingPageLogic = (
     }
     useAudioStore.getState().unlockAudio();
     localStorage.setItem('ogirador_has_seen_welcome', 'true');
+    useSequencerStore.getState().setMobileViewMode('complet');
     onEnter();
   }, [isUnlocking, onEnter]);
 

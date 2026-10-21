@@ -8,8 +8,14 @@ import { checkHasFullPlaybackAccess, UserProfile } from '../contexts/AuthContext
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import { useTransportStore } from '../stores/useTransportStore';
+import { syncMobileViewModeWithProfile } from '../utils/viewModeResolver';
 
 export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: boolean) {
+  useEffect(() => {
+    if (userProfile) {
+      syncMobileViewModeWithProfile(userProfile);
+    }
+  }, [userProfile?.uid, userProfile?.lastSequenciadorMode, userProfile?.role, userProfile?.instrument]);
   useEffect(() => {
     const fullPlaybackAccess = checkHasFullPlaybackAccess(userProfile, isAdmin);
     useSequencerStore.getState().setHasFullPlaybackAccess(fullPlaybackAccess);
