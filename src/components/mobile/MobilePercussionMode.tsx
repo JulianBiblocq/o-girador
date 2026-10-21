@@ -38,11 +38,12 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
   const requestLoopExit = useSequencerStore((s) => s.requestLoopExit);
   const isSpeedTrainerOpen = useSequencerStore((s) => s.isSpeedTrainerOpen);
   const openSpeedTrainerModal = useSequencerStore((s) => s.openSpeedTrainerModal);
+  const isLetraActive = useSequencerStore((s) => s.isLetraActive);
+  const toggleLetraActive = useSequencerStore((s) => s.toggleLetraActive);
 
   const [primaryTrackId, setPrimaryTrackId] = useState<number | null>(null);
   const [referenceTrackId, setReferenceTrackId] = useState<number | null>(null);
   const [isAoVivoActive, setIsAoVivoActive] = useState(true);
-  const [isLetraActive, setIsLetraActive] = useState(false);
   const [isLetraDrawerOpen, setIsLetraDrawerOpen] = useState(false);
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -52,15 +53,21 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
     const searchParams = new URLSearchParams(window.location.search);
     const roleParam = searchParams.get('role') || searchParams.get('playAlongTrackId');
     const cached = localStorage.getItem('sequenciador_perc_primary_track');
-    const percTracks = tracks.filter((t) => {
+    const eligibleTracks = tracks.filter((t) => {
       const inst = instrumentsConfig[t.instrumentIdx];
-      return inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro';
+      return inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.id !== 'apito' && inst.id !== 'toada';
     });
 
-    const matched = percTracks.find((t) => String(t.id) === roleParam) ||
-      percTracks.find((t) => String(t.id) === cached) || percTracks[0];
+    const matched = eligibleTracks.find((t) => String(t.id) === roleParam) ||
+      eligibleTracks.find((t) => String(t.id) === cached) || eligibleTracks[0];
     if (matched) setPrimaryTrackId(matched.id);
   }, [tracks, primaryTrackId]);
+
+  useEffect(() => {
+    if (isAoVivoActive && primaryTrackId) {
+      useSequencerStore.getState().setActiveAoVivoTrackId(primaryTrackId);
+    }
+  }, [isAoVivoActive, primaryTrackId]);
 
   const visibleTrackIds = [primaryTrackId, ...(referenceTrackId ? [referenceTrackId] : [])].filter(Boolean) as number[];
 
@@ -86,13 +93,13 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
         isAoVivoActive={isAoVivoActive}
         onToggleAoVivo={() => setIsAoVivoActive((v) => !v)}
         isLetraActive={isLetraActive}
-        onToggleLetra={() => setIsLetraActive((v) => !v)}
+        onToggleLetra={toggleLetraActive}
         onOpenLetraDrawer={() => setIsLetraDrawerOpen(true)}
         lang={lang}
       />
 
       <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
-        <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} />
+        <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} />
         {isAoVivoActive && primaryTrackId && <AoVivoOverlayInner activeAoVivoTrackId={primaryTrackId} />}
       </div>
 

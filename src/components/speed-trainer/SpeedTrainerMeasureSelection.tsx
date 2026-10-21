@@ -48,7 +48,7 @@ export const SpeedTrainerMeasureSelection: React.FC<SpeedTrainerMeasureSelection
   return (
     <div className="flex flex-col gap-2">
       <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-        📍 {t('speedTrainerZone')}
+        ▪ {t('speedTrainerZone')}
       </label>
 
       <SpeedTrainerMarkersSelector

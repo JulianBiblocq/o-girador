@@ -16,7 +16,7 @@ export const SpeedTrainerStagesCountSelector: React.FC<SpeedTrainerStagesCountSe
   return (
     <div className="flex flex-col gap-1.5">
       <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-        🪜 {t('speedTrainerStagesCount')}
+        ▪ {t('speedTrainerStagesCount')}
       </label>
       <div className="grid grid-cols-3 gap-1">
         {[2, 3, 4].map((count) => (

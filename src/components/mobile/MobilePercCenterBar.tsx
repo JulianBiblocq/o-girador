@@ -25,17 +25,17 @@ export const MobilePercCenterBar: React.FC<Props> = ({
   const currentMeasure = useSequencerStore((s) => s.currentMeasure);
   const tracks = useSequencerStore((s) => s.tracks);
 
-  const puxTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-  const coroTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-  const puxPattern = puxTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]);
-  const coroPattern = coroTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]);
+  const puxTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || t.customName === 'Puxador');
+  const coroTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || t.customName === 'Coro');
+  const puxPattern = puxTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) || puxTrack?.patterns?.[0];
+  const coroPattern = coroTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) || coroTrack?.patterns?.[0];
 
   const puxLyrics = puxPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
   const coroLyrics = coroPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
 
   return (
     <div className="w-full bg-[#121212] px-2 py-1 flex flex-col gap-1 border-b border-[var(--cordel-border)] shrink-0 select-none">
-      {/* 1. Ligne des 3 Bascules : Ao Vivo, Chant, Base Pure */}
+      {/* 1. Ligne des 3 Bascules : Ao Vivo, Letra, Base Pure */}
       <div className="grid grid-cols-3 gap-1.5">
         <button
           onClick={onToggleAoVivo}
@@ -56,7 +56,7 @@ export const MobilePercCenterBar: React.FC<Props> = ({
           title="Affichage des paroles"
         >
           <BookOpen size={12} />
-          <span className="truncate">{lang === 'pt' ? 'Letra' : 'Chant'}</span>
+          <span className="truncate">Letra</span>
         </button>
 
         <button

@@ -5,6 +5,8 @@ import { CordelTarget } from '../ui/CordelTarget';
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 
+import { useSequencerStore } from '../../stores/useSequencerStore';
+
 export type SpeedTrainerTab = 'tocarJunto' | 'speedTrainer' | 'mestreChallenges';
 
 interface SpeedTrainerHeaderProps {
@@ -40,13 +42,21 @@ export const SpeedTrainerHeader: React.FC<SpeedTrainerHeaderProps> = ({
   isolateBaseOnly,
   onClose,
 }) => {
+  const mobileViewMode = useSequencerStore((s) => s.mobileViewMode);
+  const isMobile = mobileViewMode !== 'complet' || (typeof window !== 'undefined' && window.innerWidth < 768);
+
+  const titleText = t('speedTrainerModalTitle');
+  const displayTitle = !titleText || titleText === 'speedTrainerModalTitle'
+    ? (lang === 'fr' ? 'MODE ENTRAÎNEMENT' : 'MODO TREINO')
+    : titleText;
+
   return (
     <>
       <div className="bg-[#1a1a1a] text-[#f4ecd8] px-5 py-3.5 flex items-center justify-between border-b-4 border-[#1a1a1a] shrink-0">
         <div className="flex items-center gap-2.5">
           <XiloLightning size={24} className="text-[#f4ecd8]" />
           <h2 className="font-cactus font-bold text-xl uppercase tracking-wider text-[#f4ecd8]">
-            {t('speedTrainerModalTitle')}
+            {displayTitle}
           </h2>
         </div>
         <button
@@ -58,42 +68,46 @@ export const SpeedTrainerHeader: React.FC<SpeedTrainerHeaderProps> = ({
         </button>
       </div>
 
-      <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2 overflow-x-auto shrink-0">
-        <button
-          type="button"
-          onClick={() => setActiveTab('tocarJunto')}
-          className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'tocarJunto' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
-          }`}
-        >
-          <CordelTarget size={14} className={activeTab === 'tocarJunto' ? 'text-[#c25e38]' : 'text-current'} />
-          {t('speedTrainerTabTocarJunto')}
-        </button>
+      {(!isMobile || isMestre) && (
+        <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2 overflow-x-auto shrink-0">
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('tocarJunto')}
+              className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'tocarJunto' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
+              }`}
+            >
+              <CordelTarget size={14} className={activeTab === 'tocarJunto' ? 'text-[#c25e38]' : 'text-current'} />
+              {t('speedTrainerTabTocarJunto')}
+            </button>
+          )}
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('speedTrainer')}
-          className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'speedTrainer' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
-          }`}
-        >
-          <XiloLightning size={14} />
-          {t('speedTrainerTabSpeed')}
-        </button>
-
-        {isMestre && (
           <button
             type="button"
-            onClick={() => setActiveTab('mestreChallenges')}
+            onClick={() => setActiveTab('speedTrainer')}
             className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'mestreChallenges' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
+              activeTab === 'speedTrainer' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
             }`}
           >
-            <GraduationCap size={14} />
-            {t('speedTrainerTabMestreChallenges')}
+            <XiloLightning size={14} />
+            {t('speedTrainerTabSpeed')}
           </button>
-        )}
-      </div>
+
+          {isMestre && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('mestreChallenges')}
+              className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                activeTab === 'mestreChallenges' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
+              }`}
+            >
+              <GraduationCap size={14} />
+              {t('speedTrainerTabMestreChallenges')}
+            </button>
+          )}
+        </div>
+      )}
 
       {isActive && activeTab === 'speedTrainer' && (
         <div className="bg-amber-500/15 border-b-2 border-amber-600/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-amber-900 shrink-0">

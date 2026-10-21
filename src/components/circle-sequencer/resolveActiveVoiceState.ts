@@ -32,11 +32,25 @@ export function resolveActiveVoiceState(
   const effectiveTimeSig = (measureTimeSigs && (Array.isArray(measureTimeSigs) ? measureTimeSigs[measureIdx] : measureTimeSigs[measureIdx])) || timeSig || '4/4';
   const beatsCount = getBeatsPerMeasure(effectiveTimeSig);
 
-  const puxTrack = rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-  const coroTrack = rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+  let puxTrack = rawTracks.find(t => {
+    const inst = instrumentsConfig[t.instrumentIdx];
+    return inst?.id === 'puxador' || String(t.id) === 'puxador' || (t as any).name === 'puxador' || t.customName?.toLowerCase() === 'puxador';
+  });
+  let coroTrack = rawTracks.find(t => {
+    const inst = instrumentsConfig[t.instrumentIdx];
+    return inst?.id === 'coro' || String(t.id) === 'coro' || (t as any).name === 'coro' || t.customName?.toLowerCase() === 'coro';
+  });
 
-  const puxPattern = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId);
-  const coroPattern = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId);
+  if (!puxTrack && !coroTrack) {
+    puxTrack = rawTracks.find(t => {
+      const inst = instrumentsConfig[t.instrumentIdx];
+      if (inst?.type === 'voice') return true;
+      return t.patterns?.some(p => p.lyrics && p.lyrics.some(l => l && l.trim() && l.trim() !== '-'));
+    });
+  }
+
+  const puxPattern = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId) || puxTrack?.patterns?.[0];
+  const coroPattern = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId) || coroTrack?.patterns?.[0];
 
   let nextMeasureIdx: number;
   if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {

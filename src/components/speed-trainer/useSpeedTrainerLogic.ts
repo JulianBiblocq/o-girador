@@ -32,8 +32,10 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
   const setTocarJuntoIsMuted = useSequencerStore((state) => state.setTocarJuntoIsMuted);
   const setIsolateBaseOnly = useSequencerStore((state) => state.setIsolateBaseOnly);
   const setActiveAoVivoTrackId = useSequencerStore((state) => state.setActiveAoVivoTrackId);
+  const mobileViewMode = useSequencerStore((state) => state.mobileViewMode);
+  const isMobile = mobileViewMode !== 'complet' || (typeof window !== 'undefined' && window.innerWidth < 768);
 
-  const [activeTab, setActiveTab] = useState<SpeedTrainerTab>('tocarJunto');
+  const [activeTab, setActiveTab] = useState<SpeedTrainerTab>(isMobile ? 'speedTrainer' : 'tocarJunto');
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
   const [isMutedOption, setIsMutedOption] = useState<boolean>(true);
   const [selectedMuteScope, setSelectedMuteScope] = useState<'track' | 'family'>('track');

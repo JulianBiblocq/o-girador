@@ -70,7 +70,7 @@ export const SpeedTrainerSpeedTab: React.FC<SpeedTrainerSpeedTabProps> = ({
         <div className="p-3 bg-amber-500/20 border-2 border-amber-600/60 rounded-xs flex flex-col gap-1 shadow-[2px_2px_0px_#1a1a1a]">
           <div className="flex items-center justify-between">
             <span className="font-cactus font-bold text-sm text-[#1a1a1a]">
-              🎯 {activeTrainingSession.title || 'Défi Mestre'} — Palier {activeTrainingSession.stageIndex}
+              ▸ {activeTrainingSession.title || 'Défi Mestre'} — Palier {activeTrainingSession.stageIndex}
             </span>
             <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-600 text-[#f4ecd8] rounded-xs uppercase">
               Défi

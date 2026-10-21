@@ -19,7 +19,7 @@ export const SpeedTrainerStepControls: React.FC<SpeedTrainerStepControlsProps> =
     <div className="grid grid-cols-2 gap-2">
       <div className="flex flex-col gap-1.5">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-          📈 {t('speedTrainerStep')}
+          ▪ {t('speedTrainerStep')}
         </label>
         <div className="grid grid-cols-3 gap-1">
           {[1, 2, 4].map((step) => (
@@ -39,7 +39,7 @@ export const SpeedTrainerStepControls: React.FC<SpeedTrainerStepControlsProps> =
 
       <div className="flex flex-col gap-1.5">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-          🔄 {t('speedTrainerInterval')}
+          ▪ {t('speedTrainerInterval')}
         </label>
         <div className="grid grid-cols-2 gap-1">
           <button

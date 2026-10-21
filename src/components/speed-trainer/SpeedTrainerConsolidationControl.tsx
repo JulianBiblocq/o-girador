@@ -18,7 +18,7 @@ export const SpeedTrainerConsolidationControl: React.FC<SpeedTrainerConsolidatio
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-          🛡️ {t('speedTrainerConsolidationLaps')}
+          ▪ {t('speedTrainerConsolidationLaps')}
         </label>
         <span className="text-[10px] text-[#777]">{t('speedTrainerConsolidationHelp')}</span>
       </div>

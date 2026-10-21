@@ -5,7 +5,7 @@
 
 import { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { isToadaBus, getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { isToadaBus } from '../../stores/useSequencerStore';
 import { drawTrackRing } from './drawTrackRings';
 import { resolveBeatsFromTimeSig, computeStepAngles } from './circleGeometry';
 import { drawToadaTrack } from './drawToadaTrack';
@@ -35,8 +35,6 @@ export function renderTrackStepLayer(
   activeVisibleTracks.forEach((track, visibleIdx) => {
     const inst = instrumentsConfig[track.instrumentIdx];
     if (!inst || track.isHidden || inst.id === 'apito') return;
-
-    if (getEffectiveMuteState(localRawTracks, track.id)) return;
 
     const activePatternId = getLiveActivePatternId(track);
     if (activePatternId === null) return;

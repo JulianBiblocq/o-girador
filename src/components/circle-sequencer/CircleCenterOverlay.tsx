@@ -12,6 +12,7 @@ interface CircleCenterOverlayProps {
   centerOverlayTintRef: React.RefObject<HTMLDivElement | null>;
   centerOverlayTextRef: React.RefObject<HTMLSpanElement | null>;
   isCenterShaking: boolean;
+  isLetraActive?: boolean;
 }
 
 export const CircleCenterOverlay: React.FC<CircleCenterOverlayProps> = ({
@@ -21,6 +22,7 @@ export const CircleCenterOverlay: React.FC<CircleCenterOverlayProps> = ({
   centerOverlayTintRef,
   centerOverlayTextRef,
   isCenterShaking,
+  isLetraActive,
 }) => {
   return (
     <div
@@ -28,6 +30,7 @@ export const CircleCenterOverlay: React.FC<CircleCenterOverlayProps> = ({
       className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
       style={{
         opacity: 0,
+        display: isLetraActive ? 'none' : undefined,
         transition: 'opacity 0.6s ease',
       }}
     >

@@ -5,7 +5,7 @@
 
 import { Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { isSequencerVisibleTrack, isToadaBus, getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { isSequencerVisibleTrack, isToadaBus } from '../../stores/useSequencerStore';
 import { sortTracksByRodaOrder } from './sortTracksByRodaOrder';
 import { getTrackRadius } from './circleGeometry';
 
@@ -39,8 +39,7 @@ export function clearStepAtCanvasCoords(
   const activeVisibleTracksToDraw = sortedCurrentTracks.filter(t => {
     if (t.isHidden) return false;
     if (!isSequencerVisibleTrack(t, currentTracks)) return false;
-    if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
-    return !getEffectiveMuteState(currentRawTracks, t.id);
+    return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
   });
 
   for (let visibleIdx = 0; visibleIdx < activeVisibleTracksToDraw.length; visibleIdx++) {

@@ -22,7 +22,7 @@ export const SpeedTrainerBpmControls: React.FC<SpeedTrainerBpmControlsProps> = (
     <div className="grid grid-cols-2 gap-2">
       <div className="flex flex-col gap-1.5">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-          🐢 {t('speedTrainerStartBpm')}
+          ▪ {t('speedTrainerStartBpm')}
         </label>
         <div className="bg-[#fcf9f2] border-2 border-[#1a1a1a] p-2 rounded-xs shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-between">
           <HoldButton
@@ -64,7 +64,7 @@ export const SpeedTrainerBpmControls: React.FC<SpeedTrainerBpmControlsProps> = (
 
       <div className="flex flex-col gap-1.5">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-          🎯 {t('speedTrainerTargetBpm')}
+          ▪ {t('speedTrainerTargetBpm')}
         </label>
         <div className="bg-[#fcf9f2] border-2 border-[#1a1a1a] p-2 rounded-xs shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-between">
           <HoldButton

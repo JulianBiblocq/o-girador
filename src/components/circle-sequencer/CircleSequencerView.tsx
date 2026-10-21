@@ -86,6 +86,7 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
           centerOverlayTintRef={centerOverlayTintRef}
           centerOverlayTextRef={centerOverlayTextRef}
           isCenterShaking={isCenterShaking}
+          isLetraActive={isLetraActive}
         />
       </div>
 

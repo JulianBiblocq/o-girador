@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencer } from '../../contexts/SequencerContext';
+import { resolvePatternForMeasure } from '../circle-sequencer/measurePatternHelpers';
 import { dispatchAlfaiaOrDrum, dispatchTimbal } from './aoVivoStrokeDispatchers';
 import { dispatchMineiro, dispatchAgbe, dispatchGongue } from './aoVivoOtherDispatchers';
 import { resetAoVivoRestPosition } from './aoVivoReset';
@@ -21,6 +23,7 @@ export function useAoVivoAnimationEngine(
   voiceWrapperRef: React.RefObject<HTMLDivElement | null>
 ) {
   const isPreRolling = useSequencerStore((state) => state.isPreRolling);
+  const { activeVariationsRef } = useSequencer();
   const leftAnimRef = useRef<Animation | null>(null);
   const rightAnimRef = useRef<Animation | null>(null);
   const gongueAnimRef = useRef<Animation | null>(null);
@@ -60,16 +63,18 @@ export function useAoVivoAnimationEngine(
         return;
       }
 
-      const pattern = activeTrack?.patterns.find((p: any) => p.measureAssignments[measure]);
+      const pattern = resolvePatternForMeasure(activeTrack, measure, null) || activeTrack?.patterns?.[0];
       if (!pattern) { lastVuStepRef.current = -1; return; }
 
-      const targetStep = Math.floor(ratio * (pattern.steps || 16));
+      const patSteps = pattern.steps || 16;
+      const targetStep = Math.min(patSteps - 1, Math.max(0, Math.floor(ratio * patSteps)));
       if (targetStep === lastVuStepRef.current) return;
       lastVuStepRef.current = targetStep;
       clearSubStepTimers();
 
-      const rawVal = pattern.grid[0]?.[targetStep];
-      if (!rawVal || rawVal === '-' || rawVal === '.' || rawVal === '0') return;
+      const activePlayingSteps = (activeVariationsRef?.current?.[activeTrack.id]) || pattern.activeSteps;
+      const rawVal = activePlayingSteps?.[targetStep];
+      if (!rawVal || rawVal === '-' || rawVal === '.' || rawVal === '0' || rawVal === 0) return;
 
       const triggerStroke = (stroke: string, isSubStep: boolean) => {
         if (!inst) return;
@@ -87,10 +92,12 @@ export function useAoVivoAnimationEngine(
         }
       };
 
+      const bpm = useSequencerStore.getState().bpm || 100;
+      const stepDurationMs = Math.max(40, (60000 / bpm) / (patSteps / 4));
+
       if (Array.isArray(rawVal)) {
         triggerStroke(String(rawVal[0]), false);
-        const bpm = useSequencerStore.getState().bpm || 100;
-        const subDelay = Math.max(20, Math.round((60000 / bpm / 4) / 2));
+        const subDelay = Math.max(20, Math.round(stepDurationMs / 2));
         subStepTimersRef.current.push(setTimeout(() => triggerStroke(String(rawVal[1]), true), subDelay));
       } else {
         triggerStroke(String(rawVal), false);
@@ -99,7 +106,7 @@ export function useAoVivoAnimationEngine(
 
     subscribeToTick(handleTick);
     return () => { unsubscribeFromTick(handleTick); clearSubStepTimers(); };
-  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst, isPreRolling, geometryRef, leftStickRef, rightStickRef, mineiroStickRef, agbeWholeRef, gongueStickRef, haloRef]);
+  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst, isPreRolling, geometryRef, leftStickRef, rightStickRef, mineiroStickRef, agbeWholeRef, gongueStickRef, haloRef, activeVariationsRef]);
 
   return { leftAnimRef, rightAnimRef };
 }

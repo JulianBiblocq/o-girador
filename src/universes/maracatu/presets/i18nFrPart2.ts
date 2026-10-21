@@ -32,6 +32,7 @@ export const i18nFrPart2 = {
   speedTrainerToMarker: "À",
   speedTrainerMarkerStartPlaceholder: "-- Repère début --",
   speedTrainerMarkerEndPlaceholder: "-- Repère fin --",
+  speedTrainerModalTitle: "MODE ENTRAÎNEMENT",
   speedTrainerTabTocarJunto: "Jouer avec",
   speedTrainerTabSpeed: "Vitesse & Paliers",
   speedTrainerTabMestreChallenges: "Défis & Carnet",

@@ -15,11 +15,12 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     }
     if (version < 3) {
       loadedTracks.forEach(t => {
-        if (t.instrumentIdx === 8) {
+        const isVoice = t.patterns?.some(p => (p.lyrics && p.lyrics.length > 0) || (p.activeSteps && p.activeSteps.some((s: any) => s === 'P' || s === 'C')));
+        if (isVoice) {
+          t.instrumentIdx = 10;
+        } else if (t.instrumentIdx === 8) {
           const isApito = t.patterns.some(ptn => ptn.activeSteps && ptn.activeSteps.some(s => s === 'W' || s === 'w'));
-          if (!isApito) t.instrumentIdx = 9;
-        } else if (t.instrumentIdx > 8) {
-          t.instrumentIdx = 9;
+          if (isApito) t.instrumentIdx = 9;
         }
       });
     }
@@ -34,11 +35,12 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     }
     if (version < 3) {
       oldCircles.forEach((c: any) => {
-        if (c.instrumentIdx === 8) {
+        const isVoice = (c.lyrics && c.lyrics.length > 0) || (c.activeSteps && c.activeSteps.some((s: any) => s === 'P' || s === 'C'));
+        if (isVoice) {
+          c.instrumentIdx = 10;
+        } else if (c.instrumentIdx === 8) {
           const isApito = c.activeSteps && c.activeSteps.some((s: any) => s === 'W' || s === 'w');
-          if (!isApito) c.instrumentIdx = 9;
-        } else if (c.instrumentIdx > 8) {
-          c.instrumentIdx = 9;
+          if (isApito) c.instrumentIdx = 9;
         }
       });
     }

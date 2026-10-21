@@ -6,7 +6,7 @@
 import React from 'react';
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { isSequencerVisibleTrack, getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
 import { getTone } from '../../ToneLoader';
 import { sortTracksByRodaOrder } from './sortTracksByRodaOrder';
 import { clearStepAtCanvasCoords } from './clearStepAtCoords';
@@ -75,8 +75,7 @@ export function useCircleTouchInteraction(
     const activeVisibleTracksToDraw = sortedCurrentTracks.filter(t => {
       if (t.isHidden) return false;
       if (!isSequencerVisibleTrack(t, currentTracks)) return false;
-      if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
-      return !getEffectiveMuteState(currentRawTracks, t.id);
+      return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
     });
 
     const hit = findStepUnderPointer(dx, dy, distance, activeVisibleTracksToDraw, currentTracks, getLiveActivePatternId);

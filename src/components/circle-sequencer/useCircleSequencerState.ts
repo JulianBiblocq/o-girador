@@ -72,7 +72,8 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
 
 
   const isCenterShaking = useApitoShake();
-  const isLetraActive = useSequencerStore(state => state.isLetraActive);
+  const storeLetraActive = useSequencerStore(state => state.isLetraActive);
+  const isLetraActive = props.isLetraActive ?? storeLetraActive;
   const toggleLetraActive = useSequencerStore(state => state.toggleLetraActive);
   const vocalMode = useAudioStore(state => state.vocalMode);
   const setVocalMode = useAudioStore(state => state.setVocalMode);
