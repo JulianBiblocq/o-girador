@@ -7,6 +7,7 @@ import React, { useState, useRef } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { PaperPreset, PaperStepValue, PaperSequenceItem } from '../../../types/paperWorkshop.types';
 import { ALL_PAPER_PRESETS } from '../../../utils/paper/paperTranscribedPresets';
+import { getActiveSongPaperPreset } from '../../../utils/paper/paperActiveSongExtractor';
 import { factorizeSequence } from '../../paper/SequenceTagBuilder';
 import { usePaperVigilanceStore } from '../../../stores/usePaperVigilanceStore';
 import { resolvePupitreAbbr } from '../../../utils/paper/paperNomenclatureHelper';
@@ -28,9 +29,10 @@ interface Props {
 export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenPaperWorkshop, lang: propLang }) => {
   const storeLang = useSequencerStore((s) => s.lang);
   const lang = storeLang || propLang || 'pt';
-  const [selectedPreset] = useState<PaperPreset>(ALL_PAPER_PRESETS[0]);
-  const [editablePatterns, setEditablePatterns] = useState(() => JSON.parse(JSON.stringify(ALL_PAPER_PRESETS[0].patterns)));
-  const [sequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(ALL_PAPER_PRESETS[0].defaultSequence));
+  const initialPreset = React.useMemo(() => getActiveSongPaperPreset(lang) || ALL_PAPER_PRESETS[0], [lang]);
+  const [selectedPreset] = useState<PaperPreset>(() => initialPreset);
+  const [editablePatterns, setEditablePatterns] = useState(() => JSON.parse(JSON.stringify(initialPreset.patterns)));
+  const [sequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(initialPreset.defaultSequence));
   const [activePopover, setActivePopover] = useState<{ secName: string; pupitreKey: string; stepIndex: number; val: PaperStepValue } | null>(null);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   const [isDictOpen, setIsDictOpen] = useState(false);

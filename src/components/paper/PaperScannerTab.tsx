@@ -1,14 +1,14 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Onglet 2 : Scanner Photo, Relecture des Motifs & Assemblage (< 145 lignes).
+ * Onglet 2 : Scanner Photo, Relecture des Motifs & Assemblage (< 140 lignes).
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PaperPreset, PaperSequenceItem } from '../../types/paperWorkshop.types';
 import { SequenceTagBuilder, factorizeSequence } from './SequenceTagBuilder';
 import { PaperPatternPreviewGrid } from './PaperPatternPreviewGrid';
 import { injectPaperScoreToStore } from '../../utils/paper/injectPaperScoreToStore';
-import { ALL_PAPER_PRESETS } from '../../utils/paper/paperTranscribedPresets';
+import { getAllAvailablePaperPresets } from '../../utils/paper/paperActiveSongExtractor';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { Upload, CheckCircle } from 'lucide-react';
 
@@ -18,9 +18,10 @@ interface Props {
 }
 
 export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
-  const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(ALL_PAPER_PRESETS[0]);
-  const [editablePatterns, setEditablePatterns] = useState(() => JSON.parse(JSON.stringify(ALL_PAPER_PRESETS[0].patterns)));
-  const [sequenceItems, setSequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(ALL_PAPER_PRESETS[0].defaultSequence));
+  const presetsList = useMemo(() => getAllAvailablePaperPresets(lang), [lang]);
+  const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(() => presetsList[0]);
+  const [editablePatterns, setEditablePatterns] = useState(() => JSON.parse(JSON.stringify(presetsList[0].patterns)));
+  const [sequenceItems, setSequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(presetsList[0].defaultSequence));
   const [reusableSections, setReusableSections] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const vigilanceCount = usePaperVigilanceStore((state) => state.points.length);
@@ -63,28 +64,35 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
     <div className="flex flex-col gap-2.5 font-sans text-xs">
       {/* 1. CHARGEMENT PHOTO & SÉLECTION DE PARTITION */}
       <div className="p-2.5 bg-black/5 border-2 border-[var(--cordel-border,#1a1a1a)] flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <label className="px-2.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000]">
             <Upload size={12} />
-            <span>{lang === 'fr' ? 'Charger Photo' : 'Carregar Foto'}</span>
+            <span className="whitespace-nowrap">{lang === 'fr' ? 'Charger Photo' : 'Carregar Foto'}</span>
             <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" />
           </label>
-          <span className="text-[10px] text-gray-600 italic">
+          <span className="text-[10px] text-gray-600 italic whitespace-nowrap">
             {photoPreview ? '📷 Photo chargée' : (lang === 'fr' ? 'Prenez en photo votre fiche' : 'Tire uma foto')}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-[10px] uppercase">{lang === 'fr' ? 'Modèle :' : 'Modelo :'}</span>
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:flex-initial justify-end">
+          <label htmlFor="paper-model-select" className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] shrink-0 whitespace-nowrap">
+            {lang === 'fr' ? 'Modèle :' : 'Modelo :'}
+          </label>
           <select
+            id="paper-model-select"
             value={selectedPreset.id}
             onChange={(e) => {
-              const p = ALL_PAPER_PRESETS.find((pr) => pr.id === e.target.value) || ALL_PAPER_PRESETS[0];
+              const p = presetsList.find((pr) => pr.id === e.target.value) || presetsList[0];
               handleSelectPreset(p);
             }}
-            className="p-1 bg-white border border-black font-cactus font-bold text-xs"
+            className="p-1 bg-white border border-black font-cactus font-bold text-xs max-w-[260px] w-full truncate cursor-pointer shadow-[1px_1px_0px_#000]"
           >
-            {ALL_PAPER_PRESETS.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+            {presetsList.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
