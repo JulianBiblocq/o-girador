@@ -121,7 +121,11 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
           {signalImg ? (
             <img src={signalImg} alt={activeSignal?.name || 'Sinal'} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-3xl opacity-40 font-mono">✋</span>
+            <svg viewBox="0 0 32 32" className="w-10 h-10 text-[var(--cordel-text)] opacity-60" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter">
+              <path d="M16 4 L28 16 L16 28 L4 16 Z" />
+              <path d="M16 9 L23 16 L16 23 L9 16 Z" />
+              <path d="M16 13 L16 19 M13 16 L19 16" strokeWidth="2.5" />
+            </svg>
           )}
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 overflow-hidden">

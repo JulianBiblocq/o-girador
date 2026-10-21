@@ -5,67 +5,63 @@
 
 import React from 'react';
 import { Play, Square, RotateCcw } from 'lucide-react';
+import { useMuteGroupStore } from '../../stores/useMuteGroupStore';
+import { ALL_MUTE_GROUP_IDS } from './mobileFamilyConfig';
 
 interface Props {
-  isPlaying: boolean;
-  isLoading: boolean;
-  onTogglePlay: (opts?: any) => void;
-  onStop: () => void;
-  bpm: number;
-  onChangeBpm: (delta: number) => void;
-  onResetBpm: () => void;
-  loopMode: 'infinite' | number;
-  onChangeLoopMode: (mode: 'infinite' | number) => void;
-  isLoopExitRequested: boolean;
-  onRequestLoopExit: () => void;
+  isPlaying: boolean; isLoading: boolean; onTogglePlay: (opts?: any) => void; onStop: () => void;
+  bpm: number; onChangeBpm: (delta: number) => void; onResetBpm: () => void;
+  loopMode: 'infinite' | number; onChangeLoopMode: (mode: 'infinite' | number) => void;
+  isLoopExitRequested: boolean; onRequestLoopExit: () => void;
 }
 
 export const MobileTransportHero: React.FC<Props> = ({
   isPlaying, isLoading, onTogglePlay, onStop, bpm, onChangeBpm, onResetBpm,
   loopMode, onChangeLoopMode, isLoopExitRequested, onRequestLoopExit,
 }) => {
+  const activeMuteGroups = useMuteGroupStore((s) => s.activeMuteGroups);
+  const muteGroupAssignments = useMuteGroupStore((s) => s.muteGroupAssignments);
+  const toggleMuteGroupActive = useMuteGroupStore((s) => s.toggleMuteGroupActive);
+
   return (
     <footer className="w-full bg-[#121212] border-t-2 border-[var(--cordel-border)] flex flex-col gap-2 p-2 shrink-0 select-none">
-      {/* 1. Ligne Supérieure Agrandie : Tempo & Boucles */}
-      <div className="w-full flex items-center justify-between gap-1.5">
+      {/* 1. Ligne Supérieure : Tempo, Groupes de Mute Maîtres, Boucles */}
+      <div className="w-full flex items-center justify-between gap-1">
         {/* Tempo [-5] [-1] [ BPM ↺ ] [+1] [+5] */}
         <div className="h-10 flex items-center bg-[#1a1a1a] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)]">
-          <button
-            onClick={() => onChangeBpm(-5)}
-            className="h-full px-2 font-mono text-xs font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90"
-            title="-5 BPM"
-          >
-            -5
-          </button>
-          <button
-            onClick={() => onChangeBpm(-1)}
-            className="h-full px-2 font-mono text-sm font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40"
-            title="-1 BPM"
-          >
-            -1
-          </button>
-          <button
-            onClick={onResetBpm}
-            className="h-full px-2.5 font-cactus font-bold text-sm sm:text-base text-[var(--cordel-text)] hover:text-[#b94a2c] flex items-center gap-1.5 active:scale-95 border-l border-r border-[var(--cordel-border)]/40"
-            title="Réinitialiser au tempo d'origine"
-          >
+          <button onClick={() => onChangeBpm(-5)} className="h-full px-1.5 font-mono text-xs font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90" title="-5 BPM">-5</button>
+          <button onClick={() => onChangeBpm(-1)} className="h-full px-1.5 font-mono text-sm font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40" title="-1 BPM">-1</button>
+          <button onClick={onResetBpm} className="h-full px-2 font-cactus font-bold text-sm text-[var(--cordel-text)] hover:text-[#b94a2c] flex items-center gap-1 active:scale-95 border-l border-r border-[var(--cordel-border)]/40" title="Réinitialiser au tempo d'origine">
             <span>{bpm}</span>
-            <RotateCcw size={12} className="text-[#b94a2c]" />
+            <RotateCcw size={11} className="text-[#b94a2c]" />
           </button>
-          <button
-            onClick={() => onChangeBpm(1)}
-            className="h-full px-2 font-mono text-sm font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90 border-r border-[var(--cordel-border)]/40"
-            title="+1 BPM"
-          >
-            +1
-          </button>
-          <button
-            onClick={() => onChangeBpm(5)}
-            className="h-full px-2 font-mono text-xs font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90"
-            title="+5 BPM"
-          >
-            +5
-          </button>
+          <button onClick={() => onChangeBpm(1)} className="h-full px-1.5 font-mono text-sm font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90 border-r border-[var(--cordel-border)]/40" title="+1 BPM">+1</button>
+          <button onClick={() => onChangeBpm(5)} className="h-full px-1.5 font-mono text-xs font-bold text-[var(--cordel-text)] hover:text-[#b94a2c] active:scale-90" title="+5 BPM">+5</button>
+        </div>
+
+        {/* 4 Groupes de Mute Maîtres [ 1 | 2 | 3 | 4 ] */}
+        <div className="h-10 flex items-center bg-[#1a1a1a] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)] overflow-hidden shrink-0">
+          {ALL_MUTE_GROUP_IDS.map((gid) => {
+            const isAssigned = (muteGroupAssignments[gid] || []).length > 0;
+            const isActive = activeMuteGroups[gid];
+            return (
+              <button
+                key={gid}
+                onClick={() => toggleMuteGroupActive(gid)}
+                className={`h-full w-7 font-mono font-bold text-xs flex flex-col items-center justify-center transition-colors border-r last:border-r-0 border-[var(--cordel-border)]/40 active:translate-y-0.5 ${
+                  isActive
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] font-black'
+                    : isAssigned
+                    ? 'text-[#d4af37] hover:bg-white/10'
+                    : 'text-[var(--cordel-text)]/35 hover:bg-white/5'
+                }`}
+                title={`Groupe de Mute Maître ${gid}${isActive ? ' (Muté)' : isAssigned ? ' (Armé)' : ' (Vide)'}`}
+              >
+                <span>{gid}</span>
+                {isAssigned && !isActive && <span className="w-1 h-1 rounded-full bg-[#d4af37] -mt-0.5" />}
+              </button>
+            );
+          })}
         </div>
 
         {/* Boucles Agrandies [ ∞ | ×2 | ×4 | ×8 ] */}
@@ -74,7 +70,7 @@ export const MobileTransportHero: React.FC<Props> = ({
             <button
               key={mode}
               onClick={() => onChangeLoopMode(mode)}
-              className={`h-full px-2.5 font-cactus font-bold text-sm transition-colors flex items-center justify-center ${
+              className={`h-full px-2 font-cactus font-bold text-sm transition-colors flex items-center justify-center ${
                 loopMode === mode ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'text-[var(--cordel-text)] hover:bg-white/10'
               }`}
             >
@@ -84,7 +80,7 @@ export const MobileTransportHero: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 2. Ligne Inférieure Agrandie : Sortie de boucle, Départ 4 temps et Transport géant */}
+      {/* 2. Ligne Inférieure : Sortie de boucle, Départ 4 temps et Transport géant */}
       <div className="w-full flex items-center gap-2">
         <button
           onClick={onRequestLoopExit}

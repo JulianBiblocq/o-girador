@@ -64,7 +64,7 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
       setLoading(true);
       signInWithCustomToken(auth, ssoToken)
         .catch((err) => {
-          console.warn("[Séquenciad'Or SSO] Erreur connexion SSO :", err);
+          console.warn("[Sequenciador SSO] Erreur connexion SSO :", err);
           setLoading(false);
         })
         .finally(() => {
@@ -87,6 +87,17 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
           if (docSnap.exists()) {
             const resolvedProfile = await resolveUserProfileAndGroup(user, docSnap.data(), userRef);
             setUserProfile(resolvedProfile);
+            try {
+              localStorage.setItem(
+                'girador_user_cached_profile',
+                JSON.stringify({
+                  photoURL: resolvedProfile.photoURL || user.photoURL || null,
+                  displayName: resolvedProfile.displayName || user.displayName || null,
+                  groupId: resolvedProfile.groupId || null,
+                  groupName: resolvedProfile.groupName || null,
+                })
+              );
+            } catch (_) {}
             useNomenclatureStore.getState().syncGroupNomenclature(resolvedProfile.groupId || null);
           } else {
             const newProfile: UserProfile = {
@@ -108,6 +119,7 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
         });
       } else {
         setUserProfile(null);
+        try { localStorage.removeItem('girador_user_cached_profile'); } catch (_) {}
         useNomenclatureStore.getState().syncGroupNomenclature(null);
         useSequencerStore.getState().setIsLeftHanded(false);
         if (!isSSOPending) setLoading(false);
