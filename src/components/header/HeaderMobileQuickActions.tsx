@@ -30,7 +30,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       <button
         onClick={() => {
           useSequencerStore.getState().closeDetailEditor();
-          useSequencerStore.getState().setIsMobileStudioMode(false);
+          useSequencerStore.getState().setMobileViewMode('danse');
         }}
         className="px-2 h-9 flex items-center justify-center font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#b94a2c] text-[#f4ecd8] shadow-[2px_2px_0_#000]"
         title="Retour Télécommande Répétition"

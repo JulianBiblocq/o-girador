@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { HeaderProfileSection } from './HeaderProfileSection';
 import { HeaderProjectDropdownContent } from './HeaderProjectDropdownContent';
 import { HeaderHelpSection } from './HeaderHelpSection';
+import { MobileViewModeSelector } from '../mobile/MobileViewModeSelector';
 
 interface HeaderDesktopMenuProps {
   lang: 'pt' | 'fr';
@@ -61,6 +62,13 @@ export const HeaderDesktopMenu: React.FC<HeaderDesktopMenuProps> = (props) => {
 
       {projectDropOpen && (
         <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] z-[100] flex flex-col p-2 gap-3 max-h-[calc(100dvh-4.5rem)] overflow-y-auto custom-scrollbar overscroll-contain">
+          <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-2">
+            <span className="text-[10px] font-bold text-[#b94a2c] uppercase tracking-wide font-cactus">
+              {props.lang === 'pt' ? 'Modo de exibição' : 'Mode d\'affichage'}
+            </span>
+            <MobileViewModeSelector lang={props.lang} />
+          </div>
+
           <HeaderProfileSection
             lang={props.lang}
             onAdminClick={props.onAdminClick}

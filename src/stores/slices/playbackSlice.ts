@@ -12,6 +12,7 @@ export interface PlaybackSlice {
   currentLoopIteration: number; // For UI countdown display
   isLoopBypassed: boolean; // True when loop is bypassed and finishing linear sequence
   isLoopExitRequested: boolean;
+  pendingLoopRange: { startMeasure: number; endMeasure: number } | null;
   isPreRolling: boolean; // True pendant le décompte pré-roll (count-in) avant la mesure 1
   isPlaying: boolean;
 
@@ -26,6 +27,7 @@ export interface PlaybackSlice {
   setIsLoopBypassed: (bypassed: boolean) => void;
   requestLoopExit: () => void;
   clearLoopExitRequest: () => void;
+  setPendingLoopRange: (range: { startMeasure: number; endMeasure: number } | null) => void;
   setLoopStartMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
   setLoopEndMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
   setCurrentMeasure: (measure: number | ((prev: number) => number)) => void;
@@ -45,6 +47,7 @@ export const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackS
   currentLoopIteration: 1,
   isLoopBypassed: false,
   isLoopExitRequested: false,
+  pendingLoopRange: null,
   isPreRolling: false,
 
   setIsPreRolling: (isPreRolling) => set({ isPreRolling }),
@@ -63,6 +66,7 @@ export const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackS
   setIsLoopBypassed: (bypassed) => set({ isLoopBypassed: bypassed }),
   requestLoopExit: () => set({ isLoopExitRequested: true }),
   clearLoopExitRequest: () => set({ isLoopExitRequested: false }),
+  setPendingLoopRange: (range) => set({ pendingLoopRange: range }),
 
   handleSetLoopStart: (measureIdx) => {
     if (measureIdx !== null) get().pushUndoState();

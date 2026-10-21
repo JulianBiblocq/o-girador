@@ -45,6 +45,11 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
       if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
       store.setCurrentLoopIteration(1);
 
+      if (isLoopRegionActive) {
+        ctx.isLoopRegionActiveRef.current = false;
+        store.setIsLoopRegionActive(false);
+      }
+
       const nextMeasure = currentMeasureIdx + 1;
       if (nextMeasure < (ctx.totalMeasuresRef.current || 1)) {
         ctx.measureCountRef.current = nextMeasure;
@@ -58,6 +63,20 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
           return;
         }
       }
+    } else if (store.pendingLoopRange) {
+      const pending = store.pendingLoopRange;
+      store.setPendingLoopRange(null);
+      store.setLoopStartMeasure(pending.startMeasure);
+      store.setLoopEndMeasure(pending.endMeasure);
+      store.setIsLoopRegionActive(true);
+      ctx.loopStartRef.current = pending.startMeasure;
+      ctx.loopEndRef.current = pending.endMeasure;
+      ctx.isLoopRegionActiveRef.current = true;
+      if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
+      store.setCurrentLoopIteration(1);
+
+      ctx.measureCountRef.current = pending.startMeasure;
+      ctx.setCurrentMeasure(pending.startMeasure);
     } else {
       const nextIter = currentIter + 1;
       if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = nextIter;
@@ -65,6 +84,30 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
 
       ctx.measureCountRef.current = loopStartMeasure;
       ctx.setCurrentMeasure(loopStartMeasure);
+    }
+  } else if (store.pendingLoopRange) {
+    const songSections = store.songSections || [];
+    const activeSection = songSections.find(s => s.startMeasure <= currentMeasureIdx && currentMeasureIdx <= s.endMeasure);
+    const activeSectionEndMeasure = activeSection ? activeSection.endMeasure : null;
+
+    if (activeSectionEndMeasure !== null && currentMeasureIdx === activeSectionEndMeasure) {
+      const pending = store.pendingLoopRange;
+      store.setPendingLoopRange(null);
+      store.setLoopStartMeasure(pending.startMeasure);
+      store.setLoopEndMeasure(pending.endMeasure);
+      store.setIsLoopRegionActive(true);
+      ctx.loopStartRef.current = pending.startMeasure;
+      ctx.loopEndRef.current = pending.endMeasure;
+      ctx.isLoopRegionActiveRef.current = true;
+      if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
+      store.setCurrentLoopIteration(1);
+
+      ctx.measureCountRef.current = pending.startMeasure;
+      ctx.setCurrentMeasure(pending.startMeasure);
+    } else {
+      const nextMeasure = (currentMeasureIdx + 1) % (ctx.totalMeasuresRef.current || 1);
+      ctx.measureCountRef.current = nextMeasure;
+      ctx.setCurrentMeasure(nextMeasure);
     }
   } else {
     const nextMeasure = (currentMeasureIdx + 1) % (ctx.totalMeasuresRef.current || 1);

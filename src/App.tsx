@@ -12,10 +12,13 @@ import { TransportBar } from './components/TransportBar';
 import { SEO } from './components/SEO';
 import { Home } from './components/Home';
 import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
-import { MobileRehearsalRemote } from './components/mobile/MobileRehearsalRemote';
 import { AppModalsContainer } from './components/app/AppModalsContainer';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { useSequencerStore, isToadaChild } from './stores/useSequencerStore';
+
+const MobileRehearsalRemote = lazyWithRetry(() => import('./components/mobile/MobileRehearsalRemote').then(m => ({ default: m.MobileRehearsalRemote })), 'MobileRehearsalRemote');
+const MobilePercussionMode = lazyWithRetry(() => import('./components/mobile/MobilePercussionMode').then(m => ({ default: m.MobilePercussionMode })), 'MobilePercussionMode');
+const MobileFieldToolsSheet = lazyWithRetry(() => import('./components/mobile/MobileFieldToolsSheet').then(m => ({ default: m.MobileFieldToolsSheet })), 'MobileFieldToolsSheet');
 import { useCloudPresets } from './hooks/queries/useCloudPresets';
 import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
 import { useAppAudio } from './hooks/useAppAudio';
@@ -113,22 +116,44 @@ export default function App() {
   }
   if (viewMode === 'home') return <><SEO /><Home onEnter={(m) => changeViewMode(m as any)} lang={sequencer.lang} /></>;
 
+  const mobileViewMode = useSequencerStore((s) => s.mobileViewMode);
   const isMobileStudioMode = useSequencerStore((s) => s.isMobileStudioMode);
+  const isMobileRemoteActive = isMobile && mobileViewMode !== 'complet' && !isMobileStudioMode && viewMode !== 'admin';
 
   return (
     <>
       <SEO />
       <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
-        {isMobile && !isMobileStudioMode && viewMode !== 'admin' ? (
-          <MobileRehearsalRemote
-            isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
-            masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
-            onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
-            onToggleStudio={() => useSequencerStore.getState().setIsMobileStudioMode(true)}
-            onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
-            isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
-            onOpenLyricsVideo={() => setActiveRightPanel('letras')}
-          />
+        {isMobileRemoteActive ? (
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-[#121212] text-[#f4ecd8] font-cactus text-sm">Chargement...</div>}>
+            {mobileViewMode === 'percussion' ? (
+              <MobilePercussionMode
+                isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
+                masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
+                onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
+                onToggleStudio={() => useSequencerStore.getState().setMobileViewMode('complet')}
+                onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
+                isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
+                onOpenLyricsVideo={() => setActiveRightPanel('letras')}
+              />
+            ) : mobileViewMode === 'editeur' ? (
+              <MobileFieldToolsSheet
+                onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
+                onToggleStudio={() => useSequencerStore.getState().setMobileViewMode('complet')}
+                lang={sequencer.lang}
+              />
+            ) : (
+              <MobileRehearsalRemote
+                isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
+                masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
+                onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
+                onToggleStudio={() => useSequencerStore.getState().setMobileViewMode('complet')}
+                onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
+                isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
+                onOpenLyricsVideo={() => setActiveRightPanel('letras')}
+              />
+            )}
+          </Suspense>
         ) : (
           <>
             <Header showInstallButton={!!deferredPrompt} onInstallClick={handleInstallClick} isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode} onExportTablature={exportProps.handleExportTablature} onAdminClick={() => changeViewMode('admin')} presetFiles={presetFiles} localPresets={localPresets} cloudPresets={cloudPresets} isCloudPresetsLoading={isCloudPresetsLoading} activeRightPanel={activeRightPanel} onToggleRightPanel={(p: any) => setActiveRightPanel(prev => prev === p ? null : p)} onCloudSave={handleSaveToLocal} viewMode={viewMode as any} onViewModeToggle={changeViewMode} isMobile={isMobile} mobileTab={mobileTab} onMobileTabToggle={setMobileTab} version={CURRENT_VERSION} onOpenInstrumentEditor={handleOpenDefaultInstrumentEditor} onToggleDetachInstrumentEditor={handleToggleDetachInstrumentEditor} editingTrackId={editingTrackId} onOpenWallpaperModal={wallpaperProps.openWallpaperModal} onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }} />

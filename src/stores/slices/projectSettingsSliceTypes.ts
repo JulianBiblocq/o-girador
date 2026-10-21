@@ -23,6 +23,8 @@ export interface ProjectSettingsSlice {
   isVisitorAuthModalOpen: boolean;
   isSubscriptionModalOpen: boolean;
   isMobileStudioMode: boolean;
+  mobileViewMode: 'danse' | 'percussion' | 'editeur' | 'complet';
+  isTouchLocked: boolean;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -46,6 +48,9 @@ export interface ProjectSettingsSlice {
   setHasFullPlaybackAccess: (val: boolean) => void;
   setIsMobileStudioMode: (val: boolean) => void;
   toggleMobileStudioMode: () => void;
+  setMobileViewMode: (mode: 'danse' | 'percussion' | 'editeur' | 'complet') => void;
+  setIsTouchLocked: (val: boolean) => void;
+  toggleTouchLock: () => void;
   openVisitorAuthModal: () => void;
   closeVisitorAuthModal: () => void;
   openSubscriptionModal: () => void;

@@ -31,6 +31,8 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   isVisitorAuthModalOpen: false,
   isSubscriptionModalOpen: false,
   isMobileStudioMode: false,
+  mobileViewMode: (typeof window !== 'undefined' && window.innerWidth < 768) ? 'danse' : 'complet',
+  isTouchLocked: false,
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -119,6 +121,12 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   closeVisitorAuthModal: () => set({ isVisitorAuthModalOpen: false }),
   openSubscriptionModal: () => set({ isSubscriptionModalOpen: true }),
   closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false }),
-  setIsMobileStudioMode: (val) => set({ isMobileStudioMode: val }),
-  toggleMobileStudioMode: () => set((state) => ({ isMobileStudioMode: !state.isMobileStudioMode }))
+  setIsMobileStudioMode: (val) => set({ isMobileStudioMode: val, mobileViewMode: val ? 'complet' : 'danse' }),
+  toggleMobileStudioMode: () => set((state) => {
+    const next = !state.isMobileStudioMode;
+    return { isMobileStudioMode: next, mobileViewMode: next ? 'complet' : 'danse' };
+  }),
+  setMobileViewMode: (mode) => set({ mobileViewMode: mode, isMobileStudioMode: mode === 'complet' }),
+  setIsTouchLocked: (val) => set({ isTouchLocked: val }),
+  toggleTouchLock: () => set((state) => ({ isTouchLocked: !state.isTouchLocked }))
 });

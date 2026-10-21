@@ -6,16 +6,18 @@
 import React, { useState } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
-import { useSequencerStore } from '../../stores/useSequencerStore'; import { useShallow } from 'zustand/react/shallow';
-import { lazyWithRetry } from '../../utils/lazyWithRetry';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
+import { MobileTopHeader } from './MobileTopHeader';
+import { MobileCondensedConductor } from './MobileCondensedConductor';
+import { MobileSectionLooper } from './MobileSectionLooper';
+import { MobileFamilyMixer } from './MobileFamilyMixer';
+import { MobileLetraDrawer } from './MobileLetraDrawer';
+import { MobileTransportHero } from './MobileTransportHero';
+import { MobileMenuSheet } from './MobileMenuSheet';
+import { MobileSongPickerModal } from './MobileSongPickerModal';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 import { CloudRhythmSignal } from '../../types';
-
-const CircleSequencer = lazyWithRetry(() => import('../CircleSequencer').then(m => ({ default: m.CircleSequencer })), 'CircleSequencer');
-import { MobileTopHeader } from './MobileTopHeader'; import { MobileStateBar } from './MobileStateBar';
-import { MobileSectionPads } from './MobileSectionPads'; import { MobileFamilyMixerBar } from './MobileFamilyMixerBar';
-import { MobileTransportBar } from './MobileTransportBar'; import { MobileMenuSheet } from './MobileMenuSheet';
-import { MobileSongPickerModal } from './MobileSongPickerModal';
 
 interface Props {
   isPlaying: boolean; isLoading: boolean; onTogglePlay: (opts?: any) => void; onStop: () => void;
@@ -32,27 +34,24 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
 }) => {
   const { lang, setLang, bpm, setBpm, metadata } = useSequencer();
   const audio = useAudio();
-  const [isLocked, setIsLocked] = useState(false);
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+  const [isLetraOpen, setIsLetraOpen] = useState(false);
 
-  const { currentMeasure, totalMeasures, loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, songMarkers, songSections } =
-    useSequencerStore(useShallow((s) => ({
-      currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
-      loopMode: s.loopMode ?? 'infinite', setLoopMode: s.setLoopMode,
-      isLoopExitRequested: s.isLoopExitRequested, requestLoopExit: s.requestLoopExit,
-      songMarkers: s.songMarkers, songSections: s.songSections
-    })));
-  const currentIteration = (audio as any).currentLoopIteration ?? 1;
+  const { loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, isTouchLocked } =
+    useSequencerStore(
+      useShallow((s) => ({
+        loopMode: s.loopMode ?? 'infinite',
+        setLoopMode: s.setLoopMode,
+        isLoopExitRequested: s.isLoopExitRequested,
+        requestLoopExit: s.requestLoopExit,
+        isTouchLocked: s.isTouchLocked,
+      }))
+    );
 
   const handleNavigateMeasure = (mIdx: number) => {
-    const target = (mIdx + totalMeasures) % totalMeasures;
-    audio.handleTimelineNavigate(target, 0, 16);
-  };
-
-  const handleChangeBpm = (delta: number) => {
-    setBpm(Math.max(40, Math.min(240, bpm + delta)));
+    audio.handleTimelineNavigate(mIdx, 0, 16);
   };
 
   return (
@@ -61,42 +60,38 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
         songTitle={metadata?.toada || activePreset}
         onOpenSongPicker={() => setIsSongPickerOpen(true)}
         onOpenMenu={() => setIsMenuOpen(true)}
+        lang={lang}
       />
 
-      <MobileStateBar
-        currentMeasure={currentMeasure}
-        totalMeasures={totalMeasures}
-        onNavigatePrev={() => handleNavigateMeasure(currentMeasure - 1)}
-        onNavigateNext={() => handleNavigateMeasure(currentMeasure + 1)}
-        loopMode={loopMode}
-        currentIteration={currentIteration}
-        isLocked={isLocked}
-        onToggleLock={() => setIsLocked((prev) => !prev)}
+      <MobileCondensedConductor
+        isLetraOpen={isLetraOpen}
+        onToggleLetra={() => setIsLetraOpen((prev) => !prev)}
+        lang={lang}
+      />
+
+      <MobileSectionLooper
+        isPlaying={isPlaying}
+        onNavigateMeasure={handleNavigateMeasure}
       />
 
       <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 relative w-full h-full flex items-center justify-center">
-          <React.Suspense fallback={null}>
-            <CircleSequencer isMobile={true} isActive={true} />
-          </React.Suspense>
-        </div>
-        <MobileSectionPads
-          songMarkers={songMarkers || []}
-          songSections={songSections || []}
-          currentMeasure={currentMeasure}
-          onNavigateSection={(m) => audio.handleTimelineNavigate(m, 0, 16)}
-        />
+        <MobileFamilyMixer isLocked={isTouchLocked} />
+        {isLetraOpen && (
+          <MobileLetraDrawer
+            onClose={() => setIsLetraOpen(false)}
+            lang={lang}
+          />
+        )}
       </div>
 
-      <MobileFamilyMixerBar isLocked={isLocked} />
-
-      <MobileTransportBar
+      <MobileTransportHero
         isPlaying={isPlaying}
         isLoading={isLoading}
         onTogglePlay={onTogglePlay}
         onStop={onStop}
         bpm={bpm}
-        onChangeBpm={handleChangeBpm}
+        onChangeBpm={(delta) => setBpm(Math.max(40, Math.min(240, bpm + delta)))}
+        onResetBpm={() => setBpm(useSequencerStore.getState().measureBpms?.[0] || 90)}
         loopMode={loopMode}
         onChangeLoopMode={setLoopMode}
         isLoopExitRequested={isLoopExitRequested}

@@ -5,6 +5,7 @@ import { HeaderProjectDropdownContent } from './HeaderProjectDropdownContent';
 import { HeaderMobileEditSection } from './HeaderMobileEditSection';
 import { HeaderMobileDisplaySection } from './HeaderMobileDisplaySection';
 import { HeaderHelpSection } from './HeaderHelpSection';
+import { MobileViewModeSelector } from '../mobile/MobileViewModeSelector';
 
 interface HeaderMobileMenuProps {
   lang: 'pt' | 'fr';
@@ -74,7 +75,14 @@ export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
       </button>
 
       {mobileMenuOpen && (
-        <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] max-h-[80vh] overflow-y-auto z-[999] flex flex-col p-3 gap-4">
+        <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain custom-scrollbar z-[999] flex flex-col p-3 gap-4">
+          <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-3">
+            <span className="text-[10px] font-bold text-[#b94a2c] uppercase tracking-wide font-cactus">
+              {props.lang === 'pt' ? 'Modo de exibição' : 'Mode d\'affichage'}
+            </span>
+            <MobileViewModeSelector lang={props.lang} />
+          </div>
+
           {props.showInstallButton && props.onInstallClick && (
             <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
               <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
