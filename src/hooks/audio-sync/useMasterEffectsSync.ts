@@ -17,17 +17,16 @@ export function useMasterEffectsSync({
 }: UseMasterEffectsSyncProps) {
   // Sync Master Volume node
   useEffect(() => {
-    const applyVolume = (isEco: boolean) => {
+    const applyVolume = () => {
       if (masterVolumeNode) {
         const baseGain = masterVol <= -60 || !Number.isFinite(masterVol) ? 0 : Tone.dbToGain(masterVol);
-        const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
-        masterVolumeNode.gain.setValueAtTime(baseGain * multiplier, Tone.context.currentTime);
+        masterVolumeNode.gain.setValueAtTime(baseGain, Tone.context.currentTime);
       }
     };
 
-    applyVolume(useSequencerStore.getState().isEcoMode);
-    const unsubscribe = useSequencerStore.subscribe((state) => {
-      applyVolume(state.isEcoMode);
+    applyVolume();
+    const unsubscribe = useSequencerStore.subscribe(() => {
+      applyVolume();
     });
     return () => unsubscribe();
   }, [masterVol]);
@@ -56,21 +55,19 @@ export function useMasterEffectsSync({
 
   // Sync Master Compressor
   useEffect(() => {
-    const applyCompressor = (isEco: boolean, isCompActive: boolean) => {
-      syncMasterCompressorBypass(isEco || !isCompActive, masterCompressor);
+    const applyCompressor = (isCompActive: boolean) => {
+      syncMasterCompressorBypass(!isCompActive, masterCompressor);
     };
     
     const initialState = useSequencerStore.getState();
-    applyCompressor(initialState.isEcoMode, initialState.masterEffectsActive?.compressor ?? true);
+    applyCompressor(initialState.masterEffectsActive?.compressor ?? true);
 
     const unsubscribe = useSequencerStore.subscribe((state, prevState) => {
-      const isEco = state.isEcoMode;
       const isCompActive = state.masterEffectsActive?.compressor ?? true;
-      const prevEco = prevState.isEcoMode;
       const prevCompActive = prevState.masterEffectsActive?.compressor ?? true;
 
-      if (isEco !== prevEco || isCompActive !== prevCompActive) {
-        applyCompressor(isEco, isCompActive);
+      if (isCompActive !== prevCompActive) {
+        applyCompressor(isCompActive);
       }
     });
 

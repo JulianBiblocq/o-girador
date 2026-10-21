@@ -60,10 +60,10 @@ export class EngineVoiceGuard {
   public getPolyphonyLimit(instrumentId: string): number {
     const isEco = useSequencerStore.getState().isEcoMode;
     if (isEco) {
-      return ['caixa', 'tarol', 'timbal', 'agbe', 'mineiro', 'apito'].includes(instrumentId) ? 1 : 2;
+      return ['caixa', 'tarol', 'timbal', 'agbe', 'mineiro', 'apito'].includes(instrumentId) ? 4 : 4;
     }
-    if (['agbe', 'mineiro'].includes(instrumentId)) return 3;
-    if (['caixa', 'tarol', 'timbal', 'apito'].includes(instrumentId)) return 4;
+    if (['agbe', 'mineiro'].includes(instrumentId)) return 4;
+    if (['caixa', 'tarol', 'timbal', 'apito'].includes(instrumentId)) return 6;
     return 6;
   }
 

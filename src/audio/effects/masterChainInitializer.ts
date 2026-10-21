@@ -21,7 +21,7 @@ export function initMasterEffectsChain(
 
   const disableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? isEco;
   const isCompActive = useSequencerStore.getState().masterEffectsActive?.compressor ?? true;
-  const isCompBypassed = disableFx || !isCompActive;
+  const isCompBypassed = !isCompActive;
 
   const comp = new Tone.Compressor({
     threshold: isCompBypassed ? 0 : -12,
@@ -65,8 +65,7 @@ export function initMasterEffectsChain(
   masterLimiterNode.toDestination();
 
   const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
-  const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
-  vol.gain.value = baseGain * multiplier;
+  vol.gain.value = baseGain;
 
   const meter = new Tone.Meter();
   nodes.setMasterMeterNode(meter);

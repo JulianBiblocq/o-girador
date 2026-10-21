@@ -30,6 +30,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   hasFullPlaybackAccess: false,
   isVisitorAuthModalOpen: false,
   isSubscriptionModalOpen: false,
+  isMobileStudioMode: false,
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -117,5 +118,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   openVisitorAuthModal: () => set({ isVisitorAuthModalOpen: true }),
   closeVisitorAuthModal: () => set({ isVisitorAuthModalOpen: false }),
   openSubscriptionModal: () => set({ isSubscriptionModalOpen: true }),
-  closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false })
+  closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false }),
+  setIsMobileStudioMode: (val) => set({ isMobileStudioMode: val }),
+  toggleMobileStudioMode: () => set((state) => ({ isMobileStudioMode: !state.isMobileStudioMode }))
 });

@@ -55,6 +55,8 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   ctx.engineTimeoutsRef.current.clear();
   ctx.pendingMeasureRef.current = null;
   ctx.pendingIterationRef.current = null;
+  useSequencerStore.getState().setCurrentLoopIteration(1);
+  useSequencerStore.getState().clearLoopExitRequest();
   if (ctx.soloPatternPlayIdRef.current !== null) {
     ctx.setSoloPatternPlayId(null);
   }

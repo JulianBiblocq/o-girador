@@ -25,6 +25,18 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
+      {/* TÉLÉCOMMANDE RÉPÉTITION */}
+      <button
+        onClick={() => {
+          useSequencerStore.getState().closeDetailEditor();
+          useSequencerStore.getState().setIsMobileStudioMode(false);
+        }}
+        className="px-2 h-9 flex items-center justify-center font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#d35400] text-white shadow-[2px_2px_0_#000]"
+        title="Retour Télécommande Répétition"
+      >
+        📱 Répétition
+      </button>
+
       {/* RODA */}
       <button
         onClick={() => {

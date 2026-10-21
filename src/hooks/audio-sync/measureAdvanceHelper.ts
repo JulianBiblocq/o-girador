@@ -1,6 +1,7 @@
 import { getMaxTicks } from '../../data';
 import { getMeasureStartTick } from './audioParamsCache';
 import { handleSpeedTrainerLap } from './speedTrainerProgress';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 
 export interface AdvanceMeasureContext {
   measureCountRef: { current: number };
@@ -12,6 +13,10 @@ export interface AdvanceMeasureContext {
   isLoopRegionActiveRef: { current: boolean };
   loopStartRef: { current: number | null };
   loopEndRef: { current: number | null };
+  isLoopingRef?: { current: boolean };
+  loopModeRef?: { current: 'infinite' | number };
+  isLoopExitRequestedRef?: { current: boolean };
+  currentLoopIterationRef?: { current: number };
   speedTrainerCurrentBpmRef: { current: number };
   speedTrainerConsolidationLapsDoneRef: { current: number };
   handleStop: () => void;
@@ -19,14 +24,52 @@ export interface AdvanceMeasureContext {
 }
 
 export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: AdvanceMeasureContext): void {
-  const isLoopActive = ctx.isLoopRegionActiveRef.current && ctx.loopStartRef.current !== null && ctx.loopEndRef.current !== null;
+  const store = useSequencerStore.getState();
+  const isLoopRegionActive = ctx.isLoopRegionActiveRef.current && ctx.loopStartRef.current !== null && ctx.loopEndRef.current !== null;
+  const loopEndMeasure = isLoopRegionActive ? ctx.loopEndRef.current! : ((ctx.totalMeasuresRef.current || 1) - 1);
+  const loopStartMeasure = isLoopRegionActive ? ctx.loopStartRef.current! : 0;
+  const isGlobalOrRegionLoop = isLoopRegionActive || (ctx.isLoopingRef ? ctx.isLoopingRef.current : store.isLooping);
 
-  if (isLoopActive && currentMeasureIdx === ctx.loopEndRef.current) {
-    ctx.measureCountRef.current = ctx.loopStartRef.current!;
-    ctx.setCurrentMeasure(ctx.loopStartRef.current!);
+  const isAtLoopEnd = (currentMeasureIdx === loopEndMeasure);
+
+  if (isAtLoopEnd && isGlobalOrRegionLoop) {
+    const isExitRequested = Boolean(ctx.isLoopExitRequestedRef?.current || store.isLoopExitRequested);
+    const loopMode = ctx.loopModeRef?.current || store.loopMode || 'infinite';
+    const currentIter = ctx.currentLoopIterationRef?.current || store.currentLoopIteration || 1;
+    const isFixedLoopsReached = typeof loopMode === 'number' && loopMode > 0 && currentIter >= loopMode;
+
+    if (isExitRequested || isFixedLoopsReached) {
+      if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
+      store.clearLoopExitRequest();
+
+      if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
+      store.setCurrentLoopIteration(1);
+
+      const nextMeasure = currentMeasureIdx + 1;
+      if (nextMeasure < (ctx.totalMeasuresRef.current || 1)) {
+        ctx.measureCountRef.current = nextMeasure;
+        ctx.setCurrentMeasure(nextMeasure);
+      } else {
+        if (store.isLooping) {
+          ctx.measureCountRef.current = 0;
+          ctx.setCurrentMeasure(0);
+        } else {
+          ctx.handleStop();
+          return;
+        }
+      }
+    } else {
+      const nextIter = currentIter + 1;
+      if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = nextIter;
+      store.setCurrentLoopIteration(nextIter);
+
+      ctx.measureCountRef.current = loopStartMeasure;
+      ctx.setCurrentMeasure(loopStartMeasure);
+    }
   } else {
-    ctx.measureCountRef.current = (currentMeasureIdx + 1) % (ctx.totalMeasuresRef.current || 1);
-    ctx.setCurrentMeasure(ctx.measureCountRef.current);
+    const nextMeasure = (currentMeasureIdx + 1) % (ctx.totalMeasuresRef.current || 1);
+    ctx.measureCountRef.current = nextMeasure;
+    ctx.setCurrentMeasure(nextMeasure);
   }
 
   const nextMIdx = ctx.measureCountRef.current;

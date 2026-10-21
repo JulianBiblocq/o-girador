@@ -44,6 +44,14 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const defaultIsLoopingRef = useRef(true);
   const isLoopingRef = props.isLoopingRef || defaultIsLoopingRef;
 
+  const defaultLoopModeRef = useRef<'infinite' | number>('infinite');
+  const loopModeRef = props.loopModeRef || defaultLoopModeRef;
+
+  const defaultIsLoopExitRequestedRef = useRef(false);
+  const isLoopExitRequestedRef = props.isLoopExitRequestedRef || defaultIsLoopExitRequestedRef;
+
+  const currentLoopIterationRef = useRef(1);
+
   const defaultLastPlayedSignalIdRef = useRef<string | null>(null);
   const lastPlayedSignalIdRef = props.lastPlayedSignalIdRef || defaultLastPlayedSignalIdRef;
 
@@ -123,7 +131,8 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
     measureTimeSigsRef, measureBpmsRef, isMetroOnRef, metroVolumeRef, metroSoundRef,
     metroChannelRef, globalSwingRef, soloPatternPlayIdRef, soloPatternVariationIdRef,
     soloLoopCycleRef, soloPhraseMeasureRef, isLoopRegionActiveRef, loopStartRef,
-    loopEndRef, isLoopingRef, isPlaybackEndingRef, hitTriggersRef, engineTimeoutsRef,
+    loopEndRef, isLoopingRef, loopModeRef, isLoopExitRequestedRef, currentLoopIterationRef,
+    isPlaybackEndingRef, hitTriggersRef, engineTimeoutsRef,
     autoStopTimeoutRef, speedTrainerTimeoutsRef, speedTrainerCurrentBpmRef,
     speedTrainerConsolidationLapsDoneRef, activeSequencerVocalsRef, anticipatedMeasuresRef,
     mutedVoiceTracksRef, lastPlayedPatternRef, lastPlayedSignalIdRef,

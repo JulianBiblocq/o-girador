@@ -12,26 +12,20 @@ import { TransportBar } from './components/TransportBar';
 import { SEO } from './components/SEO';
 import { Home } from './components/Home';
 import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
+import { MobileRehearsalRemote } from './components/mobile/MobileRehearsalRemote';
 import { AppModalsContainer } from './components/app/AppModalsContainer';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { useSequencerStore, isToadaChild } from './stores/useSequencerStore';
 import { useCloudPresets } from './hooks/queries/useCloudPresets';
 import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
 import { useAppAudio } from './hooks/useAppAudio';
-import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
-import { useGlobalTransportShortcuts } from './hooks/useGlobalTransportShortcuts';
-import { useViewRouter } from './hooks/useViewRouter';
-import { useThemeManager } from './hooks/useThemeManager';
-import { useWallpaper } from './hooks/useWallpaper';
-import { useMidiController } from './hooks/useMidiController';
-import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler';
-import { useDeepLinkLoader } from './hooks/useDeepLinkLoader';
-import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu';
-import { useAppSessionTracking } from './hooks/useAppSessionTracking';
-import { useAppGroupPresetLoader } from './hooks/useAppGroupPresetLoader';
-import { useAppMestreSignals } from './hooks/useAppMestreSignals';
-import { useAppExportTablature } from './hooks/useAppExportTablature';
-import { useAppWorkspaceEvents } from './hooks/useAppWorkspaceEvents';
+import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts'; import { useGlobalTransportShortcuts } from './hooks/useGlobalTransportShortcuts';
+import { useViewRouter } from './hooks/useViewRouter'; import { useThemeManager } from './hooks/useThemeManager';
+import { useWallpaper } from './hooks/useWallpaper'; import { useMidiController } from './hooks/useMidiController';
+import { useTrainingUrlHandler } from './hooks/useTrainingUrlHandler'; import { useDeepLinkLoader } from './hooks/useDeepLinkLoader';
+import { useDisableNativeContextMenu } from './hooks/useDisableNativeContextMenu'; import { useAppSessionTracking } from './hooks/useAppSessionTracking';
+import { useAppGroupPresetLoader } from './hooks/useAppGroupPresetLoader'; import { useAppMestreSignals } from './hooks/useAppMestreSignals';
+import { useAppExportTablature } from './hooks/useAppExportTablature'; import { useAppWorkspaceEvents } from './hooks/useAppWorkspaceEvents';
 import { useAppAuthPermissions } from './hooks/useAppAuthPermissions';
 
 const LandingPage = lazyWithRetry(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })), 'LandingPage');
@@ -87,7 +81,7 @@ export default function App() {
   const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
   const [measureWidth, setMeasureWidth] = useState<number>(240);
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
-  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 1024);
+  const [isMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 1024);
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
 
   const handleStepTouchStart = React.useCallback((e: any, patternId: number, stepIdx: number, instId: string, currentVal: any, onSelect: any, trackId: number, isSplit?: boolean) => {
@@ -119,13 +113,27 @@ export default function App() {
   }
   if (viewMode === 'home') return <><SEO /><Home onEnter={(m) => changeViewMode(m as any)} lang={sequencer.lang} /></>;
 
+  const isMobileStudioMode = useSequencerStore((s) => s.isMobileStudioMode);
+
   return (
     <>
       <SEO />
       <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
-        <Header showInstallButton={!!deferredPrompt} onInstallClick={handleInstallClick} isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode} onExportTablature={exportProps.handleExportTablature} onAdminClick={() => changeViewMode('admin')} presetFiles={presetFiles} localPresets={localPresets} cloudPresets={cloudPresets} isCloudPresetsLoading={isCloudPresetsLoading} activeRightPanel={activeRightPanel} onToggleRightPanel={(p: any) => setActiveRightPanel(prev => prev === p ? null : p)} onCloudSave={handleSaveToLocal} viewMode={viewMode as any} onViewModeToggle={changeViewMode} isMobile={isMobile} mobileTab={mobileTab} onMobileTabToggle={setMobileTab} version={CURRENT_VERSION} onOpenInstrumentEditor={handleOpenDefaultInstrumentEditor} onToggleDetachInstrumentEditor={handleToggleDetachInstrumentEditor} editingTrackId={editingTrackId} onOpenWallpaperModal={wallpaperProps.openWallpaperModal} onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }} />
-        <MainWorkspaceLayout viewMode={viewMode} renderedView={renderedView} isFadingIn={isFadingIn} isMobile={isMobile} mobileTab={mobileTab} setMobileTab={(t) => setMobileTab(t as any)} filteredMestreSignals={filteredMestreSignals} refreshMestreSignals={refreshMestreSignals} hideGlobalSignals={hideGlobalSignals} onToggleHideGlobalSignals={handleToggleHideGlobalSignals} measureWidth={measureWidth} setMeasureWidth={setMeasureWidth} setSectionToSave={setSectionToSave} setLoadSectionInsertMeasure={setLoadSectionInsertMeasure} presetFiles={presetFiles} localPresets={localPresets} onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, tId, isSplit) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, tId !== undefined ? tId : 0, isSplit)} activeRightPanel={activeRightPanel} onToggleRightPanel={(p) => setActiveRightPanel(prev => prev === p ? null : p)} />
-        {viewMode !== 'admin' && <TransportBar viewMode={viewMode as any} />}
+        {isMobile && !isMobileStudioMode && viewMode !== 'admin' ? (
+          <MobileRehearsalRemote
+            isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
+            masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
+            onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName}
+            onToggleStudio={() => useSequencerStore.getState().setIsMobileStudioMode(true)}
+            onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }}
+          />
+        ) : (
+          <>
+            <Header showInstallButton={!!deferredPrompt} onInstallClick={handleInstallClick} isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode} onExportTablature={exportProps.handleExportTablature} onAdminClick={() => changeViewMode('admin')} presetFiles={presetFiles} localPresets={localPresets} cloudPresets={cloudPresets} isCloudPresetsLoading={isCloudPresetsLoading} activeRightPanel={activeRightPanel} onToggleRightPanel={(p: any) => setActiveRightPanel(prev => prev === p ? null : p)} onCloudSave={handleSaveToLocal} viewMode={viewMode as any} onViewModeToggle={changeViewMode} isMobile={isMobile} mobileTab={mobileTab} onMobileTabToggle={setMobileTab} version={CURRENT_VERSION} onOpenInstrumentEditor={handleOpenDefaultInstrumentEditor} onToggleDetachInstrumentEditor={handleToggleDetachInstrumentEditor} editingTrackId={editingTrackId} onOpenWallpaperModal={wallpaperProps.openWallpaperModal} onOpenPaperWorkshop={(tab) => { if (tab) setPaperWorkshopInitialTab(tab); setIsPaperWorkshopOpen(true); }} />
+            <MainWorkspaceLayout viewMode={viewMode} renderedView={renderedView} isFadingIn={isFadingIn} isMobile={isMobile} mobileTab={mobileTab} setMobileTab={(t) => setMobileTab(t as any)} filteredMestreSignals={filteredMestreSignals} refreshMestreSignals={refreshMestreSignals} hideGlobalSignals={hideGlobalSignals} onToggleHideGlobalSignals={handleToggleHideGlobalSignals} measureWidth={measureWidth} setMeasureWidth={setMeasureWidth} setSectionToSave={setSectionToSave} setLoadSectionInsertMeasure={setLoadSectionInsertMeasure} presetFiles={presetFiles} localPresets={localPresets} onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, tId, isSplit) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, tId !== undefined ? tId : 0, isSplit)} activeRightPanel={activeRightPanel} onToggleRightPanel={(p) => setActiveRightPanel(prev => prev === p ? null : p)} />
+            {viewMode !== 'admin' && <TransportBar viewMode={viewMode as any} />}
+          </>
+        )}
         <AppModalsContainer touchSelector={touchSelector} hoveredStroke={hoveredStroke} setTouchSelector={setTouchSelector} setHoveredStroke={setHoveredStroke} isSavedIndicatorVisible={isSavedIndicatorVisible} lang={sequencer.lang} exportProps={exportProps} modalLayoutProps={{ showExportMenu: exportProps.showExportMenu, setShowExportMenu: exportProps.setShowExportMenu, selectedExportTracks: exportProps.selectedExportTracks, setSelectedExportTracks: exportProps.setSelectedExportTracks, selectedAnnexTracks: exportProps.selectedAnnexTracks, setSelectedAnnexTracks: exportProps.setSelectedAnnexTracks, executeExport: exportProps.executeExport, printLegendOnly: exportProps.printLegendOnly, customDialog: sequencer.customDialog, setCustomDialog: sequencer.setCustomDialog, sectionToSave, setSectionToSave, loadSectionInsertMeasure, setLoadSectionInsertMeasure, isMobile, mobileTab, viewMode, toastMessage, handleStepTouchStart }} saveModalProps={{ showSavePresetModal, setShowSavePresetModal, presetDataToSave }} visitorAuthProps={{ showMandatoryVisitorModal, setShowMandatoryVisitorModal }} wallpaperProps={wallpaperProps} paperWorkshopProps={{ isPaperWorkshopOpen, setIsPaperWorkshopOpen, paperWorkshopInitialTab }} mestreSignals={mestreSignals} audio={audio} sequencer={sequencer} changeViewMode={changeViewMode} />
       </div>
     </>

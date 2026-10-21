@@ -22,6 +22,7 @@ export interface ProjectSettingsSlice {
   hasFullPlaybackAccess: boolean;
   isVisitorAuthModalOpen: boolean;
   isSubscriptionModalOpen: boolean;
+  isMobileStudioMode: boolean;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -43,6 +44,8 @@ export interface ProjectSettingsSlice {
   toggleTracksCollapsed: () => void;
   setIsPreviewMode: (val: boolean) => void;
   setHasFullPlaybackAccess: (val: boolean) => void;
+  setIsMobileStudioMode: (val: boolean) => void;
+  toggleMobileStudioMode: () => void;
   openVisitorAuthModal: () => void;
   closeVisitorAuthModal: () => void;
   openSubscriptionModal: () => void;

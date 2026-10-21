@@ -59,11 +59,11 @@ export class EngineNotePlayer {
 
     const isSlave = Boolean(track && track.linkedToTrackId && !track.isLinkMaster);
     if (isSlave) {
-      const isEco = useSequencerStore.getState().isEcoMode;
       const hasLocalVariation = Boolean(
         track?.patternOverrides && track.patternOverrides[deps.getSchedulingMeasure()] !== undefined
       );
-      if (!hasLocalVariation && (currentHits > 8 || isEco)) return;
+      // Ne plus couper les pistes esclaves sur mobile : laisser sonner tous les doublages de pupitres
+      if (!hasLocalVariation && currentHits > 24) return;
     }
 
     const config = deps.configMap.get(instrumentId);

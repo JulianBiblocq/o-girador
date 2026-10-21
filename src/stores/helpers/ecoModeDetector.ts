@@ -10,9 +10,9 @@ export const detectEcoMode = (): boolean => {
   if (saved !== null) {
     return saved === 'true';
   }
+  // Détection matérielle stricte : seuls les appareils avec <= 2 cœurs
+  // sont placés en mode éco par défaut. Zéro bridage basé sur l'User-Agent mobile.
   const cores = navigator.hardwareConcurrency;
-  const isLowEndCPU = cores !== undefined && cores <= 4;
-  const userAgent = navigator.userAgent || '';
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-  return isLowEndCPU || isMobile;
+  const isVeryLowEndCPU = cores !== undefined && cores <= 2;
+  return isVeryLowEndCPU;
 };
