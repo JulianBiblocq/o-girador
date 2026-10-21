@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerStore } from '../../stores/useSequencerStore'; import { useShallow } from 'zustand/react/shallow';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 import { CloudRhythmSignal } from '../../types';
@@ -38,12 +38,12 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
 
   const { currentMeasure, totalMeasures, loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, songMarkers, songSections } =
-    useSequencerStore((s) => ({
+    useSequencerStore(useShallow((s) => ({
       currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
       loopMode: s.loopMode ?? 'infinite', setLoopMode: s.setLoopMode,
       isLoopExitRequested: s.isLoopExitRequested, requestLoopExit: s.requestLoopExit,
-      songMarkers: s.songMarkers || [], songSections: s.songSections || []
-    }));
+      songMarkers: s.songMarkers, songSections: s.songSections
+    })));
   const currentIteration = (audio as any).currentLoopIteration ?? 1;
 
   const handleNavigateMeasure = (mIdx: number) => {
@@ -81,8 +81,8 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
           </React.Suspense>
         </div>
         <MobileSectionPads
-          songMarkers={songMarkers}
-          songSections={songSections}
+          songMarkers={songMarkers || []}
+          songSections={songSections || []}
           currentMeasure={currentMeasure}
           onNavigateSection={(m) => audio.handleTimelineNavigate(m, 0, 16)}
         />
