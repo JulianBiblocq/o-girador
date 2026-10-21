@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
+import { getEffectiveBpm } from '../../utils/bpmUtils';
 import { MobileTopHeader } from './MobileTopHeader';
 import { MobilePercControls } from './MobilePercControls';
 import { MobilePercCenterBar } from './MobilePercCenterBar';
@@ -29,9 +30,13 @@ interface Props {
 }
 
 export const MobilePercussionMode: React.FC<Props> = (props) => {
-  const { lang, setLang, bpm, setBpm, metadata } = useSequencer();
+  const { lang, setLang, bpm, metadata } = useSequencer();
   const audio = useAudio();
   const tracks = useSequencerStore((s) => s.tracks);
+  const currentMeasure = useSequencerStore((s) => s.currentMeasure);
+  const measureBpms = useSequencerStore((s) => s.measureBpms);
+  const activeAoVivoTrackId = useSequencerStore((s) => s.activeAoVivoTrackId);
+  const setActiveAoVivoTrackId = useSequencerStore((s) => s.setActiveAoVivoTrackId);
   const loopMode = useSequencerStore((s) => s.loopMode ?? 'infinite');
   const setLoopMode = useSequencerStore((s) => s.setLoopMode);
   const isLoopExitRequested = useSequencerStore((s) => s.isLoopExitRequested);
@@ -43,10 +48,14 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
 
   const [primaryTrackId, setPrimaryTrackId] = useState<number | null>(null);
   const [referenceTrackId, setReferenceTrackId] = useState<number | null>(null);
-  const [isAoVivoActive, setIsAoVivoActive] = useState(true);
   const [isLetraDrawerOpen, setIsLetraDrawerOpen] = useState(false);
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const initialAoVivoInitRef = useRef(false);
+
+  useEffect(() => {
+    return () => { useSequencerStore.getState().setActiveAoVivoTrackId(null); };
+  }, []);
 
   useEffect(() => {
     if (primaryTrackId && tracks.some((t) => t.id === primaryTrackId)) return;
@@ -57,18 +66,32 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       const inst = instrumentsConfig[t.instrumentIdx];
       return inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.id !== 'apito' && inst.id !== 'toada';
     });
-
     const matched = eligibleTracks.find((t) => String(t.id) === roleParam) ||
       eligibleTracks.find((t) => String(t.id) === cached) || eligibleTracks[0];
     if (matched) setPrimaryTrackId(matched.id);
   }, [tracks, primaryTrackId]);
 
   useEffect(() => {
-    if (isAoVivoActive && primaryTrackId) {
-      useSequencerStore.getState().setActiveAoVivoTrackId(primaryTrackId);
+    if (!initialAoVivoInitRef.current && primaryTrackId !== null) {
+      initialAoVivoInitRef.current = true;
+      setActiveAoVivoTrackId(primaryTrackId);
+      return;
     }
-  }, [isAoVivoActive, primaryTrackId]);
+    const currentAoVivo = useSequencerStore.getState().activeAoVivoTrackId;
+    if (currentAoVivo !== null && primaryTrackId !== null && currentAoVivo !== primaryTrackId) {
+      setActiveAoVivoTrackId(primaryTrackId);
+    }
+  }, [primaryTrackId, setActiveAoVivoTrackId]);
 
+  const handleToggleAoVivo = () => {
+    if (activeAoVivoTrackId !== null) {
+      setActiveAoVivoTrackId(null);
+    } else if (primaryTrackId !== null) {
+      setActiveAoVivoTrackId(primaryTrackId);
+    }
+  };
+
+  const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
   const visibleTrackIds = [primaryTrackId, ...(referenceTrackId ? [referenceTrackId] : [])].filter(Boolean) as number[];
 
   return (
@@ -79,40 +102,28 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
         onOpenMenu={() => setIsMenuOpen(true)}
         lang={lang}
       />
-
       <MobilePercControls
-        primaryTrackId={primaryTrackId}
-        setPrimaryTrackId={setPrimaryTrackId}
-        referenceTrackId={referenceTrackId}
-        setReferenceTrackId={setReferenceTrackId}
-        isLetraActive={isLetraActive}
-        lang={lang}
+        primaryTrackId={primaryTrackId} setPrimaryTrackId={setPrimaryTrackId}
+        referenceTrackId={referenceTrackId} setReferenceTrackId={setReferenceTrackId}
+        isLetraActive={isLetraActive} lang={lang}
       />
-
       <MobilePercCenterBar
-        isAoVivoActive={isAoVivoActive}
-        onToggleAoVivo={() => setIsAoVivoActive((v) => !v)}
-        isLetraActive={isLetraActive}
-        onToggleLetra={toggleLetraActive}
-        onOpenLetraDrawer={() => setIsLetraDrawerOpen(true)}
-        lang={lang}
+        isAoVivoActive={activeAoVivoTrackId !== null} onToggleAoVivo={handleToggleAoVivo}
+        isLetraActive={isLetraActive} onToggleLetra={toggleLetraActive}
+        onOpenLetraDrawer={() => setIsLetraDrawerOpen(false)} lang={lang}
       />
-
       <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
         <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} />
-        {isAoVivoActive && primaryTrackId && <AoVivoOverlayInner activeAoVivoTrackId={primaryTrackId} />}
+        {activeAoVivoTrackId !== null && <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} />}
       </div>
-
       <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
-
       <MobilePercTransport
         isPlaying={props.isPlaying} isLoading={props.isLoading} onTogglePlay={props.onTogglePlay} onStop={props.onStop}
-        bpm={bpm} onChangeBpm={(delta) => setBpm(Math.max(40, Math.min(240, bpm + delta)))}
-        onResetBpm={() => setBpm(useSequencerStore.getState().measureBpms?.[0] || 90)}
+        bpm={effectiveBpm} onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)}
+        onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()}
         loopMode={loopMode} onChangeLoopMode={setLoopMode} isLoopExitRequested={isLoopExitRequested}
         onRequestLoopExit={requestLoopExit} onOpenSpeedTrainer={openSpeedTrainerModal}
       />
-
       {isLetraDrawerOpen && <MobileLetraDrawer onClose={() => setIsLetraDrawerOpen(false)} lang={lang} />}
       <MobileSongPickerModal isOpen={isSongPickerOpen} onClose={() => setIsSongPickerOpen(false)} localPresets={props.localPresets} cloudPresets={props.cloudPresets} activePreset={props.activePreset} onPresetChange={props.onPresetChange} lang={lang} />
       <MobileMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} masterEQ={props.masterEQ} setMasterEQ={props.setMasterEQ} onOpenPaperWorkshop={props.onOpenPaperWorkshop} lang={lang} onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')} isDarkMode={props.isDarkMode ?? true} onToggleDarkMode={props.onToggleDarkMode ?? (() => {})} onToggleStudio={props.onToggleStudio} />

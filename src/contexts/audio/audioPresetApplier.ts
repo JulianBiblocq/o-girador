@@ -75,6 +75,8 @@ export async function executeApplyPreset(
   }) : Array(loadedMeasures).fill(75);
   const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions) ? p.measureVolTransitions : Array(loadedMeasures).fill('immediate');
 
+  useSequencerStore.getState().setNominalPresetTempo(defaultBpm, loadedBpms);
+  useSequencerStore.setState({ bpm: defaultBpm, measureBpms: loadedBpms });
   sequencer.setMeasureBpms(loadedBpms);
   sequencer.setMeasureTimeSigs(loadedTimeSigs);
   sequencer.setMeasureBpmTransitions(loadedBpmTransitions);

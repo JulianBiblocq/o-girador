@@ -30,18 +30,14 @@ export function useSequencerState() {
   const setLetras = useCallback((val: string | ((prev: string) => string)) => {
     useSequencerStore.getState().setLetras(typeof val === 'function' ? val(useSequencerStore.getState().letras ?? '') : val);
   }, []);
-
   const metadata = useSequencerStore(state => state.metadata);
   const setMetadata = useCallback((val: PresetMetadata | ((prev: PresetMetadata) => PresetMetadata)) => {
-    const current = useSequencerStore.getState().metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] };
-    useSequencerStore.getState().setMetadata(typeof val === 'function' ? val(current) : val);
+    const cur = useSequencerStore.getState().metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] };
+    useSequencerStore.getState().setMetadata(typeof val === 'function' ? val(cur) : val);
   }, []);
 
   const [isLeftHanded, _setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('o_girador_left_handed') === 'true');
-  const [lang, _setLang] = useState<Language>(() => {
-    const saved = localStorage.getItem('o_girador_lang');
-    return saved === 'fr' || saved === 'pt' ? saved : 'pt';
-  });
+  const [lang, _setLang] = useState<Language>(() => (localStorage.getItem('o_girador_lang') === 'fr' ? 'fr' : 'pt'));
 
   const setLang = useCallback((newLang: Language) => {
     _setLang(newLang);
@@ -131,8 +127,16 @@ export function useSequencerState() {
     pushUndoState: history.pushUndoState, audioEngine, lang, totalMeasuresRef: refs.totalMeasuresRef, currentMeasure: currM, setTracks: m.setTracks
   });
 
+  const handleGlobalBpm = useCallback((val: number | ((prev: number) => number)) => {
+    const store = useSequencerStore.getState();
+    const cur = (store.measureBpms && store.measureBpms[store.currentMeasure]) ? store.measureBpms[store.currentMeasure] : store.bpm;
+    const target = typeof val === 'function' ? val(cur) : val;
+    store.setGlobalBpm(target);
+    m.setBpm(target);
+  }, [m]);
+
   return {
-    ...m, setBpmRaw: m.setBpm, letras, setLetras, metadata, setMetadata, isLeftHanded, setIsLeftHanded, lang, setLang,
+    ...m, setBpm: handleGlobalBpm, setBpmRaw: m.setBpm, letras, setLetras, metadata, setMetadata, isLeftHanded, setIsLeftHanded, lang, setLang,
     confirmAsync: dialog.confirmAsync, alertAsync: dialog.alertAsync,
     ...getSequencerStoreDelegates(), ...refs, ...history, ...trackMgmt, ...trackSculpt,
     ...varStepSculpt, ...measureSection, ...loops, ...measureInsertDelete, ...voiceSteps,

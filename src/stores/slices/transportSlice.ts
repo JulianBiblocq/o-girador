@@ -1,13 +1,27 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../useSequencerStore';
 import { TimeSignature } from '../../types';
 import { deleteMeasureState, insertMeasureState } from '../helpers/measureOperationsHelper';
 import { resizeTotalMeasuresState } from '../helpers/measureResizeHelper';
+import {
+  applyGlobalBpmDeltaState,
+  setGlobalBpmState,
+  resetTempoToNominalState,
+  handleMeasureBpmChangeState,
+  handleMeasureVolChangeState,
+} from '../helpers/bpmOperationsHelper';
 
 export interface TransportSlice {
   totalMeasures: number;
   maxMeasuresAllowed: number | null;
   bpm: number;
+  nominalPresetBpm: number;
+  nominalPresetMeasureBpms: number[];
   timeSig: TimeSignature;
   measureTimeSigs: TimeSignature[];
   measureBpms: number[];
@@ -20,6 +34,10 @@ export interface TransportSlice {
   setTotalMeasures: (val: number | ((prev: number) => number), bypassLimit?: boolean) => void;
   setMaxMeasuresAllowed: (val: number | null) => void;
   setBpm: (bpm: number) => void;
+  applyGlobalBpmDelta: (delta: number) => void;
+  setGlobalBpm: (targetBpm: number) => void;
+  resetTempoToNominal: () => void;
+  setNominalPresetTempo: (bpm: number, measureBpms: number[]) => void;
   setTimeSig: (sig: TimeSignature) => void;
   setMeasureSignals: (updater: (string | null)[] | ((prev: (string | null)[]) => (string | null)[])) => void;
   setMeasureBpms: (updater: number[] | ((prev: number[]) => number[])) => void;
@@ -42,6 +60,8 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
   totalMeasures: 8,
   maxMeasuresAllowed: null,
   bpm: 83,
+  nominalPresetBpm: 83,
+  nominalPresetMeasureBpms: Array(8).fill(83),
   timeSig: '4/4',
   measureTimeSigs: Array(8).fill('4/4'),
   setMeasureTimeSigs: (updater) => set(state => ({ 
@@ -56,6 +76,10 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
   isMasterVolumeBypassed: false,
 
   setBpm: (bpm) => set({ bpm }),
+  applyGlobalBpmDelta: (delta) => set((state) => applyGlobalBpmDeltaState(state, delta)),
+  setGlobalBpm: (targetBpm) => set((state) => setGlobalBpmState(state, targetBpm)),
+  resetTempoToNominal: () => set((state) => resetTempoToNominalState(state)),
+  setNominalPresetTempo: (bpm, measureBpms) => set({ nominalPresetBpm: bpm, nominalPresetMeasureBpms: [...measureBpms] }),
   setTimeSig: (sig) => set({ timeSig: sig }),
   setTotalMeasures: (updater, bypassLimit = false) => set(state => {
     const nextVal = typeof updater === 'function' ? updater(state.totalMeasures) : updater;
@@ -91,20 +115,7 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
     });
   },
 
-  handleMeasureBpmChange: (idx, val) => {
-    const state = get();
-    if (state.selectedAutomationType === 'bpm' && state.selectedAutomationRange && idx >= state.selectedAutomationRange.start && idx <= state.selectedAutomationRange.end) {
-      state.setGroupedAutomationValue('bpm', val, null);
-      return;
-    }
-    get().pushUndoState();
-    set((s) => {
-      const arr = [...s.measureBpms];
-      arr[idx] = val;
-      return { measureBpms: arr, bpm: idx === 0 ? val : s.bpm, tracksVersion: s.tracksVersion + 1 };
-    });
-  },
-
+  handleMeasureBpmChange: (idx, val) => handleMeasureBpmChangeState(get, set, idx, val),
   handleMeasureTransitionChange: (idx, val) => {
     get().pushUndoState();
     set((s) => {
@@ -113,19 +124,7 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
       return { measureBpmTransitions: arr };
     });
   },
-  handleMeasureVolChange: (idx, val) => {
-    const state = get();
-    if (state.selectedAutomationType === 'volume' && (state.selectedAutomationTrackId === null || state.selectedAutomationTrackId === undefined) && state.selectedAutomationRange && idx >= state.selectedAutomationRange.start && idx <= state.selectedAutomationRange.end) {
-      state.setGroupedAutomationValue('volume', val, null);
-      return;
-    }
-    get().pushUndoState();
-    set((s) => {
-      const arr = [...s.measureVols];
-      arr[idx] = val;
-      return { measureVols: arr, tracksVersion: s.tracksVersion + 1 };
-    });
-  },
+  handleMeasureVolChange: (idx, val) => handleMeasureVolChangeState(get, set, idx, val),
   handleMeasureVolTransitionChange: (idx, val) => {
     get().pushUndoState();
     set((s) => {

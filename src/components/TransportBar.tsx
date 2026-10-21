@@ -10,6 +10,7 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { i18n } from '../data';
+import { getEffectiveBpm } from '../utils/bpmUtils';
 import { TransportMetronomeSection } from './transport/TransportMetronomeSection';
 import { TransportBpmControl } from './transport/TransportBpmControl';
 import { TransportSpeedTrainerButton } from './transport/TransportSpeedTrainerButton';
@@ -41,7 +42,10 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
   const speedTrainerCountdown = useSequencerStore(state => state.speedTrainerCountdown);
   const openSpeedTrainerModal = useSequencerStore(state => state.openSpeedTrainerModal);
 
-  const bpm = useSequencerStore(state => state.bpm);
+  const currentMeasure = useSequencerStore(state => state.currentMeasure);
+  const measureBpms = useSequencerStore(state => state.measureBpms);
+  const storeBpm = useSequencerStore(state => state.bpm);
+  const effectiveBpm = getEffectiveBpm(storeBpm, measureBpms, currentMeasure);
   const tocarJuntoActive = useSequencerStore(state => state.tocarJuntoActive);
   const tocarJuntoTrackId = useSequencerStore(state => state.tocarJuntoTrackId);
 
@@ -83,7 +87,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
     <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-2 sm:px-4 z-50 shrink-0 overflow-visible">
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <TransportMetronomeSection isMetroOn={isMetroOn} setIsMetroOn={setIsMetroOn} preRollSettings={preRollSettings} setPreRollSettings={setPreRollSettings} availableSignals={availableSignals} lang={lang} t={t} />
-        <TransportBpmControl bpm={bpm} setBpm={setBpm} lang={lang} />
+        <TransportBpmControl bpm={effectiveBpm} setBpm={setBpm} lang={lang} />
         <TransportSpeedTrainerButton isSpeedTrainerActive={isSpeedTrainerActive} speedTrainerTourCount={speedTrainerTourCount} speedTrainerCurrentBpm={speedTrainerCurrentBpm} speedTrainerCountdown={speedTrainerCountdown} tocarJuntoActive={tocarJuntoActive} tocarJuntoTrackId={tocarJuntoTrackId} openSpeedTrainerModal={openSpeedTrainerModal} lang={lang} />
       </div>
 

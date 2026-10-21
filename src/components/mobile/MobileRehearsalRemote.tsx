@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveBpm } from '../../utils/bpmUtils';
 import { useShallow } from 'zustand/react/shallow';
 import { MobileTopHeader } from './MobileTopHeader';
 import { MobileCondensedConductor } from './MobileCondensedConductor';
@@ -51,6 +52,10 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
     audio.handleTimelineNavigate(mIdx, 0, 16);
   };
 
+  const currentMeasure = useSequencerStore((s) => s.currentMeasure);
+  const measureBpms = useSequencerStore((s) => s.measureBpms);
+  const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
+
   return (
     <div className="w-full h-dvh flex flex-col bg-[#121212] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
       <MobileTopHeader
@@ -86,9 +91,9 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
         isLoading={isLoading}
         onTogglePlay={onTogglePlay}
         onStop={onStop}
-        bpm={bpm}
-        onChangeBpm={(delta) => setBpm(Math.max(40, Math.min(240, bpm + delta)))}
-        onResetBpm={() => setBpm(useSequencerStore.getState().measureBpms?.[0] || 90)}
+        bpm={effectiveBpm}
+        onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)}
+        onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()}
         loopMode={loopMode}
         onChangeLoopMode={setLoopMode}
         isLoopExitRequested={isLoopExitRequested}

@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { ASSETS_BASE_URL } from '../../data';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { CircleNavigationHeader } from './CircleNavigationHeader';
 import { CircleInfoBadges } from './CircleInfoBadges';
 import { CircleCenterOverlay } from './CircleCenterOverlay';
@@ -24,6 +25,7 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
     isCenterShaking, isLetraActive, toggleLetraActive, vocalMode, setVocalMode,
     onNavigateMeasure, handleCanvasPointerDown, handleCanvasPointerMove, isMobile,
   } = state;
+  const mobileViewMode = useSequencerStore((s) => s.mobileViewMode);
 
   return (
     <div
@@ -58,7 +60,13 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
             measureDisplayRef={measureDisplayRef}
             onNavigateMeasure={onNavigateMeasure}
           />
-          <CircleInfoBadges timeSig={timeSig} activeBpm={activeBpm} activeVol={activeVol} lang={lang} />
+          <CircleInfoBadges
+            timeSig={timeSig}
+            activeBpm={activeBpm}
+            activeVol={activeVol}
+            lang={lang}
+            hideBpmBadge={mobileViewMode === 'percussion'}
+          />
         </>
       )}
 

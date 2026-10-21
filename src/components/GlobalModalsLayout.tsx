@@ -99,11 +99,13 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => 
         setEditingTrackId={setEditingTrackId}
       />
 
-      {props.viewMode === 'roda' && (!props.isMobile || props.mobileTab === 'roda') && (
-        <ErrorBoundary fallback={null}>
-          <AoVivoOverlay />
-        </ErrorBoundary>
-      )}
+      {!props.isMobile || useSequencerStore.getState().mobileViewMode === 'complet' ? (
+        props.viewMode === 'roda' && (!props.isMobile || props.mobileTab === 'roda') && (
+          <ErrorBoundary fallback={null}>
+            <AoVivoOverlay />
+          </ErrorBoundary>
+        )
+      ) : null}
 
       {props.toastMessage && (
         <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
