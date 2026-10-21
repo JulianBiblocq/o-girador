@@ -44,6 +44,10 @@ export const MobileLiveCameraBox: React.FC<Props> = ({
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
     } catch {
+      if (streamRef.current) {
+        try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        streamRef.current = null;
+      }
       setErrorMsg(lang === 'fr' ? 'Caméra indisponible ou refusée.' : 'Câmera indisponível ou recusada.');
     }
   }, [facingMode, stopStream, lang]);

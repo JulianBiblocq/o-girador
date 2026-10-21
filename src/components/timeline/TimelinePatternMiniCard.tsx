@@ -6,6 +6,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { getTone } from '../../ToneLoader';
 import { TimelinePatternMiniCardGrid } from './TimelinePatternMiniCardGrid';
+import { scheduleAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 
 interface TimelinePatternMiniCardProps {
   pattern: Pattern; track: any; inst: any; measureIdx: number; lang: string;
@@ -25,6 +26,7 @@ export const TimelinePatternMiniCard: React.FC<TimelinePatternMiniCardProps> = (
     if (timerRef.current !== null) { window.clearInterval(timerRef.current); timerRef.current = null; }
     setIsPlayingPreview(false); setCurrentPreviewStep(null);
     if (isVoice && track?.id) { try { audioEngine?.releaseVoicesForTrack(track.id); } catch (_) {} }
+    scheduleAudioContextAutoSuspend(500);
   }, [isVoice, track?.id]);
 
   const playStep = useCallback((sIdx: number, stepDurSec: number) => {
@@ -40,6 +42,7 @@ export const TimelinePatternMiniCard: React.FC<TimelinePatternMiniCardProps> = (
   }, [pattern, isVoice, track?.id]);
 
   const startPreview = useCallback(() => {
+    safeResumeAudioContext();
     if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
     const Tone = getTone();
     if (Tone?.context && Tone.context.state !== 'running') { try { Tone.context.resume(); Tone.start(); } catch (_) {} }

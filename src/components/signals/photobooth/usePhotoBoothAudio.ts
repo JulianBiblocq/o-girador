@@ -1,24 +1,11 @@
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
+import { getRawAudioContext, safeResumeAudioContext, scheduleAudioContextAutoSuspend } from '../../../audio/audioContextSuspendManager';
 
 export function usePhotoBoothAudio() {
-  const audioCtxRef = useRef<AudioContext | null>(null);
-
-  const getAudioContext = useCallback(() => {
-    if (!audioCtxRef.current) {
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtxClass) {
-        audioCtxRef.current = new AudioCtxClass();
-      }
-    }
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
-    return audioCtxRef.current;
-  }, []);
-
-  const playBeep = useCallback((freq: number, durationSec = 0.045, gainVal = 0.35) => {
+  const playBeep = useCallback(async (freq: number, durationSec = 0.045, gainVal = 0.35) => {
     try {
-      const ctx = getAudioContext();
+      await safeResumeAudioContext();
+      const ctx = getRawAudioContext();
       if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -31,14 +18,12 @@ export function usePhotoBoothAudio() {
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + durationSec + 0.01);
+      scheduleAudioContextAutoSuspend(500);
     } catch (_) {}
-  }, [getAudioContext]);
+  }, []);
 
   const closeAudio = useCallback(() => {
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
-    }
+    scheduleAudioContextAutoSuspend(500);
   }, []);
 
   return { playBeep, closeAudio };

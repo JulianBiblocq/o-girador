@@ -29,16 +29,12 @@ export async function loadSampleBuffer(file: string): Promise<Tone.ToneAudioBuff
     if (!resp.ok) return null;
     const arrayBuffer = await resp.arrayBuffer();
 
-    const liveContext = Tone.getContext().rawContext as AudioContext;
+    const liveContext = (Tone.getContext().rawContext || Tone.context) as AudioContext;
     if (liveContext && typeof liveContext.decodeAudioData === 'function') {
       const decoded = await liveContext.decodeAudioData(arrayBuffer);
       return new Tone.ToneAudioBuffer(decoded);
-    } else {
-      const tempCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const decoded = await tempCtx.decodeAudioData(arrayBuffer);
-      tempCtx.close().catch(() => {});
-      return new Tone.ToneAudioBuffer(decoded);
     }
+    return null;
   } catch (err) {
     console.warn(`[Cloud Bounce] Échec chargement sample ${file}:`, err);
     return null;

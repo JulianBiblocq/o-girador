@@ -6,6 +6,7 @@ import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getAllVocalRecordings } from '../../db';
+import { getRawAudioContext } from '../audioContextSuspendManager';
 import { VocalIdbScanner } from './vocalIdbScanner';
 import { VocalRemoteScanner } from './vocalRemoteScanner';
 
@@ -44,13 +45,8 @@ export class VocalRehydration {
     currentPromise = (async () => {
       try {
         const records = await getAllVocalRecordings();
-        let rawCtx: AudioContext | null = null;
-        try { rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext; } catch (_) {}
-        if (!rawCtx || typeof rawCtx.decodeAudioData !== 'function') {
-          const AudioCtxClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
-          if (AudioCtxClass) rawCtx = new AudioCtxClass();
-        }
-        if (!rawCtx) return;
+        const rawCtx = getRawAudioContext();
+        if (!rawCtx || typeof rawCtx.decodeAudioData !== 'function') return;
 
         const rawTracks = tracksToScan && tracksToScan.length > 0 ? tracksToScan : useSequencerStore.getState().tracks;
         const allTracks = flattenTracks(rawTracks || []);

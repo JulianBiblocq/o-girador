@@ -1,35 +1,45 @@
+import * as Tone from 'tone';
 import { loadTone } from '../../ToneLoader';
 import { masterVolumeNode } from '../../hooks/useAudioSync';
 import { bufferToWav } from './audioWavEncoder';
+import { scheduleAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
 let recorderNode: AudioWorkletNode | null = null;
-let isolatedRecordingContext: AudioContext | null = null;
-let streamDestination: any = null;
-let streamSource: MediaStreamAudioSourceNode | null = null;
+let silenceGainNode: GainNode | null = null;
+let recordingSampleRate = 44100;
 
 export async function startAudioRecording(): Promise<boolean> {
   wavRecordingBuffersL = [];
   wavRecordingBuffersR = [];
 
   try {
-    const Tone = await loadTone();
-    if (Tone.context && Tone.context.state !== 'running') {
-      try { await Tone.context.resume(); } catch (_) {}
-    }
+    await loadTone();
+    await safeResumeAudioContext();
 
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+    recordingSampleRate = rawCtx.sampleRate || 44100;
+
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+    const workletUrl = `${cleanBase}recorder-worklet.js`;
+
     try {
-      isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback', sampleRate: 44100 });
+      await rawCtx.audioWorklet.addModule(workletUrl);
     } catch (_) {
-      isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
+      // Le module a potentiellement déjà été ajouté dans cette session
     }
 
-    const workletUrl = import.meta.env.BASE_URL + 'recorder-worklet.js';
-    await isolatedRecordingContext.audioWorklet.addModule(workletUrl);
+    if (recorderNode) {
+      try {
+        recorderNode.port.onmessage = null;
+        recorderNode.disconnect();
+      } catch (_) {}
+      recorderNode = null;
+    }
 
-    recorderNode = new AudioWorkletNode(isolatedRecordingContext, 'recorder-worklet', {
+    recorderNode = new AudioWorkletNode(rawCtx, 'recorder-worklet', {
       numberOfInputs: 1,
       numberOfOutputs: 1
     });
@@ -42,49 +52,69 @@ export async function startAudioRecording(): Promise<boolean> {
     };
 
     if (masterVolumeNode) {
-      streamDestination = Tone.context.createMediaStreamDestination();
-      masterVolumeNode.connect(streamDestination);
-      streamSource = isolatedRecordingContext.createMediaStreamSource(streamDestination.stream);
-      streamSource.connect(recorderNode as unknown as AudioNode);
+      try {
+        (masterVolumeNode as any).connect(recorderNode);
+      } catch (err) {
+        console.warn('[AudioRecorder] Impossible de connecter masterVolumeNode:', err);
+      }
     }
 
-    recorderNode.connect(isolatedRecordingContext.destination);
+    // Nœud silencieux pour garantir que le graphe Web Audio maintient le worklet actif
+    silenceGainNode = rawCtx.createGain();
+    silenceGainNode.gain.value = 0;
+    recorderNode.connect(silenceGainNode);
+    silenceGainNode.connect(rawCtx.destination);
+
     return true;
   } catch (error) {
     console.error("Échec du démarrage de l'enregistrement :", error);
+    stopAudioRecording();
     return false;
   }
 }
 
 export function stopAudioRecording(): void {
-  const exportSampleRate = isolatedRecordingContext ? isolatedRecordingContext.sampleRate : 44100;
-
   if (recorderNode) {
-    try { recorderNode.disconnect(); } catch (_) {}
+    try {
+      if (masterVolumeNode) {
+        (masterVolumeNode as any).disconnect(recorderNode);
+      }
+    } catch (_) {}
+    try {
+      recorderNode.port.onmessage = null;
+      recorderNode.disconnect();
+    } catch (_) {}
     recorderNode = null;
   }
-  if (masterVolumeNode && streamDestination) {
-    try { masterVolumeNode.disconnect(streamDestination); } catch (_) {}
+
+  if (silenceGainNode) {
+    try {
+      silenceGainNode.disconnect();
+    } catch (_) {}
+    silenceGainNode = null;
   }
-  if (streamSource) {
-    try { streamSource.disconnect(); } catch (_) {}
-    streamSource = null;
-  }
-  if (isolatedRecordingContext) {
-    try { isolatedRecordingContext.close(); } catch (_) {}
-    isolatedRecordingContext = null;
-  }
-  streamDestination = null;
 
   if (wavRecordingBuffersL.length > 0) {
-    const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, exportSampleRate);
-    const url = URL.createObjectURL(wavBlob);
-    const downloadLink = document.createElement('a');
-    downloadLink.download = 'O Girador_Export.wav';
-    downloadLink.href = url;
-    downloadLink.click();
+    try {
+      const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, recordingSampleRate);
+      const url = URL.createObjectURL(wavBlob);
+      const downloadLink = document.createElement('a');
+      downloadLink.download = 'O Girador_Export.wav';
+      downloadLink.href = url;
+      downloadLink.click();
+    } catch (err) {
+      console.error('[AudioRecorder] Erreur encodage WAV:', err);
+    }
 
     wavRecordingBuffersL = [];
     wavRecordingBuffersR = [];
   }
+
+  scheduleAudioContextAutoSuspend(500);
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    stopAudioRecording();
+  });
 }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { safeResumeAudioContext, scheduleAudioContextAutoSuspend } from '../../audio/audioContextSuspendManager';
 
 export function useBalancoPreview(
   customOffsets: [number, number, number, number],
@@ -69,16 +70,13 @@ export function useBalancoPreview(
     });
     activeOscsRef.current = [];
     setIsPreviewPlaying(false);
+    scheduleAudioContextAutoSuspend(500);
   };
 
   const startPreview = async () => {
     stopPreview();
-    const rawCtx = Tone.getContext().rawContext as AudioContext;
-    if (rawCtx.state === 'suspended') {
-      try {
-        await rawCtx.resume();
-      } catch (_) {}
-    }
+    await safeResumeAudioContext();
+    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
 
     const now = rawCtx.currentTime;
     nextStepTimeRef.current = now + 0.05;

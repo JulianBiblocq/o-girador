@@ -23,12 +23,14 @@ export const useAudioStore = create<AudioState>((set) => ({
   selectedOutputDeviceId: null,
   availableOutputDevices: [],
   setSelectedOutputDeviceId: async (id) => {
+    const currentId = useAudioStore.getState().selectedOutputDeviceId;
+    if (currentId === id) return;
     set({ selectedOutputDeviceId: id });
-    if (id !== null) {
+    if (id !== null && id !== '' && id !== 'default') {
       try {
         const Tone = await import('tone');
         const ctx = Tone.getContext().rawContext as any;
-        if (typeof ctx.setSinkId === 'function') {
+        if (typeof ctx?.setSinkId === 'function' && ctx.sinkId !== id) {
           await ctx.setSinkId(id);
         }
       } catch (_) {}
@@ -45,9 +47,6 @@ export const useAudioStore = create<AudioState>((set) => ({
           label: d.label || `Sortie (${d.deviceId.slice(0, 5)}...)`,
         }));
       set({ availableOutputDevices: audioOutputs });
-      if (audioOutputs.length > 0 && !useAudioStore.getState().selectedOutputDeviceId) {
-        set({ selectedOutputDeviceId: audioOutputs[0].deviceId });
-      }
     } catch (_) {}
   },
   setTargetPatternId: (id) => set({ targetPatternId: id }),

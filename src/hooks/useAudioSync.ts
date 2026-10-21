@@ -26,6 +26,9 @@ import { launchSpeedTrainer, stopSpeedTrainerAudio } from './audio-sync/speedTra
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { purgeVisualTickBuffer, resetVisualTickBuffer, flushVisualBuffers } from '../audio/visualTickBuffer';
+import { safeSuspendAudioContext } from '../audio/audioContextSuspendManager';
+import { stopAudioRecording } from '../contexts/audio/audioRecorderService';
+import { VocalRecordingService } from '../audio/vocal/vocalRecordingService';
 
 export {
   tickSubscribers, subscribeToTick, unsubscribeFromTick, getActiveStrokesForTrack, isVocalSamplePattern,
@@ -201,3 +204,20 @@ export function useAudioSync(props: UseAudioSyncProps) {
   }), [isPlaying, isLoading, isCompiling, onTogglePlay, onStop, onStartSolo, onStopSolo, onSeek, onNavigate, onLaunchSpeedTrainer, onStopSpeedTrainer, triggerCompile, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
 }
 export default useAudioSync;
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    try {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+    } catch (_) {}
+    const engine = getAudioEngine();
+    if (engine) {
+      engine.stop();
+      engine.dispose();
+    }
+    stopAudioRecording();
+    VocalRecordingService.stopRecording();
+    safeSuspendAudioContext();
+  });
+}

@@ -21,6 +21,10 @@ export function usePhotoBoothCamera() {
         videoRef.current.play().catch((err) => console.warn('[PhotoBooth] video.play error:', err));
       }
     } catch (err) {
+      if (streamRef.current) {
+        try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        streamRef.current = null;
+      }
       console.error('[PhotoBooth] Erreur caméra:', err);
     }
   }, []);

@@ -12,6 +12,7 @@ import { X, Scissors } from 'lucide-react';
 import { AudioAlignmentEditor } from './AudioAlignmentEditor';
 import { useVocalValidationAudio } from './vocal-validation/useVocalValidationAudio';
 import { useVocalValidationSave } from './vocal-validation/useVocalValidationSave';
+import { VocalRecordingService } from '../audio/vocal/vocalRecordingService';
 
 export const VocalValidationModal: React.FC = () => {
   const tempRecording = useAudioStore((state) => state.tempRecording);
@@ -54,6 +55,7 @@ export const VocalValidationModal: React.FC = () => {
       Tone.Transport.stop();
       Tone.Transport.cancel();
     } catch (_) {}
+    VocalRecordingService.stopRecording();
     handleStop();
     useAudioStore.getState().setTargetPatternId(null);
     setTempRecording(null);
@@ -73,7 +75,10 @@ export const VocalValidationModal: React.FC = () => {
       if (e.key === 'Escape') handleCancel();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      VocalRecordingService.stopRecording();
+    };
   }, []);
 
   if (!tempRecording || !targetPattern || !voiceTrack) return null;

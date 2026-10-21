@@ -52,7 +52,7 @@ export class EngineSchedulerClock {
       if (Tone?.Transport) (Tone.Transport as any).scheduleAheadTime = 0.25;
     } catch (_) {}
 
-    if (this.isPlaying && this.clockHandle?.fallbackTimerId !== null) {
+    if (!this.clockHandle?.hasWorkletTicked && !this.clockHandle?.clockNode && this.isPlaying && this.clockHandle?.fallbackTimerId !== null) {
       window.clearInterval(this.clockHandle.fallbackTimerId);
       this.clockHandle.fallbackTimerId = window.setInterval(() => {
         if (this.isPlaying) this.scheduler();
@@ -140,6 +140,9 @@ export class EngineSchedulerClock {
     if (this.clockHandle?.fallbackTimerId) {
       window.clearInterval(this.clockHandle.fallbackTimerId);
       this.clockHandle.fallbackTimerId = null;
+    }
+    if (this.clockHandle) {
+      this.clockHandle.hasWorkletTicked = false;
     }
   }
 }

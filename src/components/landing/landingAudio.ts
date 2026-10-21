@@ -82,24 +82,22 @@ export const BATERIA_INSTRUMENTS_DATA: BateriaInstrumentDef[] = [
   },
 ];
 
+import { getRawAudioContext } from '../../audio/audioContextSuspendManager';
+
 export const ALL_LANDING_SAMPLES = BATERIA_INSTRUMENTS_DATA.flatMap(inst =>
   inst.strokes.map(s => ({ id: inst.id, symbol: s.symbol, file: s.file }))
 );
 
 export const decodedAudioBuffers = new Map<string, AudioBuffer>();
-let landingAudioCtx: AudioContext | null = null;
 
-export function getLandingAudioContext(): AudioContext {
-  if (!landingAudioCtx || landingAudioCtx.state === 'closed') {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    landingAudioCtx = new AudioContextClass();
-  }
-  return landingAudioCtx;
+export function getLandingAudioContext(): AudioContext | null {
+  return getRawAudioContext();
 }
 
 export function preloadLandingSamples() {
   try {
     const ctx = getLandingAudioContext();
+    if (!ctx) return;
     ALL_LANDING_SAMPLES.forEach(async ({ id, symbol, file }) => {
       const bufferKey = `${id}_${symbol}`;
       if (decodedAudioBuffers.has(bufferKey)) return;

@@ -6,6 +6,7 @@ import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../../db';
+import { scheduleAudioContextAutoSuspend } from '../audioContextSuspendManager';
 
 export function base64ToBlob(base64Data: string): Blob {
   const parts = base64Data.split(';base64,');
@@ -26,19 +27,34 @@ export class VocalRecordingService {
     store.setRecordingStatus?.('recording');
     store.setIsFocusRecordingMode?.(true);
 
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (this.audioStream) {
+        try { this.audioStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        this.audioStream = null;
+      }
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.audioStream = stream;
       const rec = new MediaRecorder(stream);
       this.mediaRecorder = rec;
       rec.start();
-    } catch (_) {}
+    } catch (err) {
+      if (stream) {
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      }
+      this.audioStream = null;
+      this.mediaRecorder = null;
+      store.setRecordingStatus?.('inactive');
+      store.setIsFocusRecordingMode?.(false);
+      console.error('Erreur démarrage enregistrement vocal:', err);
+    }
   }
 
   public static stopRecording(): void {
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       try { this.mediaRecorder.stop(); } catch (_) {}
     }
+    this.mediaRecorder = null;
     if (this.audioStream) {
       try { this.audioStream.getTracks().forEach(t => t.stop()); } catch (_) {}
       this.audioStream = null;
@@ -47,6 +63,7 @@ export class VocalRecordingService {
     store.setRecordingStatus?.('inactive');
     store.setIsFocusRecordingMode?.(false);
     try { Tone.Transport.stop(); } catch (_) {}
+    scheduleAudioContextAutoSuspend(500);
   }
 
   public static async loadVocalRecording(patternId: number): Promise<Blob | null> {
@@ -104,4 +121,10 @@ export class VocalRecordingService {
     if (strId !== patternId) useAudioStore.getState().addVocalBlob(strId, blob);
     if (!isNaN(numId) && numId !== patternId) useAudioStore.getState().addVocalBlob(numId, blob);
   }
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    VocalRecordingService.stopRecording();
+  });
 }

@@ -77,7 +77,7 @@ export class AudioEngine {
 
   public setOnPositionJump(cb: (step: number, measure: number) => void): void { (this.clock as any).onPositionJump = cb; }
   public start(startTime?: number): void { safeResumeAudioContext(); this.clock.start(startTime); }
-  public stop(): void { this.clock.stop(); this.purgeScheduledHits(); this.releaseAllVoices(); scheduleAudioContextAutoSuspend(1500); }
+  public stop(): void { this.clock.stop(); this.purgeScheduledHits(); this.releaseAllVoices(); scheduleAudioContextAutoSuspend(500); }
   public forceReanchor(): void { this.clock.forceReanchor(); }
   public getIsPlaying(): boolean { return this.clock.isPlaying; }
   public getCurrentTime(): number { return this.audioContext.currentTime; }
@@ -144,5 +144,7 @@ export class AudioEngine {
 }
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { safeSuspendAudioContext(); });
+  import.meta.hot.dispose(() => {
+    safeSuspendAudioContext();
+  });
 }

@@ -7,6 +7,7 @@ import { audioEngine } from '../../hooks/useAudioSync';
 import { getEcosystemUrl } from '../../constants/ecosystemUrls';
 import { launchCrossApp } from '../../utils/crossAppAuth';
 import { preloadLandingSamples, getLandingAudioContext, decodedAudioBuffers } from './landingAudio';
+import { safeResumeAudioContext, scheduleAudioContextAutoSuspend } from '../../audio/audioContextSuspendManager';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
@@ -79,6 +80,7 @@ export const useLandingPageLogic = (
     if (e) e.preventDefault();
     if (isUnlocking) return;
     setIsUnlocking(true);
+    await safeResumeAudioContext();
     const Tone = safeGetTone();
     if (Tone && Tone.context.state !== 'running') {
       try { await Tone.start(); } catch (_) {}
@@ -91,7 +93,9 @@ export const useLandingPageLogic = (
 
   const handleInstrumentTap = useCallback(async (instId: string, strokeSymbol: string, strokeFile: string) => {
     try {
+      await safeResumeAudioContext();
       const ctx = getLandingAudioContext();
+      if (!ctx) return;
       if (ctx.state !== 'running') await ctx.resume();
       const Tone = safeGetTone();
       if (Tone && Tone.context.state !== 'running') Tone.start().catch(() => {});
@@ -114,6 +118,7 @@ export const useLandingPageLogic = (
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
         source.start(0);
+        scheduleAudioContextAutoSuspend(500);
       }
     } catch (_) {
       if (audioEngine) audioEngine.playPreview(instId, strokeSymbol, 0, 1.0);
