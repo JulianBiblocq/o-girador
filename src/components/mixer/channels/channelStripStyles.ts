@@ -98,7 +98,7 @@ export function computeChannelStripStyles({
 
   const faderTextColor = getContrastColor(faderColor);
   const hasOuterBorder = busPosition === 'none';
-  const hasGroupBorder = busPosition !== 'none' && (track.isLinkFolder || track.busId);
+  const hasGroupBorder = busPosition !== 'none' && (track.isBusFolder || track.isLinkFolder || !!track.busId);
   const borderThicknessTop = (hasOuterBorder || hasGroupBorder) ? (isDragOver ? 5 : 3) : 0;
   const borderThicknessBottom = (hasOuterBorder || hasGroupBorder) ? (isDragOver ? 5 : 3) : 0;
   const paddingTop = Math.max(0, 3 - borderThicknessTop);

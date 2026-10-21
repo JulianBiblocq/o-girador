@@ -82,7 +82,7 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
         </div>
       </div>
 
-      <div className="relative flex items-center w-full">
+      <div className="relative flex items-center w-full h-6">
         {track.isLinkFolder || track.isBusFolder ? (
           isEditingName && setNameVal && handleRenameSubmit && setIsEditingName ? (
             <input
@@ -94,16 +94,16 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
                 if (e.key === 'Enter') handleRenameSubmit();
                 if (e.key === 'Escape') setIsEditingName(false);
               }}
-              className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full"
+              className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full h-6"
               autoFocus
             />
           ) : (
-            <div onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))} className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]">
-              <span className="font-cactus truncate">{track.isFolded ? '▼' : '▶'} {track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
+            <div onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))} className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6">
+              <span className="font-cactus truncate uppercase tracking-wider">{track.isFolded ? '▼' : '▶'} {track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
             </div>
           )
         ) : (
-          <div onClick={() => onOpenDetailEditor?.(track.id)} className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between" title={linkedSlavesTooltip || displayName}>
+          <div onClick={() => onOpenDetailEditor?.(track.id)} className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between h-6" title={linkedSlavesTooltip || displayName}>
             <div className="flex items-center gap-1 flex-1 min-w-0">
               <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-4 h-4 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
               <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
