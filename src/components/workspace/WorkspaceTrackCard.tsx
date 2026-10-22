@@ -18,54 +18,61 @@ interface WorkspaceTrackCardProps {
   tracks: TrackGroup[];
   isPistasOpen: boolean;
   onOpenDetailEditor: (trackId: number) => void;
-  dragHandleProps?: {
-    attributes: Record<string, any>;
-    listeners: Record<string, any> | undefined;
-  };
+  dragHandleProps?: { attributes: Record<string, any>; listeners: Record<string, any> | undefined; };
 }
 
 export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
-  track,
-  index,
-  tracks,
-  isPistasOpen,
-  onOpenDetailEditor,
-  dragHandleProps,
+  track, index, tracks, isPistasOpen, onOpenDetailEditor, dragHandleProps,
 }) => {
   const sequencer = useSequencer();
-  const lang = useSequencerStore(state => state.lang);
-  const isPracticeMode = useSequencerStore(state => state.isPracticeMode);
-  const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
-  const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
-  const isLetraActive = useSequencerStore(state => state.isLetraActive);
-  const toggleLetraActive = useSequencerStore(state => state.toggleLetraActive);
+  const lang = useSequencerStore(s => s.lang);
+  const isPracticeMode = useSequencerStore(s => s.isPracticeMode);
+  const isFocusActive = useSequencerStore(s => s.isFocusActive);
+  const focusTrackId = useSequencerStore(s => s.focusTrackId);
+  const toggleFocusMode = useSequencerStore(s => s.toggleFocusMode);
+  const setFocusTrackId = useSequencerStore(s => s.setFocusTrackId);
+  const activeAoVivoTrackId = useSequencerStore(s => s.activeAoVivoTrackId);
+  const setActiveAoVivoTrackId = useSequencerStore(s => s.setActiveAoVivoTrackId);
+  const isLetraActive = useSequencerStore(s => s.isLetraActive);
+  const toggleLetraActive = useSequencerStore(s => s.toggleLetraActive);
 
   const isToada = Boolean(track.isBusFolder && (track.customName === 'Toada' || String(track.id) === 'toada'));
   const inst = instrumentsConfig[track.instrumentIdx] || (isToada ? instrumentsConfig.find(i => i.id === 'puxador' || i.type === 'voice') : null);
   const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
+  const isFocusEligible = !track.isBusFolder && !track.isLinkFolder && !isToada && !!inst && inst.id !== 'apito' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.type !== 'voice';
+  const isCurrentFocus = isPracticeMode && isFocusActive && focusTrackId === track.id;
 
-  const displayName = useMemo(() => {
-    if (isToada) return 'Toada';
-    if (!inst) return 'Instrument';
-    return useNomenclatureStore.getState().getInstrumentLabel(track);
-  }, [isToada, inst, track]);
+  const displayName = useMemo(() => isToada ? 'Toada' : (!inst ? 'Instrument' : useNomenclatureStore.getState().getInstrumentLabel(track)), [isToada, inst, track]);
+
+  const handleBadgeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPracticeMode) {
+      if (!isFocusEligible) return;
+      if (isFocusActive && focusTrackId === track.id) toggleFocusMode(track.id);
+      else if (isFocusActive) setFocusTrackId(track.id);
+      else toggleFocusMode(track.id);
+    } else {
+      onOpenDetailEditor(track.id);
+    }
+  };
+
+  const badgeTitle = isPracticeMode
+    ? (isFocusEligible ? (lang === 'pt' ? (isCurrentFocus ? 'Desativar foco deste instrumento' : 'Focar neste instrumento') : (isCurrentFocus ? 'Désactiver le focus de cet instrument' : 'Passer cet instrument en Focus')) : displayName)
+    : (lang === 'pt' ? 'Editar instrumento' : "Éditer l'instrument");
 
   const handleDelete = async () => {
     const trackName = displayName || inst?.name || (lang === 'fr' ? 'cette piste' : 'esta faixa');
-    const isBus = track.isBusFolder;
     const childTracks = tracks.filter(t => String(t.busId) === String(track.id));
-    const confirmMsg = isBus && childTracks.length > 0
-      ? (lang === 'fr' ? `Attention : le bus "${trackName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?` : `Atenção: o bus "${trackName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`)
-      : (lang === 'fr' ? `Supprimer définitivement la piste "${trackName}" et tous ses motifs ?` : `Excluir definitivamente a faixa "${trackName}" e todos os seus padrões?`);
-    if (await sequencer.confirmAsync(confirmMsg)) {
-      useSequencerStore.getState().handleTrackDelete(track.id);
-    }
+    const confirmMsg = track.isBusFolder && childTracks.length > 0
+      ? (lang === 'fr' ? `Attention : le bus "${trackName}" contient ${childTracks.length} piste(s). Supprimer ?` : `Atenção: o bus "${trackName}" contém ${childTracks.length} faixa(s). Remover?`)
+      : (lang === 'fr' ? `Supprimer définitivement la piste "${trackName}" et tous ses motifs ?` : `Excluir definitivamente a faixa "${trackName}"?`);
+    if (await sequencer.confirmAsync(confirmMsg)) useSequencerStore.getState().handleTrackDelete(track.id);
   };
 
   const isAoVivo = activeAoVivoTrackId === track.id;
   const toggleAoVivo = async () => {
     if (useSequencerStore.getState().isEcoMode) {
-      await sequencer.alertAsync(lang === 'pt' ? 'Modo de economia ativado: As animações (AoVivo) foram desativadas para preservar o desempenho.' : 'Mode éco activé : Les animations (AoVivo) ont été désactivées pour préserver les performances.');
+      await sequencer.alertAsync(lang === 'pt' ? 'Modo de economia ativado: Animações desativadas.' : 'Mode éco activé : Animations désactivées.');
       return;
     }
     setActiveAoVivoTrackId(isAoVivo ? null : track.id);
@@ -82,15 +89,10 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           </div>
 
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenDetailEditor(track.id);
-            }}
-            className={`flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-xs cursor-pointer transition-colors h-[28px] min-h-[28px] ${
-              isPracticeMode ? 'flex-1 min-w-0' : 'w-[116px] shrink-0'
-            }`}
+            onClick={handleBadgeClick}
+            className={`flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-xs transition-all h-[28px] min-h-[28px] ${isPracticeMode ? 'flex-1 min-w-0' : 'w-[116px] shrink-0'} ${(!isPracticeMode || isFocusEligible) ? 'cursor-pointer' : 'cursor-default'} ${isCurrentFocus ? 'ring-2 ring-[#1a1a1a] dark:ring-[#f4ecd8] shadow-inner font-black' : ''}`}
             style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
-            title={lang === 'pt' ? 'Editar instrumento' : "Éditer l'instrument"}
+            title={badgeTitle}
           >
             <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-3.5 h-3.5 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
             <span className="text-[11px] font-cactus font-black leading-tight truncate block text-left flex-1">{index + 1}. {displayName}</span>
