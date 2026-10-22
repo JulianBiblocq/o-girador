@@ -74,7 +74,7 @@ export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeas
   const isAllActive = !isLoopRegionActive && pendingLoopRange === null;
 
   return (
-    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 select-none border-b-2 border-[var(--cordel-border)]">
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 select-none border-b-2 border-[var(--cordel-border)] relative z-30">
       <button
         onClick={handleClearLoop}
         className={`min-h-[40px] px-3 py-1.5 text-xs font-cactus font-bold uppercase border-2 shrink-0 flex items-center justify-center transition-colors shadow-[2px_2px_0px_#000] cursor-pointer ${

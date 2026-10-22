@@ -1,12 +1,14 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Wrapper d'un pas de percussion avec support Points de Vigilance (< 125 lignes).
  */
-
 import React from 'react';
 import { Pattern } from '../../../types';
 import { PercussionStepCell } from './PercussionStepCell';
 import { computeStepVisualProps } from './percussionWrapperHelpers';
+import { usePaperVigilanceStore } from '../../../stores/usePaperVigilanceStore';
+import { Check } from 'lucide-react';
 
 interface PercussionStepWrapperProps {
   i: number;
@@ -18,7 +20,7 @@ interface PercussionStepWrapperProps {
   trackId: number;
   instrument: { id: string; colors: Record<string, string>; [key: string]: any };
   swingOffsets: Record<number, number>;
-  activeVigilanceFocus: { patternId?: number; stepIndex?: number } | null;
+  activeVigilanceFocus: { patternId?: number; stepIndex?: number; trackId?: number } | null;
   selectedStepIndices: number[];
   selectedStepIdx: number | null;
   selectedSubIndex: 0 | 1 | null;
@@ -45,6 +47,11 @@ export const PercussionStepWrapper: React.FC<PercussionStepWrapperProps> = ({
   const vis = computeStepVisualProps(pattern, instrument, swingOffsets, i);
   const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
+  const vigilancePoint = usePaperVigilanceStore((s) =>
+    s.points.find((p) => (p.patternId ? p.patternId === pattern.id : p.trackId === trackId) && p.stepIndex === i)
+  );
+  const removePoint = usePaperVigilanceStore((s) => s.removePoint);
+
   let wrapperClasses = 'relative flex flex-col items-center w-full min-w-0 flex-1';
   let wrapperStyle: React.CSSProperties = {};
   if (isSextuplet) {
@@ -52,15 +59,38 @@ export const PercussionStepWrapper: React.FC<PercussionStepWrapperProps> = ({
     wrapperStyle = { width: '16.6%', left: `${indexInGroup * 16.6}%` };
   }
 
-  const isVigilanceTarget = activeVigilanceFocus?.patternId === pattern.id && activeVigilanceFocus?.stepIndex === i;
+  const isVigilanceTarget =
+    (activeVigilanceFocus?.patternId ? activeVigilanceFocus.patternId === pattern.id : activeVigilanceFocus?.trackId === trackId) &&
+    activeVigilanceFocus?.stepIndex === i;
 
   return (
     <div
-      className={`${wrapperClasses} ${isVigilanceTarget ? 'ring-2 ring-[#d97706] ring-offset-2 rounded animate-pulse z-20' : ''}`}
+      className={`${wrapperClasses} ${
+        isVigilanceTarget
+          ? 'ring-2 ring-[#d97706] ring-offset-2 rounded animate-pulse z-20 bg-[#fef3c7]/20'
+          : vigilancePoint
+          ? 'ring-2 ring-[#d97706] ring-offset-1 rounded bg-[#fef3c7]/20 z-10'
+          : ''
+      }`}
       style={wrapperStyle}
     >
       <div className="absolute top-[12px] bottom-[15px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
       <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
+
+      {vigilancePoint && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            removePoint(vigilancePoint.id);
+          }}
+          className="absolute -top-1.5 -right-1 z-30 p-0.5 bg-[#15803d] hover:bg-[#166534] text-white rounded-full border border-black shadow-xs cursor-pointer"
+          title="Acquitter le point de vigilance"
+        >
+          <Check size={8} strokeWidth={3} />
+        </button>
+      )}
+
       <PercussionStepCell
         i={i}
         val={vis.val}

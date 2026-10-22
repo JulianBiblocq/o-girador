@@ -1,16 +1,17 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Onglet 2 : Scanner Photo, Relecture des Motifs & Assemblage (< 140 lignes).
+ * Onglet 2 : Scanner Photo, Relecture des Motifs & Assemblage (< 145 lignes).
  */
-import React, { useState, useMemo } from 'react';
-import { PaperPreset, PaperSequenceItem } from '../../types/paperWorkshop.types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { PaperPreset, PaperSequenceItem, PaperStepValue } from '../../types/paperWorkshop.types';
 import { SequenceTagBuilder, factorizeSequence } from './SequenceTagBuilder';
 import { PaperPatternPreviewGrid } from './PaperPatternPreviewGrid';
 import { injectPaperScoreToStore } from '../../utils/paper/injectPaperScoreToStore';
 import { getAllAvailablePaperPresets } from '../../utils/paper/paperActiveSongExtractor';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
-import { Upload, CheckCircle } from 'lucide-react';
+import { scanAndRegisterDoubtPoints } from '../../utils/paper/paperScanDoubtDetector';
+import { Upload, CheckCircle, AlertTriangle, Zap } from 'lucide-react';
 
 interface Props {
   canImport: boolean;
@@ -26,18 +27,27 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const vigilanceCount = usePaperVigilanceStore((state) => state.points.length);
 
+  useEffect(() => {
+    scanAndRegisterDoubtPoints(editablePatterns);
+  }, []);
+
   const handleSelectPreset = (p: PaperPreset) => {
     setSelectedPreset(p);
-    setEditablePatterns(JSON.parse(JSON.stringify(p.patterns)));
+    const parsed = JSON.parse(JSON.stringify(p.patterns));
+    setEditablePatterns(parsed);
     setSequenceItems(factorizeSequence(p.defaultSequence));
     setReusableSections(new Set());
+    scanAndRegisterDoubtPoints(parsed);
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.onload = (ev) => {
+      setPhotoPreview(ev.target?.result as string);
+      scanAndRegisterDoubtPoints(editablePatterns);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -47,6 +57,16 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
       if (next.has(secName)) next.delete(secName);
       else next.add(secName);
       return next;
+    });
+  };
+
+  const handleUpdateStep = (secName: string, roleKey: string, stepIndex: number, newVal: PaperStepValue) => {
+    setEditablePatterns((prev: any) => {
+      const copy = JSON.parse(JSON.stringify(prev));
+      if (!copy[secName]) copy[secName] = {};
+      if (!copy[secName][roleKey]) copy[secName][roleKey] = Array(16).fill(0);
+      copy[secName][roleKey][stepIndex] = newVal;
+      return copy;
     });
   };
 
@@ -62,7 +82,6 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
 
   return (
     <div className="flex flex-col gap-2.5 font-sans text-xs">
-      {/* 1. CHARGEMENT PHOTO & SÉLECTION DE PARTITION */}
       <div className="p-2.5 bg-black/5 border-2 border-[var(--cordel-border,#1a1a1a)] flex flex-wrap gap-2 items-center justify-between">
         <div className="flex items-center gap-2 shrink-0">
           <label className="px-2.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#000]">
@@ -71,7 +90,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
             <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" />
           </label>
           <span className="text-[10px] text-gray-600 italic whitespace-nowrap">
-            {photoPreview ? '📷 Photo chargée' : (lang === 'fr' ? 'Prenez en photo votre fiche' : 'Tire uma foto')}
+            {photoPreview ? (lang === 'fr' ? 'Photo chargée' : 'Foto carregada') : (lang === 'fr' ? 'Prenez en photo votre fiche' : 'Tire uma foto')}
           </span>
         </div>
 
@@ -88,24 +107,19 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
             }}
             className="p-1 bg-white border border-black font-cactus font-bold text-xs max-w-[260px] w-full truncate cursor-pointer shadow-[1px_1px_0px_#000]"
           >
-            {presetsList.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            {presetsList.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
           </select>
         </div>
       </div>
 
-      {/* 2. GRILLE DE RELECTURE DES MOTIFS AVEC BEAT SHADING & POINTS DE VIGILANCE */}
       <PaperPatternPreviewGrid
         patterns={editablePatterns}
         reusableSections={reusableSections}
         onToggleReusable={toggleReusable}
+        onUpdateStep={handleUpdateStep}
         lang={lang}
       />
 
-      {/* 3. CONSTRUCTEUR D'ÉTIQUETTES DE SÉQUENCE */}
       <SequenceTagBuilder
         availableSections={Object.keys(editablePatterns)}
         sequenceItems={sequenceItems}
@@ -113,10 +127,9 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
         lang={lang}
       />
 
-      {/* 4. ACTIONS D'INJECTION */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <div className="text-[10px] font-bold text-[#8b2a1a]">
-          {!canImport ? (lang === 'fr' ? '🔒 Import réservé au Mestre.' : '🔒 Importação reservada.') : `⚡ ${sequenceItems.length} bloc(s) prêts`}
+          {!canImport ? (lang === 'fr' ? 'Import réservé au Mestre.' : 'Importação reservada.') : `${sequenceItems.length} bloc(s) prêts`}
         </div>
         <div className="flex items-center gap-2">
           {vigilanceCount > 0 && (
@@ -125,7 +138,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
               onClick={() => handleInject(true)}
               className="py-2 px-3 bg-[#d97706] hover:bg-[#b45309] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] cursor-pointer"
             >
-              <span>🎯</span>
+              <AlertTriangle size={13} />
               <span>{lang === 'fr' ? 'Injecter & Ouvrir sur le 1er Point' : 'Injetar & Abrir no 1º Ponto'}</span>
             </button>
           )}
@@ -136,7 +149,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang }) => {
             className="py-2 px-4 bg-[#8b2a1a] disabled:opacity-40 text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black cursor-pointer"
           >
             <CheckCircle size={14} />
-            <span>{lang === 'fr' ? '⚡ Injecter dans la Roda' : '⚡ Injetar na Roda'}</span>
+            <span>{lang === 'fr' ? 'Injecter dans la Roda' : 'Injetar na Roda'}</span>
           </button>
         </div>
       </div>

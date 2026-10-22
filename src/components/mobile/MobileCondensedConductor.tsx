@@ -1,8 +1,8 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Bandeau conducteur mobile avec résolution macro-section hiérarchique (< 145 lignes).
  */
-
 import React, { useEffect, useRef } from 'react';
 import { Bell, BookOpen } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -10,9 +10,12 @@ import { useTransportStore } from '../../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
 import { instrumentsConfig } from '../../data';
+import { resolveTopLevelSectionForMeasure } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 
 interface Props {
-  isLetraOpen: boolean; onToggleLetra: () => void; lang?: 'fr' | 'pt';
+  isLetraOpen: boolean;
+  onToggleLetra: () => void;
+  lang?: 'fr' | 'pt';
 }
 
 export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang: propLang }) => {
@@ -20,13 +23,14 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
   const isMetroOn = useTransportStore((s) => s.isMetroOn);
   const setIsMetroOn = useTransportStore((s) => s.setIsMetroOn);
 
-  const { lang: sLang, currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, measureSignals, mestreSignals, tracks } =
+  const { lang: sLang, currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, songMarkers, measureSignals, mestreSignals, tracks } =
     useSequencerStore(
       useShallow((s) => ({
         lang: s.lang, currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
         loopMode: s.loopMode ?? 'infinite', currentLoopIteration: s.currentLoopIteration ?? 1,
-        songSections: s.songSections || [], measureSignals: s.measureSignals || [],
-        mestreSignals: s.mestreSignals || [], tracks: s.tracks || [],
+        songSections: s.songSections || [], songMarkers: s.songMarkers || [],
+        measureSignals: s.measureSignals || [], mestreSignals: s.mestreSignals || [],
+        tracks: s.tracks || [],
       }))
     );
   const lang = sLang || propLang || 'pt';
@@ -49,7 +53,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
     return () => unsubscribeFromTick(handleTick);
   }, []);
 
-  const activeSection = songSections.find((s) => s.startMeasure <= currentMeasure && currentMeasure <= s.endMeasure);
+  const topSection = resolveTopLevelSectionForMeasure(songSections, songMarkers, currentMeasure);
   const activeSignalId = measureSignals[currentMeasure];
   const activeSignal = activeSignalId ? mestreSignals.find((sig) => sig.id === activeSignalId) : null;
   const signalImg = activeSignal ? (activeSignal.image || activeSignal.imageUrl || activeSignal.frames?.[0]) : null;
@@ -63,7 +67,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
   const coroLyrics = coroPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
 
   return (
-    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1.5 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none">
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1.5 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none relative z-30">
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1 shrink-0">
           {[1, 2, 3, 4].map((num, idx) => (
@@ -80,7 +84,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
 
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] truncate">
-            {activeSection ? activeSection.name : `M${currentMeasure + 1}`}
+            {topSection ? topSection.name : `M${currentMeasure + 1}`}
           </span>
           <span className="font-mono text-[9px] text-[var(--cordel-text-muted)] whitespace-nowrap">
             M{currentMeasure + 1}/{totalMeasures} • {loopMode === 'infinite' ? '∞' : `${currentLoopIteration}/${loopMode}`}
@@ -110,7 +114,6 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         </div>
       </div>
 
-      {/* Conducteur & Signe du Mestre Agrandis (w-20 h-20) */}
       <div className="flex items-center gap-2 bg-[var(--cordel-card-btn-bg)] p-1.5 border-2 border-[var(--cordel-border)] min-h-[84px] shadow-[2px_2px_0px_#000]">
         <div className="w-20 h-20 border-2 border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[var(--cordel-surface)] overflow-hidden shadow-[1px_1px_0px_#000]">
           {signalImg ? (
@@ -125,13 +128,13 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         </div>
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 overflow-hidden">
           <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] truncate">
-            {activeSignal?.name || activeSection?.name || (lang === 'pt' ? 'CONDUTOR' : 'CONDUCTEUR')}
+            {activeSignal?.name || topSection?.name || (lang === 'pt' ? 'CONDUTOR' : 'CONDUCTEUR')}
           </span>
           {puxLyrics && <span className="text-[#c25e38] text-xs font-bold truncate leading-tight">{puxLyrics}</span>}
           {coroLyrics && <span className="text-[#2a9d8f] text-xs font-bold truncate leading-tight">[{coroLyrics}]</span>}
           {!puxLyrics && !coroLyrics && (
             <span className="text-[var(--cordel-text-muted)] italic text-[11px] truncate">
-              {activeSection ? activeSection.name : '—'}
+              {topSection ? topSection.name : '—'}
             </span>
           )}
         </div>

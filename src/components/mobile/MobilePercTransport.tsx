@@ -32,7 +32,7 @@ export const MobilePercTransport: React.FC<Props> = ({
   const { registerTap } = useTapTempo();
 
   return (
-    <footer className="w-full bg-[var(--cordel-surface)] border-t-2 border-[var(--cordel-border)] flex flex-col gap-1.5 p-2 shrink-0 select-none">
+    <footer className="w-full bg-[var(--cordel-surface)] border-t-2 border-[var(--cordel-border)] flex flex-col gap-1.5 p-2 shrink-0 select-none relative z-30">
       {/* 1. Ligne Supérieure : Tempo, Bouton TREINO, Boucles */}
       <div className="w-full flex items-center justify-between gap-1">
         {/* Tempo [-5] [-1] [ BPM ] [ ↺ ] [+1] [+5] */}

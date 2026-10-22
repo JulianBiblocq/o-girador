@@ -33,7 +33,7 @@ export const MobileTopHeader: React.FC<Props> = ({
   };
 
   return (
-    <header className="w-full h-11 bg-[#1a1a1a] border-b-2 border-[#8b2a1a] flex items-center justify-between px-2 z-20 shrink-0 select-none gap-1.5">
+    <header className="w-full h-11 bg-[#1a1a1a] border-b-2 border-[#8b2a1a] flex items-center justify-between px-2 relative z-30 shrink-0 select-none gap-1.5">
       {/* 1. Logo & Bascule FR / BR */}
       <div className="flex items-center gap-1.5 shrink-0">
         <span className="font-cactus font-bold text-xs sm:text-sm tracking-wider text-[#f4ecd8]">

@@ -20,7 +20,7 @@ export interface PercussionGridLayoutProps {
   activeTool?: string;
   isMultiSelectActive: boolean;
   swingOffsets: Record<number, number>;
-  activeVigilanceFocus: { patternId?: number; stepIndex?: number } | null;
+  activeVigilanceFocus: { patternId?: number; stepIndex?: number; trackId?: number } | null;
   handlePatternBeatResolutionChange: (patternId: number, groupIdx: number, resolution: number) => void;
   handleGridTouchMove: (e: React.TouchEvent) => void;
   handleGridTouchEnd: (e: React.TouchEvent) => void;

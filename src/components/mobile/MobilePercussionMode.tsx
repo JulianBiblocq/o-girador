@@ -113,9 +113,9 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
         isLetraActive={isLetraActive} onToggleLetra={toggleLetraActive}
         onOpenLetraDrawer={() => setIsLetraDrawerOpen(false)} lang={lang}
       />
-      <div className="flex-1 min-h-0 relative flex items-center justify-center overflow-hidden">
+      <div className="relative flex-1 min-h-0 overflow-hidden z-10 flex items-center justify-center">
         <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} />
-        {activeAoVivoTrackId !== null && <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} />}
+        {activeAoVivoTrackId !== null && <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} isContained />}
       </div>
       <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
       <MobilePercTransport

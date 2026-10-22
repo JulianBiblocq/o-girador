@@ -85,7 +85,7 @@ export const MobilePercControls: React.FC<Props> = ({
   const vocab = getEnsembleVocabulary('maracatu', lang);
 
   return (
-    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none">
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none relative z-30">
       <div className="grid grid-cols-2 gap-1.5">
         <MobilePercTrackSelector
           label={lang === 'pt' ? 'MEU NAIPE' : 'MON PUPITRE'}

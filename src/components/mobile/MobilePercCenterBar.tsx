@@ -1,11 +1,12 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Barre centrale Mode Percussion Mobile avec macro-section et z-30 (< 115 lignes).
  */
-
 import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
+import { resolveTopLevelSectionForMeasure } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 import { Activity, BookOpen, Shuffle, ShieldCheck } from 'lucide-react';
 
 interface Props {
@@ -25,7 +26,12 @@ export const MobilePercCenterBar: React.FC<Props> = ({
   const isolateBaseOnly = useSequencerStore((s) => s.isolateBaseOnly);
   const setIsolateBaseOnly = useSequencerStore((s) => s.setIsolateBaseOnly);
   const currentMeasure = useSequencerStore((s) => s.currentMeasure);
+  const totalMeasures = useSequencerStore((s) => s.totalMeasures);
   const tracks = useSequencerStore((s) => s.tracks);
+  const songSections = useSequencerStore((s) => s.songSections);
+  const songMarkers = useSequencerStore((s) => s.songMarkers);
+
+  const topSection = resolveTopLevelSectionForMeasure(songSections, songMarkers, currentMeasure);
 
   const puxTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || t.customName === 'Puxador');
   const coroTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro' || t.customName === 'Coro');
@@ -36,41 +42,51 @@ export const MobilePercCenterBar: React.FC<Props> = ({
   const coroLyrics = coroPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
 
   return (
-    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none">
-      {/* 1. Ligne des 3 Bascules : Ao Vivo, Letra, Base Pure */}
-      <div className="grid grid-cols-3 gap-1.5">
-        <button
-          onClick={onToggleAoVivo}
-          className={`h-8 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
-            isAoVivoActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
-          }`}
-          title={lang === 'pt' ? 'Animação das baquetas e mãos ao vivo' : 'Animation des baguettes et mains en direct'}
-        >
-          <Activity size={12} />
-          <span className="truncate">Ao Vivo</span>
-        </button>
+    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none relative z-30">
+      {/* 1. Ligne des 3 Bascules + Badge Macro-Section */}
+      <div className="flex items-center gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5 flex-1 min-w-0">
+          <button
+            onClick={onToggleAoVivo}
+            className={`h-8 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
+              isAoVivoActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
+            }`}
+            title={lang === 'pt' ? 'Animação das baquetas ao vivo' : 'Animation des baguettes en direct'}
+          >
+            <Activity size={12} />
+            <span className="truncate">Ao Vivo</span>
+          </button>
 
-        <button
-          onClick={onToggleLetra}
-          className={`h-8 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
-            isLetraActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
-          }`}
-          title={lang === 'pt' ? 'Exibição da letra' : 'Affichage des paroles'}
-        >
-          <BookOpen size={12} />
-          <span className="truncate">Letra</span>
-        </button>
+          <button
+            onClick={onToggleLetra}
+            className={`h-8 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
+              isLetraActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
+            }`}
+          >
+            <BookOpen size={12} />
+            <span className="truncate">Letra</span>
+          </button>
 
-        <button
-          onClick={() => setIsolateBaseOnly(!isolateBaseOnly)}
-          className={`h-8 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
-            isolateBaseOnly ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
-          }`}
-          title={isolateBaseOnly ? (lang === 'pt' ? 'Base pura (sem variações)' : 'Base pure (sans variations)') : (lang === 'pt' ? 'Variações ativas' : 'Variations aléatoires actives')}
-        >
-          {isolateBaseOnly ? <ShieldCheck size={12} className="text-[#f4ecd8]" /> : <Shuffle size={12} />}
-          <span className="truncate">{isolateBaseOnly ? (lang === 'pt' ? 'Base Pura' : 'Base Pure') : (lang === 'pt' ? 'Variações' : 'Variations')}</span>
-        </button>
+          <button
+            onClick={() => setIsolateBaseOnly(!isolateBaseOnly)}
+            className={`h-8 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
+              isolateBaseOnly ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
+            }`}
+          >
+            {isolateBaseOnly ? <ShieldCheck size={12} className="text-[#f4ecd8]" /> : <Shuffle size={12} />}
+            <span className="truncate">{isolateBaseOnly ? (lang === 'pt' ? 'Base Pura' : 'Base Pure') : (lang === 'pt' ? 'Variações' : 'Variations')}</span>
+          </button>
+        </div>
+
+        {/* Badge Macro-Section & Mesure */}
+        <div className="h-8 px-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] shadow-[1px_1px_0_#000] flex flex-col justify-center items-end shrink-0 max-w-[110px]">
+          <span className="font-cactus font-bold text-[11px] uppercase text-[#8b2a1a] truncate w-full text-right leading-tight">
+            {topSection ? topSection.name : `M${currentMeasure + 1}`}
+          </span>
+          <span className="font-mono text-[8px] text-[var(--cordel-text-muted)] leading-tight whitespace-nowrap">
+            M{currentMeasure + 1}/{totalMeasures}
+          </span>
+        </div>
       </div>
 
       {/* 2. Ligne synchrone de chant si activée */}
