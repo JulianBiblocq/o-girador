@@ -113,5 +113,6 @@ export interface ThemeColors {
   themeText: string;
   themeBorder: string;
   themeWood: string;
+  isDark?: boolean;
 }
 

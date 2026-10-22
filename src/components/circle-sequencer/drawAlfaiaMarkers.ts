@@ -30,7 +30,7 @@ export const drawAlfaiaMarkers = (
     bgCtx.beginPath();
     bgCtx.moveTo(centerX + Math.cos(angle) * inRad, centerY + Math.sin(angle) * inRad);
     bgCtx.lineTo(centerX + Math.cos(angle) * outRad, centerY + Math.sin(angle) * outRad);
-    bgCtx.strokeStyle = theme.themeBorder;
+    bgCtx.strokeStyle = '#1a1a1a';
     bgCtx.save();
     if (tick !== 0) bgCtx.globalAlpha = 0.3;
     bgCtx.lineWidth = (tick === 0) ? 4 : 2;
@@ -43,13 +43,13 @@ export const drawAlfaiaMarkers = (
 
     bgCtx.beginPath();
     bgCtx.arc(badgeX, badgeY, 18, 0, Math.PI * 2);
-    bgCtx.fillStyle = theme.themeBg;
+    bgCtx.fillStyle = '#ffffff';
     bgCtx.fill();
-    bgCtx.strokeStyle = theme.themeBorder;
+    bgCtx.strokeStyle = '#1a1a1a';
     bgCtx.lineWidth = 1.5;
     bgCtx.stroke();
 
-    bgCtx.fillStyle = theme.themeText;
+    bgCtx.fillStyle = '#1a1a1a';
     bgCtx.font = 'bold 20px "Outfit", "Inter", sans-serif';
     bgCtx.textAlign = 'center';
     bgCtx.textBaseline = 'middle';
@@ -69,7 +69,7 @@ export const drawAlfaiaMarkers = (
     bgCtx.moveTo(centerX + Math.cos(angle) * 60, centerY + Math.sin(angle) * 60);
     bgCtx.lineTo(centerX + Math.cos(angle) * 516, centerY + Math.sin(angle) * 516);
 
-    bgCtx.strokeStyle = theme.themeBorder;
+    bgCtx.strokeStyle = '#1a1a1a';
     if (isMainBeat) {
       bgCtx.globalAlpha = 0.60;
       bgCtx.lineWidth = 3.0;

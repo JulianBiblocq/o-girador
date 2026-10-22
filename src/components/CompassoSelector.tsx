@@ -52,33 +52,31 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
 
   return (
     <div
-      className={`flex flex-col items-center bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm p-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] select-none rounded-sm ${className}`}
+      className={`flex items-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-2 py-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] select-none rounded-sm gap-2 shrink-0 ${className}`}
       style={style}
     >
-      <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
-        {lang === 'pt' ? 'Compasso' : 'Mesure'}
-      </span>
-      <div className="flex items-center justify-between w-full mt-1 gap-1 px-1">
-        <button
-          onClick={(e) => { e.stopPropagation(); handleNavigatePrev(); }}
-          className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] text-[#1a1a1a] border border-black font-bold text-[10px] cursor-pointer hover:bg-black hover:text-[#f4ecd8] transition-colors rounded-sm active:scale-95"
-          title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
-          style={{ padding: 0 }}
-        >
-          &lt;
-        </button>
-        <span className="text-xs font-cactus font-bold leading-none flex-grow text-center min-w-[45px]">
+      <button
+        onClick={(e) => { e.stopPropagation(); handleNavigatePrev(); }}
+        className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95 shrink-0"
+        title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
+      >
+        ◀
+      </button>
+      <div className="flex flex-col items-center min-w-[55px]">
+        <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
+          {lang === 'pt' ? 'Compasso' : 'Mesure'}
+        </span>
+        <span className="text-xs md:text-sm font-cactus font-bold leading-tight mt-0.5">
           {displayMeasure} / {displayTotal}
         </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); handleNavigateNext(); }}
-          className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] text-[#1a1a1a] border border-black font-bold text-[10px] cursor-pointer hover:bg-black hover:text-[#f4ecd8] transition-colors rounded-sm active:scale-95"
-          title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
-          style={{ padding: 0 }}
-        >
-          &gt;
-        </button>
       </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleNavigateNext(); }}
+        className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95 shrink-0"
+        title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
+      >
+        ▶
+      </button>
     </div>
   );
 };

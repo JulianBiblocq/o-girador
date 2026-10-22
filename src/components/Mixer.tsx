@@ -46,10 +46,10 @@ const MixerComponent: React.FC<MixerProps> = ({
   return (
     <div
       id="left-panel"
-      className="relative w-[400px] min-w-[400px] h-full bg-gradient-to-b from-[#1c1815] to-[#120e0c] border-r-2 border-[#eaddcf] flex flex-col p-5 box-border z-10 transition-all duration-300 overflow-hidden"
+      className="relative w-[400px] min-w-[400px] h-full bg-[#181411] text-[var(--cordel-text)] border-r-2 border-[var(--cordel-border,#1a1a1a)] flex flex-col p-5 box-border z-10 transition-all duration-300 overflow-hidden"
     >
       <div
-        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-surface-dark"
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg !bg-[#f4ecd8] !opacity-[0.16]"
         style={{ transform: 'translateZ(0)' }}
       />
 

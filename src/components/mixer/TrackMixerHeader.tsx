@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, GripVertical, Trash2, Mic, Link } from 'lucide-react';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../../data';
 import { useSequencerStore, selectTracksMeta } from '../../stores/useSequencerStore';
 import type { TrackGroup as Track } from '../../types';
@@ -54,7 +54,7 @@ export const TrackMixerHeader: React.FC<TrackMixerHeaderProps> = ({
     if (!inst) return 'Instrument';
     if (isMaster) {
       const getPluralName = (n: string) => n.includes('Alfaia') ? 'Alfaias' : n === 'Caixa' ? 'Caixas' : n === 'Tarol' ? 'Tarols' : n === 'Agbê' ? 'Agbês' : n === 'Mineiro' ? 'Mineiros' : n === 'Gonguê' ? 'Gonguês' : n + 's';
-      return `🔗 ${getPluralName(inst.name)}`;
+      return getPluralName(inst.name);
     }
     return useNomenclatureStore.getState().getInstrumentLabel(track);
   }, [isToada, inst, isMaster, track]);
@@ -104,26 +104,28 @@ export const TrackMixerHeader: React.FC<TrackMixerHeaderProps> = ({
               }
               onOpenDetailEditor(targetId);
             }}
-            className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-1 text-xs cursor-pointer transition-colors w-[130px] h-[44px] min-h-[44px] shrink-0"
+            className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-0.5 text-xs cursor-pointer transition-colors w-[130px] h-[38px] min-h-[38px] shrink-0"
             style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
             title={lang === 'pt' ? 'Editar instrumento' : "Éditer l'instrument"}
           >
             <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
             <div className="flex flex-col justify-center flex-1 min-w-0 text-left">
               {isChild && parentBusName && (
-                <span className="text-[8px] uppercase tracking-wider opacity-75 leading-tight truncate block" style={{ color: inst.colors.text }}>🔗 {parentBusName}</span>
+                <span className="text-[8px] uppercase tracking-wider opacity-75 leading-tight truncate flex items-center gap-0.5" style={{ color: inst.colors.text }}>
+                  <Link className="w-2.5 h-2.5 shrink-0" /> {parentBusName}
+                </span>
               )}
               <span className="text-xs font-cactus font-black leading-tight truncate block">{index + 1}. {displayName}</span>
             </div>
           </button>
-          <button onClick={(e) => { e.stopPropagation(); handleDeleteTrack(); }} className="ml-2 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]" title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir faixa'}>
+          <button onClick={(e) => { e.stopPropagation(); handleDeleteTrack(); }} className="ml-1.5 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]" title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir faixa'}>
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
-      <div className="flex gap-1.5">
-        <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(track.id); }} className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${(track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'}`}>M</button>
-        <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(track.id); }} className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'}`}>S</button>
+      <div className="flex gap-1">
+        <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(track.id); }} className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${(track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>M</button>
+        <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(track.id); }} className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>S</button>
         {inst.id !== 'apito' && (
           <button onClick={() => useSequencerStore.getState().handleTrackHideToggle(track.id)} className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'}`} title={lang === 'fr' ? 'Masquer la piste' : 'Ocultar pista'}>
             {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -131,7 +133,7 @@ export const TrackMixerHeader: React.FC<TrackMixerHeaderProps> = ({
         )}
         {inst.id !== 'apito' && (
           <button onClick={(e) => { e.stopPropagation(); (inst.type === 'voice' || isToada) ? toggleLetraActive() : toggleAoVivo(); }} className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${(inst.type === 'voice' || isToada) ? (isLetraActive ? 'bg-[#c25e38] text-white shadow-[1px_1px_0px_#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]') : (isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]')}`} title={(inst.type === 'voice' || isToada) ? (lang === 'fr' ? (isLetraActive ? 'Masquer la Letra' : 'Afficher la Letra') : (isLetraActive ? 'Ocultar Letra' : 'Exibir Letra')) : (lang === 'fr' ? 'Vue en direct (Baguettes)' : 'Ao Vivo (Visão das baquetas)')}>
-            {(inst.type === 'voice' || isToada) ? <span className="text-xs leading-none">🎙️</span> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M11 22 L5 6" /><circle cx="4" cy="3" r="2.5" fill="currentColor" /><path d="M13 22 L19 6" /><circle cx="20" cy="3" r="2.5" fill="currentColor" /></svg>}
+            {(inst.type === 'voice' || isToada) ? <Mic className="w-3.5 h-3.5" /> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M11 22 L5 6" /><circle cx="4" cy="3" r="2.5" fill="currentColor" /><path d="M13 22 L19 6" /><circle cx="20" cy="3" r="2.5" fill="currentColor" /></svg>}
           </button>
         )}
         {inst.id === 'apito' && <><div className="w-6 h-6 pointer-events-none" /><div className="w-6 h-6 pointer-events-none" /></>}

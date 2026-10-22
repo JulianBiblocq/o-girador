@@ -9,6 +9,7 @@ import { useTrackMixerContextMenu } from './mixer/useTrackMixerContextMenu';
 import { useTrackMixerPattern } from './mixer/useTrackMixerPattern';
 import { TrackMixerHeader } from './mixer/TrackMixerHeader';
 import { TrackMixerPatternPreview } from './mixer/TrackMixerPatternPreview';
+import { TrackInkVolumeSlider } from './mixer/TrackInkVolumeSlider';
 
 export interface TrackMixerProps {
   trackId: number;
@@ -72,13 +73,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    borderLeft: busColor ? `4px solid ${busColor}` : '4px solid #1a1a1a',
+    borderLeft: busColor ? `4px solid ${busColor}` : '4px solid var(--cordel-border, #1a1a1a)',
     zIndex: 10,
-    ['--cordel-bg' as string]: '#f4ecd8',
-    ['--cordel-text' as string]: '#1a1a1a',
-    ['--cordel-border' as string]: '#1a1a1a',
-    ['--fader-thumb-bg' as string]: '#8b2a1a',
-    ['--fader-thumb-border' as string]: '#1a1a1a',
   };
 
   return (
@@ -90,8 +86,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         handleContextMenuOpen(e.clientX, e.clientY);
       }}
       {...touchHandlers}
-      className={`flex flex-col relative transition-all duration-300 w-full justify-center border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 ${
-        isUnfolded ? 'h-auto min-h-[156px] py-2' : 'h-[76px] min-h-[76px] py-1'
+      className={`flex flex-col relative transition-all duration-300 w-full justify-center border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] px-3 ${
+        isUnfolded ? 'h-auto min-h-[156px] py-2' : 'h-[53px] min-h-[53px] max-h-[53px] py-1'
       } ${
         isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_20px_var(--cordel-wood)] z-30 scale-[1.01] border-[var(--cordel-wood)]' : ''
       }`}
@@ -120,6 +116,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           handleStepClick={handleStepClick}
         />
       )}
+
+      <TrackInkVolumeSlider trackId={track.id} volumeVal={track.volumeVal} />
 
       {contextMenuPos && (
         <TrackContextMenu trackId={trackId} x={contextMenuPos.x} y={contextMenuPos.y} onClose={handleContextMenuClose} />

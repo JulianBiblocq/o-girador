@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Plus } from 'lucide-react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
@@ -11,9 +12,11 @@ import { useWindow } from '../../contexts/WindowContext';
 
 interface MixerHeaderProps {
   t: (key: string) => string;
+  noBorder?: boolean;
+  className?: string;
 }
 
-export const MixerHeader: React.FC<MixerHeaderProps> = ({ t }) => {
+export const MixerHeader: React.FC<MixerHeaderProps> = ({ t, noBorder = false, className = '' }) => {
   const sequencer = useSequencer();
   const currentWindow = useWindow();
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
@@ -46,7 +49,7 @@ export const MixerHeader: React.FC<MixerHeaderProps> = ({ t }) => {
   const sorted = apitoItem ? [...rest, apitoItem] : list;
 
   return (
-    <div className="border-b border-[#333] pb-2.5 mb-4 shrink-0 w-full flex items-center gap-2 relative z-30">
+    <div className={`${noBorder ? '' : 'border-b border-[var(--cordel-border,#333)] pb-2.5 mb-4'} shrink-0 w-full flex items-center gap-2 relative z-30 ${className}`}>
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -64,7 +67,7 @@ export const MixerHeader: React.FC<MixerHeaderProps> = ({ t }) => {
           onClick={() => setAddDropOpen(!addDropOpen)}
           className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-xs font-bold font-cactus uppercase transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 hover:opacity-80"
         >
-          ➕ {t('addInst')} <span className="text-[8px] opacity-60">▼</span>
+          <Plus className="w-3.5 h-3.5" /> {t('addInst')} <span className="text-[8px] opacity-60">▼</span>
         </button>
         {addDropOpen && (
           <div className="absolute top-10 left-0 w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] max-h-[calc(100vh-160px)] overflow-y-auto z-[100]">

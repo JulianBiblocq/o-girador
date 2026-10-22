@@ -85,7 +85,7 @@ export const MixerTrackList: React.FC<MixerTrackListProps> = ({
 
   return (
     <div id="mixer-section" className="flex-grow overflow-y-auto pr-1 relative z-[1]">
-      <div id="tracks-mixer-container" className="flex flex-col gap-3">
+      <div id="tracks-mixer-container" className="flex flex-col gap-[5px] py-1.5 px-2">
         <DndContext
           sensors={sensors}
           collisionDetection={pointerWithin}

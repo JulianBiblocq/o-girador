@@ -78,11 +78,11 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
 
   return (
     <div
-      className="flex-grow flex flex-col justify-start bg-gradient-to-b from-[#1c1815] to-[#120e0c] select-none w-full h-full overflow-x-auto overflow-y-auto custom-scrollbar relative"
+      className="flex-grow flex flex-col justify-start bg-[var(--cordel-bg)] text-[var(--cordel-text)] select-none w-full h-full overflow-x-auto overflow-y-auto custom-scrollbar relative"
       style={{ display: isActive ? 'flex' : 'none' }}
     >
       <div
-        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-surface-dark"
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg"
         style={{ width: 'max(100%, 1240px)', minHeight: '100%', transform: 'translateZ(0)' }}
       />
 
@@ -91,7 +91,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sortableTrackIds} strategy={verticalListSortingStrategy}>
-            <div className="flex flex-col gap-0 flex-grow">
+            <div className="flex flex-col gap-[5px] py-1.5 flex-grow">
               {visibleTracks.map((track, trackIdx) => (
                 <DawTrackRow
                   key={track.id}

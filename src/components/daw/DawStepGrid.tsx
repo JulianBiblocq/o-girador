@@ -35,24 +35,26 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
   registerStepRef,
 }) => {
   return (
-    <div className="flex items-center flex-grow pl-4 pr-3 h-full">
+    <div className="flex items-center flex-grow pl-4 pr-3 h-full transition-all duration-200">
       <div className="flex w-full h-full items-center gap-1.5 select-none">
         {beatGroups.map((group, beatIdx) => {
-          const isEvenBeat = beatIdx % 2 === 0;
-          const emptyStepBg = isEvenBeat ? '#f4ecd8' : '#d2c5b1';
+          const isOddBeat = beatIdx % 2 === 0;
+          const emptyStepBg = isOddBeat ? '#f4ecd8' : '#e4d9c0';
+          const beatBgClass = isOddBeat
+            ? 'bg-[#f4ecd8] dark:bg-[#e2d7c0]'
+            : 'bg-[#e4d9c0] dark:bg-[#cfc2a8]';
           const isTriplet = group.length === 3;
           const isSextuplet = group.length === 6;
 
           return (
             <div
               key={beatIdx}
-              className={`flex flex-1 h-full items-center py-1 px-1 rounded-none border-[1.5px] border-[#1a1a1a]/30 dark:border-black/40 gap-[2px] ${
+              className={`flex flex-1 h-full items-center py-0.5 px-1 rounded-none border-[1.5px] border-[#1a1a1a]/35 gap-[2px] ${beatBgClass} ${
                 isTriplet ? 'justify-between' : ''
               }`}
               style={{
-                backgroundColor: emptyStepBg,
                 ...(group.length === 0 && {
-                  backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.1) 0, rgba(0,0,0,0.1) 4px, transparent 4px, transparent 20px)',
+                  backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0, rgba(0,0,0,0.08) 4px, transparent 4px, transparent 20px)',
                   backgroundSize: '100% 100%',
                 }),
               }}

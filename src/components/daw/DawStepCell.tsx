@@ -97,14 +97,14 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
   }
 
   const borderClass = isStepActive
-    ? 'border-[1.5px] border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a]'
-    : 'border-[1.5px] border-[#1a1a1a]/40 dark:border-black/50 shadow-[1px_1px_0px_rgba(26,26,26,0.25)] bg-[#f4ecd8]/60 dark:bg-[#1a1a1a]/40 text-[#1a1a1a]/40 dark:text-white/40';
+    ? 'border-[1.5px] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
+    : 'border-[1.5px] border-[#1a1a1a]/35 shadow-[1px_1px_0px_rgba(26,26,26,0.15)] bg-[#ede4d0] dark:bg-[#ebe2ce] text-[#1a1a1a]/50 dark:text-[#1a1a1a]/50';
 
   return (
     <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
       <button
         {...commonButtonProps}
-        className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-8 rounded-none outline-none ${borderClass} ${
+        className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-7.5 rounded-none outline-none ${borderClass} ${
           isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
         }`}
         style={{

@@ -118,6 +118,13 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           )}
 
           {subTab === 'feedback' && <React.Suspense fallback={null}><FeedbackSection /></React.Suspense>}
+
+          {/* Signature Créateur & Artiste */}
+          <div className="pt-2 mt-auto border-t border-[var(--cordel-border)]/20 text-[9px] font-bold tracking-widest text-center opacity-60 select-none flex justify-center gap-1.5 leading-tight shrink-0">
+            <span>{lang === 'pt' ? 'Criado por Julian Biblocq' : 'Créé par Julian Biblocq'}</span>
+            <span className="opacity-40">|</span>
+            <span>{lang === 'pt' ? 'Arte: Toni Braga' : 'Art: Toni Braga'}</span>
+          </div>
         </div>
       </div>
 

@@ -55,7 +55,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
     transition,
     zIndex: isDragging ? 50 : 1,
     opacity: isDragging ? 0.75 : 1,
-    borderLeft: busColor ? `5px solid ${busColor}` : '2px solid #1a1a1a',
+    borderLeft: busColor ? `4px solid ${busColor}` : '4px solid var(--cordel-border, #1a1a1a)',
   };
 
   const activeChildTrack = useMemo(() => {
@@ -72,7 +72,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
   }, [isToada, tracks, currentMeasure]);
 
   const effectiveTrack = isToada ? (activeChildTrack || track) : track;
-  const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : null;
+  const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : (isToada ? instrumentsConfig.find(i => i.id === 'puxador' || i.type === 'voice') : null);
 
   const { activePattern, masterActivePattern, isGhostStep } = resolveDawPattern({
     track, tracks, currentMeasure, effectiveTrack, isLinkedSlave,
@@ -96,7 +96,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] justify-start shrink-0 text-[#1a1a1a] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1 relative overflow-hidden z-[1]"
+      className="flex items-center w-full h-[53px] min-h-[53px] max-h-[53px] justify-start shrink-0 text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] px-2 py-0.5 relative overflow-hidden z-[1] select-none"
     >
       <DawTrackRowHeader
         track={track}

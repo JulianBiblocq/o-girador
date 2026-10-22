@@ -1,7 +1,9 @@
 import { TrackGroup, Pattern } from '../../types';
 import { getVisualStrokeSymbol, isDarkText } from '../../data';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
+import { isToadaBus } from '../../stores/useSequencerStore';
 import { resolveLinkedStepVisual } from './dawStepLinkedResolver';
+import { resolveToadaStepVisual } from './dawToadaVisualResolver';
 
 export function resolveStepVisual({
   stepIdx,
@@ -32,6 +34,10 @@ export function resolveStepVisual({
   effectiveTrack: TrackGroup;
   activePattern: Pattern | null;
 }) {
+  if (isToadaBus(track) || track.customName === 'Toada' || inst.id === 'toada') {
+    return resolveToadaStepVisual({ tracks, currentMeasure, stepIdx, emptyStepBg });
+  }
+
   const isVoice = Boolean(
     inst.type === 'voice' || inst.id === 'toada' || inst.id === 'puxador' || inst.id === 'coro' ||
     track.customName === 'Toada' || track.customName === 'Puxador' || track.customName === 'Coro'
@@ -74,7 +80,12 @@ export function resolveStepVisual({
     }
   }
 
-  const children = tracks.filter(t => String(t.linkedToTrackId) === String(track.id) && !t.isBusFolder);
+  const children = tracks.filter(t => {
+    if (t.id === track.id || t.isBusFolder || t.isLinkFolder) return false;
+    if (String(t.linkedToTrackId) === String(track.id)) return true;
+    if (track.linkedToTrackId && String(t.linkedToTrackId) === String(track.linkedToTrackId)) return true;
+    return false;
+  });
   if (children.length > 0) {
     const linked = resolveLinkedStepVisual({
       track, tracks, children, currentMeasure, activePattern, effectiveTrack,

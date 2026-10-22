@@ -32,28 +32,7 @@ export function useDawVisibleTracks() {
       });
     }
 
-    const finalList: TrackGroup[] = [];
-    topLevelList.forEach(t => {
-      finalList.push(t);
-      if (isToadaBus(t) && !t.isSequencerFolded) {
-        const puxTrack = tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
-        const coroTrack = tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
-        if (puxTrack) finalList.push(puxTrack);
-        if (coroTrack) finalList.push(coroTrack);
-      }
-      if (t.isLinkMaster) {
-        const parentBus = tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-        if (parentBus && !parentBus.isSequencerFolded) {
-          const slaves = tracks.filter(child =>
-            String(child.linkedToTrackId) === String(parentBus.id) &&
-            !child.isLinkFolder &&
-            !child.isLinkMaster
-          );
-          finalList.push(...slaves);
-        }
-      }
-    });
-    return finalList;
+    return topLevelList;
   }, [tracksMeta, rodaTrackOrder]);
 
   const sortableTrackIds = useMemo(() => visibleTracks.map(t => `track-${t.id}`), [visibleTracks]);
