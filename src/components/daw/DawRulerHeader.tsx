@@ -17,7 +17,7 @@ export const DawRulerHeader: React.FC<DawRulerHeaderProps> = ({ lang }) => {
         <MixerHeader t={t} noBorder={true} className="w-[360px] min-w-[360px] max-w-[360px]" />
       </div>
 
-      <div className="flex-grow pl-4 flex items-center justify-between">
+      <div className="flex-grow flex items-center justify-between">
         <RodaCentralTopBar className="w-full" />
       </div>
     </div>

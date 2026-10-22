@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -51,10 +51,15 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
   const toggleLinearDawDetached = useSequencerStore((state) => state.toggleLinearDawDetached);
   const toggleCircleSequencerDetached = useSequencerStore((state) => state.toggleCircleSequencerDetached);
 
+  useEffect(() => {
+    useSequencerStore.setState({ isTracksCollapsed: true });
+  }, []);
+
   const pistasProps = useWorkspacePistasProps(viewMode === 'roda');
   const isPistasOpen = !isTracksCollapsed;
 
   const handleStepClick = (_e: React.MouseEvent, trackId: number) => {
+    if (useSequencerStore.getState().isPracticeMode) return;
     setEditingTrackId(trackId);
   };
 

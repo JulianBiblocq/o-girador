@@ -1,10 +1,14 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { i18n } from '../data';
 import { useSpeedTrainerLogic } from './speed-trainer/useSpeedTrainerLogic';
 import { useMestreTrainingLogic } from './speed-trainer/useMestreTrainingLogic';
 import { SpeedTrainerHeader } from './speed-trainer/SpeedTrainerHeader';
-import { SpeedTrainerTocarJuntoTab } from './speed-trainer/SpeedTrainerTocarJuntoTab';
 import { SpeedTrainerSpeedTab } from './speed-trainer/SpeedTrainerSpeedTab';
 import { SpeedTrainerMestreTab } from './speed-trainer/SpeedTrainerMestreTab';
 import { SpeedTrainerFooter } from './speed-trainer/SpeedTrainerFooter';
@@ -36,25 +40,19 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs pt-16 sm:pt-20 pb-4 px-4 select-none">
       <div className="w-full max-w-[500px] max-h-[calc(100dvh-5rem)] bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[6px_6px_0px_#1a1a1a] flex flex-col overflow-hidden text-[#1a1a1a]">
         <SpeedTrainerHeader
-          lang={logic.lang} t={t} activeTab={logic.activeTab} setActiveTab={logic.setActiveTab}
-          isMestre={mestre.isMestre} isActive={logic.isActive} tocarJuntoActive={logic.tocarJuntoActive}
-          currentTour={logic.currentTour} currentBpm={logic.currentBpm} targetBpm={logic.targetBpm}
-          tocarJuntoTrackId={logic.tocarJuntoTrackId} storeTracks={logic.storeTracks}
-          isolateBaseOnly={logic.isolateBaseOnly} onClose={logic.handleClose}
+          lang={logic.lang}
+          t={t}
+          activeTab={logic.activeTab}
+          setActiveTab={logic.setActiveTab}
+          isMestre={mestre.isMestre}
+          isActive={logic.isActive}
+          currentTour={logic.currentTour}
+          currentBpm={logic.currentBpm}
+          targetBpm={logic.targetBpm}
+          onClose={logic.handleClose}
         />
         <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-          {logic.activeTab === 'tocarJunto' ? (
-            <SpeedTrainerTocarJuntoTab
-              lang={logic.lang} t={t} playableTracks={logic.playableTracks}
-              selectedTrackId={logic.selectedTrackId} setSelectedTrackId={logic.setSelectedTrackId}
-              tocarJuntoActive={logic.tocarJuntoActive} tocarJuntoTrackId={logic.tocarJuntoTrackId}
-              isMutedOption={logic.isMutedOption} setIsMutedOption={logic.setIsMutedOption}
-              hasFamilyGroup={logic.hasFamilyGroup} selectedMuteScope={logic.selectedMuteScope}
-              setSelectedMuteScope={logic.setSelectedMuteScope} familyLabel={logic.familyLabel}
-              selectedBaseOnly={logic.selectedBaseOnly} setSelectedBaseOnly={logic.setSelectedBaseOnly}
-              showAoVivoSticks={logic.showAoVivoSticks} setShowAoVivoSticks={logic.setShowAoVivoSticks}
-            />
-          ) : logic.activeTab === 'speedTrainer' ? (
+          {logic.activeTab === 'speedTrainer' ? (
             <SpeedTrainerSpeedTab
               t={t} activeTrainingSession={logic.activeTrainingSession} sortedMarkers={logic.sortedMarkers}
               markerMode={logic.markerMode} setMarkerMode={logic.setMarkerMode}
@@ -96,14 +94,17 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
           )}
         </div>
         <SpeedTrainerFooter
-          activeTab={logic.activeTab} t={t} selectedTrackId={logic.selectedTrackId}
-          onStartTrainingDirect={logic.handleStartTrainingDirect}
-          onQuitOrCancelTraining={logic.handleQuitOrCancel}
-          tocarJuntoActive={logic.tocarJuntoActive} isActive={logic.isActive}
-          onStopAndRestore={() => { logic.handleClose(); logic.audio.stopSpeedTrainerAudio(); }}
-          onLaunch={logic.handleLaunch} activeTrainingSession={logic.activeTrainingSession}
-          startBpm={logic.startBpm} targetBpm={logic.targetBpm} isSaving={mestre.isSaving}
-          onSaveTraining={mestre.handleSaveTraining} editingTrainingId={mestre.editingTrainingId}
+          activeTab={logic.activeTab}
+          t={t}
+          isActive={logic.isActive}
+          onStopAndRestore={logic.audio.stopSpeedTrainerAudio}
+          onLaunch={logic.handleLaunch}
+          activeTrainingSession={logic.activeTrainingSession}
+          startBpm={logic.startBpm}
+          targetBpm={logic.targetBpm}
+          isSaving={mestre.isSaving}
+          onSaveTraining={mestre.handleSaveTraining}
+          editingTrainingId={mestre.editingTrainingId}
         />
       </div>
     </div>,

@@ -11,6 +11,7 @@ import { createTrackAcousticsSlice } from './slices/trackAcousticsSlice';
 import { createTrackPatternEditSlice } from './slices/trackPatternEditSlice';
 import { createClipboardSlice } from './slices/clipboardSlice';
 import { createProjectSettingsSlice } from './slices/projectSettingsSlice';
+import { createPracticeModeSlice } from './slices/practiceModeSlice';
 
 import { SequencerStore, TrackSlice, MasterEffectsActiveState } from './types/sequencerStoreTypes';
 
@@ -32,6 +33,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createUISlice(...a),
   ...createSpeedTrainerSlice(...a),
   ...createTrainingSlice(...a),
+  ...createPracticeModeSlice(...a),
 }));
 
 // ---------------------------------------------------------

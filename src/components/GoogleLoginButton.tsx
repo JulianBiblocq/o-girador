@@ -52,7 +52,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   if (loading) {
     return (
       <div className={`${className} flex justify-center items-center w-12 h-9 opacity-50`}>
-        <span className="animate-spin font-cactus">⚙️</span>
+        <User className="w-4 h-4 animate-pulse opacity-60" />
       </div>
     );
   }

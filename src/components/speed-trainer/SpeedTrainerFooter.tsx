@@ -1,16 +1,20 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from 'react';
-import { Square, X, Save, Loader2 } from 'lucide-react';
+import { Square, Save, Loader2 } from 'lucide-react';
 import { XiloLightning } from '../XiloIcons';
-import { CordelTarget } from '../ui/CordelTarget';
 import { SpeedTrainerTab } from './SpeedTrainerHeader';
 
 interface SpeedTrainerFooterProps {
   activeTab: SpeedTrainerTab;
   t: (key: string) => string;
-  selectedTrackId: number | null;
-  onStartTrainingDirect: () => void;
-  onQuitOrCancelTraining: () => void;
-  tocarJuntoActive: boolean;
+  selectedTrackId?: number | null;
+  onStartTrainingDirect?: () => void;
+  onQuitOrCancelTraining?: () => void;
+  tocarJuntoActive?: boolean;
   isActive: boolean;
   onStopAndRestore: () => void;
   onLaunch: () => void;
@@ -25,10 +29,6 @@ interface SpeedTrainerFooterProps {
 export const SpeedTrainerFooter: React.FC<SpeedTrainerFooterProps> = ({
   activeTab,
   t,
-  selectedTrackId,
-  onStartTrainingDirect,
-  onQuitOrCancelTraining,
-  tocarJuntoActive,
   isActive,
   onStopAndRestore,
   onLaunch,
@@ -41,33 +41,7 @@ export const SpeedTrainerFooter: React.FC<SpeedTrainerFooterProps> = ({
 }) => {
   return (
     <div className="p-3 sm:p-4 bg-[#ebe2cb] border-t-2 border-[#1a1a1a] flex items-center justify-between gap-2 shrink-0">
-      {activeTab === 'tocarJunto' ? (
-        <>
-          <button
-            type="button"
-            disabled={selectedTrackId === null}
-            onClick={onStartTrainingDirect}
-            className="flex-1 py-2.5 px-4 bg-[#c25e38] hover:bg-[#a84c2a] disabled:opacity-40 text-white font-cactus font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer"
-          >
-            <CordelTarget size={16} className="text-white shrink-0" />
-            <span>{t('startTrainingButton')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={onQuitOrCancelTraining}
-            className="py-2.5 px-4 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#e8dcbe] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            {tocarJuntoActive ? (
-              <>
-                <X size={14} className="shrink-0" />
-                <span>{t('quitTrainingButton')}</span>
-              </>
-            ) : (
-              <span>{t('cancel')}</span>
-            )}
-          </button>
-        </>
-      ) : activeTab === 'speedTrainer' ? (
+      {activeTab === 'speedTrainer' ? (
         isActive ? (
           <button
             type="button"
@@ -84,7 +58,9 @@ export const SpeedTrainerFooter: React.FC<SpeedTrainerFooterProps> = ({
             className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 flex items-center justify-center gap-2 cursor-pointer"
           >
             <XiloLightning size={16} className="fill-current" />
-            {activeTrainingSession ? `⚡ Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)` : t('speedTrainerLaunch')}
+            {activeTrainingSession
+              ? `Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
+              : t('speedTrainerLaunch')}
           </button>
         )
       ) : (

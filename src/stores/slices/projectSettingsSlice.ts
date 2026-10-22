@@ -28,7 +28,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   selectedSubIndex: null,
   selectedStepRange: null,
   vocalTransposeSteps: 0,
-  isTracksCollapsed: typeof window !== 'undefined' && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768) ? false : true,
+  isTracksCollapsed: true,
   isPreviewMode: false,
   hasFullPlaybackAccess: false,
   isVisitorAuthModalOpen: false,
@@ -127,17 +127,17 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   setIsMobileStudioMode: (val) => {
     const mode = val ? 'complet' : 'danse';
     persistMobileViewMode(mode);
-    set({ isMobileStudioMode: val, mobileViewMode: mode });
+    set({ isMobileStudioMode: val, mobileViewMode: mode, isTracksCollapsed: true });
   },
   toggleMobileStudioMode: () => set((state) => {
     const next = !state.isMobileStudioMode;
     const mode = next ? 'complet' : 'danse';
     persistMobileViewMode(mode);
-    return { isMobileStudioMode: next, mobileViewMode: mode };
+    return { isMobileStudioMode: next, mobileViewMode: mode, isTracksCollapsed: true };
   }),
   setMobileViewMode: (mode) => {
     persistMobileViewMode(mode);
-    set({ mobileViewMode: mode, isMobileStudioMode: mode === 'complet' });
+    set({ mobileViewMode: mode, isMobileStudioMode: mode === 'complet', isTracksCollapsed: true });
   },
   setIsTouchLocked: (val) => set({ isTouchLocked: val }),
   toggleTouchLock: () => set((state) => ({ isTouchLocked: !state.isTouchLocked }))

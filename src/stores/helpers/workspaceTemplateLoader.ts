@@ -90,7 +90,7 @@ export const createTracksFromTemplateState = (
       selectedPatternId: isPureBus ? 0 : newPatternId,
       isMute: false,
       isSolo: false,
-      isHidden: false,
+      isHidden: Boolean(options.includeStructure && t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster),
       isBusFolder: options.includeStructure ? t.isBusFolder : undefined,
       isLinkFolder: options.includeStructure ? t.isLinkFolder : undefined,
       isLinkMaster: options.includeStructure ? t.isLinkMaster : undefined,

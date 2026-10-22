@@ -23,7 +23,7 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className 
 
   return (
     <div
-      className={`flex items-center justify-between w-full gap-2 z-20 pointer-events-auto select-none transition-colors duration-300 relative ${
+      className={`relative w-full px-3 flex items-center justify-between gap-2 z-20 pointer-events-auto select-none transition-colors duration-300 ${
         isPistasOpen ? 'bg-[var(--cordel-bg)] border-b border-[var(--cordel-border,#1a1a1a)]/20 shadow-sm' : 'bg-transparent'
       } ${className}`}
     >
@@ -34,16 +34,16 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className 
       </div>
 
       {/* Au centre : Ruban Défilant des Sections (Centrage absolu garanti !) */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex justify-center pointer-events-auto">
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex justify-center pointer-events-auto">
         <RodaSectionRibbon />
       </div>
 
       {/* À droite : [ RYTHME 4/4 ] */}
-      <div className="flex flex-col items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-2.5 py-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] select-none rounded-sm shrink-0 min-w-[75px] z-10">
+      <div className="h-[38px] min-h-[38px] max-h-[38px] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] box-border px-2.5 flex flex-col items-center justify-center select-none shrink-0 min-w-[75px] z-10">
         <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
           {lang === 'pt' ? 'Fórmula' : 'Rythme'}
         </span>
-        <span className="text-xs md:text-sm font-cactus font-bold leading-tight mt-0.5">
+        <span className="text-xs font-cactus font-bold leading-tight mt-0.5">
           {activeTimeSig}
         </span>
       </div>

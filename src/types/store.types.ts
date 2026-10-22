@@ -85,6 +85,9 @@ export interface TrainingState {
   tocarJuntoIsMuted: boolean;
   isolateBaseOnly: boolean;
   firstPassRegistry: Record<string, boolean>;
+  isFocusActive: boolean;
+  focusTrackId: number | null;
+  preferredInstrumentName: string | null;
 }
 
 export interface TrainingSlice extends TrainingState {
@@ -94,6 +97,9 @@ export interface TrainingSlice extends TrainingState {
   setIsolateBaseOnly: (baseOnly: boolean) => void;
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;
+  setFocusTrackId: (trackId: number | null, preferredName?: string) => void;
+  toggleFocusMode: (explicitTrackId?: number) => void;
+  syncFocusWithTracks: (tracks: TrackGroup[], userProfile?: any) => void;
 }
 
 export interface ToadaConductorSlot {

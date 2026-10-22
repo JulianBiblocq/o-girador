@@ -70,8 +70,10 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
 
   if (!inst) return null;
 
+  const isEyeHidden = Boolean(track.isHidden || effectiveTrack?.isHidden);
+
   return (
-    <div className="flex items-center w-full h-[53px] min-h-[53px] max-h-[53px] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-1.5 py-0.5 relative overflow-hidden bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] shrink-0 select-none">
+    <div className={`flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-1.5 py-0.5 relative overflow-hidden bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] shrink-0 select-none transition-opacity duration-200 ${isEyeHidden ? 'opacity-40' : 'opacity-100'}`}>
       <DawStepGrid
         beatGroups={beatGroups}
         track={track}

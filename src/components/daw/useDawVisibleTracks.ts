@@ -8,7 +8,6 @@ export function useDawVisibleTracks() {
   const rodaTrackOrder = useSequencerStore(state => state.rodaTrackOrder);
 
   useEffect(() => {
-    useSequencerStore.setState({ isTracksCollapsed: false });
     useSequencerStore.getState().setTracks(prev =>
       prev.map(t => (t.isLinkFolder ? { ...t, isSequencerFolded: true } : t))
     );

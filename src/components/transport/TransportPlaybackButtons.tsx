@@ -6,6 +6,7 @@
 import React from 'react';
 import { Play, Square, SkipBack, Circle, Loader2 } from 'lucide-react';
 import { TransportLoopControl } from './TransportLoopControl';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 
 interface TransportPlaybackButtonsProps {
   handleStop: () => void;
@@ -46,6 +47,8 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
     return `${m}:${s}`;
   };
 
+  const isPracticeMode = useSequencerStore((state) => state.isPracticeMode);
+
   return (
     <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 max-sm:ml-auto max-sm:justify-end sm:absolute sm:left-[calc(50%-9px)] sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2">
       <button
@@ -81,22 +84,24 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
         />
       </div>
 
-      <div className="flex items-center gap-2 relative shrink-0">
-        <button
-          onClick={handleAudioRecordingToggle}
-          className={`w-9 h-9 sm:w-10 sm:h-10 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
-            isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
-          }`}
-          title={lang === 'fr' ? "Exporter l'audio en WAV" : lang === 'pt' ? "Exportar áudio em WAV" : "Export Audio to WAV"}
-        >
-          <Circle className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
-        </button>
-        {isRecording && (
-          <span className="font-mono text-red-600 dark:text-red-500 font-bold text-xs animate-pulse absolute left-11 sm:left-12 whitespace-nowrap bg-[var(--cordel-bg)] px-1.5 py-0.5 border border-red-600/30 shadow-[2px_2px_0_rgba(239,68,68,0.2)]">
-            REC {formatRecordingTime(recordingSeconds)}
-          </span>
-        )}
-      </div>
+      {!isPracticeMode && (
+        <div className="flex items-center gap-2 relative shrink-0">
+          <button
+            onClick={handleAudioRecordingToggle}
+            className={`w-9 h-9 sm:w-10 sm:h-10 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
+              isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
+            }`}
+            title={lang === 'fr' ? "Exporter l'audio en WAV" : lang === 'pt' ? "Exportar áudio em WAV" : "Export Audio to WAV"}
+          >
+            <Circle className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
+          </button>
+          {isRecording && (
+            <span className="font-mono text-red-600 dark:text-red-500 font-bold text-xs animate-pulse absolute left-11 sm:left-12 whitespace-nowrap bg-[var(--cordel-bg)] px-1.5 py-0.5 border border-red-600/30 shadow-[2px_2px_0_rgba(239,68,68,0.2)]">
+              REC {formatRecordingTime(recordingSeconds)}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 };

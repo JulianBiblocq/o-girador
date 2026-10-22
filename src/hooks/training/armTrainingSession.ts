@@ -36,6 +36,8 @@ export function executeArmTrainingSession({
   if (!currentTracks || currentTracks.length === 0) return false;
 
   changeViewMode('roda');
+  store.setIsPracticeMode(true);
+  useSequencerStore.setState({ isTracksCollapsed: true });
 
   if (pendingTrainingProgram && pendingTrainingProgram.stages && pendingTrainingProgram.stages.length > 0) {
     const totalMeasures = store.totalMeasures || 1;
@@ -87,7 +89,14 @@ export function executeArmTrainingSession({
         currentTracks[0];
     }
     if (targetTrack) {
+      store.setIsPracticeMode(true);
+      store.setFocusTrackId(targetTrack.id);
+      if (!store.isFocusActive) {
+        store.toggleFocusMode(targetTrack.id);
+      }
       store.setTocarJuntoTrack(targetTrack.id, pendingBaseOnly);
+      store.setTocarJuntoIsMuted(true);
+      store.setIsolateBaseOnly(pendingBaseOnly);
       store.setActiveAoVivoTrackId(targetTrack.id);
 
       const trackDisplayName =
@@ -95,7 +104,7 @@ export function executeArmTrainingSession({
         targetTrack.customName ||
         instrumentsConfig[targetTrack.instrumentIdx]?.name ||
         'Piste';
-      console.log('🎯 [TOCAR JUNTO SUCCÈS] Mode armé pour la piste :', trackDisplayName, '(ID:', targetTrack.id, ')');
+      console.log('[TOCAR JUNTO SUCCÈS] Mode armé pour la piste :', trackDisplayName, '(ID:', targetTrack.id, ')');
 
       cleanTrainingUrlParams();
       return true;

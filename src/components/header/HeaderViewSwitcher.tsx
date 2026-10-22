@@ -1,8 +1,14 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from 'react';
 import { Edit3 } from 'lucide-react';
 import { XiloRoda, XiloConsole, XiloTimeline, XiloDrum } from '../XiloIcons';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { TabKey } from './useHeaderTabMenu';
+import { HeaderTabButton } from './HeaderTabButton';
 
 interface HeaderViewSwitcherProps {
   lang: 'pt' | 'fr';
@@ -22,124 +28,97 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
   onOpenInstrumentEditor,
 }) => {
   const isTracksCollapsed = useSequencerStore((state) => state.isTracksCollapsed);
+  const isPracticeMode = useSequencerStore((state) => state.isPracticeMode);
+
+  const handleOpenEditor = () => {
+    if (onOpenInstrumentEditor) {
+      onOpenInstrumentEditor();
+    } else {
+      const state = useSequencerStore.getState();
+      if (state.editingTrackId !== null) {
+        state.closeDetailEditor();
+      } else if (state.tracks.length > 0) {
+        state.setEditingTrackId(state.tracks[0].id);
+      }
+    }
+  };
 
   return (
     <div className="flex items-center justify-center gap-4">
       {/* RODA */}
-      <div
-        {...createTabTouchHandlers('roda', 'RODA')}
-        className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-      >
-        <button
-          onClick={() => {
-            useSequencerStore.getState().closeDetailEditor();
-            onViewModeToggle('roda');
-            useSequencerStore.setState({ isTracksCollapsed: true });
-          }}
-          className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-            !isEditorOpen && viewMode === 'roda' && isTracksCollapsed
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
-        >
-          <XiloRoda size={14} className="shrink-0" /> RODA
-        </button>
-      </div>
+      <HeaderTabButton
+        tabKey="roda"
+        label="RODA"
+        icon={<XiloRoda size={14} className="shrink-0" />}
+        isActive={!isEditorOpen && viewMode === 'roda' && isTracksCollapsed}
+        title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
+        onClick={() => {
+          useSequencerStore.getState().closeDetailEditor();
+          onViewModeToggle('roda');
+          useSequencerStore.setState({ isTracksCollapsed: true });
+        }}
+        createTabTouchHandlers={createTabTouchHandlers}
+      />
 
       {/* PISTES / DAW LINEAIRE */}
-      <div
-        {...createTabTouchHandlers('pistes', lang === 'fr' ? 'PISTES' : 'PISTAS')}
-        className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-      >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            useSequencerStore.getState().closeDetailEditor();
-            onViewModeToggle('roda');
-            useSequencerStore.setState({ isTracksCollapsed: false });
-          }}
-          className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-            !isEditorOpen && viewMode === 'roda' && !isTracksCollapsed
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
-        >
-          <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
-        </button>
-      </div>
+      <HeaderTabButton
+        tabKey="pistes"
+        label={lang === 'fr' ? 'PISTES' : 'PISTAS'}
+        icon={<XiloDrum size={14} className="shrink-0" />}
+        isActive={!isEditorOpen && viewMode === 'roda' && !isTracksCollapsed}
+        title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
+        onClick={(e) => {
+          e.stopPropagation();
+          useSequencerStore.getState().closeDetailEditor();
+          onViewModeToggle('roda');
+          useSequencerStore.setState({ isTracksCollapsed: false });
+        }}
+        createTabTouchHandlers={createTabTouchHandlers}
+      />
 
-      {/* MIXER */}
-      <div
-        {...createTabTouchHandlers('mixer', lang === 'fr' ? 'MIXEUR' : 'MIXADOR')}
-        className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-      >
-        <button
-          onClick={() => {
-            useSequencerStore.getState().closeDetailEditor();
-            onViewModeToggle('console');
-          }}
-          className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-            !isEditorOpen && viewMode === 'console'
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
-        >
-          <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
-        </button>
-      </div>
+      {/* ONGLETS MASQUÉS EN MODE PRATIQUE */}
+      {!isPracticeMode && (
+        <>
+          {/* MIXER */}
+          <HeaderTabButton
+            tabKey="mixer"
+            label={lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
+            icon={<XiloConsole size={14} className="shrink-0" />}
+            isActive={!isEditorOpen && viewMode === 'console'}
+            title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('console');
+            }}
+            createTabTouchHandlers={createTabTouchHandlers}
+          />
 
-      {/* TIMELINE */}
-      <div
-        {...createTabTouchHandlers('timeline', lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR')}
-        className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-      >
-        <button
-          onClick={() => {
-            useSequencerStore.getState().closeDetailEditor();
-            onViewModeToggle('timeline');
-          }}
-          className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-            !isEditorOpen && viewMode === 'timeline'
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
-        >
-          <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
-        </button>
-      </div>
+          {/* TIMELINE */}
+          <HeaderTabButton
+            tabKey="timeline"
+            label={lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
+            icon={<XiloTimeline size={14} className="shrink-0" />}
+            isActive={!isEditorOpen && viewMode === 'timeline'}
+            title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
+            onClick={() => {
+              useSequencerStore.getState().closeDetailEditor();
+              onViewModeToggle('timeline');
+            }}
+            createTabTouchHandlers={createTabTouchHandlers}
+          />
 
-      {/* ÉDITEUR */}
-      <div
-        {...createTabTouchHandlers('editor', lang === 'fr' ? 'ÉDITEUR' : 'EDITOR')}
-        className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]"
-      >
-        <button
-          onClick={() => {
-            if (onOpenInstrumentEditor) {
-              onOpenInstrumentEditor();
-            } else {
-              const state = useSequencerStore.getState();
-              if (state.editingTrackId !== null) {
-                state.closeDetailEditor();
-              } else if (state.tracks.length > 0) {
-                state.setEditingTrackId(state.tracks[0].id);
-              }
-            }
-          }}
-          className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-            isEditorOpen
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={lang === 'fr' ? "Éditeur d'instrument détaillé" : "Editor de instrumento detalhado"}
-        >
-          <Edit3 size={14} className="shrink-0" /> {lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
-        </button>
-      </div>
+          {/* ÉDITEUR */}
+          <HeaderTabButton
+            tabKey="editor"
+            label={lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
+            icon={<Edit3 size={14} className="shrink-0" />}
+            isActive={isEditorOpen}
+            title={lang === 'fr' ? "Éditeur d'instrument détaillé" : 'Editor de instrumento detalhado'}
+            onClick={handleOpenEditor}
+            createTabTouchHandlers={createTabTouchHandlers}
+          />
+        </>
+      )}
     </div>
   );
 };

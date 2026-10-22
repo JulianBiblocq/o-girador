@@ -25,6 +25,7 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
 
   const canUndo = useSequencerStore((s) => s.tracksHistory.length > 0);
   const canRedo = useSequencerStore((s) => s.tracksRedoHistory.length > 0);
+  const isPracticeMode = useSequencerStore((s) => s.isPracticeMode);
   const metadata = useSequencerStore((s) => s.metadata);
   const storeEditingTrackId = useSequencerStore((s) => s.editingTrackId);
   const isInstrumentEditorDetached = useSequencerStore((s) => s.isInstrumentEditorDetached);
@@ -105,14 +106,16 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
       <div className="flex-1 flex items-center gap-3">
         <HeaderBrand version={props.version} />
         <HeaderDesktopMenu {...sharedProjectProps} />
-        <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_rgba(0,0,0,1)] ml-1.5 shrink-0">
-          <button type="button" onClick={handleUndo} disabled={!canUndo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[#1a1a1a] transition-colors" title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}>
-            <UndoIcon className="w-4 h-4" />
-          </button>
-          <button type="button" onClick={handleRedo} disabled={!canRedo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[#1a1a1a] transition-colors" title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}>
-            <RedoIcon className="w-4 h-4" />
-          </button>
-        </div>
+        {!isPracticeMode && (
+          <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_rgba(0,0,0,1)] ml-1.5 shrink-0">
+            <button type="button" onClick={handleUndo} disabled={!canUndo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[#1a1a1a] transition-colors" title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}>
+              <UndoIcon className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={handleRedo} disabled={!canRedo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[#1a1a1a] transition-colors" title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}>
+              <RedoIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
       <HeaderViewSwitcher lang={lang} viewMode={props.viewMode} onViewModeToggle={props.onViewModeToggle} isEditorOpen={isEditorOpen} createTabTouchHandlers={createTabTouchHandlers} onOpenInstrumentEditor={props.onOpenInstrumentEditor} />
       <HeaderAuxiliaryControls lang={lang} isDarkMode={props.isDarkMode} onToggleDarkMode={props.onToggleDarkMode} onLangToggle={onLangToggle} showInstallButton={props.showInstallButton} onInstallClick={props.onInstallClick} onOpenWallpaperModal={props.onOpenWallpaperModal} />

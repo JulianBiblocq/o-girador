@@ -52,27 +52,27 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
 
   return (
     <div
-      className={`flex items-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-2 py-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] select-none rounded-sm gap-2 shrink-0 ${className}`}
+      className={`h-[38px] min-h-[38px] max-h-[38px] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] box-border px-2 gap-2 flex items-center select-none shrink-0 ${className}`}
       style={style}
     >
       <button
         onClick={(e) => { e.stopPropagation(); handleNavigatePrev(); }}
-        className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95 shrink-0"
+        className="w-6 h-6 rounded-none border border-[#1a1a1a] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] font-bold text-xs flex items-center justify-center cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors shrink-0 active:scale-95"
         title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
       >
         ◀
       </button>
-      <div className="flex flex-col items-center min-w-[55px]">
+      <div className="flex flex-col items-center justify-center min-w-[55px]">
         <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
           {lang === 'pt' ? 'Compasso' : 'Mesure'}
         </span>
-        <span className="text-xs md:text-sm font-cactus font-bold leading-tight mt-0.5">
+        <span className="text-xs font-cactus font-bold leading-tight mt-0.5">
           {displayMeasure} / {displayTotal}
         </span>
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); handleNavigateNext(); }}
-        className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95 shrink-0"
+        className="w-6 h-6 rounded-none border border-[#1a1a1a] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] font-bold text-xs flex items-center justify-center cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors shrink-0 active:scale-95"
         title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
       >
         ▶

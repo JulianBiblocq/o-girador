@@ -19,30 +19,42 @@ export function resolveDawPattern({
   const override = track.patternOverrides?.[currentMeasure];
   const hasExplicitVariation = override !== undefined && override !== null;
 
+  const masterTrack = isLinkedSlave
+    ? tracks.find(t => (String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster) || String(t.id) === String(track.linkedToTrackId))
+    : null;
+
   const parentBus = isLinkedSlave
     ? tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)
     : null;
 
   let activePattern: Pattern | null = null;
-  if (isLinkedSlave && parentBus) {
-    if (override === null) activePattern = null;
-    else if (override !== undefined) activePattern = parentBus.patterns.find(p => p.id === override) || null;
-    else activePattern = parentBus.patterns.find(p => p.measureAssignments?.[currentMeasure]) || parentBus.patterns[0] || null;
+  if (hasExplicitVariation) {
+    if (override === null) {
+      activePattern = null;
+    } else {
+      activePattern = track.patterns?.find(p => p.id === override) ||
+        parentBus?.patterns?.find(p => p.id === override) ||
+        masterTrack?.patterns?.find(p => p.id === override) || null;
+    }
   } else {
-    if (override === null) activePattern = null;
-    else if (override !== undefined) activePattern = effectiveTrack.patterns?.find(p => p.id === override) || null;
-    else activePattern = effectiveTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || effectiveTrack.patterns?.[0] || null;
+    const assigned = track.patterns?.find(p => p.measureAssignments?.[currentMeasure]);
+    if (assigned) {
+      activePattern = assigned;
+    } else if (masterTrack) {
+      const masterOverride = masterTrack.patternOverrides?.[currentMeasure];
+      if (masterOverride !== undefined && masterOverride !== null) {
+        activePattern = masterTrack.patterns?.find(p => p.id === masterOverride) || null;
+      } else {
+        activePattern = masterTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || masterTrack.patterns?.[0] || null;
+      }
+    } else if (parentBus) {
+      activePattern = parentBus.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || parentBus.patterns?.[0] || null;
+    } else {
+      activePattern = effectiveTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || effectiveTrack.patterns?.[0] || null;
+    }
   }
 
-  const isGhostStep = isLinkedSlave && !hasExplicitVariation;
-  const masterTrack = isGhostStep
-    ? tracks.find(t => String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster)
-    : null;
-  const masterActivePattern = masterTrack
-    ? (masterTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || masterTrack.patterns?.[0])
-    : null;
-
-  return { activePattern, masterActivePattern, isGhostStep };
+  return { activePattern, masterActivePattern: activePattern, isGhostStep: false };
 }
 
 export function computeBeatGroups(stepsCount: number, defaultBeats: number, beatRes: number[]) {

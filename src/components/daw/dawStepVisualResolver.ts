@@ -2,7 +2,6 @@ import { TrackGroup, Pattern } from '../../types';
 import { getVisualStrokeSymbol, isDarkText } from '../../data';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
 import { isToadaBus } from '../../stores/useSequencerStore';
-import { resolveLinkedStepVisual } from './dawStepLinkedResolver';
 import { resolveToadaStepVisual } from './dawToadaVisualResolver';
 
 export function resolveStepVisual({
@@ -80,19 +79,6 @@ export function resolveStepVisual({
     }
   }
 
-  const children = tracks.filter(t => {
-    if (t.id === track.id || t.isBusFolder || t.isLinkFolder) return false;
-    if (String(t.linkedToTrackId) === String(track.id)) return true;
-    if (track.linkedToTrackId && String(t.linkedToTrackId) === String(track.linkedToTrackId)) return true;
-    return false;
-  });
-  if (children.length > 0) {
-    const linked = resolveLinkedStepVisual({
-      track, tracks, children, currentMeasure, activePattern, effectiveTrack,
-      stepIdx, isLeftHanded, isActiveCell, visualVal: Array.isArray(visualVal) ? visualVal[0] : visualVal, displayVal, masterBg, masterTxt, emptyStepBg,
-    });
-    return { isVoice, isProlongation, ...linked };
-  }
 
   if (Array.isArray(val) && val.length === 2) {
     const lVal = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);

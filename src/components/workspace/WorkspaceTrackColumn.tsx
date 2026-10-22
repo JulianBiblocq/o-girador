@@ -89,7 +89,7 @@ export const WorkspaceTrackColumn: React.FC<WorkspaceTrackColumnProps> = ({
 
   return (
     <div
-      className="w-[290px] min-w-[290px] max-w-[290px] shrink-0 h-full flex flex-col relative z-20 bg-[#181411] border-r-2 border-[#1a1a1a] select-none overflow-hidden"
+      className="w-[326px] min-w-[326px] max-w-[326px] shrink-0 h-full flex flex-col relative z-20 bg-[#181411] border-r-[3px] border-[var(--cordel-border)] select-none"
     >
       {/* Fond texturé d'origine (papier peint sombre) sur 100% de la hauteur */}
       <div
@@ -98,7 +98,7 @@ export const WorkspaceTrackColumn: React.FC<WorkspaceTrackColumnProps> = ({
       />
 
       {/* En-tête interne h-[52px] */}
-      <div className="h-[52px] min-h-[52px] max-h-[52px] px-2 flex items-center shrink-0 border-b border-[var(--cordel-border,#1a1a1a)]/40 relative z-10">
+      <div className="h-[52px] min-h-[52px] max-h-[52px] px-2 flex items-center shrink-0 border-b border-[var(--cordel-border)]/40 relative z-50 overflow-visible">
         <MixerHeader t={t} noBorder={true} className="w-full" />
       </div>
 

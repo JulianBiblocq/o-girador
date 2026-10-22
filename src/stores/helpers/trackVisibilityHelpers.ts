@@ -30,7 +30,10 @@ export const isSequencerVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   if (isToadaBus(t)) {
     return true;
   }
-  return !t.linkedToTrackId && (!t.isBusFolder || !!t.isLinkFolder);
+  if (t.isBusFolder || t.isLinkFolder) {
+    return false;
+  }
+  return true;
 };
 
 export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]): boolean => {
@@ -40,19 +43,10 @@ export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   if (isToadaBus(t)) {
     return true;
   }
-  if (t.isBusFolder && !t.isLinkFolder) {
+  if (t.isBusFolder || t.isLinkFolder) {
     return false;
   }
-  if (t.isLinkFolder) {
-    return false;
-  }
-  if (t.isLinkMaster) {
-    return true;
-  }
-  if (t.linkedToTrackId) {
-    return false;
-  }
-  return !t.isBusFolder;
+  return true;
 };
 
 export const getVisibleTimelineTrackIds = (state: {

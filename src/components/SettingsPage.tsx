@@ -18,6 +18,7 @@ import { SettingsAudioTab } from './settings/SettingsAudioTab';
 import { SettingsHelpTab } from './settings/SettingsHelpTab';
 import { useActiveStrokesByInstrument } from './settings/useActiveStrokesByInstrument';
 import { getSettingsSections } from './settings/settingsSections';
+import { OficinaSectionIcon } from './oficina/OficinaSectionIcons';
 
 export { SettingsSignalThumb } from './settings/SettingsSignalThumb';
 
@@ -81,7 +82,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                 return (
                   <div key={sec.id} className="border-t-2 border-b-4 border-l-3 border-r-2 border-black rounded-[4px_10px_6px_12px] bg-white shadow-[4px_4px_0px_#000] flex flex-col overflow-hidden">
                     <button onClick={() => setActiveSection(isOpen ? null : sec.id)} className="w-full text-left px-4 py-2.5 font-cactus font-bold text-xs md:text-sm uppercase flex justify-between items-center transition-colors bg-white hover:bg-black hover:text-white cursor-pointer select-none border-none outline-none">
-                      <span>{sec.title}</span>
+                      <span className="flex items-center gap-2.5">
+                        <OficinaSectionIcon sectionId={sec.id} className="w-4 h-4 shrink-0 text-current" />
+                        <span>{sec.title}</span>
+                      </span>
                       <span className="font-black text-lg transition-transform duration-200">{isOpen ? '▲' : '▼'}</span>
                     </button>
                     {isOpen && (

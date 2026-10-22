@@ -56,18 +56,19 @@ export function resolveLiveActivePatternId(
   }
 
   if (soloPlayId !== undefined && soloPlayId !== null) {
-    for (let i = 0; i < sourceTrack.patterns.length; i++) {
-      if (sourceTrack.patterns[i].id === soloPlayId) {
-        return soloPlayId;
-      }
-    }
+    const foundOwn = track.patterns?.find((p: any) => p.id === soloPlayId);
+    if (foundOwn) return soloPlayId;
+    const foundMaster = sourceTrack.patterns?.find((p: any) => p.id === soloPlayId);
+    if (foundMaster) return soloPlayId;
     return null;
   }
 
-  if (isLinkedChild) {
-    const override = track.isLinkMaster ? undefined : track.patternOverrides?.[measureIdx];
+  if (isLinkedChild && !track.isLinkMaster) {
+    const override = track.patternOverrides?.[measureIdx];
     if (override === null) return null;
     if (override !== undefined) return override;
+    const ownPtn = track.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
+    if (ownPtn) return ownPtn.id;
   }
 
   for (let i = 0; i < sourceTrack.patterns.length; i++) {

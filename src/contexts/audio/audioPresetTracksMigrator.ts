@@ -73,6 +73,8 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     t.pan = rawPan;
     t.isMute = Boolean(t.isMute);
     t.isSolo = Boolean(t.isSolo);
+    const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+    t.isHidden = isLinkedSlave;
     if (!t.fxSends) {
       t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
     }

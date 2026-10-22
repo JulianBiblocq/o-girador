@@ -62,13 +62,13 @@ export const PistasMestreSignalBadge: React.FC<Props> = ({ isPistasOpen }) => {
 
   return (
     <div
-      className={`h-[36px] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-1.5 flex items-center gap-1.5 rounded-sm select-none shrink-0 transition-opacity duration-200 ${
+      className={`h-[38px] min-h-[38px] max-h-[38px] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] box-border px-2 flex items-center gap-1.5 select-none shrink-0 transition-opacity duration-200 ${
         hasContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
       title={activeSig?.name || activeMarker?.name || ''}
     >
       {initialSrc ? (
-        <div className="w-6 h-6 shrink-0 rounded-xs overflow-hidden bg-black/10 border border-[#1a1a1a]/40 flex items-center justify-center">
+        <div className="w-6 h-6 shrink-0 rounded-none overflow-hidden bg-black/10 border border-[#1a1a1a]/40 flex items-center justify-center">
           <img ref={imgRef} src={initialSrc} alt={activeSig?.name || ''} className="w-full h-full object-contain filter contrast-125" />
         </div>
       ) : null}
