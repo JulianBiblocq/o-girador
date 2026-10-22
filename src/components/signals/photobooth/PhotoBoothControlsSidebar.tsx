@@ -3,6 +3,7 @@ import { Sliders, Globe, Target, RotateCcw, Loader2 } from 'lucide-react';
 import { CordelOptions } from '../../../utils/cordelEffect';
 import { MobileSignalLightAccordion } from '../../mobile/editor/MobileSignalLightAccordion';
 import { MobileSignalFramingAccordion } from '../../mobile/editor/MobileSignalFramingAccordion';
+import { PhotoLabPresetsBar } from '../../mobile/editor/PhotoLabPresetsBar';
 import { tMobile } from '../../../i18n/mobileTranslations';
 
 interface PhotoBoothControlsSidebarProps {
@@ -83,6 +84,11 @@ export const PhotoBoothControlsSidebar: React.FC<PhotoBoothControlsSidebarProps>
 
       {/* Accordéons complets haute qualité */}
       <div className="flex flex-col gap-1.5">
+        <PhotoLabPresetsBar
+          currentOptions={options}
+          onApplyOptions={(newOpts) => onUpdateOption(newOpts)}
+          lang={lang}
+        />
         <MobileSignalLightAccordion
           isOpen={openSection === 'light'}
           onToggle={() => setOpenSection((p) => (p === 'light' ? null : 'light'))}

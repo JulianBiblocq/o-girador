@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Hook d'état et de synchronisation pour l'éditeur Signes du Mestre (< 95 lignes).
+ * Hook d'état et de synchronisation persistant pour l'éditeur Signes du Mestre (< 120 lignes).
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -10,38 +10,49 @@ import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { defaultCordelOptions, CordelOptions, processCordelEffectBase64, compressRawFrameForArchive } from '../../../utils/cordelEffect';
 import { uploadMestreSignal, updateMestreSignal } from '../../../services/cloud-signals/mestreSignalsMutations';
 import { CloudRhythmSignal } from '../../../types';
+import { usePhotoLabDraftStore } from '../../../store/usePhotoLabDraftStore';
 
-export function useMestreSignalEditorState(mode: 'single' | 'four' | 'batch', setMode: (m: 'single' | 'four' | 'batch') => void, name: string, setName: (n: string) => void) {
+export function useMestreSignalEditorState() {
   const mestreSignals = useSequencerStore((s) => s.mestreSignals);
   const setMestreSignals = useSequencerStore((s) => s.setMestreSignals);
   const { userProfile, currentUser } = useAuth();
 
-  const [rawImages, setRawImages] = useState<string[]>([]);
-  const [previewImgs, setPreviewImgs] = useState<string[]>([]);
-  const [selectedFrame, setSelectedFrame] = useState(0);
+  const draft = usePhotoLabDraftStore();
+  const rawImages = draft.rawFrames;
+  const previewImgs = draft.frames;
+  const selectedFrame = draft.selectedFrameIndex;
+  const globalOptions = draft.cordelOptions;
+  const frameOverrides = draft.frameOverrides;
+  const editingSignalId = draft.editingSignalId;
+  const name = draft.signalName;
+  const mode: 'single' | 'four' | 'batch' = draft.beatsCount === 4 ? 'four' : draft.beatsCount === 5 ? 'batch' : 'single';
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingSignalId, setEditingSignalId] = useState<string | null>(null);
-  const [globalOptions, setGlobalOptions] = useState<CordelOptions>({ ...defaultCordelOptions });
-  const [frameOverrides, setFrameOverrides] = useState<Record<number, Partial<CordelOptions>>>({});
   const reprocessRequestIdRef = useRef(0);
 
   const effectiveOptions = { ...globalOptions, ...(frameOverrides[selectedFrame] || {}) };
 
+  const setName = useCallback((n: string) => draft.setSignalName(n), [draft]);
+  const setMode = useCallback((m: 'single' | 'four' | 'batch') => {
+    draft.setBeatsCount(m === 'four' ? 4 : m === 'batch' ? 5 : 1);
+  }, [draft]);
+  const setSelectedFrame = useCallback((i: number) => draft.setSelectedFrameIndex(i), [draft]);
+  const setRawImages = useCallback((imgs: string[]) => draft.setRawFrames(imgs), [draft]);
+  const setGlobalOptions = useCallback((opts: CordelOptions) => draft.setCordelOptions(opts), [draft]);
+
   const handleUpdateOptions = useCallback((patch: Partial<CordelOptions>) => {
     if (frameOverrides[selectedFrame]) {
-      setFrameOverrides((p) => ({ ...p, [selectedFrame]: { ...(p[selectedFrame] || {}), ...patch } }));
+      draft.setFrameOverrides({ ...frameOverrides, [selectedFrame]: { ...(frameOverrides[selectedFrame] || {}), ...patch } });
     } else {
-      setGlobalOptions((p) => ({ ...p, ...patch }));
+      draft.updateCordelOptions(patch);
     }
-  }, [selectedFrame, frameOverrides]);
+  }, [selectedFrame, frameOverrides, draft]);
 
   const toggleFrameOverride = () => {
-    setFrameOverrides((p) => {
-      const n = { ...p };
-      if (n[selectedFrame]) delete n[selectedFrame]; else n[selectedFrame] = { ...globalOptions };
-      return n;
-    });
+    const next = { ...frameOverrides };
+    if (next[selectedFrame]) delete next[selectedFrame]; else next[selectedFrame] = { ...globalOptions };
+    draft.setFrameOverrides(next);
   };
 
   useEffect(() => {
@@ -51,30 +62,36 @@ export function useMestreSignalEditorState(mode: 'single' | 'four' | 'batch', se
     const timer = setTimeout(() => {
       processCordelEffectBase64(raw, effectiveOptions, 380).then((res) => {
         if (reqId === reprocessRequestIdRef.current) {
-          setPreviewImgs((prev) => { const n = [...prev]; n[selectedFrame] = res; return n; });
+          const currentFrames = usePhotoLabDraftStore.getState().frames;
+          const next = [...(currentFrames.length >= rawImages.length ? currentFrames : rawImages.map((_, i) => currentFrames[i] || ''))];
+          next[selectedFrame] = res;
+          draft.setFrames(next);
         }
       });
     }, 45);
     return () => clearTimeout(timer);
-  }, [rawImages, selectedFrame, effectiveOptions]);
+  }, [rawImages, selectedFrame, effectiveOptions, draft]);
 
   useEffect(() => {
     if (!isPlaying || rawImages.length <= 1) return;
-    const timer = setInterval(() => setSelectedFrame((p) => (p + 1) % rawImages.length), 140);
+    const timer = setInterval(() => draft.setSelectedFrameIndex((selectedFrame + 1) % rawImages.length), 140);
     return () => clearInterval(timer);
-  }, [isPlaying, rawImages.length]);
+  }, [isPlaying, rawImages.length, selectedFrame, draft]);
 
   const handlePickSignal = (sig: CloudRhythmSignal) => {
-    setEditingSignalId(sig.id); setName(sig.name);
-    setMode(sig.beatsCount && sig.beatsCount > 1 ? 'four' : 'single');
-    setRawImages(sig.rawFrames?.length ? sig.rawFrames : (sig.frames || [sig.image]));
-    setGlobalOptions(sig.cordelOptions || defaultCordelOptions);
-    setFrameOverrides(sig.frameOverrides || {});
-    setSelectedFrame(0);
+    draft.setEditingSignalId(sig.id);
+    draft.setSignalName(sig.name);
+    draft.setBeatsCount(sig.beatsCount && sig.beatsCount > 1 ? (sig.beatsCount as any) : 1);
+    const raws = sig.rawFrames?.length ? sig.rawFrames : (sig.frames || [sig.image]);
+    draft.setRawFrames(raws);
+    draft.setFrames(sig.frames?.length ? sig.frames : [sig.image]);
+    draft.setCordelOptions(sig.cordelOptions || defaultCordelOptions);
+    draft.setFrameOverrides(sig.frameOverrides || {});
+    draft.setSelectedFrameIndex(0);
   };
 
   const handleNewSignal = () => {
-    setEditingSignalId(null); setName(''); setRawImages([]); setPreviewImgs([]); setFrameOverrides({});
+    draft.resetDraftAfterSave();
   };
 
   const handleSave = async () => {
@@ -98,13 +115,13 @@ export function useMestreSignalEditorState(mode: 'single' | 'four' | 'batch', se
         const res = await uploadMestreSignal(mestreId, name.trim(), renderedFrames[0], renderedFrames, beats, globalOptions.isMirror, archivedRaws, globalOptions, frameOverrides);
         if (res.success && res.signal) setMestreSignals([...mestreSignals, res.signal]);
       }
-      handleNewSignal();
+      draft.resetDraftAfterSave();
     } finally { setIsSaving(false); }
   };
 
   return {
-    rawImages, setRawImages, previewImgs, selectedFrame, setSelectedFrame, isPlaying, setIsPlaying,
-    isSaving, editingSignalId, globalOptions, setGlobalOptions, frameOverrides, effectiveOptions,
-    handleUpdateOptions, toggleFrameOverride, handlePickSignal, handleNewSignal, handleSave, mestreSignals,
+    mode, setMode, name, setName, rawImages, setRawImages, previewImgs, selectedFrame, setSelectedFrame,
+    isPlaying, setIsPlaying, isSaving, editingSignalId, globalOptions, setGlobalOptions, frameOverrides,
+    effectiveOptions, handleUpdateOptions, toggleFrameOverride, handlePickSignal, handleNewSignal, handleSave, mestreSignals,
   };
 }

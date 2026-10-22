@@ -78,6 +78,10 @@ export const mobileTranslationsFr = {
   resetFilters: 'Réinitialiser',
   overrideFrame: 'Débrayer cette trame',
   frameOverridden: 'Trame débrayée',
+  savedPresets: 'Mes réglages sauvegardés',
+  saveCurrentPreset: 'Sauver ce réglage',
+  presetNamePlaceholder: 'Nom du réglage (ex: Mains)...',
+  resetDefault: 'Valeurs d’usine',
 
   // Sauvegarde & Galerie Signes
   saveSignal: 'Enregistrer le signe',

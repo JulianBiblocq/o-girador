@@ -1,23 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { CordelOptions, defaultCordelOptions, processCordelEffectBase64 } from '../../../utils/cordelEffect';
+import { usePhotoLabDraftStore } from '../../../store/usePhotoLabDraftStore';
 
 export function usePhotoBoothReprocess(rawImagesRef: React.RefObject<string[]>) {
-  const [cordelOptions, setCordelOptions] = useState<CordelOptions>({
+  const [cordelOptions, setCordelOptions] = useState<CordelOptions>(() => ({
     ...defaultCordelOptions,
-    zoom: 120,
-    detail: 60,
-    shadow: 128,
-    brightness: 0,
-    threshold: 128,
-    sobelContrast: 50,
-    bgRemovalMode: 'none',
-    isMirror: true,
-    isFrame: false,
-    woodGrain: 10,
-    lockFraming: true,
-    posX: 0,
-    posY: 0,
-  });
+    ...usePhotoLabDraftStore.getState().cordelOptions,
+  }));
 
   const [processedFrames, setProcessedFrames] = useState<string[]>([]);
   const [isReprocessing, setIsReprocessing] = useState<boolean>(false);
@@ -127,6 +116,7 @@ export function usePhotoBoothReprocess(rawImagesRef: React.RefObject<string[]>) 
     } else {
       const updatedGlobal = { ...cordelOptions, ...patch };
       setCordelOptions(updatedGlobal);
+      usePhotoLabDraftStore.getState().updateCordelOptions(patch);
       applyCordelProcessing('global', selectedFrameIndex, updatedGlobal, frameOverrides);
     }
   };

@@ -96,7 +96,7 @@ export function getInitialMobileViewMode(): MobileViewMode {
 export function resolveDefaultModeFromProfile(profile: UserProfile): MobileViewMode {
   const role = (profile.dbRole || profile.role || '').toLowerCase();
   const inst = (profile.instrument || '').toLowerCase();
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || window.matchMedia('(hover: none) and (pointer: coarse) and (max-height: 540px)').matches);
 
   if (role === 'mestre' || role === 'mestri' || Boolean(profile.canWriteSequenciador)) {
     return isMobile ? 'editeur' : 'complet';

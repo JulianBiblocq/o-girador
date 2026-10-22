@@ -80,6 +80,10 @@ export const mobileTranslationsPt: Record<keyof typeof mobileTranslationsFr, str
   resetFilters: 'Redefinir',
   overrideFrame: 'Personalizar quadro',
   frameOverridden: 'Quadro personalizado',
+  savedPresets: 'Meus ajustes salvos',
+  saveCurrentPreset: 'Salvar este ajuste',
+  presetNamePlaceholder: 'Nome do ajuste (ex: Mãos)...',
+  resetDefault: 'Valores padrão',
 
   // Salvamento & Galeria de Sinais
   saveSignal: 'Salvar sinal',

@@ -68,7 +68,7 @@ export const CordelInspectorSliders: React.FC<CordelInspectorSlidersProps> = ({
         <div className="flex justify-between items-center text-[10px]">
           <label className="flex items-center gap-1"><ZoomIn className="w-3 h-3 text-[var(--cordel-text)]" /> Zoom: {activeInspectorOptions.zoom}%</label>
         </div>
-        <input type="range" min="50" max="180" value={activeInspectorOptions.zoom} onChange={(e) => handleUpdateCordelOption('zoom', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer" />
+        <input type="range" min="50" max="300" value={activeInspectorOptions.zoom} onChange={(e) => handleUpdateCordelOption('zoom', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer" />
       </div>
 
       <div className="flex gap-2 items-center text-[10px]">

@@ -44,7 +44,7 @@ export const MobileSignalFramingAccordion: React.FC<Props> = ({ isOpen, onToggle
               <span className="font-bold tabular-nums">{options.zoom}%</span>
             </div>
             <input
-              type="range" min={50} max={180} value={options.zoom}
+              type="range" min={50} max={300} value={options.zoom}
               onChange={(e) => onUpdate({ zoom: Number(e.target.value) })}
               className="w-full accent-[#8b2a1a]"
             />

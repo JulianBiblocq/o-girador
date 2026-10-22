@@ -11,6 +11,7 @@ import { CloudRhythmSignal } from '../../../types';
 import { MobileSignalLightAccordion } from './MobileSignalLightAccordion';
 import { MobileSignalFramingAccordion } from './MobileSignalFramingAccordion';
 import { MobileMestreSignalGallery } from './MobileMestreSignalGallery';
+import { PhotoLabPresetsBar } from './PhotoLabPresetsBar';
 import { tMobile } from '../../../i18n/mobileTranslations';
 
 interface Props {
@@ -39,6 +40,11 @@ export const MobileSignalSettingsAccordion: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col gap-2 w-full text-xs font-mono select-none">
+      <PhotoLabPresetsBar
+        currentOptions={options}
+        onApplyOptions={onCopyStyle}
+        lang={lang}
+      />
       <MobileSignalLightAccordion
         isOpen={openSection === 'light'}
         onToggle={() => toggleSection('light')}

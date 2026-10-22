@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
  * Updates in real-time when resizing the window on desktop or on mobile orientation change.
  */
 export function useIsMobileResponsive(breakpointPx: number = 768): boolean {
-  const query = `(max-width: ${breakpointPx - 1}px)`;
+  const query = `(max-width: ${breakpointPx}px), (hover: none) and (pointer: coarse) and (max-height: 540px)`;
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia(query).matches;

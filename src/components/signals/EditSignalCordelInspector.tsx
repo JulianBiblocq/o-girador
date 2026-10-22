@@ -3,6 +3,7 @@ import { Sliders, RotateCcw } from 'lucide-react';
 import { CordelOptions } from '../../utils/cordelEffect';
 import { MobileSignalLightAccordion } from '../mobile/editor/MobileSignalLightAccordion';
 import { MobileSignalFramingAccordion } from '../mobile/editor/MobileSignalFramingAccordion';
+import { PhotoLabPresetsBar } from '../mobile/editor/PhotoLabPresetsBar';
 
 interface EditSignalCordelInspectorProps {
   options: CordelOptions;
@@ -37,6 +38,11 @@ export const EditSignalCordelInspector: React.FC<EditSignalCordelInspectorProps>
       </div>
 
       <div className="flex flex-col gap-1.5">
+        <PhotoLabPresetsBar
+          currentOptions={options}
+          onApplyOptions={(newOpts) => onOptionsChange(newOpts)}
+          lang={lang}
+        />
         <MobileSignalLightAccordion
           isOpen={openSection === 'light'}
           onToggle={() => setOpenSection((p) => (p === 'light' ? null : 'light'))}

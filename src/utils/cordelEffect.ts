@@ -6,7 +6,7 @@
 import { computeBackgroundMask, computeLuminance, renderCordelPixels } from './cordelSobelKernel';
 
 export interface CordelOptions {
-  zoom: number; // 50 to 180
+  zoom: number; // 50 to 300
   detail: number; // 10 to 150 (conservé pour rétrocompatibilité)
   shadow: number; // 50 to 220 (conservé pour rétrocompatibilité)
   brightness?: number; // -50 to +50
@@ -80,8 +80,10 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   }
 
   const cropSize = (boxSize * 1.3) / (options.zoom / 100);
-  const shiftX = (options.isMirror ? 1 : -1) * (options.posX / 100) * (cropSize / 2);
-  const shiftY = -(options.posY / 100) * (cropSize / 2);
+  const maxShiftX = Math.max(cropSize / 2, (img.width - cropSize) / 2);
+  const maxShiftY = Math.max(cropSize / 2, (img.height - cropSize) / 2);
+  const shiftX = (options.isMirror ? 1 : -1) * (options.posX / 100) * maxShiftX;
+  const shiftY = -(options.posY / 100) * maxShiftY;
   const sX = cx - cropSize / 2 + shiftX;
   const sY = cy - cropSize / 2 + shiftY;
 

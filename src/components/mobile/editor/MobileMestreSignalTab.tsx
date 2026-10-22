@@ -16,16 +16,15 @@ import { useMestreSignalEditorState } from './useMestreSignalEditorState';
 
 export const MobileMestreSignalTab: React.FC = () => {
   const lang = useSequencerStore((s) => s.lang);
-  const [mode, setMode] = useState<'single' | 'four' | 'batch'>('single');
-  const [name, setName] = useState('');
   const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
 
   const {
+    mode, setMode, name, setName,
     setRawImages, rawImages, previewImgs, selectedFrame, setSelectedFrame, isPlaying, setIsPlaying,
     isSaving, editingSignalId, globalOptions, setGlobalOptions, effectiveOptions,
     handleUpdateOptions, toggleFrameOverride, handlePickSignal, handleNewSignal, handleSave, mestreSignals,
     frameOverrides,
-  } = useMestreSignalEditorState(mode, setMode, name, setName);
+  } = useMestreSignalEditorState();
 
   return (
     <div className="flex flex-col gap-2.5 p-2 overflow-y-auto max-h-[calc(100vh-175px)] text-[var(--cordel-text)]">
