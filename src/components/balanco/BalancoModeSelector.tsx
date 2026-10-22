@@ -1,4 +1,5 @@
 import React from 'react';
+import { RotateCcw, BookOpen, Scale, Wrench } from 'lucide-react';
 import { BalancoPreset } from '../../types/balanco.types';
 import { Language } from '../../types';
 import { BalancoSelectedCard } from './BalancoSelectedCard';
@@ -48,20 +49,20 @@ export const BalancoModeSelector: React.FC<BalancoModeSelectorProps> = ({
           <button
             type="button"
             onClick={() => onModeChange('maracatu')}
-            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
+            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
               activeMode === 'maracatu' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#d5c3b0]'
             }`}
           >
-            ⚖️ Balanço
+            <Scale size={13} className="shrink-0" /> Balanço
           </button>
           <button
             type="button"
             onClick={() => onModeChange('custom')}
-            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
+            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
               activeMode === 'custom' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#d5c3b0]'
             }`}
           >
-            🛠️ {lang === 'fr' ? 'Atelier' : 'Ateliê'}
+            <Wrench size={13} className="shrink-0" /> {lang === 'fr' ? 'Atelier' : 'Ateliê'}
           </button>
         </div>
       </div>
@@ -79,14 +80,15 @@ export const BalancoModeSelector: React.FC<BalancoModeSelectorProps> = ({
                 disabled={isLoadingCloud}
                 className="px-2 py-0.5 bg-white border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] flex items-center gap-1 disabled:opacity-50"
               >
-                <span className={isLoadingCloud ? 'animate-spin inline-block' : ''}>🔄</span>
+                <RotateCcw size={11} className={isLoadingCloud ? 'animate-spin shrink-0' : 'shrink-0'} />
               </button>
               <button
                 type="button"
                 onClick={onOpenLibrary}
                 className="px-2 py-0.5 bg-white border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] flex items-center gap-1"
               >
-                📚 {lang === 'fr' ? 'Bibliothèque' : 'Biblioteca'} ({presets.length})
+                <BookOpen size={11} className="shrink-0" />
+                <span>{lang === 'fr' ? 'Bibliothèque' : 'Biblioteca'} ({presets.length})</span>
               </button>
             </div>
           </div>
@@ -98,7 +100,7 @@ export const BalancoModeSelector: React.FC<BalancoModeSelectorProps> = ({
           >
             {presets.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} {p.isFactory ? '★' : p.ownerId === userProfile?.uid || p.ownerId === 'local' ? '👤' : '👥'}
+                {p.name} {p.isFactory ? '★' : p.ownerId === userProfile?.uid || p.ownerId === 'local' ? (lang === 'fr' ? '[perso]' : '[pessoal]') : '[cloud]'}
               </option>
             ))}
           </select>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BookOpen, Music, Cloud } from 'lucide-react';
 import { PresetAccordionSection } from './preset-accordion/PresetAccordionSection';
 import { PresetAccordionLocalSection } from './preset-accordion/PresetAccordionLocalSection';
 import { PresetAccordionSelectFallback } from './preset-accordion/PresetAccordionSelectFallback';
@@ -56,9 +57,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
         const url = new URL(window.location.href);
         url.searchParams.set('loadPreset', cloudId);
         window.history.replaceState(null, '', url.toString());
-      } catch (e) {
-        console.warn('URL sync error:', e);
-      }
+      } catch (_) {}
     }
     onSelectPreset(val, cloudId);
   };
@@ -67,18 +66,21 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   const publicTitle = lang === 'pt' ? 'Catálogo Público' : 'Catalogue Public';
   const isItemActive = (val: string, name: string): boolean =>
     Boolean(activePreset === val || (currentSongTitle && currentSongTitle.trim().toLowerCase() === name.trim().toLowerCase()));
-
   const visiblePrivate = canEdit ? privateCloudPresets : privateCloudPresets.filter((p) => p.isDraft !== true);
   const visiblePublic = canEdit ? publicCloudPresets : publicCloudPresets.filter((p) => p.isDraft !== true);
 
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wider flex items-center gap-1">
-          📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
+        <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wider flex items-center gap-1.5">
+          <BookOpen size={12} className="shrink-0 text-[#d99b26]" />
+          <span>{lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}</span>
         </span>
         {currentSongTitle && (
-          <span className="text-[11px] font-cactus font-bold text-[var(--cordel-text)] truncate">🎵 {currentSongTitle}</span>
+          <span className="text-[11px] font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
+            <Music size={11} className="shrink-0 text-[var(--cordel-wood)]" />
+            <span className="truncate">{currentSongTitle}</span>
+          </span>
         )}
       </div>
 
@@ -112,9 +114,9 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           onToggle={() => setIsPublicOpen((prev) => !prev)}
           title={publicTitle}
           count={visiblePublic.length}
-          icon="☁️"
+          icon={<Cloud size={13} className="shrink-0 text-[#d99b26]" />}
           items={visiblePublic}
-          itemIcon="☁️"
+          itemIcon={<Cloud size={11} className="shrink-0 opacity-70" />}
           emptyMsg={lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)'}
           isLoading={isCloudPresetsLoading}
           lang={lang}

@@ -11,10 +11,10 @@ interface SectionProps {
   onToggle: () => void;
   title: string;
   count: number;
-  icon?: string;
+  icon?: React.ReactNode;
   logo?: string;
   items: Array<{ id: string; name: string; isDraft?: boolean }>;
-  itemIcon: string;
+  itemIcon?: React.ReactNode;
   emptyMsg: string;
   isGroupList?: boolean;
   isLoading?: boolean;

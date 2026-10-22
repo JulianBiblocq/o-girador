@@ -66,7 +66,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   if (inst.type === 'voice' || inst.id === 'apito') return null;
 
   return (
-    <div ref={variationsContainerRef} className="flex flex-col gap-3 mt-2 mb-2 pl-4 border-l-[3px] border-dashed border-[#1a1a1a]/20">
+    <div ref={variationsContainerRef} className="flex flex-col gap-3 mt-2 mb-2 pl-2 sm:pl-3 border-l-[3px] border-dashed border-[#1a1a1a]/20">
       {(ptn.variations || []).map((variation) => (
         <VariationCard
           key={variation.id} variation={variation} {...props}

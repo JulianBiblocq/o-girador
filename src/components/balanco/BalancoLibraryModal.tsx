@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { BookOpen, X, User, Users, RotateCcw } from 'lucide-react';
 import { BalancoPreset } from '../../types/balanco.types';
 import { Language } from '../../types';
 import { BalancoLibraryCard } from './BalancoLibraryCard';
@@ -64,7 +65,7 @@ export const BalancoLibraryModal: React.FC<BalancoLibraryModalProps> = ({
       <div className="bg-[#f4ecd8] border-[3px] border-[#1a1a1a] p-4 sm:p-5 max-w-xl w-full max-h-[85vh] rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)] flex flex-col gap-3 text-[#1a1a1a]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">📚</span>
+            <BookOpen size={24} className="shrink-0 text-[#8b2a1a]" />
             <div>
               <h4 className="font-cactus text-xl font-bold uppercase leading-tight">
                 {lang === 'fr' ? 'Bibliothèque des Balanços' : 'Biblioteca de Balanços'}
@@ -74,7 +75,9 @@ export const BalancoLibraryModal: React.FC<BalancoLibraryModalProps> = ({
               </span>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-lg font-bold hover:text-[#8b2a1a] cursor-pointer">✕</button>
+          <button type="button" onClick={onClose} className="hover:text-[#8b2a1a] cursor-pointer" aria-label="Close">
+            <X size={18} />
+          </button>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -82,7 +85,7 @@ export const BalancoLibraryModal: React.FC<BalancoLibraryModalProps> = ({
             type="text"
             value={librarySearch}
             onChange={(e) => setLibrarySearch(e.target.value)}
-            placeholder={lang === 'fr' ? '🔍 Rechercher un balanço, auteur...' : '🔍 Buscar balanço, autor...'}
+            placeholder={lang === 'fr' ? 'Rechercher un balanço, auteur...' : 'Buscar balanço, autor...'}
             className="w-full bg-white border border-black px-2.5 py-1.5 text-xs font-bold text-[#1a1a1a] outline-none shadow-[1px_1px_0px_#000]"
           />
           <div className="flex gap-1 overflow-x-auto pb-0.5">
@@ -91,14 +94,14 @@ export const BalancoLibraryModal: React.FC<BalancoLibraryModalProps> = ({
                 key={filterKey}
                 type="button"
                 onClick={() => setLibraryFilter(filterKey as any)}
-                className={`px-2.5 py-1 text-[10px] font-bold border border-black cursor-pointer shadow-[1px_1px_0px_#000] whitespace-nowrap transition-colors ${
+                className={`px-2.5 py-1 text-[10px] font-bold border border-black cursor-pointer shadow-[1px_1px_0px_#000] whitespace-nowrap transition-colors inline-flex items-center gap-1 ${
                   libraryFilter === filterKey ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white text-[#1a1a1a] hover:bg-[#eaddcf]'
                 }`}
               >
                 {filterKey === 'all' && `${lang === 'fr' ? 'Tous' : 'Todos'} (${presets.length})`}
                 {filterKey === 'factory' && `★ ${lang === 'fr' ? 'Usine' : 'Fábrica'} (${factoryCount})`}
-                {filterKey === 'my' && `👤 ${lang === 'fr' ? 'Mes Balanços' : 'Meus Balanços'} (${myCount})`}
-                {filterKey === 'group' && `👥 ${lang === 'fr' ? 'Mon Groupe' : 'Meu Grupo'} (${groupCount})`}
+                {filterKey === 'my' && (<><User size={11} className="shrink-0" /> {lang === 'fr' ? 'Mes Balanços' : 'Meus Balanços'} ({myCount})</>)}
+                {filterKey === 'group' && (<><Users size={11} className="shrink-0" /> {lang === 'fr' ? 'Mon Groupe' : 'Meu Grupo'} ({groupCount})</>)}
               </button>
             ))}
           </div>
@@ -132,7 +135,7 @@ export const BalancoLibraryModal: React.FC<BalancoLibraryModalProps> = ({
             disabled={isLoadingCloud}
             className="px-2.5 py-1 bg-white border border-black text-xs font-bold text-[#1a1a1a] hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] flex items-center gap-1.5 disabled:opacity-50"
           >
-            <span className={isLoadingCloud ? 'animate-spin inline-block' : ''}>🔄</span>
+            <RotateCcw size={12} className={isLoadingCloud ? 'animate-spin shrink-0' : 'shrink-0'} />
             {lang === 'fr' ? 'Synchroniser Cloud' : 'Sincronizar Nuvem'}
           </button>
           <button type="button" onClick={onClose} className="px-4 py-1.5 bg-[#1a1a1a] text-[#f4ecd8] font-cactus font-bold text-xs border border-black shadow-[2px_2px_0px_#000] hover:bg-[#8b2a1a] transition-colors cursor-pointer">

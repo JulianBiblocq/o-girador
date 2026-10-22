@@ -52,7 +52,10 @@ Si du code est généré ou modifié, ces règles doivent être strictement resp
 - **Contrôle systématique avant validation** : Avant de déclarer une tâche achevée ou de solliciter la validation, l'agent doit impérativement exécuter et valider localement :
   1. `cmd /c "npx tsc --noEmit"` : 0 erreur TypeScript.
   2. `cmd /c "npm run build"` : compilation Vite de production réussie.
-- **Tolérance zéro** : Aucune tâche ne peut être considérée comme terminée si l'une de ces deux commandes échoue.
+### E. Interdiction Absolue des Emojis Système & Icônes Hors-Charte Cordel
+- **Zéro emoji Unicode coloré** : Ne jamais introduire d'emoji Unicode coloré (`📚`, `🎶`, `☁️`, `🎼`, `📜`, `📁`, `🎯`, `⚡`, `✋`, `🥁`, `🎤`, `⚠️`, etc.) ni dans les composants `.tsx`, ni dans les fichiers de traduction (`data.ts`, `mobileTranslationsFr.ts`, `mobileTranslationsPt.ts`, etc.).
+- **Composants vectoriels SVG monochromes** : Toute icône doit être un composant vectoriel SVG monochrome (`stroke="currentColor"` ou `fill="currentColor"`, esthétique gravure sur bois / Xilogravura, zéro dégradé moderne).
+- **Nettoyage systématique** : À chaque fois qu'un fichier est touché, retirer systématiquement tout emoji système résiduel qui s'y trouverait.
 
 ---
 

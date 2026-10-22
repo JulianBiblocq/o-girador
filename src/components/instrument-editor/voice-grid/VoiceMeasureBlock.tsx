@@ -6,6 +6,7 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { Pattern } from '../../../types';
+import { splitIntoHalfMeasures } from '../grid/gridSymmetricSplitter';
 import { VoiceBeatGroupCellList } from './VoiceBeatGroupCellList';
 
 interface VoiceMeasureBlockProps {
@@ -39,9 +40,7 @@ export const VoiceMeasureBlock: React.FC<VoiceMeasureBlockProps> = React.memo((p
 
   const m = measure.measureIndex;
   const groups = measure.groups;
-  const halfPoint = Math.ceil(groups.length / 2);
-  const firstHalf = groups.slice(0, halfPoint);
-  const secondHalf = groups.slice(halfPoint);
+  const { firstHalf, secondHalf, isSymmetric } = splitIntoHalfMeasures(groups);
 
   const handleDelete = async () => {
     const confirmMsg = lang === 'fr'
@@ -80,14 +79,18 @@ export const VoiceMeasureBlock: React.FC<VoiceMeasureBlockProps> = React.memo((p
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md">
-        <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
-          {firstHalf.map(renderGroup)}
-        </div>
-        {secondHalf.length > 0 && (
-          <div className="flex flex-row gap-1.5 sm:gap-2 w-full justify-between items-stretch">
-            {secondHalf.map(renderGroup)}
-          </div>
+      <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md">
+        {isSymmetric ? (
+          <>
+            <div className="flex flex-nowrap gap-1.5 sm:gap-2 flex-1 min-w-[210px] justify-between items-stretch">
+              {firstHalf.map(renderGroup)}
+            </div>
+            <div className="flex flex-nowrap gap-1.5 sm:gap-2 flex-1 min-w-[210px] justify-between items-stretch">
+              {secondHalf.map(renderGroup)}
+            </div>
+          </>
+        ) : (
+          groups.map(renderGroup)
         )}
       </div>
     </div>

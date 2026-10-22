@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, Video, BookOpen, MessageSquare, Share2 } from 'lucide-react';
+import { HelpCircle, Video, BookOpen, MessageSquare, Share2, ScrollText, Leaf } from 'lucide-react';
 import { XiloFanion } from '../XiloIcons';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
@@ -95,7 +95,7 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
           }}
           className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer col-span-2 transition-colors"
         >
-          <span>📜</span> {lang === 'pt' ? 'Sobre' : 'À propos'}
+          <ScrollText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Sobre' : 'À propos'}
         </button>
         {onOpenWallpaperModal && (
           <button
@@ -118,7 +118,7 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
             onChange={toggleEcoMode}
             className="accent-[var(--cordel-text)] w-4 h-4 cursor-pointer"
           />
-          🌱 Mode Éco {ecoMode ? '(On)' : '(Off)'}
+          <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-600 inline" /> {lang === 'fr' ? 'Mode Éco' : 'Modo Eco'} {ecoMode ? '(On)' : '(Off)'}
         </label>
         <div className="text-xs opacity-80 leading-tight text-[var(--cordel-text)] font-sans">
           {lang === 'fr' ? 'Désactive les animations pour soulager la tablette.' : 'Desativa animações para aliviar o tablet.'}

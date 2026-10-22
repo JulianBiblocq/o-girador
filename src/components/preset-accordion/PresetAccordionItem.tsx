@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { Check } from 'lucide-react';
 import { XiloMegaphone, XiloHourglass } from '../XiloIcons';
 
 interface PresetAccordionItemProps {
@@ -13,7 +14,7 @@ interface PresetAccordionItemProps {
   isDefault: boolean;
   canEdit: boolean;
   canSetDefaultPreset: boolean;
-  icon: string;
+  icon?: React.ReactNode;
   lang: 'pt' | 'fr';
   onItemClick: (val: string, cloudId?: string) => void;
   onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
@@ -49,7 +50,7 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
           {icon ? <span className="text-xs shrink-0">{icon}</span> : null}
           <span className="truncate">{preset.name}</span>
         </span>
-        {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
+        {active && <Check size={12} className="shrink-0 ml-1" />}
       </button>
 
       {/* Bascule de visibilité Chantier / Publié */}
@@ -84,7 +85,7 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
           <button
             type="button"
             data-testid={isDefault ? "cactus-default-preset" : "cactus-preset-toggle"}
-            aria-label={isDefault ? "Cactus 🌵" : "Épingler le morceau"}
+            aria-label={isDefault ? "Cactus" : "Épingler le morceau"}
             onClick={(e) => {
               e.stopPropagation();
               onSetDefaultPreset?.(isDefault ? null : preset.id);
@@ -110,7 +111,7 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
         ) : isDefault ? (
           <span
             data-testid="cactus-default-preset"
-            aria-label="Cactus 🌵"
+            aria-label="Cactus"
             title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
             style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
             className="shrink-0 p-1 select-none leading-none text-xl font-cactus-star text-[#2d6a4f] dark:text-amber-400 drop-shadow-none dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] inline-flex items-center justify-center"

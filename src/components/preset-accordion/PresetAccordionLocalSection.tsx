@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { Save, Check } from 'lucide-react';
 
 interface LocalSectionProps {
   localPresets: string[];
@@ -30,7 +31,7 @@ export const PresetAccordionLocalSection: React.FC<LocalSectionProps> = ({
         className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
       >
         <span className="flex items-center gap-1.5 truncate">
-          <span className="text-sm leading-none">💾</span>
+          <Save size={13} className="shrink-0 text-[#d99b26]" />
           <span className="truncate">{lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}</span>
           <span className="text-[10px] opacity-60 font-sans">({localPresets.length})</span>
         </span>
@@ -51,10 +52,10 @@ export const PresetAccordionLocalSection: React.FC<LocalSectionProps> = ({
               }`}
             >
               <span className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-xs shrink-0">💾</span>
+                <Save size={11} className="shrink-0 opacity-70" />
                 <span className="truncate">{name}</span>
               </span>
-              {isItemActive(`local:${name}`, name) && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
+              {isItemActive(`local:${name}`, name) && <Check size={12} className="shrink-0 ml-1" />}
             </button>
           ))}
         </div>

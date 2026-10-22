@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, FileText, Save } from 'lucide-react';
+import { Trash2, FileText, Save, Folder } from 'lucide-react';
 import { PresetAccordionSelector } from '../PresetAccordionSelector';
 import { BoutonExportDanse } from '../BoutonExportDanse';
 import { useAuth } from '../../contexts/AuthContext';
@@ -58,7 +58,7 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
     <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
-          📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
+          <Folder className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Projeto' : 'Projet'}
         </span>
         {groupLabel && (
           <span className="text-[9px] font-cactus font-bold px-2 py-0.5 border border-[#f4ecd8]/40 bg-black/60 text-[#f4ecd8] rounded-xs flex items-center gap-1.5 shadow-xs">
@@ -119,7 +119,7 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
           }}
           className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-wood)] hover:text-[#f4ecd8] cursor-pointer text-left w-full col-span-2 mt-1"
         >
-          <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? '🎼 Atelier Papel' : '🎼 Atelier Papier'}
+          <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Atelier Papel' : 'Atelier Papier'}
         </button>
         <button
           onClick={() => {
