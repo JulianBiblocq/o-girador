@@ -19,20 +19,17 @@ import { RightSidebarMetadataTab } from './right-sidebar/RightSidebarMetadataTab
 import { RightSidebarToadaTab } from './right-sidebar/RightSidebarToadaTab';
 import { RightSidebarSignalsTab } from './right-sidebar/RightSidebarSignalsTab';
 
+import { X } from 'lucide-react';
+
 const ShortcutsGuide = lazyWithRetry(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })), 'ShortcutsGuide');
 const FeedbackSection = lazyWithRetry(() => import('./right-sidebar/FeedbackSection').then(m => ({ default: m.FeedbackSection })), 'FeedbackSection');
 
 interface RightSidebarProps {
   activePanel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
   onTogglePanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais', force?: boolean) => void;
-  isMobile: boolean;
-  mestreSignals?: CloudRhythmSignal[];
-  refreshMestreSignals?: () => void;
-  hideGlobalSignals?: boolean;
-  onToggleHideGlobalSignals?: () => void;
-  visible?: boolean;
-  isDrawer?: boolean;
-  onCloseDrawer?: () => void;
+  isMobile: boolean; mestreSignals?: CloudRhythmSignal[]; refreshMestreSignals?: () => void;
+  hideGlobalSignals?: boolean; onToggleHideGlobalSignals?: () => void;
+  visible?: boolean; isDrawer?: boolean; onCloseDrawer?: () => void;
 }
 
 const EMPTY_ARRAY: any[] = [];
@@ -47,13 +44,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const karaokeContainerRef = React.useRef<HTMLDivElement>(null);
   const tracks = useSequencerStore(state => visible ? state.tracks : EMPTY_ARRAY);
   const { userProfile } = useAuth();
-  
   const [showAuthorshipModal, setShowAuthorshipModal] = React.useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = React.useState(false);
   const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
-
   useRightSidebarKaraoke(visible, subTab, karaokeContainerRef);
-
   const audio = useAudio();
   const { lang, letras, setLetras: onLetrasChange, metadata, handleExtractLyrics: onExtractLyrics } = sequencer;
   const { isPlaying = false } = audio;
@@ -98,8 +92,8 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       <div id="right-sidebar-panel" style={{ display: visible ? 'flex' : 'none' }} className={`${drawerClass} bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full text-[var(--cordel-text)]`}>
         <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg" style={{ transform: 'translateZ(0)' }} />
         {isDrawer && onCloseDrawer && (
-          <button type="button" onClick={onCloseDrawer} className="absolute top-2.5 right-2.5 z-20 w-6 h-6 border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] text-xs font-bold flex items-center justify-center cursor-pointer shadow-[1px_1px_0_#000]">
-            ✕
+          <button type="button" onClick={onCloseDrawer} aria-label="Fermer" className="absolute top-2.5 right-2.5 z-20 w-6 h-6 border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] flex items-center justify-center cursor-pointer shadow-[1px_1px_0_#000]">
+            <X size={13} />
           </button>
         )}
         <div className="flex flex-col p-5 h-full overflow-hidden relative z-[1]">
@@ -133,7 +127,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           </div>
         </div>
       </div>
-
       {metadata && (
         <DescriptionModal isOpen={isDescriptionModalOpen} onClose={() => setIsDescriptionModalOpen(false)} metadata={metadata} onSaveDescription={handleSaveDescriptionFromModal} lang={lang} isPlaying={isPlaying} />
       )}
