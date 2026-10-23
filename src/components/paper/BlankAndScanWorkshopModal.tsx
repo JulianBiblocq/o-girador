@@ -34,6 +34,8 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
     userProfile?.canWriteSequenciador || userProfile?.role === 'mestre' || userProfile?.role === 'admin' || (userProfile as any)?.isSystemAdmin
   );
 
+  const [incomingPreset, setIncomingPreset] = useState<any>(undefined);
+
   useEffect(() => {
     if (isOpen && initialTab) setActiveTab(initialTab);
   }, [isOpen, initialTab]);
@@ -94,12 +96,13 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
         {/* CONTENU DE L'ONGLET ACTIF */}
         <div className="p-4 overflow-y-auto max-h-[calc(92vh-105px)]">
           {activeTab === 'sheets' && <BlankSheetGeneratorTab lang={lang} />}
-          {activeTab === 'scanner' && <PaperScannerTab canImport={canImport} lang={lang} onClose={onClose} />}
+          {activeTab === 'scanner' && <PaperScannerTab canImport={canImport} lang={lang} onClose={onClose} initialPreset={incomingPreset} />}
           {activeTab === 'reserve' && (
             <MestreJsonInjectorTab
               canImport={canImport}
               lang={lang}
               onSendToTagBuilder={(p) => {
+                setIncomingPreset(p);
                 setActiveTab('scanner');
               }}
             />

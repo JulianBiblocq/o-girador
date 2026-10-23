@@ -54,6 +54,7 @@ export function useRightSidebarKaraoke(
       const puxHasNotes = Boolean(puxActivePattern?.activeSteps && Object.values(puxActivePattern.activeSteps).some(v => v && v !== 0 && v !== '0'));
       const coroHasNotes = Boolean(coroActivePattern?.activeSteps && Object.values(coroActivePattern.activeSteps).some(v => v && v !== 0 && v !== '0'));
 
+      const activePatternSteps = puxActivePattern?.steps || coroActivePattern?.steps || 16;
       let currentStep = -999;
       if ((detail as any).isPreRoll) {
         const preRollBeat = (detail as any).preRollBeat;
@@ -61,7 +62,7 @@ export function useRightSidebarKaraoke(
         const preRollStep = preRollBeat !== undefined ? Math.min(15, preRollBeat * 4 + Math.floor(ratio * 4)) : Math.min(15, Math.floor(ratio * 16));
         currentStep = preRollStep - 16;
       } else if (maxTicks > 0) {
-        currentStep = Math.floor((step / maxTicks) * 16);
+        currentStep = Math.floor((step / maxTicks) * activePatternSteps);
       }
 
       let activeRole: 'puxador' | 'coro' | 'none' = 'none';

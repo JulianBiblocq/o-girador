@@ -99,7 +99,8 @@ export function disambiguatePatternSection(
       return;
     }
     const { role, steps: cleanSteps } = disambiguateRoleAndSteps(roleKey, steps, hasAb && roleKey.toLowerCase() !== 'ab');
-    result[role] = cleanSteps;
+    const targetRole = result[role] && role !== roleKey ? roleKey : role;
+    result[targetRole] = cleanSteps;
   });
 
   return result;

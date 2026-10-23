@@ -6,7 +6,7 @@
 import { PaperStepValue } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore, VigilancePoint } from '../../stores/usePaperVigilanceStore';
 
-const VALID_CHAR_REGEX = /^[DdeEIBrRFfGgAaSsVvPpTtLl0·.\-/% ]$/;
+const VALID_CHAR_REGEX = /^[0-9DdeEIBrRFfGgAaSsVvPpTtLlCcXxOoWw·.\-/% ]$/;
 
 export function isStepDoubtful(stepVal: PaperStepValue, confidence?: number): boolean {
   if (confidence !== undefined && confidence < 0.85) return true;

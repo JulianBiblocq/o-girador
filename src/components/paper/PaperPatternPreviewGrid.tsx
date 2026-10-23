@@ -21,9 +21,13 @@ interface Props {
 
 export const PaperPatternPreviewGrid: React.FC<Props> = ({ scoreId, patterns, reusableSections, onToggleReusable, onUpdateStep, lang }) => {
   const sectionEntries = Object.entries(patterns);
-  const activeScoreId = scoreId || usePaperVigilanceStore((s) => s.activePreviewScoreId) || '';
-  const points = usePaperVigilanceStore((s) => s.points.filter((p) => p.scoreId === activeScoreId));
-  const { removePoint, togglePoint, clearAllForScore } = usePaperVigilanceStore();
+  const previewScoreId = usePaperVigilanceStore((s) => s.activePreviewScoreId);
+  const activeScoreId = scoreId || previewScoreId || '';
+  const allPoints = usePaperVigilanceStore((s) => s.points);
+  const points = React.useMemo(() => allPoints.filter((p) => p.scoreId === activeScoreId), [allPoints, activeScoreId]);
+  const removePoint = usePaperVigilanceStore((s) => s.removePoint);
+  const togglePoint = usePaperVigilanceStore((s) => s.togglePoint);
+  const clearAllForScore = usePaperVigilanceStore((s) => s.clearAllForScore);
   const [popover, setPopover] = useState<{ sec: string; role: string; idx: number; val: PaperStepValue; isVig: boolean } | null>(null);
 
   const handleCellClick = (sec: string, role: string, idx: number, val: PaperStepValue) => {

@@ -10,30 +10,20 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 
 export function useActiveSequencerVigilancePoints(): VigilancePoint[] {
   const activeScoreId = usePaperVigilanceStore((s) => s.activeSequencerScoreId);
-  const points = usePaperVigilanceStore(
-    useShallow((s) => {
-      if (!s.activeSequencerScoreId) return [];
-      return s.points.filter(
-        (p) => p.scoreId === s.activeSequencerScoreId && p.trackId !== undefined && p.patternId !== undefined
-      );
-    })
-  );
-
-  const tracks = useSequencerStore(
-    useShallow((s) => s.tracks.map((t) => ({ id: t.id, patternIds: t.patterns.map((p) => p.id) })))
-  );
+  const allPoints = usePaperVigilanceStore((s) => s.points);
+  const tracks = useSequencerStore((s) => s.tracks);
 
   return useMemo(() => {
-    if (!activeScoreId || points.length === 0 || tracks.length === 0) return [];
+    if (!activeScoreId || allPoints.length === 0 || tracks.length === 0) return [];
     const validTrackMap = new Map<number, Set<number>>();
     tracks.forEach((t) => {
-      validTrackMap.set(t.id, new Set(t.patternIds));
+      validTrackMap.set(t.id, new Set(t.patterns.map((p) => p.id)));
     });
 
-    return points.filter((pt) => {
-      if (!pt.trackId || !pt.patternId) return false;
+    return allPoints.filter((pt) => {
+      if (pt.scoreId !== activeScoreId || !pt.trackId || !pt.patternId) return false;
       const patterns = validTrackMap.get(pt.trackId);
       return patterns ? patterns.has(pt.patternId) : false;
     });
-  }, [activeScoreId, points, tracks]);
+  }, [activeScoreId, allPoints, tracks]);
 }

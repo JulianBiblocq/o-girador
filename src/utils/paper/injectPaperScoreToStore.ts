@@ -9,6 +9,7 @@ import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { PresetMetadata } from '../../types';
 import { assignPatternsToTracks, buildMergedSongSections } from './paperTimelineAssigner';
 import { buildScannedScoreTracks, PaperInjectOptions } from './paperTrackBuilder';
+import { disambiguateAllPresetPatterns } from './paperRoleDisambiguator';
 
 export const injectPaperScoreToStore = (
   preset: PaperPreset,
@@ -50,7 +51,7 @@ export const injectPaperScoreToStore = (
         descriptionPt: customMetadata?.descriptionPt?.trim() || '',
         descriptionFr: customMetadata?.descriptionFr?.trim() || '',
         rhythmSignals: [],
-        partitionImage: undefined,
+        partitionImage: customMetadata?.partitionImage || undefined,
         morceauId: undefined,
         vocalPreset: undefined,
       };
@@ -58,8 +59,13 @@ export const injectPaperScoreToStore = (
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
 
-  const cleanTracks = buildScannedScoreTracks(preset, totalMeasures, options);
-  const updatedTracks = assignPatternsToTracks(cleanTracks, preset, sequence, totalMeasures);
+  const disambiguatedPreset: PaperPreset = {
+    ...preset,
+    patterns: disambiguateAllPresetPatterns(preset.patterns),
+  };
+
+  const cleanTracks = buildScannedScoreTracks(disambiguatedPreset, totalMeasures, options);
+  const updatedTracks = assignPatternsToTracks(cleanTracks, disambiguatedPreset, sequence, totalMeasures);
   const mergedSections = buildMergedSongSections(sequence);
 
   const targetBpm = preset.bpm || store.bpm || 96;

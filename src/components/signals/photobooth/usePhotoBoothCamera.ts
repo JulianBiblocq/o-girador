@@ -5,8 +5,10 @@ export function usePhotoBoothCamera() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rawBase64ImagesRef = useRef<string[]>([]);
+  const isCancelledRef = useRef(false);
 
   const startCamera = useCallback(async () => {
+    isCancelledRef.current = false;
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
@@ -15,6 +17,10 @@ export function usePhotoBoothCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       });
+      if (isCancelledRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -30,6 +36,7 @@ export function usePhotoBoothCamera() {
   }, []);
 
   const stopCamera = useCallback(() => {
+    isCancelledRef.current = true;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;

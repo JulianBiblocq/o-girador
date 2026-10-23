@@ -2,41 +2,21 @@
  * toadaPackImporter.ts
  * Décodage et injection locale d'un pack Toada (.json) dans Sequenciador.
  * Zéro écriture Firestore (RAM Zustand + IndexedDB vocalRecordings).
- * Strictement < 125 lignes.
+ * Strictement < 120 lignes.
  */
 import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { saveVocalRecording } from '../db';
-import { instrumentsConfig } from '../data';
 import { buildToadaConductorSlots } from './toadaArrangement';
 import { convertToadaPattern, isStepActive } from './toadaPatternConverter';
-import type { TrackGroup, Pattern, VocalClipMeta } from '../types/store.types';
-
+import { isBlankPattern, getOrCreateTrack } from './vocal/toadaImportHelpers';
 import { importPatternVariants, base64ToBlob } from './vocal/toadaVariantImporter';
+import type { Pattern, VocalClipMeta } from '../types/store.types';
 
 export interface ToadaImportOptions {
   deployStartMeasureIdx?: number | null;
   pack?: any;
-}
-
-function isBlankPattern(p?: Pattern): boolean {
-  if (!p) return true;
-  const hasNotes = p.notes?.some((n) => n && n !== '' && n !== '───');
-  const hasActive = p.activeSteps?.some((s) => s && s !== 0 && s !== '───');
-  return !hasNotes && !hasActive && !p.vocalClip && p.vocalMode !== 'micro';
-}
-
-function getOrCreateTrack(tracks: TrackGroup[], role: 'puxador' | 'coro'): TrackGroup {
-  const found = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === role);
-  if (found) return found;
-  const idx = instrumentsConfig.findIndex((i) => i.id === role);
-  const maxId = Math.max(100, ...tracks.map((t) => Number(t.id) || 0));
-  return {
-    id: maxId + (role === 'puxador' ? 1 : 2), instrumentIdx: idx !== -1 ? idx : (role === 'puxador' ? 10 : 11),
-    patterns: [], isMute: false, isSolo: false, isHidden: false, volumeVal: 80, selectedPatternId: 0,
-    reverbVal: 0, panVal: 0, pan: 0, tuning: 0, fxSends: { reverb: 0, distortion: 0 }
-  };
 }
 
 export async function importToadaPackIntoSequencer(
@@ -53,11 +33,12 @@ export async function importToadaPackIntoSequencer(
   if (!tracks.some((t) => t.id === coroTrack.id)) tracks.push(coroTrack);
   const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
   const patIdMap = new Map<string, number>(), convertedPats: Array<{ pat: Pattern; role: 'puxador' | 'coro'; origId: string }> = [];
+  const baseId = Date.now() + 10000;
 
   for (let i = 0; i < pack.patterns.length; i++) {
     const p = pack.patterns[i];
     const role: 'puxador' | 'coro' = p.role === 'coro' ? 'coro' : 'puxador';
-    const numId = Date.now() + Math.floor(Math.random() * 500) + i;
+    const numId = baseId + i * 1000;
     patIdMap.set(p.id, numId);
 
     const variant = p.variants?.[p.activeVariantKey] || p.variants?.['spd100_pit0'] || Object.values(p.variants || {})[0] as any;
@@ -106,19 +87,15 @@ export async function importToadaPackIntoSequencer(
       };
     }
 
-    const newPat = convertToadaPattern(p, role, numId, effectiveBpm, store.totalMeasures, clipMeta, Boolean(wavBlob));
+    const newPat = convertToadaPattern(p, role, numId, effectiveBpm, store.totalMeasures, clipMeta, Boolean(wavBlob), hasAnacrusis);
     if (loadedVariantKeys.length > 0) newPat.vocalVariantKeys = loadedVariantKeys;
     convertedPats.push({ pat: newPat, role, origId: p.id });
   }
 
-  // Sauvegarde de l'état avant import pour permettre le retour en arrière (Ctrl+Z)
   store.pushUndoState();
-
-  // Mémorisation de la frise conducteur
   const conductorSlots = buildToadaConductorSlots(pack.arrangementSlots, pack.patterns, patIdMap);
   store.setToadaConductorSlots(conductorSlots);
 
-  // Remplacement si pattern vierge par défaut, sinon injection ordonnée
   const nextTracks = tracks.map((t) => {
     if (t.id === puxTrack.id || t.id === coroTrack.id) {
       const isPux = t.id === puxTrack.id;

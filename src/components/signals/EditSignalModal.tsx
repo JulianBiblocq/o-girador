@@ -10,14 +10,8 @@ export interface EditSignalModalProps {
   onClose: () => void;
   signal: (CloudRhythmSignal | RhythmSignal) | null;
   onSave: (updated: {
-    id: string;
-    name: string;
-    image?: string;
-    frames?: string[];
-    rawFrames?: string[];
-    cordelOptions?: CordelOptions;
-    beatsCount?: number;
-    mirrorHorizontal?: boolean;
+    id: string; name: string; image?: string; frames?: string[]; rawFrames?: string[];
+    cordelOptions?: CordelOptions; beatsCount?: number; mirrorHorizontal?: boolean;
   }) => Promise<void> | void;
   onRetakePhoto?: (targetSignal: CloudRhythmSignal | RhythmSignal) => void;
   lang: 'fr' | 'pt';

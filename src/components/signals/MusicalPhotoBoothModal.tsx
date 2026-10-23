@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { Play, Save, FolderOpen, X } from 'lucide-react';
+import { Play, FolderOpen, X } from 'lucide-react';
 import { CordelOptions } from '../../utils/cordelEffect';
 import { usePhotoBoothAudio } from './photobooth/usePhotoBoothAudio';
 import { usePhotoBoothCamera } from './photobooth/usePhotoBoothCamera';
 import { usePhotoBoothReprocess } from './photobooth/usePhotoBoothReprocess';
 import { usePhotoBoothCaptureSequence } from './photobooth/usePhotoBoothCaptureSequence';
 import { PhotoBoothCaptureOverlay } from './photobooth/PhotoBoothCaptureOverlay';
-import { PhotoBoothControlsSidebar } from './photobooth/PhotoBoothControlsSidebar';
-import { PhotoBoothReviewTimeline } from './photobooth/PhotoBoothReviewTimeline';
+import { PhotoBoothReviewSection } from './photobooth/PhotoBoothReviewSection';
 import { MobileMestreSignalGallery } from '../mobile/editor/MobileMestreSignalGallery';
 import { CloudRhythmSignal } from '../../types';
 
@@ -19,24 +18,21 @@ export interface MusicalPhotoBoothModalProps {
   initialBpm?: number; lang: 'fr' | 'pt';
 }
 
-export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({ isOpen, onClose, onSave, initialBpm = 90, lang }) => {
+export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
+  isOpen, onClose, onSave, initialBpm = 90, lang,
+}) => {
   const [phase, setPhase] = useState<'idle' | 'repositioning' | 'beat_countdown' | 'processing' | 'review'>('idle');
   const [activeTab, setActiveTab] = useState<'capture' | 'gallery'>('capture');
-  const [beatsCount, setBeatsCount] = useState<number>(4);
-  const [bpm, setBpm] = useState<number>(initialBpm);
-  const [signalName, setSignalName] = useState<string>('');
-  const [editingSignalId, setEditingSignalId] = useState<string | null>(null);
-  const [isBatchOpen, setIsBatchOpen] = useState(false);
-  const [currentStepIdx, setCurrentStepIdx] = useState(0);
-  const [sasCountdown, setSasCountdown] = useState(3);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [beatsCount, setBeatsCount] = useState<number>(4), [bpm, setBpm] = useState<number>(initialBpm);
+  const [signalName, setSignalName] = useState<string>(''), [editingSignalId, setEditingSignalId] = useState<string | null>(null);
+  const [isBatchOpen, setIsBatchOpen] = useState(false), [currentStepIdx, setCurrentStepIdx] = useState(0), [sasCountdown, setSasCountdown] = useState(3);
   const { playBeep, closeAudio } = usePhotoBoothAudio();
   const { videoRef, rawBase64ImagesRef, startCamera, stopCamera, captureCurrentFrame } = usePhotoBoothCamera();
   const reprocess = usePhotoBoothReprocess(rawBase64ImagesRef);
   const beatNumberElRef = useRef<HTMLDivElement | null>(null);
   const flashElRef = useRef<HTMLDivElement | null>(null);
 
-  const { handleStartCaptureSequence, timerRef } = usePhotoBoothCaptureSequence(
+  const { handleStartCaptureSequence, clearAllTimers } = usePhotoBoothCaptureSequence(
     bpm, beatsCount, playBeep, captureCurrentFrame, stopCamera, reprocess.startCordelProcessing,
     setPhase, setCurrentStepIdx, setSasCountdown, beatNumberElRef, flashElRef, rawBase64ImagesRef
   );
@@ -45,9 +41,9 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({ 
     if (isOpen) {
       setBpm(initialBpm || 90); setPhase('idle'); setCurrentStepIdx(0); setActiveTab('capture');
       setEditingSignalId(null); setSignalName(lang === 'fr' ? 'Geste du Mestre' : 'Gesto do Mestre'); startCamera();
-    } else { stopCamera(); if (timerRef.current) clearTimeout(timerRef.current); }
-    return () => { stopCamera(); closeAudio(); };
-  }, [isOpen, initialBpm, lang, startCamera, stopCamera, closeAudio, timerRef]);
+    } else { stopCamera(); clearAllTimers(); }
+    return () => { stopCamera(); closeAudio(); clearAllTimers(); };
+  }, [isOpen, initialBpm, lang, startCamera, stopCamera, closeAudio]);
 
   const handlePickFromGallery = (sig: CloudRhythmSignal) => {
     setEditingSignalId(sig.id); setSignalName(sig.name);
@@ -121,25 +117,21 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({ 
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <PhotoBoothReviewTimeline frames={reprocess.processedFrames} selectedFrameIndex={reprocess.selectedFrameIndex} activePlayheadIndex={0} isPlaying={isPlaying} bpm={bpm} lang={lang} onSelectFrame={reprocess.setSelectedFrameIndex} onTogglePlay={() => setIsPlaying(!isPlaying)} onBpmChange={setBpm} />
-            <div className="flex flex-col gap-2">
-              <PhotoBoothControlsSidebar overrideMode={reprocess.overrideMode} selectedFrameIndex={reprocess.selectedFrameIndex} options={reprocess.activeInspectorOptions} hasLocalOverride={Boolean(reprocess.frameOverrides[reprocess.selectedFrameIndex])} isReprocessing={reprocess.isReprocessing} lang={lang} setOverrideMode={reprocess.setOverrideMode} onUpdateOption={reprocess.handleUpdateCordelOptions} onResetLocalOverride={reprocess.handleResetLocalOverride} />
-              <input type="text" value={signalName} onChange={(e) => setSignalName(e.target.value)} placeholder="Nom du geste..." className="bg-white border border-black px-2 py-1 text-xs font-bold" />
-              <button type="button" onClick={handleSaveSignal} className="py-2 bg-[#1b4332] text-white font-cactus font-bold text-sm border border-black shadow-[2px_2px_0px_#000] cursor-pointer flex items-center justify-center gap-1.5">
-                <Save size={14} /> <span>{editingSignalId ? (lang === 'fr' ? 'Mettre à jour le signal' : 'Atualizar sinal') : (lang === 'fr' ? 'Enregistrer le signal' : 'Salvar o sinal')}</span>
-              </button>
-            </div>
-          </div>
+          <PhotoBoothReviewSection
+            frames={reprocess.processedFrames} selectedFrameIndex={reprocess.selectedFrameIndex} bpm={bpm} lang={lang}
+            overrideMode={reprocess.overrideMode} frameOverrides={reprocess.frameOverrides} activeInspectorOptions={reprocess.activeInspectorOptions}
+            isReprocessing={reprocess.isReprocessing} signalName={signalName} editingSignalId={editingSignalId}
+            onSelectFrame={reprocess.setSelectedFrameIndex} onBpmChange={setBpm} setOverrideMode={reprocess.setOverrideMode}
+            onUpdateOption={reprocess.handleUpdateCordelOptions} onResetLocalOverride={reprocess.handleResetLocalOverride}
+            onSignalNameChange={setSignalName} onSaveSignal={handleSaveSignal}
+          />
         )}
       </div>
       {isBatchOpen && (
         <Suspense fallback={null}>
-          <PhotoBatchImporterModal isOpen={isBatchOpen} onClose={() => setIsBatchOpen(false)} onSaveBatch={() => {}} lang={lang} />
+          <PhotoBatchImporterModal isOpen={isBatchOpen} onClose={() => setIsBatchOpen(false)} onSaveBatch={(batch) => { batch.forEach((sig: any) => onSave(sig)); setIsBatchOpen(false); }} lang={lang} />
         </Suspense>
       )}
     </div>
   );
 };
-
-

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 import { PernambucoEstandarteWithMast } from './LandingWoodenStructures';
 
 interface LandingHeroSectionProps {
@@ -39,7 +40,7 @@ export const LandingHeroSection: React.FC<LandingHeroSectionProps> = ({
               title={isFr ? "Entrer dans la Roda" : "Entrar na Roda"}
             >
               {!isToneReady || isUnlocking ? (
-                <span className="flex items-center justify-center animate-spin text-xl sm:text-2xl">⚙️</span>
+                <span className="flex items-center justify-center text-xl sm:text-2xl"><Loader2 className="w-6 h-6 animate-spin text-current" /></span>
               ) : isFr ? (
                 <>ENTRER<br/>DANS LA<br/>RODA</>
               ) : (

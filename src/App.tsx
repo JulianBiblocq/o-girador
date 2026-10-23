@@ -43,24 +43,21 @@ export default function App() {
   useDisableNativeContextMenu();
   const { deferredPrompt, handleInstallClick } = useAppUpdate();
   const { presetFiles, localPresets, isSavedIndicatorVisible } = useAppAudio();
-  useGlobalKeyboardShortcuts();
-  useMidiController();
+  useGlobalKeyboardShortcuts(); useMidiController();
 
   const sequencer = useSequencer(), audio = useAudio();
   useScreenWakeLock(audio.isPlaying);
   useGlobalTransportShortcuts(audio.handleTogglePlay);
   const { hasAccess, userProfile, isAdmin, loading: authLoading } = useAuth();
   useDeepLinkLoader({ audio, sequencer, authLoading });
-  useAppAuthPermissions(userProfile, isAdmin);
-  useAppSessionTracking(userProfile);
+  useAppAuthPermissions(userProfile, isAdmin); useAppSessionTracking(userProfile);
 
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null>(() => (typeof window !== 'undefined' && window.innerWidth < 1280 ? null : 'info'));
   const { viewMode, renderedView, isFadingIn, changeViewMode, hasManuallyOpenedAbout } = useViewRouter({ audio, setActiveRightPanel: (p) => setActiveRightPanel(p) });
   const theme = useThemeManager({ lang: sequencer.lang }), wallpaperProps = useWallpaper();
   useTrainingUrlHandler({ audio, changeViewMode, alertAsync: sequencer.alertAsync });
 
-  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
-  const [presetDataToSave, setPresetDataToSave] = useState<any>(null);
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false), [presetDataToSave, setPresetDataToSave] = useState<any>(null);
   const handleSaveToLocal = React.useCallback(async () => {
     setPresetDataToSave(audio.getCurrentPresetData());
     setShowSavePresetModal(true);
@@ -82,13 +79,12 @@ export default function App() {
   const { mestreSignals, filteredMestreSignals, refreshMestreSignals, hideGlobalSignals, handleToggleHideGlobalSignals } = useAppMestreSignals(userProfile, hasAccess);
   const exportProps = useAppExportTablature({ sequencer });
 
-  const [touchSelector, setTouchSelector] = useState<any | null>(null);
-  const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
-  const [sectionToSave, setSectionToSave] = useState<any | null>(null);
-  const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
-  const [measureWidth, setMeasureWidth] = useState<number>(240);
-  const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
+  const [touchSelector, setTouchSelector] = useState<any | null>(null), [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
+  const [sectionToSave, setSectionToSave] = useState<any | null>(null), [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
+  const [measureWidth, setMeasureWidth] = useState<number>(240), [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
   const isMobile = useIsMobileResponsive(768), editingTrackId = useSequencerStore(state => state.editingTrackId);
+  const mobileViewMode = useSequencerStore((s) => s.mobileViewMode), isMobileStudioMode = useSequencerStore((s) => s.isMobileStudioMode);
+  const isMobileRemoteActive = isMobile && mobileViewMode !== 'complet' && !isMobileStudioMode && viewMode !== 'admin';
 
   const handleStepTouchStart = React.useCallback((e: any, patternId: number, stepIdx: number, instId: string, currentVal: any, onSelect: any, trackId: number, isSplit?: boolean) => {
     if ('button' in e && e.button !== 0) return;
@@ -113,14 +109,8 @@ export default function App() {
     s.toggleInstrumentEditorDetached();
   }, []);
 
-  if (viewMode === 'landing') {
-    return <><SEO /><Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><svg className="animate-spin w-8 h-8 stroke-current fill-none stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" /></svg></div>}><LandingPage onEnter={() => { useSequencerStore.getState().setMobileViewMode('complet'); changeViewMode('roda'); }} lang={sequencer.lang} onLanguageChange={sequencer.setLang} isManualOpen={hasManuallyOpenedAbout} /></Suspense></>;
-  }
+  if (viewMode === 'landing') return <><SEO /><Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><svg className="animate-spin w-8 h-8 stroke-current fill-none stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" /></svg></div>}><LandingPage onEnter={() => { useSequencerStore.getState().setMobileViewMode('complet'); changeViewMode('roda'); }} lang={sequencer.lang} onLanguageChange={sequencer.setLang} isManualOpen={hasManuallyOpenedAbout} /></Suspense></>;
   if (viewMode === 'home') return <><SEO /><Home onEnter={(m) => changeViewMode(m as any)} lang={sequencer.lang} /></>;
-
-  const mobileViewMode = useSequencerStore((s) => s.mobileViewMode);
-  const isMobileStudioMode = useSequencerStore((s) => s.isMobileStudioMode);
-  const isMobileRemoteActive = isMobile && mobileViewMode !== 'complet' && !isMobileStudioMode && viewMode !== 'admin';
 
   return (
     <>

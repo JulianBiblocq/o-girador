@@ -56,6 +56,9 @@ export async function safeResumeAudioContext(): Promise<void> {
 
 export async function safeSuspendAudioContext(): Promise<void> {
   cancelAudioContextAutoSuspend();
+  const isPlaying = useSequencerStore.getState().isPlaying;
+  const isRecording = useAudioStore.getState().recordingStatus === 'recording';
+  if (isPlaying || isRecording) return;
   const rawCtx = getRawAudioContext();
   if (rawCtx && rawCtx.state === 'running') {
     try {

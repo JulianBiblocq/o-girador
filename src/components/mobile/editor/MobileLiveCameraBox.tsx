@@ -1,64 +1,69 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Caméra WebRTC Mobile : Mode Carré 1:1 ou Plein Écran Doc A4 (< 145 lignes).
+ * Caméra WebRTC Mobile : Mode Carré 1:1 ou Plein Écran Doc A4 (< 120 lignes).
  */
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { Camera, SwitchCamera, X } from 'lucide-react';
 import { safeSuspendAudioContext } from '../../../audio/audioContextSuspendManager';
 import { tMobile } from '../../../i18n/mobileTranslations';
+import { MobileDocCameraOverlay } from './MobileDocCameraOverlay';
 
 interface Props {
-  isOpen: boolean;
-  onClose: () => void;
-  onCapture: (imgs: string[]) => void;
-  defaultFacingMode?: 'user' | 'environment';
-  mode?: 'single' | 'four' | 'batch';
-  lang?: 'fr' | 'pt';
-  isInline?: boolean;
-  isModal?: boolean;
-  captureFormat?: 'square' | 'fullscreen-doc';
+  isOpen: boolean; onClose: () => void; onCapture: (imgs: string[]) => void;
+  defaultFacingMode?: 'user' | 'environment'; mode?: 'single' | 'four' | 'batch';
+  lang?: 'fr' | 'pt'; isInline?: boolean; isModal?: boolean; captureFormat?: 'square' | 'fullscreen-doc';
 }
 
 export const MobileLiveCameraBox: React.FC<Props> = ({
   isOpen, onClose, onCapture, defaultFacingMode = 'user', mode = 'single', lang = 'pt', isModal = false, captureFormat = 'square',
 }) => {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(defaultFacingMode);
-  const [captured, setCaptured] = useState<string[]>([]);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [captured, setCaptured] = useState<string[]>([]), [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null), streamRef = useRef<MediaStream | null>(null), isCancelledRef = useRef(false);
 
   const isDoc = captureFormat === 'fullscreen-doc';
 
   const stopStream = useCallback(() => {
-    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+    isCancelledRef.current = true;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
   }, []);
 
-  const startStream = useCallback(async () => {
+  const startStream = useCallback(async (targetFacing: 'user' | 'environment') => {
     stopStream();
+    isCancelledRef.current = false;
     setErrorMsg(null);
     try {
       await safeSuspendAudioContext();
       const constraints: MediaStreamConstraints = {
-        video: isDoc ? { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } } : { facingMode, width: { ideal: 720 }, height: { ideal: 720 } },
+        video: isDoc ? { facingMode: targetFacing, width: { ideal: 1920 }, height: { ideal: 1080 } } : { facingMode: targetFacing, width: { ideal: 720 }, height: { ideal: 720 } },
         audio: false,
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (isCancelledRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
     } catch {
       if (streamRef.current) { try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch (_) {} streamRef.current = null; }
       setErrorMsg(lang === 'fr' ? 'Caméra indisponible ou refusée.' : 'Câmera indisponível ou recusada.');
     }
-  }, [facingMode, isDoc, stopStream, lang]);
+  }, [isDoc, stopStream, lang]);
 
   useEffect(() => {
-    if (isOpen) { setCaptured([]); startStream(); } else { stopStream(); }
+    if (isOpen) setCaptured([]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) startStream(facingMode);
+    else stopStream();
     return () => stopStream();
-  }, [isOpen, startStream, stopStream]);
+  }, [isOpen, facingMode, startStream, stopStream]);
 
   const snapFrame = () => {
     const video = videoRef.current;
@@ -97,30 +102,12 @@ export const MobileLiveCameraBox: React.FC<Props> = ({
   if (!isOpen) return null;
 
   if (isDoc) {
-    return createPortal(
-      <div className="fixed inset-0 z-[9999] w-screen h-dvh bg-black flex flex-col justify-between overflow-hidden select-none">
-        {errorMsg ? <div className="text-red-400 text-xs font-mono text-center p-8">{errorMsg}</div> : (
-          <video ref={videoRef} playsInline muted autoPlay className={`absolute inset-0 w-full h-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`} />
-        )}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="w-[82%] max-w-sm aspect-[1/1.414] relative border border-white/20">
-            <div className="absolute -top-1 -left-1 w-5 h-5 border-t-2 border-l-2 border-[#f4ecd8]" />
-            <div className="absolute -top-1 -right-1 w-5 h-5 border-t-2 border-r-2 border-[#f4ecd8]" />
-            <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-2 border-l-2 border-[#f4ecd8]" />
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-2 border-r-2 border-[#f4ecd8]" />
-          </div>
-        </div>
-        <div className="relative z-20 w-full flex items-center justify-between p-4 pt-4 px-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-          <button type="button" onClick={() => setFacingMode((f) => (f === 'user' ? 'environment' : 'user'))} className="p-2.5 rounded-full bg-black/50 text-[#f4ecd8] border border-white/30 cursor-pointer active:scale-95" title={tMobile(lang, 'flipCamera')}><SwitchCamera size={20} /></button>
-          <button type="button" onClick={() => { stopStream(); onClose(); }} className="p-2.5 rounded-full bg-black/50 text-[#f4ecd8] border border-white/30 cursor-pointer active:scale-95" title={tMobile(lang, 'closeCamera')}><X size={24} /></button>
-        </div>
-        <div className="relative z-20 w-full pb-6 pt-3 px-4 flex justify-center bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-          <button type="button" onClick={handleCaptureClick} className="h-12 px-6 bg-[#c25e38] text-[#f4ecd8] border-2 border-[#f4ecd8] shadow-[3px_3px_0px_#000] font-extrabold uppercase flex items-center gap-2 font-cactus text-sm tracking-wider active:translate-y-0.5 cursor-pointer">
-            <Camera size={20} /><span>{lang === 'fr' ? 'Prendre la photo' : 'Tirar a foto'}</span>
-          </button>
-        </div>
-      </div>,
-      document.body
+    return (
+      <MobileDocCameraOverlay
+        errorMsg={errorMsg} videoRef={videoRef} facingMode={facingMode} lang={lang}
+        onFlipCamera={() => setFacingMode((f) => (f === 'user' ? 'environment' : 'user'))}
+        onClose={() => { stopStream(); onClose(); }} onCapture={handleCaptureClick}
+      />
     );
   }
 

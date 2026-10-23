@@ -37,7 +37,8 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
   const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
   const [isLegendOpen, setIsLegendOpen] = useState(false), [isDictOpen, setIsDictOpen] = useState(false), [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
   const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
-  const vigilancePoints = usePaperVigilanceStore((s) => s.points.filter((p) => p.scoreId === scoreId));
+  const allPoints = usePaperVigilanceStore((s) => s.points);
+  const vigilancePoints = React.useMemo(() => allPoints.filter((p) => p.scoreId === scoreId), [allPoints, scoreId]);
   const togglePoint = usePaperVigilanceStore((s) => s.togglePoint);
   const clearAllForScore = usePaperVigilanceStore((s) => s.clearAllForScore);
   const longPressTimerRef = useRef<number | null>(null), isLongPressRef = useRef(false);
@@ -121,9 +122,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
       <div className="flex items-center justify-between p-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_#000]">
         <div className="flex items-center gap-1 overflow-x-auto text-[10px] font-cactus">
           {sequenceItems.slice(0, 3).map((it, idx) => (
-            <span key={idx} className="px-1.5 py-0.5 bg-[var(--cordel-bg)] border border-[#8b2a1a] dark:border-[#f59e0b]/60 text-[#8b2a1a] dark:text-[#f59e0b] font-bold whitespace-nowrap shadow-xs">
-              {(it.sectionName || '').replace(/Partie/g, lang === 'fr' ? 'Partie' : 'Parte')} ×{it.repeatCount}
-            </span>
+            <span key={idx} className="px-1.5 py-0.5 bg-[var(--cordel-bg)] border border-[#8b2a1a] dark:border-[#f59e0b]/60 text-[#8b2a1a] dark:text-[#f59e0b] font-bold whitespace-nowrap shadow-xs">{(it.sectionName || '').replace(/Partie/g, lang === 'fr' ? 'Partie' : 'Parte')} ×{it.repeatCount}</span>
           ))}
         </div>
         <button onClick={handleInject} className="px-2.5 py-1.5 bg-[#15803d] text-white font-cactus font-bold text-[10px] uppercase flex items-center gap-1.5 shadow-[1px_1px_0px_#000] shrink-0 cursor-pointer hover:bg-black"><span>{tMobile(lang, 'injectScore')}</span> <ArrowRight size={11} /></button>

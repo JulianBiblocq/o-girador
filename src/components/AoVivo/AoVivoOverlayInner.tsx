@@ -9,10 +9,10 @@ import { AoVivoInstrumentRenderers } from './AoVivoInstrumentRenderers';
 
 export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = ({ activeAoVivoTrackId }) => {
   const { isLeftHanded } = useSequencer();
-  const tracks = useSequencerStore(
-    useShallow((state) =>
-      state.tracks.filter((t) => t.id === Number(activeAoVivoTrackId) || String(t.id) === String(activeAoVivoTrackId))
-    )
+  const allTracks = useSequencerStore((state) => state.tracks);
+  const tracks = React.useMemo(
+    () => allTracks.filter((t) => t.id === Number(activeAoVivoTrackId) || String(t.id) === String(activeAoVivoTrackId)),
+    [allTracks, activeAoVivoTrackId]
   );
 
   const activeTrack = tracks.find(

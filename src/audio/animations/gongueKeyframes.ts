@@ -34,16 +34,19 @@ export function generateGongueKeyframes(stroke: string, bpm: number = 100): Keyf
     ];
   }
 
+  const verticalOffset = isGrave ? -50 : isAigu ? 50 : 0;
   const windUpBoost = 1 + (cfg.windUp.scaleBoost - 1) * tempoFactor;
-  const windUpY = cfg.windUp.translateY * tempoFactor;
+  const windUpY = (cfg.windUp.translateY + verticalOffset * 0.4) * tempoFactor;
   const impactBoost = cfg.impact.scaleBoost;
+  const impactY = cfg.impact.translateY + verticalOffset;
   const reboundBoost = cfg.rebound.scaleBoost;
+  const reboundY = cfg.rebound.translateY + verticalOffset * 0.7;
 
   return [
     { transform: `translate(0px, ${CONFIG_GONGUE.rest.translateY}px) rotateX(${CONFIG_GONGUE.rest.rotateX}deg) scale(${baseScaleX}, ${baseScaleY})`, easing: 'ease-out' },
     { transform: `translate(0px, ${windUpY}px) rotateX(${cfg.windUp.rotateX}deg) scale(${baseScaleX * windUpBoost}, ${baseScaleY * windUpBoost})`, offset: cfg.windUp.offset, easing: cfg.windUp.easing },
-    { transform: `translate(${randX}px, ${cfg.impact.translateY + randY}px) rotateX(${cfg.impact.rotateX}deg) scale(${baseScaleX * impactBoost}, ${baseScaleY * impactBoost})`, offset: cfg.impact.offset, easing: cfg.impact.easing },
-    { transform: `translate(0px, ${cfg.rebound.translateY}px) rotateX(${cfg.rebound.rotateX}deg) scale(${baseScaleX * reboundBoost}, ${baseScaleY * reboundBoost})`, offset: cfg.rebound.offset, easing: cfg.rebound.easing },
+    { transform: `translate(${randX}px, ${impactY + randY}px) rotateX(${cfg.impact.rotateX}deg) scale(${baseScaleX * impactBoost}, ${baseScaleY * impactBoost})`, offset: cfg.impact.offset, easing: cfg.impact.easing },
+    { transform: `translate(0px, ${reboundY}px) rotateX(${cfg.rebound.rotateX}deg) scale(${baseScaleX * reboundBoost}, ${baseScaleY * reboundBoost})`, offset: cfg.rebound.offset, easing: cfg.rebound.easing },
     { transform: `translate(0px, ${CONFIG_GONGUE.rest.translateY}px) rotateX(${CONFIG_GONGUE.rest.rotateX}deg) scale(${baseScaleX}, ${baseScaleY})` },
   ];
 }

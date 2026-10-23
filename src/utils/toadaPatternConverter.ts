@@ -89,11 +89,12 @@ export function convertToadaPattern(
   effectiveBpm: number,
   totalMeasures: number,
   clipMeta?: VocalClipMeta,
-  hasAudio: boolean = false
+  hasAudio: boolean = false,
+  explicitHasAnacrusis?: boolean
 ): Pattern {
   const roleSymbol = role === 'coro' ? 'C' : 'P';
   const stepsCount = (p.measuresCount || 1) * 16;
-  const hasAnacrusis = p.hasAnacrusis !== undefined ? Boolean(p.hasAnacrusis) : true;
+  const hasAnacrusis = explicitHasAnacrusis !== undefined ? explicitHasAnacrusis : (p.hasAnacrusis !== undefined ? Boolean(p.hasAnacrusis) : true);
   let anacrusisRaw: any[] = hasAnacrusis ? (p.anacrusisSteps || []) : [];
   let mainRaw: any[] = p.mainSteps || [];
   if (hasAnacrusis && mainRaw.length >= stepsCount + 16 && anacrusisRaw.length === 0) {

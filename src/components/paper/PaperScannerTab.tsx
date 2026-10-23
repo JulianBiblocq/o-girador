@@ -18,19 +18,29 @@ import { PaperScannerMetadataDrawer } from './PaperScannerMetadataDrawer';
 import { PresetMetadata } from '../../types';
 import { Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 
-interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; }
+interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; initialPreset?: PaperPreset; }
 
-export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) => {
+export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, initialPreset }) => {
   const presetsList = useMemo(() => getAllAvailablePaperPresets(lang), [lang]);
-  const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(() => presetsList[0]);
-  const [editablePatterns, setEditablePatterns] = useState(() => disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(presetsList[0].patterns))));
-  const [sequenceItems, setSequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(presetsList[0].defaultSequence));
+  const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(() => initialPreset || presetsList[0]);
+  const [editablePatterns, setEditablePatterns] = useState(() => disambiguateAllPresetPatterns(JSON.parse(JSON.stringify((initialPreset || presetsList[0]).patterns))));
+  const [sequenceItems, setSequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence((initialPreset || presetsList[0]).defaultSequence));
   const [reusableSections, setReusableSections] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
-  const [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: presetsList[0].name }));
+  const [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: (initialPreset || presetsList[0]).name }));
   const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
-  const vigilanceCount = usePaperVigilanceStore((state) => state.points.filter((p) => p.scoreId === scoreId).length);
+  const allPoints = usePaperVigilanceStore((state) => state.points);
+  const vigilanceCount = useMemo(() => allPoints.filter((p) => p.scoreId === scoreId).length, [allPoints, scoreId]);
+
+  useEffect(() => {
+    if (initialPreset) {
+      setSelectedPreset(initialPreset);
+      setMetaOverrides({ toada: initialPreset.name });
+      setEditablePatterns(disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(initialPreset.patterns))));
+      setSequenceItems(factorizeSequence(initialPreset.defaultSequence));
+    }
+  }, [initialPreset]);
 
   useEffect(() => { scanAndRegisterDoubtPoints(scoreId, editablePatterns); usePaperVigilanceStore.getState().setActivePreviewScoreId(scoreId); }, [scoreId]);
 
@@ -55,11 +65,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
   };
 
   const toggleReusable = (secName: string) => {
-    setReusableSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(secName)) next.delete(secName); else next.add(secName);
-      return next;
-    });
+    setReusableSections((prev) => { const next = new Set(prev); if (next.has(secName)) next.delete(secName); else next.add(secName); return next; });
   };
 
   const handleUpdateStep = (secName: string, roleKey: string, stepIndex: number, newVal: PaperStepValue) => {
@@ -73,7 +79,10 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
   };
 
   const handleInject = (openOnFirst = false) => {
-    if (!canImport) { alert(lang === 'fr' ? 'Accès réservé au Mestre et Administrateurs.' : 'Acesso reservado ao Mestre.'); return; }
+    if (!canImport) {
+      window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: lang === 'fr' ? 'Accès réservé au Mestre et Administrateurs.' : 'Acesso reservado ao Mestre.' } }));
+      return;
+    }
     const flattenedSequence = sequenceItems.flatMap((item) => Array(item.repeatCount).fill(item.sectionName));
     const res = injectPaperScoreToStore({ ...selectedPreset, patterns: editablePatterns }, flattenedSequence, reusableSections, lang, openOnFirst, injectOpts, metaOverrides);
     if (res.success && onClose) onClose();
@@ -118,14 +127,8 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
           {!canImport ? (lang === 'fr' ? 'Import réservé au Mestre.' : 'Importação reservada.') : `${sequenceItems.length} bloc(s) prêts`}
         </div>
         <div className="flex items-center gap-2">
-          {vigilanceCount > 0 && (
-            <button type="button" onClick={() => handleInject(true)} className="py-2 px-3 bg-[#d97706] hover:bg-[#b45309] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] cursor-pointer">
-              <AlertTriangle size={13} /> <span>{lang === 'fr' ? 'Injecter & Ouvrir sur le 1er Point' : 'Injetar & Abrir no 1º Ponto'}</span>
-            </button>
-          )}
-          <button type="button" onClick={() => handleInject(false)} disabled={sequenceItems.length === 0} className="py-2 px-4 bg-[#8b2a1a] disabled:opacity-40 text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black cursor-pointer">
-            <CheckCircle size={14} /> <span>{lang === 'fr' ? 'Injecter dans la Roda' : 'Injetar na Roda'}</span>
-          </button>
+          {vigilanceCount > 0 && <button type="button" onClick={() => handleInject(true)} className="py-2 px-3 bg-[#d97706] hover:bg-[#b45309] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] cursor-pointer"><AlertTriangle size={13} /> <span>{lang === 'fr' ? 'Injecter & Ouvrir sur le 1er Point' : 'Injetar & Abrir no 1º Ponto'}</span></button>}
+          <button type="button" onClick={() => handleInject(false)} disabled={sequenceItems.length === 0} className="py-2 px-4 bg-[#8b2a1a] disabled:opacity-40 text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black cursor-pointer"><CheckCircle size={14} /> <span>{lang === 'fr' ? 'Injecter dans la Roda' : 'Injetar na Roda'}</span></button>
         </div>
       </div>
     </div>

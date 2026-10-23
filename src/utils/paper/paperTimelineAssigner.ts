@@ -46,7 +46,7 @@ export const assignPatternsToTracks = (
         const baseVal: any = (baseMap as any)[specificCode] || (baseMap as any)[groupCode] || Array(16).fill(0);
         rawSteps = Array.isArray(baseVal) ? baseVal : Array(16).fill(0);
       }
-      const patId = isAlfaia ? 800000 + idx + 1 : (track.isLinkFolder && track.instrumentIdx === 3 ? 810000 + idx + 1 : track.id * 1000 + idx + 1);
+      const patId = track.id * 1000 + idx + 1;
       newPatterns.push({
         id: patId,
         name: sectionName,
@@ -61,8 +61,8 @@ export const assignPatternsToTracks = (
       // Liaison stricte sur piste réelle jouable (jamais sur un dossier Bus)
       const isBusOrFolder = Boolean(track.isBusFolder || track.isLinkFolder);
       if (!isBusOrFolder) {
-        vigilance.linkPointsToTrack(scoreId, sectionName, specificCode, track.id, patId);
-        if (groupCode !== specificCode && (instId === 'marcante' || instId === 'caixa')) {
+        if (specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, specificCode, track.id, patId);
+        if (groupCode && groupCode !== specificCode) {
           vigilance.linkPointsToTrack(scoreId, sectionName, groupCode, track.id, patId);
         }
       }
@@ -80,7 +80,7 @@ export const assignPatternsToTracks = (
         const dictFallback = resolveSectionFromDictionaryFallback(targetSec, parsedToken.variationCalls);
         if (dictFallback) {
           const fbSteps = (dictFallback[specificCode] || dictFallback[groupCode] || Array(16).fill(0)) as any[];
-          const patId = isAlfaia ? 800000 + newPatterns.length + 1 : (track.isLinkFolder && track.instrumentIdx === 3 ? 810000 + newPatterns.length + 1 : track.id * 1000 + newPatterns.length + 1);
+          const patId = track.id * 1000 + newPatterns.length + 1;
           pat = {
             id: patId,
             name: targetSec,

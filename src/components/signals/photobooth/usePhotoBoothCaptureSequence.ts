@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 export function usePhotoBoothCaptureSequence(
   bpm: number,
@@ -14,7 +14,34 @@ export function usePhotoBoothCaptureSequence(
   flashElRef: React.RefObject<HTMLDivElement | null>,
   rawBase64ImagesRef: React.RefObject<string[]>
 ) {
-  const timerRef = useRef<any>(null);
+  const activeTimersRef = useRef<Set<any>>(new Set());
+
+  const registerTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      activeTimersRef.current.delete(id);
+      fn();
+    }, ms);
+    activeTimersRef.current.add(id);
+    return id;
+  };
+
+  const registerInterval = (fn: () => void, ms: number) => {
+    const id = setInterval(fn, ms);
+    activeTimersRef.current.add(id);
+    return id;
+  };
+
+  const clearAllTimers = () => {
+    activeTimersRef.current.forEach((id) => {
+      clearTimeout(id);
+      clearInterval(id);
+    });
+    activeTimersRef.current.clear();
+  };
+
+  useEffect(() => {
+    return () => clearAllTimers();
+  }, []);
 
   const runBeatCountdown = (stepIndex: number) => {
     setPhase('beat_countdown');
@@ -27,7 +54,7 @@ export function usePhotoBoothCaptureSequence(
       if (beat < countdownLen) {
         playBeep(600 + (beat - 1) * 150);
         beat++;
-        timerRef.current = setTimeout(doBeat, beatIntervalMs);
+        registerTimeout(doBeat, beatIntervalMs);
       } else {
         playBeep(1500, 0.08, 0.45);
         if (flashElRef.current) {
@@ -35,22 +62,23 @@ export function usePhotoBoothCaptureSequence(
         }
         captureCurrentFrame();
         if (stepIndex + 1 < beatsCount) {
-          timerRef.current = setTimeout(() => {
+          registerTimeout(() => {
             setCurrentStepIdx(stepIndex + 1);
             setPhase('repositioning');
             let c = 3;
             setSasCountdown(3);
-            const subInt = setInterval(() => {
+            const subInt = registerInterval(() => {
               c--;
               if (c > 0) setSasCountdown(c);
               else {
                 clearInterval(subInt);
+                activeTimersRef.current.delete(subInt);
                 runBeatCountdown(stepIndex + 1);
               }
             }, 1000);
           }, 350);
         } else {
-          timerRef.current = setTimeout(async () => {
+          registerTimeout(async () => {
             stopCamera();
             setPhase('processing');
             await startCordelProcessing();
@@ -63,23 +91,25 @@ export function usePhotoBoothCaptureSequence(
   };
 
   const handleStartCaptureSequence = () => {
+    clearAllTimers();
     if (rawBase64ImagesRef.current) rawBase64ImagesRef.current = [];
     setCurrentStepIdx(0);
     setSasCountdown(3);
     setPhase('repositioning');
     let count = 3;
     playBeep(450, 0.03, 0.2);
-    const interval = setInterval(() => {
+    const interval = registerInterval(() => {
       count--;
       if (count > 0) {
         setSasCountdown(count);
         playBeep(450, 0.03, 0.2);
       } else {
         clearInterval(interval);
+        activeTimersRef.current.delete(interval);
         runBeatCountdown(0);
       }
     }, 1000);
   };
 
-  return { handleStartCaptureSequence, timerRef };
+  return { handleStartCaptureSequence, clearAllTimers };
 }

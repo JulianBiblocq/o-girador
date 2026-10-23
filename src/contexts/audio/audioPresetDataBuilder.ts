@@ -30,7 +30,7 @@ export function buildCurrentPresetData(
   const cleanMetadata = sequencer.metadata ? {
     ...sequencer.metadata,
     vocalPreset: activeVocalPreset,
-    partitionImage: undefined,
+    partitionImage: sequencer.metadata.partitionImage,
     preRollSettings: currentPreRoll,
   } : undefined;
 

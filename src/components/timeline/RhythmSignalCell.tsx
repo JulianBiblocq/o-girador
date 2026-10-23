@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface RhythmSignalCellProps {
   mIdx: number;
@@ -12,13 +12,13 @@ interface RhythmSignalCellProps {
   onMeasureSignalChange: (mIdx: number, sigId: string | null) => void;
 }
 
-const SignalThumb: React.FC<{ name: string; image?: string }> = ({ name, image }) => {
-  const [err, setErr] = React.useState(false);
+const SignalThumb: React.FC<{ name: string; image?: string; imgRef?: React.RefObject<HTMLImageElement | null> }> = ({ name, image, imgRef }) => {
+  const [err, setErr] = useState(false);
   const initials = name ? name.split(' ').filter(Boolean).map((w) => w[0]?.toUpperCase()).slice(0, 2).join('') : 'SG';
   if (!image || err) {
     return <span className="w-6 h-6 flex items-center justify-center bg-black/10 text-[8px] font-cactus font-bold text-[var(--cordel-wood)] leading-none rounded shrink-0">{initials}</span>;
   }
-  return <img src={image} alt={name} onError={() => setErr(true)} className="w-6 h-6 object-contain shrink-0" />;
+  return <img ref={imgRef} src={image} alt={name} onError={() => setErr(true)} className="w-6 h-6 object-contain shrink-0" />;
 };
 
 export const RhythmSignalCell: React.FC<RhythmSignalCellProps> = ({
@@ -27,6 +27,28 @@ export const RhythmSignalCell: React.FC<RhythmSignalCellProps> = ({
 }) => {
   const activeSig = rhythmSignals.find((s) => s.id === sigId) || null;
   const isOpen = signalDropdownOpen === mIdx;
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const hasMultiFrames = Boolean(activeSig?.frames && activeSig.frames.length > 1);
+
+  useEffect(() => {
+    if (!hasMultiFrames || !activeSig?.frames) return;
+    const handleTick = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || !imgRef.current) return;
+      if (detail.currentMeasure === mIdx) {
+        const ratio = typeof detail.ratio === 'number' ? detail.ratio : 0;
+        const frameIdx = Math.min(activeSig.frames.length - 1, Math.max(0, Math.floor(ratio * activeSig.frames.length)));
+        const targetSrc = activeSig.frames[frameIdx];
+        if (targetSrc && imgRef.current.src !== targetSrc) {
+          imgRef.current.src = targetSrc;
+        }
+      } else if (imgRef.current.src !== activeSig.frames[0]) {
+        imgRef.current.src = activeSig.frames[0];
+      }
+    };
+    window.addEventListener('sequencer-tick', handleTick);
+    return () => window.removeEventListener('sequencer-tick', handleTick);
+  }, [hasMultiFrames, activeSig, mIdx]);
 
   return (
     <div
@@ -39,7 +61,7 @@ export const RhythmSignalCell: React.FC<RhythmSignalCellProps> = ({
           className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--cordel-border)]/20 hover:bg-[var(--cordel-border)]/40 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] max-w-full"
           title={activeSig.name}
         >
-          <SignalThumb name={activeSig.name} image={activeSig.image} />
+          <SignalThumb name={activeSig.name} image={activeSig.image} imgRef={imgRef} />
           <span className="ruler-detailed truncate max-w-[70px]">{activeSig.name}</span>
         </button>
       ) : (
