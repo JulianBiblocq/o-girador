@@ -41,7 +41,7 @@ export const MobileSignalTopBar: React.FC<Props> = ({
             <button
               key={m} onClick={() => setMode(m)}
               className={`px-2 py-1 text-[10px] font-cactus font-bold uppercase transition-colors cursor-pointer ${
-                mode === m ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]'
+                mode === m ? 'bg-[#b94a2c] text-[#f4ecd8] font-extrabold' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]'
               }`}
             >
               {m === 'single' ? '1P' : m === 'four' ? '4T' : 'Lot'}
@@ -57,10 +57,10 @@ export const MobileSignalTopBar: React.FC<Props> = ({
         <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-1 px-1.5 border border-[var(--cordel-border)] text-[10px] font-cactus font-bold uppercase bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] flex items-center justify-center gap-1 cursor-pointer">
           <ImageIcon size={12} /> <span>{tMobile(lang, 'gallery')}</span>
         </button>
-        <button onClick={onToggleMirror} className={`px-2 py-1 border border-[var(--cordel-border)] text-[10px] font-cactus font-bold uppercase flex items-center gap-1 cursor-pointer ${isMirror ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]'}`}>
+        <button onClick={onToggleMirror} className={`px-2 py-1 border border-[var(--cordel-border)] text-[10px] font-cactus font-bold uppercase flex items-center gap-1 cursor-pointer ${isMirror ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]'}`}>
           <FlipHorizontal size={12} /> <span>{tMobile(lang, 'mirror')}</span>
         </button>
-        <button onClick={onToggleLockFraming} className={`px-2 py-1 border border-[var(--cordel-border)] text-[10px] font-cactus font-bold uppercase flex items-center gap-1 cursor-pointer ${lockFraming ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]'}`}>
+        <button onClick={onToggleLockFraming} className={`px-2 py-1 border border-[var(--cordel-border)] text-[10px] font-cactus font-bold uppercase flex items-center gap-1 cursor-pointer ${lockFraming ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)]'}`}>
           <Lock size={12} /> <span>{tMobile(lang, 'lockFraming')}</span>
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" multiple={mode !== 'single'} onChange={onFiles} className="hidden" />

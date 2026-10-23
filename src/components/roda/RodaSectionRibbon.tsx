@@ -7,6 +7,7 @@ import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 're
 import { Repeat } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { SongSection } from '../../types';
+import { filterTopLevelSections } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 
 export const RodaSectionRibbon: React.FC = () => {
   const songSections = useSequencerStore(s => s.songSections || []);
@@ -18,24 +19,8 @@ export const RodaSectionRibbon: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null), pillRefs = useRef<(HTMLButtonElement | null)[]>([]), lastWheelTimeRef = useRef(0);
   const [wheelIndex, setWheelIndex] = useState<number | null>(null), [translateX, setTranslateX] = useState(0), [isReady, setIsReady] = useState(false);
 
-  // 1. Zéro chevauchement : filtre glouton par portée décroissante
-  const macroSections = useMemo(() => {
-    if (!songSections || songSections.length === 0) return [];
-    const sorted = [...songSections].sort((a, b) => {
-      const spanDiff = (b.endMeasure - b.startMeasure) - (a.endMeasure - a.startMeasure);
-      if (spanDiff !== 0) return spanDiff;
-      const levelDiff = (a.level ?? 0) - (b.level ?? 0);
-      return levelDiff !== 0 ? levelDiff : a.startMeasure - b.startMeasure;
-    });
-
-    const kept: SongSection[] = [];
-    for (const sec of sorted) {
-      if (!kept.some(k => sec.startMeasure <= k.endMeasure && sec.endMeasure >= k.startMeasure)) {
-        kept.push(sec);
-      }
-    }
-    return kept.sort((a, b) => a.startMeasure - b.startMeasure);
-  }, [songSections]);
+  // 1. Zéro chevauchement : filtre glouton par portée décroissante (logique partagée)
+  const macroSections = useMemo(() => filterTopLevelSections(songSections), [songSections]);
 
   const activeIdx = useMemo(() => {
     const idx = macroSections.findIndex(s => currentMeasure >= s.startMeasure && currentMeasure <= s.endMeasure);

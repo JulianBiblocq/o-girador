@@ -39,11 +39,11 @@ export const MobileTopHeader: React.FC<Props> = ({
         <span className="font-cactus font-bold text-xs sm:text-sm tracking-wider text-[#f4ecd8]">
           SEQUENCIADOR
         </span>
-        <div className="flex items-center border border-[#f4ecd8]/40 overflow-hidden shrink-0 font-mono text-[9px] font-bold">
+        <div className="h-8 inline-flex items-stretch box-border border border-[#f4ecd8]/40 overflow-hidden shrink-0 font-mono text-[9px] font-bold">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleSelectLang(lang === 'fr' ? 'pt' : 'fr'); }}
-            className={`px-1.5 py-0.5 transition-colors cursor-pointer pointer-events-auto relative z-10 ${
+            className={`px-2 flex items-center justify-center transition-colors cursor-pointer pointer-events-auto relative z-10 ${
               lang === 'fr'
                 ? 'bg-[#b94a2c] text-[#f4ecd8] font-bold'
                 : 'bg-[#292524] text-[#f4ecd8]/80 hover:text-[#f4ecd8]'
@@ -54,7 +54,7 @@ export const MobileTopHeader: React.FC<Props> = ({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleSelectLang(lang === 'pt' ? 'fr' : 'pt'); }}
-            className={`px-1.5 py-0.5 border-l border-[#f4ecd8]/40 transition-colors cursor-pointer pointer-events-auto relative z-10 ${
+            className={`px-2 flex items-center justify-center border-l border-[#f4ecd8]/40 transition-colors cursor-pointer pointer-events-auto relative z-10 ${
               lang === 'pt'
                 ? 'bg-[#b94a2c] text-[#f4ecd8] font-bold'
                 : 'bg-[#292524] text-[#f4ecd8]/80 hover:text-[#f4ecd8]'
@@ -68,7 +68,7 @@ export const MobileTopHeader: React.FC<Props> = ({
       {/* 2. Sélecteur Morceau / Catalogue */}
       <button
         onClick={onOpenSongPicker}
-        className="flex-1 max-w-[130px] sm:max-w-[180px] px-1.5 py-1 bg-[#262220] border border-[#f4ecd8]/40 text-[#f4ecd8] font-cactus font-bold text-xs uppercase tracking-wide truncate flex items-center justify-between active:translate-y-0.5 transition-all shadow-[1px_1px_0px_#000] cursor-pointer"
+        className="h-8 px-2.5 inline-flex items-center justify-between gap-1.5 box-border border border-[#f4ecd8]/40 flex-1 min-w-0 max-w-[200px] bg-[#262220] text-[#f4ecd8] font-cactus font-bold text-xs uppercase tracking-wide truncate active:translate-y-0.5 transition-all shadow-[1px_1px_0px_#000] cursor-pointer"
         title={lang === 'fr' ? 'Choisir un morceau' : 'Escolher uma música'}
       >
         <span className="truncate">{songTitle || 'CATALOGUE'}</span>
@@ -80,11 +80,10 @@ export const MobileTopHeader: React.FC<Props> = ({
         <MobileAuthBadge lang={lang} />
         <button
           onClick={onOpenMenu}
-          className="px-2 py-1 bg-[#262220] border border-[#f4ecd8]/40 text-[#f4ecd8] font-cactus font-bold text-xs uppercase tracking-wider flex items-center gap-1 active:translate-y-0.5 transition-all shadow-[1px_1px_0px_#000] cursor-pointer"
+          className="w-8 h-8 shrink-0 inline-flex items-center justify-center box-border bg-[#262220] text-[#f4ecd8] border border-[#f4ecd8]/40 active:translate-y-0.5 transition-all shadow-[1px_1px_0px_#000] cursor-pointer"
           title={lang === 'fr' ? 'Outils et réglages' : 'Ajustes e ferramentas'}
         >
-          <span>MENU</span>
-          <Menu size={13} className="shrink-0 text-[#f4ecd8]" />
+          <Menu size={18} className="shrink-0 text-[#f4ecd8]" />
         </button>
       </div>
     </header>

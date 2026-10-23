@@ -1,12 +1,13 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Ruban dynamique des sections scrollable au doigt et auto-centré à 12h (< 120 lignes).
  */
-
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useShallow } from 'zustand/react/shallow';
 import { SongSection } from '../../types';
+import { filterTopLevelSections } from '../../utils/sections/resolveTopLevelSectionForMeasure';
+import { Repeat } from 'lucide-react';
 
 interface Props {
   isPlaying: boolean;
@@ -14,99 +15,104 @@ interface Props {
 }
 
 export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeasure }) => {
-  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+  const songSections = useSequencerStore((s) => s.songSections || []);
+  const currentMeasure = useSequencerStore((s) => s.currentMeasure);
+  const loopStartMeasure = useSequencerStore((s) => s.loopStartMeasure);
+  const loopEndMeasure = useSequencerStore((s) => s.loopEndMeasure);
+  const isLoopRegionActive = useSequencerStore((s) => s.isLoopRegionActive);
+  const setLoopStartMeasure = useSequencerStore((s) => s.setLoopStartMeasure);
+  const setLoopEndMeasure = useSequencerStore((s) => s.setLoopEndMeasure);
+  const setIsLoopRegionActive = useSequencerStore((s) => s.setIsLoopRegionActive);
+  const setPendingLoopRange = useSequencerStore((s) => s.setPendingLoopRange);
 
-  const {
-    songSections, loopStartMeasure, loopEndMeasure, isLoopRegionActive, pendingLoopRange, lang,
-    setLoopStartMeasure, setLoopEndMeasure, setIsLoopRegionActive, setPendingLoopRange,
-  } = useSequencerStore(
-    useShallow((s) => ({
-      songSections: s.songSections || [],
-      loopStartMeasure: s.loopStartMeasure, loopEndMeasure: s.loopEndMeasure,
-      isLoopRegionActive: s.isLoopRegionActive, pendingLoopRange: s.pendingLoopRange,
-      lang: s.lang || 'pt',
-      setLoopStartMeasure: s.setLoopStartMeasure, setLoopEndMeasure: s.setLoopEndMeasure,
-      setIsLoopRegionActive: s.setIsLoopRegionActive, setPendingLoopRange: s.setPendingLoopRange,
-    }))
-  );
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pillRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const topSections = useMemo(() => filterTopLevelSections(songSections), [songSections]);
+
+  const activeIdx = useMemo(() => {
+    const idx = topSections.findIndex((s) => currentMeasure >= s.startMeasure && currentMeasure <= s.endMeasure);
+    return idx >= 0 ? idx : 0;
+  }, [topSections, currentMeasure]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const pill = pillRefs.current[activeIdx];
+    if (container && pill) {
+      const targetScrollLeft = pill.offsetLeft + pill.offsetWidth / 2 - container.clientWidth / 2;
+      container.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+    }
+  }, [activeIdx]);
 
   const handleClearLoop = () => {
-    setIsLoopRegionActive(false); setPendingLoopRange(null); setSelectionAnchor(null);
+    setIsLoopRegionActive(false);
+    setPendingLoopRange(null);
   };
 
-  const handleSelectSection = (sec: SongSection) => {
-    const isSingleActive = isLoopRegionActive && loopStartMeasure === sec.startMeasure && loopEndMeasure === sec.endMeasure && !pendingLoopRange;
-    if ((isSingleActive && !selectionAnchor) || selectionAnchor === sec.id) {
+  const handleSectionClick = (sec: SongSection, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (e.shiftKey && loopStartMeasure !== null) {
+      setLoopStartMeasure(Math.min(loopStartMeasure, sec.startMeasure));
+      setLoopEndMeasure(Math.max(loopEndMeasure ?? loopStartMeasure, sec.endMeasure));
+      setIsLoopRegionActive(true);
+      return;
+    }
+
+    if (isLoopRegionActive && loopStartMeasure === sec.startMeasure && loopEndMeasure === sec.endMeasure) {
       handleClearLoop();
-      return;
-    }
-
-    if (!selectionAnchor) {
-      const isExt = isPlaying && isLoopRegionActive && loopStartMeasure === sec.startMeasure && loopEndMeasure !== null && sec.endMeasure > loopEndMeasure;
-      if (!isPlaying) {
-        setLoopStartMeasure(sec.startMeasure); setLoopEndMeasure(sec.endMeasure);
-        setIsLoopRegionActive(true); setPendingLoopRange(null); setSelectionAnchor(sec.id);
-        onNavigateMeasure?.(sec.startMeasure);
-      } else if (isExt) {
-        setLoopEndMeasure(sec.endMeasure); setIsLoopRegionActive(true); setPendingLoopRange(null); setSelectionAnchor(null);
-      } else {
-        setPendingLoopRange({ startMeasure: sec.startMeasure, endMeasure: sec.endMeasure });
-        setSelectionAnchor(sec.id);
-      }
-      return;
-    }
-
-    const anchorSec = songSections.find((s) => s.id === selectionAnchor);
-    const startM = anchorSec ? Math.min(anchorSec.startMeasure, sec.startMeasure) : sec.startMeasure;
-    const endM = anchorSec ? Math.max(anchorSec.endMeasure, sec.endMeasure) : sec.endMeasure;
-    const isExt = isPlaying && isLoopRegionActive && loopStartMeasure === startM && loopEndMeasure !== null && endM > loopEndMeasure;
-
-    if (!isPlaying) {
-      setLoopStartMeasure(startM); setLoopEndMeasure(endM); setIsLoopRegionActive(true);
-      setPendingLoopRange(null); setSelectionAnchor(null); onNavigateMeasure?.(startM);
-    } else if (isExt) {
-      setLoopEndMeasure(endM); setIsLoopRegionActive(true); setPendingLoopRange(null); setSelectionAnchor(null);
     } else {
-      setPendingLoopRange({ startMeasure: startM, endMeasure: endM }); setSelectionAnchor(null);
+      setLoopStartMeasure(sec.startMeasure);
+      setLoopEndMeasure(sec.endMeasure);
+      setIsLoopRegionActive(true);
+      if (!isPlaying) onNavigateMeasure?.(sec.startMeasure);
     }
   };
-
-  const isAllActive = !isLoopRegionActive && pendingLoopRange === null;
 
   return (
-    <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0 select-none border-b-2 border-[var(--cordel-border)] relative z-30">
-      <button
-        onClick={handleClearLoop}
-        className={`min-h-[40px] px-3 py-1.5 text-xs font-cactus font-bold uppercase border-2 shrink-0 flex items-center justify-center transition-colors shadow-[2px_2px_0px_#000] cursor-pointer ${
-          isAllActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
-        }`}
-      >
-        {lang === 'pt' ? 'TUDO' : 'TOUT'}
-      </button>
+    <div
+      ref={containerRef}
+      onWheel={(e) => {
+        if (!containerRef.current) return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          containerRef.current.scrollLeft += e.deltaY;
+        }
+      }}
+      className="relative w-full h-10 overflow-x-auto no-scrollbar [&::-webkit-scrollbar]:hidden flex items-center touch-pan-x select-none z-30 border-b-2 border-[var(--cordel-border)] bg-[var(--cordel-surface)] gap-1.5"
+      style={{
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+        maskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
+      }}
+    >
+      <div className="shrink-0 w-[calc(50%-24px)]" />
 
-      {songSections.map((sec) => {
-        const isPending = pendingLoopRange && sec.startMeasure >= pendingLoopRange.startMeasure && sec.endMeasure <= pendingLoopRange.endMeasure;
-        const isActive = !isPending && isLoopRegionActive && loopStartMeasure !== null && loopEndMeasure !== null && sec.startMeasure >= loopStartMeasure && sec.endMeasure <= loopEndMeasure;
-        const isAnchor = selectionAnchor === sec.id;
+      {topSections.map((sec, idx) => {
+        const isCurrent = currentMeasure >= sec.startMeasure && currentMeasure <= sec.endMeasure;
+        const isLooped = isLoopRegionActive && loopStartMeasure !== null && loopEndMeasure !== null && sec.startMeasure >= loopStartMeasure && sec.endMeasure <= loopEndMeasure;
+
+        const themeStyle = isLooped
+          ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black ring-1 ring-[#f4ecd8] shadow-[2px_2px_0px_#000]'
+          : isCurrent
+          ? 'bg-[#c25e38] text-[#f4ecd8] border-black shadow-[2px_2px_0px_#000]'
+          : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c] shadow-[1px_1px_0px_#000]';
 
         return (
           <button
             key={sec.id}
-            onClick={() => handleSelectSection(sec)}
-            className={`min-h-[40px] px-3 py-1.5 text-xs font-cactus font-bold uppercase border-2 shrink-0 flex items-center justify-center transition-all shadow-[2px_2px_0px_#000] cursor-pointer ${
-              isPending
-                ? 'bg-[#b94a2c]/70 text-[#f4ecd8] border-black animate-pulse'
-                : isActive
-                ? 'bg-[#b94a2c] text-[#f4ecd8] border-black'
-                : isAnchor
-                ? 'bg-[var(--cordel-card-btn-bg)] text-[#b94a2c] border-[#b94a2c]'
-                : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
-            }`}
+            ref={(el) => { pillRefs.current[idx] = el; }}
+            onClick={(e) => handleSectionClick(sec, e)}
+            className={`h-7 min-h-[28px] px-2.5 text-xs font-cactus font-bold uppercase border-2 shrink-0 flex items-center gap-1 transition-all cursor-pointer ${themeStyle}`}
+            title={`${sec.name} (${sec.startMeasure + 1}-${sec.endMeasure + 1}) — Clic: loop / Maj+Clic: étendre`}
           >
-            {sec.name}
+            {isLooped && <Repeat size={10} className="shrink-0 animate-pulse" />}
+            <span className="whitespace-nowrap truncate max-w-[120px]">{sec.name}</span>
+            <span className="text-[9px] font-mono opacity-80 whitespace-nowrap">M{sec.startMeasure + 1}-{sec.endMeasure + 1}</span>
           </button>
         );
       })}
+
+      <div className="shrink-0 w-[calc(50%-24px)]" />
     </div>
   );
 };

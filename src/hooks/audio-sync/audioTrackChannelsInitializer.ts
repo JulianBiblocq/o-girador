@@ -2,7 +2,8 @@ import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { channels, meters, reverbSends, distortionSends, busChannels, masterVolumeNode } from './audioEngineNodes';
-import { percentToDb, normalizePanForTone } from './audioParamsCache';
+import { percentToDb } from './audioParamsCache';
+import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus } from '../../stores/useSequencerStore';
 import { trackInputs, syncTrackInsertChain } from '../../audio/effectsChain';
@@ -75,11 +76,12 @@ export function initTrackChannelsAudioNodes(
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
-    const pan = normalizePanForTone(t.panVal ?? t.pan);
+    const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(t.panVal ?? t.pan);
+    const finalDb = safeDb > -90 ? safeDb + panCompensationDb : safeDb;
     const muteState = getEffectiveMuteState(tracks, t.id);
 
-    channels[t.id].volume.value = safeDb;
-    channels[t.id].pan.value = pan;
+    channels[t.id].volume.value = finalDb;
+    channels[t.id].pan.value = acousticPan;
     channels[t.id].mute = muteState;
 
     if (reverbSends[t.id]) {
@@ -101,6 +103,6 @@ export function initTrackChannelsAudioNodes(
     const eqHighF = t.eqBands?.high?.f ?? 8000;
     const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
-    lastAppliedTracksParamsRef.current[t.id] = `${db}_${pan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+    lastAppliedTracksParamsRef.current[t.id] = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
   });
 }

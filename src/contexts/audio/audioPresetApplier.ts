@@ -7,6 +7,7 @@ import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
 import { migrateAndSanitizePresetTracks } from './audioPresetTracksMigrator';
 import { restorePresetVocalRecordings } from './audioPresetVocalRestorer';
 import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
+import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 
 export async function executeApplyPreset(
   p: any,
@@ -131,6 +132,11 @@ export async function executeApplyPreset(
 
   const targetVocalPreset = p.vocalPreset || p.metadata?.vocalPreset;
   if (targetVocalPreset) useAudioStore.getState().setVocalPreset(targetVocalPreset as any);
+
+  const rawVigilance = p.vigilancePoints || p.metadata?.vigilancePoints;
+  if (Array.isArray(rawVigilance) && rawVigilance.length > 0) {
+    usePaperVigilanceStore.setState({ points: rawVigilance, activeFocusPoint: null });
+  }
 
   sequencer.measureCountRef.current = 0;
   sequencer.tracksRef.current = loadedTracks;

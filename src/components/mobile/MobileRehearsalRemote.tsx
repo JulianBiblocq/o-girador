@@ -36,6 +36,7 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLetraOpen, setIsLetraOpen] = useState(false);
+  const [letraInitialTab, setLetraInitialTab] = useState<'lyrics' | 'info'>('lyrics');
 
   const { lang, loopMode, setLoopMode, isLoopExitRequested, requestLoopExit, isTouchLocked } =
     useSequencerStore(
@@ -68,7 +69,14 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
 
       <MobileCondensedConductor
         isLetraOpen={isLetraOpen}
-        onToggleLetra={() => setIsLetraOpen((prev) => !prev)}
+        onToggleLetra={() => {
+          setLetraInitialTab('lyrics');
+          setIsLetraOpen((prev) => !prev);
+        }}
+        onOpenSongInfo={() => {
+          setLetraInitialTab('info');
+          setIsLetraOpen(true);
+        }}
         lang={lang}
       />
 
@@ -81,6 +89,7 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
         <MobileFamilyPads isLocked={isTouchLocked} />
         {isLetraOpen && (
           <MobileLetraDrawer
+            initialTab={letraInitialTab}
             onClose={() => setIsLetraOpen(false)}
             lang={lang}
           />

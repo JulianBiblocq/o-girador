@@ -1,11 +1,12 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Mode Percussion Mobile avec Focus permanent (1 ou 2 instruments max, < 140 lignes).
  */
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveBpm } from '../../utils/bpmUtils';
@@ -19,6 +20,7 @@ import { MobilePercTransport } from './MobilePercTransport';
 import { MobileSongPickerModal } from './MobileSongPickerModal';
 import { MobileMenuSheet } from './MobileMenuSheet';
 import { MobileLetraDrawer } from './MobileLetraDrawer';
+import { MobileFocusPopover } from './MobileFocusPopover';
 import { SpeedTrainerModal } from '../SpeedTrainerModal';
 
 interface Props {
@@ -31,103 +33,90 @@ interface Props {
 
 export const MobilePercussionMode: React.FC<Props> = (props) => {
   const { setLang, bpm, metadata } = useSequencer();
+  const { userProfile } = useAuth();
   const lang = useSequencerStore((s) => s.lang);
   const audio = useAudio();
-  const tracks = useSequencerStore((s) => s.tracks);
-  const currentMeasure = useSequencerStore((s) => s.currentMeasure);
-  const measureBpms = useSequencerStore((s) => s.measureBpms);
-  const activeAoVivoTrackId = useSequencerStore((s) => s.activeAoVivoTrackId);
-  const setActiveAoVivoTrackId = useSequencerStore((s) => s.setActiveAoVivoTrackId);
-  const loopMode = useSequencerStore((s) => s.loopMode ?? 'infinite');
-  const setLoopMode = useSequencerStore((s) => s.setLoopMode);
-  const isLoopExitRequested = useSequencerStore((s) => s.isLoopExitRequested);
-  const requestLoopExit = useSequencerStore((s) => s.requestLoopExit);
-  const isSpeedTrainerOpen = useSequencerStore((s) => s.isSpeedTrainerOpen);
-  const openSpeedTrainerModal = useSequencerStore((s) => s.openSpeedTrainerModal);
-  const isLetraActive = useSequencerStore((s) => s.isLetraActive);
-  const toggleLetraActive = useSequencerStore((s) => s.toggleLetraActive);
+  const tracks = useSequencerStore((s) => s.tracks), setTracks = useSequencerStore((s) => s.setTracks);
+  const currentMeasure = useSequencerStore((s) => s.currentMeasure), measureBpms = useSequencerStore((s) => s.measureBpms);
+  const activeAoVivoTrackId = useSequencerStore((s) => s.activeAoVivoTrackId), setActiveAoVivoTrackId = useSequencerStore((s) => s.setActiveAoVivoTrackId);
+  const focusTrackId = useSequencerStore((s) => s.focusTrackId);
+  const syncFocusWithTracks = useSequencerStore((s) => s.syncFocusWithTracks);
+  const loopMode = useSequencerStore((s) => s.loopMode ?? 'infinite'), setLoopMode = useSequencerStore((s) => s.setLoopMode);
+  const isLoopExitRequested = useSequencerStore((s) => s.isLoopExitRequested), requestLoopExit = useSequencerStore((s) => s.requestLoopExit);
+  const isSpeedTrainerOpen = useSequencerStore((s) => s.isSpeedTrainerOpen), openSpeedTrainerModal = useSequencerStore((s) => s.openSpeedTrainerModal);
+  const isLetraActive = useSequencerStore((s) => s.isLetraActive), toggleLetraActive = useSequencerStore((s) => s.toggleLetraActive);
 
-  const [primaryTrackId, setPrimaryTrackId] = useState<number | null>(null);
   const [referenceTrackId, setReferenceTrackId] = useState<number | null>(null);
+  const [isFocusPopoverOpen, setIsFocusPopoverOpen] = useState(false);
+  const [isRestMuted, setIsRestMuted] = useState(false);
   const [isLetraDrawerOpen, setIsLetraDrawerOpen] = useState(false);
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const initialAoVivoInitRef = useRef(false);
 
   useEffect(() => {
-    return () => { useSequencerStore.getState().setActiveAoVivoTrackId(null); };
-  }, []);
-
-  useEffect(() => {
-    if (primaryTrackId && tracks.some((t) => t.id === primaryTrackId)) return;
-    const searchParams = new URLSearchParams(window.location.search);
-    const roleParam = searchParams.get('role') || searchParams.get('playAlongTrackId');
-    const cached = localStorage.getItem('sequenciador_perc_primary_track');
-    const eligibleTracks = tracks.filter((t) => {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      return inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.id !== 'apito' && inst.id !== 'toada';
-    });
-    const matched = eligibleTracks.find((t) => String(t.id) === roleParam) ||
-      eligibleTracks.find((t) => String(t.id) === cached) || eligibleTracks[0];
-    if (matched) setPrimaryTrackId(matched.id);
-  }, [tracks, primaryTrackId]);
-
-  useEffect(() => {
-    if (!initialAoVivoInitRef.current && primaryTrackId !== null) {
-      initialAoVivoInitRef.current = true;
-      setActiveAoVivoTrackId(primaryTrackId);
-      return;
+    syncFocusWithTracks(tracks, userProfile);
+    if (!useSequencerStore.getState().isFocusActive) {
+      useSequencerStore.setState({ isFocusActive: true });
     }
-    const currentAoVivo = useSequencerStore.getState().activeAoVivoTrackId;
-    if (currentAoVivo !== null && primaryTrackId !== null && currentAoVivo !== primaryTrackId) {
-      setActiveAoVivoTrackId(primaryTrackId);
+  }, [tracks, userProfile, syncFocusWithTracks]);
+
+  useEffect(() => {
+    if (referenceTrackId !== null && referenceTrackId === focusTrackId) {
+      setReferenceTrackId(null);
     }
-  }, [primaryTrackId, setActiveAoVivoTrackId]);
+  }, [referenceTrackId, focusTrackId]);
 
   const handleToggleAoVivo = () => {
-    if (activeAoVivoTrackId !== null) {
-      setActiveAoVivoTrackId(null);
-    } else if (primaryTrackId !== null) {
-      setActiveAoVivoTrackId(primaryTrackId);
-    }
+    if (activeAoVivoTrackId !== null) setActiveAoVivoTrackId(null);
+    else if (focusTrackId !== null) setActiveAoVivoTrackId(focusTrackId);
+  };
+
+  const handleToggleRestMuted = () => {
+    const nextState = !isRestMuted;
+    setIsRestMuted(nextState);
+    setTracks((prev) =>
+      prev.map((t) => {
+        if (t.id === focusTrackId || t.id === referenceTrackId) return t;
+        const inst = instrumentsConfig[t.instrumentIdx];
+        const isVocal = inst && (inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro');
+        if (isVocal && isLetraActive) return { ...t, isMute: false };
+        return { ...t, isMute: nextState };
+      })
+    );
   };
 
   const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
-  const visibleTrackIds = [primaryTrackId, ...(referenceTrackId ? [referenceTrackId] : [])].filter(Boolean) as number[];
+  const effectiveFocusTrackId = focusTrackId ?? tracks[0]?.id ?? null;
+  const visibleTrackIds = [
+    effectiveFocusTrackId,
+    ...(referenceTrackId && referenceTrackId !== effectiveFocusTrackId ? [referenceTrackId] : []),
+  ].filter((id): id is number => id !== null);
 
   return (
     <div className="w-full h-dvh flex flex-col bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
-      <MobileTopHeader
-        songTitle={metadata?.toada || props.activePreset}
-        onOpenSongPicker={() => setIsSongPickerOpen(true)}
-        onOpenMenu={() => setIsMenuOpen(true)}
+      <MobileTopHeader songTitle={metadata?.toada || props.activePreset} onOpenSongPicker={() => setIsSongPickerOpen(true)} onOpenMenu={() => setIsMenuOpen(true)} lang={lang} />
+      <MobilePercControls referenceTrackId={referenceTrackId} isRestMuted={isRestMuted} onToggleRestMuted={handleToggleRestMuted} onOpenFocusPopover={() => setIsFocusPopoverOpen(true)} lang={lang} />
+      <MobilePercCenterBar
+        isAoVivoActive={activeAoVivoTrackId !== null}
+        onToggleAoVivo={handleToggleAoVivo}
+        isLetraActive={isLetraActive}
+        onToggleLetra={toggleLetraActive}
+        onOpenLetraDrawer={() => setIsLetraDrawerOpen(false)}
+        referenceTrackId={referenceTrackId}
+        onSelectReferenceTrackId={setReferenceTrackId}
+        primaryTrackId={effectiveFocusTrackId}
         lang={lang}
       />
-      <MobilePercControls
-        primaryTrackId={primaryTrackId} setPrimaryTrackId={setPrimaryTrackId}
-        referenceTrackId={referenceTrackId} setReferenceTrackId={setReferenceTrackId}
-        isLetraActive={isLetraActive} lang={lang}
-      />
-      <MobilePercCenterBar
-        isAoVivoActive={activeAoVivoTrackId !== null} onToggleAoVivo={handleToggleAoVivo}
-        isLetraActive={isLetraActive} onToggleLetra={toggleLetraActive}
-        onOpenLetraDrawer={() => setIsLetraDrawerOpen(false)} lang={lang}
-      />
+      <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
       <div className="relative flex-1 min-h-0 overflow-hidden z-10 flex items-center justify-center">
         <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} />
-        {activeAoVivoTrackId !== null && <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} isContained />}
+        {activeAoVivoTrackId !== null && <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} />}
       </div>
-      <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
-      <MobilePercTransport
-        isPlaying={props.isPlaying} isLoading={props.isLoading} onTogglePlay={props.onTogglePlay} onStop={props.onStop}
-        bpm={effectiveBpm} onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)}
-        onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()}
-        loopMode={loopMode} onChangeLoopMode={setLoopMode} isLoopExitRequested={isLoopExitRequested}
-        onRequestLoopExit={requestLoopExit} onOpenSpeedTrainer={openSpeedTrainerModal}
-      />
+      <MobilePercTransport isPlaying={props.isPlaying} isLoading={props.isLoading} onTogglePlay={props.onTogglePlay} onStop={props.onStop} bpm={effectiveBpm} onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)} onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()} loopMode={loopMode} onChangeLoopMode={setLoopMode} isLoopExitRequested={isLoopExitRequested} onRequestLoopExit={requestLoopExit} onOpenSpeedTrainer={openSpeedTrainerModal} />
       {isLetraDrawerOpen && <MobileLetraDrawer onClose={() => setIsLetraDrawerOpen(false)} lang={lang} />}
       <MobileSongPickerModal isOpen={isSongPickerOpen} onClose={() => setIsSongPickerOpen(false)} localPresets={props.localPresets} cloudPresets={props.cloudPresets} activePreset={props.activePreset} onPresetChange={props.onPresetChange} lang={lang} />
-      <MobileMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} masterEQ={props.masterEQ} setMasterEQ={props.setMasterEQ} onOpenPaperWorkshop={props.onOpenPaperWorkshop} lang={lang} onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')} isDarkMode={props.isDarkMode ?? true} onToggleDarkMode={props.onToggleDarkMode ?? (() => {})} onToggleStudio={props.onToggleStudio} primaryTrackId={primaryTrackId} referenceTrackId={referenceTrackId} />
+      <MobileMenuSheet isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} masterEQ={props.masterEQ} setMasterEQ={props.setMasterEQ} onOpenPaperWorkshop={props.onOpenPaperWorkshop} lang={lang} onToggleLang={() => setLang(lang === 'pt' ? 'fr' : 'pt')} isDarkMode={props.isDarkMode ?? true} onToggleDarkMode={props.onToggleDarkMode ?? (() => {})} onToggleStudio={props.onToggleStudio} primaryTrackId={effectiveFocusTrackId} referenceTrackId={referenceTrackId} />
+      {isFocusPopoverOpen && <MobileFocusPopover isOpen={isFocusPopoverOpen} onClose={() => setIsFocusPopoverOpen(false)} referenceTrackId={referenceTrackId} onSelectReferenceTrackId={setReferenceTrackId} isRestMuted={isRestMuted} onToggleRestMuted={handleToggleRestMuted} lang={lang} />}
       {isSpeedTrainerOpen && <SpeedTrainerModal changeViewMode={props.onToggleStudio} />}
     </div>
   );

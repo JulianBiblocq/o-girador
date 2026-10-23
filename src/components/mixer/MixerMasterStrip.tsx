@@ -6,6 +6,8 @@ import { masterVolumeNode } from '../../audio/effectsChain';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { MasterEqCompressorSection } from './MasterEqCompressorSection';
 import { MasterStereoMeter } from './MasterStereoMeter';
+import { MasterMonoCheckButton } from './MasterMonoCheckButton';
+import { anyTrackHasRealAuto } from '../../utils/automationDetectHelper';
 import { useMasterFaderAutomation } from './useMasterFaderAutomation';
 import { useMasterVuMeter } from './useMasterVuMeter';
 import { useMasterThemeTokens } from './useMasterThemeTokens';
@@ -48,9 +50,14 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
   const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
   const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
   const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
+  const isMasterMono = useSequencerStore(state => state.isMasterMono);
+  const toggleMasterMono = useSequencerStore(state => state.toggleMasterMono);
+  const tracks = useSequencerStore(state => state.tracks);
+  const bypassAllAutomations = useSequencerStore(state => state.bypassAllAutomations);
 
   const hasMasterVolAuto = measureVols && measureVols.some(v => v !== 100);
   const isMasterVolActive = !!hasMasterVolAuto && !isMasterVolumeBypassed;
+  const hasTrackAuto = anyTrackHasRealAuto(tracks);
 
   const { masterFaderHandleRef, masterFaderTextRef, masterTravelRangeRef } = useMasterFaderAutomation({
     isPlaying,
@@ -89,10 +96,22 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
 
         {!isMasterCollapsed ? (
           <>
-            <div className="p-1.5 px-2 border-b-2 border-[var(--master-border)] bg-[var(--cordel-bg)] shrink-0">
-              <button type="button" onClick={onOpenSaveTemplate} className="w-full py-1 px-2 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[11px] uppercase flex items-center justify-center gap-1.5 transition-colors shadow-[2px_2px_0px_#1a1a1a] cursor-pointer">
-                <XiloScroll size={14} className="shrink-0" /><span>{lang === 'pt' ? 'Salvar Modelo' : 'Mémoriser gabarit'}</span>
+            <div className="p-1.5 px-2 border-b-2 border-[var(--master-border)] bg-[var(--cordel-bg)] shrink-0 flex items-center gap-1.5">
+              <button type="button" onClick={onOpenSaveTemplate} className="flex-1 py-1 px-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[10px] uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#1a1a1a] cursor-pointer truncate">
+                <XiloScroll size={13} className="shrink-0" /><span className="truncate">{lang === 'pt' ? 'Modelo' : 'Gabarit'}</span>
               </button>
+              {hasTrackAuto && (
+                <button
+                  type="button"
+                  onClick={() => bypassAllAutomations(true)}
+                  className="py-1 px-1.5 bg-[#8b2a1a]/15 text-[#8b2a1a] dark:text-[#f87171] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[9px] uppercase flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
+                  title={lang === 'fr' ? 'Débrayer toutes les automations de pistes' : 'Desativar todas as automações'}
+                >
+                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
+                  <span>Auto</span>
+                </button>
+              )}
+              <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} />
             </div>
             <MasterEqCompressorSection t={t} lang={lang} masterEQ={masterEQ} onMasterEQChange={onMasterEQChange} masterCompressor={masterCompressor} onMasterCompressorChange={onMasterCompressorChange} />
             <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[140px] h-auto gap-7 overflow-hidden">
@@ -112,6 +131,9 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
           </>
         ) : (
           <div className="flex-grow flex flex-col items-center justify-between py-3 px-1 w-full gap-4 min-h-0 bg-[var(--master-header-bg)] text-[var(--master-header-text)] transition-colors">
+            <div className="flex flex-col items-center gap-2">
+              <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} collapsed={true} />
+            </div>
             <div className="flex-grow flex items-center justify-center select-none py-2 cursor-pointer" onClick={() => setIsMasterCollapsed(false)} title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}>
               <span className="font-cactus font-black text-xs tracking-widest text-[var(--master-header-text)] opacity-85 hover:opacity-100 transition-opacity uppercase" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>MASTER</span>
             </div>

@@ -17,7 +17,12 @@ const CODE_MAP: Record<string, string> = {
   puxador: 'td', coro: 'td', toada: 'td',
 };
 
-export const ensureMissingTracks = (tracks: TrackGroup[], preset: PaperPreset, totalM: number): TrackGroup[] => {
+function cloneStepValue(s: any): any {
+  if (Array.isArray(s)) return [...s];
+  return s === 0 ? 0 : s;
+}
+
+export const ensureMissingTracks = (tracks: TrackGroup[], preset: PaperPreset): TrackGroup[] => {
   const result = [...tracks];
   const usedCodes = new Set<string>(preset.pupitres || []);
   Object.values(preset.patterns || {}).forEach((map) => {
@@ -43,10 +48,11 @@ export const ensureMissingTracks = (tracks: TrackGroup[], preset: PaperPreset, t
         panVal: 0,
         pan: 0,
         fxSends: { reverb: 0, distortion: 0 },
-        measureVols: Array(totalM).fill(75),
-        measurePans: Array(totalM).fill(0),
-        measureReverbSends: Array(totalM).fill(0),
-      });
+        measureVols: undefined,
+        measurePans: undefined,
+        measureReverbSends: undefined,
+        automationBypass: { volume: false, pan: false, reverb: false },
+      } as TrackGroup);
     }
   });
   return result;
@@ -59,13 +65,15 @@ export const assignPatternsToTracks = (
   totalM: number
 ): TrackGroup[] => {
   const vigilance = usePaperVigilanceStore.getState();
-  const parentBus = tracks.find((t) => t.isLinkFolder);
+  const alfBus = tracks.find((t) => t.isLinkFolder && t.instrumentIdx === 0);
+  const cxBus = tracks.find((t) => t.isLinkFolder && t.instrumentIdx === 3);
 
   return tracks.map((track) => {
     const instId = instrumentsConfig[track.instrumentIdx]?.id || '';
     const specificCode = CODE_MAP[instId] || '';
-    const isAlfaia = instId === 'marcante' || instId === 'meiao' || instId === 'repique' || track.isLinkFolder;
-    const groupCode = isAlfaia ? 'al' : specificCode;
+    const isAlfaia = instId === 'marcante' || instId === 'meiao' || instId === 'repique' || (track.isLinkFolder && track.instrumentIdx === 0);
+    const isCaixaGroup = instId === 'caixa' || instId === 'tarol' || (track.isLinkFolder && track.instrumentIdx === 3);
+    const groupCode = isAlfaia ? 'al' : (isCaixaGroup ? 'cx' : specificCode);
     if (!groupCode) return track;
 
     const newPatterns: Pattern[] = [];
@@ -79,12 +87,12 @@ export const assignPatternsToTracks = (
         const baseVal: any = (baseMap as any)[specificCode] || (baseMap as any)[groupCode] || Array(16).fill(0);
         rawSteps = Array.isArray(baseVal) ? baseVal : Array(16).fill(0);
       }
-      const patId = isAlfaia ? 800000 + idx + 1 : track.id * 1000 + idx + 1;
+      const patId = isAlfaia ? 800000 + idx + 1 : (track.isLinkFolder && track.instrumentIdx === 3 ? 810000 + idx + 1 : track.id * 1000 + idx + 1);
       newPatterns.push({
         id: patId,
         name: sectionName,
         steps: 16,
-        activeSteps: rawSteps.map((s) => (s === 0 ? 0 : s)),
+        activeSteps: rawSteps.map(cloneStepValue),
         lyrics: Array(16).fill(''),
         notes: Array(16).fill(''),
         measureAssignments: Array(totalM).fill(false),
@@ -93,10 +101,11 @@ export const assignPatternsToTracks = (
 
       vigilance.linkPointsToTrack(sectionName, specificCode, track.id, patId);
       if (groupCode !== specificCode) vigilance.linkPointsToTrack(sectionName, groupCode, track.id, patId);
-      if (parentBus) vigilance.linkPointsToTrack(sectionName, 'al', parentBus.id, 800000 + idx + 1);
+      if (alfBus) vigilance.linkPointsToTrack(sectionName, 'al', alfBus.id, 800000 + idx + 1);
+      if (cxBus) vigilance.linkPointsToTrack(sectionName, 'cx', cxBus.id, 810000 + idx + 1);
     });
 
-    const overrides: Record<number, number | null> = { ...(track.patternOverrides || {}) };
+    const overrides: Record<number, number | null> = {};
 
     sequence.forEach((rawSecName, mIdx) => {
       const isBaseWord = /^(base|idem|%)$/i.test(rawSecName.trim());
@@ -108,12 +117,12 @@ export const assignPatternsToTracks = (
         const dictFallback = resolveSectionFromDictionaryFallback(targetSec, parsedToken.variationCalls);
         if (dictFallback) {
           const fbSteps = (dictFallback[specificCode] || dictFallback[groupCode] || Array(16).fill(0)) as any[];
-          const patId = isAlfaia ? 800000 + newPatterns.length + 1 : track.id * 1000 + newPatterns.length + 1;
+          const patId = isAlfaia ? 800000 + newPatterns.length + 1 : (track.isLinkFolder && track.instrumentIdx === 3 ? 810000 + newPatterns.length + 1 : track.id * 1000 + newPatterns.length + 1);
           pat = {
             id: patId,
             name: targetSec,
             steps: 16,
-            activeSteps: fbSteps.map((s) => (s === 0 ? 0 : s)),
+            activeSteps: fbSteps.map(cloneStepValue),
             lyrics: Array(16).fill(''),
             notes: Array(16).fill(''),
             measureAssignments: Array(totalM).fill(false),
@@ -131,9 +140,17 @@ export const assignPatternsToTracks = (
       patterns: newPatterns,
       selectedPatternId: newPatterns[0]?.id ?? 0,
       patternOverrides: overrides,
-      measureVols: Array(totalM).fill(track.volumeVal || 75),
-      measurePans: Array(totalM).fill(track.panVal || 0),
-      measureReverbSends: Array(totalM).fill(track.reverbVal || 0),
+      automation: undefined,
+      volumeAutomation: undefined,
+      panAutomation: undefined,
+      isAutomated: false,
+      automationBypass: { volume: false, pan: false, reverb: false },
+      measureVols: undefined,
+      measureVolTransitions: undefined,
+      measurePans: undefined,
+      measurePanTransitions: undefined,
+      measureReverbSends: undefined,
+      measureReverbTransitions: undefined,
     };
   });
 };

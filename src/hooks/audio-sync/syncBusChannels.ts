@@ -2,7 +2,8 @@ import * as Tone from 'tone';
 import { Track } from '../../types';
 import { getEffectiveVolume, getEffectiveMuteState } from '../../stores/useSequencerStore';
 import { faderPositionToDb } from '../../utils/audioMath';
-import { percentToDb, normalizePanForTone } from './audioParamsCache';
+import { percentToDb } from './audioParamsCache';
+import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 
 export interface SyncBusChannelsParams {
   tracks: Track[];
@@ -41,16 +42,16 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
-    const pan = normalizePanForTone(t.panVal ?? t.pan);
+    const { acousticPan } = applyMonoCompatiblePan(t.panVal ?? t.pan);
     const reverb = t.fxSends?.reverb ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
     const muteState = getEffectiveMuteState(tracks, t.id);
 
-    const paramHash = `bus_${safeDb}_${pan}_${muteState}_${reverb}_${distortion}`;
+    const paramHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
       busChannels[t.id].volume.value = safeDb;
-      busChannels[t.id].pan.value = pan;
+      busChannels[t.id].pan.value = acousticPan;
       busChannels[t.id].mute = muteState;
 
       if (!reverbSends[t.id]) {

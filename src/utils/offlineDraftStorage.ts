@@ -25,7 +25,7 @@ export function saveDraftLocally(name: string, presetData: any, vigilancePoints:
     const item: OfflineDraftItem = {
       id: `draft_${Date.now()}`,
       name,
-      presetData: { ...presetData, isDraft: true },
+      presetData: { ...presetData, isDraft: true, vigilancePoints },
       vigilancePoints,
       signals,
       savedAt: Date.now(),

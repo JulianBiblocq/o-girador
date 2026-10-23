@@ -1,142 +1,125 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Barre supérieure de contrôle Mode Percussion Mobile avec sélecteur direct Focus (< 120 lignes).
  */
-
-import React, { useState, useEffect } from 'react';
-import { useSequencerStore, isSequencerVisibleTrack } from '../../stores/useSequencerStore';
-import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
+import React from 'react';
+import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
+import { getPlayableFocusTracks } from '../../utils/focusTrackSelector';
 import { getEnsembleVocabulary } from '../../universes/styleVocabularyConfig';
-import { MOBILE_FAMILIES } from './mobileFamilyConfig';
-import { MobilePercTrackSelector } from './MobilePercTrackSelector';
-import { Users } from 'lucide-react';
+import { CordelTarget } from '../ui/CordelTarget';
+import { ChevronDown, ShieldCheck, Shuffle, Volume2, VolumeX, Users } from 'lucide-react';
 
 interface Props {
-  primaryTrackId: number | null; setPrimaryTrackId: (id: number) => void;
-  referenceTrackId: number | null; setReferenceTrackId: (id: number | null) => void;
-  isLetraActive: boolean; lang?: 'fr' | 'pt';
+  referenceTrackId: number | null;
+  isRestMuted: boolean;
+  onToggleRestMuted: () => void;
+  onOpenFocusPopover: () => void;
+  lang?: 'fr' | 'pt';
 }
 
 export const MobilePercControls: React.FC<Props> = ({
-  primaryTrackId, setPrimaryTrackId, referenceTrackId, setReferenceTrackId, isLetraActive, lang: propLang,
+  referenceTrackId, isRestMuted, onToggleRestMuted, onOpenFocusPopover, lang: propLang,
 }) => {
   const storeLang = useSequencerStore((s) => s.lang);
   const lang = storeLang || propLang || 'pt';
   const tracks = useSequencerStore((s) => s.tracks);
-  const setTracks = useSequencerStore((s) => s.setTracks);
-  const getInstrumentLabel = useNomenclatureStore((s) => s.getInstrumentLabel);
-  const [isFamilyMuted, setIsFamilyMuted] = useState(false); const [isRestMuted, setIsRestMuted] = useState(false);
+  const focusTrackId = useSequencerStore((s) => s.focusTrackId);
+  const isolateBaseOnly = useSequencerStore((s) => s.isolateBaseOnly);
+  const setIsolateBaseOnly = useSequencerStore((s) => s.setIsolateBaseOnly);
+  const tocarJuntoIsMuted = useSequencerStore((s) => s.tocarJuntoIsMuted);
+  const setTocarJuntoIsMuted = useSequencerStore((s) => s.setTocarJuntoIsMuted);
+  const tocarJuntoMuteScope = useSequencerStore((s) => s.tocarJuntoMuteScope);
+  const setTocarJuntoMuteScope = useSequencerStore((s) => s.setTocarJuntoMuteScope);
 
-  const eligibleRodaTracks = tracks.filter((t) => {
-    if (t.isHidden || !isSequencerVisibleTrack(t, tracks)) return false;
-    if (t.isBusFolder && !t.isLinkFolder) return false;
-    const inst = instrumentsConfig[t.instrumentIdx];
-    if (!inst || inst.id === 'apito') return false;
-    if (inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro' || inst.id === 'toada') return false;
-    return true;
-  });
+  const playable = getPlayableFocusTracks(tracks);
+  const targetTrack = tracks.find((t) => t.id === focusTrackId);
+  const inst = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
+  const rawName = targetTrack?.customName || inst?.name || (lang === 'pt' ? 'Instrumento' : 'Instrument');
+  const shortName = rawName.replace(/\s*\([^)]*\)/g, '').replace(/^\d+[\.\s\-]+/, '').trim();
+  const trackIdx = playable.findIndex((t) => t.id === focusTrackId);
+  const displayNumber = trackIdx >= 0 ? trackIdx + 1 : 1;
 
-  const primaryTrack = tracks.find((t) => t.id === primaryTrackId);
-  const referenceTrack = tracks.find((t) => t.id === referenceTrackId);
-  const primaryInst = primaryTrack ? instrumentsConfig[primaryTrack.instrumentIdx] : null;
-  const primaryFam = primaryInst ? MOBILE_FAMILIES.find((f) => f.instrumentIds.includes(primaryInst.id)) : null;
-
-  useEffect(() => {
-    if (referenceTrackId !== null && !eligibleRodaTracks.some((t) => t.id === referenceTrackId && t.id !== primaryTrackId)) {
-      setReferenceTrackId(null);
-    }
-  }, [eligibleRodaTracks, referenceTrackId, primaryTrackId, setReferenceTrackId]);
-
-  const getTrackName = (t: any) => getInstrumentLabel(t) || t?.name || '';
-
-  const toggleMute = (trackId: number | null) => {
-    if (trackId === null) return;
-    setTracks((prev) => prev.map((t) => (t.id === trackId ? { ...t, isMute: !t.isMute } : t)));
-  };
-
-  const toggleFamilyMute = () => {
-    if (!primaryFam) return;
-    const nextState = !isFamilyMuted;
-    setIsFamilyMuted(nextState);
-    setTracks((prev) =>
-      prev.map((t) => {
-        const inst = instrumentsConfig[t.instrumentIdx];
-        if (inst && primaryFam.instrumentIds.includes(inst.id)) return { ...t, isMute: nextState };
-        return t;
-      })
-    );
-  };
-
-  const toggleRestOfEnsembleMute = () => {
-    const nextState = !isRestMuted;
-    setIsRestMuted(nextState);
-    setTracks((prev) =>
-      prev.map((t) => {
-        if (t.id === primaryTrackId || t.id === referenceTrackId) return t;
-        const inst = instrumentsConfig[t.instrumentIdx];
-        const isVocal = inst && (inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro');
-        if (isVocal && isLetraActive) return { ...t, isMute: false };
-        return { ...t, isMute: nextState };
-      })
-    );
-  };
-
+  const refTrack = referenceTrackId ? tracks.find((t) => t.id === referenceTrackId) : null;
+  const refInst = refTrack ? instrumentsConfig[refTrack.instrumentIdx] : null;
+  const refRawName = refTrack?.customName || refInst?.name || '';
+  const refShortName = refRawName.replace(/\s*\([^)]*\)/g, '').replace(/^\d+[\.\s\-]+/, '').trim();
+  const refTrackIdx = refTrack ? playable.findIndex((t) => t.id === refTrack.id) : -1;
+  const refDisplayNumber = refTrackIdx >= 0 ? refTrackIdx + 1 : '';
   const vocab = getEnsembleVocabulary('maracatu', lang);
+
+  const handleCycleMute = () => {
+    if (!tocarJuntoIsMuted) {
+      setTocarJuntoIsMuted(true);
+      setTocarJuntoMuteScope('track');
+    } else if (tocarJuntoMuteScope === 'track') {
+      const hasFamily = focusTrackId !== null && getTrackFamilyIds(focusTrackId, tracks).length > 1;
+      if (hasFamily) setTocarJuntoMuteScope('family');
+      else setTocarJuntoIsMuted(false);
+    } else {
+      setTocarJuntoIsMuted(false);
+    }
+  };
 
   return (
     <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none relative z-30">
-      <div className="grid grid-cols-2 gap-1.5">
-        <MobilePercTrackSelector
-          label={lang === 'pt' ? 'MEU NAIPE' : 'MON PUPITRE'}
-          labelColorClass="text-[#8b2a1a]"
-          selectedTrackId={primaryTrackId}
-          onSelectTrackId={(id) => {
-            if (id !== null) {
-              setPrimaryTrackId(id);
-              try { localStorage.setItem('sequenciador_perc_primary_track', String(id)); } catch (_) {}
-            }
-          }}
-          trackOptions={eligibleRodaTracks}
-          getTrackName={getTrackName}
-          currentTrack={primaryTrack}
-          onToggleMute={() => toggleMute(primaryTrackId)}
-        />
-        <MobilePercTrackSelector
-          label={lang === 'pt' ? 'REPÈRE : [ GUIA ]' : 'REPÈRE : [ GUIDE ]'}
-          labelColorClass="text-[#8b2a1a]"
-          selectedTrackId={referenceTrackId}
-          onSelectTrackId={setReferenceTrackId}
-          trackOptions={eligibleRodaTracks.filter((t) => t.id !== primaryTrackId)}
-          getTrackName={getTrackName}
-          allowNone
-          noneLabel={lang === 'pt' ? 'Nenhum (Apenas meu naipe)' : 'Aucun (Mon pupitre seul)'}
-          currentTrack={referenceTrack}
-          onToggleMute={() => toggleMute(referenceTrackId)}
-        />
-      </div>
+      {/* 1. Bouton sélecteur direct Focus plein format */}
+      <button
+        type="button"
+        onClick={onOpenFocusPopover}
+        className="w-full h-8 border-2 border-[#1a1a1a] shadow-[1px_1px_0_#000] px-2 flex items-center justify-between gap-1.5 bg-[#c25e38] text-[#f4ecd8] font-cactus cursor-pointer transition-colors active:translate-y-0.5"
+        title={lang === 'pt' ? 'Escolher instrumentos e opções do Focus' : 'Choisir les instruments et options du Focus'}
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+          <CordelTarget size={14} className="shrink-0 text-[#f4ecd8]" />
+          <span className="text-xs font-black uppercase tracking-wider truncate">
+            {displayNumber}. {shortName}
+            {refTrack && (
+              <span className="font-normal opacity-90 ml-1 text-[11px]">
+                + {refDisplayNumber}. {refShortName}
+              </span>
+            )}
+          </span>
+        </div>
+        <ChevronDown size={14} className="shrink-0 opacity-80" />
+      </button>
 
-      <div className="grid grid-cols-2 gap-1.5">
+      {/* 2. Ligne de bascules rapides compactes */}
+      <div className="grid grid-cols-3 gap-1">
         <button
-          onClick={toggleFamilyMute}
-          disabled={!primaryFam}
-          className={`h-7 px-1.5 border font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#000] active:translate-y-0.5 cursor-pointer ${
-            !primaryFam ? 'opacity-30' : isFamilyMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#8b2a1a]'
+          onClick={() => setIsolateBaseOnly(!isolateBaseOnly)}
+          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer truncate ${
+            isolateBaseOnly ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
           }`}
-          title={lang === 'pt' ? 'Mutar família do meu naipe' : 'Couper le son de la famille de mon pupitre'}
+          title={lang === 'pt' ? 'Alternar Base Pura / Variações' : 'Basculer Base Pure / Variations'}
         >
-          <Users size={12} />
-          <span className="truncate">{lang === 'pt' ? 'Mudo Família' : 'Muet Famille'} : {isFamilyMuted ? 'ON' : 'OFF'}</span>
+          {isolateBaseOnly ? <ShieldCheck size={11} className="shrink-0" /> : <Shuffle size={11} className="shrink-0" />}
+          <span className="truncate">{isolateBaseOnly ? (lang === 'pt' ? 'Base Pura' : 'Base Pure') : (lang === 'pt' ? 'Variações' : 'Variations')}</span>
         </button>
 
         <button
-          onClick={toggleRestOfEnsembleMute}
-          className={`h-7 px-1.5 border font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#000] active:translate-y-0.5 cursor-pointer ${
-            isRestMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#8b2a1a]'
+          onClick={handleCycleMute}
+          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer truncate ${
+            tocarJuntoIsMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
+          }`}
+          title={lang === 'pt' ? 'Ciclo de mudo para tocar junto' : 'Cycle de sourdine pour jouer par-dessus'}
+        >
+          {tocarJuntoIsMuted ? <VolumeX size={11} className="shrink-0" /> : <Volume2 size={11} className="shrink-0" />}
+          <span className="truncate">
+            {!tocarJuntoIsMuted ? (lang === 'pt' ? 'Áudio : ON' : 'Son : ON') : (tocarJuntoMuteScope === 'family' ? (lang === 'pt' ? 'Mudo : Naipe' : 'Muet : Pupitre') : (lang === 'pt' ? 'Mudo : Só' : 'Muet : Seul'))}
+          </span>
+        </button>
+
+        <button
+          onClick={onToggleRestMuted}
+          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer truncate ${
+            isRestMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
           }`}
           title={lang === 'pt' ? `Mutar / Desmutar o ${vocab.restOfEnsemble}` : `Muter / Démuter le ${vocab.restOfEnsemble}`}
         >
-          <span className="truncate">{vocab.restOfEnsemble} : {isRestMuted ? 'OFF' : 'ON'}</span>
+          <Users size={11} className="shrink-0" />
+          <span className="truncate">{vocab.ensembleName} : {isRestMuted ? 'OFF' : 'ON'}</span>
         </button>
       </div>
     </div>

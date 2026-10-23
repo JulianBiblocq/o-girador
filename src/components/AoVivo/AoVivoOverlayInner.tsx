@@ -7,10 +7,7 @@ import { useAoVivoGeometry } from './useAoVivoGeometry';
 import { useAoVivoAnimationEngine } from './useAoVivoAnimationEngine';
 import { AoVivoInstrumentRenderers } from './AoVivoInstrumentRenderers';
 
-export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number; isContained?: boolean }> = ({
-  activeAoVivoTrackId,
-  isContained = false,
-}) => {
+export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = ({ activeAoVivoTrackId }) => {
   const { isLeftHanded } = useSequencer();
   const tracks = useSequencerStore(
     useShallow((state) =>
@@ -68,7 +65,7 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
   if (!activeTrack || !inst) return null;
 
   return (
-    <div className={`${isContained ? 'absolute inset-0' : 'fixed inset-0'} z-[10] overflow-hidden pointer-events-none perspective-[1000px]`}>
+    <div className="fixed inset-0 z-20 overflow-hidden pointer-events-none perspective-[1000px]">
       <div
         ref={flashRef}
         className="absolute pointer-events-none opacity-0 mix-blend-screen"

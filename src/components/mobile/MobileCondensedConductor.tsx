@@ -11,14 +11,16 @@ import { useShallow } from 'zustand/react/shallow';
 import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
 import { instrumentsConfig } from '../../data';
 import { resolveTopLevelSectionForMeasure } from '../../utils/sections/resolveTopLevelSectionForMeasure';
+import { MobileConductorSongInfo } from './MobileConductorSongInfo';
 
 interface Props {
   isLetraOpen: boolean;
   onToggleLetra: () => void;
   lang?: 'fr' | 'pt';
+  onOpenSongInfo?: () => void;
 }
 
-export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang: propLang }) => {
+export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang: propLang, onOpenSongInfo }) => {
   const beatRefs = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
   const isMetroOn = useTransportStore((s) => s.isMetroOn);
   const setIsMetroOn = useTransportStore((s) => s.setIsMetroOn);
@@ -60,11 +62,8 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
 
   const puxTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
   const coroTrack = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-  const puxPattern = puxTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]);
-  const coroPattern = coroTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]);
-
-  const puxLyrics = puxPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
-  const coroLyrics = coroPattern?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
+  const puxLyrics = puxTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure])?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
+  const coroLyrics = coroTrack?.patterns?.find((p) => p.measureAssignments?.[currentMeasure])?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
 
   return (
     <div className="w-full bg-[var(--cordel-surface)] px-2 py-1.5 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none relative z-30">
@@ -83,10 +82,10 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         </div>
 
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] truncate">
+          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] dark:text-[#f59e0b] truncate">
             {topSection ? topSection.name : `M${currentMeasure + 1}`}
           </span>
-          <span className="font-mono text-[9px] text-[var(--cordel-text-muted)] whitespace-nowrap">
+          <span className="font-mono text-[9px] text-[#1a1a1a]/80 dark:text-[#f4ecd8]/85 font-bold whitespace-nowrap">
             M{currentMeasure + 1}/{totalMeasures} • {loopMode === 'infinite' ? '∞' : `${currentLoopIteration}/${loopMode}`}
           </span>
         </div>
@@ -114,8 +113,9 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-[var(--cordel-card-btn-bg)] p-1.5 border-2 border-[var(--cordel-border)] min-h-[84px] shadow-[2px_2px_0px_#000]">
-        <div className="w-20 h-20 border-2 border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[var(--cordel-surface)] overflow-hidden shadow-[1px_1px_0px_#000]">
+      <div className="relative overflow-hidden flex items-center gap-2 bg-[var(--cordel-card-btn-bg)] p-1.5 border-2 border-[var(--cordel-border)] min-h-[84px] shadow-[2px_2px_0px_#000]">
+        <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg opacity-15" aria-hidden="true" />
+        <div className="relative z-10 w-20 h-20 border-2 border-[var(--cordel-border)] shrink-0 flex items-center justify-center bg-[var(--cordel-surface)] overflow-hidden shadow-[1px_1px_0px_#000]">
           {signalImg ? (
             <img src={signalImg} alt={activeSignal?.name || 'Sinal'} className="w-full h-full object-cover" />
           ) : (
@@ -126,8 +126,8 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
             </svg>
           )}
         </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 overflow-hidden">
-          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] truncate">
+        <div className="relative z-10 flex-1 min-w-0 flex flex-col justify-center gap-1 overflow-hidden">
+          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] dark:text-[#f59e0b] truncate">
             {activeSignal?.name || topSection?.name || (lang === 'pt' ? 'CONDUTOR' : 'CONDUCTEUR')}
           </span>
           {puxLyrics && <span className="text-[#c25e38] text-xs font-bold truncate leading-tight">{puxLyrics}</span>}
@@ -138,6 +138,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
             </span>
           )}
         </div>
+        <MobileConductorSongInfo onClick={onOpenSongInfo} fallbackRhythm={topSection?.name} lang={lang} />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../useSequencerStore';
 import { TrackAcousticsSlice } from './trackAcousticsSliceTypes';
+import { setMasterMonoCheck } from '../../audio/effectsChain';
 import {
   handleTrackMeasureVolChangeState,
   handleTrackMeasureVolTransitionChangeState,
@@ -8,7 +9,8 @@ import {
   handleTrackMeasurePanTransitionChangeState,
   handleTrackMeasureReverbChangeState,
   handleTrackMeasureReverbTransitionChangeState,
-  toggleTrackAutomationBypassState
+  toggleTrackAutomationBypassState,
+  bypassAllAutomationsState
 } from '../helpers/trackAcousticAutomationHelper';
 import {
   handleTrackSwingChangeState,
@@ -34,6 +36,17 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
     distortion: { returnVolume: 0, drive: 20, isMuted: false }
   },
   masterEffectsActive: { compressor: true, reverb: true, disto: true },
+  isMasterMono: false,
+
+  toggleMasterMono: () => {
+    const next = !get().isMasterMono;
+    setMasterMonoCheck(next);
+    set({ isMasterMono: next });
+  },
+  setMasterMono: (val) => {
+    setMasterMonoCheck(val);
+    set({ isMasterMono: val });
+  },
 
   handleTrackVolumeChange: (id, val) => {
     set(state => ({ tracks: state.tracks.map(t => t.id === id ? { ...t, volumeVal: val } : t) }));
@@ -74,8 +87,10 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
     set(curr => ({ tracks: handleTrackMeasureReverbTransitionChangeState(curr.tracks, trackId, mIdx, val, totalM) }));
   },
   toggleTrackAutomationBypass: (trackId, type) => {
-    get().pushUndoState();
     set(curr => ({ tracks: toggleTrackAutomationBypassState(curr.tracks, trackId, type) }));
+  },
+  bypassAllAutomations: (bypass = true) => {
+    set(curr => ({ tracks: bypassAllAutomationsState(curr.tracks, bypass) }));
   },
   setTrackTuning: (trackId, tuning) => {
     set(state => ({ tracks: state.tracks.map(t => t.id === trackId ? { ...t, tuning } : t) }));
@@ -84,7 +99,7 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
     set(state => ({ tracks: state.tracks.map(t => t.id === id ? { ...t, reverbVal: val } : t) }));
   },
   handleTrackPanChange: (id, val) => {
-    set(state => ({ tracks: state.tracks.map(t => t.id === id ? { ...t, panVal: val, pan: val } : t) }));
+    set(state => ({ tracks: state.tracks.map(t => t.id === id ? { ...t, pan: val, panVal: val } : t) }));
   },
   handleTrackSwingChange: (id, val) => {
     set(state => ({ tracks: handleTrackSwingChangeState(state.tracks, id, val) }));
@@ -93,45 +108,31 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
     set(state => ({ tracks: handlePatternSwingChangeState(state.tracks, trackId, patternId, val) }));
   },
   handleTrackBalancoChange: (trackId, presetId, amount) => {
-    set(state => ({
-      tracks: handleTrackBalancoChangeState(state.tracks, trackId, presetId, amount),
-      tracksVersion: state.tracksVersion + 1
-    }));
+    set(state => ({ tracks: handleTrackBalancoChangeState(state.tracks, trackId, presetId, amount) }));
   },
-  setTrackBalancoIntensity: (trackId, intensity) => get().handleTrackBalancoChange(trackId, undefined, intensity),
-  setTrackBalancoPreset: (trackId, presetId) => get().handleTrackBalancoChange(trackId, presetId, undefined),
+  setTrackBalancoIntensity: (trackId, intensity) => {
+    set(state => ({ tracks: state.tracks.map(t => t.id === Number(trackId) ? { ...t, balancoIntensity: intensity } : t) }));
+  },
+  setTrackBalancoPreset: (trackId, presetId) => {
+    set(state => ({ tracks: state.tracks.map(t => t.id === Number(trackId) ? { ...t, balancoPresetId: presetId } : t) }));
+  },
   handlePatternBalancoChange: (trackId, patternId, presetId, amount) => {
-    set(state => ({
-      tracks: handlePatternBalancoChangeState(state.tracks, trackId, patternId, presetId, amount),
-      tracksVersion: state.tracksVersion + 1
-    }));
+    set(state => ({ tracks: handlePatternBalancoChangeState(state.tracks, trackId, patternId, presetId, amount) }));
   },
   handleResetPatternMicrotimings: (trackId, patternId) => {
     set(state => ({ tracks: handleResetPatternMicrotimingsState(state.tracks, trackId, patternId) }));
   },
   setTrackFxSend: (trackId, fxType, value) => {
     set(state => ({
-      tracks: state.tracks.map(t => {
-        if (t.id === trackId) {
-          const baseFx = t.fxSends || { reverb: 0, distortion: 0 };
-          return { ...t, fxSends: { ...baseFx, [fxType]: value } };
-        }
-        return t;
-      })
+      tracks: state.tracks.map(t => t.id === trackId ? { ...t, fxSends: { ...(t.fxSends || { reverb: 0, distortion: 0 }), [fxType]: value } } : t)
     }));
   },
   setTrackPan: (trackId, value) => {
     set(state => ({ tracks: state.tracks.map(t => t.id === trackId ? { ...t, pan: value, panVal: value } : t) }));
   },
-  handleTrackLowCutToggle: (id) => {
-    set(state => ({ tracks: handleTrackLowCutToggleState(state.tracks, id) }));
-  },
-  handleTrackEQChange: (id, bands) => {
-    set(state => ({ tracks: handleTrackEQChangeState(state.tracks, id, bands) }));
-  },
-  handleTrackEQReset: (id) => {
-    set(state => ({ tracks: handleTrackEQResetState(state.tracks, id) }));
-  },
+  handleTrackLowCutToggle: (id) => set(s => ({ tracks: handleTrackLowCutToggleState(s.tracks, id) })),
+  handleTrackEQChange: (id, bands) => set(s => ({ tracks: handleTrackEQChangeState(s.tracks, id, bands) })),
+  handleTrackEQReset: (id) => set(s => ({ tracks: handleTrackEQResetState(s.tracks, id) })),
   setMasterFxVolume: (fxType, volume) => set(s => ({ masterFX: setMasterFxVolumeState(s.masterFX, fxType, volume) })),
   setMasterFxParam: (fxType, param, value) => set(s => ({ masterFX: setMasterFxParamState(s.masterFX, fxType, param, value) })),
   toggleMasterFxMute: (fxType) => set(s => ({ masterFX: toggleMasterFxMuteState(s.masterFX, fxType) })),

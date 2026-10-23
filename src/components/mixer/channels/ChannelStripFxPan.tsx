@@ -74,10 +74,19 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
                 e.stopPropagation();
                 useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'reverb');
               }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                useSequencerStore.getState().bypassAllAutomations(true);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                useSequencerStore.getState().bypassAllAutomations(true);
+              }}
               className={`absolute right-1 top-1/2 -translate-y-1/2 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${
                 isRevActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'
               }`}
-              title={isRevActive ? 'Automation Réverbe active' : 'Automation Réverbe débrayée'}
+              title={isRevActive ? 'Automation Réverbe active (Clic: débrayer | Double-clic / Clic-droit: débrayer tout)' : 'Automation Réverbe débrayée (Clic: réactiver)'}
             >
               A
             </button>
@@ -95,10 +104,19 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
                 e.stopPropagation();
                 useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'pan');
               }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                useSequencerStore.getState().bypassAllAutomations(true);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                useSequencerStore.getState().bypassAllAutomations(true);
+              }}
               className={`absolute left-1 top-0 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${
                 isPanActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'
               }`}
-              title={isPanActive ? 'Automation Pan active' : 'Automation Pan débrayée'}
+              title={isPanActive ? 'Automation Pan active (Clic: débrayer | Double-clic / Clic-droit: débrayer tout)' : 'Automation Pan débrayée (Clic: réactiver)'}
             >
               A
             </button>

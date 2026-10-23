@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Résolution de la macro-section de niveau supérieur (level 0) (< 55 lignes).
+ * Résolution et filtrage exclusif des macro-sections de niveau supérieur (< 65 lignes).
  */
 import { SongSection, SongMarker } from '../../types';
 
@@ -11,6 +11,24 @@ export interface ResolvedTopLevelSection {
   marker?: SongMarker;
 }
 
+export function filterTopLevelSections(sections: SongSection[]): SongSection[] {
+  if (!sections || sections.length === 0) return [];
+  const sorted = [...sections].sort((a, b) => {
+    const spanDiff = (b.endMeasure - b.startMeasure) - (a.endMeasure - a.startMeasure);
+    if (spanDiff !== 0) return spanDiff;
+    const levelDiff = (a.level ?? 0) - (b.level ?? 0);
+    return levelDiff !== 0 ? levelDiff : a.startMeasure - b.startMeasure;
+  });
+
+  const kept: SongSection[] = [];
+  for (const sec of sorted) {
+    if (!kept.some((k) => sec.startMeasure <= k.endMeasure && sec.endMeasure >= k.startMeasure)) {
+      kept.push(sec);
+    }
+  }
+  return kept.sort((a, b) => a.startMeasure - b.startMeasure);
+}
+
 export function resolveTopLevelSectionForMeasure(
   sections: SongSection[] | undefined,
   songMarkers: SongMarker[] | undefined,
@@ -18,22 +36,13 @@ export function resolveTopLevelSectionForMeasure(
 ): ResolvedTopLevelSection | null {
   if (!sections && !songMarkers) return null;
 
-  const activeSections = (sections || []).filter(
-    (s) => s.startMeasure <= currentMeasure && currentMeasure <= s.endMeasure
+  const topSections = filterTopLevelSections(sections || []);
+  const active = topSections.find(
+    (s) => currentMeasure >= s.startMeasure && currentMeasure <= s.endMeasure
   );
 
-  if (activeSections.length > 0) {
-    activeSections.sort((a, b) => {
-      const levelA = a.level ?? 0;
-      const levelB = b.level ?? 0;
-      if (levelA !== levelB) return levelA - levelB; // level 0 a la priorité absolue
-      const spanA = a.endMeasure - a.startMeasure;
-      const spanB = b.endMeasure - b.startMeasure;
-      return spanB - spanA; // section englobante la plus large
-    });
-
-    const top = activeSections[0];
-    return { name: top.name, section: top };
+  if (active) {
+    return { name: active.name, section: active };
   }
 
   if (songMarkers && songMarkers.length > 0) {

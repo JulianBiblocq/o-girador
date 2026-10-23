@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { BookOpen } from 'lucide-react';
 import { Language, PresetMetadata } from '../../types';
 import { RightSidebarYouTubePreview } from './RightSidebarYouTubePreview';
 
@@ -88,16 +89,17 @@ export const RightSidebarMetadataTab: React.FC<RightSidebarMetadataTabProps> = (
           className="bg-transparent border-b border-[var(--cordel-border)]/30 text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
         />
         {metadata.youtubeUrl && <RightSidebarYouTubePreview youtubeUrl={metadata.youtubeUrl} lang={lang} />}
-        <div className="flex items-center justify-between mt-3 mb-1">
-          <span className="text-[11px] font-bold text-[var(--cordel-text)] uppercase font-cactus tracking-wide flex items-center gap-1">
-            📜 {lang === 'fr' ? 'Histoire & Contexte' : 'História & Contexto'}
+        <div className="flex items-center justify-between gap-2 mt-3 mb-1">
+          <span className="text-[11px] font-bold text-[var(--cordel-text)] uppercase font-cactus tracking-wide truncate">
+            {lang === 'fr' ? 'Histoire & Contexte' : 'História & Contexto'}
           </span>
           <button
             type="button"
             onClick={onOpenDescriptionModal}
-            className="cordel-border-sm bg-[#8b2a1a] hover:bg-[#1a1a1a] text-[#f4ecd8] px-2.5 py-1 text-[11px] font-cactus font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#1a1a1a]"
+            className="cordel-border-sm bg-[#8b2a1a] hover:bg-[#1a1a1a] text-[#f4ecd8] px-2.5 py-1 text-[11px] font-cactus font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 shadow-[2px_2px_0px_#1a1a1a]"
           >
-            📖 {lang === 'fr' ? 'Lire plus' : 'Ler mais'}
+            <BookOpen size={13} className="shrink-0 text-[#f4ecd8]" />
+            <span>{lang === 'fr' ? 'Lire plus' : 'Ler mais'}</span>
           </button>
         </div>
         <textarea

@@ -94,7 +94,7 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
         {/* CONTENU DE L'ONGLET ACTIF */}
         <div className="p-4 overflow-y-auto max-h-[calc(92vh-105px)]">
           {activeTab === 'sheets' && <BlankSheetGeneratorTab lang={lang} />}
-          {activeTab === 'scanner' && <PaperScannerTab canImport={canImport} lang={lang} />}
+          {activeTab === 'scanner' && <PaperScannerTab canImport={canImport} lang={lang} onClose={onClose} />}
           {activeTab === 'reserve' && (
             <MestreJsonInjectorTab
               canImport={canImport}

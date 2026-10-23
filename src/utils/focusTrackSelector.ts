@@ -7,6 +7,13 @@ import { TrackGroup } from '../types';
 import { instrumentsConfig } from '../data';
 import { UserProfile } from '../contexts/auth/authTypes';
 
+export function getEligibleReferenceTracks(
+  tracks: TrackGroup[],
+  primaryTrackId: number | null
+): TrackGroup[] {
+  return getPlayableFocusTracks(tracks).filter((t) => primaryTrackId === null || t.id !== primaryTrackId);
+}
+
 export function getPlayableFocusTracks(tracks: TrackGroup[]): TrackGroup[] {
   return tracks.filter((t) => {
     if (t.isBusFolder || t.isLinkFolder) return false;

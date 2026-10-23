@@ -44,10 +44,19 @@ export const ChannelStripFaderSection: React.FC<ChannelStripFaderSectionProps> =
                 e.stopPropagation();
                 useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'volume');
               }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                useSequencerStore.getState().bypassAllAutomations(true);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                useSequencerStore.getState().bypassAllAutomations(true);
+              }}
               className={`absolute top-0.5 left-1 z-20 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${
                 isVolActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'
               }`}
-              title={isVolActive ? 'Automation Volume active' : 'Automation Volume débrayée'}
+              title={isVolActive ? 'Automation Volume active (Clic: débrayer | Double-clic / Clic-droit: débrayer tout)' : 'Automation Volume débrayée (Clic: réactiver)'}
             >
               A
             </button>

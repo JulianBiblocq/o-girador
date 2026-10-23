@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { SongMarker, SongSection } from '../../types';
+import { filterTopLevelSections } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 
 interface Props {
   songMarkers: SongMarker[];
@@ -27,9 +28,11 @@ export const MobileSectionPads: React.FC<Props> = ({
         .map((m) => ({ id: m.id, name: m.name, measure: m.measure }));
     }
     if (songSections && songSections.length > 0) {
-      return [...songSections]
-        .sort((a, b) => a.startMeasure - b.startMeasure)
-        .map((s) => ({ id: s.id, name: s.name, measure: s.startMeasure }));
+      return filterTopLevelSections(songSections).map((s) => ({
+        id: s.id,
+        name: s.name,
+        measure: s.startMeasure,
+      }));
     }
     return [{ id: 'default', name: 'MORCEAU', measure: 0 }];
   }, [songMarkers, songSections]);

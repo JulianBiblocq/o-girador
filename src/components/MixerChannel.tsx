@@ -12,6 +12,7 @@ import { getTrackDisplayName } from '../utils/colorHelpers';
 import { useAudio } from '../contexts/AudioContext';
 import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
 import { useTrackMixerContextMenu } from './mixer/useTrackMixerContextMenu';
+import { trackHasRealVolAuto, trackHasRealPanAuto, trackHasRealRevAuto } from '../utils/automationDetectHelper';
 import { computeChannelStripStyles } from './mixer/channels/channelStripStyles';
 import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutomation';
 import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
@@ -42,9 +43,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   const { contextMenuPos, handleContextMenuOpen, handleContextMenuClose, touchHandlers } = useTrackMixerContextMenu();
 
-  const isVolActive = !!(track?.measureVols && track.measureVols.length > 0 && !track?.automationBypass?.volume);
-  const isPanActive = !!(track?.measurePans && track.measurePans.length > 0 && !track?.automationBypass?.pan);
-  const isRevActive = !!(track?.measureReverbSends && track.measureReverbSends.length > 0 && !track?.automationBypass?.reverb);
+  const isVolActive = trackHasRealVolAuto(track) && !track?.automationBypass?.volume;
+  const isPanActive = trackHasRealPanAuto(track) && !track?.automationBypass?.pan;
+  const isRevActive = trackHasRealRevAuto(track) && !track?.automationBypass?.reverb;
 
   const { faderHandleRef, faderTextRef, travelRangeRef, panKnobRef, reverbGaugeRef, reverbTextRef } = useChannelStripAutomation({
     track,

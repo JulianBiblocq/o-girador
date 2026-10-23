@@ -3,7 +3,8 @@ import { Track } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus } from '../../stores/useSequencerStore';
 import { faderPositionToDb } from '../../utils/audioMath';
-import { percentToDb, normalizePanForTone } from './audioParamsCache';
+import { percentToDb } from './audioParamsCache';
+import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { syncTrackInsertChain } from '../../audio/effectsChain';
 import { AudioEngine } from '../../AudioEngine';
 
@@ -61,7 +62,8 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
-    const pan = normalizePanForTone(t.panVal ?? t.pan);
+    const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(t.panVal ?? t.pan);
+    const finalDb = safeDb > -90 ? safeDb + panCompensationDb : safeDb;
     const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
     const muteState = getEffectiveMuteState(tracks, t.id);
@@ -75,11 +77,11 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const eqHighG = t.eqBands?.high?.g ?? 0;
     const eqHighF = t.eqBands?.high?.f ?? 8000;
 
-    const paramHash = `${safeDb}_${pan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+    const paramHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-      channels[t.id].volume.value = safeDb;
-      channels[t.id].pan.value = pan;
+      channels[t.id].volume.value = finalDb;
+      channels[t.id].pan.value = acousticPan;
       channels[t.id].mute = muteState;
 
       if (reverbSends[t.id]) {

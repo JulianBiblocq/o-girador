@@ -14,7 +14,8 @@ export interface ActiveVocal {
     input: GainNode;
     delay: DelayNode;
     filter: BiquadFilterNode;
-    rightGain: GainNode;
+    sideGainLeft: GainNode;
+    sideGainRight: GainNode;
     merger: ChannelMergerNode;
   };
   chorusPlayers: (Tone.GrainPlayer | Tone.Player)[];

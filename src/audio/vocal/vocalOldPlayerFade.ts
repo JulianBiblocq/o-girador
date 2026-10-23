@@ -44,7 +44,10 @@ export class VocalOldPlayerFade {
               mainGain.disconnect(); mainGain.dispose();
               if (haasNodes) {
                 haasNodes.input.disconnect(); haasNodes.delay.disconnect();
-                haasNodes.filter.disconnect(); haasNodes.rightGain.disconnect(); haasNodes.merger.disconnect();
+                haasNodes.filter.disconnect();
+                haasNodes.sideGainLeft?.disconnect();
+                haasNodes.sideGainRight?.disconnect();
+                haasNodes.merger.disconnect();
               }
               chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
               chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });

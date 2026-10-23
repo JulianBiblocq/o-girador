@@ -2,6 +2,7 @@ import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks } from '..
 import { channels, busChannels, masterVolumeNode } from '../../audio/effectsChain';
 import { faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
 import { debouncedSaveVolume, debouncedSavePan } from './midiDebounce';
+import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 
 let lastCcBankActionTime = 0;
 
@@ -97,8 +98,15 @@ export function handleMidiContinuousCc(
       newPan = Math.round((velocity / 127) * 200 - 100);
     }
 
+    const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(newPan);
     const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
-    if (channelNode) channelNode.pan.rampTo(newPan / 100, 0.02);
+    if (channelNode) {
+      if (channelNode.pan) channelNode.pan.rampTo(acousticPan, 0.02);
+      if (channelNode.volume && currentTrack && !currentTrack.isBusFolder) {
+        const baseDb = faderPositionToDb(currentTrack.volumeVal ?? 75);
+        if (baseDb > -90) channelNode.volume.rampTo(baseDb + panCompensationDb, 0.02);
+      }
+    }
 
     window.dispatchEvent(new CustomEvent('midi-pan-move', {
       detail: { targetId: targetTrackId, val: newPan }

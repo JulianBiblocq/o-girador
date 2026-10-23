@@ -5,6 +5,7 @@ import {
   channels,
   trackInputs,
   lowCutNodes,
+  slaveSubCutNodes,
   eqNodes,
   reverbSends,
   distortionSends,
@@ -19,7 +20,9 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   inputNode.disconnect();
   const lowCutNode = lowCutNodes[trackId];
   if (lowCutNode) lowCutNode.disconnect();
-  
+  const slaveSubCut = slaveSubCutNodes[trackId];
+  if (slaveSubCut) slaveSubCut.disconnect();
+
   const eqNodeGroup = eqNodes[trackId];
   if (eqNodeGroup) {
     eqNodeGroup.low.disconnect();
@@ -32,6 +35,7 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     return;
   }
 
+  const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
   const hasLowCut = !!track.lowCut;
   const disableEq = useSequencerStore.getState().ecoConfig?.disableEq;
   const eq = track.eqBands;
@@ -46,6 +50,9 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     currentLowCut = new Tone.Filter(80, 'highpass');
     lowCutNodes[trackId] = currentLowCut;
   }
+  if (currentLowCut) {
+    currentLowCut.frequency.value = (isLinkedSlave && !hasEQ) ? 110 : 80;
+  }
 
   let currentEQ = eqNodes[trackId];
   if (hasEQ && !currentEQ) {
@@ -58,13 +65,23 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   }
 
   if (currentEQ && eq) {
+    const lowGainOffset = isLinkedSlave ? -1.5 : 0;
     currentEQ.low.frequency.value = eq.low?.f ?? 100;
-    currentEQ.low.gain.value = eq.low?.g ?? 0;
+    currentEQ.low.gain.value = (eq.low?.g ?? 0) + lowGainOffset;
     currentEQ.mid.frequency.value = eq.mid?.f ?? 1000;
     currentEQ.mid.gain.value = eq.mid?.g ?? 0;
     currentEQ.mid.Q.value = eq.mid?.q === 'narrow' ? 2.0 : 0.7;
     currentEQ.high.frequency.value = eq.high?.f ?? 8000;
     currentEQ.high.gain.value = eq.high?.g ?? 0;
+  }
+
+  // Pistes esclaves liées sans EQ ni LowCut : filtre low-shelf réutilisé
+  if (isLinkedSlave && !hasEQ && !hasLowCut) {
+    if (!slaveSubCutNodes[trackId]) {
+      slaveSubCutNodes[trackId] = new Tone.Filter(120, 'lowshelf');
+    }
+    slaveSubCutNodes[trackId].frequency.value = 120;
+    slaveSubCutNodes[trackId].gain.value = -1.5;
   }
 
   const perfState = usePerformanceStore.getState();
@@ -74,6 +91,9 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   if (isEQBypassed) {
     if (lowCutNodes[trackId]) {
       try { lowCutNodes[trackId].disconnect(); } catch (_) {}
+    }
+    if (slaveSubCutNodes[trackId]) {
+      try { slaveSubCutNodes[trackId].disconnect(); } catch (_) {}
     }
     if (eqNodes[trackId]) {
       try {
@@ -97,6 +117,10 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   if (!isEQBypassed && hasLowCut && currentLowCut) {
     lastNode.connect(currentLowCut);
     lastNode = currentLowCut;
+  }
+  if (!isEQBypassed && isLinkedSlave && !hasEQ && !hasLowCut && slaveSubCutNodes[trackId]) {
+    lastNode.connect(slaveSubCutNodes[trackId]);
+    lastNode = slaveSubCutNodes[trackId];
   }
   if (!isEQBypassed && hasEQ && currentEQ) {
     lastNode.connect(currentEQ.low);

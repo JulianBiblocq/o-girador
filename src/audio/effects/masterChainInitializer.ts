@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as nodes from './effectsChainNodes';
+import { initMasterMonoNodes } from './masterMonoHandler';
 
 export function initMasterEffectsChain(
   masterVol: number,
@@ -62,7 +63,7 @@ export function initMasterEffectsChain(
     Tone.Destination.channelCount = 2;
     Tone.Destination.channelCountMode = "explicit";
   } catch (_) {}
-  masterLimiterNode.toDestination();
+  initMasterMonoNodes(masterLimiterNode);
 
   const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
   vol.gain.value = baseGain;

@@ -6,18 +6,16 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { PaperPreset } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
-import {
-  ensureMissingTracks,
-  assignPatternsToTracks,
-  buildMergedSongSections,
-} from './paperTimelineAssigner';
+import { assignPatternsToTracks, buildMergedSongSections } from './paperTimelineAssigner';
+import { buildScannedScoreTracks, PaperInjectOptions } from './paperTrackBuilder';
 
 export const injectPaperScoreToStore = (
   preset: PaperPreset,
   sequenceOverride?: string[],
   reusableSectionNames?: Set<string>,
   lang: 'fr' | 'pt' = 'fr',
-  openOnFirstVigilance = false
+  openOnFirstVigilance = false,
+  options?: PaperInjectOptions
 ): { success: boolean; measuresCount: number } => {
   const store = useSequencerStore.getState();
   store.pushUndoState();
@@ -25,8 +23,8 @@ export const injectPaperScoreToStore = (
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
 
-  const tracksWithMissing = ensureMissingTracks(store.tracks, preset, totalMeasures);
-  const updatedTracks = assignPatternsToTracks(tracksWithMissing, preset, sequence, totalMeasures);
+  const cleanTracks = buildScannedScoreTracks(preset, totalMeasures, options);
+  const updatedTracks = assignPatternsToTracks(cleanTracks, preset, sequence, totalMeasures);
   const mergedSections = buildMergedSongSections(sequence);
 
   const targetBpm = preset.bpm || store.bpm || 96;
@@ -40,10 +38,14 @@ export const injectPaperScoreToStore = (
     songSections: mergedSections,
     measureBpms: Array(totalMeasures).fill(targetBpm),
     measureTimeSigs: Array(totalMeasures).fill(targetTimeSig),
-    measureVols: Array(totalMeasures).fill(75),
+    measureVols: Array(totalMeasures).fill(100),
     measureBpmTransitions: Array(totalMeasures).fill('immediate'),
     measureVolTransitions: Array(totalMeasures).fill('immediate'),
     measureSignals: Array(totalMeasures).fill(null),
+    selectedAutomationType: null,
+    selectedAutomationTrackId: null,
+    selectedAutomationRange: null,
+    automationAnchorMeasure: null,
     tracksVersion: (state.tracksVersion || 0) + 1,
   }));
 

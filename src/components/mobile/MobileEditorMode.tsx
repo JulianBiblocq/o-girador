@@ -42,15 +42,19 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
 
   return (
     <div className="w-full h-dvh flex flex-col bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
-      <MobileTopHeader
-        songTitle={metadata?.toada || props.activePreset}
-        onOpenSongPicker={() => setIsSongPickerOpen(true)}
-        onOpenMenu={() => setIsMenuOpen(true)}
-        lang={lang}
-      />
+      <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg opacity-15" aria-hidden="true" />
+
+      <div className="relative z-10 shrink-0">
+        <MobileTopHeader
+          songTitle={metadata?.toada || props.activePreset}
+          onOpenSongPicker={() => setIsSongPickerOpen(true)}
+          onOpenMenu={() => setIsMenuOpen(true)}
+          lang={lang}
+        />
+      </div>
 
       {/* Barre d'onglets Édition */}
-      <div className="flex border-b-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] px-2 py-1.5 gap-2 shrink-0">
+      <div className="relative z-10 flex border-b-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] px-2 py-1.5 gap-2 shrink-0">
         <button
           onClick={() => setActiveTab('scan')}
           className={`flex-1 py-1.5 text-xs font-cactus font-bold uppercase border-2 transition-colors cursor-pointer ${
@@ -74,7 +78,7 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
       </div>
 
       {/* Contenu principal */}
-      <main className="flex-1 min-h-0 relative overflow-y-auto">
+      <main className="relative z-10 flex-1 min-h-0 overflow-y-auto">
         {activeTab === 'scan' ? (
           <MobilePaperScanTab onOpenBlankSheets={() => setIsBlankModalOpen(true)} />
         ) : (
@@ -82,7 +86,9 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
         )}
       </main>
 
-      <MobileEditorFooter isPlaying={props.isPlaying} onTogglePlay={props.onTogglePlay} />
+      <div className="relative z-10 shrink-0">
+        <MobileEditorFooter isPlaying={props.isPlaying} onTogglePlay={props.onTogglePlay} />
+      </div>
 
       <MobileSongPickerModal
         isOpen={isSongPickerOpen}

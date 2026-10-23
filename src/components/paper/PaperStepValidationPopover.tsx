@@ -44,10 +44,10 @@ export const PaperStepValidationPopover: React.FC<Props> = ({
     <div onClick={onClose} className="fixed inset-0 z-[400] flex items-center justify-center p-3 bg-black/60 select-none">
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[280px] bg-[var(--cordel-bg,#f4ecd8)] border-3 border-black shadow-[4px_4px_0px_#000] p-2.5 flex flex-col gap-2 font-sans text-xs">
         <div className="flex items-center justify-between border-b border-black/20 pb-1">
-          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a]">
+          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] dark:text-[#f59e0b]">
             {roleKey.toUpperCase()} • T{Math.floor(stepIndex / 4) + 1}.{(stepIndex % 4) + 1}
           </span>
-          <button type="button" onClick={onClose} className="text-black hover:text-[#8b2a1a] cursor-pointer">
+          <button type="button" onClick={onClose} className="text-[#1a1a1a] dark:text-[#f4ecd8] hover:text-[#8b2a1a] cursor-pointer">
             <X size={14} />
           </button>
         </div>
@@ -72,7 +72,7 @@ export const PaperStepValidationPopover: React.FC<Props> = ({
           </button>
         )}
 
-        <div className="text-[10px] font-bold text-[#8b2a1a] uppercase">
+        <div className="text-[10px] font-bold text-[#8b2a1a] dark:text-[#f59e0b] uppercase">
           {lang === 'fr' ? 'Corriger la frappe :' : 'Corrigir toque :'}
         </div>
         <div className="grid grid-cols-4 gap-1">

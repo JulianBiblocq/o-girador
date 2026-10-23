@@ -3,6 +3,7 @@ import { TrackGroup } from '../../../types';
 import { ChannelStripEQ } from './ChannelStripEQ';
 import { ChannelStripFxPan } from './ChannelStripFxPan';
 import { ChannelStripFaderSection } from './ChannelStripFaderSection';
+import { trackHasRealVolAuto, trackHasRealPanAuto, trackHasRealRevAuto } from '../../../utils/automationDetectHelper';
 
 interface ChannelStripBodyProps {
   track: TrackGroup;
@@ -47,9 +48,9 @@ export const ChannelStripBody: React.FC<ChannelStripBodyProps> = ({
       <ChannelStripFxPan
         track={track}
         isRevActive={isRevActive}
-        hasRevAuto={!!(track.measureReverbSends && track.measureReverbSends.length > 0)}
+        hasRevAuto={trackHasRealRevAuto(track)}
         isPanActive={isPanActive}
-        hasPanAuto={!!(track.measurePans && track.measurePans.length > 0)}
+        hasPanAuto={trackHasRealPanAuto(track)}
         reverbGaugeRef={reverbGaugeRef}
         reverbTextRef={reverbTextRef}
         panKnobRef={panKnobRef}
@@ -60,7 +61,7 @@ export const ChannelStripBody: React.FC<ChannelStripBodyProps> = ({
         isPlaying={isPlaying}
         isActive={isActive}
         isVolActive={isVolActive}
-        hasVolAuto={!!(track.measureVols && track.measureVols.length > 0)}
+        hasVolAuto={trackHasRealVolAuto(track)}
         faderColor={faderColor}
         faderTextColor={faderTextColor}
         faderHandleRef={faderHandleRef}

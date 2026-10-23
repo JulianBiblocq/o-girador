@@ -5,10 +5,11 @@
 
 import React, { useState } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { instrumentsConfig } from '../../data';
+import { ASSETS_BASE_URL } from '../../data';
 import { MOBILE_FAMILIES, MobileFamilyDef } from './mobileFamilyConfig';
 import { MobileFamilyCard } from './MobileFamilyCard';
 import { MobileSingleFaderPopover } from './MobileSingleFaderPopover';
+import { getFamilyVolume, applyFamilyVolume } from '../../utils/mobileFamilyResolver';
 
 interface Props {
   isLocked: boolean;
@@ -21,7 +22,15 @@ export const MobileFamilyPads: React.FC<Props> = ({ isLocked }) => {
   const handleTrackVolumeChange = useSequencerStore((s) => s.handleTrackVolumeChange);
 
   return (
-    <div className="w-full flex-1 min-h-0 bg-[#121212] p-2 grid grid-cols-3 grid-rows-2 gap-2 select-none overflow-hidden">
+    <div className="relative w-full flex-1 min-h-0 bg-[var(--cordel-bg)] p-2.5 grid grid-cols-3 grid-rows-2 gap-2.5 select-none overflow-hidden">
+      {/* Arrière-plan Dessin de Tony (Atelier Recife/Olinda) */}
+      <div
+        className="absolute inset-0 pointer-events-none bg-cover bg-center bg-no-repeat select-none z-0 invert mix-blend-multiply opacity-25 dark:invert-0 dark:opacity-30 dark:mix-blend-normal"
+        style={{ backgroundImage: `url(${ASSETS_BASE_URL}Pictures/atelier.png)` }}
+        aria-hidden="true"
+      />
+      {/* Voile de contraste subtil */}
+      <div className="absolute inset-0 pointer-events-none bg-black/10 dark:bg-black/40 z-0" aria-hidden="true" />
       {MOBILE_FAMILIES.map((fam) => (
         <MobileFamilyCard
           key={fam.id}
@@ -34,15 +43,9 @@ export const MobileFamilyPads: React.FC<Props> = ({ isLocked }) => {
       {activeFaderFamily && (
         <MobileSingleFaderPopover
           label={activeFaderFamily.label}
-          volume={
-            tracks
-              .filter((t) => activeFaderFamily.instrumentIds.includes(instrumentsConfig[t.instrumentIdx]?.id || ''))
-              .reduce((acc, t, _, arr) => acc + (t.volumeVal ?? 75) / (arr.length || 1), 0) || 75
-          }
+          volume={getFamilyVolume(tracks, activeFaderFamily.id)}
           onChangeVolume={(vol) => {
-            tracks
-              .filter((t) => activeFaderFamily.instrumentIds.includes(instrumentsConfig[t.instrumentIdx]?.id || ''))
-              .forEach((t) => handleTrackVolumeChange(t.id, vol));
+            applyFamilyVolume(tracks, activeFaderFamily.id, vol, handleTrackVolumeChange);
           }}
           onClose={() => setActiveFaderFamily(null)}
         />

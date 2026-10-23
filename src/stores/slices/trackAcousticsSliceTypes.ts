@@ -9,6 +9,9 @@ export interface MasterEffectsActiveState {
 export interface TrackAcousticsSlice {
   masterFX: MasterFX;
   masterEffectsActive: MasterEffectsActiveState;
+  isMasterMono: boolean;
+  toggleMasterMono: () => void;
+  setMasterMono: (val: boolean) => void;
 
   handleTrackVolumeChange: (id: number, val: number) => void;
   handleTrackMeasureVolChange: (trackId: number, mIdx: number, val: number) => void;
@@ -18,6 +21,7 @@ export interface TrackAcousticsSlice {
   handleTrackMeasureReverbChange: (trackId: number, mIdx: number, val: number) => void;
   handleTrackMeasureReverbTransitionChange: (trackId: number, mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
   toggleTrackAutomationBypass: (trackId: number, type: 'volume' | 'pan' | 'reverb') => void;
+  bypassAllAutomations: (bypass?: boolean) => void;
   setTrackTuning: (trackId: number, tuning: number) => void;
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;

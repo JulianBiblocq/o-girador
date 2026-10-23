@@ -5,7 +5,6 @@ import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { MainWorkspaceRodaView } from './workspace/MainWorkspaceRodaView';
 import { MainWorkspaceConsoleView } from './workspace/MainWorkspaceConsoleView';
 import { MainWorkspaceTimelineView } from './workspace/MainWorkspaceTimelineView';
-import { PaperVigilanceBanner } from './paper/PaperVigilanceBanner';
 
 const AdminPanel = lazyWithRetry(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })), 'AdminPanel');
 
@@ -48,55 +47,52 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = (props) =
   const lang = useSequencerStore((state) => state.lang);
 
   return (
-    <div id="main-workspace" className="flex flex-col flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg">
-      <PaperVigilanceBanner lang={lang} />
-      <div className="flex flex-grow min-h-0 overflow-hidden relative w-full">
-        <Suspense fallback={<XiloLoadingSpinner lang={lang} />}>
-          <MainWorkspaceRodaView
-            viewMode={props.viewMode}
-            renderedView={props.renderedView}
-            isFadingIn={props.isFadingIn}
-            isMobile={props.isMobile}
-            mobileTab={props.mobileTab}
-            filteredMestreSignals={props.filteredMestreSignals}
-            refreshMestreSignals={props.refreshMestreSignals}
-            hideGlobalSignals={props.hideGlobalSignals}
-            onToggleHideGlobalSignals={props.onToggleHideGlobalSignals}
-            onStepTouchStart={props.onStepTouchStart}
-            activeRightPanel={props.activeRightPanel}
-            onToggleRightPanel={props.onToggleRightPanel}
-          />
+    <div id="main-workspace" className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg">
+      <Suspense fallback={<XiloLoadingSpinner lang={lang} />}>
+        <MainWorkspaceRodaView
+          viewMode={props.viewMode}
+          renderedView={props.renderedView}
+          isFadingIn={props.isFadingIn}
+          isMobile={props.isMobile}
+          mobileTab={props.mobileTab}
+          filteredMestreSignals={props.filteredMestreSignals}
+          refreshMestreSignals={props.refreshMestreSignals}
+          hideGlobalSignals={props.hideGlobalSignals}
+          onToggleHideGlobalSignals={props.onToggleHideGlobalSignals}
+          onStepTouchStart={props.onStepTouchStart}
+          activeRightPanel={props.activeRightPanel}
+          onToggleRightPanel={props.onToggleRightPanel}
+        />
 
-          <MainWorkspaceConsoleView
-            viewMode={props.viewMode}
-            renderedView={props.renderedView}
-            isFadingIn={props.isFadingIn}
-            isMobile={props.isMobile}
-            onStepTouchStart={props.onStepTouchStart}
-          />
+        <MainWorkspaceConsoleView
+          viewMode={props.viewMode}
+          renderedView={props.renderedView}
+          isFadingIn={props.isFadingIn}
+          isMobile={props.isMobile}
+          onStepTouchStart={props.onStepTouchStart}
+        />
 
-          <MainWorkspaceTimelineView
-            viewMode={props.viewMode}
-            renderedView={props.renderedView}
-            isFadingIn={props.isFadingIn}
-            isMobile={props.isMobile}
-            measureWidth={props.measureWidth}
-            setMeasureWidth={props.setMeasureWidth}
-            setSectionToSave={props.setSectionToSave}
-            setLoadSectionInsertMeasure={props.setLoadSectionInsertMeasure}
-            filteredMestreSignals={props.filteredMestreSignals}
-            onStepTouchStart={props.onStepTouchStart}
-          />
+        <MainWorkspaceTimelineView
+          viewMode={props.viewMode}
+          renderedView={props.renderedView}
+          isFadingIn={props.isFadingIn}
+          isMobile={props.isMobile}
+          measureWidth={props.measureWidth}
+          setMeasureWidth={props.setMeasureWidth}
+          setSectionToSave={props.setSectionToSave}
+          setLoadSectionInsertMeasure={props.setLoadSectionInsertMeasure}
+          filteredMestreSignals={props.filteredMestreSignals}
+          onStepTouchStart={props.onStepTouchStart}
+        />
 
-          {props.viewMode === 'admin' && (
-            <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
-              <ErrorBoundary fallback={<div className="p-4 text-red-500 font-mono">Erreur chargement AdminPanel</div>}>
-                <AdminPanel />
-              </ErrorBoundary>
-            </div>
-          )}
-        </Suspense>
-      </div>
+        {props.viewMode === 'admin' && (
+          <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
+            <ErrorBoundary fallback={<div className="p-4 text-red-500 font-mono">Erreur chargement AdminPanel</div>}>
+              <AdminPanel />
+            </ErrorBoundary>
+          </div>
+        )}
+      </Suspense>
     </div>
   );
 };

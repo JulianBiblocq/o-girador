@@ -29,43 +29,48 @@ export const MobilePercTransport: React.FC<Props> = ({
   loopMode, onChangeLoopMode, isLoopExitRequested, onRequestLoopExit, onOpenSpeedTrainer,
 }) => {
   const lang = useSequencerStore((s) => s.lang);
+  const isSpeedTrainerActive = useSequencerStore((s) => s.isSpeedTrainerActive);
   const { registerTap } = useTapTempo();
 
   return (
     <footer className="w-full bg-[var(--cordel-surface)] border-t-2 border-[var(--cordel-border)] flex flex-col gap-1.5 p-2 shrink-0 select-none relative z-30">
-      {/* 1. Ligne Supérieure : Tempo, Bouton TREINO, Boucles */}
-      <div className="w-full flex items-center justify-between gap-1">
+      {/* 1. Ligne Supérieure : Tempo, Bouton ENTRAÎNEMENT/TREINO, Boucles */}
+      <div className="w-full h-9 flex items-stretch justify-between gap-1.5 sm:gap-2 min-w-0">
         {/* Tempo [-5] [-1] [ BPM ] [ ↺ ] [+1] [+5] */}
-        <div className="h-9 flex items-center bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] shadow-[1px_1px_0_#000]">
-          <button onClick={() => onChangeBpm(-5)} className="h-full px-1.5 font-mono text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 cursor-pointer" title="-5 BPM">-5</button>
-          <button onClick={() => onChangeBpm(-1)} className="h-full px-1.5 font-mono text-sm font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="-1 BPM">-1</button>
-          <button onClick={registerTap} className="h-full px-1.5 font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] flex items-center active:scale-95 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="Tap Tempo">
+        <div className="flex-[6] min-w-0 flex items-stretch bg-[var(--cordel-card-btn-bg)] border-2 border-[#1a1a1a] dark:border-[#f4ecd8]/40 shadow-[1px_1px_0_#000]">
+          <button onClick={() => onChangeBpm(-5)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 cursor-pointer" title="-5 BPM">-5</button>
+          <button onClick={() => onChangeBpm(-1)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="-1 BPM">-1</button>
+          <button onClick={registerTap} className="flex-[1.3] min-w-[30px] h-full px-1 flex items-center justify-center font-cactus text-[11px] sm:text-xs font-extrabold tabular-nums text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-95 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="Tap Tempo">
             <span>{bpm}</span>
           </button>
-          <button onClick={onResetBpm} className="h-full px-1.5 flex items-center justify-center text-[#b94a2c] hover:bg-black/10 active:scale-95 border-l border-r border-[var(--cordel-border)]/40 cursor-pointer" title="Reset BPM">
+          <button onClick={onResetBpm} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center text-[#b94a2c] hover:bg-black/10 active:scale-95 border-l border-r border-[var(--cordel-border)]/40 cursor-pointer" title="Reset BPM">
             <RotateCcw size={10} />
           </button>
-          <button onClick={() => onChangeBpm(1)} className="h-full px-1.5 font-mono text-sm font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 border-r border-[var(--cordel-border)]/40 cursor-pointer" title="+1 BPM">+1</button>
-          <button onClick={() => onChangeBpm(5)} className="h-full px-1.5 font-mono text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 cursor-pointer" title="+5 BPM">+5</button>
+          <button onClick={() => onChangeBpm(1)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 border-r border-[var(--cordel-border)]/40 cursor-pointer" title="+1 BPM">+1</button>
+          <button onClick={() => onChangeBpm(5)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 cursor-pointer" title="+5 BPM">+5</button>
         </div>
 
-        {/* Bouton TREINO (Speed Trainer) */}
+        {/* Bouton ENTRAÎNEMENT / TREINO */}
         <button
           onClick={onOpenSpeedTrainer}
-          className="h-9 px-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[#d4af37] font-cactus font-bold text-xs uppercase tracking-wider flex items-center gap-1 shadow-[1px_1px_0_#000] hover:border-[#d4af37] active:translate-y-0.5 shrink-0 cursor-pointer"
-          title="Speed Trainer"
+          className={`shrink-0 h-full px-2 sm:px-3 border-2 font-cactus text-[10px] sm:text-xs font-extrabold uppercase whitespace-nowrap flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] active:translate-y-0.5 cursor-pointer ${
+            isSpeedTrainerActive
+              ? 'bg-[#b94a2c] text-[#f4ecd8] border-black font-bold'
+              : 'bg-[#efe6d0] dark:bg-[#262220] border-[#1a1a1a] text-[#1a1a1a] font-extrabold dark:text-amber-400 dark:font-bold dark:border-[var(--cordel-border)] hover:border-[#b94a2c] dark:hover:border-amber-400'
+          }`}
+          title={lang === 'fr' ? 'Entraînement de vitesse (Speed Trainer)' : 'Treino de velocidade (Speed Trainer)'}
         >
-          <Zap size={13} className="text-[#d4af37]" />
-          <span>{tMobile(lang, 'treino')}</span>
+          <Zap size={13} className={isSpeedTrainerActive ? 'text-[#f4ecd8]' : 'text-[#8b2a1a] dark:text-amber-400'} />
+          <span>{lang === 'fr' ? 'ENTRAÎNEMENT' : 'TREINO'}</span>
         </button>
 
         {/* Boucles [ ∞ | ×2 | ×4 | ×8 ] */}
-        <div className="h-9 flex items-center bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] shadow-[1px_1px_0_#000] overflow-hidden">
+        <div className="flex-[4] min-w-0 flex items-stretch bg-[var(--cordel-card-btn-bg)] border-2 border-[#1a1a1a] dark:border-[#f4ecd8]/40 shadow-[1px_1px_0_#000] overflow-hidden">
           {(['infinite', 2, 4, 8] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => onChangeLoopMode(mode)}
-              className={`h-full px-2 font-cactus font-bold text-xs transition-colors flex items-center justify-center cursor-pointer ${
+              className={`flex-1 min-w-[22px] h-full px-0.5 font-cactus font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center cursor-pointer border-r border-[#1a1a1a]/30 dark:border-[#f4ecd8]/20 last:border-r-0 ${
                 loopMode === mode ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'text-[var(--cordel-card-btn-text)] hover:bg-black/10'
               }`}
             >

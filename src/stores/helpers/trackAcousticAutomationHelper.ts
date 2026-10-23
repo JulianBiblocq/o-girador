@@ -126,3 +126,12 @@ export const toggleTrackAutomationBypassState = (
   }
   return t;
 });
+
+export const bypassAllAutomationsState = (
+  tracks: TrackGroup[],
+  bypass = true
+): TrackGroup[] => tracks.map((t) => ({
+  ...t,
+  automationBypass: { volume: bypass, pan: bypass, reverb: bypass }
+}));
+

@@ -18,6 +18,12 @@ export {
   disposeAllTrackNodes,
 } from './effects/trackDisposeHandler';
 export { syncMasterCompressorBypass } from './effects/masterBypassHandler';
+export {
+  initMasterMonoNodes,
+  setMasterMonoCheck,
+  isMasterMonoActive,
+  disposeMasterMonoNodes,
+} from './effects/masterMonoHandler';
 
 export function initInstrumentNodes() {
   // Les nœuds sont instanciés dynamiquement par track.id dans useAudioSync.ts

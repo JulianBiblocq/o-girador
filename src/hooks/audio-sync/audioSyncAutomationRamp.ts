@@ -3,6 +3,7 @@ import { TrackGroup } from '../../types';
 import { channels, busChannels, reverbSends } from './audioEngineNodes';
 import { faderPositionToGain } from '../../utils/audioMath';
 import { getEffectiveVolume } from '../../stores/useSequencerStore';
+import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 
 interface ScheduleAutomationProps {
   tracks: TrackGroup[];
@@ -63,8 +64,8 @@ export function scheduleMeasureAutomationRamps({
         const rawPrevPan = t.measurePans[prevMeasureIdx] !== undefined ? t.measurePans[prevMeasureIdx] : defaultPan;
         const panTransition = t.measurePanTransitions?.[currentMeasureIdx] || 'immediate';
 
-        const startPan = Math.max(-1, Math.min(1, rawPrevPan / 100));
-        const endPan = Math.max(-1, Math.min(1, rawTargetPan / 100));
+        const startPan = applyMonoCompatiblePan(rawPrevPan).acousticPan;
+        const endPan = applyMonoCompatiblePan(rawTargetPan).acousticPan;
 
         channel.pan.cancelScheduledValues(time);
 

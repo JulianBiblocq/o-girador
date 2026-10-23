@@ -1,7 +1,8 @@
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
 import { busChannels, busMeters, reverbSends, distortionSends, masterVolumeNode } from './audioEngineNodes';
-import { percentToDb, normalizePanForTone } from './audioParamsCache';
+import { percentToDb } from './audioParamsCache';
+import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { getEffectiveVolume, getEffectiveMuteState } from '../../stores/useSequencerStore';
 
@@ -54,13 +55,13 @@ export function initBusesAudioNodes(
     const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
-    const pan = normalizePanForTone(t.panVal ?? t.pan);
+    const { acousticPan } = applyMonoCompatiblePan(t.panVal ?? t.pan);
     const muteState = getEffectiveMuteState(tracks, t.id);
 
     busChannels[t.id].volume.value = safeDb;
-    busChannels[t.id].pan.value = pan;
+    busChannels[t.id].pan.value = acousticPan;
     busChannels[t.id].mute = muteState;
 
-    lastAppliedTracksParamsRef.current[t.id] = `bus_${db}_${pan}_${muteState}_${reverb}_${distortion}`;
+    lastAppliedTracksParamsRef.current[t.id] = `bus_${db}_${acousticPan}_${muteState}_${reverb}_${distortion}`;
   });
 }

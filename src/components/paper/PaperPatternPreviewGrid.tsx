@@ -26,8 +26,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
   const [popover, setPopover] = useState<{ sec: string; role: string; idx: number; val: PaperStepValue; isVig: boolean } | null>(null);
 
   const handleCellClick = (sec: string, role: string, idx: number, val: PaperStepValue) => {
-    const isVig = points.some((p) => p.sectionName === sec && p.roleKey === role && p.stepIndex === idx);
-    setPopover({ sec, role, idx, val, isVig });
+    setPopover({ sec, role, idx, val, isVig: points.some((p) => p.sectionName === sec && p.roleKey === role && p.stepIndex === idx) });
   };
 
   const handleSelect = (newVal?: PaperStepValue) => {
@@ -42,7 +41,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
     <div className="flex flex-col gap-2 p-2.5 bg-black/5 border border-black/30 font-sans text-xs">
       <div className="flex flex-wrap justify-between items-center border-b border-black/20 pb-1 gap-1">
         <div className="flex items-center gap-2">
-          <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a]">
+          <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a] dark:text-[#f59e0b]">
             {lang === 'fr' ? 'Relecture des motifs :' : 'Revisão dos motivos :'}
           </span>
           {points.length > 0 && (
@@ -60,14 +59,14 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
 
       <div className="flex flex-col gap-2 max-h-[230px] overflow-y-auto pr-1">
         {sectionEntries.map(([secName, pupitreMap]) => (
-          <div key={secName} className="p-2 bg-white border border-black shadow-[1px_1px_0px_#1a1a1a]">
+          <div key={secName} className="p-2 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
             <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5 pb-1 border-b border-black/10">
-              <span className="font-cactus font-bold text-xs uppercase text-[#1a1a1a]">{secName}</span>
+              <span className="font-cactus font-bold text-xs uppercase !text-[#1a1a1a]">{secName}</span>
               <button
                 type="button"
                 onClick={() => onToggleReusable(secName)}
                 className={`px-2 py-0.5 border font-cactus font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors ${
-                  reusableSections.has(secName) ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[1px_1px_0px_#000]' : 'bg-[#f4ecd8] text-[#1a1a1a] border-black/40 hover:bg-[#eaddcf]'
+                  reusableSections.has(secName) ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[1px_1px_0px_#000]' : 'bg-[#f4ecd8] !text-[#1a1a1a] border-black/40 hover:bg-[#eaddcf]'
                 }`}
               >
                 {reusableSections.has(secName) ? <Cloud size={11} className="shrink-0" /> : <Pin size={11} className="shrink-0" />}
@@ -90,9 +89,9 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
 
                 return (
                   <div key={pupitreKey} className="flex items-center gap-1">
-                    <span className="w-6 font-mono font-bold text-[9px] bg-black/10 px-1 py-0.5 text-center shrink-0 border border-black/20">{abbr}</span>
+                    <span className="w-6 font-mono font-extrabold text-[9px] bg-[#e6dec8] !text-[#1a1a1a] px-1 py-0.5 text-center shrink-0 border border-[#1a1a1a]">{abbr}</span>
                     {isBase ? (
-                      <span className="px-2 py-0.5 bg-[#d99b26]/20 text-[#8b2a1a] border border-[#8b2a1a] font-bold text-[10px]">[ ≡ Base ]</span>
+                      <span className="px-2 py-0.5 bg-[#d99b26]/20 !text-[#8b2a1a] border border-[#8b2a1a] font-bold text-[10px]">[ ≡ Base ]</span>
                     ) : (
                       <div className="grid grid-cols-16 flex-1 border border-[#1a1a1a]">
                         {stepArr.map((st, i) => {
@@ -111,7 +110,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
                                 isPoint
                                   ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10'
                                   : valStr === '·'
-                                  ? isOdd ? 'bg-[#dfd3b8] text-[#1a1a1a]/30' : 'bg-[#f4ecd8] text-[#1a1a1a]/30'
+                                  ? isOdd ? 'bg-[#dfd3b8] !text-[#1a1a1a]/60 font-bold' : 'bg-[#f4ecd8] !text-[#1a1a1a]/60 font-bold'
                                   : 'bg-[#8b2a1a] text-[#f4ecd8]'
                               }`}
                             >

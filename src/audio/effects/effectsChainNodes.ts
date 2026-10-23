@@ -48,6 +48,7 @@ export const reverbSends: { [trackId: number]: any } = {};
 export const distortionSends: { [trackId: number]: any } = {};
 export const trackInputs: { [trackId: number]: Tone.Gain } = {};
 export const lowCutNodes: { [trackId: number]: Tone.Filter } = {};
+export const slaveSubCutNodes: { [trackId: number]: Tone.Filter } = {};
 export const eqNodes: { 
   [trackId: number]: {
     low: Tone.Filter;
