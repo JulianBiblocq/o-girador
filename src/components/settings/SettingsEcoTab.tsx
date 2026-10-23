@@ -22,7 +22,7 @@ export const SettingsEcoTab: React.FC<SettingsEcoTabProps> = ({
     <div className="flex flex-col gap-6 text-left">
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000]">
         <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          ⚡ {lang === 'fr' ? 'Optimisation & Mode Éco' : 'Otimização & Modo Eco'}
+          {lang === 'fr' ? 'Optimisation & Mode Éco' : 'Otimização & Modo Eco'}
         </h3>
         <p className="text-[10px] opacity-75 mb-4">
           {lang === 'pt'

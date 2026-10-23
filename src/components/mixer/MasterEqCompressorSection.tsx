@@ -5,15 +5,7 @@ import { XiloEQ, XiloCompressor } from '../XiloIcons';
 import { masterEQNode, masterCompressorNode, syncMasterCompressorBypass } from '../../audio/effectsChain';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { MixerMasterEffects } from '../MixerMasterEffects';
-
-interface MasterEqCompressorSectionProps {
-  t: (key: string) => string;
-  lang: string;
-  masterEQ: { low: number; mid: number; high: number };
-  onMasterEQChange: (eq: { low: number; mid: number; high: number }) => void;
-  masterCompressor: { threshold: number; ratio: number };
-  onMasterCompressorChange: (comp: { threshold: number; ratio: number }) => void;
-}
+import type { MasterEqCompressorSectionProps } from './masterEffectsTypes';
 
 export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps> = ({
   t,
@@ -103,7 +95,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
               }`}
               title={isCompressorActive ? (lang === 'fr' ? 'Compresseur Master actif' : 'Compressor Master ativo') : (lang === 'fr' ? 'Compresseur Master contourné' : 'Compressor Master desativado')}
             >
-              ⏻
+              
             </button>
           </div>
         </div>

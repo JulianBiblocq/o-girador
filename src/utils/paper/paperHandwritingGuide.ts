@@ -7,8 +7,8 @@
 export const renderHandwritingGuideHTML = (lang: 'fr' | 'pt'): string => {
   const isFr = lang === 'fr';
   const title = isFr
-    ? '✍️ MODÈLE COMPLET : COMMENT TOUT ÉCRIRE À LA MAIN SUR FEUILLE VIERGE'
-    : '✍️ MODELO COMPLETO : COMO ESCREVER TUDO À MÃO NA FOLHA LIVRE';
+    ? 'MODÈLE COMPLET : COMMENT TOUT ÉCRIRE À LA MAIN SUR FEUILLE VIERGE'
+    : 'MODELO COMPLETO : COMO ESCREVER TUDO À MÃO NA FOLHA LIVRE';
 
   return `
     <div style="margin-top: 14px; border: 2px solid #8b2a1a; padding: 10px 12px; background: #fffcf5; font-family: sans-serif; color: #1a1a1a;">

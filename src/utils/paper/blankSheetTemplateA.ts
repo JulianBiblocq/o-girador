@@ -56,7 +56,7 @@ export const renderBlankSheetA = (options: BlankSheetOptions, lang: 'fr' | 'pt')
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px;">
           <h2 style="margin: 0; font-size: 13pt; text-transform: uppercase; letter-spacing: 0.5px;">${lang === 'fr' ? 'FEUILLE A — PATTERNS ISOLÉS (BASES)' : 'FOLHA A — PADRÕES ISOLADOS'}</h2>
           <div style="font-size: 9pt; font-weight: bold;">
-            ${lang === 'fr' ? 'Rythme / Toada' : 'Ritmo / Toada'} : ${options.prefillFamily ? options.prefillFamily.toUpperCase() : '___________________'} │ ♩ = [ ___ ] │ Sign : [ ${signLabel} ]
+            ${lang === 'fr' ? 'Rythme / Toada' : 'Ritmo / Toada'} : ${options.prefillFamily ? options.prefillFamily.toUpperCase() : '___________________'} │ = [ ___ ] │ Sign : [ ${signLabel} ]
           </div>
         </div>
         ${renderHandwritingNoticeHTML(lang)}

@@ -49,7 +49,7 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
       <div className="flex flex-wrap justify-between items-center gap-2 border-b border-black/10 pb-2">
         <div>
           <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
-            <span>🖥️</span>
+            <span></span>
             <span>{lang === 'pt' ? 'Espaços de Trabalho (Multi-telas & Janelas)' : 'Espaces de Travail (Multi-écrans & Fenêtres)'}</span>
           </h3>
           <p className="text-[10px] opacity-75 mt-0.5">
@@ -62,7 +62,7 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
           onClick={() => setIsSavingLayoutModalOpen(true)}
           className="px-3 py-1.5 text-[11px] font-cactus font-bold uppercase border-2 border-black bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#a83220] cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5 transition-all"
         >
-          <span>💾</span>
+          <span></span>
           <span>{lang === 'pt' ? 'Memorizar espaço atual' : "Mémoriser l'espace actuel"}</span>
         </button>
       </div>
@@ -103,7 +103,7 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
 
       {desktopLayouts.length === 0 ? (
         <div className="p-6 border-2 border-dashed border-black/40 bg-white/60 text-center flex flex-col items-center justify-center gap-2 rounded">
-          <span className="text-3xl">🖥️</span>
+          <span className="text-3xl"></span>
           <span className="font-cactus font-bold text-sm uppercase text-black/80">
             {lang === 'pt' ? 'Nenhum espaço de trabalho salvo' : 'Aucun espace de travail enregistré'}
           </span>

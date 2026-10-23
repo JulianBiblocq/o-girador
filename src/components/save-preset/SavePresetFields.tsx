@@ -48,7 +48,7 @@ export const SavePresetFields: React.FC<SavePresetFieldsProps> = ({
         <label className="text-xs font-bold uppercase">{lang === 'fr' ? 'Destination' : 'Destino'}</label>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-sm font-bold flex items-center gap-1.5">
-            🔒 {lang === 'fr' ? `Catalogue ${groupDisplayName} (Privé)` : `Catálogo ${groupDisplayName} (Privado)`}
+            {lang === 'fr' ? `Catalogue ${groupDisplayName} (Privé)` : `Catálogo ${groupDisplayName} (Privado)`}
           </span>
         </div>
       </div>
@@ -77,7 +77,7 @@ export const SavePresetFields: React.FC<SavePresetFieldsProps> = ({
           className="w-4 h-4 accent-[var(--cordel-wood,#8b2a1a)]"
         />
         <label htmlFor="isDraftPreset" className="text-xs font-bold cursor-pointer flex items-center gap-1.5">
-          <span>⏳</span>
+          <span></span>
           <span>
             {lang === 'fr'
               ? 'Enregistrer en mode Brouillon / Chantier (masqué aux élèves)'

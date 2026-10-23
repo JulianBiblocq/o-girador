@@ -87,7 +87,7 @@ export const SpeedTrainerTocarJuntoOptions: React.FC<SpeedTrainerTocarJuntoOptio
                 selectedBaseOnly ? 'border-[#1a1a1a] bg-[var(--cordel-wood)] text-white' : 'border-[#1a1a1a]/30 bg-white/70 text-[#1a1a1a]'
               }`}
             >
-              <span className="font-cactus font-bold text-xs">🔒 {t('tocarJuntoBasePure')}</span>
+              <span className="font-cactus font-bold text-xs">{t('tocarJuntoBasePure')}</span>
               <span className="text-[10px] opacity-80 leading-tight">{t('tocarJuntoBasePureDesc')}</span>
             </button>
             <button
@@ -97,7 +97,7 @@ export const SpeedTrainerTocarJuntoOptions: React.FC<SpeedTrainerTocarJuntoOptio
                 !selectedBaseOnly ? 'border-[#1a1a1a] bg-[var(--cordel-wood)] text-white' : 'border-[#1a1a1a]/30 bg-white/70 text-[#1a1a1a]'
               }`}
             >
-              <span className="font-cactus font-bold text-xs">🎲 {t('tocarJuntoFreeGame')}</span>
+              <span className="font-cactus font-bold text-xs">{t('tocarJuntoFreeGame')}</span>
               <span className="text-[10px] opacity-80 leading-tight">{t('tocarJuntoFreeGameDesc')}</span>
             </button>
           </div>

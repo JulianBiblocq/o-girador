@@ -61,7 +61,7 @@ export class VocalRehydration {
           useAudioStore.getState().setVocalBuffersBatch(entriesToBatch);
         }
       } catch (err) {
-        console.error('🎙️ [VOCAL REHYDRATE] Global error during rehydration:', err);
+        console.error('[VOCAL REHYDRATE] Global error during rehydration:', err);
       } finally {
         if (rehydratingPromise === currentPromise) rehydratingPromise = null;
       }

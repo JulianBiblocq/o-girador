@@ -40,7 +40,7 @@ export const SaveDispositionVisibilitySelector: React.FC<VisibilitySelectorProps
             className="accent-[#8b2a1a] cursor-pointer"
           />
           <span>
-            {lang === 'fr' ? '🔒 Privé (Mon compte / Mémoire locale)' : '🔒 Privado (Minha conta / Memória local)'}
+            {lang === 'fr' ? 'Privé (Mon compte / Mémoire locale)' : 'Privado (Minha conta / Memória local)'}
           </span>
         </label>
 
@@ -55,7 +55,7 @@ export const SaveDispositionVisibilitySelector: React.FC<VisibilitySelectorProps
             className="accent-[#8b2a1a] cursor-pointer"
           />
           <span>
-            👥 {lang === 'fr' ? `Mon Groupe (${groupName || 'Groupe'})` : `Meu Grupo (${groupName || 'Grupo'})`}
+            {lang === 'fr' ? `Mon Groupe (${groupName || 'Groupe'})` : `Meu Grupo (${groupName || 'Grupo'})`}
           </span>
         </label>
 
@@ -70,7 +70,7 @@ export const SaveDispositionVisibilitySelector: React.FC<VisibilitySelectorProps
             className="accent-[#8b2a1a] cursor-pointer"
           />
           <span>
-            🌐 {lang === 'fr' ? 'Catalogue Public (Accessible à tous)' : 'Catálogo Público (Acessível a todos)'}
+            {lang === 'fr' ? 'Catalogue Public (Accessible à tous)' : 'Catálogo Público (Acessível a todos)'}
           </span>
         </label>
         {!isMestreOrAdmin && (

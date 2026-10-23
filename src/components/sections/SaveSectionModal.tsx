@@ -71,7 +71,8 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
             className="w-4 h-4 accent-[#8b2a1a]"
           />
           <label htmlFor="autoGenerateAudio" className="text-sm font-bold text-[#1a1a1a] cursor-pointer">
-            {lang === 'fr' ? "Générer l'aperçu audio (☁️)" : 'Gerar áudio (☁️)'}
+            {lang === 'fr' ? "Générer l'aperçu audio (Cloud)" : 'Gerar áudio (Cloud)'}
+
           </label>
         </div>
         <div className="flex justify-end gap-2">

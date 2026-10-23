@@ -24,7 +24,7 @@ export const BalancoCaptureMetronomeBar: React.FC<BalancoCaptureMetronomeBarProp
           <span className="opacity-50 text-[9px]">(3)</span>
         </div>
         <span className="font-cactus text-xs tracking-widest text-[#f4ecd8]/70">
-          ⚡ {lang === 'fr' ? 'BALANCIEZ AU TEMPO' : 'BALANCEIE NO TEMPO'}
+          {lang === 'fr' ? 'BALANCIEZ AU TEMPO' : 'BALANCEIE NO TEMPO'}
         </span>
         <div className="flex items-center gap-1.5">
           <span className="opacity-50 text-[9px]">(4)</span>

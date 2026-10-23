@@ -13,7 +13,7 @@ const appId = import.meta.env.VITE_FIREBASE_APP_ID || "1:488703864701:web:50b8cb
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "601273236123-e90og6lr85v5ca2lprke41igbs02alrv.apps.googleusercontent.com";
 
 if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) {
-  throw new Error("🔥 ERREUR CRITIQUE: Configuration Firebase manquante. Vérifiez vos variables d'environnement VITE_FIREBASE_*");
+  throw new Error("ERREUR CRITIQUE: Configuration Firebase manquante. Vérifiez vos variables d'environnement VITE_FIREBASE_*");
 }
 
 const firebaseConfig = {

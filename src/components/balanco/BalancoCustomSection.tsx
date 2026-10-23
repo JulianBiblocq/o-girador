@@ -1,6 +1,8 @@
 import React from 'react';
+import { Edit3, Mic, Save, Plus } from 'lucide-react';
 import { BalancoPreset } from '../../types/balanco.types';
 import { Language } from '../../types';
+import { BalancoCustomNudgeBar } from './BalancoCustomNudgeBar';
 
 interface BalancoCustomSectionProps {
   editingPresetId: string | null;
@@ -38,7 +40,7 @@ export const BalancoCustomSection: React.FC<BalancoCustomSectionProps> = ({
       {editingPresetId && editingPreset && (
         <div className="flex items-center justify-between gap-2 bg-[#f4ecd8] px-2.5 py-1.5 border-2 border-[#8b2a1a] rounded-sm text-xs font-bold text-[#1a1a1a]">
           <div className="flex items-center gap-1.5 truncate">
-            <span className="text-[#8b2a1a]">✏️</span>
+            <Edit3 size={13} className="text-[#8b2a1a] shrink-0" />
             <span className="truncate">
               {lang === 'fr' ? 'Édition en cours : ' : 'Editando : '}
               <span className="text-[#8b2a1a] font-cactus text-sm">« {editingPreset.name} »</span>
@@ -52,7 +54,7 @@ export const BalancoCustomSection: React.FC<BalancoCustomSectionProps> = ({
             }}
             className="px-1.5 py-0.5 bg-white text-[9px] font-bold border border-black hover:bg-black hover:text-white transition-colors cursor-pointer whitespace-nowrap"
           >
-            ✕ {lang === 'fr' ? 'Quitter édition' : 'Sair da edição'}
+            {lang === 'fr' ? 'Quitter édition' : 'Sair da edição'}
           </button>
         </div>
       )}
@@ -76,7 +78,7 @@ export const BalancoCustomSection: React.FC<BalancoCustomSectionProps> = ({
             onClick={onOpenCaptureModal}
             className="px-2 py-1 bg-white text-[#1a1a1a] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] flex items-center gap-1 whitespace-nowrap"
           >
-            🎙️ {lang === 'fr' ? 'Capturer' : 'Capturar'}
+            <Mic size={13} /> <span>{lang === 'fr' ? 'Capturer' : 'Capturar'}</span>
           </button>
 
           {editingPresetId && canManageEditingPreset ? (
@@ -85,17 +87,17 @@ export const BalancoCustomSection: React.FC<BalancoCustomSectionProps> = ({
                 type="button"
                 onClick={() => onSaveCustomPreset(false)}
                 disabled={isSaving}
-                className="px-2.5 py-1 bg-[#1b4332] text-[#f4ecd8] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] disabled:opacity-50 whitespace-nowrap"
+                className="px-2.5 py-1 bg-[#1b4332] text-[#f4ecd8] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
               >
-                💾 {isSaving ? (lang === 'fr' ? 'Envoi...' : 'Salvando...') : lang === 'fr' ? 'Mettre à jour' : 'Atualizar'}
+                <Save size={13} /> <span>{isSaving ? (lang === 'fr' ? 'Envoi...' : 'Salvando...') : lang === 'fr' ? 'Mettre à jour' : 'Atualizar'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => onSaveCustomPreset(true)}
                 disabled={isSaving}
-                className="px-2 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] disabled:opacity-50 whitespace-nowrap"
+                className="px-2 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
               >
-                ➕ {lang === 'fr' ? 'Enregistrer sous...' : 'Salvar como...'}
+                <Plus size={13} /> <span>{lang === 'fr' ? 'Enregistrer sous...' : 'Salvar como...'}</span>
               </button>
             </>
           ) : (
@@ -103,46 +105,20 @@ export const BalancoCustomSection: React.FC<BalancoCustomSectionProps> = ({
               type="button"
               onClick={() => onSaveCustomPreset(false)}
               disabled={isSaving}
-              className="px-2.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] disabled:opacity-50 whitespace-nowrap"
+              className="px-2.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-xs font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] disabled:opacity-50 whitespace-nowrap flex items-center gap-1"
             >
-              💾 {isSaving ? (lang === 'fr' ? 'Sauvegarde...' : 'Salvando...') : lang === 'fr' ? 'Enregistrer' : 'Salvar'}
+              <Save size={13} /> <span>{isSaving ? (lang === 'fr' ? 'Sauvegarde...' : 'Salvando...') : lang === 'fr' ? 'Enregistrer' : 'Salvar'}</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/10 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-[10px] uppercase text-[#1a1a1a]">
-            ⚡ {lang === 'fr' ? 'Nudge Groupé :' : 'Nudge em Bloco :'}
-          </span>
-          <div className="flex gap-1">
-            {[-5, -1, 1, 5].map((delta) => (
-              <button
-                key={delta}
-                type="button"
-                onClick={() => onNudgeGroup(delta)}
-                className="px-2 py-0.5 bg-white border border-black text-[10px] font-bold text-[#1a1a1a] hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000]"
-              >
-                {delta > 0 ? `+${delta}%` : `${delta}%`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onTogglePreview}
-          className={`px-2.5 py-1 text-xs font-bold border border-black cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1 transition-all ${
-            isPreviewPlaying
-              ? 'bg-[#8b2a1a] text-[#f4ecd8] animate-pulse ring-1 ring-[#8b2a1a]'
-              : 'bg-white text-[#1a1a1a] hover:bg-black hover:text-white'
-          }`}
-        >
-          {isPreviewPlaying ? '⏹' : '▶'}{' '}
-          {lang === 'fr' ? (isPreviewPlaying ? 'Arrêter' : 'Tester le groove') : isPreviewPlaying ? 'Parar' : 'Testar o groove'}
-        </button>
-      </div>
+      <BalancoCustomNudgeBar
+        lang={lang}
+        isPreviewPlaying={isPreviewPlaying}
+        onNudgeGroup={onNudgeGroup}
+        onTogglePreview={onTogglePreview}
+      />
     </div>
   );
 };

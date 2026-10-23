@@ -63,6 +63,20 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
         return (!isAudioV2 && norm === 100) ? 75 : norm;
       });
     }
+
+    const fallbackVol = t.volumeVal ?? 75;
+    if (!Array.isArray(t.measureVols) || t.measureVols.length !== loadedMeasures) {
+      const cur = Array.isArray(t.measureVols) ? t.measureVols : [];
+      t.measureVols = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? fallbackVol);
+    }
+    if (!Array.isArray(t.measurePans) || t.measurePans.length !== loadedMeasures) {
+      const cur = Array.isArray(t.measurePans) ? t.measurePans : [];
+      t.measurePans = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? (t.panVal ?? 0));
+    }
+    if (!Array.isArray(t.measureReverbSends) || t.measureReverbSends.length !== loadedMeasures) {
+      const cur = Array.isArray(t.measureReverbSends) ? t.measureReverbSends : [];
+      t.measureReverbSends = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? (t.reverbVal ?? 0));
+    }
   });
 
   // Auto-guérison : si toutes les pistes sont muettes (<= 3) suite au bug des 83px, rétablir à 75

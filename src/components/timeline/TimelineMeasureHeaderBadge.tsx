@@ -37,11 +37,11 @@ export const TimelineMeasureHeaderBadge: React.FC<TimelineMeasureHeaderBadgeProp
       className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
       title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
     >
-      {isSlave && <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}</option>}
+      {isSlave && <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{lang === 'fr' ? 'Suivre le maître' : 'Seguir mestre'}</option>}
       <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{lang === 'fr' ? '— Silence' : '— Silêncio'}</option>
       {patternsList.map((p, pidx) => (
         <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-          {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+          {p.vocalMode === 'micro' ? '' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
         </option>
       ))}
     </select>
@@ -70,7 +70,7 @@ export const TimelineMeasureHeaderBadge: React.FC<TimelineMeasureHeaderBadgeProp
       ) : relativeIdx > 0 ? (
         <div className={`flex items-center gap-1 ${isSelectedCell ? 'bg-[var(--cordel-bg)] border-2 border-[#8b2a1a] shadow-[0_0_6px_rgba(139,42,26,0.5)]' : 'bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-dashed border-[var(--cordel-border)]/40'} rounded px-1.5 py-px shadow-sm relative h-[20px]`} title={`${activePatternName || ''} [${relativeIdx + 1}/${spanMeasures}]`}>
           <span className="text-[9px] font-cactus font-bold tracking-wider uppercase text-[var(--cordel-text)]/80 leading-tight select-none flex items-center gap-0.5">
-            <span className="opacity-60 text-[8px]">🔗</span>
+            <span className="opacity-60 text-[8px]"></span>
             <span>[{relativeIdx + 1}/${spanMeasures}]</span>
           </span>
           {!isToada && <span className="text-[7px] opacity-40 ml-0.5">▼</span>}
@@ -79,9 +79,9 @@ export const TimelineMeasureHeaderBadge: React.FC<TimelineMeasureHeaderBadgeProp
       ) : (
         <div className={`flex items-center gap-1 ${isSelectedCell ? 'bg-[var(--cordel-bg)] border-2 border-[#8b2a1a] shadow-[0_0_6px_rgba(139,42,26,0.5)]' : 'bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50'} rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]`}>
           <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
-            {isFollowingMaster && <span className="mr-0.5 opacity-60">🔗</span>}
+            {isFollowingMaster && <span className="mr-0.5 opacity-60"></span>}
             {activePatternName || (lang === 'fr' ? 'Silence' : 'Silêncio')}
-            {hasChildOverrides && <span className="text-amber-500 ml-1 font-sans" title={lang === 'fr' ? 'Variation individuelle active' : 'Variação individual activa'}>✦</span>}
+            {hasChildOverrides && <span className="text-amber-500 ml-1 font-sans" title={lang === 'fr' ? 'Variation individuelle active' : 'Variação individual activa'}></span>}
           </span>
           {!isToada && <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>}
           {renderSelect()}
@@ -95,7 +95,7 @@ export const TimelineMeasureHeaderBadge: React.FC<TimelineMeasureHeaderBadgeProp
           className={`px-1 py-px rounded text-[10px] border transition-colors flex items-center justify-center h-[20px] ${measureAllowVariations ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a]'}`}
           title={measureAllowVariations ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado') : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')}
         >
-          🎲
+          
         </button>
       )}
     </div>

@@ -66,7 +66,7 @@ export const WallpaperShowcaseModal: React.FC<WallpaperShowcaseModalProps> = ({
               <span>{isZoomed ? (isPt ? 'Zoom ×1 (Normal)' : 'Zoom ×1 (Distance)') : (isPt ? 'Loupe ×2.5 (Detalhe)' : 'Loupe ×2.5 (Détails)')}</span>
             </button>
             <span className="text-[11px] opacity-60 font-mono hidden sm:inline">
-              {isZoomed ? '🔍 14px ➔ 35px' : '👁️ Trame 14px-20px'}
+              {isZoomed ? '14px 35px' : 'Trame 14px-20px'}
             </span>
           </div>
 

@@ -1,51 +1,13 @@
 import { db } from './firebase/config';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getGroupIdVariants, getDefaultGroupPresetId } from './services/cloud-groups/cloudGroupVariants';
+
+export { getGroupIdVariants, getDefaultGroupPresetId };
 
 export interface GroupDoc {
   defaultPresetId?: string | null;
   updatedAt?: number;
   [key: string]: any;
-}
-
-/**
- * Récupère les variantes d'ID pour un groupe (minuscule et casse d'origine).
- */
-function getGroupIdVariants(groupId: string): string[] {
-  if (!groupId) return [];
-  const raw = groupId.trim();
-  const lower = raw.toLowerCase();
-  return raw !== lower ? [lower, raw] : [lower];
-}
-
-/**
- * Récupère l'ID du preset par défaut (morceau vedette) pour un groupe donné depuis Firestore.
- * Double lecture transparente sur 'associations' (samambaia / Samambaia) puis 'groups'.
- */
-export async function getDefaultGroupPresetId(groupId: string): Promise<string | null> {
-  if (!groupId) return null;
-  const variants = getGroupIdVariants(groupId);
-
-  // 1. Priorité à la collection 'associations' (lecture ouverte)
-  for (const id of variants) {
-    try {
-      const snap = await getDoc(doc(db, 'associations', id));
-      if (snap.exists() && snap.data()?.defaultPresetId !== undefined && snap.data()?.defaultPresetId !== null) {
-        return snap.data().defaultPresetId;
-      }
-    } catch (_) {}
-  }
-
-  // 2. Vérification dans 'groups'
-  for (const id of variants) {
-    try {
-      const snap = await getDoc(doc(db, 'groups', id));
-      if (snap.exists() && snap.data()?.defaultPresetId !== undefined && snap.data()?.defaultPresetId !== null) {
-        return snap.data().defaultPresetId;
-      }
-    } catch (_) {}
-  }
-
-  return null;
 }
 
 /**
@@ -93,7 +55,7 @@ export function subscribeToGroupDefaultPreset(
 }
 
 /**
- * Définit ou retire le morceau vedette du groupe (icône Cactus 🌵).
+ * Définit ou retire le morceau vedette du groupe.
  * Réservé aux utilisateurs ayant le rôle 'mestre' ou 'admin'.
  * Double écriture transparente sur associations/<variant> et groups/<variant>.
  */

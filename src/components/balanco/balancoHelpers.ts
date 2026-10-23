@@ -3,12 +3,12 @@ import { BalancoPreset } from '../../types/balanco.types';
 export const getPresetBadge = (p: BalancoPreset, lang: 'pt' | 'fr') => {
   if (p.isFactory) {
     return {
-      label: lang === 'fr' ? '★ Usine' : '★ Fábrica',
+      label: lang === 'fr' ? 'Usine' : 'Fábrica',
       className: 'bg-[#d5c3b0] text-[#1a1a1a] border-[#1a1a1a]',
     };
   }
   return {
-    label: lang === 'fr' ? '👤 Mon Balanço' : '👤 Meu Balanço',
+    label: lang === 'fr' ? 'Mon Balanço' : 'Meu Balanço',
     className: 'bg-[#1b4332] text-[#f4ecd8] border-[#1b4332]',
   };
 };

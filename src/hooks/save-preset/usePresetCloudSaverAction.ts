@@ -5,34 +5,13 @@
 
 import { QueryClient } from '@tanstack/react-query';
 import { checkHasFullPlaybackAccess } from '../../contexts/AuthContext';
-import { CatalogVisibility, Preset, CloudPreset } from '../../types';
+import { CloudPreset } from '../../types';
 import { savePresetToCloud, fetchCloudPresets } from '../../cloudLibrary';
 import { normalizePresetName } from '../queries/useCloudPresets';
 import { SANCTUARIZED_PRESET_IDS } from '../../cloudPresetsStorage';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
-
-interface ExecuteSaveParams {
-  name: string;
-  presetData: Preset;
-  userProfile: any;
-  isAdmin: boolean;
-  isMestre: boolean;
-  visibility: CatalogVisibility;
-  isDraft: boolean;
-  effectiveMestreId?: string | null;
-  effectiveGroupId?: string;
-  matchedPreset: CloudPreset | null;
-  loadedMorceauId: string | null;
-  cloudPresets: CloudPreset[];
-  autoGenerateAudio: boolean;
-  genererEtUploaderPresetCloudBounce: any;
-  lang: 'fr' | 'pt';
-  sequencer: any;
-  queryClient: QueryClient;
-  onClose: () => void;
-  options?: { forceNew?: boolean };
-}
+import type { ExecuteSaveParams } from './usePresetCloudSaverTypes';
 
 export async function executeSavePresetToCloud({
   name, presetData, userProfile, isAdmin, isMestre, visibility, isDraft,
@@ -62,19 +41,20 @@ export async function executeSavePresetToCloud({
 
       if (isLocked && !isMestre && !isAdmin) {
         await sequencer.alertAsync(lang === 'fr'
-          ? `🔒 Le morceau "${presetName}" est verrouillé par le Mestre.`
-          : `🔒 A música "${presetName}" está bloqueada pelo Mestre.`);
+          ? `Le morceau "${presetName}" est verrouillé par le Mestre.`
+          : `A música "${presetName}" está bloqueada pelo Mestre.`);
         return;
       }
       if (!isOwn && !isMestre && !isAdmin) {
         await sequencer.alertAsync(lang === 'fr'
-          ? `⚠️ Le morceau "${presetName}" appartient à un autre membre.`
-          : `⚠️ A música "${presetName}" foi criada por outro membro.`);
+          ? `Le morceau "${presetName}" appartient à un autre membre.`
+          : `A música "${presetName}" foi criada por outro membro.`);
         return;
       }
       targetDocId = targetPreset.id;
     }
   }
+
 
   const isFree = !checkHasFullPlaybackAccess(userProfile, isAdmin);
   if (isFree && !targetDocId) {
@@ -142,6 +122,6 @@ export async function executeSavePresetToCloud({
   window.dispatchEvent(new Event('force-autosave'));
   queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
   window.dispatchEvent(new Event('refresh-cloud-presets'));
-  await sequencer.alertAsync(lang === 'pt' ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
+  await sequencer.alertAsync(lang === 'pt' ? 'Salvo na nuvem!' : 'Sauvegardé dans le cloud !');
   onClose();
 }

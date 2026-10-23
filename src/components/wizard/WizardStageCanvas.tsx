@@ -84,7 +84,7 @@ export const WizardStageCanvas: React.FC<WizardStageCanvasProps> = ({
             }}
           >
             <div className="remove-cross absolute inset-0 bg-[#8b2a1a]/10 rounded-full flex items-center justify-center text-3xl font-bold text-[#1a1a1a] opacity-0 transition-opacity duration-150 pointer-events-none select-none z-30 font-mono">
-              ✕
+              
             </div>
             <img src={config?.iconImg} className="w-6 h-6 object-contain pointer-events-none p-0.5 rounded-full bg-[#1a1a1a]/5" alt="" />
             <span className="text-[7px] font-cactus font-bold uppercase truncate max-w-[44px] leading-none mt-0.5 text-[#1a1a1a]">

@@ -63,7 +63,7 @@ export function getNextPatternName(
   // 2. Duplication / Collage créant un nouveau motif avec baseName fourni
   const cleanBase = cleanPatternBaseName(baseName.trim());
 
-  // 🛡️ Si le nom n'existe pas encore sur la piste cible : le conserver immédiatement sans incrément
+  // Si le nom n'existe pas encore sur la piste cible : le conserver immédiatement sans incrément
   if (!existingNames.has(cleanBase.toLowerCase())) {
     return cleanBase;
   }

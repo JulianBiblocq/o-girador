@@ -44,7 +44,7 @@ export class TopLevelErrorBoundary extends React.Component<
           boxSizing: 'border-box'
         }}>
           <h1 style={{ fontSize: '20px', borderBottom: '2px solid #f4ecd8', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'sans-serif' }}>
-            🚨 ERREUR CRITIQUE DE RENDU (REACT)
+            ERREUR CRITIQUE DE RENDU (REACT)
           </h1>
           <p><strong>Message :</strong> {this.state.error?.message}</p>
           <p><strong>Détails :</strong></p>

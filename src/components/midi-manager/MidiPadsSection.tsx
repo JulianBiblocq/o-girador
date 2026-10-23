@@ -19,7 +19,7 @@ export const MidiPadsSection: React.FC = () => {
   return (
     <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
       <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center justify-between border-b border-black/10 pb-1">
-        <span>🥁 {t('Mappage des Instruments (Pads)', 'Mapeamento de Instrumentos (Pads)')}</span>
+        <span>{t('Mappage des Instruments (Pads)', 'Mapeamento de Instrumentos (Pads)')}</span>
         {Object.keys(mappings).length > 0 && (
           <button
             onClick={handleClearAll}
@@ -48,9 +48,9 @@ export const MidiPadsSection: React.FC = () => {
               >
                 <div className="flex items-center gap-2">
                   <span className="font-bold bg-[#1a1a1a] text-[#f4ecd8] px-1.5 py-0.5 rounded-sm font-mono">
-                    🎹 {formatMidiKey(note)}
+                    {formatMidiKey(note)}
                   </span>
-                  <span className="text-gray-500">➔</span>
+                  <span className="text-gray-500"></span>
                   <span className="font-cactus font-bold uppercase tracking-wider text-[#8b2a1a]">
                     {target.instrumentId} ({target.symbol})
                   </span>

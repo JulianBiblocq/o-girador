@@ -58,10 +58,10 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
                 }}
               />
               <button onClick={onSaveRename} className="px-2 py-0.5 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700">
-                ✓
+                
               </button>
               <button onClick={onCancelEdit} className="px-2 py-0.5 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200">
-                ✕
+                
               </button>
             </div>
           ) : (
@@ -70,7 +70,7 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
                 {layout.name}
               </span>
               <button onClick={onStartEdit} className="text-[11px] opacity-60 hover:opacity-100 cursor-pointer p-0.5">
-                ✏️
+                
               </button>
               {isActiveLayout && (
                 <span className="text-[9px] font-bold font-cactus bg-[#8b2a1a] text-white px-1.5 py-0.2 rounded shrink-0">
@@ -86,14 +86,14 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
 
         <div className="flex flex-wrap gap-1.5 text-[9px] font-cactus font-bold">
           <span className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${mixer?.detached ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40' : 'bg-gray-100 text-black/60 border-gray-300'}`}>
-            🎛️ {mixer?.detached ? (lang === 'pt' ? 'Mesa déportada' : 'Console déportée') : (lang === 'pt' ? 'Mesa ancorada' : 'Console ancrée')}
+            {mixer?.detached ? (lang === 'pt' ? 'Mesa déportada' : 'Console déportée') : (lang === 'pt' ? 'Mesa ancorada' : 'Console ancrée')}
           </span>
           <span className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${roda?.detached ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40' : 'bg-gray-100 text-black/60 border-gray-300'}`}>
-            🥁 {roda?.detached ? (lang === 'pt' ? 'Roda déportada' : 'Roda déportée') : (lang === 'pt' ? 'Roda ancorada' : 'Roda ancrée')}
+            {roda?.detached ? (lang === 'pt' ? 'Roda déportada' : 'Roda déportée') : (lang === 'pt' ? 'Roda ancorada' : 'Roda ancrée')}
           </span>
           {detailEditor?.detached && (
             <span className="px-1.5 py-0.5 border rounded bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40 flex items-center gap-1">
-              🔧 {lang === 'pt' ? 'Editor déportado' : 'Éditeur déporté'}
+              {lang === 'pt' ? 'Editor déportado' : 'Éditeur déporté'}
             </span>
           )}
         </div>
@@ -106,7 +106,7 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
             isActiveLayout ? 'bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#a83220]' : 'bg-black text-[#f4ecd8] hover:bg-[#8b2a1a]'
           }`}
         >
-          🚀 {lang === 'pt' ? 'Aplicar espaço' : "Appliquer l'espace"}
+          {lang === 'pt' ? 'Aplicar espaço' : "Appliquer l'espace"}
         </button>
 
         {isConfirmingDelete ? (
@@ -115,12 +115,12 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
               {lang === 'pt' ? 'Excluir' : 'Suppr.'}
             </button>
             <button onClick={onCancelDelete} className="px-2 py-1 bg-white text-black font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100">
-              ✕
+              
             </button>
           </div>
         ) : (
           <button onClick={onAskDelete} className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none">
-            🗑️
+            
           </button>
         )}
       </div>

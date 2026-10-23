@@ -44,7 +44,7 @@ export const SettingsCachePurgeButton: React.FC<SettingsCachePurgeButtonProps> =
   return (
     <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-[#8b2a1a] rounded-[4px_10px_6px_12px] p-4 bg-[#fbf8f0] shadow-[3px_3px_0px_#8b2a1a] flex flex-col gap-4">
       <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-[#8b2a1a]/20 pb-1 text-[#8b2a1a]">
-        🧹 {lang === 'fr' ? "Purge de l'Atelier" : 'Limpeza da Oficina'}
+        {lang === 'fr' ? "Purge de l'Atelier" : 'Limpeza da Oficina'}
       </h3>
       <p className="text-[10px] italic opacity-85">
         {lang === 'fr'

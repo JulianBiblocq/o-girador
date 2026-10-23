@@ -54,7 +54,7 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
       items={[
         {
           id: 'copy-voice-steps',
-          icon: '📋',
+          icon: '',
           label: lang === 'fr' ? 'Copier la sélection (Ctrl+C)' : 'Copiar seleção (Ctrl+C)',
           onClick: () => {
             useSequencerStore.getState().copyVoiceStepsRange(useSequencerStore.getState().selectedStepRange, trackId, patternId);
@@ -63,7 +63,7 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
         },
         {
           id: 'cut-voice-steps',
-          icon: '✂️',
+          icon: '',
           label: lang === 'fr' ? 'Couper la sélection (Ctrl+X)' : 'Recortar seleção (Ctrl+X)',
           onClick: () => {
             useSequencerStore.getState().cutVoiceStepsRange(useSequencerStore.getState().selectedStepRange, trackId, patternId);
@@ -72,7 +72,7 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
         },
         {
           id: 'paste-voice-steps',
-          icon: '📥',
+          icon: '',
           label: lang === 'fr' ? 'Coller (Ctrl+V)' : 'Colar (Ctrl+V)',
           disabled: !hasClipboardSteps,
           disabledReason: lang === 'fr' ? 'Aucun pas dans le presse-papier' : 'Nenhum passo na área de transferência',
@@ -83,7 +83,7 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
         },
         {
           id: 'paste-notes-only',
-          icon: '🎵',
+          icon: '',
           label: lang === 'fr' ? 'Coller les notes seules (Ctrl+Shift+V)' : 'Colar somente as notas (Ctrl+Shift+V)',
           disabled: !hasClipboardSteps,
           disabledReason: lang === 'fr' ? 'Aucune note mélodique dans le presse-papier' : 'Nenhuma nota melódica na área de transferência',
@@ -95,7 +95,7 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
         { id: 'sep-clear', isSeparator: true },
         {
           id: 'clear-step',
-          icon: '✕',
+          icon: '',
           label: lang === 'fr' ? 'Effacer le pas' : 'Limpar o passo',
           isDestructive: true,
           onClick: () => {

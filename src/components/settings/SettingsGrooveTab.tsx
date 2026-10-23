@@ -33,7 +33,7 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
       {/* 1. BLOC GROOVE (BALANÇO COMPLET INLINE) */}
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
         <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          🌊 {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
+          {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
         </h3>
         <BalancoEditorPanel
           globalSwing={globalSwing}
@@ -46,7 +46,7 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
       {/* 2. BLOC MÉTRONOME */}
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
         <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          ⏱️ {lang === 'fr' ? 'Métronome' : 'Metrônomo'}
+          {lang === 'fr' ? 'Métronome' : 'Metrônomo'}
         </h3>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-3">

@@ -121,7 +121,7 @@ export const MobileSecondInstrumentSelector: React.FC<Props> = ({
                     style={{ backgroundColor: inst?.mixerBg || '#f4ecd8' }}
                   />
                   <span className="truncate flex-1">{num}{name}</span>
-                  {isSelected && <span className="text-[10px] font-black shrink-0">✓</span>}
+                  {isSelected && <span className="text-[10px] font-black shrink-0"></span>}
                 </button>
               );
             })}

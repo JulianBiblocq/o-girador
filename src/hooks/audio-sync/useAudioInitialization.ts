@@ -12,6 +12,7 @@ import { InputManager } from '../../InputManager';
 import { initMasterEffectsChain, trackInputs, syncTrackInsertChain } from '../../audio/effectsChain';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getAudioEngine, setAudioEngine, setInputManager, channels } from './audioEngineNodes';
+import { setupAudioWindowEvents } from './audioWindowEventsManager';
 
 export interface AudioInitProps {
   tracksRef: { current: any[] };
@@ -48,6 +49,8 @@ export function useAudioInitialization(p: AudioInitProps): void {
 
   useEffect(() => {
     let engine: AudioEngine | null = null;
+    let cleanupWindowEvents: (() => void) | null = null;
+
     const initAudio = async () => {
       try {
         const isEco = useSequencerStore.getState().isEcoMode;
@@ -105,50 +108,24 @@ export function useAudioInitialization(p: AudioInitProps): void {
         });
 
         startVisualLoop(rawCtx, hitTriggersRef);
-
-        const handlePreviewVoice = (e: Event) => {
-          const note = (e as CustomEvent).detail;
-          if (note && engine) engine.triggerVoiceAttackRelease(note, '8n');
-        };
-        const handleStopVocals = () => {
-          vocalEngineService.stopAllVocalPlayback();
-        };
-        const handleReleaseVoicePitch = () => {
-          if (engine) engine.releaseVoicePitch();
-        };
-        const handleApplyVocalPreset = (e: Event) => {
-          const preset = (e as CustomEvent).detail;
-          if (preset) vocalEngineService.applyVocalPreset(preset);
-        };
-
-        window.addEventListener('audio-preview-voice-note', handlePreviewVoice);
-        window.addEventListener('vocal-stop-all-playback', handleStopVocals);
-        window.addEventListener('vocal-release-voice-pitch', handleReleaseVoicePitch);
-        window.addEventListener('vocal-apply-preset-live', handleApplyVocalPreset);
+        cleanupWindowEvents = setupAudioWindowEvents(engine);
 
         return () => {
-          window.removeEventListener('audio-preview-voice-note', handlePreviewVoice);
-          window.removeEventListener('vocal-stop-all-playback', handleStopVocals);
-          window.removeEventListener('vocal-release-voice-pitch', handleReleaseVoicePitch);
-          window.removeEventListener('vocal-apply-preset-live', handleApplyVocalPreset);
+          if (cleanupWindowEvents) cleanupWindowEvents();
           stopVisualLoop();
           registerAudioEngineSyncTarget(null);
           const activeEngine = getAudioEngine() || engine;
-          if (activeEngine) {
-            activeEngine.stop();
-          }
+          if (activeEngine) activeEngine.stop();
           engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
           engineTimeoutsRef.current.clear();
           stopAllNativeOscillators();
         };
       } catch (err) {
-        console.error("❌ Critical error during initAudio:", err);
+        console.error('[initAudio] Critical error during audio setup:', err);
       } finally {
-        if (engine) {
-          engine.loadAllSamples().catch(() => {});
-        }
+        if (engine) engine.loadAllSamples().catch(() => {});
         vocalEngineService.rehydrateVocalBuffers(tracksRef.current).catch((e) => {
-          console.error("🎙️ [VOCAL REHYDRATE] Background rehydration error in initAudio:", e);
+          console.error('[initAudio] Background rehydration error:', e);
         });
         setIsLoading(false);
       }

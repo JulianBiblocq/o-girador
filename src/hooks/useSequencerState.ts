@@ -7,6 +7,7 @@ import { audioEngine } from './useAudioSync';
 import { useSequencerMeasuresState } from './sequencer-state/useSequencerMeasuresState';
 import { useSequencerStateRefs } from './sequencer-state/useSequencerStateRefs';
 import { useMeasureSyncEffects } from './sequencer-state/useMeasureSyncEffects';
+import { useSequencerUserPreferences } from './sequencer-state/useSequencerUserPreferences';
 import { useAsyncDialog } from './sequencer-state/asyncDialogHelpers';
 import { createTrackManagementHandlers } from './sequencer-state/trackManagementHandlers';
 import { createTrackVariationSculptHandlers } from './sequencer-state/trackVariationSculptHandlers';
@@ -35,32 +36,9 @@ export function useSequencerState() {
     const cur = useSequencerStore.getState().metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] };
     useSequencerStore.getState().setMetadata(typeof val === 'function' ? val(cur) : val);
   }, []);
+  const { isLeftHanded, setIsLeftHanded, lang, setLang } = useSequencerUserPreferences(userProfile, updateUserPreference);
 
-  const [isLeftHanded, _setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('o_girador_left_handed') === 'true');
-  const [lang, _setLang] = useState<Language>(() => (localStorage.getItem('o_girador_lang') === 'fr' ? 'fr' : 'pt'));
-
-  const setLang = useCallback((newLang: Language) => {
-    _setLang(newLang);
-    if (typeof window !== 'undefined') localStorage.setItem('o_girador_lang', newLang);
-    useSequencerStore.getState().setLang(newLang);
-  }, []);
-
-  useEffect(() => useSequencerStore.subscribe((s) => {
-    if (s.lang && s.lang !== lang) _setLang(s.lang);
-  }), [lang]);
   useEffect(() => { useSequencerStore.setState({ bpm: m.bpm, timeSig: m.timeSig, isLooping: m.isLooping }); }, [m.bpm, m.timeSig, m.isLooping]);
-  useEffect(() => {
-    if (userProfile?.isLeftHanded !== undefined) {
-      _setIsLeftHanded(userProfile.isLeftHanded);
-      localStorage.setItem('o_girador_left_handed', String(userProfile.isLeftHanded));
-    }
-  }, [userProfile?.isLeftHanded]);
-
-  const setIsLeftHanded = (val: boolean) => {
-    _setIsLeftHanded(val);
-    localStorage.setItem('o_girador_left_handed', String(val));
-    if (userProfile) updateUserPreference('isLeftHanded', val);
-  };
 
   const refs = useSequencerStateRefs();
   const history = useSequencerHistory({

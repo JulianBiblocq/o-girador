@@ -40,10 +40,10 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
             {preset.name}
           </h4>
           <div className="flex items-center gap-2 text-[10px] text-[#1a1a1a]/60 mt-0.5">
-            {dateStr && <span>📅 {dateStr}</span>}
-            {preset.authorName && <span>• ✍️ {preset.authorName}</span>}
-            {preset.visibility === 'public' && <span className="text-[#8b2a1a] font-bold">• 🌐 Public</span>}
-            {preset.visibility === 'mestre_group' && <span className="text-[#2e5339] font-bold">• 👥 Groupe</span>}
+            {dateStr && <span>{dateStr}</span>}
+            {preset.authorName && <span>• {preset.authorName}</span>}
+            {preset.visibility === 'public' && <span className="text-[#8b2a1a] font-bold">• Public</span>}
+            {preset.visibility === 'mestre_group' && <span className="text-[#2e5339] font-bold">• Groupe</span>}
           </div>
         </div>
 
@@ -53,7 +53,7 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
             onClick={() => onLoad(preset)}
             className="px-3 py-1 bg-[#2e5339] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer font-bold uppercase text-[11px] flex items-center gap-1"
           >
-            <span>⚡</span>
+            <span></span>
             {lang === 'fr' ? 'Charger' : 'Carregar'}
           </button>
 
@@ -68,7 +68,7 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
               title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
               className="w-7 h-7 flex items-center justify-center bg-[#8b2a1a]/10 hover:bg-[#8b2a1a] text-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer text-xs disabled:opacity-50"
             >
-              {isDeleting ? '...' : '🗑️'}
+              {isDeleting ? '...' : ''}
             </button>
           )}
         </div>

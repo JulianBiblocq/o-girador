@@ -9,26 +9,7 @@ import { audioEngine } from '../useAudioSync';
 import { getNextNuanceState, getAlternatingStroke } from '../../utils/instrumentStrokes';
 import { getSculptNumber } from '../../components/instrument-editor/grid/gridConstants';
 import { Pattern } from '../../types';
-
-interface UseGridTouchInteractionsParams {
-  trackId: number;
-  pattern: Pattern;
-  instrument: { id: string; type: string; [key: string]: any };
-  activeTool: string;
-  isAlternating: boolean;
-  lang: string;
-  isLeftHanded: boolean;
-  selectedVariationId: string | null;
-  isMultiSelectActive: boolean;
-  handleScissorsClick: (idx: number, val?: any) => void;
-  handleStepTouchStartMulti: (e: any, idx: number) => void;
-  onStepTouchStart?: (e: any, pId: number, sIdx: number, instId: string, val: any, onSel: any, tId: number, isSplit?: boolean, sub?: 0 | 1) => void;
-  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any) => void;
-  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any) => void;
-  setSelectedStepIdx: (idx: number) => void;
-  setSelectedStepIndices: (indices: number[]) => void;
-  setSelectedSubIndex: (sub: 0 | 1 | null) => void;
-}
+import type { UseGridTouchInteractionsParams } from './gridTouchTypes';
 
 export function useGridTouchInteractions(params: UseGridTouchInteractionsParams) {
   const {

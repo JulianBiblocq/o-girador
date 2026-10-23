@@ -1,28 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Music, Cloud } from 'lucide-react';
+import { Cloud } from 'lucide-react';
+import { useAudio } from '../contexts/AudioContext';
 import { PresetAccordionSection } from './preset-accordion/PresetAccordionSection';
 import { PresetAccordionLocalSection } from './preset-accordion/PresetAccordionLocalSection';
+import { PresetAccordionDraftsSection } from './preset-accordion/PresetAccordionDraftsSection';
 import { PresetAccordionSelectFallback } from './preset-accordion/PresetAccordionSelectFallback';
+import { PresetAccordionHeader } from './preset-accordion/PresetAccordionHeader';
+import { PresetAccordionSelectorProps } from './preset-accordion/presetAccordionTypes';
 
-export interface PresetAccordionSelectorProps {
-  lang: 'pt' | 'fr';
-  activePreset: string;
-  currentSongTitle?: string;
-  publicCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean }>;
-  privateCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean }>;
-  localPresets?: string[];
-  isCloudPresetsLoading: boolean;
-  showGroupCatalogue: boolean;
-  groupLabel: string | null;
-  groupLogo?: string | null;
-  defaultPresetId?: string | null;
-  canSetDefaultPreset?: boolean;
-  onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
-  canEdit?: boolean;
-  onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
-  onSelectPreset: (presetValue: string, cloudId?: string) => void;
-  className?: string;
-}
+export type { PresetAccordionSelectorProps };
 
 export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = ({
   lang,
@@ -43,6 +29,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   onSelectPreset,
   className = '',
 }) => {
+  const audio = useAudio();
   const [isGroupOpen, setIsGroupOpen] = useState(showGroupCatalogue);
   const [isPublicOpen, setIsPublicOpen] = useState(!showGroupCatalogue);
 
@@ -71,18 +58,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
 
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wider flex items-center gap-1.5">
-          <BookOpen size={12} className="shrink-0 text-[#d99b26]" />
-          <span>{lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}</span>
-        </span>
-        {currentSongTitle && (
-          <span className="text-[11px] font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
-            <Music size={11} className="shrink-0 text-[var(--cordel-wood)]" />
-            <span className="truncate">{currentSongTitle}</span>
-          </span>
-        )}
-      </div>
+      <PresetAccordionHeader lang={lang} currentSongTitle={currentSongTitle} />
 
       <div className="flex flex-col gap-1.5 w-full">
         {showGroupCatalogue && (
@@ -129,6 +105,16 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           lang={lang}
           isItemActive={isItemActive}
           onItemClick={(name) => handleItemClick(name)}
+        />
+
+        <PresetAccordionDraftsSection
+          lang={lang}
+          onSelectDraft={(presetData, name) => {
+            handleItemClick(`draft:${name}`);
+            if (audio?.applyPreset) {
+              audio.applyPreset(presetData);
+            }
+          }}
         />
       </div>
 

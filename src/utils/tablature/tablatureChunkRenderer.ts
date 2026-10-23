@@ -89,7 +89,7 @@ export function renderTablatureChunk(
     if (hasDataInChunk) {
       const conf = instrumentsConfig[track.instrumentIdx];
       const instLabel = getInstrumentLabel(conf.id, isFirstBlock, track);
-      const varMarker = hasVariationsInChunk ? (isHtml ? ' 🎲' : ' (*v)') : '';
+      const varMarker = hasVariationsInChunk ? (isHtml ? ' ' : ' (*v)') : '';
       const safeInstLabel = (instLabel + varMarker).substring(0, 15).padEnd(15, ' ');
       const safeSig = initialSig.padStart(4, ' ');
       chunkOutput += `${safeInstLabel} ${safeSig} ${leftBar}${trackStr}${rightBar}\n`;

@@ -86,7 +86,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
           }}
           className="w-full py-1 bg-[#1a1a1a] hover:bg-[#8b2a1a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:scale-95 transition-all cursor-pointer font-cactus font-bold uppercase text-[9px] flex items-center justify-center gap-1 mt-0.5"
         >
-          <span>🔊</span>
+          <span></span>
           <span>{lang === 'fr' ? 'Écouter' : 'Ouvir'}</span>
         </button>
       )}

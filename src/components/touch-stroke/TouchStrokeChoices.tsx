@@ -85,7 +85,7 @@ export const TouchStrokeChoices: React.FC<TouchStrokeChoicesProps> = React.memo(
             } ${!isLoaded ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''}`}
             style={{ backgroundColor: bgColor, color: textColor }}
           >
-            {loadingStroke === strokeVal ? <span className="animate-spin text-[10px] pointer-events-none">⏳</span> : <span className="pointer-events-none">{isSilence ? 'Ø' : String(visualStroke)}</span>}
+            {loadingStroke === strokeVal ? <span className="animate-spin text-[10px] pointer-events-none"></span> : <span className="pointer-events-none">{isSilence ? 'Ø' : String(visualStroke)}</span>}
           </div>
         );
       })}
@@ -111,7 +111,7 @@ export const TouchStrokeChoices: React.FC<TouchStrokeChoicesProps> = React.memo(
           className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#3498db] text-white shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#3498db] transition-all cursor-pointer select-none"
           title={lang === 'fr' ? 'Recoller en croche' : 'Juntar em colcheia'}
         >
-          💧
+          
         </button>
       ) : (
         <button
@@ -123,7 +123,7 @@ export const TouchStrokeChoices: React.FC<TouchStrokeChoicesProps> = React.memo(
           className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f1c40f] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f1c40f] transition-all cursor-pointer select-none"
           title={lang === 'fr' ? 'Diviser en doubles croches' : 'Dividir em semicolcheias'}
         >
-          ✂️
+          
         </button>
       )}
     </div>

@@ -73,7 +73,7 @@ export const RightSidebarToadaTab: React.FC<RightSidebarToadaTabProps> = ({
         )}
 
         <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left flex items-center gap-1.5">
-          🎙️ {lang === 'fr' ? 'Letra da Toada (Ao Vivo)' : 'Letra da Toada (Ao Vivo)'}
+          {lang === 'fr' ? 'Letra da Toada (Ao Vivo)' : 'Letra da Toada (Ao Vivo)'}
         </span>
 
         <RightSidebarKaraokeViewer tracks={tracks} lang={lang} containerRef={karaokeContainerRef} />

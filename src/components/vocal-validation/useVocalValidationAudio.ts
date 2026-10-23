@@ -72,7 +72,7 @@ export function useVocalValidationAudio({
       }
 
       if (!tempRecording.blob || tempRecording.blob.size === 0) {
-        console.error("🎙️ [AUDIO] Blob d'enregistrement vide ou inexistant.");
+        console.error("[AUDIO] Blob d'enregistrement vide ou inexistant.");
         if (active) setLoading(false);
         return;
       }
@@ -82,7 +82,7 @@ export function useVocalValidationAudio({
         try {
           await rawCtx.resume();
         } catch (e) {
-          console.warn('🎙️ [AUDIO] Context resume warning:', e);
+          console.warn('[AUDIO] Context resume warning:', e);
         }
       }
 
@@ -91,7 +91,7 @@ export function useVocalValidationAudio({
         const buffer = await rawCtx.decodeAudioData(arrayBuffer);
         if (active) setupBufferAndTrims(buffer);
       } catch (err) {
-        console.error('🎙️ [VOCAL ENGINE] Error decoding temporary recording:', err);
+        console.error('[VOCAL ENGINE] Error decoding temporary recording:', err);
       } finally {
         if (active) setLoading(false);
       }

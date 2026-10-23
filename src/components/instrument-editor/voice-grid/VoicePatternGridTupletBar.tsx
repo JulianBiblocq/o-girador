@@ -20,7 +20,7 @@ export const VoicePatternGridTupletBar: React.FC<VoicePatternGridTupletBarProps>
   return (
     <div className="flex items-center justify-between flex-wrap gap-2 px-2.5 py-1.5 bg-[#ece4d0] border border-[#1a1a1a]/20 rounded-md shadow-sm">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-bold text-[#1a1a1a]">⚙️ {lang === 'fr' ? 'Divisions vocales :' : 'Divisões vocais :'}</span>
+        <span className="text-[11px] font-bold text-[#1a1a1a]">{lang === 'fr' ? 'Divisions vocales :' : 'Divisões vocais :'}</span>
         <span className="text-[10px] text-[#1a1a1a]/60">({lang === 'fr' ? 'Par temps ou global' : 'Por tempo ou global'})</span>
       </div>
       <div className="flex items-center gap-1.5">

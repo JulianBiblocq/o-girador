@@ -73,7 +73,7 @@ export const StepEditorStrokeGrid: React.FC<StepEditorStrokeGridProps> = ({
             style={{ backgroundColor: bgColor, color: textColor }}
           >
             {isStrokeLoading ? (
-              <span className="animate-spin text-[10px]">⏳</span>
+              <span className="animate-spin text-[10px]"></span>
             ) : inst ? (
               getVisualStrokeSymbol(stroke, isLeftHanded, inst.id)
             ) : (

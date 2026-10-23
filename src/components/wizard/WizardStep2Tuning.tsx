@@ -70,7 +70,7 @@ export const WizardStep2Tuning: React.FC<WizardStep2TuningProps> = ({ wizardLang
                   alfaiaGroupingMode === 'bloc' ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a]'
                 }`}
               >
-                <div className="text-xs md:text-sm mb-1">🧱 {t[wizardLang].enBloc}</div>
+                <div className="text-xs md:text-sm mb-1">{t[wizardLang].enBloc}</div>
                 <div className={`text-[8px] leading-tight mt-1 ${alfaiaGroupingMode === 'bloc' ? 'text-[#f4ecd8]/70' : 'text-[#1a1a1a]/60'}`}>
                   {t[wizardLang].enBlocDesc}
                 </div>
@@ -81,7 +81,7 @@ export const WizardStep2Tuning: React.FC<WizardStep2TuningProps> = ({ wizardLang
                   alfaiaGroupingMode === 'distinct' ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a]'
                 }`}
               >
-                <div className="text-xs md:text-sm mb-1">🌿 {t[wizardLang].phrasesDistinctes}</div>
+                <div className="text-xs md:text-sm mb-1">{t[wizardLang].phrasesDistinctes}</div>
                 <div className={`text-[8px] leading-tight mt-1 ${alfaiaGroupingMode === 'distinct' ? 'text-[#f4ecd8]/70' : 'text-[#1a1a1a]/60'}`}>
                   {t[wizardLang].phrasesDistinctesDesc}
                 </div>

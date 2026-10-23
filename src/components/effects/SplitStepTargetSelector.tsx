@@ -32,7 +32,7 @@ export const SplitStepTargetSelector: React.FC<SplitStepTargetSelectorProps> = (
             : 'bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 text-[#1a1a1a]'
         }`}
       >
-        ⚡ {lang === 'fr' ? '1er Coup' : '1º Golpe'} ({stepVal[0]})
+        {lang === 'fr' ? '1er Coup' : '1º Golpe'} ({stepVal[0]})
       </button>
       <button
         type="button"
@@ -43,7 +43,7 @@ export const SplitStepTargetSelector: React.FC<SplitStepTargetSelectorProps> = (
             : 'bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 text-[#1a1a1a]'
         }`}
       >
-        ⚡ {lang === 'fr' ? '2ème Coup' : '2º Golpe'} ({stepVal[1]})
+        {lang === 'fr' ? '2ème Coup' : '2º Golpe'} ({stepVal[1]})
       </button>
       <button
         type="button"
@@ -54,7 +54,7 @@ export const SplitStepTargetSelector: React.FC<SplitStepTargetSelectorProps> = (
             : 'bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 text-[#1a1a1a]'
         }`}
       >
-        🔗 {lang === 'fr' ? 'Les deux (Lié)' : 'Ambos (Ligado)'}
+        {lang === 'fr' ? 'Les deux (Lié)' : 'Ambos (Ligado)'}
       </button>
     </div>
   );

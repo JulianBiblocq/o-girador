@@ -57,7 +57,7 @@ export const VoicePianoControls: React.FC<VoicePianoControlsProps> = React.memo(
       {/* Indicateur Pas actif, Bouton Gomme & Bouton Clavier Repliable */}
       <div className="flex items-center gap-2 text-[10px] font-medium text-[#1a1a1a]/80">
         <span className="font-mono bg-[#ece4d0] px-1.5 py-0.5 rounded border border-[#1a1a1a]/15">
-          {selectedStepIsPreRoll ? (isFr ? '🎙️ Anacrouse' : '🎙️ Anacruse') : (isFr ? '🎼 Mesure' : '🎼 Compasso')} :{' '}
+          {selectedStepIsPreRoll ? (isFr ? 'Anacrouse' : 'Anacruse') : (isFr ? 'Mesure' : 'Compasso')} :{' '}
           <strong className="text-[#8b2a1a]">
             {selectedStepIdx !== null ? `Pas ${selectedStepIdx + 1}` : (isFr ? 'Aucun' : 'Nenhum')}
           </strong>
@@ -79,7 +79,7 @@ export const VoicePianoControls: React.FC<VoicePianoControlsProps> = React.memo(
           className="px-2 py-1 rounded bg-[#ece4d0] hover:bg-[#e2d5bd] text-[#1a1a1a] text-[11px] font-bold border border-[#1a1a1a]/20 shadow-xs flex items-center gap-1 cursor-pointer transition-colors ml-1"
           title={isFr ? (isPianoExpanded ? 'Replier le clavier piano' : 'Déplier le clavier piano') : (isPianoExpanded ? 'Recolher teclado' : 'Expandir teclado')}
         >
-          <span>🎹</span>
+          <span></span>
           <span className="hidden sm:inline">{isFr ? 'Clavier' : 'Teclado'}</span>
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isPianoExpanded ? 'rotate-0' : '-rotate-90'}`} />
         </button>

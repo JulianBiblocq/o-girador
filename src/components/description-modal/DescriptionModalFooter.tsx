@@ -26,7 +26,7 @@ export const DescriptionModalFooter: React.FC<FooterProps> = ({
       <div className="text-[10px] text-[#1a1a1a]/60 font-bold">
         {isEditing && (
           <span>
-            💡 {lang === 'fr' ? "Les modifications ne s'appliquent qu'au clic sur Enregistrer." : 'As alterações só são salvas ao clicar em Salvar.'}
+            {lang === 'fr' ? "Les modifications ne s'appliquent qu'au clic sur Enregistrer." : 'As alterações só são salvas ao clicar em Salvar.'}
           </span>
         )}
       </div>
@@ -46,7 +46,7 @@ export const DescriptionModalFooter: React.FC<FooterProps> = ({
               onClick={onSave}
               className="px-4 py-1.5 bg-[#1a1a1a] hover:bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase cursor-pointer transition-colors shadow-[2px_2px_0px_#8b2a1a]"
             >
-              💾 {lang === 'fr' ? 'Enregistrer' : 'Salvar'}
+              {lang === 'fr' ? 'Enregistrer' : 'Salvar'}
             </button>
           </>
         ) : (

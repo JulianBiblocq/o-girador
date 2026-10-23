@@ -75,7 +75,7 @@ export const SettingsTemplatesTab: React.FC<SettingsTemplatesTabProps> = ({
             disabled={isSyncingTemplates}
             className="px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5"
           >
-            <span>{isSyncingTemplates ? '🔄' : '☁️'}</span>
+            <span>{isSyncingTemplates ? '' : ''}</span>
             <span>{isSyncingTemplates ? (lang === 'pt' ? 'Sincronizando...' : 'Synchronisation...') : (lang === 'pt' ? 'Sincronizar' : 'Synchroniser')}</span>
           </button>
         )}
@@ -83,7 +83,7 @@ export const SettingsTemplatesTab: React.FC<SettingsTemplatesTabProps> = ({
 
       {workspaceTemplates.length === 0 ? (
         <div className="p-6 border-2 border-dashed border-black/40 bg-white/60 text-center flex flex-col items-center justify-center gap-2 rounded">
-          <span className="text-3xl">📜</span>
+          <span className="text-3xl"></span>
           <span className="font-cactus font-bold text-sm uppercase">
             {lang === 'pt' ? 'Nenhum modelo salvo' : 'Aucun gabarit enregistré'}
           </span>

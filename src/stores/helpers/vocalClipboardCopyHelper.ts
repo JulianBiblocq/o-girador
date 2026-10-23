@@ -17,13 +17,13 @@ export const copyVoiceStepsRangeState = (
 ): { steps: VoiceStepData[]; vocalNotes: string[]; fallbackSelection?: { step: number; isPreRoll: boolean } } | null => {
   const effectiveRange = resolveEffectiveRange(rangeOverride, selectedStepRange, selectedStepIdx, selectedStepIsPreRoll);
   if (!effectiveRange) {
-    console.warn('⚠️ [Toada Copy] Aucune plage ni cellule vocale sélectionnée.');
+    console.warn('[Toada Copy] Aucune plage ni cellule vocale sélectionnée.');
     return null;
   }
 
   const { track, pattern } = resolveVoiceTrackAndPattern(tracks, trackIdOverride, patternIdOverride, effectiveRange, editingTrackId, selectedPatternId);
   if (!track || !pattern) {
-    console.warn('⚠️ [Toada Copy] Aucune piste ou motif vocal trouvé.');
+    console.warn('[Toada Copy] Aucune piste ou motif vocal trouvé.');
     return null;
   }
 

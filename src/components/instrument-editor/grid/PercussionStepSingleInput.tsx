@@ -90,7 +90,7 @@ export const PercussionStepSingleInput: React.FC<PercussionStepSingleInputProps>
       data-track-id={trackId}
       data-pattern-id={patternId}
       data-step-index={i}
-      title={activeTool === 'scissors' ? (lang === 'fr' ? '✂ / 🩹 Scinder le pas en doubles croches' : '✂ / 🩹 Dividir o passo em semicolcheias') : undefined}
+      title={activeTool === 'scissors' ? (lang === 'fr' ? '/ Scinder le pas en doubles croches' : '/ Dividir o passo em semicolcheias') : undefined}
     />
   );
 };

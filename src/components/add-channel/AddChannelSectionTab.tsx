@@ -103,7 +103,7 @@ export const AddChannelSectionTab: React.FC<SectionTabProps> = ({
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
-                <span>{track.isLinkFolder ? `🔗 ${track.customName || 'Liaison'}` : track.customName || getInstrumentLabel(track.instrumentIdx)} ({index + 1})</span>
+                <span>{track.isLinkFolder ? `${track.customName || 'Liaison'}` : track.customName || getInstrumentLabel(track.instrumentIdx)} ({index + 1})</span>
                 {isSelected && <Check size={12} className="ml-1 shrink-0" />}
               </button>
             );

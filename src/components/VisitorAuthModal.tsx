@@ -37,7 +37,7 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
         )}
         
         <div className="text-center flex flex-col gap-1 sm:gap-2 mt-2 sm:mt-4">
-          <span className="text-4xl sm:text-5xl mb-1 sm:mb-2">🔒</span>
+          <span className="text-4xl sm:text-5xl mb-1 sm:mb-2"></span>
           <h2 className="font-cactus text-2xl sm:text-3xl font-black text-[#1a1a1a] uppercase leading-tight sm:leading-none">
             {lang === 'fr' ? 'La suite est réservée aux membres !' : 'O resto é reservado para membros!'}
           </h2>
@@ -51,16 +51,16 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
           </p>
           <ul className="text-xs sm:text-sm flex flex-col gap-2 text-left font-semibold">
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">🎵</span> {lang === 'fr' ? 'Écouter ce morceau en entier' : 'Ouvir esta música na íntegra'}
+              <span className="mt-0.5"></span> {lang === 'fr' ? 'Écouter ce morceau en entier' : 'Ouvir esta música na íntegra'}
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">🎛️</span> {lang === 'fr' ? 'Tester le séquenceur et créer vos rythmes' : 'Testar o sequenciador e criar seus ritmos'}
+              <span className="mt-0.5"></span> {lang === 'fr' ? 'Tester le séquenceur et créer vos rythmes' : 'Testar o sequenciador e criar seus ritmos'}
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">🌍</span> {lang === 'fr' ? 'Ajouter votre groupe sur la carte du monde' : 'Adicionar seu grupo no mapa mundial'}
+              <span className="mt-0.5"></span> {lang === 'fr' ? 'Ajouter votre groupe sur la carte du monde' : 'Adicionar seu grupo no mapa mundial'}
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">📱</span> {lang === 'fr' ? 'Découvrir nos applications de gestion' : 'Descobrir nossos aplicativos de gestão'}
+              <span className="mt-0.5"></span> {lang === 'fr' ? 'Découvrir nos applications de gestion' : 'Descobrir nossos aplicativos de gestão'}
             </li>
           </ul>
         </div>

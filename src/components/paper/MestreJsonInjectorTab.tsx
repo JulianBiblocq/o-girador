@@ -97,7 +97,7 @@ export const MestreJsonInjectorTab: React.FC<Props> = ({ canImport, lang, onSend
 
       {/* ACTIONS */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-        <span className="text-[10px] font-bold text-[#8b2a1a]">{!canImport ? '🔒 Réservé au Mestre / Admin' : '⚡ Mode Mestre Actif'}</span>
+        <span className="text-[10px] font-bold text-[#8b2a1a]">{!canImport ? 'Réservé au Mestre / Admin' : 'Mode Mestre Actif'}</span>
         <div className="flex items-center gap-2">
           {onSendToTagBuilder && (
             <button type="button" onClick={handleSendToBuilder} className="py-2 px-3 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white cursor-pointer">

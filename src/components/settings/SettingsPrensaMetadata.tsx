@@ -34,7 +34,7 @@ export const SettingsPrensaMetadata: React.FC<SettingsPrensaMetadataProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
         <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          📜 {lang === 'fr' ? 'Métadonnées & Paroles' : 'Metadados & Letras'}
+          {lang === 'fr' ? 'Métadonnées & Paroles' : 'Metadados & Letras'}
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="flex flex-col gap-1">
@@ -82,7 +82,7 @@ export const SettingsPrensaMetadata: React.FC<SettingsPrensaMetadataProps> = ({
 
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
         <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          🥁 {lang === 'fr' ? 'Sélection des Instruments' : 'Seleção de Instrumentos'}
+          {lang === 'fr' ? 'Sélection des Instruments' : 'Seleção de Instrumentos'}
         </h3>
         <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar flex-grow">
           <label className="flex items-center gap-3 p-2 border-2 border-black bg-white cursor-pointer hover:bg-black/5 transition-colors select-none">

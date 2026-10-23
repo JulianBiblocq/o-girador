@@ -59,7 +59,7 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
           className="bg-[#f4ecd8] text-black border-2 border-black hover:bg-black hover:text-[#f4ecd8] transition-colors px-3 py-1 font-cactus font-black text-lg cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
           title={lang === 'fr' ? 'Fermer' : 'Fechar'}
         >
-          ✕
+          
         </button>
       </div>
     </div>

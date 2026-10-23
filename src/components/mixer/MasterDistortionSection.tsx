@@ -10,16 +10,7 @@ import { XiloDistortion } from '../XiloIcons';
 import { masterDistortionVolumeNode, distortionNode } from '../../audio/effectsChain';
 import { percentToDb, calcDistoOpacity } from './masterEffectsMath';
 import { updateMasterEffectLabelContrast } from './masterEffectsThemeHelpers';
-
-interface MasterDistortionSectionProps {
-  distortionDrive: number;
-  returnVolume: number;
-  isDistoActive: boolean;
-  t: (key: any) => string;
-  setMasterFxParam: (fx: 'reverb' | 'distortion', param: 'drive' | 'time', val: number) => void;
-  setMasterFxVolume: (fx: 'reverb' | 'distortion', val: number) => void;
-  toggleMasterEffectActive: (fx: 'reverb' | 'disto') => void;
-}
+import type { MasterDistortionSectionProps } from './masterEffectsTypes';
 
 export const MasterDistortionSection: React.FC<MasterDistortionSectionProps> = ({
   distortionDrive,
@@ -111,7 +102,7 @@ export const MasterDistortionSection: React.FC<MasterDistortionSectionProps> = (
           }`}
           title={isDistoActive ? "Distorsion Master active (cliquer pour contourner / bypass)" : "Distorsion Master bypassée (cliquer pour activer)"}
         >
-          ⏻
+          
         </button>
       </div>
 

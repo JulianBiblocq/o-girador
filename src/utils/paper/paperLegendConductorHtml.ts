@@ -21,7 +21,7 @@ export const renderLegendConductorHTML = (lang: 'fr' | 'pt'): string => {
           <div style="padding-left: 6px; font-family: monospace; color: #8b2a1a; font-size: 9pt;">
             ||: Luanda x3 | [1. Trovão :|| [2. Fim Martelo ||
           </div>
-          <div style="padding-left: 6px; color: #555; font-size: 8.5pt;">➔ 1er tour joue Trovão, 2e tour saute à Fim Martelo.</div>
+          <div style="padding-left: 6px; color: #555; font-size: 8.5pt;">1er tour joue Trovão, 2e tour saute à Fim Martelo.</div>
           <div style="margin-top: 2px;"><strong>• Coda (⊕) & Renvois (D.C. / D.S.) :</strong></div>
           <div style="padding-left: 6px; color: #333; font-size: 8.5pt;">
             - <strong>D.C.</strong> = Da Capo │ <strong>D.S.</strong> = Dal Segno (𝄋).<br/>
@@ -29,7 +29,7 @@ export const renderLegendConductorHTML = (lang: 'fr' | 'pt'): string => {
           </div>
         </div>
         <div style="background: #fafafa; border: 1px solid #ccc; padding: 6px 8px;">
-          <div><strong>• Dé carré ⊡ (🎲) & Variations à la volée :</strong></div>
+          <div><strong>• Dé carré ⊡ () & Variations à la volée :</strong></div>
           <div style="padding-left: 6px; color: #333; font-size: 8.5pt;">
             - <code>| Luanda x3 |</code> = Joue la base pure.<br/>
             - <code>| Luanda x3 ⊡ |</code> ou <code>+ Var</code> = Active le tirage aléatoire des variations.<br/>
@@ -37,14 +37,14 @@ export const renderLegendConductorHTML = (lang: 'fr' | 'pt'): string => {
             - <code>Igarassu + Var (Cx, Rp) x8</code> = Variations ciblées sur certains pupitres.
           </div>
           <div style="margin-top: 3px;"><strong>• Crochets de Sections & Macros :</strong> <code>Partie 1 [ Luanda x3 | Trovão ] x2</code>.</div>
-          <div style="margin-top: 2px;"><strong>• Tempo & Rampes :</strong> <code>♩ = 110 ↗ 120</code> (accélération), <code>♩ = 120 ↘ 90</code> (ralenti).</div>
+          <div style="margin-top: 2px;"><strong>• Tempo & Rampes :</strong> <code>= 110 ↗ 120</code> (accélération), <code>= 120 ↘ 90</code> (ralenti).</div>
         </div>
       </div>
 
       <!-- Titre Section 4 : Les 5 Règles d'Or -->
       <div style="border: 2px solid #8b2a1a; background: #fffcf5; padding: 6px 10px; margin-top: 4px;">
         <div style="font-weight: bold; font-size: 11pt; text-transform: uppercase; color: #8b2a1a; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;">
-          <span>⭐</span> ${isFr ? 'LES 5 RÈGLES D’OR POUR UN SCAN PHOTO SANS DOUTE' : 'AS 5 REGRAS DE OURO PARA UM SCAN PERFEITO'}
+          <span></span> ${isFr ? 'LES 5 RÈGLES D’OR POUR UN SCAN PHOTO SANS DOUTE' : 'AS 5 REGRAS DE OURO PARA UM SCAN PERFEITO'}
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 8.5pt; line-height: 1.3;">
           <div>

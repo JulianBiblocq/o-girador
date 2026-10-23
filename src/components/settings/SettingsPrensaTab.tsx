@@ -62,7 +62,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
 
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
         <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          🖨️ Ações de Impressão & Exportação
+          Ações de Impressão & Exportação
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
@@ -85,7 +85,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
             onClick={printLegendOnly}
             className="w-full px-3 py-2 text-[10px] bg-white text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
           >
-            {lang === 'fr' ? '🖨️ Imprimer la Légende' : '🖨️ Imprimir a Legenda'}
+            {lang === 'fr' ? 'Imprimer la Légende' : 'Imprimir a Legenda'}
           </button>
         </div>
       </div>

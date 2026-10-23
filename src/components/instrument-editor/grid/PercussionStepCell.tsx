@@ -42,7 +42,7 @@ export const PercussionStepCell = React.memo((props: PercussionStepCellProps) =>
       onTouchStart={activeTool === 'scissors' ? (e) => onTouchStart(e, i, val) : undefined}
       onTouchEnd={activeTool === 'scissors' ? (e) => onTouchEnd?.(e, i, val) : undefined}
       onClick={() => onSelectForSculpt?.(i)}
-      title={activeTool === 'scissors' ? (Array.isArray(val) ? (lang === 'fr' ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Juntar o passo (Mesclar)') : (lang === 'fr' ? '✂ / 🩹 Scinder le pas en doubles croches' : '✂ / 🩹 Dividir o passo em semicolcheias')) : undefined}
+      title={activeTool === 'scissors' ? (Array.isArray(val) ? (lang === 'fr' ? '/ Recoller le pas (Fusionner)' : '/ Juntar o passo (Mesclar)') : (lang === 'fr' ? '/ Scinder le pas en doubles croches' : '/ Dividir o passo em semicolcheias')) : undefined}
     >
       {Array.isArray(val) ? (
         <PercussionStepSplitVisual

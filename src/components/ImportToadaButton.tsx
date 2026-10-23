@@ -1,6 +1,6 @@
 /**
  * ImportToadaButton.tsx
- * Bouton Cordel [ ☁️ Charger Toada ] et pont Cloud direct vers Cantador (< 125 lignes).
+ * Bouton Cordel [ Charger Toada ] et pont Cloud direct vers Cantador (< 125 lignes).
  * Supporte la sélection visuelle (CloudToadaPickerModal) et les deep links ?loadToadaId=...
  */
 import React, { useState, useEffect } from 'react';
@@ -29,34 +29,6 @@ export const ImportToadaButton: React.FC<ImportToadaButtonProps> = ({ lang = 'fr
   const canImport = isLocalhost || Boolean(
     userProfile?.canWriteSequenciador || userProfile?.role === 'mestre' || userProfile?.role === 'admin' || (userProfile as any)?.isSystemAdmin
   );
-
-  // Détection automatique du paramètre Deep Link ?loadToadaId=...
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const toadaId = params.get('loadToadaId');
-    if (!toadaId) return;
-
-    // Nettoyage de l'URL pour préserver l'hygiène SPA
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('loadToadaId');
-      window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + url.hash);
-    } catch {}
-
-    setIsLoading(true);
-    fetchCloudToadaById(toadaId)
-      .then((pack) => {
-        if (pack?.patterns) {
-          setPendingPack(pack);
-          setIsModalOpen(true);
-        } else {
-          window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: lang === 'fr' ? 'Toada Cloud introuvable' : 'Toada não encontrada na nuvem' } }));
-        }
-      })
-      .catch((err) => console.error('[ImportToadaButton] Erreur chargement toadaId:', err))
-      .finally(() => setIsLoading(false));
-  }, [lang]);
 
   if (!canImport) return null;
 

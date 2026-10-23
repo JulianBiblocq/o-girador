@@ -2,22 +2,7 @@ import React from 'react';
 import { TrackGroup, Pattern } from '../../types';
 import { DawStepCell } from './DawStepCell';
 import { resolveStepVisual } from './dawStepVisualResolver';
-
-interface DawStepGridProps {
-  beatGroups: number[][];
-  track: TrackGroup;
-  effectiveTrack: TrackGroup;
-  inst: any;
-  activePattern: Pattern | null;
-  masterActivePattern: Pattern | null;
-  isGhostStep: boolean;
-  isLeftHanded: boolean;
-  tracks: TrackGroup[];
-  currentMeasure: number;
-  sequencer: any;
-  handleStepClick: (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => void;
-  registerStepRef: (trackId: number | string, stepIdx: number, el: HTMLButtonElement | null) => void;
-}
+import type { DawStepGridProps } from './dawStepGridTypes';
 
 export const DawStepGrid: React.FC<DawStepGridProps> = ({
   beatGroups,

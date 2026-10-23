@@ -57,7 +57,7 @@ export const CordelPreviewViewer: React.FC<CordelPreviewViewerProps> = ({
                 >
                   <img src={frame} alt={`T${idx + 1}`} className="w-full h-full object-cover" />
                   <span className="absolute bottom-0 inset-x-0 bg-black/85 text-white text-[7px] text-center font-cactus font-bold leading-tight">T{idx + 1}</span>
-                  {hasOverride && <span className="absolute top-0 right-0 bg-[var(--cordel-wood)] text-white text-[7px] font-bold px-0.5 leading-none shadow-xs">⚡</span>}
+                  {hasOverride && <span className="absolute top-0 right-0 bg-[var(--cordel-wood)] text-white text-[7px] font-bold px-0.5 leading-none shadow-xs"></span>}
                 </div>
               );
             })}
@@ -75,13 +75,13 @@ export const CordelPreviewViewer: React.FC<CordelPreviewViewerProps> = ({
         {isMultiFrame && (
           <div className="absolute top-1.5 left-1.5 bg-black/85 text-white text-[9px] font-cactus font-bold px-1.5 py-0.5 flex items-center gap-1 border border-white/20">
             <span>T{displayIndex + 1}</span>
-            {isPlaying ? <span className="text-emerald-400 text-[8px]">▶ {lang === 'fr' ? 'LECTURE' : 'REPRODUÇÃO'}</span> : <span className="text-amber-300 text-[8px]">⏸ {lang === 'fr' ? 'FIGÉE' : 'FIXA'}</span>}
+            {isPlaying ? <span className="text-emerald-400 text-[8px]">▶ {lang === 'fr' ? 'LECTURE' : 'REPRODUÇÃO'}</span> : <span className="text-amber-300 text-[8px]">{lang === 'fr' ? 'FIGÉE' : 'FIXA'}</span>}
           </div>
         )}
 
         {currentHasOverride && (
           <div className="absolute top-1.5 right-1.5 bg-[var(--cordel-wood)] text-white text-[8px] font-cactus font-bold px-1.5 py-0.5 border border-white/30 flex items-center gap-1">
-            <span>⚡ {lang === 'fr' ? 'DÉBRAYÉE' : 'DESACOPLADA'}</span>
+            <span>{lang === 'fr' ? 'DÉBRAYÉE' : 'DESACOPLADA'}</span>
           </div>
         )}
 
@@ -100,10 +100,10 @@ export const CordelPreviewViewer: React.FC<CordelPreviewViewerProps> = ({
             onClick={() => setIsPlaying((p) => !p)}
             className={`px-2.5 py-0.5 font-cactus font-bold uppercase cordel-border-sm cursor-pointer flex items-center gap-1 transition-colors ${isPlaying ? 'bg-[var(--cordel-wood)] text-white hover:bg-[#a33220]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}
           >
-            {isPlaying ? <><span>⏸</span> <span>{lang === 'fr' ? 'Pause' : 'Pausar'}</span></> : <><span>▶</span> <span>{lang === 'fr' ? 'Lecture' : 'Reproduzir'}</span></>}
+            {isPlaying ? <><span></span> <span>{lang === 'fr' ? 'Pause' : 'Pausar'}</span></> : <><span>▶</span> <span>{lang === 'fr' ? 'Lecture' : 'Reproduzir'}</span></>}
           </button>
           <div className="flex items-center gap-1.5 text-[9px] font-cactus font-bold uppercase">
-            <span className="px-1.5 py-0.5 bg-black/5 border border-[var(--cordel-border)]/30">⏱️ {bpm} BPM</span>
+            <span className="px-1.5 py-0.5 bg-black/5 border border-[var(--cordel-border)]/30">{bpm} BPM</span>
             <span className="px-1.5 py-0.5 bg-black/5 border border-[var(--cordel-border)]/30">T{displayIndex + 1} / {frames.length}</span>
           </div>
         </div>

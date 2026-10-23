@@ -3,30 +3,10 @@
  * Section Anacrouse (Mesure -1) du pattern vocal avec masquage/dépliage Cordel (< 130 lignes).
  */
 import React, { useState } from 'react';
-import type { Pattern } from '../../types/store.types';
+import { Plus, Mic } from 'lucide-react';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
 import { VoiceStepCell } from '../instrument-editor/grid/VoiceStepCell';
-
-interface VoiceAnacrusisProps {
-  pattern: Pattern;
-  trackId: number;
-  lang: string;
-  selectedPatternId: number | null;
-  selectedStepIdx: number | null;
-  selectedStepIsPreRoll?: boolean | null;
-  selectedStepRange: any;
-  preRollLengthComputed: number;
-  isStepInRange: (range: any, isPre: boolean, idx: number, len: number) => boolean;
-  handleVoicePreRollStepClear?: (tId: number, pId: number, i: number, isPre?: boolean) => void;
-  handleVoicePreRollMouseDown?: (e: React.MouseEvent<HTMLDivElement>, i: number) => void;
-  handleVoiceContextMenu?: (e: React.MouseEvent<any>, i: number, isPre?: boolean) => void;
-  handleVoicePreRollSylChange: (tId: number, pId: number, i: number, val: string) => void;
-  handleVoiceNoteChange: (tId: number, pId: number, i: number, note: string) => void;
-  handleVoicePreRollNoteBlur: (tId: number, pId: number, i: number, note: string) => void;
-  handleVoiceFocusStep: (idx: number, isPre?: boolean) => void;
-  handleVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
-  focusVoiceStep?: (stepIdx: number, type?: 'note' | 'syl', forceInPreRoll?: boolean) => void;
-}
+import type { VoiceAnacrusisProps } from './voiceAnacrusisTypes';
 
 const isStepActive = (val: any) => val !== undefined && val !== null && val !== 0 && val !== '0';
 
@@ -57,7 +37,7 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisProps> = (props) => {
           onClick={() => setIsExpanded(true)}
           className="px-3 py-1 bg-[var(--cordel-accent,#8b2a1a)]/10 hover:bg-[var(--cordel-accent,#8b2a1a)]/20 text-[var(--cordel-accent,#8b2a1a)] border border-dashed border-[var(--cordel-accent,#8b2a1a)]/40 rounded text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5"
         >
-          <span>➕</span>
+          <Plus className="w-3.5 h-3.5 shrink-0" />
           <span>{lang === 'fr' ? 'Ajouter une anacrouse (M-1)' : 'Adicionar anacruse (M-1)'}</span>
         </button>
       </div>
@@ -107,7 +87,8 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisProps> = (props) => {
       }}
     >
       <div className="text-[11px] font-bold text-[var(--cordel-accent,#8b2a1a)] mb-2 tracking-wide uppercase select-none flex items-center gap-1.5">
-        <span>🎙️ {lang === 'fr' ? 'Mesure -1 : Anacrouse (Pre-roll)' : 'Compasso -1 : Anacruse (Pre-roll)'}</span>
+        <Mic className="w-3.5 h-3.5 shrink-0" />
+        <span>{lang === 'fr' ? 'Mesure -1 : Anacrouse (Pre-roll)' : 'Compasso -1 : Anacruse (Pre-roll)'}</span>
         {activeCount > 0 && (
           <span className="bg-[var(--cordel-accent,#8b2a1a)] text-[var(--cordel-bg,#f4ecd8)] text-[8px] font-bold px-1.5 py-px rounded-full animate-pulse">
             +{activeCount} {lang === 'fr' ? 'pas' : 'passos'}

@@ -33,7 +33,7 @@ export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
       <div className="flex justify-between items-center text-[10px] font-bold border-b border-black/10 pb-1.5 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span>
-            🎚️ {lang === 'fr' ? `CONFIGURATION DE FRAPPE : [${stroke}]` : `CONFIGURAÇÃO DE BATIDA : [${stroke}]`}
+            {lang === 'fr' ? `CONFIGURATION DE FRAPPE : [${stroke}]` : `CONFIGURAÇÃO DE BATIDA : [${stroke}]`}
           </span>
           <button
             onClick={onToggleForcedState}
@@ -61,7 +61,7 @@ export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
 
       <div className="flex flex-col gap-1">
         <div className="flex justify-between text-[10px] font-bold">
-          <span>🔊 {lang === 'fr' ? 'Volume Global :' : 'Volume Geral :'}</span>
+          <span>{lang === 'fr' ? 'Volume Global :' : 'Volume Geral :'}</span>
           <span>{avgVolume}%</span>
         </div>
         <input
@@ -79,7 +79,7 @@ export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
 
       <div className="flex flex-col gap-1">
         <div className="flex justify-between text-[10px] font-bold">
-          <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : (lang === 'fr' ? 'Résonance Globale (Decay) :' : 'Ressonância Geral (Decay) :')}</span>
+          <span>{isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : (lang === 'fr' ? 'Résonance Globale (Decay) :' : 'Ressonância Geral (Decay) :')}</span>
           <span>{avgDecay}%</span>
         </div>
         <input

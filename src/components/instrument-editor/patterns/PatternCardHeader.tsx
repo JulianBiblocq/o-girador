@@ -99,10 +99,10 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
           </button>
         )}
         {usage.length === 0 ? (
-          <span className="shrink-0 flex items-center gap-1 text-[11px] text-[#1a1a1a]/40 italic select-none">⚠️ {lang === 'fr' ? 'Non assigné' : 'Não atribuído'}</span>
+          <span className="shrink-0 flex items-center gap-1 text-[11px] text-[#1a1a1a]/40 italic select-none">{lang === 'fr' ? 'Non assigné' : 'Não atribuído'}</span>
         ) : (
           <div className="shrink-0 flex items-center gap-1.5 text-xs text-[#1a1a1a]/70 select-none">
-            <span className="opacity-60 text-[11px]">🔊</span>
+            <span className="opacity-60 text-[11px]"></span>
             {usage.map((u, uIdx) => (
               <div key={uIdx} className="flex items-center gap-1">
                 <span className="font-bold text-[11px] uppercase tracking-wider">{u.trackName}</span>
@@ -119,7 +119,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
           </div>
         )}
         <MetricDivisionSelector steps={ptn.steps} patternId={ptn.id} lang={lang} onChangeSteps={onStepsChange} />
-        <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]' : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'}`}>✕</button>
+        <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]' : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'}`}></button>
       </div>
     </div>
   );

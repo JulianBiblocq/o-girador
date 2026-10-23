@@ -58,7 +58,7 @@ export const GlobalErrorListener: React.FC = () => {
       boxSizing: 'border-box'
     }}>
       <h1 style={{ fontSize: '20px', borderBottom: '2px solid #f4ecd8', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'sans-serif' }}>
-        🚨 ERREUR ASYNCHRONE DETECTEE (TABLETTE)
+        ERREUR ASYNCHRONE DETECTEE (TABLETTE)
       </h1>
       <p>L'application a détecté une erreur hors du cycle de rendu standard :</p>
       <pre style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '1rem', overflowX: 'auto', whiteSpace: 'pre-wrap', border: '1px solid rgba(255,255,255,0.2)' }}>

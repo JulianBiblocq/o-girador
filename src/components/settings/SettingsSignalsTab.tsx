@@ -3,6 +3,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { CloudRhythmSignal } from '../../types';
 import { SettingsSignalThumb } from './SettingsSignalThumb';
+import { SettingsSignalsBatchBar } from './SettingsSignalsBatchBar';
 
 interface SettingsSignalsTabProps {
   lang: string;
@@ -52,60 +53,12 @@ export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
       </p>
 
       {rhythmSignals.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-2 border-black p-3 bg-[#eaddcf]/30 mb-2">
-          <div className="flex flex-col gap-2">
-            <span className="font-bold text-[10px] uppercase text-black/60 flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              <span>{lang === 'fr' ? 'Signaux Cloud' : 'Sinais Cloud'}</span>
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const cloudIds = rhythmSignals.filter((s) => s.isCloud).map((s) => s.id);
-                  setSignalsBatch(cloudIds, true, allSignalIds);
-                }}
-                className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
-              >
-                {lang === 'fr' ? 'Tout cocher' : 'Selecionar Todos'}
-              </button>
-              <button
-                onClick={() => {
-                  const cloudIds = rhythmSignals.filter((s) => s.isCloud).map((s) => s.id);
-                  setSignalsBatch(cloudIds, false, allSignalIds);
-                }}
-                className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-[#8b2a1a] hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
-              >
-                {lang === 'fr' ? 'Tout décocher' : 'Desmarcar Todos'}
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="font-bold text-[10px] uppercase text-black/60 flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-              <span>{lang === 'fr' ? 'Signaux Locaux' : 'Sinais Locais'}</span>
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const localIds = rhythmSignals.filter((s) => !s.isCloud).map((s) => s.id);
-                  setSignalsBatch(localIds, true, allSignalIds);
-                }}
-                className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
-              >
-                {lang === 'fr' ? 'Tout cocher' : 'Selecionar Todos'}
-              </button>
-              <button
-                onClick={() => {
-                  const localIds = rhythmSignals.filter((s) => !s.isCloud).map((s) => s.id);
-                  setSignalsBatch(localIds, false, allSignalIds);
-                }}
-                className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-[#8b2a1a] hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
-              >
-                {lang === 'fr' ? 'Tout décocher' : 'Desmarcar Todos'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SettingsSignalsBatchBar
+          lang={lang}
+          rhythmSignals={rhythmSignals}
+          allSignalIds={allSignalIds}
+          setSignalsBatch={setSignalsBatch}
+        />
       )}
 
       {rhythmSignals.length === 0 ? (
@@ -125,7 +78,7 @@ export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
                 }`}
               >
                 <div className="absolute top-1.5 right-1.5 w-4 h-4 border-2 border-black bg-white flex items-center justify-center font-cactus text-[9px] font-black text-black">
-                  {isEnabled ? '✓' : ''}
+                  {isEnabled ? '' : ''}
                 </div>
                 <div className="w-12 h-12 flex items-center justify-center bg-black/5 border border-black/10 rounded overflow-hidden">
                   <SettingsSignalThumb name={sig.name} image={sig.image} />

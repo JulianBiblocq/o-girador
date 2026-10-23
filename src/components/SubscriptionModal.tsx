@@ -12,7 +12,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, l
         <button onClick={onClose} className="absolute top-4 right-4 text-2xl font-bold text-[#1a1a1a] hover:text-[#8b2a1a]">×</button>
         
         <div className="text-center flex flex-col gap-2">
-          <span className="text-5xl mb-2">⭐</span>
+          <span className="text-5xl mb-2"></span>
           <h2 className="font-cactus text-3xl font-black text-[#1a1a1a] uppercase leading-none">
             {lang === 'fr' ? 'Limite Atteinte' : 'Limite Atingido'}
           </h2>

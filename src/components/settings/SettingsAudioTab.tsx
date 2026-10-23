@@ -32,7 +32,7 @@ export const SettingsAudioTab: React.FC<SettingsAudioTabProps> = ({ lang, alertA
     <div className="flex flex-col gap-6 text-left">
       <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
         <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          🔊 {lang === 'fr' ? 'Périphériques de Sortie Audio' : 'Dispositivos de Saída de Áudio'}
+          {lang === 'fr' ? 'Périphériques de Sortie Audio' : 'Dispositivos de Saída de Áudio'}
         </h3>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">

@@ -7,39 +7,7 @@ import { create } from 'zustand';
 import { DesktopWorkspaceLayout, DetachedPanelKey } from '../types/desktopWorkspace.types';
 import { detachedWindowManager } from '../utils/detachedWindowManager';
 import { useSequencerStore } from './useSequencerStore';
-
-const STORAGE_KEY = 'girador_desktop_workspace_layouts';
-
-function loadStoredLayouts(): DesktopWorkspaceLayout[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    // 🛡️ Sanctuarisation mono-fenêtre : forcer detached: false sur tous les panneaux mémorisés
-    return parsed.map((layout: DesktopWorkspaceLayout) => ({
-      ...layout,
-      detachedPanels: {
-        mixer: { ...layout.detachedPanels?.mixer, detached: false },
-        roda: { ...layout.detachedPanels?.roda, detached: false },
-        detailEditor: { ...layout.detachedPanels?.detailEditor, detached: false },
-      }
-    }));
-  } catch (err) {
-    console.warn('[useDesktopWorkspaceStore] Erreur lors de la lecture du localStorage:', err);
-    return [];
-  }
-}
-
-function persistLayouts(layouts: DesktopWorkspaceLayout[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts));
-  } catch (err) {
-    console.warn('[useDesktopWorkspaceStore] Erreur lors de l\'enregistrement dans le localStorage:', err);
-  }
-}
+import { loadStoredLayouts, persistLayouts } from './helpers/desktopWorkspaceStorage';
 
 export interface DesktopWorkspaceStore {
   layouts: DesktopWorkspaceLayout[];
@@ -110,7 +78,7 @@ export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get)
 
     const { uiState } = layout;
 
-    // 🛡️ Mode multi-fenêtres neutralisé : tous les panneaux restent ancrés dans la fenêtre principale
+    // Mode multi-fenetres neutralise : tous les panneaux restent ancres dans la fenetre principale
     useSequencerStore.getState().setDetachedPanelsState({
       mixer: false,
       roda: false,

@@ -43,7 +43,7 @@ export const BalancoSelectedCard: React.FC<BalancoSelectedCardProps> = ({
             onClick={() => onLoadToCustom(selectedPreset)}
             className="px-2 py-1 bg-white text-[#1a1a1a] border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000] flex items-center gap-1 whitespace-nowrap"
           >
-            ✏️ {lang === 'fr' ? 'Modifier' : 'Editar'}
+            {lang === 'fr' ? 'Modifier' : 'Editar'}
           </button>
           {canManage && (
             <button
@@ -51,7 +51,7 @@ export const BalancoSelectedCard: React.FC<BalancoSelectedCardProps> = ({
               onClick={() => onRequestDelete(selectedPreset)}
               className="px-1.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000]"
             >
-              🗑️
+              
             </button>
           )}
         </div>

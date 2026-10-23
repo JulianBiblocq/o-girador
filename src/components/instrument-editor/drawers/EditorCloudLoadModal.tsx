@@ -38,7 +38,7 @@ export const EditorCloudLoadModal: React.FC<EditorCloudLoadModalProps> = React.m
       <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6 border-b-2 border-[#1a1a1a] pb-2">
           <h3 className="font-cactus text-3xl font-bold text-[#1a1a1a]">{lang === 'fr' ? 'Catalogue - ' : 'Catálogo - '}{trackDisplayName}</h3>
-          <button onClick={onClose} className="text-[#1a1a1a] font-bold text-xl hover:text-[#8b2a1a] cursor-pointer">✕</button>
+          <button onClick={onClose} className="text-[#1a1a1a] font-bold text-xl hover:text-[#8b2a1a] cursor-pointer"></button>
         </div>
         {existingFolders.length === 0 ? (
           <div className="text-center py-8 text-[#666] font-bold text-sm italic">{lang === 'fr' ? 'Aucun motif sauvegardé pour cet instrument.' : 'Nenhum padrão salvo para este instrumento.'}</div>
@@ -50,7 +50,7 @@ export const EditorCloudLoadModal: React.FC<EditorCloudLoadModalProps> = React.m
               return (
                 <div key={folder} className="border border-[#1a1a1a] rounded-sm bg-[#eaddcf]">
                   <button onClick={() => toggleFolder(folder)} className="w-full flex items-center justify-between p-3 bg-[#1a1a1a]/5 hover:bg-[#1a1a1a]/10 font-bold text-[#1a1a1a] text-lg font-cactus text-left cursor-pointer">
-                    <span className="flex items-center gap-2">{isExpanded ? '📂' : '📁'} {folder} <span className="text-xs opacity-60">({folderPatterns.length})</span></span>
+                    <span className="flex items-center gap-2">{isExpanded ? '' : ''} {folder} <span className="text-xs opacity-60">({folderPatterns.length})</span></span>
                     <span>{isExpanded ? '▲' : '▼'}</span>
                   </button>
                   {isExpanded && (
@@ -58,7 +58,7 @@ export const EditorCloudLoadModal: React.FC<EditorCloudLoadModalProps> = React.m
                       {folderPatterns.map((libPtn) => (
                         <div key={libPtn.id} className="flex items-center justify-between p-3 hover:bg-white/50 transition-colors">
                           <div className="flex flex-col">
-                            <span className="font-bold text-[#1a1a1a] flex items-center gap-2">{libPtn.name} {libPtn.audioUrl && <span title={lang === 'fr' ? 'Audio généré' : 'Áudio gerado'}>🔊</span>}</span>
+                            <span className="font-bold text-[#1a1a1a] flex items-center gap-2">{libPtn.name} {libPtn.audioUrl && <span title={lang === 'fr' ? 'Audio généré' : 'Áudio gerado'}></span>}</span>
                             <span className="text-xs text-[#666]">{new Date(libPtn.createdAt).toLocaleDateString()}</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -72,12 +72,12 @@ export const EditorCloudLoadModal: React.FC<EditorCloudLoadModalProps> = React.m
                               }}
                               className="px-3 py-1 font-bold text-xs cordel-border-sm bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
                             >
-                              {bouncingId === libPtn.id ? '⏳...' : (libPtn.audioUrl ? '🔄 Audio' : '☁️ Audio')}
+                              {bouncingId === libPtn.id ? '...' : (libPtn.audioUrl ? 'Audio' : 'Audio')}
                             </button>
                             <button onClick={() => handleLoadPatternFromLibrary(libPtn.id)} className="px-3 py-1 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm hover:bg-[#6b1e11] cursor-pointer">
                               {lang === 'fr' ? 'Charger' : 'Carregar'}
                             </button>
-                            <button onClick={() => handleDeleteCloudPattern(libPtn.id)} className="p-1 hover:bg-[#1a1a1a]/10 rounded text-xl cursor-pointer" title={lang === 'fr' ? 'Supprimer' : 'Excluir'}>🗑️</button>
+                            <button onClick={() => handleDeleteCloudPattern(libPtn.id)} className="p-1 hover:bg-[#1a1a1a]/10 rounded text-xl cursor-pointer" title={lang === 'fr' ? 'Supprimer' : 'Excluir'}></button>
                           </div>
                         </div>
                       ))}

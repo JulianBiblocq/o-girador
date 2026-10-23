@@ -77,7 +77,7 @@ export const SpeedTrainerSpeedTab: React.FC<SpeedTrainerSpeedTabProps> = ({
             </span>
           </div>
           <span className="text-xs text-[#555] font-sans">
-            Objectif : {activeTrainingSession.startBpm} ➔ {activeTrainingSession.targetBpm} BPM ({activeTrainingSession.consolidationLaps} tour{activeTrainingSession.consolidationLaps > 1 ? 's' : ''} de maintien)
+            Objectif : {activeTrainingSession.startBpm} {activeTrainingSession.targetBpm} BPM ({activeTrainingSession.consolidationLaps} tour{activeTrainingSession.consolidationLaps > 1 ? 's' : ''} de maintien)
           </span>
         </div>
       )}

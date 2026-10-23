@@ -65,7 +65,7 @@ export const DescriptionModalBody: React.FC<BodyProps> = ({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-2 text-[#1a1a1a]/50">
-              <span className="text-3xl">📜</span>
+              <span className="text-3xl"></span>
               <span className="italic text-xs sm:text-sm font-bold">
                 {lang === 'fr' ? 'Aucune traduction disponible dans cette langue.' : 'Sem tradução disponível neste idioma.'}
               </span>

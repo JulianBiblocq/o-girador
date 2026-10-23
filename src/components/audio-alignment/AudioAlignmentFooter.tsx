@@ -59,7 +59,7 @@ export const AudioAlignmentFooter: React.FC<AudioAlignmentFooterProps> = React.m
           ) : (
             <>
               <Check className="w-4 h-4 stroke-[3]" />
-              {lang === 'fr' ? '✓ Valider le chant' : '✓ Confirmar o canto'}
+              {lang === 'fr' ? 'Valider le chant' : 'Confirmar o canto'}
             </>
           )}
         </button>

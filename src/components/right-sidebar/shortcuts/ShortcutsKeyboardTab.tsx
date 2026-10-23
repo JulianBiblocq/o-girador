@@ -17,7 +17,7 @@ export const ShortcutsKeyboardTab: React.FC<ShortcutsKeyboardTabProps> = ({ lang
       {/* Section 1 : Transport & Navigation */}
       <div className="bg-[var(--cordel-bg)] cordel-border-sm p-2.5 flex flex-col gap-2">
         <h4 className="text-[11px] font-bold text-[#8b2a1a] uppercase tracking-wider font-cactus border-b border-[var(--cordel-border)]/20 pb-1">
-          ▶️ {t('shortcutsTransportTitle')}
+          ▶{t('shortcutsTransportTitle')}
         </h4>
         <div className="flex flex-col gap-1.5 text-[10px] text-[var(--cordel-text)]">
           <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5 min-w-0">
@@ -64,7 +64,7 @@ export const ShortcutsKeyboardTab: React.FC<ShortcutsKeyboardTabProps> = ({ lang
       {/* Section 2 : Édition & Partition */}
       <div className="bg-[var(--cordel-bg)] cordel-border-sm p-2.5 flex flex-col gap-2">
         <h4 className="text-[11px] font-bold text-[#8b2a1a] uppercase tracking-wider font-cactus border-b border-[var(--cordel-border)]/20 pb-1">
-          ✏️ {t('shortcutsEditTitle')}
+          {t('shortcutsEditTitle')}
         </h4>
         <div className="flex flex-col gap-1.5 text-[10px] text-[var(--cordel-text)]">
           <div className="flex items-center justify-between gap-2 py-0.5 border-b border-black/5 min-w-0">

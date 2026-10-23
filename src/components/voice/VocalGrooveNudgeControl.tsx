@@ -56,7 +56,7 @@ export const VocalGrooveNudgeControl: React.FC<VocalGrooveNudgeControlProps> = (
     <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#ece4d0]/30 border border-[#1a1a1a]/15 rounded select-none text-[11px]">
       <div className="flex items-center gap-2">
         <span className="font-bold text-[#8b2a1a] flex items-center gap-1">
-          <span>⏱️</span>
+          <span></span>
           <span>{lang === 'fr' ? 'Calage Groove :' : 'Ajuste Groove :'}</span>
         </span>
         <span className="font-mono font-bold text-[#1a1a1a] bg-[#f4ecd8] px-2 py-0.5 rounded border border-[#1a1a1a]/20 shadow-inner">

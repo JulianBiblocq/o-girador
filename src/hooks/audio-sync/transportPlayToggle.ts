@@ -1,7 +1,5 @@
 import * as Tone from 'tone';
 import { Track } from '../../types';
-import { getMaxTicks } from '../../data';
-import { isSamplePlaybackAllowed } from './vocalSampleHelpers';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -9,10 +7,9 @@ import { useTransportStore } from '../../stores/useTransportStore';
 import { requestWakeLock } from './wakeLockHelper';
 import { executePreRollCountdown } from './audioSyncPreRollPlanner';
 import { executeTransportPause, TransportPauseContext } from './transportPause';
-import { checkStartingVocalAnacrusis } from './startingAnacrusisChecker';
-import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
-import { tickSubscribers } from './audioSyncTypes';
+import { applyResumeAnchorCompensation } from './transportResumeAnchor';
+import { resolveTargetMeasureAndPreRoll } from './transportTargetMeasureResolver';
 
 export interface PlayToggleContext extends TransportPauseContext {
   isStartingRef: { current: boolean }; isPlayingRef: { current: boolean };
@@ -68,31 +65,18 @@ export async function handleTogglePlay(
       }
 
       const preRoll = useTransportStore.getState().preRollSettings;
-      const audioStore = useAudioStore.getState();
-      const armedTargetMeasure = (audioStore.targetPatternId !== null && audioStore.targetMeasureIdx !== null)
-        ? audioStore.targetMeasureIdx : null;
-
-      let targetM: number;
-      let shouldSkipPreRoll = playOptions?.skipPreRoll;
-
-      if (playOptions?.targetMeasure !== undefined) {
-        targetM = playOptions.targetMeasure % (ctx.totalMeasuresRef.current || 1);
-      } else if (armedTargetMeasure !== null) {
-        targetM = armedTargetMeasure >= 2 ? (armedTargetMeasure - 2) : 0;
-        shouldSkipPreRoll = armedTargetMeasure === 0 ? false : true;
-      } else {
-        targetM = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
-      }
+      const startTracks = ctx.tracksRef.current;
+      const { targetM, shouldExecutePreRoll } = resolveTargetMeasureAndPreRoll(
+        playOptions,
+        ctx.measureCountRef.current,
+        ctx.totalMeasuresRef.current,
+        startTracks,
+        ctx.measureTimeSigsRef.current,
+        ctx.soloPatternPlayIdRef.current
+      );
       ctx.targetPreRollMeasureRef.current = targetM;
 
       let scheduledMusicStartTime: number | undefined;
-      const startTracks = ctx.tracksRef.current;
-      const hasVocalAnacrusisAtStart = checkStartingVocalAnacrusis(
-        startTracks, targetM, ctx.measureTimeSigsRef.current, ctx.soloPatternPlayIdRef.current
-      );
-
-      const forcePreRollForAnacrusis = (hasVocalAnacrusisAtStart && !playOptions?.skipPreRoll);
-      const shouldExecutePreRoll = (!shouldSkipPreRoll && ((preRoll && preRoll.enabled) || Boolean(playOptions?.forcePreRoll))) || forcePreRollForAnacrusis;
 
       if (shouldExecutePreRoll) {
         const targetSig = ctx.measureTimeSigsRef.current[targetM] || '4/4';
@@ -133,26 +117,7 @@ export async function handleTogglePlay(
         Tone.Transport.start(scheduledMusicStartTime);
       }
 
-      // 🚀 RESUME ANCHOR FIX : Compensation synchrone de l'offset temporel à la reprise
-      if (ctx.anchoredMeasureStartSecRef.current === -1) {
-        const detail = ctx.tickEventDetailRef.current;
-        const ratioVal = detail.ratio || 0;
-        const targetStartTime = Tone.context.currentTime + Tone.context.lookAhead;
-        const measureDurationSec = Tone.Time('1m').toSeconds();
-
-        const newAnchor = targetStartTime - (ratioVal * measureDurationSec);
-        ctx.anchoredMeasureStartSecRef.current = newAnchor;
-
-        detail.measureStartTime = newAnchor;
-        detail.measureDuration = measureDurationSec;
-        detail.targetStartTime = targetStartTime;
-        detail.time = targetStartTime;
-        detail.isPaused = false;
-
-        tickSubscribers.forEach((cb) => {
-          try { cb(detail); } catch (err) { console.error(err); }
-        });
-      }
+      applyResumeAnchorCompensation(ctx.anchoredMeasureStartSecRef, ctx.tickEventDetailRef);
 
       activeEngine?.start(scheduledMusicStartTime);
       ctx.setIsPlaying(true);

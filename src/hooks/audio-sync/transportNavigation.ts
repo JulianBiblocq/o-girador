@@ -3,27 +3,9 @@ import { getMaxTicks } from '../../data';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { tickSubscribers } from './audioSyncTypes';
-import { AudioEngine } from '../../AudioEngine';
+import type { NavigationContext } from './transportNavigationTypes';
 
-export interface NavigationContext {
-  totalMeasuresRef: { current: number };
-  measureTimeSigsRef: { current: Record<number, string> };
-  measureCountRef: { current: number };
-  sectionIterationRef: { current: number };
-  soloLoopCycleRef: { current: number };
-  hasFinishedRef: { current: boolean };
-  isPlaybackEndingRef: { current: boolean };
-  maxTicksRef: { current: number };
-  currentStepIndexRef: { current: number };
-  isPlayingRef: { current: boolean };
-  pendingMeasureRef: { current: number | null };
-  pendingIterationRef: { current: number | null };
-  activeSequencerVocalsRef: { current: Map<string, any> };
-  anticipatedMeasuresRef: { current: Set<string> };
-  tickEventDetailRef: { current: any };
-  audioEngine: AudioEngine | null;
-  setCurrentMeasure: (m: number) => void;
-}
+export type { NavigationContext };
 
 export function seekToMeasure(measureIdx: number, stepIdxInMeasure: number = 0, stepsInMeasure: number | undefined, ctx: NavigationContext): void {
   const totalM = ctx.totalMeasuresRef.current || 1;

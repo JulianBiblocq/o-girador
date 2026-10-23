@@ -8,52 +8,16 @@ import { SpeedTrainerConsolidationControl } from './SpeedTrainerConsolidationCon
 import { SpeedTrainerStagesPreview } from './SpeedTrainerStagesPreview';
 import { SpeedTrainerMestreTabProps } from './speedTrainerProps.types';
 
-export const SpeedTrainerMestreTab: React.FC<SpeedTrainerMestreTabProps> = ({
-  lang,
-  t,
-  existingTrainings,
-  isLoadingTrainings,
-  editingTrainingId,
-  onCancelEdit,
-  onStartEdit,
-  onDelete,
-  confirmDeleteId,
-  setConfirmDeleteId,
-  isDeletingId,
-  challengeTitle,
-  setChallengeTitle,
-  sortedMarkers,
-  markerMode,
-  setMarkerMode,
-  selectedSectionMarkerId,
-  rangeStartMarkerId,
-  rangeEndMarkerId,
-  handleSelectSingleMarker,
-  handleSelectRangeStart,
-  handleSelectRangeEnd,
-  startMeasure,
-  endMeasure,
-  setStartMeasure,
-  setEndMeasure,
-  totalMeasures,
-  setSelectedSectionMarkerId,
-  stagesCount,
-  setStagesCount,
-  startBpm,
-  targetBpm,
-  setStartBpm,
-  setTargetBpm,
-  bpmStep,
-  setBpmStep,
-  loopInterval,
-  setLoopInterval,
-  consolidationLaps,
-  setConsolidationLaps,
-  calculatedStages,
-  saveSuccess,
-  saveMessage,
-  saveError,
-}) => {
+export const SpeedTrainerMestreTab: React.FC<SpeedTrainerMestreTabProps> = (props) => {
+  const {
+    lang, t, existingTrainings, isLoadingTrainings, editingTrainingId, onCancelEdit, onStartEdit, onDelete,
+    confirmDeleteId, setConfirmDeleteId, isDeletingId, challengeTitle, setChallengeTitle, sortedMarkers,
+    markerMode, setMarkerMode, selectedSectionMarkerId, rangeStartMarkerId, rangeEndMarkerId,
+    handleSelectSingleMarker, handleSelectRangeStart, handleSelectRangeEnd, startMeasure, endMeasure,
+    setStartMeasure, setEndMeasure, totalMeasures, setSelectedSectionMarkerId, stagesCount, setStagesCount,
+    startBpm, targetBpm, setStartBpm, setTargetBpm, bpmStep, setBpmStep, loopInterval, setLoopInterval,
+    consolidationLaps, setConsolidationLaps, calculatedStages, saveSuccess, saveMessage, saveError,
+  } = props;
   return (
     <>
       <div className="p-2.5 bg-[#ebe2cb]/70 border border-[#1a1a1a]/40 rounded-xs flex items-start gap-2 text-[11px] text-[#333] leading-relaxed">

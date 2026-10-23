@@ -7,7 +7,7 @@ import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
 import { migrateAndSanitizePresetTracks } from './audioPresetTracksMigrator';
 import { restorePresetVocalRecordings } from './audioPresetVocalRestorer';
 import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
-import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
+import { restorePresetAutomationsAndVocal, restorePresetVigilancePoints } from './presetSerializationHelpers';
 
 export async function executeApplyPreset(
   p: any,
@@ -57,7 +57,7 @@ export async function executeApplyPreset(
   try {
     await vocalEngineService.rehydrateVocalBuffers(loadedTracks);
   } catch (err) {
-    console.error("🎙️ [VOCAL REHYDRATE] Error during applyPreset:", err);
+    console.error("[VOCAL REHYDRATE] Error during applyPreset:", err);
   }
 
   const defaultBpm = Math.round(p.bpm || 90);
@@ -113,19 +113,8 @@ export async function executeApplyPreset(
   const targetVocalPreset = p.vocalPreset || p.metadata?.vocalPreset;
   if (targetVocalPreset) useAudioStore.getState().setVocalPreset(targetVocalPreset as any);
 
-  // Normalisation des chantiers existants & synchronisation au changement de preset
-  const rawVigilance = p.vigilancePoints || p.metadata?.vigilancePoints;
-  if (Array.isArray(rawVigilance) && rawVigilance.length > 0) {
-    const resolvedScoreId = p.id || p.metadata?.toada || 'preset';
-    const normalizedPoints = rawVigilance.map((pt: any) => ({
-      ...pt,
-      scoreId: pt.scoreId || resolvedScoreId,
-      id: pt.id && String(pt.id).includes('__') && pt.scoreId ? pt.id : `${resolvedScoreId}__${pt.sectionName}__${pt.roleKey}__${pt.stepIndex}`,
-    }));
-    usePaperVigilanceStore.setState({ points: normalizedPoints, activeFocusPoint: null, activeSequencerScoreId: resolvedScoreId });
-  } else {
-    usePaperVigilanceStore.getState().setActiveSequencerScoreId(null);
-  }
+  restorePresetAutomationsAndVocal(p);
+  restorePresetVigilancePoints(p);
 
   sequencer.measureCountRef.current = 0;
   sequencer.tracksRef.current = loadedTracks;

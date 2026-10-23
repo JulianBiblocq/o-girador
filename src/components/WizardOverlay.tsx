@@ -54,7 +54,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({ onClose, lang }) =
   const toastElement = localToast && (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-bounce">
       <div className="bg-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[6px_6px_0px_rgba(0,0,0,1)] p-4 rounded-sm flex items-start gap-3">
-        <span className="text-2xl">⚠️</span>
+        <span className="text-2xl"></span>
         <div className="flex-1 text-xs md:text-sm font-bold text-[#8b2a1a] leading-tight font-cactus uppercase tracking-wide">
           {localToast}
         </div>

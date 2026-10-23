@@ -59,7 +59,7 @@ export const SpeedTrainerFooter: React.FC<SpeedTrainerFooterProps> = ({
           >
             <XiloLightning size={16} className="fill-current" />
             {activeTrainingSession
-              ? `Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ➔ ${targetBpm} BPM)`
+              ? `Lancer le Palier ${activeTrainingSession.stageIndex} (${startBpm} ${targetBpm} BPM)`
               : t('speedTrainerLaunch')}
           </button>
         )

@@ -104,7 +104,7 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
                 <div className="flex flex-col">
                   <span className="font-bold text-[#1a1a1a] flex items-center gap-2">
                     {sec.name}
-                    {sec.audioUrl && <span title={lang === 'fr' ? 'Audio généré' : 'Áudio gerado'} className="text-sm">🔊</span>}
+                    {sec.audioUrl && <span title={lang === 'fr' ? 'Audio généré' : 'Áudio gerado'} className="text-sm"></span>}
                   </span>
                   <span className="text-xs text-[#666]">{new Date(sec.createdAt).toLocaleDateString()}</span>
                 </div>
@@ -120,10 +120,10 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
                         className={`px-3 py-1 font-bold text-xs transition-colors cordel-border-sm flex items-center justify-center min-w-[70px] ${isBouncingCloud && bouncingSectionId === sec.id ? 'bg-amber-500 text-black' : (sec.audioUrl ? 'bg-[#3b82f6] text-white hover:bg-[#2563eb]' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]')}`}
                         title={lang === 'fr' ? "Générer l'audio de la section" : 'Gerar áudio da seção'}
                       >
-                        {isBouncingCloud && bouncingSectionId === sec.id ? '⏳...' : (sec.audioUrl ? '🔄 Audio' : '☁️ Audio')}
+                        {isBouncingCloud && bouncingSectionId === sec.id ? '...' : (sec.audioUrl ? 'Audio' : 'Audio')}
                       </button>
                       <button onClick={() => handleDelete(sec)} className="p-1 hover:bg-[#1a1a1a]/10 rounded transition-colors text-xl" title={lang === 'fr' ? 'Supprimer' : 'Excluir'}>
-                        🗑️
+                        
                       </button>
                     </>
                   )}

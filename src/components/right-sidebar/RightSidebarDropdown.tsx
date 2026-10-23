@@ -92,7 +92,7 @@ export const RightSidebarDropdown: React.FC<RightSidebarDropdownProps> = ({
           onClick={() => onTogglePanel('letras')}
           className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-3 py-2 text-sm font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors h-full flex items-center justify-center shrink-0"
         >
-          ✖
+          
         </button>
       )}
     </div>

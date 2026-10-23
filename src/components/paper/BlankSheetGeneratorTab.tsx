@@ -41,7 +41,7 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
   const handlePrint = () => {
     exportBlankSheetToPdf({
       sheetType, gridMode, pupitres, includeVariationLine: includeVarLine, freeLinesCount, conductorMeasures,
-      conductorTitle: conductorTitle ? `${conductorTitle} ${conductorBpm ? `| ♩=${conductorBpm}` : ''}` : undefined,
+      conductorTitle: conductorTitle ? `${conductorTitle} ${conductorBpm ? `| =${conductorBpm}` : ''}` : undefined,
       hasDoubleSections, hasToadaLine, bpm: conductorBpm,
       linkAlfaias, busCaixas, busSementes, prefillFamily: prefillFamily || undefined,
     }, lang);

@@ -33,7 +33,7 @@ export const TimelinePatternPickerList: React.FC<TimelinePatternPickerListProps>
               : 'hover:bg-[#1a1a1a]/10 text-[var(--cordel-text)]'
           }`}
         >
-          <span className="truncate">🔗 {lang === 'fr' ? 'Suivre le maître' : 'Seguir mestre'}</span>
+          <span className="truncate">{lang === 'fr' ? 'Suivre le maître' : 'Seguir mestre'}</span>
           {isFollowingMaster && <Check size={12} className="shrink-0 ml-1" />}
         </button>
       )}
@@ -70,7 +70,7 @@ export const TimelinePatternPickerList: React.FC<TimelinePatternPickerListProps>
                 style={{ backgroundColor: instColor }}
               />
               <span className="truncate">
-                {p.vocalMode === 'micro' ? '🎙️ ' : ''}
+                {p.vocalMode === 'micro' ? '' : ''}
                 {p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
               </span>
             </div>

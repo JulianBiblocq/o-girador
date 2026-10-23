@@ -59,7 +59,7 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
     <div className="fixed inset-0 bg-[#f4ecd8] z-[200] flex flex-col p-4 md:p-8 select-none font-sans overflow-hidden" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
       <div ref={ghostRef} className="pointer-events-none fixed items-center justify-center flex-col select-none" style={{ display: 'none', zIndex: 50 }} />
       <div ref={dismissZoneRef} className="absolute top-18 left-1/2 -translate-x-1/2 border-3 border-[#1a1a1a] bg-[#e2d7be] px-6 py-2.5 shadow-[4px_4px_0px_rgba(0,0,0,1)] z-30 transition-all duration-200 pointer-events-none opacity-0 select-none flex items-center gap-2 font-cactus font-bold uppercase text-xs md:text-sm" style={{ transform: 'translate(-50%, -150%)' }}>
-        <span className="text-sm md:text-base">🚪</span>
+        <span className="text-sm md:text-base"></span>
         <span>{t[wizardLang].congedier}</span>
       </div>
 
@@ -72,11 +72,11 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setIsSaveModalOpen(true)} disabled={placedInstruments.length === 0} className="px-2.5 md:px-3 py-1.5 bg-[#2e5339] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-            <span>💾</span>
+            <span></span>
             <span>{t[wizardLang].enregistrerDisposition}</span>
           </button>
           <button type="button" onClick={() => setIsLoadModalOpen(true)} className="px-2.5 md:px-3 py-1.5 bg-[#d7cfbb] hover:bg-[#ece4d0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer">
-            <span>📐</span>
+            <span></span>
             <span>{t[wizardLang].dispositionsTitle}</span>
             <span className="px-1.5 py-0.2 bg-[#8b2a1a] text-[#f4ecd8] rounded-full text-[9px] font-mono font-bold leading-none">{dispositions.length}</span>
           </button>

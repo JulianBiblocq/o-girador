@@ -30,7 +30,7 @@ export const SpeedTrainerStagesPreview: React.FC<SpeedTrainerStagesPreviewProps>
             </span>
             <div className="flex items-center gap-2">
               <span className="font-bold text-amber-900 bg-amber-500/20 px-1.5 py-0.5 rounded-xs border border-amber-600/30">
-                {stg.startBpm} ➔ {stg.targetBpm} BPM
+                {stg.startBpm} {stg.targetBpm} BPM
               </span>
               <span className="text-[10px] text-[#666]">
                 (+{stg.bpmStep} / {stg.loopInterval === 1 ? t('speedTrainerLoopsInterval') : t('speedTrainerLoopsIntervalPlural')})

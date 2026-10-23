@@ -29,7 +29,7 @@ export const MicrotimingSliderControl: React.FC<MicrotimingSliderControlProps> =
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex justify-between text-[10px] font-bold items-center">
-        <span>⏱️ Micro-timing ({lang === 'fr' ? 'Décalage' : 'Desvio'})</span>
+        <span>Micro-timing ({lang === 'fr' ? 'Décalage' : 'Desvio'})</span>
         <EditableNumber
           value={totalVal}
           suffix="%"

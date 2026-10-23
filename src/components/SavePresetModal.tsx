@@ -67,7 +67,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
           <div className={`p-2.5 border-2 text-xs font-bold flex items-center gap-2 ${
             isMestre ? 'bg-amber-100 text-amber-950 border-amber-800' : 'bg-stone-200 text-stone-800 border-stone-600'
           }`}>
-            <span className="text-base shrink-0">{isMestre ? '👑' : '🔒'}</span>
+            <span className="text-base shrink-0">{isMestre ? '' : ''}</span>
             <span>
               {isMestre
                 ? (lang === 'fr' ? 'Morceau officiel sanctuarisé : En tant que Mestre, la mise à jour directe est autorisée.' : 'Música oficial santuarizada: Como Mestre, a atualização direta é permitida.')

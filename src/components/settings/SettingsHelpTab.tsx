@@ -21,7 +21,7 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
     <div className="flex flex-col gap-5 text-left">
       <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
         <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          📖 {lang === 'fr' ? "Mode d'Emploi de l'Atelier" : 'Manual da Oficina'}
+          {lang === 'fr' ? "Mode d'Emploi de l'Atelier" : 'Manual da Oficina'}
         </h3>
         <p className="text-[10px] opacity-75">
           {lang === 'fr'
@@ -39,7 +39,7 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
 
       <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-3 max-h-[45vh] min-h-[30vh]">
         <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          📝 {lang === 'fr' ? 'Légende des Frappes Actives' : 'Legenda das Batidas Ativas'}
+          {lang === 'fr' ? 'Légende des Frappes Actives' : 'Legenda das Batidas Ativas'}
         </h3>
         <p className="text-[10px] opacity-75 mb-1">
           {lang === 'fr'

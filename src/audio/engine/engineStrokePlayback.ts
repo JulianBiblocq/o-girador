@@ -3,19 +3,14 @@
  */
 
 import { StrokeMapping } from '../../data/audioConfig';
-import { GainNodeMapping } from './engineTypes';
+import { GainNodeMapping, PlaybackContext } from './engineTypes';
 import { EngineChannels } from './engineChannels';
 import { EngineVoiceGuard } from './engineVoiceGuard';
 import { EngineBarulhoPlayer } from './engineBarulhoPlayer';
+import { playBarulhoStroke } from './engineBarulhoPlayback';
 
-export interface PlaybackContext {
-  audioContext: AudioContext;
-  channels: EngineChannels;
-  voiceGuard: EngineVoiceGuard;
-  barulho: EngineBarulhoPlayer;
-  scheduledHits: Set<AudioBufferSourceNode>;
-  activeGainNodes: Map<AudioBufferSourceNode, GainNodeMapping>;
-}
+export type { PlaybackContext };
+
 
 export class EngineStrokePlayback {
   public static play(
@@ -40,60 +35,10 @@ export class EngineStrokePlayback {
     source.connect(gainNode);
 
     if (stroke.isBarulho) {
-      this.playBarulho(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier, isLiveHold);
+      playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier, isLiveHold);
     } else {
       this.playOneShot(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier);
     }
-  }
-
-  private static playBarulho(
-    ctx: PlaybackContext,
-    source: AudioBufferSourceNode,
-    gainNode: GainNode,
-    instrumentId: string,
-    buffer: AudioBuffer,
-    calculatedPitch: number,
-    time: number,
-    velocity: number,
-    decayMultiplier: number,
-    isLiveHold: boolean
-  ): void {
-    if (isLiveHold) {
-      source.loop = true;
-      source.start(time);
-      ctx.barulho.activeBarulhoNodes.set(instrumentId, source);
-      ctx.barulho.activeBarulhoGains.set(instrumentId, gainNode);
-      ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, Infinity));
-    } else {
-      ctx.scheduledHits.add(source);
-      const originalDuration = buffer.duration;
-      const maxDuration = Math.max(0.35, Math.min(1.2, originalDuration * decayMultiplier));
-      const realWorldDuration = maxDuration / calculatedPitch;
-      const fadeTime = Math.min(0.02, realWorldDuration / 2);
-
-      ctx.barulho.activeBarulhoNodes.set(instrumentId, source);
-      ctx.barulho.activeBarulhoGains.set(instrumentId, gainNode);
-      ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, time + realWorldDuration));
-
-      gainNode.gain.setValueAtTime(velocity, time);
-      gainNode.gain.setValueAtTime(velocity, time + Math.max(0, realWorldDuration - fadeTime));
-      gainNode.gain.linearRampToValueAtTime(0, time + realWorldDuration);
-      source.start(time, 0, maxDuration);
-      source.stop(time + realWorldDuration + 0.01);
-    }
-
-    source.onended = () => {
-      try { source.disconnect(); } catch (_) {}
-      ctx.channels.releaseGainNode(ctx.audioContext, instrumentId, gainNode);
-      const mapping = ctx.activeGainNodes.get(source);
-      if (mapping) { mapping.gainNode = null; mapping.instrumentId = ''; }
-      ctx.activeGainNodes.delete(source);
-      ctx.voiceGuard.removeActiveVoice(instrumentId, source);
-      if (ctx.barulho.activeBarulhoNodes.get(instrumentId) === source) {
-        ctx.barulho.activeBarulhoNodes.delete(instrumentId);
-        ctx.barulho.activeBarulhoGains.delete(instrumentId);
-      }
-    };
   }
 
   private static playOneShot(

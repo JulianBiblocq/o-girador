@@ -39,7 +39,7 @@ export const SignalCloudDeleteConfirm: React.FC<ConfirmProps> = ({
         >
           <div className="flex items-start gap-2 flex-1">
             <span className="text-sm shrink-0">
-              {toast.type === 'error' ? '🪵⚠️' : toast.type === 'success' ? '🪵✨' : 'ℹ️'}
+              {toast.type === 'error' ? '' : toast.type === 'success' ? '' : ''}
             </span>
             <span className="leading-tight font-cactus tracking-wide pt-0.5 break-words">
               {toast.message}
@@ -58,7 +58,7 @@ export const SignalCloudDeleteConfirm: React.FC<ConfirmProps> = ({
       {signalToDelete && (
         <div className="bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] p-3 flex flex-col gap-2 my-1 animate-fade-in">
           <div className="flex items-center gap-2">
-            <span className="text-base">🗑️</span>
+            <span className="text-base"></span>
             <span className="font-cactus text-xs font-bold tracking-wide">
               {lang === 'fr'
                 ? `Supprimer définitivement le signal "${signalToDelete.name}" ?`

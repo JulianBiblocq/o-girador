@@ -23,7 +23,7 @@ export const SettingsPrensaPreview: React.FC<SettingsPrensaPreviewProps> = ({
     <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
       <div className="flex flex-wrap justify-between items-center gap-2 border-b border-black/10 pb-2">
         <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
-          <span>📑</span>
+          <span></span>
           <span>{lang === 'fr' ? 'Plan de Travail Partition (Édition Directe)' : 'Mesa de Trabalho da Partitura'}</span>
         </h3>
         <div className="flex items-center gap-2 bg-[#f4ecd8] border-2 border-black px-2.5 py-1 shadow-[1.5px_1.5px_0px_#000] text-[9px] font-bold uppercase select-none">
@@ -41,12 +41,12 @@ export const SettingsPrensaPreview: React.FC<SettingsPrensaPreviewProps> = ({
             onClick={onRefresh}
             className="px-3 py-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase cursor-pointer hover:bg-[#8b2a1a] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all ml-2"
           >
-            🔄 {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
+            {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
           </button>
         </div>
       </div>
       <p className="text-[10px] italic opacity-60 text-center border-b border-dashed border-black/15 pb-2">
-        📋 {lang === 'fr'
+        {lang === 'fr'
           ? "Consigne d'atelier : Vous pouvez modifier, aérer ou annoter directement la partition ci-dessous avant impression ou export."
           : 'Instrução de oficina: Você pode editar, espaçar ou anotar diretamente a partitura abaixo antes de imprimir ou exportar.'}
       </p>

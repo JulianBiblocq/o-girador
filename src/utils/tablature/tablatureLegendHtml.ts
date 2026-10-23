@@ -51,20 +51,15 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
   `;
 };
 
+import { printViaInvisibleIframe } from '../print/printIframeHelper';
+
 export const printLegendOnly = (): void => {
   const lang = useSequencerStore.getState().lang || 'fr';
   const htmlContent = generateLegendHTML(false, lang);
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  if (!printWindow) {
-    alert(lang === 'fr' ? "Veuillez autoriser l'ouverture des pop-ups pour imprimer la légende." : "Por favor, autorize os pop-ups para imprimir a legenda.");
-    return;
-  }
-  printWindow.document.write(`
-    <!DOCTYPE html><html><head><title>${lang === 'fr' ? 'Légende des Tablatures' : 'Legenda das Tablaturas'}</title>
+  const title = lang === 'fr' ? 'Légende des Tablatures' : 'Legenda das Tablaturas';
+  const fullHtml = `<!DOCTYPE html><html><head><title>${title}</title>
     <style>body { margin: 0; padding: 20px; font-family: sans-serif; background: white; color: black; }
     @media print { @page { size: portrait; margin: 1cm; } body { padding: 0; } * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
-    </style></head><body>${htmlContent}</body></html>
-  `);
-  printWindow.document.close();
-  setTimeout(() => { printWindow.print(); }, 250);
+    </style></head><body>${htmlContent}</body></html>`;
+  printViaInvisibleIframe(fullHtml, title);
 };

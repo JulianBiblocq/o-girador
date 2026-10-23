@@ -44,7 +44,7 @@ export const drawCenterKaraoke = (
     if (words.length === 0) return;
 
     const roleColor = activeRole === 'coro' ? '#1e40af' : '#c25e38';
-    const roleLabel = isAnacrusis ? 'ANACROUSE ➔ T1' : (activeRole === 'coro' ? 'CORO' : 'PUXADOR');
+    const roleLabel = isAnacrusis ? 'ANACROUSE T1' : (activeRole === 'coro' ? 'CORO' : 'PUXADOR');
 
     const diskRadius = 135 * dynamicScale;
     ctx.beginPath();

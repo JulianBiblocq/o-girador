@@ -54,7 +54,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Timbal (Tb)</td>
             <td style="padding: 4px 6px;">
               <div style="background: #fff3cd; border: 1px solid #856404; padding: 2px 6px; margin-bottom: 3px; font-size: 8.5pt; font-weight: bold; color: #856404; border-radius: 2px;">
-                ${isFr ? '⚠️ Spécificité Timbal : MAJUSCULE = Main Droite │ minuscule = Main Gauche' : '⚠️ Regra do Timbal: MAIÚSCULA = Mão Direita │ minúscula = Mão Esquerda'}
+                ${isFr ? 'Spécificité Timbal : MAJUSCULE = Main Droite │ minuscule = Main Gauche' : 'Regra do Timbal: MAIÚSCULA = Mão Direita │ minúscula = Mão Esquerda'}
               </div>
               ${isFr
                 ? '<strong>G/g</strong> : Basse (Droite/Gauche) • <strong>A/a</strong> : Ouvert (D/G) • <strong>S/s</strong> : Claqué/Slap (D/G) • <strong>D/d</strong> : Fantôme (D/G) • <strong>P/p</strong> : Pressé/Fermé (D/G) • <strong>F/f</strong> : Fla ouvert (D/G) • <strong>V/v</strong> : Fla claqué (D/G) • <strong>C</strong> : Clap • <strong>B</strong> : Barulho (Grondement)'

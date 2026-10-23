@@ -6,6 +6,7 @@ import type * as ToneType from 'tone';
 import { getTone } from '../../ToneLoader';
 import { instrumentAudioConfigs, InstrumentAudioConfig } from '../../data/audioConfig';
 import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from '../audioSampleCache';
+import { resolveSampleFetchPath, fetchSampleWithRetry } from './sampleFetchUtils';
 
 export class EngineSampleLoader {
   public bufferPool = new Map<string, ToneType.ToneAudioBuffer>();
@@ -26,32 +27,8 @@ export class EngineSampleLoader {
             return;
           }
 
-          let fetchPath = path;
-          if (path.includes('Mixdown/') || path.includes('mixdown/')) {
-            const filename = path.substring(path.lastIndexOf('/') + 1);
-            // @ts-ignore
-            fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
-          } else {
-            const cleanPath = path.startsWith('/') ? path : '/' + path;
-            // @ts-ignore
-            const baseUrl = import.meta.env.BASE_URL || '/';
-            fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
-          }
-          const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-          let response: Response | null = null;
-          let delayMs = 300;
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              response = await fetch(encodedFetchPath);
-              if (response.ok) break;
-              throw new Error(`HTTP status ${response.status}`);
-            } catch (fetchErr) {
-              if (attempt === 3) throw fetchErr;
-              await new Promise(resolve => setTimeout(resolve, delayMs));
-              delayMs *= 2;
-            }
-          }
-          if (!response || !response.ok) throw new Error(`HTTP error: ${response ? response.status : 'unknown'}`);
+          const encodedFetchPath = resolveSampleFetchPath(path);
+          let response = await fetchSampleWithRetry(encodedFetchPath);
           let arrayBuffer = await response.arrayBuffer();
 
           try {

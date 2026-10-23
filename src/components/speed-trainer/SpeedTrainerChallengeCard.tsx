@@ -51,7 +51,7 @@ export const SpeedTrainerChallengeCard: React.FC<SpeedTrainerChallengeCardProps>
           {sBpm && tBpm && (
             <>
               <span>•</span>
-              <span className="font-bold text-amber-900">{sBpm} ➔ {tBpm} BPM</span>
+              <span className="font-bold text-amber-900">{sBpm} {tBpm} BPM</span>
             </>
           )}
         </div>
@@ -65,7 +65,7 @@ export const SpeedTrainerChallengeCard: React.FC<SpeedTrainerChallengeCardProps>
             onClick={(e) => { e.stopPropagation(); if (tr.id) onDelete(tr.id); }}
             className="bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] px-2.5 py-1 text-xs font-bold uppercase cursor-pointer"
           >
-            {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <>✓ {lang === 'fr' ? 'Supprimer' : 'Excluir'}</>}
+            {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <>{lang === 'fr' ? 'Supprimer' : 'Excluir'}</>}
           </button>
           <button
             type="button"
@@ -73,7 +73,7 @@ export const SpeedTrainerChallengeCard: React.FC<SpeedTrainerChallengeCardProps>
             onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
             className="bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] px-2 py-1 text-xs font-bold uppercase cursor-pointer"
           >
-            ✕
+            
           </button>
         </div>
       ) : (

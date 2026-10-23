@@ -20,7 +20,7 @@ export const HeaderMobileEditSection: React.FC<HeaderMobileEditSectionProps> = (
 }) => (
   <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
     <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
-      📝 {lang === 'pt' ? 'Edição' : 'Édition'}
+      {lang === 'pt' ? 'Edição' : 'Édition'}
     </span>
     <div className="grid grid-cols-2 gap-1.5 mt-1">
       <button

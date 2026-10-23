@@ -66,7 +66,7 @@ export const CordelContextMenu: React.FC<CordelContextMenuProps> = ({
         <div className="px-3 py-1 mb-1 text-[11px] font-cactus tracking-wide uppercase text-[#8b2a1a] border-b border-[#1a1a1a]/20 flex items-center justify-between">
           <span className="truncate">{title}</span>
           <button type="button" onClick={onClose} className="text-[10px] text-[#1a1a1a]/50 hover:text-[#1a1a1a] px-1 font-bold cursor-pointer">
-            ✕
+            
           </button>
         </div>
       )}

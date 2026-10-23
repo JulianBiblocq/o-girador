@@ -47,7 +47,7 @@ export const BalancoCapturePad: React.FC<BalancoCapturePadProps> = ({
             onPointerDown={onPointerHit}
             className="w-full h-36 bg-[#f4ecd8] border-[3px] border-[#1a1a1a] shadow-[4px_4px_0px_#000] rounded-sm flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-transform duration-75 select-none"
           >
-            <span className="text-3xl mb-1">🥁</span>
+            <span className="text-3xl mb-1"></span>
             <span className="font-cactus text-xl font-bold">
               {lang === 'fr' ? 'FRAPPEZ ICI' : 'TOQUE AQUI'}
             </span>
@@ -71,7 +71,7 @@ export const BalancoCapturePad: React.FC<BalancoCapturePadProps> = ({
             onClick={onStartCapture}
             className="w-full py-3 bg-[#8b2a1a] text-[#f4ecd8] font-cactus text-lg font-bold border-2 border-black shadow-[3px_3px_0px_#000] hover:bg-black hover:text-white transition-colors cursor-pointer active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
           >
-            ▶️ {lang === 'fr' ? "Démarrer l'enregistrement" : 'Iniciar Gravação'}
+            ▶{lang === 'fr' ? "Démarrer l'enregistrement" : 'Iniciar Gravação'}
           </button>
         </div>
       )}

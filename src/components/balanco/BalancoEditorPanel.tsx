@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { GlobalSwing, Language } from '../../types';
-import { BalancoCaptureModal } from './BalancoCaptureModal';
 import { BalancoModeSelector } from './BalancoModeSelector';
 import { BalancoCustomSection } from './BalancoCustomSection';
 import { BalancoStepSliders } from './BalancoStepSliders';
 import { BalancoIntensitySlider } from './BalancoIntensitySlider';
-import { BalancoLibraryModal } from './BalancoLibraryModal';
-import { BalancoDeleteConfirmModal } from './BalancoDeleteConfirmModal';
-import { BalancoFeedbackModal } from './BalancoFeedbackModal';
+import { BalancoModalsOverlay } from './BalancoModalsOverlay';
 import { useBalancoPreview } from './useBalancoPreview';
 import { useBalancoManager } from './useBalancoManager';
 import { canManagePreset } from './balancoHelpers';
@@ -108,35 +105,17 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
         onChange={(val) => setGlobalSwing({ ...globalSwing, swingIntensity: val })}
       />
 
-      <BalancoCaptureModal
-        isOpen={isCaptureModalOpen}
-        onClose={() => setIsCaptureModalOpen(false)}
+      <BalancoModalsOverlay
+        isCaptureModalOpen={isCaptureModalOpen}
+        onCloseCaptureModal={() => setIsCaptureModalOpen(false)}
+        isLibraryModalOpen={isLibraryModalOpen}
+        onCloseLibraryModal={() => setIsLibraryModalOpen(false)}
         lang={lang}
-        onCaptureComplete={(newOffsets) => setGlobalSwing({ ...globalSwing, mode: 'custom', customOffsets: newOffsets })}
+        globalSwing={globalSwing}
+        setGlobalSwing={setGlobalSwing}
+        mgr={mgr}
+        triggerCloudSync={triggerCloudSync}
       />
-
-      <BalancoLibraryModal
-        isOpen={isLibraryModalOpen}
-        presets={mgr.presets}
-        selectedPresetId={mgr.selectedPresetId}
-        userProfile={mgr.userProfile}
-        isLoadingCloud={mgr.isLoadingCloud}
-        lang={lang}
-        onClose={() => setIsLibraryModalOpen(false)}
-        onSelectPreset={mgr.handlePresetSelect}
-        onLoadToCustom={mgr.handleLoadToCustom}
-        onRequestDelete={(p) => mgr.setPresetToDelete(p)}
-        onRefreshCloud={triggerCloudSync}
-      />
-
-      <BalancoDeleteConfirmModal
-        preset={mgr.presetToDelete}
-        lang={lang}
-        onCancel={() => mgr.setPresetToDelete(null)}
-        onConfirm={mgr.handleConfirmDelete}
-      />
-
-      <BalancoFeedbackModal feedback={mgr.statusFeedback} lang={lang} onClose={() => mgr.setStatusFeedback(null)} />
     </div>
   );
 };

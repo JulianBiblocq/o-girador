@@ -100,7 +100,7 @@ export const BalancoModeSelector: React.FC<BalancoModeSelectorProps> = ({
           >
             {presets.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} {p.isFactory ? '★' : p.ownerId === userProfile?.uid || p.ownerId === 'local' ? (lang === 'fr' ? '[perso]' : '[pessoal]') : '[cloud]'}
+                {p.name} {p.isFactory ? '' : p.ownerId === userProfile?.uid || p.ownerId === 'local' ? (lang === 'fr' ? '[perso]' : '[pessoal]') : '[cloud]'}
               </option>
             ))}
           </select>

@@ -59,7 +59,7 @@ export const EditorCloudSaveModal: React.FC<EditorCloudSaveModalProps> = React.m
         </div>
         <div className="mb-6 flex items-center gap-2">
           <input type="checkbox" id="autoGeneratePatternAudio" checked={autoGeneratePatternAudio} onChange={(e) => setAutoGeneratePatternAudio(e.target.checked)} disabled={isSavingPattern || isBouncingCloud} className="w-4 h-4 accent-[#8b2a1a]" />
-          <label htmlFor="autoGeneratePatternAudio" className="text-sm font-bold text-[#1a1a1a] cursor-pointer">{lang === 'fr' ? "Générer l'aperçu audio (☁️)" : 'Gerar áudio (☁️)'}</label>
+          <label htmlFor="autoGeneratePatternAudio" className="text-sm font-bold text-[#1a1a1a] cursor-pointer">{lang === 'fr' ? "Générer l'aperçu audio ()" : 'Gerar áudio ()'}</label>
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 border border-[#1a1a1a] text-[#1a1a1a] font-bold text-sm hover:bg-[#eaddcf] cursor-pointer" disabled={isSavingPattern || isBouncingCloud}>{lang === 'fr' ? 'Annuler' : 'Cancelar'}</button>

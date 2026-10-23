@@ -71,6 +71,9 @@ export function buildCurrentPresetData(
     loopMode: storeState.loopMode,
     isLoopExitRequested: false,
     isLooping: sequencer.isLooping,
+    vocalTransposeSteps: storeState.vocalTransposeSteps ?? 0,
+    isMasterVolumeBypassed: Boolean(storeState.isMasterVolumeBypassed),
+    globalAutomationBypass: storeState.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
     audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION
   };
 }

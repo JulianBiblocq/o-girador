@@ -83,7 +83,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
             onClick={() => { onClose(); printLegendOnly(); }}
             className="w-full px-3 py-2 text-sm bg-[var(--cordel-border)] text-[var(--cordel-bg)] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus text-center"
           >
-            {lang === 'fr' ? '🖨️ Imprimer la Légende (Feuille séparée)' : '🖨️ Imprimir a Legenda (Folha separada)'}
+            {lang === 'fr' ? 'Imprimer la Légende (Feuille séparée)' : 'Imprimir a Legenda (Folha separada)'}
           </button>
         </div>
       </div>

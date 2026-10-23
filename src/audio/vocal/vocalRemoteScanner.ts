@@ -69,7 +69,7 @@ export class VocalRemoteScanner {
             { key: compositeKey, buffer: audioBuffer, blob }
           );
         } catch (err) {
-          console.error(`🎙️ [VOCAL REHYDRATE] Erreur rehydration motif ${patternId}:`, err);
+          console.error(`[VOCAL REHYDRATE] Erreur rehydration motif ${patternId}:`, err);
         }
       }
     }

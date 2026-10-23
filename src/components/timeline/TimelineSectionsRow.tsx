@@ -80,7 +80,7 @@ export const TimelineSectionsRow = React.memo<TimelineSectionsRowProps>(({
                     className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${snapMode === mode ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''}`}
                   >
                     <span>{mode === 'measure' ? (lang === 'fr' ? 'Mesure' : 'Compasso') : mode === 'beat' ? (lang === 'fr' ? 'Temps' : 'Tempos') : (lang === 'fr' ? 'Libre' : 'Livre')}</span>
-                    {snapMode === mode && <span className="font-bold">✓</span>}
+                    {snapMode === mode && <span className="font-bold"></span>}
                   </button>
                 ))}
               </div>
@@ -92,7 +92,7 @@ export const TimelineSectionsRow = React.memo<TimelineSectionsRowProps>(({
             className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5 h-5"
             title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
           >
-            <span>➕</span>
+            <span></span>
             {!isMobile && <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>}
           </button>
         </div>

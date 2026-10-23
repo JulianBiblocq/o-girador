@@ -32,7 +32,7 @@ export const TimelineQuickSectionPopover = React.memo<TimelineQuickSectionPopove
         <span className="text-[9px] font-bold uppercase tracking-wider opacity-80">
           {lang === 'fr' ? `NOUVELLE SECTION (M. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})` : `NOVA SEÇÃO (C. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})`}
         </span>
-        <button type="button" className="text-xs hover:text-red-500 font-bold cursor-pointer" onClick={onClose}>✕</button>
+        <button type="button" className="text-xs hover:text-red-500 font-bold cursor-pointer" onClick={onClose}></button>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -107,9 +107,9 @@ export const TimelineQuickSectionPopover = React.memo<TimelineQuickSectionPopove
       </div>
 
       <div className="flex flex-col gap-1 mt-1">
-        <button type="button" onClick={onCreate} className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:opacity-95 cursor-pointer text-center">➕ {lang === 'fr' ? 'Créer la section' : 'Criar seção'}</button>
+        <button type="button" onClick={onCreate} className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:opacity-95 cursor-pointer text-center">{lang === 'fr' ? 'Créer la section' : 'Criar seção'}</button>
         {onLoadCloudSection && (
-          <button type="button" onClick={() => { onLoadCloudSection(quickSectionRange.start); onClose(); }} className="w-full bg-emerald-600 text-white font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:bg-emerald-700 cursor-pointer text-center">☁️ {lang === 'fr' ? 'Insérer section enregistrée' : 'Inserir seção gravada'}</button>
+          <button type="button" onClick={() => { onLoadCloudSection(quickSectionRange.start); onClose(); }} className="w-full bg-emerald-600 text-white font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:bg-emerald-700 cursor-pointer text-center">{lang === 'fr' ? 'Insérer section enregistrée' : 'Inserir seção gravada'}</button>
         )}
       </div>
     </div>

@@ -52,7 +52,7 @@ export const renderBlankSheetC = (options: BlankSheetOptions, lang: 'fr' | 'pt')
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px;">
           <h2 style="margin: 0; font-size: 13pt; text-transform: uppercase; letter-spacing: 0.5px;">${lang === 'fr' ? 'FEUILLE C — CONDUCTEUR DE SÉQUENCE' : 'FOLHA C — CONDUTOR DE SEQUÊNCIA'}</h2>
           <div style="font-size: 9pt; font-weight: bold;">
-            ${options.conductorTitle || (lang === 'fr' ? 'Morceau' : 'Toada') + ' : ___________________'} │ ♩ = [ ___ ] │ Sign : [ ${signLabel} ]
+            ${options.conductorTitle || (lang === 'fr' ? 'Morceau' : 'Toada') + ' : ___________________'} │ = [ ___ ] │ Sign : [ ${signLabel} ]
           </div>
         </div>
         ${renderHandwritingNoticeHTML(lang)}

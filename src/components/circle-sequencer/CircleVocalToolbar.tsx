@@ -38,7 +38,7 @@ export const CircleVocalToolbar: React.FC<CircleVocalToolbarProps> = ({
         }`}
         title={lang === 'pt' ? 'Fechar Letra da Toada' : 'Fermer la Letra de la toada'}
       >
-        <span className="text-xs md:text-sm">🎙️</span>
+        <span className="text-xs md:text-sm"></span>
         <span>Letra</span>
         <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${isLetraActive ? 'bg-amber-300 animate-pulse' : 'bg-stone-400'}`} />
       </button>
@@ -56,7 +56,7 @@ export const CircleVocalToolbar: React.FC<CircleVocalToolbarProps> = ({
           }`}
           title={lang === 'pt' ? 'Voz gravada (sample áudio puro)' : 'Voix enregistrée (échantillon audio)'}
         >
-          🎙️
+          
         </button>
         <button
           type="button"
@@ -68,7 +68,7 @@ export const CircleVocalToolbar: React.FC<CircleVocalToolbarProps> = ({
           }`}
           title={lang === 'pt' ? 'Sintetizador melódico (notas MIDI)' : 'Synthétiseur de notes mélodiques'}
         >
-          🎹
+          
         </button>
         <button
           type="button"
@@ -80,7 +80,7 @@ export const CircleVocalToolbar: React.FC<CircleVocalToolbarProps> = ({
           }`}
           title={lang === 'pt' ? 'Voz gravada + Sintetizador simultâneos' : 'Voix enregistrée + Synthétiseur simultanés'}
         >
-          🎙️+🎹
+          +
         </button>
       </div>
     </div>

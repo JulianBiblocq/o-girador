@@ -43,13 +43,13 @@ export const PresetAccordionSelectFallback: React.FC<FallbackSelectProps> = ({
       {showGroupCatalogue && (
         <optgroup label={groupTitle}>
           {visiblePrivate.map((p) => (
-            <option key={`og:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '⏳ ' : ''}{p.name}</option>
+            <option key={`og:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '' : ''}{p.name}</option>
           ))}
         </optgroup>
       )}
       <optgroup label={publicTitle}>
         {visiblePublic.map((p) => (
-          <option key={`op:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '⏳ ' : ''}☁️ {p.name}</option>
+          <option key={`op:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '' : ''}{p.name}</option>
         ))}
       </optgroup>
     </select>

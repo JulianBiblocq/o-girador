@@ -22,7 +22,8 @@ interface Props {
 
 export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang: propLang, onOpenSongInfo }) => {
   const beatRefs = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
-  const { isMetroOn, setIsMetroOn } = useTransportStore((s) => ({ isMetroOn: s.isMetroOn, setIsMetroOn: s.setIsMetroOn }));
+  const isMetroOn = useTransportStore((s) => s.isMetroOn);
+  const setIsMetroOn = useTransportStore((s) => s.setIsMetroOn);
   const { lang: sLang, currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, songMarkers, measureSignals, mestreSignals, tracks } =
     useSequencerStore(useShallow((s) => ({
       lang: s.lang, currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,

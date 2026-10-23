@@ -5,29 +5,7 @@ import { BoutonExportDanse } from '../BoutonExportDanse';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { i18n } from '../../data';
-
-interface HeaderProjectDropdownContentProps {
-  lang: 'pt' | 'fr';
-  preset: string;
-  songTitle?: string;
-  publicCloudPresets: any[];
-  privateCloudPresets: any[];
-  localPresets: string[];
-  isCloudPresetsLoading: boolean;
-  showGroupCatalogue: boolean;
-  groupLabel: string;
-  groupLogo: string;
-  defaultPresetId: string | null;
-  canSetDefaultPreset: boolean;
-  canEdit: boolean;
-  onSetDefaultPreset: (id: string | null) => void;
-  onToggleDraft: (id: string, currentDraft: boolean) => void;
-  onPresetChange: (val: string) => void;
-  onExportTablature?: () => void;
-  onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
-  onCloudSave?: () => void;
-  onCloseMenu: () => void;
-}
+import type { HeaderProjectDropdownContentProps } from './headerProjectDropdownTypes';
 
 export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContentProps> = ({
   lang,

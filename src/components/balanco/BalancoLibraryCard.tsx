@@ -66,14 +66,14 @@ export const BalancoLibraryCard: React.FC<BalancoLibraryCardProps> = ({
             isActive ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white text-[#1a1a1a] hover:bg-black hover:text-white'
           }`}
         >
-          {isActive ? (lang === 'fr' ? '✓ Actif' : '✓ Ativo') : lang === 'fr' ? '▶ Charger' : '▶ Carregar'}
+          {isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : lang === 'fr' ? '▶ Charger' : '▶ Carregar'}
         </button>
         <button
           type="button"
           onClick={() => onEdit(p)}
           className="px-2 py-1 bg-white border border-black text-[10px] font-bold text-[#1a1a1a] hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000]"
         >
-          ✏️
+          
         </button>
         {canManage && (
           <button
@@ -81,7 +81,7 @@ export const BalancoLibraryCard: React.FC<BalancoLibraryCardProps> = ({
             onClick={() => onDelete(p)}
             className="px-1.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000]"
           >
-            🗑️
+            
           </button>
         )}
       </div>

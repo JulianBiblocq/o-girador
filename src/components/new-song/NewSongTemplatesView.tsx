@@ -32,7 +32,7 @@ export const NewSongTemplatesView: React.FC<NewSongTemplatesViewProps> = ({
           </h3>
         </div>
         <span className="text-[10px] font-cactus font-bold text-[#1a1a1a]/70 uppercase hidden sm:inline">
-          🔒 {lang === 'fr' ? 'Gabarits Privés' : 'Modelos Privados'}
+          {lang === 'fr' ? 'Gabarits Privés' : 'Modelos Privados'}
         </span>
       </div>
 
@@ -61,18 +61,18 @@ export const NewSongTemplatesView: React.FC<NewSongTemplatesViewProps> = ({
                       key={idx}
                       className="bg-[#f4ecd8] text-[#1a1a1a] border border-black/40 px-1.5 py-0.2 text-[9px] font-cactus font-bold rounded"
                     >
-                      {tr.isBusFolder ? `📁 ${label}` : label}
+                      {tr.isBusFolder ? `${label}` : label}
                     </span>
                   );
                 })}
               </div>
 
               <div className="flex flex-wrap gap-1 text-[9px] text-black/60">
-                {tpl.options.includeVolumePan && <span>🎚️ Vol/Pan</span>}
-                {tpl.options.includeEQ && <span>• 🎛️ EQ</span>}
-                {tpl.options.includeFX && <span>• ✨ FX</span>}
-                {tpl.options.includeStructure && <span>• 🗂️ Bus/Liens</span>}
-                {tpl.options.includeDisplayOrder && <span>• 🔄 Roda</span>}
+                {tpl.options.includeVolumePan && <span>Vol/Pan</span>}
+                {tpl.options.includeEQ && <span>• EQ</span>}
+                {tpl.options.includeFX && <span>• FX</span>}
+                {tpl.options.includeStructure && <span>• Bus/Liens</span>}
+                {tpl.options.includeDisplayOrder && <span>• Roda</span>}
               </div>
             </div>
 
@@ -81,7 +81,7 @@ export const NewSongTemplatesView: React.FC<NewSongTemplatesViewProps> = ({
                 onClick={() => onSelectTemplate && onSelectTemplate(tpl)}
                 className="w-full md:w-auto px-4 py-2 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase text-xs shadow-[2px_2px_0px_#000] hover:bg-[#8b2a1a] cursor-pointer active:translate-x-[1px] active:translate-y-[1px] transition-all"
               >
-                🚀 {lang === 'fr' ? 'Charger ce gabarit' : 'Carregar este modelo'}
+                {lang === 'fr' ? 'Charger ce gabarit' : 'Carregar este modelo'}
               </button>
             </div>
           </div>

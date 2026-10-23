@@ -55,7 +55,7 @@ export const SignalCloudPendingPreview: React.FC<PendingPreviewProps> = ({
             className="accent-emerald-600"
           />
           <span className="text-[10px] font-bold text-[var(--cordel-text)]">
-            {lang === 'fr' ? '🌍 Rendre public (Catalogue Global)' : '🌍 Tornar público (Catálogo Global)'}
+            {lang === 'fr' ? 'Rendre public (Catalogue Global)' : 'Tornar público (Catálogo Global)'}
           </span>
         </label>
       )}

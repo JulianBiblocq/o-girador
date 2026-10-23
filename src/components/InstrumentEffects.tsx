@@ -86,7 +86,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
     <div className="bg-[#ece4d0] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
       <div className="flex items-center justify-between text-xs border-b border-[#1a1a1a]/20 pb-1.5 text-[#1a1a1a]">
         <span className="font-bold">
-          🎛️ {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {!isSingle ? `${selectedStepIndices.length} ${lang === 'fr' ? 'pas' : 'passos'}` : `${lang === 'fr' ? 'Pas' : 'Passo'} ${selectedStepIdx + 1}`}
+          {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {!isSingle ? `${selectedStepIndices.length} ${lang === 'fr' ? 'pas' : 'passos'}` : `${lang === 'fr' ? 'Pas' : 'Passo'} ${selectedStepIdx + 1}`}
           {activeVarObj && ` (Var: ${activeVarObj.name})`}
           {isSingle && isSplitStep && ` — ${selectedSubIndex === 0 ? (lang === 'fr' ? '1er Coup' : '1º Golpe') : selectedSubIndex === 1 ? (lang === 'fr' ? '2ème Coup' : '2º Golpe') : (lang === 'fr' ? 'Coups liés' : 'Golpes ligados')} (${(stepVal as [string, string]).join(', ')})`}
           {isSingle && !isSplitStep && ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`}
@@ -97,7 +97,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
           </button>
           {onClose && (
             <button type="button" onClick={onClose} className="w-5 h-5 flex items-center justify-center rounded-xs bg-[#1a1a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer text-xs font-bold shrink-0 ml-1">
-              ✕
+              
             </button>
           )}
         </div>

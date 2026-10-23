@@ -5,25 +5,9 @@
 
 import { useEffect } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import type { UsePatternGridKeyboardParams } from './usePatternGridKeyboardTypes';
 
-export interface UsePatternGridKeyboardParams {
-  isMultiSelectActive: boolean;
-  selectedStepIdx: number | null;
-  selectedSubIndex: 0 | 1 | null;
-  selectedStepIsPreRoll?: boolean;
-  pattern: { id: number; steps?: number; activeSteps?: any[] } | null | undefined;
-  trackId: number;
-  isVoice: boolean;
-  selectedVariationId?: string | null;
-  handleVariationStepValueChange: (tId: number, pId: number, varId: string, idx: number, val: any) => void;
-  handleTrackStepValueChange: (tId: number, pId: number, idx: number, val: any) => void;
-  handleVoiceStepClear: (tId: number, pId: number, idx: number, isPreRoll?: boolean) => void;
-  focusVoiceStep: (idx: number, type?: 'note' | 'syl', isPreRoll?: boolean) => void;
-  focusCell: (idx: number, subIndex?: 0 | 1 | null) => void;
-  setSelectedStepIdx: (idx: number | null) => void;
-  setSelectedStepIndices: (indices: number[]) => void;
-  setSelectedSubIndex: (sub: 0 | 1 | null) => void;
-}
+export type { UsePatternGridKeyboardParams };
 
 export function usePatternGridKeyboard(params: UsePatternGridKeyboardParams) {
   const {

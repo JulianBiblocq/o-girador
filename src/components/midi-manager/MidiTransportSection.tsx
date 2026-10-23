@@ -26,7 +26,7 @@ export const MidiTransportSection: React.FC = () => {
   return (
     <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
       <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-        🎛️ {t('Commandes de Transport', 'Controles de Transporte')}
+        {t('Commandes de Transport', 'Controles de Transporte')}
       </h3>
 
       <div className="flex flex-col gap-2.5">
@@ -48,7 +48,7 @@ export const MidiTransportSection: React.FC = () => {
                 {mapping && !isWaiting && (
                   <div className="flex items-center gap-1">
                     <span className="font-mono text-[9px] bg-[#1a1a1a] text-[#f4ecd8] px-2 py-1 rounded-sm border border-black font-bold">
-                      🎹 {formatTransportMapping(mapping)}
+                      {formatTransportMapping(mapping)}
                     </span>
                     <button
                       onClick={() => removeTransportMapping(action.id)}

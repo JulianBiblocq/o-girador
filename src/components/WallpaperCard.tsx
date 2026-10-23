@@ -79,7 +79,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
       {/* Indicateur de sélection */}
       <div className="mt-auto pt-1 flex items-center justify-between text-xs">
         <span className="text-[11px] font-mono opacity-60">
-          {isSelected ? '✓ Actif' : 'Sélectionner'}
+          {isSelected ? 'Actif' : 'Sélectionner'}
         </span>
         <div
           className={`w-3.5 h-3.5 rounded-full border-2 border-[var(--cordel-border)] flex items-center justify-center ${

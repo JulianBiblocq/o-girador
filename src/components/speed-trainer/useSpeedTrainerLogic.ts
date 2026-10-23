@@ -5,6 +5,7 @@ import { useAudio } from '../../contexts/AudioContext';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { instrumentsConfig } from '../../data';
 import { SpeedTrainerTab } from './SpeedTrainerHeader';
+import { resolveFamilyLabel, filterPlayableTrainerTracks } from './speedTrainerHelpers';
 
 export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
   const audio = useAudio();
@@ -48,31 +49,8 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
 
   const hasFamilyGroup = familyTrackIds.length > 1;
 
-  const familyLabel = useMemo(() => {
-    if (selectedTrackId === null) return '';
-    const target = storeTracks.find((t) => t.id === selectedTrackId);
-    if (!target) return '';
-    if (target.busId) {
-      const busFolder = storeTracks.find((t) => String(t.id) === String(target.busId) && t.isBusFolder);
-      if (busFolder?.customName) return busFolder.customName;
-      const busName = String(target.busId).replace(/^(bus[-_]|group[-_])/, '');
-      return busName.charAt(0).toUpperCase() + busName.slice(1);
-    }
-    if (target.linkedToTrackId) {
-      const master = storeTracks.find((t) => String(t.id) === String(target.linkedToTrackId));
-      return master?.customName || instrumentsConfig[master?.instrumentIdx || 0]?.name || '';
-    }
-    return '';
-  }, [selectedTrackId, storeTracks]);
-
-  const playableTracks = useMemo(() => {
-    return storeTracks.filter((t) => {
-      if (t.isBusFolder && !t.isLinkFolder) return false;
-      const inst = instrumentsConfig[t.instrumentIdx];
-      return !(inst?.type === 'voice' || inst?.id === 'puxador' || inst?.id === 'coro' || (t as any).isToadaBus);
-    });
-  }, [storeTracks]);
-
+  const familyLabel = useMemo(() => resolveFamilyLabel(selectedTrackId, storeTracks), [selectedTrackId, storeTracks]);
+  const playableTracks = useMemo(() => filterPlayableTrainerTracks(storeTracks), [storeTracks]);
   const sortedMarkers = useMemo(() => [...songMarkers].sort((a, b) => a.measure - b.measure), [songMarkers]);
 
   const [markerMode, setMarkerMode] = useState<'single' | 'range'>('single');

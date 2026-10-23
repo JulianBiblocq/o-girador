@@ -10,16 +10,7 @@ import { XiloReverb } from '../XiloIcons';
 import { masterReverbVolumeNode, reverbNode } from '../../audio/effectsChain';
 import { percentToDb, calcReverbOpacity } from './masterEffectsMath';
 import { updateMasterEffectLabelContrast } from './masterEffectsThemeHelpers';
-
-interface MasterReverbSectionProps {
-  reverbTime: number;
-  returnVolume: number;
-  isReverbActive: boolean;
-  t: (key: any) => string;
-  setMasterFxParam: (fx: 'reverb' | 'distortion', param: 'drive' | 'time', val: number) => void;
-  setMasterFxVolume: (fx: 'reverb' | 'distortion', val: number) => void;
-  toggleMasterEffectActive: (fx: 'reverb' | 'disto') => void;
-}
+import type { MasterReverbSectionProps } from './masterEffectsTypes';
 
 export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
   reverbTime,
@@ -111,7 +102,7 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
           }`}
           title={isReverbActive ? "Réverbe Master active (cliquer pour contourner / bypass)" : "Réverbe Master bypassée (cliquer pour activer)"}
         >
-          ⏻
+          
         </button>
       </div>
 

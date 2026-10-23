@@ -9,6 +9,7 @@ import { useAudio } from '../../contexts/AudioContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { WorkspaceTemplateOptions, WorkspaceTemplateTrack, Language } from '../../types';
+import { buildTemplateTracks } from './templateTracksBuilder';
 
 interface UseSaveTemplateParams {
   lang: Language;
@@ -59,36 +60,7 @@ export function useSaveWorkspaceTemplate({ lang, onClose }: UseSaveTemplateParam
     setIsSaving(true);
 
     try {
-      const templateTracks: WorkspaceTemplateTrack[] = tracks.map((t) => {
-        const item: WorkspaceTemplateTrack = {
-          id: t.id,
-          instrumentIdx: t.instrumentIdx,
-          customName: t.customName,
-          isBusFolder: t.isBusFolder,
-          isLinkFolder: t.isLinkFolder,
-          isLinkMaster: t.isLinkMaster,
-          busId: t.busId,
-          linkedToTrackId: t.linkedToTrackId,
-        };
-
-        if (options.includeVolumePan) {
-          item.volumeVal = t.volumeVal;
-          item.pan = t.pan;
-          item.panVal = t.panVal;
-        }
-
-        if (options.includeEQ) {
-          item.eqBands = t.eqBands;
-          item.lowCut = t.lowCut;
-        }
-
-        if (options.includeFX) {
-          item.reverbVal = t.reverbVal;
-          item.fxSends = t.fxSends;
-        }
-
-        return item;
-      });
+      const templateTracks = buildTemplateTracks(tracks, options);
 
       const currentMasterFX = useSequencerStore.getState().masterFX;
       const masterSettings = {

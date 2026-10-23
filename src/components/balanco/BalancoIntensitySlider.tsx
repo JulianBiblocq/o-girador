@@ -16,7 +16,7 @@ export const BalancoIntensitySlider: React.FC<BalancoIntensitySliderProps> = ({
     <div className="flex flex-col gap-1.5 bg-[#eaddcf]/30 p-3 border border-black/15 rounded-sm">
       <div className="flex justify-between items-center">
         <span className="font-bold text-[10px] uppercase flex items-center gap-1 text-[#1a1a1a]">
-          🎚️ {lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :'}
+          {lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :'}
         </span>
         <span className="font-bold text-[#8b2a1a] text-xs">{swingIntensity}%</span>
       </div>

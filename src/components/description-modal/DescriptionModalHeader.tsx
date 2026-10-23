@@ -47,7 +47,7 @@ export const DescriptionModalHeader: React.FC<HeaderProps> = ({
           className="text-[#1a1a1a] hover:text-[#8b2a1a] hover:bg-[#1a1a1a]/10 w-8 h-8 flex items-center justify-center font-bold text-xl border-2 border-[#1a1a1a] rounded-[3px] transition-colors shrink-0 cursor-pointer shadow-[2px_2px_0px_#1a1a1a]"
           title={lang === 'fr' ? 'Fermer (Échap)' : 'Fechar (Esc)'}
         >
-          ✕
+          
         </button>
       </div>
 

@@ -60,7 +60,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
             className="w-full relative overflow-hidden group bg-[#e67e22] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-10 px-6 cursor-pointer hover:scale-[1.02] transition-transform duration-300"
           >
             <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity" />
-            <span className="text-4xl mb-3">⭕</span>
+            <span className="text-4xl mb-3"></span>
             <span className="font-cactus font-bold text-3xl tracking-widest uppercase">
               {isFr ? 'Entrer dans la Roda' : 'Entrar na Roda'}
             </span>
@@ -72,7 +72,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
 
         {/* Footer info */}
         <div className="mt-16 text-center opacity-70 font-bold text-sm">
-          <span className="text-[#27ae60]">✓ {isFr ? 'Audio prêt' : 'Áudio pronto'}</span>
+          <span className="text-[#27ae60]">{isFr ? 'Audio prêt' : 'Áudio pronto'}</span>
         </div>
 
       </div>

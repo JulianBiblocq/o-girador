@@ -46,7 +46,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
   return (
     <div className="xilo-feedback-container flex flex-col gap-2 mt-2">
       <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
-        📂 {lang === 'fr' ? 'Signes Locaux' : 'Sinais Locais'}
+        {lang === 'fr' ? 'Signes Locaux' : 'Sinais Locais'}
       </span>
       <div className="flex flex-col gap-2">
         <span className="text-[8px] text-[var(--cordel-text)] opacity-60 leading-tight">

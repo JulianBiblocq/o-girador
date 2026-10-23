@@ -27,7 +27,7 @@ export function useAppWorkspaceEvents(alertAsync: (msg: string) => Promise<any>,
     const handleStageCompleted = (e: Event) => {
       const detail = (e as CustomEvent<{ stageIndex: number; targetBpm: number }>).detail;
       if (detail && alertAsync) {
-        alertAsync(`🎉 Parabéns ! Vous avez validé avec succès le Palier ${detail.stageIndex} (${detail.targetBpm} BPM) !`);
+        alertAsync(`Parabéns ! Vous avez validé avec succès le Palier ${detail.stageIndex} (${detail.targetBpm} BPM) !`);
       }
     };
     window.addEventListener('o-girador-stage-completed', handleStageCompleted);

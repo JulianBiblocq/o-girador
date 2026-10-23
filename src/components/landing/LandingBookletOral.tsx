@@ -21,8 +21,8 @@ export const LandingBookletOral: React.FC<{ isFr: boolean }> = ({ isFr }) => (
       </p>
     </div>
     <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
-      <span>✦ Maracatu Vivo</span>
-      <span>Nações & Baque ✦</span>
+      <span>Maracatu Vivo</span>
+      <span>Nações & Baque </span>
     </div>
   </>
 );

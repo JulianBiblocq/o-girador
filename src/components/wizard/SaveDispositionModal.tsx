@@ -48,10 +48,10 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
       <div className="w-full max-w-md bg-[#f4ecd8] border-3 border-[#1a1a1a] p-5 shadow-[6px_6px_0px_rgba(0,0,0,1)] text-[#1a1a1a] flex flex-col gap-4 font-cactus" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b-2 border-[#1a1a1a] pb-2">
           <h3 className="text-xl md:text-2xl font-bold uppercase tracking-wide flex items-center gap-2">
-            <span>💾</span>
+            <span></span>
             {lang === 'fr' ? 'Enregistrer la Disposition' : 'Salvar a Disposição'}
           </h3>
-          <button onClick={onClose} type="button" className="w-8 h-8 flex items-center justify-center border-2 border-[#1a1a1a] bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer">✕</button>
+          <button onClick={onClose} type="button" className="w-8 h-8 flex items-center justify-center border-2 border-[#1a1a1a] bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer"></button>
         </div>
 
         <form onSubmit={handleSave} className="flex flex-col gap-4">
@@ -70,7 +70,7 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
           <div className="p-2.5 bg-[#ece4d0] border-2 border-[#1a1a1a] text-[11px] flex flex-col gap-1">
             <span className="font-bold uppercase tracking-wider text-[#8b2a1a]">{lang === 'fr' ? 'Configuration actuelle :' : 'Configuração atual :'}</span>
             <span className="leading-tight text-[#1a1a1a]/80">{summary}</span>
-            {hasToada && <span className="text-[10px] text-[#2e5339] font-bold mt-0.5">✓ {lang === 'fr' ? 'Chant / Toada inclus' : 'Canto / Toada incluído'}</span>}
+            {hasToada && <span className="text-[10px] text-[#2e5339] font-bold mt-0.5">{lang === 'fr' ? 'Chant / Toada inclus' : 'Canto / Toada incluído'}</span>}
           </div>
 
           <SaveDispositionVisibilitySelector

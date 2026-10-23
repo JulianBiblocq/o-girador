@@ -69,7 +69,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
     {
       id: 'copy-patterns',
       label: lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos os padrões',
-      icon: '📋',
+      icon: '',
       onClick: () => {
         copyAllTrackPatterns(trackId);
       },
@@ -77,7 +77,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
     {
       id: 'paste-patterns',
       label: lang === 'fr' ? 'Coller les motifs' : 'Colar padrões',
-      icon: '📥',
+      icon: '',
       disabled: !clipboard || !isCompatible,
       disabledReason: !clipboard 
         ? (lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia')
@@ -86,7 +86,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
         {
           id: 'paste-bank',
           label: lang === 'fr' ? 'Banque seule' : 'Apenas banco',
-          icon: '📁',
+          icon: '',
           onClick: () => {
             pasteAllTrackPatterns(trackId, 'libraryOnly');
           },
@@ -94,7 +94,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
         {
           id: 'paste-full',
           label: lang === 'fr' ? 'Banque + Timeline' : 'Banco + Linha do tempo',
-          icon: '⏱️',
+          icon: '',
           onClick: () => {
             pasteAllTrackPatterns(trackId, 'libraryAndTimeline');
           },
@@ -104,7 +104,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
     {
       id: 'duplicate-track',
       label: lang === 'fr' ? 'Dupliquer la piste complète' : 'Duplicar faixa completa',
-      icon: '👥',
+      icon: '',
       onClick: () => {
         duplicateTrack(trackId);
       },
@@ -113,7 +113,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
     {
       id: 'delete-track',
       label: lang === 'fr' ? 'Supprimer la piste' : 'Excluir faixa',
-      icon: '✕',
+      icon: '',
       isDestructive: true,
       onClick: handleDelete,
     },

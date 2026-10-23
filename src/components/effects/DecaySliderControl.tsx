@@ -80,14 +80,14 @@ export const DecaySliderControl: React.FC<DecaySliderControlProps> = ({
       <div className="flex justify-between text-[10px] font-bold items-center">
         {isVoice ? (
           <>
-            <span>⏱️ {lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
+            <span>{lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
             <span ref={labelRef} className="font-mono text-amber-800">
               {getVoiceDurationLabel(localVal, lang)}
             </span>
           </>
         ) : (
           <>
-            <span>🎛️ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
+            <span>{lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
             <EditableNumber
               value={localVal}
               suffix="%"

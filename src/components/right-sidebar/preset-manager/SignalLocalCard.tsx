@@ -79,7 +79,7 @@ export const SignalLocalCard: React.FC<SignalLocalCardProps> = ({ sig, lang, onE
           className="bg-amber-600 text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm hover:bg-amber-700 cursor-pointer shadow-sm"
           title={lang === 'fr' ? 'Éditer le nom ou reprendre' : 'Editar nome ou recapturar'}
         >
-          ✏️
+          
         </button>
         <button
           type="button"
@@ -90,7 +90,7 @@ export const SignalLocalCard: React.FC<SignalLocalCardProps> = ({ sig, lang, onE
           className="bg-[#8b2a1a] text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm hover:bg-red-700 cursor-pointer shadow-sm"
           title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
         >
-          🗑️
+          
         </button>
       </div>
     </div>

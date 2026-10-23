@@ -7,30 +7,9 @@ import { AutomationTrackHeader } from './automation/AutomationTrackHeader';
 import { AutomationValuePromptModal } from './automation/AutomationValuePromptModal';
 import { buildAutomationSvg } from './automation/AutomationSvgPathBuilder';
 import { useAutomationTrackDrag } from './automation/useAutomationTrackDrag';
+import type { AutomationTrackProps } from './automation/automationTrackTypes';
 
-export interface AutomationTrackProps {
-  type: 'tempo' | 'volume' | 'pan' | 'reverb';
-  trackId?: number | null;
-  label?: string;
-  onClose?: () => void;
-  totalMeasures: number;
-  measureWidth: number;
-  values: number[];
-  transitions: ('immediate' | 'ramp' | 'bezier')[];
-  onChangeValue: (mIdx: number, val: number) => void;
-  onChangeTransition: (mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
-  min: number;
-  max: number;
-  color: string;
-  lang: string;
-  headerWidth: number;
-  isBypassed?: boolean;
-  onToggleBypass?: () => void;
-  paramSelector?: {
-    current: 'volume' | 'pan' | 'reverb';
-    onChange: (param: 'volume' | 'pan' | 'reverb') => void;
-  };
-}
+export type { AutomationTrackProps };
 
 export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   type, trackId = null, label, onClose, totalMeasures, measureWidth, values, transitions,

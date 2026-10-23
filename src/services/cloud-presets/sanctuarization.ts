@@ -8,7 +8,7 @@ import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../firebase/config';
 import { presetCache, CLOUD_PRESETS_COLLECTION } from './presetCache';
 
-// 🛡️ SANCTUARISATION : Morceaux officiels du répertoire sanctuarisés
+// SANCTUARISATION : Morceaux officiels du répertoire sanctuarisés
 export const SANCTUARIZED_PRESET_IDS = new Set<string>([
   '29dIDjgc2vPuDnwjiy9V', // Opanijé
   'hJFMrFdzwLezPmeTgVpE', // Vovó Falou

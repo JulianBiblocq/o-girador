@@ -30,12 +30,12 @@ export const BalancoFeedbackModal: React.FC<BalancoFeedbackModalProps> = ({
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">
-              {feedback.type === 'success' ? '⚖️' : feedback.type === 'error' ? '⚠️' : 'ℹ️'}
+              {feedback.type === 'success' ? '' : feedback.type === 'error' ? '' : 'ℹ'}
             </span>
             <h4 className="font-cactus text-xl font-bold uppercase">{feedback.title}</h4>
           </div>
           <button type="button" onClick={onClose} className="text-lg font-bold hover:text-[#8b2a1a] cursor-pointer">
-            ✕
+            
           </button>
         </div>
 

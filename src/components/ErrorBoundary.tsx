@@ -89,7 +89,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       if (isChunkLoadError) {
         return (
           <div className="p-4 border-2 border-[#b33939] bg-[#f4ecd8] text-[#1a1a1a] m-4 rounded shadow-[3px_3px_0_#1a1a1a] z-50 font-cactus text-sm flex flex-col items-center justify-center gap-3">
-            <span className="text-2xl">📦</span>
+            <span className="text-2xl"></span>
             <div className="text-center">
               <h3 className="font-bold text-base text-[#b33939] mb-1">Mise à jour requise / Atualização necessária</h3>
               <p className="font-mono text-xs opacity-80">
@@ -100,7 +100,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               onClick={this.handleForceUpdate}
               className="px-4 py-2 bg-[#b33939] text-[#f4ecd8] font-bold text-xs uppercase tracking-wider rounded border border-[#1a1a1a] shadow-[2px_2px_0_#1a1a1a] hover:brightness-110 active:translate-y-0.5 cursor-pointer transition-all"
             >
-              🔄 Recharger pour mettre à jour / Recarregar
+              Recharger pour mettre à jour / Recarregar
             </button>
           </div>
         );

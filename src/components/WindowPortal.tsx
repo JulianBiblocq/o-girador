@@ -16,7 +16,7 @@ interface WindowPortalProps {
 /**
  * WindowPortal (Désactivé temporairement)
  * 
- * 🛡️ Sanctuarisation mono-fenêtre :
+ * Sanctuarisation mono-fenêtre :
  * Interdit tout appel à window.open pour éviter les pertes de contexte React,
  * les portails orphelins et les dysfonctionnements d'écouteurs d'événements.
  * Court-circuite immédiatement en appelant onClose.

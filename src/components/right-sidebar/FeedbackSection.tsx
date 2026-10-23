@@ -23,7 +23,7 @@ export const FeedbackSection: React.FC = () => {
 
   const t = {
     fr: {
-      title: '💬 Note & Avis',
+      title: 'Note & Avis',
       audioLabel: 'Performance Audio',
       usabilityLabel: 'Maniabilité',
       commentPlaceholder: 'Votre avis, suggestions ou bugs rencontrés...',
@@ -35,7 +35,7 @@ export const FeedbackSection: React.FC = () => {
       error: "Erreur lors de l'envoi du feedback. Veuillez réessayer.",
     },
     pt: {
-      title: '💬 Nota & Opinião',
+      title: 'Nota & Opinião',
       audioLabel: 'Performance Áudio',
       usabilityLabel: 'Maniabilidade',
       commentPlaceholder: 'Sua opinião, sugestões ou bugs encontrados...',

@@ -22,7 +22,7 @@ export const HeaderProfileSection: React.FC<HeaderProfileSectionProps> = ({
   return (
     <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
       <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
-        👤 {lang === 'pt' ? 'Perfil' : 'Profil'}
+        {lang === 'pt' ? 'Perfil' : 'Profil'}
       </span>
       <div className="flex items-center gap-2">
         <GoogleLoginButton lang={lang} onAdminClick={onAdminClick} align="left" />
@@ -37,7 +37,7 @@ export const HeaderProfileSection: React.FC<HeaderProfileSectionProps> = ({
               : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
           }`}
         >
-          🫲 {lang === 'pt' ? 'Canhoto' : 'Gaucher'}
+          {lang === 'pt' ? 'Canhoto' : 'Gaucher'}
         </button>
       </div>
       <button
@@ -52,7 +52,7 @@ export const HeaderProfileSection: React.FC<HeaderProfileSectionProps> = ({
         }`}
       >
         <div className="flex items-center gap-1">
-          <span className="text-[14px] leading-none">〰️</span> {lang === 'pt' ? 'Balanço' : 'Swing'}
+          <span className="text-[14px] leading-none">〰</span> {lang === 'pt' ? 'Balanço' : 'Swing'}
         </div>
         <span>{globalSwing.mode === 'off' ? 'OFF' : globalSwing.mode === 'maracatu' ? 'ON' : 'CUST'}</span>
       </button>

@@ -69,7 +69,7 @@ export const PatternMeasureHeaderBar: React.FC<PatternMeasureHeaderBarProps> = (
         onClick={handleAllonger}
         className="px-2.5 py-1 bg-[#8b2a1a]/10 hover:bg-[#8b2a1a]/20 text-[#8b2a1a] border border-[#8b2a1a]/30 rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
       >
-        <span>➕</span>
+        <span></span>
         <span>
           {lang === 'fr'
             ? `Allonger le motif (${nextMeasureLabel})`

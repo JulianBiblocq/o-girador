@@ -6,6 +6,7 @@
 import { db } from '../../firebase/config';
 import { collection, getDocs, query, limit, where, orderBy } from 'firebase/firestore';
 import { BalancoPreset } from '../../types';
+import { resolveCloudGroupMestreId, isSamambaiaGroupHelper } from '../cloud-common/cloudMestreResolver';
 
 export const CLOUD_BALANCOS_COLLECTION = 'balancos';
 
@@ -22,39 +23,8 @@ export async function fetchCloudBalancos(
   const balancosRef = collection(db, CLOUD_BALANCOS_COLLECTION);
 
   try {
-    const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-    let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
-    const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-    const isSamambaiaGroup = isJulian ||
-      normalizedUserGroupId.includes('samambaia') ||
-      normalizedUserGroupId.includes('sammbia') ||
-      mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-      Boolean(canWriteSequenciador);
-
-    if (isJulian || isSamambaiaGroup) {
-      myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-    }
-
-    if (!myGroupMestreId && groupId) {
-      if (groupId.toLowerCase() === 'samambaia') {
-        myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-      } else {
-        try {
-          const mestreQ = query(
-            collection(db, 'users'),
-            where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase()]))),
-            where('role', '==', 'mestre')
-          );
-          const mestreSnap = await getDocs(mestreQ);
-          if (!mestreSnap.empty) {
-            myGroupMestreId = mestreSnap.docs[0].id;
-          }
-        } catch (e) {
-          console.warn("Impossible de résoudre le mestre pour le groupe dans fetchCloudBalancos:", e);
-        }
-      }
-    }
-
+    const isSamambaiaGroup = isSamambaiaGroupHelper(userUid, groupId, mestreId, canWriteSequenciador);
+    const myGroupMestreId = await resolveCloudGroupMestreId(userUid, groupId, userRole, mestreId, canWriteSequenciador);
     const promises: Promise<any>[] = [];
     const isSysAdmin = userRole === 'admin';
 

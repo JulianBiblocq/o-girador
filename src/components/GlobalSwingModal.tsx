@@ -37,8 +37,7 @@ export const GlobalSwingModal: React.FC<GlobalSwingModalProps> = ({
             onClick={onClose}
             className="text-[#1a1a1a] font-bold text-xl hover:text-[#8b2a1a] cursor-pointer"
           >
-            ✕
-          </button>
+                      </button>
         </div>
 
         <BalancoEditorPanel

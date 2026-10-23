@@ -21,6 +21,16 @@ export interface GainNodeMapping {
   expectedEnd: number;
 }
 
+export interface PlaybackContext {
+  audioContext: AudioContext;
+  channels: any;
+  voiceGuard: any;
+  barulho: any;
+  scheduledHits: Set<AudioBufferSourceNode>;
+  activeGainNodes: Map<AudioBufferSourceNode, GainNodeMapping>;
+}
+
+
 export const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 export const TUNEABLE_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal']);
 export const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);

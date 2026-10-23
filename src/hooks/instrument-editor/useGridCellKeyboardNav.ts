@@ -10,23 +10,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getWheelNuanceState } from '../../utils/instrumentStrokes';
 import { getSculptNumber } from '../../components/instrument-editor/grid/gridConstants';
 import { Pattern } from '../../types';
-
-interface UseGridCellKeyboardNavParams {
-  trackId: number;
-  pattern: Pattern;
-  activeTool: string;
-  selectedVariationId: string | null;
-  instrument: { id: string; type: string; [key: string]: any };
-  lang: string;
-  isLeftHanded: boolean;
-  focusCell: (stepIdx: number, subIndex?: 0 | 1 | null) => void;
-  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any) => void;
-  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any) => void;
-  handleTrackStepKeyDown: (tId: number, pId: number, idx: number, key: string, val: string, el: any) => void;
-  setSelectedStepIdx: (idx: number) => void;
-  setSelectedStepIndices: (indices: number[]) => void;
-  setSelectedSubIndex: (sub: 0 | 1 | null) => void;
-}
+import type { UseGridCellKeyboardNavParams } from './gridCellKeyboardNavTypes';
 
 export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
   const {

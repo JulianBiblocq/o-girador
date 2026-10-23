@@ -52,7 +52,7 @@ export const WizardStep2Signs: React.FC<WizardStep2SignsProps> = ({
               >
                 {isSelected && (
                   <div className="absolute -top-1.5 -right-1.5 bg-[#1a1a1a] text-[#f4ecd8] rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold border border-[#1a1a1a] select-none z-10">
-                    ✓
+                    
                   </div>
                 )}
                 <img src={sign.image} className="w-full h-full object-contain pointer-events-none" alt={sign.name} />
@@ -75,7 +75,7 @@ export const WizardStep2Signs: React.FC<WizardStep2SignsProps> = ({
                   onClick={(e) => { e.stopPropagation(); toggleSignId(id); }}
                   className="absolute top-0 right-0 bg-[#8b2a1a] text-[#f4ecd8] text-[7px] w-3 h-3 flex items-center justify-center select-none"
                 >
-                  ✕
+                  
                 </button>
                 {id.startsWith('data:image') ? (
                   <img src={id} className="w-full h-full object-cover" alt="Custom" />
@@ -93,10 +93,10 @@ export const WizardStep2Signs: React.FC<WizardStep2SignsProps> = ({
             onClick={onOpenPhotoBooth}
             className="w-full md:w-auto px-4 py-2.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider shrink-0"
           >
-            📸 {wizardLang === 'fr' ? 'Photo-cabine Musicale' : 'Cabine de Fotos'}
+            {wizardLang === 'fr' ? 'Photo-cabine Musicale' : 'Cabine de Fotos'}
           </button>
           <label className="px-3 py-2.5 bg-[#ece4d0] hover:bg-[#e2d7be] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider shrink-0 flex items-center gap-1">
-            📁 {t[wizardLang].importFichier}
+            {t[wizardLang].importFichier}
             <input type="file" accept="image/*" onChange={onSignalFileChange} className="hidden" />
           </label>
         </div>

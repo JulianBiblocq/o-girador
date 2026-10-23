@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * Panneau complet Mode Focus Mobile (3 sections Cordel, < 135 lignes).
- */
 import React from 'react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
@@ -10,6 +5,7 @@ import { getPlayableFocusTracks, getEligibleReferenceTracks } from '../../utils/
 import { getEnsembleVocabulary } from '../../universes/styleVocabularyConfig';
 import { TrackGroup } from '../../types';
 import { CordelTarget } from '../ui/CordelTarget';
+import { MobileFocusTocarJuntoSection } from './MobileFocusTocarJuntoSection';
 
 interface Props {
   isOpen: boolean; onClose: () => void;
@@ -46,7 +42,7 @@ export const MobileFocusPopover: React.FC<Props> = ({
             <CordelTarget size={16} />
             <span>{lang === 'pt' ? 'Opções do Focus' : 'Options du Focus'}</span>
           </div>
-          <button onClick={onClose} className="w-6 h-6 border border-[#1a1a1a] flex items-center justify-center font-bold hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer">✕</button>
+          <button onClick={onClose} className="w-6 h-6 border border-[#1a1a1a] flex items-center justify-center font-bold hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer"></button>
         </div>
 
         <div>
@@ -66,7 +62,7 @@ export const MobileFocusPopover: React.FC<Props> = ({
                 >
                   <img src={`${ASSETS_BASE_URL}${inst?.iconImg}`} alt={name} className="w-3.5 h-3.5 object-contain filter invert opacity-90 shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                   <span className="truncate flex-1 text-[10.5px] leading-tight font-medium">{idx + 1}. {name}</span>
-                  {isSelected && <span className="text-[10px] font-black shrink-0">✓</span>}
+                  {isSelected && <span className="text-[10px] font-black shrink-0"></span>}
                 </button>
               );
             })}
@@ -112,25 +108,17 @@ export const MobileFocusPopover: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="pt-1 border-t border-[#1a1a1a]/30">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]/70 mb-1">
-            {lang === 'pt' ? '3. Tocar junto' : '3. Jouer par-dessus'}
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 text-[11px]">
-            <input type="checkbox" checked={tocarJuntoIsMuted} onChange={(e) => setTocarJuntoIsMuted(e.target.checked)} className="accent-[#1a1a1a] rounded-none" />
-            <span>{lang === 'pt' ? 'Silenciar meu instrumento para tocar junto' : 'Rendre mon instrument muet pour jouer par-dessus'}</span>
-          </label>
-          {hasFamily && tocarJuntoIsMuted && (
-            <div className="flex gap-1.5 mt-1.5 pl-5">
-              <button type="button" onClick={() => setTocarJuntoMuteScope('track')} className={`flex-1 py-1 px-1 text-[10px] font-bold cordel-border-sm cursor-pointer ${tocarJuntoMuteScope === 'track' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#fcf9f2] text-[#1a1a1a]'}`}>{lang === 'pt' ? 'Só este instrumento' : 'Cet instrument seul'}</button>
-              <button type="button" onClick={() => setTocarJuntoMuteScope('family')} className={`flex-1 py-1 px-1 text-[10px] font-bold cordel-border-sm cursor-pointer ${tocarJuntoMuteScope === 'family' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#fcf9f2] text-[#1a1a1a]'}`}>{lang === 'pt' ? 'Todo o naipe' : 'Tout le pupitre'}</button>
-            </div>
-          )}
-          <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 text-[11px] mt-1 pt-1 border-t border-[#1a1a1a]/20">
-            <input type="checkbox" checked={isRestMuted} onChange={onToggleRestMuted} className="accent-[#1a1a1a] rounded-none" />
-            <span>{lang === 'pt' ? `Mutar o ${vocab.restOfEnsemble}` : `Couper le son du ${vocab.restOfEnsemble}`}</span>
-          </label>
-        </div>
+        <MobileFocusTocarJuntoSection
+          lang={lang}
+          vocab={vocab}
+          hasFamily={hasFamily}
+          tocarJuntoIsMuted={tocarJuntoIsMuted}
+          setTocarJuntoIsMuted={setTocarJuntoIsMuted}
+          tocarJuntoMuteScope={tocarJuntoMuteScope}
+          setTocarJuntoMuteScope={setTocarJuntoMuteScope}
+          isRestMuted={isRestMuted}
+          onToggleRestMuted={onToggleRestMuted}
+        />
 
         <div className="pt-1.5 border-t border-[#1a1a1a]/30">
           <button
@@ -138,7 +126,7 @@ export const MobileFocusPopover: React.FC<Props> = ({
             onClick={onClose}
             className="w-full h-8 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] flex items-center justify-center gap-1.5 bg-[#c25e38] hover:bg-[#b94a2c] text-[#f4ecd8] font-cactus font-bold text-xs uppercase cursor-pointer transition-colors active:translate-y-0.5"
           >
-            <span className="font-black text-sm">✓</span>
+            <span className="font-black text-sm"></span>
             <span>{lang === 'pt' ? 'CONFIRMAR' : 'VALIDER'}</span>
           </button>
         </div>

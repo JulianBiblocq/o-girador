@@ -66,7 +66,7 @@ export const AutomationTrackHeader: React.FC<AutomationTrackHeaderProps> = React
               className="text-xs font-bold text-gray-400 hover:text-red-400 cursor-pointer pointer-events-auto ml-0.5 shrink-0 px-1"
               title={lang === 'fr' ? "Fermer l'automation" : "Fechar automação"}
             >
-              ✕
+              
             </button>
           )}
         </div>

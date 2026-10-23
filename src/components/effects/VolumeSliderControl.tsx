@@ -18,7 +18,7 @@ export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex justify-between text-[10px] font-bold items-center">
-        <span>🔊 Volume</span>
+        <span>Volume</span>
         <EditableNumber
           value={currVol}
           suffix="%"

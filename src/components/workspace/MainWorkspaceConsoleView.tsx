@@ -8,7 +8,7 @@ const ConsoleMixer = lazyWithRetry(() => import('../ConsoleMixer').then(m => ({ 
 
 const renderFallback = (labelFr: string, labelPt: string) => (
   <div className="p-4 border-2 border-red-500 bg-red-100 text-red-700 m-4 rounded-sm font-mono text-xs shadow-[2px_2px_0_rgba(0,0,0,1)] z-50">
-    <h3 className="font-bold text-sm mb-1">❌ Erreur / Erro</h3>
+    <h3 className="font-bold text-sm mb-1">Erreur / Erro</h3>
     <p>Impossible de charger le module "{labelFr}" / Não foi possível carregar o módulo "{labelPt}".</p>
   </div>
 );

@@ -57,7 +57,7 @@ export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoCon
       <details className="group bg-[#f4ecd8]/60 p-1.5 border border-[#1a1a1a]/30 rounded shadow-xs select-none w-full min-w-0 box-border">
         <summary className="text-[10px] font-bold uppercase tracking-wider cursor-pointer list-none flex items-center justify-between text-[#1a1a1a]/70 hover:text-[#1a1a1a] select-none [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-1 min-w-0 truncate">
-            <span>⚖️</span>
+            <span></span>
             <span className="truncate">Balanço / Swing</span>
             <span className="font-mono text-[#8b2a1a] shrink-0">({currentBalancoAmount}%)</span>
           </span>
@@ -71,7 +71,7 @@ export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoCon
   return (
     <div className="flex flex-col gap-1 bg-[#f4ecd8]/60 p-2 border border-[#1a1a1a]/30 rounded shadow-xs select-none w-full min-w-0 box-border">
       <div className="flex items-center justify-between text-[10px] font-bold text-[#1a1a1a] w-full min-w-0">
-        <span className="flex items-center gap-1 min-w-0 truncate"><span>⚖️</span><span className="truncate">Balanço / Swing</span></span>
+        <span className="flex items-center gap-1 min-w-0 truncate"><span></span><span className="truncate">Balanço / Swing</span></span>
         <span className="font-mono text-[10px] text-[#8b2a1a] font-bold shrink-0 ml-1">{currentBalancoAmount}%</span>
       </div>
       {content}

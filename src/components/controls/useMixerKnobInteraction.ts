@@ -1,19 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { getKnobAngle, formatKnobValue, quantizeKnobValue } from './mixerKnobMath';
 import { useMixerKnobTouchDrag } from './useMixerKnobTouchDrag';
-
-interface UseMixerKnobInteractionProps {
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  decimals?: number;
-  defaultValue?: number;
-  onChange: (val: number) => void;
-  onAudioDrag?: (val: number) => void;
-  label: string;
-  unit?: string;
-}
+import type { UseMixerKnobInteractionProps } from './mixerKnobTypes';
 
 export function useMixerKnobInteraction({
   value,

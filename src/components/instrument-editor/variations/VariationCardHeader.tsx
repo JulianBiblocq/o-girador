@@ -87,7 +87,7 @@ export const VariationCardHeader: React.FC<VariationCardHeaderProps> = React.mem
         onClick={() => onDeletePatternVariation?.(ptnId, variation.id)}
         className="text-[#8b2a1a] text-[10px] font-bold hover:underline cursor-pointer ml-auto"
       >
-        ✕ {lang === 'fr' ? 'Supprimer' : 'Excluir'}
+        {lang === 'fr' ? 'Supprimer' : 'Excluir'}
       </button>
     </div>
   );

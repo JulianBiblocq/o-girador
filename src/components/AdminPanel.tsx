@@ -40,7 +40,7 @@ export const AdminPanel: React.FC = () => {
 
         {loading ? (
           <div className="flex justify-center p-12">
-            <span className="text-4xl animate-spin font-cactus">⚙️</span>
+            <span className="text-4xl animate-spin font-cactus"></span>
           </div>
         ) : (
           <div className="bg-white/50 rounded-lg cordel-border overflow-hidden">

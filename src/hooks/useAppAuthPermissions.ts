@@ -38,7 +38,7 @@ export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: 
 
   useEffect(() => {
     vocalEngineService.rehydrateVocalBuffers().catch((err) => {
-      console.error('🎙️ [VOCAL REHYDRATE] Erreur montage App:', err);
+      console.error('[VOCAL REHYDRATE] Erreur montage App:', err);
     });
   }, []);
 

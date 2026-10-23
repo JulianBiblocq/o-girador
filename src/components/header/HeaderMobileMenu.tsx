@@ -1,50 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Smartphone } from 'lucide-react';
+
 import { HeaderProfileSection } from './HeaderProfileSection';
 import { HeaderProjectDropdownContent } from './HeaderProjectDropdownContent';
 import { HeaderMobileEditSection } from './HeaderMobileEditSection';
 import { HeaderMobileDisplaySection } from './HeaderMobileDisplaySection';
 import { HeaderHelpSection } from './HeaderHelpSection';
 import { MobileViewModeSelector } from '../mobile/MobileViewModeSelector';
-
-interface HeaderMobileMenuProps {
-  lang: 'pt' | 'fr';
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
-  onLangToggle: () => void;
-  showInstallButton?: boolean;
-  onInstallClick?: () => void;
-  onAdminClick?: () => void;
-  onOpenSwingModal: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  preset: string;
-  songTitle?: string;
-  publicCloudPresets: any[];
-  privateCloudPresets: any[];
-  localPresets: string[];
-  isCloudPresetsLoading: boolean;
-  showGroupCatalogue: boolean;
-  groupLabel: string;
-  groupLogo: string;
-  defaultPresetId: string | null;
-  canSetDefaultPreset: boolean;
-  canEdit: boolean;
-  onSetDefaultPreset: (id: string | null) => void;
-  onToggleDraft: (id: string, currentDraft: boolean) => void;
-  onPresetChange: (val: string) => void;
-  onExportTablature?: () => void;
-  onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
-  onCloudSave?: () => void;
-  mobileTab?: 'roda' | 'mixer' | 'toada';
-  onMobileTabToggle?: (tab: 'roda' | 'mixer' | 'toada') => void;
-  activeRightPanel?: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
-  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais') => void;
-  onViewModeToggle: (mode: any) => void;
-  onOpenWallpaperModal?: () => void;
-}
+import type { HeaderMobileMenuProps } from './headerMobileMenuTypes';
 
 export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -71,7 +34,7 @@ export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         className="w-9 h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-lg hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
       >
-        ☰
+        
       </button>
 
       {mobileMenuOpen && (
@@ -86,7 +49,7 @@ export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
           {props.showInstallButton && props.onInstallClick && (
             <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
               <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
-                📲 PWA
+                <Smartphone className="w-3 h-3 shrink-0" /> PWA
               </span>
               <button
                 onClick={() => {

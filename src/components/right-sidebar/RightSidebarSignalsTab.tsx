@@ -42,7 +42,7 @@ export const RightSidebarSignalsTab: React.FC<RightSidebarSignalsTabProps> = ({
     <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0 flex flex-col gap-2">
       <div className="xilo-feedback-container flex flex-col gap-2">
         <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
-          🥁 {lang === 'fr' ? 'Signes du rythme' : 'Sinais do ritmo'}
+          {lang === 'fr' ? 'Signes du rythme' : 'Sinais do ritmo'}
         </span>
         <div className="flex flex-col gap-1">
           <span className="text-[8px] text-[var(--cordel-text)] opacity-60 leading-tight">
@@ -59,7 +59,7 @@ export const RightSidebarSignalsTab: React.FC<RightSidebarSignalsTabProps> = ({
                 className="w-3 h-3 cursor-pointer"
               />
               <span className="text-[10px] text-[var(--cordel-text)] font-bold">
-                {lang === 'fr' ? '🙈 Masquer les signaux officiels globaux' : '🙈 Ocultar sinais oficiais globais'}
+                {lang === 'fr' ? 'Masquer les signaux officiels globaux' : 'Ocultar sinais oficiais globais'}
               </span>
             </label>
           )}

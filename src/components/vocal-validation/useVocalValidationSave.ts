@@ -88,7 +88,7 @@ export function useVocalValidationSave({
       useAudioStore.getState().setTargetPatternId(null);
       setTempRecording(null);
     } catch (err) {
-      console.error('🎙️ [VOCAL ENGINE] Error validating and saving vocal sample:', err);
+      console.error('[VOCAL ENGINE] Error validating and saving vocal sample:', err);
       setLoading(false);
     }
   };

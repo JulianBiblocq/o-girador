@@ -38,7 +38,7 @@ export const VoicePianoDock: React.FC<VoicePianoDockProps> = React.memo((props) 
 
       {!isPianoExpanded ? (
         <div className="flex-1 text-center text-[11px] font-mono text-[#1a1a1a]/60 py-1 hidden md:block">
-          {isFr ? '⌨️ Clavier replié — Contrôleur MIDI & frappes clavier actifs' : '⌨️ Teclado recolhido — Controlador MIDI ativo'}
+          {isFr ? '⌨Clavier replié — Contrôleur MIDI & frappes clavier actifs' : '⌨Teclado recolhido — Controlador MIDI ativo'}
         </div>
       ) : (
         <VoicePianoKeys activeNotes={activeNotes} onNoteDown={handleNoteDown} onNoteUp={handleNoteUp} />

@@ -69,7 +69,7 @@ export const getActiveSongPaperPreset = (lang: 'fr' | 'pt' = 'fr'): PaperPreset 
 
     return {
       id: 'active_song',
-      name: lang === 'fr' ? `★ Morceau Actif (${rawName})` : `★ Peça Ativa (${rawName})`,
+      name: lang === 'fr' ? `Morceau Actif (${rawName})` : `Peça Ativa (${rawName})`,
       bpm: state.bpm || 96,
       timeSig: (state.timeSig || '4/4') as any,
       totalMeasures: totalM,

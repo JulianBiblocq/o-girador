@@ -78,7 +78,7 @@ export const PercussionStepSplitVisual: React.FC<PercussionStepSplitVisualProps>
           onContextMenu?.(e, i, val);
         }
       }}
-      title={activeTool === 'scissors' ? (lang === 'fr' ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Juntar o passo (Mesclar)') : undefined}
+      title={activeTool === 'scissors' ? (lang === 'fr' ? '/ Recoller le pas (Fusionner)' : '/ Juntar o passo (Mesclar)') : undefined}
     >
       <SplitHalfZone
         trackId={trackId} patternId={patternId} i={i} subIndex={0}

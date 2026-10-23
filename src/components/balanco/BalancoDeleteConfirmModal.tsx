@@ -28,13 +28,13 @@ export const BalancoDeleteConfirmModal: React.FC<BalancoDeleteConfirmModalProps>
       >
         <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">⚠️</span>
+            <span className="text-2xl"></span>
             <h4 className="font-cactus text-xl font-bold uppercase text-[#8b2a1a]">
               {lang === 'fr' ? 'Supprimer ce Balanço ?' : 'Excluir este Balanço?'}
             </h4>
           </div>
           <button type="button" onClick={onCancel} className="text-lg font-bold hover:text-[#8b2a1a] cursor-pointer">
-            ✕
+            
           </button>
         </div>
 
@@ -67,7 +67,7 @@ export const BalancoDeleteConfirmModal: React.FC<BalancoDeleteConfirmModalProps>
             onClick={onConfirm}
             className="px-3.5 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white transition-colors cursor-pointer active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
           >
-            🗑️ {lang === 'fr' ? 'Supprimer définitivement' : 'Excluir definitivamente'}
+            {lang === 'fr' ? 'Supprimer définitivement' : 'Excluir definitivamente'}
           </button>
         </div>
       </div>

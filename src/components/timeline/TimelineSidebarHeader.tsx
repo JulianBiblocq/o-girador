@@ -1,6 +1,7 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, CheckSquare, Square } from 'lucide-react';
 import { Language } from '../../types';
+
 
 export interface TimelineSidebarHeaderProps {
   headerWidth: number;
@@ -64,7 +65,8 @@ export const TimelineSidebarHeader: React.FC<TimelineSidebarHeaderProps> = React
             : 'bg-transparent text-[var(--cordel-text)]/60 border-dashed border-[var(--cordel-border)]/30 hover:bg-[var(--cordel-text)]/5'
         }`}
       >
-        <span>{isMultiSelectMode ? '☑' : '☐'}</span>
+        <span>{isMultiSelectMode ? <CheckSquare className="w-3 h-3" /> : <Square className="w-3 h-3" />}</span>
+
         <span className="uppercase tracking-wider">
           {lang === 'fr' ? 'Sélection' : 'Seleção'}{selectedTimelineCellsCount > 0 ? ` (${selectedTimelineCellsCount})` : ''}
         </span>

@@ -1,13 +1,7 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { usePanAudioAndMidi } from './usePanAudioAndMidi';
+import { calculatePanFromDelta, formatPanTitle, UsePanKnobInteractionProps } from './panKnobMath';
 
-interface UsePanKnobInteractionProps {
-  trackId?: number;
-  value: number;
-  defaultValue?: number;
-  onChange: (val: number) => void;
-  panKnobRef?: React.RefObject<SVGGElement | null>;
-}
 
 export function usePanKnobInteraction({
   trackId,
@@ -94,12 +88,7 @@ export function usePanKnobInteraction({
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
-    const diffY = startYRef.current - e.clientY;
-    const diffX = e.clientX - startXRef.current;
-    const diff = Math.abs(diffY) >= Math.abs(diffX) ? diffY : diffX;
-    let val = startValueRef.current + (diff / 140) * 200;
-    val = Math.max(-100, Math.min(100, Math.round(val)));
-    if (Math.abs(val) <= 2) val = 0;
+    const val = calculatePanFromDelta(startYRef.current, startXRef.current, e.clientY, e.clientX, startValueRef.current);
     updateVisuals(val);
     updateAudio(val, false);
   };
@@ -110,12 +99,7 @@ export function usePanKnobInteraction({
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch (_) {}
-    const diffY = startYRef.current - e.clientY;
-    const diffX = e.clientX - startXRef.current;
-    const diff = Math.abs(diffY) >= Math.abs(diffX) ? diffY : diffX;
-    let val = startValueRef.current + (diff / 140) * 200;
-    val = Math.max(-100, Math.min(100, Math.round(val)));
-    if (Math.abs(val) <= 2) val = 0;
+    const val = calculatePanFromDelta(startYRef.current, startXRef.current, e.clientY, e.clientX, startValueRef.current);
     updateVisuals(val);
     updateAudio(val, true);
     React.startTransition(() => {

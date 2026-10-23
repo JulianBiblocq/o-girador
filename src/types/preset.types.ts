@@ -6,6 +6,7 @@
 import { TimeSignature } from './common.types';
 import { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';
 import type { CordelOptions } from '../utils/cordelEffect';
+import type { GlobalAutomationBypass } from '../utils/automationBypassHelper';
 
 export type SwingMode = 'maracatu' | 'custom' | 'off';
 
@@ -103,6 +104,10 @@ export interface Preset {
   version?: number;
   audioScaleVersion?: number;
   rodaTrackOrder?: number[];
+  vocalTransposeSteps?: number;
+  isMasterVolumeBypassed?: boolean;
+  globalAutomationBypass?: GlobalAutomationBypass;
+  bypassedAutomationTracks?: number[];
 }
 
 export interface CloudRhythmSignal extends RhythmSignal {

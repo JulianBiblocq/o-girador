@@ -59,7 +59,7 @@ export const TelemetryBadge: React.FC = () => {
                 : 'bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 border-gray-400'
             }`}
           >
-            {isUltraEcoMode ? (lang === 'fr' ? 'ACTIVÉ ⚡' : 'ATIVADO ⚡') : (lang === 'fr' ? 'DÉSACTIVÉ' : 'DESATIVADO')}
+            {isUltraEcoMode ? (lang === 'fr' ? 'ACTIVÉ ' : 'ATIVADO ') : (lang === 'fr' ? 'DÉSACTIVÉ' : 'DESATIVADO')}
           </button>
         </div>
       </div>
@@ -88,8 +88,8 @@ export const MiniTelemetryBadge: React.FC = () => {
     <div 
       className={`w-3 h-3 rounded-full border border-black ${getBadgeColor(currentFps)} inline-block shrink-0`}
       title={lang === 'fr'
-        ? (isUltraEcoMode ? "Mode Ultra-Éco (Tier 3) Activé ⚡" : `Télémétrie : ${currentFps} FPS`)
-        : (isUltraEcoMode ? "Modo Ultra-Eco (Nível 3) Ativado ⚡" : `Telemetria: ${currentFps} FPS`)}
+        ? (isUltraEcoMode ? "Mode Ultra-Éco (Tier 3) Activé " : `Télémétrie : ${currentFps} FPS`)
+        : (isUltraEcoMode ? "Modo Ultra-Eco (Nível 3) Ativado " : `Telemetria: ${currentFps} FPS`)}
     />
   );
 };

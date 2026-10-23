@@ -25,8 +25,8 @@ export const NewSongMainOptions: React.FC<NewSongMainOptionsProps> = ({
       onOpenTemplates();
     } else {
       const msg = lang === 'pt'
-        ? 'Nenhum modelo salvo ainda. Salve o seu batuque atual clicando em "📜 Memorizar modelo" na régua Master da mesa de mixagem!'
-        : 'Aucun gabarit enregistré pour le moment. Sauvegardez votre batuque actuel en cliquant sur "📜 Mémoriser gabarit" sur la tranche Master de la console !';
+        ? 'Nenhum modelo salvo ainda. Salve o seu batuque atual clicando em "Memorizar modelo" na régua Master da mesa de mixagem!'
+        : 'Aucun gabarit enregistré pour le moment. Sauvegardez votre batuque actuel en cliquant sur "Mémoriser gabarit" sur la tranche Master de la console !';
       if (sequencer.alertAsync) {
         await sequencer.alertAsync(msg);
       }
@@ -61,7 +61,7 @@ export const NewSongMainOptions: React.FC<NewSongMainOptionsProps> = ({
           onClick={onClearSong}
           className="flex flex-col items-center justify-between p-5 bg-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer text-center group min-h-[160px]"
         >
-          <div className="text-3xl mb-2 group-hover:scale-110 duration-200">🫙</div>
+          <div className="text-3xl mb-2 group-hover:scale-110 duration-200"></div>
           <div className="font-cactus text-base font-bold text-[#1a1a1a] uppercase tracking-wider">
             {lang === 'fr' ? 'Créer Roda vide' : 'Criar Roda vazia'}
           </div>
@@ -74,7 +74,7 @@ export const NewSongMainOptions: React.FC<NewSongMainOptionsProps> = ({
           onClick={onStartWizard}
           className="flex flex-col items-center justify-between p-5 bg-[#8b2a1a] text-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer text-center group min-h-[160px]"
         >
-          <div className="text-3xl mb-2 group-hover:scale-110 duration-200">👑</div>
+          <div className="text-3xl mb-2 group-hover:scale-110 duration-200"></div>
           <div className="font-cactus text-base font-bold uppercase tracking-wider">
             {lang === 'fr' ? 'Assistant du Mestre' : 'Assistente do Mestre'}
           </div>

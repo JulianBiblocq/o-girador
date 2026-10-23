@@ -7,6 +7,7 @@ import { BlankSheetOptions } from '../../types/paperWorkshop.types';
 import { renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal, renderBlankSheetDictionary } from './blankSheetHtmlTemplates';
 import { renderLegendStrokesHTML } from './paperLegendStrokesHtml';
 import { renderLegendConductorHTML } from './paperLegendConductorHtml';
+import { printViaInvisibleIframe } from '../print/printIframeHelper';
 
 export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | 'pt'): void => {
   let content = '';
@@ -20,15 +21,9 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
   else if ((options.sheetType as any) === 'dictionary') content = renderBlankSheetDictionary(options, lang);
   else content = renderBlankSheetUniversal(options, lang);
 
-  const printWindow = window.open('', '_blank', 'width=900,height=700');
-  if (!printWindow) {
-    alert(lang === 'fr' ? "Autorisez les pop-ups pour imprimer la fiche vierge." : "Autorize pop-ups para imprimir.");
-    return;
-  }
-
   const pageHeight = isLandscape ? 'calc(210mm - 16mm)' : 'calc(297mm - 16mm)';
   const title = lang === 'fr' ? `Atelier Papier - Fiche ${options.sheetType.toUpperCase()}` : `Oficina Papel - Folha ${options.sheetType.toUpperCase()}`;
-  printWindow.document.write(`
+  const fullHtml = `
     <!DOCTYPE html><html><head><title>${title}</title><style>
       @page { size: A4 ${orientation}; margin: 8mm; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -55,46 +50,27 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
         .sheet-page { page-break-after: avoid !important; break-inside: avoid !important; }
       }
     </style></head><body>
-      <div class="no-print" style="margin-bottom: 10px; padding: 6px 12px; background: #fdf6e2; border: 1px solid #d99b26; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-        <span><strong>O Girador</strong> — ${lang === 'fr' ? 'Aperçu avant impression A4' : 'Visualização A4'} (${orientation})</span>
-        <button onclick="window.print()" style="padding: 4px 12px; background: #8b2a1a; color: #fff; border: none; font-weight: bold; cursor: pointer;">
-          ${lang === 'fr' ? 'Lancer l\'impression' : 'Imprimir'}
-        </button>
-      </div>
       <div class="page-wrapper">
         ${content}
       </div>
     </body></html>
-  `);
-  printWindow.document.close();
-  setTimeout(() => { printWindow.focus(); printWindow.print(); }, 250);
+  `;
+  printViaInvisibleIframe(fullHtml, title);
 };
 
 export const printCompletePaperLegend = (lang: 'fr' | 'pt'): void => {
   const isFr = lang === 'fr';
-  const printWindow = window.open('', '_blank', 'width=900,height=700');
-  if (!printWindow) {
-    alert(isFr ? "Autorisez les pop-ups pour imprimer la légende complète." : "Autorize pop-ups para a legenda.");
-    return;
-  }
-
   const title = isFr ? 'O Girador — Mémo de Référence Complet & Légende A4' : 'O Girador — Guia Completo & Legenda A4';
   const strokesHtml = renderLegendStrokesHTML(lang);
   const conductorHtml = renderLegendConductorHTML(lang);
 
-  printWindow.document.write(`
+  const fullHtml = `
     <!DOCTYPE html><html><head><title>${title}</title><style>
       @page { size: A4 portrait; margin: 8mm; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       body { margin: 0; padding: 8px; background: #fff; color: #1a1a1a; font-family: sans-serif; }
       @media print { body { padding: 0; } .no-print { display: none !important; } }
     </style></head><body>
-      <div class="no-print" style="margin-bottom: 10px; padding: 6px 12px; background: #fdf6e2; border: 1.5px solid #8b2a1a; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-        <span><strong>O Girador</strong> — ${isFr ? 'Légende Complète A4 (Mémo de Référence)' : 'Guia de Referência Completo A4'}</span>
-        <button onclick="window.print()" style="padding: 4px 12px; background: #8b2a1a; color: #fff; border: none; font-weight: bold; cursor: pointer;">
-          ${isFr ? 'Imprimer la Légende' : 'Imprimir Legenda'}
-        </button>
-      </div>
       <div style="border: 2px solid #1a1a1a; padding: 10px; background: #ffffff;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8b2a1a; padding-bottom: 4px; margin-bottom: 8px;">
           <div>
@@ -118,7 +94,6 @@ export const printCompletePaperLegend = (lang: 'fr' | 'pt'): void => {
         </div>
       </div>
     </body></html>
-  `);
-  printWindow.document.close();
-  setTimeout(() => { printWindow.focus(); printWindow.print(); }, 250);
+  `;
+  printViaInvisibleIframe(fullHtml, title);
 };

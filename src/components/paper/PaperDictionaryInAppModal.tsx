@@ -29,7 +29,7 @@ export const PaperDictionaryInAppModal: React.FC<Props> = ({ isOpen, onClose, la
   const isFr = lang === 'fr';
 
   const families: Array<{ id: DictionaryFamily; label: string }> = [
-    { id: 'bases_paradas', label: isFr ? '★ Bases & Paradas' : '★ Bases e Paradas' },
+    { id: 'bases_paradas', label: isFr ? 'Bases & Paradas' : 'Bases e Paradas' },
     { id: 'luanda', label: 'Luanda' },
     { id: 'igarassu', label: 'Igarassu' },
     { id: 'ijexa', label: 'Ijexá' },

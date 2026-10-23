@@ -79,7 +79,7 @@ export class VocalIdbScanner {
           }
         }
       } catch (err) {
-        console.error(`🎙️ [VOCAL REHYDRATE] Erreur décodage IDB record ${rec.patternId}:`, err);
+        console.error(`[VOCAL REHYDRATE] Erreur décodage IDB record ${rec.patternId}:`, err);
       }
     }
   }

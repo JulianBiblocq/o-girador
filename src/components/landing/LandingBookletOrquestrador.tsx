@@ -18,11 +18,11 @@ export const LandingBookletOrquestrador: React.FC<{ isFr: boolean }> = ({ isFr }
       </h2>
       <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
         <li className="flex items-start gap-1.5">
-          <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+          <span className="text-[#8b2a1a] font-bold mt-0.5"></span>
           <span><strong>{isFr ? 'La carte mondiale :' : 'O mapa mundial :'}</strong> {isFr ? 'inscription de son groupe ou nação sur la cartographie internationale.' : 'cadastro do seu grupo ou nação na cartografia internacional.'}</span>
         </li>
         <li className="flex items-start gap-1.5">
-          <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+          <span className="text-[#8b2a1a] font-bold mt-0.5"></span>
           <span><strong>{isFr ? 'Partage de rythmes :' : 'Compartilhamento :'}</strong> {isFr ? 'échange de motifs et découverte d’arrangements.' : 'troca de levadas e descoberta de arranjos.'}</span>
         </li>
       </ul>
@@ -38,7 +38,7 @@ export const LandingBookletOrquestrador: React.FC<{ isFr: boolean }> = ({ isFr }
         rel="noopener noreferrer"
         className="block w-full py-2.5 px-3 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#1a1a1a] text-center border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase tracking-wide cordel-wood-shadow-sm transition-colors"
       >
-        {isFr ? '🌍 Inscrire mon groupe sur la carte' : '🌍 Cadastrar meu grupo no mapa'}
+        {isFr ? 'Inscrire mon groupe sur la carte' : 'Cadastrar meu grupo no mapa'}
       </a>
     </div>
   </>

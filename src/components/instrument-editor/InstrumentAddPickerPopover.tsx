@@ -88,8 +88,7 @@ export const InstrumentAddPickerPopover: React.FC<InstrumentAddPickerPopoverProp
           onClick={onClose}
           className="text-xs text-[#1a1a1a]/50 hover:text-[#1a1a1a] px-1 font-bold cursor-pointer"
         >
-          ✕
-        </button>
+                  </button>
       </div>
 
       {/* Grille des instruments */}
@@ -117,8 +116,7 @@ export const InstrumentAddPickerPopover: React.FC<InstrumentAddPickerPopoverProp
                 />
               ) : (
                 <span className="w-5 h-5 flex items-center justify-center font-cactus text-[10px] shrink-0">
-                  🥁
-                </span>
+                                  </span>
               )}
               <span className="font-cactus font-bold text-[11px] uppercase tracking-wide truncate">
                 {label}

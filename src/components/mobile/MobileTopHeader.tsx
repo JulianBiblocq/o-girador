@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ChevronDown, Menu } from 'lucide-react';
+import { ChevronDown, Menu, Lock, Unlock } from 'lucide-react';
 import { MobileAuthBadge } from './MobileAuthBadge';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
@@ -24,6 +24,8 @@ export const MobileTopHeader: React.FC<Props> = ({
   const storeLang = useSequencerStore((s) => s.lang);
   const lang = storeLang || propLang || 'pt';
   const setStoreLang = useSequencerStore((s) => s.setLang);
+  const isTouchLocked = useSequencerStore((s) => s.isTouchLocked);
+  const toggleTouchLock = useSequencerStore((s) => s.toggleTouchLock);
 
   const handleSelectLang = (newLang: 'fr' | 'pt') => {
     setStoreLang(newLang);
@@ -75,9 +77,19 @@ export const MobileTopHeader: React.FC<Props> = ({
         <ChevronDown size={13} className="shrink-0 ml-0.5 text-[#b94a2c]" />
       </button>
 
-      {/* 3. Statut Authentification & Bouton Menu */}
+      {/* 3. Statut Authentification, Verrouillage Tactile & Bouton Menu */}
       <div className="flex items-center gap-1 shrink-0">
         <MobileAuthBadge lang={lang} />
+        <button
+          type="button"
+          onClick={toggleTouchLock}
+          className={`w-8 h-8 shrink-0 inline-flex items-center justify-center box-border border border-[#f4ecd8]/40 active:translate-y-0.5 transition-all shadow-[1px_1px_0px_#000] cursor-pointer ${
+            isTouchLocked ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'bg-[#262220] text-[#f4ecd8]/70 hover:text-[#f4ecd8]'
+          }`}
+          title={isTouchLocked ? (lang === 'fr' ? 'Écran tactile verrouillé' : 'Tela bloqueada') : (lang === 'fr' ? 'Verrouiller l\'écran tactile' : 'Bloquear tela')}
+        >
+          {isTouchLocked ? <Lock size={15} /> : <Unlock size={15} />}
+        </button>
         <button
           onClick={onOpenMenu}
           className="w-8 h-8 shrink-0 inline-flex items-center justify-center box-border bg-[#262220] text-[#f4ecd8] border border-[#f4ecd8]/40 active:translate-y-0.5 transition-all shadow-[1px_1px_0px_#000] cursor-pointer"

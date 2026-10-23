@@ -54,7 +54,7 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="font-cactus font-bold text-base border-b-2 border-[var(--cordel-border)] pb-2 select-none">
-          {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (lang === 'pt' ? 'Confirmação' : 'Confirmation') : (lang === 'pt' ? 'Entrada' : 'Saisie')}
+          {customDialog.type === 'alert' ? 'Info' : customDialog.type === 'confirm' ? '' : ''} {customDialog.type === 'alert' ? (lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (lang === 'pt' ? 'Confirmação' : 'Confirmation') : (lang === 'pt' ? 'Entrada' : 'Saisie')}
         </div>
         <p className="text-xs leading-relaxed whitespace-pre-wrap">{customDialog.message}</p>
         {customDialog.type === 'prompt' && (

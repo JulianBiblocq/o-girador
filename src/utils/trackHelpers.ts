@@ -56,8 +56,8 @@ export function getTrackDisplayName(track: any, allTracks: any[]): string {
 
   const baseName = useNomenclatureStore.getState().getInstrumentLabel(track.instrumentIdx);
 
-  if (track.isBusFolder && track.isLinkFolder) return `🔗 ${getPluralName(baseName)}`;
-  if (track.isLinkMaster) return `🔗 ${getPluralName(baseName)}`;
+  if (track.isBusFolder && track.isLinkFolder) return `${getPluralName(baseName)}`;
+  if (track.isLinkMaster) return `${getPluralName(baseName)}`;
   if (track.isBusFolder) return track.customName || 'Bus';
 
   const sameInstTracks = allTracks.filter((t: any) =>

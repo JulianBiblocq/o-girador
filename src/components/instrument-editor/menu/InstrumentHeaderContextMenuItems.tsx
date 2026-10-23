@@ -54,7 +54,7 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
         onClick={handleCopy}
         className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer"
       >
-        <span className="text-sm">📋</span>
+        <span className="text-sm"></span>
         <span>{lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos os padrões'}</span>
       </button>
 
@@ -62,17 +62,17 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
 
       {!clipboard ? (
         <div className="px-3 py-1.5 text-[11px] text-[#1a1a1a]/40 italic flex items-center gap-2 cursor-default">
-          <span className="text-sm opacity-50">📥</span>
+          <span className="text-sm opacity-50"></span>
           <span>{lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia'}</span>
         </div>
       ) : !isCompatible ? (
         <div className="px-3 py-1.5 text-[11px] text-[#8b2a1a]/70 flex flex-col gap-0.5 cursor-default bg-[#8b2a1a]/5">
           <div className="flex items-center gap-1.5">
-            <span>✕</span>
+            <span></span>
             <span>{lang === 'fr' ? 'Famille incompatible' : 'Família incompatível'}</span>
           </div>
           <span className="text-[10px] text-[#1a1a1a]/50 font-normal">
-            ({clipboard.sourceFamily || 'source'} ➔ {targetFamily || 'cible'})
+            ({clipboard.sourceFamily || 'source'} {targetFamily || 'cible'})
           </span>
         </div>
       ) : (
@@ -83,7 +83,7 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
             className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer"
             title={lang === 'fr' ? 'Importe les motifs dans la bibliothèque sans toucher à la timeline' : 'Importa os padrões sem alterar a timeline'}
           >
-            <span className="text-sm">📥</span>
+            <span className="text-sm"></span>
             <span>{lang === 'fr' ? 'Coller (banque seule)' : 'Colar (somente banco)'}</span>
           </button>
           <button
@@ -92,7 +92,7 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
             className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer"
             title={lang === 'fr' ? 'Importe les motifs et applique leur disposition sur la timeline' : 'Importa os padrões e aplica a disposição na timeline'}
           >
-            <span className="text-sm">📥</span>
+            <span className="text-sm"></span>
             <span>{lang === 'fr' ? 'Coller (banque + timeline)' : 'Colar (banco + timeline)'}</span>
           </button>
         </>

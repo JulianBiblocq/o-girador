@@ -29,7 +29,7 @@ export const HeaderBalancoControl: React.FC<HeaderBalancoControlProps> = React.m
   return (
     <div className="flex items-center gap-2.5 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] shrink-0 flex-shrink-0">
       <span className="whitespace-nowrap flex items-center text-sm" title={lang === 'fr' ? 'Balanço (Instrument)' : 'Balanço (Instrument)'}>
-        ⚖️
+        
       </span>
       <select
         data-testid="track-balanco-preset-select"
