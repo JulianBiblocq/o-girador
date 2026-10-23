@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Encart des 4 métadonnées du morceau actif pour le bandeau conducteur mobile (< 50 lignes).
  */
 import React from 'react';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Injection atomique d'une partition papier transcrite et points de vigilance (< 110 lignes).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';

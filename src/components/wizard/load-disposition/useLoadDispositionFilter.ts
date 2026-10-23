@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { useMemo } from 'react';
 import { DispositionPreset } from '../../../types/disposition.types';

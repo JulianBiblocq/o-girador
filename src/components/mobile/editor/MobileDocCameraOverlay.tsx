@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Overlay plein écran Document A4 pour la caméra mobile (< 100 lignes).
  */
 import React from 'react';

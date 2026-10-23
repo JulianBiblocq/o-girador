@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Helpers de résolution des identifiants et presets par défaut de groupes (< 50 lignes).
  */
 

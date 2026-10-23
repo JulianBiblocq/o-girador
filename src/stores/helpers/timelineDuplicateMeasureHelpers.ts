@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Fonctions utilitaires de duplication d'automations et voix pour la timeline (< 45 lignes).
  */
 

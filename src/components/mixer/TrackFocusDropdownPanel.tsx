@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useRef, useEffect } from 'react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';

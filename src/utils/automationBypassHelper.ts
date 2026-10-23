@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Helper centralisé de vérification du bypass d'automations (< 45 lignes).
  */
 

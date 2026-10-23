@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gestion de la lecture audio pour les sons continus / barulho (< 60 lignes).
  */
 

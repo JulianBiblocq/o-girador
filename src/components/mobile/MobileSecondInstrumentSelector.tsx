@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Sélecteur direct Cordel du 2e instrument avec popover Cordel (< 120 lignes).
  */
 import React, { useState } from 'react';

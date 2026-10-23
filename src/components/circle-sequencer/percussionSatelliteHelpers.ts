@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { TrackGroup, InstrumentConfig } from '../../types';
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../../data';

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export function cleanPayload<T extends Record<string, any>>(obj: T): T {
   const result: any = {};

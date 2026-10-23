@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { SongSection, SongMarker, CloudRhythmSignal } from '../../types';
 import { TransportSlice } from './transportSliceTypes';

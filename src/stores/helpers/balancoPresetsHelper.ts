@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { BalancoPreset } from '../../types/balanco.types';
 

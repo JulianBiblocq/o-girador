@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Décodeur multi-variations '+ Var (1-2-5) instrument' pour conducteur papier (< 125 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';

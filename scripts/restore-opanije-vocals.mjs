@@ -1,10 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Script de rétablissement de l'arbre vocal officiel d'Opanijé (29dIDjgc2vPuDnwjiy9V)
- * Bus Toada, Puxador, Coro + 8 pistes d'instruments = 11 pistes au total sur 43 mesures.
- */
 
 import { chromium } from '@playwright/test';
 import fs from 'fs';

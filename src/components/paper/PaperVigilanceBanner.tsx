@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Bandeau des points de vigilance cloisonné par partition (< 90 lignes).
  */
 import React from 'react';

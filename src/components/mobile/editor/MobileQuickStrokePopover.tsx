@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Popover compact de sélection tactile de frappes sur appui long (< 90 lignes).
  */
 

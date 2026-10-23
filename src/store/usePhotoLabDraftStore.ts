@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Store persistant pour le brouillon et derniers réglages du Labo Photo (< 115 lignes).
  */
 

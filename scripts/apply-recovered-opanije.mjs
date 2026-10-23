@@ -1,11 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Script d'application directe du JSON authentique complet d'Opanijé
- * Source: recup-opanije-43mesures.json (11 pistes, 43 mesures)
- * Cible Firestore: presets/29dIDjgc2vPuDnwjiy9V
- */
 
 import { chromium } from '@playwright/test';
 import fs from 'fs';

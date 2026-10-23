@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Utilitaire de découpage symétrique de mesure en 2 moitiés égales (< 50 lignes).
  */
 

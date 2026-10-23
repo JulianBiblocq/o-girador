@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Helper partagé de calibrage de grille, signatures lisibles et repères optiques (< 140 lignes).
  */
 import { GridMode, BlankSheetOptions } from '../../types/paperWorkshop.types';

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 // Différenciation visuelle des Alfaias par l'échelle physique de l'icône
 export const getAlfaiaIconSizeClass = (instId?: string): string => {

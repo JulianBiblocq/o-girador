@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export const MIN_RADIUS = 180;
 export const MAX_RADIUS = 495;

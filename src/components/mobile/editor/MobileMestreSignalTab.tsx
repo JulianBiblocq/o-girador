@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet Signes du Mestre avec grand aperçu, galerie interactive & caméra WebRTC (< 115 lignes).
  */
 

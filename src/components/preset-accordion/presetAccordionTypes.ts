@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types pour le sélecteur d'accordéon de presets (< 35 lignes).
  */
 

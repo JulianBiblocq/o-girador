@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Hook de synchronisation des préférences utilisateur (langue, gaucher) (< 50 lignes).
  */
 

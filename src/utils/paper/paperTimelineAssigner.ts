@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 120 lignes).
  */
 import { instrumentsConfig } from '../../data';

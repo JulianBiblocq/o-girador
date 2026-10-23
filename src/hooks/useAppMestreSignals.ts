@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { CloudRhythmSignal } from '../types';

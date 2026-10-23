@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { Suspense } from 'react';
 import { TouchStrokeSelector } from '../TouchStrokeSelector';

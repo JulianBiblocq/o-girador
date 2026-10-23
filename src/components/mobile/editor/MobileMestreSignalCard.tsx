@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Carte miniature de signal pour la galerie mobile Mestre (< 70 lignes).
  */
 

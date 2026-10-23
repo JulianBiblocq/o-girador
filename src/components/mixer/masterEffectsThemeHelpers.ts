@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Helpers pour le contraste dynamique des étiquettes d'effets Master (< 50 lignes).
  */
 

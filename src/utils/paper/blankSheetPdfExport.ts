@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Orchestrateur d'impression des fiches vierges Cordel et Légende Complète A4 (< 145 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';

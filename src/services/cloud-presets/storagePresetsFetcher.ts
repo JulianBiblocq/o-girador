@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { ref, listAll, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebase/config';

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { useCallback } from 'react';
 import { playVoicePitchLive, releaseVoicePitchLive } from '../../audio/vocalSynthService';

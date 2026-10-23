@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export { fetchMestreSignals } from './services/cloud-signals/mestreSignalsFetcher';
 export {

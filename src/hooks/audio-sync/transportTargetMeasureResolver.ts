@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Résolution de la mesure cible et décision de décompte pré-roll (< 50 lignes).
  */
 

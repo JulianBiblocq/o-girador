@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { useMemo, useCallback } from 'react';
 import { useAudioStore } from '../../stores/useAudioStore';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre de recherche et filtres pour la bibliothèque de Balanços (< 55 lignes).
  */
 

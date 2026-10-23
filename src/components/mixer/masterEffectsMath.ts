@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export const percentToDb = (percent: number): number => {
   if (percent <= 0) return -Infinity;

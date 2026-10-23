@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Boutons de liaison Alfaias et Caixas pour l'injection papier (< 80 lignes).
  */
 import React from 'react';

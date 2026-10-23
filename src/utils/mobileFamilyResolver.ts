@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Résolveur universel des familles d'instruments pour le Mode Danse (< 120 lignes).
  */
 import { instrumentsConfig } from '../data';

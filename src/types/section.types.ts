@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { Pattern, CatalogVisibility } from './pattern.types';
 import { TimeSignature } from './common.types';

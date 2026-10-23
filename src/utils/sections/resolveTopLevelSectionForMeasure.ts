@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Résolution et filtrage exclusif des macro-sections de niveau supérieur (< 65 lignes).
  */
 import { SongSection, SongMarker } from '../../types';

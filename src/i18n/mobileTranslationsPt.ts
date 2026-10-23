@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Dicionário em português do Brasil (BR) para a interface Mobile (< 145 linhas).
  */
 

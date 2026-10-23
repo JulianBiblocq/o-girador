@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types d'interface pour la gestion des pistes (< 35 lignes).
  */
 

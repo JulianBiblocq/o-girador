@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gabarit HTML Feuille C : Conducteur de Séquence Pleine Page (< 110 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';

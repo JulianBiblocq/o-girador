@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Conteneur d'accordéons pour réglages et galerie Signes du Mestre (< 80 lignes).
  */
 

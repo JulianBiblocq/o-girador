@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre d'actions rapides supérieure pour MobilePaperScanTab (< 65 lignes).
  */
 import React from 'react';

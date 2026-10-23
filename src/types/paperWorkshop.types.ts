@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types unifiés pour le Grand Atelier Papier Cordel (< 100 lignes).
  */
 

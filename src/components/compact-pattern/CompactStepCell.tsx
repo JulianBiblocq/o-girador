@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React from 'react';
 import { getVisualStrokeSymbol, isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../../data';

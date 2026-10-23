@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Presets historiques Mestre - Partie 3 (< 110 lignes).
  */
 import { PaperPreset } from '../../types/paperWorkshop.types';

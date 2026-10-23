@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export function processSignalImageFile(file: File): Promise<{ base64: string; defaultName: string }> {
   return new Promise((resolve, reject) => {

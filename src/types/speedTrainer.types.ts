@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export interface SpeedTrainerConfig {
   startMeasure: number; // 0-indexed in memory, 1-indexed in UI

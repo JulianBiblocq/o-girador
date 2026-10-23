@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { Preset } from '../../types';
 import { getDB, LIB_STORE_NAME } from './indexedDbCore';

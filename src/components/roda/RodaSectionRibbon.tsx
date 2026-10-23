@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Repeat } from 'lucide-react';

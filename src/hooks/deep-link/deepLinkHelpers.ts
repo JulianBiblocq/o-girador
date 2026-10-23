@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export function notifyToast(type: 'success' | 'error' | 'info', message: string) {
   if (typeof window !== 'undefined') {

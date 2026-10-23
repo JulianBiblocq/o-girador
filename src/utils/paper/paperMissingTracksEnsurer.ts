@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Assure la présence de toutes les pistes requises par la partition papier (< 55 lignes).
  */
 import { instrumentsConfig } from '../../data';

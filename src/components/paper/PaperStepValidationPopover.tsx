@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Mini-popover de validation & correction rapide d'un pas du scan (< 95 lignes).
  */
 import React from 'react';

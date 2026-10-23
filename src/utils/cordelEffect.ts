@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Traitement d'image style Cordel (Xilogravura) (< 115 lignes).
  */
 import { computeBackgroundMask, computeLuminance, renderCordelPixels } from './cordelSobelKernel';

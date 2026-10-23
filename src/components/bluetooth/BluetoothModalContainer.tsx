@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Boîte modale Cordel pour les outils de synchronisation Bluetooth (< 130 lignes).
  */
 import React from 'react';

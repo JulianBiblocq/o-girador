@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gabarit HTML Feuille A : Patterns Isolés (Bases) Pleine Page (< 130 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';

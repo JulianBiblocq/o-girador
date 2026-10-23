@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Déclencheur sans friction, bandeau toast et badge d'écoute Bluetooth (< 135 lignes).
  */
 import React, { useEffect, useState } from 'react';

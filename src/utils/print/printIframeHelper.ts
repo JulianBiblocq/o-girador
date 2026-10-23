@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Utilitaire universel d'impression via iframe invisible (sans pop-up) (< 60 lignes).
  */
 

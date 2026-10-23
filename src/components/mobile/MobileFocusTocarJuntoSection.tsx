@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Section 'Tocar Junto' pour MobileFocusPopover (< 55 lignes).
  */
 

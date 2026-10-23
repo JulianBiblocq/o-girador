@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Construction des pistes de gabarit selon les options sélectionnées (< 45 lignes).
  */
 

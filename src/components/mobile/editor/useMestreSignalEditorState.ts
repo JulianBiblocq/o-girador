@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Hook d'état et de synchronisation persistant pour l'éditeur Signes du Mestre (< 120 lignes).
  */
 

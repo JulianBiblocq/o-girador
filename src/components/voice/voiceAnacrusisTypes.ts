@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types d'interface pour la section anacrouse vocale (< 35 lignes).
  */
 

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { LegalNoticeModal } from './legal/LegalNoticeModal';
 
 interface VisitorAuthModalProps {
   onClose: () => void;
@@ -9,6 +10,7 @@ interface VisitorAuthModalProps {
 }
 
 export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lang, isMandatory = false }) => {
+  const [isLegalOpen, setIsLegalOpen] = useState(false);
   const { signInWithGoogle } = useAuth();
 
   const handleSignIn = async () => {
@@ -65,15 +67,51 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
           </ul>
         </div>
 
-        <div className="flex justify-center mt-1 sm:mt-2">
+        <div className="flex flex-col items-center gap-2 mt-1 sm:mt-2">
           <button
             onClick={handleSignIn}
             className="w-full py-3.5 sm:py-4 bg-[#8b2a1a] text-[#f4ecd8] font-black text-base sm:text-lg tracking-widest uppercase text-center border-2 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-[#6b1e11] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
           >
             {lang === 'fr' ? 'Se connecter' : 'Conectar-se'}
           </button>
+          <p className="text-[11px] text-[#1a1a1a]/70 text-center leading-tight mt-1 font-serif">
+            {lang === 'fr' ? (
+              <>
+                En vous connectant, vous acceptez nos{' '}
+                <a
+                  href="#legal"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsLegalOpen(true);
+                  }}
+                  className="underline hover:text-[#8b2a1a] font-semibold cursor-pointer"
+                >
+                  CGU et Politique de Confidentialité
+                </a>.
+              </>
+            ) : (
+              <>
+                Ao entrar, você concorda com nossos{' '}
+                <a
+                  href="#legal"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsLegalOpen(true);
+                  }}
+                  className="underline hover:text-[#8b2a1a] font-semibold cursor-pointer"
+                >
+                  Termos de Uso e Política de Privacidade
+                </a>.
+              </>
+            )}
+          </p>
         </div>
       </div>
+      <LegalNoticeModal
+        isOpen={isLegalOpen}
+        onClose={() => setIsLegalOpen(false)}
+        lang={lang}
+      />
     </div>
   );
 

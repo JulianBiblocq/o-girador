@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Empêche l'écran du mobile de se mettre en veille pendant la lecture audio (< 65 lignes).
  */
 

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { SongSection, Track } from '../../types';
 import { hasContentInRange } from '../timelineCollision';

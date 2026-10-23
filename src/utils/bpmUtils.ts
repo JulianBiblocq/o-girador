@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 /**
  * Calcule le BPM effectif pour la mesure courante (ou mesure 0 par défaut).

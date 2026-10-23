@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gestionnaire d'auto-suspension et de protection du contexte audio (< 75 lignes).
  */
 

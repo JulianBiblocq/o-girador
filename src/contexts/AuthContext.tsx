@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { createContext, useContext, useState } from 'react';
 import { User, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';

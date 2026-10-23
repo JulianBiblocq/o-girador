@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Fonctions de persistance locale pour les dispositions du bureau (< 45 lignes).
  */
 

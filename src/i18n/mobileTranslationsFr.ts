@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Dictionnaire français pour l'interface Mobile (< 145 lignes).
  */
 

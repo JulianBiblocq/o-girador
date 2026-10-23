@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { getTrackRadius } from './circleGeometry';
 import { TrackGroup } from '../../types';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types d'interface pour le menu mobile d'en-tête (< 50 lignes).
  */
 

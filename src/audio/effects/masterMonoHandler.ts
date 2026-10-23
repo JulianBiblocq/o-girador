@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Module de commutation Mono Check Master sans clic audio (< 90 lignes).
  */
 import * as Tone from 'tone';

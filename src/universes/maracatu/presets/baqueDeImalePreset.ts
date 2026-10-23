@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O Girador - Factory Preset: Baque de Imalê
  */

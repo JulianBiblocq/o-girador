@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types d'interface pour le hook de clavier de grille de motif (< 30 lignes).
  */
 

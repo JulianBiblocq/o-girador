@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O Girador - Timbal Secondary Stroke Mappings (P, F, V, C, B)
  */

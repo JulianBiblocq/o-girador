@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export const DB_NAME = 'O GiradorDB';
 export const DB_VERSION = 2;

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React from 'react';
 import { BookOpen, Landmark, User, Music, Edit3 } from 'lucide-react';

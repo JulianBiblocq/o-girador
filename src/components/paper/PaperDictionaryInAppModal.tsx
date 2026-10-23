@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Modale de consultation in-app du Dictionnaire de Rythmes (< 140 lignes).
  */
 import React, { useState } from 'react';

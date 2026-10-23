@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Carte d'affichage d'un pupitre dans la légende (< 50 lignes).
  */
 import React from 'react';

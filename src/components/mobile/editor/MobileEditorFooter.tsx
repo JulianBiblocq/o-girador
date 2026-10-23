@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre de pied Mobile Éditeur : Play/Stop & Sauvegarder en chantier (< 95 lignes).
  */
 

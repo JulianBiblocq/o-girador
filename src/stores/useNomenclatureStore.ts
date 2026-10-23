@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O-Girador - Modular Instrument Nomenclature Store
  * Handles dynamic group nomenclature resolution, real-time Firestore sync,

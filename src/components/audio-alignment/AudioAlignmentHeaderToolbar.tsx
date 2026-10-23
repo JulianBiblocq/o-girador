@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React from 'react';
 import { Music, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';

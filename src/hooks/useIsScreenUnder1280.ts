@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Hook réactif pour détecter le seuil < 1280px (tablettes et fenêtres réduites).
  */
 import { useState, useEffect } from 'react';

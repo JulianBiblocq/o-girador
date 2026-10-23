@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Bandeau supérieur compact de saisie et médias pour Signes du Mestre (< 70 lignes).
  */
 

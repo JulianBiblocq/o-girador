@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export type AudioQuality = 'high' | 'medium' | 'low';
 export type LODLevel = 0 | 1 | 2 | 3 | 4;

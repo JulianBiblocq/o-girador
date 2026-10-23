@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useEffect } from 'react';
 import { Pattern } from '../../types/store.types';

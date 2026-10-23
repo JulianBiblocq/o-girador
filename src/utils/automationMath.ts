@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 /**
  * Pure mathematical interpolation for automation parameters (Volume, Pan, Reverb)

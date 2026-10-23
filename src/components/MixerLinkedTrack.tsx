@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Tranche de piste liée (MixerLinkedTrack) avec pastilles d'automation [ A ] (< 130 lignes).
  */
 import React from 'react';

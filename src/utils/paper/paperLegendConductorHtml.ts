@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Module HTML 2 : Syntaxe complète du conducteur, Coda, dé carré ⊡ et 5 Règles d'Or (< 120 lignes).
  */
 export const renderLegendConductorHTML = (lang: 'fr' | 'pt'): string => {

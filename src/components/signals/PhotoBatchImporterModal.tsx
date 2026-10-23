@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useState } from 'react';
 import { Upload, X, Check, Loader2, Image as ImageIcon } from 'lucide-react';

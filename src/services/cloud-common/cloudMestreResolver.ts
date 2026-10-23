@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Résolution commune du mestre de groupe pour les requêtes cloud (< 50 lignes).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Calculs unifiés de métrique et durées audio / visuelles (Zero Render Thrashing).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Wrapper d'un pas de percussion avec support Points de Vigilance (< 125 lignes).
  */
 import React from 'react';

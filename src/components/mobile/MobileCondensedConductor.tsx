@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Bandeau conducteur mobile avec résolution macro-section hiérarchique (< 145 lignes).
  */
 import React, { useEffect, useRef } from 'react';

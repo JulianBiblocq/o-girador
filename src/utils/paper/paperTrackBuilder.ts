@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Constructeur de pistes et routage strict pour les partitions scannées (< 145 lignes).
  */
 import { instrumentsConfig } from '../../data';

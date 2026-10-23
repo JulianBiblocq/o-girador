@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { DRUM_RADIUS, RIM_RADIUS, INNER_SKIN_RADIUS } from './circleSequencerConstants';
 import { ThemeColors } from './circleSequencerTypes';

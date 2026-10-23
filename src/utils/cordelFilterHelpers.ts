@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Fonctions auxiliaires pour les filtres et compression d'images Cordel (< 60 lignes).
  */
 

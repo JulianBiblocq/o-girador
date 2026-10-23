@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export { extractPeaks } from './audio-buffer/audioPeakExtractor';
 export { normalizeAudioBuffer } from './audio-buffer/audioBufferNormalizer';

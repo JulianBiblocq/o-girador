@@ -1,10 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Script de nettoyage sécurisé des presets de test Firestore et Firebase Storage.
- * Utilise Playwright headless Chromium pour bénéficier de l'environnement de navigation authentifié.
- */
 
 import { chromium } from '@playwright/test';
 

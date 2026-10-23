@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useEffect, useRef } from 'react';
 import * as Tone from 'tone';

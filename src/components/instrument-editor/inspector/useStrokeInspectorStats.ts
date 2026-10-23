@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';

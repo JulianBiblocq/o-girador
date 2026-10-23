@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useEffect, useRef, useState } from 'react';
 import { X, BookOpen, Info } from 'lucide-react';

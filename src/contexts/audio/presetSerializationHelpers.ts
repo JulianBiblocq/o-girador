@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Helpers de restauration d'automations, transposition vocale et vigilance (< 60 lignes).
  */
 

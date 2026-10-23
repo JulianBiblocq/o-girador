@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 import React, { useEffect, useState, useRef } from 'react';
 import { Info } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';

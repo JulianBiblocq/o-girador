@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Dictionnaire des pupitres et symboles de frappe Cordel (< 60 lignes).
  */
 import { PupitreCode, PupitreInfo } from '../../types/paperWorkshop.types';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gabarit HTML Fiche Dictionnaire A4 imprimable par famille (< 135 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';

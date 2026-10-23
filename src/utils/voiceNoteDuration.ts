@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 /**
  * Plafonnement de sécurité de la durée d'une note vocale (pur, sans React / Tone).

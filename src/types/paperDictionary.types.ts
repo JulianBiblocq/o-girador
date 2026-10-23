@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types pour le dictionnaire de rythmes papier (< 30 lignes).
  */
 import { PaperStepValue } from './paperWorkshop.types';

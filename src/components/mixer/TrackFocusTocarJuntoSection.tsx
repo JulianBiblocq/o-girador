@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Sous-composant Tocar Junto pour le panneau de focus piste (< 55 lignes).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet 1 Mobile : Scan Photo, Fiches Vierges A4 & Relecture Grille (< 145 lignes).
  */
 import React, { useState, useRef, useEffect } from 'react';

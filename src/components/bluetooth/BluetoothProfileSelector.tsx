@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Sélecteur et gestionnaire rapide de profils d'écoute (< 130 lignes).
  */
 import React from 'react';

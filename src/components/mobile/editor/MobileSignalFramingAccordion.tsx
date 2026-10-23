@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Accordéon Cadrage sur les Mains Cordel (< 85 lignes).
  */
 

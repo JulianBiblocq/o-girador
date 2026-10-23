@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Données statiques des familles rythmiques du Dictionnaire (Bases, Luanda) (< 140 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';

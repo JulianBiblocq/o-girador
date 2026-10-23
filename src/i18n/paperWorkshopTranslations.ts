@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Point d'entrée des traductions de l'Atelier Papier Cordel et Légende (< 45 lignes).
  */
 

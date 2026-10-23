@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Création et liaison d'architecture standard pour le Bus Alfaias (< 75 lignes).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Vue 1 : Tableau lisible des frappes et pupitres en gros caractères (< 115 lignes).
  */
 import React from 'react';

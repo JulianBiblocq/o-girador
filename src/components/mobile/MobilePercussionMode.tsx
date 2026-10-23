@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Mode Percussion Mobile avec Focus permanent (1 ou 2 instruments max, < 140 lignes).
  */
 import React, { useState, useEffect } from 'react';

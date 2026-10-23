@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';

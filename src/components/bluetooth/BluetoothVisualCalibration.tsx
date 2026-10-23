@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Calibrage visuel Bip & Flash à 60 FPS sans render thrashing (< 130 lignes).
  */
 import React, { useEffect, useRef, useState } from 'react';

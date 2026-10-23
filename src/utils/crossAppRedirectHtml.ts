@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Page HTML temporaire pour la redirection SSO inter-applications (< 50 lignes).
  */
 

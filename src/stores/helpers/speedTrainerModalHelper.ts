@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { SpeedTrainerBackup, SpeedTrainerConfig } from '../../types/speedTrainer.types';

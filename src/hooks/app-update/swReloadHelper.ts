@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export async function applyServiceWorkerReload(reg?: ServiceWorkerRegistration | null): Promise<void> {
   let refreshing = false;

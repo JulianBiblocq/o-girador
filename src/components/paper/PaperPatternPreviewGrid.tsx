@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Grille de relecture des motifs avec Beat Shading et Points de Vigilance (< 135 lignes).
  */
 import React, { useState } from 'react';

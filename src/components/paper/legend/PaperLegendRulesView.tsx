@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Vue 2 : Règles d'écriture des carreaux, variations, conducteur et Toada (< 135 lignes).
  */
 import React from 'react';

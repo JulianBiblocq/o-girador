@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Modale conteneur Grand Atelier Papier Cordel (< 130 lignes).
  */
 import React, { useState, useEffect } from 'react';

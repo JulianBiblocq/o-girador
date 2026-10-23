@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Accordéon Lumière & Finesse de Gravure Cordel (< 90 lignes).
  */
 

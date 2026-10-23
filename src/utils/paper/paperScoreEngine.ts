@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Moteur de décodage des partitions papier et intégration séquences (< 115 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';

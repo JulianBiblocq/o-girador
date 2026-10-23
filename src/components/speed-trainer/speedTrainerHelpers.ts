@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Fonctions utilitaires d'extraction pour le Speed Trainer (< 45 lignes).
  */
 

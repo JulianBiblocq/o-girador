@@ -1,11 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Script de restauration chirurgicale intégrale des morceaux du catalogue Samambaia
- * et de purge des presets fantômes générés par les tests E2E.
- * Utilise Playwright Chromium pour opérer dans l'environnement Firebase authentifié.
- */
 
 import { chromium } from '@playwright/test';
 import fs from 'fs';

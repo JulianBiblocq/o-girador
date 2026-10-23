@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre de décalage groupé (nudge) et pré-écoute du Balanço (< 55 lignes).
  */
 

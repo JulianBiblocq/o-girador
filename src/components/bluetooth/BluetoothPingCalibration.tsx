@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Outil de calibrage par 3 bips acoustiques (< 135 lignes).
  */
 import React, { useState, useEffect } from 'react';

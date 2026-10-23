@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { SpeedTrainerSlice, TrainingSlice } from '../../types';
 import { TrackCoreSlice } from '../slices/trackCoreSliceTypes';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Overlay regroupant les modales associées au panneau Balanço (< 55 lignes).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Menu tiroir Mobile avec sélecteur de mode, égalisation, [ FR | BR ] et aperçu partition (< 130 lignes).
  */
 

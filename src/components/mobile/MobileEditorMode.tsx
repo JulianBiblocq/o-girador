@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Mode Éditeur Mobile unifié : Scan & Fiches vierges + Signes du Mestre (< 120 lignes).
  */
 

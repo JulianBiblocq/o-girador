@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Dicionário em português do Brasil (BR) para a Oficina de Papel Cordel (< 140 linhas).
  */
 

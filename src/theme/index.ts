@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { MusicalStyleId, MixerThemeDefinition } from './mixerTheme.types';
 import { MARACATU_MIXER_THEME } from './maracatu.mixer.theme';

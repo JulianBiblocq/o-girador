@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Module HTML 1 : Tableau complet des frappes et conventions de carreaux (< 130 lignes).
  */
 export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {

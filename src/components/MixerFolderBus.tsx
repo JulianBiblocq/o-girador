@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Tranche de bus audio (MixerFolderBus) avec pastilles d'automation [ A ] (< 130 lignes).
  */
 import React, { useState } from 'react';

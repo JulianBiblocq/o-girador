@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Sélecteur de pré-remplissage des fiches vierges par famille de rythmes (< 70 lignes).
  */
 import React from 'react';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Ajustement rapide et renommage direct du profil d'écoute actif (< 110 lignes).
  */
 import React from 'react';

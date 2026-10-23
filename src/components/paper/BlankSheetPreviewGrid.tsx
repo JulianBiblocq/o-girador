@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Rendu modulaire de la grille centrale d'aperçu de fiche vierge (< 100 lignes).
  */
 import React from 'react';

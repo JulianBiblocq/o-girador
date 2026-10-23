@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Calculateur dynamique de capacité A4 pleine page pour les fiches vierges (< 50 lignes).
  */
 

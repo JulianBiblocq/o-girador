@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Boîte de débrayage (bypass) des automations sur la tranche Master (< 90 lignes).
  */
 import React from 'react';

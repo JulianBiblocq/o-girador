@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { Pattern, Track, GlobalSwing } from '../types';
 import { useBalancoStore } from '../stores/useBalancoStore';

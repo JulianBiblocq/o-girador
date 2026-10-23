@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Store persistant pour les profils et la latence visuelle Bluetooth (< 120 lignes).
  */
 import { create } from 'zustand';

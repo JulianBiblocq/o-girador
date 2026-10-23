@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { collection, getDocs, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';

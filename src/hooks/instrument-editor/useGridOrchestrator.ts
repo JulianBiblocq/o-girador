@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Utilitaire de pré-remplissage hybride pour fiches papier Cordel (< 90 lignes).
  */
 import { GridMode, PaperStepValue } from '../../types/paperWorkshop.types';

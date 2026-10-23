@@ -9,6 +9,7 @@ interface LandingFooterProps {
   onLaunchOrganizador: (e: React.MouseEvent) => void;
   onLaunchDancador: (e: React.MouseEvent) => void;
   onLaunchMostrador: (e: React.MouseEvent) => void;
+  onOpenLegal?: () => void;
   currentUser: any;
 }
 
@@ -20,13 +21,26 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
   onLaunchOrganizador,
   onLaunchDancador,
   onLaunchMostrador,
+  onOpenLegal,
   currentUser,
 }) => {
   return (
     <footer className="w-full relative border-t-2 border-[#1a1a1a]/20 py-5 px-4 bg-[#eaddcf]/30 z-20">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center">
-        <div className="font-cactus text-xs text-[#1a1a1a]/70 tracking-wider select-none">
-          O GIRADOR (C) 2026-2027
+        <div className="font-cactus text-xs text-[#1a1a1a]/70 tracking-wider select-none flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          <span>O GIRADOR (C) 2026-2027</span>
+          <span className="text-[#1a1a1a]/30">·</span>
+          <a
+            href="#legal"
+            onClick={(e) => {
+              e.preventDefault();
+              if (onOpenLegal) onOpenLegal();
+              else window.location.hash = 'legal';
+            }}
+            className="hover:text-[#8b2a1a] underline transition-colors cursor-pointer"
+          >
+            {isFr ? 'Mentions Légales & CGU' : 'Termos de Uso & Privacidade'}
+          </a>
         </div>
 
         <nav aria-label={isFr ? "Écosystème O-Girador" : "Ecossistema O-Girador"} className="flex items-center justify-center gap-3 sm:gap-4 md:gap-5">

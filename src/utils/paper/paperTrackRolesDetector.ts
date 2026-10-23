@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Détection des rôles instrumentaux actifs dans une partition papier (< 50 lignes).
  */
 import { PaperPreset } from '../../types/paperWorkshop.types';

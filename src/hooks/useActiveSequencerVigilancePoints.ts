@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Hook de sélection stricte des points de vigilance actifs dans le séquenceur (< 50 lignes).
  */
 import { useMemo } from 'react';

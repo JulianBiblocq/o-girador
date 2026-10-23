@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O Girador - Alfaia Stroke Definitions & Pairs (Marcante, Meião, Repique)
  */

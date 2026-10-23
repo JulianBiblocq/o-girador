@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { Pattern, InstrumentConfig, TrackGroup } from '../../types';
 import { getNextStepValue } from '../../utils/instrumentStrokes';

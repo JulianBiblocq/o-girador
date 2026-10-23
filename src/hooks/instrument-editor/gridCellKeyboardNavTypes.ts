@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types d'interface pour la navigation clavier dans les cellules de grille (< 30 lignes).
  */
 

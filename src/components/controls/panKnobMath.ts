@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Fonctions de calcul mathématique pour le bouton de panoramique (< 40 lignes).
  */
 

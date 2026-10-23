@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Désambiguïsation infaillible Gonguê (Gg) vs Agbê (Ab) & normalisation OCR (< 110 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';

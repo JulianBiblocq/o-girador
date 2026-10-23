@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Bouton Mono Check Master avec micro-icônes SVG Cordel (< 60 lignes).
  */
 import React from 'react';

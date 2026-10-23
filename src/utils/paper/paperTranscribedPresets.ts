@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Point d'accès unifié aux Presets authentiques du Mestre (< 50 lignes).
  */
 import { PaperPreset } from '../../types/paperWorkshop.types';

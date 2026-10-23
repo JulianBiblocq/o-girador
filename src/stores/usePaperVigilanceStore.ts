@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Store Zustand pour la gestion cloisonnée des Points de Vigilance (< 125 lignes).
  */
 import { create } from 'zustand';

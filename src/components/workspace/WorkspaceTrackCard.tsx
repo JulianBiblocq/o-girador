@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useMemo } from 'react';
 import { Eye, EyeOff, GripVertical, Trash2, Mic, Link as LinkIcon } from 'lucide-react';

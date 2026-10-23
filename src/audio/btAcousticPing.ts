@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Moteur de calage acoustique par 3 bips via micro (< 135 lignes).
  */
 import * as Tone from 'tone';

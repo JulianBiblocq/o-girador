@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { useRef, useEffect, useMemo } from 'react';
 import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';

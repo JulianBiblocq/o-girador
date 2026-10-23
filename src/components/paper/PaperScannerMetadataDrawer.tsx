@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Tiroir de saisie optionnelle des métadonnées lors du scan (< 80 lignes).
  */
 import React, { useState } from 'react';

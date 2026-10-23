@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Palette d'étiquettes dissociables et séquenceur conducteur (< 140 lignes).
  */
 import React from 'react';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Bandeau compact de profils de réglages sauvegardés pour le Labo Photo (< 115 lignes).
  */
 

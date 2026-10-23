@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { Ripple } from './circleSequencerTypes';
 import { TrackGroup, HitTriggerPool } from '../../types';

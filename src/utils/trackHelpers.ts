@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { instrumentsConfig } from '../data';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';

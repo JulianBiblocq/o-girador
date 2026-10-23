@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 /**
  * Rendu Canvas 2D de la traînée de gouache vocale (style brosse Cordel)

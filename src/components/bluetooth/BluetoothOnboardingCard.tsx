@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Carte d'accueil Cordel pour le premier calage Bluetooth (< 130 lignes).
  */
 import React, { useState } from 'react';

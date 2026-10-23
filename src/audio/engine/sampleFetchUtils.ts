@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Résolution des chemins et chargement réseau avec retentatives pour les échantillons audio (< 45 lignes).
  */
 

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { getMarkers } from '../../data';
 import { INNER_SKIN_RADIUS } from './circleSequencerConstants';

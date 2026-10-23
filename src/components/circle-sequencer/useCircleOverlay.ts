@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { OverlayCacheState } from './circleSequencerTypes';
 import { resolveOverlaySignalAndMarker } from './resolveOverlaySignal';

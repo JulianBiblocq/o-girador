@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';

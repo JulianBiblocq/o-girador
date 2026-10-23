@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Traductions bilingues FR / PT-BR pour la synchronisation Bluetooth (< 100 lignes).
  */
 

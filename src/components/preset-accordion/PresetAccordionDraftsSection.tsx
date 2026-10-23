@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Section Accordéon pour afficher et restaurer les brouillons hors-ligne (< 95 lignes).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Routeur des modes distants Mobile (Percussion, Danse, Éditeur) (< 80 lignes).
  */
 

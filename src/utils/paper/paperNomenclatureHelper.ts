@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gestion dynamique de la nomenclature et des abréviations 2 lettres (< 140 lignes).
  */
 import { useNomenclatureStore } from '../../stores/useNomenclatureStore';

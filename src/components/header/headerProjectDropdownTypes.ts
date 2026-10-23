@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types pour le contenu du menu déroulant projet (< 40 lignes).
  */
 

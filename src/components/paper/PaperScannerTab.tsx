@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet 2 : Scanner Photo, Relecture des Motifs & Assemblage (< 145 lignes).
  */
 import React, { useState, useMemo, useEffect } from 'react';

@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { DetachedPanelKey, DesktopWindowBounds } from '../types/desktopWorkspace.types';
 

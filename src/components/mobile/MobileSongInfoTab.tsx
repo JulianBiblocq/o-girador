@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet Informations et Vidéo YouTube du morceau actif (< 120 lignes).
  */
 import React from 'react';

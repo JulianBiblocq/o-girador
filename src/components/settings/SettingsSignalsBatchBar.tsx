@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre de sélection par lot des signaux Cloud et Locaux (< 65 lignes).
  */
 

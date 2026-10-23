@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gabarit HTML Feuille D : 100% Vierge Universelle (Blocs collés & Double marge) (< 120 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';

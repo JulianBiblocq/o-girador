@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O Girador - Visual Stroke Symbol Helpers for Left-Handed Mirroring
  */

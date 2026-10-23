@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useState, useMemo } from 'react';
 import { Music, FolderOpen, Link, X } from 'lucide-react';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Ruban dynamique des sections scrollable au doigt et auto-centré à 12h (< 120 lignes).
  */
 import React, { useRef, useEffect, useMemo } from 'react';

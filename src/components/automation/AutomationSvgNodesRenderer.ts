@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Rendu des nœuds et poignées SVG d'automation (< 65 lignes).
  */
 

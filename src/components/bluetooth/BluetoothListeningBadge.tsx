@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Badge d'écoute Cordel en haut à droite de la Roda (< 70 lignes).
  */
 import React from 'react';

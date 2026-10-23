@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O-Girador - Modular Instrument Nomenclature Types
  * Multi-style support (Maracatu, Capoeira, Samba) with immutable audio roles.

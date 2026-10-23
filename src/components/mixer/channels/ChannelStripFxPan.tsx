@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Section Pan et Effets de tranche de console avec pastilles [ A ] (< 130 lignes).
  */
 import React from 'react';

@@ -1,10 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Script d'extraction exhaustive des véritables séquences complètes
- * depuis l'historique Git et les sauvegardes locales.
- */
 
 import { execSync } from 'child_process';
 import fs from 'fs';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet 1 : Générateur des fiches vierges Cordel et Aperçu A4 (< 140 lignes).
  */
 import React, { useState } from 'react';

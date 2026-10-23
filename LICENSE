@@ -1,7 +1,15 @@
-Copyright (c) 2026 Julian Biblocq.
+Copyright (c) 2026-2027 Julian Biblocq - All Rights Reserved / Tous droits réservés.
 
-L'application O Girador et l'utilisation de ce code source sont autorisées uniquement à des fins personnelles, d'apprentissage ou d'évaluation. 
+L'application O Girador (Séquenciad'Or, Orchestrad'Or, Organizad'Or, Dançad'Or) et l'utilisation de ce code source sont autorisées uniquement à des fins strictement personnelles, d'apprentissage ou d'évaluation privée.
 
-Il est strictement interdit de redistribuer, de modifier à des fins publiques, ou d'exploiter commercialement ce code, l'interface graphique, la marque "O Girador" ou les pistes audio et échantillons (samples) associés sans l'accord écrit préalable de l'auteur.
+Il est formellement interdit de redistribuer, copier, modifier à des fins publiques, louer, vendre ou exploiter commercialement tout ou partie de cette application sans l'accord écrit préalable et exprès de l'auteur.
 
-Pour toute demande d'utilisation commerciale, de partenariat ou d'intégration dans un cadre pédagogique professionnel, veuillez contacter l'auteur.
+Sont expressément et strictement protégés par le droit d'auteur et les droits voisins :
+1. Le code source, l'architecture logicielle de la Roda circulaire 360° et les algorithmes de micro-timing et de groove (« Balanço ») ;
+2. L'identité visuelle, la charte graphique, les animations et les gravures originales d'inspiration Cordel / Xilogravura ;
+3. L'intégralité de la banque sonore acoustique originale (dossier `/Mixdown/`, fichiers audio `.ogg`, `.m4a`, `.wav` et échantillons d'instruments traditionnels de Maracatu de Baque Virado : alfaia, caixa, tarol, gonguê, agbê, mineiro, timbal).
+
+INTERDICTION DE SCRAPING ET D'ENTRAÎNEMENT D'IA :
+L'extraction automatisée de données (web scraping, bot harvesting), le téléchargement en masse des échantillons sonores ou des représentations visuelles, ainsi que l'utilisation du code source, des banques audio ou des graphismes pour l'entraînement, le fine-tuning ou l'évaluation de modèles d'intelligence artificielle ou d'apprentissage automatique sont strictement interdits sans licence écrite distincte.
+
+Pour toute demande de partenariat, de licence institutionnelle, d'utilisation commerciale ou d'intégration pédagogique professionnelle, veuillez contacter l'auteur : Julian Biblocq (https://www.o-girador.com).

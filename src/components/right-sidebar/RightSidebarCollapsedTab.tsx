@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Languette d'appel Cordel fine pour le volet Informations (< 50 lignes).
  */
 import React from 'react';

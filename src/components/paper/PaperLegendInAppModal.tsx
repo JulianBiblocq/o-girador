@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Modale de légende d'écriture in-app Cordel avec anti-veille (< 130 lignes).
  */
 import React, { useState } from 'react';

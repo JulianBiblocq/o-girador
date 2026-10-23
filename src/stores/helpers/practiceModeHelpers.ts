@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export function resolveInitialPracticeMode(): boolean {
   if (typeof window === 'undefined') return true;

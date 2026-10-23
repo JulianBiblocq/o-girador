@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre compacte des options de pré-injection papier (< 100 lignes).
  */
 import React, { useState } from 'react';

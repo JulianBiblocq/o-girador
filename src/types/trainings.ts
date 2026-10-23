@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export interface TrainingStage {
   stageIndex: number;         // 1, 2, 3...

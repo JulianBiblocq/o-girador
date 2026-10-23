@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * 
  * O-Girador - Maracatu Color Theme Re-export Barrel
  * Re-exported transparently from the Maracatu universe module.

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Slice Zustand pour le débrayage global des automations (< 60 lignes).
  */
 import { StateCreator } from 'zustand';

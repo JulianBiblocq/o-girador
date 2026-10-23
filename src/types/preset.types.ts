@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { TimeSignature } from './common.types';
 import { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';

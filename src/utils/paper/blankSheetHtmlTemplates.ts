@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Façade de réexportation des gabarits HTML Cordel A, B, C et D (< 25 lignes).
  */
 export { renderBlankSheetA } from './blankSheetTemplateA';

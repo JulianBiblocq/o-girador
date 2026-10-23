@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Modèle complet d'écriture manuscrite sur feuille vierge (< 110 lignes).
  */
 

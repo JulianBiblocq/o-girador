@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre centrale Mode Percussion Mobile avec 3 boutons pleine largeur (< 100 lignes).
  */
 import React, { useEffect } from 'react';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Aperçu A4 en direct pleine page pour les fiches Cordel (< 95 lignes).
  */
 import React from 'react';

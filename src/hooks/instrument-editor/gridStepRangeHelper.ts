@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 export function isStepInRange(range: any, cellIsPreRoll: boolean, cellStep: number, preRollCount: number): boolean {
   if (!range) return false;

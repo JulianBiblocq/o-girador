@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Sélecteur de pupitres, liaisons/bus et lignes libres pour fiches Cordel (< 140 lignes).
  */
 import React, { useState } from 'react';

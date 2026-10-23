@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import { useState, useRef, ChangeEvent } from 'react';
 import { PresetMetadata, RhythmSignal, Language } from '../../../types';

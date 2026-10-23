@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet 3 : Réserve JSON Mestre, Mémorisation & Injection Directe (< 145 lignes).
  */
 import React, { useState } from 'react';

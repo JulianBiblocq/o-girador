@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Détection stricte d'automations réelles (volume, pan, réverbe) sur une piste (< 55 lignes).
  */
 import { TrackGroup } from '../types';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Onglet Bibliothèque Cloud des Signes du Mestre (< 120 lignes).
  */
 import React from 'react';

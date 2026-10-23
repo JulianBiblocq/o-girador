@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React from 'react';
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core';

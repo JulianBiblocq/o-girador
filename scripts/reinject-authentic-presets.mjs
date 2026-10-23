@@ -1,10 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Script de réinjection définitive et sanctuarisation des presets authentiques
- * dans Firestore pour les 6 morceaux officiels du catalogue Samambaia.
- */
 
 import { chromium } from '@playwright/test';
 import fs from 'fs';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types pour les interactions avec le bouton rotatif de mixage (< 30 lignes).
  */
 

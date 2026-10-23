@@ -49,7 +49,7 @@ export const LandingHeroSection: React.FC<LandingHeroSectionProps> = ({
             </button>
           </div>
 
-          <div className="flex flex-col items-end">
+          <h1 className="flex flex-col items-end m-0 p-0 font-normal">
             <div
               style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
               className="font-cactus-display text-5xl sm:text-7xl md:text-8xl lg:text-[10.5rem] font-bold tracking-tight text-[#1a1a1a] leading-none select-none flex items-baseline lino-distressed"
@@ -71,7 +71,7 @@ export const LandingHeroSection: React.FC<LandingHeroSectionProps> = ({
                 <span className="lino-distressed font-bold translate-x-[0.09em]">SEQUENCIADOR</span>
               </span>
             </div>
-          </div>
+          </h1>
         </div>
       </div>
 

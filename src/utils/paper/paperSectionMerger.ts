@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Fusion et construction des sections de morceaux pour la Timeline (< 50 lignes).
  */
 import { SongSection } from '../../types/store.types';

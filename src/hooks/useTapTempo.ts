@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Calcul du BPM par tap tempo tactile (< 65 lignes).
  */
 

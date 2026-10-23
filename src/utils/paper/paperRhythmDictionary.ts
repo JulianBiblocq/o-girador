@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Moteur d'indexation, recherche et agrégation du Dictionnaire de Rythmes (< 140 lignes).
  */
 import { DICTIONARY_ITEMS, DictItem, DictVariation } from './paperDictionaryData';

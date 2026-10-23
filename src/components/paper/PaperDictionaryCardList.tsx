@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Affichage des cartes de rythmes et variations avec grilles 4 temps (< 140 lignes).
  */
 import React from 'react';

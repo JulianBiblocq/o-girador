@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Détecteur automatique des doutes OCR/scan papier (< 75 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Modale Cordel d'aperçu de la partition avant impression (< 130 lignes).
  */
 

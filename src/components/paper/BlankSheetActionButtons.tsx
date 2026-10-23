@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre d'actions et boutons d'impression de l'Atelier Papier (< 75 lignes).
  */
 import React from 'react';

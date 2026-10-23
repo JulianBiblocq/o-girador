@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Utilitaire Mono-Compatible Pan & Soft Clamp (< 50 lignes).
  */
 import { normalizePanForTone } from '../../hooks/audio-sync/audioParamsCache';

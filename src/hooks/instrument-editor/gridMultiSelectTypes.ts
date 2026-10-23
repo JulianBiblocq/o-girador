@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Types d'interface pour les interactions de sélection multiple dans la grille (< 25 lignes).
  */
 

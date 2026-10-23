@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Caméra WebRTC Mobile : Mode Carré 1:1 ou Plein Écran Doc A4 (< 120 lignes).
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';

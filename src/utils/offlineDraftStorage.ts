@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Stockage hors-ligne des brouillons en répétition & synchronisation automatique (< 95 lignes).
  */
 

@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Données statiques complémentaires du Dictionnaire (Igarassu, Ijexá, Aruanda) (< 100 lignes).
  */
 import { DictItem } from '../../types/paperDictionary.types';

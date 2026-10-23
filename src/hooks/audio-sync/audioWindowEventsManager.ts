@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Gestionnaire d'écouteurs d'événements window pour le moteur audio et vocal (< 55 lignes).
  */
 

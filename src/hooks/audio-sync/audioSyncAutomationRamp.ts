@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Programmation des rampes d'automation audio Web Audio / Tone.js (< 135 lignes).
  */
 import * as Tone from 'tone';

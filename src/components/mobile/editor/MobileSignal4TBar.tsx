@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre de contrôle 4 Temps pour animation et débrayage de trames (< 80 lignes).
  */
 

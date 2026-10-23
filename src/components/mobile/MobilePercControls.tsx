@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Barre supérieure de contrôle Mode Percussion Mobile avec sélecteur direct Focus (< 120 lignes).
  */
 import React from 'react';

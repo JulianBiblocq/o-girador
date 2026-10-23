@@ -1,7 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
 import React, { useRef, useEffect, useMemo } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';

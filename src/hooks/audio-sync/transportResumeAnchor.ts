@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Compensation synchrone de l'offset temporel d'ancrage à la reprise (< 45 lignes).
  */
 

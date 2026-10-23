@@ -1,6 +1,4 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
  * Tranche Master de la table de mixage (< 140 lignes).
  */
 import React, { useRef, useState } from 'react';
