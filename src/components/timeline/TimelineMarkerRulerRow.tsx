@@ -1,4 +1,5 @@
 import React from 'react';
+import { MapPin } from 'lucide-react';
 import { SongMarker, Language } from '../../types';
 
 export interface TimelineMarkerRulerRowProps {
@@ -51,7 +52,7 @@ export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
             <div
               key={`marker-${marker.id}`}
               data-marker="true"
-              className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
+              className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-20 ${
                 isPanningActive ? 'pointer-events-none' : ''
               }`}
               style={{ left: `${posX}px`, backgroundColor: marker.color || '#f19066' }}
@@ -66,7 +67,8 @@ export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
                 onMarkerEdit(marker);
               }}
             >
-              <span className="whitespace-nowrap truncate max-w-[140px]">📍 {marker.name.replace(/\n/g, ' / ')}</span>
+              <MapPin size={9} className="shrink-0" />
+              <span className="whitespace-nowrap truncate max-w-[140px]">{marker.name.replace(/\n/g, ' / ')}</span>
               <span
                 onClick={(e) => { e.stopPropagation(); onDeleteMarker(marker.id); }}
                 className="opacity-70 hover:opacity-100 cursor-pointer ml-1 text-[11px]"

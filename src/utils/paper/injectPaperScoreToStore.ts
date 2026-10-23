@@ -6,6 +6,7 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { PaperPreset } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
+import { PresetMetadata } from '../../types';
 import { assignPatternsToTracks, buildMergedSongSections } from './paperTimelineAssigner';
 import { buildScannedScoreTracks, PaperInjectOptions } from './paperTrackBuilder';
 
@@ -15,13 +16,44 @@ export const injectPaperScoreToStore = (
   reusableSectionNames?: Set<string>,
   lang: 'fr' | 'pt' = 'fr',
   openOnFirstVigilance = false,
-  options?: PaperInjectOptions
+  options?: PaperInjectOptions,
+  customMetadata?: Partial<PresetMetadata>
 ): { success: boolean; measuresCount: number } => {
   const store = useSequencerStore.getState();
   store.pushUndoState();
 
   const scoreId = preset.id || preset.name.toLowerCase().replace(/\s+/g, '_');
   usePaperVigilanceStore.getState().setActiveSequencerScoreId(scoreId);
+
+  const isExistingActiveSong = preset.id === '__active_song__';
+  const currentStoreMeta = store.metadata || ({} as any);
+
+  const cleanMetadata: PresetMetadata = isExistingActiveSong
+    ? {
+        ...currentStoreMeta,
+        toada: customMetadata?.toada?.trim() || currentStoreMeta.toada || preset.name || '',
+        nacao: customMetadata?.nacao !== undefined ? customMetadata.nacao.trim() : (currentStoreMeta.nacao || ''),
+        compositor: customMetadata?.compositor !== undefined ? customMetadata.compositor.trim() : (currentStoreMeta.compositor || ''),
+        ritmo: customMetadata?.ritmo !== undefined ? customMetadata.ritmo.trim() : (currentStoreMeta.ritmo || ''),
+        youtubeUrl: customMetadata?.youtubeUrl !== undefined ? customMetadata.youtubeUrl.trim() : (currentStoreMeta.youtubeUrl || ''),
+        description: customMetadata?.description !== undefined ? customMetadata.description.trim() : (currentStoreMeta.description || ''),
+        descriptionPt: customMetadata?.descriptionPt !== undefined ? customMetadata.descriptionPt.trim() : (currentStoreMeta.descriptionPt || ''),
+        descriptionFr: customMetadata?.descriptionFr !== undefined ? customMetadata.descriptionFr.trim() : (currentStoreMeta.descriptionFr || ''),
+      }
+    : {
+        toada: customMetadata?.toada?.trim() || preset.name || '',
+        nacao: customMetadata?.nacao?.trim() || '',
+        compositor: customMetadata?.compositor?.trim() || '',
+        ritmo: customMetadata?.ritmo?.trim() || '',
+        youtubeUrl: customMetadata?.youtubeUrl?.trim() || '',
+        description: customMetadata?.description?.trim() || '',
+        descriptionPt: customMetadata?.descriptionPt?.trim() || '',
+        descriptionFr: customMetadata?.descriptionFr?.trim() || '',
+        rhythmSignals: [],
+        partitionImage: undefined,
+        morceauId: undefined,
+        vocalPreset: undefined,
+      };
 
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
@@ -38,6 +70,8 @@ export const injectPaperScoreToStore = (
     totalMeasures,
     bpm: targetBpm,
     timeSig: targetTimeSig,
+    metadata: cleanMetadata,
+    letras: isExistingActiveSong ? state.letras : '',
     songSections: mergedSections,
     measureBpms: Array(totalMeasures).fill(targetBpm),
     measureTimeSigs: Array(totalMeasures).fill(targetTimeSig),
@@ -51,6 +85,16 @@ export const injectPaperScoreToStore = (
     automationAnchorMeasure: null,
     tracksVersion: (state.tracksVersion || 0) + 1,
   }));
+
+  if (!isExistingActiveSong && typeof window !== 'undefined') {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('loadPreset');
+      url.searchParams.delete('preset');
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+    window.dispatchEvent(new CustomEvent('girador-reset-active-preset'));
+  }
 
   if (reusableSectionNames && reusableSectionNames.size > 0) {
     try {

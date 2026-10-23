@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioSync } from '../hooks/useAudioSync';
 import { useSequencer } from './SequencerContext';
@@ -28,39 +28,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activePresetName, setActivePresetName] = useState<string>('');
   const [isPresetLoading, setIsPresetLoading] = useState<boolean>(false);
 
+  useEffect(() => {
+    const handleReset = () => setActivePresetName('');
+    window.addEventListener('girador-reset-active-preset', handleReset);
+    return () => window.removeEventListener('girador-reset-active-preset', handleReset);
+  }, []);
+
   const audioSync = useAudioSync({
-    tracksRef: sequencer.tracksRef,
-    totalMeasures,
-    totalMeasuresRef: sequencer.totalMeasuresRef,
-    measureTimeSigs,
-    measureTimeSigsRef: sequencer.measureTimeSigsRef,
-    measureBpms: sequencer.measureBpms,
-    measureBpmsRef: sequencer.measureBpmsRef,
+    tracksRef: sequencer.tracksRef, totalMeasures, totalMeasuresRef: sequencer.totalMeasuresRef,
+    measureTimeSigs, measureTimeSigsRef: sequencer.measureTimeSigsRef,
+    measureBpms: sequencer.measureBpms, measureBpmsRef: sequencer.measureBpmsRef,
     measureBpmTransitionsRef: sequencer.measureBpmTransitionsRef,
-    measureVolsRef: sequencer.measureVolsRef,
-    measureVolTransitionsRef: sequencer.measureVolTransitionsRef,
-    measureSignalsRef: sequencer.measureSignalsRef,
-    loopStartRef: sequencer.loopStartRef,
-    loopEndRef: sequencer.loopEndRef,
-    isLoopRegionActiveRef: sequencer.isLoopRegionActiveRef,
-    loopModeRef: sequencer.loopModeRef,
-    isLoopExitRequestedRef: sequencer.isLoopExitRequestedRef,
-    isLoopingRef: sequencer.isLoopingRef,
-    songSectionsRef: sequencer.songSectionsRef,
-    activeVariationsRef: sequencer.activeVariationsRef,
-    isPlayingRef: sequencer.isPlayingRef,
-    currentStepIndexRef: sequencer.currentStepIndexRef,
-    measureCountRef: sequencer.measureCountRef,
-    lastPlayedSignalIdRef: sequencer.lastPlayedSignalIdRef,
-    setIsPlayingRef: sequencer.setIsPlayingRef,
-    bpm: sequencer.bpm,
-    isLeftHanded: sequencer.isLeftHanded,
+    measureVolsRef: sequencer.measureVolsRef, measureVolTransitionsRef: sequencer.measureVolTransitionsRef,
+    measureSignalsRef: sequencer.measureSignalsRef, loopStartRef: sequencer.loopStartRef,
+    loopEndRef: sequencer.loopEndRef, isLoopRegionActiveRef: sequencer.isLoopRegionActiveRef,
+    loopModeRef: sequencer.loopModeRef, isLoopExitRequestedRef: sequencer.isLoopExitRequestedRef,
+    isLoopingRef: sequencer.isLoopingRef, songSectionsRef: sequencer.songSectionsRef,
+    activeVariationsRef: sequencer.activeVariationsRef, isPlayingRef: sequencer.isPlayingRef,
+    currentStepIndexRef: sequencer.currentStepIndexRef, measureCountRef: sequencer.measureCountRef,
+    lastPlayedSignalIdRef: sequencer.lastPlayedSignalIdRef, setIsPlayingRef: sequencer.setIsPlayingRef,
+    bpm: sequencer.bpm, isLeftHanded: sequencer.isLeftHanded,
     activeKeyboardInstrumentId: fxState.activeKeyboardInstrumentId,
-    masterVol: fxState.masterVol,
-    masterEQ: fxState.masterEQ,
-    masterCompressor: fxState.masterCompressor,
-    masterReverbVol: fxState.masterReverbVol,
-    reverbDecay: fxState.reverbDecay
+    masterVol: fxState.masterVol, masterEQ: fxState.masterEQ, masterCompressor: fxState.masterCompressor,
+    masterReverbVol: fxState.masterReverbVol, reverbDecay: fxState.reverbDecay
   });
 
   const applyPreset = useCallback(async (p: any) => {
@@ -120,18 +110,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [applyPreset]);
 
   const value: AudioContextType = useMemo(() => ({
-    ...audioSync,
-    ...fxState,
-    isRecording, recordingSeconds, handleAudioRecordingToggle,
-    applyPreset, loadFallbackPreset, handlePresetSelect,
-    handleSaveState: async () => {}, handleLoadState: () => {},
-    handleSaveToLocal, getCurrentPresetData, handleLoadLocalPreset,
-    activePresetName, setActivePresetName,
-    handleTimeSigChange: (sig) => resizeTimeSig(sig, sequencer, audioSync),
-    isPresetLoading
+    ...audioSync, ...fxState, isRecording, recordingSeconds, handleAudioRecordingToggle,
+    applyPreset, loadFallbackPreset, handlePresetSelect, handleSaveState: async () => {}, handleLoadState: () => {},
+    handleSaveToLocal, getCurrentPresetData, handleLoadLocalPreset, activePresetName, setActivePresetName,
+    handleTimeSigChange: (sig) => resizeTimeSig(sig, sequencer, audioSync), isPresetLoading,
   }), [
-    audioSync, fxState, isRecording, recordingSeconds, handleAudioRecordingToggle,
-    applyPreset, loadFallbackPreset, handlePresetSelect, handleSaveToLocal, getCurrentPresetData,
+    audioSync, fxState, isRecording, recordingSeconds, handleAudioRecordingToggle, applyPreset,
+    loadFallbackPreset, handlePresetSelect, handleSaveToLocal, getCurrentPresetData,
     handleLoadLocalPreset, activePresetName, sequencer, isPresetLoading
   ]);
 

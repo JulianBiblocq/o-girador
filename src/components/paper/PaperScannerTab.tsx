@@ -14,6 +14,8 @@ import { getAllAvailablePaperPresets } from '../../utils/paper/paperActiveSongEx
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { scanAndRegisterDoubtPoints } from '../../utils/paper/paperScanDoubtDetector';
 import { disambiguateAllPresetPatterns } from '../../utils/paper/paperRoleDisambiguator';
+import { PaperScannerMetadataDrawer } from './PaperScannerMetadataDrawer';
+import { PresetMetadata } from '../../types';
 import { Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; }
@@ -26,6 +28,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
   const [reusableSections, setReusableSections] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
+  const [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: presetsList[0].name }));
   const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
   const vigilanceCount = usePaperVigilanceStore((state) => state.points.filter((p) => p.scoreId === scoreId).length);
 
@@ -33,6 +36,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
 
   const handleSelectPreset = (p: PaperPreset) => {
     setSelectedPreset(p);
+    setMetaOverrides({ toada: p.name });
     const pScoreId = p.id || p.name.toLowerCase().replace(/\s+/g, '_');
     const parsed = disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(p.patterns)));
     setEditablePatterns(parsed);
@@ -71,14 +75,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
   const handleInject = (openOnFirst = false) => {
     if (!canImport) { alert(lang === 'fr' ? 'Accès réservé au Mestre et Administrateurs.' : 'Acesso reservado ao Mestre.'); return; }
     const flattenedSequence = sequenceItems.flatMap((item) => Array(item.repeatCount).fill(item.sectionName));
-    const res = injectPaperScoreToStore(
-      { ...selectedPreset, patterns: editablePatterns },
-      flattenedSequence,
-      reusableSections,
-      lang,
-      openOnFirst,
-      injectOpts
-    );
+    const res = injectPaperScoreToStore({ ...selectedPreset, patterns: editablePatterns }, flattenedSequence, reusableSections, lang, openOnFirst, injectOpts, metaOverrides);
     if (res.success && onClose) onClose();
   };
 
@@ -100,8 +97,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
             {lang === 'fr' ? 'Modèle :' : 'Modelo :'}
           </label>
           <select
-            id="paper-model-select"
-            value={selectedPreset.id}
+            id="paper-model-select" value={selectedPreset.id}
             onChange={(e) => handleSelectPreset(presetsList.find((pr) => pr.id === e.target.value) || presetsList[0])}
             className="p-1 bg-[#efe6d0] text-[#1a1a1a] border-2 border-[#1a1a1a] dark:bg-[#262220] dark:text-[#f4ecd8] dark:border-[#f4ecd8]/50 font-cactus font-bold text-xs max-w-[260px] w-full truncate cursor-pointer shadow-[1px_1px_0px_#000]"
           >
@@ -115,6 +111,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
       <PaperPatternPreviewGrid scoreId={scoreId} patterns={editablePatterns} reusableSections={reusableSections} onToggleReusable={toggleReusable} onUpdateStep={handleUpdateStep} lang={lang} />
       <SequenceTagBuilder availableSections={Object.keys(editablePatterns)} sequenceItems={sequenceItems} onChangeSequence={setSequenceItems} lang={lang} />
       <PaperInjectOptionsBar preset={{ ...selectedPreset, patterns: editablePatterns }} options={injectOpts} onChange={setInjectOpts} />
+      <PaperScannerMetadataDrawer metadata={metaOverrides} onChange={(up) => setMetaOverrides((prev) => ({ ...prev, ...up }))} lang={lang} />
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <div className="text-[10px] font-extrabold text-[#8b2a1a] dark:text-[#f59e0b]">

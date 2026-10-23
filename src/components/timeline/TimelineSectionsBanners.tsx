@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Clipboard } from 'lucide-react';
 import { SongSection, Language } from '../../types';
 import { getSectionBounds } from '../../utils/timeline/timelineMeasureWidths';
 
@@ -66,9 +67,9 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
               {onCopySection && (
                 <button
                   type="button" onClick={(e) => { e.stopPropagation(); onCopySection(section); }}
-                  className="bg-black/10 hover:bg-black/25 text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
+                  className="bg-black/10 hover:bg-black/25 text-black text-[9px] p-1 rounded cordel-border-sm cursor-pointer flex items-center justify-center"
                   title={lang === 'fr' ? 'Copier la section' : 'Copiar seção'}
-                >📋</button>
+                ><Clipboard size={10} className="shrink-0" /></button>
               )}
               <button
                 type="button" onClick={(e) => { e.stopPropagation(); onDeleteSection(section.id); }}
@@ -88,11 +89,12 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
             key={`paste-sec-${mIdx}`} onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onPasteSection(mIdx); }}
             onMouseEnter={() => setHoveredPasteMeasure(mIdx)} onMouseLeave={() => setHoveredPasteMeasure(null)}
-            className="absolute inset-y-0.5 bg-emerald-600/25 hover:bg-emerald-600/45 text-emerald-800 dark:text-emerald-200 font-sans font-bold text-[9px] px-1 border-x border-y border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all shadow-[inset_0_0_4px_rgba(16,185,129,0.2)]"
+            className="absolute inset-y-0.5 bg-emerald-600/25 hover:bg-emerald-600/45 text-emerald-800 dark:text-emerald-200 font-sans font-bold text-[9px] px-1 border-x border-y border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-20 transition-all shadow-[inset_0_0_4px_rgba(16,185,129,0.2)]"
             style={{ left: `${measureLeftPositions[mIdx] ?? (mIdx * measureWidth)}px`, width: `${measureWidths[mIdx] ?? measureWidth}px` }}
             title={lang === 'fr' ? `Coller à la mesure ${mIdx + 1}` : `Colar no compasso ${mIdx + 1}`}
           >
-            📋 {lang === 'fr' ? `Coller M.${mIdx + 1}` : `Colar C.${mIdx + 1}`}
+            <Clipboard size={10} className="shrink-0" />
+            <span>{lang === 'fr' ? `Coller M.${mIdx + 1}` : `Colar C.${mIdx + 1}`}</span>
           </button>
         ))}
 

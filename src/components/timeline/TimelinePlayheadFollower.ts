@@ -30,14 +30,22 @@ export function usePlayheadFollower({
 
     const ro = new ResizeObserver(entries => { if (entries[0]) layout.current.vw = entries[0].contentRect.width - headerWidth; });
     ro.observe(scrollEl);
-    const onScroll = () => { layout.current.lastScrollX = scrollEl.scrollLeft; };
+    const checkPlayheadVisibility = (currentX: number) => {
+      if (playheadRef.current) playheadRef.current.style.visibility = currentX >= scrollEl.scrollLeft ? 'visible' : 'hidden';
+    };
+    const onScroll = () => {
+      layout.current.lastScrollX = scrollEl.scrollLeft;
+      if (lastExactXRef.current >= 0) checkPlayheadVisibility(lastExactXRef.current);
+    };
     scrollEl.addEventListener('scroll', onScroll, { passive: true });
 
     const applyPos = (curM: number) => {
       const curLeft = leftsRef.current?.[curM] ?? (curM * measureWRef.current);
+      lastExactXRef.current = curLeft;
+      const isVis = curLeft >= scrollEl.scrollLeft;
       const t = `translate3d(${headerWidth + curLeft}px, 0, 0)`;
-      if (playheadRef.current) Object.assign(playheadRef.current.style, { transition: 'none', display: 'block', transform: t });
-      if (measureHighlightRef.current) Object.assign(measureHighlightRef.current.style, { transition: 'none', display: 'block', transform: t, width: `${widthsRef.current?.[curM] ?? measureWRef.current}px` });
+      if (playheadRef.current) Object.assign(playheadRef.current.style, { transition: 'none', display: 'block', visibility: isVis ? 'visible' : 'hidden', transform: t });
+      if (measureHighlightRef.current) Object.assign(measureHighlightRef.current.style, { transition: 'none', display: 'block', visibility: isVis ? 'visible' : 'hidden', transform: t, width: `${widthsRef.current?.[curM] ?? measureWRef.current}px` });
     };
 
     if (!useSequencerStore.getState().isPlaying) applyPos(useSequencerStore.getState().currentMeasure || 0);
@@ -58,20 +66,24 @@ export function usePlayheadFollower({
         const curM = (isPaused && !isNavigation) ? (useSequencerStore.getState().currentMeasure ?? measure) : measure;
         const curX = isPaused && isNavigation ? mLeft + ratio * mW : (leftsRef.current?.[curM] ?? (curM * measureWRef.current));
         lastExactXRef.current = curX;
+        const isVis = curX >= scrollEl.scrollLeft;
         const t = `translate3d(${headerWidth + curX}px, 0, 0)`;
-        Object.assign(el.style, { transition: 'none', display: 'block', transform: t });
-        if (measureHighlightRef.current) Object.assign(measureHighlightRef.current.style, { display: isPreRoll ? 'block' : 'none', transform: t, width: `${mW}px` });
+        Object.assign(el.style, { transition: 'none', display: 'block', visibility: isVis ? 'visible' : 'hidden', transform: t });
+        if (measureHighlightRef.current) Object.assign(measureHighlightRef.current.style, { display: isPreRoll ? 'block' : 'none', visibility: isVis ? 'visible' : 'hidden', transform: t, width: `${mW}px` });
         return;
       }
 
+      const exactX = mLeft + ratio * mW;
+      lastExactXRef.current = exactX;
+      const isVis = exactX >= scrollEl.scrollLeft;
       el.style.display = 'block';
+      el.style.visibility = isVis ? 'visible' : 'hidden';
       if (measureHighlightRef.current) {
         measureHighlightRef.current.style.display = 'block';
+        measureHighlightRef.current.style.visibility = isVis ? 'visible' : 'hidden';
         measureHighlightRef.current.style.transform = `translate3d(${headerWidth + mLeft}px, 0, 0)`;
         measureHighlightRef.current.style.width = `${mW}px`;
       }
-
-      const exactX = mLeft + ratio * mW;
       const isNewM = live.current.measure !== measure || live.current.iteration !== iteration || live.current.step < 0 || !live.current.measureStartTime;
       live.current = { step, measure, ratio, iteration, measureStartTime: isNewM ? (measureStartTime || live.current.measureStartTime) : live.current.measureStartTime, measureDuration: measureDuration ?? live.current.measureDuration };
       const dx = exactX - lastExactXRef.current;

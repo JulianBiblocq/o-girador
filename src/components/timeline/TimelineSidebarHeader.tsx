@@ -1,4 +1,5 @@
 import React from 'react';
+import { Search } from 'lucide-react';
 import { Language } from '../../types';
 
 export interface TimelineSidebarHeaderProps {
@@ -24,7 +25,7 @@ export const TimelineSidebarHeader: React.FC<TimelineSidebarHeaderProps> = React
 
   return (
     <div
-      className={`timeline-sticky-header sticky left-0 z-60 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex flex-col items-center justify-center gap-1 ${isMobile ? 'px-1.5' : 'px-3'}`}
+      className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex flex-col items-center justify-center gap-1 ${isMobile ? 'px-1.5' : 'px-3'}`}
       style={{ width: headerWidth, minWidth: headerWidth, transformOrigin: '0 0' }}
     >
       <div className="flex items-center bg-[var(--cordel-text)]/5 rounded p-0.5 cordel-border-sm w-full max-w-[160px] pointer-events-auto">
@@ -48,7 +49,7 @@ export const TimelineSidebarHeader: React.FC<TimelineSidebarHeaderProps> = React
             measureWidth > 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'
           } ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
         >
-          🔍
+          <Search size={11} className="shrink-0" />
         </button>
       </div>
 

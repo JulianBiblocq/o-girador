@@ -29,7 +29,7 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
       style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
     >
       <div
-        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${isMobile ? 'px-1' : 'px-2'}`}
+        className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${isMobile ? 'px-1' : 'px-2'}`}
         style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <span className="text-base flex items-center justify-center"><XiloHand size={14} className="shrink-0" /></span>

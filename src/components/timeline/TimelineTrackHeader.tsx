@@ -8,11 +8,13 @@ interface TimelineTrackHeaderProps {
   busColor: string | null; canFold: boolean; isCollapsed: boolean; onToggleFold: () => void;
   instIconImg: string; instName: string; displayName: string; customName?: string;
   lang: string; isAutomationOpen: boolean; onToggleAutomation?: () => void;
+  isMute?: boolean;
 }
 
 export const TimelineTrackHeader: React.FC<TimelineTrackHeaderProps> = ({
   trackId, trackIndex, HEADER_W, isMobile, isChild, busColor, canFold, isCollapsed,
   onToggleFold, instIconImg, instName, displayName, customName, lang, isAutomationOpen, onToggleAutomation,
+  isMute = false,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(customName || instName);
@@ -36,11 +38,11 @@ export const TimelineTrackHeader: React.FC<TimelineTrackHeaderProps> = ({
 
   return (
     <div
-      className={`timeline-sticky-header sticky left-0 z-30 bg-[#f4ecd8] dark:bg-[#1a1a1a] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')}`}
+      className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')}`}
       style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0', borderLeft: busColor ? `4px solid ${busColor}` : undefined }}
       onClick={handleSelectTrack}
     >
-      <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
+      <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'} ${isMute ? 'opacity-40' : ''}`}>
         {canFold && (
           <button onClick={onToggleFold} className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] pointer-events-auto" title={isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}>
             {isCollapsed ? '▶' : '▼'}

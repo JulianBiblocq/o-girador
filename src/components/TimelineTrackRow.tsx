@@ -97,11 +97,13 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const puxTrack = isToada ? useSequencerStore.getState().tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') : null;
   const coroTrack = isToada ? useSequencerStore.getState().tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro') : null;
 
+  const isMuted = Boolean(getEffectiveMuteState(tracksMeta, trackId));
+
   return (
     <div className="flex flex-col">
-      <div className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${!getEffectiveMuteState(tracksMeta, trackId) ? '' : 'opacity-50'}`} style={{ width: `${HEADER_W + totalContentW}px`, minWidth: `${HEADER_W + totalContentW}px` }}>
-        <TimelineTrackHeader trackId={trackId} trackIndex={trackIndex} HEADER_W={HEADER_W} isMobile={isMobile} isChild={isChild} busColor={busColor} canFold={Boolean(trackMeta?.isLinkMaster || isToada)} isCollapsed={isCollapsed} onToggleFold={() => onToggleFoldBus(String(isToada ? trackData.id : parentBus?.id))} instIconImg={trackInst.iconImg} instName={trackInst.name} displayName={displayName} customName={trackMeta?.customName} lang={lang} isAutomationOpen={isAutomationOpen} onToggleAutomation={onToggleAutomation} />
-        <div className="flex h-full items-center overflow-hidden" style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}>
+      <div className="flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none relative" style={{ width: `${HEADER_W + totalContentW}px`, minWidth: `${HEADER_W + totalContentW}px` }}>
+        <TimelineTrackHeader trackId={trackId} trackIndex={trackIndex} HEADER_W={HEADER_W} isMobile={isMobile} isChild={isChild} busColor={busColor} canFold={Boolean(trackMeta?.isLinkMaster || isToada)} isCollapsed={isCollapsed} onToggleFold={() => onToggleFoldBus(String(isToada ? trackData.id : parentBus?.id))} instIconImg={trackInst.iconImg} instName={trackInst.name} displayName={displayName} customName={trackMeta?.customName} lang={lang} isAutomationOpen={isAutomationOpen} onToggleAutomation={onToggleAutomation} isMute={isMuted} />
+        <div className={`flex h-full items-center overflow-hidden ${isMuted ? 'opacity-40' : ''}`} style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}>
           {visibleRange.start > 0 && <div style={{ width: `${leftSpacerW}px`, minWidth: `${leftSpacerW}px` }} className="shrink-0" />}
           {Array.from({ length: totalMeasures }).map((_, mIdx) => ({ mIdx })).filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end).map(({ mIdx }) => {
             const m = resolveTimelineTrackMeasureData(mIdx, isToada, trackData, trackInst, trackIndex, tracksMeta, trackMeta, isLinkedChild, puxTrack, coroTrack);
