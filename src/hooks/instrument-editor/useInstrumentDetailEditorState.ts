@@ -7,6 +7,7 @@ import { CordelMenuItem } from '../../components/ui/CordelContextMenu';
 
 export interface UseInstrumentDetailEditorStateParams {
   track: any;
+  inst?: any;
   effectiveEditTrackId: number;
   trackId: number;
   displayedPatterns: Pattern[];
@@ -21,8 +22,18 @@ export interface UseInstrumentDetailEditorStateParams {
   isVocalContext: boolean;
 }
 
+export function getDefaultPrimaryStroke(instId?: string, instType?: string): string {
+  const id = (instId || '').toLowerCase();
+  const type = (instType || '').toLowerCase();
+  if (id === 'gongue' || type === 'gongue' || id === 'timbal') return 'G';
+  if (id === 'mineiro' || id === 'ganza') return 'P';
+  if (id === 'apito') return 'W';
+  if (['puxador', 'coro', 'toada'].includes(id) || type === 'voice') return 'T';
+  return 'D';
+}
+
 export function useInstrumentDetailEditorState({
-  track, effectiveEditTrackId, trackId, displayedPatterns, setEditingTrackId,
+  track, inst, effectiveEditTrackId, trackId, displayedPatterns, setEditingTrackId,
   handleDuplicatePattern, handleClearPatternStrokes, handleContextDeletePattern,
   onCopyPattern, onPastePattern, canPaste, lang, isVocalContext,
 }: UseInstrumentDetailEditorStateParams) {
@@ -31,11 +42,15 @@ export function useInstrumentDetailEditorState({
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
-  const [activeTool, setActiveTool] = useState<string>('O');
+  const [activeTool, setActiveTool] = useState<string>(() => getDefaultPrimaryStroke(inst?.id, inst?.type));
   const [isAlternating, setIsAlternating] = useState<boolean>(true);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [selectedStepIsPreRoll, setSelectedStepIsPreRoll] = useState<boolean>(false);
   const isTupletEditMode = selectedSubIndex !== null;
+
+  useEffect(() => {
+    setActiveTool(getDefaultPrimaryStroke(inst?.id, inst?.type));
+  }, [track?.id, inst?.id, inst?.type]);
 
   useEffect(() => {
     (window as any).oGiradorVocalEditorOpen = isVocalContext;

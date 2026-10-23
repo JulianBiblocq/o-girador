@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
 import { useDrumTuning } from './controls/useDrumTuning';
@@ -102,7 +103,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
       <details className="border-t-2 border-[#1a1a1a]/20 pt-2 mt-2 group">
         <summary className="text-xs font-bold uppercase tracking-wider cursor-pointer list-none flex items-center justify-between py-1 select-none [&::-webkit-details-marker]:hidden">
           <span>{displayTitle} ({localTuning > 0 ? `+${localTuning}` : localTuning} st)</span>
-          <span className="transition-transform group-open:rotate-90">▸</span>
+          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180" />
         </summary>
         <div className="pt-2">{content}</div>
       </details>

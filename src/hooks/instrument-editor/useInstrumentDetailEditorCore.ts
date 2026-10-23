@@ -96,7 +96,7 @@ export function useInstrumentDetailEditorCore(props: {
   })));
 
   const editorState = useInstrumentDetailEditorState({
-    track, effectiveEditTrackId, trackId, displayedPatterns, setEditingTrackId,
+    track, inst, effectiveEditTrackId, trackId, displayedPatterns, setEditingTrackId,
     handleDuplicatePattern: patternOps.handleDuplicatePattern, handleClearPatternStrokes: patternOps.handleClearPatternStrokes,
     handleContextDeletePattern: patternOps.handleContextDeletePattern, onCopyPattern: (p) => sequencer.handleCopyPattern(p),
     onPastePattern: (pId) => sequencer.handlePastePattern(effectiveEditTrackId, pId), canPaste: clipboard.canPaste, lang, isVocalContext,

@@ -23,7 +23,7 @@ function processSteps(rawSteps: any[], count: number, roleSymbol: string): Conve
   const activeSteps: any[] = Array(count).fill(0);
   const notes: string[] = Array(count).fill('');
   const lyrics: string[] = Array(count).fill('');
-  const volumes: number[] = Array(count).fill(100);
+  const volumes: number[] = Array(count).fill(80);
   const decays: number[] = Array(count).fill(10);
 
   let lastActivePitch = '';

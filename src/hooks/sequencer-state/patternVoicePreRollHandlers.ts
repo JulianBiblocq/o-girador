@@ -25,7 +25,7 @@ export function createPatternVoicePreRollHandlers(ctx: VoicePreRollContext) {
           const arrLyrics = p.preRollLyrics ? [...p.preRollLyrics] : Array(16).fill('');
           const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
           const arrDecays = p.preRollDecays ? [...p.preRollDecays] : Array(16).fill(10);
-          const arrVolumes = p.preRollVolumes ? [...p.preRollVolumes] : Array(16).fill(100);
+          const arrVolumes = p.preRollVolumes ? [...p.preRollVolumes] : Array(16).fill(80);
           arrLyrics[stepIdx] = val;
           if (val !== '') {
             if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {

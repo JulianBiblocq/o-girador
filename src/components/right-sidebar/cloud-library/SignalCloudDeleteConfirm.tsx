@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { X } from 'lucide-react';
 import { Language } from '../../../types';
 
 interface ToastState {
@@ -46,7 +47,7 @@ export const SignalCloudDeleteConfirm: React.FC<ConfirmProps> = ({
             className="text-sm font-black hover:opacity-75 cursor-pointer leading-none px-1 text-[#1a1a1a]"
             title={lang === 'fr' ? 'Fermer' : 'Fechar'}
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
       )}

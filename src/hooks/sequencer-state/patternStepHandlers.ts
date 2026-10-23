@@ -86,7 +86,13 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
             if (lyrics !== undefined) copyLyrics[stepIdx] = typeof lyrics === 'string' ? lyrics : lyrics[0];
             if (notes !== undefined) copyNotes[stepIdx] = typeof notes === 'string' ? notes : notes[0];
           }
-          return { ...p, activeSteps: copySteps, lyrics: copyLyrics, notes: copyNotes };
+          return {
+            ...p,
+            activeSteps: copySteps,
+            lyrics: copyLyrics,
+            notes: copyNotes,
+            volumes: p.volumes ? [...p.volumes] : Array(p.steps).fill(80),
+          };
         })
       };
     }));

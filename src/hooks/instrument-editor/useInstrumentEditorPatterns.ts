@@ -37,7 +37,7 @@ export function useInstrumentEditorPatterns({
         preRollActiveSteps: Array(16).fill(0),
         preRollLyrics: Array(16).fill(''),
         preRollNotes: Array(16).fill(''),
-        preRollVolumes: Array(16).fill(100),
+        preRollVolumes: Array(16).fill(80),
         preRollDecays: Array(16).fill(10),
       };
       return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };

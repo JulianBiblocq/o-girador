@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { Language } from '../types';
 import { XiloScroll } from './XiloIcons';
@@ -43,10 +44,10 @@ export const SaveWorkspaceTemplateModal: React.FC<SaveWorkspaceTemplateModalProp
       <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-6 md:p-8 max-w-xl w-full rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)] flex flex-col gap-5 relative text-[#1a1a1a] transition-all" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#1a1a1a] hover:text-[#8b2a1a] font-bold text-2xl hover:scale-110 duration-200 cursor-pointer"
+          className="absolute top-4 right-4 text-[#1a1a1a] hover:text-[#8b2a1a] font-bold hover:scale-110 duration-200 cursor-pointer p-1"
           aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
         >
-          ✕
+          <X size={22} />
         </button>
 
         <div className="border-b-4 border-[#1a1a1a] pb-3 pr-8">

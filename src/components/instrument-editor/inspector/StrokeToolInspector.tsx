@@ -48,8 +48,10 @@ export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.mem
     );
   }
 
-  const activeStrongSym = currentPair ? currentPair.strong.symbol : (activeTool || '').toUpperCase();
-  const strokeChain = currentPair ? currentPair.strokes.map((s: any) => s.symbol).join(' / ') : activeTool;
+  const defaultSymbol = ['gongue', 'timbal'].includes(instrument?.id) ? 'G' : instrument?.id === 'mineiro' ? 'P' : instrument?.id === 'apito' ? 'W' : 'D';
+  const cleanActive = (activeTool === 'O' || activeTool === '0' || !activeTool) ? defaultSymbol : activeTool;
+  const activeStrongSym = currentPair ? currentPair.strong.symbol : cleanActive.toUpperCase();
+  const strokeChain = currentPair ? currentPair.strokes.map((s: any) => s.symbol).join(' / ') : cleanActive;
 
   const renderCol = (strokeObj: any, isWeak: boolean) => (
     <StrokeColumnSliders
@@ -63,7 +65,7 @@ export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.mem
   return (
     <div className="flex flex-col gap-2 w-full min-w-0 box-border">
       <div className="flex items-center justify-between gap-2 bg-[#f4ecd8] cordel-border-sm px-2.5 py-1 shrink-0 w-full min-w-0 box-border">
-        <span className="font-cactus font-bold text-xs text-[#1a1a1a] truncate">{currentPair?.mainLabel || activeTool}</span>
+        <span className="font-cactus font-bold text-xs text-[#1a1a1a] truncate">{currentPair?.mainLabel || cleanActive}</span>
         <span className="text-[10px] text-[#8b2a1a] font-mono font-bold shrink-0">{strokeChain}</span>
       </div>
 

@@ -40,9 +40,12 @@ export const updatePatternStepState = (
               nextNotes = [...p.notes];
               nextNotes[stepIdx] = '';
             }
+            let nextVols = p.volumes ? [...p.volumes] : Array(maxSteps).fill(80);
+            while (nextVols.length < maxSteps) nextVols.push(80);
             return {
               ...p,
               activeSteps: currentActive,
+              volumes: nextVols,
               ...(nextNotes ? { notes: nextNotes } : {})
             };
           }

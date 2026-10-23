@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clipboard } from 'lucide-react';
+import { Clipboard, X } from 'lucide-react';
 import { SongSection, Language } from '../../types';
 import { getSectionBounds } from '../../utils/timeline/timelineMeasureWidths';
 
@@ -73,9 +73,9 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
               )}
               <button
                 type="button" onClick={(e) => { e.stopPropagation(); onDeleteSection(section.id); }}
-                className="bg-red-800/80 hover:bg-red-800 text-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
+                className="bg-red-800/80 hover:bg-red-800 text-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer flex items-center justify-center"
                 title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-              >✕</button>
+              ><X size={9} /></button>
             </div>
           </div>
         );

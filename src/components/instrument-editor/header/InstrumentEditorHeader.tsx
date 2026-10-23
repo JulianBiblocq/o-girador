@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Square } from 'lucide-react';
+import { Play, Square, X } from 'lucide-react';
 import { PupitreRibbon } from './PupitreRibbon';
 import { HeaderBalancoControl } from './HeaderBalancoControl';
 import { InstrumentEditorHeaderProps } from './headerTypes';
@@ -96,7 +96,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
         <button type="button" onClick={onMuteToggle} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isMute && !isSolo ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'}`} title="Mute">M</button>
         <button type="button" onClick={onSoloToggle} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'}`} title="Solo">S</button>
         <button type="button" onClick={onClose} disabled={isClosing} className="w-8 h-8 shrink-0 flex items-center justify-center bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
-          {isClosing ? '…' : ''}
+          {isClosing ? '...' : <X className="w-5 h-5 text-[#f4ecd8] stroke-[2.5]" />}
         </button>
       </div>
     </div>

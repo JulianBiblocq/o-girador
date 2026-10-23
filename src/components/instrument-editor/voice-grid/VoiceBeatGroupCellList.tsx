@@ -103,7 +103,7 @@ export const VoiceBeatGroupCellList: React.FC<VoiceBeatGroupCellListProps> = Rea
               state={state} syl={syl} note={note} isSelected={isSelected}
               isInRange={isStepInRange(selectedStepRange, false, i, preRollLengthComputed)} preRollLength={preRollLengthComputed}
               isMultiSelectActive={isMultiSelectActive} manualMicro={manualMicro} totalShift={totalShift}
-              shiftPx={(totalShift / 100) * 8} isLinked={isLinked} volume={pattern.volumes?.[i] ?? 100} decay={pattern.decays?.[i] ?? 10}
+              shiftPx={(totalShift / 100) * 8} isLinked={isLinked} volume={pattern.volumes?.[i] ?? 80} decay={pattern.decays?.[i] ?? 10}
               isProlongation={isProlongation} isFollowedByProlongation={isFollowedByProlongation} isFirstInBeat={indexInGroup === 0}
               onVoiceStepClear={handleVoiceStepClear} onTouchStart={handleVoiceTouchStart} onMouseDown={handleVoiceMouseDown}
               onMouseEnter={handleVoiceMouseEnter} onVoiceTypeToggle={handleVoiceTypeToggle} onVoiceSylChange={handleVoiceSylChange}

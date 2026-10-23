@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import { AVAILABLE_INSTRUMENTS, t } from './wizardConstants';
 import { Language } from '../../types';
 
@@ -22,7 +23,7 @@ export const WizardInstrumentsRack: React.FC<WizardInstrumentsRackProps> = ({
         className="flex items-center gap-3 p-3 bg-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer rounded-sm select-none"
       >
         <div className="w-6 h-6 border-2 border-[#1a1a1a] flex items-center justify-center font-cactus text-lg font-bold bg-[#ece4d0] text-[#8b2a1a] select-none shrink-0">
-          {hasToada ? '✕' : ''}
+          {hasToada ? <Check size={14} className="stroke-[3]" /> : null}
         </div>
         <div className="flex flex-col">
           <span className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a] leading-tight">

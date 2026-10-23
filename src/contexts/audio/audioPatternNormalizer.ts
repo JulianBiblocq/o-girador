@@ -75,10 +75,10 @@ export function normalizePatternData(p: Pattern, targetMeasures: number): void {
   // Volumes, Decays, Microtimings
   if (!p.volumes || p.volumes.length !== p.steps) {
     const existing = p.volumes || [];
-    p.volumes = Array(p.steps).fill(100);
-    for (let i = 0; i < Math.min(existing.length, p.steps); i++) p.volumes[i] = sanitizeSculptValue(existing[i], 100);
+    p.volumes = Array(p.steps).fill(80);
+    for (let i = 0; i < Math.min(existing.length, p.steps); i++) p.volumes[i] = sanitizeSculptValue(existing[i], 80);
   } else {
-    for (let i = 0; i < p.steps; i++) p.volumes[i] = sanitizeSculptValue(p.volumes[i], 100);
+    for (let i = 0; i < p.steps; i++) p.volumes[i] = sanitizeSculptValue(p.volumes[i], 80);
   }
 
   if (!p.decays || p.decays.length !== p.steps) {

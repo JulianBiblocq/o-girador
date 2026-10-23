@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Sliders, ChevronDown } from 'lucide-react';
 import { PercussionTuningControl } from '../../PercussionTuningControl';
 import { VocalTimbreSelector } from '../VocalTimbreSelector';
 
@@ -87,11 +88,15 @@ export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposePr
         </>
       ) : (
         <details className="border-t-2 border-[#1a1a1a]/20 pt-2 mt-2 group">
-          <summary className="text-xs font-bold uppercase tracking-wider cursor-pointer list-none flex items-center justify-between py-1 select-none [&::-webkit-details-marker]:hidden">
-            <span>
-              {isFr ? 'Accorder le tambour' : 'Afinar o tambor'} ({pitchOffset > 0 ? `+${pitchOffset}` : pitchOffset} st)
+          <summary className="text-xs font-bold uppercase tracking-wider cursor-pointer list-none flex items-center justify-between py-1.5 px-2 select-none [&::-webkit-details-marker]:hidden bg-[#f4ecd8] cordel-border-sm">
+            <span className="flex items-center gap-1.5 text-[#1a1a1a]">
+              <Sliders className="w-3.5 h-3.5 text-[#8b2a1a]" />
+              <span>{isFr ? 'Accordage du fût' : 'Afinação do tambor'}</span>
             </span>
-            <span className="transition-transform group-open:rotate-90">▸</span>
+            <span className="flex items-center gap-1 font-mono text-[11px] text-[#8b2a1a] font-bold">
+              <span>{pitchOffset > 0 ? `+${pitchOffset}` : pitchOffset} st</span>
+              <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180" />
+            </span>
           </summary>
           <div className="pt-2">
             <PercussionTuningControl trackId={trackId} onPreview={onPreviewDrum} showPreviewButton={true} />

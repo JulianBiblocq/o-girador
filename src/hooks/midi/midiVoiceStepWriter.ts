@@ -43,8 +43,8 @@ export function writeVoiceStepAndAdvance(targetNoteName: string): void {
     while (preRollLyrics.length < patternSteps) preRollLyrics.push('');
     const preRollDecays = targetPattern.preRollDecays ? [...targetPattern.preRollDecays] : Array(patternSteps).fill(10);
     while (preRollDecays.length < patternSteps) preRollDecays.push(10);
-    const preRollVolumes = targetPattern.preRollVolumes ? [...targetPattern.preRollVolumes] : Array(patternSteps).fill(100);
-    while (preRollVolumes.length < patternSteps) preRollVolumes.push(100);
+    const preRollVolumes = targetPattern.preRollVolumes ? [...targetPattern.preRollVolumes] : Array(patternSteps).fill(80);
+    while (preRollVolumes.length < patternSteps) preRollVolumes.push(80);
 
     seqStore.setTracks((prev: any[]) => prev.map(t => {
       if (t.id === targetTrack.id || String(t.id) === String(targetTrack.id)) {
