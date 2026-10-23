@@ -62,8 +62,20 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         syncMasterCompressorBypass(!fxActive.compressor || state.isEcoMode, (masterCompressor as any) || undefined);
       }
 
-      if (state.tracks !== prevState.tracks) {
+      const tracksChanged = state.tracks !== prevState.tracks;
+      const bypassChanged = state.globalAutomationBypass !== prevState.globalAutomationBypass;
+
+      if (tracksChanged || bypassChanged) {
         if (!isAudioInitializedRef.current) return;
+        if (bypassChanged) {
+          lastAppliedTracksParamsRef.current = {};
+          lastAppliedBussesRef.current = {};
+          if (masterVolumeNode?.gain) {
+            try {
+              masterVolumeNode.gain.cancelScheduledValues(Tone.now());
+            } catch (_) {}
+          }
+        }
         const tracks = state.tracks;
         syncBusChannels({
           tracks, isEcoMode: state.isEcoMode, busChannels, busMeters,

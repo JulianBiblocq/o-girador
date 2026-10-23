@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * Tranche Master de la table de mixage (< 140 lignes).
+ */
 import React, { useRef, useState } from 'react';
 import { XiloMestre, XiloScroll } from '../XiloIcons';
 import { MixerVolumeFader } from '../MixerVolumeFader';
@@ -7,6 +12,8 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { MasterEqCompressorSection } from './MasterEqCompressorSection';
 import { MasterStereoMeter } from './MasterStereoMeter';
 import { MasterMonoCheckButton } from './MasterMonoCheckButton';
+import { MasterAutomationBypassBox } from './master/MasterAutomationBypassBox';
+import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
 import { anyTrackHasRealAuto } from '../../utils/automationDetectHelper';
 import { useMasterFaderAutomation } from './useMasterFaderAutomation';
 import { useMasterVuMeter } from './useMasterVuMeter';
@@ -28,18 +35,8 @@ interface MixerMasterStripProps {
 }
 
 export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
-  isMobile,
-  isActive,
-  isPlaying,
-  lang,
-  t,
-  masterVol,
-  onMasterVolChange,
-  masterEQ,
-  onMasterEQChange,
-  masterCompressor,
-  onMasterCompressorChange,
-  onOpenSaveTemplate,
+  isMobile, isActive, isPlaying, lang, t, masterVol, onMasterVolChange,
+  masterEQ, onMasterEQChange, masterCompressor, onMasterCompressorChange, onOpenSaveTemplate,
 }) => {
   const masterContainerRef = useRef<HTMLDivElement>(null);
   const [isMasterCollapsed, setIsMasterCollapsed] = useState(isMobile);
@@ -50,23 +47,18 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
   const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
   const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
   const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
+  const globalAutomationBypass = useSequencerStore(state => state.globalAutomationBypass);
   const isMasterMono = useSequencerStore(state => state.isMasterMono);
   const toggleMasterMono = useSequencerStore(state => state.toggleMasterMono);
   const tracks = useSequencerStore(state => state.tracks);
-  const bypassAllAutomations = useSequencerStore(state => state.bypassAllAutomations);
 
   const hasMasterVolAuto = measureVols && measureVols.some(v => v !== 100);
-  const isMasterVolActive = !!hasMasterVolAuto && !isMasterVolumeBypassed;
-  const hasTrackAuto = anyTrackHasRealAuto(tracks);
+  const isMasterVolEffectiveBypassed = isMasterVolumeBypassedHelper(isMasterVolumeBypassed, globalAutomationBypass);
+  const isMasterVolActive = !!hasMasterVolAuto && !isMasterVolEffectiveBypassed;
+  const hasTrackAuto = anyTrackHasRealAuto(tracks) || hasMasterVolAuto;
 
   const { masterFaderHandleRef, masterFaderTextRef, masterTravelRangeRef } = useMasterFaderAutomation({
-    isPlaying,
-    isMasterVolActive,
-    isEcoMode,
-    masterVol,
-    totalMeasures,
-    measureVols,
-    measureVolTransitions,
+    isPlaying, isMasterVolActive, isEcoMode, masterVol, totalMeasures, measureVols, measureVolTransitions,
   });
 
   const { vuMeterLeftRef, vuMeterRightRef } = useMasterVuMeter({ isPlaying, isActive });
@@ -100,26 +92,20 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
               <button type="button" onClick={onOpenSaveTemplate} className="flex-1 py-1 px-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[10px] uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#1a1a1a] cursor-pointer truncate">
                 <XiloScroll size={13} className="shrink-0" /><span className="truncate">{lang === 'pt' ? 'Modelo' : 'Gabarit'}</span>
               </button>
-              {hasTrackAuto && (
-                <button
-                  type="button"
-                  onClick={() => bypassAllAutomations(true)}
-                  className="py-1 px-1.5 bg-[#8b2a1a]/15 text-[#8b2a1a] dark:text-[#f87171] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[9px] uppercase flex items-center justify-center gap-1 transition-colors cursor-pointer shrink-0"
-                  title={lang === 'fr' ? 'Débrayer toutes les automations de pistes' : 'Desativar todas as automações'}
-                >
-                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
-                  <span>Auto</span>
-                </button>
-              )}
               <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} />
             </div>
+            {hasTrackAuto && (
+              <div className="p-1.5 px-2 border-b border-[var(--master-border)]/40 bg-[var(--cordel-bg)] shrink-0">
+                <MasterAutomationBypassBox lang={lang} />
+              </div>
+            )}
             <MasterEqCompressorSection t={t} lang={lang} masterEQ={masterEQ} onMasterEQChange={onMasterEQChange} masterCompressor={masterCompressor} onMasterCompressorChange={onMasterCompressorChange} />
             <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[140px] h-auto gap-7 overflow-hidden">
               <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
                 <div className="flex items-center justify-between w-full px-1 shrink-0 h-4">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
                   {hasMasterVolAuto && (
-                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleMasterVolumeBypass(); }} className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${isMasterVolActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'}`}>A</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleMasterVolumeBypass(); }} className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer transition-all ${isMasterVolActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'}`} title={isMasterVolActive ? 'Automation Master active (Clic: débrayer)' : 'Automation Master débrayée (Clic: réactiver)'}>A</button>
                   )}
                 </div>
                 <div className={`flex-grow flex-1 w-full flex items-center justify-center min-h-0 transition-opacity ${isMasterVolActive ? 'opacity-50 pointer-events-none' : ''}`}>

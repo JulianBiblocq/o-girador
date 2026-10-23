@@ -13,6 +13,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
 import { useTrackMixerContextMenu } from './mixer/useTrackMixerContextMenu';
 import { trackHasRealVolAuto, trackHasRealPanAuto, trackHasRealRevAuto } from '../utils/automationDetectHelper';
+import { isAutomationBypassed } from '../utils/automationBypassHelper';
 import { computeChannelStripStyles } from './mixer/channels/channelStripStyles';
 import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutomation';
 import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
@@ -40,12 +41,13 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const lang = useSequencerStore(state => state.lang);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const globalBypass = useSequencerStore(state => state.globalAutomationBypass);
 
   const { contextMenuPos, handleContextMenuOpen, handleContextMenuClose, touchHandlers } = useTrackMixerContextMenu();
 
-  const isVolActive = trackHasRealVolAuto(track) && !track?.automationBypass?.volume;
-  const isPanActive = trackHasRealPanAuto(track) && !track?.automationBypass?.pan;
-  const isRevActive = trackHasRealRevAuto(track) && !track?.automationBypass?.reverb;
+  const isVolActive = trackHasRealVolAuto(track) && !isAutomationBypassed(track, 'volume', globalBypass);
+  const isPanActive = trackHasRealPanAuto(track) && !isAutomationBypassed(track, 'pan', globalBypass);
+  const isRevActive = trackHasRealRevAuto(track) && !isAutomationBypassed(track, 'reverb', globalBypass);
 
   const { faderHandleRef, faderTextRef, travelRangeRef, panKnobRef, reverbGaugeRef, reverbTextRef } = useChannelStripAutomation({
     track,

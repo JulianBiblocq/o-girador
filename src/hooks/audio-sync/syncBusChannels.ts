@@ -63,10 +63,13 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const eqHighG = t.eqBands?.high?.g ?? 0;
     const eqHighF = t.eqBands?.high?.f ?? 8000;
 
-    const paramHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+    const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
+    const paramHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}_${bypassKey}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
+      try { busChannels[t.id].volume.cancelScheduledValues(Tone.now()); } catch (_) {}
       busChannels[t.id].volume.value = safeDb;
+      try { busChannels[t.id].pan.cancelScheduledValues(Tone.now()); } catch (_) {}
       busChannels[t.id].pan.value = acousticPan;
       busChannels[t.id].mute = muteState;
 

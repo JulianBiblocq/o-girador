@@ -12,6 +12,7 @@ import { createTrackPatternEditSlice } from './slices/trackPatternEditSlice';
 import { createClipboardSlice } from './slices/clipboardSlice';
 import { createProjectSettingsSlice } from './slices/projectSettingsSlice';
 import { createPracticeModeSlice } from './slices/practiceModeSlice';
+import { createAutomationBypassSlice } from './slices/automationBypassSlice';
 
 import { SequencerStore, TrackSlice, MasterEffectsActiveState } from './types/sequencerStoreTypes';
 
@@ -34,6 +35,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createSpeedTrainerSlice(...a),
   ...createTrainingSlice(...a),
   ...createPracticeModeSlice(...a),
+  ...createAutomationBypassSlice(...a),
 }));
 
 // ---------------------------------------------------------
@@ -106,6 +108,8 @@ export * from './slices/clipboardSlice';
 export * from './slices/clipboardSliceTypes';
 export * from './slices/projectSettingsSlice';
 export * from './slices/projectSettingsSliceTypes';
+export * from './slices/automationBypassSlice';
+export * from '../utils/automationBypassHelper';
 export * from './types/sequencerStoreTypes';
 
 if (typeof window !== 'undefined') {

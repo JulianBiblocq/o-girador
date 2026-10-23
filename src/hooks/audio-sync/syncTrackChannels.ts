@@ -78,16 +78,22 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const eqMidQ = t.eqBands?.mid?.q ?? 'wide';
     const eqHighG = t.eqBands?.high?.g ?? 0;
     const eqHighF = t.eqBands?.high?.f ?? 8000;
+    const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
 
-    const paramHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+    const paramHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}_${bypassKey}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
+      try { channels[t.id].volume.cancelScheduledValues(Tone.now()); } catch (_) {}
       channels[t.id].volume.value = finalDb;
+      try { channels[t.id].pan.cancelScheduledValues(Tone.now()); } catch (_) {}
       channels[t.id].pan.value = acousticPan;
       channels[t.id].mute = muteState;
 
       if (reverbSends[t.id]) {
-        try { reverbSends[t.id].gain.value = percentToDb(isEcoMode ? 0 : reverb); } catch (_) {}
+        try {
+          reverbSends[t.id].gain.cancelScheduledValues(Tone.now());
+          reverbSends[t.id].gain.value = percentToDb(isEcoMode ? 0 : reverb);
+        } catch (_) {}
       }
       if (distortionSends[t.id]) {
         try { distortionSends[t.id].gain.value = percentToDb(distortion); } catch (_) {}

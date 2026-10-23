@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * Section Pan et Effets de tranche de console avec pastilles [ A ] (< 130 lignes).
+ */
 import React from 'react';
 import { DragNumberBox } from '../../DragNumberBox';
 import { PanKnob } from '../../PanKnob';
@@ -17,14 +22,8 @@ interface ChannelStripFxPanProps {
 }
 
 export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
-  track,
-  isRevActive,
-  hasRevAuto,
-  isPanActive,
-  hasPanAuto,
-  reverbGaugeRef,
-  reverbTextRef,
-  panKnobRef,
+  track, isRevActive, hasRevAuto, isPanActive, hasPanAuto,
+  reverbGaugeRef, reverbTextRef, panKnobRef,
 }) => {
   const trackId = track.id;
 
@@ -74,19 +73,12 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
                 e.stopPropagation();
                 useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'reverb');
               }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                useSequencerStore.getState().bypassAllAutomations(true);
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                useSequencerStore.getState().bypassAllAutomations(true);
-              }}
-              className={`absolute right-1 top-1/2 -translate-y-1/2 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${
-                isRevActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'
+              className={`absolute right-1 top-1/2 -translate-y-1/2 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer transition-all ${
+                isRevActive
+                  ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)]'
+                  : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
               }`}
-              title={isRevActive ? 'Automation Réverbe active (Clic: débrayer | Double-clic / Clic-droit: débrayer tout)' : 'Automation Réverbe débrayée (Clic: réactiver)'}
+              title={isRevActive ? 'Automation Réverbe active (Clic: débrayer)' : 'Automation Réverbe débrayée (Clic: réactiver)'}
             >
               A
             </button>
@@ -96,37 +88,33 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
 
       <div className="w-full flex flex-col items-center shrink-0">
         <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
-        <div className="relative flex items-center justify-center w-full">
-          {hasPanAuto && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'pan');
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                useSequencerStore.getState().bypassAllAutomations(true);
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                useSequencerStore.getState().bypassAllAutomations(true);
-              }}
-              className={`absolute left-1 top-0 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${
-                isPanActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'
-              }`}
-              title={isPanActive ? 'Automation Pan active (Clic: débrayer | Double-clic / Clic-droit: débrayer tout)' : 'Automation Pan débrayée (Clic: réactiver)'}
-            >
-              A
-            </button>
-          )}
+        <div className="flex flex-col items-center justify-center w-full">
+          <div className="flex items-center justify-center gap-1 w-full mb-0.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 cursor-default">PAN</span>
+            {hasPanAuto && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'pan');
+                }}
+                className={`w-[16px] h-[16px] rounded-[2px] flex items-center justify-center font-bold text-[9px] cursor-pointer transition-all ${
+                  isPanActive
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)]'
+                    : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
+                }`}
+                title={isPanActive ? 'Automation Pan active (Clic: débrayer)' : 'Automation Pan débrayée (Clic: réactiver)'}
+              >
+                A
+              </button>
+            )}
+          </div>
           <div className={`transition-opacity ${isPanActive ? 'opacity-50 pointer-events-none' : ''}`}>
             <PanKnob
               trackId={trackId}
               value={track.panVal ?? track.pan ?? 0}
               onChange={(val) => useSequencerStore.getState().setTrackPan(trackId, val)}
-              label="PAN"
+              label=""
               showLabels={false}
               panKnobRef={panKnobRef}
             />

@@ -37,30 +37,6 @@ export const ChannelStripFaderSection: React.FC<ChannelStripFaderSectionProps> =
     <>
       <div className="w-full flex flex-col flex-grow min-h-[60px] overflow-hidden">
         <div className="relative flex-grow flex-1 min-h-[60px] h-auto flex justify-center gap-2 items-stretch w-full py-1 overflow-hidden">
-          {hasVolAuto && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'volume');
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                useSequencerStore.getState().bypassAllAutomations(true);
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                useSequencerStore.getState().bypassAllAutomations(true);
-              }}
-              className={`absolute top-0.5 left-1 z-20 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer ${
-                isVolActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through'
-              }`}
-              title={isVolActive ? 'Automation Volume active (Clic: débrayer | Double-clic / Clic-droit: débrayer tout)' : 'Automation Volume débrayée (Clic: réactiver)'}
-            >
-              A
-            </button>
-          )}
           <div className={`flex flex-col items-center flex-1 h-full min-w-0 transition-opacity ${isVolActive ? 'opacity-50 pointer-events-none' : ''}`}>
             <MixerVolumeFader
               trackId={trackId}
@@ -71,6 +47,9 @@ export const ChannelStripFaderSection: React.FC<ChannelStripFaderSectionProps> =
               faderHandleRef={faderHandleRef}
               valueTextRefProp={faderTextRef}
               travelRangeRef={travelRangeRef}
+              hasVolAuto={hasVolAuto}
+              isVolActive={isVolActive}
+              onToggleVolBypass={() => useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'volume')}
             />
           </div>
           <div className="flex flex-col items-center w-5 h-full justify-center">

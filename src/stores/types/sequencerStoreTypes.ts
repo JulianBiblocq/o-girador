@@ -10,6 +10,7 @@ import { ClipboardSlice } from '../slices/clipboardSliceTypes';
 import { ProjectSettingsSlice } from '../slices/projectSettingsSliceTypes';
 import { UISlice } from '../slices/uiSliceTypes';
 import { PracticeModeSlice } from '../slices/practiceModeSliceTypes';
+import { AutomationBypassSlice } from '../slices/automationBypassSlice';
 
 export type TrackSlice = TrackCoreSlice & TrackHierarchySlice & TrackAcousticsSlice & TrackPatternEditSlice;
 
@@ -22,6 +23,7 @@ export type SequencerStore = TrackSlice &
   UISlice &
   SpeedTrainerSlice &
   TrainingSlice &
-  PracticeModeSlice;
+  PracticeModeSlice &
+  AutomationBypassSlice;
 
 export type { MasterEffectsActiveState };

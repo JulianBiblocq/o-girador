@@ -25,24 +25,16 @@ interface MixerVolumeFaderProps {
   faderHandleRef?: React.RefObject<HTMLDivElement | null>;
   valueTextRefProp?: React.RefObject<HTMLSpanElement | null>;
   travelRangeRef?: React.MutableRefObject<number>;
+  hasVolAuto?: boolean;
+  isVolActive?: boolean;
+  onToggleVolBypass?: () => void;
 }
 
 export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
-  trackId,
-  value,
-  onChange,
-  onAudioDrag,
-  defaultValue = UNITY_GAIN_FADER_POSITION,
-  faderColor,
-  textColor: _textColor = 'var(--cordel-text)',
-  height,
-  thumbWidth,
-  thumbHeight,
-  fontSize,
-  isMaster = false,
-  faderHandleRef,
-  valueTextRefProp,
-  travelRangeRef,
+  trackId, value, onChange, onAudioDrag, defaultValue = UNITY_GAIN_FADER_POSITION,
+  faderColor, textColor: _textColor = 'var(--cordel-text)', height, thumbWidth, thumbHeight,
+  fontSize, isMaster = false, faderHandleRef, valueTextRefProp, travelRangeRef,
+  hasVolAuto, isVolActive, onToggleVolBypass,
 }) => {
   const resolvedFaderColor = faderColor || (isMaster ? 'var(--master-fader-thumb)' : '#d4af37');
   const visualThumbRef = useRef<HTMLDivElement>(null);
@@ -109,16 +101,35 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
         handlePointerUp={handlePointerUp}
         resetToUnity={resetToUnity}
       />
-      <FaderDbCartouche
-        value={clampedPosition}
-        defaultValue={defaultValue}
-        fontSize={fontSize}
-        isEditing={isEditing}
-        setIsEditing={setIsEditing}
-        onCommitPosition={handleCommitPosition}
-        resetToUnity={resetToUnity}
-        setTextRef={setTextRef}
-      />
+      <div className="flex items-center justify-center gap-1 w-full mt-0.5 shrink-0">
+        <FaderDbCartouche
+          value={clampedPosition}
+          defaultValue={defaultValue}
+          fontSize={fontSize}
+          isEditing={isEditing}
+          setIsEditing={setIsEditing}
+          onCommitPosition={handleCommitPosition}
+          resetToUnity={resetToUnity}
+          setTextRef={setTextRef}
+        />
+        {hasVolAuto && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleVolBypass?.();
+            }}
+            className={`w-[18px] h-[19px] shrink-0 rounded-[2px] flex items-center justify-center font-bold text-[9px] cursor-pointer transition-all ${
+              isVolActive
+                ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)]'
+                : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
+            }`}
+            title={isVolActive ? 'Automation Volume active (Clic: débrayer)' : 'Automation Volume débrayée (Clic: réactiver)'}
+          >
+            A
+          </button>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,5 +1,7 @@
 import React from 'react';
 import { AutomationTrack } from '../AutomationTrack';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
 
 export interface TimelineGlobalAutomationsAreaProps {
   totalMeasures: number;
@@ -23,6 +25,9 @@ export const TimelineGlobalAutomationsArea: React.FC<TimelineGlobalAutomationsAr
   measureVols, measureVolTransitions, isMasterVolumeBypassed, onMeasureBpmChange,
   onMeasureTransitionChange, onMeasureVolChange, onMeasureVolTransitionChange, toggleMasterVolumeBypass,
 }) => {
+  const globalBypass = useSequencerStore(state => state.globalAutomationBypass);
+  const isVolBypassed = isMasterVolumeBypassedHelper(isMasterVolumeBypassed, globalBypass);
+
   return (
     <>
       <AutomationTrack
@@ -54,7 +59,7 @@ export const TimelineGlobalAutomationsArea: React.FC<TimelineGlobalAutomationsAr
         color="#55efc4"
         lang={lang}
         headerWidth={headerWidth}
-        isBypassed={isMasterVolumeBypassed}
+        isBypassed={isVolBypassed}
         onToggleBypass={toggleMasterVolumeBypass}
       />
     </>

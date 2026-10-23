@@ -1,8 +1,8 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * Tranche de bus audio (MixerFolderBus) avec pastilles d'automation [ A ] (< 130 lignes).
  */
-
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
@@ -14,22 +14,15 @@ import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutom
 import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
 import { ChannelStripBody } from './mixer/channels/ChannelStripBody';
 import { BaseChannelStripProps } from './mixer/channels/channelStripTypes';
+import { trackHasRealVolAuto, trackHasRealPanAuto, trackHasRealRevAuto } from '../utils/automationDetectHelper';
+import { isAutomationBypassed } from '../utils/automationBypassHelper';
 
 export type MixerFolderBusProps = BaseChannelStripProps;
 
 const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
-  trackId,
-  channelOrdinal,
-  midiFaderIndex = null,
-  isUnderMidiControl = false,
-  isActive = true,
-  busPosition = 'none',
-  linkPosition = 'none',
-  isDragOver = false,
-  dropIndicator = null,
-  activeWagonSize = 1,
-  isWagonMember = false,
-  isDraggingWagon = false,
+  trackId, channelOrdinal, midiFaderIndex = null, isUnderMidiControl = false,
+  isActive = true, busPosition = 'none', linkPosition = 'none', isDragOver = false,
+  dropIndicator = null, activeWagonSize = 1, isWagonMember = false, isDraggingWagon = false,
 }) => {
   const { isPlaying } = useAudio();
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
@@ -37,19 +30,14 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const lang = useSequencerStore(state => state.lang);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const globalBypass = useSequencerStore(state => state.globalAutomationBypass);
 
-  const isVolActive = !!(track?.measureVols && track.measureVols.length > 0 && !track?.automationBypass?.volume);
-  const isPanActive = !!(track?.measurePans && track.measurePans.length > 0 && !track?.automationBypass?.pan);
-  const isRevActive = !!(track?.measureReverbSends && track.measureReverbSends.length > 0 && !track?.automationBypass?.reverb);
+  const isVolActive = trackHasRealVolAuto(track) && !isAutomationBypassed(track, 'volume', globalBypass);
+  const isPanActive = trackHasRealPanAuto(track) && !isAutomationBypassed(track, 'pan', globalBypass);
+  const isRevActive = trackHasRealRevAuto(track) && !isAutomationBypassed(track, 'reverb', globalBypass);
 
   const { faderHandleRef, faderTextRef, travelRangeRef, panKnobRef, reverbGaugeRef, reverbTextRef } = useChannelStripAutomation({
-    track,
-    isPlaying,
-    isEcoMode,
-    totalMeasures,
-    isVolActive,
-    isPanActive,
-    isRevActive,
+    track, isPlaying, isEcoMode, totalMeasures, isVolActive, isPanActive, isRevActive,
   });
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `track-${trackId}` });
@@ -62,17 +50,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const isMuted = getEffectiveMuteState(tracksMeta, trackId);
 
   const { groupStyle, linkStyle, faderColor, faderTextColor, paddingTop, paddingBottom, style } = computeChannelStripStyles({
-    track,
-    tracksMeta,
-    inst,
-    busPosition,
-    linkPosition,
-    isDragOver,
-    transform,
-    transition,
-    activeWagonSize,
-    isWagonMember,
-    isDraggingWagon,
+    track, tracksMeta, inst, busPosition, linkPosition, isDragOver, transform, transition,
+    activeWagonSize, isWagonMember, isDraggingWagon,
   });
 
   const childTracks = tracksMeta.filter(t => String(t.busId) === String(trackId));
@@ -88,10 +67,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
       style={{
-        ...style,
-        ...groupStyle,
-        paddingTop: `${paddingTop}px`,
-        paddingBottom: `${12 + paddingBottom}px`,
+        ...style, ...groupStyle,
+        paddingTop: `${paddingTop}px`, paddingBottom: `${12 + paddingBottom}px`,
         zIndex: isDragging ? 50 : (isDragOver ? 20 : 1),
         ['--fader-thumb-bg' as string]: faderColor,
         ['--fader-thumb-border' as string]: 'var(--cordel-border)',
@@ -102,39 +79,20 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       {dropIndicator === 'right' && <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />}
 
       <ChannelStripHeader
-        track={track}
-        inst={inst}
-        channelOrdinal={channelOrdinal}
-        midiFaderIndex={midiFaderIndex}
-        isUnderMidiControl={isUnderMidiControl}
-        displayName={displayName}
-        attributes={attributes}
-        listeners={listeners}
-        isEditingName={isEditingName}
-        nameVal={nameVal}
-        setNameVal={setNameVal}
+        track={track} inst={inst} channelOrdinal={channelOrdinal}
+        midiFaderIndex={midiFaderIndex} isUnderMidiControl={isUnderMidiControl}
+        displayName={displayName} attributes={attributes} listeners={listeners}
+        isEditingName={isEditingName} nameVal={nameVal} setNameVal={setNameVal}
         handleRenameSubmit={() => { if (nameVal.trim()) useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, customName: nameVal.trim() } : t)); setIsEditingName(false); }}
-        setIsEditingName={setIsEditingName}
-        customDeleteMessage={customDeleteMessage}
+        setIsEditingName={setIsEditingName} customDeleteMessage={customDeleteMessage}
       />
 
       <ChannelStripBody
-        track={track}
-        inst={inst}
-        lang={lang}
-        isPlaying={isPlaying}
-        isActive={isActive}
-        isVolActive={isVolActive}
-        isPanActive={isPanActive}
-        isRevActive={isRevActive}
-        faderColor={faderColor}
-        faderTextColor={faderTextColor}
-        faderHandleRef={faderHandleRef}
-        faderTextRef={faderTextRef}
-        travelRangeRef={travelRangeRef}
-        panKnobRef={panKnobRef}
-        reverbGaugeRef={reverbGaugeRef}
-        reverbTextRef={reverbTextRef}
+        track={track} inst={inst} lang={lang} isPlaying={isPlaying} isActive={isActive}
+        isVolActive={isVolActive} isPanActive={isPanActive} isRevActive={isRevActive}
+        faderColor={faderColor} faderTextColor={faderTextColor}
+        faderHandleRef={faderHandleRef} faderTextRef={faderTextRef} travelRangeRef={travelRangeRef}
+        panKnobRef={panKnobRef} reverbGaugeRef={reverbGaugeRef} reverbTextRef={reverbTextRef}
       />
     </div>
   );
