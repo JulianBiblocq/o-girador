@@ -94,10 +94,7 @@ export class VocalPlayerPool {
     }
     keys.forEach((k) => {
       const e = activeVocals.get(k);
-      if (e) {
-        this.disposeEntry(e);
-        activeVocals.delete(k);
-      }
+      if (e) { this.disposeEntry(e); activeVocals.delete(k); }
     });
   }
 
@@ -108,12 +105,8 @@ export class VocalPlayerPool {
 
   private static disposeEntry(e: ActiveVocal): void {
     try { e.mainPlayer.onstop = () => {}; e.mainPlayer.stop(); e.mainPlayer.disconnect(); e.mainPlayer.dispose(); } catch (_) {}
-    if (e.directPlayer && e.directPlayer !== e.mainPlayer) {
-      try { e.directPlayer.onstop = () => {}; e.directPlayer.stop(); e.directPlayer.disconnect(); e.directPlayer.dispose(); } catch (_) {}
-    }
-    if (e.grainPlayer && e.grainPlayer !== e.mainPlayer) {
-      try { e.grainPlayer.onstop = () => {}; e.grainPlayer.stop(); e.grainPlayer.disconnect(); e.grainPlayer.dispose(); } catch (_) {}
-    }
+    if (e.directPlayer && e.directPlayer !== e.mainPlayer) { try { e.directPlayer.onstop = () => {}; e.directPlayer.stop(); e.directPlayer.disconnect(); e.directPlayer.dispose(); } catch (_) {} }
+    if (e.grainPlayer && e.grainPlayer !== e.mainPlayer) { try { e.grainPlayer.onstop = () => {}; e.grainPlayer.stop(); e.grainPlayer.disconnect(); e.grainPlayer.dispose(); } catch (_) {} }
     try { e.mainGain.disconnect(); e.mainGain.dispose(); } catch (_) {}
     disposeHaasNodes(e.haasNodes);
     e.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });

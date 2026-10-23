@@ -1,8 +1,7 @@
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
-import { TrackGroup } from '../../types';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
+import type { HistorySlice } from './historySliceTypes';
 import {
-  StructureSnapshot,
   captureStructureSnapshot,
   popHistoryState,
   scheduleUndoIdle,
@@ -14,17 +13,7 @@ import {
   setIdleUndoId,
 } from '../helpers/undoHistoryHelpers';
 
-export interface HistorySlice {
-  tracksHistory: TrackGroup[][];
-  tracksRedoHistory: TrackGroup[][];
-  songStructureHistory: StructureSnapshot[];
-  songStructureRedoHistory: StructureSnapshot[];
-
-  pushUndoState: (customTracksState?: TrackGroup[]) => void;
-  handleUndo: () => void;
-  handleRedo: () => void;
-  clearHistory: () => void;
-}
+export type { HistorySlice };
 
 export const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (set, get) => {
   const flushPendingUndo = () => {

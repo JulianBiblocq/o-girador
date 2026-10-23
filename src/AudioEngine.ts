@@ -92,21 +92,11 @@ export class AudioEngine {
     );
   }
 
-  public playNote(trackId: number | string, stroke: string, time: number, vel: number, decay: number, isLiveHold = false): void {
-    EngineNotePlayer.playNote(this.getNotePlayerDeps(), trackId, stroke, time, vel, decay, isLiveHold);
-  }
-  public playPreview(instId: string, stroke: string, pitch = 0, vel = 1.0, time?: number): void {
-    EngineNotePlayer.playPreview(this.getNotePlayerDeps(), instId, stroke, pitch, vel, time);
-  }
-  public triggerVoicePitch(pitch: string | number, vel = 0.8, trackId?: string | number): void {
-    EngineVocalActions.triggerPitch(this.audioContext, this.voiceSynthManager, pitch, vel, trackId);
-  }
-  public triggerVoiceAttackRelease(pitch: string | number, dur: number | string, time?: number, vel = 0.8, trackId?: string | number): void {
-    EngineVocalActions.triggerAttackRelease(this.audioContext, this.voiceSynthManager, pitch, dur, time, vel, trackId);
-  }
-  public releaseVoicePitch(pitch?: string | number, trackId?: string | number): void {
-    EngineVocalActions.releasePitch(this.voiceSynthManager, pitch, trackId);
-  }
+  public playNote(trackId: number | string, stroke: string, time: number, vel: number, decay: number, isLiveHold = false): void { EngineNotePlayer.playNote(this.getNotePlayerDeps(), trackId, stroke, time, vel, decay, isLiveHold); }
+  public playPreview(instId: string, stroke: string, pitch = 0, vel = 1.0, time?: number): void { EngineNotePlayer.playPreview(this.getNotePlayerDeps(), instId, stroke, pitch, vel, time); }
+  public triggerVoicePitch(pitch: string | number, vel = 0.8, trackId?: string | number): void { EngineVocalActions.triggerPitch(this.audioContext, this.voiceSynthManager, pitch, vel, trackId); }
+  public triggerVoiceAttackRelease(pitch: string | number, dur: number | string, time?: number, vel = 0.8, trackId?: string | number): void { EngineVocalActions.triggerAttackRelease(this.audioContext, this.voiceSynthManager, pitch, dur, time, vel, trackId); }
+  public releaseVoicePitch(pitch?: string | number, trackId?: string | number): void { EngineVocalActions.releasePitch(this.voiceSynthManager, pitch, trackId); }
   public releaseAllVoices(): void { this.voiceSynthManager.releaseAllVoices(); }
   public releaseVoicesForTrack(trackId: string | number): void { this.voiceSynthManager.releaseVoicesForTrack(trackId); }
   public initVoiceSynth(presetId?: VocalPresetId): void { EngineVocalActions.initSynth(this.voiceSynthManager, presetId, this.channels.instrumentChannels); }
@@ -120,9 +110,7 @@ export class AudioEngine {
   public async loadInstrumentSamples(instId: string): Promise<void> { return EngineSampleActions.loadInstrumentSamples(this.audioContext, this.sampleLoader, this.configMap, instId); }
   public async loadStrokeSamples(instId: string, stroke: string): Promise<void> { return EngineSampleActions.loadStrokeSamples(this.audioContext, this.sampleLoader, this.configMap, instId, stroke); }
   public isStrokeLoaded(instId: string, stroke: string): boolean { return EngineSampleActions.isStrokeLoaded(this.sampleLoader, this.configMap, instId, stroke); }
-  public async syncActiveInstrumentsMemory(activeInstruments: ActiveInstrumentData[]): Promise<void> {
-    return EngineSampleActions.syncActiveInstrumentsMemory(this.audioContext, this.sampleLoader, this.configMap, activeInstruments);
-  }
+  public async syncActiveInstrumentsMemory(activeInstruments: ActiveInstrumentData[]): Promise<void> { return EngineSampleActions.syncActiveInstrumentsMemory(this.audioContext, this.sampleLoader, this.configMap, activeInstruments); }
 
   public stopBarulho(instId: string, time?: number): void { this.barulho.stopBarulho(instId, time); } public stopAllBarulho(): void { this.barulho.stopAllBarulho(); }
   public purgeScheduledHits(): void {

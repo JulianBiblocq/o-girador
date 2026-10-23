@@ -8,14 +8,8 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../../db';
 import { scheduleAudioContextAutoSuspend } from '../audioContextSuspendManager';
 
-export function base64ToBlob(base64Data: string): Blob {
-  const parts = base64Data.split(';base64,');
-  const contentType = parts[0]?.split(':')[1] || 'audio/wav';
-  const raw = typeof window !== 'undefined' ? window.atob(parts[1] || parts[0]) : '';
-  const uInt8Array = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; ++i) uInt8Array[i] = raw.charCodeAt(i);
-  return new Blob([uInt8Array], { type: contentType });
-}
+import { base64ToBlob } from '../../contexts/audio/audioVocalBase64';
+export { base64ToBlob };
 
 export class VocalRecordingService {
   public static mediaRecorder: MediaRecorder | null = null;
@@ -26,6 +20,16 @@ export class VocalRecordingService {
     store.setTargetPatternId?.(patternId);
     store.setRecordingStatus?.('recording');
     store.setIsFocusRecordingMode?.(true);
+
+    const seq = useSequencerStore.getState();
+    let targetM: number | null = null;
+    for (const t of seq.tracks) {
+      const p = t.patterns?.find(x => x.id === patternId);
+      const idx = p?.measureAssignments?.indexOf(true) ?? -1;
+      if (idx !== -1) { targetM = idx; break; }
+    }
+    const resolvedM = targetM ?? seq.activeTimelineCell?.measureIdx ?? seq.currentMeasure ?? 0;
+    store.setTargetMeasureIdx?.(resolvedM);
 
     let stream: MediaStream | null = null;
     try {
@@ -46,6 +50,7 @@ export class VocalRecordingService {
       this.mediaRecorder = null;
       store.setRecordingStatus?.('inactive');
       store.setIsFocusRecordingMode?.(false);
+      store.setTargetMeasureIdx?.(null);
       console.error('Erreur démarrage enregistrement vocal:', err);
     }
   }
@@ -62,9 +67,11 @@ export class VocalRecordingService {
     const store = useAudioStore.getState() as any;
     store.setRecordingStatus?.('inactive');
     store.setIsFocusRecordingMode?.(false);
+    store.setTargetMeasureIdx?.(null);
     try { Tone.Transport.stop(); } catch (_) {}
     scheduleAudioContextAutoSuspend(500);
   }
+
 
   public static async loadVocalRecording(patternId: number): Promise<Blob | null> {
     try {

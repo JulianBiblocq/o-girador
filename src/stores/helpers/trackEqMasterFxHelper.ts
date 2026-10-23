@@ -1,5 +1,5 @@
 import { TrackGroup, MasterFX } from '../../types';
-import { MasterEffectsActiveState } from '../useSequencerStore';
+import { MasterEffectsActiveState } from '../slices/trackAcousticsSliceTypes';
 
 export const handleTrackLowCutToggleState = (
   tracks: TrackGroup[],
@@ -65,17 +65,6 @@ export const setMasterFxParamState = (
   [fxType]: {
     ...masterFX[fxType],
     [param]: value
-  }
-});
-
-export const toggleMasterFxMuteState = (
-  masterFX: MasterFX,
-  fxType: 'reverb' | 'distortion'
-): MasterFX => ({
-  ...masterFX,
-  [fxType]: {
-    ...masterFX[fxType],
-    isMuted: !masterFX[fxType].isMuted
   }
 });
 

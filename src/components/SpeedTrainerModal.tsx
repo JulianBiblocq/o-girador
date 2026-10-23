@@ -29,9 +29,15 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
 
   useEffect(() => {
     if (!logic.isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') logic.handleClose(); };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        logic.handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [logic.isOpen, logic.handleClose]);
 
   if (!logic.isOpen) return null;

@@ -42,9 +42,8 @@ export class EngineSchedulerClock {
   }
 
   public updateSchedulingParameters(): void {
-    const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
     this.SCHEDULE_AHEAD_TIME = 0.250;
-    this.LOOKAHEAD_INTERVAL = isMobile ? 35.0 : 25.0;
+    this.LOOKAHEAD_INTERVAL = 25.0;
 
     try {
       const Tone = getTone();
@@ -83,16 +82,11 @@ export class EngineSchedulerClock {
   public stop(): void {
     this.isPlaying = false;
     this.isScheduling = false;
-    this.currentStep = 0;
-    this.currentMeasure = 0;
-    this.schedulingStep = 0;
-    this.schedulingMeasure = 0;
-    this.anchorStep = 0;
-    this.anchorNoteTime = 0;
-    this.nextTickTime = 0;
-    this.lastSchedulingMeasure = -1;
-    this.mustReanchor = false;
-    this.sequenceStartTime = 0;
+    this.currentStep = 0; this.currentMeasure = 0;
+    this.schedulingStep = 0; this.schedulingMeasure = 0;
+    this.anchorStep = 0; this.anchorNoteTime = 0;
+    this.nextTickTime = 0; this.lastSchedulingMeasure = -1;
+    this.mustReanchor = false; this.sequenceStartTime = 0;
   }
 
   public forceReanchor(): void {
@@ -131,18 +125,13 @@ export class EngineSchedulerClock {
 
   public dispose(): void {
     if (this.clockHandle?.clockNode) {
-      try {
-        this.clockHandle.clockNode.port.onmessage = null;
-        this.clockHandle.clockNode.disconnect();
-      } catch (_) {}
+      try { this.clockHandle.clockNode.port.onmessage = null; this.clockHandle.clockNode.disconnect(); } catch (_) {}
       this.clockHandle.clockNode = null;
     }
     if (this.clockHandle?.fallbackTimerId) {
       window.clearInterval(this.clockHandle.fallbackTimerId);
       this.clockHandle.fallbackTimerId = null;
     }
-    if (this.clockHandle) {
-      this.clockHandle.hasWorkletTicked = false;
-    }
+    if (this.clockHandle) this.clockHandle.hasWorkletTicked = false;
   }
 }

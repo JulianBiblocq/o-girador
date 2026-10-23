@@ -7,7 +7,6 @@ export interface ProjectSettingsSlice {
   metadata: PresetMetadata;
   isLeftHanded: boolean;
   lang: Language;
-  vocalCalibrationLatencyMs: number;
   isEcoMode: boolean;
   ecoConfig: EcoConfig;
   editingTrackId: number | null;
@@ -30,7 +29,6 @@ export interface ProjectSettingsSlice {
   setMetadata: (metadata: PresetMetadata) => void;
   setIsLeftHanded: (val: boolean) => void;
   setLang: (lang: Language) => void;
-  setVocalCalibrationLatencyMs: (val: number) => void;
   handleExtractLyrics: () => void;
   toggleEcoMode: () => void;
   toggleEcoOption: (key: keyof EcoConfig) => void;

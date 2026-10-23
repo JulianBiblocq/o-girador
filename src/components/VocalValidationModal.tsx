@@ -72,11 +72,15 @@ export const VocalValidationModal: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleCancel();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        handleCancel();
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
       VocalRecordingService.stopRecording();
     };
   }, []);
@@ -108,13 +112,7 @@ export const VocalValidationModal: React.FC = () => {
         ) : !audioBuffer ? (
           <div className="h-64 flex flex-col items-center justify-center gap-4 bg-[#e2d8be] border-2 border-[#1a1a1a] rounded-sm p-6 text-center">
             <p className="text-sm font-bold text-[#8b2a1a]">Échec du décodage de l'enregistrement (flux audio vide ou format non supporté).</p>
-            <button
-              onClick={handleCancel}
-              type="button"
-              className="px-4 py-2 bg-[#8b2a1a] text-[#fdfaf2] font-cactus font-bold text-sm uppercase rounded-sm border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#6e2114]"
-            >
-              Fermer
-            </button>
+            <button onClick={handleCancel} type="button" className="px-4 py-2 bg-[#8b2a1a] text-[#fdfaf2] font-cactus font-bold text-sm uppercase rounded-sm border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#6e2114]">Fermer</button>
           </div>
         ) : (
           <AudioAlignmentEditor

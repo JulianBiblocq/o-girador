@@ -42,12 +42,9 @@ export type SequencerContextType = ReturnType<typeof useSequencerState> & {
     selectedAudioDeviceId?: string;
     handleAudioDeviceChange?: any;
     handleImportVocalFile?: any;
-    isVocalGuideEnabled?: boolean;
-    setIsVocalGuideEnabled?: any;
     handleVocalBpmSyncToggle?: any;
     activeVariationsRef?: any;
     runAutoCalibration?: any;
-    vocalCalibrationLatencyMs?: number;
   };
 
 const SequencerContext = createContext<SequencerContextType | undefined>(undefined);

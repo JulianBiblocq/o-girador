@@ -38,9 +38,9 @@ export const TimelineContextMenu: React.FC = () => {
     setCoords({ x: Math.max(pad, Math.min(menuData.x, window.innerWidth - mW - pad)), y: Math.max(pad, Math.min(menuData.y, window.innerHeight - mH - pad)) });
 
     const onDown = (e: PointerEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeMenu(); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMenu(); };
-    window.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeMenu(); } };
+    window.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey, { capture: true });
+    return () => { window.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey, { capture: true }); };
   }, [menuData, closeMenu]);
 
   if (!menuData || !coords) return null;

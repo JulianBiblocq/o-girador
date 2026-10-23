@@ -30,7 +30,7 @@ export const SectionCollisionModal: React.FC<SectionCollisionModalProps> = ({
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         onCancel();
       }
     },

@@ -13,7 +13,8 @@ import { syncMobileViewModeWithProfile } from '../utils/viewModeResolver';
 export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: boolean) {
   useEffect(() => {
     if (userProfile) {
-      syncMobileViewModeWithProfile(userProfile);
+      const { mobileViewMode, setMobileViewMode } = useSequencerStore.getState();
+      syncMobileViewModeWithProfile(userProfile, mobileViewMode, setMobileViewMode);
     }
   }, [userProfile?.uid, userProfile?.lastSequenciadorMode, userProfile?.role, userProfile?.instrument]);
   useEffect(() => {

@@ -5,7 +5,6 @@
 
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { useSequencerStore } from '../stores/useSequencerStore';
 import type { UserProfile } from '../contexts/auth/authTypes';
 
 export type MobileViewMode = 'danse' | 'percussion' | 'editeur' | 'complet';
@@ -54,32 +53,12 @@ export function getInitialMobileViewMode(): MobileViewMode {
   const modeParam = (urlParams.get('mode') || '').toLowerCase();
   const viewParam = (urlParams.get('view') || '').toLowerCase();
 
-  // PRIORITÉ 1 — Lien explicite dans l'URL
-  if (modeParam === 'danse' || viewParam === 'danse') {
-    persistMobileViewModeLocally('danse');
-    return 'danse';
+  if (modeParam === 'danse' || viewParam === 'danse') { persistMobileViewModeLocally('danse'); return 'danse'; }
+  if (modeParam === 'percussion' || urlParams.get('tocarJunto') === '1' || urlParams.has('tocarJunto') || urlParams.has('trainingId') || urlParams.has('role')) {
+    persistMobileViewModeLocally('percussion'); return 'percussion';
   }
-
-  if (
-    modeParam === 'percussion' ||
-    urlParams.get('tocarJunto') === '1' ||
-    urlParams.has('tocarJunto') ||
-    urlParams.has('trainingId') ||
-    urlParams.has('role')
-  ) {
-    persistMobileViewModeLocally('percussion');
-    return 'percussion';
-  }
-
-  if (modeParam === 'editeur' || modeParam === 'edition') {
-    persistMobileViewModeLocally('editeur');
-    return 'editeur';
-  }
-
-  if (modeParam === 'complet' || modeParam === 'studio') {
-    persistMobileViewModeLocally('complet');
-    return 'complet';
-  }
+  if (modeParam === 'editeur' || modeParam === 'edition') { persistMobileViewModeLocally('editeur'); return 'editeur'; }
+  if (modeParam === 'complet' || modeParam === 'studio') { persistMobileViewModeLocally('complet'); return 'complet'; }
 
   // PRIORITÉ 2 — Mémoire de l'utilisateur (sequenciador_last_view_mode)
   try {
@@ -121,28 +100,30 @@ export function resolveDefaultModeFromProfile(profile: UserProfile): MobileViewM
   return 'complet';
 }
 
-export function syncMobileViewModeWithProfile(profile: UserProfile | null | undefined): void {
+export function syncMobileViewModeWithProfile(
+  profile: UserProfile | null | undefined,
+  currentStoreMode?: MobileViewMode,
+  setMobileViewMode?: (mode: MobileViewMode) => void
+): void {
   if (!profile || typeof window === 'undefined') return;
 
   // Priorité absolue à l'URL : ne jamais écraser un lien ciblé
   if (hasDirectModeUrlParam()) return;
 
-  const currentStoreMode = useSequencerStore.getState().mobileViewMode;
-
   if (profile.lastSequenciadorMode) {
     const cloudMode = profile.lastSequenciadorMode;
     if (['danse', 'percussion', 'editeur', 'complet'].includes(cloudMode)) {
-      if (currentStoreMode !== cloudMode) {
-        useSequencerStore.getState().setMobileViewMode(cloudMode);
+      if (setMobileViewMode && currentStoreMode !== cloudMode) {
+        setMobileViewMode(cloudMode as MobileViewMode);
       }
-      persistMobileViewModeLocally(cloudMode);
+      persistMobileViewModeLocally(cloudMode as MobileViewMode);
       return;
     }
   }
 
   const savedLocal = localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY);
-  if (!savedLocal) {
+  if (!savedLocal && setMobileViewMode) {
     const resolved = resolveDefaultModeFromProfile(profile);
-    useSequencerStore.getState().setMobileViewMode(resolved);
+    setMobileViewMode(resolved);
   }
 }

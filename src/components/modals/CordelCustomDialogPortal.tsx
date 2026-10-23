@@ -21,12 +21,12 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
     if (!customDialog) return;
     const handleCaptureKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         e.preventDefault();
         setCustomDialog(null);
         customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
       } else if (e.key === 'Enter' && customDialog.type !== 'prompt') {
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         e.preventDefault();
         setCustomDialog(null);
         customDialog.onResolve(true);

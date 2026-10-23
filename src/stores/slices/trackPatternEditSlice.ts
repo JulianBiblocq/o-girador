@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { usePaperVigilanceStore } from '../usePaperVigilanceStore';
 import { TrackPatternEditSlice } from './trackPatternEditSliceTypes';
 import { handleTimelinePatternAssignState } from '../helpers/timelinePatternAssignHelper';

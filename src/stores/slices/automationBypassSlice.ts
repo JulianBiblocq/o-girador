@@ -4,14 +4,11 @@
  * Slice Zustand pour le débrayage global des automations (< 60 lignes).
  */
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { GlobalAutomationBypass } from '../../utils/automationBypassHelper';
+import type { AutomationBypassSlice } from './automationBypassSliceTypes';
 
-export interface AutomationBypassSlice {
-  globalAutomationBypass: GlobalAutomationBypass;
-  toggleGlobalAutomationBypass: (target: 'all' | 'volume' | 'pan' | 'reverb') => void;
-  setGlobalAutomationBypass: (bypass: Partial<GlobalAutomationBypass>) => void;
-}
+export type { AutomationBypassSlice };
 
 export const createAutomationBypassSlice: StateCreator<SequencerStore, [], [], AutomationBypassSlice> = (set, get) => ({
   globalAutomationBypass: {

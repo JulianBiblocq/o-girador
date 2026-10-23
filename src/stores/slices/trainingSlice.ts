@@ -4,7 +4,7 @@
  */
 
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrainingSlice, TrackGroup } from '../../types';
 import { resolveDefaultFocusTrackId } from '../../utils/focusTrackSelector';
 

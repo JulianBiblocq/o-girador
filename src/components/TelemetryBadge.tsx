@@ -1,4 +1,5 @@
 import React from 'react';
+import { Activity, Zap } from 'lucide-react';
 import { usePerformanceStore } from '../stores/usePerformanceStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
@@ -20,10 +21,10 @@ export const TelemetryBadge: React.FC = () => {
   return (
     <div className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-4 shadow-[4px_4px_0px_#000] max-w-sm font-cactus text-[var(--cordel-text)]">
       <h4 className="text-sm font-bold uppercase tracking-wider mb-3 border-b border-[var(--cordel-border)] pb-1 flex items-center justify-between">
-        <span>📊 {lang === 'fr' ? 'Télémétrie Système' : 'Telemetria do Sistema'}</span>
+        <span className="flex items-center gap-1.5"><Activity className="w-4 h-4 stroke-current" /> {lang === 'fr' ? 'Télémétrie Système' : 'Telemetria do Sistema'}</span>
         {isUltraEcoMode && (
-          <span className="text-xs bg-amber-500 text-black px-1.5 py-0.5 rounded font-black">
-            ⚡ {lang === 'fr' ? 'Tier 3' : 'Nível 3'}
+          <span className="text-xs bg-amber-500 text-black px-1.5 py-0.5 rounded font-black flex items-center gap-1">
+            <Zap className="w-3.5 h-3.5 stroke-current" /> {lang === 'fr' ? 'Tier 3' : 'Nível 3'}
           </span>
         )}
       </h4>
@@ -48,7 +49,7 @@ export const TelemetryBadge: React.FC = () => {
         </div>
         <div className="flex justify-between items-center py-2 border-t border-dashed border-[var(--cordel-border)] mt-1">
           <span className="font-bold flex items-center gap-1">
-            ⚡ {lang === 'fr' ? 'Mode Ultra-Éco (Tier 3) :' : 'Modo Ultra-Eco (Nível 3) :'}
+            <Zap className="w-3.5 h-3.5 stroke-current" /> {lang === 'fr' ? 'Mode Ultra-Éco (Tier 3) :' : 'Modo Ultra-Eco (Nível 3) :'}
           </span>
           <button
             onClick={() => setUltraEcoMode(!isUltraEcoMode)}

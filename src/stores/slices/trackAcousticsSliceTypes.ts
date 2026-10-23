@@ -21,7 +21,6 @@ export interface TrackAcousticsSlice {
   handleTrackMeasureReverbChange: (trackId: number, mIdx: number, val: number) => void;
   handleTrackMeasureReverbTransitionChange: (trackId: number, mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
   toggleTrackAutomationBypass: (trackId: number, type: 'volume' | 'pan' | 'reverb') => void;
-  bypassAllAutomations: (bypass?: boolean) => void;
   setTrackTuning: (trackId: number, tuning: number) => void;
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
@@ -39,7 +38,6 @@ export interface TrackAcousticsSlice {
   handleTrackEQReset: (id: number) => void;
   setMasterFxVolume: (fxType: 'reverb' | 'distortion', volume: number) => void;
   setMasterFxParam: (fxType: 'reverb' | 'distortion', param: 'time' | 'drive', value: number) => void;
-  toggleMasterFxMute: (fxType: 'reverb' | 'distortion') => void;
   setMasterFX: (masterFX: MasterFX) => void;
   toggleMasterEffectActive: (effect: 'compressor' | 'reverb' | 'disto') => void;
   setMasterEffectsActive: (active: Partial<MasterEffectsActiveState>) => void;

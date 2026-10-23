@@ -4,7 +4,6 @@
  */
 
 import * as Tone from 'tone';
-import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import {
   busInputs,
   busChannels,
@@ -28,13 +27,8 @@ export function syncBusInsertChain(busId: string | number, track: any) {
     eqNodeGroup.high.disconnect();
   }
 
-  const perfState = usePerformanceStore.getState();
-  const isEQBypassed = perfState.bypassEQ;
 
-  if (isEQBypassed) {
-    inputNode.connect(channelNode);
-    return;
-  }
+
 
   const hasLowCut = !!track.lowCut;
   let currentLowCut = lowCutNodes[busId];

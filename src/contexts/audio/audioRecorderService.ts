@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { loadTone } from '../../ToneLoader';
-import { masterVolumeNode } from '../../hooks/useAudioSync';
+import { masterVolumeNode } from '../../audio/effects/effectsChainNodes';
 import { bufferToWav } from './audioWavEncoder';
 import { scheduleAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 

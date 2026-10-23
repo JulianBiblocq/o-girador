@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { selectTracksMeta } from '../helpers/trackMetaCache';
 import { getDisplayedMixerTracks } from '../helpers/mixerOrderingHelpers';
 import { selectTimelineCellState, selectAllTimelineCellsState, selectTrackTimelineCellsState } from '../helpers/timelineSelectionHelpers';
@@ -13,22 +13,10 @@ export * from '../helpers/timelineClipboardTypes';
 export * from './uiSliceTypes';
 
 export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set, get) => ({
-  isLinearDawDetached: false,
-  isCircleSequencerDetached: false,
-  isConsoleDetached: false,
-  isTimelineDetached: false,
-  isInstrumentEditorDetached: false,
-  toggleLinearDawDetached: () => {},
-  toggleCircleSequencerDetached: () => {},
-  toggleConsoleDetached: () => {},
-  toggleTimelineDetached: () => {},
-  toggleInstrumentEditorDetached: () => {},
+  isLinearDawDetached: false, isCircleSequencerDetached: false, isConsoleDetached: false, isTimelineDetached: false, isInstrumentEditorDetached: false,
+  toggleLinearDawDetached: () => {}, toggleCircleSequencerDetached: () => {}, toggleConsoleDetached: () => {}, toggleTimelineDetached: () => {}, toggleInstrumentEditorDetached: () => {},
   setDetachedPanelsState: () => set({
-    isLinearDawDetached: false,
-    isCircleSequencerDetached: false,
-    isConsoleDetached: false,
-    isTimelineDetached: false,
-    isInstrumentEditorDetached: false,
+    isLinearDawDetached: false, isCircleSequencerDetached: false, isConsoleDetached: false, isTimelineDetached: false, isInstrumentEditorDetached: false,
   }),
 
   timelineContextMenu: null,

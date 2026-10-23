@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrackCoreSlice } from './trackCoreSliceTypes';
 import {
   handleTrackDeleteState,

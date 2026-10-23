@@ -1,7 +1,6 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { faderPositionToGain, gainToFaderPosition } from '../../utils/audioMath';
-import { usePerformanceStore } from '../usePerformanceStore';
 import { TrackMeta } from './trackMetaCache';
 
 const isAnyParentMatching = (tracks: any[], currentTrack: any, predicate: (parent: any) => boolean): boolean => {
@@ -53,19 +52,6 @@ export const getEffectiveMuteState = (tracks: any[], trackId: number | string): 
     const isParentBusSolo = Boolean(track.busId && tracks.some(t => String(t.id) === String(track.busId) && t.isSolo));
     const isSelfSolo = track.isSolo === true;
     isAllowedToPlayBySolo = isSelfSolo || isParentBusSolo || isAnyParentMatching(tracks, track, p => p.isSolo) || isAnyDescendantSolo(tracks, track);
-  }
-
-  // 1.5. Dynamic CPU Overload Muting
-  const isCPUSurcharged = usePerformanceStore.getState().isCPUSurcharged;
-  if (isCPUSurcharged && !track.isBusFolder) {
-    const instId = instrumentsConfig[track.instrumentIdx]?.id;
-    if (instId) {
-      const sameInstTracks = tracks.filter(t => !t.isBusFolder && instrumentsConfig[t.instrumentIdx]?.id === instId);
-      if (sameInstTracks.length > 1) {
-        sameInstTracks.sort((a, b) => a.id - b.id);
-        if (sameInstTracks[0].id !== track.id) return true;
-      }
-    }
   }
 
   // 2. Recursive Mute check

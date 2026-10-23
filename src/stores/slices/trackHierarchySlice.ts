@@ -1,6 +1,11 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { StateCreator } from 'zustand';
-import { TrackGroup } from '../../types';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
+import type { TrackHierarchySlice } from './trackHierarchySliceTypes';
 import { handleReorderRodaTracksState, handleReorderWagonState } from '../helpers/trackReorderRodaWagonHelper';
 import { handleReorderMixerTracksState } from '../helpers/trackReorderMixerHelper';
 import { handleLinkTrackState, handleDetachTrackState } from '../helpers/trackLinkingHelpers';
@@ -15,22 +20,7 @@ import {
   handleSetPatternOverrideState
 } from '../helpers/trackBusHelpers';
 
-export interface TrackHierarchySlice {
-  handleReorderRodaTracks: (activeId: number, overId: number) => void;
-  handleReorderMixerTracks: (activeId: number, overId: number) => void;
-  handleReorderWagon: (wagonTrackIds: number[], overTrackId: number) => void;
-  handleReorderTracksDnd: (activeId: number, overId: number) => void;
-  handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
-  handleDetachTrack: (trackId: number) => void;
-  handleCreateLinkGroup: (trackId: number, name: string) => void;
-  handleCreateBus: (trackId: number, name: string) => void;
-  handleCreateCustomBus: (trackIds: number[], name: string) => void;
-  handleCreateCustomLinkGroup: (masterTrackId: number, slaveTrackIds: number[], name: string) => void;
-  handleSetPatternOverride: (trackId: number, measureIdx: number, patternId?: number | null) => void;
-  handleAssignToBus: (trackId: number, busId: string | null) => void;
-  handleToggleFoldBus: (busId: number | string) => void;
-  handleToggleSequencerFoldBus: (busId: number | string) => void;
-}
+export type { TrackHierarchySlice };
 
 export const createTrackHierarchySlice: StateCreator<SequencerStore, [], [], TrackHierarchySlice> = (set, get) => ({
   handleReorderRodaTracks: (activeId, overId) => {

@@ -40,14 +40,6 @@ export function useTimelineMultiSelection({ isPlaying, onTrackStepValueChange }:
         return;
       }
 
-      // Ctrl+D / Cmd+D : Duplication en bloc des cellules sélectionnées
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
-        e.preventDefault();
-        e.stopPropagation();
-        useSequencerStore.getState().duplicateSelectedCells();
-        return;
-      }
-
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       // Escape : Ferme l'éditeur de pas ou vide la sélection multiple
@@ -69,16 +61,8 @@ export function useTimelineMultiSelection({ isPlaying, onTrackStepValueChange }:
         return;
       }
 
-      // Delete / Backspace : Suppression groupée sur la sélection ou sur le pas survolé
+      // Delete / Backspace sur pas individuel survolé si pas de sélection multiple
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const store = useSequencerStore.getState();
-        if (store.selectedTimelineCells.length > 0 || store.activeTimelineCell) {
-          e.preventDefault();
-          e.stopPropagation();
-          store.deleteSelectedTimelineCells();
-          return;
-        }
-
         const hovered = (window as any).activeHoveredStep;
         if (hovered && onTrackStepValueChange) {
           onTrackStepValueChange(hovered.trackId, hovered.patternId, hovered.stepIdx, '0');
@@ -86,6 +70,7 @@ export function useTimelineMultiSelection({ isPlaying, onTrackStepValueChange }:
           return;
         }
       }
+
 
       // 0 : Vider le pas survolé
       if (e.key === '0') {

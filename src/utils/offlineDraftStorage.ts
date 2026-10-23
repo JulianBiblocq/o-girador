@@ -85,7 +85,8 @@ export async function syncOfflineDraftsIfOnline(): Promise<number> {
   return syncedCount;
 }
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !(window as any).__offlineDraftSyncAttached) {
+  (window as any).__offlineDraftSyncAttached = true;
   window.addEventListener('online', () => {
     syncOfflineDraftsIfOnline().catch(() => {});
   });

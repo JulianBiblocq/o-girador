@@ -1,16 +1,21 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { SpeedTrainerSlice, TrainingSlice } from '../../types';
 import { TrackCoreSlice } from '../slices/trackCoreSliceTypes';
-import { TrackHierarchySlice } from '../slices/trackHierarchySlice';
+import { TrackHierarchySlice } from '../slices/trackHierarchySliceTypes';
 import { TrackAcousticsSlice, MasterEffectsActiveState } from '../slices/trackAcousticsSliceTypes';
 import { TrackPatternEditSlice } from '../slices/trackPatternEditSliceTypes';
-import { StructureSlice } from '../slices/songStructureSlice';
-import { PlaybackSlice } from '../slices/playbackSlice';
-import { HistorySlice } from '../slices/historySlice';
+import { StructureSlice } from '../slices/songStructureSliceTypes';
+import { PlaybackSlice } from '../slices/playbackSliceTypes';
+import { HistorySlice } from '../slices/historySliceTypes';
 import { ClipboardSlice } from '../slices/clipboardSliceTypes';
 import { ProjectSettingsSlice } from '../slices/projectSettingsSliceTypes';
 import { UISlice } from '../slices/uiSliceTypes';
 import { PracticeModeSlice } from '../slices/practiceModeSliceTypes';
-import { AutomationBypassSlice } from '../slices/automationBypassSlice';
+import { AutomationBypassSlice } from '../slices/automationBypassSliceTypes';
 
 export type TrackSlice = TrackCoreSlice & TrackHierarchySlice & TrackAcousticsSlice & TrackPatternEditSlice;
 

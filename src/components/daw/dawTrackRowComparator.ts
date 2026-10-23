@@ -4,9 +4,9 @@
  */
 
 import { TrackGroup } from '../../types';
-import { isToadaBus } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
-import type { DawTrackRowProps } from '../DawTrackRow';
+import { isToadaBus } from '../../stores/useSequencerStore';
+import type { DawTrackRowProps } from './dawTrackRowTypes';
 
 /**
  * Optimiseur de re-render pour DawTrackRow.

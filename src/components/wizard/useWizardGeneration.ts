@@ -74,7 +74,7 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
         }],
         isMute: false, isSolo: false, isHidden: trackHidden, volumeVal, selectedPatternId: trackId + 10000,
         reverbVal: calculatedReverb, panVal: panPct, pan: panPct, swingIntensity: intensity, balancoPresetId: selectedBalancoId,
-        tuning: instrumentTunings[inst.instrumentType] || 0, tuningPitch: instrumentTunings[inst.instrumentType] || 0,
+        tuning: instrumentTunings[inst.instrumentType] || 0,
         fxSends: { reverb: calculatedReverb, distortion: 0 },
       });
       if (audioEngine) audioEngine.loadInstrumentSamples(inst.instrumentType).catch(console.error);

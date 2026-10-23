@@ -51,6 +51,8 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
         if (isEditing) {
           setLocalDescriptionPt(metadata.descriptionPt || metadata.description || '');
           setLocalDescriptionFr(metadata.descriptionFr || '');
@@ -60,8 +62,8 @@ export const DescriptionModal: React.FC<DescriptionModalProps> = ({
         }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [isOpen, isEditing, metadata, onClose]);
 
   if (!isOpen) return null;

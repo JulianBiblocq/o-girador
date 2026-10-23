@@ -4,7 +4,6 @@
  * Respect strict de l'architecture anti-monolithe (< 150 lignes).
  */
 import { instrumentsConfig } from '../data';
-import { useSequencerStore } from '../stores/useSequencerStore';
 import type { TrackGroup, ToadaConductorSlot } from '../types/store.types';
 
 export function buildToadaConductorSlots(
@@ -94,8 +93,8 @@ export function deployToadaCycle(state: any, startMeasureIdx: number): Partial<a
   };
 }
 
-export function checkAndTriggerToadaQuickPrompt(trackId: number, patternId: number, measureIdx: number): void {
-  const store = useSequencerStore.getState();
+export function checkAndTriggerToadaQuickPrompt(store: any, trackId: number, patternId: number, measureIdx: number): void {
+  if (!store) return;
   const slots = store.toadaConductorSlots || [];
   if (slots.length <= 1) return;
 

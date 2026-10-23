@@ -21,8 +21,6 @@ export interface AudioState {
   vocalBlobs: Record<string | number, Blob>;
   vocalBuffers: Record<string | number, AudioBuffer>;
   tempRecording: TempRecordingData | null;
-  chorusDensity: number;
-  isVocalGuideEnabled: boolean;
   selectedVocalPatternId: number | null;
   isAudioUnlocked: boolean;
   selectedOutputDeviceId: string | null;
@@ -32,8 +30,6 @@ export interface AudioState {
   setTargetPatternId: (id: number | null) => void;
   setTargetMeasureIdx: (idx: number | null) => void;
   setTempRecording: (temp: TempRecordingData | null) => void;
-  setChorusDensity: (density: number) => void;
-  setIsVocalGuideEnabled: (enabled: boolean) => void;
   addVocalBlob: (patternId: string | number, blob: Blob) => void;
   removeVocalBlob: (patternId: string | number) => void;
   addVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
@@ -49,7 +45,5 @@ export interface AudioState {
   vocalPreset: VocalPresetId;
   setVocalPreset: (preset: VocalPresetId) => void;
   recordingStatus?: string;
-  isFocusRecordingMode?: boolean;
   setRecordingStatus?: (status: string) => void;
-  setIsFocusRecordingMode?: (focus: boolean) => void;
 }

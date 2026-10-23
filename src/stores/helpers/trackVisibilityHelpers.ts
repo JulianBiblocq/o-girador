@@ -56,7 +56,10 @@ export const getVisibleTimelineTrackIds = (state: {
   const topLevelList: TrackGroup[] = [];
   state.tracks.forEach(t => {
     if (isLinearDAWVisibleTrack(t, state.tracks)) {
-      topLevelList.push(t);
+      const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkMaster && !t.isBusFolder && !t.isLinkFolder);
+      if (!isLinkedSlave) {
+        topLevelList.push(t);
+      }
     }
   });
 
@@ -80,9 +83,11 @@ export const getVisibleTimelineTrackIds = (state: {
     }
     if (t.isLinkMaster) {
       const parentBus = state.tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-      if (parentBus && !parentBus.isSequencerFolded) {
+      const isFolded = parentBus ? parentBus.isSequencerFolded : t.isSequencerFolded;
+      if (!isFolded) {
+        const parentId = parentBus ? String(parentBus.id) : String(t.id);
         const slaves = state.tracks.filter(child => 
-          String(child.linkedToTrackId) === String(parentBus.id) && 
+          String(child.linkedToTrackId) === parentId && 
           !child.isLinkFolder && 
           !child.isLinkMaster
         );
@@ -92,3 +97,4 @@ export const getVisibleTimelineTrackIds = (state: {
   });
   return visibleTrackIds;
 };
+

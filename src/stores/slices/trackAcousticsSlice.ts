@@ -1,7 +1,7 @@
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrackAcousticsSlice } from './trackAcousticsSliceTypes';
-import { setMasterMonoCheck } from '../../audio/effectsChain';
+import { setMasterMonoCheck } from '../../audio/effects/masterMonoHandler';
 import {
   handleTrackMeasureVolChangeState,
   handleTrackMeasureVolTransitionChangeState,
@@ -9,8 +9,7 @@ import {
   handleTrackMeasurePanTransitionChangeState,
   handleTrackMeasureReverbChangeState,
   handleTrackMeasureReverbTransitionChangeState,
-  toggleTrackAutomationBypassState,
-  bypassAllAutomationsState
+  toggleTrackAutomationBypassState
 } from '../helpers/trackAcousticAutomationHelper';
 import {
   handleTrackSwingChangeState,
@@ -25,7 +24,6 @@ import {
   handleTrackEQResetState,
   setMasterFxVolumeState,
   setMasterFxParamState,
-  toggleMasterFxMuteState,
   toggleMasterEffectActiveState,
   setMasterEffectsActiveState
 } from '../helpers/trackEqMasterFxHelper';
@@ -89,9 +87,6 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
   toggleTrackAutomationBypass: (trackId, type) => {
     set(curr => ({ tracks: toggleTrackAutomationBypassState(curr.tracks, trackId, type) }));
   },
-  bypassAllAutomations: (bypass = true) => {
-    set(curr => ({ tracks: bypassAllAutomationsState(curr.tracks, bypass) }));
-  },
   setTrackTuning: (trackId, tuning) => set(s => ({ tracks: s.tracks.map(t => t.id === trackId ? { ...t, tuning } : t) })),
   handleTrackReverbChange: (id, val) => set(s => ({ tracks: s.tracks.map(t => t.id === id ? { ...t, reverbVal: val } : t) })),
   handleTrackPanChange: (id, val) => set(s => ({ tracks: s.tracks.map(t => t.id === id ? { ...t, pan: val, panVal: val } : t) })),
@@ -111,7 +106,6 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
   handleTrackEQReset: (id) => set(s => ({ tracks: handleTrackEQResetState(s.tracks, id) })),
   setMasterFxVolume: (fxType, volume) => set(s => ({ masterFX: setMasterFxVolumeState(s.masterFX, fxType, volume) })),
   setMasterFxParam: (fxType, param, value) => set(s => ({ masterFX: setMasterFxParamState(s.masterFX, fxType, param, value) })),
-  toggleMasterFxMute: (fxType) => set(s => ({ masterFX: toggleMasterFxMuteState(s.masterFX, fxType) })),
   setMasterFX: (masterFX) => set({ masterFX }),
   toggleMasterEffectActive: (effect) => set(s => ({ masterEffectsActive: toggleMasterEffectActiveState(s.masterEffectsActive, effect) })),
   setMasterEffectsActive: (active) => set(s => ({ masterEffectsActive: setMasterEffectsActiveState(s.masterEffectsActive, active) }))

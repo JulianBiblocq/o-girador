@@ -69,10 +69,9 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
 
   const handleStepClick = (e: React.MouseEvent, trackId: number) => {
     e.stopPropagation();
-    const isMobileDevice = typeof window !== 'undefined' && window.innerWidth <= 768;
-    if (audio.isPlaying && isMobileDevice) return;
     useSequencerStore.getState().setEditingTrackId(trackId);
   };
+
 
   if (!isActive) return null;
 

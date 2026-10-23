@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import * as Tone from 'tone';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
 import { detectEcoMode } from '../helpers/ecoModeDetector';
 import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
@@ -14,7 +14,6 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
   isLeftHanded: false, 
   lang: (typeof window !== 'undefined' && (localStorage.getItem('o_girador_lang') as Language)) || 'pt',
-  vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
   isEcoMode: detectEcoMode(),
   ecoConfig: {
     disableFx: detectEcoMode(),
@@ -46,10 +45,6 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     }
     set({ lang });
   },
-  setVocalCalibrationLatencyMs: (val) => {
-    localStorage.setItem('oGirador_vocal_calibration_latency', String(val));
-    set({ vocalCalibrationLatencyMs: val });
-  },
   toggleEcoMode: () => set((state) => {
     const next = !state.isEcoMode;
     localStorage.setItem('o-girador-eco-mode', String(next));
@@ -70,17 +65,9 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     };
     const allTrue = nextConfig.disableFx && nextConfig.disableEq && nextConfig.disableAnimations;
     const allFalse = !nextConfig.disableFx && !nextConfig.disableEq && !nextConfig.disableAnimations;
-    
-    let nextEcoMode = state.isEcoMode;
-    if (allTrue) nextEcoMode = true;
-    if (allFalse) nextEcoMode = false;
-    
+    const nextEcoMode = allTrue ? true : (allFalse ? false : state.isEcoMode);
     localStorage.setItem('o-girador-eco-mode', String(nextEcoMode));
-    
-    return {
-      ecoConfig: nextConfig,
-      isEcoMode: nextEcoMode
-    };
+    return { ecoConfig: nextConfig, isEcoMode: nextEcoMode };
   }),
   setEditingTrackId: (id) => set({ editingTrackId: id }),
   closeDetailEditor: () => set({ editingTrackId: null }),
@@ -130,10 +117,9 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     set({ isMobileStudioMode: val, mobileViewMode: mode, isTracksCollapsed: true });
   },
   toggleMobileStudioMode: () => set((state) => {
-    const next = !state.isMobileStudioMode;
-    const mode = next ? 'complet' : 'danse';
+    const mode = !state.isMobileStudioMode ? 'complet' : 'danse';
     persistMobileViewMode(mode);
-    return { isMobileStudioMode: next, mobileViewMode: mode, isTracksCollapsed: true };
+    return { isMobileStudioMode: !state.isMobileStudioMode, mobileViewMode: mode, isTracksCollapsed: true };
   }),
   setMobileViewMode: (mode) => {
     persistMobileViewMode(mode);

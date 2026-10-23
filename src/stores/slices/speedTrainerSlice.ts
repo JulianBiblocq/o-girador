@@ -4,7 +4,7 @@
  */
 
 import { StateCreator } from 'zustand';
-import type { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { SpeedTrainerSlice } from '../../types/speedTrainer.types';
 import {
   calculateSpeedTrainerOpenConfig,

@@ -22,19 +22,14 @@ interface Props {
 
 export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggleLetra, lang: propLang, onOpenSongInfo }) => {
   const beatRefs = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
-  const isMetroOn = useTransportStore((s) => s.isMetroOn);
-  const setIsMetroOn = useTransportStore((s) => s.setIsMetroOn);
-
+  const { isMetroOn, setIsMetroOn } = useTransportStore((s) => ({ isMetroOn: s.isMetroOn, setIsMetroOn: s.setIsMetroOn }));
   const { lang: sLang, currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, songMarkers, measureSignals, mestreSignals, tracks } =
-    useSequencerStore(
-      useShallow((s) => ({
-        lang: s.lang, currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
-        loopMode: s.loopMode ?? 'infinite', currentLoopIteration: s.currentLoopIteration ?? 1,
-        songSections: s.songSections || [], songMarkers: s.songMarkers || [],
-        measureSignals: s.measureSignals || [], mestreSignals: s.mestreSignals || [],
-        tracks: s.tracks || [],
-      }))
-    );
+    useSequencerStore(useShallow((s) => ({
+      lang: s.lang, currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
+      loopMode: s.loopMode ?? 'infinite', currentLoopIteration: s.currentLoopIteration ?? 1,
+      songSections: s.songSections || [], songMarkers: s.songMarkers || [],
+      measureSignals: s.measureSignals || [], mestreSignals: s.mestreSignals || [], tracks: s.tracks || [],
+    })));
   const lang = sLang || propLang || 'pt';
 
   useEffect(() => {
@@ -98,8 +93,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
             }`}
             title={lang === 'pt' ? 'Guia sonoro nos tempos' : 'Repère sonore sur les temps'}
           >
-            <Bell size={11} />
-            <span>{lang === 'pt' ? 'Guia' : 'Repère'}</span>
+            <Bell size={11} /> <span>{lang === 'pt' ? 'Guia' : 'Repère'}</span>
           </button>
           <button
             onClick={onToggleLetra}
@@ -107,8 +101,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
               isLetraOpen ? 'bg-[#b94a2c] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
             }`}
           >
-            <BookOpen size={11} />
-            <span>Letra</span>
+            <BookOpen size={11} /> <span>Letra</span>
           </button>
         </div>
       </div>
@@ -120,9 +113,7 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
             <img src={signalImg} alt={activeSignal?.name || 'Sinal'} className="w-full h-full object-cover" />
           ) : (
             <svg viewBox="0 0 32 32" className="w-10 h-10 text-[var(--cordel-text)] opacity-60" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter">
-              <path d="M16 4 L28 16 L16 28 L4 16 Z" />
-              <path d="M16 9 L23 16 L16 23 L9 16 Z" />
-              <path d="M16 13 L16 19 M13 16 L19 16" strokeWidth="2.5" />
+              <path d="M16 4 L28 16 L16 28 L4 16 Z M16 9 L23 16 L16 23 L9 16 Z M16 13 L16 19 M13 16 L19 16" />
             </svg>
           )}
         </div>

@@ -103,10 +103,7 @@ export class VocalSequencerPlayer {
     const { mainPlayer, mainGain } = activeEntry;
 
     mainPlayer.playbackRate = playbackRate;
-    if (activeEntry.grainPlayer) {
-      activeEntry.grainPlayer.playbackRate = playbackRate;
-      try { (activeEntry.grainPlayer as any).detune = residualDetuneCents; } catch (_) {}
-    }
+    if (activeEntry.grainPlayer) { activeEntry.grainPlayer.playbackRate = playbackRate; try { (activeEntry.grainPlayer as any).detune = residualDetuneCents; } catch (_) {} }
     try { (mainPlayer as any).detune = residualDetuneCents; } catch (_) {}
     mainPlayer.loop = false;
     if (!isPurePlayback) (mainPlayer as any).fadeIn = 0;

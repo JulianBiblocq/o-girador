@@ -29,7 +29,6 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   }
 
   const perfState = usePerformanceStore.getState();
-  const isEQBypassed = perfState.bypassEQ;
   const isReverbBypassed = perfState.bypassReverbFX;
 
   if (isReverbBypassed) {
@@ -41,10 +40,6 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     }
   }
 
-  if (isEQBypassed) {
-    inputNode.connect(channelNode);
-    return;
-  }
 
   const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
   const hasLowCut = !!track.lowCut;

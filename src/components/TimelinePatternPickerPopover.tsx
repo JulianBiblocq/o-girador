@@ -72,7 +72,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
     const sL = sc?.scrollLeft || 0, sT = sc?.scrollTop || 0, wX = window.scrollX, wY = window.scrollY;
 
     const onDown = (e: PointerEvent) => { if (attached && popoverRef.current && !popoverRef.current.contains(e.target as Node)) onClose(); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onClose(); } };
     const onScroll = (e: Event) => {
       if ((popoverRef.current && popoverRef.current.contains(e.target as Node)) || Date.now() - t0 < 150) return;
       const dX = sc ? Math.abs(sc.scrollLeft - sL) : Math.abs(window.scrollX - wX);
@@ -81,11 +81,11 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
     };
 
     const timer = setTimeout(() => { attached = true; }, 150);
-    window.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey, { capture: true });
     window.addEventListener('scroll', onScroll, { capture: true, passive: true });
     window.addEventListener('wheel', onScroll, { capture: true, passive: true });
     return () => {
-      clearTimeout(timer); window.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey);
+      clearTimeout(timer); window.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey, { capture: true });
       window.removeEventListener('scroll', onScroll, { capture: true }); window.removeEventListener('wheel', onScroll, { capture: true });
     };
   }, [onClose]);
@@ -94,7 +94,7 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
     useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx });
     assign(trackId, pId, measureIdx);
     onClose();
-    if (typeof pId === 'number') checkAndTriggerToadaQuickPrompt(trackId, pId, measureIdx);
+    if (typeof pId === 'number') checkAndTriggerToadaQuickPrompt(useSequencerStore.getState(), trackId, pId, measureIdx);
   };
 
   return createPortal(
