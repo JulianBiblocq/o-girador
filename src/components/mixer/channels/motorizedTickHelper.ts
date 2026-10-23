@@ -37,7 +37,7 @@ export function applyMotorizedTick({
     const trans = t.measureVolTransitions?.[currentM] || 'immediate';
     const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
     if (faderHandleEl) {
-      faderHandleEl.style.transform = `translateY(${((t.volumeVal - interpVol) / 100) * travelRange}px)`;
+      faderHandleEl.style.bottom = `${Math.max(0, Math.min(100, interpVol))}%`;
     }
     if (faderTextEl) {
       faderTextEl.textContent = faderPositionToDbString(interpVol);

@@ -1,7 +1,7 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { migrateCirclesToTracks } from '../../migration';
-import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
+import { CURRENT_AUDIO_SCALE_VERSION, normalizeToFaderPosition, sanitizeFaderPosition } from '../../utils/audioMath';
 import { normalizePatternData } from './audioPatternNormalizer';
 
 export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): TrackGroup[] {
@@ -51,21 +51,35 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     loadedTracks.forEach(t => t.patterns?.forEach(ptn => normalizePatternData(ptn, loadedMeasures)));
   }
 
-  // Migration rétrocompatible des anciens presets (audioScaleVersion !== 2)
+  // Migration rétrocompatible des anciens presets
   const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
-  if (!isAudioV2) {
+  loadedTracks.forEach(t => {
+    const rawVol = (t as any).volumeVal !== undefined ? (t as any).volumeVal : (t as any).volume;
+    t.volumeVal = normalizeToFaderPosition(rawVol, isAudioV2);
+    if (!isAudioV2 && t.volumeVal === 100) t.volumeVal = 75;
+    if (t.measureVols && Array.isArray(t.measureVols)) {
+      t.measureVols = t.measureVols.map((v: number) => {
+        const norm = normalizeToFaderPosition(v, isAudioV2);
+        return (!isAudioV2 && norm === 100) ? 75 : norm;
+      });
+    }
+  });
+
+  // Auto-guérison : si toutes les pistes sont muettes (<= 3) suite au bug des 83px, rétablir à 75
+  const nonBusTracks = loadedTracks.filter(t => !t.isBusFolder);
+  const areAllMutedToInf = nonBusTracks.length > 0 && nonBusTracks.every(t => t.volumeVal <= 3);
+  if (areAllMutedToInf) {
     loadedTracks.forEach(t => {
-      if (t.volumeVal === 100 || t.volumeVal === undefined) t.volumeVal = 75;
-      else t.volumeVal = Math.round(t.volumeVal * 0.75);
+      t.volumeVal = 75;
       if (t.measureVols && Array.isArray(t.measureVols)) {
-        t.measureVols = t.measureVols.map((v: number) => (v === 100 ? 75 : Math.round(v * 0.75)));
+        t.measureVols = t.measureVols.map(() => 75);
       }
     });
   }
 
   // Assainissement systématique des paramètres de mixage des pistes
   loadedTracks.forEach(t => {
-    t.volumeVal = typeof t.volumeVal === 'number' && !isNaN(t.volumeVal) ? t.volumeVal : 75;
+    t.volumeVal = sanitizeFaderPosition(t.volumeVal);
     const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal)
       ? t.panVal
       : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);

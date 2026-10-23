@@ -2,6 +2,7 @@ import {
   UNITY_GAIN_FADER_POSITION,
   CUTOFF_FADER_POSITION,
   faderPositionToDb,
+  sanitizeFaderPosition,
 } from './faderMath';
 
 /**
@@ -9,7 +10,7 @@ import {
  * Exemples : "+2.5 dB", "+6.0 dB", "0.0 dB", "-10 dB", "-14 dB", "-inf".
  */
 export function faderPositionToDbString(position: number): string {
-  const pos = Math.max(0, Math.min(100, position));
+  const pos = sanitizeFaderPosition(position);
   if (pos <= CUTOFF_FADER_POSITION) {
     return '-inf';
   }

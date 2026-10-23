@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState } from 'react';
-import { faderPositionToDbString, UNITY_GAIN_FADER_POSITION } from '../utils/audioMath';
+import React, { useRef, useState } from 'react';
+import { faderPositionToDbString, sanitizeFaderPosition, UNITY_GAIN_FADER_POSITION } from '../utils/audioMath';
 import { FaderTrackArea } from './controls/FaderTrackArea';
 import { FaderDbCartouche } from './controls/FaderDbCartouche';
 import { useMixerVolumeFaderSync } from './controls/useMixerVolumeFaderSync';
@@ -50,7 +50,6 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [measuredHeight, setMeasuredHeight] = useState(height || 115);
 
   const setThumbRef = (el: HTMLDivElement | null) => {
     (visualThumbRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -62,19 +61,14 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     if (valueTextRefProp) (valueTextRefProp as React.MutableRefObject<HTMLSpanElement | null>).current = el;
   };
 
-  const trackAreaHeight = height ? height - 20 : (measuredHeight > 40 ? measuredHeight : 60);
   const resolvedThumbHeight = thumbHeight || 20;
   const resolvedThumbWidth = thumbWidth || (isMaster ? 44 : 32);
-  const topPadding = 6;
-  const bottomPadding = 6;
-  const travelRange = Math.max(10, trackAreaHeight - topPadding - bottomPadding - resolvedThumbHeight);
+  const clampedPosition = sanitizeFaderPosition(value ?? defaultValue);
 
-  if (travelRangeRef) travelRangeRef.current = travelRange;
-  const unityTop = 0.25 * travelRange + topPadding + resolvedThumbHeight / 2;
+  if (travelRangeRef) travelRangeRef.current = 100;
 
   const {
-    trackAreaRef,
-    getTopPosition,
+    railRef,
     updateAudioNode,
     resetToUnity,
     handlePointerDown,
@@ -82,16 +76,15 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     handlePointerUp,
   } = useMixerVolumeFaderSync({
     trackId, value, defaultValue, onChange, onAudioDrag, isMaster,
-    trackAreaHeight, resolvedThumbHeight, topPadding, bottomPadding, travelRange,
     visualThumbRef, valueTextRef, isEditing, setIsEditing
   });
 
   const handleCommitPosition = (newPos: number) => {
-    const topPx = getTopPosition(newPos);
-    if (visualThumbRef.current) visualThumbRef.current.style.top = `${topPx}px`;
-    if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(newPos);
-    updateAudioNode(newPos);
-    onChange(newPos);
+    const safePos = sanitizeFaderPosition(newPos);
+    if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${safePos}%`;
+    if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(safePos);
+    updateAudioNode(safePos);
+    onChange(safePos);
   };
 
   return (
@@ -104,23 +97,20 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       }}
     >
       <FaderTrackArea
-        trackAreaRef={trackAreaRef}
-        topPadding={topPadding}
-        bottomPadding={bottomPadding}
-        unityTop={unityTop}
+        railRef={railRef}
         resolvedThumbWidth={resolvedThumbWidth}
         resolvedThumbHeight={resolvedThumbHeight}
         setThumbRef={setThumbRef}
         resolvedFaderColor={resolvedFaderColor}
         isMaster={isMaster}
-        topPosition={getTopPosition(value)}
+        clampedPosition={clampedPosition}
         handlePointerDown={handlePointerDown}
         handlePointerMove={handlePointerMove}
         handlePointerUp={handlePointerUp}
         resetToUnity={resetToUnity}
       />
       <FaderDbCartouche
-        value={value}
+        value={clampedPosition}
         defaultValue={defaultValue}
         fontSize={fontSize}
         isEditing={isEditing}

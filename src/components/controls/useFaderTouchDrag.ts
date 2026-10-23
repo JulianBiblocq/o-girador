@@ -2,34 +2,29 @@ import React, { useRef, useEffect } from 'react';
 import { faderPositionToDbString } from '../../utils/audioMath';
 
 interface UseFaderTouchDragProps {
-  trackAreaRef: React.RefObject<HTMLDivElement | null>;
+  railRef: React.RefObject<HTMLDivElement | null>;
   calculateValueFromPointer: (clientY: number) => number;
-  getTopPosition: (val: number) => number;
   visualThumbRef: React.MutableRefObject<HTMLDivElement | null>;
   valueTextRef: React.MutableRefObject<HTMLSpanElement | null>;
   updateAudioNode: (val: number) => void;
   onChange: (val: number) => void;
   resetToUnity: (e?: React.SyntheticEvent | Event) => void;
-  trackAreaHeight: number;
 }
 
 export function useFaderTouchDrag({
-  trackAreaRef,
+  railRef,
   calculateValueFromPointer,
-  getTopPosition,
   visualThumbRef,
   valueTextRef,
   updateAudioNode,
   onChange,
   resetToUnity,
-  trackAreaHeight,
 }: UseFaderTouchDragProps) {
   const isDraggingRef = useRef(false);
-  const rectRef = useRef<DOMRect | null>(null);
   const lastTouchTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    const el = trackAreaRef.current;
+    const el = railRef.current;
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
@@ -44,10 +39,8 @@ export function useFaderTouchDrag({
         lastTouchTimeRef.current = now;
         e.preventDefault();
         isDraggingRef.current = true;
-        rectRef.current = el.getBoundingClientRect();
         const val = calculateValueFromPointer(e.touches[0].clientY);
-        const topPx = getTopPosition(val);
-        if (visualThumbRef.current) visualThumbRef.current.style.top = `${topPx}px`;
+        if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
         if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
         updateAudioNode(val);
       }
@@ -57,8 +50,7 @@ export function useFaderTouchDrag({
       if (isDraggingRef.current && e.touches.length > 0) {
         e.preventDefault();
         const val = calculateValueFromPointer(e.touches[0].clientY);
-        const topPx = getTopPosition(val);
-        if (visualThumbRef.current) visualThumbRef.current.style.top = `${topPx}px`;
+        if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
         if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
         updateAudioNode(val);
       }
@@ -87,5 +79,5 @@ export function useFaderTouchDrag({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [trackAreaHeight, calculateValueFromPointer, getTopPosition, resetToUnity, onChange, updateAudioNode, visualThumbRef, valueTextRef]);
+  }, [calculateValueFromPointer, resetToUnity, onChange, updateAudioNode, visualThumbRef, valueTextRef, railRef]);
 }

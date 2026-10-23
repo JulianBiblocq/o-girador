@@ -7,6 +7,8 @@ export {
   UNITY_GAIN_FADER_POSITION,
   CUTOFF_FADER_POSITION,
   CURRENT_AUDIO_SCALE_VERSION,
+  sanitizeFaderPosition,
+  normalizeToFaderPosition,
   faderPositionToDb,
   faderPositionToGain,
   dbToFaderPosition,

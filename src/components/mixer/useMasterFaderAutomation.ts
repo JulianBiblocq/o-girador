@@ -40,9 +40,9 @@ export function useMasterFaderAutomation({
 
   const resetMasterFaderPosition = () => {
     if (masterFaderHandleRef.current) {
-      masterFaderHandleRef.current.style.transform = 'translateY(0px)';
+      const manualVal = dbToFaderPosition(masterVolRef.current);
+      masterFaderHandleRef.current.style.bottom = `${manualVal}%`;
       if (masterFaderTextRef.current) {
-        const manualVal = dbToFaderPosition(masterVolRef.current);
         masterFaderTextRef.current.textContent = faderPositionToDbString(manualVal);
       }
     }
@@ -79,10 +79,7 @@ export function useMasterFaderAutomation({
           const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
 
           if (masterFaderHandleRef.current) {
-            const manualVal = dbToFaderPosition(masterVolRef.current);
-            const travel = masterTravelRangeRef.current || 90;
-            const deltaY = ((manualVal - interpVol) / 100) * travel;
-            masterFaderHandleRef.current.style.transform = `translateY(${deltaY}px)`;
+            masterFaderHandleRef.current.style.bottom = `${Math.max(0, Math.min(100, interpVol))}%`;
           }
           if (masterFaderTextRef.current) {
             masterFaderTextRef.current.textContent = faderPositionToDbString(interpVol);

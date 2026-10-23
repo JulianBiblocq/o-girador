@@ -7,10 +7,39 @@ export const CUTOFF_FADER_POSITION = 3;
 export const CURRENT_AUDIO_SCALE_VERSION = 2;
 
 /**
+ * Assainit une position brute de fader en protégeant contre undefined, null et NaN
+ * tout en conservant scrupuleusement l'échelle 0..100, la finesse décimale et le silence <= 3.
+ */
+export function sanitizeFaderPosition(val: unknown): number {
+  if (val === undefined || val === null || (typeof val === 'number' && isNaN(val))) {
+    return UNITY_GAIN_FADER_POSITION; // 75 = 0.0 dB
+  }
+  const num = Number(val);
+  if (isNaN(num)) return UNITY_GAIN_FADER_POSITION;
+  return Math.max(0, Math.min(100, num));
+}
+
+/**
+ * Normalise la valeur de volume d'un preset/piste lors du chargement.
+ * Convertit les anciens gains linéaires (0 < num <= 1.5) et assainit les valeurs invalides.
+ */
+export function normalizeToFaderPosition(val: unknown, isAudioV2 = false): number {
+  if (val === undefined || val === null) {
+    return UNITY_GAIN_FADER_POSITION; // 75 = 0.0 dB
+  }
+  const num = Number(val);
+  if (isNaN(num)) return UNITY_GAIN_FADER_POSITION;
+  if (!isAudioV2 && num > 0 && num <= 1.5) {
+    return gainToFaderPosition(num);
+  }
+  return Math.max(0, Math.min(100, num));
+}
+
+/**
  * Convertit une position de fader (0 à 100) en décibels (dB).
  */
 export function faderPositionToDb(position: number): number {
-  const pos = Math.max(0, Math.min(100, position));
+  const pos = sanitizeFaderPosition(position);
   if (pos <= CUTOFF_FADER_POSITION) {
     return -Infinity;
   }
@@ -30,7 +59,7 @@ export function faderPositionToDb(position: number): number {
  * Convertit une position de fader (0 à 100) en gain linéaire (amplitude).
  */
 export function faderPositionToGain(position: number): number {
-  const pos = Math.max(0, Math.min(100, position));
+  const pos = sanitizeFaderPosition(position);
   if (pos <= CUTOFF_FADER_POSITION) {
     return 0.0;
   }
