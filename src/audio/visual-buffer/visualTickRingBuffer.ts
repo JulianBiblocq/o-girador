@@ -1,5 +1,6 @@
 import { VisualTickEvent, VisualHitTriggerEvent } from './visualTickTypes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 
 export const TICK_QUEUE_SIZE = 512;
 export const HIT_QUEUE_SIZE = 512;
@@ -92,7 +93,7 @@ export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCod
   }
 
   const slot = hitQueue[hitWriteIdx];
-  slot.triggerTime = triggerTime;
+  slot.triggerTime = triggerTime + getBluetoothVisualOffsetSec();
   slot.trackId = trackId;
   slot.stepIdx = stepIdx;
   slot.strokeCode = strokeCode;

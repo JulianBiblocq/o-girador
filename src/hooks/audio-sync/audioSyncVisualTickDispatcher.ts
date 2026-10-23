@@ -8,6 +8,8 @@ import * as Tone from 'tone';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { pushVisualTick } from '../../audio/visualTickBuffer';
 
+import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
+
 export interface VisualTickDispatchParams {
   time: number;
   stepIdx: number;
@@ -45,7 +47,8 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
   const ratioVal = stepForUI / safeTicks;
 
   const rawCtx = Tone.getContext().rawContext as AudioContext;
-  const visualDelay = (typeof rawCtx?.outputLatency === 'number' && !isNaN(rawCtx.outputLatency)) ? rawCtx.outputLatency : 0;
+  const baseLatency = (typeof rawCtx?.outputLatency === 'number' && !isNaN(rawCtx.outputLatency)) ? rawCtx.outputLatency : 0.050;
+  const visualDelay = baseLatency + getBluetoothVisualOffsetSec();
   const drawTime = time + visualDelay;
 
   const timeSigOfMeasure = measureTimeSigs[measureForUI % (totalMeasures || 1)] || '4/4';
@@ -71,7 +74,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
       ratio: ratioVal,
       visualStep16: Math.floor(ratioVal * 16) % 16,
       visualStep12: Math.floor(ratioVal * 12) % 12,
-      time,
+      time: drawTime,
       iteration: sectionIteration,
       measureStartTime: measureStartTimeSec,
       measureDuration: measureDurationSec,

@@ -21,6 +21,7 @@ const SubscriptionModal = lazyWithRetry(() => import('./SubscriptionModal').then
 const SaveSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then((m) => ({ default: m.SaveSectionModal })), 'SaveSectionModal');
 const LoadSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then((m) => ({ default: m.LoadSectionModal })), 'LoadSectionModal');
 const AoVivoOverlay = lazyWithRetry(() => import('./AoVivoOverlay').then((m) => ({ default: m.AoVivoOverlay })), 'AoVivoOverlay');
+import { BluetoothOnboardingFlow } from './bluetooth/BluetoothOnboardingFlow';
 
 interface GlobalModalsLayoutProps {
   showExportMenu: boolean;
@@ -115,6 +116,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => 
 
       <ToadaQuickDeployPrompt />
       {tempRecording !== null && <VocalValidationModal />}
+      <BluetoothOnboardingFlow lang={sequencer.lang} />
     </>
   );
 

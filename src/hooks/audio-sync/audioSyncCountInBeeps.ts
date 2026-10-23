@@ -1,6 +1,7 @@
 import { getMaxTicks } from '../../data';
 import { pushVisualTick } from '../../audio/visualTickBuffer';
 import { playCountInBeep } from '../../audio/nativeSynths';
+import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 
 export interface CountInBeepsParams {
   t0: number;
@@ -28,22 +29,24 @@ export function scheduleCountInBeepsAndTicks(p: CountInBeepsParams): void {
     const measureStart = t0 + mIdx * measureCycleDurationSec;
     const isRunwayMeasure = (mIdx === measuresCount - 1);
 
+    const btOffsetSec = getBluetoothVisualOffsetSec();
     if (!isRunwayMeasure) {
       for (let b = 0; b < beatsCount; b++) {
         const beatTime = measureStart + b * beatDurationSec;
+        const visualBeatTime = beatTime + btOffsetSec;
         pushVisualTick({
-          drawTime: beatTime,
+          drawTime: visualBeatTime,
           step: 0,
           measure: targetM,
           maxTicks: getMaxTicks(targetSig as any),
           ratio: 0,
           visualStep16: b * 4,
           visualStep12: b * 3,
-          time: beatTime,
+          time: visualBeatTime,
           iteration: 1,
-          measureStartTime: measureStart,
+          measureStartTime: measureStart + btOffsetSec,
           measureDuration: measureCycleDurationSec,
-          targetStartTime: beatTime,
+          targetStartTime: visualBeatTime,
           isPreRoll: true,
           preRollBeat: b,
           preRollMeasureIndex: mIdx,
@@ -54,21 +57,22 @@ export function scheduleCountInBeepsAndTicks(p: CountInBeepsParams): void {
       const runwayStepDurationSec = measureCycleDurationSec / 16;
       for (let s = 0; s < 16; s++) {
         const stepTime = measureStart + s * runwayStepDurationSec;
+        const visualStepTime = stepTime + btOffsetSec;
         const beatIdx = Math.floor(s / 4);
         const subRatio = (s % 4) / 4;
         pushVisualTick({
-          drawTime: stepTime,
+          drawTime: visualStepTime,
           step: 0,
           measure: targetM,
           maxTicks: getMaxTicks(targetSig as any),
           ratio: subRatio,
           visualStep16: s,
           visualStep12: Math.floor((s / 16) * 12),
-          time: stepTime,
+          time: visualStepTime,
           iteration: 1,
-          measureStartTime: measureStart,
+          measureStartTime: measureStart + btOffsetSec,
           measureDuration: measureCycleDurationSec,
-          targetStartTime: stepTime,
+          targetStartTime: visualStepTime,
           isPreRoll: true,
           preRollBeat: beatIdx,
           preRollMeasureIndex: mIdx,
