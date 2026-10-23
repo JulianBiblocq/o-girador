@@ -9,7 +9,11 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { SongSection } from '../../types';
 import { filterTopLevelSections } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 
-export const RodaSectionRibbon: React.FC = () => {
+interface RodaSectionRibbonProps {
+  compact?: boolean;
+}
+
+export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = false }) => {
   const songSections = useSequencerStore(s => s.songSections || []);
   const currentMeasure = useSequencerStore(s => s.currentMeasure), isPlaying = useSequencerStore(s => s.isPlaying);
   const loopStartMeasure = useSequencerStore(s => s.loopStartMeasure), loopEndMeasure = useSequencerStore(s => s.loopEndMeasure);
@@ -80,14 +84,14 @@ export const RodaSectionRibbon: React.FC = () => {
     <div
       ref={containerRef}
       onWheel={handleWheel}
-      className="relative w-[360px] sm:w-[440px] h-[42px] overflow-hidden select-none flex items-center"
+      className={`relative overflow-hidden select-none flex items-center ${compact ? 'w-[240px] sm:w-[280px] h-[34px]' : 'w-[220px] sm:w-[320px] md:w-[420px] max-w-[50vw] h-[42px]'}`}
       style={{
         maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
         WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
       }}
     >
       <div
-        className={`absolute left-1/2 top-1/2 flex items-center gap-2 will-change-transform ${isReady ? 'transition-transform duration-300 ease-out' : ''}`}
+        className={`absolute left-1/2 top-1/2 flex items-center gap-1.5 will-change-transform ${isReady ? 'transition-transform duration-300 ease-out' : ''}`}
         style={{ transform: `translate3d(${translateX}px, -50%, 0)` }}
       >
         {macroSections.map((s, idx) => {
@@ -99,16 +103,18 @@ export const RodaSectionRibbon: React.FC = () => {
             ? 'border-2 border-[#1a1a1a] bg-[#1a1a1a] text-[#f4ecd8] shadow-[2px_2px_0px_rgba(0,0,0,0.25)]'
             : 'border border-[#1a1a1a]/80 border-b-[3px] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] hover:opacity-100 opacity-90 shadow-[1.5px_1.5px_0px_rgba(0,0,0,0.15)]';
 
+          const btnHeight = compact ? 'h-[30px] min-h-[30px] px-2 text-[11px]' : 'h-[38px] min-h-[38px] px-3 text-xs';
+
           return (
             <button
               key={s.id}
               ref={el => { pillRefs.current[idx] = el; }}
               onClick={e => handleSectionClick(s, idx, e)}
               title={`Section "${s.name}" (${s.startMeasure + 1}-${s.endMeasure + 1}) — Clic pour boucler, Maj+Clic pour étendre`}
-              className={`h-[38px] min-h-[38px] px-3 rounded-none flex items-center gap-1.5 shrink-0 transition-all cursor-pointer box-border font-cactus ${themeStyle}`}
+              className={`${btnHeight} rounded-none flex items-center gap-1.5 shrink-0 transition-all cursor-pointer box-border font-cactus ${themeStyle}`}
               style={s.color && !isLooped && !isCurrent ? { borderBottomColor: s.color } : undefined}
             >
-              {isLooped && <Repeat size={12} className="shrink-0 animate-pulse" />}
+              {isLooped && <Repeat size={11} className="shrink-0 animate-pulse" />}
               <span className="text-xs font-extrabold tracking-tight whitespace-nowrap truncate max-w-[110px] leading-none">{s.name}</span>
               <span className="text-[11px] font-bold tabular-nums opacity-80 font-sans leading-none">{s.startMeasure + 1}-{s.endMeasure + 1}</span>
             </button>

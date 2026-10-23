@@ -9,6 +9,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { CircleInfoBadges } from './CircleInfoBadges';
 import { CircleCenterOverlay } from './CircleCenterOverlay';
 import { CircleVocalToolbar } from './CircleVocalToolbar';
+import { AoVivoOverlay } from '../AoVivoOverlay';
 
 interface CircleSequencerViewProps {
   state: any;
@@ -87,6 +88,8 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
           lang={lang}
         />
       )}
+
+      <AoVivoOverlay />
     </div>
   );
 };

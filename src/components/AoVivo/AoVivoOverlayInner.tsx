@@ -65,7 +65,7 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
   if (!activeTrack || !inst) return null;
 
   return (
-    <div className="fixed inset-0 z-20 overflow-hidden pointer-events-none perspective-[1000px]">
+    <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none perspective-[1000px]">
       <div
         ref={flashRef}
         className="absolute pointer-events-none opacity-0 mix-blend-screen"

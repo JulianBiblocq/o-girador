@@ -31,19 +31,16 @@ interface RightSidebarProps {
   hideGlobalSignals?: boolean;
   onToggleHideGlobalSignals?: () => void;
   visible?: boolean;
+  isDrawer?: boolean;
+  onCloseDrawer?: () => void;
 }
 
 const EMPTY_ARRAY: any[] = [];
 
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
-  activePanel,
-  onTogglePanel,
-  isMobile,
-  mestreSignals = [],
-  refreshMestreSignals,
-  hideGlobalSignals,
-  onToggleHideGlobalSignals,
-  visible = true,
+  activePanel, onTogglePanel, isMobile, mestreSignals = [],
+  refreshMestreSignals, hideGlobalSignals, onToggleHideGlobalSignals,
+  visible = true, isDrawer = false, onCloseDrawer,
 }) => {
   const sequencer = useSequencer();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -90,12 +87,21 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     }
   }, [activePanel]);
 
-  if (isMobile && !activePanel) return null;
+  if ((isMobile || isDrawer) && !visible) return null;
+
+  const drawerClass = isDrawer
+    ? "absolute right-0 top-0 bottom-0 z-40 w-[320px] max-w-[85vw] shadow-2xl"
+    : "w-[320px] min-w-[320px] shrink-0 relative z-10";
 
   return (
     <>
-      <div id="right-sidebar-panel" style={{ display: visible ? 'flex' : 'none' }} className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]">
+      <div id="right-sidebar-panel" style={{ display: visible ? 'flex' : 'none' }} className={`${drawerClass} bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full text-[var(--cordel-text)]`}>
         <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg" style={{ transform: 'translateZ(0)' }} />
+        {isDrawer && onCloseDrawer && (
+          <button type="button" onClick={onCloseDrawer} className="absolute top-2.5 right-2.5 z-20 w-6 h-6 border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] text-xs font-bold flex items-center justify-center cursor-pointer shadow-[1px_1px_0_#000]">
+            ✕
+          </button>
+        )}
         <div className="flex flex-col p-5 h-full overflow-hidden relative z-[1]">
           <RightSidebarDropdown subTab={subTab} setSubTab={setSubTab} onTogglePanel={onTogglePanel} lang={lang} t={t} isMobile={isMobile} />
 

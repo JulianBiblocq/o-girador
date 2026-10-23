@@ -50,7 +50,7 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
   const isPracticeMode = useSequencerStore((state) => state.isPracticeMode);
 
   return (
-    <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 max-sm:ml-auto max-sm:justify-end sm:absolute sm:left-[calc(50%-9px)] sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2">
+    <div className="flex items-center gap-1.5 sm:gap-2.5 lg:gap-3 shrink-0 max-xl:ml-auto xl:absolute xl:left-[calc(50%-9px)] xl:-translate-x-1/2 xl:top-1/2 xl:-translate-y-1/2">
       <button
         onClick={handleStop}
         className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shrink-0"

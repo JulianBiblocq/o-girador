@@ -21,76 +21,83 @@ export function useAoVivoGeometry(
       const panel = document.getElementById('circle-sequencer-panel');
       if (!panel) return;
 
-      const rect = panel.getBoundingClientRect();
-      const targetX = rect.left + rect.width / 2;
-      const targetY = rect.top + rect.height / 2 + 20;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      const width = panel.clientWidth || window.innerWidth;
+      const height = panel.clientHeight || window.innerHeight;
+      const targetX = width / 2;
+      const targetY = height / 2 + 10;
       geometryRef.current = { targetX, targetY, width, height };
+
+      const canvas = panel.querySelector('canvas');
+      const rodaDiameter = canvas ? canvas.clientWidth : Math.min(width, height) * 0.85;
+      const scale = Math.min(1, Math.max(0.4, rodaDiameter / 520));
 
       if (!activeTrack) return;
       const instId = activeTrack.instrumentIdx !== undefined ? instrumentsConfig[activeTrack.instrumentIdx]?.id : null;
       const isTimbal = instId === 'timbal';
       const isDrum = instId === 'caixa' || instId === 'tarol';
-      const handSpread = isTimbal ? CONFIG_TIMBAL.handSpread : Math.min(width * 0.45, 550);
-      const xOffset = isTimbal ? CONFIG_TIMBAL.targetXOffset : isDrum ? CONFIG_STICKS.spacing.targetXOffsetDrum : CONFIG_STICKS.spacing.targetXOffsetAlfaia;
+      const handSpread = (isTimbal ? CONFIG_TIMBAL.handSpread : Math.min(width * 0.45, 550)) * scale;
+      const xOffset = (isTimbal ? CONFIG_TIMBAL.targetXOffset : isDrum ? CONFIG_STICKS.spacing.targetXOffsetDrum : CONFIG_STICKS.spacing.targetXOffsetAlfaia) * scale;
 
       if (leftWrapperRef.current) {
         const leftX = targetX - xOffset;
         const originLeftX = width / 2 - handSpread;
-        const originLeftY = height + 350;
+        const originLeftY = height + (280 * scale);
         const dLeftX = leftX - originLeftX;
         const dLeftY = targetY - originLeftY;
         const angleLeft = Math.atan2(dLeftY, dLeftX) * (180 / Math.PI) + 90;
         leftWrapperRef.current.style.left = `${originLeftX}px`;
         leftWrapperRef.current.style.height = `${Math.hypot(dLeftX, dLeftY)}px`;
-        leftWrapperRef.current.style.transform = `translateX(-50%) rotate(${angleLeft}deg)`;
+        leftWrapperRef.current.style.transform = `translateX(-50%) rotate(${angleLeft}deg) scale(${scale})`;
       }
 
       if (rightWrapperRef.current) {
         const rightX = targetX + xOffset;
         const originRightX = width / 2 + handSpread;
-        const originRightY = height + 350;
+        const originRightY = height + (280 * scale);
         const dRightX = rightX - originRightX;
         const dRightY = targetY - originRightY;
         const angleRight = Math.atan2(dRightY, dRightX) * (180 / Math.PI) + 90;
         rightWrapperRef.current.style.left = `${originRightX}px`;
         rightWrapperRef.current.style.height = `${Math.hypot(dRightX, dRightY)}px`;
-        rightWrapperRef.current.style.transform = `translateX(-50%) rotate(${angleRight}deg)`;
+        rightWrapperRef.current.style.transform = `translateX(-50%) rotate(${angleRight}deg) scale(${scale})`;
       }
 
       if (mineiroWrapperRef.current) {
-        const offsetVal = width < 400 ? 50 : width < 640 ? 80 : 120;
+        const offsetVal = (width < 400 ? 50 : width < 640 ? 80 : 120) * scale;
         mineiroWrapperRef.current.style.left = `${targetX}px`;
         mineiroWrapperRef.current.style.top = `${targetY - offsetVal}px`;
+        mineiroWrapperRef.current.style.transform = `scale(${scale})`;
       }
 
       if (agbeWrapperRef.current) {
         agbeWrapperRef.current.style.left = `${targetX}px`;
-        agbeWrapperRef.current.style.top = `${targetY - 20}px`;
+        agbeWrapperRef.current.style.top = `${targetY - 20 * scale}px`;
+        agbeWrapperRef.current.style.transform = `scale(${scale})`;
       }
 
       if (voiceWrapperRef.current) {
         voiceWrapperRef.current.style.left = `${targetX}px`;
         voiceWrapperRef.current.style.top = `${targetY}px`;
+        voiceWrapperRef.current.style.transform = `scale(${scale})`;
       }
 
       if (flashRef.current) {
         flashRef.current.style.left = `${targetX}px`;
         flashRef.current.style.top = `${targetY}px`;
+        flashRef.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
       }
 
       if (gongueWrapperRef.current) {
-        const gongueSpread = Math.min(width * 0.15, 200);
+        const gongueSpread = Math.min(width * 0.15, 200) * scale;
         const offset = isLeftHanded ? -gongueSpread : gongueSpread;
         const originX = width / 2 + offset;
-        const originY = height + 350;
+        const originY = height + (280 * scale);
         const dx = targetX - originX;
-        const dy = (targetY - 30) - originY;
+        const dy = (targetY - 30 * scale) - originY;
         const angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
         gongueWrapperRef.current.style.left = `${originX}px`;
         gongueWrapperRef.current.style.height = `${Math.hypot(dx, dy)}px`;
-        gongueWrapperRef.current.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+        gongueWrapperRef.current.style.transform = `translateX(-50%) rotate(${angle}deg) scale(${scale})`;
       }
     };
 

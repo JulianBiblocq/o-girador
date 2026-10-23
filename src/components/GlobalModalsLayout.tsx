@@ -20,7 +20,6 @@ const VisitorAuthModal = lazyWithRetry(() => import('./VisitorAuthModal').then((
 const SubscriptionModal = lazyWithRetry(() => import('./SubscriptionModal').then((m) => ({ default: m.SubscriptionModal })), 'SubscriptionModal');
 const SaveSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then((m) => ({ default: m.SaveSectionModal })), 'SaveSectionModal');
 const LoadSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then((m) => ({ default: m.LoadSectionModal })), 'LoadSectionModal');
-const AoVivoOverlay = lazyWithRetry(() => import('./AoVivoOverlay').then((m) => ({ default: m.AoVivoOverlay })), 'AoVivoOverlay');
 import { BluetoothOnboardingFlow } from './bluetooth/BluetoothOnboardingFlow';
 
 interface GlobalModalsLayoutProps {
@@ -99,14 +98,6 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => 
         handleStepTouchStart={props.handleStepTouchStart}
         setEditingTrackId={setEditingTrackId}
       />
-
-      {!props.isMobile || useSequencerStore.getState().mobileViewMode === 'complet' ? (
-        props.viewMode === 'roda' && (!props.isMobile || props.mobileTab === 'roda') && (
-          <ErrorBoundary fallback={null}>
-            <AoVivoOverlay />
-          </ErrorBoundary>
-        )
-      ) : null}
 
       {props.toastMessage && (
         <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
