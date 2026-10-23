@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Hash, Timer, Lightbulb } from 'lucide-react';
 import { SignalMiniThumb } from './SignalMiniThumb';
 
 interface AvailableSignal {
@@ -44,7 +44,7 @@ export const TransportPreRollPopup: React.FC<TransportPreRollPopupProps> = ({
           onChange={(e) => { const val = e.target.value; onChange((!val || val === 'none' || val === 'neutre') ? null : val); }}
           className="w-full bg-white border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
         >
-          <option value="">{lang === 'fr' ? '🔢 Neutre (Chiffres uniquement)' : '🔢 Neutro (Apenas números)'}</option>
+          <option value="">{lang === 'fr' ? '# Neutre (Chiffres uniquement)' : '# Neutro (Apenas números)'}</option>
           {availableSignals.map((sig) => <option key={sig.id} value={sig.id}>{sig.name}</option>)}
         </select>
         <div className="flex gap-1.5 overflow-x-auto pt-1.5 pb-0.5 max-w-full">
@@ -53,7 +53,7 @@ export const TransportPreRollPopup: React.FC<TransportPreRollPopupProps> = ({
             onClick={() => onChange(null)}
             className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${isNeutral ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold' : 'border-black/30 bg-white/70 hover:bg-white text-black/70'}`}
           >
-            <span>🔢</span>
+            <Hash size={12} className="shrink-0" />
             <span>{lang === 'fr' ? 'Neutre' : 'Neutro'}</span>
           </button>
           {availableSignals.map((sig) => {
@@ -83,7 +83,7 @@ export const TransportPreRollPopup: React.FC<TransportPreRollPopupProps> = ({
     >
       <div className="flex items-center justify-between pb-2 border-b-2 border-[#1a1a1a]/20 mb-2.5">
         <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sm">
-          <span>⏱️</span>
+          <Timer size={14} className="shrink-0" />
           <span>{lang === 'fr' ? 'Précompte (Pre-roll)' : 'Contagem (Pré-roll)'}</span>
         </div>
         <button onClick={onClose} className="w-5 h-5 flex items-center justify-center hover:bg-black/10 rounded cursor-pointer" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
@@ -116,8 +116,9 @@ export const TransportPreRollPopup: React.FC<TransportPreRollPopupProps> = ({
             {renderSignalSelector(preRollSettings.measuresCount === 2 ? (lang === 'fr' ? 'Mesure -1 (Appel immédiat) :' : 'Compasso -1 (Chamada imediata) :') : (lang === 'fr' ? 'Mesure -1 (Signal d’amorce) :' : 'Compasso -1 (Sinal de chamada) :'), preRollSettings.startSignalMeasure2Id, (id) => setPreRollSettings({ startSignalMeasure2Id: id }))}
           </div>
 
-          <div className="text-[10px] text-black/60 italic leading-snug pt-1 border-t border-black/10">
-            💡 {lang === 'fr' ? 'En cours de morceau (M > 0), le signal de la mesure précédente M-1 est automatiquement animé en amorce s’il existe.' : 'Durante a música (M > 0), o sinal do compasso anterior M-1 é automaticamente animado se existir.'}
+          <div className="text-[10px] text-black/60 italic leading-snug pt-1 border-t border-black/10 flex items-center gap-1.5">
+            <Lightbulb size={12} className="shrink-0" />
+            <span>{lang === 'fr' ? 'En cours de morceau (M > 0), le signal de la mesure précédente M-1 est automatiquement animé en amorce s’il existe.' : 'Durante a música (M > 0), o sinal do compasso anterior M-1 é automaticamente animado se existir.'}</span>
           </div>
         </div>
       )}

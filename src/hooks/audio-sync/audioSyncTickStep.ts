@@ -6,7 +6,6 @@
 import React from 'react';
 import * as Tone from 'tone';
 import { getMaxTicks } from '../../data';
-import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { nextRandom, getMeasureStartTick } from './audioParamsCache';
 import { advanceMeasureOnTickBoundary } from './measureAdvanceHelper';
 import { scheduleMetronomeClick } from './audioSyncMetronomeScheduler';
@@ -18,25 +17,8 @@ import { dispatchVisualTick } from './audioSyncVisualTickDispatcher';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
-
-export interface TickStepContext {
-  currentStepIndexRef: { current: number }; measureCountRef: { current: number }; totalMeasuresRef: { current: number };
-  measureTimeSigsRef: { current: Record<number, string> }; measureBpmsRef: { current: number[] }; maxTicksRef: { current: number };
-  currentMeasureStartTickRef: { current: number }; absoluteTickCountRef: { current: number }; isLoopRegionActiveRef: { current: boolean };
-  loopStartRef: { current: number | null }; loopEndRef: { current: number | null }; isLoopingRef: { current: boolean };
-  loopModeRef?: { current: 'infinite' | number }; isLoopExitRequestedRef?: { current: boolean }; currentLoopIterationRef?: { current: number };
-  isPlaybackEndingRef: { current: boolean }; lastPlayedSignalIdRef: { current: string | null }; isMetroOnRef: { current: boolean };
-  metroVolumeRef: { current: number }; metroSoundRef: { current: 'synth' | 'clave' | 'cowbell' }; metroChannelRef: { current: Tone.Channel | null };
-  globalSwingRef: { current: any }; tracksRef: { current: any[] }; soloPatternPlayIdRef: { current: number | null };
-  soloPatternVariationIdRef: { current: string | null }; soloLoopCycleRef: { current: number }; soloPhraseMeasureRef: { current: number };
-  familyMuteSetRef: { current: Set<string> }; flatCompiledScheduleRef: { current: Float64Array | null }; flatArrayPointerRef: { current: number };
-  lastCompiledScheduleRef: { current: Float64Array | null }; lastAbsoluteTickRef: { current: number }; mutedVoiceTracksRef: { current: Set<string | number> };
-  anticipatedMeasuresRef: { current: Set<string> }; activeSequencerVocalsRef: { current: Map<string, any> }; speedTrainerCurrentBpmRef: { current: number };
-  speedTrainerConsolidationLapsDoneRef: { current: number }; anchoredMeasureStartSecRef: React.MutableRefObject<number>;
-  anchoredMeasureIdxRef: React.MutableRefObject<number>; sectionIterationRef: { current: number };
-  trackInputs: Record<string | number, Tone.Gain>; channels: Record<string | number, Tone.Channel>; busChannels: Record<string | number, Tone.Channel>;
-  masterVolumeNode: Tone.Volume | null; audioEngine: AudioEngine | null; handleStop: () => void; setCurrentMeasure: (m: number) => void;
-}
+import { TickStepContext } from './audioSyncTickStepContext';
+export type { TickStepContext };
 
 export function executeTickStep(time: number, ctx: TickStepContext): boolean {
   let currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
@@ -48,6 +30,7 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     ctx.isPlaybackEndingRef.current = false;
     ctx.flatArrayPointerRef.current = 0;
     ctx.lastAbsoluteTickRef.current = -1;
+    if (ctx.lastScheduledMeasureRef) ctx.lastScheduledMeasureRef.current = -1;
     ctx.absoluteTickCountRef.current = getMeasureStartTick(currentMeasureIdx, ctx.measureTimeSigsRef.current);
     ctx.currentMeasureStartTickRef.current = ctx.absoluteTickCountRef.current;
   }
@@ -90,12 +73,17 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     metroSound: ctx.metroSoundRef.current,
   });
 
-  const beats = getBeatsPerMeasure(currentTimeSig as any);
-  scheduleMeasureAutomationRamps({
-    tracks: ctx.tracksRef.current, currentMeasureIdx,
-    prevMeasureIdx: currentMeasureIdx === 0 ? (ctx.totalMeasuresRef.current || 1) - 1 : currentMeasureIdx - 1,
-    measureDurationSec: tick96nSec * 24 * beats, time,
-  });
+  const shouldScheduleAutomation = stepIdx === 0 ||
+    (ctx.lastScheduledMeasureRef && ctx.lastScheduledMeasureRef.current !== currentMeasureIdx);
+  if (shouldScheduleAutomation) {
+    if (ctx.lastScheduledMeasureRef) ctx.lastScheduledMeasureRef.current = currentMeasureIdx;
+    const measureDurationSec = (currentTicks / 24) * (60 / (useSequencerStore.getState().measureBpms[currentMeasureIdx] || useSequencerStore.getState().bpm || 100));
+    scheduleMeasureAutomationRamps({
+      tracks: ctx.tracksRef.current, currentMeasureIdx,
+      prevMeasureIdx: currentMeasureIdx === 0 ? (ctx.totalMeasuresRef.current || 1) - 1 : currentMeasureIdx - 1,
+      measureDurationSec, time,
+    });
+  }
 
   const stepDurationSec = tick96nSec * 6;
   const globalMode = ctx.globalSwingRef.current.mode;

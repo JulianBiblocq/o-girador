@@ -12,6 +12,10 @@ export function useThemeColors(): React.MutableRefObject<ThemeColors> {
     themeText: '#1a1a1a',
     themeBorder: '#1a1a1a',
     themeWood: '#8b2a1a',
+    skinBg: '#f4ecd8',
+    skinInk: '#1a1a1a',
+    skinBorder: '#1a1a1a',
+    skinWood: '#8b2a1a',
     isDark: false,
   });
 
@@ -25,6 +29,10 @@ export function useThemeColors(): React.MutableRefObject<ThemeColors> {
         themeText: s.getPropertyValue('--cordel-text').trim() || '#1a1a1a',
         themeBorder: s.getPropertyValue('--cordel-border').trim() || '#1a1a1a',
         themeWood: s.getPropertyValue('--cordel-wood').trim() || '#8b2a1a',
+        skinBg: s.getPropertyValue('--roda-skin-bg').trim() || '#f4ecd8',
+        skinInk: s.getPropertyValue('--roda-skin-ink').trim() || '#1a1a1a',
+        skinBorder: s.getPropertyValue('--roda-skin-border').trim() || '#1a1a1a',
+        skinWood: s.getPropertyValue('--roda-skin-wood').trim() || '#8b2a1a',
         isDark,
       };
     };

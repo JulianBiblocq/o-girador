@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore, getVisibleTimelineTrackIds } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { SongSection, CloudRhythmSignal } from '../types';
+import { Hand } from 'lucide-react';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import { TimelinePlayhead } from './TimelinePlayhead';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -44,9 +45,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const { isPlaying, seekToMeasure, handleTimelineNavigate, handleStop } = useAudio();
   const scrollRef = useRef<HTMLDivElement>(null), gridRef = useRef<HTMLDivElement>(null), containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    useSequencerStore.getState().setTracks(prev => prev.map(t => t.isLinkFolder ? { ...t, isSequencerFolded: true } : t));
-  }, []);
   useTimelineShortcuts();
 
   const totalMeasures = useSequencerStore(s => s.totalMeasures), timeSig = useSequencerStore(s => s.timeSig);
@@ -108,7 +106,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             {g.sectionInteractions.snapGuideX !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 shadow-[0_0_8px_#f1c40f] z-50 pointer-events-none" style={{ left: `${g.sectionInteractions.snapGuideX}px` }} />}
           </div>
         </div>
-        {g.pinchPan.isPanningActive && <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] cordel-shadow z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider"><span>✋ {lang === 'fr' ? 'Mode Déplacement Actif' : 'Modo Arrastar Ativo'}</span><span className="text-[8px] opacity-60 normal-case">{lang === 'fr' ? '(Glissez le fond pour scroller)' : '(Arraste o fundo para rolar)'}</span></div>}
+        {g.pinchPan.isPanningActive && <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] cordel-shadow z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider"><span><Hand size={12} className="inline mr-1" />{lang === 'fr' ? 'Mode Déplacement Actif' : 'Modo Arrastar Ativo'}</span><span className="text-[8px] opacity-60 normal-case">{lang === 'fr' ? '(Glissez le fond pour scroller)' : '(Arraste o fundo para rolar)'}</span></div>}
         <TimelineModalsContainer
           totalMeasures={totalMeasures} lang={lang} hasAccess={role => hasAccess(role as any)}
           sectionModal={{ isOpen: sectionModalOpen, onClose: () => setSectionModalOpen(false), editingSection, onCreateSection: (name, start, end, color, repeat, level) => handleCreateSongSection(name, start, end, color, repeat, level), onUpdateSection: (id, name, start, end, color, level) => handleUpdateSongSection(id, name, start, end, color, level), onSaveCloudSection, onLoadCloudSection }}

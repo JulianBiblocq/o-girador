@@ -73,7 +73,7 @@ export class EngineNotePlayer {
     if (!stroke) return;
 
     EngineExecuteStroke.execute(
-      deps, trackId, instrumentId, config, stroke, time, velocity, decayMultiplier, undefined, isLiveHold, track || null
+      deps, trackId, instrumentId, config, stroke, time, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol
     );
   }
 
@@ -100,7 +100,7 @@ export class EngineNotePlayer {
 
     const triggerTime = time !== undefined ? time : (Tone?.now() || deps.playbackCtx.audioContext.currentTime);
     EngineExecuteStroke.execute(
-      deps, null, instrumentId, config, stroke, triggerTime, velocity, 1.0, pitchSemitones, false, null
+      deps, null, instrumentId, config, stroke, triggerTime, velocity, 1.0, pitchSemitones, false, null, strokeSymbol
     );
   }
 }

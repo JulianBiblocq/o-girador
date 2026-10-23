@@ -2,6 +2,7 @@ import { getMaxTicks } from '../../data';
 import { pushVisualTick } from '../../audio/visualTickBuffer';
 import { playCountInBeep } from '../../audio/nativeSynths';
 import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
+import { getBeatsCount, isCompoundMeter } from '../../utils/meterTiming';
 
 export interface CountInBeepsParams {
   t0: number;
@@ -54,20 +55,23 @@ export function scheduleCountInBeepsAndTicks(p: CountInBeepsParams): void {
         });
       }
     } else {
-      const runwayStepDurationSec = measureCycleDurationSec / 16;
-      for (let s = 0; s < 16; s++) {
+      const beatsInTarget = getBeatsCount(targetSig);
+      const stepsPerBeat = isCompoundMeter(targetSig) ? 3 : 4;
+      const totalStepsInMeasure = beatsInTarget * stepsPerBeat;
+      const runwayStepDurationSec = measureCycleDurationSec / totalStepsInMeasure;
+      for (let s = 0; s < totalStepsInMeasure; s++) {
         const stepTime = measureStart + s * runwayStepDurationSec;
         const visualStepTime = stepTime + btOffsetSec;
-        const beatIdx = Math.floor(s / 4);
-        const subRatio = (s % 4) / 4;
+        const beatIdx = Math.min(beatsInTarget - 1, Math.floor(s / stepsPerBeat));
+        const subRatio = (s % stepsPerBeat) / stepsPerBeat;
         pushVisualTick({
           drawTime: visualStepTime,
           step: 0,
           measure: targetM,
           maxTicks: getMaxTicks(targetSig as any),
           ratio: subRatio,
-          visualStep16: s,
-          visualStep12: Math.floor((s / 16) * 12),
+          visualStep16: Math.floor((s / totalStepsInMeasure) * 16),
+          visualStep12: Math.floor((s / totalStepsInMeasure) * 12),
           time: visualStepTime,
           iteration: 1,
           measureStartTime: measureStart + btOffsetSec,

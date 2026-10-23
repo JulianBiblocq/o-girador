@@ -24,7 +24,16 @@ export const SpeedTrainerModal: React.FC<SpeedTrainerModalProps> = ({ changeView
   const mestre = useMestreTrainingLogic(
     logic.isOpen, logic.activeTab, logic.audio.activePresetName, logic.sequencer.metadata?.toada,
     logic.startMeasure, logic.endMeasure, logic.startBpm, logic.targetBpm, logic.bpmStep,
-    logic.loopInterval, logic.consolidationLaps, t
+    logic.loopInterval, logic.consolidationLaps, t,
+    (tr) => {
+      if (tr.startMeasure !== undefined) logic.setStartMeasure(tr.startMeasure);
+      if (tr.endMeasure !== undefined) logic.setEndMeasure(tr.endMeasure);
+      if (tr.stages && tr.stages.length > 0) {
+        logic.setStartBpm(tr.stages[0].targetBpm);
+        logic.setTargetBpm(tr.stages[tr.stages.length - 1].targetBpm);
+      }
+      if (tr.consolidationLaps !== undefined) logic.setConsolidationLaps(tr.consolidationLaps);
+    }
   );
 
   useEffect(() => {

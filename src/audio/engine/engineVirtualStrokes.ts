@@ -11,7 +11,7 @@ export class EngineVirtualStrokes {
 
     if (normSymbol === 'f') normSymbol = 'F';
     else if (normSymbol === 'v') normSymbol = 'V';
-    else if (normSymbol === 'r') normSymbol = 'R';
+    else if (normSymbol === 'r' && instrumentId !== 'caixa' && instrumentId !== 'tarol') normSymbol = 'R';
 
     if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
       if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';

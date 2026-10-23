@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { masterVolumeNode, masterEQNode, masterCompressorNode } from './audioEngineNodes';
 import { syncMasterCompressorBypass } from '../../audio/effectsChain';
+import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
 
 interface UseMasterEffectsSyncProps {
   masterVol: number;
@@ -17,18 +18,20 @@ export function useMasterEffectsSync({
 }: UseMasterEffectsSyncProps) {
   // Sync Master Volume node
   useEffect(() => {
-    const applyVolume = () => {
-      if (masterVolumeNode) {
-        const baseGain = masterVol <= -60 || !Number.isFinite(masterVol) ? 0 : Tone.dbToGain(masterVol);
-        masterVolumeNode.gain.setValueAtTime(baseGain, Tone.context.currentTime);
-      }
-    };
+    if (masterVolumeNode) {
+      const state = useSequencerStore.getState();
+      const globalBypass = state.globalAutomationBypass;
+      const isMasterBypassed = isMasterVolumeBypassedHelper(state.isMasterVolumeBypassed, globalBypass);
+      const hasVolAuto = !isMasterBypassed && state.measureVols && state.measureVols.some(v => v !== 100);
 
-    applyVolume();
-    const unsubscribe = useSequencerStore.subscribe(() => {
-      applyVolume();
-    });
-    return () => unsubscribe();
+      // Si la lecture tourne et qu'une automation master est active, ne pas écraser la rampe en cours
+      if (state.isPlaying && hasVolAuto) {
+        return;
+      }
+
+      const baseGain = masterVol <= -60 || !Number.isFinite(masterVol) ? 0 : Tone.dbToGain(masterVol);
+      masterVolumeNode.gain.setValueAtTime(baseGain, Tone.context.currentTime);
+    }
   }, [masterVol]);
 
   // Sync Master EQ with Smart Bypass

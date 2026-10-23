@@ -5,14 +5,12 @@ import { recordStageSuccess } from '../../services/cloudTrainings';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
 interface HandleSpeedTrainerLapProps {
-  nextTour: number;
   speedTrainerCurrentBpmRef: React.MutableRefObject<number>;
   speedTrainerConsolidationLapsDoneRef: React.MutableRefObject<number>;
   handleStop: () => void;
 }
 
 export function handleSpeedTrainerLap({
-  nextTour,
   speedTrainerCurrentBpmRef,
   speedTrainerConsolidationLapsDoneRef,
   handleStop,
@@ -22,11 +20,14 @@ export function handleSpeedTrainerLap({
     return false;
   }
 
+  const newTourCount = (stState.speedTrainerTourCount || 0) + 1;
+  stState.setSpeedTrainerTourCount(newTourCount);
+
   const curBpm = speedTrainerCurrentBpmRef.current || stState.speedTrainerConfig.startBpm;
   const targetBpm = stState.speedTrainerConfig.targetBpm;
 
   if (curBpm < targetBpm) {
-    if (nextTour % stState.speedTrainerConfig.loopInterval === 0) {
+    if (newTourCount % stState.speedTrainerConfig.loopInterval === 0) {
       const nextBpm = Math.min(curBpm + stState.speedTrainerConfig.bpmStep, targetBpm);
       speedTrainerCurrentBpmRef.current = nextBpm;
       Tone.Transport.bpm.value = nextBpm;
@@ -50,7 +51,17 @@ export function handleSpeedTrainerLap({
 
       const currentUid = auth.currentUser?.uid;
       if (currentUid && completedConfig.trainingId && completedConfig.stageIndex !== undefined) {
-        recordStageSuccess(currentUid, completedConfig.trainingId, completedConfig.stageIndex);
+        recordStageSuccess(currentUid, completedConfig.trainingId, completedConfig.stageIndex)
+          .then((ok) => {
+            if (!ok) {
+              window.dispatchEvent(
+                new CustomEvent('o-girador-toast', {
+                  detail: { type: 'error', message: 'Erreur enregistrement du palier dans le cloud' }
+                })
+              );
+            }
+          })
+          .catch(() => {});
       }
 
       stState.stopSpeedTrainer();

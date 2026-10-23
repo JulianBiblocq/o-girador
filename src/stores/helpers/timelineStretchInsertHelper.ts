@@ -38,7 +38,7 @@ export const stretchInsertModeState = (
   const prevIdx = Math.max(0, targetStartM - 1);
   const refSig = state.measureTimeSigs[prevIdx] || state.timeSig;
   const refBpm = state.measureBpms[prevIdx] || state.bpm;
-  const refVol = state.measureVols[prevIdx] !== undefined ? state.measureVols[prevIdx] : 75;
+  const refVol = state.measureVols[prevIdx] !== undefined ? state.measureVols[prevIdx] : 100;
 
   const spliceArr = <T>(arr: T[], fillVal: T): T[] => {
     const next = [...(arr || [])];

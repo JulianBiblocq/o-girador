@@ -22,5 +22,6 @@ export interface GainNodeMapping {
 }
 
 export const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+export const TUNEABLE_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal']);
 export const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);
 export const MAX_POOL_SIZE = 40;

@@ -5,11 +5,12 @@
  */
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
-import { channels, busChannels, reverbSends, masterVolumeNode } from './audioEngineNodes';
+import { channels, busChannels, reverbSends } from './audioEngineNodes';
 import { faderPositionToGain } from '../../utils/audioMath';
 import { getEffectiveVolume, useSequencerStore } from '../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
-import { isAutomationBypassed, isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
+import { isAutomationBypassed } from '../../utils/automationBypassHelper';
+import { scheduleMasterVolumeRamp } from './audioSyncMasterRamp';
 
 interface ScheduleAutomationProps {
   tracks: TrackGroup[];
@@ -35,23 +36,7 @@ export function scheduleMeasureAutomationRamps({
   const globalBypass = state.globalAutomationBypass;
 
   // Master Volume Automation
-  const isMasterBypassed = isMasterVolumeBypassedHelper(state.isMasterVolumeBypassed, globalBypass);
-  if (!isMasterBypassed && state.measureVols?.length && masterVolumeNode?.gain) {
-    try {
-      const rawTarget = state.measureVols[currentMeasureIdx] !== undefined ? state.measureVols[currentMeasureIdx] : 100;
-      const rawPrev = state.measureVols[prevMeasureIdx] !== undefined ? state.measureVols[prevMeasureIdx] : 100;
-      const trans = state.measureVolTransitions?.[currentMeasureIdx] || 'immediate';
-      const startG = Math.max(0, rawPrev / 100);
-      const endG = Math.max(0, rawTarget / 100);
-      masterVolumeNode.gain.cancelScheduledValues(time);
-      if (startG !== endG && trans === 'ramp') {
-        masterVolumeNode.gain.setValueAtTime(startG, time);
-        masterVolumeNode.gain.linearRampToValueAtTime(endG, time + measureDurationSec);
-      } else {
-        masterVolumeNode.gain.setValueAtTime(endG, time);
-      }
-    } catch (_) {}
-  }
+  scheduleMasterVolumeRamp(state, currentMeasureIdx, prevMeasureIdx, measureDurationSec, time);
 
   // Pistes & Bus
   tracks.forEach((t) => {
@@ -69,7 +54,7 @@ export function scheduleMeasureAutomationRamps({
         const startG = Math.max(0.00001, baseGain * faderPositionToGain(rawPrev));
         const endG = Math.max(0.00001, baseGain * faderPositionToGain(rawTarget));
         channel.volume.cancelScheduledValues(time);
-        if (startG !== endG) {
+        if (startG !== endG && trans !== 'immediate') {
           channel.volume.setValueAtTime(Tone.gainToDb(startG), time);
           if (trans === 'bezier') channel.volume.exponentialRampToValueAtTime(Tone.gainToDb(endG), time + measureDurationSec);
           else channel.volume.linearRampToValueAtTime(Tone.gainToDb(endG), time + measureDurationSec);
@@ -89,7 +74,7 @@ export function scheduleMeasureAutomationRamps({
         const startP = applyMonoCompatiblePan(rawPrev).acousticPan;
         const endP = applyMonoCompatiblePan(rawTarget).acousticPan;
         channel.pan.cancelScheduledValues(time);
-        if (startP !== endP) {
+        if (startP !== endP && trans !== 'immediate') {
           if (trans === 'bezier') {
             try { channel.pan.setValueCurveAtTime(makeEaseCurve(startP, endP), time, measureDurationSec); }
             catch (_) { channel.pan.linearRampToValueAtTime(endP, time + measureDurationSec); }
@@ -116,7 +101,7 @@ export function scheduleMeasureAutomationRamps({
         const startVal = toVal(rawPrev);
         const endVal = toVal(rawTarget);
         send.gain.cancelScheduledValues(time);
-        if (startVal !== endVal) {
+        if (startVal !== endVal && trans !== 'immediate') {
           if (trans === 'bezier') {
             try { send.gain.setValueCurveAtTime(makeEaseCurve(startVal, endVal), time, measureDurationSec); }
             catch (_) { send.gain.linearRampToValueAtTime(endVal, time + measureDurationSec); }

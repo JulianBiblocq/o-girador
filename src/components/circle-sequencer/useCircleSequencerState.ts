@@ -4,9 +4,7 @@
  */
 
 import { useRef, useEffect, useMemo } from 'react';
-import { useSequencerStore, isSequencerVisibleTrack } from '../../stores/useSequencerStore';
-import { useTransportStore } from '../../stores/useTransportStore';
-import { useAudioStore } from '../../stores/useAudioStore';
+import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
@@ -19,13 +17,14 @@ import { resolveLiveActivePatternId } from './resolveLiveActivePatternId';
 import { useRodaMeasureNavigationState } from './useRodaMeasureNavigationState';
 import { useApitoShake } from './useApitoShake';
 import { useOverlayRefs } from './useOverlayRefs';
-import { CircleSequencerProps, LivePlaybackState, OverlayCacheState } from './circleSequencerTypes';
-
+import { useCircleSequencerStoreData } from './useCircleSequencerStoreData';
+import { CircleSequencerProps, LivePlaybackState } from './circleSequencerTypes';
 
 export function useCircleSequencerState(props: CircleSequencerProps) {
   const { isActive = true } = props;
   const sequencer = useSequencer();
   const audio = useAudio();
+  const storeData = useCircleSequencerStoreData(isActive);
 
   const lang = props.lang ?? sequencer.lang;
   const isLeftHanded = props.isLeftHanded ?? sequencer.isLeftHanded;
@@ -36,23 +35,27 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     const allowed = new Set(props.visibleTrackIds.map(String));
     tracks = tracks.filter(t => allowed.has(String(t.id)));
   }
-  const totalMeasures = props.totalMeasures ?? useSequencerStore(state => state.totalMeasures);
+
+  const totalMeasures = props.totalMeasures ?? storeData.totalMeasures;
+  const songSections = props.songSections ?? (storeData.songSections || []);
+  const songMarkers = props.songMarkers ?? (storeData.songMarkers || []);
+  const rodaTrackOrder = props.rodaTrackOrder ?? storeData.rodaTrackOrder;
+  const isLoopRegionActive = storeData.isLoopRegionActive;
+  const loopStartMeasure = storeData.loopStartMeasure;
+  const loopEndMeasure = storeData.loopEndMeasure;
+  const currentMeasure = props.currentMeasure ?? storeData.currentMeasure;
+  const measureTimeSigs = storeData.measureTimeSigs;
+  const isMetroOn = props.isMetroOn ?? storeData.isMetroOn;
+  const soloPatternPlayId = props.soloPatternPlayId ?? storeData.soloPatternPlayId;
+  const isLetraActive = props.isLetraActive ?? storeData.isLetraActive;
+  const toggleLetraActive = storeData.toggleLetraActive;
+  const { vocalMode, setVocalMode } = storeData;
+
   const bpm = props.bpm ?? sequencer.bpm;
   const measureBpms = props.measureBpms ?? sequencer.measureBpms;
   const measureVols = props.measureVols ?? sequencer.measureVols;
   const measureSignals = props.measureSignals ?? (sequencer.measureSignals || []);
-  const songSections = props.songSections ?? (useSequencerStore(state => state.songSections) || []);
-  const songMarkers = props.songMarkers ?? (useSequencerStore(state => state.songMarkers) || []);
-  const rodaTrackOrder = props.rodaTrackOrder ?? useSequencerStore(state => state.rodaTrackOrder);
-  const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
-  const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
-  const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
-
   const isPlaying = props.isPlaying ?? audio.isPlaying;
-  const currentMeasure = props.currentMeasure ?? useSequencerStore(state => (isActive ? state.currentMeasure : 0));
-  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
-  const isMetroOn = props.isMetroOn ?? useTransportStore(state => state.isMetroOn);
-  const soloPatternPlayId = props.soloPatternPlayId ?? useTransportStore(state => state.soloPatternPlayId);
   const hitTriggersRef = props.hitTriggersRef ?? audio.hitTriggersRef;
 
   const metadata = sequencer.metadata;
@@ -70,13 +73,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     centerOverlayTintRef, centerOverlayTextRef, lastOverlayTextRef, frozenStickAngleRef, lastOverlayStateRef,
   } = useOverlayRefs();
 
-
   const isCenterShaking = useApitoShake();
-  const storeLetraActive = useSequencerStore(state => state.isLetraActive);
-  const isLetraActive = props.isLetraActive ?? storeLetraActive;
-  const toggleLetraActive = useSequencerStore(state => state.toggleLetraActive);
-  const vocalMode = useAudioStore(state => state.vocalMode);
-  const setVocalMode = useAudioStore(state => state.setVocalMode);
 
   const {
     pendingTargetMeasure, setPendingTargetMeasure, pendingTargetMeasureRef,

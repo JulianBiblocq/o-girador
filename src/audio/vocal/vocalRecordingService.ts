@@ -8,6 +8,8 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../../db';
 import { scheduleAudioContextAutoSuspend } from '../audioContextSuspendManager';
 
+import { resolveRecordingContext, VocalRecordingDataHandler } from './vocalRecordingDataHandler';
+
 import { base64ToBlob } from '../../contexts/audio/audioVocalBase64';
 export { base64ToBlob };
 
@@ -21,15 +23,8 @@ export class VocalRecordingService {
     store.setRecordingStatus?.('recording');
     store.setIsFocusRecordingMode?.(true);
 
-    const seq = useSequencerStore.getState();
-    let targetM: number | null = null;
-    for (const t of seq.tracks) {
-      const p = t.patterns?.find(x => x.id === patternId);
-      const idx = p?.measureAssignments?.indexOf(true) ?? -1;
-      if (idx !== -1) { targetM = idx; break; }
-    }
-    const resolvedM = targetM ?? seq.activeTimelineCell?.measureIdx ?? seq.currentMeasure ?? 0;
-    store.setTargetMeasureIdx?.(resolvedM);
+    const { trackId, measureIdx } = resolveRecordingContext(patternId);
+    store.setTargetMeasureIdx?.(measureIdx);
 
     let stream: MediaStream | null = null;
     try {
@@ -41,6 +36,11 @@ export class VocalRecordingService {
       this.audioStream = stream;
       const rec = new MediaRecorder(stream);
       this.mediaRecorder = rec;
+
+      const handler = new VocalRecordingDataHandler(patternId, trackId, measureIdx);
+      rec.ondataavailable = (e) => handler.handleDataAvailable(e);
+      rec.onstop = () => { handler.handleStop(rec); };
+
       rec.start();
     } catch (err) {
       if (stream) {

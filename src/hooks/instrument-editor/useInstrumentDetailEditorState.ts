@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Copy, Eraser, Clipboard, Trash2, CopyPlus } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Pattern } from '../../types';
 import { CordelMenuItem } from '../../components/ui/CordelContextMenu';
@@ -66,11 +67,11 @@ export function useInstrumentDetailEditorState({
   }, [effectiveEditTrackId, displayedPatterns, selectedPatternId, setEditingTrackId]);
 
   const getPatternCardMenuItems = useCallback((ptn: Pattern): CordelMenuItem[] => [
-    { id: 'duplicate-pattern', label: lang === 'fr' ? 'Dupliquer ce motif' : 'Duplicar este padrão', icon: '📋', onClick: () => handleDuplicatePattern(ptn) },
-    { id: 'clear-pattern', label: lang === 'fr' ? 'Effacer toutes les frappes' : 'Limpar todas as batidas', icon: '🧹', onClick: () => handleClearPatternStrokes(ptn.id) },
-    { id: 'copy-pattern', label: lang === 'fr' ? 'Copier le motif' : 'Copiar padrão', icon: '📋', onClick: () => onCopyPattern?.(ptn) },
-    { id: 'paste-pattern', label: lang === 'fr' ? 'Coller les pas' : 'Colar passos', icon: '📥', disabled: !canPaste, onClick: () => onPastePattern?.(ptn.id) },
-    { id: 'delete-pattern', label: lang === 'fr' ? 'Supprimer ce motif' : 'Excluir padrão', icon: '🗑️', isDestructive: true, disabled: (track?.patterns?.length || 0) <= 1, onClick: () => handleContextDeletePattern(ptn.id) },
+    { id: 'duplicate-pattern', label: lang === 'fr' ? 'Dupliquer ce motif' : 'Duplicar este padrão', icon: React.createElement(CopyPlus, { size: 14 }), onClick: () => handleDuplicatePattern(ptn) },
+    { id: 'clear-pattern', label: lang === 'fr' ? 'Effacer toutes les frappes' : 'Limpar todas as batidas', icon: React.createElement(Eraser, { size: 14 }), onClick: () => handleClearPatternStrokes(ptn.id) },
+    { id: 'copy-pattern', label: lang === 'fr' ? 'Copier le motif' : 'Copiar padrão', icon: React.createElement(Copy, { size: 14 }), onClick: () => onCopyPattern?.(ptn) },
+    { id: 'paste-pattern', label: lang === 'fr' ? 'Coller les pas' : 'Colar passos', icon: React.createElement(Clipboard, { size: 14 }), disabled: !canPaste, onClick: () => onPastePattern?.(ptn.id) },
+    { id: 'delete-pattern', label: lang === 'fr' ? 'Supprimer ce motif' : 'Excluir padrão', icon: React.createElement(Trash2, { size: 14 }), isDestructive: true, disabled: (track?.patterns?.length || 0) <= 1, onClick: () => handleContextDeletePattern(ptn.id) },
   ], [handleDuplicatePattern, handleClearPatternStrokes, onCopyPattern, onPastePattern, canPaste, track?.patterns?.length, handleContextDeletePattern, lang]);
 
   return {

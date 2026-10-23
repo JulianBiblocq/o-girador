@@ -19,8 +19,8 @@ export const drawTrackRing = (
   themeBorder: string,
   isActiveState: boolean
 ): number => {
-  const busColor = track.isLinkFolder
-    ? getBusColor(String(track.id), localRawTracks, instrumentsConfig)
+  const busColor = (track.isLinkFolder || track.isLinkMaster)
+    ? getBusColor(String(track.busId || track.linkedToTrackId || track.id), localRawTracks, instrumentsConfig)
     : null;
 
   ctx.save();

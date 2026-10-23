@@ -11,11 +11,9 @@ export const CLOUD_TRAININGS_COLLECTION = 'trainings';
 
 /**
  * Enregistre un nouveau programme d'entraînement Mestre dans Firestore (/trainings).
- * Le groupId est toujours normalisé en minuscules.
  */
 export async function saveTrainingProgram(training: Omit<TrainingProgram, 'id'>): Promise<string> {
   const normalizedGroupId = (training.groupId || '').trim().toLowerCase();
-  
   const payload = {
     ...training,
     groupId: normalizedGroupId,
@@ -36,7 +34,7 @@ export async function updateTrainingProgram(
 ): Promise<void> {
   if (!trainingId) throw new Error('Training ID is required for update');
   const docRef = doc(db, CLOUD_TRAININGS_COLLECTION, trainingId);
-  const payload: Record<string, any> = {
+  const payload: Partial<TrainingProgram> & { updatedAt: number } = {
     ...data,
     updatedAt: Date.now(),
   };
@@ -57,8 +55,6 @@ export async function deleteTrainingProgram(trainingId: string): Promise<void> {
 
 /**
  * Récupère les entraînements existants rattachés à un morceau et un groupe.
- * Tolérance de casse sur le groupId ([groupId, groupId.toLowerCase()]).
- * Garde-fou strict : si presetId ou groupId est vide/falsy, retourne immédiatement [] sans requête.
  */
 export async function fetchTrainingsByPreset(presetId?: string | null, groupId?: string | null): Promise<TrainingProgram[]> {
   const cleanPreset = (presetId || '').trim();
@@ -69,29 +65,15 @@ export async function fetchTrainingsByPreset(presetId?: string | null, groupId?:
 
   try {
     const groupVariants = Array.from(new Set([cleanGroup, cleanGroup.toLowerCase()].filter(Boolean)));
-
-    let q;
-    if (groupVariants.length > 1) {
-      q = query(
-        collRef,
-        where('presetId', '==', cleanPreset),
-        where('groupId', 'in', groupVariants)
-      );
-    } else {
-      q = query(
-        collRef,
-        where('presetId', '==', cleanPreset),
-        where('groupId', '==', groupVariants[0])
-      );
-    }
+    const q = groupVariants.length > 1
+      ? query(collRef, where('presetId', '==', cleanPreset), where('groupId', 'in', groupVariants))
+      : query(collRef, where('presetId', '==', cleanPreset), where('groupId', '==', groupVariants[0]));
 
     const snap = await getDocs(q);
     const results: TrainingProgram[] = [];
-    snap.forEach((doc) => {
-      results.push({ id: doc.id, ...(doc.data() as Omit<TrainingProgram, 'id'>) });
+    snap.forEach((d) => {
+      results.push({ id: d.id, ...(d.data() as Omit<TrainingProgram, 'id'>) });
     });
-
-    // Tri décroissant client-side par date de création
     results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return results;
   } catch (error) {
@@ -119,8 +101,8 @@ export async function getTrainingById(trainingId: string): Promise<TrainingProgr
 /**
  * Enregistre la validation d'un palier d'entraînement dans le profil élève (/users/{uid}/aisance/{trainingId}).
  */
-export async function recordStageSuccess(uid: string, trainingId: string, stageIndex: number): Promise<void> {
-  if (!uid || !trainingId) return;
+export async function recordStageSuccess(uid: string, trainingId: string, stageIndex: number): Promise<boolean> {
+  if (!uid || !trainingId) return false;
   try {
     const aisanceDocRef = doc(db, 'users', uid, 'aisance', trainingId);
     await setDoc(
@@ -138,9 +120,9 @@ export async function recordStageSuccess(uid: string, trainingId: string, stageI
       },
       { merge: true }
     );
-    console.log(`[Aisance] Succès enregistré pour élève ${uid}, training ${trainingId}, palier ${stageIndex}`);
+    return true;
   } catch (error) {
     console.error('Erreur lors de l\'enregistrement du succès du palier:', error);
+    return false;
   }
 }
-

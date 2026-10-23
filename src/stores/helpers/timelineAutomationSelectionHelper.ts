@@ -1,27 +1,31 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { TrackGroup } from '../../types';
+
+export type AutomationTargetType = 'bpm' | 'volume' | 'pan' | 'reverb';
 
 export const selectAutomationMeasureState = (
   state: {
-    selectedAutomationType: 'bpm' | 'volume' | null;
+    selectedAutomationType: AutomationTargetType | null;
     selectedAutomationTrackId: number | null;
     automationAnchorMeasure: number | null;
     [key: string]: any;
   },
-  type: 'bpm' | 'volume',
+  type: AutomationTargetType,
   measureIdx: number,
   isShift: boolean,
   trackId: number | null = null
 ): Record<string, any> => {
-  const isSameTarget =
-    state.selectedAutomationType === type &&
-    state.selectedAutomationTrackId === trackId;
-
+  const isSameTarget = state.selectedAutomationType === type && state.selectedAutomationTrackId === trackId;
   if (!isShift || !isSameTarget || state.automationAnchorMeasure === null) {
     return {
       selectedAutomationType: type,
       selectedAutomationTrackId: trackId,
       automationAnchorMeasure: measureIdx,
-      selectedAutomationRange: { start: measureIdx, end: measureIdx }
+      selectedAutomationRange: { start: measureIdx, end: measureIdx },
     };
   }
 
@@ -29,10 +33,7 @@ export const selectAutomationMeasureState = (
   return {
     selectedAutomationType: type,
     selectedAutomationTrackId: trackId,
-    selectedAutomationRange: {
-      start: Math.min(anchor, measureIdx),
-      end: Math.max(anchor, measureIdx)
-    }
+    selectedAutomationRange: { start: Math.min(anchor, measureIdx), end: Math.max(anchor, measureIdx) },
   };
 };
 
@@ -40,8 +41,22 @@ export const clearAutomationSelectionState = (): Record<string, any> => ({
   selectedAutomationType: null,
   selectedAutomationTrackId: null,
   selectedAutomationRange: null,
-  automationAnchorMeasure: null
+  automationAnchorMeasure: null,
 });
+
+function updateTrackArray(
+  tracks: TrackGroup[], trackId: number | null, prop: 'measureVols' | 'measurePans' | 'measureReverbs',
+  fallbackProp: 'volumeVal' | 'panVal' | 'reverbVal', defVal: number,
+  totalM: number, start: number, end: number, val: number
+): TrackGroup[] {
+  return tracks.map(t => {
+    if (t.id !== trackId) return t;
+    const current = (t as any)[prop] ? [...(t as any)[prop]] : Array(totalM).fill((t as any)[fallbackProp] ?? defVal);
+    while (current.length < totalM) current.push((t as any)[fallbackProp] ?? defVal);
+    for (let i = start; i <= end; i++) current[i] = val;
+    return { ...t, [prop]: current };
+  });
+}
 
 export const setGroupedAutomationValueState = (
   state: {
@@ -54,7 +69,7 @@ export const setGroupedAutomationValueState = (
     tracksVersion: number;
     [key: string]: any;
   },
-  type: 'bpm' | 'volume',
+  type: AutomationTargetType,
   value: number,
   trackId: number | null = null
 ): Record<string, any> => {
@@ -65,53 +80,27 @@ export const setGroupedAutomationValueState = (
 
   if (type === 'bpm') {
     const nextBpms = [...state.measureBpms];
-    while (nextBpms.length < totalM) {
-      nextBpms.push(state.bpm || 83);
-    }
-    for (let i = start; i <= end; i++) {
-      nextBpms[i] = value;
-    }
-    const updates: Record<string, any> = {
-      measureBpms: nextBpms,
-      tracksVersion: state.tracksVersion + 1
-    };
-    if (start === 0) {
-      updates.bpm = value;
-    }
-    return updates;
+    while (nextBpms.length < totalM) nextBpms.push(state.bpm || 83);
+    for (let i = start; i <= end; i++) nextBpms[i] = value;
+    return { measureBpms: nextBpms, bpm: start === 0 ? value : state.bpm, tracksVersion: state.tracksVersion + 1 };
   }
 
-  // type === 'volume'
-  if (trackId === null || trackId === undefined) {
-    // Master Volume
+  if (type === 'volume' && (trackId === null || trackId === undefined)) {
     const nextVols = [...state.measureVols];
-    while (nextVols.length < totalM) {
-      nextVols.push(100);
-    }
-    for (let i = start; i <= end; i++) {
-      nextVols[i] = value;
-    }
-    return {
-      measureVols: nextVols,
-      tracksVersion: state.tracksVersion + 1
-    };
+    while (nextVols.length < totalM) nextVols.push(100);
+    for (let i = start; i <= end; i++) nextVols[i] = value;
+    return { measureVols: nextVols, tracksVersion: state.tracksVersion + 1 };
   }
 
-  // Track-specific Volume
-  return {
-    tracks: state.tracks.map((t) => {
-      if (t.id === trackId) {
-        const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 75);
-        while (currentVols.length < totalM) {
-          currentVols.push(t.volumeVal ?? 75);
-        }
-        for (let i = start; i <= end; i++) {
-          currentVols[i] = value;
-        }
-        return { ...t, measureVols: currentVols };
-      }
-      return t;
-    }),
-    tracksVersion: state.tracksVersion + 1
-  };
+  if (type === 'volume') {
+    return { tracks: updateTrackArray(state.tracks, trackId, 'measureVols', 'volumeVal', 75, totalM, start, end, value), tracksVersion: state.tracksVersion + 1 };
+  }
+  if (type === 'pan') {
+    return { tracks: updateTrackArray(state.tracks, trackId, 'measurePans', 'panVal', 0, totalM, start, end, value), tracksVersion: state.tracksVersion + 1 };
+  }
+  if (type === 'reverb') {
+    return { tracks: updateTrackArray(state.tracks, trackId, 'measureReverbs', 'reverbVal', 0, totalM, start, end, value), tracksVersion: state.tracksVersion + 1 };
+  }
+
+  return { tracksVersion: state.tracksVersion };
 };

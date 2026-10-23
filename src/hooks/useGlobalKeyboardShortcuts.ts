@@ -85,9 +85,11 @@ export function useGlobalKeyboardShortcuts() {
       // BARRIÈRE 3 : Navigation & Transport
       if (handleNavigationShortcuts({ e, seekToMeasure, handleTimelineNavigate, setIsLooping })) return;
 
-      // Duplication Ctrl+D / Cmd+D
+      const isTimelineView = (typeof window !== 'undefined' ? (window as any).__OGIRADOR_VIEW_MODE__ : '') === 'timeline';
+
+      // Duplication Ctrl+D / Cmd+D (réservé Timeline)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) return;
+        if (!isTimelineView || isActualTextEntry(document.activeElement as HTMLElement | null)) return;
         const store = useSequencerStore.getState();
         if (store.selectedTimelineCells && store.selectedTimelineCells.length > 0) {
           e.preventDefault();
@@ -105,9 +107,9 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // Touche Suppr / Delete / Backspace : vider sélection timeline
+      // Touche Suppr / Delete / Backspace : vider sélection timeline (réservé Timeline)
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (isActualTextEntry(document.activeElement as HTMLElement | null)) return;
+        if (!isTimelineView || isActualTextEntry(document.activeElement as HTMLElement | null)) return;
         if (!(window as any).oGiradorDetailEditorOpen) {
           const store = useSequencerStore.getState();
           if (store.selectedTimelineCells.length > 0 || store.activeTimelineCell) {
@@ -119,8 +121,14 @@ export function useGlobalKeyboardShortcuts() {
         }
       }
 
-      // Pressepapiers & Éléments DAW (Ctrl/Cmd)
-      handleDawClipboardShortcuts({ e, handleUndo, handleRedo });
+      // Pressepapiers & Éléments DAW (Ctrl/Cmd) : restreint à la timeline, ou Undo/Redo global
+      if (isTimelineView) {
+        handleDawClipboardShortcuts({ e, handleUndo, handleRedo });
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault(); handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+        e.preventDefault(); handleRedo();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);

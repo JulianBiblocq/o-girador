@@ -84,6 +84,12 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
 
       ctx.measureCountRef.current = loopStartMeasure;
       ctx.setCurrentMeasure(loopStartMeasure);
+
+      handleSpeedTrainerLap({
+        speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
+        speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
+        handleStop: ctx.handleStop,
+      });
     }
   } else if (store.pendingLoopRange) {
     const songSections = store.songSections || [];
@@ -113,6 +119,13 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
     const nextMeasure = (currentMeasureIdx + 1) % (ctx.totalMeasuresRef.current || 1);
     ctx.measureCountRef.current = nextMeasure;
     ctx.setCurrentMeasure(nextMeasure);
+    if (nextMeasure === 0 && currentMeasureIdx > 0 && (store.isLooping || Boolean(ctx.isLoopingRef?.current))) {
+      handleSpeedTrainerLap({
+        speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
+        speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
+        handleStop: ctx.handleStop,
+      });
+    }
   }
 
   const nextMIdx = ctx.measureCountRef.current;
@@ -120,11 +133,4 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
   ctx.maxTicksRef.current = getMaxTicks(nextSig as any);
   ctx.currentMeasureStartTickRef.current = getMeasureStartTick(nextMIdx, ctx.measureTimeSigsRef.current);
   ctx.absoluteTickCountRef.current = ctx.currentMeasureStartTickRef.current;
-
-  handleSpeedTrainerLap({
-    nextTour: nextMIdx,
-    speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
-    speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
-    handleStop: ctx.handleStop,
-  });
 }

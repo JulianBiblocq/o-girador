@@ -37,7 +37,7 @@ export const CircleCenterOverlay: React.FC<CircleCenterOverlayProps> = ({
       <div
         id="center-afficheur"
         ref={centerAfficheurRef}
-        className={`w-[20%] aspect-square rounded-full border-4 border-[var(--cordel-border)] shadow-2xl relative overflow-hidden flex items-center justify-center text-center p-1.5 md:p-2.5 select-none ${
+        className={`roda-skin-scope w-[20%] aspect-square rounded-full border-4 border-[var(--cordel-border)] shadow-2xl relative overflow-hidden flex items-center justify-center text-center p-1.5 md:p-2.5 select-none ${
           isCenterShaking ? 'shake-active' : ''
         }`}
         style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}

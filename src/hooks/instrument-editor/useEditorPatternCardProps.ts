@@ -57,7 +57,10 @@ export function useEditorPatternCardProps(params: {
     lang, isMobile, armedPatternId, toggleArmPattern,
     editingPatternId: ctrl.editingPatternId, editName: ctrl.editName,
     setEditingPatternId: ctrl.setEditingPatternId, setEditName: ctrl.setEditName,
-    handleSaveName: (pId: number) => sequencer.handlePatternNameChange(effectiveEditTrackId, pId, ctrl.editName),
+    handleSaveName: (pId: number) => {
+      sequencer.handlePatternNameChange(effectiveEditTrackId, pId, ctrl.editName);
+      ctrl.setEditingPatternId(null);
+    },
     onSelectPattern: (pId: number) => editorState.setSelectedPatternId(pId), onDeletePattern: patternOps.onDeletePattern,
     onStepsChange: (pId: number, s: number) => sequencer.handleTrackStepsChange(effectiveEditTrackId, pId, s),
     soloPatternPlayId: soloPatternPlayId ?? null, soloPatternVariationId: soloPatternVariationId ?? null, onPlaySoloPattern, onStopSoloPattern,

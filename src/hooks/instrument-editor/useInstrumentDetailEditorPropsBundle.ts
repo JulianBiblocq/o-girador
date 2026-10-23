@@ -5,6 +5,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useAudioStore } from '../../stores/useAudioStore';
+import { useVocalInspectorActions } from './useVocalInspectorActions';
 
 export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
   const {
@@ -16,6 +17,12 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     currentTimeSig, clipboard, ctrl, patternOps, cloud, editorState, cardProps,
   } = core;
   const { trackId, setEditingTrackId } = props;
+
+  const { onOpenAlignment, onImportAudio } = useVocalInspectorActions(
+    effectiveEditTrackId,
+    editorState.selectedPatternId,
+    displayedPatterns[0]?.id
+  );
 
   const headerProps = {
     inst, trackDisplayName, isVocalContext, puxTrack, coroTrack, isCoroActive,
@@ -61,6 +68,7 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     onLoadPattern: () => cloud.setLoadModalPatternId(editorState.selectedPatternId || displayedPatterns[0]?.id),
     onDeletePattern: patternOps.onDeletePattern, onBalancoChange: handlePatternBalancoChange,
     isVoice: isVocalContext, hasVocalRecording: Boolean(useAudioStore.getState().vocalBlobs[editorState.selectedPatternId || 0]),
+    onOpenAlignment, onImportAudio,
     isInspectorMobileOpen: ctrl.isInspectorMobileOpen, setIsInspectorMobileOpen: ctrl.setIsInspectorMobileOpen,
   };
 

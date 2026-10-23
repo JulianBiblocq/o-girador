@@ -113,6 +113,10 @@ export interface ThemeColors {
   themeText: string;
   themeBorder: string;
   themeWood: string;
+  skinBg: string;
+  skinInk: string;
+  skinBorder: string;
+  skinWood: string;
   isDark?: boolean;
 }
 

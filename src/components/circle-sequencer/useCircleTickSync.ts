@@ -116,5 +116,5 @@ export function useCircleTickSync(
       unsubscribeFromTick(handleTick);
       window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
-  }, [totalMeasures, songSections, isActive]);
+  }, [totalMeasures, songSections, isActive, measureTimeSigs, timeSig, lang, updateOverlay]);
 }

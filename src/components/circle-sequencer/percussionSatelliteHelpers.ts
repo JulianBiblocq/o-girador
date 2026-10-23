@@ -24,16 +24,29 @@ export function resolveSatellites(
   localLeftHanded: boolean = false
 ): SatelliteItem[] {
   const satellites: SatelliteItem[] = [];
-  if (!track.isLinkFolder) return satellites;
+  if (!track.isLinkFolder && !track.isLinkMaster) return satellites;
+
+  const targetBusId = track.busId || track.linkedToTrackId || track.id;
+  const parentBus = track.isLinkFolder
+    ? track
+    : rawTracks.find((p: any) => (String(p.id) === String(targetBusId) || String(p.id) === String(track.linkedToTrackId)) && p.isLinkFolder) || track;
 
   const children = rawTracks.filter(
-    (t: any) => String(t.linkedToTrackId) === String(track.id) && !t.isBusFolder && !t.isLinkMaster
+    (t: any) =>
+      !t.isBusFolder &&
+      !t.isLinkMaster &&
+      t.id !== track.id &&
+      (String(t.linkedToTrackId) === String(targetBusId) ||
+       String(t.linkedToTrackId) === String(track.id) ||
+       (targetBusId && String(t.busId) === String(targetBusId)))
   );
 
   children.forEach((c: any) => {
     const override = c.patternOverrides?.[measureIdx];
     if (override !== undefined && override !== null) {
-      const childPattern = track.patterns.find((p: any) => p.id === override);
+      const childPattern = parentBus?.patterns?.find((p: any) => p.id === override) ||
+        track.patterns?.find((p: any) => p.id === override) ||
+        c.patterns?.find((p: any) => p.id === override);
       if (childPattern) {
         const childActivePlayingSteps = activeVariationsRef?.current
           ? (activeVariationsRef.current[c.id] || childPattern.activeSteps)

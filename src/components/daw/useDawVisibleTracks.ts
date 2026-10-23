@@ -7,12 +7,6 @@ export function useDawVisibleTracks() {
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const rodaTrackOrder = useSequencerStore(state => state.rodaTrackOrder);
 
-  useEffect(() => {
-    useSequencerStore.getState().setTracks(prev =>
-      prev.map(t => (t.isLinkFolder ? { ...t, isSequencerFolded: true } : t))
-    );
-  }, []);
-
   const visibleTracks = useMemo(() => {
     const tracks = useSequencerStore.getState().tracks;
     const topLevelList: TrackGroup[] = [];

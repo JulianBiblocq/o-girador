@@ -91,7 +91,7 @@ export function useCirclePlayheadRaf(
       const isHeavyDisabled = isEco || isMobileDevice;
 
       if (hitTriggersRef?.current && !isHeavyDisabled) {
-        processHitTriggers(hitTriggersRef.current, localRawTracks, activeVisibleTracks, getLiveActivePatternId, theme.themeText, ripples);
+        processHitTriggers(hitTriggersRef.current, localRawTracks, activeVisibleTracks, getLiveActivePatternId, theme.skinInk, ripples);
       }
 
       ctx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
@@ -120,8 +120,8 @@ export function useCirclePlayheadRaf(
         : 1;
 
       drawAndUpdateRipples(ctx, ripples);
-      renderTrackStepLayer(ctx, activeVisibleTracks, localRawTracks, theme.themeBorder, theme.themeWood, theme.themeText, getLiveActivePatternId, livePlaybackRef, stateRef.current, pendingTargetMeasureRef, activeVariationsRef, dynamicScale, isEco, 600, 600);
-      drawDrumstickNeedle(ctx, 600, 600, stickAngle, activeVisibleTracks, theme.themeWood, theme.themeBorder, isHeavyDisabled);
+      renderTrackStepLayer(ctx, activeVisibleTracks, localRawTracks, theme.skinBorder, theme.skinWood, theme.skinInk, getLiveActivePatternId, livePlaybackRef, stateRef.current, pendingTargetMeasureRef, activeVariationsRef, dynamicScale, isEco, 600, 600);
+      drawDrumstickNeedle(ctx, 600, 600, stickAngle, activeVisibleTracks, theme.skinWood, theme.skinBorder, isHeavyDisabled);
 
       if (stateRef.current.isLetraActive) {
         drawCenterKaraoke(ctx, 600, 600, live, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs);

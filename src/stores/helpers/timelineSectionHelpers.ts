@@ -12,7 +12,7 @@ const buildExpandedMeasuresState = (state: Record<string, any>, targetTotal: num
   measureTimeSigs: expandArray(state.measureTimeSigs, state.timeSig, targetTotal),
   measureBpms: expandArray(state.measureBpms, state.bpm, targetTotal),
   measureBpmTransitions: expandArray(state.measureBpmTransitions, 'immediate', targetTotal),
-  measureVols: expandArray(state.measureVols, 75, targetTotal),
+  measureVols: expandArray(state.measureVols, 100, targetTotal),
   measureVolTransitions: expandArray(state.measureVolTransitions, 'immediate', targetTotal),
   measureSignals: expandArray(state.measureSignals, null, targetTotal),
   tracks: state.tracks.map((t: TrackGroup) => ({

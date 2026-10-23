@@ -4,7 +4,7 @@
 
 import { InstrumentAudioConfig } from '../../data/audioConfig';
 import { TrackGroup } from '../../types';
-import { ALFAIA_INSTRUMENTS } from './engineTypes';
+import { TUNEABLE_INSTRUMENTS } from './engineTypes';
 
 export class EngineTuning {
   public static calculatePitch(
@@ -13,7 +13,7 @@ export class EngineTuning {
     track?: TrackGroup | null,
     overrideTuning?: number
   ): number {
-    if (!ALFAIA_INSTRUMENTS.has(instrumentId)) {
+    if (!TUNEABLE_INSTRUMENTS.has(instrumentId)) {
       return 1.0;
     }
 

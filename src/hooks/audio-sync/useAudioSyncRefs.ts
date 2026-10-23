@@ -3,69 +3,38 @@ import { UseAudioSyncProps, TickCallbackDetail } from './audioSyncTypes';
 import { GlobalSwing, Track, HitTriggerPool } from '../../types';
 
 export function useAudioSyncRefs(props: UseAudioSyncProps) {
-  const defaultIsPlayingRef = useRef(false);
-  const isPlayingRef = props.isPlayingRef || defaultIsPlayingRef;
+  const isPlayingRef = props.isPlayingRef || useRef(false);
   const isStartingRef = useRef(false);
-
-  const defaultCurrentStepIndexRef = useRef(-1);
-  const currentStepIndexRef = props.currentStepIndexRef || defaultCurrentStepIndexRef;
-
-  const defaultMeasureCountRef = useRef(0);
-  const measureCountRef = props.measureCountRef || defaultMeasureCountRef;
-
+  const currentStepIndexRef = props.currentStepIndexRef || useRef(-1);
+  const measureCountRef = props.measureCountRef || useRef(0);
   const maxTicksRef = useRef(16);
   const absoluteTickCountRef = useRef(0);
   const currentMeasureStartTickRef = useRef(0);
 
-  const defaultTotalMeasuresRef = useRef(props.totalMeasures);
-  const totalMeasuresRef = props.totalMeasuresRef || defaultTotalMeasuresRef;
+  const totalMeasuresRef = props.totalMeasuresRef || useRef(props.totalMeasures);
   totalMeasuresRef.current = props.totalMeasures;
 
-  const defaultTracksRef = useRef<Track[]>(props.tracksRef?.current as any || []);
-  const tracksRef = props.tracksRef || defaultTracksRef;
-
-  const defaultMeasureTimeSigsRef = useRef(props.measureTimeSigs);
-  const measureTimeSigsRef = (props.measureTimeSigsRef as any) || defaultMeasureTimeSigsRef;
+  const defaultTracksRef = useRef<Track[]>([]);
+  const tracksRef = (props.tracksRef as any) || defaultTracksRef;
+  const measureTimeSigsRef = (props.measureTimeSigsRef as any) || useRef(props.measureTimeSigs);
   if (!props.measureTimeSigsRef) measureTimeSigsRef.current = props.measureTimeSigs;
 
-  const defaultMeasureBpmsRef = useRef(props.measureBpms);
-  const measureBpmsRef = props.measureBpmsRef || defaultMeasureBpmsRef;
+  const measureBpmsRef = props.measureBpmsRef || useRef(props.measureBpms);
   if (!props.measureBpmsRef) measureBpmsRef.current = props.measureBpms;
 
-  const defaultLoopStartRef = useRef<number | null>(null);
-  const loopStartRef = props.loopStartRef || defaultLoopStartRef;
-
-  const defaultLoopEndRef = useRef<number | null>(null);
-  const loopEndRef = props.loopEndRef || defaultLoopEndRef;
-
-  const defaultIsLoopRegionActiveRef = useRef(false);
-  const isLoopRegionActiveRef = props.isLoopRegionActiveRef || defaultIsLoopRegionActiveRef;
-
-  const defaultIsLoopingRef = useRef(true);
-  const isLoopingRef = props.isLoopingRef || defaultIsLoopingRef;
-
-  const defaultLoopModeRef = useRef<'infinite' | number>('infinite');
-  const loopModeRef = props.loopModeRef || defaultLoopModeRef;
-
-  const defaultIsLoopExitRequestedRef = useRef(false);
-  const isLoopExitRequestedRef = props.isLoopExitRequestedRef || defaultIsLoopExitRequestedRef;
-
+  const loopStartRef = props.loopStartRef || useRef<number | null>(null);
+  const loopEndRef = props.loopEndRef || useRef<number | null>(null);
+  const isLoopRegionActiveRef = props.isLoopRegionActiveRef || useRef(false);
+  const isLoopingRef = props.isLoopingRef || useRef(true);
+  const loopModeRef = props.loopModeRef || useRef<'infinite' | number>('infinite');
+  const isLoopExitRequestedRef = props.isLoopExitRequestedRef || useRef(false);
   const currentLoopIterationRef = useRef(1);
 
-  const defaultLastPlayedSignalIdRef = useRef<string | null>(null);
-  const lastPlayedSignalIdRef = props.lastPlayedSignalIdRef || defaultLastPlayedSignalIdRef;
-
-  const defaultSongSectionsRef = useRef<any[]>([]);
-  const songSectionsRef = (props.songSectionsRef as any) || defaultSongSectionsRef;
-
-  const defaultActiveVariationsRef = useRef<Record<number, (string | number)[]>>({});
-  const activeVariationsRef = props.activeVariationsRef || defaultActiveVariationsRef;
-
-  const defaultMeasureVolsRef = useRef<number[]>([]);
-  const measureVolsRef = props.measureVolsRef || defaultMeasureVolsRef;
-
-  const defaultMeasureSignalsRef = useRef<(string | null)[]>([]);
-  const measureSignalsRef = props.measureSignalsRef || defaultMeasureSignalsRef;
+  const lastPlayedSignalIdRef = props.lastPlayedSignalIdRef || useRef<string | null>(null);
+  const songSectionsRef = (props.songSectionsRef as any) || useRef<any[]>([]);
+  const activeVariationsRef = props.activeVariationsRef || useRef<Record<number, (string | number)[]>>({});
+  const measureVolsRef = props.measureVolsRef || useRef<number[]>([]);
+  const measureSignalsRef = props.measureSignalsRef || useRef<(string | null)[]>([]);
 
   const isMetroOnRef = useRef(false);
   const metroVolumeRef = useRef(80);
@@ -113,16 +82,11 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const pendingMeasureRef = useRef<number | null>(null);
   const pendingIterationRef = useRef<number | null>(null);
   const hasFinishedRef = useRef(false);
+  const lastScheduledMeasureRef = useRef(-1);
 
   const tickEventDetailRef = useRef<TickCallbackDetail>({
-    step: -1,
-    measure: 0,
-    maxTicks: 16,
-    ratio: 0,
-    visualStep16: 0,
-    visualStep12: 0,
-    time: 0,
-    iteration: 1,
+    step: -1, measure: 0, maxTicks: 16, ratio: 0,
+    visualStep16: 0, visualStep12: 0, time: 0, iteration: 1,
   });
 
   return {
@@ -144,5 +108,6 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
     lastAppliedBussesRef, sectionIterationRef, pendingMeasureRef,
     pendingIterationRef, hasFinishedRef, tickEventDetailRef,
     songSectionsRef, activeVariationsRef, measureVolsRef, measureSignalsRef,
+    lastScheduledMeasureRef,
   };
 }

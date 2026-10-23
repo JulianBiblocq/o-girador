@@ -20,10 +20,11 @@ export function resolveVocalPlaybackBuffer(
   effectiveBpm: number,
   clipSampleBpm: number,
   baseAudioBuffer: AudioBuffer,
-  vocalBuffers: Record<string | number, AudioBuffer>
+  vocalBuffers: Record<string | number, AudioBuffer>,
+  vocalTransposeSteps: number = 0
 ): ResolvedVocalPlayback {
   const availableKeys = ptnRef.vocalVariantKeys || ptnRef.vocalClip?.variantKeys;
-  const tuningSemitones = voiceTrack.tuning || 0;
+  const tuningSemitones = (voiceTrack.tuning || 0) + vocalTransposeSteps;
 
   if (availableKeys && availableKeys.length > 0) {
     const variantRes = selectBestVocalVariant(

@@ -44,6 +44,7 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
   }, [currentUser, viewMode]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') (window as any).__OGIRADOR_VIEW_MODE__ = viewMode;
     setRenderedView(null);
     setIsFadingIn(false);
 

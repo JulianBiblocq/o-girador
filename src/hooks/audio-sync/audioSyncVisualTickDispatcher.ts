@@ -7,6 +7,7 @@ import React from 'react';
 import * as Tone from 'tone';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { pushVisualTick } from '../../audio/visualTickBuffer';
+import { getMeasureDurationSec } from '../../utils/meterTiming';
 
 import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 
@@ -56,7 +57,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
   const currentBeatIndex = Math.min(beatsInMeasure - 1, Math.max(0, Math.floor(ratioVal * beatsInMeasure)));
   const currentMeasureBpmRaw = measureBpms[measureForUI % (totalMeasures || 1)];
   const currentMeasureBpm = isNaN(currentMeasureBpmRaw) || currentMeasureBpmRaw <= 0 ? 100 : currentMeasureBpmRaw;
-  const measureDurationSec = (beatsInMeasure * 60) / currentMeasureBpm;
+  const measureDurationSec = getMeasureDurationSec(timeSigOfMeasure, currentMeasureBpm);
 
   const isNewMeasureSync = stepForUI === 0 || measureForUI !== anchoredMeasureIdxRef.current || anchoredMeasureStartSecRef.current <= 0;
   if (isNewMeasureSync) {

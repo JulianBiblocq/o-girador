@@ -79,14 +79,14 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
     totalSteps: stepsCount,
   };
 
-  if (!inst) return null;
+  if (!inst) return <div className="w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0" />;
   const displayName = isToada ? 'Toada' : (isChild ? `↳ ${getTrackDisplayName(track, tracks)}` : getTrackDisplayName(track, tracks));
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center w-full h-[53px] min-h-[53px] max-h-[53px] justify-start shrink-0 text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] px-2 py-0.5 relative overflow-hidden z-[1] select-none"
+      className="flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] justify-start shrink-0 text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] px-2 py-0.5 relative overflow-hidden z-[1] select-none"
     >
       <DawTrackRowHeader
         track={track}

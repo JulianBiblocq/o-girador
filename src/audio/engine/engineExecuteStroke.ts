@@ -22,7 +22,8 @@ export class EngineExecuteStroke {
     decayMultiplier: number,
     overrideTuning: number | undefined,
     isLiveHold: boolean,
-    track: TrackGroup | null
+    track: TrackGroup | null,
+    requestedSymbol?: string
   ): void {
     if (stroke.isBarulho && isLiveHold && deps.playbackCtx.barulho.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = deps.playbackCtx.barulho.activeBarulhoGains.get(instrumentId);
@@ -47,10 +48,13 @@ export class EngineExecuteStroke {
     if (ALFAIA_INSTRUMENTS.has(instrumentId)) deps.voiceGuard.enforceAlfaiaVoiceLimit(time);
     else deps.voiceGuard.enforceStandardVoiceLimit(instrumentId, time);
 
-    const calculatedPitch = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
+    const isLeftHandRufada = (requestedSymbol || stroke.symbol) === 'r';
+    const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
+    const pitchNuance = isLeftHandRufada ? 0.985 : 1.0;
+    const calculatedPitch = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning) * pitchNuance;
     EngineStrokePlayback.play(
       deps.playbackCtx, trackId, instrumentId, stroke,
-      buffer.get() as AudioBuffer, calculatedPitch, time, velocity, decayMultiplier, isLiveHold
+      buffer.get() as AudioBuffer, calculatedPitch, time, finalVelocity, decayMultiplier, isLiveHold
     );
 
     if (instrumentId === 'apito') {

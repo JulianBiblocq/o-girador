@@ -68,7 +68,7 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
     totalSteps: stepsCount,
   };
 
-  if (!inst) return null;
+  if (!inst) return <div className="w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0" />;
 
   const isEyeHidden = Boolean(track.isHidden || effectiveTrack?.isHidden);
 

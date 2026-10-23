@@ -27,7 +27,7 @@ export const expandGridMeasures = (
     nextTimeSigs: expand(curr.measureTimeSigs, curr.timeSig),
     nextBpms: expand(curr.measureBpms, curr.bpm),
     nextBpmTransitions: expand(curr.measureBpmTransitions, 'immediate'),
-    nextVols: expand(curr.measureVols, 75),
+    nextVols: expand(curr.measureVols, 100),
     nextVolTransitions: expand(curr.measureVolTransitions, 'immediate'),
     nextSignals: expand(curr.measureSignals, null),
     nextTracks: curr.tracks.map(t => ({

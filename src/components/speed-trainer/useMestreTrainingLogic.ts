@@ -1,22 +1,21 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { TrainingProgram } from '../../types/trainings';
 import { generateTrainingStages } from '../../utils/trainingCalculator';
-import { saveTrainingProgram, updateTrainingProgram, deleteTrainingProgram, fetchTrainingsByPreset } from '../../services/cloudTrainings';
+import { fetchTrainingsByPreset } from '../../services/cloudTrainings';
+import { executeSaveMestreTraining, executeDeleteMestreTraining } from './mestreTrainingApiHelpers';
 
 export const useMestreTrainingLogic = (
-  isOpen: boolean,
-  activeTab: string,
-  audioPresetName: string | undefined,
-  metadataToada: string | undefined,
-  startMeasure: number,
-  endMeasure: number,
-  startBpm: number,
-  targetBpm: number,
-  bpmStep: number,
-  loopInterval: number,
-  consolidationLaps: number,
-  t: (key: string) => string
+  isOpen: boolean, activeTab: string, audioPresetName: string | undefined,
+  metadataToada: string | undefined, startMeasure: number, endMeasure: number,
+  startBpm: number, targetBpm: number, bpmStep: number, loopInterval: number,
+  consolidationLaps: number, t: (key: string) => string,
+  onApplySettings?: (training: TrainingProgram) => void
 ) => {
   const { userProfile } = useAuth();
   const isMestre = useMemo(() => {
@@ -42,8 +41,7 @@ export const useMestreTrainingLogic = (
 
   const resolvedPresetId = useMemo(() => {
     if (audioPresetName?.startsWith('cloud:')) return audioPresetName.replace('cloud:', '');
-    const urlParams = new URLSearchParams(window.location.search);
-    const fromParam = urlParams.get('loadPreset');
+    const fromParam = new URLSearchParams(window.location.search).get('loadPreset');
     if (fromParam) return fromParam;
     const raw = metadataToada?.trim() || audioPresetName || '';
     return raw ? raw.toLowerCase().replace(/[^a-z0-9_-]/g, '_') : '';
@@ -60,7 +58,7 @@ export const useMestreTrainingLogic = (
     try {
       const list = await fetchTrainingsByPreset(resolvedPresetId, effectiveGroupId);
       setExistingTrainings(list);
-    } catch (err) {
+    } catch {
       setExistingTrainings([]);
     } finally {
       setIsLoadingTrainings(false);
@@ -80,6 +78,7 @@ export const useMestreTrainingLogic = (
     setEditingTrainingId(training.id);
     setChallengeTitle(training.title || defaultChallengeTitle);
     setStagesCount(training.stagesCount || 3);
+    onApplySettings?.(training);
   };
 
   const handleCancelEdit = () => {
@@ -90,7 +89,7 @@ export const useMestreTrainingLogic = (
   const handleDeleteTraining = async (trainingId: string) => {
     setIsDeletingId(trainingId);
     try {
-      await deleteTrainingProgram(trainingId);
+      await executeDeleteMestreTraining(trainingId);
       if (editingTrainingId === trainingId) handleCancelEdit();
       setSaveMessage(t('speedTrainerChallengeDeleted'));
       setSaveSuccess(true);
@@ -108,23 +107,13 @@ export const useMestreTrainingLogic = (
     setIsSaving(true);
     try {
       const freshStages = generateTrainingStages(Math.min(startBpm, targetBpm), targetBpm, stagesCount, bpmStep, loopInterval, consolidationLaps);
-      if (editingTrainingId) {
-        await updateTrainingProgram(editingTrainingId, {
-          title: challengeTitle.trim() || defaultChallengeTitle,
-          startMeasure, endMeasure, stagesCount, consolidationLaps, stages: freshStages,
-        });
-        setSaveMessage(t('speedTrainerChallengeUpdated'));
-      } else {
-        await saveTrainingProgram({
-          presetId: resolvedPresetId,
-          presetName: metadataToada?.trim() || audioPresetName || 'Morceau',
-          groupId: effectiveGroupId,
-          mestreId: userProfile?.uid || '',
-          title: challengeTitle.trim() || defaultChallengeTitle,
-          startMeasure, endMeasure, stagesCount, consolidationLaps, stages: freshStages, createdAt: Date.now(),
-        });
-        setSaveMessage(t('speedTrainerChallengeSaved'));
-      }
+      await executeSaveMestreTraining({
+        editingTrainingId, challengeTitle, defaultChallengeTitle, startMeasure, endMeasure,
+        stagesCount, consolidationLaps, freshStages, resolvedPresetId,
+        presetName: metadataToada?.trim() || audioPresetName || 'Morceau',
+        effectiveGroupId, mestreId: userProfile?.uid || '',
+      });
+      setSaveMessage(editingTrainingId ? t('speedTrainerChallengeUpdated') : t('speedTrainerChallengeSaved'));
       setSaveSuccess(true);
       setEditingTrainingId(null);
       await loadTrainings();

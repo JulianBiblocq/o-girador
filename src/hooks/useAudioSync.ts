@@ -1,4 +1,9 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useRef, useEffect, useMemo } from 'react';
 import * as Tone from 'tone';
 import { UseAudioSyncProps, tickSubscribers, subscribeToTick, unsubscribeFromTick, ScheduledNote } from './audio-sync/audioSyncTypes';
 import { getActiveStrokesForTrack } from './audio-sync/strokeNormalization';
@@ -18,14 +23,11 @@ import { useCompilerWorkerSync } from './audio-sync/useCompilerWorkerSync';
 import { useTracksParamsSync } from './audio-sync/useTracksParamsSync';
 import { useAudioInitialization } from './audio-sync/useAudioInitialization';
 import { executeTickStep } from './audio-sync/audioSyncTickStep';
-import { handleTogglePlay } from './audio-sync/transportPlayToggle';
-import { executeTransportStop } from './audio-sync/transportStop';
-import { handleStartSoloPattern, handleStopSoloPattern } from './audio-sync/soloPatternTransport';
-import { seekToMeasure, handleTimelineNavigate } from './audio-sync/transportNavigation';
-import { launchSpeedTrainer, stopSpeedTrainerAudio } from './audio-sync/speedTrainerService';
+import { resolveLiveTickDuration } from './audio-sync/liveTempoResolver';
+import { useAudioSyncSubscriptions } from './audio-sync/useAudioSyncSubscriptions';
+import { useAudioSyncTransportHandlers } from './audio-sync/useAudioSyncTransportHandlers';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { purgeVisualTickBuffer, resetVisualTickBuffer, flushVisualBuffers } from '../audio/visualTickBuffer';
 import { safeSuspendAudioContext } from '../audio/audioContextSuspendManager';
 import { stopAudioRecording } from '../contexts/audio/audioRecorderService';
 import { VocalRecordingService } from '../audio/vocal/vocalRecordingService';
@@ -50,47 +52,11 @@ export function useAudioSync(props: UseAudioSyncProps) {
   const setSoloPatternPlayId = useTransportStore.getState().setSoloPatternPlayId;
   const setSoloPatternVariationId = useTransportStore.getState().setSoloPatternVariationId;
 
-  // Calcul dynamique de l'intervalle de tick (tempo adaptatif, vitesse et speed trainer)
-  getTickDurationRef.current = () => {
-    if (useSequencerStore.getState().isSpeedTrainerActive) {
-      const stBpm = refs.speedTrainerCurrentBpmRef.current || useSequencerStore.getState().speedTrainerCurrentBpm || Tone.Transport.bpm.value;
-      return 2.5 / stBpm;
-    }
-    const currentMeasureIdx = refs.measureCountRef.current % (refs.totalMeasuresRef.current || 1);
-    const rawBpm = refs.measureBpmsRef.current?.[currentMeasureIdx];
-    const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? (props.bpm || useSequencerStore.getState().bpm || 100) : rawBpm;
-    return 2.5 / targetBpm;
-  };
-
-  // Synchronisation stricte de l'état de lecture React, Store Zustand et Refs partagées
-  useEffect(() => {
-    refs.isPlayingRef.current = isPlaying;
-    if (props.isPlayingRef) props.isPlayingRef.current = isPlaying;
-    useSequencerStore.getState().setIsPlaying(isPlaying);
-    if (typeof window !== 'undefined') {
-      (window as any).__IS_PLAYING__ = isPlaying;
-    }
-  }, [isPlaying, props.isPlayingRef, refs.isPlayingRef]);
-
-  useEffect(() => {
-    if (props.setIsPlayingRef) {
-      props.setIsPlayingRef.current = setIsPlaying;
-    }
-  }, [props.setIsPlayingRef]);
-
-  useEffect(() => {
-    if (props.bpm) {
-      Tone.Transport.bpm.value = props.bpm;
-    }
-  }, [props.bpm]);
-
-  useEffect(() => {
-    return useSequencerStore.subscribe((state, prev) => {
-      if (state.tocarJuntoActive !== prev.tocarJuntoActive || state.tocarJuntoTrackId !== prev.tocarJuntoTrackId) {
-        refs.familyMuteSetRef.current.clear();
-      }
-    });
-  }, [refs.familyMuteSetRef]);
+  getTickDurationRef.current = () => resolveLiveTickDuration({
+    speedTrainerCurrentBpmRef: refs.speedTrainerCurrentBpmRef, measureCountRef: refs.measureCountRef,
+    totalMeasuresRef: refs.totalMeasuresRef, measureBpmsRef: refs.measureBpmsRef,
+    currentStepIndexRef: refs.currentStepIndexRef, maxTicksRef: refs.maxTicksRef, fallbackBpm: props.bpm || 100,
+  });
 
   const { isCompiling, triggerCompile } = useCompilerWorkerSync({ flatCompiledScheduleRef: refs.flatCompiledScheduleRef });
   useEffect(() => { setGlobalInvalidateAudioParamsCache(triggerCompile); }, [triggerCompile]);
@@ -116,70 +82,17 @@ export function useAudioSync(props: UseAudioSyncProps) {
     metroVolumeRef: refs.metroVolumeRef, isMetroOnRef: refs.isMetroOnRef,
   });
 
+  const { onStop, onTogglePlay, onStartSolo, onStopSolo, onSeek, onNavigate, onLaunchSpeedTrainer, onStopSpeedTrainer } =
+    useAudioSyncTransportHandlers({ refs, setIsPlaying, setIsLoading, setSoloPatternPlayId, setSoloPatternVariationId, setCurrentMeasure });
+
   onTickRef.current = (time: number) => executeTickStep(time, {
     ...refs, trackInputs, channels, busChannels, masterVolumeNode: masterVolumeNode as any, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure,
   });
 
-  useEffect(() => {
-    const handleVis = () => {
-      if (document.hidden) {
-        if (refs.isPlayingRef.current) executeTransportStop({ ...refs, audioEngine: getAudioEngine(), setIsPlaying, setSoloPatternPlayId, setCurrentMeasure });
-      } else {
-        purgeVisualTickBuffer(); resetVisualTickBuffer(); flushVisualBuffers();
-        refs.hitTriggersRef.current.clear(); getAudioEngine()?.purgeScheduledHits();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVis);
-    return () => document.removeEventListener('visibilitychange', handleVis);
-  }, [setCurrentMeasure, setSoloPatternPlayId, refs]);
-
-  const onStop = useCallback(() => executeTransportStop({
-    ...refs, audioEngine: getAudioEngine(), setIsPlaying, setSoloPatternPlayId, setCurrentMeasure,
-  }), [setCurrentMeasure, setSoloPatternPlayId, refs]);
-
-  const onTogglePlay = useCallback((opts?: any) => handleTogglePlay(opts, {
-    ...refs, trackInputs, channels, busChannels, audioEngine: getAudioEngine(), setIsPlaying, setSoloPatternPlayId, setCurrentMeasure,
-  }), [setCurrentMeasure, setSoloPatternPlayId, refs]);
-
-  const onStartSolo = useCallback((id: number, vId?: string) => handleStartSoloPattern(id, vId, {
-    ...refs, channels, busChannels, audioEngine: getAudioEngine(), setSoloPatternPlayId,
-    setSoloPatternVariationId, setCurrentMeasure, setIsPlaying, setIsLoading, handleStop: onStop,
-  }), [onStop, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
-
-  const onStopSolo = useCallback(() => handleStopSoloPattern({
-    ...refs, channels, busChannels, audioEngine: getAudioEngine(), setSoloPatternPlayId,
-    setSoloPatternVariationId, setCurrentMeasure, setIsPlaying, setIsLoading, handleStop: onStop,
-  }), [onStop, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
-
-  const onSeek = useCallback((m: number, s: number = 0, st?: number) => seekToMeasure(m, s, st, {
-    ...refs, audioEngine: getAudioEngine(), setCurrentMeasure,
-  }), [setCurrentMeasure, refs]);
-
-  const onNavigate = useCallback((m: number, s: number, st?: number, it: number = 1) => handleTimelineNavigate(m, s, st, it, {
-    ...refs, audioEngine: getAudioEngine(), setCurrentMeasure,
-  }), [setCurrentMeasure, refs]);
-
-  useEffect(() => {
-    const handleTimelineNav = (e: Event) => {
-      const customEvent = e as CustomEvent<{ mIdx: number; sIdx: number; iteration?: number }>;
-      const { mIdx, sIdx, iteration } = customEvent.detail;
-      if (sIdx === 0) {
-        onSeek(mIdx, 0);
-      } else {
-        onNavigate(mIdx, sIdx, 16, iteration ?? 1);
-      }
-    };
-    window.addEventListener('o-girador-timeline-nav', handleTimelineNav);
-    return () => window.removeEventListener('o-girador-timeline-nav', handleTimelineNav);
-  }, [onSeek, onNavigate]);
-
-  const onLaunchSpeedTrainer = useCallback((cfg: any) => launchSpeedTrainer(cfg, {
-    ...refs, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure, setIsPlaying,
-  }), [onStop, setCurrentMeasure, refs]);
-
-  const onStopSpeedTrainer = useCallback(() => stopSpeedTrainerAudio({
-    ...refs, audioEngine: getAudioEngine(), handleStop: onStop, setCurrentMeasure, setIsPlaying,
-  }), [onStop, setCurrentMeasure, refs]);
+  useAudioSyncSubscriptions({
+    isPlaying, setIsPlaying, isPlayingRef: props.isPlayingRef, setIsPlayingRef: props.setIsPlayingRef,
+    bpm: props.bpm, refs, onStop, onSeek, onNavigate,
+  });
 
   return useMemo(() => ({
     isPlaying, isLoading, setCurrentMeasure, setIsLoading, isCompiling,
@@ -207,15 +120,9 @@ export default useAudioSync;
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    try {
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
-    } catch (_) {}
+    try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (_) {}
     const engine = getAudioEngine();
-    if (engine) {
-      engine.stop();
-      engine.dispose();
-    }
+    if (engine) { engine.stop(); engine.dispose(); }
     stopAudioRecording();
     VocalRecordingService.stopRecording();
     safeSuspendAudioContext();

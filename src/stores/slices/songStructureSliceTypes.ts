@@ -22,11 +22,11 @@ export interface StructureSlice extends TransportSlice {
   handleCreateSongMarker: (name: string, measure: number, color?: string) => void;
   handleUpdateSongMarker: (id: string, name: string, measure: number, color?: string) => void;
   handleDeleteSongMarker: (id: string) => void;
-  selectedAutomationType: 'bpm' | 'volume' | null;
+  selectedAutomationType: 'bpm' | 'volume' | 'pan' | 'reverb' | null;
   selectedAutomationTrackId: number | null;
   selectedAutomationRange: { start: number; end: number } | null;
   automationAnchorMeasure: number | null;
-  selectAutomationMeasure: (type: 'bpm' | 'volume', measureIdx: number, isShift: boolean, trackId?: number | null) => void;
+  selectAutomationMeasure: (type: 'bpm' | 'volume' | 'pan' | 'reverb', measureIdx: number, isShift: boolean, trackId?: number | null) => void;
   clearAutomationSelection: () => void;
-  setGroupedAutomationValue: (type: 'bpm' | 'volume', value: number, trackId?: number | null) => void;
+  setGroupedAutomationValue: (type: 'bpm' | 'volume' | 'pan' | 'reverb', value: number, trackId?: number | null) => void;
 }

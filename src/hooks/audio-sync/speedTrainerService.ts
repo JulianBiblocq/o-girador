@@ -4,6 +4,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { playCountInBeep } from '../../audio/nativeSynths';
 import { AudioEngine } from '../../AudioEngine';
+import { getBeatsCount, getBeatDurationSec } from '../../utils/meterTiming';
 
 export interface SpeedTrainerContext {
   speedTrainerTimeoutsRef: { current: number[] };
@@ -43,20 +44,8 @@ export async function launchSpeedTrainer(config: SpeedTrainerConfig, ctx: SpeedT
   }
 
   const startMeasureSig = ctx.measureTimeSigsRef.current?.[config.startMeasure] || '4/4';
-  const isTernary = startMeasureSig === '6/8' || startMeasureSig === '12/8';
-  let beatsCount = 4;
-  if (startMeasureSig === '2/4' || startMeasureSig === '6/8') {
-    beatsCount = 2;
-  } else if (startMeasureSig === '3/4') {
-    beatsCount = 3;
-  } else if (startMeasureSig === '4/4' || startMeasureSig === '12/8') {
-    beatsCount = 4;
-  } else {
-    const num = parseInt(String(startMeasureSig).split('/')[0], 10);
-    beatsCount = isNaN(num) || num <= 0 ? 4 : num;
-  }
-
-  const beatDurationSec = isTernary ? (45 / config.startBpm) : (60 / config.startBpm);
+  const beatsCount = getBeatsCount(startMeasureSig);
+  const beatDurationSec = getBeatDurationSec(startMeasureSig, config.startBpm);
 
   const store = useSequencerStore.getState();
   store.startSpeedTrainer(config);

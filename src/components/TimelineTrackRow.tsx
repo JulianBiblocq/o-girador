@@ -5,8 +5,7 @@ import { instrumentsConfig } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { TimelineMeasure } from './TimelineMeasure';
 import { getTrackDisplayName, getBusColor, getTopParentBusId } from '../utils/colorHelpers';
-import { AutomationTrack } from './AutomationTrack';
-import { isAutomationBypassed } from '../utils/automationBypassHelper';
+import { TimelineTrackAutomationLane } from './timeline/TimelineTrackAutomationLane';
 import { TimelineTrackHeader } from './timeline/TimelineTrackHeader';
 import { resolveTimelineTrackMeasureData } from './timeline/TimelineTrackToadaMirror';
 
@@ -121,7 +120,13 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         </div>
       </div>
       {isAutomationOpen && (
-        <AutomationTrack type={automationParam} trackId={trackId} label={automationParam === 'volume' ? `Vol : ${displayName}` : (automationParam === 'pan' ? `Pan : ${displayName}` : `Rév : ${displayName}`)} totalMeasures={totalMeasures} measureWidth={currentMeasureW} values={automationParam === 'volume' ? (autoData?.measureVols || Array(totalMeasures).fill(autoData?.volumeVal ?? 75)) : (automationParam === 'pan' ? (autoData?.measurePans || Array(totalMeasures).fill(autoData?.panVal ?? 0)) : (autoData?.measureReverbSends || Array(totalMeasures).fill(autoData?.reverbVal ?? 0)))} transitions={automationParam === 'volume' ? (autoData?.measureVolTransitions || Array(totalMeasures).fill('immediate')) : (automationParam === 'pan' ? (autoData?.measurePanTransitions || Array(totalMeasures).fill('immediate')) : (autoData?.measureReverbTransitions || Array(totalMeasures).fill('immediate')))} onChangeValue={(mIdx, val) => { if (automationParam === 'volume') useSequencerStore.getState().handleTrackMeasureVolChange(trackId, mIdx, val); else if (automationParam === 'pan') useSequencerStore.getState().handleTrackMeasurePanChange(trackId, mIdx, val); else useSequencerStore.getState().handleTrackMeasureReverbChange(trackId, mIdx, val); }} onChangeTransition={(mIdx, val) => { if (automationParam === 'volume') useSequencerStore.getState().handleTrackMeasureVolTransitionChange(trackId, mIdx, val); else if (automationParam === 'pan') useSequencerStore.getState().handleTrackMeasurePanTransitionChange(trackId, mIdx, val); else useSequencerStore.getState().handleTrackMeasureReverbTransitionChange(trackId, mIdx, val); }} onClose={onToggleAutomation} min={automationParam === 'pan' ? -100 : 0} max={100} color={automationParam === 'volume' ? (trackInst.colors?.text || '#f19066') : (automationParam === 'pan' ? '#38bdf8' : '#c084fc')} lang={lang} headerWidth={HEADER_W} isBypassed={isAutomationBypassed(autoData, automationParam, globalBypass)} onToggleBypass={() => useSequencerStore.getState().toggleTrackAutomationBypass(trackId, automationParam)} paramSelector={{ current: automationParam, onChange: setAutomationParam }} />
+        <TimelineTrackAutomationLane
+          automationParam={automationParam} setAutomationParam={setAutomationParam}
+          trackId={trackId} displayName={displayName} totalMeasures={totalMeasures}
+          currentMeasureW={currentMeasureW} autoData={autoData}
+          onToggleAutomation={onToggleAutomation || (() => {})}
+          trackInst={trackInst} lang={lang} HEADER_W={HEADER_W} globalBypass={globalBypass}
+        />
       )}
     </div>
   );

@@ -19,6 +19,12 @@
   --cordel-border: rgba(244, 236, 216, 0.35);
   --cordel-wood: #8b2a1a;
   --cordel-accent: #b94a2c;
+  /* Roda Skin Constants (Toujours style clair dans les 2 thèmes) */
+  --roda-skin-bg: #f4ecd8;
+  --roda-skin-text: #1a1a1a;
+  --roda-skin-ink: #1a1a1a;
+  --roda-skin-border: #1a1a1a;
+  --roda-skin-wood: #8b2a1a;
   --cordel-card-btn-bg: #262220;
   --cordel-card-btn-text: #f4ecd8;
   --cordel-card-btn-border: rgba(244, 236, 216, 0.3);
@@ -76,6 +82,14 @@
 
 .master-fader:focus {
   outline: none;
+}
+
+/* Portée d'isolation claire pour l'intérieur du tambour de la Roda */
+.roda-skin-scope {
+  --cordel-bg: var(--roda-skin-bg);
+  --cordel-text: var(--roda-skin-text);
+  --cordel-border: var(--roda-skin-border);
+  --cordel-wood: var(--roda-skin-wood);
 }
 
 [data-theme='light'] {

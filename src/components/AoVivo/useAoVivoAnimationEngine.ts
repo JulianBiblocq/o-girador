@@ -7,6 +7,7 @@ import { dispatchAlfaiaOrDrum, dispatchTimbal } from './aoVivoStrokeDispatchers'
 import { dispatchMineiro, dispatchAgbe, dispatchGongue } from './aoVivoOtherDispatchers';
 import { resetAoVivoRestPosition } from './aoVivoReset';
 import { MineiroPole } from '../../audio/animationGenerators';
+import { getMeasureDurationSec } from '../../utils/meterTiming';
 
 export function useAoVivoAnimationEngine(
   activeAoVivoTrackId: string | number,
@@ -92,8 +93,11 @@ export function useAoVivoAnimationEngine(
         }
       };
 
-      const bpm = useSequencerStore.getState().bpm || 100;
-      const stepDurationMs = Math.max(40, (60000 / bpm) / (patSteps / 4));
+      const state = useSequencerStore.getState();
+      const currentSig = state.measureTimeSigs?.[measure] || state.timeSig || '4/4';
+      const currentBpm = state.measureBpms?.[measure] || state.bpm || 100;
+      const measureDurationSec = getMeasureDurationSec(currentSig, currentBpm);
+      const stepDurationMs = Math.max(40, (measureDurationSec * 1000) / patSteps);
 
       if (Array.isArray(rawVal)) {
         triggerStroke(String(rawVal[0]), false);

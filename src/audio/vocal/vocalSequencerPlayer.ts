@@ -46,11 +46,9 @@ export class VocalSequencerPlayer {
     const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 75) : 75;
     const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
     const anchorBpm = ptnRef ? VocalTimingCalculator.calculateAnchorBpm(ptnRef, sequencerStore) : sequencerStore.bpm;
-
-    const timing = ptnRef ? VocalTimingCalculator.calculateTiming({
-      clip: ptnRef.vocalClip, ptnRef, voiceTrack, effectiveBpm: anchorBpm, measureStartTime: time, sequencerStore
-    }) : { triggerOffsetSec: 0, nudgeMs: 0, balancoOffset: 0, triggerTime: time, actualStartTime: time };
-
+    const timing = ptnRef
+      ? VocalTimingCalculator.calculateTiming({ clip: ptnRef.vocalClip, ptnRef, voiceTrack, effectiveBpm: anchorBpm, measureStartTime: time, sequencerStore })
+      : { triggerOffsetSec: 0, nudgeMs: 0, balancoOffset: 0, triggerTime: time, actualStartTime: time };
     const previewTime = time - timing.triggerOffsetSec - (timing.nudgeMs / 1000);
     this.playSequencerVocal(voiceTrack?.id ?? 0, patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
   }
@@ -91,7 +89,8 @@ export class VocalSequencerPlayer {
     const effectiveBpm = currentBpm || anchorMeasureBpm;
     const clipSampleBpm = clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
 
-    const resolved = resolveVocalPlaybackBuffer(ptnRef, voiceTrack, effectiveBpm, clipSampleBpm, audioBuffer, store.vocalBuffers);
+    const vocalTr = (ptnRef as any).vocalTransposeSteps || sequencerStore.vocalTransposeSteps || 0;
+    const resolved = resolveVocalPlaybackBuffer(ptnRef, voiceTrack, effectiveBpm, clipSampleBpm, audioBuffer, store.vocalBuffers, vocalTr);
     const { buffer: activeAudioBuffer, playbackRate, detuneCents: residualDetuneCents, isVariant } = resolved;
     const isPurePlayback = !isVariant && Math.abs(playbackRate - 1.0) < 0.001;
 
