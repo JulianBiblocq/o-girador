@@ -83,7 +83,7 @@ export const DescriptionModalHeader: React.FC<HeaderProps> = ({
                 : 'bg-[#fcf9f2] text-[#1a1a1a] border-2 border-[#1a1a1a]/40 hover:border-[#1a1a1a]'
             }`}
           >
-            Português
+            BR
           </button>
           <button
             type="button"
@@ -94,7 +94,7 @@ export const DescriptionModalHeader: React.FC<HeaderProps> = ({
                 : 'bg-[#fcf9f2] text-[#1a1a1a] border-2 border-[#1a1a1a]/40 hover:border-[#1a1a1a]'
             }`}
           >
-            Français
+            FR
           </button>
         </div>
 

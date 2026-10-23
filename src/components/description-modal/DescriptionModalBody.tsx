@@ -36,7 +36,7 @@ export const DescriptionModalBody: React.FC<BodyProps> = ({
       {isEditing ? (
         <div className="flex flex-col gap-2 h-full">
           <label className="text-[11px] font-bold uppercase tracking-wider text-[#1a1a1a]/80 font-cactus">
-            {activeTextLang === 'pt' ? 'Texto em Português :' : 'Texte en Français :'}
+            {activeTextLang === 'pt' ? 'Texto em Português (BR) :' : 'Texte en Français (FR) :'}
           </label>
           <textarea
             value={activeTextLang === 'pt' ? localDescriptionPt : localDescriptionFr}

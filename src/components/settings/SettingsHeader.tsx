@@ -48,7 +48,7 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
                 ? 'bg-[#f4ecd8] text-black font-black font-cactus'
                 : 'bg-black text-[#f4ecd8] hover:bg-[#f4ecd8]/10'
             }`}
-            title="Mudar para Português"
+            title="Mudar para Português (BR)"
           >
             BR
           </button>

@@ -92,7 +92,7 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
               isFr ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] font-bold shadow-[2px_2px_0px_#8b2a1a]' : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/40'
             }`}
           >
-            🇫🇷 Français
+            FR · Français
           </button>
           <span className="text-[#1a1a1a]/40 font-mono px-1">|</span>
           <button
@@ -102,7 +102,7 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
               !isFr ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] font-bold shadow-[2px_2px_0px_#8b2a1a]' : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/40'
             }`}
           >
-            🇧🇷 Português
+            BR · Português
           </button>
         </div>
       </div>
