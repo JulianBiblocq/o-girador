@@ -16,7 +16,7 @@ export async function applyServiceWorkerReload(reg?: ServiceWorkerRegistration |
     if ('caches' in window) {
       const keys = await caches.keys();
       for (const key of keys) {
-        if (key.includes('workbox') || key.includes('o-girador')) {
+        if ((key.includes('workbox') && !key.includes('-precache-')) || key.includes('o-girador')) {
           await caches.delete(key);
         }
       }

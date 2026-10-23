@@ -102,6 +102,9 @@ export default defineConfig(({ command, mode }) => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2,otf}'],
           globIgnores: ['**/version.json'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
           runtimeCaching: pwaRuntimeCaching,
           navigateFallbackDenylist: [/^\/tutorial\.html$/]
         }
