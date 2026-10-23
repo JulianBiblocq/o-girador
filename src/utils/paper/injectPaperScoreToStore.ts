@@ -68,6 +68,8 @@ export const injectPaperScoreToStore = (
 
   const targetBpm = preset.bpm || store.bpm || 96;
   const targetTimeSig = (preset.timeSig || store.timeSig || '4/4') as any;
+  const mBpms = sequence.map((s) => preset.metricOverrides?.[s]?.bpm ?? targetBpm);
+  const mSigs = sequence.map((s) => (preset.metricOverrides?.[s]?.timeSignature ?? targetTimeSig) as any);
 
   useSequencerStore.setState((state: any) => ({
     tracks: updatedTracks,
@@ -77,8 +79,8 @@ export const injectPaperScoreToStore = (
     metadata: cleanMetadata,
     letras: isExistingActiveSong ? state.letras : '',
     songSections: mergedSections,
-    measureBpms: Array(totalMeasures).fill(targetBpm),
-    measureTimeSigs: Array(totalMeasures).fill(targetTimeSig),
+    measureBpms: mBpms,
+    measureTimeSigs: mSigs,
     measureVols: Array(totalMeasures).fill(100),
     measureBpmTransitions: Array(totalMeasures).fill('immediate'),
     measureVolTransitions: Array(totalMeasures).fill('immediate'),

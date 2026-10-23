@@ -4,7 +4,7 @@
 
 export type PaperTabType = 'sheets' | 'scanner' | 'reserve';
 
-export type BlankSheetType = 'isolated' | 'sections' | 'sequence' | 'universal' | 'dictionary';
+export type BlankSheetType = 'grid32' | 'isolated' | 'sections' | 'sequence' | 'universal' | 'dictionary';
 
 export type GridMode = '4/4' | '2/4' | '3/4' | '12/8' | 'free_portrait' | 'free_landscape';
 
@@ -23,6 +23,7 @@ export interface BlankSheetOptions {
   gridMode: GridMode;
   pupitres: string[];
   includeVariationLine: boolean; // Al sous-ligne ↳Me/Rp
+  grid32Mode?: 'blank' | 'prefill';
   freeLinesCount?: number;
   conductorMeasures?: number;
   conductorTitle?: string;
@@ -37,6 +38,23 @@ export interface BlankSheetOptions {
 }
 
 export type PaperStepValue = string | number | [string, string];
+
+export interface DetectedMetric {
+  timeSignature: string;
+  steps: number;
+  beatResolutions: number[];
+  isMixed: boolean;
+  measuresCount: number;
+  description: string;
+}
+
+export interface PatternMetricOverride {
+  timeSignature?: string;
+  steps?: number;
+  beatResolutions?: number[];
+  bpm?: number;
+  isLocked?: boolean;
+}
 
 export interface PaperSection {
   name: string;
@@ -61,4 +79,5 @@ export interface PaperPreset {
   patterns: Record<string, Partial<Record<PupitreCode, PaperStepValue[]>>>;
   sequenceString: string;
   defaultSequence: string[];
+  metricOverrides?: Record<string, PatternMetricOverride>;
 }

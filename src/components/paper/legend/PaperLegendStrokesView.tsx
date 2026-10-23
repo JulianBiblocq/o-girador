@@ -105,6 +105,11 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       <div className="p-2.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-center text-xs tracking-wide shadow-[2px_2px_0px_#000]">
         {isFr ? 'MAJUSCULE = Coup Fort │ minuscule = Coup Faible (Sauf Timbal : MAJ = Droite │ min = Gauche)' : 'MAIÚSCULA = Toque Forte │ minúscula = Toque Fraco (Exceto Timbal: MAI = Direita │ min = Esquerda)'}
       </div>
+      <div className="p-2 bg-[#faf6eb] border border-[#8b2a1a]/40 text-[10px] text-[#1a1a1a]/85 italic text-center">
+        {isFr
+          ? 'Les abréviations d\'instruments dans la colonne de 14mm (Al, Cx, Gg...) sont au choix de l\'utilisateur et personnalisables dans l\'Atelier Papier ou La Presse.'
+          : 'As abreviações de instrumentos na coluna de 14mm (Al, Cx, Gg...) são de livre escolha do usuário e personalizáveis na Oficina Papel ou Na Imprensa.'}
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {pupitres.map((p) => (

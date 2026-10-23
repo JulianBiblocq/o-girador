@@ -2,28 +2,30 @@
  * Orchestrateur d'impression des fiches vierges Cordel et Légende Complète A4 (< 145 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';
-import { renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal, renderBlankSheetDictionary } from './blankSheetHtmlTemplates';
+import { renderBlankSheetGrid32x25, renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal, renderBlankSheetDictionary } from './blankSheetHtmlTemplates';
 import { renderLegendStrokesHTML } from './paperLegendStrokesHtml';
 import { renderLegendConductorHTML } from './paperLegendConductorHtml';
 import { printViaInvisibleIframe } from '../print/printIframeHelper';
 
 export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | 'pt'): void => {
   let content = '';
-  const isLandscape = options.gridMode === 'free_landscape';
+  const isGrid32 = options.sheetType === 'grid32';
+  const isLandscape = isGrid32 || options.gridMode === 'free_landscape';
   const orientation = isLandscape ? 'landscape' : 'portrait';
-  const maxWidth = isLandscape ? '281mm' : '194mm';
+  const maxWidth = isGrid32 ? '270mm' : (isLandscape ? '281mm' : '194mm');
 
-  if (options.sheetType === 'isolated') content = renderBlankSheetA(options, lang);
+  if (isGrid32) content = renderBlankSheetGrid32x25(options, lang);
+  else if (options.sheetType === 'isolated') content = renderBlankSheetA(options, lang);
   else if (options.sheetType === 'sections') content = renderBlankSheetB(options, lang);
   else if (options.sheetType === 'sequence') content = renderBlankSheetC(options, lang);
   else if ((options.sheetType as any) === 'dictionary') content = renderBlankSheetDictionary(options, lang);
   else content = renderBlankSheetUniversal(options, lang);
 
-  const pageHeight = isLandscape ? 'calc(210mm - 16mm)' : 'calc(297mm - 16mm)';
+  const pageHeight = isGrid32 ? '198.8mm' : (isLandscape ? 'calc(210mm - 16mm)' : 'calc(297mm - 16mm)');
   const title = lang === 'fr' ? `Atelier Papier - Fiche ${options.sheetType.toUpperCase()}` : `Oficina Papel - Folha ${options.sheetType.toUpperCase()}`;
   const fullHtml = `
     <!DOCTYPE html><html><head><title>${title}</title><style>
-      @page { size: A4 ${orientation}; margin: 8mm; }
+      @page { size: A4 ${orientation}; margin: ${isGrid32 ? '5mm 13.5mm' : '8mm'}; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: sans-serif; }
       .page-wrapper { width: 100%; max-width: ${maxWidth}; margin: 0 auto; padding: 4px; }

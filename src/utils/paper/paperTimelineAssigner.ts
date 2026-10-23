@@ -44,14 +44,19 @@ export const assignPatternsToTracks = (
         const baseVal: any = (baseMap as any)[specificCode] || (baseMap as any)[groupCode] || Array(16).fill(0);
         rawSteps = Array.isArray(baseVal) ? baseVal : Array(16).fill(0);
       }
+      const override = preset.metricOverrides?.[sectionName];
+      const targetSteps = override?.steps || (Array.isArray(rawSteps) && rawSteps.length > 0 ? rawSteps.length : 16);
+      const padSteps = Array(targetSteps).fill(0);
+      rawSteps.forEach((s, i) => { if (i < targetSteps) padSteps[i] = cloneStepValue(s); });
       const patId = track.id * 1000 + idx + 1;
       newPatterns.push({
         id: patId,
         name: sectionName,
-        steps: 16,
-        activeSteps: rawSteps.map(cloneStepValue),
-        lyrics: Array(16).fill(''),
-        notes: Array(16).fill(''),
+        steps: targetSteps,
+        activeSteps: padSteps,
+        beatResolutions: override?.beatResolutions,
+        lyrics: Array(targetSteps).fill(''),
+        notes: Array(targetSteps).fill(''),
         measureAssignments: Array(totalM).fill(false),
         measureAllowVariations: Array(totalM).fill(true),
       });

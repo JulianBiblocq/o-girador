@@ -1,12 +1,13 @@
 /**
- * Grille de relecture des motifs avec Beat Shading et Points de Vigilance (< 135 lignes).
+ * Grille de relecture des motifs avec cartes modulaires et popovers (< 115 lignes).
  */
 import React, { useState } from 'react';
-import { PaperStepValue } from '../../types/paperWorkshop.types';
-import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
+import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { PaperStepValidationPopover } from './PaperStepValidationPopover';
-import { Cloud, Pin, AlertTriangle, Check } from 'lucide-react';
+import { PaperPatternCard } from './PaperPatternCard';
+import { PaperPatternOverrideModal } from './PaperPatternOverrideModal';
+import { AlertTriangle, Check } from 'lucide-react';
 
 interface Props {
   scoreId?: string;
@@ -14,10 +15,17 @@ interface Props {
   reusableSections: Set<string>;
   onToggleReusable: (sectionName: string) => void;
   onUpdateStep?: (secName: string, roleKey: string, stepIndex: number, newVal: PaperStepValue) => void;
+  globalBpm?: number;
+  globalTimeSig?: string;
+  metricOverrides?: Record<string, PatternMetricOverride>;
+  onSaveOverride?: (patName: string, override?: PatternMetricOverride) => void;
   lang: 'fr' | 'pt';
 }
 
-export const PaperPatternPreviewGrid: React.FC<Props> = ({ scoreId, patterns, reusableSections, onToggleReusable, onUpdateStep, lang }) => {
+export const PaperPatternPreviewGrid: React.FC<Props> = ({
+  scoreId, patterns, reusableSections, onToggleReusable, onUpdateStep,
+  globalBpm = 96, globalTimeSig = '4/4', metricOverrides = {}, onSaveOverride, lang,
+}) => {
   const sectionEntries = Object.entries(patterns);
   const previewScoreId = usePaperVigilanceStore((s) => s.activePreviewScoreId);
   const activeScoreId = scoreId || previewScoreId || '';
@@ -26,7 +34,9 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({ scoreId, patterns, re
   const removePoint = usePaperVigilanceStore((s) => s.removePoint);
   const togglePoint = usePaperVigilanceStore((s) => s.togglePoint);
   const clearAllForScore = usePaperVigilanceStore((s) => s.clearAllForScore);
+
   const [popover, setPopover] = useState<{ sec: string; role: string; idx: number; val: PaperStepValue; isVig: boolean } | null>(null);
+  const [overrideModalPattern, setOverrideModalPattern] = useState<string | null>(null);
 
   const handleCellClick = (sec: string, role: string, idx: number, val: PaperStepValue) => {
     setPopover({ sec, role, idx, val, isVig: points.some((p) => p.sectionName === sec && p.roleKey === role && p.stepIndex === idx) });
@@ -54,70 +64,20 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({ scoreId, patterns, re
 
       <div className="flex flex-col gap-2 max-h-[230px] overflow-y-auto pr-1">
         {sectionEntries.map(([secName, pupitreMap]) => (
-          <div key={secName} className="p-2 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
-            <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5 pb-1 border-b border-black/10">
-              <span className="font-cactus font-bold text-xs uppercase !text-[#1a1a1a]">{secName}</span>
-              <button
-                type="button" onClick={() => onToggleReusable(secName)}
-                className={`px-2 py-0.5 border font-cactus font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors ${
-                  reusableSections.has(secName) ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[1px_1px_0px_#000]' : 'bg-[#f4ecd8] !text-[#1a1a1a] border-black/40 hover:bg-[#eaddcf]'
-                }`}
-              >
-                {reusableSections.has(secName) ? <Cloud size={11} className="shrink-0" /> : <Pin size={11} className="shrink-0" />}
-                <span>{reusableSections.has(secName) ? (lang === 'fr' ? 'Bibliothèque' : 'Biblioteca') : (lang === 'fr' ? 'Ce morceau' : 'Esta música')}</span>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-1 mb-0.5">
-              <span className="w-6 shrink-0" />
-              <div className="grid grid-cols-4 flex-1 text-[9px] font-cactus font-bold text-[#8b2a1a] text-center">
-                <span>T1</span><span>T2</span><span>T3</span><span>T4</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              {Object.entries(pupitreMap).map(([pupitreKey, steps]) => {
-                const abbr = resolvePupitreAbbr(pupitreKey);
-                const isBase = typeof steps === 'string' && (steps === 'base' || steps === 'idem' || steps === '%');
-                const stepArr = Array.isArray(steps) ? steps : (isBase ? [] : Array(16).fill(0));
-
-                return (
-                  <div key={pupitreKey} className="flex items-center gap-1">
-                    <span className="w-6 font-mono font-extrabold text-[9px] bg-[#e6dec8] !text-[#1a1a1a] px-1 py-0.5 text-center shrink-0 border border-[#1a1a1a]">{abbr}</span>
-                    {isBase ? (
-                      <span className="px-2 py-0.5 bg-[#d99b26]/20 !text-[#8b2a1a] border border-[#8b2a1a] font-bold text-[10px]">[ ≡ Base ]</span>
-                    ) : (
-                      <div className="grid grid-cols-16 flex-1 border border-[#1a1a1a]">
-                        {stepArr.map((st, i) => {
-                          const valStr = Array.isArray(st) ? `${st[0]}/${st[1]}` : (st === 0 || !st || st === '0' ? '·' : String(st));
-                          const isOdd = Math.floor(i / 4) % 2 !== 0;
-                          const isPoint = points.some((p) => p.sectionName === secName && p.roleKey === pupitreKey && p.stepIndex === i);
-
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => handleCellClick(secName, pupitreKey, i, st)}
-                              className={`h-4.5 relative text-[9px] font-mono font-bold flex items-center justify-center cursor-pointer transition-all ${
-                                i % 4 === 3 ? 'border-r-2 border-[#1a1a1a]' : 'border-r border-[#1a1a1a]/20'
-                              } ${
-                                isPoint ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10' : valStr === '·'
-                                  ? isOdd ? 'bg-[#dfd3b8] !text-[#1a1a1a]/60 font-bold' : 'bg-[#f4ecd8] !text-[#1a1a1a]/60 font-bold'
-                                  : 'bg-[#8b2a1a] text-[#f4ecd8]'
-                              }`}
-                            >
-                              {isPoint && <AlertTriangle size={8} className="absolute top-0 right-0 text-[#d97706] pointer-events-none" />}
-                              <span>{valStr}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <PaperPatternCard
+            key={secName}
+            secName={secName}
+            pupitreMap={pupitreMap}
+            isReusable={reusableSections.has(secName)}
+            onToggleReusable={() => onToggleReusable(secName)}
+            points={points}
+            onCellClick={(role, idx, val) => handleCellClick(secName, role, idx, val)}
+            globalBpm={globalBpm}
+            globalTimeSig={globalTimeSig}
+            override={metricOverrides[secName]}
+            onOpenOverrideModal={() => setOverrideModalPattern(secName)}
+            lang={lang}
+          />
         ))}
       </div>
 
@@ -127,6 +87,19 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({ scoreId, patterns, re
           onValidateCurrent={() => handleSelect()} onSelectStroke={(st) => handleSelect(st)}
           onToggleVigilance={() => { togglePoint(activeScoreId, popover.sec, popover.role, popover.idx); setPopover(null); }}
           onClose={() => setPopover(null)} lang={lang}
+        />
+      )}
+
+      {overrideModalPattern && (
+        <PaperPatternOverrideModal
+          isOpen={Boolean(overrideModalPattern)}
+          onClose={() => setOverrideModalPattern(null)}
+          patternName={overrideModalPattern}
+          globalBpm={globalBpm}
+          globalTimeSig={globalTimeSig}
+          currentOverride={metricOverrides[overrideModalPattern]}
+          onSaveOverride={(pName, ov) => onSaveOverride?.(pName, ov)}
+          lang={lang}
         />
       )}
     </div>

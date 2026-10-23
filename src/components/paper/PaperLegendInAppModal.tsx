@@ -7,6 +7,7 @@ import { useScreenWakeLock } from '../../hooks/useScreenWakeLock';
 import { printCompletePaperLegend } from '../../utils/paper/blankSheetPdfExport';
 import { PaperLegendStrokesView } from './legend/PaperLegendStrokesView';
 import { PaperLegendRulesView } from './legend/PaperLegendRulesView';
+import { PaperLegendMasterExampleView } from './legend/PaperLegendMasterExampleView';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export const PaperLegendInAppModal: React.FC<Props> = ({ isOpen, onClose, lang: propLang }) => {
-  const [activeTab, setActiveTab] = useState<'strokes' | 'rules'>('strokes');
+  const [activeTab, setActiveTab] = useState<'strokes' | 'rules' | 'example'>('strokes');
   const storeLang = useSequencerStore((s) => s.lang);
   const setStoreLang = useSequencerStore((s) => s.setLang);
   const currentLang = storeLang || propLang || 'pt';
@@ -110,14 +111,25 @@ export const PaperLegendInAppModal: React.FC<Props> = ({ isOpen, onClose, lang: 
           >
             {isFr ? '2. Carreaux & Séquence' : '2. Casas & Sequência'}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('example')}
+            className={`flex-1 py-2 text-center font-cactus font-bold text-xs uppercase cursor-pointer border-l border-black transition-colors ${
+              activeTab === 'example' ? 'bg-[#f4ecd8] text-[#8b2a1a] shadow-inner' : 'bg-black/10 text-black/60 hover:bg-black/5'
+            }`}
+          >
+            {isFr ? '3. Exemple 32p' : '3. Exemplo 32p'}
+          </button>
         </div>
 
         {/* Corps défilable */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {activeTab === 'strokes' ? (
             <PaperLegendStrokesView lang={currentLang} />
-          ) : (
+          ) : activeTab === 'rules' ? (
             <PaperLegendRulesView lang={currentLang} />
+          ) : (
+            <PaperLegendMasterExampleView lang={currentLang} />
           )}
         </div>
       </div>

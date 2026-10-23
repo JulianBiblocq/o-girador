@@ -19,9 +19,9 @@ export const BlankSheetLivePreview: React.FC<LivePreviewProps> = ({
   sheetType, gridMode, pupitres, includeVarLine, freeLinesCount,
   conductorTitle, hasDoubleSections, hasToadaLine, lang,
 }) => {
-  const isLandscape = gridMode === 'free_landscape' && sheetType !== 'sequence';
+  const isLandscape = sheetType === 'grid32' || (gridMode === 'free_landscape' && sheetType !== 'sequence');
   const stepsCount = getGridStepsCount(gridMode);
-  const titleHeader = sheetType === 'isolated' ? (lang === 'fr' ? 'Feuille A — Patterns' : 'Folha A — Padrões') : sheetType === 'sections' ? (lang === 'fr' ? 'Feuille B — Multi-Inst' : 'Folha B — Multi-Inst') : sheetType === 'sequence' ? (lang === 'fr' ? 'Feuille C — Conducteur' : 'Folha C — Sequência') : sheetType === 'dictionary' ? (lang === 'fr' ? 'Fiche Dictionnaire A4' : 'Folha Dicionário A4') : (lang === 'fr' ? 'Feuille D — Universelle' : 'Folha D — Universal');
+  const titleHeader = sheetType === 'grid32' ? (lang === 'fr' ? 'Grille 32×25 — Fiche Unique A4' : 'Grelha 32×25 — Folha Única A4') : sheetType === 'isolated' ? (lang === 'fr' ? 'Feuille A — Patterns' : 'Folha A — Padrões') : sheetType === 'sections' ? (lang === 'fr' ? 'Feuille B — Multi-Inst' : 'Folha B — Multi-Inst') : sheetType === 'sequence' ? (lang === 'fr' ? 'Feuille C — Conducteur' : 'Folha C — Sequência') : sheetType === 'dictionary' ? (lang === 'fr' ? 'Fiche Dictionnaire A4' : 'Folha Dicionário A4') : (lang === 'fr' ? 'Feuille D — Universelle' : 'Folha D — Universal');
   const signLabel = formatGridModeSignLabel(gridMode, lang);
 
   const hasVar = pupitres.includes('al') && includeVarLine;

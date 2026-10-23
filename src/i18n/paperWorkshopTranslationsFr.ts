@@ -59,4 +59,9 @@ export const paperWorkshopTranslationsFr = {
   printPdfA4: 'PDF A4',
   rulesConventionsTitle: '1. Conventions des Carreaux & Variations (↳)',
   rulesSyntaxTitle: '2. Syntaxe du Conducteur & Toada',
+  grid32Type: 'Grille 32×25 — Fiche Unique A4 Paysage',
+  grid32ModeBlank: 'Mode 1 : 100 % Vierge (Tout au stylo)',
+  grid32ModePrefill: 'Mode 2 : Pupitres Pré-remplis',
+  grid32Notice: 'Grille millimétrée paysage (14mm + 32 × 8mm × 25 lignes). 1 page A4 unique.',
+  abbrNotice: 'Les abréviations d\'instruments (1 à 3 lettres) sont au choix de l\'utilisateur et modifiables ci-dessous.',
 };

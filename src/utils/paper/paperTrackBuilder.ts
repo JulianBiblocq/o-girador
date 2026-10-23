@@ -10,6 +10,7 @@ import { disambiguateAllPresetPatterns } from './paperRoleDisambiguator';
 export interface PaperInjectOptions {
   linkAlfaias?: boolean;
   linkCaixas?: boolean;
+  busSementes?: boolean;
   caixasLinkMode?: 'none' | 'caixa_tarol' | 'two_caixas';
   extraRoles?: string[];
   mixerTemplateId?: string | null;

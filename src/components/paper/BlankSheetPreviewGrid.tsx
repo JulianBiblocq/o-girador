@@ -85,6 +85,25 @@ export const BlankSheetPreviewGrid: React.FC<BlankSheetPreviewGridProps> = ({
     );
   }
 
+  if (sheetType === 'grid32') {
+    return (
+      <div className="flex flex-col flex-1 border border-black/60 bg-white/80 overflow-hidden divide-y divide-black/20">
+        {Array.from({ length: 14 }).map((_, rIdx) => (
+          <div key={rIdx} className="flex h-1.5 items-center">
+            <span className="w-4 font-mono text-[4px] border-r border-black/40 text-center font-bold text-gray-700">
+              {rIdx === 0 ? 'Al' : rIdx === 1 ? 'Me' : rIdx === 2 ? 'Rp' : rIdx === 3 ? 'Cx' : rIdx === 5 ? 'Cx' : ''}
+            </span>
+            <div className="flex-1 flex divide-x divide-black/20 h-full">
+              {Array.from({ length: 32 }).map((__, cIdx) => (
+                <div key={cIdx} className={`flex-1 ${cIdx % 4 === 0 ? 'bg-black/5' : ''}`} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1 flex-1 justify-between">
       {Array.from({ length: isLandscape ? 3 : 4 }).map((_, bIdx) => (

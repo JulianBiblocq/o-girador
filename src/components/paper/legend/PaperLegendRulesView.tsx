@@ -80,6 +80,17 @@ export const PaperLegendRulesView: React.FC<Props> = ({ lang }) => {
           <div className="sm:col-span-2">• <strong>{isFr ? '5. Doubles coups :' : '5. Toques duplos :'}</strong> {isFr ? 'Écrire' : 'Escrever'} <code>d/I</code> {isFr ? 'ou' : 'ou'} <code>D/E</code> {isFr ? 'avec un slash (pas de | dans un carreau).' : 'com barra inclinada (sem | dentro da casa).'}</div>
         </div>
       </div>
+
+      <div className="p-2.5 bg-[#faf6eb] border-2 border-black shadow-[2px_2px_0px_#1a1a1a]">
+        <div className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] mb-1">
+          {isFr ? '3. Détection Automatique des Signatures & Subdivisions' : '3. Detecção Automática de Compasso & Subdivisões'}
+        </div>
+        <p className="text-[10px] text-black/85 leading-snug m-0">
+          {isFr
+            ? 'L\'application déduit toute seule la signature et les subdivisions en comptant les carreaux entre les barres de temps | et la double barre || : 4×4 = 4/4 (16p), 8×4 = 2 mes. 4/4 (32p), 2×4 = 2/4 (8p), 3×4 = 3/4 (12p), 4×3 = 12/8 (12p), 4×6 = 24p (sextolets), 6+6+4+4 = 20p (mixte).'
+            : 'O aplicativo deduz o compasso e as subdivisões contando as casas entre as barras | e a barra dupla || : 4×4 = 4/4 (16p), 8×4 = 2 comp. 4/4 (32p), 2×4 = 2/4 (8p), 3×4 = 3/4 (12p), 4×3 = 12/8 (12p), 4×6 = 24p (sextinas), 6+6+4+4 = 20p (misto).'}
+        </p>
+      </div>
     </div>
   );
 };

@@ -61,4 +61,9 @@ export const paperWorkshopTranslationsPt: Record<keyof typeof paperWorkshopTrans
   printPdfA4: 'PDF A4',
   rulesConventionsTitle: '1. Convenções de Casas & Variações (↳)',
   rulesSyntaxTitle: '2. Sintaxe do Condutor & Toada',
+  grid32Type: 'Grelha 32×25 — Folha Única A4 Paisagem',
+  grid32ModeBlank: 'Modo 1 : 100 % em Branco (Tudo à caneta)',
+  grid32ModePrefill: 'Modo 2 : Naipes Pré-preenchidos',
+  grid32Notice: 'Grelha milimétrica paisagem (14mm + 32 × 8mm × 25 linhas). 1 página A4 única.',
+  abbrNotice: 'As abreviações de instrumentos (1 a 3 letras) são de livre escolha do usuário e modificáveis abaixo.',
 };

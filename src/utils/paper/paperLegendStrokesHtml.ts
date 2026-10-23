@@ -1,6 +1,8 @@
 /**
  * Module HTML 1 : Tableau complet des frappes et conventions de carreaux (< 130 lignes).
  */
+import { renderMasterExampleHTML } from './paperLegendMasterExample';
+
 export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
   const isFr = lang === 'fr';
 
@@ -17,6 +19,11 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
       <div style="font-weight: bold; font-size: 12pt; text-transform: uppercase; color: #8b2a1a; border-bottom: 2px solid #8b2a1a; padding-bottom: 2px; margin-bottom: 6px;">
         1. ${isFr ? 'TABLEAU COMPLET DES FRAPPES PAR INSTRUMENT' : 'TABELA COMPLETA DE TOQUES POR INSTRUMENTO'}
         <span style="font-size: 10pt; font-weight: normal; color: #555; margin-left: 8px;">(${isFr ? 'MAJUSCULE = Fort │ minuscule = Faible (Sauf Timbal : MAJ = Droite │ min = Gauche)' : 'MAIÚSCULA = Forte │ minúscula = Fraco (Exceto Timbal: MAI = Direita │ min = Esquerda)'})</span>
+      </div>
+      <div style="background: #faf6eb; border: 1px solid #d4cbb3; padding: 2px 6px; margin-bottom: 6px; font-size: 8pt; color: #555; font-style: italic;">
+        ${isFr
+          ? 'Note : Les abréviations d\'instruments dans la colonne de 14mm (Al, Cx, Gg...) sont au choix de l\'utilisateur et personnalisables dans l\'Atelier Papier ou La Presse.'
+          : 'Nota: As abreviações de instrumentos na coluna de 14mm (Al, Cx, Gg...) são de livre escolha do usuário e personalizáveis na Oficina Papel ou Na Imprensa.'}
       </div>
 
       <!-- Grille des Instruments -->
@@ -93,6 +100,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           <div><strong>• Ronds optiques ● :</strong> Noircir au stylo pour déclencher la sauvegarde Cloud au scan.</div>
         </div>
       </div>
+      ${renderMasterExampleHTML(lang)}
     </div>
   `;
 };
