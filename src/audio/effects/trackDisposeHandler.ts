@@ -4,6 +4,7 @@ import {
   reverbSends,
   distortionSends,
   trackInputs,
+  busInputs,
   lowCutNodes,
   slaveSubCutNodes,
   eqNodes,
@@ -65,6 +66,13 @@ export function disposeTrackNodes(trackId: number) {
     if (trackInputs[trackId]) {
       try { trackInputs[trackId].disconnect(); trackInputs[trackId].dispose(); } catch (_) {}
       delete trackInputs[trackId];
+    }
+  } catch (_) {}
+
+  try {
+    if (busInputs[trackId]) {
+      try { busInputs[trackId].disconnect(); busInputs[trackId].dispose(); } catch (_) {}
+      delete busInputs[trackId];
     }
   } catch (_) {}
 

@@ -4,7 +4,7 @@
 
 import { getTone } from '../../ToneLoader';
 import { VocalPresetId, VOCAL_PRESETS } from '../vocalPresets';
-import { masterVolumeNode, channels, busChannels, trackInputs } from '../effectsChain';
+import { masterVolumeNode, channels, busInputs, busChannels, trackInputs } from '../effectsChain';
 import { useSequencerStore, isToadaBus } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { VoiceOverlapTracker } from '../voiceNoteGuard';
@@ -47,7 +47,7 @@ export class EngineVoiceSynthManager {
       }
 
       if (!destNode && toadaTrack) {
-        destNode = (busChannels && (busChannels as any)[toadaTrack.id]) || (busChannels && (busChannels as any)[String(toadaTrack.id)]);
+        destNode = (busInputs && (busInputs as any)[toadaTrack.id]) || (busChannels && (busChannels as any)[toadaTrack.id]);
       }
 
       if (!destNode) {

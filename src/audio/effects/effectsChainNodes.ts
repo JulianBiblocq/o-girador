@@ -42,19 +42,20 @@ export function setDistortionBusReceive(node: Tone.Channel | null) { distortionB
 export let metroChannel: Tone.Channel | null = null;
 export function setMetroChannel(node: Tone.Channel | null) { metroChannel = node; }
 
-export const channels: { [trackId: number]: Tone.Channel } = {};
-export const meters: { [trackId: number]: Tone.Meter } = {};
-export const reverbSends: { [trackId: number]: any } = {};
-export const distortionSends: { [trackId: number]: any } = {};
-export const trackInputs: { [trackId: number]: Tone.Gain } = {};
-export const lowCutNodes: { [trackId: number]: Tone.Filter } = {};
-export const slaveSubCutNodes: { [trackId: number]: Tone.Filter } = {};
+export const channels: { [trackId: string | number]: Tone.Channel } = {};
+export const meters: { [trackId: string | number]: any } = {};
+export const reverbSends: { [trackId: string | number]: any } = {};
+export const distortionSends: { [trackId: string | number]: any } = {};
+export const trackInputs: { [trackId: string | number]: Tone.Gain } = {};
+export const busInputs: { [busId: string | number]: Tone.Gain } = {};
+export const lowCutNodes: { [trackId: string | number]: Tone.Filter } = {};
+export const slaveSubCutNodes: { [trackId: string | number]: Tone.Filter } = {};
 export const eqNodes: { 
-  [trackId: number]: {
+  [trackId: string | number]: {
     low: Tone.Filter;
     mid: Tone.Filter;
     high: Tone.Filter;
   }
 } = {};
-export const busChannels: { [busId: string]: Tone.Channel } = {};
-export const busMeters: { [busId: string]: Tone.Meter } = {};
+export const busChannels: { [busId: string | number]: Tone.Channel } = {};
+export const busMeters: { [busId: string | number]: any } = {};

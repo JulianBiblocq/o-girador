@@ -12,6 +12,7 @@ export {
   handleReverbEcoToggle,
 } from './effects/reverbEcoHandler';
 export { syncTrackInsertChain } from './effects/trackInsertChain';
+export { syncBusInsertChain } from './effects/busInsertChain';
 export {
   setOnTrackDisposeCallback,
   disposeTrackNodes,

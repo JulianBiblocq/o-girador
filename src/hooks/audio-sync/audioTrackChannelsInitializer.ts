@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { channels, meters, reverbSends, distortionSends, busChannels, masterVolumeNode } from './audioEngineNodes';
+import { channels, meters, reverbSends, distortionSends, busInputs, busChannels, masterVolumeNode } from './audioEngineNodes';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
@@ -17,7 +17,7 @@ export function initTrackChannelsAudioNodes(
   engine: AudioEngine | null
 ) {
   tracks.forEach((t) => {
-    if (t.isBusFolder) return;
+    if (t.isBusFolder || t.isLinkFolder) return;
     const inst = instrumentsConfig[t.instrumentIdx];
     if (!inst) return;
 
@@ -38,16 +38,16 @@ export function initTrackChannelsAudioNodes(
       distortionSends[t.id] = channels[t.id].send('distortion', initialDistDb);
     }
 
-    const currentBusId = t.busId || null;
+    const targetBusId = t.busId || (t.linkedToTrackId ? t.linkedToTrackId : null);
     let targetBusNode: any = null;
-    if (currentBusId) {
-      targetBusNode = busChannels[currentBusId] || (busChannels as any)[String(currentBusId)] || (busChannels as any)[Number(currentBusId)] || null;
+    if (targetBusId && String(targetBusId) !== String(t.id)) {
+      targetBusNode = busInputs[targetBusId] || busChannels[targetBusId] || trackInputs[targetBusId] || null;
     }
     const isVocalTrack = isToadaChild(t, tracks) || inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro';
     if (isVocalTrack && !targetBusNode) {
       const toadaTrack = tracks.find(trk => isToadaBus(trk));
       if (toadaTrack) {
-        targetBusNode = busChannels[toadaTrack.id] || (busChannels as any)[String(toadaTrack.id)] || null;
+        targetBusNode = busInputs[toadaTrack.id] || busChannels[toadaTrack.id] || null;
       }
     }
 
@@ -62,7 +62,7 @@ export function initTrackChannelsAudioNodes(
     if (distortionSends[t.id]) channels[t.id].connect(distortionSends[t.id]);
     if (meters[t.id]) channels[t.id].connect(meters[t.id]);
 
-    lastAppliedBussesRef.current[t.id] = currentBusId;
+    lastAppliedBussesRef.current[t.id] = targetBusId ? String(targetBusId) : null;
 
     if (!trackInputs[t.id]) {
       trackInputs[t.id] = new Tone.Gain(1.0);
@@ -72,7 +72,7 @@ export function initTrackChannelsAudioNodes(
     const gainNode = trackInputs[t.id] || channels[t.id];
     engine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
-    const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
+    const isConnectedToBus = Boolean(targetBusId && (busInputs[targetBusId] || busChannels[targetBusId]));
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;

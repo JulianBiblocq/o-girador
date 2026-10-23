@@ -32,7 +32,7 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
     const node = distortionSends[trackId];
     if (node) {
       const gain = Math.max(0.00001, val / 100);
-      try { node.gain.value = val === 0 ? -Infinity : 40 * Math.log10(gain); } catch (_) {}
+      try { node.gain.value = val === 0 ? -100 : 40 * Math.log10(gain); } catch (_) {}
     }
   };
 
@@ -40,7 +40,7 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
     const node = reverbSends[trackId];
     if (node) {
       const gain = Math.max(0.00001, val / 100);
-      try { node.gain.value = val === 0 ? -Infinity : 40 * Math.log10(gain); } catch (_) {}
+      try { node.gain.value = val === 0 ? -100 : 40 * Math.log10(gain); } catch (_) {}
     }
   };
 

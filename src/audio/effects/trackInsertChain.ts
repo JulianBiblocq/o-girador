@@ -1,5 +1,4 @@
 import * as Tone from 'tone';
-import { useSequencerStore } from '../../stores/useSequencerStore';
 import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import {
   channels,
@@ -12,7 +11,6 @@ import {
 } from './effectsChainNodes';
 
 export function syncTrackInsertChain(trackId: number, track: any) {
-  const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
   const inputNode = trackInputs[trackId];
   const channelNode = channels[trackId];
   if (!inputNode || !channelNode) return;
@@ -30,32 +28,38 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     eqNodeGroup.high.disconnect();
   }
 
-  if (isMobile) {
+  const perfState = usePerformanceStore.getState();
+  const isEQBypassed = perfState.bypassEQ;
+  const isReverbBypassed = perfState.bypassReverbFX;
+
+  if (isReverbBypassed) {
+    if (reverbSends[trackId]) {
+      try { reverbSends[trackId].disconnect(); } catch (_) {}
+    }
+    if (distortionSends[trackId]) {
+      try { distortionSends[trackId].disconnect(); } catch (_) {}
+    }
+  }
+
+  if (isEQBypassed) {
     inputNode.connect(channelNode);
     return;
   }
 
   const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
   const hasLowCut = !!track.lowCut;
-  const disableEq = useSequencerStore.getState().ecoConfig?.disableEq;
-  const eq = track.eqBands;
-  const hasEQ = eq && !disableEq ? (
-    (eq.low?.g !== undefined && eq.low.g !== 0) ||
-    (eq.mid?.g !== undefined && eq.mid.g !== 0) ||
-    (eq.high?.g !== undefined && eq.high.g !== 0)
-  ) : false;
 
   let currentLowCut = lowCutNodes[trackId];
-  if (hasLowCut && !currentLowCut) {
-    currentLowCut = new Tone.Filter(80, 'highpass');
+  if (!currentLowCut) {
+    currentLowCut = new Tone.Filter(hasLowCut ? (isLinkedSlave ? 110 : 80) : 20, 'highpass');
     lowCutNodes[trackId] = currentLowCut;
-  }
-  if (currentLowCut) {
-    currentLowCut.frequency.value = (isLinkedSlave && !hasEQ) ? 110 : 80;
+  } else {
+    currentLowCut.frequency.value = hasLowCut ? (isLinkedSlave ? 110 : 80) : 20;
   }
 
+  const eq = track.eqBands;
   let currentEQ = eqNodes[trackId];
-  if (hasEQ && !currentEQ) {
+  if (!currentEQ) {
     currentEQ = {
       low: new Tone.Filter(eq?.low?.f || 100, 'lowshelf'),
       mid: new Tone.Filter(eq?.mid?.f || 1000, 'peaking'),
@@ -70,63 +74,14 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     currentEQ.low.gain.value = (eq.low?.g ?? 0) + lowGainOffset;
     currentEQ.mid.frequency.value = eq.mid?.f ?? 1000;
     currentEQ.mid.gain.value = eq.mid?.g ?? 0;
-    currentEQ.mid.Q.value = eq.mid?.q === 'narrow' ? 2.0 : 0.7;
+    currentEQ.mid.Q.value = eq.mid?.q === 'narrow' ? 2.5 : 0.7;
     currentEQ.high.frequency.value = eq.high?.f ?? 8000;
     currentEQ.high.gain.value = eq.high?.g ?? 0;
   }
 
-  // Pistes esclaves liées sans EQ ni LowCut : filtre low-shelf réutilisé
-  if (isLinkedSlave && !hasEQ && !hasLowCut) {
-    if (!slaveSubCutNodes[trackId]) {
-      slaveSubCutNodes[trackId] = new Tone.Filter(120, 'lowshelf');
-    }
-    slaveSubCutNodes[trackId].frequency.value = 120;
-    slaveSubCutNodes[trackId].gain.value = -1.5;
-  }
-
-  const perfState = usePerformanceStore.getState();
-  const isEQBypassed = perfState.bypassEQ;
-  const isReverbBypassed = perfState.bypassReverbFX;
-
-  if (isEQBypassed) {
-    if (lowCutNodes[trackId]) {
-      try { lowCutNodes[trackId].disconnect(); } catch (_) {}
-    }
-    if (slaveSubCutNodes[trackId]) {
-      try { slaveSubCutNodes[trackId].disconnect(); } catch (_) {}
-    }
-    if (eqNodes[trackId]) {
-      try {
-        eqNodes[trackId].low.disconnect();
-        eqNodes[trackId].mid.disconnect();
-        eqNodes[trackId].high.disconnect();
-      } catch (_) {}
-    }
-  }
-
-  if (isReverbBypassed) {
-    if (reverbSends[trackId]) {
-      try { reverbSends[trackId].disconnect(); } catch (_) {}
-    }
-    if (distortionSends[trackId]) {
-      try { distortionSends[trackId].disconnect(); } catch (_) {}
-    }
-  }
-
-  let lastNode: any = inputNode;
-  if (!isEQBypassed && hasLowCut && currentLowCut) {
-    lastNode.connect(currentLowCut);
-    lastNode = currentLowCut;
-  }
-  if (!isEQBypassed && isLinkedSlave && !hasEQ && !hasLowCut && slaveSubCutNodes[trackId]) {
-    lastNode.connect(slaveSubCutNodes[trackId]);
-    lastNode = slaveSubCutNodes[trackId];
-  }
-  if (!isEQBypassed && hasEQ && currentEQ) {
-    lastNode.connect(currentEQ.low);
-    currentEQ.low.connect(currentEQ.mid);
-    currentEQ.mid.connect(currentEQ.high);
-    lastNode = currentEQ.high;
-  }
-  lastNode.connect(channelNode);
+  inputNode.connect(currentLowCut);
+  currentLowCut.connect(currentEQ.low);
+  currentEQ.low.connect(currentEQ.mid);
+  currentEQ.mid.connect(currentEQ.high);
+  currentEQ.high.connect(channelNode);
 }

@@ -35,6 +35,7 @@ export const handleTrackEQResetState = (
   id: number
 ): TrackGroup[] => tracks.map((t) => t.id === id ? {
   ...t,
+  lowCut: false,
   eqBands: {
     low: { f: 100, g: 0 },
     mid: { f: 1000, g: 0, q: 'wide' as const },

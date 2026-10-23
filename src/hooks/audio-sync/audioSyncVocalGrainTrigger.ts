@@ -6,6 +6,7 @@ import { isVocalSamplePattern, isSamplePlaybackAllowed, getVocalBufferForPattern
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { busInputs } from './audioEngineNodes';
 
 export interface VocalGrainTriggerParams {
   track: Track;
@@ -51,7 +52,7 @@ export function triggerVocalGrainAtStep0(p: VocalGrainTriggerParams): void {
   });
 
   const toadaTrack = tracks.find(trk => isToadaBus(trk));
-  const outputNode = trackInputs[track.id] || channels[track.id] || (toadaTrack && busChannels[toadaTrack.id]) || masterVolumeNode;
+  const outputNode = trackInputs[track.id] || channels[track.id] || (toadaTrack && (busInputs[toadaTrack.id] || busChannels[toadaTrack.id])) || masterVolumeNode;
   const voiceInst = instrumentsConfig[track.instrumentIdx];
   const isCoroTrack = voiceInst?.id === 'coro';
   const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);

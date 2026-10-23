@@ -20,6 +20,7 @@ import {
   reverbSends,
   distortionSends,
   trackInputs,
+  busInputs,
   busChannels,
   busMeters
 } from '../../audio/effectsChain';
@@ -72,6 +73,7 @@ export {
   reverbSends,
   distortionSends,
   trackInputs,
+  busInputs,
   busChannels,
   busMeters,
   activeNativeOscillators,

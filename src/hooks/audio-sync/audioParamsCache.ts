@@ -30,8 +30,8 @@ export function getMeasureStartTick(mIdx: number, measureTimeSigs: Record<number
 }
 
 export const percentToDb = (percent: number): number => {
-  if (percent <= 0) return -Infinity;
-  const normalized = percent / 100;
+  if (percent <= 0) return -100;
+  const normalized = Math.max(0.00001, percent / 100);
   return 40 * Math.log10(normalized);
 };
 

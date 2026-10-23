@@ -20,8 +20,8 @@ export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang }) =
   };
 
   const isEQModified = eq.low.g !== 0 || eq.low.f !== 100 ||
-                      eq.mid.g !== 0 || eq.mid.f !== 1000 ||
-                      eq.high.g !== 0 || eq.high.f !== 8000;
+                      eq.mid.g !== 0 || eq.mid.f !== 1000 || eq.mid.q === 'narrow' ||
+                      eq.high.g !== 0 || eq.high.f !== 8000 || lowCut;
 
   const handleLowCutToggle = () => useSequencerStore.getState().handleTrackLowCutToggle(trackId);
   const handleEQChange = (bands: Partial<typeof eq>) => useSequencerStore.getState().handleTrackEQChange(trackId, bands);

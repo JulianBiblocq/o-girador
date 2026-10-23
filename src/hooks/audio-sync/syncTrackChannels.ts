@@ -6,6 +6,7 @@ import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { syncTrackInsertChain } from '../../audio/effectsChain';
+import { busInputs } from './audioEngineNodes';
 import { AudioEngine } from '../../AudioEngine';
 
 export interface SyncTrackChannelsParams {
@@ -31,7 +32,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
   } = p;
 
   tracks.forEach((t) => {
-    if (t.isBusFolder) return;
+    if (t.isBusFolder || t.isLinkFolder) return;
     const inst = instrumentsConfig[t.instrumentIdx];
     if (!inst) return;
 
@@ -58,7 +59,8 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const gainNode = trackInputs[t.id] || channels[t.id];
     audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
-    const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
+    const targetBusId = t.busId || (t.linkedToTrackId ? t.linkedToTrackId : null);
+    const isConnectedToBus = Boolean(targetBusId && (busInputs[targetBusId] || busChannels[targetBusId]));
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
@@ -95,15 +97,17 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
       lastAppliedTracksParamsRef.current[t.id] = paramHash;
     }
 
-    const currentBusId = t.busId || null;
-    let targetBusNode: any = currentBusId ? (busChannels[currentBusId] || null) : null;
+    let targetBusNode: any = (targetBusId && String(targetBusId) !== String(t.id))
+      ? (busInputs[targetBusId] || busChannels[targetBusId] || trackInputs[targetBusId] || null)
+      : null;
     const isVocalTrack = isToadaChild(t, tracks) || inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro';
     if (isVocalTrack && !targetBusNode) {
       const toadaTrack = tracks.find(trk => isToadaBus(trk));
-      if (toadaTrack) targetBusNode = busChannels[toadaTrack.id] || null;
+      if (toadaTrack) targetBusNode = busInputs[toadaTrack.id] || busChannels[toadaTrack.id] || null;
     }
 
-    if (lastAppliedBussesRef.current[t.id] !== currentBusId || !channels[t.id]) {
+    const busKey = targetBusId ? String(targetBusId) : null;
+    if (lastAppliedBussesRef.current[t.id] !== busKey || !channels[t.id]) {
       channels[t.id].disconnect();
       if (targetBusNode) {
         channels[t.id].connect(targetBusNode);
@@ -115,7 +119,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
       if (distortionSends[t.id]) channels[t.id].connect(distortionSends[t.id]);
       if (meters[t.id]) channels[t.id].connect(meters[t.id]);
 
-      lastAppliedBussesRef.current[t.id] = currentBusId;
+      lastAppliedBussesRef.current[t.id] = busKey;
     }
   });
 }

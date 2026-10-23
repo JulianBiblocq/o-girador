@@ -1,10 +1,11 @@
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
-import { busChannels, busMeters, reverbSends, distortionSends, masterVolumeNode } from './audioEngineNodes';
+import { busInputs, busChannels, busMeters, reverbSends, distortionSends, masterVolumeNode } from './audioEngineNodes';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { getEffectiveVolume, getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { syncBusInsertChain } from '../../audio/effectsChain';
 
 export function initBusesAudioNodes(
   tracks: TrackGroup[],
@@ -13,7 +14,7 @@ export function initBusesAudioNodes(
   lastAppliedTracksParamsRef: React.MutableRefObject<Record<string, string>>
 ) {
   tracks.forEach((t) => {
-    if (!t.isBusFolder) return;
+    if (!t.isBusFolder && !t.isLinkFolder) return;
 
     if (!busChannels[t.id]) {
       const channelNode = new Tone.Channel({ volume: 0 });
@@ -27,6 +28,11 @@ export function initBusesAudioNodes(
       channelNode.connect(busMeters[t.id]);
     }
 
+    if (!busInputs[t.id]) {
+      busInputs[t.id] = new Tone.Gain(1.0);
+    }
+    syncBusInsertChain(t.id, t);
+
     const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
 
@@ -39,8 +45,9 @@ export function initBusesAudioNodes(
 
     const currentBusId = t.busId || null;
     busChannels[t.id].disconnect();
-    if (currentBusId && busChannels[currentBusId]) {
-      busChannels[t.id].connect(busChannels[currentBusId]);
+    const parentBusInput = currentBusId ? (busInputs[currentBusId] || busChannels[currentBusId] || null) : null;
+    if (parentBusInput) {
+      busChannels[t.id].connect(parentBusInput);
     } else if (masterVolumeNode) {
       busChannels[t.id].connect(masterVolumeNode);
     }
@@ -51,7 +58,7 @@ export function initBusesAudioNodes(
 
     lastAppliedBussesRef.current[t.id] = currentBusId;
 
-    const isConnectedToParentBus = Boolean(t.busId && busChannels[t.busId]);
+    const isConnectedToParentBus = Boolean(t.busId && (busInputs[t.busId] || busChannels[t.busId]));
     const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
@@ -62,6 +69,15 @@ export function initBusesAudioNodes(
     busChannels[t.id].pan.value = acousticPan;
     busChannels[t.id].mute = muteState;
 
-    lastAppliedTracksParamsRef.current[t.id] = `bus_${db}_${acousticPan}_${muteState}_${reverb}_${distortion}`;
+    const lowCut = t.lowCut ?? false;
+    const eqLowG = t.eqBands?.low?.g ?? 0;
+    const eqLowF = t.eqBands?.low?.f ?? 100;
+    const eqMidG = t.eqBands?.mid?.g ?? 0;
+    const eqMidF = t.eqBands?.mid?.f ?? 1000;
+    const eqMidQ = t.eqBands?.mid?.q ?? 'wide';
+    const eqHighG = t.eqBands?.high?.g ?? 0;
+    const eqHighF = t.eqBands?.high?.f ?? 8000;
+
+    lastAppliedTracksParamsRef.current[t.id] = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
   });
 }
