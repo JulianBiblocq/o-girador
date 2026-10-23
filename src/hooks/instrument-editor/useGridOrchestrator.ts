@@ -37,7 +37,7 @@ export function useGridOrchestrator(props: InstrumentPatternGridProps) {
   const track = useSequencerStore(useCallback(s => s.tracks.find(t => t.id === trackId), [trackId]));
   const selectedStepRange = useSequencerStore(s => s.selectedStepRange);
   const handleSetPatternAllBeatsResolution = useSequencerStore(s => s.handleSetPatternAllBeatsResolution);
-  const activeVigilanceFocus = usePaperVigilanceStore(s => s.activeFocusPoint);
+  const activeVigilanceFocus = usePaperVigilanceStore(s => s.activeFocusPoint && (!s.activeSequencerScoreId || s.activeFocusPoint.scoreId === s.activeSequencerScoreId) ? s.activeFocusPoint : null);
 
   const [internalSubIndex, setInternalSubIndex] = useState<0 | 1 | null>(null);
   const selectedSubIndex = propSub !== undefined ? propSub : internalSubIndex;
@@ -70,7 +70,8 @@ export function useGridOrchestrator(props: InstrumentPatternGridProps) {
     }
     if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
     else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
-    const pt = usePaperVigilanceStore.getState().points.find(p => p.patternId === pattern.id && p.stepIndex === idx);
+    const sId = usePaperVigilanceStore.getState().activeSequencerScoreId;
+    const pt = usePaperVigilanceStore.getState().points.find(p => (!sId || p.scoreId === sId) && p.patternId === pattern.id && p.stepIndex === idx);
     if (pt) usePaperVigilanceStore.getState().removePoint(pt.id);
   }, [activeTool, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
 
@@ -132,7 +133,5 @@ export function useGridOrchestrator(props: InstrumentPatternGridProps) {
     handleVoiceTypeToggle: (tId: number, pId: number, idx: number) => handleVoiceTypeToggle(tId, pId, idx), handleVoiceSylChange: (tId: number, pId: number, idx: number, val: string) => handleVoiceSylChange(tId, pId, idx, val),
     handleVoicePreRollSylChange: (tId: number, pId: number, idx: number, val: string) => handleVoicePreRollSylChange(tId, pId, idx, val), handleVoiceNoteChange: (tId: number, pId: number, idx: number, note: string) => handleVoiceNoteChange(tId, pId, idx, note),
     handleVoiceNoteBlur: (tId: number, pId: number, idx: number, note: string) => handleVoiceNoteBlur(tId, pId, idx, note), handleVoicePreRollNoteBlur: (tId: number, pId: number, idx: number, note: string) => handleVoicePreRollNoteBlur(tId, pId, idx, note),
-    onCopyRelative: () => copyRelativeSteps(selectedStepIndices, pattern),
-    onPasteRelative: () => pasteRelativeSteps(pattern, selectedStepIndices[0], instrument.id, trackId, selectedVariationId, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedStepIndices)
-  };
+    onCopyRelative: () => copyRelativeSteps(selectedStepIndices, pattern), onPasteRelative: () => pasteRelativeSteps(pattern, selectedStepIndices[0], instrument.id, trackId, selectedVariationId, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedStepIndices) };
 }

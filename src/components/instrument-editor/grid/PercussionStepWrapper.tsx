@@ -20,7 +20,7 @@ interface PercussionStepWrapperProps {
   trackId: number;
   instrument: { id: string; colors: Record<string, string>; [key: string]: any };
   swingOffsets: Record<number, number>;
-  activeVigilanceFocus: { patternId?: number; stepIndex?: number; trackId?: number } | null;
+  activeVigilanceFocus: { id?: string; patternId?: number; stepIndex?: number; trackId?: number } | null;
   selectedStepIndices: number[];
   selectedStepIdx: number | null;
   selectedSubIndex: 0 | 1 | null;
@@ -47,9 +47,13 @@ export const PercussionStepWrapper: React.FC<PercussionStepWrapperProps> = ({
   const vis = computeStepVisualProps(pattern, instrument, swingOffsets, i);
   const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
-  const vigilancePoint = usePaperVigilanceStore((s) =>
-    s.points.find((p) => (p.patternId ? p.patternId === pattern.id : p.trackId === trackId) && p.stepIndex === i)
-  );
+  const vigilancePoint = usePaperVigilanceStore((s) => {
+    const activeScoreId = s.activeSequencerScoreId;
+    if (!activeScoreId) return undefined;
+    return s.points.find(
+      (p) => p.scoreId === activeScoreId && (p.patternId ? p.patternId === pattern.id : p.trackId === trackId) && p.stepIndex === i
+    );
+  });
   const removePoint = usePaperVigilanceStore((s) => s.removePoint);
 
   let wrapperClasses = 'relative flex flex-col items-center w-full min-w-0 flex-1';
@@ -60,8 +64,11 @@ export const PercussionStepWrapper: React.FC<PercussionStepWrapperProps> = ({
   }
 
   const isVigilanceTarget =
-    (activeVigilanceFocus?.patternId ? activeVigilanceFocus.patternId === pattern.id : activeVigilanceFocus?.trackId === trackId) &&
-    activeVigilanceFocus?.stepIndex === i;
+    Boolean(
+      activeVigilanceFocus &&
+      vigilancePoint &&
+      activeVigilanceFocus.id === vigilancePoint.id
+    );
 
   return (
     <div

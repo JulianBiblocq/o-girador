@@ -24,8 +24,8 @@ export function isStepDoubtful(stepVal: PaperStepValue, confidence?: number): bo
 
 export function detectDoubtPointsInPatterns(
   patterns: Record<string, Partial<Record<string, PaperStepValue[]>>>
-): Omit<VigilancePoint, 'id'>[] {
-  const result: Omit<VigilancePoint, 'id'>[] = [];
+): Omit<VigilancePoint, 'id' | 'scoreId'>[] {
+  const result: Omit<VigilancePoint, 'id' | 'scoreId'>[] = [];
   Object.entries(patterns).forEach(([sectionName, pupitreMap]) => {
     Object.entries(pupitreMap || {}).forEach(([roleKey, steps]) => {
       if (!Array.isArray(steps)) return;
@@ -45,12 +45,11 @@ export function detectDoubtPointsInPatterns(
 }
 
 export function scanAndRegisterDoubtPoints(
+  scoreId: string,
   patterns: Record<string, Partial<Record<string, PaperStepValue[]>>>
 ): number {
   const doubts = detectDoubtPointsInPatterns(patterns);
   const store = usePaperVigilanceStore.getState();
-  doubts.forEach((d) => {
-    store.addPoint(d);
-  });
+  store.registerOcrDoubtsForScore(scoreId, doubts);
   return doubts.length;
 }

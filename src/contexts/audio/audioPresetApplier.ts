@@ -36,7 +36,6 @@ export async function executeApplyPreset(
   const loadedMeasures = p.totalMeasures || 8;
   const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
   const loadedTracks = migrateAndSanitizePresetTracks(p, loadedMeasures);
-
   await restorePresetVocalRecordings(loadedTracks);
 
   const loadedTrackIds = new Set(loadedTracks.map(t => t.id));
@@ -61,10 +60,6 @@ export async function executeApplyPreset(
     console.error("🎙️ [VOCAL REHYDRATE] Error during applyPreset:", err);
   }
 
-  sequencer.setTotalMeasures(loadedMeasures, true);
-  sequencer.setBpmRaw(Math.round(p.bpm || 90));
-  sequencer.setTimeSig(p.timeSig || '4/4');
-
   const defaultBpm = Math.round(p.bpm || 90);
   const defaultTimeSig = p.timeSig || '4/4';
   const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms) ? p.measureBpms.map((b: number) => Math.round(b)) : Array(loadedMeasures).fill(defaultBpm);
@@ -76,13 +71,13 @@ export async function executeApplyPreset(
   }) : Array(loadedMeasures).fill(75);
   const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions) ? p.measureVolTransitions : Array(loadedMeasures).fill('immediate');
 
+  sequencer.setTotalMeasures(loadedMeasures, true);
+  sequencer.setBpmRaw(defaultBpm);
+  sequencer.setTimeSig(defaultTimeSig);
   useSequencerStore.getState().setNominalPresetTempo(defaultBpm, loadedBpms);
   useSequencerStore.setState({ bpm: defaultBpm, measureBpms: loadedBpms });
-  sequencer.setMeasureBpms(loadedBpms);
-  sequencer.setMeasureTimeSigs(loadedTimeSigs);
-  sequencer.setMeasureBpmTransitions(loadedBpmTransitions);
-  sequencer.setMeasureVols(loadedVols);
-  sequencer.setMeasureVolTransitions(loadedVolTransitions);
+  sequencer.setMeasureBpms(loadedBpms); sequencer.setMeasureTimeSigs(loadedTimeSigs);
+  sequencer.setMeasureBpmTransitions(loadedBpmTransitions); sequencer.setMeasureVols(loadedVols); sequencer.setMeasureVolTransitions(loadedVolTransitions);
 
   useSequencerStore.getState().clearLoopExitRequest();
   useSequencerStore.getState().setIsLoopBypassed(false);
@@ -94,22 +89,13 @@ export async function executeApplyPreset(
   if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
 
   const loadedSections = (p.songSections && Array.isArray(p.songSections)) ? JSON.parse(JSON.stringify(p.songSections)) : [];
-  useSequencerStore.setState({ songSections: loadedSections });
-  useSequencerStore.getState().setSongSections(loadedSections);
-  if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
-  sequencer.setSongSections(loadedSections);
-
   const loadedMarkers = (p.songMarkers && Array.isArray(p.songMarkers)) ? JSON.parse(JSON.stringify(p.songMarkers)) : [];
-  useSequencerStore.setState({ songMarkers: loadedMarkers });
-  useSequencerStore.getState().setSongMarkers(loadedMarkers);
-  if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
-  sequencer.setSongMarkers(loadedMarkers);
-
   const loadedSignals = (p.measureSignals && Array.isArray(p.measureSignals)) ? JSON.parse(JSON.stringify(p.measureSignals)) : Array(loadedMeasures).fill(null);
-  useSequencerStore.setState({ measureSignals: loadedSignals });
-  useSequencerStore.getState().setMeasureSignals(loadedSignals);
+  useSequencerStore.setState({ songSections: loadedSections, songMarkers: loadedMarkers, measureSignals: loadedSignals });
+  sequencer.setSongSections(loadedSections); sequencer.setSongMarkers(loadedMarkers); sequencer.setMeasureSignals(loadedSignals);
+  if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
+  if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
   if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
-  sequencer.setMeasureSignals(loadedSignals);
 
   restoreMasterFxFromPreset(p, setters.setMasterEQ, setters.setMasterCompressor, setters.setMasterVol, setters.setMasterReverbVol, setters.setReverbDecay);
 
@@ -117,15 +103,9 @@ export async function executeApplyPreset(
   else if (p.isSwingOn !== undefined) audioSync.setGlobalSwing(p.isSwingOn ? { mode: 'maracatu', customOffsets: [0, 8, -29, -58] } : { mode: 'off', customOffsets: [0, 8, -29, -58] });
   else audioSync.setGlobalSwing({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
 
-  sequencer.totalMeasuresRef.current = loadedMeasures;
-  sequencer.measureBpmsRef.current = loadedBpms;
-  sequencer.measureTimeSigsRef.current = loadedTimeSigs;
-  sequencer.measureBpmTransitionsRef.current = loadedBpmTransitions;
-  sequencer.measureVolsRef.current = loadedVols;
-  sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
-  if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
-  if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
-  if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
+  sequencer.totalMeasuresRef.current = loadedMeasures; sequencer.measureBpmsRef.current = loadedBpms;
+  sequencer.measureTimeSigsRef.current = loadedTimeSigs; sequencer.measureBpmTransitionsRef.current = loadedBpmTransitions;
+  sequencer.measureVolsRef.current = loadedVols; sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
   if (p.metadata?.preRollSettings || p.preRollSettings) {
     useTransportStore.getState().setPreRollSettings(p.metadata?.preRollSettings || p.preRollSettings);
   }
@@ -133,9 +113,18 @@ export async function executeApplyPreset(
   const targetVocalPreset = p.vocalPreset || p.metadata?.vocalPreset;
   if (targetVocalPreset) useAudioStore.getState().setVocalPreset(targetVocalPreset as any);
 
+  // Normalisation des chantiers existants & synchronisation au changement de preset
   const rawVigilance = p.vigilancePoints || p.metadata?.vigilancePoints;
   if (Array.isArray(rawVigilance) && rawVigilance.length > 0) {
-    usePaperVigilanceStore.setState({ points: rawVigilance, activeFocusPoint: null });
+    const resolvedScoreId = p.id || p.metadata?.toada || 'preset';
+    const normalizedPoints = rawVigilance.map((pt: any) => ({
+      ...pt,
+      scoreId: pt.scoreId || resolvedScoreId,
+      id: pt.id && String(pt.id).includes('__') && pt.scoreId ? pt.id : `${resolvedScoreId}__${pt.sectionName}__${pt.roleKey}__${pt.stepIndex}`,
+    }));
+    usePaperVigilanceStore.setState({ points: normalizedPoints, activeFocusPoint: null, activeSequencerScoreId: resolvedScoreId });
+  } else {
+    usePaperVigilanceStore.getState().setActiveSequencerScoreId(null);
   }
 
   sequencer.measureCountRef.current = 0;

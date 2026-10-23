@@ -26,24 +26,27 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
   const [reusableSections, setReusableSections] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
-  const vigilanceCount = usePaperVigilanceStore((state) => state.points.length);
+  const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
+  const vigilanceCount = usePaperVigilanceStore((state) => state.points.filter((p) => p.scoreId === scoreId).length);
 
-  useEffect(() => { scanAndRegisterDoubtPoints(editablePatterns); }, []);
+  useEffect(() => { scanAndRegisterDoubtPoints(scoreId, editablePatterns); usePaperVigilanceStore.getState().setActivePreviewScoreId(scoreId); }, [scoreId]);
 
   const handleSelectPreset = (p: PaperPreset) => {
     setSelectedPreset(p);
+    const pScoreId = p.id || p.name.toLowerCase().replace(/\s+/g, '_');
     const parsed = disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(p.patterns)));
     setEditablePatterns(parsed);
     setSequenceItems(factorizeSequence(p.defaultSequence));
     setReusableSections(new Set());
-    scanAndRegisterDoubtPoints(parsed);
+    scanAndRegisterDoubtPoints(pScoreId, parsed);
+    usePaperVigilanceStore.getState().setActivePreviewScoreId(pScoreId);
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { setPhotoPreview(ev.target?.result as string); scanAndRegisterDoubtPoints(editablePatterns); };
+    reader.onload = (ev) => { setPhotoPreview(ev.target?.result as string); scanAndRegisterDoubtPoints(scoreId, editablePatterns); };
     reader.readAsDataURL(file);
   };
 
@@ -109,9 +112,8 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose }) =
         </div>
       </div>
 
-      <PaperPatternPreviewGrid patterns={editablePatterns} reusableSections={reusableSections} onToggleReusable={toggleReusable} onUpdateStep={handleUpdateStep} lang={lang} />
+      <PaperPatternPreviewGrid scoreId={scoreId} patterns={editablePatterns} reusableSections={reusableSections} onToggleReusable={toggleReusable} onUpdateStep={handleUpdateStep} lang={lang} />
       <SequenceTagBuilder availableSections={Object.keys(editablePatterns)} sequenceItems={sequenceItems} onChangeSequence={setSequenceItems} lang={lang} />
-
       <PaperInjectOptionsBar preset={{ ...selectedPreset, patterns: editablePatterns }} options={injectOpts} onChange={setInjectOpts} />
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

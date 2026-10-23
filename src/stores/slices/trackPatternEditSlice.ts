@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../useSequencerStore';
+import { usePaperVigilanceStore } from '../usePaperVigilanceStore';
 import { TrackPatternEditSlice } from './trackPatternEditSliceTypes';
 import { handleTimelinePatternAssignState } from '../helpers/timelinePatternAssignHelper';
 import { handleTimelinePatternVariationToggleState } from '../helpers/timelinePatternVariationHelper';
@@ -58,6 +59,7 @@ export const createTrackPatternEditSlice: StateCreator<SequencerStore, [], [], T
   handleCreateFromTemplate: (template, audio) => {
     get().pushUndoState();
     applyWorkspaceTemplateAudioSettings(template, audio);
+    usePaperVigilanceStore.getState().setActiveSequencerScoreId(null);
     set(state => createTracksFromTemplateState(state, template));
   },
 

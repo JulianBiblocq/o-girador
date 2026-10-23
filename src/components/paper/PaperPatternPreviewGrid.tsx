@@ -11,6 +11,7 @@ import { PaperStepValidationPopover } from './PaperStepValidationPopover';
 import { Cloud, Pin, AlertTriangle, Check } from 'lucide-react';
 
 interface Props {
+  scoreId?: string;
   patterns: Record<string, Partial<Record<string, PaperStepValue[]>>>;
   reusableSections: Set<string>;
   onToggleReusable: (sectionName: string) => void;
@@ -18,11 +19,11 @@ interface Props {
   lang: 'fr' | 'pt';
 }
 
-export const PaperPatternPreviewGrid: React.FC<Props> = ({
-  patterns, reusableSections, onToggleReusable, onUpdateStep, lang,
-}) => {
+export const PaperPatternPreviewGrid: React.FC<Props> = ({ scoreId, patterns, reusableSections, onToggleReusable, onUpdateStep, lang }) => {
   const sectionEntries = Object.entries(patterns);
-  const { points, removePoint, togglePoint, clearAll } = usePaperVigilanceStore();
+  const activeScoreId = scoreId || usePaperVigilanceStore((s) => s.activePreviewScoreId) || '';
+  const points = usePaperVigilanceStore((s) => s.points.filter((p) => p.scoreId === activeScoreId));
+  const { removePoint, togglePoint, clearAllForScore } = usePaperVigilanceStore();
   const [popover, setPopover] = useState<{ sec: string; role: string; idx: number; val: PaperStepValue; isVig: boolean } | null>(null);
 
   const handleCellClick = (sec: string, role: string, idx: number, val: PaperStepValue) => {
@@ -44,17 +45,9 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
           <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a] dark:text-[#f59e0b]">
             {lang === 'fr' ? 'Relecture des motifs :' : 'Revisão dos motivos :'}
           </span>
-          {points.length > 0 && (
-            <span className="px-1.5 py-0.5 bg-[#fef3c7] text-[#b45309] border border-[#d97706] font-bold text-[9px] rounded flex items-center gap-1">
-              <AlertTriangle size={10} /> {points.length} {lang === 'fr' ? 'point(s) à vérifier' : 'ponto(s) para rever'}
-            </span>
-          )}
+          {points.length > 0 && <span className="px-1.5 py-0.5 bg-[#fef3c7] text-[#b45309] border border-[#d97706] font-bold text-[9px] rounded flex items-center gap-1"><AlertTriangle size={10} /> {points.length} {lang === 'fr' ? 'point(s) à vérifier' : 'ponto(s) para rever'}</span>}
         </div>
-        {points.length > 0 && (
-          <button type="button" onClick={clearAll} className="px-2 py-0.5 bg-[#15803d] text-white border border-black font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer shadow-[1px_1px_0px_#000]">
-            <Check size={11} /> <span>{lang === 'fr' ? 'Tout valider' : 'Validar tudo'}</span>
-          </button>
-        )}
+        {points.length > 0 && <button type="button" onClick={() => clearAllForScore(activeScoreId)} className="px-2 py-0.5 bg-[#15803d] text-white border border-black font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer shadow-[1px_1px_0px_#000]"><Check size={11} /> <span>{lang === 'fr' ? 'Tout valider' : 'Validar tudo'}</span></button>}
       </div>
 
       <div className="flex flex-col gap-2 max-h-[230px] overflow-y-auto pr-1">
@@ -63,8 +56,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
             <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5 pb-1 border-b border-black/10">
               <span className="font-cactus font-bold text-xs uppercase !text-[#1a1a1a]">{secName}</span>
               <button
-                type="button"
-                onClick={() => onToggleReusable(secName)}
+                type="button" onClick={() => onToggleReusable(secName)}
                 className={`px-2 py-0.5 border font-cactus font-bold text-[10px] flex items-center gap-1 cursor-pointer transition-colors ${
                   reusableSections.has(secName) ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[1px_1px_0px_#000]' : 'bg-[#f4ecd8] !text-[#1a1a1a] border-black/40 hover:bg-[#eaddcf]'
                 }`}
@@ -107,9 +99,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
                               className={`h-4.5 relative text-[9px] font-mono font-bold flex items-center justify-center cursor-pointer transition-all ${
                                 i % 4 === 3 ? 'border-r-2 border-[#1a1a1a]' : 'border-r border-[#1a1a1a]/20'
                               } ${
-                                isPoint
-                                  ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10'
-                                  : valStr === '·'
+                                isPoint ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10' : valStr === '·'
                                   ? isOdd ? 'bg-[#dfd3b8] !text-[#1a1a1a]/60 font-bold' : 'bg-[#f4ecd8] !text-[#1a1a1a]/60 font-bold'
                                   : 'bg-[#8b2a1a] text-[#f4ecd8]'
                               }`}
@@ -131,15 +121,10 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
 
       {popover && (
         <PaperStepValidationPopover
-          roleKey={popover.role}
-          stepIndex={popover.idx}
-          currentValue={popover.val}
-          isVigilance={popover.isVig}
-          onValidateCurrent={() => handleSelect()}
-          onSelectStroke={(st) => handleSelect(st)}
-          onToggleVigilance={() => { togglePoint(popover.sec, popover.role, popover.idx); setPopover(null); }}
-          onClose={() => setPopover(null)}
-          lang={lang}
+          roleKey={popover.role} stepIndex={popover.idx} currentValue={popover.val} isVigilance={popover.isVig}
+          onValidateCurrent={() => handleSelect()} onSelectStroke={(st) => handleSelect(st)}
+          onToggleVigilance={() => { togglePoint(activeScoreId, popover.sec, popover.role, popover.idx); setPopover(null); }}
+          onClose={() => setPopover(null)} lang={lang}
         />
       )}
     </div>

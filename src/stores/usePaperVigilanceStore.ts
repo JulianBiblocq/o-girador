@@ -1,45 +1,69 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Store Zustand pour la gestion des Points de Vigilance de l'Atelier Papier (< 90 lignes).
+ * Store Zustand pour la gestion cloisonnée des Points de Vigilance (< 125 lignes).
  */
 import { create } from 'zustand';
 
 export interface VigilancePoint {
-  id: string; // `${sectionName}__${roleKey}__${stepIndex}`
+  id: string; // `${scoreId}__${sectionName}__${roleKey}__${stepIndex}`
+  scoreId: string;
   sectionName: string;
   roleKey: string;
   stepIndex: number;
   trackId?: number;
   patternId?: number;
   reason?: 'ocr_doubt' | 'manual';
+  isInjected?: boolean;
 }
 
 interface PaperVigilanceState {
   points: VigilancePoint[];
   activeFocusPoint: VigilancePoint | null;
+  activePreviewScoreId: string | null;
+  activeSequencerScoreId: string | null;
+  setActivePreviewScoreId: (scoreId: string | null) => void;
+  setActiveSequencerScoreId: (scoreId: string | null) => void;
   addPoint: (pt: Omit<VigilancePoint, 'id'>) => void;
-  togglePoint: (sectionName: string, roleKey: string, stepIndex: number, reason?: 'ocr_doubt' | 'manual') => void;
-  hasPoint: (sectionName: string, roleKey: string, stepIndex: number) => boolean;
-  getPoint: (sectionName: string, roleKey: string, stepIndex: number) => VigilancePoint | undefined;
-  linkPointsToTrack: (sectionName: string, roleKey: string, trackId: number, patternId: number) => void;
+  registerOcrDoubtsForScore: (scoreId: string, doubts: Omit<VigilancePoint, 'id' | 'scoreId'>[]) => void;
+  togglePoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number, reason?: 'ocr_doubt' | 'manual') => void;
+  hasPoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number) => boolean;
+  getPoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number) => VigilancePoint | undefined;
+  linkPointsToTrack: (scoreId: string, sectionName: string, roleKey: string, trackId: number, patternId: number) => void;
   removePoint: (id: string) => void;
+  clearAllForScore: (scoreId: string) => void;
+  clearActiveSequencerDoubts: () => void;
   clearAll: () => void;
   setActiveFocusPoint: (pt: VigilancePoint | null) => void;
+  getPreviewDoubtsForScore: (scoreId: string) => VigilancePoint[];
+  getActiveSequencerDoubts: () => VigilancePoint[];
 }
 
 export const usePaperVigilanceStore = create<PaperVigilanceState>((set, get) => ({
   points: [],
   activeFocusPoint: null,
+  activePreviewScoreId: null,
+  activeSequencerScoreId: null,
+
+  setActivePreviewScoreId: (scoreId) => set({ activePreviewScoreId: scoreId }),
+  setActiveSequencerScoreId: (scoreId) => set({ activeSequencerScoreId: scoreId }),
 
   addPoint: (pt) => {
-    const id = `${pt.sectionName}__${pt.roleKey}__${pt.stepIndex}`;
+    const id = `${pt.scoreId}__${pt.sectionName}__${pt.roleKey}__${pt.stepIndex}`;
     if (get().points.some((p) => p.id === id)) return;
     set({ points: [...get().points, { ...pt, id }] });
   },
 
-  togglePoint: (sectionName, roleKey, stepIndex, reason = 'manual') => {
-    const id = `${sectionName}__${roleKey}__${stepIndex}`;
+  registerOcrDoubtsForScore: (scoreId, doubts) => {
+    const filtered = get().points.filter((p) => !(p.scoreId === scoreId && p.reason === 'ocr_doubt'));
+    const newDoubts: VigilancePoint[] = doubts.map((d) => ({
+      ...d, scoreId, id: `${scoreId}__${d.sectionName}__${d.roleKey}__${d.stepIndex}`, reason: 'ocr_doubt',
+    }));
+    set({ points: [...filtered, ...newDoubts] });
+  },
+
+  togglePoint: (scoreId, sectionName, roleKey, stepIndex, reason = 'manual') => {
+    const id = `${scoreId}__${sectionName}__${roleKey}__${stepIndex}`;
     const exists = get().points.some((p) => p.id === id);
     if (exists) {
       set({
@@ -47,42 +71,51 @@ export const usePaperVigilanceStore = create<PaperVigilanceState>((set, get) => 
         activeFocusPoint: get().activeFocusPoint?.id === id ? null : get().activeFocusPoint,
       });
     } else {
-      const newPt: VigilancePoint = { id, sectionName, roleKey, stepIndex, reason };
-      set({ points: [...get().points, newPt] });
+      set({ points: [...get().points, { id, scoreId, sectionName, roleKey, stepIndex, reason }] });
     }
   },
 
-  hasPoint: (sectionName, roleKey, stepIndex) => {
-    const id = `${sectionName}__${roleKey}__${stepIndex}`;
-    return get().points.some((p) => p.id === id);
-  },
+  hasPoint: (scoreId, sectionName, roleKey, stepIndex) =>
+    get().points.some((p) => p.id === `${scoreId}__${sectionName}__${roleKey}__${stepIndex}`),
 
-  getPoint: (sectionName, roleKey, stepIndex) => {
-    const id = `${sectionName}__${roleKey}__${stepIndex}`;
-    return get().points.find((p) => p.id === id);
-  },
+  getPoint: (scoreId, sectionName, roleKey, stepIndex) =>
+    get().points.find((p) => p.id === `${scoreId}__${sectionName}__${roleKey}__${stepIndex}`),
 
-  linkPointsToTrack: (sectionName, roleKey, trackId, patternId) => {
-    const normSec = sectionName.toLowerCase();
-    const normRole = roleKey.toLowerCase();
+  linkPointsToTrack: (scoreId, sectionName, roleKey, trackId, patternId) => {
+    const normSec = sectionName.toLowerCase(), normRole = roleKey.toLowerCase();
     set({
-      points: get().points.map((p) => {
-        if (p.sectionName.toLowerCase() === normSec && p.roleKey.toLowerCase() === normRole) {
-          return { ...p, trackId, patternId };
-        }
-        return p;
-      }),
+      points: get().points.map((p) =>
+        p.scoreId === scoreId && p.sectionName.toLowerCase() === normSec && p.roleKey.toLowerCase() === normRole
+          ? { ...p, trackId, patternId, isInjected: true } : p
+      ),
     });
   },
 
-  removePoint: (id) => {
+  removePoint: (id) => set({
+    points: get().points.filter((p) => p.id !== id),
+    activeFocusPoint: get().activeFocusPoint?.id === id ? null : get().activeFocusPoint,
+  }),
+
+  clearAllForScore: (scoreId) => set({
+    points: get().points.filter((p) => p.scoreId !== scoreId),
+    activeFocusPoint: get().activeFocusPoint?.scoreId === scoreId ? null : get().activeFocusPoint,
+  }),
+
+  clearActiveSequencerDoubts: () => {
+    const activeId = get().activeSequencerScoreId;
+    if (!activeId) return;
     set({
-      points: get().points.filter((p) => p.id !== id),
-      activeFocusPoint: get().activeFocusPoint?.id === id ? null : get().activeFocusPoint,
+      points: get().points.filter((p) => p.scoreId !== activeId),
+      activeFocusPoint: get().activeFocusPoint?.scoreId === activeId ? null : get().activeFocusPoint,
     });
   },
 
   clearAll: () => set({ points: [], activeFocusPoint: null }),
-
   setActiveFocusPoint: (pt) => set({ activeFocusPoint: pt }),
+  getPreviewDoubtsForScore: (scoreId) => get().points.filter((p) => p.scoreId === scoreId),
+  getActiveSequencerDoubts: () => {
+    const activeId = get().activeSequencerScoreId;
+    if (!activeId) return [];
+    return get().points.filter((p) => p.scoreId === activeId && p.trackId !== undefined && p.patternId !== undefined);
+  },
 }));

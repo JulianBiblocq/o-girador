@@ -20,6 +20,9 @@ export const injectPaperScoreToStore = (
   const store = useSequencerStore.getState();
   store.pushUndoState();
 
+  const scoreId = preset.id || preset.name.toLowerCase().replace(/\s+/g, '_');
+  usePaperVigilanceStore.getState().setActiveSequencerScoreId(scoreId);
+
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
 
@@ -61,7 +64,8 @@ export const injectPaperScoreToStore = (
   }
 
   if (openOnFirstVigilance) {
-    const firstPt = usePaperVigilanceStore.getState().points.find((p) => p.trackId && p.patternId);
+    const doubts = usePaperVigilanceStore.getState().getActiveSequencerDoubts();
+    const firstPt = doubts.find((p) => p.trackId && p.patternId);
     if (firstPt && firstPt.trackId && firstPt.patternId) {
       store.setEditingTrackId(firstPt.trackId);
       store.setSelectedPatternId(firstPt.patternId);

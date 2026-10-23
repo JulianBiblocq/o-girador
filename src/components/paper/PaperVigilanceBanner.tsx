@@ -1,19 +1,20 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Bandeau des points de vigilance de la partition papier (< 90 lignes).
+ * Bandeau des points de vigilance cloisonné par partition (< 90 lignes).
  */
 import React from 'react';
 import { usePaperVigilanceStore, VigilancePoint } from '../../stores/usePaperVigilanceStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useActiveSequencerVigilancePoints } from '../../hooks/useActiveSequencerVigilancePoints';
 import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
 import { AlertTriangle, Check, X } from 'lucide-react';
 
 export const PaperVigilanceBanner: React.FC<{ lang?: 'fr' | 'pt' }> = ({ lang = 'fr' }) => {
-  const points = usePaperVigilanceStore((state) => state.points);
+  const points = useActiveSequencerVigilancePoints();
   const activeFocusPoint = usePaperVigilanceStore((state) => state.activeFocusPoint);
   const removePoint = usePaperVigilanceStore((state) => state.removePoint);
-  const clearAll = usePaperVigilanceStore((state) => state.clearAll);
+  const clearActiveSequencerDoubts = usePaperVigilanceStore((state) => state.clearActiveSequencerDoubts);
   const setActiveFocusPoint = usePaperVigilanceStore((state) => state.setActiveFocusPoint);
 
   if (points.length === 0) return null;
@@ -71,7 +72,7 @@ export const PaperVigilanceBanner: React.FC<{ lang?: 'fr' | 'pt' }> = ({ lang = 
 
       <button
         type="button"
-        onClick={clearAll}
+        onClick={clearActiveSequencerDoubts}
         className="px-2 py-0.5 bg-white hover:bg-stone-100 text-[#b45309] border border-[#d97706]/50 text-[10px] font-bold flex items-center gap-1 cursor-pointer shrink-0 shadow-[1px_1px_0px_#000]"
       >
         <Check size={10} />

@@ -35,17 +35,17 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
   const [sequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(initialPreset.defaultSequence));
   const [activePopover, setActivePopover] = useState<{ secName: string; pupitreKey: string; stepIndex: number; val: PaperStepValue } | null>(null);
   const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
-  const [isLegendOpen, setIsLegendOpen] = useState(false);
-  const [isDictOpen, setIsDictOpen] = useState(false);
-  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
-
-  const vigilancePoints = usePaperVigilanceStore((s) => s.points);
+  const [isLegendOpen, setIsLegendOpen] = useState(false), [isDictOpen, setIsDictOpen] = useState(false), [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
+  const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
+  const vigilancePoints = usePaperVigilanceStore((s) => s.points.filter((p) => p.scoreId === scoreId));
   const togglePoint = usePaperVigilanceStore((s) => s.togglePoint);
-  const clearAll = usePaperVigilanceStore((s) => s.clearAll);
-  const longPressTimerRef = useRef<number | null>(null);
-  const isLongPressRef = useRef(false);
+  const clearAllForScore = usePaperVigilanceStore((s) => s.clearAllForScore);
+  const longPressTimerRef = useRef<number | null>(null), isLongPressRef = useRef(false);
 
-  useEffect(() => { scanAndRegisterDoubtPoints(editablePatterns); }, []);
+  useEffect(() => {
+    scanAndRegisterDoubtPoints(scoreId, editablePatterns);
+    usePaperVigilanceStore.getState().setActivePreviewScoreId(scoreId);
+  }, [scoreId]);
 
   const handleCellPointerDown = (secName: string, pupitreKey: string, stepIndex: number, val: PaperStepValue) => {
     isLongPressRef.current = false;
@@ -53,7 +53,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
   };
   const handleCellPointerUp = (secName: string, pupitreKey: string, stepIndex: number) => {
     if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
-    if (!isLongPressRef.current) togglePoint(secName, pupitreKey, stepIndex);
+    if (!isLongPressRef.current) togglePoint(scoreId, secName, pupitreKey, stepIndex);
   };
 
   const handleUpdateStroke = (sName: string, pKey: string, sIdx: number, newSt: PaperStepValue) => {
@@ -73,7 +73,6 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
     const res = injectPaperScoreToStore({ ...selectedPreset, patterns: editablePatterns }, flattened, new Set(), lang, false, injectOpts);
     if (res.success) useSequencerStore.getState().setMobileViewMode('percussion');
   };
-
   const handleOpenSheets = () => (onOpenBlankSheets ? onOpenBlankSheets() : onOpenPaperWorkshop?.('sheets'));
   const [secName, pupitreMap] = (Object.entries(editablePatterns)[0] || ['Intro', {}]) as [string, Record<string, PaperStepValue[]>];
 
@@ -85,12 +84,10 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
         <div className="flex items-center justify-between text-[11px] font-cactus">
           <span className="font-extrabold text-[#8b2a1a] dark:text-[#f59e0b] truncate">{selectedPreset.name} — {secName}</span>
           {vigilancePoints.length > 0 ? (
-            <button type="button" onClick={clearAll} className="px-1.5 py-0.5 bg-[#15803d] text-white border border-black font-bold text-[9px] flex items-center gap-1 cursor-pointer">
+            <button type="button" onClick={() => clearAllForScore(scoreId)} className="px-1.5 py-0.5 bg-[#15803d] text-white border border-black font-bold text-[9px] flex items-center gap-1 cursor-pointer">
               <Check size={10} /> <span>{vigilancePoints.length} {lang === 'fr' ? 'pts (Valider)' : 'pts (Validar)'}</span>
             </button>
-          ) : (
-            <span className="text-[var(--cordel-text-muted)] text-[9px]">Tap: {tMobile(lang, 'vigilancePoint')} | Long: Frappe</span>
-          )}
+          ) : <span className="text-[var(--cordel-text-muted)] text-[9px]">Tap: {tMobile(lang, 'vigilancePoint')} | Long: Frappe</span>}
         </div>
         <div className="flex items-center gap-1 pl-5">
           <div className="grid grid-cols-4 flex-1 text-center font-mono font-bold text-[8.5px] text-[var(--cordel-text-muted)]"><span>T1</span><span>T2</span><span>T3</span><span>T4</span></div>
@@ -108,8 +105,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
                     const isEven = Math.floor(i / 4) % 2 === 1;
                     return (
                       <button key={i} type="button" onPointerDown={() => handleCellPointerDown(secName, pupitreKey, i, st)} onPointerUp={() => handleCellPointerUp(secName, pupitreKey, i)} className={`h-5 relative text-[9px] font-mono font-bold flex items-center justify-center transition-all ${i % 4 === 3 ? 'border-r-2 border-[var(--cordel-border)]' : 'border-r border-[var(--cordel-border)]/30'} ${isPoint ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10' : val !== '•' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : isEven ? 'bg-[var(--cordel-beat-even)] text-[var(--cordel-text)]/50' : 'bg-[var(--cordel-beat-odd)] text-[var(--cordel-text)]/50'}`}>
-                        {isPoint && <AlertTriangle size={7} className="absolute top-0 right-0 text-[#d97706] pointer-events-none" />}
-                        <span>{val}</span>
+                        {isPoint && <AlertTriangle size={7} className="absolute top-0 right-0 text-[#d97706] pointer-events-none" />}<span>{val}</span>
                       </button>
                     );
                   })}
@@ -130,15 +126,13 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
             </span>
           ))}
         </div>
-        <button onClick={handleInject} className="px-2.5 py-1.5 bg-[#15803d] text-white font-cactus font-bold text-[10px] uppercase flex items-center gap-1.5 shadow-[1px_1px_0px_#000] shrink-0 cursor-pointer hover:bg-black">
-          <span>{tMobile(lang, 'injectScore')}</span> <ArrowRight size={11} />
-        </button>
+        <button onClick={handleInject} className="px-2.5 py-1.5 bg-[#15803d] text-white font-cactus font-bold text-[10px] uppercase flex items-center gap-1.5 shadow-[1px_1px_0px_#000] shrink-0 cursor-pointer hover:bg-black"><span>{tMobile(lang, 'injectScore')}</span> <ArrowRight size={11} /></button>
       </div>
 
       {activePopover && <MobileQuickStrokePopover pupitreKey={activePopover.pupitreKey} stepIndex={activePopover.stepIndex} currentValue={activePopover.val} onSelectStroke={(newSt) => handleUpdateStroke(activePopover.secName, activePopover.pupitreKey, activePopover.stepIndex, newSt)} onClose={() => setActivePopover(null)} lang={lang} />}
       <PaperLegendInAppModal isOpen={isLegendOpen} onClose={() => setIsLegendOpen(false)} lang={lang} />
       <PaperDictionaryInAppModal isOpen={isDictOpen} onClose={() => setIsDictOpen(false)} lang={lang} />
-      <MobileLiveCameraBox isOpen={isLiveCameraOpen} onClose={() => setIsLiveCameraOpen(false)} defaultFacingMode="environment" captureFormat="fullscreen-doc" onCapture={() => scanAndRegisterDoubtPoints(editablePatterns)} lang={lang} isModal />
+      <MobileLiveCameraBox isOpen={isLiveCameraOpen} onClose={() => setIsLiveCameraOpen(false)} defaultFacingMode="environment" captureFormat="fullscreen-doc" onCapture={() => scanAndRegisterDoubtPoints(scoreId, editablePatterns)} lang={lang} isModal />
     </div>
   );
 };
