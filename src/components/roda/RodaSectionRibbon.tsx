@@ -13,8 +13,10 @@ interface RodaSectionRibbonProps {
   compact?: boolean;
 }
 
+const EMPTY_SECTIONS: SongSection[] = [];
+
 export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = false }) => {
-  const songSections = useSequencerStore(s => s.songSections || []);
+  const songSections = useSequencerStore(s => s.songSections ?? EMPTY_SECTIONS);
   const currentMeasure = useSequencerStore(s => s.currentMeasure), isPlaying = useSequencerStore(s => s.isPlaying);
   const loopStartMeasure = useSequencerStore(s => s.loopStartMeasure), loopEndMeasure = useSequencerStore(s => s.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore(s => s.isLoopRegionActive), handleClearLoop = useSequencerStore(s => s.handleClearLoop);

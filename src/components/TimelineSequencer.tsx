@@ -37,6 +37,8 @@ export interface TimelineSequencerProps {
   ) => void;
 }
 
+const EMPTY_SIGNALS: any[] = [];
+
 export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   isMobile, measureWidth, onMeasureWidthChange, mestreSignals = [],
   onSaveCloudSection, onLoadCloudSection, isActive = true, onStepTouchStart,
@@ -53,7 +55,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const measureVolTransitions = useSequencerStore(useShallow(s => s.measureVolTransitions)), songSections = useSequencerStore(useShallow(s => s.songSections));
   const songMarkers = useSequencerStore(useShallow(s => s.songMarkers)), copiedSection = useSequencerStore(s => s.copiedSection);
   const loopStartMeasure = useSequencerStore(s => s.loopStartMeasure), loopEndMeasure = useSequencerStore(s => s.loopEndMeasure);
-  const isLoopRegionActive = useSequencerStore(s => s.isLoopRegionActive), measureSignals = useSequencerStore(useShallow(s => s.measureSignals || []));
+  const isLoopRegionActive = useSequencerStore(s => s.isLoopRegionActive), measureSignals = useSequencerStore(useShallow(s => s.measureSignals ?? EMPTY_SIGNALS));
   const enabledSignalIds = useSequencerSettingsStore(s => s.enabledSignalIds), isMasterVolumeBypassed = useSequencerStore(s => s.isMasterVolumeBypassed);
   const toggleMasterVolumeBypass = useSequencerStore(s => s.toggleMasterVolumeBypass), isMultiSelectMode = useSequencerStore(s => s.isMultiSelectMode);
   const toggleMultiSelectMode = useSequencerStore(s => s.toggleMultiSelectMode), selectedTimelineCellsCount = useSequencerStore(s => s.selectedTimelineCells.length);

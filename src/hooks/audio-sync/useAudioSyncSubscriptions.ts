@@ -35,7 +35,9 @@ export function useAudioSyncSubscriptions({
   useEffect(() => {
     refs.isPlayingRef.current = isPlaying;
     if (isPlayingRef) isPlayingRef.current = isPlaying;
-    useSequencerStore.getState().setIsPlaying(isPlaying);
+    if (useSequencerStore.getState().isPlaying !== isPlaying) {
+      useSequencerStore.getState().setIsPlaying(isPlaying);
+    }
     if (typeof window !== 'undefined') {
       (window as any).__IS_PLAYING__ = isPlaying;
     }

@@ -20,6 +20,8 @@ import { useOverlayRefs } from './useOverlayRefs';
 import { useCircleSequencerStoreData } from './useCircleSequencerStoreData';
 import { CircleSequencerProps, LivePlaybackState } from './circleSequencerTypes';
 
+const EMPTY_LIST: any[] = [];
+
 export function useCircleSequencerState(props: CircleSequencerProps) {
   const { isActive = true } = props;
   const sequencer = useSequencer();
@@ -37,8 +39,8 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   }
 
   const totalMeasures = props.totalMeasures ?? storeData.totalMeasures;
-  const songSections = props.songSections ?? (storeData.songSections || []);
-  const songMarkers = props.songMarkers ?? (storeData.songMarkers || []);
+  const songSections = props.songSections ?? (storeData.songSections ?? EMPTY_LIST);
+  const songMarkers = props.songMarkers ?? (storeData.songMarkers ?? EMPTY_LIST);
   const rodaTrackOrder = props.rodaTrackOrder ?? storeData.rodaTrackOrder;
   const isLoopRegionActive = storeData.isLoopRegionActive;
   const loopStartMeasure = storeData.loopStartMeasure;
@@ -54,7 +56,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const bpm = props.bpm ?? sequencer.bpm;
   const measureBpms = props.measureBpms ?? sequencer.measureBpms;
   const measureVols = props.measureVols ?? sequencer.measureVols;
-  const measureSignals = props.measureSignals ?? (sequencer.measureSignals || []);
+  const measureSignals = props.measureSignals ?? (sequencer.measureSignals ?? EMPTY_LIST);
   const isPlaying = props.isPlaying ?? audio.isPlaying;
   const hitTriggersRef = props.hitTriggersRef ?? audio.hitTriggersRef;
 

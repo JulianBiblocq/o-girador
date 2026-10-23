@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { getLastAudibleTick } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -25,6 +25,12 @@ export function useCircleTickSync(
   lang: string,
   updateOverlay: (expandedMeasureIdx: number, baseMeasureIdx: number, currentBeat?: number, isPreRoll?: boolean, preRollMeasureIndex?: number, preRollTotalMeasures?: number) => void
 ): void {
+  const updateOverlayRef = useRef(updateOverlay);
+  updateOverlayRef.current = updateOverlay;
+
+  const measureTimeSigsRef = useRef(measureTimeSigs);
+  measureTimeSigsRef.current = measureTimeSigs;
+
   useEffect(() => {
     if (!isActive) return;
 
@@ -37,7 +43,7 @@ export function useCircleTickSync(
           frozenStickAngleRef.current = -Math.PI / 2;
           const { displayMeasure, displayTotal } = computeDisplayMeasure(expandedRef.current, totalMeasures, measure, iteration);
           if (measureDisplayRef.current) measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
-          updateOverlay(displayMeasure - 1, measure, 0, false);
+          updateOverlayRef.current(displayMeasure - 1, measure, 0, false);
         }
         return;
       }
@@ -47,7 +53,7 @@ export function useCircleTickSync(
         frozenStickAngleRef.current = -Math.PI / 2;
         const displayTotal = expandedRef.current.length > 0 ? expandedRef.current.length : totalMeasures;
         if (measureDisplayRef.current) measureDisplayRef.current.innerText = `1 / ${displayTotal}`;
-        updateOverlay(0, 0);
+        updateOverlayRef.current(0, 0);
         return;
       }
 
@@ -66,20 +72,20 @@ export function useCircleTickSync(
         expandedRef.current, totalMeasures, measure, iteration, pendingTargetExpandedIndexRef.current
       );
 
-      const localTimeSig = (measureTimeSigs && measureTimeSigs[measure]) || timeSig || '4/4';
+      const localTimeSig = (measureTimeSigsRef.current && measureTimeSigsRef.current[measure]) || timeSig || '4/4';
       const beatsPerMeasure = getBeatsPerMeasure(localTimeSig);
       const currentBeat = Math.min(beatsPerMeasure - 1, Math.max(0, Math.floor(ratio * beatsPerMeasure)));
 
       if (detail.isPreRoll) {
         if (measureDisplayRef.current) measureDisplayRef.current.innerText = lang === 'fr' ? 'PRÉCOMPTE' : 'PRÉ-ROLL';
-        updateOverlay(
+        updateOverlayRef.current(
           displayMeasure - 1, measure,
           detail.preRollBeat !== undefined ? detail.preRollBeat : currentBeat,
           true, detail.preRollMeasureIndex ?? 0, detail.preRollTotalMeasures ?? 1
         );
       } else {
         if (measureDisplayRef.current) measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
-        updateOverlay(displayMeasure - 1, measure, currentBeat, false);
+        updateOverlayRef.current(displayMeasure - 1, measure, currentBeat, false);
       }
     };
 
@@ -96,7 +102,6 @@ export function useCircleTickSync(
     subscribeToTick(handleTick);
     window.addEventListener('o-girador-measure-queued', handleMeasureQueued);
 
-    // Initialisation immédiate au montage sans attendre le prochain tick audio
     const lastTick = getLastAudibleTick();
     if (lastTick && lastTick.drawTime > 0) {
       handleTick(lastTick);
@@ -109,12 +114,12 @@ export function useCircleTickSync(
         measureStartTime: 0, measureDuration: 0, isPreRoll: false
       };
       frozenStickAngleRef.current = -Math.PI / 2;
-      updateOverlay(displayMeasure - 1, curMeasure, 0, false);
+      updateOverlayRef.current(displayMeasure - 1, curMeasure, 0, false);
     }
 
     return () => {
       unsubscribeFromTick(handleTick);
       window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
-  }, [totalMeasures, songSections, isActive, measureTimeSigs, timeSig, lang, updateOverlay]);
+  }, [totalMeasures, songSections, isActive, timeSig, lang]);
 }

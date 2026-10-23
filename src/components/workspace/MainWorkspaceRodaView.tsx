@@ -35,11 +35,10 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
   filteredMestreSignals, refreshMestreSignals, hideGlobalSignals,
   onToggleHideGlobalSignals, onStepTouchStart, activeRightPanel, onToggleRightPanel,
 }) => {
-  const sequencer = useSequencer();
-  const lang = useSequencerStore((s) => s.lang);
-  const setEditingTrackId = useSequencerStore((s) => s.setEditingTrackId);
-  const isTracksCollapsed = useSequencerStore((s) => s.isTracksCollapsed);
-  const { isLinearDawDetached, isCircleSequencerDetached, toggleLinearDawDetached, toggleCircleSequencerDetached } = useSequencerStore();
+  const sequencer = useSequencer(), lang = useSequencerStore((s) => s.lang);
+  const setEditingTrackId = useSequencerStore((s) => s.setEditingTrackId), isTracksCollapsed = useSequencerStore((s) => s.isTracksCollapsed);
+  const isLinearDawDetached = useSequencerStore((s) => s.isLinearDawDetached), isCircleSequencerDetached = useSequencerStore((s) => s.isCircleSequencerDetached);
+  const toggleLinearDawDetached = useSequencerStore((s) => s.toggleLinearDawDetached), toggleCircleSequencerDetached = useSequencerStore((s) => s.toggleCircleSequencerDetached);
 
   const isUnder1280 = useIsScreenUnder1280();
   const [isDrawerOpenUnder1280, setIsDrawerOpenUnder1280] = useState(false);
