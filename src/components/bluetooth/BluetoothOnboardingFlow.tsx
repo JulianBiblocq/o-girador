@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useBluetoothLatencyStore } from '../../utils/bluetoothLatencyStore';
+import { useBluetoothLatencyStore, getProfileDisplayName } from '../../utils/bluetoothLatencyStore';
 import { btTranslations } from '../../utils/bluetoothTranslations';
 import { BluetoothModalContainer } from './BluetoothModalContainer';
 import { Volume2, Radio, Headphones, X } from 'lucide-react';
@@ -38,6 +38,8 @@ export const BluetoothOnboardingFlow: React.FC<Props> = ({ lang: propLang, force
   const isTrainingActive = activeAoVivoTrackId !== null || tocarJuntoActive || tocarJuntoTrackId !== null;
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0];
 
+  const displayName = activeProfile ? getProfileDisplayName(activeProfile, lang) : '';
+
   useEffect(() => {
     if (!isTrainingActive) return;
 
@@ -46,29 +48,29 @@ export const BluetoothOnboardingFlow: React.FC<Props> = ({ lang: propLang, force
     } else if (!hasShownToastThisSession) {
       setShowToast(true);
       setHasShownToastThisSession(true);
-      const timer = setTimeout(() => setShowToast(false), 4000);
+      const timer = setTimeout(() => setShowToast(false), 3000);
       return () => clearTimeout(timer);
     }
   }, [isTrainingActive, hasCompletedOnboarding, hasShownToastThisSession, openModal]);
 
   const getProfileIcon = (type: string) => {
-    if (type === 'bt_headphones') return <Headphones size={13} />;
-    if (type === 'bt_speaker') return <Radio size={13} />;
-    return <Volume2 size={13} />;
+    if (type === 'bt_headphones') return <Headphones size={13} strokeWidth={2.2} className="shrink-0" />;
+    if (type === 'bt_speaker') return <Radio size={13} strokeWidth={2.2} className="shrink-0" />;
+    return <Volume2 size={13} strokeWidth={2.2} className="shrink-0" />;
   };
 
   return (
     <>
       <BluetoothModalContainer lang={lang} />
 
-      {/* Bandeau Toast non-bloquant (4 secondes) lors de l'entree en mode entrainement */}
+      {/* Bandeau Toast non-bloquant (3 secondes) en haut lors de l'entrée en mode entraînement */}
       {showToast && isTrainingActive && (
         <div className="fixed top-2 inset-x-0 mx-auto max-w-sm px-3 z-50 pointer-events-auto transition-all animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-black shadow-[3px_3px_0_#000] p-2 flex items-center justify-between gap-2 text-xs font-cactus font-bold">
             <div className="flex items-center gap-1.5 min-w-0">
               {getProfileIcon(activeProfile.type)}
               <span className="truncate">
-                {t.toastListeningPrefix} : {activeProfile.name} ({bluetoothVisualOffsetMs} ms)
+                {t.toastListeningPrefix} : {displayName}
               </span>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -92,20 +94,6 @@ export const BluetoothOnboardingFlow: React.FC<Props> = ({ lang: propLang, force
             </div>
           </div>
         </div>
-      )}
-
-      {/* Badge permanent discret affiché pendant l'entrainement ou si force */}
-      {(isTrainingActive || forceShowBadge) && (
-        <button
-          type="button"
-          onClick={() => openModal('selector')}
-          title={t.badgeTooltip}
-          className="fixed bottom-2 right-2 z-30 h-7 px-2 border-2 border-black bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold text-[10px] uppercase flex items-center gap-1.5 shadow-[2px_2px_0_#000] hover:bg-[var(--cordel-surface)] active:translate-y-0.5 cursor-pointer"
-        >
-          {getProfileIcon(activeProfile.type)}
-          <span className="hidden sm:inline truncate max-w-[90px]">{activeProfile.name}</span>
-          <span className="font-mono text-[9px] text-[#b94a2c]">{bluetoothVisualOffsetMs}ms</span>
-        </button>
       )}
     </>
   );

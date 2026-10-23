@@ -4,9 +4,10 @@
  * Sélecteur et gestionnaire rapide de profils d'écoute (< 130 lignes).
  */
 import React from 'react';
-import { useBluetoothLatencyStore } from '../../utils/bluetoothLatencyStore';
+import { useBluetoothLatencyStore, getProfileDisplayName } from '../../utils/bluetoothLatencyStore';
 import { btTranslations } from '../../utils/bluetoothTranslations';
-import { Volume2, Headphones, Radio, Plus, Trash2, Zap, Eye } from 'lucide-react';
+import { BluetoothQuickAdjuster } from './BluetoothQuickAdjuster';
+import { Volume2, Headphones, Radio, Plus, Trash2 } from 'lucide-react';
 
 interface Props {
   lang: 'fr' | 'pt';
@@ -19,41 +20,45 @@ export const BluetoothProfileSelector: React.FC<Props> = ({ lang, onSelectTab, o
   const { profiles, activeProfileId, setActiveProfile, addProfile, deleteProfile } = useBluetoothLatencyStore();
 
   const getIcon = (type: string) => {
-    if (type === 'bt_headphones') return <Headphones size={15} />;
-    if (type === 'bt_speaker') return <Radio size={15} />;
-    return <Volume2 size={15} />;
+    if (type === 'bt_headphones') return <Headphones size={14} className="shrink-0" />;
+    if (type === 'bt_speaker') return <Radio size={14} className="shrink-0" />;
+    return <Volume2 size={14} className="shrink-0" />;
   };
 
   const handleAdd = () => {
     addProfile({
-      name: lang === 'pt' ? 'Novo aparelho' : 'Nouvel appareil',
+      name: t.newDevice,
       type: 'custom',
       offsetMs: 200,
     });
   };
 
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0];
+
   return (
-    <div className="flex flex-col gap-3 select-none">
-      <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
+    <div className="flex flex-col gap-2.5 select-none">
+      {/* Liste des appareils */}
+      <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-0.5">
         {profiles.map((p) => {
           const isActive = p.id === activeProfileId;
           const isBase = ['speaker', 'bt_speaker', 'bt_headphones'].includes(p.id);
+          const name = getProfileDisplayName(p, lang);
           return (
             <div
               key={p.id}
               onClick={() => setActiveProfile(p.id)}
-              className={`p-2 border-2 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+              className={`px-2 py-1.5 border-2 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
                 isActive
                   ? 'border-black bg-[#b94a2c] text-[#f4ecd8] shadow-[1px_1px_0_#000]'
                   : 'border-[var(--cordel-border)] bg-[var(--cordel-surface)] text-[var(--cordel-text)] hover:border-[#b94a2c]'
               }`}
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {getIcon(p.type)}
-                <span className="text-xs font-cactus font-bold truncate">{p.name}</span>
+                <span className="text-xs font-cactus font-bold truncate">{name}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-xs font-bold">{p.offsetMs} ms</span>
+                <span className="font-mono text-[11px] font-bold opacity-85">{p.offsetMs} ms</span>
                 {!isBase && (
                   <button
                     type="button"
@@ -61,9 +66,10 @@ export const BluetoothProfileSelector: React.FC<Props> = ({ lang, onSelectTab, o
                       e.stopPropagation();
                       deleteProfile(p.id);
                     }}
-                    className="p-1 hover:text-red-400 opacity-60 hover:opacity-100"
+                    className="p-1 hover:text-red-400 opacity-60 hover:opacity-100 cursor-pointer"
+                    title={lang === 'pt' ? 'Excluir' : 'Supprimer'}
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={12} />
                   </button>
                 )}
               </div>
@@ -72,40 +78,28 @@ export const BluetoothProfileSelector: React.FC<Props> = ({ lang, onSelectTab, o
         })}
       </div>
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="flex-1 h-8 border border-[var(--cordel-border)] bg-[var(--cordel-card-btn-bg)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1"
-        >
-          <Plus size={13} />
-          <span>{lang === 'pt' ? 'Adicionar perfil' : 'Ajouter un profil'}</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleAdd}
+        className="w-full h-7 border border-[var(--cordel-border)] bg-[var(--cordel-card-btn-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1 cursor-pointer"
+      >
+        <Plus size={13} />
+        <span>{t.newDevice}</span>
+      </button>
 
-      <div className="border-t border-[var(--cordel-border)] pt-2 flex gap-2">
-        <button
-          type="button"
-          onClick={() => onSelectTab('ping')}
-          className="flex-1 h-8 border border-[var(--cordel-border)] bg-[var(--cordel-card-btn-bg)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1 text-[#2a9d8f]"
-        >
-          <Zap size={13} />
-          <span>{t.btnPing3Beeps}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onSelectTab('visual')}
-          className="flex-1 h-8 border border-[var(--cordel-border)] bg-[var(--cordel-card-btn-bg)] font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1 text-[#b94a2c]"
-        >
-          <Eye size={13} />
-          <span>{t.btnFineTuneVisual}</span>
-        </button>
-      </div>
+      {/* Retouche directe et outillage pour le profil actif */}
+      {activeProfile && (
+        <BluetoothQuickAdjuster
+          profile={activeProfile}
+          lang={lang}
+          onSelectTab={onSelectTab}
+        />
+      )}
 
       <button
         type="button"
         onClick={onClose}
-        className="w-full h-8 border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase mt-1"
+        className="w-full h-8 border-2 border-black bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-surface)] font-cactus font-bold text-xs uppercase shadow-[1px_1px_0_#000] cursor-pointer"
       >
         {t.btnCancel}
       </button>

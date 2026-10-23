@@ -5,14 +5,15 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import * as Tone from 'tone';
-import { useBluetoothLatencyStore } from '../../utils/bluetoothLatencyStore';
+import { useBluetoothLatencyStore, getProfileDisplayName } from '../../utils/bluetoothLatencyStore';
 import { btTranslations } from '../../utils/bluetoothTranslations';
 
 export const BluetoothVisualCalibration: React.FC<{ lang: 'fr' | 'pt'; onDone: () => void }> = ({ lang, onDone }) => {
   const t = btTranslations[lang];
   const { bluetoothVisualOffsetMs, setBluetoothVisualOffsetMs, activeProfileId, updateProfile, profiles } = useBluetoothLatencyStore();
   const [sliderVal, setSliderVal] = useState(bluetoothVisualOffsetMs);
-  const [profileName, setProfileName] = useState(profiles.find((p) => p.id === activeProfileId)?.name || t.defaultProfileBtHeadphones);
+  const activeProf = profiles.find((p) => p.id === activeProfileId);
+  const [profileName, setProfileName] = useState(activeProf ? getProfileDisplayName(activeProf, lang) : t.defaultProfileBtHeadphones);
 
   const targetBoxRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(sliderVal);

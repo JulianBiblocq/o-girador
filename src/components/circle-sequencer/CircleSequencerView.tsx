@@ -10,6 +10,7 @@ import { CircleInfoBadges } from './CircleInfoBadges';
 import { CircleCenterOverlay } from './CircleCenterOverlay';
 import { CircleVocalToolbar } from './CircleVocalToolbar';
 import { AoVivoOverlay } from '../AoVivoOverlay';
+import { BluetoothListeningBadge } from '../bluetooth/BluetoothListeningBadge';
 
 interface CircleSequencerViewProps {
   state: any;
@@ -89,6 +90,7 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
         />
       )}
 
+      <BluetoothListeningBadge lang={lang} />
       <AoVivoOverlay />
     </div>
   );

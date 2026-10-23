@@ -26,7 +26,7 @@ export const BluetoothModalContainer: React.FC<Props> = ({ lang }) => {
     if (activeModalTab === 'onboarding') return t.onboardingTitle;
     if (activeModalTab === 'ping') return t.pingTitle;
     if (activeModalTab === 'visual') return t.visualTitle;
-    return lang === 'pt' ? 'Aparelhos de escuta' : 'Appareils d\'écoute';
+    return t.quickAdjustTitle;
   };
 
   return (
