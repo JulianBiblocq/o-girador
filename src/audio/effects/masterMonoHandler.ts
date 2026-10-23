@@ -5,69 +5,60 @@
  */
 import * as Tone from 'tone';
 
-let stereoBranchGain: GainNode | null = null;
-let monoSummingNode: GainNode | null = null;
-let monoBranchGain: GainNode | null = null;
+let stereoBranchGain: Tone.Gain | null = null;
+let monoSummingNode: Tone.Gain | null = null;
+let monoBranchGain: Tone.Gain | null = null;
 let currentIsMono = false;
 
-export function initMasterMonoNodes(sourceNode: any): void {
-  const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
-  if (!rawCtx) return;
+function setToneGainChannels(toneGain: Tone.Gain, count: number) {
+  const rawNode = (toneGain as any)._gainNode || (toneGain as any).input || toneGain;
+  if (rawNode) {
+    rawNode.channelCount = count;
+    rawNode.channelCountMode = 'explicit';
+    rawNode.channelInterpretation = 'speakers';
+  }
+}
 
+export function initMasterMonoNodes(sourceNode: any): void {
   if (stereoBranchGain) {
-    try { stereoBranchGain.disconnect(); } catch (_) {}
+    try { stereoBranchGain.dispose(); } catch (_) {}
   }
   if (monoBranchGain) {
-    try { monoBranchGain.disconnect(); } catch (_) {}
+    try { monoBranchGain.dispose(); } catch (_) {}
   }
   if (monoSummingNode) {
-    try { monoSummingNode.disconnect(); } catch (_) {}
+    try { monoSummingNode.dispose(); } catch (_) {}
   }
 
-  // 1. Branche Stéréo directe
-  stereoBranchGain = rawCtx.createGain();
-  stereoBranchGain.channelCount = 2;
-  stereoBranchGain.channelCountMode = 'explicit';
-  stereoBranchGain.gain.value = currentIsMono ? 0.0 : 1.0;
+  // 1. Branche Stereo directe
+  stereoBranchGain = new Tone.Gain(currentIsMono ? 0.0 : 1.0);
+  setToneGainChannels(stereoBranchGain, 2);
 
-  // 2. Branche Mono sommatrice W3C (0.5 * (L + R) redistribué sur L et R)
-  monoSummingNode = rawCtx.createGain();
-  monoSummingNode.channelCount = 1;
-  monoSummingNode.channelCountMode = 'explicit';
+  // 2. Branche Mono sommatrice W3C (0.5 * (L + R) redistribue sur L et R)
+  monoSummingNode = new Tone.Gain(1.0);
+  setToneGainChannels(monoSummingNode, 1);
 
-  monoBranchGain = rawCtx.createGain();
-  monoBranchGain.channelCount = 2;
-  monoBranchGain.channelCountMode = 'explicit';
-  monoBranchGain.gain.value = currentIsMono ? 1.0 : 0.0;
+  monoBranchGain = new Tone.Gain(currentIsMono ? 1.0 : 0.0);
+  setToneGainChannels(monoBranchGain, 2);
 
-  sourceNode.connect(stereoBranchGain);
-  sourceNode.connect(monoSummingNode);
+  Tone.connect(sourceNode, stereoBranchGain);
+  Tone.connect(sourceNode, monoSummingNode);
   monoSummingNode.connect(monoBranchGain);
 
-  const destNode = ((Tone.getDestination() as any).input || Tone.getDestination()) as AudioNode;
-  stereoBranchGain.connect(destNode);
-  monoBranchGain.connect(destNode);
+  stereoBranchGain.toDestination();
+  monoBranchGain.toDestination();
 }
 
 export function setMasterMonoCheck(isMono: boolean): void {
   currentIsMono = isMono;
   if (!stereoBranchGain || !monoBranchGain) return;
 
-  const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
-  const now = rawCtx ? rawCtx.currentTime : 0;
   const targetStereo = isMono ? 0.0 : 1.0;
   const targetMono = isMono ? 1.0 : 0.0;
 
   // Ancrage strict des rampes Web Audio pour commutation fluide sans clic
-  const sParam = stereoBranchGain.gain;
-  sParam.cancelScheduledValues(now);
-  sParam.setValueAtTime(sParam.value, now);
-  sParam.linearRampToValueAtTime(targetStereo, now + 0.015);
-
-  const mParam = monoBranchGain.gain;
-  mParam.cancelScheduledValues(now);
-  mParam.setValueAtTime(mParam.value, now);
-  mParam.linearRampToValueAtTime(targetMono, now + 0.015);
+  stereoBranchGain.gain.rampTo(targetStereo, 0.015);
+  monoBranchGain.gain.rampTo(targetMono, 0.015);
 }
 
 export function isMasterMonoActive(): boolean {
@@ -75,9 +66,9 @@ export function isMasterMonoActive(): boolean {
 }
 
 export function disposeMasterMonoNodes(): void {
-  try { stereoBranchGain?.disconnect(); } catch (_) {}
-  try { monoBranchGain?.disconnect(); } catch (_) {}
-  try { monoSummingNode?.disconnect(); } catch (_) {}
+  try { stereoBranchGain?.dispose(); } catch (_) {}
+  try { monoBranchGain?.dispose(); } catch (_) {}
+  try { monoSummingNode?.dispose(); } catch (_) {}
   stereoBranchGain = null;
   monoBranchGain = null;
   monoSummingNode = null;
