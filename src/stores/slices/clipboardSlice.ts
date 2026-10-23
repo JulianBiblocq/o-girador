@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { ClipboardSlice } from './clipboardSliceTypes';
 import { copySongSectionData, pasteSongSectionState } from '../helpers/songSectionClipboardHelper';
+import { notifyToast } from '../../utils/toastHelper';
 import { copyAllTrackPatternsData } from '../helpers/instrumentClipboardCopyHelper';
 import { pasteAllTrackPatternsState } from '../helpers/instrumentClipboardPasteHelper';
 import {
@@ -49,7 +50,7 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
     );
 
     if (res.error) {
-      alert(res.error);
+      notifyToast(res.error, 'error');
       return;
     }
 

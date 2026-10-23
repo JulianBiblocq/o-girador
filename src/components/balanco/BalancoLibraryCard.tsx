@@ -66,7 +66,7 @@ export const BalancoLibraryCard: React.FC<BalancoLibraryCardProps> = ({
             isActive ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white text-[#1a1a1a] hover:bg-black hover:text-white'
           }`}
         >
-          {isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : lang === 'fr' ? '▶ Charger' : '▶ Carregar'}
+          {isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : lang === 'fr' ? '► Charger' : '► Carregar'}
         </button>
         <button
           type="button"

@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { usePaperVigilanceStore } from '../usePaperVigilanceStore';
 import { TrackPatternEditSlice } from './trackPatternEditSliceTypes';
+import { notifyToast } from '../../utils/toastHelper';
 import { handleTimelinePatternAssignState } from '../helpers/timelinePatternAssignHelper';
 import { handleTimelinePatternVariationToggleState } from '../helpers/timelinePatternVariationHelper';
 import { duplicateMeasurePatternState } from '../helpers/patternDuplicateHelper';
@@ -37,7 +38,7 @@ export const createTrackPatternEditSlice: StateCreator<SequencerStore, [], [], T
     if (targetIdx < 0 || targetIdx === srcIdx) return;
     const state = get();
     if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && targetIdx >= state.maxMeasuresAllowed) {
-      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
       return;
     }
     get().pushUndoState();
@@ -49,7 +50,7 @@ export const createTrackPatternEditSlice: StateCreator<SequencerStore, [], [], T
     const maxTargetIdx = srcIdx + count;
     const state = get();
     if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
-      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
       return;
     }
     get().pushUndoState();

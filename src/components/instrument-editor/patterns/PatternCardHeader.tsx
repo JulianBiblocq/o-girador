@@ -80,7 +80,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
           </button>
         )}
         <span ref={badgeRef} data-active-badge={ptn.id} onClick={() => !isSelected && onSelectPattern(ptn.id)} className={isSelected ? 'bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]' : 'text-[#666] text-[9px] uppercase px-1 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none cursor-pointer'}>
-          {isSelected ? `▶ ${lang === 'fr' ? 'ACTIF' : 'ATIVO'}` : (lang === 'fr' ? 'Activer' : 'Ativar')}
+          {isSelected ? `► ${lang === 'fr' ? 'ACTIF' : 'ATIVO'}` : (lang === 'fr' ? 'Activer' : 'Ativar')}
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); isSoloLoop ? onStopSoloPattern?.() : onPlaySoloPattern?.(ptn.id, 'ensemble'); }}

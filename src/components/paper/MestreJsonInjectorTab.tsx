@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { PaperPreset } from '../../types/paperWorkshop.types';
 import { ALL_PAPER_PRESETS } from '../../utils/paper/paperTranscribedPresets';
 import { injectPaperScoreToStore } from '../../utils/paper/injectPaperScoreToStore';
+import { notifyToast } from '../../utils/toastHelper';
 import { Zap, Upload, Save, Tag } from 'lucide-react';
 
 interface Props {
@@ -47,27 +48,27 @@ export const MestreJsonInjectorTab: React.FC<Props> = ({ canImport, lang, onSend
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       setCustomPresets(updated);
       setSelectedId(preset.id);
-      alert(lang === 'fr' ? `Partition "${preset.name}" mémorisée dans votre réserve !` : `Partitura memorizada na sua reserva!`);
+      notifyToast(lang === 'fr' ? `Partition "${preset.name}" mémorisée dans votre réserve !` : `Partitura memorizada na sua reserva!`, 'success');
     } catch (err: any) {
-      alert((lang === 'fr' ? 'JSON invalide : ' : 'JSON inválido : ') + (err?.message || ''));
+      notifyToast((lang === 'fr' ? 'JSON invalide : ' : 'JSON inválido : ') + (err?.message || ''), 'error');
     }
   };
 
   const handleInjectDirect = () => {
     if (!canImport) {
-      alert(lang === 'fr' ? 'Accès réservé au Mestre et Administrateurs.' : 'Acesso reservado ao Mestre.');
+      notifyToast(lang === 'fr' ? 'Accès réservé au Mestre et Administrateurs.' : 'Acesso reservado ao Mestre.', 'error');
       return;
     }
     try {
       injectPaperScoreToStore(JSON.parse(jsonText), undefined, undefined, lang);
     } catch (err: any) {
-      alert((lang === 'fr' ? 'JSON invalide : ' : 'JSON inválido : ') + (err?.message || ''));
+      notifyToast((lang === 'fr' ? 'JSON invalide : ' : 'JSON inválido : ') + (err?.message || ''), 'error');
     }
   };
 
   const handleSendToBuilder = () => {
     try { onSendToTagBuilder?.(JSON.parse(jsonText)); } catch (err: any) {
-      alert((lang === 'fr' ? 'JSON invalide : ' : 'JSON inválido : ') + (err?.message || ''));
+      notifyToast((lang === 'fr' ? 'JSON invalide : ' : 'JSON inválido : ') + (err?.message || ''), 'error');
     }
   };
 

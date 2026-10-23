@@ -17,7 +17,7 @@ export const SpeedTrainerStagesPreview: React.FC<SpeedTrainerStagesPreviewProps>
   return (
     <div className="flex flex-col gap-1.5">
       <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-        ▪ {t('speedTrainerPreviewTitle')}
+        • {t('speedTrainerPreviewTitle')}
       </label>
       <div className="bg-[#fcf9f2] border-2 border-[#1a1a1a] p-2.5 rounded-xs shadow-[2px_2px_0px_#1a1a1a] flex flex-col gap-1.5">
         {calculatedStages.map((stg) => (
@@ -39,7 +39,7 @@ export const SpeedTrainerStagesPreview: React.FC<SpeedTrainerStagesPreviewProps>
           </div>
         ))}
         <div className="text-[10px] text-[#555] font-sans font-bold flex items-center justify-between pt-1 border-t border-[#1a1a1a]/20">
-          <span>▪ {t('speedTrainerMaintenance')}</span>
+          <span>• {t('speedTrainerMaintenance')}</span>
           <span className="text-[#8b2a1a]">{consolidationLaps} {t('speedTrainerLaps')} @ {targetBpm} BPM</span>
         </div>
       </div>

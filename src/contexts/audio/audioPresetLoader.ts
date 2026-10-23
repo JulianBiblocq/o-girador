@@ -1,5 +1,6 @@
 import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL } from '../../data';
 import { getLocalLibrary } from '../../library';
+import { notifyToast } from '../../utils/toastHelper';
 
 export async function fetchFallbackPresetData(name: string, lang: string, t: (key: string) => string): Promise<any | null> {
   let p: any;
@@ -22,7 +23,7 @@ export async function fetchFallbackPresetData(name: string, lang: string, t: (ke
     const localLib = await getLocalLibrary();
     p = localLib[id];
     if (!p) {
-      window.alert(t('invalidFile') || (lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
+      notifyToast(t('invalidFile') || (lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'), 'error');
       return null;
     }
   } else if (name.endsWith('.json')) {
@@ -32,7 +33,7 @@ export async function fetchFallbackPresetData(name: string, lang: string, t: (ke
       p = await response.json();
     } catch (error) {
       console.error('Error fetching preset:', error);
-      window.alert(t('invalidFile'));
+      notifyToast(t('invalidFile'), 'error');
       return null;
     }
   } else {

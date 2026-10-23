@@ -102,7 +102,7 @@ export const BalancoCaptureModal: React.FC<BalancoCaptureModalProps> = ({
         />
 
         <div className="bg-[#eaddcf]/40 border border-black/15 p-2.5 rounded-sm text-[10px] leading-relaxed text-[#333]">
-          ℹ{lang === 'fr' ? 'Clavier et écran tactile sont sujets à une latence matérielle (~15 ms). Pour une capture chirurgicale, privilégiez un pad MIDI.' : 'Teclado e tela sensível ao toque sofrem com latência (~15 ms). Para captura cirúrgica, prefira um pad MIDI.'}
+          {lang === 'fr' ? 'Note : Clavier et écran tactile sont sujets à une latence matérielle (~15 ms). Pour une capture chirurgicale, privilégiez un pad MIDI.' : 'Nota: Teclado e tela sensível ao toque sofrem com latência (~15 ms). Para captura cirúrgica, prefira um pad MIDI.'}
         </div>
       </div>
     </div>

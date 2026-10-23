@@ -115,7 +115,7 @@ export const MixerWagonGhost: React.FC<MixerWagonGhostProps> = ({
             {/* Badge Wagon en bas */}
             {isMultiple && (
               <div className="text-[8px] font-cactus uppercase text-center opacity-60 tracking-wider">
-                {idx === 0 ? '◀ TÊTE' : idx === tracks.length - 1 ? 'QUEUE ▶' : 'WAGON'}
+                {idx === 0 ? '◄ TÊTE' : idx === tracks.length - 1 ? 'QUEUE ►' : 'WAGON'}
               </div>
             )}
           </div>

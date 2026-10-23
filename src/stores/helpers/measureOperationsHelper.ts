@@ -1,3 +1,5 @@
+import { notifyToast } from '../../utils/toastHelper';
+
 export const deleteMeasureState = (state: any, measureIdx: number): Record<string, any> => {
   if (state.totalMeasures <= 1) return state;
 
@@ -59,7 +61,7 @@ export const deleteMeasureState = (state: any, measureIdx: number): Record<strin
 
 export const insertMeasureState = (state: any, measureIdx: number, amount: number = 1): Record<string, any> => {
   if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && state.totalMeasures + amount > state.maxMeasuresAllowed) {
-    alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+    notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
     return state;
   }
 

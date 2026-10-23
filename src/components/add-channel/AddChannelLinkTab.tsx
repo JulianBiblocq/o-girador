@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { instrumentsConfig } from '../../data';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { TrackSelectorButton } from './TrackSelectorButton';
+import { notifyToast } from '../../utils/toastHelper';
 
 interface LinkTabProps {
   individualTracks: any[];
@@ -53,18 +54,9 @@ export const AddChannelLinkTab: React.FC<LinkTabProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (masterTrackId === null) {
-      alert(t('errorNoMaster'));
-      return;
-    }
-    if (selectedSlaveTrackIds.length === 0) {
-      alert(t('errorNoSlaves'));
-      return;
-    }
-    if (!linkGroupName.trim()) {
-      alert(t('errorNoLinkName'));
-      return;
-    }
+    if (masterTrackId === null) return notifyToast(t('errorNoMaster'), 'error');
+    if (selectedSlaveTrackIds.length === 0) return notifyToast(t('errorNoSlaves'), 'error');
+    if (!linkGroupName.trim()) return notifyToast(t('errorNoLinkName'), 'error');
     onCreateLink(masterTrackId, selectedSlaveTrackIds, linkGroupName.trim());
   };
 

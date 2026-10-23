@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
@@ -60,7 +61,7 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
         className="w-6 h-6 rounded-none border border-[#1a1a1a] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] font-bold text-xs flex items-center justify-center cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors shrink-0 active:scale-95"
         title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
       >
-        ◀
+        <ChevronLeft size={14} />
       </button>
       <div className="flex flex-col items-center justify-center min-w-[55px]">
         <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
@@ -75,7 +76,7 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
         className="w-6 h-6 rounded-none border border-[#1a1a1a] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] font-bold text-xs flex items-center justify-center cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors shrink-0 active:scale-95"
         title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
       >
-        ▶
+        <ChevronRight size={14} />
       </button>
     </div>
   );

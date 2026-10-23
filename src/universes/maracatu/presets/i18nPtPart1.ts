@@ -9,7 +9,7 @@ export const i18nPtPart1 = {
   loading: "Carregando vozes...",
   mixer: "Misturador",
   legend: "Legenda",
-  seqLegendTitle: "⌨Controles e Gestos",
+  seqLegendTitle: "Controles e Gestos",
   seqDesktopTitle: "Computador :",
   seqDesktopKeys: "• Espaço : Reproduzir / Pausar<br>• O : Abrir / Fechar A Oficina<br>• Ctrl+Z / Ctrl+Y : Desfazer / Refazer<br>• Ctrl+C / Ctrl+V : Copiar / Colar padrão<br>• Ctrl+A / Ctrl+X : Selecionar tudo / Recortar<br>• Delete / Backspace : Limpar célula (mantenha pressionado durante a reprodução para apagar ao vivo)",
   seqMobileTitle: "Celular e Tablet :",

@@ -71,7 +71,7 @@ export const BalancoCapturePad: React.FC<BalancoCapturePadProps> = ({
             onClick={onStartCapture}
             className="w-full py-3 bg-[#8b2a1a] text-[#f4ecd8] font-cactus text-lg font-bold border-2 border-black shadow-[3px_3px_0px_#000] hover:bg-black hover:text-white transition-colors cursor-pointer active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
           >
-            ▶{lang === 'fr' ? "Démarrer l'enregistrement" : 'Iniciar Gravação'}
+            {lang === 'fr' ? "Démarrer l'enregistrement" : 'Iniciar Gravação'}
           </button>
         </div>
       )}

@@ -28,7 +28,7 @@ body.eco-mode #center-afficheur {
 }
 
 /* --- iOS Safari Auto-Zoom Prevention --- */
-/* 🛡️ FIX (Audit P2): Prevent iOS Safari from zooming in on input focus
+/* FIX (Audit P2): Prevent iOS Safari from zooming in on input focus
    when font-size is < 16px. Uses @supports for iOS-only targeting. */
 @supports (-webkit-touch-callout: none) {
   /* Step grid inputs (pattern cells) — keep visual size but prevent zoom */

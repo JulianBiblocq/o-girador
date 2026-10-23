@@ -37,7 +37,7 @@ export const renderLegendConductorHTML = (lang: 'fr' | 'pt'): string => {
             - <code>Igarassu + Var (Cx, Rp) x8</code> = Variations ciblées sur certains pupitres.
           </div>
           <div style="margin-top: 3px;"><strong>• Crochets de Sections & Macros :</strong> <code>Partie 1 [ Luanda x3 | Trovão ] x2</code>.</div>
-          <div style="margin-top: 2px;"><strong>• Tempo & Rampes :</strong> <code>= 110 ↗ 120</code> (accélération), <code>= 120 ↘ 90</code> (ralenti).</div>
+          <div style="margin-top: 2px;"><strong>• Tempo & Rampes :</strong> <code>= 110 &rarr; 120</code> (accélération), <code>= 120 &rarr; 90</code> (ralenti).</div>
         </div>
       </div>
 

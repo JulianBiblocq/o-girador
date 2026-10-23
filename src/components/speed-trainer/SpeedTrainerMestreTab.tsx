@@ -55,7 +55,7 @@ export const SpeedTrainerMestreTab: React.FC<SpeedTrainerMestreTabProps> = (prop
 
       <div className="flex flex-col gap-1.5">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
-          ▪ {t('speedTrainerChallengeTitle')}
+          • {t('speedTrainerChallengeTitle')}
         </label>
         <input
           type="text"

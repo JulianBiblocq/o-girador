@@ -1,4 +1,5 @@
 import React from 'react';
+import { Activity } from 'lucide-react';
 import { GoogleLoginButton } from '../GoogleLoginButton';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useTransportStore } from '../../stores/useTransportStore';
@@ -52,7 +53,7 @@ export const HeaderProfileSection: React.FC<HeaderProfileSectionProps> = ({
         }`}
       >
         <div className="flex items-center gap-1">
-          <span className="text-[14px] leading-none">〰</span> {lang === 'pt' ? 'Balanço' : 'Swing'}
+          <Activity size={14} className="shrink-0" /> {lang === 'pt' ? 'Balanço' : 'Swing'}
         </div>
         <span>{globalSwing.mode === 'off' ? 'OFF' : globalSwing.mode === 'maracatu' ? 'ON' : 'CUST'}</span>
       </button>

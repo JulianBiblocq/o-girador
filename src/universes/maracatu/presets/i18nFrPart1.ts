@@ -9,7 +9,7 @@ export const i18nFrPart1 = {
   loading: "Chargement des voix...",
   mixer: "Mixeur",
   legend: "Légende",
-  seqLegendTitle: "⌨Commandes & Gestes",
+  seqLegendTitle: "Commandes & Gestes",
   seqDesktopTitle: "Ordinateur :",
   seqDesktopKeys: "• Espace : Lecture / Pause<br>• O : Ouvrir / Fermer A Oficina (L'Officine)<br>• Ctrl+Z / Ctrl+Y : Annuler / Rétablir<br>• Ctrl+C / Ctrl+V : Copier / Coller le motif<br>• Ctrl+A / Ctrl+X : Tout sélectionner / Couper<br>• Suppr / Retour arrière : Vider une case (maintenir pendant la lecture pour gommer en direct)",
   seqMobileTitle: "Mobile & Tablette :",

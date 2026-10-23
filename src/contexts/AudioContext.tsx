@@ -101,7 +101,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
     await savePresetToLibrary(name, getCurrentPresetData());
-    window.alert(t('presetSavedLocal') || (sequencer.lang === 'fr' ? 'Sauvegardé localement !' : 'Salvo localmente!'));
+    await sequencer.alertAsync(t('presetSavedLocal') || (sequencer.lang === 'fr' ? 'Sauvegardé localement !' : 'Salvo localmente!'));
   }, [sequencer, userProfile, isAdmin, getCurrentPresetData, t]);
 
   const handleLoadLocalPreset = useCallback(async (name: string) => {

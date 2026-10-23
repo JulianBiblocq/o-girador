@@ -5,6 +5,7 @@
 
 import React from 'react';
 import DOMPurify from 'dompurify';
+import { MessageSquare } from 'lucide-react';
 import { XiloLightning } from '../../XiloIcons';
 
 interface ShortcutsGeneralInfoProps {
@@ -55,8 +56,8 @@ export const ShortcutsGeneralInfo: React.FC<ShortcutsGeneralInfoProps> = ({ t, l
         </summary>
         <div className="p-3 border-t border-[var(--cordel-border)]/20 text-center">
           <p className="text-[10px] text-[var(--cordel-text)] leading-relaxed mb-2">{lang === 'fr' ? "Une idée, un bug ou un retour ? Venez en discuter sur le forum !" : "Uma ideia, um bug ou feedback? Venha conversar no fórum!"}</p>
-          <button onClick={() => window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank')} className="bg-[#27ae60] text-[#1a1a1a] hover:opacity-90 px-3 py-1 text-xs font-bold cordel-border-sm cursor-pointer mx-auto flex items-center gap-1">
-            <span></span>
+          <button onClick={() => window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank')} className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] hover:bg-[var(--cordel-border)] px-3 py-1.5 text-xs font-bold cordel-border-sm cursor-pointer mx-auto flex items-center gap-1.5 transition-colors">
+            <MessageSquare size={13} className="shrink-0" />
             <span>{t('feedbackBtn')}</span>
           </button>
         </div>

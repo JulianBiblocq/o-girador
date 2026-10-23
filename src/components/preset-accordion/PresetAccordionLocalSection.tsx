@@ -35,7 +35,7 @@ export const PresetAccordionLocalSection: React.FC<LocalSectionProps> = ({
           <span className="truncate">{lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}</span>
           <span className="text-[10px] opacity-60 font-sans">({localPresets.length})</span>
         </span>
-        <span className="text-[9px] opacity-70 ml-1">{isLocalOpen ? '▼' : '▶'}</span>
+        <span className="text-[9px] opacity-70 ml-1">{isLocalOpen ? '▼' : '►'}</span>
       </button>
       {isLocalOpen && (
         <div className="flex flex-col gap-1 p-1.5 pt-0 max-h-48 overflow-y-auto border-t border-[var(--cordel-border)]/20">

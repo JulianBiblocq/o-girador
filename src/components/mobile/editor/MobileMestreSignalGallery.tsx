@@ -3,6 +3,7 @@ import { CloudRhythmSignal } from '../../../types';
 import { CordelOptions } from '../../../utils/cordelEffect';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useSequencer } from '../../../contexts/SequencerContext';
 import { fetchMestreSignals } from '../../../cloudSignals';
 import { deleteMestreSignal } from '../../../services/cloud-signals/mestreSignalsMutations';
 import { MobileMestreSignalCard } from './MobileMestreSignalCard';
@@ -17,6 +18,7 @@ interface Props {
 export const MobileMestreSignalGallery: React.FC<Props> = ({
   onSelectSignal, onCopyStyle, selectedSignalId, lang = 'pt',
 }) => {
+  const { confirmAsync } = useSequencer();
   const storeSignals = useSequencerStore((s) => s.mestreSignals);
   const setStoreSignals = useSequencerStore((s) => s.setMestreSignals);
   const { userProfile, currentUser } = useAuth();
@@ -37,7 +39,9 @@ export const MobileMestreSignalGallery: React.FC<Props> = ({
 
   const handleDelete = async (e: React.MouseEvent, sig: CloudRhythmSignal) => {
     e.stopPropagation();
-    if (!window.confirm(lang === 'fr' ? `Supprimer "${sig.name}" ?` : `Excluir "${sig.name}"?`)) return;
+    const promptMsg = lang === 'fr' ? `Supprimer "${sig.name}" ?` : `Excluir "${sig.name}"?`;
+    const ok = confirmAsync ? await confirmAsync(promptMsg) : true;
+    if (!ok) return;
     setStoreSignals(storeSignals.filter((s) => s.id !== sig.id));
     if (sig.mestreId) await deleteMestreSignal(sig.id, sig.mestreId);
   };

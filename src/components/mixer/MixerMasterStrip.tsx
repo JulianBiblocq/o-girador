@@ -79,10 +79,10 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
               <span className="font-cactus font-black text-sm tracking-widest flex items-center gap-1.5 uppercase select-none">
                 <XiloMestre size={14} className="shrink-0" /> MASTER
               </span>
-              <button type="button" onClick={() => setIsMasterCollapsed(true)} className="w-6 h-6 border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center rounded-[2px] cursor-pointer text-[10px]" title={lang === 'fr' ? 'Replier le Master' : 'Recolher o Master'}>▶</button>
+              <button type="button" onClick={() => setIsMasterCollapsed(true)} className="w-6 h-6 border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center rounded-[2px] cursor-pointer text-[10px]" title={lang === 'fr' ? 'Replier le Master' : 'Recolher o Master'}>►</button>
             </>
           ) : (
-            <button type="button" onClick={() => setIsMasterCollapsed(false)} className="w-7 h-7 mx-auto border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center rounded-[2px] cursor-pointer text-[10px]" title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}>◀</button>
+            <button type="button" onClick={() => setIsMasterCollapsed(false)} className="w-7 h-7 mx-auto border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center rounded-[2px] cursor-pointer text-[10px]" title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}>◄</button>
           )}
         </div>
 

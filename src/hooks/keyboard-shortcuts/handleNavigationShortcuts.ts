@@ -20,7 +20,7 @@ export function handleNavigationShortcuts({
   handleTimelineNavigate,
   setIsLooping,
 }: NavigationShortcutsParams): boolean {
-  // Tab : Bascule Roda ↔ Timeline
+  // Tab : Bascule Roda / Timeline
   if (e.key === 'Tab') {
     e.preventDefault();
     window.dispatchEvent(new CustomEvent('toggle-view-mode'));

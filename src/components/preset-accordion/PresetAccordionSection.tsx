@@ -69,7 +69,7 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
           <span className="truncate">{title}</span>
           <span className="text-[10px] opacity-60 font-sans">({count})</span>
         </span>
-        <span className="text-[9px] opacity-70 ml-1">{isOpen ? '▼' : '▶'}</span>
+        <span className="text-[9px] opacity-70 ml-1">{isOpen ? '▼' : '►'}</span>
       </button>
 
       {isOpen && (

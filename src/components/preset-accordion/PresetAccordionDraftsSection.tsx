@@ -65,7 +65,7 @@ export const PresetAccordionDraftsSection: React.FC<DraftsSectionProps> = ({
           >
             <RefreshCw size={11} className={`text-[var(--cordel-text)] ${isSyncing ? 'animate-spin' : ''}`} />
           </button>
-          <span className="text-[9px] opacity-70">{isOpen ? '▼' : '▶'}</span>
+          <span className="text-[9px] opacity-70">{isOpen ? '▼' : '►'}</span>
         </div>
       </div>
       {isOpen && (

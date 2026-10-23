@@ -87,7 +87,7 @@ export function useHeaderTabMenu(lang: string, onToggleDetachInstrumentEditor?: 
       {
         id: 'detach',
         label: lang === 'fr' ? 'Détacher dans une fenêtre' : 'Separar em uma janela',
-        icon: '↗',
+        icon: '⇗',
         disabled: true,
         disabledReason: lang === 'fr' ? '[ Bêta — Bientôt disponible ]' : '[ Beta — Em breve ]',
         onClick: () => {},

@@ -1,4 +1,5 @@
 import { SongSection, TrackGroup } from '../../types';
+import { notifyToast } from '../../utils/toastHelper';
 
 export const stretchOverwriteModeState = (
   state: {
@@ -29,7 +30,7 @@ export const stretchOverwriteModeState = (
   const newTotalMeasures = Math.max(state.totalMeasures, newEndMeasure + 1);
 
   if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && newTotalMeasures > (state.maxMeasuresAllowed ?? Infinity)) {
-    alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+    notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
     return state;
   }
 

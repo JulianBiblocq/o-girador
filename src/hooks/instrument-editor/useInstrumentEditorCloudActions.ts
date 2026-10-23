@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBalancoStore } from '../../stores/useBalancoStore';
 import { CloudPattern, CatalogVisibility, Pattern } from '../../types';
+import { notifyToast } from '../../utils/toastHelper';
 
 export interface UseInstrumentEditorCloudActionsParams {
   inst: { id: string };
@@ -81,7 +82,7 @@ export function useInstrumentEditorCloudActions({
       setSaveModalPatternId(null);
       setToastMessage(lang === 'fr' ? 'Sauvegardé !' : 'Salvo !');
       setTimeout(() => setToastMessage(null), 3000);
-    } catch (err: any) { alert((lang === 'fr' ? 'Erreur: ' : 'Erro: ') + (err.message || String(err))); }
+    } catch (err: any) { notifyToast((lang === 'fr' ? 'Erreur: ' : 'Erro: ') + (err.message || String(err)), 'error'); }
     finally { setIsSavingPattern(false); }
   }, [userProfile, saveModalPatternId, savePatternName, savePatternFolder, savePatternVisibility, autoGeneratePatternAudio, displayedPatterns, existingLibraryPatterns, inst.id, currentBpm, currentTimeSig, lang, sequencer, genererEtUploaderCloudBounce]);
 
@@ -101,7 +102,7 @@ export function useInstrumentEditorCloudActions({
         const { deleteCloudPattern } = await import('../../cloudPatterns');
         await deleteCloudPattern(pId);
         setCloudPatterns((prev) => prev.filter((p) => p.id !== pId));
-      } catch (err) { alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.'); }
+      } catch (err) { notifyToast(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.', 'error'); }
     }
   }, [sequencer, lang]);
 

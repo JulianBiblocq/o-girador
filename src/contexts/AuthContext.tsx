@@ -12,6 +12,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { UserProfile, UserRole, AuthContextType, checkIsAdmin, checkHasFullPlaybackAccess } from './auth/authTypes';
 import { getInitialTestProfile } from './auth/authTestProfile';
 import { useAuthSyncEffect } from './auth/useAuthSyncEffect';
+import { notifyToast } from '../utils/toastHelper';
 
 export type { UserRole, UserProfile } from './auth/authTypes';
 export { checkIsAdmin, checkHasFullPlaybackAccess } from './auth/authTypes';
@@ -44,7 +45,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error('Error signing in with Google', error);
-      alert(`Erreur de connexion Google: ${error?.message || error}`);
+      const isPt = useSequencerStore.getState().lang === 'pt';
+      notifyToast((isPt ? 'Erro de conexão Google: ' : 'Erreur de connexion Google : ') + (error?.message || error), 'error');
     }
   };
 

@@ -8,6 +8,7 @@ import type { SequencerStore } from '../types/sequencerStoreTypes';
 import type { TransportSlice } from './transportSliceTypes';
 import { deleteMeasureState, insertMeasureState } from '../helpers/measureOperationsHelper';
 import { resizeTotalMeasuresState } from '../helpers/measureResizeHelper';
+import { notifyToast } from '../../utils/toastHelper';
 import {
   applyGlobalBpmDeltaState,
   setGlobalBpmState,
@@ -46,7 +47,7 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
   setTotalMeasures: (updater, bypassLimit = false) => set(state => {
     const nextVal = typeof updater === 'function' ? updater(state.totalMeasures) : updater;
     if (!bypassLimit && !state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && nextVal > state.maxMeasuresAllowed) {
-      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
       return state;
     }
     return { totalMeasures: nextVal, tracksVersion: state.tracksVersion + 1 };

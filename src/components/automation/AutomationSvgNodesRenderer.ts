@@ -64,7 +64,7 @@ export function renderAutomationExpandedNodes({
       ic.setAttribute('font-size', '12px'); ic.setAttribute('text-anchor', 'middle'); ic.setAttribute('font-weight', 'bold');
       ic.setAttribute('pointer-events', 'none');
       const tr = transitions?.[i] || 'immediate';
-      ic.textContent = tr === 'immediate' ? '⎍' : tr === 'ramp' ? '↗' : '〰';
+      ic.textContent = tr === 'immediate' ? '⎍' : tr === 'ramp' ? '/' : '~';
       g.appendChild(bg); g.appendChild(ic); svg.appendChild(g);
     }
   }

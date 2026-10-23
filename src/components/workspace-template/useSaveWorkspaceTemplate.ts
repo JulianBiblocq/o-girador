@@ -10,6 +10,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { WorkspaceTemplateOptions, WorkspaceTemplateTrack, Language } from '../../types';
 import { buildTemplateTracks } from './templateTracksBuilder';
+import { notifyToast } from '../../utils/toastHelper';
 
 interface UseSaveTemplateParams {
   lang: Language;
@@ -93,7 +94,7 @@ export function useSaveWorkspaceTemplate({ lang, onClose }: UseSaveTemplateParam
         onClose();
       }, 1000);
     } catch (err: any) {
-      alert(lang === 'pt' ? `Erro ao salvar: ${err.message}` : `Erreur lors de la sauvegarde : ${err.message}`);
+      notifyToast(lang === 'pt' ? `Erro ao salvar: ${err.message}` : `Erreur lors de la sauvegarde : ${err.message}`, 'error');
     } finally {
       setIsSaving(false);
     }

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Check } from 'lucide-react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
+import { notifyToast } from '../../utils/toastHelper';
 
 interface SectionTabProps {
   selectableTracks: any[];
@@ -61,14 +62,8 @@ export const AddChannelSectionTab: React.FC<SectionTabProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedBusTrackIds.length === 0) {
-      alert(t('errorNoBusTracks'));
-      return;
-    }
-    if (!busName.trim()) {
-      alert(t('errorNoBusName'));
-      return;
-    }
+    if (selectedBusTrackIds.length === 0) return notifyToast(t('errorNoBusTracks'), 'error');
+    if (!busName.trim()) return notifyToast(t('errorNoBusName'), 'error');
     onCreateBus(selectedBusTrackIds, busName.trim());
   };
 

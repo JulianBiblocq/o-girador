@@ -7,6 +7,7 @@ import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Pattern } from '../../types';
 import { getNextPatternName } from '../../utils/patternNaming';
+import { notifyToast } from '../../utils/toastHelper';
 
 export interface UseInstrumentEditorPatternsParams {
   effectiveEditTrackId: number;
@@ -102,7 +103,7 @@ export function useInstrumentEditorPatterns({
   const handleContextDeletePattern = React.useCallback(async (patternId: number) => {
     const currentTrack = useSequencerStore.getState().tracks.find((t) => t.id === effectiveEditTrackId);
     if (!currentTrack || currentTrack.patterns.length <= 1) {
-      alert(lang === 'fr' ? 'Impossible de supprimer le dernier motif restant.' : 'Não é possível excluir o último padrão restante.');
+      notifyToast(lang === 'fr' ? 'Impossible de supprimer le dernier motif restant.' : 'Não é possível excluir o último padrão restante.', 'error');
       return;
     }
     const targetPattern = currentTrack.patterns.find((p) => p.id === patternId);

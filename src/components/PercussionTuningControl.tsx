@@ -92,7 +92,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
       )}
 
       <p className="text-[9px] font-bold text-[#666] leading-tight text-center">
-        {lang === 'fr' ? "↕ Glisser l'anneau" : "↕ Deslizar o anel"}
+        {lang === 'fr' ? "Glisser l'anneau" : "Deslizar o anel"}
       </p>
     </div>
   );

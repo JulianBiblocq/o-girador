@@ -34,7 +34,7 @@ export const SpeedTrainerChallengesList: React.FC<SpeedTrainerChallengesListProp
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666] flex items-center gap-1.5">
-          ▪ {t('speedTrainerExistingChallenges')}
+          • {t('speedTrainerExistingChallenges')}
           {existingTrainings.length > 0 && (
             <span className="px-1.5 py-0.2 bg-[#1a1a1a] text-[#f4ecd8] rounded-xs text-[10px]">
               {existingTrainings.length}

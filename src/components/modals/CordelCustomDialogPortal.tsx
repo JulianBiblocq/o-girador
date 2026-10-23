@@ -101,7 +101,7 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
             }}
             className="px-4 py-1 text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer focus:ring-2 focus:ring-[var(--cordel-border)] focus:outline-none"
           >
-            {customDialog.confirmLabel || (lang === 'pt' ? 'OK' : 'Valider')}
+            {customDialog.confirmLabel || (customDialog.type === 'alert' ? (lang === 'pt' ? 'Fechar' : 'Fermer') : (lang === 'pt' ? 'Confirmar' : 'Valider'))}
           </button>
         </div>
       </div>

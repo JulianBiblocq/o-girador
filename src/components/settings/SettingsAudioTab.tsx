@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAudioStore } from '../../stores/useAudioStore';
+import { notifyToast } from '../../utils/toastHelper';
 
 interface SettingsAudioTabProps {
   lang: string;
@@ -22,7 +23,7 @@ export const SettingsAudioTab: React.FC<SettingsAudioTabProps> = ({ lang, alertA
         ? 'Impossible de rafraîchir les périphériques : ' + err.message
         : 'Erro ao atualizar dispositivos: ' + err.message;
       if (alertAsync) await alertAsync(errMsg);
-      else alert(errMsg);
+      else notifyToast(errMsg, 'error');
     } finally {
       setIsAskingPermission(false);
     }

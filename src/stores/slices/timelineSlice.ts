@@ -8,6 +8,7 @@ import { duplicateSelectedCellsState } from '../helpers/timelineCellDuplicateHel
 import { copyTimelineSelectionState, cutTimelineSelectionState } from '../helpers/timelineClipboardCopyCutHelper';
 import { pasteTimelineClipboardState } from '../helpers/timelineClipboardPasteHelper';
 import { UISlice } from './uiSliceTypes';
+import { notifyToast } from '../../utils/toastHelper';
 
 export * from '../helpers/timelineClipboardTypes';
 export * from './uiSliceTypes';
@@ -63,7 +64,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
     const maxTargetIdx = mMax + L;
 
     if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
-      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
       return;
     }
     get().pushUndoState();

@@ -34,7 +34,8 @@ export function useCircleTouchInteraction(
     isSplit?: boolean
   ) => void,
   langPromptVoiceText: string = '',
-  isLoadingAudio: boolean = false
+  isLoadingAudio: boolean = false,
+  promptAsync?: (msg: string, def?: string) => Promise<string | null>
 ) {
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -82,7 +83,7 @@ export function useCircleTouchInteraction(
     if (hit) {
       handleStepClickAction(
         e, hit.ownerTrack, hit.activePattern, hit.stepIdx, hit.inst, hit.activePattern.activeSteps[hit.stepIdx],
-        langPromptVoiceText, stateRef.current.isLeftHanded || false, onStepChange, onStepTouchStart
+        langPromptVoiceText, stateRef.current.isLeftHanded || false, onStepChange, onStepTouchStart, promptAsync
       );
     }
   };

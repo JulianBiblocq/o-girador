@@ -7,7 +7,7 @@ import { Pattern, InstrumentConfig, TrackGroup } from '../../types';
 import { getNextStepValue } from '../../utils/instrumentStrokes';
 import { getVisualStrokeSymbol } from '../../data';
 
-export function handleStepClickAction(
+export async function handleStepClickAction(
   e: React.PointerEvent<HTMLCanvasElement>,
   ownerTrack: TrackGroup,
   activePattern: Pattern,
@@ -26,14 +26,15 @@ export function handleStepClickAction(
     onSelect: (val: string | number | [string, string], merge?: boolean) => void,
     trackId: number,
     isSplit?: boolean
-  ) => void
-): void {
+  ) => void,
+  promptAsync?: (msg: string, def?: string) => Promise<string | null>
+): Promise<void> {
   if (inst.type === 'voice') {
     const currentNote = (activePattern.notes && activePattern.notes[stepIdx]) ? activePattern.notes[stepIdx] + ':' : '';
     const lyricPrompt = currentNote + (currentVal === 'P' ? '*' : '') + (activePattern.lyrics[stepIdx] || '');
-    const typed = window.prompt(langPromptVoiceText, lyricPrompt);
+    const typed = promptAsync ? await promptAsync(langPromptVoiceText, lyricPrompt) : null;
 
-    if (typed !== null) {
+    if (typed !== null && typed !== undefined) {
       const trimmed = typed.trim();
       if (trimmed === '') {
         onStepChange(ownerTrack.id, activePattern.id, stepIdx, 0, '', '');

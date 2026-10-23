@@ -111,7 +111,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
 
   const { handleCanvasPointerDown, handleCanvasPointerMove } = useCircleTouchInteraction(
     canvasRef, stateRef, getLiveActivePatternId, onTogglePlay, onStepChange, props.onStepTouchStart,
-    props.langPromptVoiceText, audio.isLoading
+    props.langPromptVoiceText, audio.isLoading, sequencer.promptAsync
   );
 
   useCirclePlayheadRaf(

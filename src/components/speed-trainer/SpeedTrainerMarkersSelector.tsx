@@ -39,7 +39,7 @@ export const SpeedTrainerMarkersSelector: React.FC<SpeedTrainerMarkersSelectorPr
     <div className="bg-[#fcf9f2] border-2 border-[#1a1a1a] p-2.5 rounded-xs shadow-[2px_2px_0px_#1a1a1a] flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] text-[#666] font-bold uppercase flex items-center gap-1">
-          ▪ {t('speedTrainerMarkersTitle')}
+          • {t('speedTrainerMarkersTitle')}
         </span>
         {sortedMarkers.length > 1 && (
           <div className="flex border border-[#1a1a1a] rounded-xs bg-[#ebe2cb] p-0.5 text-[10px] font-cactus">

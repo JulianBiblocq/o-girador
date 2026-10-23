@@ -769,7 +769,7 @@
       triggerButtonVisualActive(typeCoup);
 
       // Logguer l'action dans notre console
-      logToConsole(strokeLabel, filename, `index: ${chosenIdx + 1}/${buffers.length} (précédent: ${roundRobinHistory[groupKey] === chosenIdx ? 'RÉPÉTITION (ERREUR)' : 'différent ✅'})`, groupColor);
+      logToConsole(strokeLabel, filename, `index: ${chosenIdx + 1}/${buffers.length} (précédent: ${roundRobinHistory[groupKey] === chosenIdx ? 'RÉPÉTITION (ERREUR)' : 'différent [OK]'})`, groupColor);
     }
 
     // Déclencher le feedback visuel du bouton

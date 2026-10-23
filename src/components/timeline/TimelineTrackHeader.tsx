@@ -45,7 +45,7 @@ export const TimelineTrackHeader: React.FC<TimelineTrackHeaderProps> = ({
       <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'} ${isMute ? 'opacity-40' : ''}`}>
         {canFold && (
           <button onClick={onToggleFold} className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] pointer-events-auto" title={isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}>
-            {isCollapsed ? '▶' : '▼'}
+            {isCollapsed ? '►' : '▼'}
           </button>
         )}
         {isMobile && <span className="font-mono text-[10px] text-[var(--cordel-text)]/60 shrink-0">#{trackIndex + 1}</span>}

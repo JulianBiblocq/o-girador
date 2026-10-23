@@ -83,7 +83,7 @@ export const CordelContextMenuItem: React.FC<CordelContextMenuItemProps> = ({
         </div>
         {hasSubItems && (
           <span className="text-[10px] shrink-0 font-bold ml-2">
-            {shouldOpenSubMenuLeft ? '◀' : '▶'}
+            {shouldOpenSubMenuLeft ? '◄' : '►'}
           </span>
         )}
       </button>

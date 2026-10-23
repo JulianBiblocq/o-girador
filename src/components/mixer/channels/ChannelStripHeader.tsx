@@ -99,7 +99,7 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
             />
           ) : (
             <div onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))} className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6">
-              <span className="font-cactus truncate uppercase tracking-wider">{track.isFolded ? '▼' : '▶'} {track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
+              <span className="font-cactus truncate uppercase tracking-wider">{track.isFolded ? '▼' : '►'} {track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
             </div>
           )
         ) : (

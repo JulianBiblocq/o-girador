@@ -1,7 +1,9 @@
+import { notifyToast } from '../../utils/toastHelper';
+
 export const resizeTotalMeasuresState = (state: any, val: number): Record<string, any> => {
   if (val === state.totalMeasures) return state;
   if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && val > state.totalMeasures && val > state.maxMeasuresAllowed) {
-    alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+    notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
     return state;
   }
   const expand = <T>(arr: T[], fill: T): T[] => {

@@ -40,7 +40,7 @@ export const AutomationTrackHeader: React.FC<AutomationTrackHeaderProps> = React
             className="text-xs font-bold text-gray-400 hover:text-white cursor-pointer pointer-events-auto shrink-0"
             title={isExpanded ? (lang === 'fr' ? 'Réduire' : 'Recolher') : (lang === 'fr' ? 'Développer' : 'Expandir')}
           >
-            {isExpanded ? '▼' : '▶'}
+            {isExpanded ? '▼' : '►'}
           </button>
           <span className="text-xs font-black uppercase tracking-wider truncate" style={{ color }} title={label || defaultLabel}>
             {label || defaultLabel}
