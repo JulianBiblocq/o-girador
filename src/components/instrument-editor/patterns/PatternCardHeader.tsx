@@ -19,7 +19,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
 
   const totalVarProb = (ptn.variations || []).filter((v) => !v.playFirstTimeOnly).reduce((acc, v) => acc + v.probability, 0);
   const baseProb = Math.max(0, 100 - totalVarProb);
-  const isSoloLoop = soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble';
+  const isSoloLoop = soloPatternPlayId !== null && soloPatternPlayId !== undefined && String(soloPatternPlayId) === String(ptn.id) && soloPatternVariationId === 'ensemble';
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {

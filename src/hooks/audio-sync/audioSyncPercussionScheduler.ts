@@ -9,26 +9,13 @@ import { AudioEngine } from '../../AudioEngine';
 import { computePercussionNoteSwing } from './percussionSwingHelper';
 
 export interface PercussionSchedulerParams {
-  time: number;
-  stepIdx: number;
-  currentTicks: number;
-  currentMeasureIdx: number;
-  tick96nSec: number;
-  swingJitter: number;
-  globalMode: string;
-  stepDurationSec: number;
-  isDocHidden: boolean;
-  tracks: Track[];
-  soloPatternPlayId: number | null;
-  globalSwing: GlobalSwing;
-  familyMuteSet: Set<string>;
-  flatCompiledSchedule: Float64Array | null;
-  flatArrayPointerRef: { current: number };
-  lastCompiledScheduleRef: { current: Float64Array | null };
-  lastAbsoluteTickRef: { current: number };
-  currentMeasureStartTick: number;
-  audioEngine: AudioEngine | null;
-  busChannels: Record<string | number, Tone.Channel>;
+  time: number; stepIdx: number; currentTicks: number; currentMeasureIdx: number;
+  tick96nSec: number; swingJitter: number; globalMode: string; stepDurationSec: number;
+  isDocHidden: boolean; tracks: Track[]; soloPatternPlayId: number | null;
+  globalSwing: GlobalSwing; familyMuteSet: Set<string>; flatCompiledSchedule: Float64Array | null;
+  flatArrayPointerRef: { current: number }; lastCompiledScheduleRef: { current: Float64Array | null };
+  lastAbsoluteTickRef: { current: number }; currentMeasureStartTick: number;
+  audioEngine: AudioEngine | null; busChannels: Record<string | number, Tone.Channel>;
 }
 
 export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
@@ -85,11 +72,15 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
             const decayMultiplier = decayPct / 100;
 
             const patterns = liveTrack.patterns;
-            let activePattern: Pattern | null = soloPatternPlayId !== null ? (patterns.find(p => p.id === soloPatternPlayId) || null) : null;
+            let activePattern: Pattern | null = soloPatternPlayId !== null ? (patterns.find(p => String(p.id) === String(soloPatternPlayId)) || null) : null;
             if (soloPatternPlayId !== null && !activePattern) {
-              const soloTrack = tracks.find(t => t.patterns?.some(p => p.id === soloPatternPlayId));
-              const soloPtn = soloTrack?.patterns?.find(p => p.id === soloPatternPlayId);
-              if (soloPtn) activePattern = patterns.find(p => p.name === soloPtn.name) || null;
+              const soloTrack = tracks.find(t => t.patterns?.some(p => String(p.id) === String(soloPatternPlayId)));
+              const soloPtn = soloTrack?.patterns?.find(p => String(p.id) === String(soloPatternPlayId));
+              if (soloPtn) {
+                activePattern = patterns.find(p => p.name === soloPtn.name) || null;
+                const sIdx = soloTrack?.patterns?.findIndex(p => String(p.id) === String(soloPatternPlayId));
+                if (!activePattern && sIdx !== undefined && sIdx >= 0 && patterns[sIdx]) activePattern = patterns[sIdx];
+              }
             }
             if (!activePattern) activePattern = patterns.find(p => p.measureAssignments[currentMeasureIdx]) || null;
 

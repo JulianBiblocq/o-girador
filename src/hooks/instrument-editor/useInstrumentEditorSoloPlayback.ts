@@ -34,11 +34,13 @@ export function useInstrumentEditorSoloPlayback() {
   }, []);
 
   const isSoloPlaying = useCallback((patternId: number, variationId: string = 'ensemble') => {
-    return soloPatternPlayId === patternId && soloPatternVariationId === variationId;
+    return soloPatternPlayId !== null && soloPatternPlayId !== undefined &&
+      String(soloPatternPlayId) === String(patternId) && soloPatternVariationId === variationId;
   }, [soloPatternPlayId, soloPatternVariationId]);
 
   const toggleSoloPattern = useCallback((patternId: number, variationId: string = 'ensemble') => {
-    if (soloPatternPlayId === patternId && soloPatternVariationId === variationId) {
+    if (soloPatternPlayId !== null && soloPatternPlayId !== undefined &&
+        String(soloPatternPlayId) === String(patternId) && soloPatternVariationId === variationId) {
       if (onStopSoloPattern) onStopSoloPattern();
     } else {
       if (onPlaySoloPattern) onPlaySoloPattern(patternId, variationId);

@@ -8,21 +8,21 @@ export function resolveActivePattern(
   const isLinkedChild = Boolean(track.linkedToTrackId && !track.isLinkFolder);
 
   if (isSoloPlayActive) {
-    const ownMatch = track.patterns?.find((p: any) => p.id === soloPatternPlayId);
+    const ownMatch = track.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
     if (ownMatch) return ownMatch;
 
-    const soloTrack = tracks.find((t: any) => t.patterns?.some((p: any) => p.id === soloPatternPlayId));
+    const soloTrack = tracks.find((t: any) => t.patterns?.some((p: any) => String(p.id) === String(soloPatternPlayId)));
     if (soloTrack) {
       const isSameGroup = (soloTrack.id === track.id) ||
         (track.linkedToTrackId && (String(track.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(track.linkedToTrackId) === String(soloTrack.id) || String(track.id) === String(soloTrack.linkedToTrackId))) ||
         (soloTrack.linkedToTrackId && (String(soloTrack.linkedToTrackId) === String(track.linkedToTrackId) || String(soloTrack.linkedToTrackId) === String(track.id)));
 
       if (isSameGroup) {
-        const soloPtn = soloTrack.patterns?.find((p: any) => p.id === soloPatternPlayId);
+        const soloPtn = soloTrack.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
         if (soloPtn) {
           const matchByName = track.patterns?.find((p: any) => p.name === soloPtn.name);
           if (matchByName) return matchByName;
-          const soloIdx = soloTrack.patterns?.findIndex((p: any) => p.id === soloPatternPlayId);
+          const soloIdx = soloTrack.patterns?.findIndex((p: any) => String(p.id) === String(soloPatternPlayId));
           if (soloIdx !== undefined && soloIdx >= 0 && track.patterns?.[soloIdx]) return track.patterns[soloIdx];
         }
       }
@@ -77,10 +77,10 @@ export function resolvePatternVariation(
 ): any | null {
   if (!activePattern.variations || activePattern.variations.length === 0) return null;
 
-  if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble') {
+  if (isSoloPlayActive && String(soloPatternPlayId) === String(activePattern.id) && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble') {
     return activePattern.variations.find((v: any) => v.id === soloPatternVariationId) || null;
   }
-  if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId === 'base') {
+  if (isSoloPlayActive && String(soloPatternPlayId) === String(activePattern.id) && soloPatternVariationId === 'base') {
     return null;
   }
 

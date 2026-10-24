@@ -5,6 +5,7 @@
 import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
+import { useTransportStore } from '../stores/useTransportStore';
 
 let autoSuspendTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -29,7 +30,8 @@ export function scheduleAudioContextAutoSuspend(delayMs = 500): void {
     autoSuspendTimer = null;
     const isPlaying = useSequencerStore.getState().isPlaying;
     const isRecording = useAudioStore.getState().recordingStatus === 'recording';
-    if (isPlaying || isRecording) return;
+    const isSolo = useTransportStore.getState().soloPatternPlayId !== null;
+    if (isPlaying || isRecording || isSolo) return;
     const rawCtx = getRawAudioContext();
     if (rawCtx && rawCtx.state === 'running') {
       rawCtx.suspend().catch(() => {});
@@ -56,7 +58,8 @@ export async function safeSuspendAudioContext(): Promise<void> {
   cancelAudioContextAutoSuspend();
   const isPlaying = useSequencerStore.getState().isPlaying;
   const isRecording = useAudioStore.getState().recordingStatus === 'recording';
-  if (isPlaying || isRecording) return;
+  const isSolo = useTransportStore.getState().soloPatternPlayId !== null;
+  if (isPlaying || isRecording || isSolo) return;
   const rawCtx = getRawAudioContext();
   if (rawCtx && rawCtx.state === 'running') {
     try {

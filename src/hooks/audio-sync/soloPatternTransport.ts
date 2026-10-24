@@ -5,6 +5,10 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { stopAllNativeOscillators } from '../../audio/nativeSynths';
 import { AudioEngine } from '../../AudioEngine';
+import { getAudioEngine } from './audioEngineNodes';
+import { buildFlatSongSchedule } from '../../workers/compiler/flatScheduleBuilder';
+import { instrumentsConfig } from '../../data';
+import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 
 export interface SoloTransportContext {
   tracksRef: { current: Track[] };
@@ -25,28 +29,31 @@ export interface SoloTransportContext {
   setIsPlaying: (p: boolean) => void;
   setIsLoading: (l: boolean) => void;
   handleStop: () => void;
+  soloPatternPlayIdRef?: { current: number | null };
+  soloPatternVariationIdRef?: { current: string | null };
+  flatCompiledScheduleRef?: { current: Float64Array | null };
+  totalMeasuresRef?: { current: number };
+  measureTimeSigsRef?: { current: Record<number, string> };
 }
 
+const unmuteChannel = (ch?: Tone.Channel) => {
+  if (ch) { ch.mute = false; if (ch.volume.value < -60) ch.volume.value = 0; }
+};
+
 export async function handleStartSoloPattern(patternId: number, variationId: string | undefined, ctx: SoloTransportContext): Promise<void> {
-  if (!useAudioStore.getState().isAudioUnlocked) {
-    useAudioStore.getState().unlockAudio();
-  }
+  if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
+  cancelAudioContextAutoSuspend();
+  await safeResumeAudioContext();
+  if (Tone.start) { try { await Tone.start(); } catch (_) {} }
 
-  if (Tone.context && Tone.context.state !== 'running') {
-    try { await Tone.context.resume(); } catch (_) {}
-  }
-  if (Tone.start) {
-    try { await Tone.start(); } catch (_) {}
-  }
-
-  ctx.audioEngine?.stop();
-  Tone.Transport.stop();
-  ctx.audioEngine?.stopAllBarulho();
-  stopAllNativeOscillators();
-  vocalEngineService.stopAllVocalPlayback();
+  ctx.audioEngine?.stop(); Tone.Transport.stop(); ctx.audioEngine?.stopAllBarulho();
+  stopAllNativeOscillators(); vocalEngineService.stopAllVocalPlayback();
 
   const currentTracks = ctx.tracksRef.current;
   const soloTrack = currentTracks.find(t => t.patterns && t.patterns.some(p => String(p.id) === String(patternId)));
+  const soloPattern = soloTrack?.patterns?.find(p => String(p.id) === String(patternId));
+  const firstAssignedMeasure = soloPattern?.measureAssignments?.findIndex((a: boolean) => a === true) ?? -1;
+  const targetMeasure = firstAssignedMeasure >= 0 ? firstAssignedMeasure : 0;
   const toadaTrack = currentTracks.find(t => isToadaBus(t));
   const toadaId = toadaTrack ? toadaTrack.id : null;
   const trackId = soloTrack ? soloTrack.id : null;
@@ -59,77 +66,68 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
 
     ctx.savedSoloMuteStateRef.current = {
       channelStates: targetChannelIds.map(id => ({ id, mute: ctx.channels[id]?.mute, vol: ctx.channels[id]?.volume.value })),
-      busId: busId ?? undefined,
-      busMuted: busId ? ctx.busChannels[busId]?.mute : undefined,
-      toadaId: toadaId ?? undefined,
-      toadaMuted: toadaId ? ctx.busChannels[toadaId]?.mute : undefined,
+      busId: busId ?? undefined, busMuted: busId ? ctx.busChannels[busId]?.mute : undefined,
+      toadaId: toadaId ?? undefined, toadaMuted: toadaId ? ctx.busChannels[toadaId]?.mute : undefined,
     };
 
-    targetChannelIds.forEach(id => {
-      if (ctx.channels[id]) {
-        ctx.channels[id].mute = false;
-        if (ctx.channels[id].volume.value < -60) ctx.channels[id].volume.value = 0;
-      }
-    });
-    if (busId && ctx.busChannels[busId]) {
-      ctx.busChannels[busId].mute = false;
-      if (ctx.busChannels[busId].volume.value < -60) ctx.busChannels[busId].volume.value = 0;
-    }
-    if (toadaId && ctx.busChannels[toadaId]) {
-      ctx.busChannels[toadaId].mute = false;
-      if (ctx.busChannels[toadaId].volume.value < -60) ctx.busChannels[toadaId].volume.value = 0;
-    }
+    targetChannelIds.forEach(id => unmuteChannel(ctx.channels[id]));
+    if (busId) unmuteChannel(ctx.busChannels[busId]);
+    if (toadaId) unmuteChannel(ctx.busChannels[toadaId]);
   }
 
-  ctx.setSoloPatternPlayId(patternId);
-  ctx.setSoloPatternVariationId(variationId || null);
-  ctx.soloLoopCycleRef.current = 0;
-  ctx.currentStepIndexRef.current = -1;
-  ctx.measureCountRef.current = 0;
-  ctx.isPlaybackEndingRef.current = false;
-  ctx.setCurrentMeasure(0);
-  Tone.Transport.seconds = 0;
-  ctx.lastPlayedSignalIdRef.current = null;
+  if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = patternId;
+  if (ctx.soloPatternVariationIdRef) ctx.soloPatternVariationIdRef.current = variationId || 'ensemble';
+  ctx.setSoloPatternPlayId(patternId); ctx.setSoloPatternVariationId(variationId || null);
+  ctx.soloLoopCycleRef.current = 0; ctx.currentStepIndexRef.current = -1;
+  ctx.measureCountRef.current = targetMeasure; ctx.isPlaybackEndingRef.current = false;
+  ctx.setCurrentMeasure(targetMeasure); Tone.Transport.seconds = 0; ctx.lastPlayedSignalIdRef.current = null;
+
+  const activeEngine = ctx.audioEngine || getAudioEngine();
+  if (activeEngine) {
+    activeEngine.currentMeasure = targetMeasure; activeEngine.currentStep = 0;
+    activeEngine.schedulingMeasure = targetMeasure; activeEngine.schedulingStep = 0;
+  }
+
+  if (ctx.flatCompiledScheduleRef) {
+    const rawSigs = ctx.measureTimeSigsRef?.current;
+    const timeSigs: string[] = Array.isArray(rawSigs) ? rawSigs : Array.from({ length: ctx.totalMeasuresRef?.current || 1 }, (_, i) => rawSigs?.[i] || '4/4');
+    ctx.flatCompiledScheduleRef.current = buildFlatSongSchedule(
+      currentTracks, ctx.totalMeasuresRef?.current || 1, timeSigs,
+      instrumentsConfig, patternId, variationId || 'ensemble', false
+    ) as any;
+  }
 
   ctx.setIsLoading(true);
   try {
     if (Tone.loaded) await Tone.loaded();
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 80));
   } catch (_) {
   } finally {
     ctx.setIsLoading(false);
   }
 
-  if (Tone.Transport.state !== 'started') {
-    Tone.Transport.start();
-  }
-  ctx.audioEngine?.start();
-  ctx.setIsPlaying(true);
-  ctx.isPlayingRef.current = true;
+  cancelAudioContextAutoSuspend();
+  await safeResumeAudioContext();
+  if (Tone.Transport.state !== 'started') Tone.Transport.start();
+  activeEngine?.start();
+  ctx.setIsPlaying(true); ctx.isPlayingRef.current = true;
 }
 
 export function handleStopSoloPattern(ctx: SoloTransportContext): void {
   if (ctx.savedSoloMuteStateRef.current) {
     const { channelStates, busId, busMuted, toadaId, toadaMuted } = ctx.savedSoloMuteStateRef.current;
     channelStates?.forEach(({ id, mute, vol }: any) => {
-      if (ctx.channels[id]) {
-        if (mute !== undefined) ctx.channels[id].mute = mute;
-        if (vol !== undefined) ctx.channels[id].volume.value = vol;
-      }
+      const ch = ctx.channels[id];
+      if (ch) { if (mute !== undefined) ch.mute = mute; if (vol !== undefined) ch.volume.value = vol; }
     });
-    if (busId !== undefined && ctx.busChannels[busId] && busMuted !== undefined) {
-      ctx.busChannels[busId].mute = busMuted;
-    }
-    if (toadaId !== undefined && ctx.busChannels[toadaId] && toadaMuted !== undefined) {
-      ctx.busChannels[toadaId].mute = toadaMuted;
-    }
+    if (busId !== undefined && ctx.busChannels[busId] && busMuted !== undefined) ctx.busChannels[busId].mute = busMuted;
+    if (toadaId !== undefined && ctx.busChannels[toadaId] && toadaMuted !== undefined) ctx.busChannels[toadaId].mute = toadaMuted;
     ctx.savedSoloMuteStateRef.current = null;
   }
   ctx.lastAppliedTracksParamsRef.current = {};
-  ctx.setSoloPatternPlayId(null);
-  ctx.setSoloPatternVariationId(null);
+  ctx.setSoloPatternPlayId(null); ctx.setSoloPatternVariationId(null);
+  if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = null;
+  if (ctx.soloPatternVariationIdRef) ctx.soloPatternVariationIdRef.current = null;
   ctx.soloLoopCycleRef.current = 0;
-  if (ctx.isPlayingRef.current) {
-    ctx.handleStop();
-  }
+  if (ctx.isPlayingRef.current) ctx.handleStop();
 }

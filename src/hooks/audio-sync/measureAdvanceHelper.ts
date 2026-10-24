@@ -17,10 +17,10 @@ export interface AdvanceMeasureContext {
 
 export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: AdvanceMeasureContext): void {
   if (ctx.soloPatternPlayIdRef?.current !== null && ctx.soloPatternPlayIdRef?.current !== undefined) {
-    ctx.measureCountRef.current = 0;
-    ctx.setCurrentMeasure(0);
-    ctx.currentMeasureStartTickRef.current = 0;
-    ctx.absoluteTickCountRef.current = 0;
+    ctx.measureCountRef.current = currentMeasureIdx;
+    ctx.setCurrentMeasure(currentMeasureIdx);
+    ctx.currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, ctx.measureTimeSigsRef.current);
+    ctx.absoluteTickCountRef.current = ctx.currentMeasureStartTickRef.current;
     return;
   }
 

@@ -37,12 +37,14 @@ export function useGridPercussionTick({
 
       const isCurrentPlaying = (() => {
         if (soloPlayId !== undefined && soloPlayId !== null) {
-          if (pattern?.id === soloPlayId) return true;
-          const soloTrack = storeState.tracks.find(t => t.patterns?.some(p => p.id === soloPlayId));
+          if (String(pattern?.id) === String(soloPlayId)) return true;
+          const soloTrack = storeState.tracks.find(t => t.patterns?.some(p => String(p.id) === String(soloPlayId)));
           if (soloTrack && (soloTrack.id === trackId || (trackObj.linkedToTrackId &&
             (String(trackObj.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(trackObj.linkedToTrackId) === String(soloTrack.id))))) {
-            const soloPtn = soloTrack.patterns?.find(p => p.id === soloPlayId);
+            const soloPtn = soloTrack.patterns?.find(p => String(p.id) === String(soloPlayId));
             if (soloPtn && pattern?.name === soloPtn.name) return true;
+            const sIdx = soloTrack.patterns?.findIndex(p => String(p.id) === String(soloPlayId));
+            if (sIdx !== undefined && sIdx >= 0 && trackObj.patterns?.[sIdx]?.id === pattern?.id) return true;
           }
           return false;
         }
