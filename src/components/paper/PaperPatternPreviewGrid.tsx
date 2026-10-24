@@ -76,7 +76,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
         {points.length > 0 && <button type="button" onClick={() => clearAllForScore(activeScoreId)} className="px-2 py-0.5 bg-[#15803d] text-white border border-black font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer shadow-[1px_1px_0px_#000]"><Check size={11} /> <span>{lang === 'fr' ? 'Tout valider' : 'Validar tudo'}</span></button>}
       </div>
 
-      <div className="flex flex-col gap-2 max-h-[230px] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 pb-3">
         {sectionItems.map((item) => (
           <PaperPatternCard
             key={item.id}

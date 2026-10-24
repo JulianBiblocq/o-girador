@@ -53,7 +53,7 @@ export const BlankSheetPupitreSelector: React.FC<Props> = ({
     <div className="flex flex-col gap-2 p-3 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] text-xs text-[var(--cordel-text)]">
       {/* 1. BOUTONS DE LIAISON & BUS */}
       <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-[var(--cordel-border)]/30">
-        <span className="font-cactus font-bold uppercase text-[10px] text-[#8b2a1a]">
+        <span className="font-cactus font-bold uppercase text-[10px] text-[#f59e0b]">
           {lang === 'fr' ? 'Groupements :' : 'Agrupamentos :'}
         </span>
         {groupBtns.map((b, i) => (
@@ -91,7 +91,7 @@ export const BlankSheetPupitreSelector: React.FC<Props> = ({
       </div>
 
       {/* 3. SOUS-LIGNE ALFAIAS & LIGNES LIBRES */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--cordel-border)]/30">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 pb-1 border-t border-[var(--cordel-border)]/30 min-h-[32px]">
         {pupitres.includes('al') && linkAlfaias && (
           <label className="flex items-center gap-1.5 font-bold text-[10px] cursor-pointer">
             <input type="checkbox" checked={includeVarLine} onChange={(e) => onToggleIncludeVarLine(e.target.checked)} className="accent-[#8b2a1a]" />
@@ -99,7 +99,7 @@ export const BlankSheetPupitreSelector: React.FC<Props> = ({
           </label>
         )}
         <div className="flex items-center gap-1 text-[10px]">
-          <span className="font-cactus font-bold uppercase text-[#8b2a1a]">
+          <span className="font-cactus font-bold uppercase text-[#f59e0b]">
             + {tPaper(lang, 'freeLines')} [____] :
           </span>
           {[0, 1, 2, 4, 8].map((num) => (

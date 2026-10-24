@@ -1,9 +1,14 @@
 /**
- * Palette d'étiquettes dissociables et séquenceur conducteur (< 140 lignes).
+ * Palette d'etiquettes dissociables et sequenceur conducteur avec Drag & Drop (< 135 lignes).
  */
 import React from 'react';
+import { DndContext, closestCenter, DragOverlay, useDroppable } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { PaperSequenceItem } from '../../types/paperWorkshop.types';
-import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
+import { SequencePaletteItem } from './dnd/SequencePaletteItem';
+import { SequenceTagItem } from './dnd/SequenceTagItem';
+import { useSequenceTagDnd } from './dnd/useSequenceTagDnd';
 
 interface Props {
   availableSections: Array<string | { id: string; name: string }>;
@@ -14,14 +19,12 @@ interface Props {
 
 export function factorizeSequence(seq: string[]): PaperSequenceItem[] {
   const res: PaperSequenceItem[] = [];
-  let cur = '';
-  let count = 0;
+  let cur = '', count = 0;
   seq.forEach((s) => {
     if (s === cur) count++;
     else {
       if (cur) res.push({ id: `seq-${res.length}-${Date.now()}-${Math.random()}`, sectionName: cur, repeatCount: count });
-      cur = s;
-      count = 1;
+      cur = s; count = 1;
     }
   });
   if (cur) res.push({ id: `seq-${res.length}-${Date.now()}-${Math.random()}`, sectionName: cur, repeatCount: count });
@@ -31,6 +34,12 @@ export function factorizeSequence(seq: string[]): PaperSequenceItem[] {
 export const SequenceTagBuilder: React.FC<Props> = ({
   availableSections, sequenceItems, onChangeSequence, lang,
 }) => {
+  const {
+    sensors, activeDrag, overIndex, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel,
+  } = useSequenceTagDnd(sequenceItems, onChangeSequence);
+
+  const { setNodeRef: setDropzoneRef, isOver: isContainerOver } = useDroppable({ id: 'sequence-container-dropzone' });
+
   const addTag = (sec: string | { id: string; name: string }) => {
     const secName = typeof sec === 'string' ? sec : sec.name;
     const secId = typeof sec === 'string' ? undefined : sec.id;
@@ -55,65 +64,77 @@ export const SequenceTagBuilder: React.FC<Props> = ({
   const totalMeasures = sequenceItems.reduce((acc, it) => acc + it.repeatCount, 0);
 
   return (
-    <div className="flex flex-col gap-2 font-sans text-xs">
-      {/* ZONE 1 : PALETTE DES ÉTIQUETTES DISPONIBLES (UNIFORMES SANS MULTIPLICATEUR) */}
-      <div className="p-2 bg-black/5 dark:bg-black/20 border border-black/30">
-        <span className="font-cactus font-extrabold uppercase text-[10px] text-[#8b2a1a] dark:text-[#f59e0b] block mb-1">
-          {lang === 'fr' ? '1. Palette d\'étiquettes (cliquez pour ajouter à la séquence) :' : '1. Paleta de etiquetas (clique para adicionar) :'}
-        </span>
-        <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto">
-          {availableSections.map((sec) => {
-            const secName = typeof sec === 'string' ? sec : sec.name;
-            const secKey = typeof sec === 'string' ? sec : sec.id;
-            const displayLabel = secName.trim() || '...';
-            return (
-            <button
-              key={secKey}
-              type="button"
-              onClick={() => addTag(sec)}
-              className="px-2 py-1 bg-[#f4ecd8] hover:bg-[#e6dec8] !text-[#1a1a1a] border-2 border-[#1a1a1a] text-[11px] font-cactus font-extrabold flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_#1a1a1a]"
-            >
-              <Plus size={11} className="text-[#8b2a1a] font-black stroke-[3]" /> <span>{displayLabel}</span>
-            </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ZONE 2 : SÉQUENCE DU MORCEAU (CONDUCTEUR FACTORISÉ) */}
-      <div className="p-2.5 bg-[#fdfbf7] dark:bg-[#fdfbf7] border-2 border-[#1a1a1a] min-h-[95px] flex flex-col justify-between shadow-[2px_2px_0px_#1a1a1a]">
-        <div className="flex justify-between items-center border-b border-[#1a1a1a]/20 pb-1 mb-1.5">
-          <span className="font-cactus font-bold uppercase text-[11px] !text-[#1a1a1a]">
-            {lang === 'fr' ? '2. Séquence assemblée' : '2. Sequência montada'} ({totalMeasures} {lang === 'fr' ? 'mesures' : 'compassos'})
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+      <div className="flex flex-col gap-2 font-sans text-xs">
+        {/* ZONE 1 : PALETTE D'ETIQUETTES (CLIC OU GLISSER-DEPOSER) */}
+        <div className="p-2 bg-black/5 dark:bg-black/20 border border-black/30">
+          <span className="font-cactus font-extrabold uppercase text-[10px] text-[#f59e0b] block mb-1">
+            {lang === 'fr' ? '1. Palette d\'étiquettes (cliquez ou glissez dans la séquence) :' : '1. Paleta de etiquetas (clique ou arraste) :'}
           </span>
-          {sequenceItems.length > 0 && (
-            <button type="button" onClick={() => onChangeSequence([])} className="text-[10px] !text-[#8b2a1a] hover:underline font-bold cursor-pointer">
-              {lang === 'fr' ? 'Tout effacer' : 'Limpar tudo'}
-            </button>
-          )}
+          <div className="flex flex-wrap gap-1.5 max-h-[115px] overflow-y-auto pb-2">
+            {availableSections.map((sec) => (
+              <SequencePaletteItem key={typeof sec === 'string' ? sec : sec.id || sec.name} sec={sec} onAdd={addTag} />
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 max-h-[125px] overflow-y-auto">
-          {sequenceItems.map((item, idx) => (
-            <div key={item.id} className="flex items-center gap-1 px-1.5 py-1 bg-[#efe6d0] border border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] select-none">
-              <span className="font-cactus font-bold text-xs !text-[#1a1a1a]">{item.sectionName.trim() || '...'}</span>
-              <div className="flex items-center bg-[#e6dec8] border border-[#1a1a1a] px-1 py-0.5 ml-1 gap-1">
-                <button type="button" onClick={() => updateRepeat(item.id, -1)} className="px-1 text-[10px] font-black !text-[#1a1a1a] hover:bg-[#c25e38] hover:!text-[#f4ecd8] cursor-pointer transition-colors">-</button>
-                <span className="font-extrabold text-[10px] min-w-[18px] text-center !text-[#8b2a1a]">×{item.repeatCount}</span>
-                <button type="button" onClick={() => updateRepeat(item.id, 1)} className="px-1 text-[10px] font-black !text-[#1a1a1a] hover:bg-[#c25e38] hover:!text-[#f4ecd8] cursor-pointer transition-colors">+</button>
+        {/* ZONE 2 : SEQUENCE DU MORCEAU (SORTABLE + ZONE DE DEPOT) */}
+        <div className="p-2.5 bg-[#fdfbf7] dark:bg-[#fdfbf7] border-2 border-[#1a1a1a] min-h-[95px] flex flex-col justify-between shadow-[2px_2px_0px_#1a1a1a]">
+          <div className="flex justify-between items-center border-b border-[#1a1a1a]/20 pb-1 mb-1.5">
+            <span className="font-cactus font-bold uppercase text-[11px] !text-[#1a1a1a]">
+              {lang === 'fr' ? '2. Séquence assemblée' : '2. Sequência montada'} ({totalMeasures} {lang === 'fr' ? 'mesures' : 'compassos'})
+            </span>
+            {sequenceItems.length > 0 && (
+              <button type="button" onClick={() => onChangeSequence([])} className="text-[10px] text-[#8b2a1a] hover:underline font-bold cursor-pointer">
+                {lang === 'fr' ? 'Tout effacer' : 'Limpar tudo'}
+              </button>
+            )}
+          </div>
+
+          <div
+            ref={setDropzoneRef}
+            className={`flex flex-wrap gap-1.5 min-h-[50px] max-h-[135px] overflow-y-auto p-1 rounded-xs transition-colors ${
+              isContainerOver && activeDrag ? 'bg-[#9a3412]/5 ring-2 ring-dashed ring-[#9a3412]' : ''
+            }`}
+          >
+            <SortableContext items={sequenceItems.map((it) => it.id)} strategy={rectSortingStrategy}>
+              {sequenceItems.map((item, idx) => (
+                <SequenceTagItem
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  totalCount={sequenceItems.length}
+                  onUpdateRepeat={updateRepeat}
+                  onRemove={removeItem}
+                  onMove={moveItem}
+                  isDropTargetBefore={Boolean(activeDrag && overIndex === idx)}
+                />
+              ))}
+            </SortableContext>
+
+            {activeDrag && (overIndex === sequenceItems.length || sequenceItems.length === 0) && (
+              <div className="border-2 border-dashed border-[#9a3412] bg-[#9a3412]/15 text-[#9a3412] font-cactus font-bold text-xs px-2.5 py-1 rounded-xs flex items-center justify-center animate-pulse">
+                + {activeDrag.secName}
               </div>
-              <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="p-0.5 !text-[#1a1a1a]/75 hover:!text-[#1a1a1a] disabled:opacity-25 font-bold cursor-pointer"><ArrowLeft size={11} /></button>
-              <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === sequenceItems.length - 1} className="p-0.5 !text-[#1a1a1a]/75 hover:!text-[#1a1a1a] disabled:opacity-25 font-bold cursor-pointer"><ArrowRight size={11} /></button>
-              <button type="button" onClick={() => removeItem(item.id)} className="ml-0.5 text-[#8b2a1a] hover:scale-110 cursor-pointer"><Trash2 size={12} /></button>
-            </div>
-          ))}
-          {sequenceItems.length === 0 && (
-            <div className="text-[#1a1a1a]/50 italic text-center w-full py-2 text-[11px]">
-              {lang === 'fr' ? 'Cliquez sur une étiquette ci-dessus pour bâtir la séquence du morceau' : 'Clique em uma etiqueta acima'}
-            </div>
-          )}
+            )}
+
+            {sequenceItems.length === 0 && !activeDrag && (
+              <div className="text-[#1a1a1a]/50 italic text-center w-full py-3 text-[11px]">
+                {lang === 'fr' ? 'Cliquez ou glissez une étiquette ici pour bâtir le conducteur' : 'Clique ou arraste uma etiqueta aqui'}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      <DragOverlay>
+        {activeDrag ? (
+          <div className="px-2.5 py-1 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#000] rotate-2 opacity-95 text-xs font-cactus font-bold text-[#1a1a1a] flex items-center gap-1.5 pointer-events-none">
+            <GripVertical size={13} className="text-[#1a1a1a]" />
+            <span>{activeDrag.secName}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };

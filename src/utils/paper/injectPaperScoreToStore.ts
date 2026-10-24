@@ -1,5 +1,5 @@
 /**
- * Injection atomique d'une partition papier transcrite et points de vigilance (< 145 lignes).
+ * Injection atomique d'une partition papier transcrite et points de vigilance (< 130 lignes).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { PaperPreset } from '../../types/paperWorkshop.types';
@@ -9,6 +9,7 @@ import { assignPatternsToTracks, buildMergedSongSections } from './paperTimeline
 import { buildScannedScoreTracks, PaperInjectOptions } from './paperTrackBuilder';
 import { disambiguateAllPresetPatterns } from './paperRoleDisambiguator';
 import { resetActiveCloudPresetId } from '../cloudPresetState';
+import { setPaperImportProcessed } from './paperProcessedTracker';
 
 export const injectPaperScoreToStore = (
   preset: PaperPreset,
@@ -26,34 +27,21 @@ export const injectPaperScoreToStore = (
   usePaperVigilanceStore.getState().setActiveSequencerScoreId(scoreId);
 
   const isExistingActiveSong = preset.id === '__active_song__';
-  const currentStoreMeta = store.metadata || ({} as any);
+  const curMeta = store.metadata || ({} as any);
 
-  const cleanMetadata: PresetMetadata = isExistingActiveSong
-    ? {
-        ...currentStoreMeta,
-        toada: customMetadata?.toada?.trim() || currentStoreMeta.toada || preset.name || '',
-        nacao: customMetadata?.nacao !== undefined ? customMetadata.nacao.trim() : (currentStoreMeta.nacao || preset.nacao || ''),
-        compositor: customMetadata?.compositor !== undefined ? customMetadata.compositor.trim() : (currentStoreMeta.compositor || ''),
-        ritmo: customMetadata?.ritmo !== undefined ? customMetadata.ritmo.trim() : (currentStoreMeta.ritmo || ''),
-        youtubeUrl: customMetadata?.youtubeUrl !== undefined ? customMetadata.youtubeUrl.trim() : (currentStoreMeta.youtubeUrl || ''),
-        description: customMetadata?.description !== undefined ? customMetadata.description.trim() : (currentStoreMeta.description || ''),
-        descriptionPt: customMetadata?.descriptionPt !== undefined ? customMetadata.descriptionPt.trim() : (currentStoreMeta.descriptionPt || ''),
-        descriptionFr: customMetadata?.descriptionFr !== undefined ? customMetadata.descriptionFr.trim() : (currentStoreMeta.descriptionFr || ''),
-      }
-    : {
-        toada: customMetadata?.toada?.trim() || preset.name || '',
-        nacao: customMetadata?.nacao?.trim() || preset.nacao?.trim() || '',
-        compositor: customMetadata?.compositor?.trim() || '',
-        ritmo: customMetadata?.ritmo?.trim() || '',
-        youtubeUrl: customMetadata?.youtubeUrl?.trim() || '',
-        description: customMetadata?.description?.trim() || '',
-        descriptionPt: customMetadata?.descriptionPt?.trim() || '',
-        descriptionFr: customMetadata?.descriptionFr?.trim() || '',
-        rhythmSignals: [],
-        partitionImage: customMetadata?.partitionImage || undefined,
-        morceauId: undefined,
-        vocalPreset: undefined,
-      };
+  const cleanMetadata: PresetMetadata = {
+    toada: customMetadata?.toada?.trim() || curMeta.toada || preset.name || '',
+    nacao: customMetadata?.nacao?.trim() ?? (curMeta.nacao || preset.nacao || ''),
+    compositor: customMetadata?.compositor?.trim() ?? (isExistingActiveSong ? curMeta.compositor || '' : ''),
+    ritmo: customMetadata?.ritmo?.trim() ?? (isExistingActiveSong ? curMeta.ritmo || '' : ''),
+    youtubeUrl: customMetadata?.youtubeUrl?.trim() ?? (isExistingActiveSong ? curMeta.youtubeUrl || '' : ''),
+    description: customMetadata?.description?.trim() ?? (isExistingActiveSong ? curMeta.description || '' : ''),
+    descriptionPt: customMetadata?.descriptionPt?.trim() ?? (isExistingActiveSong ? curMeta.descriptionPt || '' : ''),
+    descriptionFr: customMetadata?.descriptionFr?.trim() ?? (isExistingActiveSong ? curMeta.descriptionFr || '' : ''),
+    ...(isExistingActiveSong
+      ? {}
+      : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: undefined, vocalPreset: undefined }),
+  };
 
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
@@ -83,34 +71,19 @@ export const injectPaperScoreToStore = (
   });
 
   useSequencerStore.setState((state: any) => ({
-    tracks: updatedTracks,
-    totalMeasures,
-    bpm: targetBpm,
-    timeSig: targetTimeSig,
-    metadata: cleanMetadata,
-    letras: isExistingActiveSong ? state.letras : '',
-    songSections: mergedSections,
-    measureBpms: mBpms,
-    measureTimeSigs: mSigs,
-    measureVols: undefined,
-    measurePans: undefined,
-    measureReverbSends: undefined,
-    measureBpmTransitions: Array(totalMeasures).fill('immediate'),
-    measureVolTransitions: Array(totalMeasures).fill('immediate'),
-    measureSignals: Array(totalMeasures).fill(null),
-    songMarkers: (preset as any).songMarkers || [],
-    mestreSignals: [],
+    tracks: updatedTracks, totalMeasures, bpm: targetBpm, timeSig: targetTimeSig,
+    metadata: cleanMetadata, letras: isExistingActiveSong ? state.letras : '', songSections: mergedSections,
+    measureBpms: mBpms, measureTimeSigs: mSigs, measureVols: undefined, measurePans: undefined, measureReverbSends: undefined,
+    measureBpmTransitions: Array(totalMeasures).fill('immediate'), measureVolTransitions: Array(totalMeasures).fill('immediate'),
+    measureSignals: Array(totalMeasures).fill(null), songMarkers: (preset as any).songMarkers || [], mestreSignals: [],
     loopStartMeasure: null, loopEndMeasure: null, isLoopRegionActive: false, pendingLoopRange: null,
-    currentMeasure: 0, currentExpandedMeasureIdx: 0,
-    selectedAutomationType: null,
-    selectedAutomationTrackId: null,
-    selectedAutomationRange: null,
-    automationAnchorMeasure: null,
-    tracksVersion: (state.tracksVersion || 0) + 1,
+    currentMeasure: 0, currentExpandedMeasureIdx: 0, selectedAutomationType: null, selectedAutomationTrackId: null,
+    selectedAutomationRange: null, automationAnchorMeasure: null, tracksVersion: (state.tracksVersion || 0) + 1,
   }));
   window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
 
   if (!isExistingActiveSong) {
+    if (preset.id) setPaperImportProcessed(preset.id, true);
     resetActiveCloudPresetId();
   }
 

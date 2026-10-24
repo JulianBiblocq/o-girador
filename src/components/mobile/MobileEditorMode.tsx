@@ -37,6 +37,7 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isBlankModalOpen, setIsBlankModalOpen] = useState(false);
+  const [workshopInitialTab, setWorkshopInitialTab] = useState<'sheets' | 'scanner' | 'reserve'>('scanner');
 
   return (
     <div className="w-full h-dvh flex flex-col bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden select-none font-sans relative">
@@ -78,7 +79,10 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
       {/* Contenu principal */}
       <main className="relative z-10 flex-1 min-h-0 overflow-y-auto">
         {activeTab === 'scan' ? (
-          <MobilePaperScanTab onOpenBlankSheets={() => setIsBlankModalOpen(true)} />
+          <MobilePaperScanTab
+            onOpenPaperWorkshop={(tab = 'scanner') => { setWorkshopInitialTab(tab); setIsBlankModalOpen(true); }}
+            onOpenBlankSheets={() => { setWorkshopInitialTab('sheets'); setIsBlankModalOpen(true); }}
+          />
         ) : (
           <MobileMestreSignalTab />
         )}
@@ -114,7 +118,7 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
       <BlankAndScanWorkshopModal
         isOpen={isBlankModalOpen}
         onClose={() => setIsBlankModalOpen(false)}
-        initialTab="sheets"
+        initialTab={workshopInitialTab}
       />
     </div>
   );

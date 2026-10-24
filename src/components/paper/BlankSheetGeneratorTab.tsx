@@ -52,7 +52,7 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
 
       {/* 2. RACCOURCIS & CONFIGURATION DES PUPITRES (TOUJOURS VISIBLE & MODIFIABLE) */}
       <div className="flex flex-col gap-1 p-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)]">
-        <div className="flex items-center gap-1.5 font-cactus font-bold uppercase text-[10.5px] text-[#8b2a1a]">
+        <div className="flex items-center gap-1.5 font-cactus font-bold uppercase text-[10.5px] text-[#f59e0b]">
           <CheckCircle2 className="w-3.5 h-3.5" />
           <span>{lang === 'fr' ? 'Raccourcis d’instruments personnalisables (1 à 3 lettres) :' : 'Abreviações de instrumentos personalizáveis (1 a 3 letras) :'}</span>
         </div>

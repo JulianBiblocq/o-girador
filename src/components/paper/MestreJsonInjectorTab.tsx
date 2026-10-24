@@ -1,5 +1,5 @@
 /**
- * Onglet 3 : Réserve JSON Mestre, Mémorisation & Injection Directe (< 145 lignes).
+ * Onglet 3 : Réserve JSON Mestre, Mémorisation & Injection Directe (< 120 lignes).
  */
 import React, { useState } from 'react';
 import { PaperPreset } from '../../types/paperWorkshop.types';
@@ -75,16 +75,24 @@ export const MestreJsonInjectorTab: React.FC<Props> = ({ canImport, lang, onSend
       {/* SÉLECTEUR RAPIDE MESTRE */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-black/5 border border-black/30">
         <div className="flex items-center gap-1.5">
-          <span className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a]">{lang === 'fr' ? 'Réserve du Mestre :' : 'Reserva Mestre :'}</span>
-          <select value={selectedId} onChange={(e) => handleSelect(e.target.value)} className="p-1 bg-white border border-black font-cactus font-bold text-xs max-w-[220px]">
-            {allPresets.map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.totalMeasures}m)</option>))}
+          <span className="font-cactus font-bold uppercase text-[11px] text-[#f59e0b]">{lang === 'fr' ? 'Réserve du Mestre :' : 'Reserva Mestre :'}</span>
+          <select
+            value={selectedId}
+            onChange={(e) => handleSelect(e.target.value)}
+            className="p-1.5 bg-[#f4ecd8] text-[#1a1a1a] font-bold border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] font-cactus text-xs max-w-[240px] focus:outline-none cursor-pointer"
+          >
+            {allPresets.map((p) => (
+              <option key={p.id} value={p.id} className="bg-[#f4ecd8] text-[#1a1a1a] font-bold">
+                {p.name} ({p.totalMeasures}m)
+              </option>
+            ))}
           </select>
         </div>
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={handleSaveToReserve} className="px-2 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer shadow-[1px_1px_0px_#000]">
             <Save size={11} /> <span>{lang === 'fr' ? 'Mémoriser dans ma Réserve' : 'Salvar na Reserva'}</span>
           </button>
-          <label className="px-2 py-1 bg-white hover:bg-black hover:text-white border border-black font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer">
+          <label className="px-2 py-1 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#e6dec8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer transition-colors">
             <Upload size={11} /> <span>{lang === 'fr' ? 'Charger .json' : 'Carregar'}</span>
             <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
           </label>
@@ -96,10 +104,10 @@ export const MestreJsonInjectorTab: React.FC<Props> = ({ canImport, lang, onSend
 
       {/* ACTIONS */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-        <span className="text-[10px] font-bold text-[#8b2a1a]">{!canImport ? 'Réservé au Mestre / Admin' : 'Mode Mestre Actif'}</span>
+        <span className="text-[10px] font-bold text-[#f59e0b]">{!canImport ? 'Réservé au Mestre / Admin' : 'Mode Mestre Actif'}</span>
         <div className="flex items-center gap-2">
           {onSendToTagBuilder && (
-            <button type="button" onClick={handleSendToBuilder} className="py-2 px-3 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] hover:bg-black hover:text-white cursor-pointer">
+            <button type="button" onClick={handleSendToBuilder} className="py-2 px-3 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] font-cactus font-bold text-xs uppercase flex items-center gap-1.5 hover:bg-[#e6dec8] cursor-pointer">
               <Tag size={13} /> <span>{lang === 'fr' ? 'Vers Constructeur d\'Étiquettes' : 'Para o Montador'}</span>
             </button>
           )}

@@ -15,7 +15,7 @@ export const BlankSheetGrid32ModeSelector: React.FC<Props> = ({ grid32Mode, onCh
   return (
     <div className="flex flex-col gap-1.5 p-2.5 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)]">
       <div className="flex flex-wrap items-center justify-between gap-1">
-        <label className="font-cactus font-bold uppercase text-[11px] text-[#8b2a1a] flex items-center gap-1.5">
+        <label className="font-cactus font-bold uppercase text-[11px] text-[#f59e0b] flex items-center gap-1.5">
           <PenTool className="w-3.5 h-3.5" />
           <span>{tPaper(lang, 'grid32Type')}</span>
         </label>

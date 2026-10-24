@@ -44,7 +44,7 @@ export const mobileTranslationsPt: Record<keyof typeof mobileTranslationsFr, str
   resteDuBatuque: 'Resto do Batuque',
 
   // Modo Edição - Scan & Sinais
-  scanTab: 'Scan e Fichas em branco',
+  scanTab: 'Scan & Importações',
   signalTab: 'Sinais do Mestre',
   takePhoto: 'Tirar foto',
   gallery: 'Galeria',

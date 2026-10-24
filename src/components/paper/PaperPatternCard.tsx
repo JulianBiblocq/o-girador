@@ -38,7 +38,7 @@ export const PaperPatternCard: React.FC<Props> = ({
   const numBeats = Math.max(1, Math.floor(displaySteps / 4));
 
   return (
-    <div className="p-2 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
+    <div className="p-2 pb-3 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
       {/* 1. EN-TÊTE MOTIF & BADGES */}
       <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5 pb-1 border-b border-black/10">
         <div className="flex items-center gap-1.5">

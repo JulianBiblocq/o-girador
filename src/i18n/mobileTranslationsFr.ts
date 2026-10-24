@@ -42,7 +42,7 @@ export const mobileTranslationsFr = {
   resteDuBatuque: 'Reste du Batuque',
 
   // Mode Édition - Scan & Signes
-  scanTab: 'Scan & Fiches vierges',
+  scanTab: 'Scan & Imports Papier',
   signalTab: 'Signes du Mestre',
   takePhoto: 'Prendre photo',
   gallery: 'Galerie',

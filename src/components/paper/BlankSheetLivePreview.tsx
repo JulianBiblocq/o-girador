@@ -66,7 +66,7 @@ export const BlankSheetLivePreview: React.FC<LivePreviewProps> = ({
 
   return (
     <div className="flex flex-col items-center gap-1.5 p-2 bg-black/5 border border-black/20 text-[#1a1a1a] w-full">
-      <span className="font-cactus font-bold uppercase text-[10px] text-[#8b2a1a] tracking-wider">
+      <span className="font-cactus font-bold uppercase text-[10px] text-[#f59e0b] tracking-wider">
         {tPaper(lang, 'directPreviewA4')}
       </span>
       <div className={`bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] p-2 flex flex-col justify-between overflow-hidden text-[6.5px] select-none font-sans ${isLandscape ? 'aspect-[1.414/1] max-w-[380px] w-full' : 'aspect-[1/1.414] max-w-[260px] w-full'}`}>
