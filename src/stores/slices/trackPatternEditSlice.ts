@@ -8,6 +8,7 @@ import { handleTimelinePatternVariationToggleState } from '../helpers/timelinePa
 import { duplicateMeasurePatternState } from '../helpers/patternDuplicateHelper';
 import { repeatPatternRangeState } from '../helpers/patternRepeatHelper';
 import { applyWorkspaceTemplateAudioSettings, createTracksFromTemplateState } from '../helpers/workspaceTemplateLoader';
+import { applyWorkspaceTemplateToSongState } from '../helpers/workspaceTemplateApplyHelper';
 import {
   handleTrackStepVolumeChangeState,
   handleTrackStepDecayChangeState,
@@ -62,6 +63,12 @@ export const createTrackPatternEditSlice: StateCreator<SequencerStore, [], [], T
     applyWorkspaceTemplateAudioSettings(template, audio);
     usePaperVigilanceStore.getState().setActiveSequencerScoreId(null);
     set(state => createTracksFromTemplateState(state, template));
+  },
+
+  handleApplyWorkspaceTemplate: (template, options, audio) => {
+    get().pushUndoState();
+    applyWorkspaceTemplateAudioSettings(template, audio, options);
+    set(state => applyWorkspaceTemplateToSongState(state, template, options));
   },
 
   handleVocalLatencyChange: (trackId, patternId, latencyMs) => {

@@ -28,7 +28,7 @@ export const WorkspaceTemplateOptionsCheckboxes: React.FC<OptionsCheckboxesProps
         />
         <span className="font-medium">
           {lang === 'pt'
-            ? 'Estrutura do batuque & Bus (links mestre/escravos, subgrupos)'
+            ? 'Estrutura do batuque & Bus (vínculos mestre/escravos, subgrupos)'
             : 'Structure du batuque & Bus (liens maître/esclaves, sous-groupes)'}
         </span>
       </label>

@@ -18,13 +18,9 @@ import { useMasterVuMeter } from './useMasterVuMeter';
 import { useMasterThemeTokens } from './useMasterThemeTokens';
 
 interface MixerMasterStripProps {
-  isMobile: boolean;
-  isActive: boolean;
-  isPlaying: boolean;
-  lang: string;
+  isMobile: boolean; isActive: boolean; isPlaying: boolean; lang: string;
   t: (key: string) => string;
-  masterVol: number;
-  onMasterVolChange: (db: number) => void;
+  masterVol: number; onMasterVolChange: (db: number) => void;
   masterEQ: { low: number; mid: number; high: number };
   onMasterEQChange: (eq: { low: number; mid: number; high: number }) => void;
   masterCompressor: { threshold: number; ratio: number };
@@ -39,16 +35,8 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
   const masterContainerRef = useRef<HTMLDivElement>(null);
   const [isMasterCollapsed, setIsMasterCollapsed] = useState(isMobile);
 
-  const isEcoMode = useSequencerStore(state => state.isEcoMode);
-  const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const measureVols = useSequencerStore(state => state.measureVols);
-  const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
-  const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
-  const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
-  const globalAutomationBypass = useSequencerStore(state => state.globalAutomationBypass);
-  const isMasterMono = useSequencerStore(state => state.isMasterMono);
-  const toggleMasterMono = useSequencerStore(state => state.toggleMasterMono);
-  const tracks = useSequencerStore(state => state.tracks);
+  const { isEcoMode, totalMeasures, measureVols, measureVolTransitions, isMasterVolumeBypassed,
+    toggleMasterVolumeBypass, globalAutomationBypass, isMasterMono, toggleMasterMono, tracks } = useSequencerStore();
 
   const hasMasterVolAuto = measureVols && measureVols.some(v => v !== 100);
   const isMasterVolEffectiveBypassed = isMasterVolumeBypassedHelper(isMasterVolumeBypassed, globalAutomationBypass);
@@ -61,6 +49,8 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
 
   const { vuMeterLeftRef, vuMeterRightRef } = useMasterVuMeter({ isPlaying, isActive });
   useMasterThemeTokens(masterContainerRef);
+
+  const templateTooltip = lang === 'pt' ? 'Memorizar ou carregar um gabarito do batuque' : 'Mémoriser ou charger un gabarit du batuque';
 
   return (
     <div className="flex shrink-0 sticky right-0 z-20 items-stretch shadow-[-8px_0_16px_rgba(0,0,0,0.18)] ml-auto">
@@ -87,8 +77,14 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
         {!isMasterCollapsed ? (
           <>
             <div className="p-1.5 px-2 border-b-2 border-[var(--master-border)] bg-[var(--cordel-bg)] shrink-0 flex items-center gap-1.5">
-              <button type="button" onClick={onOpenSaveTemplate} className="flex-1 py-1 px-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[10px] uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#1a1a1a] cursor-pointer truncate">
-                <XiloScroll size={13} className="shrink-0" /><span className="truncate">{lang === 'pt' ? 'Modelo' : 'Gabarit'}</span>
+              <button
+                type="button"
+                onClick={onOpenSaveTemplate}
+                title={templateTooltip}
+                className="flex-1 py-1 px-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] cordel-button font-cactus font-bold text-[10px] uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#1a1a1a] cursor-pointer truncate"
+              >
+                <XiloScroll size={13} className="shrink-0" />
+                <span className="truncate">{lang === 'pt' ? 'Gabarito do batuque' : 'Gabarit du batuque'}</span>
               </button>
               <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} />
             </div>
@@ -116,6 +112,14 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
         ) : (
           <div className="flex-grow flex flex-col items-center justify-between py-3 px-1 w-full gap-4 min-h-0 bg-[var(--master-header-bg)] text-[var(--master-header-text)] transition-colors">
             <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenSaveTemplate}
+                title={templateTooltip}
+                className="w-7 h-7 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <XiloScroll size={14} className="shrink-0" />
+              </button>
               <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} collapsed={true} />
             </div>
             <div className="flex-grow flex items-center justify-center select-none py-2 cursor-pointer" onClick={() => setIsMasterCollapsed(false)} title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}>

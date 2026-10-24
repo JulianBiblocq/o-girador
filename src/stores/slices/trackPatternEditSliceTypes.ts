@@ -1,4 +1,4 @@
-import { WorkspaceTemplate } from '../../types';
+import { WorkspaceTemplate, ApplyWorkspaceTemplateOptions } from '../../types';
 
 export interface TrackPatternEditSlice {
   handleTimelinePatternAssign: (trackId: number, patternId: number | null | undefined, measureIdx: number) => void;
@@ -7,6 +7,17 @@ export interface TrackPatternEditSlice {
   repeatPatternRange: (trackId: number, srcIdx: number, count: number) => void;
   handleCreateFromTemplate: (
     template: WorkspaceTemplate,
+    audio?: {
+      setMasterEQ?: (eq: { low: number; mid: number; high: number }) => void;
+      setMasterCompressor?: (comp: { threshold: number; ratio: number }) => void;
+      setMasterVol?: (vol: number) => void;
+      setReverbDecay?: (decay: number) => void;
+      setMasterReverbVol?: (vol: number) => void;
+    }
+  ) => void;
+  handleApplyWorkspaceTemplate: (
+    template: WorkspaceTemplate,
+    options: ApplyWorkspaceTemplateOptions,
     audio?: {
       setMasterEQ?: (eq: { low: number; mid: number; high: number }) => void;
       setMasterCompressor?: (comp: { threshold: number; ratio: number }) => void;

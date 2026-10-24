@@ -1,4 +1,4 @@
-import { WorkspaceTemplate } from '../../types';
+import { WorkspaceTemplate, WorkspaceTemplateOptions } from '../../types';
 
 export const applyWorkspaceTemplateAudioSettings = (
   template: WorkspaceTemplate,
@@ -8,10 +8,12 @@ export const applyWorkspaceTemplateAudioSettings = (
     setMasterVol?: (vol: number) => void;
     setReverbDecay?: (decay: number) => void;
     setMasterReverbVol?: (vol: number) => void;
-  }
+  },
+  overrideOptions?: WorkspaceTemplateOptions
 ) => {
   if (!template.masterSettings || !audio) return;
-  const { options, masterSettings } = template;
+  const options = overrideOptions || template.options;
+  const { masterSettings } = template;
   if (options.includeEQ && masterSettings.masterEQ && audio.setMasterEQ) {
     audio.setMasterEQ(masterSettings.masterEQ);
   }

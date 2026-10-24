@@ -2,11 +2,15 @@
 import { MasterFX } from './store.types';
 
 export interface WorkspaceTemplateOptions {
-  includeStructure: boolean;    // Estrutura do batuque & Bus (links mestre/escravos, subgrupos)
+  includeStructure: boolean;    // Estrutura do batuque & Bus (vínculos mestre/escravos, subgrupos)
   includeDisplayOrder: boolean; // Ordem da mesa de mixagem & rodaTrackOrder
   includeVolumePan: boolean;    // Níveis de volume & Panoramas
   includeEQ: boolean;           // Equalizações (bandas EQ / filtros Low-Cut, Master EQ)
   includeFX: boolean;           // Envios e retornos de efeitos (Reverb / Distorção, Master FX Rack)
+}
+
+export interface ApplyWorkspaceTemplateOptions extends WorkspaceTemplateOptions {
+  removeExtraTracks: boolean;   // Retirar instrumentos ausentes do gabarito
 }
 
 export interface WorkspaceTemplateTrack {
