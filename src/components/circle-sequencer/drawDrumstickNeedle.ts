@@ -13,7 +13,7 @@ export const drawDrumstickNeedle = (
   isHeavyEffectsDisabled: boolean
 ): void => {
   const maxVisibleRadius = activeVisibleTracks.length > 0 
-    ? getTrackRadius(activeVisibleTracks.length - 1, activeVisibleTracks.length) 
+    ? Math.max(...activeVisibleTracks.map((_, i) => getTrackRadius(i, activeVisibleTracks.length)))
     : 120;
   const stickLength = maxVisibleRadius + 40;
 

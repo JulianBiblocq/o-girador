@@ -90,14 +90,17 @@ export const MixerTracksContainer: React.FC<MixerTracksContainerProps> = ({
             const activeGroupKey = getTrackGroupKey(activeTrack, tracksMeta);
             const hoveredGroupKey = getTrackGroupKey(overTrack, tracksMeta);
             const currentTrackGroupKey = getTrackGroupKey(track, tracksMeta);
-            const isThisGroupHovered = !!(hoveredGroupKey && currentTrackGroupKey === hoveredGroupKey && dnd.activeDragTrackId !== null && !activeTrack?.isBusFolder);
+            const isOverBusHeaderLeft = Boolean(overTrack?.isBusFolder && dnd.overDropSide === 'left');
+            const isLinkGroup = Boolean(overTrack && (overTrack.isLinkFolder || tracksMeta.some(t => String(t.id) === String(overTrack.busId || overTrack.linkedToTrackId) && t.isLinkFolder)));
+            const canIntegrateGroup = !isLinkGroup && !isOverBusHeaderLeft;
+            const isThisGroupHovered = !!(hoveredGroupKey && currentTrackGroupKey === hoveredGroupKey && dnd.activeDragTrackId !== null && !activeTrack?.isBusFolder && canIntegrateGroup);
             const isExternalHoveringThisGroup = !!(isThisGroupHovered && (!activeGroupKey || activeGroupKey !== hoveredGroupKey));
 
             let dropIndicator: 'left' | 'right' | null = null;
             if (dnd.activeDragTrackId !== null && dnd.overDragTrackId === trackId && dnd.activeDragTrackId !== trackId && !isExternalHoveringThisGroup) {
               const activeIdx = displayedTracks.findIndex(t => t.id === dnd.activeDragTrackId);
               const overIdx = displayedTracks.findIndex(t => t.id === trackId);
-              if (activeIdx !== -1 && overIdx !== -1) dropIndicator = activeIdx < overIdx ? 'right' : 'left';
+              if (activeIdx !== -1 && overIdx !== -1) dropIndicator = dnd.overDropSide || (activeIdx < overIdx ? 'right' : 'left');
             }
 
             const { busPosition, linkPosition } = computeBusAndLinkPositions(track, prevTrack, nextTrack, tracksMeta);

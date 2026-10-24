@@ -5,8 +5,8 @@ export function executeMixerDragEnd(
   event: DragEndEvent,
   activeGroupIds: number[],
   onReorderPatternsDnd?: (trackId: number, oldIndex: number, newIndex: number) => void,
-  handleReorderMixerTracks?: (sourceId: number, targetId: number) => void,
-  handleReorderTracksDnd?: (sourceId: number, targetId: number) => void
+  handleReorderMixerTracks?: (sourceId: number, targetId: number, dropSide?: 'left' | 'right') => void,
+  handleReorderTracksDnd?: (sourceId: number, targetId: number, dropSide?: 'left' | 'right') => void
 ) {
   const { active, over } = event;
   if (!over || active.id === over.id) return;
@@ -29,8 +29,16 @@ export function executeMixerDragEnd(
     if (activeGroupIds.length > 1) {
       useSequencerStore.getState().handleReorderWagon(activeGroupIds, overTrackId);
     } else {
+      const activeTranslated = active.rect?.current?.translated;
+      const overRect = over.rect;
+      let dropSide: 'left' | 'right' = 'right';
+      if (activeTranslated && overRect) {
+        const activeCenter = activeTranslated.left + activeTranslated.width / 2;
+        const overCenter = overRect.left + overRect.width / 2;
+        dropSide = activeCenter < overCenter ? 'left' : 'right';
+      }
       const reorderFn = handleReorderMixerTracks || handleReorderTracksDnd;
-      if (reorderFn) reorderFn(activeTrackId, overTrackId);
+      if (reorderFn) reorderFn(activeTrackId, overTrackId, dropSide);
     }
   }
 }

@@ -40,7 +40,9 @@ export class EngineNotePlayer {
     decayMultiplier: number,
     isLiveHold: boolean = false
   ): void {
-    if (time < deps.playbackCtx.audioContext.currentTime - 0.050) return;
+    const currentTime = deps.playbackCtx.audioContext.currentTime;
+    if (time < currentTime - 0.120) return;
+    const safeTime = Math.max(currentTime, time);
 
     let trackId: number | null = null;
     let instrumentId = '';
@@ -52,7 +54,7 @@ export class EngineNotePlayer {
       instrumentId = String(trackIdOrInstrumentId);
     }
 
-    const timeSlot = Math.round(time * 333);
+    const timeSlot = Math.round(safeTime * 333);
     if (deps.timeSlotHitCounts.size > 2000) deps.timeSlotHitCounts.clear();
     const currentHits = (deps.timeSlotHitCounts.get(timeSlot) || 0) + 1;
     deps.timeSlotHitCounts.set(timeSlot, currentHits);
@@ -66,7 +68,7 @@ export class EngineNotePlayer {
     if (!stroke) return;
 
     EngineExecuteStroke.execute(
-      deps, trackId, instrumentId, config, stroke, time, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol
+      deps, trackId, instrumentId, config, stroke, safeTime, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol
     );
   }
 
@@ -76,7 +78,8 @@ export class EngineNotePlayer {
     strokeSymbol: string,
     pitchSemitones: number = 0,
     velocity: number = 1.0,
-    time?: number
+    time?: number,
+    decayMultiplier: number = 1.0
   ): void {
     const Tone = getTone();
     if (deps.playbackCtx.audioContext?.state !== 'running') deps.playbackCtx.audioContext.resume().catch(() => {});
@@ -93,7 +96,7 @@ export class EngineNotePlayer {
 
     const triggerTime = time !== undefined ? time : (Tone?.now() || deps.playbackCtx.audioContext.currentTime);
     EngineExecuteStroke.execute(
-      deps, null, instrumentId, config, stroke, triggerTime, velocity, 1.0, pitchSemitones, false, null, strokeSymbol
+      deps, null, instrumentId, config, stroke, triggerTime, velocity, decayMultiplier, pitchSemitones, false, null, strokeSymbol
     );
   }
 }

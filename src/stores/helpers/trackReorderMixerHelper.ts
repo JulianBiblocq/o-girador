@@ -51,7 +51,8 @@ const isMemberOfSolidBlock = (cand: TrackGroup, ref: TrackGroup, list: TrackGrou
 export const handleReorderMixerTracksState = (
   state: { tracks: TrackGroup[]; rodaTrackOrder: number[]; tracksVersion: number; [key: string]: any },
   activeId: number,
-  overId: number
+  overId: number,
+  dropSide: 'left' | 'right' = 'right'
 ): Record<string, any> => {
   if (activeId === overId) return {};
 
@@ -63,39 +64,16 @@ export const handleReorderMixerTracksState = (
   const dragged = currentTracks[oldIndex];
   const overTrack = currentTracks[newIndex];
 
-  // Cas 1 : Routage vers bus audio cible
-  const targetBusIdStr = overTrack.isBusFolder 
-    ? String(overTrack.id) 
-    : (overTrack.busId ? String(overTrack.busId) : (overTrack.linkedToTrackId ? String(overTrack.linkedToTrackId) : null));
-  const targetBus = targetBusIdStr ? currentTracks.find(t => String(t.id) === targetBusIdStr && t.isBusFolder) : null;
+  // 1. Détection des groupes / bus
+  const draggedLinkId = getLinkGroupId(dragged, currentTracks);
+  const overLinkId = getLinkGroupId(overTrack, currentTracks);
+  const isSameLinkGroup = Boolean(draggedLinkId && overLinkId && draggedLinkId === overLinkId);
+  const isSameBus = Boolean(dragged.busId && overTrack.busId && String(dragged.busId) === String(overTrack.busId));
+  const isInternalGroupMove = isSameLinkGroup || isSameBus;
 
-  if (targetBus && !dragged.isBusFolder) {
-    const isMember = String(dragged.busId) === String(targetBus.id) || String(dragged.linkedToTrackId) === String(targetBus.id);
-    if (!isMember) {
-      const isLink = !!targetBus.isLinkFolder;
-      const updated: TrackGroup = { ...dragged, busId: String(targetBus.id), linkedToTrackId: isLink ? String(targetBus.id) : undefined, isLinkMaster: isLink ? false : undefined };
-      const remaining = currentTracks.filter(t => t.id !== activeId);
-      const targetIdx = remaining.findIndex(t => t.id === overTrack.id);
-      const insertIdx = targetIdx !== -1 ? targetIdx + 1 : remaining.length;
-      const next = [...remaining.slice(0, insertIdx), updated, ...remaining.slice(insertIdx)];
-      return { tracks: applyRadii(sortTracksHierarchically(next), state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
-    }
-  }
-
-  // Cas 2 : Piste sortie de son bus vers piste autonome
-  if (dragged.busId && !targetBus && !dragged.isBusFolder) {
-    const updated: TrackGroup = { ...dragged, busId: undefined, linkedToTrackId: undefined, isLinkMaster: undefined };
-    const remaining = currentTracks.filter(t => t.id !== activeId);
-    const targetIdx = remaining.findIndex(t => t.id === overTrack.id);
-    const insertIdx = targetIdx !== -1 ? (oldIndex < newIndex ? targetIdx + 1 : targetIdx) : remaining.length;
-    const next = [...remaining.slice(0, insertIdx), updated, ...remaining.slice(insertIdx)];
-    return { tracks: applyRadii(sortTracksHierarchically(next), state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
-  }
-
-  // Cas 3 : Réarrangement interne au même groupe
-  const isSameBus = !!(dragged.busId && overTrack.busId && String(dragged.busId) === String(overTrack.busId));
+  // Cas 3 (prioritaire si même groupe) : Réarrangement interne au même groupe
   const blockTracks = currentTracks.filter(t => isMemberOfSolidBlock(t, dragged, currentTracks));
-  if ((blockTracks.length > 1 && blockTracks.some(t => t.id === overTrack.id)) || isSameBus) {
+  if ((blockTracks.length > 1 && blockTracks.some(t => t.id === overTrack.id)) || isInternalGroupMove) {
     const linkId = getLinkGroupId(dragged, currentTracks);
     if (linkId) {
       const folders = blockTracks.filter(t => t.isLinkFolder);
@@ -113,11 +91,46 @@ export const handleReorderMixerTracksState = (
     return { tracks: applyRadii(sortTracksHierarchically(next), state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
   }
 
-  // Cas 4 : Déplacement solidaire par bloc
+  // Détermination du bus cible et règles d'exclusion
+  const targetBusIdStr = overTrack.isBusFolder ? String(overTrack.id) : (overTrack.busId ? String(overTrack.busId) : null);
+  const targetBus = targetBusIdStr ? currentTracks.find(t => String(t.id) === targetBusIdStr && t.isBusFolder) : null;
+  const isTargetLinkGroup = Boolean(targetBus?.isLinkFolder || overLinkId);
+  const isDroppingLeftOfBusHeader = Boolean(overTrack.isBusFolder && dropSide === 'left');
+
+  const busChildren = targetBus
+    ? currentTracks.filter(t => !t.isBusFolder && (String(t.busId) === String(targetBus.id) || String(t.linkedToTrackId) === String(targetBus.id)))
+    : [];
+  const isLastChildOfBus = Boolean(busChildren.length > 0 && busChildren[busChildren.length - 1].id === overTrack.id);
+  const isDroppingAfterLastChild = isLastChildOfBus && dropSide === 'right';
+
+  const shouldJoinBus = Boolean(
+    targetBus && !isTargetLinkGroup && !dragged.isBusFolder && !isDroppingLeftOfBusHeader && !isDroppingAfterLastChild
+  );
+
+  // Cas 1 : Intégration autorisée dans un Bus Audio (à droite de la tranche BUS ou entre ses enfants)
+  if (shouldJoinBus && targetBus) {
+    const updated: TrackGroup = { ...dragged, busId: String(targetBus.id), linkedToTrackId: undefined, isLinkMaster: undefined };
+    const remaining = currentTracks.filter(t => t.id !== activeId);
+    const targetIdx = remaining.findIndex(t => t.id === overTrack.id);
+    const insertIdx = targetIdx !== -1 ? (dropSide === 'left' && !overTrack.isBusFolder ? targetIdx : targetIdx + 1) : remaining.length;
+    const next = [...remaining.slice(0, insertIdx), updated, ...remaining.slice(insertIdx)];
+    return { tracks: applyRadii(sortTracksHierarchically(next), state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
+  }
+
+  // Cas 2 : Piste autonome ou sortie de son bus (lâchée hors bus, à gauche d'une tranche BUS ou après dernier enfant)
+  if (dragged.busId && !dragged.isBusFolder) {
+    const updated: TrackGroup = { ...dragged, busId: undefined, linkedToTrackId: undefined, isLinkMaster: undefined };
+    const remaining = currentTracks.filter(t => t.id !== activeId);
+    const targetIdx = remaining.findIndex(t => t.id === overTrack.id);
+    const insertIdx = targetIdx !== -1 ? (dropSide === 'left' ? targetIdx : targetIdx + 1) : remaining.length;
+    const next = [...remaining.slice(0, insertIdx), updated, ...remaining.slice(insertIdx)];
+    return { tracks: applyRadii(sortTracksHierarchically(next), state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
+  }
+
+  // Cas 4 : Déplacement solidaire par bloc ou insertion libre
   const remaining = currentTracks.filter(t => !isMemberOfSolidBlock(t, dragged, currentTracks));
-  const firstBlockIdx = currentTracks.findIndex(t => isMemberOfSolidBlock(t, dragged, currentTracks));
   const targetIdx = remaining.findIndex(t => t.id === overTrack.id);
-  const isDropAfter = firstBlockIdx < newIndex;
+  const isDropAfter = dropSide === 'right';
   let insertIdx = targetIdx === -1 ? (isDropAfter ? remaining.length : 0) : (isDropAfter ? targetIdx + 1 : targetIdx);
   insertIdx = Math.max(0, Math.min(remaining.length, insertIdx));
   const next = [...remaining.slice(0, insertIdx), ...blockTracks, ...remaining.slice(insertIdx)];

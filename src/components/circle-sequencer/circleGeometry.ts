@@ -3,12 +3,8 @@ import { MIN_RADIUS, MAX_RADIUS } from './circleSequencerConstants';
 
 export const getTrackRadius = (visibleIdx: number, totalTracks: number): number => {
   if (totalTracks <= 0) return 0;
-  if (totalTracks === 1) return MAX_RADIUS - 35;
-  if (totalTracks === 2) {
-    return visibleIdx === 0 ? MAX_RADIUS - 105 : MAX_RADIUS - 35;
-  }
-  const gap = (MAX_RADIUS - MIN_RADIUS) / (totalTracks - 1);
-  return MIN_RADIUS + visibleIdx * gap;
+  const t = totalTracks > 1 ? visibleIdx / (totalTracks - 1) : 0.5;
+  return MAX_RADIUS - t * (MAX_RADIUS - MIN_RADIUS);
 };
 
 export const resolveBeatsFromTimeSig = (sigStr: string, patSteps: number): number => {

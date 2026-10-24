@@ -1,9 +1,10 @@
 
 export interface TrackHierarchySlice {
   handleReorderRodaTracks: (activeId: number, overId: number) => void;
-  handleReorderMixerTracks: (activeId: number, overId: number) => void;
+  handleReverseRodaTracks: () => void;
+  handleReorderMixerTracks: (activeId: number, overId: number, dropSide?: 'left' | 'right') => void;
   handleReorderWagon: (wagonTrackIds: number[], overTrackId: number) => void;
-  handleReorderTracksDnd: (activeId: number, overId: number) => void;
+  handleReorderTracksDnd: (activeId: number, overId: number, dropSide?: 'left' | 'right') => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
   handleDetachTrack: (trackId: number) => void;
   handleCreateLinkGroup: (trackId: number, name: string) => void;

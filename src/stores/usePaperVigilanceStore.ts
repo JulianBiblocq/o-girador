@@ -28,6 +28,7 @@ interface PaperVigilanceState {
   hasPoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number) => boolean;
   getPoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number) => VigilancePoint | undefined;
   linkPointsToTrack: (scoreId: string, sectionName: string, roleKey: string, trackId: number, patternId: number) => void;
+  renameSection: (scoreId: string, oldSecName: string, newSecName: string) => void;
   removePoint: (id: string) => void;
   clearAllForScore: (scoreId: string) => void;
   clearActiveSequencerDoubts: () => void;
@@ -86,6 +87,22 @@ export const usePaperVigilanceStore = create<PaperVigilanceState>((set, get) => 
         p.scoreId === scoreId && p.sectionName.toLowerCase() === normSec && p.roleKey.toLowerCase() === normRole
           ? { ...p, trackId, patternId, isInjected: true } : p
       ),
+    });
+  },
+
+  renameSection: (scoreId, oldSecName, newSecName) => {
+    const normOld = oldSecName.toLowerCase();
+    set({
+      points: get().points.map((p) => {
+        if (p.scoreId === scoreId && p.sectionName.toLowerCase() === normOld) {
+          return {
+            ...p,
+            sectionName: newSecName,
+            id: `${scoreId}__${newSecName}__${p.roleKey}__${p.stepIndex}`,
+          };
+        }
+        return p;
+      }),
     });
   },
 

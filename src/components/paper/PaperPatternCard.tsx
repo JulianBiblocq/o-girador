@@ -4,10 +4,11 @@
 import React from 'react';
 import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
-import { Cloud, Pin, AlertTriangle, Settings2 } from 'lucide-react';
+import { Cloud, Pin, AlertTriangle, Settings2, Pencil } from 'lucide-react';
 
 interface Props {
   secName: string;
+  onRename?: (newName: string) => void;
   pupitreMap: Partial<Record<string, PaperStepValue[]>>;
   isReusable: boolean;
   onToggleReusable: () => void;
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export const PaperPatternCard: React.FC<Props> = ({
-  secName, pupitreMap, isReusable, onToggleReusable, points, onCellClick,
+  secName, onRename, pupitreMap, isReusable, onToggleReusable, points, onCellClick,
   globalBpm, globalTimeSig, override, onOpenOverrideModal, lang,
 }) => {
   const isFr = lang === 'fr';
@@ -41,7 +42,17 @@ export const PaperPatternCard: React.FC<Props> = ({
       {/* 1. EN-TÊTE MOTIF & BADGES */}
       <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5 pb-1 border-b border-black/10">
         <div className="flex items-center gap-1.5">
-          <span className="font-cactus font-bold text-xs uppercase !text-[#1a1a1a]">{secName}</span>
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={secName}
+              onChange={(e) => onRename?.(e.target.value)}
+              placeholder={isFr ? 'Nom section...' : 'Nome seção...'}
+              aria-label={isFr ? 'Nom de la section' : 'Nome da seção'}
+              className="bg-[#f4ecd8] text-[#1a1a1a] font-bold border border-[#1a1a1a] px-2 pr-5 py-0.5 w-28 sm:w-36 text-xs font-cactus uppercase focus:outline-none focus:ring-2 focus:ring-[#9a3412] shadow-[1px_1px_0px_#1a1a1a]"
+            />
+            <Pencil size={10} className="absolute right-1.5 text-[#1a1a1a]/50 pointer-events-none" />
+          </div>
           <span className={`px-1.5 py-0.2 font-mono text-[9px] font-bold border ${isOverridden ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-black/10 text-black/80 border-black/30'}`}>
             {displaySig} ({displaySteps}p)
           </span>
@@ -53,10 +64,10 @@ export const PaperPatternCard: React.FC<Props> = ({
             type="button"
             onClick={onOpenOverrideModal}
             title={isFr ? 'Modifier ce pattern seul (BPM, Signature)' : 'Ajustar este padrão'}
-            className="p-1 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border border-black/40 text-[10px] cursor-pointer flex items-center gap-1"
+            className="px-1.5 py-0.5 bg-[#f4ecd8] hover:bg-[#e2d5b8] text-[#1a1a1a] font-bold border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
           >
-            <Settings2 size={11} />
-            <span className="font-cactus font-bold text-[9px]">{isFr ? 'Régler' : 'Ajustar'}</span>
+            <Settings2 size={11} className="text-[#1a1a1a] shrink-0" />
+            <span className="font-cactus font-bold text-[9px] text-[#1a1a1a]">{isFr ? 'Mesure / BPM' : 'Compasso / BPM'}</span>
           </button>
 
           <button

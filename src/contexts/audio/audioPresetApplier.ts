@@ -43,6 +43,7 @@ export async function executeApplyPreset(
   const validExisting = rawRodaOrder.filter((id: any) => typeof id === 'number' && loadedTrackIds.has(id));
   const missing = loadedTracks.map(t => t.id).filter(id => !validExisting.includes(id));
   const finalRodaOrder = [...validExisting, ...missing];
+  loadedTracks.forEach(t => { delete (t as any).radius; });
 
   useSequencerStore.setState({
     rodaTrackOrder: finalRodaOrder,
@@ -83,19 +84,36 @@ export async function executeApplyPreset(
   useSequencerStore.getState().setIsLoopBypassed(false);
   useSequencerStore.getState().setCurrentLoopIteration(1);
   useSequencerStore.getState().setLoopMode(p.loopMode !== undefined ? p.loopMode : 'infinite');
+  const hasLoop = p.loopStartMeasure !== undefined && p.loopStartMeasure !== null;
+  const isLoopRegionActive = p.isLoopRegionActive !== undefined ? p.isLoopRegionActive : hasLoop;
   sequencer.setLoopStartMeasure(p.loopStartMeasure !== undefined ? p.loopStartMeasure : null);
   sequencer.setLoopEndMeasure(p.loopEndMeasure !== undefined ? p.loopEndMeasure : null);
-  sequencer.setIsLoopRegionActive(p.isLoopRegionActive !== undefined ? p.isLoopRegionActive : true);
+  sequencer.setIsLoopRegionActive(isLoopRegionActive);
   if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
 
   const loadedSections = (p.songSections && Array.isArray(p.songSections)) ? JSON.parse(JSON.stringify(p.songSections)) : [];
-  const loadedMarkers = (p.songMarkers && Array.isArray(p.songMarkers)) ? JSON.parse(JSON.stringify(p.songMarkers)) : [];
+  const rawMarkers = p.songMarkers || p.markers;
+  const loadedMarkers = (rawMarkers && Array.isArray(rawMarkers)) ? JSON.parse(JSON.stringify(rawMarkers)) : [];
   const loadedSignals = (p.measureSignals && Array.isArray(p.measureSignals)) ? JSON.parse(JSON.stringify(p.measureSignals)) : Array(loadedMeasures).fill(null);
-  useSequencerStore.setState({ songSections: loadedSections, songMarkers: loadedMarkers, measureSignals: loadedSignals });
+  const loadedMestreSignals = (p.mestreSignals && Array.isArray(p.mestreSignals)) ? JSON.parse(JSON.stringify(p.mestreSignals)) : [];
+
+  useSequencerStore.setState({
+    songSections: loadedSections,
+    songMarkers: loadedMarkers,
+    measureSignals: loadedSignals,
+    mestreSignals: loadedMestreSignals,
+    loopStartMeasure: p.loopStartMeasure !== undefined ? p.loopStartMeasure : null,
+    loopEndMeasure: p.loopEndMeasure !== undefined ? p.loopEndMeasure : null,
+    isLoopRegionActive,
+    pendingLoopRange: null,
+    currentMeasure: 0,
+    currentExpandedMeasureIdx: 0,
+  });
   sequencer.setSongSections(loadedSections); sequencer.setSongMarkers(loadedMarkers); sequencer.setMeasureSignals(loadedSignals);
   if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
   if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
   if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
+  window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
 
   restoreMasterFxFromPreset(p, setters.setMasterEQ, setters.setMasterCompressor, setters.setMasterVol, setters.setMasterReverbVol, setters.setReverbDecay);
 

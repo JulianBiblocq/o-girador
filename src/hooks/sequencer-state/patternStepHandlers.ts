@@ -4,6 +4,7 @@ import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { handleTrackStepKeyDownHelper } from './trackStepKeyNavigationHelper';
+import { syncPatternAcrossLinkedFamily } from '../../stores/helpers/patternStepLinkedTracksSync';
 
 export interface PatternStepContext {
   pushUndoState: () => void;
@@ -17,33 +18,25 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
     trackId: number, patternId: number, stepIdx: number, newState: string | number | [string, string], optLyric?: string, optNote?: string
   ) => {
     pushUndoState();
-    const tracks = useSequencerStore.getState().tracks;
     const defaults = useSequencerSettingsStore.getState().strokeDefaults?.[`${trackId}:${newState}`];
     if (typeof newState === 'string' && newState.trim() !== '' && newState !== '0') {
       useSequencerSettingsStore.getState().setStrokeForcedState(`${trackId}:${newState}`, true);
     }
 
-    setTracks(() => tracks.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId) return p;
-          const arrSteps = [...p.activeSteps];
-          arrSteps[stepIdx] = newState;
-          const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-          const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-          const arrVols = [...(p.volumes || Array(p.steps).fill(80))];
-          const arrDecays = [...(p.decays || Array(p.steps).fill(100))];
-          if (defaults) {
-            if (defaults.volume !== undefined) arrVols[stepIdx] = defaults.volume;
-            if (defaults.decay !== undefined) arrDecays[stepIdx] = defaults.decay;
-          }
-          if (optLyric !== undefined) arrLyrics[stepIdx] = optLyric;
-          if (optNote !== undefined) arrNotes[stepIdx] = optNote;
-          return { ...p, activeSteps: arrSteps, lyrics: arrLyrics, notes: arrNotes, volumes: arrVols, decays: arrDecays };
-        })
-      };
+    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+      const arrSteps = [...p.activeSteps];
+      arrSteps[stepIdx] = newState;
+      const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+      const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+      const arrVols = [...(p.volumes || Array(p.steps).fill(80))];
+      const arrDecays = [...(p.decays || Array(p.steps).fill(100))];
+      if (defaults) {
+        if (defaults.volume !== undefined) arrVols[stepIdx] = defaults.volume;
+        if (defaults.decay !== undefined) arrDecays[stepIdx] = defaults.decay;
+      }
+      if (optLyric !== undefined) arrLyrics[stepIdx] = optLyric;
+      if (optNote !== undefined) arrNotes[stepIdx] = optNote;
+      return { ...p, activeSteps: arrSteps, lyrics: arrLyrics, notes: arrNotes, volumes: arrVols, decays: arrDecays };
     }));
   };
 
@@ -51,8 +44,7 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
     trackId: number, patternId: number, stepIdx: number | number[], val: string | number | string[] | [string, string], lyrics?: string[] | string, notes?: string[] | string
   ) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId && String(t.id) !== String(trackId)) return t;
+    setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p, isSource, t) => {
       const inst = instrumentsConfig[t.instrumentIdx];
       const parseVal = (v: string | number): string | number => {
         if (!v || v === 0 || v === '0') return 0;
@@ -67,33 +59,27 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
         return 0;
       };
 
+      const copySteps = [...p.activeSteps];
+      const copyLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+      const copyNotes = [...(p.notes || Array(p.steps).fill(''))];
+      if (Array.isArray(stepIdx)) {
+        stepIdx.forEach((idx: number, i: number) => {
+          const currentVal = Array.isArray(val) ? val[i] : val;
+          copySteps[idx] = Array.isArray(currentVal) ? [parseVal(currentVal[0]) as string, parseVal(currentVal[1]) as string] : parseVal(currentVal as string | number);
+          if (lyrics && Array.isArray(lyrics)) copyLyrics[idx] = lyrics[i];
+          if (notes && Array.isArray(notes)) copyNotes[idx] = notes[i];
+        });
+      } else {
+        copySteps[stepIdx] = Array.isArray(val) ? [parseVal(val[0]) as string, parseVal(val[1]) as string] : parseVal(val as string | number);
+        if (lyrics !== undefined) copyLyrics[stepIdx] = typeof lyrics === 'string' ? lyrics : lyrics[0];
+        if (notes !== undefined) copyNotes[stepIdx] = typeof notes === 'string' ? notes : notes[0];
+      }
       return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId && String(p.id) !== String(patternId)) return p;
-          const copySteps = [...p.activeSteps];
-          const copyLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-          const copyNotes = [...(p.notes || Array(p.steps).fill(''))];
-          if (Array.isArray(stepIdx)) {
-            stepIdx.forEach((idx: number, i: number) => {
-              const currentVal = Array.isArray(val) ? val[i] : val;
-              copySteps[idx] = Array.isArray(currentVal) ? [parseVal(currentVal[0]) as string, parseVal(currentVal[1]) as string] : parseVal(currentVal as string | number);
-              if (lyrics && Array.isArray(lyrics)) copyLyrics[idx] = lyrics[i];
-              if (notes && Array.isArray(notes)) copyNotes[idx] = notes[i];
-            });
-          } else {
-            copySteps[stepIdx] = Array.isArray(val) ? [parseVal(val[0]) as string, parseVal(val[1]) as string] : parseVal(val as string | number);
-            if (lyrics !== undefined) copyLyrics[stepIdx] = typeof lyrics === 'string' ? lyrics : lyrics[0];
-            if (notes !== undefined) copyNotes[stepIdx] = typeof notes === 'string' ? notes : notes[0];
-          }
-          return {
-            ...p,
-            activeSteps: copySteps,
-            lyrics: copyLyrics,
-            notes: copyNotes,
-            volumes: p.volumes ? [...p.volumes] : Array(p.steps).fill(80),
-          };
-        })
+        ...p,
+        activeSteps: copySteps,
+        lyrics: copyLyrics,
+        notes: copyNotes,
+        volumes: p.volumes ? [...p.volumes] : Array(p.steps).fill(80),
       };
     }));
   };
@@ -104,9 +90,7 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
 
   const handlePatternNameChange = (trackId: number, patternId: number, newName: string) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => (t.id === trackId || String(t.id) === String(trackId)) ? {
-      ...t, patterns: t.patterns.map((p: Pattern) => (p.id === patternId || String(p.id) === String(patternId)) ? { ...p, name: newName } : p)
-    } : t));
+    setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => ({ ...p, name: newName })));
   };
 
   const handleReorderPatternsDnd = (trackId: number, oldIndex: number, newIndex: number) => {
@@ -116,14 +100,11 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
 
   const handleDeletePatternMeasure = (trackId: number, patternId: number, measureIndex: number) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => (t.id === trackId || String(t.id) === String(trackId)) ? {
-      ...t, patterns: t.patterns.map((p: Pattern) => {
-        if (p.id !== patternId && String(p.id) !== String(patternId)) return p;
-        const arr = [...p.measureAssignments];
-        arr[measureIndex] = false;
-        return { ...p, measureAssignments: arr };
-      })
-    } : t));
+    setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+      const arr = [...p.measureAssignments];
+      arr[measureIndex] = false;
+      return { ...p, measureAssignments: arr };
+    }));
   };
 
   return {

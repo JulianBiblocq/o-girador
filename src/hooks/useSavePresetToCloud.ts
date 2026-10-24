@@ -9,6 +9,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useCloudPresets } from './queries/useCloudPresets';
 import { useMatchedPresetFinder } from './save-preset/useMatchedPresetFinder';
 import { executeSavePresetToCloud } from './save-preset/usePresetCloudSaverAction';
+import { getActiveCloudPresetId } from '../utils/cloudPresetState';
 
 interface UseSavePresetOptions {
   presetData: Preset;
@@ -62,11 +63,9 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
     canWriteSequenciador: userProfile?.canWriteSequenciador
   });
 
-  const loadedMorceauId = (presetData.metadata as any)?.morceauId ||
-    (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('loadPreset') : null) ||
-    (typeof window !== 'undefined' ? localStorage.getItem('girador_last_loaded_preset_id') : null);
+  const loadedMorceauId = getActiveCloudPresetId(presetData);
 
-  const { matchedPreset, isExistingPreset, isLocked, canUpdate } = useMatchedPresetFinder({
+  const { matchedPreset, isExistingPreset, isLocked, canUpdate, isSavedOnCloud } = useMatchedPresetFinder({
     cloudPresets, name, loadedMorceauId, userUid: userProfile?.uid, effectiveMestreId, isMestre, isAdmin
   });
 
@@ -101,6 +100,6 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
   return {
     name, setName, visibility, setVisibility, isSaving, autoGenerateAudio, setAutoGenerateAudio,
     isBouncingCloud, handleSave, userProfile, groupDisplayName, progress, stepLabel,
-    matchedPreset, isExistingPreset, isLocked, isMestre, canUpdate, isDraft, setIsDraft
+    matchedPreset, isExistingPreset, isLocked, isMestre, canUpdate, isDraft, setIsDraft, isSavedOnCloud
   };
 }

@@ -63,12 +63,13 @@ export function useMatchedPresetFinder({
     return null;
   }, [cloudPresets, name, loadedMorceauId, userUid, effectiveMestreId, isMestre, isAdmin]);
 
-  const isExistingPreset = Boolean(matchedPreset);
+  const isSavedOnCloud = Boolean(loadedMorceauId && cloudPresets.some((p) => p.id === loadedMorceauId));
+  const isExistingPreset = isSavedOnCloud && Boolean(matchedPreset);
   const isLocked = matchedPreset
     ? ((matchedPreset as any).isLocked === true || SANCTUARIZED_PRESET_IDS.has(matchedPreset.id))
     : false;
   const isOwnPreset = matchedPreset ? matchedPreset.ownerId === userUid : false;
   const canUpdate = isMestre || isAdmin || (!isLocked && isOwnPreset);
 
-  return { matchedPreset, isExistingPreset, isLocked, canUpdate };
+  return { matchedPreset, isExistingPreset, isLocked, canUpdate, isSavedOnCloud };
 }

@@ -46,10 +46,10 @@ export const TransportMetronomeSection: React.FC<TransportMetronomeSectionProps>
   }, [isPreRollPopupOpen]);
 
   return (
-    <div className="relative flex items-center bg-[var(--cordel-bg)] h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a]" ref={metroContainerRef}>
+    <div className="relative flex items-center bg-[var(--cordel-bg)] h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] shrink-0" ref={metroContainerRef}>
       <button
         onClick={() => setIsMetroOn(!isMetroOn)}
-        className={`px-2 sm:px-2.5 font-cactus font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 h-full transition-colors cursor-pointer select-none rounded-none ${
+        className={`px-1.5 sm:px-2.5 font-cactus font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 h-full transition-colors cursor-pointer select-none rounded-none ${
           isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
         }`}
         title={t('metroBtn')}

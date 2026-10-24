@@ -80,8 +80,8 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
   const t = (key: string) => ((i18n[lang] as any)[key] || key);
 
   return (
-    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-1.5 sm:px-2.5 lg:px-4 z-50 shrink-0 overflow-visible">
-      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
+    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-1 sm:px-2.5 lg:px-4 z-50 shrink-0 overflow-visible gap-1">
+      <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 shrink-0">
         <TransportMetronomeSection isMetroOn={isMetroOn} setIsMetroOn={setIsMetroOn} preRollSettings={preRollSettings} setPreRollSettings={setPreRollSettings} availableSignals={availableSignals} lang={lang} t={t} />
         <TransportBpmControl bpm={effectiveBpm} setBpm={setBpm} lang={lang} />
         <TransportSpeedTrainerButton isSpeedTrainerActive={isSpeedTrainerActive} speedTrainerTourCount={speedTrainerTourCount} speedTrainerCurrentBpm={speedTrainerCurrentBpm} speedTrainerCountdown={speedTrainerCountdown} tocarJuntoActive={tocarJuntoActive} tocarJuntoTrackId={tocarJuntoTrackId} openSpeedTrainerModal={openSpeedTrainerModal} lang={lang} />

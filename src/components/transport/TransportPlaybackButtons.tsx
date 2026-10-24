@@ -46,13 +46,13 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
   const isPracticeMode = useSequencerStore((state) => state.isPracticeMode);
 
   return (
-    <div className="flex items-center gap-1.5 sm:gap-2.5 lg:gap-3 shrink-0 max-xl:ml-auto xl:absolute xl:left-[calc(50%-9px)] xl:-translate-x-1/2 xl:top-1/2 xl:-translate-y-1/2">
+    <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 shrink-0 max-xl:ml-auto xl:absolute xl:left-[calc(50%-9px)] xl:-translate-x-1/2 xl:top-1/2 xl:-translate-y-1/2">
       <button
         onClick={handleStop}
-        className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shrink-0"
+        className="w-8 h-8 sm:w-10 sm:h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shrink-0"
         title={lang === 'pt' ? 'Voltar ao início' : 'Retour au début'}
       >
-        <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
+        <SkipBack className="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="currentColor" />
       </button>
 
       <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
@@ -60,12 +60,12 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
           data-testid="transport-play-btn"
           onClick={handleTogglePlay}
           disabled={isLoading}
-          className={`w-12 h-12 sm:w-14 sm:h-14 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
+          className={`w-10 h-10 sm:w-14 sm:h-14 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
             isLoading ? 'bg-gray-400 text-gray-700 cursor-wait' : isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
           }`}
           title={isLoading ? (lang === 'pt' ? 'Carregando sons...' : 'Chargement des sons...') : isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
         >
-          {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" /> : isPlaying ? <Square className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-0.5 sm:ml-1" fill="currentColor" />}
+          {isLoading ? <Loader2 className="w-5 h-5 sm:w-8 sm:h-8 animate-spin" /> : isPlaying ? <Square className="w-4 h-4 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-5 h-5 sm:w-8 sm:h-8 ml-0.5 sm:ml-1" fill="currentColor" />}
         </button>
 
         <TransportLoopControl
@@ -84,7 +84,7 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
         <div className="flex items-center gap-2 relative shrink-0">
           <button
             onClick={handleAudioRecordingToggle}
-            className={`w-9 h-9 sm:w-10 sm:h-10 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
+            className={`w-8 h-8 sm:w-10 sm:h-10 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
               isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
             }`}
             title={lang === 'fr' ? "Exporter l'audio en WAV" : lang === 'pt' ? "Exportar áudio em WAV" : "Export Audio to WAV"}

@@ -6,7 +6,7 @@ import { PaperSequenceItem } from '../../types/paperWorkshop.types';
 import { Plus, Trash2, ArrowLeft, ArrowRight } from 'lucide-react';
 
 interface Props {
-  availableSections: string[];
+  availableSections: Array<string | { id: string; name: string }>;
   sequenceItems: PaperSequenceItem[];
   onChangeSequence: (items: PaperSequenceItem[]) => void;
   lang: 'fr' | 'pt';
@@ -31,8 +31,10 @@ export function factorizeSequence(seq: string[]): PaperSequenceItem[] {
 export const SequenceTagBuilder: React.FC<Props> = ({
   availableSections, sequenceItems, onChangeSequence, lang,
 }) => {
-  const addTag = (name: string) => {
-    onChangeSequence([...sequenceItems, { id: `tag-${Date.now()}-${Math.random()}`, sectionName: name, repeatCount: 1 }]);
+  const addTag = (sec: string | { id: string; name: string }) => {
+    const secName = typeof sec === 'string' ? sec : sec.name;
+    const secId = typeof sec === 'string' ? undefined : sec.id;
+    onChangeSequence([...sequenceItems, { id: `tag-${Date.now()}-${Math.random()}`, sectionName: secName, repeatCount: 1, ...(secId ? { sectionId: secId } : {}) } as any]);
   };
 
   const updateRepeat = (id: string, delta: number) => {
@@ -60,16 +62,21 @@ export const SequenceTagBuilder: React.FC<Props> = ({
           {lang === 'fr' ? '1. Palette d\'étiquettes (cliquez pour ajouter à la séquence) :' : '1. Paleta de etiquetas (clique para adicionar) :'}
         </span>
         <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto">
-          {availableSections.map((sec) => (
+          {availableSections.map((sec) => {
+            const secName = typeof sec === 'string' ? sec : sec.name;
+            const secKey = typeof sec === 'string' ? sec : sec.id;
+            const displayLabel = secName.trim() || '...';
+            return (
             <button
-              key={sec}
+              key={secKey}
               type="button"
               onClick={() => addTag(sec)}
               className="px-2 py-1 bg-[#f4ecd8] hover:bg-[#e6dec8] !text-[#1a1a1a] border-2 border-[#1a1a1a] text-[11px] font-cactus font-extrabold flex items-center gap-1 cursor-pointer transition-colors shadow-[2px_2px_0px_#1a1a1a]"
             >
-              <Plus size={11} className="text-[#8b2a1a] font-black stroke-[3]" /> <span>{sec}</span>
+              <Plus size={11} className="text-[#8b2a1a] font-black stroke-[3]" /> <span>{displayLabel}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -89,7 +96,7 @@ export const SequenceTagBuilder: React.FC<Props> = ({
         <div className="flex flex-wrap gap-1.5 max-h-[125px] overflow-y-auto">
           {sequenceItems.map((item, idx) => (
             <div key={item.id} className="flex items-center gap-1 px-1.5 py-1 bg-[#efe6d0] border border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] select-none">
-              <span className="font-cactus font-bold text-xs !text-[#1a1a1a]">{item.sectionName}</span>
+              <span className="font-cactus font-bold text-xs !text-[#1a1a1a]">{item.sectionName.trim() || '...'}</span>
               <div className="flex items-center bg-[#e6dec8] border border-[#1a1a1a] px-1 py-0.5 ml-1 gap-1">
                 <button type="button" onClick={() => updateRepeat(item.id, -1)} className="px-1 text-[10px] font-black !text-[#1a1a1a] hover:bg-[#c25e38] hover:!text-[#f4ecd8] cursor-pointer transition-colors">-</button>
                 <span className="font-extrabold text-[10px] min-w-[18px] text-center !text-[#8b2a1a]">×{item.repeatCount}</span>

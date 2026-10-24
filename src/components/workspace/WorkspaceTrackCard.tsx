@@ -1,12 +1,14 @@
 
 import React, { useMemo } from 'react';
-import { Eye, EyeOff, GripVertical, Trash2, Mic, Link as LinkIcon } from 'lucide-react';
+import { Eye, EyeOff, GripVertical, Trash2, Mic, Link2 } from 'lucide-react';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { TrackGroup } from '../../types';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
 import { TrackInkVolumeSlider } from '../mixer/TrackInkVolumeSlider';
+import { getTrackGroupVisual } from './trackGroupVisual';
+import { TrackCardGroupIndicator } from './TrackCardGroupIndicator';
 
 interface WorkspaceTrackCardProps {
   track: TrackGroup;
@@ -39,6 +41,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
   const isCurrentFocus = isPracticeMode && isFocusActive && focusTrackId === track.id;
 
   const displayName = useMemo(() => isToada ? 'Toada' : (!inst ? 'Instrument' : useNomenclatureStore.getState().getInstrumentLabel(track)), [isToada, inst, track]);
+  const groupVisual = useMemo(() => getTrackGroupVisual(track, tracks), [track, tracks]);
 
   const handleBadgeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -78,6 +81,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
 
   return (
     <div className="flex flex-col justify-between w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-2 pt-[6px] relative z-10 bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] select-none">
+      <TrackCardGroupIndicator visual={groupVisual} />
       <div className="flex items-center justify-between w-full h-[28px] min-h-[28px] max-h-[28px]">
         <div className="flex items-center gap-1 min-w-0 flex-1 mr-2">
           <div {...dragHandleProps?.attributes} {...dragHandleProps?.listeners} className="transition-colors p-0.5 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a]" title={lang === 'fr' ? 'Glisser pour réorganiser' : 'Arrastar para reordenar'}>
@@ -92,7 +96,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           >
             <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-3.5 h-3.5 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
             <span className="text-[11px] font-cactus font-black leading-tight truncate block text-left flex-1">{index + 1}. {displayName}</span>
-            {isLinkedSlave && <LinkIcon size={10} className="shrink-0 opacity-70" />}
+            {groupVisual?.isSlave && <Link2 size={10} className="shrink-0 opacity-70" />}
           </button>
 
           {!isPracticeMode && (

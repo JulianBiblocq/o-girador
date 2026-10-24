@@ -1,67 +1,94 @@
 /**
- * O Girador - Audio Engine Round-Robin Selection with Anti-Collision
+ * O Girador - Audio Engine Round-Robin Selection with Shared-Pool Anti-Collision
  */
 
 import { StrokeMapping } from '../../data/audioConfig';
 
+interface PoolTrigger {
+  time: number;
+  fileIdx: number;
+}
+
 export class EngineRoundRobin {
-  public lastPlayedIndices = new Map<string, Map<string, number>>();
-  public timeStrokeIndicesUsed = new Map<string, number[]>();
+  public lastPlayedIndices = new Map<string, number>();
+  public recentPoolTriggers = new Map<string, PoolTrigger[]>();
 
-  public selectFile(instrumentId: string, stroke: StrokeMapping, time: number): string {
+  public selectFile(
+    instrumentId: string,
+    stroke: StrokeMapping,
+    time: number,
+    trackId?: number | string | null
+  ): string {
     const numFiles = stroke.files.length;
-    let chosenIdx = 0;
+    if (numFiles <= 1) return stroke.files[0] || '';
 
-    let instMap = this.lastPlayedIndices.get(instrumentId);
-    if (!instMap) {
-      instMap = new Map<string, number>();
-      this.lastPlayedIndices.set(instrumentId, instMap);
-    }
+    const samplePoolKey = stroke.files[0] || `${instrumentId}_${stroke.symbol}`;
+    const trackKey = `${trackId ?? instrumentId}_${samplePoolKey}`;
 
-    const timeSlot = Math.round(time * 333);
-    const timeKey = `${timeSlot}_${instrumentId}_${stroke.symbol}`;
-    if (!this.timeStrokeIndicesUsed.has(timeKey)) {
-      if (this.timeStrokeIndicesUsed.size > 2000) {
-        this.timeStrokeIndicesUsed.clear();
-      }
-      this.timeStrokeIndicesUsed.set(timeKey, []);
-    }
-    const usedIndices = this.timeStrokeIndicesUsed.get(timeKey)!;
-
-    if (numFiles > 1) {
-      const lastIdx = instMap.has(stroke.symbol) ? instMap.get(stroke.symbol)! : -1;
-      const candidates: number[] = [];
-      for (let i = 0; i < numFiles; i++) {
-        if (!usedIndices.includes(i) && i !== lastIdx) {
-          candidates.push(i);
-        }
-      }
-
-      if (candidates.length === 0) {
-        for (let i = 0; i < numFiles; i++) {
-          if (!usedIndices.includes(i)) candidates.push(i);
-        }
-      }
-
-      if (candidates.length === 0) {
-        for (let i = 0; i < numFiles; i++) candidates.push(i);
-      }
-
-      const randIdx = Math.floor(Math.random() * candidates.length);
-      chosenIdx = candidates[randIdx];
-      usedIndices.push(chosenIdx);
-      instMap.set(stroke.symbol, chosenIdx);
+    // 1. Nettoyage de l'historique glissant du pool (> 100ms)
+    let triggers = this.recentPoolTriggers.get(samplePoolKey);
+    if (!triggers) {
+      triggers = [];
+      this.recentPoolTriggers.set(samplePoolKey, triggers);
     } else {
-      chosenIdx = 0;
-      usedIndices.push(0);
-      instMap.set(stroke.symbol, 0);
+      triggers = triggers.filter(e => Math.abs(time - e.time) <= 0.100);
+      this.recentPoolTriggers.set(samplePoolKey, triggers);
     }
+
+    // 2. Indices utilisés dans la fenêtre glissante acoustique de +- 30ms
+    const usedIndices = new Set<number>();
+    for (let i = 0; i < triggers.length; i++) {
+      if (Math.abs(time - triggers[i].time) <= 0.030) {
+        usedIndices.add(triggers[i].fileIdx);
+      }
+    }
+
+    // 3. Mémoire du dernier index joué par cette piste sur ce pool (anti-mitraillette)
+    const lastIdx = this.lastPlayedIndices.has(trackKey) ? this.lastPlayedIndices.get(trackKey)! : -1;
+
+    // 4. Sélection des candidats
+    // Priorité 1 : ni collision +- 30ms, ni répétition du dernier coup de la piste
+    let candidates: number[] = [];
+    for (let i = 0; i < numFiles; i++) {
+      if (!usedIndices.has(i) && i !== lastIdx) {
+        candidates.push(i);
+      }
+    }
+
+    // Priorité 2 : privilégier l'anti-collision temporelle +- 30ms
+    if (candidates.length === 0) {
+      for (let i = 0; i < numFiles; i++) {
+        if (!usedIndices.has(i)) candidates.push(i);
+      }
+    }
+
+    // Priorité 3 : exclure le dernier coup de la piste
+    if (candidates.length === 0) {
+      for (let i = 0; i < numFiles; i++) {
+        if (i !== lastIdx) candidates.push(i);
+      }
+    }
+
+    // Priorité 4 : tous les fichiers disponibles
+    if (candidates.length === 0) {
+      for (let i = 0; i < numFiles; i++) candidates.push(i);
+    }
+
+    const randIdx = Math.floor(Math.random() * candidates.length);
+    const chosenIdx = candidates[randIdx];
+
+    // 5. Mémorisation
+    triggers.push({ time, fileIdx: chosenIdx });
+    this.lastPlayedIndices.set(trackKey, chosenIdx);
+
+    if (this.lastPlayedIndices.size > 2000) this.lastPlayedIndices.clear();
+    if (this.recentPoolTriggers.size > 500) this.recentPoolTriggers.clear();
 
     return stroke.files[chosenIdx];
   }
 
   public clear(): void {
     this.lastPlayedIndices.clear();
-    this.timeStrokeIndicesUsed.clear();
+    this.recentPoolTriggers.clear();
   }
 }

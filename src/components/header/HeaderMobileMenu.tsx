@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, Smartphone } from 'lucide-react';
+import { Download, Smartphone, Menu } from 'lucide-react';
 
 import { HeaderProfileSection } from './HeaderProfileSection';
 import { HeaderProjectDropdownContent } from './HeaderProjectDropdownContent';
@@ -32,9 +32,10 @@ export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
     <div className="flex items-center gap-2" ref={mobileMenuRef}>
       <button
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="w-9 h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-lg hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
+        className="w-9 h-9 bg-[#241e1a] text-[#f4ecd8] border border-[#eaddcf]/40 hover:bg-[#f4ecd8] hover:text-[#1a1a1a] cordel-border-sm cordel-button flex items-center justify-center font-bold text-lg cursor-pointer shadow-[1px_1px_0_#000] shrink-0"
       >
         
+        <Menu size={20} className="text-[#f4ecd8] shrink-0" />
       </button>
 
       {mobileMenuOpen && (

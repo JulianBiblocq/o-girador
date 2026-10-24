@@ -7,6 +7,7 @@ import { normalizePresetName } from '../queries/useCloudPresets';
 import { SANCTUARIZED_PRESET_IDS } from '../../cloudPresetsStorage';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
+import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
 import type { ExecuteSaveParams } from './usePresetCloudSaverTypes';
 
 export async function executeSavePresetToCloud({
@@ -97,12 +98,7 @@ export async function executeSavePresetToCloud({
     }
   }
 
-  try {
-    const url = new URL(window.location.href);
-    url.searchParams.set('loadPreset', presetId);
-    window.history.replaceState(null, '', url.toString());
-    localStorage.setItem('girador_last_loaded_preset_id', presetId);
-  } catch (_) {}
+  setActiveCloudPresetId(presetId);
 
   const newMeta = {
     toada: finalPresetData.metadata?.toada || presetName,
@@ -114,8 +110,6 @@ export async function executeSavePresetToCloud({
   };
   useSequencerStore.getState().setMetadata(newMeta);
   if (sequencer.setMetadata) sequencer.setMetadata(newMeta);
-
-  window.dispatchEvent(new Event('force-autosave'));
   queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
   window.dispatchEvent(new Event('refresh-cloud-presets'));
   await sequencer.alertAsync(lang === 'pt' ? 'Salvo na nuvem!' : 'Sauvegardé dans le cloud !');

@@ -93,14 +93,17 @@ export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): Track
     return idxA - idxB;
   });
 
-  const gap = drawableTracks.length > 1 ? (495 - 180) / (drawableTracks.length - 1) : 0;
-  
+  const visibleCount = drawableTracks.length;
+  const minRadius = 180;
+  const maxRadius = 495;
+
   return list.map(t => {
     const drawableIdx = drawableTracks.findIndex(dt => dt.id === t.id);
     if (drawableIdx === -1) {
       return t;
     }
-    const newRadius = drawableTracks.length === 1 ? (180 + 495) / 2 : 180 + drawableIdx * gap;
+    const tNorm = visibleCount > 1 ? drawableIdx / (visibleCount - 1) : 0.5;
+    const newRadius = maxRadius - tNorm * (maxRadius - minRadius);
     if (t.radius !== newRadius) {
       return { ...t, radius: newRadius };
     }

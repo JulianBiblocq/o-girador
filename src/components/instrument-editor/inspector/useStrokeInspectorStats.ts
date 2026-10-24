@@ -1,7 +1,38 @@
 
-import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { useSequencerStore, getTrackFamilyIds } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';
 import { calculateStrokeStats } from './calculateStrokeStats';
+
+function updateStepParam(
+  curVal: number | [number, number] | undefined,
+  step: any,
+  stroke: string,
+  delta: number,
+  minVal: number,
+  defaultVal: number
+): number | [number, number] {
+  if (Array.isArray(step)) {
+    const m0 = step[0] === stroke;
+    const m1 = step[1] === stroke;
+    if (m0 || m1) {
+      const cur = curVal !== undefined ? curVal : [defaultVal, defaultVal];
+      const v0 = Array.isArray(cur) ? cur[0] : cur;
+      const v1 = Array.isArray(cur) ? cur[1] : cur;
+      return [
+        m0 ? Math.max(minVal, Math.min(100, v0 + delta)) : v0,
+        m1 ? Math.max(minVal, Math.min(100, v1 + delta)) : v1,
+      ];
+    }
+    return curVal !== undefined ? curVal : [defaultVal, defaultVal];
+  }
+  if (step === stroke) {
+    const cur = curVal !== undefined ? curVal : defaultVal;
+    return Array.isArray(cur)
+      ? [Math.max(minVal, Math.min(100, cur[0] + delta)), Math.max(minVal, Math.min(100, cur[1] + delta))]
+      : Math.max(minVal, Math.min(100, cur + delta));
+  }
+  return curVal !== undefined ? curVal : defaultVal;
+}
 
 export function useStrokeInspectorStats(trackId: number, isVoice: boolean) {
   const track = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId));
@@ -14,30 +45,22 @@ export function useStrokeInspectorStats(trackId: number, isVoice: boolean) {
 
   const applyMacroVolumeDelta = (stroke: string, delta: number, targetVal: number) => {
     pushUndoState();
-    setStrokeDefault(`${trackId}:${stroke}`, { volume: targetVal });
+    const familyIds = new Set(getTrackFamilyIds(trackId, useSequencerStore.getState().tracks));
+    familyIds.forEach((fId) => setStrokeDefault(`${fId}:${stroke}`, { volume: targetVal }));
+
     setTracks((prevTracks) => prevTracks.map((t) => {
-      if (t.id !== trackId) return t;
+      if (!familyIds.has(String(t.id))) return t;
       return {
         ...t,
         patterns: t.patterns.map((p) => {
           const newVols = [...(p.volumes || [])];
           p.activeSteps.forEach((s, idx) => {
-            if (s === stroke) {
-              const cur = newVols[idx] !== undefined ? newVols[idx] : 80;
-              newVols[idx] = Array.isArray(cur)
-                ? [Math.max(0, Math.min(100, cur[0] + delta)), Math.max(0, Math.min(100, cur[1] + delta))]
-                : Math.max(0, Math.min(100, cur + delta));
-            }
+            newVols[idx] = updateStepParam(newVols[idx], s, stroke, delta, 0, 80);
           });
           const newVars = p.variations?.map((v) => {
             const varVols = [...(v.volumes || [])];
             v.steps.forEach((s, idx) => {
-              if (s === stroke) {
-                const cur = varVols[idx] !== undefined ? varVols[idx] : 80;
-                varVols[idx] = Array.isArray(cur)
-                  ? [Math.max(0, Math.min(100, cur[0] + delta)), Math.max(0, Math.min(100, cur[1] + delta))]
-                  : Math.max(0, Math.min(100, cur + delta));
-              }
+              varVols[idx] = updateStepParam(varVols[idx], s, stroke, delta, 0, 80);
             });
             return { ...v, volumes: varVols };
           });
@@ -49,31 +72,25 @@ export function useStrokeInspectorStats(trackId: number, isVoice: boolean) {
 
   const applyMacroDecayDelta = (stroke: string, delta: number, targetVal: number) => {
     pushUndoState();
-    setStrokeDefault(`${trackId}:${stroke}`, { decay: targetVal });
+    const familyIds = new Set(getTrackFamilyIds(trackId, useSequencerStore.getState().tracks));
+    familyIds.forEach((fId) => setStrokeDefault(`${fId}:${stroke}`, { decay: targetVal }));
+
     const minDecay = isVoice ? 1 : 10;
+    const defaultDecay = isVoice ? 10 : 100;
+
     setTracks((prevTracks) => prevTracks.map((t) => {
-      if (t.id !== trackId) return t;
+      if (!familyIds.has(String(t.id))) return t;
       return {
         ...t,
         patterns: t.patterns.map((p) => {
           const newDecays = [...(p.decays || [])];
           p.activeSteps.forEach((s, idx) => {
-            if (s === stroke) {
-              const cur = newDecays[idx] !== undefined ? newDecays[idx] : (isVoice ? 10 : 100);
-              newDecays[idx] = Array.isArray(cur)
-                ? [Math.max(minDecay, Math.min(100, cur[0] + delta)), Math.max(minDecay, Math.min(100, cur[1] + delta))]
-                : Math.max(minDecay, Math.min(100, cur + delta));
-            }
+            newDecays[idx] = updateStepParam(newDecays[idx], s, stroke, delta, minDecay, defaultDecay);
           });
           const newVars = p.variations?.map((v) => {
             const varDecays = [...(v.decays || [])];
             v.steps.forEach((s, idx) => {
-              if (s === stroke) {
-                const cur = varDecays[idx] !== undefined ? varDecays[idx] : (isVoice ? 10 : 100);
-                varDecays[idx] = Array.isArray(cur)
-                  ? [Math.max(minDecay, Math.min(100, cur[0] + delta)), Math.max(minDecay, Math.min(100, cur[1] + delta))]
-                  : Math.max(minDecay, Math.min(100, cur + delta));
-              }
+              varDecays[idx] = updateStepParam(varDecays[idx], s, stroke, delta, minDecay, defaultDecay);
             });
             return { ...v, decays: varDecays };
           });

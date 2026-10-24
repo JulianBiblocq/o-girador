@@ -8,8 +8,8 @@ import { executeMixerDragEnd } from './mixerDragEndHelper';
 interface UseMixerDndProps {
   tracksMeta: TrackMeta[];
   displayedTracks: TrackMeta[];
-  handleReorderMixerTracks?: (sourceId: number, targetId: number) => void;
-  handleReorderTracksDnd?: (sourceId: number, targetId: number) => void;
+  handleReorderMixerTracks?: (sourceId: number, targetId: number, dropSide?: 'left' | 'right') => void;
+  handleReorderTracksDnd?: (sourceId: number, targetId: number, dropSide?: 'left' | 'right') => void;
   onReorderPatternsDnd?: (trackId: number, oldIndex: number, newIndex: number) => void;
 }
 
@@ -23,6 +23,7 @@ export function useMixerDnd({
   const [activeDragTrackId, setActiveDragTrackId] = useState<number | null>(null);
   const [activeDragWagonTracks, setActiveDragWagonTracks] = useState<TrackGroup[] | null>(null);
   const [overDragTrackId, setOverDragTrackId] = useState<number | null>(null);
+  const [overDropSide, setOverDropSide] = useState<'left' | 'right' | null>(null);
 
   const activeGroupTrackIdsRef = useRef<number[]>([]);
   const activeDragGroupElementsRef = useRef<HTMLElement[]>([]);
@@ -79,7 +80,15 @@ export function useMixerDnd({
     }
   }, [tracksMeta, displayedTracks]);
 
-  const handleDragMove = useCallback((_event: DragMoveEvent) => {}, []);
+  const handleDragMove = useCallback((event: DragMoveEvent) => {
+    const activeTranslated = event.active?.rect?.current?.translated;
+    const overRect = event.over?.rect;
+    if (activeTranslated && overRect) {
+      const activeCenter = activeTranslated.left + activeTranslated.width / 2;
+      const overCenter = overRect.left + overRect.width / 2;
+      setOverDropSide(activeCenter < overCenter ? 'left' : 'right');
+    }
+  }, []);
 
   const customCollisionDetection = useCallback(
     createMixerCollisionDetection(activeGroupTrackIdsRef, tracksMeta, displayedTracks),
@@ -89,12 +98,23 @@ export function useMixerDnd({
   const handleDragOver = useCallback((event: any) => {
     const overId = event.over ? String(event.over.id) : null;
     setOverDragTrackId(overId && overId.startsWith('track-') ? Number(overId.replace('track-', '')) : null);
+
+    const activeTranslated = event.active?.rect?.current?.translated;
+    const overRect = event.over?.rect;
+    if (activeTranslated && overRect) {
+      const activeCenter = activeTranslated.left + activeTranslated.width / 2;
+      const overCenter = overRect.left + overRect.width / 2;
+      setOverDropSide(activeCenter < overCenter ? 'left' : 'right');
+    } else {
+      setOverDropSide(null);
+    }
   }, []);
 
   const handleDragCancel = useCallback(() => {
     cleanupGroupDrag();
     setActiveDragTrackId(null);
     setOverDragTrackId(null);
+    setOverDropSide(null);
     setActiveDragWagonTracks(null);
   }, [cleanupGroupDrag]);
 
@@ -103,6 +123,7 @@ export function useMixerDnd({
     cleanupGroupDrag();
     setActiveDragTrackId(null);
     setOverDragTrackId(null);
+    setOverDropSide(null);
     setActiveDragWagonTracks(null);
 
     executeMixerDragEnd(event, activeGroupIds, onReorderPatternsDnd, handleReorderMixerTracks, handleReorderTracksDnd);
@@ -113,6 +134,7 @@ export function useMixerDnd({
     activeDragTrackId,
     activeDragWagonTracks,
     overDragTrackId,
+    overDropSide,
     activeGroupTrackIdsRef,
     handleDragStart,
     handleDragMove,

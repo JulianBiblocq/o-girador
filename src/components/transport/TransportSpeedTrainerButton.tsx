@@ -84,7 +84,7 @@ export const TransportSpeedTrainerButton: React.FC<TransportSpeedTrainerButtonPr
     <button
       type="button"
       onClick={openSpeedTrainerModal}
-      className="h-8 px-2 sm:px-2.5 shrink-0 whitespace-nowrap flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all rounded-none border-2 border-[#1a1a1a] dark:border-black/60 bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10 shadow-[1px_1px_0px_#1a1a1a] cursor-pointer"
+      className="h-8 px-1.5 sm:px-2.5 shrink-0 whitespace-nowrap flex items-center gap-1 sm:gap-1.5 font-cactus font-bold text-xs select-none transition-all rounded-none border-2 border-[#1a1a1a] dark:border-black/60 bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10 shadow-[1px_1px_0px_#1a1a1a] cursor-pointer"
       title={lang === 'fr' ? 'Entraînement (Jouer avec / Montée en vitesse)' : 'Treino (Tocar Junto / Aceleração)'}
     >
       <XiloLightning size={14} className="shrink-0" />

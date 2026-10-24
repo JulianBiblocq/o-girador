@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ArrowUpDown } from 'lucide-react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
@@ -17,6 +17,8 @@ export const MixerHeader: React.FC<MixerHeaderProps> = ({ t, noBorder = false, c
   const sequencer = useSequencer();
   const currentWindow = useWindow();
   const isPracticeMode = useSequencerStore((s) => s.isPracticeMode);
+  const handleReverseRodaTracks = useSequencerStore((s) => s.handleReverseRodaTracks);
+  const lang = useSequencerStore((s) => s.lang);
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +83,19 @@ export const MixerHeader: React.FC<MixerHeaderProps> = ({ t, noBorder = false, c
       )}
 
       <TrackFocusSplitButton />
+
+      <button
+        type="button"
+        onClick={() => handleReverseRodaTracks()}
+        className="w-9 h-9 min-w-9 min-h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center transition-all cursor-pointer hover:opacity-80 shrink-0"
+        title={
+          lang === 'pt'
+            ? 'Inverter ordem das pistas (Topo ↔ Base / Exterior ↔ Centro)'
+            : "Inverser l'ordre des pistes (Haut ↔ Bas / Extérieur ↔ Centre)"
+        }
+      >
+        <ArrowUpDown size={14} />
+      </button>
     </div>
   );
 };

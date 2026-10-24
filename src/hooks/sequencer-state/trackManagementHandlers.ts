@@ -1,6 +1,7 @@
 import { TrackGroup, TimeSignature, SongMarker } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { applyRadii } from './sequencerStateTypes';
+import { resetActiveCloudPresetId } from '../../utils/cloudPresetState';
 import type { TrackManagementContext } from './trackManagementTypes';
 
 export type { TrackManagementContext };
@@ -104,7 +105,16 @@ export function createTrackManagementHandlers(ctx: TrackManagementContext) {
     ctx.setSongSections([]);
     ctx.setSongMarkers([]);
     ctx.setActiveAoVivoTrackId(null);
-    ctx.setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
+    ctx.setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [], morceauId: undefined });
+    useSequencerStore.setState({
+      songMarkers: [],
+      mestreSignals: [],
+      measureSignals: Array(8).fill(null),
+      loopStartMeasure: null, loopEndMeasure: null, isLoopRegionActive: false, pendingLoopRange: null,
+      currentMeasure: 0, currentExpandedMeasureIdx: 0,
+    });
+    window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
+    resetActiveCloudPresetId();
   };
 
   return {

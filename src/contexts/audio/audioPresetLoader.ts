@@ -1,6 +1,7 @@
 import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL } from '../../data';
 import { getLocalLibrary } from '../../library';
 import { notifyToast } from '../../utils/toastHelper';
+import { setActiveCloudPresetId, resetActiveCloudPresetId } from '../../utils/cloudPresetState';
 
 export async function fetchFallbackPresetData(name: string, lang: string, t: (key: string) => string): Promise<any | null> {
   let p: any;
@@ -11,14 +12,14 @@ export async function fetchFallbackPresetData(name: string, lang: string, t: (ke
     if (!p || !Array.isArray(p.tracks) || p.tracks.length === 0) {
       console.warn('[loadFallbackPreset] Invalid cloud preset or empty tracks, falling back to default preset:', id);
       p = vouVadiarPreset;
+      resetActiveCloudPresetId();
     } else {
       if (!p.metadata) p.metadata = {} as any;
       p.metadata.morceauId = id;
-      try {
-        localStorage.setItem('girador_last_loaded_preset_id', id);
-      } catch (_) {}
+      setActiveCloudPresetId(id);
     }
   } else if (name.startsWith('local:')) {
+    resetActiveCloudPresetId();
     const id = name.replace('local:', '');
     const localLib = await getLocalLibrary();
     p = localLib[id];

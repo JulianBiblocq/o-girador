@@ -41,7 +41,7 @@ export class EngineExecuteStroke {
       deps.playbackCtx.barulho.stopBarulho(instrumentId, time);
     }
 
-    const filePath = deps.roundRobin.selectFile(instrumentId, stroke, time);
+    const filePath = deps.roundRobin.selectFile(instrumentId, stroke, time, trackId);
     const buffer = deps.sampleLoader.bufferPool.get(filePath);
     if (!buffer || !buffer.loaded) return;
 

@@ -3,6 +3,7 @@ import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import type { TrackHierarchySlice } from './trackHierarchySliceTypes';
 import { handleReorderRodaTracksState, handleReorderWagonState } from '../helpers/trackReorderRodaWagonHelper';
+import { handleReverseRodaTracksState } from '../helpers/trackReverseRodaHelper';
 import { handleReorderMixerTracksState } from '../helpers/trackReorderMixerHelper';
 import { handleLinkTrackState, handleDetachTrackState } from '../helpers/trackLinkingHelpers';
 import {
@@ -25,10 +26,15 @@ export const createTrackHierarchySlice: StateCreator<SequencerStore, [], [], Tra
     set(state => handleReorderRodaTracksState(state, activeId, overId));
   },
 
-  handleReorderMixerTracks: (activeId, overId) => {
+  handleReverseRodaTracks: () => {
+    get().pushUndoState();
+    set(state => handleReverseRodaTracksState(state));
+  },
+
+  handleReorderMixerTracks: (activeId, overId, dropSide) => {
     if (activeId === overId) return;
     get().pushUndoState();
-    set(state => handleReorderMixerTracksState(state, activeId, overId));
+    set(state => handleReorderMixerTracksState(state, activeId, overId, dropSide));
   },
 
   handleReorderWagon: (wagonTrackIds, overTrackId) => {
@@ -37,7 +43,7 @@ export const createTrackHierarchySlice: StateCreator<SequencerStore, [], [], Tra
     set(state => handleReorderWagonState(state, wagonTrackIds, overTrackId));
   },
 
-  handleReorderTracksDnd: (activeId, overId) => get().handleReorderMixerTracks(activeId, overId),
+  handleReorderTracksDnd: (activeId, overId, dropSide) => get().handleReorderMixerTracks(activeId, overId, dropSide),
 
   handleLinkTrack: (trackId, linkedToTrackId) => {
     get().pushUndoState();

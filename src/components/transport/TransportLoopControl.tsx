@@ -84,13 +84,13 @@ export const TransportLoopControl: React.FC<TransportLoopControlProps> = ({
             if (s.isLoopExitRequested) s.clearLoopExitRequest();
           }
         }}
-        className={`w-12 h-12 sm:w-14 sm:h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative shrink-0 ${
+        className={`w-10 h-10 sm:w-14 sm:h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative shrink-0 ${
           isLoopBypassed ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' : isLooping ? (isLoopExitRequested ? 'bg-orange-500/60 text-white animate-pulse' : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]') : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
         }`}
         title={lang === 'fr' ? 'Activer / désactiver la boucle' : 'Ativar / desativar loop'}
       >
-        <Repeat className={`w-5 h-5 sm:w-6 sm:h-6 icon-repeat ${(!isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`} />
-        <ArrowRightToLine className={`w-5 h-5 sm:w-6 sm:h-6 icon-arrow ${(isLooping && !isLoopBypassed && !isLoopExitRequested) ? 'hidden' : ''}`} />
+        <Repeat className={`w-4 h-4 sm:w-6 sm:h-6 icon-repeat ${(!isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`} />
+        <ArrowRightToLine className={`w-4 h-4 sm:w-6 sm:h-6 icon-arrow ${(isLooping && !isLoopBypassed && !isLoopExitRequested) ? 'hidden' : ''}`} />
         <span className={`text-[8px] sm:text-[9px] font-bold mt-[-2px] loop-count ${(!isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`}>
           {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
         </span>
@@ -98,7 +98,7 @@ export const TransportLoopControl: React.FC<TransportLoopControlProps> = ({
 
       <button
         onClick={() => setShowLoopMenu(!showLoopMenu)}
-        className="w-3.5 sm:w-4 h-12 sm:h-14 cordel-border-sm cordel-button flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ml-0.5 shrink-0"
+        className="w-3.5 sm:w-4 h-10 sm:h-14 cordel-border-sm cordel-button flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ml-0.5 shrink-0"
         title={lang === 'fr' ? 'Paramètres de boucle' : 'Configurar loop'}
       >
         <span className="text-[9px] sm:text-[10px]">▼</span>

@@ -1,6 +1,3 @@
-/**
- * Grille de relecture des motifs avec cartes modulaires et popovers (< 115 lignes).
- */
 import React, { useState } from 'react';
 import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
@@ -8,12 +5,15 @@ import { PaperStepValidationPopover } from './PaperStepValidationPopover';
 import { PaperPatternCard } from './PaperPatternCard';
 import { PaperPatternOverrideModal } from './PaperPatternOverrideModal';
 import { AlertTriangle, Check } from 'lucide-react';
+import { PaperSectionItem } from '../../utils/paper/paperSectionRenamer';
 
 interface Props {
   scoreId?: string;
+  sections?: PaperSectionItem[];
   patterns: Record<string, Partial<Record<string, PaperStepValue[]>>>;
   reusableSections: Set<string>;
   onToggleReusable: (sectionName: string) => void;
+  onRenameSection?: (secId: string, newName: string) => void;
   onUpdateStep?: (secName: string, roleKey: string, stepIndex: number, newVal: PaperStepValue) => void;
   globalBpm?: number;
   globalTimeSig?: string;
@@ -23,10 +23,24 @@ interface Props {
 }
 
 export const PaperPatternPreviewGrid: React.FC<Props> = ({
-  scoreId, patterns, reusableSections, onToggleReusable, onUpdateStep,
+  scoreId, sections, patterns, reusableSections, onToggleReusable, onRenameSection, onUpdateStep,
   globalBpm = 96, globalTimeSig = '4/4', metricOverrides = {}, onSaveOverride, lang,
 }) => {
-  const sectionEntries = Object.entries(patterns);
+  const sectionItems = React.useMemo(() => {
+    if (sections && sections.length > 0) {
+      return sections.map((s) => ({
+        id: s.id,
+        secName: s.name,
+        pupitreMap: patterns[s.id] || patterns[s.name] || {},
+      }));
+    }
+    return Object.entries(patterns).map(([secName, pupitreMap], idx) => ({
+      id: `sec-${idx}`,
+      secName,
+      pupitreMap,
+    }));
+  }, [sections, patterns]);
+
   const previewScoreId = usePaperVigilanceStore((s) => s.activePreviewScoreId);
   const activeScoreId = scoreId || previewScoreId || '';
   const allPoints = usePaperVigilanceStore((s) => s.points);
@@ -63,19 +77,20 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
       </div>
 
       <div className="flex flex-col gap-2 max-h-[230px] overflow-y-auto pr-1">
-        {sectionEntries.map(([secName, pupitreMap]) => (
+        {sectionItems.map((item) => (
           <PaperPatternCard
-            key={secName}
-            secName={secName}
-            pupitreMap={pupitreMap}
-            isReusable={reusableSections.has(secName)}
-            onToggleReusable={() => onToggleReusable(secName)}
+            key={item.id}
+            secName={item.secName}
+            onRename={(newName) => onRenameSection?.(item.id, newName)}
+            pupitreMap={item.pupitreMap}
+            isReusable={reusableSections.has(item.secName) || reusableSections.has(item.id)}
+            onToggleReusable={() => onToggleReusable(item.secName)}
             points={points}
-            onCellClick={(role, idx, val) => handleCellClick(secName, role, idx, val)}
+            onCellClick={(role, idx, val) => handleCellClick(item.secName, role, idx, val)}
             globalBpm={globalBpm}
             globalTimeSig={globalTimeSig}
-            override={metricOverrides[secName]}
-            onOpenOverrideModal={() => setOverrideModalPattern(secName)}
+            override={metricOverrides[item.secName] || metricOverrides[item.id]}
+            onOpenOverrideModal={() => setOverrideModalPattern(item.secName)}
             lang={lang}
           />
         ))}

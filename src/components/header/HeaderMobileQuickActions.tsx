@@ -25,14 +25,14 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
   const toggleSettings = useSequencerSettingsStore((state) => state.toggleSettings);
 
   return (
-    <div className="flex items-center gap-1.5 sm:gap-2">
+    <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
       {/* TÉLÉCOMMANDE RÉPÉTITION */}
       <button
         onClick={() => {
           useSequencerStore.getState().closeDetailEditor();
           useSequencerStore.getState().setMobileViewMode('danse');
         }}
-        className="px-2 h-9 flex items-center justify-center font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#b94a2c] text-[#f4ecd8] shadow-[2px_2px_0_#000]"
+        className="px-1.5 sm:px-2 h-8 sm:h-9 flex items-center justify-center font-cactus font-bold text-[11px] sm:text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#b94a2c] text-[#f4ecd8] shadow-[2px_2px_0_#000] shrink-0"
         title="Retour Télécommande Répétition"
       >
         RÉPÉTITION
@@ -46,7 +46,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
           if (onMobileTabToggle) onMobileTabToggle('roda');
           useSequencerStore.setState({ isTracksCollapsed: true });
         }}
-        className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+        className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'roda' && mobileTab === 'roda' && isTracksCollapsed
             ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
             : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
@@ -65,7 +65,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
           if (onMobileTabToggle) onMobileTabToggle('mixer');
           useSequencerStore.setState({ isTracksCollapsed: false });
         }}
-        className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+        className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'roda' && (mobileTab === 'mixer' || !isTracksCollapsed)
             ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
             : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
@@ -81,7 +81,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
           useSequencerStore.getState().closeDetailEditor();
           onViewModeToggle('console');
         }}
-        className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+        className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'console'
             ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
             : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
@@ -97,7 +97,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
           useSequencerStore.getState().closeDetailEditor();
           onViewModeToggle('timeline');
         }}
-        className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+        className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'timeline'
             ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
             : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
@@ -110,7 +110,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       {/* ATELIER (OFICINA) */}
       <button
         onClick={toggleSettings}
-        className="w-9 h-9 flex items-center justify-center font-bold text-sm cordel-border-sm cordel-button cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+        className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-sm cordel-border-sm cordel-button cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
         title={lang === 'pt' ? 'A Oficina (Configurações) [O]' : "L'Atelier (Paramètres) [O]"}
       >
         <Settings size={15} />

@@ -49,18 +49,21 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const lastPreviewTimeRef = useRef<number>(0);
   const playThrottledPreview = useCallback((symbol: string, volumePct: number, decayPct: number) => {
     const now = performance.now();
-    if (now - lastPreviewTimeRef.current < 80) return;
+    if (now - lastPreviewTimeRef.current < 50) return;
     lastPreviewTimeRef.current = now;
     try {
-      if (audioEngine) audioEngine.playNote(trackId, symbol, Tone.now(), volumePct / 100, decayPct / 100);
+      if (!audioEngine) return;
+      const targetId = track ? track.id : (instrument?.id || trackId);
+      const t = Tone.now() || audioEngine.getCurrentTime();
+      audioEngine.playNote(targetId, symbol, t, volumePct / 100, decayPct / 100);
     } catch (_) {}
-  }, [trackId]);
+  }, [trackId, track, instrument?.id]);
 
   const handlePreviewDrum = useCallback(() => {
     if (!audioEngine) return;
     const instId = instrument.id;
     const strokeSymbol = instId === 'timbal' ? 'A' : 'D';
-    audioEngine.playPreview(instId, strokeSymbol, track?.tuning || 0, 1.0);
+    audioEngine.playPreview(instId, strokeSymbol, track?.tuning || 0, 1.0, undefined, 1.0);
   }, [instrument.id, track?.tuning]);
 
   const pairs = useMemo(() => getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded), [instrument.id, instrument.type, lang, isLeftHanded]);

@@ -5,6 +5,7 @@ import { BoutonExportDanse } from '../BoutonExportDanse';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { i18n } from '../../data';
+import { getActiveCloudPresetId } from '../../utils/cloudPresetState';
 import type { HeaderProjectDropdownContentProps } from './headerProjectDropdownTypes';
 
 export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContentProps> = ({
@@ -106,7 +107,7 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
           }}
           className="flex items-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full col-span-2 mt-1 border-none transition-colors"
         >
-          <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
+          <Save className="w-3.5 h-3.5 shrink-0" /> {Boolean(getActiveCloudPresetId()) ? (lang === 'pt' ? 'Atualizar música' : 'Mettre à jour le morceau') : (lang === 'pt' ? 'Salvar música' : 'Sauvegarder le morceau')}
         </button>
         {(isAdmin || userProfile?.role === 'mestre') && (
           <div className="col-span-2 mt-1">

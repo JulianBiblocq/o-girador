@@ -4,6 +4,8 @@ import { useAudio } from '../contexts/AudioContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { GlobalSwingModal } from './GlobalSwingModal';
+import { Cloud } from 'lucide-react';
+import { getActiveCloudPresetId } from '../utils/cloudPresetState';
 import { CordelContextMenu } from './ui/CordelContextMenu';
 import { HeaderBrand } from './header/HeaderBrand';
 import { UndoIcon, RedoIcon } from './header/HeaderIcons';
@@ -85,6 +87,17 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
           onMobileTabToggle={props.onMobileTabToggle}
           activeRightPanel={props.activeRightPanel}
         />
+        <div className="min-w-0 flex-1 overflow-hidden mx-1 sm:mx-2 flex items-center justify-start">
+          <button
+            type="button"
+            onClick={props.onCloudSave}
+            className="flex items-center gap-1.5 px-2 py-1 bg-[var(--cordel-surface)] border border-[var(--cordel-border)] font-cactus font-bold text-[11px] max-w-full text-[var(--cordel-text)] shadow-xs hover:border-[#8b2a1a] cursor-pointer min-w-0"
+            title={Boolean(getActiveCloudPresetId()) ? (lang === 'fr' ? 'Mettre à jour le morceau' : 'Atualizar música') : (lang === 'fr' ? 'Sauvegarder le morceau' : 'Salvar música')}
+          >
+            <Cloud size={13} className={Boolean(getActiveCloudPresetId()) ? "text-[#15803d] shrink-0" : "text-[#8b2a1a] shrink-0"} />
+            <span className="truncate">{metadata?.toada || preset || (lang === 'fr' ? 'Nouveau morceau' : 'Nova música')}</span>
+          </button>
+        </div>
         <HeaderBrand version={props.version} isMobile />
         <HeaderMobileQuickActions
           lang={lang}

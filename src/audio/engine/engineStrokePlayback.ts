@@ -25,19 +25,22 @@ export class EngineStrokePlayback {
     decayMultiplier: number,
     isLiveHold: boolean
   ): void {
+    const normVel = velocity > 1.5 ? velocity / 100 : velocity;
+    if (normVel <= 0.001) return;
+
     const source = ctx.audioContext.createBufferSource();
     source.buffer = buffer;
     source.playbackRate.value = calculatedPitch;
 
     const gainNode = ctx.channels.getGainNode(ctx.audioContext, trackId, instrumentId);
-    gainNode.gain.cancelScheduledValues(time);
-    gainNode.gain.setValueAtTime(velocity, time);
     source.connect(gainNode);
 
+    const gainMultiplier = Math.pow(Math.max(0, Math.min(1.5, normVel)), 1.8);
+
     if (stroke.isBarulho) {
-      playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier, isLiveHold);
+      playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, decayMultiplier, isLiveHold);
     } else {
-      this.playOneShot(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier);
+      this.playOneShot(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, decayMultiplier);
     }
   }
 
@@ -50,24 +53,48 @@ export class EngineStrokePlayback {
     buffer: AudioBuffer,
     calculatedPitch: number,
     time: number,
-    velocity: number,
+    gainMultiplier: number,
     decayMultiplier: number
   ): void {
     ctx.scheduledHits.add(source);
     const originalBufferDuration = buffer.duration;
-    const bufferPlayDuration = originalBufferDuration * decayMultiplier;
-    const realWorldDuration = bufferPlayDuration / calculatedPitch;
-    const expectedEnd = time + realWorldDuration;
+    const realWorldDuration = originalBufferDuration / calculatedPitch;
+    const normDecay = decayMultiplier > 1.5 ? decayMultiplier / 100 : Math.max(0.05, Math.min(1.0, decayMultiplier));
 
-    ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
+    let expectedEnd: number;
 
-    const fadeTime = Math.min(0.015, realWorldDuration / 2);
-    gainNode.gain.setValueAtTime(velocity, time);
-    gainNode.gain.setValueAtTime(velocity, time + realWorldDuration - fadeTime);
-    gainNode.gain.linearRampToValueAtTime(0, time + realWorldDuration);
+    if (normDecay < 0.98) {
+      const minDecaySec = 0.04;
+      const maxDecaySec = Math.min(realWorldDuration, 1.2);
+      const effectiveDecaySec = Math.max(minDecaySec, minDecaySec + Math.pow(normDecay, 1.7) * (maxDecaySec - minDecaySec));
+      expectedEnd = time + effectiveDecaySec + 0.01;
 
-    if (decayMultiplier < 1.0) source.start(time, 0, bufferPlayDuration);
-    else source.start(time);
+      ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
+
+      const attackHold = Math.min(0.015, effectiveDecaySec * 0.25);
+      const safeGain = Math.max(0.0001, gainMultiplier);
+
+      gainNode.gain.cancelScheduledValues(time);
+      gainNode.gain.setValueAtTime(safeGain, time);
+      gainNode.gain.setValueAtTime(safeGain, time + attackHold);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, time + effectiveDecaySec);
+      gainNode.gain.linearRampToValueAtTime(0, time + effectiveDecaySec + 0.005);
+
+      source.start(time);
+      source.stop(expectedEnd);
+    } else {
+      expectedEnd = time + realWorldDuration;
+      ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
+
+      const fadeTime = Math.min(0.015, realWorldDuration / 2);
+      gainNode.gain.cancelScheduledValues(time);
+      gainNode.gain.setValueAtTime(gainMultiplier, time);
+      gainNode.gain.setValueAtTime(gainMultiplier, time + Math.max(0, realWorldDuration - fadeTime));
+      gainNode.gain.linearRampToValueAtTime(0, expectedEnd);
+
+      source.start(time);
+      source.stop(expectedEnd + 0.01);
+    }
 
     source.onended = () => {
       ctx.scheduledHits.delete(source);
@@ -86,7 +113,7 @@ export class EngineStrokePlayback {
       }
     };
 
-    const activeVoice = ctx.voiceGuard.getActiveVoice(source, gainNode, time, velocity, instrumentId);
+    const activeVoice = ctx.voiceGuard.getActiveVoice(source, gainNode, time, gainMultiplier, instrumentId);
     const voices = ctx.voiceGuard.instrumentVoices.get(instrumentId) || [];
     voices.push(activeVoice);
     ctx.voiceGuard.instrumentVoices.set(instrumentId, voices);

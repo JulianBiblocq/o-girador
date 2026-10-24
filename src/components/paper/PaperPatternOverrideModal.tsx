@@ -103,12 +103,26 @@ export const PaperPatternOverrideModal: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-[var(--cordel-border)]/30">
-          <button type="button" onClick={handleReset} className="px-2.5 py-1 text-[10px] font-bold border border-gray-400 bg-white/70 text-gray-700 cursor-pointer flex items-center gap-1">
-            <RotateCcw size={12} /> <span>{isFr ? 'Rétablir Global' : 'Restaurar Global'}</span>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-3 py-1.5 text-[10px] font-bold bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#e2d5b8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer flex items-center gap-1 transition-colors"
+          >
+            <RotateCcw size={12} className="text-[#1a1a1a]" /> <span>{isFr ? 'Rétablir Global' : 'Restaurar Global'}</span>
           </button>
           <div className="flex items-center gap-1.5">
-            <button type="button" onClick={onClose} className="px-2.5 py-1 text-[10px] font-bold border border-[var(--cordel-border)] bg-gray-200 cursor-pointer">{isFr ? 'Annuler' : 'Cancelar'}</button>
-            <button type="button" onClick={handleSave} className="px-3 py-1 text-[10px] font-bold bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)] cursor-pointer flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-[10px] font-bold bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#e2d5b8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer transition-colors"
+            >
+              {isFr ? 'Annuler' : 'Cancelar'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-3 py-1.5 text-[10px] font-bold bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#9a3412] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer flex items-center gap-1 transition-colors"
+            >
               <Check size={12} /> <span>{isFr ? 'Valider' : 'Confirmar'}</span>
             </button>
           </div>

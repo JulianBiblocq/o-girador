@@ -31,6 +31,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
     isMestre,
     isDraft,
     setIsDraft,
+    isSavedOnCloud,
   } = useSavePresetToCloud(props);
 
   const busy = isSaving || isBouncingCloud;
@@ -90,6 +91,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
           hasUser={Boolean(userProfile)}
           isMestre={isMestre}
           isLocked={isLocked}
+          isSavedOnCloud={isSavedOnCloud}
           lang={lang}
         />
       </div>

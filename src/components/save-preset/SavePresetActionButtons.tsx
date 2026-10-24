@@ -11,6 +11,7 @@ interface SavePresetActionButtonsProps {
   hasUser: boolean;
   isMestre: boolean;
   isLocked: boolean;
+  isSavedOnCloud?: boolean;
   lang: 'fr' | 'pt';
 }
 
@@ -24,6 +25,7 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
   hasUser,
   isMestre,
   isLocked,
+  isSavedOnCloud = false,
   lang,
 }) => {
   const busy = isSaving || isBouncingCloud;
@@ -40,7 +42,7 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
         {lang === 'fr' ? 'Annuler' : 'Cancelar'}
       </button>
 
-      {isExistingPreset ? (
+      {isExistingPreset && isSavedOnCloud ? (
         <>
           <button
             type="button"
@@ -65,18 +67,18 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
                 : ''
             }
           >
-            {busy ? (lang === 'fr' ? 'En cours...' : 'Salvando...') : (lang === 'fr' ? 'Mettre à jour le morceau existant' : 'Atualizar música existente')}
+            {busy ? (lang === 'fr' ? 'En cours...' : 'Salvando...') : (lang === 'fr' ? 'Mettre à jour le morceau' : 'Atualizar música')}
           </button>
         </>
       ) : (
         <button
           type="button"
-          onClick={() => handleSave()}
+          onClick={() => handleSave({ forceNew: true })}
           disabled={!canSave}
           className="px-4 py-2 bg-[var(--cordel-wood,#8b2a1a)] text-[#f4ecd8] font-bold disabled:opacity-50 hover:brightness-90 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center justify-center min-w-[120px] text-xs uppercase"
           title={!hasUser ? (lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Conecte-se para salvar') : ''}
         >
-          {busy ? (lang === 'fr' ? 'En cours...' : 'Salvando...') : (lang === 'fr' ? 'Sauvegarder' : 'Salvar')}
+          {busy ? (lang === 'fr' ? 'En cours...' : 'Salvando...') : (lang === 'fr' ? 'Sauvegarder le morceau' : 'Salvar música')}
         </button>
       )}
     </div>
