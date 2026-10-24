@@ -103,7 +103,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
           <DragNumberBox
             label={t('compThreshold')}
             value={masterCompressor.threshold}
-            defaultValue={-20}
+            defaultValue={-3}
             onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
             onAudioDrag={(val) => { try { if (masterCompressorNode?.threshold) masterCompressorNode.threshold.rampTo(val, 0.02); } catch (_) {} }}
             fillColor="var(--comp-color, #d4af37)"
@@ -115,7 +115,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
           <DragNumberBox
             label={t('compRatio')}
             value={masterCompressor.ratio}
-            defaultValue={4}
+            defaultValue={2}
             onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
             onAudioDrag={(val) => { try { if (masterCompressorNode?.ratio) masterCompressorNode.ratio.rampTo(val, 0.02); } catch (_) {} }}
             fillColor="var(--comp-color, #d4af37)"

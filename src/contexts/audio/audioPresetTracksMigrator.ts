@@ -3,6 +3,7 @@ import { instrumentsConfig } from '../../data';
 import { migrateCirclesToTracks } from '../../migration';
 import { CURRENT_AUDIO_SCALE_VERSION, normalizeToFaderPosition, sanitizeFaderPosition } from '../../utils/audioMath';
 import { normalizePatternData } from './audioPatternNormalizer';
+import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 
 export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): TrackGroup[] {
   let loadedTracks: TrackGroup[] = [];
@@ -57,25 +58,54 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     const rawVol = (t as any).volumeVal !== undefined ? (t as any).volumeVal : (t as any).volume;
     t.volumeVal = normalizeToFaderPosition(rawVol, isAudioV2);
     if (!isAudioV2 && t.volumeVal === 100) t.volumeVal = 75;
+
+    // Assainissement des automations de volume : purger les tableaux plats à undefined
     if (t.measureVols && Array.isArray(t.measureVols)) {
       t.measureVols = t.measureVols.map((v: number) => {
         const norm = normalizeToFaderPosition(v, isAudioV2);
         return (!isAudioV2 && norm === 100) ? 75 : norm;
       });
+      if (!hasActiveTrackAutomation(t, 'volume')) {
+        t.measureVols = undefined;
+        t.measureVolTransitions = undefined;
+      } else if (t.measureVols.length !== loadedMeasures) {
+        const cur = t.measureVols;
+        const last = cur[cur.length - 1] ?? (t.volumeVal ?? 75);
+        t.measureVols = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? last);
+      }
+    } else {
+      t.measureVols = undefined;
+      t.measureVolTransitions = undefined;
     }
 
-    const fallbackVol = t.volumeVal ?? 75;
-    if (!Array.isArray(t.measureVols) || t.measureVols.length !== loadedMeasures) {
-      const cur = Array.isArray(t.measureVols) ? t.measureVols : [];
-      t.measureVols = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? fallbackVol);
+    // Assainissement des automations de pan : purger les tableaux plats à undefined
+    if (t.measurePans && Array.isArray(t.measurePans)) {
+      if (!hasActiveTrackAutomation(t, 'pan')) {
+        t.measurePans = undefined;
+        t.measurePanTransitions = undefined;
+      } else if (t.measurePans.length !== loadedMeasures) {
+        const cur = t.measurePans;
+        const last = cur[cur.length - 1] ?? (t.panVal ?? 0);
+        t.measurePans = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? last);
+      }
+    } else {
+      t.measurePans = undefined;
+      t.measurePanTransitions = undefined;
     }
-    if (!Array.isArray(t.measurePans) || t.measurePans.length !== loadedMeasures) {
-      const cur = Array.isArray(t.measurePans) ? t.measurePans : [];
-      t.measurePans = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? (t.panVal ?? 0));
-    }
-    if (!Array.isArray(t.measureReverbSends) || t.measureReverbSends.length !== loadedMeasures) {
-      const cur = Array.isArray(t.measureReverbSends) ? t.measureReverbSends : [];
-      t.measureReverbSends = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? (t.reverbVal ?? 0));
+
+    // Assainissement des automations de réverbe : purger les tableaux plats à undefined
+    if (t.measureReverbSends && Array.isArray(t.measureReverbSends)) {
+      if (!hasActiveTrackAutomation(t, 'reverb')) {
+        t.measureReverbSends = undefined;
+        t.measureReverbTransitions = undefined;
+      } else if (t.measureReverbSends.length !== loadedMeasures) {
+        const cur = t.measureReverbSends;
+        const last = cur[cur.length - 1] ?? (t.reverbVal ?? 0);
+        t.measureReverbSends = Array.from({ length: loadedMeasures }, (_, i) => cur[i] ?? last);
+      }
+    } else {
+      t.measureReverbSends = undefined;
+      t.measureReverbTransitions = undefined;
     }
   });
 

@@ -34,25 +34,12 @@ export function useMasterEffectsSync({
     }
   }, [masterVol]);
 
-  // Sync Master EQ with Smart Bypass
+  // Sync Master EQ (lowshelf 100Hz, peaking 1000Hz, highshelf 4500Hz en série permanente)
   useEffect(() => {
-    if (masterEQNode && masterVolumeNode && masterCompressorNode) {
+    if (masterEQNode) {
       masterEQNode.low.value = masterEQ.low;
       masterEQNode.mid.value = masterEQ.mid;
       masterEQNode.high.value = masterEQ.high;
-
-      const isFlat = masterEQ.low === 0 && masterEQ.mid === 0 && masterEQ.high === 0;
-
-      try { masterVolumeNode.disconnect(masterEQNode); } catch (_) {}
-      try { masterVolumeNode.disconnect(masterCompressorNode); } catch (_) {}
-      try { masterEQNode.disconnect(masterCompressorNode); } catch (_) {}
-
-      if (isFlat) {
-        masterVolumeNode.connect(masterCompressorNode);
-      } else {
-        masterVolumeNode.connect(masterEQNode);
-        masterEQNode.connect(masterCompressorNode);
-      }
     }
   }, [masterEQ]);
 

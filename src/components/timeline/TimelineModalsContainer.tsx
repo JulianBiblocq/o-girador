@@ -16,6 +16,7 @@ export interface TimelineModalsContainerProps {
     isOpen: boolean;
     onClose: () => void;
     editingSection: SongSection | null;
+    defaultLevel?: number;
     onCreateSection: (name: string, start: number, end: number, color: string, repeat?: number, level?: number) => void;
     onUpdateSection: (id: string, name: string, start: number, end: number, color: string, level?: number) => void;
     onSaveCloudSection?: (sec: SongSection) => void;
@@ -63,6 +64,7 @@ export const TimelineModalsContainer: React.FC<TimelineModalsContainerProps> = R
         editingSection={sectionModal.editingSection}
         totalMeasures={totalMeasures}
         lang={lang}
+        defaultLevel={sectionModal.defaultLevel}
         onCreateSection={sectionModal.onCreateSection}
         onUpdateSection={sectionModal.onUpdateSection}
         onSaveCloudSection={sectionModal.onSaveCloudSection}

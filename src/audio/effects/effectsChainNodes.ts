@@ -3,8 +3,19 @@ import * as Tone from 'tone';
 export let masterVolumeNode: Tone.Gain | null = null;
 export function setMasterVolumeNode(node: Tone.Gain | null) { masterVolumeNode = node; }
 
-export let masterEQNode: Tone.EQ3 | null = null;
-export function setMasterEQNode(node: Tone.EQ3 | null) { masterEQNode = node; }
+export interface MasterEQNodeInterface {
+  low: Tone.Param<'decibels'> | Tone.Signal<'decibels'>;
+  mid: Tone.Param<'decibels'> | Tone.Signal<'decibels'>;
+  high: Tone.Param<'decibels'> | Tone.Signal<'decibels'>;
+  lowFilter: Tone.BiquadFilter;
+  midFilter: Tone.BiquadFilter;
+  highFilter: Tone.BiquadFilter;
+  input: Tone.BiquadFilter;
+  output: Tone.BiquadFilter;
+}
+
+export let masterEQNode: MasterEQNodeInterface | null = null;
+export function setMasterEQNode(node: MasterEQNodeInterface | null) { masterEQNode = node; }
 
 export let masterCompressorNode: Tone.Compressor | null = null;
 export function setMasterCompressorNode(node: Tone.Compressor | null) { masterCompressorNode = node; }

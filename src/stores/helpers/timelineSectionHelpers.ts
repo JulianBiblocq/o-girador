@@ -46,7 +46,7 @@ export const createSongSectionState = (
     endMeasure: end,
     color: color || '#27ae60',
     repeatCount: repeatCount || 1,
-    level: level || 0,
+    level: level !== undefined ? level : 0,
   };
   const next = [...state.songSections, newSection].sort((a, b) => a.startMeasure - b.startMeasure);
   const targetTotal = Math.max(state.totalMeasures, end + 1);
@@ -67,7 +67,7 @@ export const updateSongSectionState = (
   level?: number
 ): Record<string, any> => {
   const next = state.songSections.map(s => 
-    (s.id === id || String(s.id) === String(id)) ? { ...s, name, startMeasure: start, endMeasure: end, color: color || s.color, level: level || s.level } : s
+    (s.id === id || String(s.id) === String(id)) ? { ...s, name, startMeasure: start, endMeasure: end, color: color || s.color, level: level !== undefined ? level : (s.level ?? 0) } : s
   ).sort((a, b) => a.startMeasure - b.startMeasure);
 
   const targetTotal = Math.max(state.totalMeasures, end + 1);

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 export function useAudioEffectsState() {
   const [masterVol, setMasterVol] = useState<number>(0);
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
-  const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
+  const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -3, ratio: 2 });
   const [reverbDecay, setReverbDecay] = useState<number>(() => {
     const saved = localStorage.getItem('oGirador_reverb_decay');
     return saved ? parseFloat(saved) : 2.5;

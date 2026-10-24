@@ -37,12 +37,13 @@ export class EngineStrokePlayback {
     if (stroke.isBarulho) {
       playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier, isLiveHold);
     } else {
-      this.playOneShot(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier);
+      this.playOneShot(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, velocity, decayMultiplier);
     }
   }
 
   private static playOneShot(
     ctx: PlaybackContext,
+    trackId: number | null,
     source: AudioBufferSourceNode,
     gainNode: GainNode,
     instrumentId: string,
@@ -76,10 +77,23 @@ export class EngineStrokePlayback {
       if (mapping) { mapping.gainNode = null; mapping.instrumentId = ''; }
       ctx.activeGainNodes.delete(source);
       ctx.voiceGuard.removeActiveVoice(instrumentId, source);
+      if (trackId !== null) {
+        const tv = ctx.voiceGuard.trackVoices.get(String(trackId));
+        if (tv) {
+          const idx = tv.findIndex(v => v.source === source);
+          if (idx !== -1) tv.splice(idx, 1);
+        }
+      }
     };
 
+    const activeVoice = ctx.voiceGuard.getActiveVoice(source, gainNode, time, velocity, instrumentId);
     const voices = ctx.voiceGuard.instrumentVoices.get(instrumentId) || [];
-    voices.push(ctx.voiceGuard.getActiveVoice(source, gainNode, time, velocity, instrumentId));
+    voices.push(activeVoice);
     ctx.voiceGuard.instrumentVoices.set(instrumentId, voices);
+    if (trackId !== null) {
+      const tv = ctx.voiceGuard.trackVoices.get(String(trackId)) || [];
+      tv.push(activeVoice);
+      ctx.voiceGuard.trackVoices.set(String(trackId), tv);
+    }
   }
 }

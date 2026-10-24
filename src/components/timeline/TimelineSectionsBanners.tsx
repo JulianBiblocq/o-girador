@@ -19,7 +19,7 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
   onResizePointerDown, onEditSection, onDeleteSection, onCopySection, onPasteSection,
 }) => {
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = useState<number | null>(null);
-  const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
+  const maxLevel = Math.max(1, ...songSections.map(s => s.level || 0));
 
   return (
     <>

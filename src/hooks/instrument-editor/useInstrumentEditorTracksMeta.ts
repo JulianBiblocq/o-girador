@@ -21,20 +21,59 @@ export function useInstrumentEditorTracksMeta(track: any, trackId: number, inst:
 
   const visibleTrackIds = useSequencerStore(
     useShallow((state) => {
-      const list = state.tracks.filter((t) => {
-        const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
-        const isBaseVisible = isSequencerVisibleTrack(t, state.tracks) || isToadaBus(t) || t.customName === 'Toada' || t.instrumentIdx === 12 || isLinkedSlave;
-        return isBaseVisible && (!t.isHidden || isLinkedSlave) && !isToadaChild(t, state.tracks);
+      // 1. Pistes de premier niveau ordonnées selon la Roda / Morceau
+      const topLevelList: any[] = [];
+      state.tracks.forEach((t) => {
+        if (t.isLinkFolder) return;
+        if (t.isBusFolder && !t.isLinkMaster && !isToadaBus(t)) return;
+        if (isToadaChild(t, state.tracks)) return;
+        const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkMaster && !t.isBusFolder && !t.isLinkFolder);
+        if (!isLinkedSlave) {
+          topLevelList.push(t);
+        }
       });
+
       if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
         const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
-        list.sort((a, b) => {
+        topLevelList.sort((a, b) => {
           const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
           const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
           return idxA - idxB;
         });
       }
-      return list.map((t) => t.id);
+
+      // 2. Insérer chaque piste et ses esclaves liés dans l'ordre exact de la colonne de gauche
+      const result: number[] = [];
+      topLevelList.forEach((t) => {
+        if (!result.includes(t.id)) result.push(t.id);
+        if (isToadaBus(t)) {
+          const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
+          const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
+          if (puxTrack && !result.includes(puxTrack.id)) result.push(puxTrack.id);
+          if (coroTrack && !result.includes(coroTrack.id)) result.push(coroTrack.id);
+        }
+        const slaves = state.tracks.filter(child =>
+          (String(child.linkedToTrackId) === String(t.id) || (t.linkedToTrackId && String(child.linkedToTrackId) === String(t.linkedToTrackId))) &&
+          !child.isLinkFolder &&
+          !child.isLinkMaster &&
+          child.id !== t.id
+        );
+        slaves.forEach((slave) => {
+          if (!result.includes(slave.id)) result.push(slave.id);
+        });
+      });
+
+      // 3. Filet de sécurité pour garantir la présence de tout instrument jouable
+      state.tracks.forEach((t) => {
+        if (t.isLinkFolder) return;
+        if (t.isBusFolder && !t.isLinkMaster && !isToadaBus(t)) return;
+        if (isToadaChild(t, state.tracks)) return;
+        if (!result.includes(t.id)) {
+          result.push(t.id);
+        }
+      });
+
+      return result;
     })
   );
 

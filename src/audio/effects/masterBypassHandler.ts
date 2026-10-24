@@ -5,8 +5,8 @@ export function syncMasterCompressorBypass(
   currentComp?: { threshold: number; ratio: number }
 ) {
   if (!masterCompressorNode) return;
-  const targetThreshold = isBypassed ? 0 : Math.max(-100, Math.min(0, currentComp?.threshold ?? -12));
-  const targetRatio = isBypassed ? 1 : Math.max(1, currentComp?.ratio ?? 2);
+  const targetThreshold = isBypassed ? 0 : Math.max(-100, Math.min(0, currentComp?.threshold ?? -3));
+  const targetRatio = isBypassed ? 1 : Math.max(1, Math.min(2, currentComp?.ratio ?? 2));
 
   try {
     const thresh = masterCompressorNode.threshold as any;

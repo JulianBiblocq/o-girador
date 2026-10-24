@@ -12,7 +12,6 @@ import { MobileTopHeader } from './MobileTopHeader';
 import { MobilePercControls } from './MobilePercControls';
 import { MobilePercCenterBar } from './MobilePercCenterBar';
 import { CircleSequencer } from '../CircleSequencer';
-import { AoVivoOverlayInner } from '../AoVivo/AoVivoOverlayInner';
 import { MobileSectionLooper } from './MobileSectionLooper';
 import { MobilePercTransport } from './MobilePercTransport';
 import { MobileSongPickerModal } from './MobileSongPickerModal';
@@ -108,7 +107,6 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
       <div className="relative flex-1 min-h-0 overflow-hidden z-10 flex items-center justify-center">
         <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} />
-        {activeAoVivoTrackId !== null && <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} />}
       </div>
       <MobilePercTransport isPlaying={props.isPlaying} isLoading={props.isLoading} onTogglePlay={props.onTogglePlay} onStop={props.onStop} bpm={effectiveBpm} onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)} onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()} loopMode={loopMode} onChangeLoopMode={setLoopMode} isLoopExitRequested={isLoopExitRequested} onRequestLoopExit={requestLoopExit} onOpenSpeedTrainer={openSpeedTrainerModal} />
       {isLetraDrawerOpen && <MobileLetraDrawer onClose={() => setIsLetraDrawerOpen(false)} lang={lang} />}

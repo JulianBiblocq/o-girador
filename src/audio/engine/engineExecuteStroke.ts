@@ -45,8 +45,8 @@ export class EngineExecuteStroke {
     const buffer = deps.sampleLoader.bufferPool.get(filePath);
     if (!buffer || !buffer.loaded) return;
 
-    if (ALFAIA_INSTRUMENTS.has(instrumentId)) deps.voiceGuard.enforceAlfaiaVoiceLimit(time);
-    else deps.voiceGuard.enforceStandardVoiceLimit(instrumentId, time);
+    // Élimination du voice stealing arbitraire et étouffement strictement isolé par piste (trackId)
+    deps.voiceGuard.chokeTrackVoice(trackId, requestedSymbol || stroke.symbol, time);
 
     const isLeftHandRufada = (requestedSymbol || stroke.symbol) === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;

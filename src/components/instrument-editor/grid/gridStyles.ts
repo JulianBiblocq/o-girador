@@ -2,11 +2,9 @@
 export function getGridScopedStyles(activeTool?: string): string {
   return `
     .live-playhead-highlight {
-      background-color: #1a1a1a !important;
-      color: #f4ecd8 !important;
-      border-color: #8b2a1a !important;
-      box-shadow: 0 0 8px rgba(139, 42, 26, 0.6) !important;
-      transform: scale(1.1) !important;
+      outline: 2px solid #c23b22 !important;
+      outline-offset: -2px !important;
+      box-shadow: inset 0 0 0 2px #c23b22, 0 0 8px rgba(194, 59, 34, 0.6) !important;
       z-index: 20 !important;
     }
     .slider-transparent-track::-webkit-slider-runnable-track {

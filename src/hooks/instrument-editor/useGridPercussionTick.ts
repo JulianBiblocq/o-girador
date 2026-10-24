@@ -70,8 +70,8 @@ export function useGridPercussionTick({
           lastActiveElRef.current = null;
         }
 
-        const inputEl = gridRef.current.querySelector<HTMLElement>(`input[data-step-index="${activeStepIdx}"]`);
-        const targetEl = inputEl || gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"]`);
+        const cellEl = gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"] .step-input-cell, [data-step-index="${activeStepIdx}"].voice-step-cell`);
+        const targetEl = cellEl || gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"]`);
 
         if (targetEl) {
           targetEl.classList.add('live-playhead-highlight');

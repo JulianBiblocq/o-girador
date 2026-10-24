@@ -15,7 +15,7 @@ export interface TimelineSectionsRowProps {
   songSections: SongSection[];
   snapMode: 'measure' | 'beat' | 'none';
   setSnapMode: (mode: 'measure' | 'beat' | 'none') => void;
-  onOpenCreateSectionModal: () => void;
+  onOpenCreateSectionModal: (defaultLevel?: number) => void;
   measureLeftPositions: number[];
   measureWidths: number[];
   isDraggingRange: boolean;
@@ -33,7 +33,7 @@ export const TimelineSectionsRow = React.memo<TimelineSectionsRowProps>(({
 }) => {
   const [snapDropdownOpen, setSnapDropdownOpen] = useState(false);
   const snapDropdownRef = useRef<HTMLDivElement>(null);
-  const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
+  const maxLevel = Math.max(1, ...songSections.map(s => s.level || 0));
   const rowH = 32 + maxLevel * 26;
   const totalRowW = headerWidth + totalContentW + 150;
 
@@ -88,14 +88,24 @@ export const TimelineSectionsRow = React.memo<TimelineSectionsRowProps>(({
             )}
           </div>
 
-          <button
-            onClick={onOpenCreateSectionModal}
-            className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5 h-5"
-            title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
-          >
-            <Plus size={14} strokeWidth={2.5} />
-            {!isMobile && <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onOpenCreateSectionModal(1)}
+              className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[9px] px-1 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5 h-5"
+              title={lang === 'fr' ? 'Créer une sous-section (Niveau 2)' : 'Criar subseção (Nível 2)'}
+            >
+              <Plus size={10} strokeWidth={2.5} />
+              <span>N2</span>
+            </button>
+            <button
+              onClick={() => onOpenCreateSectionModal(0)}
+              className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5 h-5"
+              title={lang === 'fr' ? 'Créer une section principale (Niveau 1)' : 'Criar seção principal (Nível 1)'}
+            >
+              <Plus size={12} strokeWidth={2.5} />
+              {!isMobile ? <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span> : <span>N1</span>}
+            </button>
+          </div>
         </div>
       </div>
 

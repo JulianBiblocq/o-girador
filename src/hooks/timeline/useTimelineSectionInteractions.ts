@@ -37,10 +37,15 @@ export function useTimelineSectionInteractions({
   useEffect(() => {
     const onUp = () => {
       if (isDraggingRange && dragStartMeasure !== null && dragCurrentMeasure !== null) {
-        setQuickSectionRange({ start: Math.min(dragStartMeasure, dragCurrentMeasure), end: Math.max(dragStartMeasure, dragCurrentMeasure) });
-        setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
-        setQuickSectionColor('#f19066');
-        setQuickSectionLevel(0);
+        const s = Math.min(dragStartMeasure, dragCurrentMeasure), e = Math.max(dragStartMeasure, dragCurrentMeasure);
+        const hasLevel0 = songSections.some(sec => (sec.level || 0) === 0 && ((s >= sec.startMeasure && s <= sec.endMeasure) || (e >= sec.startMeasure && e <= sec.endMeasure)));
+        const targetLevel = hasLevel0 ? 1 : 0;
+        setQuickSectionRange({ start: s, end: e });
+        setQuickSectionName(lang === 'fr' 
+          ? (targetLevel === 1 ? `Sous-partie ${String.fromCharCode(65 + songSections.length)}` : `Partie ${String.fromCharCode(65 + songSections.length)}`)
+          : (targetLevel === 1 ? `Subparte ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`));
+        setQuickSectionColor(targetLevel === 1 ? '#55efc4' : '#f19066');
+        setQuickSectionLevel(targetLevel);
       }
       setIsDraggingRange(false);
       setDragStartMeasure(null);
@@ -48,7 +53,7 @@ export function useTimelineSectionInteractions({
     };
     window.addEventListener('pointerup', onUp);
     return () => window.removeEventListener('pointerup', onUp);
-  }, [isDraggingRange, dragStartMeasure, dragCurrentMeasure, lang, songSections.length]);
+  }, [isDraggingRange, dragStartMeasure, dragCurrentMeasure, lang, songSections]);
 
   const handleEmptySlotPointerDown = (e: React.PointerEvent, mIdx: number) => {
     if (e.button !== 0) return;
@@ -69,10 +74,14 @@ export function useTimelineSectionInteractions({
     if (useSequencerStore.getState().copiedSection || copiedSection) {
       onPasteSection(mIdx); return;
     }
+    const hasLevel0 = songSections.some(s => (s.level || 0) === 0 && mIdx >= s.startMeasure && mIdx <= s.endMeasure);
+    const targetLevel = hasLevel0 ? 1 : 0;
     setQuickSectionRange({ start: mIdx, end: Math.min(Math.max(64, totalMeasures) - 1, mIdx + 3) });
-    setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
-    setQuickSectionColor('#f19066');
-    setQuickSectionLevel(0);
+    setQuickSectionName(lang === 'fr' 
+      ? (targetLevel === 1 ? `Sous-partie ${String.fromCharCode(65 + songSections.length)}` : `Partie ${String.fromCharCode(65 + songSections.length)}`)
+      : (targetLevel === 1 ? `Subparte ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`));
+    setQuickSectionColor(targetLevel === 1 ? '#55efc4' : '#f19066');
+    setQuickSectionLevel(targetLevel);
   };
 
   const handleQuickSectionCreate = () => {
@@ -88,7 +97,7 @@ export function useTimelineSectionInteractions({
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
     const startX = e.clientX, startY = e.clientY, startMeasure = section.startMeasure, startLevel = section.level || 0;
     const duration = section.endMeasure - section.startMeasure;
-    const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
+    const maxLevel = Math.max(1, ...songSections.map(s => s.level || 0));
 
     const onMove = (moveEv: PointerEvent) => {
       const propStart = startMeasure + ((moveEv.clientX - startX) / measureWidth);

@@ -41,7 +41,7 @@ export const clearAutomationSelectionState = (): Record<string, any> => ({
 });
 
 function updateTrackArray(
-  tracks: TrackGroup[], trackId: number | null, prop: 'measureVols' | 'measurePans' | 'measureReverbs',
+  tracks: TrackGroup[], trackId: number | null, prop: 'measureVols' | 'measurePans' | 'measureReverbSends',
   fallbackProp: 'volumeVal' | 'panVal' | 'reverbVal', defVal: number,
   totalM: number, start: number, end: number, val: number
 ): TrackGroup[] {
@@ -95,7 +95,7 @@ export const setGroupedAutomationValueState = (
     return { tracks: updateTrackArray(state.tracks, trackId, 'measurePans', 'panVal', 0, totalM, start, end, value), tracksVersion: state.tracksVersion + 1 };
   }
   if (type === 'reverb') {
-    return { tracks: updateTrackArray(state.tracks, trackId, 'measureReverbs', 'reverbVal', 0, totalM, start, end, value), tracksVersion: state.tracksVersion + 1 };
+    return { tracks: updateTrackArray(state.tracks, trackId, 'measureReverbSends', 'reverbVal', 0, totalM, start, end, value), tracksVersion: state.tracksVersion + 1 };
   }
 
   return { tracksVersion: state.tracksVersion };

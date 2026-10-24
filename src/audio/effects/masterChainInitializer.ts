@@ -17,17 +17,32 @@ export function initMasterEffectsChain(
     Tone.setContext(new Tone.Context());
   }
 
-  const eq = new Tone.EQ3({ low: masterEQ.low, mid: masterEQ.mid, high: masterEQ.high });
-  nodes.setMasterEQNode(eq);
+  const lowFilter = new Tone.BiquadFilter(100, 'lowshelf');
+  lowFilter.gain.value = masterEQ.low;
+  const midFilter = new Tone.BiquadFilter({ frequency: 1000, type: 'peaking', Q: 0.7 });
+  midFilter.gain.value = masterEQ.mid;
+  const highFilter = new Tone.BiquadFilter(4500, 'highshelf');
+  highFilter.gain.value = masterEQ.high;
+
+  nodes.setMasterEQNode({
+    low: lowFilter.gain,
+    mid: midFilter.gain,
+    high: highFilter.gain,
+    lowFilter,
+    midFilter,
+    highFilter,
+    input: lowFilter,
+    output: highFilter,
+  });
 
   const disableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? isEco;
   const isCompActive = useSequencerStore.getState().masterEffectsActive?.compressor ?? true;
   const isCompBypassed = !isCompActive;
 
   const comp = new Tone.Compressor({
-    threshold: isCompBypassed ? 0 : -12,
+    threshold: isCompBypassed ? 0 : -3,
     ratio: isCompBypassed ? 1 : 2,
-    attack: 0.015,
+    attack: 0.03,
     release: 0.15
   });
   nodes.setMasterCompressorNode(comp);
@@ -39,8 +54,10 @@ export function initMasterEffectsChain(
   } catch (_) {}
   nodes.setMasterVolumeNode(vol);
 
-  vol.connect(eq);
-  eq.connect(comp);
+  vol.connect(lowFilter);
+  lowFilter.connect(midFilter);
+  midFilter.connect(highFilter);
+  highFilter.connect(comp);
 
   const masterLimiterNode = new Tone.Limiter(-2);
   comp.connect(masterLimiterNode);
@@ -65,8 +82,8 @@ export function initMasterEffectsChain(
   } catch (_) {}
   initMasterMonoNodes(masterLimiterNode);
 
-  const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
-  vol.gain.value = baseGain;
+  const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : Math.min(0, masterVol));
+  vol.gain.value = Math.min(1.0, baseGain);
 
   const meter = new Tone.Meter();
   nodes.setMasterMeterNode(meter);

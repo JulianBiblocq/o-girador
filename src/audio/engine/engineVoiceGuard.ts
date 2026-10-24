@@ -57,22 +57,35 @@ export class EngineVoiceGuard {
     }
   }
 
-  public getPolyphonyLimit(instrumentId: string): number {
-    const isEco = useSequencerStore.getState().isEcoMode;
-    if (isEco) {
-      return ['caixa', 'tarol', 'timbal', 'agbe', 'mineiro', 'apito'].includes(instrumentId) ? 4 : 4;
+  public trackVoices = new Map<string, ActiveVoice[]>();
+
+  public chokeTrackVoice(trackId: number | string | null, strokeSymbol: string, time: number): void {
+    if (trackId === null || trackId === undefined) return;
+    const isClosedStroke = strokeSymbol === 'p' || strokeSymbol === 'P';
+    if (!isClosedStroke) return;
+
+    const voices = this.trackVoices.get(String(trackId));
+    if (!voices || voices.length === 0) return;
+
+    for (let i = 0; i < voices.length; i++) {
+      const v = voices[i];
+      if (v && v.gainNode && v.time < time) {
+        try {
+          const gainParam = v.gainNode.gain;
+          gainParam.cancelScheduledValues(time);
+          gainParam.setValueAtTime(gainParam.value, time);
+          gainParam.linearRampToValueAtTime(0, time + 0.015);
+          v.source?.stop(time + 0.015);
+        } catch (_) {}
+      }
     }
-    if (['agbe', 'mineiro'].includes(instrumentId)) return 4;
-    if (['caixa', 'tarol', 'timbal', 'apito'].includes(instrumentId)) return 6;
-    return 6;
   }
 
-  public enforceAlfaiaVoiceLimit(time: number): void {
-    EngineVoiceStealing.stealOldestAlfaia(this.instrumentVoices, time);
+  public enforceAlfaiaVoiceLimit(_time: number): void {
+    // Zéro voice stealing : laisser sonner intégralement toutes les résonances
   }
 
-  public enforceStandardVoiceLimit(instrumentId: string, time: number): void {
-    const limit = this.getPolyphonyLimit(instrumentId);
-    EngineVoiceStealing.stealOldestStandard(this.instrumentVoices, instrumentId, limit, time);
+  public enforceStandardVoiceLimit(_instrumentId: string, _time: number): void {
+    // Zéro voice stealing : aucune limitation arbitraire de polyphonie
   }
 }

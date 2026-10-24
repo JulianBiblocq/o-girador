@@ -27,7 +27,7 @@ export const TimelineSectionsEmptySlots = React.memo<TimelineSectionsEmptySlotsP
         return (
           <div
             key={mIdx}
-            className={`group relative border-r border-dashed border-[var(--cordel-border)]/15 hover:bg-black/[0.03] flex items-center justify-center select-none pointer-events-auto ${
+            className={`group relative border-r border-dashed border-[var(--cordel-border)]/15 hover:bg-black/[0.03] flex items-start justify-center pt-1.5 select-none pointer-events-auto ${
               copiedSection ? 'cursor-pointer' : 'cursor-crosshair'
             }`}
             style={{ width: mW, minWidth: mW, height: '100%' }}

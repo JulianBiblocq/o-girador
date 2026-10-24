@@ -25,7 +25,7 @@ export function createMeasureSectionHandlers(ctx: MeasureSectionContext) {
     pushUndoState();
     const newSection: SongSection = {
       id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
-      name, startMeasure: start, endMeasure: end, color: color || '#27ae60', repeatCount: repeatCount || 1, level: level || 0,
+      name, startMeasure: start, endMeasure: end, color: color || '#27ae60', repeatCount: repeatCount || 1, level: level !== undefined ? level : 0,
     };
     setSongSections((prev: SongSection[]) => [...prev, newSection].sort((a: SongSection, b: SongSection) => a.startMeasure - b.startMeasure));
     if (end + 1 > ctx.totalMeasures) setTotalMeasures(end + 1);
@@ -33,7 +33,7 @@ export function createMeasureSectionHandlers(ctx: MeasureSectionContext) {
 
   const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => {
     pushUndoState();
-    setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => (s.id === id || String(s.id) === String(id)) ? { ...s, name, startMeasure: start, endMeasure: end, color, level: level || 0 } : s).sort((a: SongSection, b: SongSection) => a.startMeasure - b.startMeasure));
+    setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => (s.id === id || String(s.id) === String(id)) ? { ...s, name, startMeasure: start, endMeasure: end, color, level: level !== undefined ? level : (s.level ?? 0) } : s).sort((a: SongSection, b: SongSection) => a.startMeasure - b.startMeasure));
     if (end + 1 > ctx.totalMeasures) setTotalMeasures(end + 1);
   };
 

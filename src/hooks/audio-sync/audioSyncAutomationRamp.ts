@@ -8,6 +8,7 @@ import { faderPositionToGain } from '../../utils/audioMath';
 import { getEffectiveVolume, useSequencerStore } from '../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { isAutomationBypassed } from '../../utils/automationBypassHelper';
+import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { scheduleMasterVolumeRamp } from './audioSyncMasterRamp';
 
 interface ScheduleAutomationProps {
@@ -42,7 +43,7 @@ export function scheduleMeasureAutomationRamps({
     if (!channel) return;
 
     // 1. Volume
-    if (!isAutomationBypassed(t, 'volume', globalBypass) && t.measureVols?.length && channel.volume) {
+    if (!isAutomationBypassed(t, 'volume', globalBypass) && hasActiveTrackAutomation(t, 'volume') && t.measureVols?.length && channel.volume) {
       try {
         const isConnected = Boolean(t.busId && busChannels?.[t.busId]);
         const baseGain = faderPositionToGain(isConnected ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id));
@@ -63,7 +64,7 @@ export function scheduleMeasureAutomationRamps({
     }
 
     // 2. Pan
-    if (!isAutomationBypassed(t, 'pan', globalBypass) && t.measurePans?.length && channel.pan) {
+    if (!isAutomationBypassed(t, 'pan', globalBypass) && hasActiveTrackAutomation(t, 'pan') && t.measurePans?.length && channel.pan) {
       try {
         const dPan = t.panVal ?? t.pan ?? 0;
         const rawTarget = t.measurePans[currentMeasureIdx] !== undefined ? t.measurePans[currentMeasureIdx] : dPan;
@@ -88,7 +89,7 @@ export function scheduleMeasureAutomationRamps({
 
     // 3. Reverb Send
     const send = reverbSends[t.id];
-    if (!isAutomationBypassed(t, 'reverb', globalBypass) && t.measureReverbSends?.length && send?.gain) {
+    if (!isAutomationBypassed(t, 'reverb', globalBypass) && hasActiveTrackAutomation(t, 'reverb') && t.measureReverbSends?.length && send?.gain) {
       try {
         const dRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;
         const rawTarget = t.measureReverbSends[currentMeasureIdx] !== undefined ? t.measureReverbSends[currentMeasureIdx] : dRev;

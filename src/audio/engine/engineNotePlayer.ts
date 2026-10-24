@@ -57,14 +57,7 @@ export class EngineNotePlayer {
     const currentHits = (deps.timeSlotHitCounts.get(timeSlot) || 0) + 1;
     deps.timeSlotHitCounts.set(timeSlot, currentHits);
 
-    const isSlave = Boolean(track && track.linkedToTrackId && !track.isLinkMaster);
-    if (isSlave) {
-      const hasLocalVariation = Boolean(
-        track?.patternOverrides && track.patternOverrides[deps.getSchedulingMeasure()] !== undefined
-      );
-      // Ne plus couper les pistes esclaves sur mobile : laisser sonner tous les doublages de pupitres
-      if (!hasLocalVariation && currentHits > 24) return;
-    }
+    // Conserver l'intégralité des frappes même sur pistes esclaves doublées (zéro voice-stealing)
 
     const config = deps.configMap.get(instrumentId);
     if (!config) return;

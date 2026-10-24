@@ -35,18 +35,24 @@ Si du code est généré ou modifié, ces règles doivent être strictement resp
 ---
 ## 6. Règles Architecturales Permanentes
 
-### A. Règle Anti-Monolithe (Modularité & Extraction Immédiate)
+### A. Règle Anti-Monolithe & Cohésion Modulaire (Standards DAW Pro)
 - **Seuil de 30 lignes** : Toute nouvelle fonctionnalité, enrichissement de logique ou retouche dépassant 30 lignes de code (logique, hooks ou JSX) doit faire l'objet d'une extraction immédiate hors des composants existants déjà denses (ex: `TimelineSequencer.tsx`, `useSequencerStore.ts`, `DawTrackRow.tsx`, etc.).
 - **Découpage systématique** : Extraire obligatoirement vers des sous-composants spécialisés (dans un sous-dossier de composant ou `src/components/...`), des custom hooks (`src/hooks/...`) ou des modules utilitaires purs (`src/utils/...`). Interdiction d'empiler du code monolithique dans les fichiers conteneurs.
+- **Cible standard :** ~150 lignes pour tout nouveau fichier créé.
+- **Tolérance de sécurité (jusqu'à 180–200 lignes) :** Si un module existant cohérent atteint entre 150 et 200 lignes suite à une correction ou une retouche chirurgicale, **il est interdit de le découper artificiellement** si cette scission fragmente la logique métier ou risque d'introduire des régressions. La stabilité fonctionnelle prime sur le compteur de lignes.
 
 ### B. Découplage Graphique Multi-Univers (Design Tokens Sémantiques)
 - **Bannir les styles en dur** : Interdiction formelle d'écrire des valeurs de couleur ou styles hardcodés (ex: `#f4ecd8`, `#1a1a1a`, `#8b2a1a`, etc.) dans les attributs `style={{ ... }}` ou les classes utilitaires statiques.
 - **Usage des jetons sémantiques** : Utiliser exclusivement les variables CSS et jetons sémantiques (`var(--cordel-bg)`, `var(--cordel-text)`, `var(--cordel-border)`, `themeTokens.css`, etc.) afin de garantir la cohérence graphique et le basculement instantané entre les différents univers visuels de l'application (Cordel, Dark mode, thèmes dynamiques).
 
-### C. Commandements de Performance Web Audio & Temps-Réel
+### C. Commandements Web Audio & Standards Studio DAW Pro (Zéro Rustine)
 - **Zero Render Thrashing** : Proscription totale de `useState` et des mutations de store réactives pour les événements audio haute fréquence (ticks, curseur de lecture, RAF). Recourir exclusivement à des `useRef`, des écouteurs d'événements directs ou la manipulation DOM découplée (Vanilla JS).
 - **Sélecteurs Zustand "ID-Only"** : Les composants conteneurs ne s'abonnent qu'aux listes d'IDs (`useShallow(state => state.trackIds)`). Chaque sous-composant enfant récupère ses données et actions atomiquement via son propre ID pour éliminer les cascades de re-render.
 - **Gestion du Graphe & Nettoyage des Nœuds Tone.js / Web Audio** : Tout nœud audio Tone.js ou Web Audio créé dynamiquement doit être explicitement déconnecté et détruit (`node.disconnect()`, `node.dispose()`) au démontage du composant ou lors du changement de preset afin de garantir l'absence absolue de fuite mémoire et de maintenir 60 FPS constants.
+- **Graphe Audio Stable en Lecture** : Interdiction formelle de tout recâblage dynamique (`disconnect`/`connect`) à la volée pendant la lecture audio pour simuler un bypass d'EQ ou d'effet. Les filtres Biquad et processeurs d'effet restent connectés en série en permanence, avec un gain unitaire (`0 dB` ou neutre) au repos pour éliminer tout transitoire ou clic.
+- **Lissage des Paramètres (Zero Click)** : Toute variation de volume, pan ou fréquence/gain d'EQ en temps réel doit impérativement utiliser un lissage progressif (`rampTo` / `setTargetAtTime` sur 10 à 30 ms). Les rampes d'automation de mesure ne doivent être planifiées qu'une seule fois par changement de mesure (`stepIdx === 0`), jamais à chaque tick audio.
+- **Intégrité Polyphonique & Gain Staging** : Interdiction de supprimer arbitrairement des notes ou frappes programmées (aucun saut de pas ou plafond artificiel de hits simultanés). Les *choke groups* (étouffement par coup fermé/flam) doivent être strictement isolés par `trackId` sans jamais affecter les autres pistes (ex: Alfaias n'étouffent jamais Caixas ou Gonguê).
+- **Vérité Géométrique UI** : Pour les calques graphiques superposés (ex: mode *Ao Vivo* sur la Roda), proscrire tout décalage en pixels codé en dur (ex: `bottom: -350px`). Utiliser `ResizeObserver` (découplé hors de la boucle RAF afin de respecter le Commandement 2 *Zero Layout Thrashing*) pour caler dynamiquement les scènes sur les coordonnées réelles et le bounding rect du `<canvas>`.
 
 ### D. Vérification Locale Obligatoire Avant Toute Validation
 - **Contrôle systématique avant validation** : Avant de déclarer une tâche achevée ou de solliciter la validation, l'agent doit impérativement exécuter et valider localement :

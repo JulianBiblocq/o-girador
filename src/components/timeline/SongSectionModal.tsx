@@ -4,7 +4,7 @@ import { SongSectionBoundsFields } from './SongSectionBoundsFields';
 
 interface SongSectionModalProps {
   isOpen: boolean; onClose: () => void; editingSection: SongSection | null; totalMeasures: number;
-  lang: Language; defaultMeasure?: number;
+  lang: Language; defaultMeasure?: number; defaultLevel?: number;
   onCreateSection: (name: string, start: number, end: number, color: string, repeat?: number, level?: number) => void;
   onUpdateSection: (id: string, name: string, start: number, end: number, color: string, level?: number) => void;
   onDeleteSection?: (id: string) => void;
@@ -15,7 +15,7 @@ interface SongSectionModalProps {
 const SECTION_COLORS = ['#f19066', '#f5cd79', '#546de5', '#e15f41', '#c44569', '#3dc1d3', '#574b90', '#786fa6'];
 
 export const SongSectionModal: React.FC<SongSectionModalProps> = ({
-  isOpen, onClose, editingSection, totalMeasures, lang, defaultMeasure = 1,
+  isOpen, onClose, editingSection, totalMeasures, lang, defaultMeasure = 1, defaultLevel = 0,
   onCreateSection, onUpdateSection, onDeleteSection,
 }) => {
   const [name, setName] = useState('');
@@ -34,9 +34,9 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
     } else {
       const s = Math.max(1, Math.min(maxLimit, defaultMeasure));
       setName(lang === 'fr' ? 'Partie A' : 'Parte A'); setStartM(s); setEndM(Math.min(maxLimit, s + 3));
-      setColor('#f19066'); setLevel(0);
+      setColor('#f19066'); setLevel(defaultLevel ?? 0);
     }
-  }, [isOpen, editingSection, lang, defaultMeasure, maxLimit]);
+  }, [isOpen, editingSection, lang, defaultMeasure, defaultLevel, maxLimit]);
 
   if (!isOpen) return null;
 
@@ -74,6 +74,35 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
         </div>
         <SongSectionBoundsFields startM={startM} endM={endM} maxLimit={maxLimit} lang={lang} onStartChange={handleStartChange} onEndChange={handleEndChange} onQuickDuration={(b) => setEndM(Math.min(maxLimit, startM + b - 1))} />
         <div>
+          <label className="text-xs font-bold uppercase tracking-wider block mb-1">
+            {lang === 'fr' ? 'Niveau de la section' : 'Nível da seção'}
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setLevel(0)}
+              className={`py-1.5 px-2 text-xs font-bold uppercase border-2 transition-all cursor-pointer text-center ${
+                level === 0
+                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-[var(--cordel-text)] shadow-[2px_2px_0px_rgba(0,0,0,0.3)]'
+                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)] opacity-70 hover:opacity-100'
+              }`}
+            >
+              {lang === 'fr' ? 'Niveau 1 (Structure)' : 'Nível 1 (Estrutura)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLevel(1)}
+              className={`py-1.5 px-2 text-xs font-bold uppercase border-2 transition-all cursor-pointer text-center ${
+                level === 1
+                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-[var(--cordel-text)] shadow-[2px_2px_0px_rgba(0,0,0,0.3)]'
+                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)] opacity-70 hover:opacity-100'
+              }`}
+            >
+              {lang === 'fr' ? 'Niveau 2 (Sous-section)' : 'Nível 2 (Subseção)'}
+            </button>
+          </div>
+        </div>
+        <div>
           <label className="text-xs font-bold uppercase tracking-wider block mb-1.5">{lang === 'fr' ? 'Couleur thématique' : 'Cor temática'}</label>
           <div className="flex gap-2 flex-wrap">
             {SECTION_COLORS.map((c) => (
@@ -87,7 +116,7 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           ) : <div />}
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs font-bold border border-[var(--cordel-border)] hover:bg-[var(--cordel-border)]/10 cursor-pointer">{lang === 'fr' ? 'Annuler' : 'Cancelar'}</button>
-            <button type="button" onClick={handleValidate} className="px-4 py-1.5 text-xs font-bold bg-[#1a1a1a] text-[#f4ecd8] border border-black hover:bg-black cursor-pointer shadow-sm">{editingSection ? (lang === 'fr' ? 'Mettre à jour' : 'Atualizar') : (lang === 'fr' ? 'Créer' : 'Criar')}</button>
+            <button type="button" onClick={handleValidate} className="px-4 py-1.5 text-xs font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] border border-[var(--cordel-text)] hover:opacity-90 cursor-pointer shadow-sm">{editingSection ? (lang === 'fr' ? 'Mettre à jour' : 'Atualizar') : (lang === 'fr' ? 'Créer' : 'Criar')}</button>
           </div>
         </div>
       </div>

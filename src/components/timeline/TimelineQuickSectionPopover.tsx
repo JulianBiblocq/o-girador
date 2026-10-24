@@ -91,9 +91,8 @@ export const TimelineQuickSectionPopover = React.memo<TimelineQuickSectionPopove
           value={quickSectionLevel} onChange={(e) => onLevelChange(parseInt(e.target.value, 10))}
           className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-1 text-[10px] font-bold text-[var(--cordel-text)] outline-none cursor-pointer"
         >
-          {([[0, '0'], [1, '1'], [2, '2']] as const).map(([lvl, n]) => (
-            <option key={lvl} value={lvl}>{lang === 'fr' ? `Niveau ${n}` : `Nível ${n}`}</option>
-          ))}
+          <option value={0}>{lang === 'fr' ? 'Niveau 1 (Structure)' : 'Nível 1 (Estrutura)'}</option>
+          <option value={1}>{lang === 'fr' ? 'Niveau 2 (Sous-section)' : 'Nível 2 (Subseção)'}</option>
         </select>
       </div>
 
