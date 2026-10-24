@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Square, X } from 'lucide-react';
+import { Play, Square, X, Mic, Users } from 'lucide-react';
 import { PupitreRibbon } from './PupitreRibbon';
 import { HeaderBalancoControl } from './HeaderBalancoControl';
 import { InstrumentEditorHeaderProps } from './headerTypes';
@@ -32,7 +32,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
                 className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer shrink-0 ${!isCoroActive ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
                 title={lang === 'fr' ? 'Éditer le Puxador (Solo) [Tab]' : 'Editar o Puxador (Solo) [Tab]'}
               >
-                <span className="text-[10px]"></span>
+                <Mic size={11} />
                 <span className="truncate">Puxador</span>
               </button>
               <div className="w-[1px] bg-[#1a1a1a] shrink-0" />
@@ -42,7 +42,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
                 className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer shrink-0 ${isCoroActive ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
                 title={lang === 'fr' ? 'Éditer le Coro (Chœur) [Tab]' : 'Editar o Coro (Coro) [Tab]'}
               >
-                <span className="text-[10px]"></span>
+                <Users size={11} />
                 <span className="truncate">Coro</span>
               </button>
             </div>

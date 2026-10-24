@@ -17,7 +17,7 @@ export function playGridStepPreview(
       const rawVol = pattern?.volumes?.[idx];
       const rawDec = pattern?.decays?.[idx];
       const subIdx = subIndex ?? 0;
-      const vol = (getSculptNumber(Array.isArray(rawVol) ? rawVol[subIdx] : rawVol, 100)) / 100;
+      const vol = (getSculptNumber(Array.isArray(rawVol) ? rawVol[subIdx] : rawVol, 80)) / 100;
       const dec = (getSculptNumber(Array.isArray(rawDec) ? rawDec[subIdx] : rawDec, 100)) / 100;
       audioEngine.playNote(trackId, String(strokeVal), Tone.now(), vol, dec);
     }

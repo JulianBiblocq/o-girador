@@ -101,8 +101,20 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     t.pan = rawPan;
     t.isMute = Boolean(t.isMute);
     t.isSolo = Boolean(t.isSolo);
+    if (t.busId !== undefined && t.busId !== null) t.busId = String(t.busId);
+    if (t.linkedToTrackId !== undefined && t.linkedToTrackId !== null) t.linkedToTrackId = String(t.linkedToTrackId);
     const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
-    t.isHidden = isLinkedSlave;
+    if (isLinkedSlave) {
+      t.isHidden = false;
+      if (!t.patterns || t.patterns.length === 0) {
+        const parent = loadedTracks.find(p => (String(p.id) === String(t.linkedToTrackId) || String(p.id) === String(t.busId)));
+        if (parent && parent.patterns && parent.patterns.length > 0) {
+          t.patterns = JSON.parse(JSON.stringify(parent.patterns));
+        }
+      }
+    } else {
+      t.isHidden = Boolean(t.isHidden);
+    }
     if (!t.fxSends) {
       t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
     }

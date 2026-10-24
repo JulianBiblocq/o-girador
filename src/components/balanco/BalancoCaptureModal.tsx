@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { Language } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useBalancoAudioCapture } from './useBalancoAudioCapture';
@@ -58,7 +59,7 @@ export const BalancoCaptureModal: React.FC<BalancoCaptureModalProps> = ({
           <h3 className="font-cactus text-2xl font-bold flex items-center gap-2">
             {lang === 'fr' ? 'Capture de Balanço' : 'Captura de Balanço'}
           </h3>
-          <button onClick={onClose} className="text-xl font-bold hover:text-[#8b2a1a] cursor-pointer"></button>
+          <button onClick={onClose} className="text-xl font-bold hover:text-[#8b2a1a] cursor-pointer" aria-label="Fermer"><X size={18} /></button>
         </div>
 
         <div className="flex items-center justify-between bg-[#eaddcf]/50 p-3 border border-black/15 rounded-sm">

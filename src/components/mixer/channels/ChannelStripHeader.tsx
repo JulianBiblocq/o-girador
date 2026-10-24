@@ -1,5 +1,5 @@
 import React from 'react';
-import { GripHorizontal, Trash2 } from 'lucide-react';
+import { GripHorizontal, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { ASSETS_BASE_URL } from '../../../data';
 import { TrackGroup } from '../../../types';
 import { useSequencer } from '../../../contexts/SequencerContext';
@@ -99,7 +99,8 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
             />
           ) : (
             <div onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))} className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6">
-              <span className="font-cactus truncate uppercase tracking-wider">{track.isFolded ? '▼' : '►'} {track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
+              {track.isFolded ? <ChevronDown size={11} className="shrink-0" /> : <ChevronRight size={11} className="shrink-0" />}
+              <span className="font-cactus truncate uppercase tracking-wider">{track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
             </div>
           )
         ) : (

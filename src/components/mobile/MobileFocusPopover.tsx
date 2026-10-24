@@ -5,6 +5,7 @@ import { getPlayableFocusTracks, getEligibleReferenceTracks } from '../../utils/
 import { getEnsembleVocabulary } from '../../universes/styleVocabularyConfig';
 import { TrackGroup } from '../../types';
 import { CordelTarget } from '../ui/CordelTarget';
+import { X } from 'lucide-react';
 import { MobileFocusTocarJuntoSection } from './MobileFocusTocarJuntoSection';
 
 interface Props {
@@ -42,7 +43,7 @@ export const MobileFocusPopover: React.FC<Props> = ({
             <CordelTarget size={16} />
             <span>{lang === 'pt' ? 'Opções do Focus' : 'Options du Focus'}</span>
           </div>
-          <button onClick={onClose} className="w-6 h-6 border border-[#1a1a1a] flex items-center justify-center font-bold hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer"></button>
+          <button onClick={onClose} className="w-6 h-6 border border-[#1a1a1a] flex items-center justify-center font-bold hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer" aria-label="Fermer"><X size={16} /></button>
         </div>
 
         <div>

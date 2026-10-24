@@ -34,7 +34,7 @@ export const VoiceStepSculptBars: React.FC<VoiceStepSculptBarsProps> = ({
       title={lang === 'fr' ? "Sélectionner ce pas pour le Sculpteur" : "Selecionar este passo para o Escultor"}
     >
       <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-        <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${getSculptNumber(volume)}%` }} />
+        <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${getSculptNumber(volume, 80)}%` }} />
       </div>
       <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
         <div className="h-[2px] bg-amber-500 rounded-none transition-all" style={{ width: `${getSculptNumber(decay)}%` }} />

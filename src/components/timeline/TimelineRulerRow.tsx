@@ -1,4 +1,5 @@
 import React from 'react';
+import { Plus } from 'lucide-react';
 import { TimeSignature, Language } from '../../types';
 import { TimelineRulerControls } from './TimelineRulerControls';
 import { TimelineMeasureRhythmSignal } from './TimelineMeasureRhythmSignal';
@@ -104,7 +105,7 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
 
       <div className="px-4 z-40 bg-[var(--cordel-bg)] border-r border-[var(--cordel-border)]/30 flex items-center justify-start h-full shrink-0" style={{ width: 150, minWidth: 150 }} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
         <button onClick={onOpenAddMeasuresModal} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-full" style={{ height: '28px' }}>
-          <span></span><span>{lang === 'fr' ? 'Mesure' : 'Compasso'}</span>
+          <Plus size={12} strokeWidth={2.5} /><span>{lang === 'fr' ? 'Mesure' : 'Compasso'}</span>
         </button>
       </div>
     </div>

@@ -53,8 +53,8 @@ export function areDawTrackRowPropsEqual(prev: DawTrackRowProps, next: DawTrackR
   const isMaster = track.isLinkMaster || track.isLinkFolder;
   if (isMaster) {
     const trackIdStr = String(track.id);
-    const prevSlaves = prev.tracks.filter(t => t.linkedToTrackId === trackIdStr);
-    const nextSlaves = next.tracks.filter(t => t.linkedToTrackId === trackIdStr);
+    const prevSlaves = prev.tracks.filter(t => String(t.linkedToTrackId) === trackIdStr);
+    const nextSlaves = next.tracks.filter(t => String(t.linkedToTrackId) === trackIdStr);
 
     if (prevSlaves.length !== nextSlaves.length) return false;
     for (let i = 0; i < nextSlaves.length; i++) {
@@ -64,7 +64,7 @@ export function areDawTrackRowPropsEqual(prev: DawTrackRowProps, next: DawTrackR
 
   // 6. Si la piste est une esclave liée : surveiller son maître
   if (track.linkedToTrackId && !track.isLinkMaster && !track.isLinkFolder) {
-    const linkedMasterId = track.linkedToTrackId;
+    const linkedMasterId = String(track.linkedToTrackId);
     const prevMaster = prev.tracks.find(t => String(t.id) === linkedMasterId);
     const nextMaster = next.tracks.find(t => String(t.id) === linkedMasterId);
     if (prevMaster !== nextMaster) return false;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pattern } from '../../types';
-import { Check } from 'lucide-react';
+import { Check, Mic } from 'lucide-react';
 
 interface TimelinePatternPickerListProps {
   patternsList: Pattern[];
@@ -69,9 +69,9 @@ export const TimelinePatternPickerList: React.FC<TimelinePatternPickerListProps>
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: instColor }}
               />
-              <span className="truncate">
-                {p.vocalMode === 'micro' ? '' : ''}
-                {p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
+              <span className="truncate flex items-center gap-1">
+                {p.vocalMode === 'micro' && <Mic size={10} className="shrink-0 text-[#8b2a1a]" />}
+                <span>{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}</span>
               </span>
             </div>
             {isCurrent && <Check size={12} className="shrink-0 ml-1" />}

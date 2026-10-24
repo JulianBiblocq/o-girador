@@ -78,7 +78,7 @@ export function useGridScissorsLogic({
     if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '') {
       try {
         if (audioEngine) {
-          const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+          const vol = getSculptNumber(pattern?.volumes?.[idx], 80) / 100;
           const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
           audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
         }

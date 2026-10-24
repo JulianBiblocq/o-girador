@@ -100,7 +100,7 @@ export function duplicatePercussionStep(
 
   if (audioEngine && targetVal && targetVal !== 0 && targetVal !== '0') {
     try {
-      const vol = getSculptNumber(pattern?.volumes?.[srcIdx], 100) / 100;
+      const vol = getSculptNumber(pattern?.volumes?.[srcIdx], 80) / 100;
       const dec = getSculptNumber(pattern?.decays?.[srcIdx], 100) / 100;
       const stroke = Array.isArray(targetVal) ? targetVal[0] : targetVal;
       if (stroke && stroke !== '0') audioEngine.playNote(trackId, String(stroke), Tone.now(), vol, dec);

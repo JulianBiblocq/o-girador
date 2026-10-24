@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { X } from 'lucide-react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { Pattern } from '../types';
@@ -92,9 +93,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
             {lang === 'fr' ? 'Réinitialiser' : 'Resetar'}
           </button>
           {onClose && (
-            <button type="button" onClick={onClose} className="w-5 h-5 flex items-center justify-center rounded-xs bg-[#1a1a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer text-xs font-bold shrink-0 ml-1">
-              
-            </button>
+            <button type="button" onClick={onClose} aria-label="Fermer" className="w-5 h-5 flex items-center justify-center rounded-xs bg-[#1a1a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer text-xs font-bold shrink-0 ml-1"><X size={14} /></button>
           )}
         </div>
       </div>

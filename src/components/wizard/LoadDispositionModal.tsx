@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { X, FolderOpen } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useWizardStore, PlacedInstrument } from '../../stores/useWizardStore';
@@ -94,13 +95,13 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
       <div className="w-full max-w-xl max-h-[85vh] bg-[#f4ecd8] border-3 border-[#1a1a1a] p-5 shadow-[6px_6px_0px_rgba(0,0,0,1)] text-[#1a1a1a] flex flex-col font-cactus overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center border-b-2 border-[#1a1a1a] pb-3 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-2xl"></span>
+            <FolderOpen size={24} className="text-[#8b2a1a]" />
             <div>
               <h3 className="text-xl md:text-2xl font-bold uppercase tracking-wide leading-none">{lang === 'fr' ? 'Dispositions Enregistrées' : 'Disposições Salvas'}</h3>
               <p className="text-[10px] text-[#1a1a1a]/60 uppercase tracking-wider mt-0.5">{lang === 'fr' ? 'Rappelez instantanément vos configurations de scène' : 'Recupere instantaneamente suas configurações de palco'}</p>
             </div>
           </div>
-          <button onClick={onClose} type="button" className="w-8 h-8 flex items-center justify-center border-2 border-[#1a1a1a] bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer"></button>
+          <button onClick={onClose} type="button" aria-label="Fermer" className="w-8 h-8 flex items-center justify-center border-2 border-[#1a1a1a] bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer"><X size={18} /></button>
         </div>
 
         <div className="flex border-b-2 border-[#1a1a1a] gap-2 pt-3 flex-shrink-0">
@@ -115,7 +116,7 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
           {isLoadingCloud && <div className="text-center py-2 text-xs text-[#8b2a1a] font-bold animate-pulse">{lang === 'fr' ? 'Synchronisation Cloud...' : 'Sincronizando Nuvem...'}</div>}
           {filteredDispositions.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#1a1a1a]/60 gap-2 border-2 border-dashed border-[#1a1a1a]/30">
-              <span className="text-3xl"></span>
+              <FolderOpen size={32} className="opacity-40" />
               <p className="text-xs uppercase font-bold">{lang === 'fr' ? 'Aucune disposition enregistrée dans cette catégorie' : 'Nenhuma disposição salva nesta categoria'}</p>
             </div>
           ) : (

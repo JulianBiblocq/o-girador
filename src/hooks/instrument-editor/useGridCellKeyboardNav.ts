@@ -58,7 +58,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
       else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
       if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
         try {
-          const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+          const vol = getSculptNumber(pattern?.volumes?.[idx], 80) / 100;
           const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
           audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
         } catch (_) {}

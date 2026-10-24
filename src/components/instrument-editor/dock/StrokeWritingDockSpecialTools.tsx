@@ -69,16 +69,16 @@ export const StrokeWritingDockSpecialTools: React.FC<StrokeWritingDockSpecialToo
             ? 'border-[#8b2a1a] bg-[#8b2a1a] text-[#f4ecd8] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10'
             : 'border-[#1a1a1a] bg-[#fdfbf7] hover:bg-[#f4ecd8] text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
         }`}
-        title={isFr ? '/ Ciseau / Colle : Clic sur un pas simple pour scinder, ou pas scindé pour recoller' : '/ Tesoura / Cola : Clique num passo para dividir ou colar'}
+        title={isFr ? 'Ciseau / Colle : Clic sur un pas simple pour scinder, ou pas scindé pour recoller' : 'Tesoura / Cola : Clique num passo para dividir ou colar'}
       >
         <div className={`px-1.5 h-7 rounded-sm flex items-center justify-center gap-1 font-bold text-xs border border-[#1a1a1a]/20 ${
           isScissorsActive ? 'bg-[#f4ecd8] text-[#8b2a1a]' : 'bg-[#eaddcf] text-[#1a1a1a]'
         }`}>
-          <Scissors size={14} /><span className="text-[10px] opacity-70">/</span><span className="text-xs"></span>
+          <Scissors size={14} />
         </div>
         <div className="flex flex-col items-start leading-tight">
           <span className={`text-[11px] font-cactus font-bold ${isScissorsActive ? 'text-[#f4ecd8]' : 'text-[#1a1a1a]'}`}>{isFr ? 'Ciseau / Colle' : 'Tesoura / Cola'}</span>
-          <span className={`text-[9px] font-mono ${isScissorsActive ? 'text-[#f4ecd8]/80' : 'text-[#666]'}`}>[ / ]</span>
+          <span className={`text-[9px] font-mono ${isScissorsActive ? 'text-[#f4ecd8]/80' : 'text-[#666]'}`}>[Scinder]</span>
         </div>
       </button>
     </>

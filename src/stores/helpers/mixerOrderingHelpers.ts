@@ -6,12 +6,6 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
   const ordered: TrackMeta[] = [];
 
   const isRoot = (t: TrackMeta) => {
-    const isAlfSlave = t.linkedToTrackId && 
-      (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
-       instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
-       (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
-    if (isAlfSlave) return false;
-
     if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
       return false;
     }
@@ -59,12 +53,9 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
 
 export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] => {
   const filtered = tracksMeta.filter(t => {
-    const isAlfSlave = t.linkedToTrackId && 
-      (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
-       instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
-       (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
+    const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
 
-    if (isAlfSlave && t.isHidden) {
+    if (isLinkedSlave && t.isHidden) {
       const parentBus = tracksMeta.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
       if (parentBus && !parentBus.isFolded) {
         return true;

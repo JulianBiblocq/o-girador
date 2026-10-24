@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, ChevronDown } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getToadaDualWaveStyle } from './TimelineMeasureToadaDualWave';
 
@@ -38,7 +39,7 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
     >
       <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{lang === 'fr' ? '— Silence' : '— Silêncio'}</option>
       {patternsList.map((p, pidx) => (
-        <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{p.vocalMode === 'micro' ? '' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}</option>
+        <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{p.vocalMode === 'micro' ? '[MIC] ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}</option>
       ))}
     </select>
   );
@@ -75,23 +76,23 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
             <div className="flex items-center gap-1 overflow-hidden truncate max-w-full whitespace-nowrap">
               {toadaVocalBadges.pPtnName && (
                 <span className="font-cactus text-[8px] font-bold text-[#8b2a1a] dark:text-[#f39c12] truncate max-w-[48px] flex items-center gap-0.5">
-                  <span>[P]</span>{relativeIdx > 0 ? <span className="flex items-center gap-0.5"><span className="opacity-60 text-[7px]"></span><span>[{relativeIdx + 1}/{spanMeasures}]</span></span> : <span className="truncate">{toadaVocalBadges.pPtnName}</span>}
+                  <span>[P]</span>{relativeIdx > 0 ? <span className="flex items-center gap-0.5"><Link size={9} className="opacity-70" /><span>[{relativeIdx + 1}/{spanMeasures}]</span></span> : <span className="truncate">{toadaVocalBadges.pPtnName}</span>}
                 </span>
               )}
               {toadaVocalBadges.pPtnName && toadaVocalBadges.cPtnName && <span className="text-[7px] text-[var(--cordel-text)]/50 shrink-0 select-none">·</span>}
               {toadaVocalBadges.cPtnName && (
                 <span className="font-cactus text-[8px] font-bold text-[#00838f] dark:text-[#4dd0e1] truncate max-w-[48px] flex items-center gap-0.5">
-                  <span>[C]</span>{relativeIdx > 0 ? <span className="flex items-center gap-0.5"><span className="opacity-60 text-[7px]"></span><span>[{relativeIdx + 1}/{spanMeasures}]</span></span> : <span className="truncate">{toadaVocalBadges.cPtnName}</span>}
+                  <span>[C]</span>{relativeIdx > 0 ? <span className="flex items-center gap-0.5"><Link size={9} className="opacity-70" /><span>[{relativeIdx + 1}/{spanMeasures}]</span></span> : <span className="truncate">{toadaVocalBadges.cPtnName}</span>}
                 </span>
               )}
             </div>
           ) : (
             <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] pr-3 flex items-center gap-0.5">
-              {relativeIdx > 0 && <span className="opacity-60 text-[8px]"></span>}
+              {relativeIdx > 0 && <Link size={9} className="opacity-70" />}
               <span>{relativeIdx > 0 ? `[${relativeIdx + 1}/${spanMeasures}]` : activePatternName}</span>
             </span>
           )}
-          {!isToada && <span className="text-[6px] opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">▼</span>}
+          {!isToada && <span className="opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center"><ChevronDown size={8} /></span>}
           {renderSelect()}
         </>
       )}

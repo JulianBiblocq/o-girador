@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 import { Language } from '../../types';
 
 export interface TimelineQuickSectionPopoverProps {
@@ -32,7 +33,7 @@ export const TimelineQuickSectionPopover = React.memo<TimelineQuickSectionPopove
         <span className="text-[9px] font-bold uppercase tracking-wider opacity-80">
           {lang === 'fr' ? `NOUVELLE SECTION (M. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})` : `NOVA SEÇÃO (C. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})`}
         </span>
-        <button type="button" className="text-xs hover:text-red-500 font-bold cursor-pointer" onClick={onClose}></button>
+        <button type="button" className="text-xs hover:text-red-500 font-bold cursor-pointer" onClick={onClose} aria-label="Fermer"><X size={14} /></button>
       </div>
 
       <div className="flex flex-col gap-1">

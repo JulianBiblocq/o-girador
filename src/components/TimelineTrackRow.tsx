@@ -85,7 +85,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const parentBus = trackMeta?.isLinkMaster && trackMeta.linkedToTrackId ? tracksMeta.find((p) => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder) : null;
   const topBusId = trackMeta ? getTopParentBusId(trackMeta as any, tracksMeta as any) : null;
   const busColor = topBusId ? getBusColor(topBusId, tracksMeta as any, instrumentsConfig) : null;
-  const isCollapsed = isToada ? Boolean(trackMeta?.isSequencerFolded) : (trackMeta?.isLinkMaster ? Boolean(parentBus?.isSequencerFolded) : false);
+  const isCollapsed = isToada ? Boolean(trackMeta?.isSequencerFolded) : (trackMeta?.isLinkMaster ? Boolean(parentBus ? parentBus.isSequencerFolded : trackMeta?.isSequencerFolded) : false);
 
   const parentBusTrackId = (isLinkedSlave || isLinkMaster) ? tracksMeta.find((p) => String(p.id) === String(trackMeta?.linkedToTrackId) && p.isLinkFolder)?.id : undefined;
   const masterTrackId = isLinkedSlave ? tracksMeta.find((t) => String(t.linkedToTrackId) === String(trackMeta?.linkedToTrackId) && t.isLinkMaster)?.id : undefined;
@@ -103,7 +103,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   return (
     <div className="flex flex-col">
       <div className="flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none relative" style={{ width: `${HEADER_W + totalContentW}px`, minWidth: `${HEADER_W + totalContentW}px` }}>
-        <TimelineTrackHeader trackId={trackId} trackIndex={trackIndex} HEADER_W={HEADER_W} isMobile={isMobile} isChild={isChild} busColor={busColor} canFold={Boolean(trackMeta?.isLinkMaster || isToada)} isCollapsed={isCollapsed} onToggleFold={() => onToggleFoldBus(String(isToada ? trackData.id : parentBus?.id))} instIconImg={trackInst.iconImg} instName={trackInst.name} displayName={displayName} customName={trackMeta?.customName} lang={lang} isAutomationOpen={isAutomationOpen} onToggleAutomation={onToggleAutomation} isMute={isMuted} />
+        <TimelineTrackHeader trackId={trackId} trackIndex={trackIndex} HEADER_W={HEADER_W} isMobile={isMobile} isChild={isChild} busColor={busColor} canFold={Boolean(trackMeta?.isLinkMaster || isToada)} isCollapsed={isCollapsed} onToggleFold={() => onToggleFoldBus(String(isToada ? trackData.id : (parentBus?.id ?? trackData.id)))} instIconImg={trackInst.iconImg} instName={trackInst.name} displayName={displayName} customName={trackMeta?.customName} lang={lang} isAutomationOpen={isAutomationOpen} onToggleAutomation={onToggleAutomation} isMute={isMuted} />
         <div className={`flex h-full items-center overflow-hidden ${isMuted ? 'opacity-40' : ''}`} style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}>
           {visibleRange.start > 0 && <div style={{ width: `${leftSpacerW}px`, minWidth: `${leftSpacerW}px` }} className="shrink-0" />}
           {Array.from({ length: totalMeasures }).map((_, mIdx) => ({ mIdx })).filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end).map(({ mIdx }) => {

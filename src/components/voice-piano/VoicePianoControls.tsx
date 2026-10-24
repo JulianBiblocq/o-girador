@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Ear, Edit3, Eraser, ChevronDown } from 'lucide-react';
+import { Ear, Edit3, Eraser, ChevronDown, Music } from 'lucide-react';
 
 interface VoicePianoControlsProps {
   voiceInputMode: 'free' | 'step';
@@ -75,7 +75,7 @@ export const VoicePianoControls: React.FC<VoicePianoControlsProps> = React.memo(
           className="px-2 py-1 rounded bg-[#ece4d0] hover:bg-[#e2d5bd] text-[#1a1a1a] text-[11px] font-bold border border-[#1a1a1a]/20 shadow-xs flex items-center gap-1 cursor-pointer transition-colors ml-1"
           title={isFr ? (isPianoExpanded ? 'Replier le clavier piano' : 'Déplier le clavier piano') : (isPianoExpanded ? 'Recolher teclado' : 'Expandir teclado')}
         >
-          <span></span>
+          <Music size={13} />
           <span className="hidden sm:inline">{isFr ? 'Clavier' : 'Teclado'}</span>
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isPianoExpanded ? 'rotate-0' : '-rotate-90'}`} />
         </button>

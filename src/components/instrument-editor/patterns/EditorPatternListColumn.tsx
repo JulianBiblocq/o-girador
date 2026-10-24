@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Copy, Clipboard } from 'lucide-react';
 import { DndContext, pointerWithin, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Pattern, Language } from '../../../types';
@@ -78,7 +79,7 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
               </button>
             )}
             <button onClick={() => copyAllTrackPatterns(effectiveEditTrackId)} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-1.5">
-              <span></span><span>{lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos os padrões'}</span>
+              <Copy size={13} /><span>{lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos os padrões'}</span>
             </button>
             <button
               onClick={() => pasteAllTrackPatterns(effectiveEditTrackId, false)}
@@ -86,7 +87,7 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
               className={`self-start cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm transition-colors flex items-center gap-1.5 ${isAllPatternsPasteable ? 'bg-[#f4ecd8] text-[#1a1a1a] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'}`}
               title={!instrumentPatternsClipboard ? (lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia') : !canTransferPatterns(instrumentPatternsClipboard, effectiveTrack || track) ? (lang === 'fr' ? 'Famille incompatible' : 'Família incompatível') : (lang === 'fr' ? 'Coller tous les motifs copiés (banque)' : 'Colar todos os padrões')}
             >
-              <span></span><span>{lang === 'fr' ? 'Coller tous les motifs' : 'Colar todos os padrões'}</span>
+              <Clipboard size={13} /><span>{lang === 'fr' ? 'Coller tous les motifs' : 'Colar todos os padrões'}</span>
             </button>
           </div>
         )}

@@ -21,11 +21,11 @@ export function useInstrumentEditorTracksMeta(track: any, trackId: number, inst:
 
   const visibleTrackIds = useSequencerStore(
     useShallow((state) => {
-      const list = state.tracks.filter(
-        (t) => (isSequencerVisibleTrack(t, state.tracks) || isToadaBus(t) || t.customName === 'Toada' || t.instrumentIdx === 12)
-          && !t.isHidden
-          && !isToadaChild(t, state.tracks)
-      );
+      const list = state.tracks.filter((t) => {
+        const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+        const isBaseVisible = isSequencerVisibleTrack(t, state.tracks) || isToadaBus(t) || t.customName === 'Toada' || t.instrumentIdx === 12 || isLinkedSlave;
+        return isBaseVisible && (!t.isHidden || isLinkedSlave) && !isToadaChild(t, state.tracks);
+      });
       if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
         const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
         list.sort((a, b) => {

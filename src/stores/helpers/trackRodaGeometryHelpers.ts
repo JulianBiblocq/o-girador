@@ -80,11 +80,12 @@ export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): Track
   const order = rodaTrackOrder && rodaTrackOrder.length > 0 ? rodaTrackOrder : list.map(t => t.id);
   const orderMap = new Map(order.map((id, index) => [id, index]));
 
-  const drawableTracks = list.filter(t => 
-    !t.isHidden && 
-    isSequencerVisibleTrack(t, list) && 
-    instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
-  );
+  const drawableTracks = list.filter(t => {
+    const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+    return (!t.isHidden || isLinkedSlave) && 
+      isSequencerVisibleTrack(t, list) && 
+      instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
+  });
 
   drawableTracks.sort((a, b) => {
     const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
