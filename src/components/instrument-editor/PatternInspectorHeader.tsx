@@ -1,6 +1,7 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Trash2, Plus } from 'lucide-react';
 import { BalancoPresetItem, PatternInspectorHeaderProps } from './inspector/inspectorTypes';
 import { PatternInspectorActions } from './inspector/PatternInspectorActions';
@@ -17,6 +18,7 @@ export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps> = Rea
 
   const isFr = lang === 'fr';
   const sequencer = useSequencer();
+  const track = useSequencerStore(useCallback((s) => s.tracks.find((t) => t.id === trackId), [trackId]));
 
   const activePattern = useMemo(() => {
     return patterns.find((p) => p.id === currentPatternId) || patterns[0];
@@ -46,9 +48,23 @@ export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps> = Rea
     if (fallbackId) handlePatternChange(fallbackId);
   };
 
-  const currentBalancoAmount = activePattern?.balancoAmount !== undefined
-    ? activePattern.balancoAmount
-    : (activePattern?.swingIntensity !== undefined ? activePattern.swingIntensity : 100);
+  const isInherited = !activePattern?.balancoPresetId;
+  const trackBalancoAmount = track?.balancoAmount !== undefined
+    ? track.balancoAmount
+    : (track?.swingIntensity !== undefined ? track.swingIntensity : 100);
+
+  const currentBalancoAmount = isInherited
+    ? trackBalancoAmount
+    : (activePattern?.balancoAmount !== undefined
+        ? activePattern.balancoAmount
+        : (activePattern?.swingIntensity !== undefined ? activePattern.swingIntensity : 100));
+
+  const handleBalancoChangeWrapped = useCallback((tId: number, pId: number, presetId: string | undefined, amount: number) => {
+    onBalancoChange?.(tId, pId, presetId, amount);
+    if (!presetId) {
+      useSequencerStore.getState().handleTrackBalancoChange(tId, track?.balancoPresetId || 'maracatu-trad', amount);
+    }
+  }, [onBalancoChange, track?.balancoPresetId]);
 
   return (
     <div className="flex flex-col gap-2.5 pb-2.5 border-b-2 border-[#1a1a1a]/20 w-full min-w-0 box-border">
@@ -92,7 +108,7 @@ export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps> = Rea
         <PatternInspectorBalancoControl
           activePattern={activePattern} trackId={trackId} isFr={isFr} isVoice={isVoice}
           balancoPresets={balancoPresets} currentBalancoAmount={currentBalancoAmount}
-          onBalancoChange={onBalancoChange}
+          onBalancoChange={handleBalancoChangeWrapped}
         />
       )}
 

@@ -40,6 +40,13 @@ export function findStepUnderPointer(
       }
     } else {
       activePattern = track.patterns.find(p => p.id === activePatternId);
+      if (!activePattern && track.linkedToTrackId) {
+        const parent = currentTracks.find(t => String(t.id) === String(track.linkedToTrackId));
+        if (parent) {
+          activePattern = parent.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = parent;
+        }
+      }
     }
 
     if (!activePattern) continue;

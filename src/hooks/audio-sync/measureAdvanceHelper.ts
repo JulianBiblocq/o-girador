@@ -4,26 +4,26 @@ import { handleSpeedTrainerLap } from './speedTrainerProgress';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
 export interface AdvanceMeasureContext {
-  measureCountRef: { current: number };
-  totalMeasuresRef: { current: number };
-  measureTimeSigsRef: { current: Record<number, string> };
-  maxTicksRef: { current: number };
-  currentMeasureStartTickRef: { current: number };
-  absoluteTickCountRef: { current: number };
-  isLoopRegionActiveRef: { current: boolean };
-  loopStartRef: { current: number | null };
-  loopEndRef: { current: number | null };
-  isLoopingRef?: { current: boolean };
-  loopModeRef?: { current: 'infinite' | number };
-  isLoopExitRequestedRef?: { current: boolean };
-  currentLoopIterationRef?: { current: number };
-  speedTrainerCurrentBpmRef: { current: number };
-  speedTrainerConsolidationLapsDoneRef: { current: number };
-  handleStop: () => void;
-  setCurrentMeasure: (m: number) => void;
+  measureCountRef: { current: number }; totalMeasuresRef: { current: number };
+  measureTimeSigsRef: { current: Record<number, string> }; maxTicksRef: { current: number };
+  currentMeasureStartTickRef: { current: number }; absoluteTickCountRef: { current: number };
+  isLoopRegionActiveRef: { current: boolean }; loopStartRef: { current: number | null };
+  loopEndRef: { current: number | null }; isLoopingRef?: { current: boolean };
+  loopModeRef?: { current: 'infinite' | number }; isLoopExitRequestedRef?: { current: boolean };
+  currentLoopIterationRef?: { current: number }; speedTrainerCurrentBpmRef: { current: number };
+  speedTrainerConsolidationLapsDoneRef: { current: number }; handleStop: () => void;
+  setCurrentMeasure: (m: number) => void; soloPatternPlayIdRef?: { current: number | null };
 }
 
 export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: AdvanceMeasureContext): void {
+  if (ctx.soloPatternPlayIdRef?.current !== null && ctx.soloPatternPlayIdRef?.current !== undefined) {
+    ctx.measureCountRef.current = 0;
+    ctx.setCurrentMeasure(0);
+    ctx.currentMeasureStartTickRef.current = 0;
+    ctx.absoluteTickCountRef.current = 0;
+    return;
+  }
+
   const store = useSequencerStore.getState();
   const isLoopRegionActive = ctx.isLoopRegionActiveRef.current && ctx.loopStartRef.current !== null && ctx.loopEndRef.current !== null;
   const loopEndMeasure = isLoopRegionActive ? ctx.loopEndRef.current! : ((ctx.totalMeasuresRef.current || 1) - 1);

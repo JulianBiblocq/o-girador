@@ -33,35 +33,43 @@ export function renderTrackStepLayer(
     if (!inst || track.isHidden || inst.id === 'apito') return;
 
     const activePatternId = getLiveActivePatternId(track);
-    if (activePatternId === null) return;
-
     let activePattern: Pattern | null | undefined = null;
     let ownerTrack = track;
     const isToada = isToadaBus(track);
 
-    if (isToada) {
-      const pux = localRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-      const coro = localRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-      if (pux) {
-        activePattern = pux.patterns.find(p => p.id === activePatternId);
-        if (activePattern) ownerTrack = pux;
+    if (activePatternId !== null) {
+      if (isToada) {
+        const pux = localRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+        const coro = localRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+        if (pux) {
+          activePattern = pux.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = pux;
+        }
+        if (!activePattern && coro) {
+          activePattern = coro.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = coro;
+        }
+      } else {
+        activePattern = track.patterns.find(p => p.id === activePatternId);
+        if (!activePattern && track.linkedToTrackId) {
+          const parent = localRawTracks.find(t => String(t.id) === String(track.linkedToTrackId));
+          if (parent) {
+            activePattern = parent.patterns.find(p => p.id === activePatternId);
+            if (activePattern) ownerTrack = parent;
+          }
+        }
       }
-      if (!activePattern && coro) {
-        activePattern = coro.patterns.find(p => p.id === activePatternId);
-        if (activePattern) ownerTrack = coro;
-      }
-    } else {
-      activePattern = track.patterns.find(p => p.id === activePatternId);
     }
-    if (!activePattern) return;
 
     const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
-    const activePlayingSteps = (activeVariationsRef?.current)
+    const activePlayingSteps = (activePattern && activeVariationsRef?.current)
       ? (activeVariationsRef.current[track.id] || activePattern.activeSteps)
-      : activePattern.activeSteps;
+      : activePattern?.activeSteps;
 
-    const hasAnyNotes = activePlayingSteps.some((s: any) => s !== 0);
+    const hasAnyNotes = Boolean(activePlayingSteps && activePlayingSteps.some((s: any) => s !== 0));
     const tRad = drawTrackRing(ctx, track, visibleIdx, activeVisibleTracks.length, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
+
+    if (!activePattern) return;
 
     const measureIdx = (live && live.step >= 0)
       ? live.measure

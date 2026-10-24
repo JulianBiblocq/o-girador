@@ -103,21 +103,35 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     t.isSolo = Boolean(t.isSolo);
     if (t.busId !== undefined && t.busId !== null) t.busId = String(t.busId);
     if (t.linkedToTrackId !== undefined && t.linkedToTrackId !== null) t.linkedToTrackId = String(t.linkedToTrackId);
-    const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
-    if (isLinkedSlave) {
-      t.isHidden = false;
-      if (!t.patterns || t.patterns.length === 0) {
+    const isLinkedChild = Boolean(t.linkedToTrackId && !t.isLinkFolder);
+    if (t.isLinkMaster || isLinkedChild) {
+      t.isBusFolder = false; t.isLinkFolder = false; t.isHidden = false;
+      if (!t.patterns?.length) {
         const parent = loadedTracks.find(p => (String(p.id) === String(t.linkedToTrackId) || String(p.id) === String(t.busId)));
-        if (parent && parent.patterns && parent.patterns.length > 0) {
-          t.patterns = JSON.parse(JSON.stringify(parent.patterns));
-        }
+        if (parent?.patterns?.length) t.patterns = JSON.parse(JSON.stringify(parent.patterns));
       }
     } else {
       t.isHidden = Boolean(t.isHidden);
     }
-    if (!t.fxSends) {
-      t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
-    }
+    if (!t.fxSends) t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
+  });
+
+  loadedTracks.filter(m => m.isLinkMaster).forEach(m => {
+    const slaves = loadedTracks.filter(s => s.id !== m.id && !s.isLinkFolder && !s.isLinkMaster && s.linkedToTrackId &&
+      (String(s.linkedToTrackId) === String(m.linkedToTrackId) || String(s.linkedToTrackId) === String(m.id)));
+    slaves.forEach(s => {
+      if (m.balancoPresetId !== undefined) s.balancoPresetId = m.balancoPresetId;
+      if (m.balancoAmount !== undefined) s.balancoAmount = m.balancoAmount;
+      if (m.swingIntensity !== undefined) s.swingIntensity = m.swingIntensity;
+      m.patterns?.forEach(mP => {
+        const sP = s.patterns?.find(p => p.name === mP.name);
+        if (sP) {
+          sP.balancoPresetId = mP.balancoPresetId;
+          sP.balancoAmount = mP.balancoAmount;
+          sP.swingIntensity = mP.swingIntensity;
+        }
+      });
+    });
   });
 
   return loadedTracks;

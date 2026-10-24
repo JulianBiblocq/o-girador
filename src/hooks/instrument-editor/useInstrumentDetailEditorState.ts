@@ -48,6 +48,34 @@ export function useInstrumentDetailEditorState({
   const [selectedStepIsPreRoll, setSelectedStepIsPreRoll] = useState<boolean>(false);
   const isTupletEditMode = selectedSubIndex !== null;
 
+  const prevTrackIdRef = React.useRef(effectiveEditTrackId);
+  const prevPatternNameRef = React.useRef<string | null>(null);
+  const prevPatternIndexRef = React.useRef<number>(0);
+
+  useEffect(() => {
+    const curPtn = displayedPatterns.find((p) => p.id === selectedPatternId);
+    if (curPtn) {
+      prevPatternNameRef.current = curPtn.name || null;
+      prevPatternIndexRef.current = displayedPatterns.findIndex((p) => p.id === selectedPatternId);
+    }
+  }, [selectedPatternId, displayedPatterns]);
+
+  useEffect(() => {
+    if (prevTrackIdRef.current !== effectiveEditTrackId) {
+      prevTrackIdRef.current = effectiveEditTrackId;
+      if (displayedPatterns.length > 0) {
+        const targetPattern = (prevPatternNameRef.current && displayedPatterns.find((p) => p.name === prevPatternNameRef.current))
+          || (prevPatternIndexRef.current >= 0 && displayedPatterns[prevPatternIndexRef.current])
+          || (track?.selectedPatternId && displayedPatterns.find((p) => p.id === track.selectedPatternId))
+          || displayedPatterns[0];
+
+        if (targetPattern && targetPattern.id !== selectedPatternId) {
+          setSelectedPatternId(targetPattern.id);
+        }
+      }
+    }
+  }, [effectiveEditTrackId, displayedPatterns, track?.selectedPatternId, selectedPatternId]);
+
   useEffect(() => {
     setActiveTool(getDefaultPrimaryStroke(inst?.id, inst?.type));
   }, [track?.id, inst?.id, inst?.type]);
@@ -58,9 +86,11 @@ export function useInstrumentDetailEditorState({
   }, [isVocalContext]);
 
   useEffect(() => {
-    if (selectedPatternId && effectiveEditTrackId) useSequencerStore.getState().setSelectedPatternId(effectiveEditTrackId, selectedPatternId);
-    if (trackId && trackId !== effectiveEditTrackId) useSequencerStore.getState().setSelectedPatternId(trackId, selectedPatternId);
-  }, [selectedPatternId, effectiveEditTrackId, trackId]);
+    if (selectedPatternId && effectiveEditTrackId && displayedPatterns.some((p) => p.id === selectedPatternId)) {
+      useSequencerStore.getState().setSelectedPatternId(effectiveEditTrackId, selectedPatternId);
+      if (trackId && trackId !== effectiveEditTrackId) useSequencerStore.getState().setSelectedPatternId(trackId, selectedPatternId);
+    }
+  }, [selectedPatternId, effectiveEditTrackId, trackId, displayedPatterns]);
 
   const handleSwitchVocalTrack = useCallback((targetTrack: any) => {
     if (!targetTrack || targetTrack.id === effectiveEditTrackId) return;

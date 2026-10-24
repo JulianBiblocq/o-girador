@@ -77,21 +77,21 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
         if (inst) {
           const isConnectedToBus = Boolean(liveTrack.busId && busChannels[liveTrack.busId]);
           const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 75) : getEffectiveVolume(tracks, liveTrack.id);
-          const isMuted = getEffectiveMuteState(tracks, liveTrack.id);
+          const isMuted = soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, liveTrack.id);
           if (trackVolPct > 3 && !isMuted) {
             const trackVolLinear = faderPositionToGain(trackVolPct);
             const finalVel = velocity * trackVolLinear;
             const strokeSymbol = String.fromCharCode(strokeCharCode);
             const decayMultiplier = decayPct / 100;
 
-            let activePattern: Pattern | null = null;
             const patterns = liveTrack.patterns;
-            if (soloPatternPlayId !== null) {
-              activePattern = patterns.find(p => p.id === soloPatternPlayId) || null;
+            let activePattern: Pattern | null = soloPatternPlayId !== null ? (patterns.find(p => p.id === soloPatternPlayId) || null) : null;
+            if (soloPatternPlayId !== null && !activePattern) {
+              const soloTrack = tracks.find(t => t.patterns?.some(p => p.id === soloPatternPlayId));
+              const soloPtn = soloTrack?.patterns?.find(p => p.id === soloPatternPlayId);
+              if (soloPtn) activePattern = patterns.find(p => p.name === soloPtn.name) || null;
             }
-            if (!activePattern) {
-              activePattern = patterns.find(p => p.measureAssignments[currentMeasureIdx]) || null;
-            }
+            if (!activePattern) activePattern = patterns.find(p => p.measureAssignments[currentMeasureIdx]) || null;
 
             const noteSwingOffset = computePercussionNoteSwing({
               activePattern, liveTrack, circleStepIdx, isTuplet,

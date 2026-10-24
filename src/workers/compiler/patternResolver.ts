@@ -5,46 +5,64 @@ export function resolveActivePattern(
   isSoloPlayActive: boolean,
   soloPatternPlayId: number | null
 ): any | null {
-  const isLinkedChild = track.linkedToTrackId && !track.isLinkFolder;
-
-  if (isLinkedChild) {
-    const master = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
-    if (!master) return null;
-
-    if (isSoloPlayActive) {
-      return master.patterns.find((p: any) => p.id === soloPatternPlayId) || null;
-    }
-    const override = track.isLinkMaster ? undefined : track.patternOverrides?.[measureIdx];
-    if (override === null) return null;
-    if (override !== undefined) {
-      return master.patterns.find((p: any) => p.id === override) || null;
-    }
-    return master.patterns.find((p: any) => p.measureAssignments[measureIdx]) || null;
-  }
-
-  let sourceTrack = track;
-  if (track.linkedToTrackId) {
-    const master = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
-    if (master) sourceTrack = master;
-  }
+  const isLinkedChild = Boolean(track.linkedToTrackId && !track.isLinkFolder);
 
   if (isSoloPlayActive) {
-    let patternIdx = track.patterns.findIndex((p: any) => p.id === soloPatternPlayId);
-    if (patternIdx === -1 && sourceTrack !== track) {
-      patternIdx = sourceTrack.patterns.findIndex((p: any) => p.id === soloPatternPlayId);
-    }
-    if (patternIdx !== -1) {
-      return sourceTrack.patterns[patternIdx] || sourceTrack.patterns[0] || null;
-    }
-    const hasSoloPattern = track.patterns.some((p: any) => p.id === soloPatternPlayId) ||
-                           sourceTrack.patterns.some((p: any) => p.id === soloPatternPlayId);
-    if (hasSoloPattern) {
-      return sourceTrack.patterns.find((p: any) => p.id === soloPatternPlayId) || sourceTrack.patterns[0] || null;
+    const ownMatch = track.patterns?.find((p: any) => p.id === soloPatternPlayId);
+    if (ownMatch) return ownMatch;
+
+    const soloTrack = tracks.find((t: any) => t.patterns?.some((p: any) => p.id === soloPatternPlayId));
+    if (soloTrack) {
+      const isSameGroup = (soloTrack.id === track.id) ||
+        (track.linkedToTrackId && (String(track.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(track.linkedToTrackId) === String(soloTrack.id) || String(track.id) === String(soloTrack.linkedToTrackId))) ||
+        (soloTrack.linkedToTrackId && (String(soloTrack.linkedToTrackId) === String(track.linkedToTrackId) || String(soloTrack.linkedToTrackId) === String(track.id)));
+
+      if (isSameGroup) {
+        const soloPtn = soloTrack.patterns?.find((p: any) => p.id === soloPatternPlayId);
+        if (soloPtn) {
+          const matchByName = track.patterns?.find((p: any) => p.name === soloPtn.name);
+          if (matchByName) return matchByName;
+          const soloIdx = soloTrack.patterns?.findIndex((p: any) => p.id === soloPatternPlayId);
+          if (soloIdx !== undefined && soloIdx >= 0 && track.patterns?.[soloIdx]) return track.patterns[soloIdx];
+        }
+      }
     }
     return null;
   }
 
-  return sourceTrack.patterns.find((p: any) => p.measureAssignments[measureIdx]) || null;
+  if (isLinkedChild && !track.isLinkMaster) {
+    const override = track.patternOverrides?.[measureIdx];
+    if (override === null) return null;
+    if (override !== undefined) {
+      const foundOverride = track.patterns?.find((p: any) => p.id === override);
+      if (foundOverride) return foundOverride;
+    }
+  }
+
+  const assigned = track.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
+  if (assigned) return assigned;
+
+  if (isLinkedChild && !track.isLinkMaster) {
+    const master = tracks.find((t: any) => (String(t.linkedToTrackId) === String(track.linkedToTrackId) || String(t.id) === String(track.linkedToTrackId)) && t.isLinkMaster);
+    const masterPtn = master?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
+    if (masterPtn) {
+      const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
+      if (matchByName) return matchByName;
+      const mIdx = master?.patterns?.findIndex((p: any) => p.id === masterPtn.id);
+      if (mIdx !== undefined && mIdx >= 0 && track.patterns?.[mIdx]) return track.patterns[mIdx];
+    }
+  }
+
+  if (isLinkedChild) {
+    const bus = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId) || String(t.id) === String(track.busId));
+    const busPtn = bus?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
+    if (busPtn) {
+      const matchByName = track.patterns?.find((p: any) => p.name === busPtn.name);
+      if (matchByName) return matchByName;
+    }
+  }
+
+  return null;
 }
 
 export function resolvePatternVariation(
@@ -63,9 +81,6 @@ export function resolvePatternVariation(
     return activePattern.variations.find((v: any) => v.id === soloPatternVariationId) || null;
   }
   if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId === 'base') {
-    return null;
-  }
-  if (isSoloPlayActive && soloPatternPlayId === activePattern.id && measureIdx >= 1) {
     return null;
   }
 

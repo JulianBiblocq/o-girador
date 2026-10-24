@@ -51,19 +51,29 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   const toadaId = toadaTrack ? toadaTrack.id : null;
   const trackId = soloTrack ? soloTrack.id : null;
 
-  if (trackId !== null) {
+  if (trackId !== null && soloTrack) {
+    const busId = soloTrack.busId || soloTrack.linkedToTrackId;
+    const slaves = currentTracks.filter(s => s.id !== soloTrack.id && s.linkedToTrackId &&
+      (String(s.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(s.linkedToTrackId) === String(soloTrack.id)));
+    const targetChannelIds = [trackId, ...slaves.map(s => s.id)];
+
     ctx.savedSoloMuteStateRef.current = {
-      trackId,
-      trackMuted: ctx.channels[trackId]?.mute,
-      trackVol: ctx.channels[trackId]?.volume.value,
+      channelStates: targetChannelIds.map(id => ({ id, mute: ctx.channels[id]?.mute, vol: ctx.channels[id]?.volume.value })),
+      busId: busId ?? undefined,
+      busMuted: busId ? ctx.busChannels[busId]?.mute : undefined,
       toadaId: toadaId ?? undefined,
       toadaMuted: toadaId ? ctx.busChannels[toadaId]?.mute : undefined,
-      toadaVol: toadaId ? ctx.busChannels[toadaId]?.volume.value : undefined,
     };
 
-    if (ctx.channels[trackId]) {
-      ctx.channels[trackId].mute = false;
-      if (ctx.channels[trackId].volume.value < -60) ctx.channels[trackId].volume.value = 0;
+    targetChannelIds.forEach(id => {
+      if (ctx.channels[id]) {
+        ctx.channels[id].mute = false;
+        if (ctx.channels[id].volume.value < -60) ctx.channels[id].volume.value = 0;
+      }
+    });
+    if (busId && ctx.busChannels[busId]) {
+      ctx.busChannels[busId].mute = false;
+      if (ctx.busChannels[busId].volume.value < -60) ctx.busChannels[busId].volume.value = 0;
     }
     if (toadaId && ctx.busChannels[toadaId]) {
       ctx.busChannels[toadaId].mute = false;
@@ -100,14 +110,18 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
 
 export function handleStopSoloPattern(ctx: SoloTransportContext): void {
   if (ctx.savedSoloMuteStateRef.current) {
-    const { trackId, trackMuted, trackVol, toadaId, toadaMuted, toadaVol } = ctx.savedSoloMuteStateRef.current;
-    if (trackId !== undefined && ctx.channels[trackId]) {
-      if (trackMuted !== undefined) ctx.channels[trackId].mute = trackMuted;
-      if (trackVol !== undefined) ctx.channels[trackId].volume.value = trackVol;
+    const { channelStates, busId, busMuted, toadaId, toadaMuted } = ctx.savedSoloMuteStateRef.current;
+    channelStates?.forEach(({ id, mute, vol }: any) => {
+      if (ctx.channels[id]) {
+        if (mute !== undefined) ctx.channels[id].mute = mute;
+        if (vol !== undefined) ctx.channels[id].volume.value = vol;
+      }
+    });
+    if (busId !== undefined && ctx.busChannels[busId] && busMuted !== undefined) {
+      ctx.busChannels[busId].mute = busMuted;
     }
-    if (toadaId !== undefined && ctx.busChannels[toadaId]) {
-      if (toadaMuted !== undefined) ctx.busChannels[toadaId].mute = toadaMuted;
-      if (toadaVol !== undefined) ctx.busChannels[toadaId].volume.value = toadaVol;
+    if (toadaId !== undefined && ctx.busChannels[toadaId] && toadaMuted !== undefined) {
+      ctx.busChannels[toadaId].mute = toadaMuted;
     }
     ctx.savedSoloMuteStateRef.current = null;
   }

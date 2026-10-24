@@ -8,6 +8,7 @@ import { useGridPointerInteractions } from './useGridPointerInteractions';
 import { useGridTouchInteractions } from './useGridTouchInteractions';
 import { useGridWheelNuances } from './useGridWheelNuances';
 import { useGridCellKeyboardNav } from './useGridCellKeyboardNav';
+import { useGridPercussionTick } from './useGridPercussionTick';
 import { clearVoiceMainStep, clearVoicePreRollStep } from './voiceClearHelpers';
 
 interface UseGridPercussionHooksParams {
@@ -92,6 +93,13 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: params.setSelectedStepIdx,
     setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex
+  });
+
+  useGridPercussionTick({
+    gridRef: params.gridRef,
+    trackId: params.trackId,
+    pattern: params.pattern,
+    instrumentType: params.instrument.type
   });
 
   const handleCellKeyDown = useGridCellKeyboardNav({

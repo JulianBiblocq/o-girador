@@ -28,34 +28,40 @@ export function resolveLiveActivePatternId(
 
     if (coro) {
       for (let i = 0; i < coro.patterns.length; i++) {
-        if (coro.patterns[i].measureAssignments[measureIdx]) {
-          return coro.patterns[i].id;
-        }
+        if (coro.patterns[i].measureAssignments?.[measureIdx]) return coro.patterns[i].id;
       }
     }
     if (pux) {
       for (let i = 0; i < pux.patterns.length; i++) {
-        if (pux.patterns[i].measureAssignments[measureIdx]) {
-          return pux.patterns[i].id;
-        }
+        if (pux.patterns[i].measureAssignments?.[measureIdx]) return pux.patterns[i].id;
       }
     }
     return null;
   }
 
   const soloPlayId = state.soloPatternPlayId;
-  const isLinkedChild = track.linkedToTrackId && !track.isLinkFolder;
-  let sourceTrack = track;
-  if (isLinkedChild) {
-    const master = state.rawTracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
-    if (master) sourceTrack = master;
-  }
+  const isLinkedChild = Boolean(track.linkedToTrackId && !track.isLinkFolder);
+  const parentBus = isLinkedChild ? state.rawTracks.find((t: any) => String(t.id) === String(track.linkedToTrackId)) : null;
 
   if (soloPlayId !== undefined && soloPlayId !== null) {
     const foundOwn = track.patterns?.find((p: any) => p.id === soloPlayId);
     if (foundOwn) return soloPlayId;
-    const foundMaster = sourceTrack.patterns?.find((p: any) => p.id === soloPlayId);
-    if (foundMaster) return soloPlayId;
+    if (parentBus) {
+      const foundInBus = parentBus.patterns?.find((p: any) => p.id === soloPlayId);
+      if (foundInBus) {
+        const matchByName = track.patterns?.find((p: any) => p.name === foundInBus.name);
+        return matchByName ? matchByName.id : soloPlayId;
+      }
+    }
+    if (isLinkedChild && !track.isLinkMaster) {
+      const master = state.rawTracks.find((t: any) => String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster);
+      const masterPtn = master?.patterns?.find((p: any) => p.id === soloPlayId);
+      if (masterPtn) {
+        const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
+        if (matchByName) return matchByName.id;
+        return soloPlayId;
+      }
+    }
     return null;
   }
 
@@ -63,14 +69,26 @@ export function resolveLiveActivePatternId(
     const override = track.patternOverrides?.[measureIdx];
     if (override === null) return null;
     if (override !== undefined) return override;
-    const ownPtn = track.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
-    if (ownPtn) return ownPtn.id;
   }
 
-  for (let i = 0; i < sourceTrack.patterns.length; i++) {
-    if (sourceTrack.patterns[i]?.measureAssignments?.[measureIdx]) {
-      return sourceTrack.patterns[i].id;
+  const ownPtn = track.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
+  if (ownPtn) return ownPtn.id;
+
+  if (isLinkedChild) {
+    if (parentBus) {
+      const busPtn = parentBus.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
+      if (busPtn) return busPtn.id;
+    }
+    if (!track.isLinkMaster) {
+      const master = state.rawTracks.find((t: any) => String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster);
+      const masterPtn = master?.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
+      if (masterPtn) {
+        const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
+        if (matchByName) return matchByName.id;
+        return masterPtn.id;
+      }
     }
   }
+
   return null;
 }
