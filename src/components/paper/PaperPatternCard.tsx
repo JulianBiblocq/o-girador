@@ -1,5 +1,5 @@
 /**
- * Carte d'un motif individuel dans la grille de relecture avec métrique et BPM (< 125 lignes).
+ * Carte d'un motif individuel dans la grille de relecture avec métrique et BPM (< 130 lignes).
  */
 import React from 'react';
 import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
@@ -25,10 +25,16 @@ export const PaperPatternCard: React.FC<Props> = ({
   globalBpm, globalTimeSig, override, onOpenOverrideModal, lang,
 }) => {
   const isFr = lang === 'fr';
-  const displaySig = override?.timeSignature || globalTimeSig || '4/4';
-  const displaySteps = override?.steps || 16;
+  const nativeSteps = React.useMemo(() => {
+    const lengths = Object.values(pupitreMap).filter(Array.isArray).map((a) => (a as any[]).length);
+    return lengths.length > 0 ? Math.max(...lengths) : 16;
+  }, [pupitreMap]);
+
+  const displaySteps = override?.steps || nativeSteps;
+  const displaySig = override?.timeSignature || (displaySteps === 8 ? '2/4' : (displaySteps === 12 ? '12/8' : globalTimeSig)) || '4/4';
   const displayBpm = override?.bpm || globalBpm;
-  const isOverridden = Boolean(override?.isLocked || override?.bpm || override?.timeSignature);
+  const isOverridden = Boolean(override?.isLocked || override?.bpm || override?.timeSignature || override?.steps);
+  const numBeats = Math.max(1, Math.floor(displaySteps / 4));
 
   return (
     <div className="p-2 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
@@ -69,8 +75,11 @@ export const PaperPatternCard: React.FC<Props> = ({
       {/* 2. REPERES DE TEMPS */}
       <div className="flex items-center gap-1 mb-0.5">
         <span className="w-6 shrink-0" />
-        <div className="grid grid-cols-4 flex-1 text-[9px] font-cactus font-bold text-[#8b2a1a] text-center">
-          <span>T1</span><span>T2</span><span>T3</span><span>T4</span>
+        <div
+          className="grid flex-1 text-[9px] font-cactus font-bold text-[#8b2a1a] text-center"
+          style={{ gridTemplateColumns: `repeat(${numBeats}, minmax(0, 1fr))` }}
+        >
+          <span>T1</span><span>T2</span>{numBeats >= 3 && <span>T3</span>}{numBeats >= 4 && <span>T4</span>}
         </div>
       </div>
 
@@ -87,7 +96,10 @@ export const PaperPatternCard: React.FC<Props> = ({
               {isBase ? (
                 <span className="px-2 py-0.5 bg-[#d99b26]/20 !text-[#8b2a1a] border border-[#8b2a1a] font-bold text-[10px]">[ ≡ Base ]</span>
               ) : (
-                <div className={`grid grid-cols-${displaySteps > 16 ? '32' : '16'} flex-1 border border-[#1a1a1a]`}>
+                <div
+                  className="grid flex-1 border border-[#1a1a1a]"
+                  style={{ gridTemplateColumns: `repeat(${displaySteps}, minmax(0, 1fr))` }}
+                >
                   {stepArr.map((st, i) => {
                     const valStr = Array.isArray(st) ? `${st[0]}/${st[1]}` : (st === 0 || !st || st === '0' ? '·' : String(st));
                     const isOdd = Math.floor(i / 4) % 2 !== 0;

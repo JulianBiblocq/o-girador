@@ -1,5 +1,5 @@
 /**
- * Moteur de décodage des partitions papier et intégration séquences (< 115 lignes).
+ * Moteur de décodage des partitions papier et intégration séquences (< 125 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';
 import { parsePupitreHeader } from './paperNomenclatureHelper';
@@ -50,14 +50,22 @@ export const parseLineMultiplier = (label: string): { cleanLabel: string; multip
 export const resolveSectionPatterns = (
   sectionPatterns: Partial<Record<string, any>> | Array<{ header: string; steps: any[] }>,
   basePatterns: Partial<Record<string, PaperStepValue[]>> = {},
-  targetLength = 16
+  targetLength?: number
 ): Partial<Record<string, PaperStepValue[]>> => {
-  const resolved: Partial<Record<string, PaperStepValue[]>> = {};
-  let lastMasterSteps: PaperStepValue[] = Array(targetLength).fill(0);
-
   const entries: Array<{ rawKey: string; val: any }> = Array.isArray(sectionPatterns)
     ? sectionPatterns.map((l) => ({ rawKey: l.header, val: l.steps }))
     : Object.entries(sectionPatterns).map(([k, v]) => ({ rawKey: k, val: v }));
+
+  let effectiveLength = targetLength;
+  if (!effectiveLength) {
+    const arrayLengths = entries
+      .filter((e) => Array.isArray(e.val))
+      .map((e) => e.val.length);
+    effectiveLength = arrayLengths.length > 0 && Math.max(...arrayLengths) === 8 ? 8 : 16;
+  }
+
+  const resolved: Partial<Record<string, PaperStepValue[]>> = {};
+  let lastMasterSteps: PaperStepValue[] = Array(effectiveLength).fill(0);
 
   for (const { rawKey, val } of entries) {
     if (!val) continue;
@@ -71,18 +79,18 @@ export const resolveSectionPatterns = (
 
     if (isBase) {
       for (const t of targets) {
-        resolved[t] = basePatterns[t] ? [...basePatterns[t]!] : Array(targetLength).fill(0);
+        resolved[t] = basePatterns[t] ? [...basePatterns[t]!] : Array(effectiveLength).fill(0);
         lastMasterSteps = resolved[t]!;
       }
       continue;
     }
 
     if (Array.isArray(val)) {
-      const sanitized = sanitizePatternSteps(val, targetLength);
+      const sanitized = sanitizePatternSteps(val, effectiveLength);
       if (parsed.isVariation) {
         // Règle du Temps Vide vs Tiret (-) sur sous-ligne de variation
         const childSteps: PaperStepValue[] = [];
-        for (let beat = 0; beat < targetLength / 4; beat++) {
+        for (let beat = 0; beat < effectiveLength / 4; beat++) {
           const beatSlice = sanitized.slice(beat * 4, beat * 4 + 4);
           const isEntireBeatEmpty = beatSlice.every((st) => st === 0);
 

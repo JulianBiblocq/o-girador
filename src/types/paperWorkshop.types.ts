@@ -71,10 +71,13 @@ export interface PaperSequenceItem {
 export interface PaperPreset {
   id: string;
   name: string;
+  nacao?: string;
   bpm: number;
   timeSig: string;
   totalMeasures: number;
   linkedAlfaias: boolean;
+  linkCaixas?: boolean;
+  caixasLinkMode?: 'none' | 'caixa_tarol' | 'two_caixas';
   pupitres: PupitreCode[];
   patterns: Record<string, Partial<Record<PupitreCode, PaperStepValue[]>>>;
   sequenceString: string;

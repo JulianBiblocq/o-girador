@@ -37,6 +37,8 @@ export interface Pattern {
   id: number;
   name: string;
   steps: number;
+  length?: number;
+  timeSignature?: string;
   activeSteps: (string | number | [string, string])[];
   lyrics: string[];
   notes: string[];

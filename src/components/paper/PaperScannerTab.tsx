@@ -1,5 +1,5 @@
 /**
- * Onglet 2 : Scanner Photo, Relecture des Motifs, Réglages Globaux & Assemblage (< 135 lignes).
+ * Onglet 2 : Scanner Photo, Relecture des Motifs, Réglages Globaux & Assemblage (< 140 lignes).
  */
 import React, { useState, useMemo, useEffect } from 'react';
 import { PaperPreset, PaperSequenceItem, PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
@@ -22,17 +22,18 @@ interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; i
 
 export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, initialPreset }) => {
   const presetsList = useMemo(() => getAllAvailablePaperPresets(lang), [lang]);
-  const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(() => initialPreset || presetsList[0]);
-  const [editablePatterns, setEditablePatterns] = useState(() => disambiguateAllPresetPatterns(JSON.parse(JSON.stringify((initialPreset || presetsList[0]).patterns))));
-  const [sequenceItems, setSequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence((initialPreset || presetsList[0]).defaultSequence));
+  const activeInit = initialPreset || presetsList[0];
+  const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(() => activeInit);
+  const [editablePatterns, setEditablePatterns] = useState(() => disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(activeInit.patterns))));
+  const [sequenceItems, setSequenceItems] = useState<PaperSequenceItem[]>(() => factorizeSequence(activeInit.defaultSequence));
   const [reusableSections, setReusableSections] = useState<Set<string>>(() => new Set());
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
-  const [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: (initialPreset || presetsList[0]).name }));
+  const [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: activeInit.name }));
 
-  const [globalBpm, setGlobalBpm] = useState<number>(() => (initialPreset || presetsList[0]).bpm || 96);
-  const [globalTimeSig, setGlobalTimeSig] = useState<string>(() => (initialPreset || presetsList[0]).timeSig || '4/4');
-  const [metricOverrides, setMetricOverrides] = useState<Record<string, PatternMetricOverride>>({});
+  const [globalBpm, setGlobalBpm] = useState<number>(() => activeInit.bpm || 96);
+  const [globalTimeSig, setGlobalTimeSig] = useState<string>(() => activeInit.timeSig || '4/4');
+  const [metricOverrides, setMetricOverrides] = useState<Record<string, PatternMetricOverride>>(() => (activeInit?.metricOverrides ? { ...activeInit.metricOverrides } : {}));
 
   const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
   const allPoints = usePaperVigilanceStore((state) => state.points);
@@ -46,6 +47,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
       setMetaOverrides({ toada: initialPreset.name });
       setEditablePatterns(disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(initialPreset.patterns))));
       setSequenceItems(factorizeSequence(initialPreset.defaultSequence));
+      setMetricOverrides(initialPreset.metricOverrides ? { ...initialPreset.metricOverrides } : {});
     }
   }, [initialPreset]);
 
@@ -55,7 +57,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
     setSelectedPreset(p);
     setGlobalBpm(p.bpm || 96);
     setGlobalTimeSig(p.timeSig || '4/4');
-    setMetricOverrides({});
+    setMetricOverrides(p.metricOverrides ? { ...p.metricOverrides } : {});
     setMetaOverrides({ toada: p.name });
     const pScoreId = p.id || p.name.toLowerCase().replace(/\s+/g, '_');
     const parsed = disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(p.patterns)));

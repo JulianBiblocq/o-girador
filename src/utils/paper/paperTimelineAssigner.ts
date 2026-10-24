@@ -1,5 +1,5 @@
 /**
- * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 120 lignes).
+ * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 135 lignes).
  */
 import { instrumentsConfig } from '../../data';
 import { PaperPreset } from '../../types/paperWorkshop.types';
@@ -37,22 +37,31 @@ export const assignPatternsToTracks = (
     const secEntries = Object.entries(preset.patterns);
 
     secEntries.forEach(([sectionName, pupitreMap], idx) => {
-      const stepVal: any = (pupitreMap as any)[specificCode] || (pupitreMap as any)[groupCode] || Array(16).fill(0);
-      let rawSteps: any[] = Array.isArray(stepVal) ? stepVal : Array(16).fill(0);
+      let nativeSecLength = 16;
+      if (pupitreMap && typeof pupitreMap === 'object') {
+        const lengths = Object.values(pupitreMap).filter(Array.isArray).map((arr) => (arr as any[]).length);
+        if (lengths.length > 0) nativeSecLength = Math.max(...lengths);
+      }
+
+      const override = preset.metricOverrides?.[sectionName];
+      const targetSteps = override?.steps || nativeSecLength || 16;
+      const stepVal: any = (pupitreMap as any)[specificCode] || (pupitreMap as any)[groupCode] || Array(targetSteps).fill(0);
+      let rawSteps: any[] = Array.isArray(stepVal) ? stepVal : Array(targetSteps).fill(0);
       if (typeof stepVal === 'string' && /^(base|idem|%)$/i.test(stepVal.trim())) {
         const baseMap = secEntries[0]?.[1] || {};
-        const baseVal: any = (baseMap as any)[specificCode] || (baseMap as any)[groupCode] || Array(16).fill(0);
-        rawSteps = Array.isArray(baseVal) ? baseVal : Array(16).fill(0);
+        const baseVal: any = (baseMap as any)[specificCode] || (baseMap as any)[groupCode] || Array(targetSteps).fill(0);
+        rawSteps = Array.isArray(baseVal) ? baseVal : Array(targetSteps).fill(0);
       }
-      const override = preset.metricOverrides?.[sectionName];
-      const targetSteps = override?.steps || (Array.isArray(rawSteps) && rawSteps.length > 0 ? rawSteps.length : 16);
       const padSteps = Array(targetSteps).fill(0);
       rawSteps.forEach((s, i) => { if (i < targetSteps) padSteps[i] = cloneStepValue(s); });
       const patId = track.id * 1000 + idx + 1;
+      const patTimeSig = override?.timeSignature || (targetSteps === 8 ? '2/4' : (targetSteps === 12 ? '12/8' : '4/4'));
       newPatterns.push({
         id: patId,
         name: sectionName,
         steps: targetSteps,
+        length: targetSteps,
+        timeSignature: patTimeSig,
         activeSteps: padSteps,
         beatResolutions: override?.beatResolutions,
         volumes: Array(targetSteps).fill(80),
@@ -90,6 +99,8 @@ export const assignPatternsToTracks = (
             id: patId,
             name: targetSec,
             steps: 16,
+            length: 16,
+            timeSignature: '4/4',
             activeSteps: fbSteps.map(cloneStepValue),
             volumes: Array(16).fill(80),
             decays: Array(16).fill(100),

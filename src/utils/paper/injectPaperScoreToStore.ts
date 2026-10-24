@@ -1,5 +1,5 @@
 /**
- * Injection atomique d'une partition papier transcrite et points de vigilance (< 110 lignes).
+ * Injection atomique d'une partition papier transcrite et points de vigilance (< 135 lignes).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { PaperPreset } from '../../types/paperWorkshop.types';
@@ -31,7 +31,7 @@ export const injectPaperScoreToStore = (
     ? {
         ...currentStoreMeta,
         toada: customMetadata?.toada?.trim() || currentStoreMeta.toada || preset.name || '',
-        nacao: customMetadata?.nacao !== undefined ? customMetadata.nacao.trim() : (currentStoreMeta.nacao || ''),
+        nacao: customMetadata?.nacao !== undefined ? customMetadata.nacao.trim() : (currentStoreMeta.nacao || preset.nacao || ''),
         compositor: customMetadata?.compositor !== undefined ? customMetadata.compositor.trim() : (currentStoreMeta.compositor || ''),
         ritmo: customMetadata?.ritmo !== undefined ? customMetadata.ritmo.trim() : (currentStoreMeta.ritmo || ''),
         youtubeUrl: customMetadata?.youtubeUrl !== undefined ? customMetadata.youtubeUrl.trim() : (currentStoreMeta.youtubeUrl || ''),
@@ -41,7 +41,7 @@ export const injectPaperScoreToStore = (
       }
     : {
         toada: customMetadata?.toada?.trim() || preset.name || '',
-        nacao: customMetadata?.nacao?.trim() || '',
+        nacao: customMetadata?.nacao?.trim() || preset.nacao?.trim() || '',
         compositor: customMetadata?.compositor?.trim() || '',
         ritmo: customMetadata?.ritmo?.trim() || '',
         youtubeUrl: customMetadata?.youtubeUrl?.trim() || '',
@@ -62,14 +62,33 @@ export const injectPaperScoreToStore = (
     patterns: disambiguateAllPresetPatterns(preset.patterns),
   };
 
-  const cleanTracks = buildScannedScoreTracks(disambiguatedPreset, totalMeasures, options);
+  const effectiveOptions: PaperInjectOptions = {
+    linkAlfaias: preset.linkedAlfaias ?? true,
+    linkCaixas: preset.linkCaixas ?? true,
+    caixasLinkMode: preset.caixasLinkMode ?? 'caixa_tarol',
+    ...options,
+  };
+
+  const cleanTracks = buildScannedScoreTracks(disambiguatedPreset, totalMeasures, effectiveOptions);
   const updatedTracks = assignPatternsToTracks(cleanTracks, disambiguatedPreset, sequence, totalMeasures);
   const mergedSections = buildMergedSongSections(sequence);
 
   const targetBpm = preset.bpm || store.bpm || 96;
   const targetTimeSig = (preset.timeSig || store.timeSig || '4/4') as any;
   const mBpms = sequence.map((s) => preset.metricOverrides?.[s]?.bpm ?? targetBpm);
-  const mSigs = sequence.map((s) => (preset.metricOverrides?.[s]?.timeSignature ?? targetTimeSig) as any);
+  const mSigs = sequence.map((s) => {
+    if (preset.metricOverrides?.[s]?.timeSignature) {
+      return preset.metricOverrides[s].timeSignature as any;
+    }
+    const secMap = preset.patterns[s];
+    if (secMap && typeof secMap === 'object') {
+      const lengths = Object.values(secMap).filter(Array.isArray).map((arr) => (arr as any[]).length);
+      if (lengths.length > 0 && Math.max(...lengths) === 8) {
+        return '2/4' as any;
+      }
+    }
+    return targetTimeSig;
+  });
 
   useSequencerStore.setState((state: any) => ({
     tracks: updatedTracks,
@@ -81,7 +100,9 @@ export const injectPaperScoreToStore = (
     songSections: mergedSections,
     measureBpms: mBpms,
     measureTimeSigs: mSigs,
-    measureVols: Array(totalMeasures).fill(100),
+    measureVols: undefined,
+    measurePans: undefined,
+    measureReverbSends: undefined,
     measureBpmTransitions: Array(totalMeasures).fill('immediate'),
     measureVolTransitions: Array(totalMeasures).fill('immediate'),
     measureSignals: Array(totalMeasures).fill(null),

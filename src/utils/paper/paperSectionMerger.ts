@@ -12,14 +12,14 @@ export const buildMergedSongSections = (sequence: string[]): SongSection[] => {
     const norm = (parsed.cleanSectionName || name).replace(/_M\d+$/i, '').trim();
     if (norm !== currentNorm) {
       if (currentNorm !== '') {
-        sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentNorm, startMeasure: startM, endMeasure: idx - 1, color: '#8b2a1a' });
+        sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentNorm, startMeasure: startM, endMeasure: idx - 1, color: '#8b2a1a', level: 0 });
       }
       currentNorm = norm;
       startM = idx;
     }
   });
   if (currentNorm !== '') {
-    sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentNorm, startMeasure: startM, endMeasure: sequence.length - 1, color: '#8b2a1a' });
+    sections.push({ id: `sec-${sections.length + 1}-${Date.now()}`, name: currentNorm, startMeasure: startM, endMeasure: sequence.length - 1, color: '#8b2a1a', level: 0 });
   }
   return sections;
 };
