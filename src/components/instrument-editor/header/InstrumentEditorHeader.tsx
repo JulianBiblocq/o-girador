@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Play, Square, X, Mic, Users } from 'lucide-react';
+import { Play, Square, X, Mic, Users, SlidersHorizontal } from 'lucide-react';
 import { PupitreRibbon } from './PupitreRibbon';
 import { HeaderBalancoControl } from './HeaderBalancoControl';
 import { InstrumentEditorHeaderProps } from './headerTypes';
@@ -64,7 +64,18 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
         />
       </div>
 
-      <div className="flex items-center gap-2 shrink-0 ml-2 pr-1">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto pr-1">
+        {props.onOpenInspectorMobile && (
+          <button
+            type="button"
+            onClick={props.onOpenInspectorMobile}
+            className="lg:hidden h-8 px-2 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shrink-0"
+            title={lang === 'fr' ? 'Son & Accordage' : 'Som & Afinação'}
+          >
+            <SlidersHorizontal size={14} />
+            <span className="hidden sm:inline">{lang === 'fr' ? 'Son' : 'Som'}</span>
+          </button>
+        )}
         <HeaderBalancoControl
           targetBalancoTrack={targetBalancoTrack}
           effectiveEditTrackId={effectiveEditTrackId}
@@ -95,7 +106,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
         )}
         <button type="button" onClick={onMuteToggle} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isMute && !isSolo ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'}`} title="Mute">M</button>
         <button type="button" onClick={onSoloToggle} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'}`} title="Solo">S</button>
-        <button type="button" onClick={onClose} disabled={isClosing} className="w-8 h-8 shrink-0 flex items-center justify-center bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
+        <button type="button" onClick={onClose} disabled={isClosing} className="w-9 h-9 shrink-0 flex items-center justify-center bg-[#c25e38] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm hover:bg-[#a04b2b] cursor-pointer transition-colors ml-1 border border-[#f4ecd8]" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
           {isClosing ? '...' : <X className="w-5 h-5 text-[#f4ecd8] stroke-[2.5]" />}
         </button>
       </div>

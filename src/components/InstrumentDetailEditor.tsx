@@ -35,13 +35,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       data-theme="light"
       data-instrument-detail-editor={model.isVocalContext ? 'voice' : 'percussion'}
       data-voice-editor={model.isVocalContext ? 'true' : 'false'}
-      className={`bg-[#ece4d0] ${model.isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
+      className={`bg-[#ece4d0] ${model.isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full max-md:fixed max-md:inset-0 max-md:w-screen max-md:h-dvh max-md:max-w-none max-md:max-h-none max-md:rounded-none max-md:border-0 max-h-[520px]:fixed max-h-[520px]:inset-0 max-h-[520px]:w-screen max-h-[520px]:h-dvh max-h-[520px]:max-w-none max-h-[520px]:max-h-none max-h-[520px]:rounded-none max-h-[520px]:border-0'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
       style={model.isDetached ? { width: '100%', height: '100%', colorScheme: 'light' } : {
         maxWidth: model.isMobile ? '100%' : '80rem',
-        width: model.isMobile ? '98vw' : '95vw',
-        height: model.isMobile ? 'calc(100% - 0.25rem)' : 'calc(100% - 0.5rem)',
+        width: model.isMobile ? '100vw' : '95vw',
+        height: model.isMobile ? '100dvh' : 'calc(100% - 0.5rem)',
         maxHeight: '100%',
-        boxShadow: '8px 8px 0px 0px #1a1a1a',
+        boxShadow: model.isMobile ? 'none' : '8px 8px 0px 0px #1a1a1a',
         colorScheme: 'light',
       }}
     >
@@ -73,7 +73,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   return createPortal(
     <div
-      className="fixed top-[70px] bottom-0 left-0 right-0 z-[300] flex items-center justify-center p-2 sm:p-3"
+      className="fixed top-[70px] bottom-0 left-0 right-0 z-[300] flex items-center justify-center p-2 sm:p-3 max-md:top-0 max-md:p-0 max-h-[520px]:top-0 max-h-[520px]:p-0"
       style={{ backgroundColor: 'rgba(0,0,0,0.72)', colorScheme: 'light' }}
       data-theme="light"
       onMouseDown={model.handleMouseDown}

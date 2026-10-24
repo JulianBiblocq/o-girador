@@ -1,8 +1,9 @@
 /**
- * Rendu modulaire de la grille centrale d'aperçu de fiche vierge (< 100 lignes).
+ * Rendu modulaire de la grille centrale d'aperçu de fiche vierge (< 130 lignes).
  */
 import React from 'react';
 import { BlankSheetType } from '../../types/paperWorkshop.types';
+import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
 import { tPaper } from '../../i18n/paperWorkshopTranslations';
 
 interface BlankSheetPreviewGridProps {
@@ -15,22 +16,16 @@ interface BlankSheetPreviewGridProps {
   hasDoubleSections?: boolean;
   hasToadaLine?: boolean;
   lang: 'fr' | 'pt';
+  grid32Mode?: 'blank' | 'prefill';
+  pupitres?: string[];
   renderPupitres: () => React.ReactNode;
   renderCells: (count: number) => React.ReactNode;
 }
 
 export const BlankSheetPreviewGrid: React.FC<BlankSheetPreviewGridProps> = ({
-  sheetType,
-  seriesCount,
-  systemsCount,
-  sysCCount,
-  isLandscape,
-  mCols,
-  hasDoubleSections,
-  hasToadaLine,
-  lang,
-  renderPupitres,
-  renderCells,
+  sheetType, seriesCount, systemsCount, sysCCount, isLandscape, mCols,
+  hasDoubleSections, hasToadaLine, lang, grid32Mode = 'blank', pupitres = [],
+  renderPupitres, renderCells,
 }) => {
   if (sheetType === 'isolated') {
     return (
@@ -86,20 +81,28 @@ export const BlankSheetPreviewGrid: React.FC<BlankSheetPreviewGridProps> = ({
   }
 
   if (sheetType === 'grid32') {
+    const isBlank = grid32Mode !== 'prefill';
+    const pList = pupitres.length > 0 ? pupitres : ['al', 'cx', 'gg', 'ab', 'mi'];
+
     return (
       <div className="flex flex-col flex-1 border border-black/60 bg-white/80 overflow-hidden divide-y divide-black/20">
-        {Array.from({ length: 14 }).map((_, rIdx) => (
-          <div key={rIdx} className="flex h-1.5 items-center">
-            <span className="w-4 font-mono text-[4px] border-r border-black/40 text-center font-bold text-gray-700">
-              {rIdx === 0 ? 'Al' : rIdx === 1 ? 'Me' : rIdx === 2 ? 'Rp' : rIdx === 3 ? 'Cx' : rIdx === 5 ? 'Cx' : ''}
-            </span>
-            <div className="flex-1 flex divide-x divide-black/20 h-full">
-              {Array.from({ length: 32 }).map((__, cIdx) => (
-                <div key={cIdx} className={`flex-1 ${cIdx % 4 === 0 ? 'bg-black/5' : ''}`} />
-              ))}
+        {Array.from({ length: 14 }).map((_, rIdx) => {
+          let label = '';
+          if (!isBlank) {
+            const pIdx = rIdx % (pList.length + 1);
+            if (pIdx < pList.length) label = resolvePupitreAbbr(pList[pIdx]);
+          }
+          return (
+            <div key={rIdx} className="flex h-1.5 items-center">
+              <span className={`w-4 font-mono text-[4px] border-r border-black/40 text-center font-bold ${label ? 'bg-[#f3eee2] text-gray-800' : 'text-transparent'}`}>{label || ''}</span>
+              <div className="flex-1 flex divide-x divide-black/20 h-full">
+                {Array.from({ length: 32 }).map((__, cIdx) => (
+                  <div key={cIdx} className={`flex-1 ${cIdx % 4 === 0 ? 'bg-black/5' : ''}`} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -109,8 +112,7 @@ export const BlankSheetPreviewGrid: React.FC<BlankSheetPreviewGridProps> = ({
       {Array.from({ length: isLandscape ? 3 : 4 }).map((_, bIdx) => (
         <div key={bIdx} className="border border-black/60 p-0.5 bg-white/70 flex-1 flex flex-col justify-between">
           <div className="text-[4px] font-bold text-gray-600 border-b border-black/20 pb-0.5 mb-0.5 flex justify-between">
-            <span>Padrão / Seção #{bIdx + 1}</span>
-            <span>○ Cloud</span>
+            <span>Padrão / Seção #{bIdx + 1}</span><span className="text-gray-400">○ Cloud</span>
           </div>
           <div className="flex flex-col gap-0.5 flex-1 justify-between">
             {Array.from({ length: 4 }).map((__, idx) => (

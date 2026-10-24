@@ -1,5 +1,5 @@
 /**
- * Injection atomique d'une partition papier transcrite et points de vigilance (< 130 lignes).
+ * Injection atomique d'une partition papier transcrite et points de vigilance (< 125 lignes).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { PaperPreset } from '../../types/paperWorkshop.types';
@@ -10,25 +10,20 @@ import { buildScannedScoreTracks, PaperInjectOptions } from './paperTrackBuilder
 import { disambiguateAllPresetPatterns } from './paperRoleDisambiguator';
 import { resetActiveCloudPresetId } from '../cloudPresetState';
 import { setPaperImportProcessed } from './paperProcessedTracker';
+import { resolveMasterTrackId, resolveMatchingPatternIdOnMaster } from '../trackMasterResolver';
 
 export const injectPaperScoreToStore = (
-  preset: PaperPreset,
-  sequenceOverride?: string[],
-  reusableSectionNames?: Set<string>,
-  lang: 'fr' | 'pt' = 'fr',
-  openOnFirstVigilance = false,
-  options?: PaperInjectOptions,
+  preset: PaperPreset, sequenceOverride?: string[], reusableSectionNames?: Set<string>,
+  lang: 'fr' | 'pt' = 'fr', openOnFirstVigilance = false, options?: PaperInjectOptions,
   customMetadata?: Partial<PresetMetadata>
 ): { success: boolean; measuresCount: number } => {
   const store = useSequencerStore.getState();
   store.pushUndoState();
-
   const scoreId = preset.id || preset.name.toLowerCase().replace(/\s+/g, '_');
   usePaperVigilanceStore.getState().setActiveSequencerScoreId(scoreId);
 
   const isExistingActiveSong = preset.id === '__active_song__';
   const curMeta = store.metadata || ({} as any);
-
   const cleanMetadata: PresetMetadata = {
     toada: customMetadata?.toada?.trim() || curMeta.toada || preset.name || '',
     nacao: customMetadata?.nacao?.trim() ?? (curMeta.nacao || preset.nacao || ''),
@@ -38,19 +33,15 @@ export const injectPaperScoreToStore = (
     description: customMetadata?.description?.trim() ?? (isExistingActiveSong ? curMeta.description || '' : ''),
     descriptionPt: customMetadata?.descriptionPt?.trim() ?? (isExistingActiveSong ? curMeta.descriptionPt || '' : ''),
     descriptionFr: customMetadata?.descriptionFr?.trim() ?? (isExistingActiveSong ? curMeta.descriptionFr || '' : ''),
-    ...(isExistingActiveSong
-      ? {}
-      : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: undefined, vocalPreset: undefined }),
+    ...(isExistingActiveSong ? {} : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: undefined, vocalPreset: undefined }),
   };
 
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
   const totalMeasures = Math.max(1, sequence.length);
   const disambiguatedPreset: PaperPreset = { ...preset, patterns: disambiguateAllPresetPatterns(preset.patterns) };
   const effectiveOptions: PaperInjectOptions = {
-    linkAlfaias: preset.linkedAlfaias ?? true,
-    linkCaixas: preset.linkCaixas ?? true,
-    caixasLinkMode: preset.caixasLinkMode ?? 'caixa_tarol',
-    ...options,
+    linkAlfaias: preset.linkedAlfaias ?? true, linkCaixas: preset.linkCaixas ?? true,
+    caixasLinkMode: preset.caixasLinkMode ?? 'caixa_tarol', ...options,
   };
 
   const cleanTracks = buildScannedScoreTracks(disambiguatedPreset, totalMeasures, effectiveOptions);
@@ -98,17 +89,18 @@ export const injectPaperScoreToStore = (
   if (openOnFirstVigilance) {
     const doubts = usePaperVigilanceStore.getState().getActiveSequencerDoubts();
     const firstPt = doubts.find((p) => p.trackId && p.patternId);
-    if (firstPt?.trackId && firstPt?.patternId) {
-      store.setEditingTrackId(firstPt.trackId);
-      store.setSelectedPatternId(firstPt.patternId);
+    if (firstPt?.trackId) {
+      const targetTrackId = resolveMasterTrackId(firstPt.trackId, updatedTracks);
+      const masterTrack = updatedTracks.find((t) => t.id === targetTrackId);
+      const patId = masterTrack ? resolveMatchingPatternIdOnMaster(masterTrack, undefined, firstPt.patternId) : firstPt.patternId;
+      store.setEditingTrackId(targetTrackId);
+      if (patId) store.setSelectedPatternId(patId);
       usePaperVigilanceStore.getState().setActiveFocusPoint(firstPt);
     }
   }
 
   const reusableNotice = reusableSectionNames && reusableSectionNames.size > 0 ? ` (+ ${reusableSectionNames.size} section(s) réutilisable(s))` : '';
-  const msg = lang === 'fr'
-    ? `Partition "${preset.name}" injectée avec succès (${totalMeasures}m)${reusableNotice} !`
-    : `Partitura "${preset.name}" injetada (${totalMeasures}m)${reusableNotice}!`;
+  const msg = lang === 'fr' ? `Partition "${preset.name}" injectée avec succès (${totalMeasures}m)${reusableNotice} !` : `Partitura "${preset.name}" injetada (${totalMeasures}m)${reusableNotice}!`;
   window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: msg } }));
 
   return { success: true, measuresCount: totalMeasures };

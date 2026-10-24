@@ -1,5 +1,5 @@
 /**
- * Aperçu A4 en direct pleine page pour les fiches Cordel (< 95 lignes).
+ * Aperçu A4 en direct pleine page pour les fiches Cordel (< 100 lignes).
  */
 import React from 'react';
 import { BlankSheetType, GridMode } from '../../types/paperWorkshop.types';
@@ -13,11 +13,12 @@ interface LivePreviewProps {
   sheetType: BlankSheetType; gridMode: GridMode; pupitres: string[];
   includeVarLine: boolean; freeLinesCount: number; conductorMeasures?: number;
   conductorTitle?: string; hasDoubleSections?: boolean; hasToadaLine?: boolean; lang: 'fr' | 'pt';
+  grid32Mode?: 'blank' | 'prefill';
 }
 
 export const BlankSheetLivePreview: React.FC<LivePreviewProps> = ({
   sheetType, gridMode, pupitres, includeVarLine, freeLinesCount,
-  conductorTitle, hasDoubleSections, hasToadaLine, lang,
+  conductorTitle, hasDoubleSections, hasToadaLine, lang, grid32Mode = 'blank',
 }) => {
   const isLandscape = sheetType === 'grid32' || (gridMode === 'free_landscape' && sheetType !== 'sequence');
   const stepsCount = getGridStepsCount(gridMode);
@@ -80,9 +81,10 @@ export const BlankSheetLivePreview: React.FC<LivePreviewProps> = ({
 
         <div className="flex-1 my-1 overflow-hidden flex flex-col justify-between">
           <BlankSheetPreviewGrid
-            sheetType={sheetType} seriesCount={seriesCount} systemsCount={systemsCount} sysCCount={sysCCount}
-            isLandscape={isLandscape} mCols={mCols} hasDoubleSections={hasDoubleSections} hasToadaLine={hasToadaLine}
-            lang={lang} renderPupitres={renderPupitres} renderCells={renderCells}
+            sheetType={sheetType} grid32Mode={grid32Mode} pupitres={pupitres} seriesCount={seriesCount}
+            systemsCount={systemsCount} sysCCount={sysCCount} isLandscape={isLandscape} mCols={mCols}
+            hasDoubleSections={hasDoubleSections} hasToadaLine={hasToadaLine} lang={lang}
+            renderPupitres={renderPupitres} renderCells={renderCells}
           />
         </div>
 

@@ -1,5 +1,5 @@
 /**
- * Onglet 1 : Générateur Grille 32x25 A4 Paysage & Raccourcis (< 120 lignes).
+ * Onglet 1 : Générateur Grille 32x25 A4 Paysage & Raccourcis (< 115 lignes).
  */
 import React, { useState } from 'react';
 import { exportBlankSheetToPdf, printCompletePaperLegend } from '../../utils/paper/blankSheetPdfExport';
@@ -8,10 +8,9 @@ import { BlankSheetLivePreview } from './BlankSheetLivePreview';
 import { BlankSheetPrefillSelector } from './BlankSheetPrefillSelector';
 import { BlankSheetActionButtons } from './BlankSheetActionButtons';
 import { BlankSheetGrid32ModeSelector } from './BlankSheetGrid32ModeSelector';
+import { BlankSheetAbbrDrawer } from './BlankSheetAbbrDrawer';
 import { PaperLegendInAppModal } from './PaperLegendInAppModal';
 import { PaperDictionaryInAppModal } from './PaperDictionaryInAppModal';
-import { CheckCircle2 } from 'lucide-react';
-import { tPaper } from '../../i18n/paperWorkshopTranslations';
 
 export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }) => {
   const [grid32Mode, setGrid32Mode] = useState<'blank' | 'prefill'>('blank');
@@ -50,35 +49,34 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
       {/* 1. SÉLECTION DU MODE DE LA GRILLE 32x25 */}
       <BlankSheetGrid32ModeSelector grid32Mode={grid32Mode} onChangeMode={setGrid32Mode} lang={lang} />
 
-      {/* 2. RACCOURCIS & CONFIGURATION DES PUPITRES (TOUJOURS VISIBLE & MODIFIABLE) */}
-      <div className="flex flex-col gap-1 p-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)]">
-        <div className="flex items-center gap-1.5 font-cactus font-bold uppercase text-[10.5px] text-[#f59e0b]">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>{lang === 'fr' ? 'Raccourcis d’instruments personnalisables (1 à 3 lettres) :' : 'Abreviações de instrumentos personalizáveis (1 a 3 letras) :'}</span>
-        </div>
-        <p className="text-[10px] text-[var(--cordel-text-muted)] italic m-0">{tPaper(lang, 'abbrNotice')}</p>
-        <BlankSheetPupitreSelector
-          pupitres={pupitres}
-          onTogglePupitre={togglePupitre}
-          linkAlfaias={linkAlfaias}
-          onToggleLinkAlfaias={setLinkAlfaias}
-          busCaixas={busCaixas}
-          onToggleBusCaixas={setBusCaixas}
-          busSementes={busSementes}
-          onToggleBusSementes={setBusSementes}
-          includeVarLine={includeVarLine}
-          onToggleIncludeVarLine={setIncludeVarLine}
-          freeLinesCount={freeLinesCount}
-          onChangeFreeLinesCount={setFreeLinesCount}
-          lang={lang}
-        />
-      </div>
-
-      {grid32Mode === 'prefill' && (
-        <BlankSheetPrefillSelector selectedFamily={prefillFamily} onSelectFamily={setPrefillFamily} lang={lang} />
+      {/* 2. MODE 1 (100% VIERGE) : TIROIR REPLIÉ DES ABRÉVIATIONS */}
+      {grid32Mode === 'blank' && (
+        <BlankSheetAbbrDrawer lang={lang} />
       )}
 
-      {/* 3. ACTIONS & APERÇU DIRECT A4 */}
+      {/* 3. MODE 2 (PRÉ-REMPLIS) : SÉLECTION COMPLÈTE DES PUPITRES ET FAMILLE */}
+      {grid32Mode === 'prefill' && (
+        <>
+          <BlankSheetPupitreSelector
+            pupitres={pupitres}
+            onTogglePupitre={togglePupitre}
+            linkAlfaias={linkAlfaias}
+            onToggleLinkAlfaias={setLinkAlfaias}
+            busCaixas={busCaixas}
+            onToggleBusCaixas={setBusCaixas}
+            busSementes={busSementes}
+            onToggleBusSementes={setBusSementes}
+            includeVarLine={includeVarLine}
+            onToggleIncludeVarLine={setIncludeVarLine}
+            freeLinesCount={freeLinesCount}
+            onChangeFreeLinesCount={setFreeLinesCount}
+            lang={lang}
+          />
+          <BlankSheetPrefillSelector selectedFamily={prefillFamily} onSelectFamily={setPrefillFamily} lang={lang} />
+        </>
+      )}
+
+      {/* 4. ACTIONS & APERÇU DIRECT A4 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         <div className="lg:col-span-2 flex flex-col gap-2">
           <BlankSheetActionButtons
@@ -93,6 +91,7 @@ export const BlankSheetGeneratorTab: React.FC<{ lang: 'fr' | 'pt' }> = ({ lang }
         <div className="flex justify-center items-start">
           <BlankSheetLivePreview
             sheetType="grid32"
+            grid32Mode={grid32Mode}
             gridMode="free_landscape"
             pupitres={pupitres}
             includeVarLine={includeVarLine}

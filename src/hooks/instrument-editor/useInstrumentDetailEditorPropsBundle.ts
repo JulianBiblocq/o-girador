@@ -1,4 +1,3 @@
-
 import { useMemo, useCallback } from 'react';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useVocalInspectorActions } from './useVocalInspectorActions';
@@ -15,9 +14,7 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
   const { trackId, setEditingTrackId } = props;
 
   const { onOpenAlignment, onImportAudio } = useVocalInspectorActions(
-    effectiveEditTrackId,
-    editorState.selectedPatternId,
-    displayedPatterns[0]?.id
+    effectiveEditTrackId, editorState.selectedPatternId, displayedPatterns[0]?.id
   );
 
   const headerProps = {
@@ -31,6 +28,7 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     onSoloToggle: useCallback(() => sequencer.handleTrackSoloToggle(trackId), [trackId, sequencer]),
     onClose: ctrl.handleClose, isClosing: ctrl.isClosing, lang,
     selectedPatternId: editorState.selectedPatternId, activePatternId: displayedPatterns[0]?.id,
+    onOpenInspectorMobile: () => ctrl.setIsInspectorMobileOpen(true),
   };
 
   const patternListProps = {

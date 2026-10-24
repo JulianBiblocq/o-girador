@@ -1,20 +1,17 @@
 /**
- * Hook de workflow pour le scanner papier, gestion d'état et persistance Cloud (< 140 lignes).
+ * Hook de workflow pour le scanner papier, gestion d'état et persistance Cloud (< 135 lignes).
  */
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { PaperPreset, PaperSequenceItem, PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { factorizeSequence } from '../../components/paper/SequenceTagBuilder';
 import { disambiguateAllPresetPatterns } from '../../utils/paper/paperRoleDisambiguator';
-import { scanAndRegisterDoubtPoints } from '../../utils/paper/paperScanDoubtDetector';
+import { detectDoubtPointsInPatterns } from '../../utils/paper/paperScanDoubtDetector';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import {
-  PaperSectionItem,
-  buildInitialSections,
-  renameSectionInSequence,
-  resolveUniqueExportNames,
-  exportPatternsWithResolvedNames,
+  PaperSectionItem, buildInitialSections, renameSectionInSequence, resolveUniqueExportNames, exportPatternsWithResolvedNames,
 } from '../../utils/paper/paperSectionRenamer';
-import { PaperScanDraftDocument, PaperScanDraftPayload } from '../../utils/paper/paperScanCloudStorage';
+import { PaperScanDraftPayload } from '../../utils/paper/paperScanCloudStorage';
+import { ProcessedVisionPattern } from '../../utils/paper/paperPatternMergeHelper';
 
 export function mapPatternsToSectionIds(patterns: Record<string, any>, secs: PaperSectionItem[]) {
   const disambiguated = disambiguateAllPresetPatterns(JSON.parse(JSON.stringify(patterns)));
@@ -76,6 +73,37 @@ export function usePaperScannerWorkflow({
     });
   }, [sections]);
 
+  const handleRescanSinglePattern = useCallback((secName: string, patternData: ProcessedVisionPattern) => {
+    const targetSec = sections.find((s) => s.name.toLowerCase() === secName.toLowerCase()) || sections[0];
+    const secId = targetSec ? targetSec.id : secName;
+    setPatternsById((prev: any) => ({ ...prev, [secId]: patternData.pupitreMap }));
+    usePaperVigilanceStore.getState().clearDoubtsForSection(scoreId, secName);
+    const doubts = detectDoubtPointsInPatterns({ [secName]: patternData.pupitreMap });
+    usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, secName, doubts);
+  }, [sections, scoreId]);
+
+  const handleAddNewPattern = useCallback((patternData: ProcessedVisionPattern) => {
+    const baseName = patternData.name || `Motif ${sections.length + 1}`;
+    let uniqueName = baseName, count = 1;
+    while (sections.some((s) => s.name.toLowerCase() === uniqueName.toLowerCase())) {
+      uniqueName = `${baseName} (${++count})`;
+    }
+    const newId = `sec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setSections((prev) => [...prev, { id: newId, name: uniqueName }]);
+    setPatternsById((prev: any) => ({ ...prev, [newId]: patternData.pupitreMap }));
+    const doubts = detectDoubtPointsInPatterns({ [uniqueName]: patternData.pupitreMap });
+    usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, uniqueName, doubts);
+  }, [sections, scoreId]);
+
+  const handleRescanSequence = useCallback((sequenceTokens: string[]) => {
+    const factorized = factorizeSequence(sequenceTokens);
+    const withIds = factorized.map((item) => {
+      const match = sections.find((s) => s.name.toLowerCase() === item.sectionName.toLowerCase());
+      return match ? { ...item, sectionId: match.id } : item;
+    });
+    setSequenceItems(withIds);
+  }, [sections]);
+
   const handleSaveDraft = useCallback(async () => {
     const uniqueNames = resolveUniqueExportNames(sections);
     const finalPatterns = exportPatternsWithResolvedNames(sections, patternsById, uniqueNames);
@@ -98,6 +126,7 @@ export function usePaperScannerWorkflow({
 
   return {
     sections, setSections, patternsById, setPatternsById, sequenceItems, setSequenceItems,
-    reusableSections, setReusableSections, exportedPatterns, handleRenameSection, handleUpdateStep, handleSaveDraft,
+    reusableSections, setReusableSections, exportedPatterns, handleRenameSection, handleUpdateStep,
+    handleRescanSinglePattern, handleAddNewPattern, handleRescanSequence, handleSaveDraft,
   };
 }

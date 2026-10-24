@@ -1,9 +1,10 @@
 /**
- * Mini-popover de validation & correction rapide d'un pas du scan (< 95 lignes).
+ * Popover tactile de validation & correction rapide des frappes complètes (< 135 lignes).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { PaperStepValue } from '../../types/paperWorkshop.types';
-import { Check, AlertTriangle, X } from 'lucide-react';
+import { getStrokesForRole, ALL_STROKE_LETTERS } from '../../utils/paper/paperPopoverStrokes';
+import { Check, AlertTriangle, X, Delete } from 'lucide-react';
 
 interface Props {
   roleKey: string;
@@ -17,84 +18,109 @@ interface Props {
   lang?: 'fr' | 'pt';
 }
 
-const STROKES_BY_ROLE: Record<string, string[]> = {
-  al: ['D', 'd', 'E', 'e', 'I', 'B'],
-  mc: ['D', 'd', 'E', 'e', 'I', 'B'],
-  me: ['D', 'd', 'E', 'e', 'I', 'B'],
-  rp: ['D', 'd', 'E', 'e', 'I', 'B'],
-  cx: ['D', 'd', 'E', 'e', 'R', 'r', 'F'],
-  tr: ['D', 'd', 'E', 'e', 'R', 'r', 'F'],
-  gg: ['G', 'g', 'A', 'a'],
-  ab: ['D', 'd', 'E', 'e', 'S', 'V'],
-  mi: ['P', 'p', 'T', 't', 'L', 'B'],
-  tb: ['G', 'g', 'A', 'a', 'S', 's'],
-};
-
 export const PaperStepValidationPopover: React.FC<Props> = ({
   roleKey, stepIndex, currentValue, isVigilance,
   onValidateCurrent, onSelectStroke, onToggleVigilance, onClose, lang = 'fr',
 }) => {
-  const normRole = roleKey.toLowerCase();
-  const validStrokes = STROKES_BY_ROLE[normRole] || ['D', 'd', 'E', 'e'];
+  const [showAllLetters, setShowAllLetters] = useState(false);
+  const strokes = getStrokesForRole(roleKey);
+  const isFr = lang === 'fr';
   const curStr = Array.isArray(currentValue) ? `${currentValue[0]}/${currentValue[1]}` : (currentValue === 0 || !currentValue ? '·' : String(currentValue));
 
+  const renderStrokeBtn = (st: string) => (
+    <button
+      key={st}
+      type="button"
+      onClick={() => onSelectStroke(st)}
+      className={`min-w-[38px] min-h-[38px] flex items-center justify-center font-mono font-black text-sm border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] cursor-pointer transition-transform active:translate-y-0.5 ${
+        curStr === st ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white hover:bg-[#fef3c7] text-[#1a1a1a]'
+      }`}
+    >
+      {st}
+    </button>
+  );
+
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[400] flex items-center justify-center p-3 bg-black/60 select-none">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[280px] bg-[var(--cordel-bg,#f4ecd8)] border-3 border-black shadow-[4px_4px_0px_#000] p-2.5 flex flex-col gap-2 font-sans text-xs">
-        <div className="flex items-center justify-between border-b border-black/20 pb-1">
-          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a] dark:text-[#f59e0b]">
+    <div onClick={onClose} className="fixed inset-0 z-[400] flex items-center justify-center p-2.5 bg-black/70 backdrop-blur-xs select-none">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[320px] max-h-[90vh] overflow-y-auto bg-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[5px_5px_0px_#000] p-3 flex flex-col gap-2.5 font-sans text-xs text-[#1a1a1a]">
+        {/* EN-TÊTE */}
+        <div className="flex items-center justify-between border-b-2 border-black/20 pb-1.5">
+          <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a]">
             {roleKey.toUpperCase()} • T{Math.floor(stepIndex / 4) + 1}.{(stepIndex % 4) + 1}
           </span>
-          <button type="button" onClick={onClose} className="text-[#1a1a1a] dark:text-[#f4ecd8] hover:text-[#8b2a1a] cursor-pointer">
-            <X size={14} />
+          <button type="button" onClick={onClose} className="text-[#1a1a1a] hover:text-[#8b2a1a] p-0.5 cursor-pointer">
+            <X size={16} />
           </button>
         </div>
 
-        {isVigilance ? (
-          <button
-            type="button"
-            onClick={onValidateCurrent}
-            className="w-full py-1.5 px-2 bg-[#15803d] hover:bg-[#166534] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] cursor-pointer"
-          >
-            <Check size={13} />
-            <span>{lang === 'fr' ? `Valider "${curStr}"` : `Confirmar "${curStr}"`}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onToggleVigilance}
-            className="w-full py-1.5 px-2 bg-[#d97706] hover:bg-[#b45309] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] cursor-pointer"
-          >
-            <AlertTriangle size={13} />
-            <span>{lang === 'fr' ? 'Poser un point de vigilance' : 'Marcar ponto de vigilância'}</span>
-          </button>
-        )}
-
-        <div className="text-[10px] font-bold text-[#8b2a1a] dark:text-[#f59e0b] uppercase">
-          {lang === 'fr' ? 'Corriger la frappe :' : 'Corrigir toque :'}
-        </div>
-        <div className="grid grid-cols-4 gap-1">
-          {validStrokes.map((st) => (
+        {/* ACTIONS MAJEURES DU HAUT : VALIDER / SILENCE */}
+        <div className="grid grid-cols-2 gap-1.5">
+          {isVigilance ? (
             <button
-              key={st}
               type="button"
-              onClick={() => onSelectStroke(st)}
-              className={`py-1 text-center font-mono font-bold text-xs border border-black transition-all shadow-[1px_1px_0px_#000] cursor-pointer ${
-                curStr === st ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white hover:bg-[#fef3c7] text-[#1a1a1a]'
-              }`}
+              onClick={onValidateCurrent}
+              className="py-2 px-2 bg-[#15803d] hover:bg-[#166534] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] cursor-pointer"
             >
-              {st}
+              <Check size={14} />
+              <span className="truncate">{isFr ? `Valider "${curStr}"` : `Validar "${curStr}"`}</span>
             </button>
-          ))}
+          ) : (
+            <button
+              type="button"
+              onClick={onToggleVigilance}
+              className="py-2 px-2 bg-[#d97706] hover:bg-[#b45309] text-white border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] cursor-pointer"
+            >
+              <AlertTriangle size={14} />
+              <span className="truncate">{isFr ? 'Doute' : 'Dúvida'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => onSelectStroke(0)}
-            className={`col-span-2 py-1 text-center font-cactus font-bold text-xs uppercase border border-black shadow-[1px_1px_0px_#000] cursor-pointer ${
+            className={`py-2 px-2 border-2 border-black font-cactus font-bold text-xs uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_#000] cursor-pointer ${
               curStr === '·' || curStr === '0' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white hover:bg-stone-100 text-[#1a1a1a]'
             }`}
           >
-            {lang === 'fr' ? 'Silence (0)' : 'Silêncio (0)'}
+            <Delete size={14} />
+            <span>{isFr ? 'Silence (0)' : 'Silêncio (0)'}</span>
           </button>
+        </div>
+
+        {/* SECTION 1 : COUPS FORTS (MAJ) */}
+        <div>
+          <div className="font-cactus font-bold text-[10px] text-[#8b2a1a] uppercase mb-1">{isFr ? 'Coups Forts (Majuscules) :' : 'Toques Fortes (Maiúsculas) :'}</div>
+          <div className="flex flex-wrap gap-1">{strokes.strong.map(renderStrokeBtn)}</div>
+        </div>
+
+        {/* SECTION 2 : COUPS FAIBLES (min) */}
+        <div>
+          <div className="font-cactus font-bold text-[10px] text-[#8b2a1a] uppercase mb-1">{isFr ? 'Coups Faibles (minuscules) :' : 'Toques Fracos (minúsculas) :'}</div>
+          <div className="flex flex-wrap gap-1">{strokes.weak.map(renderStrokeBtn)}</div>
+        </div>
+
+        {/* SECTION 3 : SPÉCIAUX / RAS */}
+        {strokes.special.length > 0 && (
+          <div>
+            <div className="font-cactus font-bold text-[10px] text-[#8b2a1a] uppercase mb-1">{isFr ? 'Doubles Coups / Ras :' : 'Toques Duplos / Ras :'}</div>
+            <div className="flex flex-wrap gap-1">{strokes.special.map(renderStrokeBtn)}</div>
+          </div>
+        )}
+
+        {/* BASCULE TOUTES LES LETTRES */}
+        <div className="border-t border-black/20 pt-2 flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => setShowAllLetters((prev) => !prev)}
+            className="text-[10px] font-cactus font-bold uppercase text-[#8b2a1a] hover:underline cursor-pointer text-left"
+          >
+            {showAllLetters ? (isFr ? '- Moins de frappes' : '- Menos toques') : (isFr ? '+ Toutes les lettres (Alphabet)' : '+ Todas as letras')}
+          </button>
+          {showAllLetters && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {ALL_STROKE_LETTERS.map(renderStrokeBtn)}
+            </div>
+          )}
         </div>
       </div>
     </div>

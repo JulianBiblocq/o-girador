@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Language } from '../../../types';
 
@@ -34,4 +33,5 @@ export interface InstrumentEditorHeaderProps {
   activePatternId?: number;
   onToggleSoloLoop?: () => void;
   isSoloLoopPlaying?: boolean;
+  onOpenInspectorMobile?: () => void;
 }

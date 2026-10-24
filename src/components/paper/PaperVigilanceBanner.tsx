@@ -1,11 +1,12 @@
 /**
- * Bandeau des points de vigilance cloisonné par partition (< 90 lignes).
+ * Bandeau des points de vigilance cloisonné par partition avec redirection Maître (< 95 lignes).
  */
 import React from 'react';
 import { usePaperVigilanceStore, VigilancePoint } from '../../stores/usePaperVigilanceStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useActiveSequencerVigilancePoints } from '../../hooks/useActiveSequencerVigilancePoints';
 import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
+import { resolveMasterTrackId, resolveMatchingPatternIdOnMaster } from '../../utils/trackMasterResolver';
 import { AlertTriangle, Check, X } from 'lucide-react';
 
 export const PaperVigilanceBanner: React.FC<{ lang?: 'fr' | 'pt' }> = ({ lang = 'fr' }) => {
@@ -20,8 +21,12 @@ export const PaperVigilanceBanner: React.FC<{ lang?: 'fr' | 'pt' }> = ({ lang = 
   const handlePointClick = (pt: VigilancePoint) => {
     if (pt.trackId) {
       const store = useSequencerStore.getState();
-      store.setEditingTrackId(pt.trackId);
-      if (pt.patternId) store.setSelectedPatternId(pt.patternId);
+      const targetTrackId = resolveMasterTrackId(pt.trackId, store.tracks);
+      store.setEditingTrackId(targetTrackId);
+      const masterTrack = store.tracks.find((t) => t.id === targetTrackId);
+      const currentTrack = store.tracks.find((t) => t.id === pt.trackId);
+      const patId = masterTrack ? resolveMatchingPatternIdOnMaster(masterTrack, currentTrack, pt.patternId) : pt.patternId;
+      if (patId) store.setSelectedPatternId(patId);
     }
     setActiveFocusPoint(pt);
   };
@@ -51,7 +56,7 @@ export const PaperVigilanceBanner: React.FC<{ lang?: 'fr' | 'pt' }> = ({ lang = 
                   : 'bg-white text-[#92400e] border-[#d97706]/50 hover:bg-[#fde68a]'
               }`}
               onClick={() => handlePointClick(pt)}
-              title={lang === 'fr' ? 'Aller sur ce pas dans l\'éditeur' : 'Ir para este passo'}
+              title={lang === 'fr' ? 'Aller sur ce pas dans l\'éditeur Maître' : 'Ir para este passo no Mestre'}
             >
               <AlertTriangle size={9} className="text-[#d97706] shrink-0" />
               <span>{abbr} • {pt.sectionName} (T{beatNum}.{stepInBeat})</span>

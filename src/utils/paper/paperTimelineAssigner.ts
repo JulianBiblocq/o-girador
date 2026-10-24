@@ -1,11 +1,11 @@
 /**
- * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 135 lignes).
+ * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 130 lignes).
  */
 import { instrumentsConfig } from '../../data';
 import { PaperPreset } from '../../types/paperWorkshop.types';
 import { Pattern, TrackGroup } from '../../types/store.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
-import { CODE_MAP, ensureMissingTracks } from './paperMissingTracksEnsurer';
+import { CODE_MAP } from './paperMissingTracksEnsurer';
 import { parseConductorVariationToken, resolveSectionFromDictionaryFallback } from './paperVariationCallParser';
 
 export { buildMergedSongSections } from './paperSectionMerger';
@@ -17,10 +17,7 @@ function cloneStepValue(s: any): any {
 }
 
 export const assignPatternsToTracks = (
-  tracks: TrackGroup[],
-  preset: PaperPreset,
-  sequence: string[],
-  totalM: number
+  tracks: TrackGroup[], preset: PaperPreset, sequence: string[], totalM: number
 ): TrackGroup[] => {
   const vigilance = usePaperVigilanceStore.getState();
   const scoreId = preset.id || preset.name.toLowerCase().replace(/\s+/g, '_');
@@ -57,24 +54,16 @@ export const assignPatternsToTracks = (
       const patId = track.id * 1000 + idx + 1;
       const patTimeSig = override?.timeSignature || (targetSteps === 8 ? '2/4' : (targetSteps === 12 ? '12/8' : '4/4'));
       newPatterns.push({
-        id: patId,
-        name: sectionName,
-        steps: targetSteps,
-        length: targetSteps,
-        timeSignature: patTimeSig,
-        activeSteps: padSteps,
-        beatResolutions: override?.beatResolutions,
-        volumes: Array(targetSteps).fill(80),
-        decays: Array(targetSteps).fill(100),
-        lyrics: Array(targetSteps).fill(''),
-        notes: Array(targetSteps).fill(''),
-        measureAssignments: Array(totalM).fill(false),
-        measureAllowVariations: Array(totalM).fill(true),
+        id: patId, name: sectionName, steps: targetSteps, length: targetSteps, timeSignature: patTimeSig,
+        activeSteps: padSteps, beatResolutions: override?.beatResolutions, volumes: Array(targetSteps).fill(80),
+        decays: Array(targetSteps).fill(100), lyrics: Array(targetSteps).fill(''), notes: Array(targetSteps).fill(''),
+        measureAssignments: Array(totalM).fill(false), measureAllowVariations: Array(totalM).fill(true),
       });
 
-      // Liaison stricte sur piste réelle jouable (jamais sur un dossier Bus)
+      // Rattachement exclusif Maître ou indépendant (ignore dossiers bus & pistes esclaves)
       const isBusOrFolder = Boolean(track.isBusFolder || track.isLinkFolder);
-      if (!isBusOrFolder) {
+      const isSlave = Boolean(track.linkedToTrackId && !track.isLinkMaster);
+      if (!isBusOrFolder && !isSlave) {
         if (specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, specificCode, track.id, patId);
         if (groupCode && groupCode !== specificCode) {
           vigilance.linkPointsToTrack(scoreId, sectionName, groupCode, track.id, patId);
@@ -96,18 +85,9 @@ export const assignPatternsToTracks = (
           const fbSteps = (dictFallback[specificCode] || dictFallback[groupCode] || Array(16).fill(0)) as any[];
           const patId = track.id * 1000 + newPatterns.length + 1;
           pat = {
-            id: patId,
-            name: targetSec,
-            steps: 16,
-            length: 16,
-            timeSignature: '4/4',
-            activeSteps: fbSteps.map(cloneStepValue),
-            volumes: Array(16).fill(80),
-            decays: Array(16).fill(100),
-            lyrics: Array(16).fill(''),
-            notes: Array(16).fill(''),
-            measureAssignments: Array(totalM).fill(false),
-            measureAllowVariations: Array(totalM).fill(true),
+            id: patId, name: targetSec, steps: 16, length: 16, timeSignature: '4/4', activeSteps: fbSteps.map(cloneStepValue),
+            volumes: Array(16).fill(80), decays: Array(16).fill(100), lyrics: Array(16).fill(''), notes: Array(16).fill(''),
+            measureAssignments: Array(totalM).fill(false), measureAllowVariations: Array(totalM).fill(true),
           };
           newPatterns.push(pat);
         }
@@ -117,21 +97,10 @@ export const assignPatternsToTracks = (
     });
 
     return {
-      ...track,
-      patterns: newPatterns,
-      selectedPatternId: newPatterns[0]?.id ?? 0,
-      patternOverrides: overrides,
-      automation: undefined,
-      volumeAutomation: undefined,
-      panAutomation: undefined,
-      isAutomated: false,
-      automationBypass: { volume: false, pan: false, reverb: false },
-      measureVols: undefined,
-      measureVolTransitions: undefined,
-      measurePans: undefined,
-      measurePanTransitions: undefined,
-      measureReverbSends: undefined,
-      measureReverbTransitions: undefined,
+      ...track, patterns: newPatterns, selectedPatternId: newPatterns[0]?.id ?? 0, patternOverrides: overrides,
+      automation: undefined, volumeAutomation: undefined, panAutomation: undefined, isAutomated: false,
+      automationBypass: { volume: false, pan: false, reverb: false }, measureVols: undefined, measureVolTransitions: undefined,
+      measurePans: undefined, measurePanTransitions: undefined, measureReverbSends: undefined, measureReverbTransitions: undefined,
     };
   });
 };

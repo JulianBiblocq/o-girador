@@ -1,51 +1,81 @@
 /**
- * Prompt système et spécification JSON pour Gemini Vision OCR Atelier Papier (< 130 lignes).
+ * Prompt système et spécifications JSON pour Gemini Vision OCR Atelier Papier (< 130 lignes).
  */
 import { getCustomPupitreCodes } from './paperNomenclatureHelper';
 
-export function buildGeminiVisionPaperPrompt(lang: 'fr' | 'pt' = 'fr'): string {
+export type VisionPromptMode = 'full_page' | 'single_pattern' | 'sequence_only';
+
+export interface VisionPromptOptions {
+  mode?: VisionPromptMode;
+  targetSectionName?: string;
+  existingSectionNames?: string[];
+  lang?: 'fr' | 'pt';
+}
+
+export function buildGeminiVisionPaperPrompt(options: VisionPromptOptions | 'fr' | 'pt' = 'fr'): string {
+  const opts: VisionPromptOptions = typeof options === 'string' ? { lang: options } : options;
+  const lang = opts.lang || 'fr';
+  const mode = opts.mode || 'full_page';
+
   const customCodes = getCustomPupitreCodes();
-  const knownCodesStr = Object.entries(customCodes)
-    .map(([key, abbr]) => `${key}: "${abbr}"`)
-    .join(', ');
+  const knownCodesStr = Object.entries(customCodes).map(([k, v]) => `${k}: "${v}"`).join(', ');
 
   const langNote = lang === 'fr'
     ? 'Analyse en français. Reconnais les abréviations personnalisées de l\'utilisateur.'
     : 'Análise em português. Reconheça as abreviações personalizadas do usuário.';
 
-  return `
-TU ES LE RECONNAISSEUR EXPERT DE PARTITIONS DE PERCUSSION DU SÉQUENCIAD'OR (O GIRADOR).
-${langNote}
+  const baseHeader = `TU ES LE RECONNAISSEUR EXPERT DE PARTITIONS DE PERCUSSION DU SÉQUENCIAD'OR (O GIRADOR).\n${langNote}\nCODES D'INSTRUMENTS : [ ${knownCodesStr} ].`;
 
-GÉOMÉTRIE DE LA FICHE :
-- Format A4 Paysage : 1 colonne Instrument (14mm) à gauche + 32 carreaux de frappe (8mm).
-- Lignes : jusqu'à 25 lignes manuscrites avec blocs séparés par une ligne vide.
-- Raccourcis d'instruments personnalisables par l'utilisateur : [ ${knownCodesStr} ].
+  if (mode === 'single_pattern') {
+    const secTarget = opts.targetSectionName ? `CIBLE : Motif "${opts.targetSectionName}".` : 'CIBLE : Détecte l\'unique motif cadré.';
+    return `${baseHeader}
+${secTarget}
+EXTRACTION D'UN SEUL MOTIF :
+1. Barres de temps : Détecte les séparations "|" et la fin "||".
+2. Renvoie les cellules découpées temps par temps ("beats").
+3. MAJUSCULE = coup fort, minuscule = coup faible. Tiret "-" = silence. "Base" ou "%" = recopie base.
+4. "↳" ou "Var" = ligne de variation.
+RÉPONSE JSON STRICTE :
+{
+  "pattern": {
+    "name": "${opts.targetSectionName || 'Motif'}",
+    "detectedTimeSig": "4/4" | "2/4" | "3/4" | "12/8",
+    "beatResolutions": [4, 4, 4, 4],
+    "totalSteps": 16,
+    "lines": [
+      { "role": "string", "isVariation": false, "beats": [["1","0","0","0"],["1","0","0","0"]] }
+    ]
+  }
+}`.trim();
+  }
 
-RÈGLES CRITIQUES D'EXTRACTION DES TEMPS ET DES FRAIS :
-1. Barres de temps : Détecte les barres verticales simples "|" séparant les temps et la double barre "||" terminant le motif.
-2. Découpage en temps : Pour chaque ligne de pupitre, renvoie les cellules découpées temps par temps ("beats").
-3. Subdivisions automatiques :
-   - 4 temps de 4 cellules = 16 pas (4/4)
-   - 2 temps de 4 cellules = 8 pas (2/4)
-   - 3 temps de 4 cellules = 12 pas (3/4)
-   - 4 temps de 3 cellules = 12 pas (12/8)
-   - 4 temps de 6 cellules = 24 pas (4/4 sextolets)
-   - 2 temps de 6 cellules + 2 temps de 4 cellules = 20 pas (4/4 mixte)
-4. Lettres et Frappes :
-   - MAJUSCULE = coup fort, minuscule = coup faible.
-   - Timbal : MAJUSCULE = main droite, minuscule = main gauche (G/g, A/a, S/s, D/d, P/p, F/f, V/v, C, B).
-   - "I" avec deux barres horizontales = Bacalhau.
-   - Case coupée : "d/I" (double frappe dans un seul carreau).
-   - Tiret "-" = silence forcé écrasant le maître.
-   - "Base" ou "%" = recopie automatique de la ligne de base du pupitre.
-   - "↳" ou "Var" = ligne de variation. Si une case est vide, elle hérite du maître.
+  if (mode === 'sequence_only') {
+    const knownList = opts.existingSectionNames?.length
+      ? `MOTIFS CONNUS DE LA PARTITION (FAVORISER CETTE CORRESPONDANCE EXACTE) : [ ${opts.existingSectionNames.map((s) => `"${s}"`).join(', ')} ].`
+      : '';
+    return `${baseHeader}
+EXTRACTION DU CONDUCTEUR / SÉQUENCE :
+${knownList}
+Lis l'ordre des étiquettes de sections (ex: "Intro x2", "Base x4", "1", "2", "Virada").
+RÉPONSE JSON STRICTE :
+{
+  "sequence": ["Intro", "Intro", "Base", "Base", "Base", "Base"]
+}`.trim();
+  }
 
-SCHÉMA JSON STRICT DE RÉPONSE :
+  // mode 'full_page' par défaut
+  return `${baseHeader}
+FORMAT A4 : 1 colonne Instrument (14mm) + 32 carreaux (8mm). Lignes manuscrites séparées par ligne vide.
+RÈGLES D'EXTRACTION :
+1. Barres de temps : "|" sépare les temps, "||" termine le motif.
+2. Découpage en temps : Renvoie les cellules découpées temps par temps ("beats").
+3. Subdivisions : 4x4=16 (4/4), 2x4=8 (2/4), 3x4=12 (3/4), 4x3=12 (12/8).
+4. Lettres et Frappes : MAJUSCULE = coup fort, minuscule = faible. Case coupée: "d/I". Tiret "-" = silence. "Base" ou "%" = base. "↳" = variation.
+RÉPONSE JSON STRICTE :
 {
   "songTitle": string,
   "globalBpm": number,
-  "globalTimeSig": "4/4" | "2/4" | "3/4" | "6/8" | "12/8",
+  "globalTimeSig": "4/4" | "2/4" | "3/4" | "12/8",
   "patterns": [
     {
       "name": string,
@@ -53,15 +83,10 @@ SCHÉMA JSON STRICT DE RÉPONSE :
       "beatResolutions": number[],
       "totalSteps": number,
       "lines": [
-        {
-          "role": string,
-          "isVariation": boolean,
-          "beats": string[][]
-        }
+        { "role": string, "isVariation": boolean, "beats": string[][] }
       ]
     }
   ],
   "sequence": string[]
-}
-`.trim();
+}`.trim();
 }
