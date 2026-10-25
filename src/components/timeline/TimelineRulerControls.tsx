@@ -16,12 +16,16 @@ export interface TimelineRulerControlsProps {
   onInsertMeasure?: (mIdx: number, count: number) => void;
   onDeleteMeasure?: (mIdx: number) => void;
   confirmAsync: (msg: string) => Promise<boolean>;
+  isMeasureSelected?: boolean;
+  selectedHeaderMeasuresCount?: number;
+  onDeleteMeasuresPrompt?: (mIdx: number) => void;
 }
 
 export const TimelineRulerControls = React.memo<TimelineRulerControlsProps>(({
   mIdx, measureLabel, mTimeSig, measureWidth, loopStartMeasure, loopEndMeasure,
   totalMeasures, lang, onSetLoopStart, onSetLoopEnd, onMeasureTimeSigChange,
-  onInsertMeasure, onDeleteMeasure, confirmAsync,
+  onInsertMeasure, onDeleteMeasure, confirmAsync, isMeasureSelected,
+  selectedHeaderMeasuresCount, onDeleteMeasuresPrompt,
 }) => {
   return (
     <div className="ruler-measure-header flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
@@ -57,6 +61,7 @@ export const TimelineRulerControls = React.memo<TimelineRulerControlsProps>(({
       <div className={`flex items-center gap-1 shrink-0 ${measureWidth < 70 ? 'hidden group-hover:flex absolute inset-0 justify-center items-center bg-[var(--cordel-bg)]/85 z-20 pointer-events-none' : ''}`}>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onInsertMeasure?.(mIdx, 1); }}
           className="w-5 h-5 flex items-center justify-center text-xs font-bold bg-[#1a1a1a]/10 hover:bg-[#1a1a1a] hover:text-[#f4ecd8] dark:bg-white/10 dark:hover:bg-white dark:hover:text-[#1a1a1a] border border-[#1a1a1a]/30 dark:border-white/30 rounded transition-colors cursor-pointer select-none pointer-events-auto shadow-xs"
           title={lang === 'fr' ? `Insérer une mesure avant M.${mIdx + 1}` : `Inserir compasso antes de C.${mIdx + 1}`}
@@ -66,15 +71,28 @@ export const TimelineRulerControls = React.memo<TimelineRulerControlsProps>(({
         <button
           type="button"
           disabled={totalMeasures <= 1}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={async (e) => {
             e.stopPropagation();
             if (totalMeasures <= 1) return;
-            if (await confirmAsync(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
+            if (onDeleteMeasuresPrompt) {
+              onDeleteMeasuresPrompt(mIdx);
+            } else if (await confirmAsync(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
               onDeleteMeasure?.(mIdx);
             }
           }}
-          className={`w-5 h-5 flex items-center justify-center text-xs font-bold border rounded transition-colors select-none pointer-events-auto shadow-xs ${totalMeasures <= 1 ? 'opacity-30 cursor-not-allowed border-transparent bg-black/5 dark:bg-white/5' : 'bg-[#1a1a1a]/10 hover:bg-rose-700 hover:text-white dark:bg-white/10 dark:hover:bg-rose-600 dark:hover:text-white border-[#1a1a1a]/30 dark:border-white/30 cursor-pointer'}`}
-          title={lang === 'fr' ? `Supprimer la mesure ${mIdx + 1}` : `Excluir compasso ${mIdx + 1}`}
+          className={`w-5 h-5 flex items-center justify-center text-xs font-bold border rounded transition-colors select-none pointer-events-auto shadow-xs ${
+            totalMeasures <= 1
+              ? 'opacity-30 cursor-not-allowed border-transparent bg-black/5 dark:bg-white/5'
+              : (isMeasureSelected && selectedHeaderMeasuresCount && selectedHeaderMeasuresCount > 1)
+                ? 'bg-[#d97706] hover:bg-rose-700 text-white border-black cursor-pointer shadow-[1px_1px_0px_#000]'
+                : 'bg-[#1a1a1a]/10 hover:bg-rose-700 hover:text-white dark:bg-white/10 dark:hover:bg-rose-600 dark:hover:text-white border-[#1a1a1a]/30 dark:border-white/30 cursor-pointer'
+          }`}
+          title={
+            (isMeasureSelected && selectedHeaderMeasuresCount && selectedHeaderMeasuresCount > 1)
+              ? (lang === 'fr' ? `Supprimer les ${selectedHeaderMeasuresCount} mesures sélectionnées` : `Excluir os ${selectedHeaderMeasuresCount} compassos selecionados`)
+              : (lang === 'fr' ? `Supprimer la mesure ${mIdx + 1}` : `Excluir compasso ${mIdx + 1}`)
+          }
         >
           ×
         </button>

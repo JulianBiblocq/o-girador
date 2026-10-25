@@ -24,6 +24,9 @@ export interface TimelineRulerRowProps {
   onZoom: (w: number) => void; isMultiSelectMode: boolean;
   selectedTimelineCellsCount: number; toggleMultiSelectMode: () => void;
   onOpenAddMeasuresModal: () => void; isPlaying: boolean; alertAsync?: (msg: string) => void;
+  selectedHeaderMeasures?: number[];
+  handleHeaderMeasureClick?: (mIdx: number, e: React.MouseEvent) => void;
+  onDeleteMeasuresPrompt?: (mIdx: number) => void;
 }
 
 export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
@@ -34,6 +37,7 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
   onSetLoopStart, onSetLoopEnd, onMeasureTimeSigChange, onInsertMeasure, onDeleteMeasure,
   confirmAsync, onPointerDown, onPointerMove, onPointerUp, onZoom, isMultiSelectMode,
   selectedTimelineCellsCount, toggleMultiSelectMode, onOpenAddMeasuresModal, isPlaying, alertAsync,
+  selectedHeaderMeasures = [], handleHeaderMeasureClick, onDeleteMeasuresPrompt,
 }) => {
   const totalRowW = headerWidth + totalContentW + 150;
 
@@ -63,11 +67,14 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
         const mTimeSig = measureTimeSigs?.[mIdx] || '4/4';
         const beats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
         const inLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+        const isSelected = selectedHeaderMeasures.includes(mIdx);
 
         return (
           <div
             key={mIdx}
-            className={`group flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-all border-r shrink-0 relative ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]' : 'border-r-[var(--cordel-border)]/30'} ${loopStartMeasure !== null && loopEndMeasure !== null ? (inLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : '')) : ''}`}
+            data-measure-header={mIdx}
+            onClick={(e) => handleHeaderMeasureClick?.(mIdx, e)}
+            className={`group timeline-ruler-header-measure flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-all border-r shrink-0 relative ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]' : 'border-r-[var(--cordel-border)]/30'} ${isSelected ? 'bg-[#d97706]/25 border-b-2 border-[#d97706] ring-1 ring-inset ring-[#d97706]/60' : ''} ${loopStartMeasure !== null && loopEndMeasure !== null ? (inLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : '')) : ''}`}
             style={{ width: measureWidths[mIdx] ?? measureWidth, minWidth: measureWidths[mIdx] ?? measureWidth, height: '100%' }}
           >
             {inLoop && (
@@ -82,6 +89,9 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
               loopEndMeasure={loopEndMeasure} totalMeasures={totalMeasures} lang={lang}
               onSetLoopStart={onSetLoopStart} onSetLoopEnd={onSetLoopEnd} onMeasureTimeSigChange={onMeasureTimeSigChange}
               onInsertMeasure={onInsertMeasure} onDeleteMeasure={onDeleteMeasure} confirmAsync={confirmAsync}
+              isMeasureSelected={isSelected}
+              selectedHeaderMeasuresCount={selectedHeaderMeasures.length}
+              onDeleteMeasuresPrompt={onDeleteMeasuresPrompt}
             />
 
             <TimelineMeasureRhythmSignal

@@ -58,6 +58,7 @@ export function useTimelineScrubbing({
   const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (['INPUT', 'SELECT', 'BUTTON'].includes(target.tagName) || target.closest('button, select, input, .ruler-detailed')) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) return;
     if ((e.pointerType === 'mouse' && e.button !== 0) || !scrollRef.current) return;
     if (e.clientX - scrollRef.current.getBoundingClientRect().left < headerWidth) return;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
