@@ -9,6 +9,7 @@ import { PaperPatternCardHeader } from './PaperPatternCardHeader';
 
 interface Props {
   secName: string;
+  secId?: string;
   onRename?: (newName: string) => void;
   pupitreMap: Partial<Record<string, PaperStepValue[]>>;
   isReusable: boolean;
@@ -20,12 +21,13 @@ interface Props {
   override?: PatternMetricOverride;
   onOpenOverrideModal: () => void;
   onRescan?: () => void;
+  isHighlighted?: boolean;
   lang: 'fr' | 'pt';
 }
 
 export const PaperPatternCard: React.FC<Props> = ({
-  secName, onRename, pupitreMap, isReusable, onToggleReusable, points, onCellClick,
-  globalBpm, globalTimeSig, override, onOpenOverrideModal, onRescan, lang,
+  secName, secId, onRename, pupitreMap, isReusable, onToggleReusable, points, onCellClick,
+  globalBpm, globalTimeSig, override, onOpenOverrideModal, onRescan, isHighlighted, lang,
 }) => {
   const nativeSteps = React.useMemo(() => {
     const lengths = Object.values(pupitreMap).filter(Array.isArray).map((a) => (a as any[]).length);
@@ -39,11 +41,17 @@ export const PaperPatternCard: React.FC<Props> = ({
   const numBeats = Math.max(1, Math.floor(displaySteps / 4));
 
   return (
-    <div className="p-2 pb-3 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
+    <div
+      data-paper-section-id={secId || secName}
+      data-paper-section-name={secName}
+      className={`p-2 pb-3 bg-[#fdfbf7] dark:bg-[#fdfbf7] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] transition-all duration-500 ${
+        isHighlighted ? 'ring-4 ring-[#d99b26] shadow-[0_0_20px_rgba(217,155,38,0.6)]' : ''
+      }`}
+    >
       <PaperPatternCardHeader
         secName={secName} onRename={onRename} displaySig={displaySig} displaySteps={displaySteps}
         displayBpm={displayBpm} isOverridden={isOverridden} onOpenOverrideModal={onOpenOverrideModal}
-        onRescan={onRescan} isReusable={isReusable} onToggleReusable={onToggleReusable} lang={lang}
+        onRescan={onRescan} isReusable={isReusable} onToggleReusable={onToggleReusable} isHighlighted={isHighlighted} lang={lang}
       />
 
       {/* REPERES DE TEMPS */}

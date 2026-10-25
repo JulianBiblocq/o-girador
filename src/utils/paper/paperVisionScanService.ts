@@ -50,8 +50,8 @@ export function clearStoredGeminiApiKey(): void {
 
 function requestUserApiKey(lang: string, isRetry = false): string | null {
   const msg = isRetry
-    ? (lang === 'fr' ? 'Clé Gemini API invalide ou non activée (HTTP 400/403). Saisissez une clé Google AI Studio valide :' : 'Chave Gemini API inválida/desativada (400/403). Insira chave válida do Google AI Studio :')
-    : (lang === 'fr' ? 'Clé Gemini API requise pour le scan photo (aistudio.google.com). Collez votre clé :' : 'Chave Gemini API necessária para escaneamento (aistudio.google.com). Cole sua chave :');
+    ? (lang === 'fr' ? "Clé d'accès invalide ou non activée (HTTP 400/403). Saisissez une clé valide :" : 'Chave de acesso inválida ou desativada (400/403). Insira uma chave válida :')
+    : (lang === 'fr' ? "Clé d'accès requise pour le service de numérisation. Collez votre clé :" : 'Chave de acesso necessária para o serviço de escaneamento. Cole sua chave :');
   const input = typeof window !== 'undefined' ? window.prompt(msg) : null;
   if (input?.trim()) { saveStoredGeminiApiKey(input); return input.trim(); }
   return null;
@@ -70,8 +70,8 @@ export async function analyzePaperImageWithVision(
       return {
         success: false,
         error: lang === 'fr'
-          ? 'Clé Gemini API manquante. Renseignez votre clé Google AI Studio (aistudio.google.com).'
-          : 'Chave Gemini API ausente. Obtenha uma chave no Google AI Studio (aistudio.google.com).',
+          ? "Clé d'accès manquante pour le service de numérisation."
+          : 'Chave de acesso ausente para o serviço de escaneamento.',
       };
     }
   }
@@ -123,12 +123,12 @@ export async function analyzePaperImageWithVision(
     const detail = errJson?.error?.message || (lastRes ? `HTTP ${lastRes.status}` : 'Inconnu');
     return {
       success: false,
-      error: `${lang === 'fr' ? 'Erreur Gemini Vision' : 'Erro Gemini Vision'} (${lastRes?.status || 500}): ${detail}`,
+      error: `${lang === 'fr' ? 'Erreur de lecture du scan' : 'Erro de leitura do scan'} (${lastRes?.status || 500}): ${detail}`,
     };
   } catch (err: any) {
     return {
       success: false,
-      error: `${lang === 'fr' ? 'Échec de connexion Gemini' : 'Falha de conexão Gemini'}: ${err?.message || 'Erreur réseau'}`,
+      error: `${lang === 'fr' ? 'Échec de connexion au service de numérisation' : 'Falha de conexão com o serviço de escaneamento'}: ${err?.message || 'Erreur réseau'}`,
     };
   }
 }

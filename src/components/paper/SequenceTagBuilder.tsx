@@ -73,7 +73,7 @@ export const SequenceTagBuilder: React.FC<Props> = ({
         </div>
 
         {/* ZONE 2 : SEQUENCE DU MORCEAU */}
-        <div className="p-2.5 bg-[#fdfbf7] dark:bg-[#fdfbf7] border-2 border-[#1a1a1a] min-h-[95px] flex flex-col justify-between shadow-[2px_2px_0px_#1a1a1a]">
+        <div data-paper-sequence-builder="true" className="p-2.5 bg-[#fdfbf7] dark:bg-[#fdfbf7] border-2 border-[#1a1a1a] min-h-[95px] flex flex-col justify-between shadow-[2px_2px_0px_#1a1a1a]">
           <div className="flex justify-between items-center border-b border-[#1a1a1a]/20 pb-1 mb-1.5 gap-2 flex-wrap">
             <span className="font-cactus font-bold uppercase text-[11px] !text-[#1a1a1a]">
               {isFr ? '2. Séquence assemblée' : '2. Sequência montada'} ({totalMeasures} {isFr ? 'mesures' : 'compassos'})

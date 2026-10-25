@@ -15,8 +15,9 @@ interface ActionsParams {
   globalTimeSig: string;
   sections: PaperSectionItem[];
   onRescanPattern: (secName: string, data: ProcessedVisionPattern) => void;
-  onAddNewPattern: (data: ProcessedVisionPattern) => void;
+  onAddNewPattern: (data: ProcessedVisionPattern) => string | void;
   onRescanSequence: (tokens: string[]) => void;
+  onHighlightTarget?: (target: string) => void;
   setMetricOverrides: React.Dispatch<React.SetStateAction<Record<string, PatternMetricOverride>>>;
   setPhotoPreview: (src: string | null) => void;
   lang: 'fr' | 'pt';
@@ -24,7 +25,7 @@ interface ActionsParams {
 
 export function usePaperScanCropActions({
   globalTimeSig, sections, onRescanPattern, onAddNewPattern,
-  onRescanSequence, setMetricOverrides, setPhotoPreview, lang,
+  onRescanSequence, onHighlightTarget, setMetricOverrides, setPhotoPreview, lang,
 }: ActionsParams) {
   const isFr = lang === 'fr';
   const [scanTarget, setScanTarget] = useState<ScanTarget>('full');
@@ -66,7 +67,7 @@ export function usePaperScanCropActions({
     }
     if (typeof scanTarget === 'object' && scanTarget.type === 'sequence') {
       setIsAnalyzing(true);
-      setScanBanner({ type: 'loading', message: isFr ? 'Analyse Gemini Vision du conducteur...' : 'Análise Gemini Vision...' });
+      setScanBanner({ type: 'loading', message: isFr ? 'Lecture du conducteur en cours...' : 'Leitura do condutor...' });
       const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'sequence_only', existingSectionNames: sections.map((s) => s.name), lang });
       if (!res.success || !res.sequence || res.sequence.length === 0) {
         const errMsg = res.error || (isFr ? 'Échec de la lecture de la séquence.' : 'Falha na leitura do condutor.');
@@ -76,6 +77,7 @@ export function usePaperScanCropActions({
         return;
       }
       onRescanSequence(res.sequence);
+      onHighlightTarget?.('__sequence__');
       setScanBanner({ type: 'success', message: isFr ? `Conducteur mis à jour (${res.sequence.length} étapes)` : `Condutor atualizado (${res.sequence.length} passos)` });
       setIsAnalyzing(false);
       return;
@@ -83,10 +85,10 @@ export function usePaperScanCropActions({
     const isNew = typeof scanTarget === 'object' && scanTarget.type === 'new_pattern';
     const secName = typeof scanTarget === 'object' && scanTarget.type === 'pattern' ? scanTarget.sectionName : undefined;
     setIsAnalyzing(true);
-    setScanBanner({ type: 'loading', message: isFr ? `Analyse Gemini Vision de ${secName ? `"${secName}"` : 'motif'}...` : 'Análise Gemini Vision...' });
+    setScanBanner({ type: 'loading', message: isFr ? `Scan du motif ${secName ? `"${secName}"` : ''}...` : `Escaneamento do padrão ${secName ? `"${secName}"` : ''}...` });
     const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'single_pattern', targetSectionName: secName, lang });
     if (!res.success || !res.pattern) {
-      const errMsg = res.error || (isFr ? "Échec de l'analyse Vision du motif." : "Falha na análise Vision do padrão.");
+      const errMsg = res.error || (isFr ? "Échec de la numérisation du motif." : "Falha no escaneamento do padrão.");
       setScanBanner({ type: 'error', message: errMsg });
       if (typeof window !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent)) window.alert(errMsg);
       setIsAnalyzing(false);
@@ -103,15 +105,17 @@ export function usePaperScanCropActions({
     }
     const abbrs = roleKeys.map((k) => resolvePupitreAbbr(k)).join(', ');
     if (isNew) {
-      onAddNewPattern(processed);
-      setMetricOverrides((prev) => ({ ...prev, [processed.name]: processed.metricOverride }));
+      const createdName = onAddNewPattern(processed) || processed.name;
+      setMetricOverrides((prev) => ({ ...prev, [createdName]: processed.metricOverride }));
+      onHighlightTarget?.(createdName);
     } else if (secName) {
       onRescanPattern(secName, processed);
       setMetricOverrides((prev) => ({ ...prev, [secName]: processed.metricOverride }));
+      onHighlightTarget?.(secName);
     }
     setScanBanner({ type: 'success', message: isFr ? `Motif "${processed.name}" mis à jour : ${roleKeys.length} pupitres (${abbrs})` : `Padrão "${processed.name}" atualizado : ${roleKeys.length} pupitres (${abbrs})` });
     setIsAnalyzing(false);
-  }, [scanTarget, setPhotoPreview, sections, lang, globalTimeSig, onRescanSequence, onAddNewPattern, setMetricOverrides, onRescanPattern]);
+  }, [scanTarget, setPhotoPreview, sections, lang, globalTimeSig, onRescanSequence, onAddNewPattern, onHighlightTarget, setMetricOverrides, onRescanPattern]);
 
   return {
     cropModal, fileInputRef, handleFileInputChange, handleCropConfirm,

@@ -15,12 +15,13 @@ interface Props {
   onRescan?: () => void;
   isReusable: boolean;
   onToggleReusable: () => void;
+  isHighlighted?: boolean;
   lang: 'fr' | 'pt';
 }
 
 export const PaperPatternCardHeader: React.FC<Props> = ({
   secName, onRename, displaySig, displaySteps, displayBpm, isOverridden,
-  onOpenOverrideModal, onRescan, isReusable, onToggleReusable, lang,
+  onOpenOverrideModal, onRescan, isReusable, onToggleReusable, isHighlighted, lang,
 }) => {
   const isFr = lang === 'fr';
 
@@ -38,6 +39,11 @@ export const PaperPatternCardHeader: React.FC<Props> = ({
           />
           <Pencil size={10} className="absolute right-1.5 text-[#1a1a1a]/50 pointer-events-none" />
         </div>
+        {isHighlighted && (
+          <span className="px-1.5 py-0.5 bg-[#15803d] text-[#f4ecd8] font-cactus font-bold text-[9px] uppercase border border-black shadow-xs animate-pulse">
+            {isFr ? '✓ Mis à jour' : '✓ Atualizado'}
+          </span>
+        )}
         <span className={`px-1.5 py-0.2 font-mono text-[9px] font-bold border ${isOverridden ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-black/10 text-black/80 border-black/30'}`}>
           {displaySig} ({displaySteps}p)
         </span>

@@ -23,8 +23,10 @@ import { usePaperScanDrafts } from '../../hooks/paper/usePaperScanDrafts';
 import { PaperScanDraftDocument, autoSaveDraftOnInject } from '../../utils/paper/paperScanCloudStorage';
 import { usePaperScannerWorkflow, mapPatternsToSectionIds } from '../../hooks/paper/usePaperScannerWorkflow';
 import { usePaperScanCropActions } from '../../hooks/paper/usePaperScanCropActions';
+import { usePaperScanScrollHighlight } from '../../hooks/paper/usePaperScanScrollHighlight';
 import { PaperScanCropModal } from './PaperScanCropModal';
 import { PaperScanStatusBanner } from './PaperScanStatusBanner';
+import { PaperScanProgressOverlay } from './PaperScanProgressOverlay';
 import { isPaperImportProcessed, togglePaperImportProcessed, setPaperImportProcessed, getProcessedPaperImportIds } from '../../utils/paper/paperProcessedTracker';
 
 interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; initialPreset?: PaperPreset; }
@@ -46,6 +48,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
   const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
   const vigilanceCount = usePaperVigilanceStore((s) => s.points.filter((p) => p.scoreId === scoreId).length);
   const { draftsList, activeDraftId, setActiveDraftId, isSavingDraft, saveCurrentDraft, removeDraft, latestResumeableDraft, parseDraftPayload } = usePaperScanDrafts(scoreId);
+  const { highlightedTarget, triggerScrollHighlight, isHighlighted, scrollToTarget } = usePaperScanScrollHighlight();
 
   const {
     sections, setSections, patternsById, setPatternsById, sequenceItems, setSequenceItems, reusableSections,
@@ -58,10 +61,10 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
 
   const {
     cropModal, fileInputRef, handleFileInputChange, handleCropConfirm, handleCropCancel,
-    scanBanner, setScanBanner, triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
+    scanBanner, setScanBanner, isAnalyzing, triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
   } = usePaperScanCropActions({
     globalTimeSig, sections, onRescanPattern: handleRescanSinglePattern, onAddNewPattern: handleAddNewPattern,
-    onRescanSequence: handleRescanSequence, setMetricOverrides, setPhotoPreview, lang,
+    onRescanSequence: handleRescanSequence, onHighlightTarget: (tgt) => triggerScrollHighlight(tgt, 260), setMetricOverrides, setPhotoPreview, lang,
   });
 
   useEffect(() => {
@@ -114,12 +117,13 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
   return (
     <div className="flex flex-col gap-2.5 font-sans text-xs">
       <input type="file" ref={fileInputRef} accept="image/*" capture="environment" onChange={handleFileInputChange} className="hidden" />
+      <PaperScanProgressOverlay isOpen={isAnalyzing} lang={lang} onComplete={() => { if (highlightedTarget) scrollToTarget(highlightedTarget); }} />
       {cropModal?.isOpen && <PaperScanCropModal isOpen={cropModal.isOpen} imageSrc={cropModal.imageSrc} title={cropModal.title} onConfirm={handleCropConfirm} onCancel={handleCropCancel} lang={lang} />}
       {resumeBannerDraft && <PaperResumeDraftBanner draft={resumeBannerDraft} onResume={handleLoadDraft} onDismiss={() => setDismissedDraftId(resumeBannerDraft.id)} lang={lang} />}
       <PaperScannerUploadBar photoPreview={photoPreview} onPhotoUpload={(e) => { triggerFullScan(); handleFileInputChange(e); }} selectedPresetId={selectedPreset.id} presetsList={presetsList} onSelectPreset={handleSelectPreset} draftsList={draftsList} selectedDraftId={activeDraftId} onSelectDraft={handleLoadDraft} onDeleteDraft={removeDraft} lang={lang} hideProcessed={hideProcessed} onToggleHideProcessed={() => setHideProcessed((v) => !v)} processedCount={processedCount} isCurrentProcessed={isCurrentProcessed} onToggleCurrentProcessed={() => { togglePaperImportProcessed(activeItemKey); }} isProcessedId={isPaperImportProcessed} />
       <PaperScannerGlobalSettingsBanner title={metaOverrides.toada || selectedPreset.name} onChangeTitle={(t) => setMetaOverrides((prev) => ({ ...prev, toada: t }))} bpm={globalBpm} onChangeBpm={setGlobalBpm} timeSig={globalTimeSig} onChangeTimeSig={setGlobalTimeSig} onApplyToAllPatterns={() => setMetricOverrides({})} linkAlfaias={Boolean(injectOpts.linkAlfaias)} onToggleLinkAlfaias={(v) => setInjectOpts((prev) => ({ ...prev, linkAlfaias: v }))} busCaixas={Boolean(injectOpts.linkCaixas)} onToggleBusCaixas={(v) => setInjectOpts((prev) => ({ ...prev, linkCaixas: v }))} busSementes={Boolean(injectOpts.busSementes)} onToggleBusSementes={(v) => setInjectOpts((prev) => ({ ...prev, busSementes: v }))} lang={lang} />
       <PaperScanStatusBanner banner={scanBanner} onDismiss={() => setScanBanner(null)} lang={lang} />
-      <PaperPatternPreviewGrid scoreId={scoreId} sections={sections} patterns={patternsById} reusableSections={reusableSections} onToggleReusable={(sec) => setReusableSections((prev) => { const n = new Set(prev); if (n.has(sec)) n.delete(sec); else n.add(sec); return n; })} onRenameSection={handleRenameSection} onUpdateStep={handleUpdateStep} onRescanPattern={triggerPatternRescan} onAddNewScannedPattern={triggerAddNewPatternScan} globalBpm={globalBpm} globalTimeSig={globalTimeSig} metricOverrides={metricOverrides} onSaveOverride={(pName, ov) => setMetricOverrides((prev) => { const next = { ...prev }; if (!ov) delete next[pName]; else next[pName] = ov; return next; })} lang={lang} />
+      <PaperPatternPreviewGrid scoreId={scoreId} sections={sections} patterns={patternsById} reusableSections={reusableSections} onToggleReusable={(sec) => setReusableSections((prev) => { const n = new Set(prev); if (n.has(sec)) n.delete(sec); else n.add(sec); return n; })} onRenameSection={handleRenameSection} onUpdateStep={handleUpdateStep} onRescanPattern={triggerPatternRescan} onAddNewScannedPattern={triggerAddNewPatternScan} globalBpm={globalBpm} globalTimeSig={globalTimeSig} metricOverrides={metricOverrides} onSaveOverride={(pName, ov) => setMetricOverrides((prev) => { const next = { ...prev }; if (!ov) delete next[pName]; else next[pName] = ov; return next; })} isSectionHighlighted={isHighlighted} lang={lang} />
       <SequenceTagBuilder availableSections={sections} sequenceItems={sequenceItems} onChangeSequence={setSequenceItems} onRescanSequence={triggerSequenceRescan} lang={lang} />
       <PaperInjectOptionsBar preset={{ ...selectedPreset, patterns: exportedPatterns }} options={injectOpts} onChange={setInjectOpts} />
       <PaperScannerMetadataDrawer metadata={metaOverrides} onChange={(up) => setMetaOverrides((prev) => ({ ...prev, ...up }))} lang={lang} />

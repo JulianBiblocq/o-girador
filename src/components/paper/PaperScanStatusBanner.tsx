@@ -26,7 +26,7 @@ export const PaperScanStatusBanner: React.FC<Props> = ({ banner, onDismiss, lang
       <div className="flex items-center gap-2 p-2.5 bg-[#fef3c7] dark:bg-[#78350f]/30 border-2 border-[#d97706] text-[#92400e] dark:text-[#fef3c7] font-sans text-xs shadow-xs animate-pulse">
         <Loader2 size={16} className="animate-spin text-[#d97706] shrink-0" />
         <div className="flex-1 font-bold">
-          {banner.message || (isFr ? 'Analyse Gemini Vision en cours...' : 'Análise Gemini Vision em andamento...')}
+          {banner.message || (isFr ? 'Scan en cours...' : 'Escaneamento em andamento...')}
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ export const PaperScanStatusBanner: React.FC<Props> = ({ banner, onDismiss, lang
         <AlertTriangle size={16} className="text-[#b91c1c] shrink-0 mt-0.5" />
         <div className="flex flex-col gap-0.5">
           <span className="font-cactus font-bold uppercase text-[11px] text-[#b91c1c]">
-            {isFr ? 'Erreur de scan Vision :' : 'Erro de scan Vision :'}
+            {isFr ? 'Erreur de numérisation :' : 'Erro de escaneamento :'}
           </span>
           <span className="font-medium break-words">{banner.message}</span>
         </div>

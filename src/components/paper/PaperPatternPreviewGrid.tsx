@@ -21,13 +21,14 @@ interface Props {
   globalTimeSig?: string;
   metricOverrides?: Record<string, PatternMetricOverride>;
   onSaveOverride?: (patName: string, override?: PatternMetricOverride) => void;
+  isSectionHighlighted?: (secId?: string, secName?: string) => boolean;
   lang: 'fr' | 'pt';
 }
 
 export const PaperPatternPreviewGrid: React.FC<Props> = ({
   scoreId, sections, patterns, reusableSections, onToggleReusable, onRenameSection, onUpdateStep,
   onRescanPattern, onAddNewScannedPattern, globalBpm = 96, globalTimeSig = '4/4', metricOverrides = {},
-  onSaveOverride, lang,
+  onSaveOverride, isSectionHighlighted, lang,
 }) => {
   const isFr = lang === 'fr';
   const [filterDoubtsOnly, setFilterDoubtsOnly] = useState(false);
@@ -92,13 +93,14 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
       <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 pb-1">
         {displayedSections.map((item) => (
           <PaperPatternCard
-            key={item.id} secName={item.secName} onRename={(newName) => onRenameSection?.(item.id, newName)}
+            key={item.id} secName={item.secName} secId={item.id} onRename={(newName) => onRenameSection?.(item.id, newName)}
             pupitreMap={item.pupitreMap} isReusable={reusableSections.has(item.secName) || reusableSections.has(item.id)}
             onToggleReusable={() => onToggleReusable(item.secName)} points={points}
             onCellClick={(role, idx, val) => handleCellClick(item.secName, role, idx, val)}
             globalBpm={globalBpm} globalTimeSig={globalTimeSig} override={metricOverrides[item.secName] || metricOverrides[item.id]}
             onOpenOverrideModal={() => setOverrideModalPattern(item.secName)}
-            onRescan={onRescanPattern ? () => onRescanPattern(item.secName) : undefined} lang={lang}
+            onRescan={onRescanPattern ? () => onRescanPattern(item.secName) : undefined}
+            isHighlighted={isSectionHighlighted?.(item.id, item.secName)} lang={lang}
           />
         ))}
       </div>
