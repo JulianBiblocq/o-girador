@@ -73,24 +73,36 @@ export interface ParsedPupitreHeader {
   raw: string;
   isVariation: boolean;
   targetCodes: string[];
+  probability?: number;
 }
 
 export function parsePupitreHeader(rawText: string): ParsedPupitreHeader {
   if (!rawText) return { code: null, raw: '', isVariation: false, targetCodes: [] };
-  let s = rawText.trim().replace(/^\{+\s*/, '');
-  const isVariation = /^[↳\->]|^(var)/i.test(s);
+  const trimmed = rawText.trim().replace(/^\{+\s*/, '');
+  const isVariation = /[↳\->]|\bvar\b/i.test(trimmed);
+
+  let probability: number | undefined;
   if (isVariation) {
-    s = s.replace(/^[↳\->\s]+|^var\s*/i, '').trim();
+    const probMatch = trimmed.match(/(\d+)\s*%/);
+    if (probMatch) probability = Math.max(0, Math.min(100, parseInt(probMatch[1], 10)));
   }
+
+  // Nettoyage des indicateurs de variation et pourcentages pour isoler le pupitre
+  const s = trimmed
+    .replace(/[↳\->]/g, ' ')
+    .replace(/\bvar\w*\b/gi, ' ')
+    .replace(/\d+\s*%/g, ' ')
+    .replace(/[{}]/g, ' ')
+    .trim();
 
   // Liaisons multiples (ex: mc+me, mc+me+rp, cx+tr, ab+mi, me/rp)
   if (s.includes('+') || s.includes('/')) {
     const parts = s.split(/[+/]/).map((p) => matchPupitreCodeFromText(p)).filter(Boolean) as string[];
-    return { code: parts[0] || null, raw: rawText, isVariation, targetCodes: parts };
+    return { code: parts[0] || null, raw: rawText, isVariation, targetCodes: parts, probability };
   }
 
   const matched = matchPupitreCodeFromText(s);
-  return { code: matched, raw: rawText, isVariation, targetCodes: matched ? [matched] : [] };
+  return { code: matched, raw: rawText, isVariation, targetCodes: matched ? [matched] : [], probability };
 }
 
 export function matchPupitreCodeFromText(rawText: string): string | null {

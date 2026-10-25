@@ -1,5 +1,5 @@
 /**
- * Décodeur multi-variations '+ Var (1-2-5) instrument' pour conducteur papier (< 125 lignes).
+ * Décodeur multi-variations '+ Var' avec pourcentages explicites (< 120 lignes).
  */
 import { PaperStepValue } from '../../types/paperWorkshop.types';
 import { findDictionarySection, findDictionaryVariation } from './paperRhythmDictionary';
@@ -8,12 +8,15 @@ export interface ParsedVariationCall {
   targetInstrument: string;
   rawInstrument: string;
   varIndices: number[];
+  probability?: number;
+  rawClause?: string;
 }
 
 export interface ParsedConductorToken {
   cleanSectionName: string;
   multiplier: number;
   variationCalls: ParsedVariationCall[];
+  variationSuffix?: string;
 }
 
 export function normalizeInstrumentCode(raw: string): string {
@@ -34,37 +37,62 @@ export function parseConductorVariationToken(token: string): ParsedConductorToke
   let clean = token.trim();
   let multiplier = 1;
 
-  // Extraction du multiplicateur : x4, *4, ×4
+  // Extraction du multiplicateur avant ou après : x8, *8, ×8
   const multMatch = clean.match(/^(.*?)\s*([xX*×])\s*(\d+)(.*)$/);
   if (multMatch) {
     multiplier = parseInt(multMatch[3], 10) || 1;
-    clean = `${multMatch[1]} ${multMatch[4]}`.trim();
+    clean = `${multMatch[1]} ${multMatch[4]}`.replace(/\s+/g, ' ').trim();
   }
 
   const variationCalls: ParsedVariationCall[] = [];
-  // Regex globale pour capturer : + Var (1-2-5) alfaia
-  const varRegex = /\+\s*var\s*\(([\d\s,-]+)\)\s*([a-zA-Z]+)/gi;
+  const suffixParts: string[] = [];
+  const varRegex = /\+\s*var\b([^+*xX×]*)/gi;
   let match: RegExpExecArray | null;
 
   while ((match = varRegex.exec(clean)) !== null) {
-    const rawIndices = match[1];
-    const rawInst = match[2];
-    const varIndices = rawIndices
-      .split(/[\s,-]+/)
-      .map((n) => parseInt(n.trim(), 10))
-      .filter((n) => !isNaN(n) && n > 0);
+    const rawClause = match[0].trim();
+    suffixParts.push(rawClause);
+    const body = match[1].trim();
 
-    variationCalls.push({
-      targetInstrument: normalizeInstrumentCode(rawInst),
-      rawInstrument: rawInst,
-      varIndices
-    });
+    // Pourcentage explicite (ex: 100%, 30%)
+    const probMatch = body.match(/(\d+)\s*%/);
+    const probability = probMatch ? Math.max(0, Math.min(100, parseInt(probMatch[1], 10))) : undefined;
+
+    // Indices numériques entre parenthèses (ex: (1-2-5))
+    const parenMatch = body.match(/\(([\d\s,-]+)\)/);
+    const varIndices = parenMatch
+      ? parenMatch[1].split(/[\s,-]+/).map((n) => parseInt(n.trim(), 10)).filter((n) => !isNaN(n) && n > 0)
+      : [];
+
+    // Reste textuel pour les instruments cibles
+    const cleanBody = body.replace(/\d+\s*%/g, '').replace(/\([\d\s,-]+\)/g, '').replace(/[(),]/g, ' ').trim();
+    const instTokens = cleanBody.split(/\s+/).filter(Boolean);
+
+    if (instTokens.length > 0) {
+      instTokens.forEach((inst) => {
+        variationCalls.push({
+          targetInstrument: normalizeInstrumentCode(inst),
+          rawInstrument: inst,
+          varIndices,
+          probability,
+          rawClause,
+        });
+      });
+    } else {
+      variationCalls.push({
+        targetInstrument: '',
+        rawInstrument: '',
+        varIndices,
+        probability,
+        rawClause,
+      });
+    }
   }
 
-  // Nettoyage de la chaîne pour extraire le nom pur de la section
-  const cleanSectionName = clean.replace(/\+\s*var\s*\([\d\s,-]+\)\s*[a-zA-Z]+/gi, '').replace(/\s+/g, ' ').trim();
+  const cleanSectionName = clean.replace(/\+\s*var\b[^+]*/gi, '').replace(/\s+/g, ' ').trim();
+  const variationSuffix = suffixParts.join(' ').trim();
 
-  return { cleanSectionName, multiplier, variationCalls };
+  return { cleanSectionName, multiplier, variationCalls, variationSuffix };
 }
 
 export function resolveSectionFromDictionaryFallback(
@@ -81,8 +109,8 @@ export function resolveSectionFromDictionaryFallback(
 
   // Application des variations demandées aux pupitres cibles
   variationCalls.forEach(({ targetInstrument, varIndices }) => {
-    const firstVarIdx = varIndices[0];
-    if (firstVarIdx) {
+    const firstVarIdx = varIndices[0] || 1;
+    if (firstVarIdx && targetInstrument) {
       const varSteps = findDictionaryVariation(dictItem.name, targetInstrument, firstVarIdx);
       if (varSteps) {
         result[targetInstrument] = [...varSteps];

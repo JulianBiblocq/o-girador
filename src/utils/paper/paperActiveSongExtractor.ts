@@ -19,6 +19,7 @@ export const getActiveSongPaperPreset = (lang: 'fr' | 'pt' = 'fr'): PaperPreset 
     if (tracks.length === 0) return null;
 
     const rawName = state.metadata?.toada?.trim() || state.metadata?.ritmo?.trim() || (lang === 'fr' ? 'Morceau Actuel' : 'Peça Atual');
+    const cleanName = rawName.replace(/^(Morceau Actif|Peça Ativa|Morceau Actuel|Peça Atual)\s*\((.*?)\)$/i, '$2').trim() || rawName;
     const sections = state.songSections || [];
     const totalM = Math.max(1, state.totalMeasures || 16);
 
@@ -67,7 +68,7 @@ export const getActiveSongPaperPreset = (lang: 'fr' | 'pt' = 'fr'): PaperPreset 
 
     return {
       id: 'active_song',
-      name: lang === 'fr' ? `Morceau Actif (${rawName})` : `Peça Ativa (${rawName})`,
+      name: cleanName,
       bpm: state.bpm || 96,
       timeSig: (state.timeSig || '4/4') as any,
       totalMeasures: totalM,

@@ -42,7 +42,7 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
         {lang === 'fr' ? 'Annuler' : 'Cancelar'}
       </button>
 
-      {isExistingPreset && isSavedOnCloud ? (
+      {isExistingPreset ? (
         <>
           <button
             type="button"

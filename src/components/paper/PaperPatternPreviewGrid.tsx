@@ -96,7 +96,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
             pupitreMap={item.pupitreMap} isReusable={reusableSections.has(item.secName) || reusableSections.has(item.id)}
             onToggleReusable={() => onToggleReusable(item.secName)} points={points}
             onCellClick={(role, idx, val) => handleCellClick(item.secName, role, idx, val)}
-            globalBpm={globalBpm} globalTimeSig={globalTimeSig} override={metricOverrides[item.secName] || metricOverrides[item.id]}
+            globalTimeSig={globalTimeSig} override={metricOverrides[item.secName] || metricOverrides[item.id]}
             onOpenOverrideModal={() => setOverrideModalPattern(item.secName)}
             onRescan={onRescanPattern ? () => onRescanPattern(item.secName) : undefined}
             isHighlighted={isSectionHighlighted?.(item.id, item.secName)} lang={lang}
@@ -128,7 +128,8 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
       {overrideModalPattern && (
         <PaperPatternOverrideModal
           isOpen={Boolean(overrideModalPattern)} onClose={() => setOverrideModalPattern(null)}
-          patternName={overrideModalPattern} globalBpm={globalBpm} globalTimeSig={globalTimeSig}
+          patternName={overrideModalPattern} globalTimeSig={globalTimeSig}
+          pupitreMap={patterns[overrideModalPattern]}
           currentOverride={metricOverrides[overrideModalPattern]} onSaveOverride={(pName, ov) => onSaveOverride?.(pName, ov)} lang={lang}
         />
       )}

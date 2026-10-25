@@ -1,5 +1,5 @@
 /**
- * Store Zustand pour la gestion cloisonnée des Points de Vigilance (< 125 lignes).
+ * Store Zustand pour la gestion cloisonnée des Points de Vigilance (< 135 lignes).
  */
 import { create } from 'zustand';
 
@@ -11,7 +11,7 @@ export interface VigilancePoint {
   stepIndex: number;
   trackId?: number;
   patternId?: number;
-  reason?: 'ocr_doubt' | 'manual';
+  reason?: 'ocr_doubt' | 'manual' | 'section_doubt';
   isInjected?: boolean;
 }
 
@@ -26,7 +26,9 @@ interface PaperVigilanceState {
   registerOcrDoubtsForScore: (scoreId: string, doubts: Omit<VigilancePoint, 'id' | 'scoreId'>[]) => void;
   clearDoubtsForSection: (scoreId: string, sectionName: string) => void;
   registerSectionDoubts: (scoreId: string, sectionName: string, doubts: Omit<VigilancePoint, 'id' | 'scoreId'>[]) => void;
-  togglePoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number, reason?: 'ocr_doubt' | 'manual') => void;
+  registerSequenceDoubts: (scoreId: string, doubts: Omit<VigilancePoint, 'id' | 'scoreId'>[]) => void;
+  clearSequenceDoubts: (scoreId: string) => void;
+  togglePoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number, reason?: 'ocr_doubt' | 'manual' | 'section_doubt') => void;
   hasPoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number) => boolean;
   getPoint: (scoreId: string, sectionName: string, roleKey: string, stepIndex: number) => VigilancePoint | undefined;
   linkPointsToTrack: (scoreId: string, sectionName: string, roleKey: string, trackId: number, patternId: number) => void;
@@ -70,6 +72,18 @@ export const usePaperVigilanceStore = create<PaperVigilanceState>((set, get) => 
     const filtered = get().points.filter((p) => !(p.scoreId === scoreId && p.sectionName.toLowerCase() === norm && p.reason === 'ocr_doubt'));
     const newDoubts = doubts.map((d) => ({ ...d, scoreId, id: `${scoreId}__${d.sectionName}__${d.roleKey}__${d.stepIndex}`, reason: 'ocr_doubt' as const }));
     set({ points: [...filtered, ...newDoubts] });
+  },
+
+  registerSequenceDoubts: (scoreId, doubts) => {
+    const filtered = get().points.filter((p) => !(p.scoreId === scoreId && p.roleKey === 'sequence'));
+    const newDoubts = doubts.map((d) => ({
+      ...d, scoreId, id: `${scoreId}__${d.sectionName}__sequence__${d.stepIndex}`, reason: 'section_doubt' as const, roleKey: 'sequence',
+    }));
+    set({ points: [...filtered, ...newDoubts] });
+  },
+
+  clearSequenceDoubts: (scoreId) => {
+    set({ points: get().points.filter((p) => !(p.scoreId === scoreId && p.roleKey === 'sequence')) });
   },
 
   togglePoint: (scoreId, sectionName, roleKey, stepIndex, reason = 'manual') => {

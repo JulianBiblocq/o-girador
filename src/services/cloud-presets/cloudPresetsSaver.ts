@@ -7,6 +7,8 @@ import { CLOUD_PRESETS_COLLECTION, presetCache } from './presetCache';
 import { SANCTUARIZED_PRESET_IDS, isTestEnvironment } from './sanctuarization';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { uploadPendingVocalRecordings } from './vocalRecordingsUploader';
+import { findExistingPresetId } from './existingPresetMatcher';
+import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
 
 export async function savePresetToCloud(
   name: string,
@@ -102,20 +104,25 @@ export async function savePresetToCloud(
   if (audioUrl !== undefined) docData.audioUrl = audioUrl;
   if (isDraft !== undefined) docData.isDraft = isDraft;
 
-  if (targetPresetId) {
-    await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData, { merge: true });
-    presetCache.set(targetPresetId, presetToSave);
-    return targetPresetId;
+  const finalPresetId = targetPresetId || (ownerId ? await findExistingPresetId(name, ownerId, effectiveGroupId) : null);
+
+  if (finalPresetId) {
+    await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, finalPresetId), docData, { merge: true });
+    presetCache.set(finalPresetId, presetToSave);
+    setActiveCloudPresetId(finalPresetId);
+    return finalPresetId;
   } else {
     docData.createdAt = Date.now();
     if (isTestEnvironment()) {
       const testId = `test_e2e_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, testId), docData);
       presetCache.set(testId, presetToSave);
+      setActiveCloudPresetId(testId);
       return testId;
     }
     const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
     presetCache.set(docRef.id, presetToSave);
+    setActiveCloudPresetId(docRef.id);
     return docRef.id;
   }
 }

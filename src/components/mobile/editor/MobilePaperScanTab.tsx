@@ -73,7 +73,7 @@ export const MobilePaperScanTab: React.FC<Props> = ({ onOpenBlankSheets, onOpenP
 
   const handleInject = () => {
     const flattened = sequenceItems.flatMap((it) => Array(it.repeatCount).fill(it.sectionName));
-    const res = injectPaperScoreToStore({ ...selectedPreset, patterns: editablePatterns }, flattened, new Set(), lang, false, injectOpts);
+    const res = injectPaperScoreToStore({ ...selectedPreset, patterns: editablePatterns }, flattened, new Set(), lang, false, injectOpts, undefined, sequenceItems);
     if (res.success) { autoSaveDraftOnInject(selectedPreset.name, useSequencerStore.getState()); useSequencerStore.getState().setMobileViewMode('percussion'); }
   };
 

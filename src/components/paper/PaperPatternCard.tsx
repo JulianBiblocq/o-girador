@@ -1,9 +1,10 @@
 /**
- * Carte d'un motif individuel dans la grille de relecture avec métrique et BPM (< 120 lignes).
+ * Carte d'un motif individuel dans la grille de relecture avec métrique déverrouillée (< 115 lignes).
  */
 import React from 'react';
 import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
+import { resizeStepArray } from '../../utils/paper/paperPatternResizeHelper';
 import { AlertTriangle } from 'lucide-react';
 import { PaperPatternCardHeader } from './PaperPatternCardHeader';
 
@@ -16,7 +17,6 @@ interface Props {
   onToggleReusable: () => void;
   points: any[];
   onCellClick: (role: string, idx: number, val: PaperStepValue) => void;
-  globalBpm: number;
   globalTimeSig: string;
   override?: PatternMetricOverride;
   onOpenOverrideModal: () => void;
@@ -27,7 +27,7 @@ interface Props {
 
 export const PaperPatternCard: React.FC<Props> = ({
   secName, secId, onRename, pupitreMap, isReusable, onToggleReusable, points, onCellClick,
-  globalBpm, globalTimeSig, override, onOpenOverrideModal, onRescan, isHighlighted, lang,
+  globalTimeSig, override, onOpenOverrideModal, onRescan, isHighlighted, lang,
 }) => {
   const nativeSteps = React.useMemo(() => {
     const lengths = Object.values(pupitreMap).filter(Array.isArray).map((a) => (a as any[]).length);
@@ -36,8 +36,7 @@ export const PaperPatternCard: React.FC<Props> = ({
 
   const displaySteps = override?.steps || nativeSteps;
   const displaySig = override?.timeSignature || (displaySteps === 8 ? '2/4' : (displaySteps === 12 ? '12/8' : globalTimeSig)) || '4/4';
-  const displayBpm = override?.bpm || globalBpm;
-  const isOverridden = Boolean(override?.isLocked || override?.bpm || override?.timeSignature || override?.steps);
+  const isOverridden = Boolean(override?.isLocked || override?.timeSignature || override?.steps);
   const numBeats = Math.max(1, Math.floor(displaySteps / 4));
 
   return (
@@ -50,7 +49,7 @@ export const PaperPatternCard: React.FC<Props> = ({
     >
       <PaperPatternCardHeader
         secName={secName} onRename={onRename} displaySig={displaySig} displaySteps={displaySteps}
-        displayBpm={displayBpm} isOverridden={isOverridden} onOpenOverrideModal={onOpenOverrideModal}
+        isOverridden={isOverridden} onOpenOverrideModal={onOpenOverrideModal}
         onRescan={onRescan} isReusable={isReusable} onToggleReusable={onToggleReusable} isHighlighted={isHighlighted} lang={lang}
       />
 
@@ -67,17 +66,17 @@ export const PaperPatternCard: React.FC<Props> = ({
         {Object.entries(pupitreMap).map(([pupitreKey, steps]) => {
           const abbr = resolvePupitreAbbr(pupitreKey);
           const isBase = typeof steps === 'string' && (steps === 'base' || steps === 'idem' || steps === '%');
-          const stepArr = Array.isArray(steps) ? steps : (isBase ? [] : Array(displaySteps).fill(0));
+          const stepArr = Array.isArray(steps) ? resizeStepArray(steps, displaySteps) : (isBase ? [] : Array(displaySteps).fill(0));
 
           return (
             <div key={pupitreKey} className="flex items-center gap-1">
               <span className="w-6 font-mono font-extrabold text-[9px] bg-[#e6dec8] !text-[#1a1a1a] px-1 py-0.5 text-center shrink-0 border border-[#1a1a1a]">{abbr}</span>
               {isBase ? (
-                <span className="px-2 py-0.5 bg-[#d99b26]/20 !text-[#8b2a1a] border border-[#8b2a1a] font-bold text-[10px]">[ ≡ Base ]</span>
+                <span className="px-2 py-0.5 bg-[#d99b26]/20 !text-[#8b2a1a] border border-[#8b2a1a] font-bold text-[10px]">[ = Base ]</span>
               ) : (
                 <div className="grid flex-1 border border-[#1a1a1a]" style={{ gridTemplateColumns: `repeat(${displaySteps}, minmax(0, 1fr))` }}>
                   {stepArr.map((st, i) => {
-                    const valStr = Array.isArray(st) ? `${st[0]}/${st[1]}` : (st === 0 || !st || st === '0' ? '·' : String(st));
+                    const valStr = Array.isArray(st) ? `${st[0]}/${st[1]}` : (st === 0 || !st || st === '0' ? '.' : String(st));
                     const isOdd = Math.floor(i / 4) % 2 !== 0;
                     const isPoint = points.some((p) => p.sectionName === secName && p.roleKey === pupitreKey && p.stepIndex === i);
 
@@ -89,7 +88,7 @@ export const PaperPatternCard: React.FC<Props> = ({
                         className={`h-4.5 relative text-[9px] font-mono font-bold flex items-center justify-center cursor-pointer transition-all ${
                           i % 4 === 3 ? 'border-r-2 border-[#1a1a1a]' : 'border-r border-[#1a1a1a]/20'
                         } ${
-                          isPoint ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10' : valStr === '·'
+                          isPoint ? 'ring-2 ring-[#d97706] bg-[#fef3c7] text-[#1a1a1a] z-10' : valStr === '.'
                             ? isOdd ? 'bg-[#dfd3b8] !text-[#1a1a1a]/60 font-bold' : 'bg-[#f4ecd8] !text-[#1a1a1a]/60 font-bold'
                             : 'bg-[#8b2a1a] text-[#f4ecd8]'
                         }`}

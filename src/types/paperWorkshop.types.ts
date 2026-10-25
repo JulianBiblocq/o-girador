@@ -65,7 +65,11 @@ export interface PaperSection {
 export interface PaperSequenceItem {
   id: string;
   sectionName: string;
-  repeatCount: number; // 1 à 8
+  repeatCount: number;
+  sectionId?: string;
+  customBpm?: number | null;
+  tempoRamp?: boolean;
+  targetBpmOverride?: number | null;
 }
 
 export interface PaperPreset {

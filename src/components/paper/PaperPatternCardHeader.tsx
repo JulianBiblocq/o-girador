@@ -1,15 +1,14 @@
 /**
- * En-tête d'une carte de motif avec boutons Mesure/BPM, Rescanner et Pin (< 75 lignes).
+ * En-tête d'une carte de motif avec bouton Signature Rythmique, Rescanner et Pin (< 75 lignes).
  */
 import React from 'react';
-import { Pencil, Settings2, Camera, Cloud, Pin } from 'lucide-react';
+import { Pencil, Settings2, Camera, Cloud, Pin, Check } from 'lucide-react';
 
 interface Props {
   secName: string;
   onRename?: (newName: string) => void;
   displaySig: string;
   displaySteps: number;
-  displayBpm: number;
   isOverridden: boolean;
   onOpenOverrideModal: () => void;
   onRescan?: () => void;
@@ -20,7 +19,7 @@ interface Props {
 }
 
 export const PaperPatternCardHeader: React.FC<Props> = ({
-  secName, onRename, displaySig, displaySteps, displayBpm, isOverridden,
+  secName, onRename, displaySig, displaySteps, isOverridden,
   onOpenOverrideModal, onRescan, isReusable, onToggleReusable, isHighlighted, lang,
 }) => {
   const isFr = lang === 'fr';
@@ -40,25 +39,25 @@ export const PaperPatternCardHeader: React.FC<Props> = ({
           <Pencil size={10} className="absolute right-1.5 text-[#1a1a1a]/50 pointer-events-none" />
         </div>
         {isHighlighted && (
-          <span className="px-1.5 py-0.5 bg-[#15803d] text-[#f4ecd8] font-cactus font-bold text-[9px] uppercase border border-black shadow-xs animate-pulse">
-            {isFr ? '✓ Mis à jour' : '✓ Atualizado'}
+          <span className="px-1.5 py-0.5 bg-[#15803d] text-[#f4ecd8] font-cactus font-bold text-[9px] uppercase border border-black shadow-xs animate-pulse flex items-center gap-1">
+            <Check size={9} />
+            <span>{isFr ? 'Mis à jour' : 'Atualizado'}</span>
           </span>
         )}
         <span className={`px-1.5 py-0.2 font-mono text-[9px] font-bold border ${isOverridden ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-black/10 text-black/80 border-black/30'}`}>
           {displaySig} ({displaySteps}p)
         </span>
-        <span className="font-mono text-[9px] text-[#8b2a1a] font-bold">BPM={displayBpm}</span>
       </div>
 
       <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={onOpenOverrideModal}
-          title={isFr ? 'Modifier ce pattern seul (BPM, Signature)' : 'Ajustar este padrão'}
+          title={isFr ? 'Modifier la signature rythmique' : 'Ajustar fórmula de compasso'}
           className="px-1.5 py-0.5 bg-[#f4ecd8] hover:bg-[#e2d5b8] text-[#1a1a1a] font-bold border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
         >
           <Settings2 size={11} className="text-[#1a1a1a] shrink-0" />
-          <span className="font-cactus font-bold text-[9px] text-[#1a1a1a]">{isFr ? 'Mesure / BPM' : 'Compasso / BPM'}</span>
+          <span className="font-cactus font-bold text-[9px] text-[#1a1a1a]">{isFr ? 'Signature' : 'Fórmula'}</span>
         </button>
 
         {onRescan && (

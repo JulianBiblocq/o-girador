@@ -6,8 +6,8 @@ export interface PresetAccordionSelectorProps {
   lang: 'pt' | 'fr';
   activePreset: string;
   currentSongTitle?: string;
-  publicCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean }>;
-  privateCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean }>;
+  publicCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean; ownerId?: string; audioUrl?: string | null }>;
+  privateCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean; ownerId?: string; audioUrl?: string | null }>;
   localPresets?: string[];
   isCloudPresetsLoading: boolean;
   showGroupCatalogue: boolean;

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PresetAccordionItem } from './PresetAccordionItem';
 
@@ -9,7 +8,7 @@ interface SectionProps {
   count: number;
   icon?: React.ReactNode;
   logo?: string;
-  items: Array<{ id: string; name: string; isDraft?: boolean }>;
+  items: Array<{ id: string; name: string; isDraft?: boolean; ownerId?: string; audioUrl?: string | null }>;
   itemIcon?: React.ReactNode;
   emptyMsg: string;
   isGroupList?: boolean;
@@ -17,11 +16,13 @@ interface SectionProps {
   defaultPresetId?: string | null;
   canEdit?: boolean;
   canSetDefaultPreset?: boolean;
+  canDeletePreset?: (preset: { id: string; ownerId?: string }) => boolean;
   lang: 'pt' | 'fr';
   isItemActive: (val: string, name: string) => boolean;
   onItemClick: (val: string, cloudId?: string) => void;
   onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
   onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
+  onDeletePreset?: (preset: { id: string; name: string; audioUrl?: string | null }) => Promise<void> | void;
   testId?: string;
 }
 
@@ -40,11 +41,13 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
   defaultPresetId,
   canEdit = false,
   canSetDefaultPreset = false,
+  canDeletePreset,
   lang,
   isItemActive,
   onItemClick,
   onToggleDraft,
   onSetDefaultPreset,
+  onDeletePreset,
   testId,
 }) => {
   return (
@@ -84,11 +87,13 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
                 isDefault={isGroupList && defaultPresetId === p.id}
                 canEdit={canEdit}
                 canSetDefaultPreset={canSetDefaultPreset}
+                canDelete={canDeletePreset ? canDeletePreset(p) : false}
                 icon={itemIcon}
                 lang={lang}
                 onItemClick={onItemClick}
                 onToggleDraft={onToggleDraft}
                 onSetDefaultPreset={onSetDefaultPreset}
+                onDeletePreset={onDeletePreset}
               />
             ))
           ) : (

@@ -2,7 +2,7 @@
  * Injection atomique d'une partition papier transcrite et points de vigilance (< 125 lignes).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { PaperPreset } from '../../types/paperWorkshop.types';
+import { PaperPreset, PaperSequenceItem } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { PresetMetadata } from '../../types';
 import { assignPatternsToTracks, buildMergedSongSections } from './paperTimelineAssigner';
@@ -11,11 +11,13 @@ import { disambiguateAllPresetPatterns } from './paperRoleDisambiguator';
 import { resetActiveCloudPresetId } from '../cloudPresetState';
 import { setPaperImportProcessed } from './paperProcessedTracker';
 import { resolveMasterTrackId, resolveMatchingPatternIdOnMaster } from '../trackMasterResolver';
+import { interpolateSequenceBpms, resolvePatternTimeSignatures } from './paperSequenceBpmInterpolator';
+import { normalizePresetName } from '../../hooks/queries/useCloudPresets';
 
 export const injectPaperScoreToStore = (
   preset: PaperPreset, sequenceOverride?: string[], reusableSectionNames?: Set<string>,
   lang: 'fr' | 'pt' = 'fr', openOnFirstVigilance = false, options?: PaperInjectOptions,
-  customMetadata?: Partial<PresetMetadata>
+  customMetadata?: Partial<PresetMetadata>, sequenceItems?: PaperSequenceItem[]
 ): { success: boolean; measuresCount: number } => {
   const store = useSequencerStore.getState();
   store.pushUndoState();
@@ -24,6 +26,13 @@ export const injectPaperScoreToStore = (
 
   const isExistingActiveSong = preset.id === '__active_song__';
   const curMeta = store.metadata || ({} as any);
+  const incomingName = customMetadata?.toada?.trim() || preset.name || '';
+  const currentSongName = curMeta.toada || curMeta.ritmo || '';
+  const isSameSongName = Boolean(
+    incomingName && currentSongName &&
+    normalizePresetName(incomingName) === normalizePresetName(currentSongName)
+  );
+  const preservedMorceauId = (isExistingActiveSong || isSameSongName) ? curMeta.morceauId : undefined;
   const cleanMetadata: PresetMetadata = {
     toada: customMetadata?.toada?.trim() || curMeta.toada || preset.name || '',
     nacao: customMetadata?.nacao?.trim() ?? (curMeta.nacao || preset.nacao || ''),
@@ -33,7 +42,7 @@ export const injectPaperScoreToStore = (
     description: customMetadata?.description?.trim() ?? (isExistingActiveSong ? curMeta.description || '' : ''),
     descriptionPt: customMetadata?.descriptionPt?.trim() ?? (isExistingActiveSong ? curMeta.descriptionPt || '' : ''),
     descriptionFr: customMetadata?.descriptionFr?.trim() ?? (isExistingActiveSong ? curMeta.descriptionFr || '' : ''),
-    ...(isExistingActiveSong ? {} : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: undefined, vocalPreset: undefined }),
+    ...(isExistingActiveSong ? {} : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: preservedMorceauId, vocalPreset: undefined }),
   };
 
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
@@ -50,32 +59,33 @@ export const injectPaperScoreToStore = (
 
   const targetBpm = preset.bpm || store.bpm || 96;
   const targetTimeSig = (preset.timeSig || store.timeSig || '4/4') as any;
-  const mBpms = sequence.map((s) => preset.metricOverrides?.[s]?.bpm ?? targetBpm);
-  const mSigs = sequence.map((s) => {
-    if (preset.metricOverrides?.[s]?.timeSignature) return preset.metricOverrides[s].timeSignature as any;
-    const secMap = preset.patterns[s];
-    if (secMap && typeof secMap === 'object') {
-      const lengths = Object.values(secMap).filter(Array.isArray).map((arr) => (arr as any[]).length);
-      if (lengths.length > 0 && Math.max(...lengths) === 8) return '2/4' as any;
-    }
-    return targetTimeSig;
-  });
+
+  const { measureBpms: mBpms, measureBpmTransitions: mTransitions } = sequenceItems && sequenceItems.length > 0
+    ? interpolateSequenceBpms(sequenceItems, targetBpm, totalMeasures)
+    : {
+        measureBpms: sequence.map((s) => preset.metricOverrides?.[s]?.bpm ?? targetBpm),
+        measureBpmTransitions: Array(totalMeasures).fill('immediate'),
+      };
+  const mSigs = resolvePatternTimeSignatures(sequence, preset.patterns, preset.metricOverrides, targetTimeSig);
 
   useSequencerStore.setState((state: any) => ({
-    tracks: updatedTracks, totalMeasures, bpm: targetBpm, timeSig: targetTimeSig,
-    metadata: cleanMetadata, letras: isExistingActiveSong ? state.letras : '', songSections: mergedSections,
-    measureBpms: mBpms, measureTimeSigs: mSigs, measureVols: undefined, measurePans: undefined, measureReverbSends: undefined,
-    measureBpmTransitions: Array(totalMeasures).fill('immediate'), measureVolTransitions: Array(totalMeasures).fill('immediate'),
+    tracks: updatedTracks, totalMeasures, bpm: targetBpm, nominalPresetBpm: targetBpm,
+    nominalPresetMeasureBpms: [...mBpms], timeSig: targetTimeSig, metadata: cleanMetadata,
+    letras: isExistingActiveSong ? state.letras : '', songSections: mergedSections,
+    measureBpms: mBpms, measureTimeSigs: mSigs as any, measureVols: undefined, measurePans: undefined, measureReverbSends: undefined,
+    measureBpmTransitions: mTransitions, measureVolTransitions: Array(totalMeasures).fill('immediate'),
     measureSignals: Array(totalMeasures).fill(null), songMarkers: (preset as any).songMarkers || [], mestreSignals: [],
     loopStartMeasure: null, loopEndMeasure: null, isLoopRegionActive: false, pendingLoopRange: null,
     currentMeasure: 0, currentExpandedMeasureIdx: 0, selectedAutomationType: null, selectedAutomationTrackId: null,
     selectedAutomationRange: null, automationAnchorMeasure: null, tracksVersion: (state.tracksVersion || 0) + 1,
-  }));
+  } as any));
   window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
 
-  if (!isExistingActiveSong) {
-    if (preset.id) setPaperImportProcessed(preset.id, true);
+  if (!isExistingActiveSong && !isSameSongName) {
     resetActiveCloudPresetId();
+  }
+  if (!isExistingActiveSong && preset.id) {
+    setPaperImportProcessed(preset.id, true);
   }
 
   if (reusableSectionNames && reusableSectionNames.size > 0) {

@@ -56,14 +56,19 @@ export function expandSequenceTokens(seqStr: string): string[] {
     }
   }
 
-  // 6. Découpage en mesures individuelles
+  // 6. Découpage en mesures individuelles avec préservation du suffixe de variation
   const rawTokens = cleaned.split(/[|,\n]/).map((t) => t.trim()).filter((t) => t && t !== '||' && t !== ':||' && t !== '||:');
   const result: string[] = [];
 
   for (const token of rawTokens) {
     const parsed = parseConductorVariationToken(token);
     if (parsed.multiplier > 1 || parsed.variationCalls.length > 0) {
-      const varSuffix = parsed.variationCalls.map((v) => `+ Var (${v.varIndices.join('-')}) ${v.rawInstrument}`).join(' ');
+      const varSuffix = parsed.variationSuffix || parsed.variationCalls.map((v) => {
+        const probStr = v.probability !== undefined ? ` ${v.probability}%` : '';
+        const idxStr = v.varIndices.length > 0 ? ` (${v.varIndices.join('-')})` : '';
+        const instStr = v.rawInstrument ? ` ${v.rawInstrument}` : '';
+        return `+ Var${idxStr}${instStr}${probStr}`.trim();
+      }).join(' ');
       const singleToken = varSuffix ? `${parsed.cleanSectionName} ${varSuffix}` : parsed.cleanSectionName;
       for (let i = 0; i < parsed.multiplier; i++) result.push(singleToken);
     } else {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Cloud } from 'lucide-react';
 import { useAudio } from '../contexts/AudioContext';
+import { useCatalogPresetDeletion } from '../hooks/useCatalogPresetDeletion';
 import { PresetAccordionSection } from './preset-accordion/PresetAccordionSection';
 import { PresetAccordionLocalSection } from './preset-accordion/PresetAccordionLocalSection';
 import { PresetAccordionDraftsSection } from './preset-accordion/PresetAccordionDraftsSection';
@@ -30,6 +31,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   className = '',
 }) => {
   const audio = useAudio();
+  const { canDeletePreset, handleDeletePreset } = useCatalogPresetDeletion(lang);
   const [isGroupOpen, setIsGroupOpen] = useState(showGroupCatalogue);
   const [isPublicOpen, setIsPublicOpen] = useState(!showGroupCatalogue);
 
@@ -59,7 +61,6 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   return (
     <div className={`flex flex-col gap-2 w-full ${className}`}>
       <PresetAccordionHeader lang={lang} currentSongTitle={currentSongTitle} />
-
       <div className="flex flex-col gap-1.5 w-full">
         {showGroupCatalogue && (
           <PresetAccordionSection
@@ -77,11 +78,13 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
             defaultPresetId={defaultPresetId}
             canEdit={canEdit}
             canSetDefaultPreset={canSetDefaultPreset}
+            canDeletePreset={canDeletePreset}
             lang={lang}
             isItemActive={isItemActive}
             onItemClick={handleItemClick}
             onToggleDraft={onToggleDraft}
             onSetDefaultPreset={onSetDefaultPreset}
+            onDeletePreset={handleDeletePreset}
           />
         )}
 
@@ -95,9 +98,11 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           itemIcon={<Cloud size={11} className="shrink-0 opacity-70" />}
           emptyMsg={lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)'}
           isLoading={isCloudPresetsLoading}
+          canDeletePreset={canDeletePreset}
           lang={lang}
           isItemActive={isItemActive}
           onItemClick={handleItemClick}
+          onDeletePreset={handleDeletePreset}
         />
 
         <PresetAccordionLocalSection
@@ -111,9 +116,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           lang={lang}
           onSelectDraft={(presetData, name) => {
             handleItemClick(`draft:${name}`);
-            if (audio?.applyPreset) {
-              audio.applyPreset(presetData);
-            }
+            if (audio?.applyPreset) audio.applyPreset(presetData);
           }}
         />
       </div>
