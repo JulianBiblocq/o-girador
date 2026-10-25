@@ -62,6 +62,7 @@ export function useCircleTickSync(
         measureStartTime: updatedStartTime,
         measureDuration: measureDuration ?? currentLive.measureDuration,
         isPreRoll: Boolean(detail.isPreRoll),
+        preRollBeat: detail.preRollBeat,
       };
 
       const { displayMeasure, displayTotal } = computeDisplayMeasure(

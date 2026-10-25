@@ -2,6 +2,7 @@
 import React from 'react';
 import { X, Hash, Timer, Lightbulb } from 'lucide-react';
 import { SignalMiniThumb } from './SignalMiniThumb';
+import { TransportMetronomeModesSection } from './TransportMetronomeModesSection';
 
 interface AvailableSignal {
   id: string;
@@ -80,12 +81,14 @@ export const TransportPreRollPopup: React.FC<TransportPreRollPopupProps> = ({
       <div className="flex items-center justify-between pb-2 border-b-2 border-[#1a1a1a]/20 mb-2.5">
         <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sm">
           <Timer size={14} className="shrink-0" />
-          <span>{lang === 'fr' ? 'Précompte (Pre-roll)' : 'Contagem (Pré-roll)'}</span>
+          <span>{lang === 'fr' ? 'Métronome & Précompte' : 'Metrônomo & Contagem'}</span>
         </div>
         <button onClick={onClose} className="w-5 h-5 flex items-center justify-center hover:bg-black/10 rounded cursor-pointer" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
           <X size={13} />
         </button>
       </div>
+
+      <TransportMetronomeModesSection lang={lang} />
 
       <label className="flex items-center justify-between gap-2 p-1.5 bg-black/5 rounded cursor-pointer mb-2.5">
         <span className="font-bold text-xs">{lang === 'fr' ? 'Activer le précompte au Play' : 'Ativar contagem ao iniciar'}</span>

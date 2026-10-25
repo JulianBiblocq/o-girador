@@ -10,6 +10,7 @@ export const defaultPreRollSettings: PreRollSettings = {
 
 export interface TransportState {
   isMetroOn: boolean;
+  isVisualMetronomeActive: boolean;
   metroVolume: number;
   metroSound: 'synth' | 'clave' | 'cowbell';
   globalSwing: GlobalSwing;
@@ -18,6 +19,8 @@ export interface TransportState {
   preRollSettings: PreRollSettings;
 
   setIsMetroOn: (isMetroOn: boolean) => void;
+  setIsVisualMetronomeActive: (isVisualMetronomeActive: boolean) => void;
+  toggleVisualMetronome: () => void;
   setMetroVolume: (metroVolume: number) => void;
   setMetroSound: (metroSound: 'synth' | 'clave' | 'cowbell') => void;
   setGlobalSwing: (globalSwing: GlobalSwing) => void;
@@ -28,6 +31,7 @@ export interface TransportState {
 
 export const useTransportStore = create<TransportState>((set) => ({
   isMetroOn: false,
+  isVisualMetronomeActive: false,
   metroVolume: 80,
   metroSound: 'synth',
   globalSwing: { mode: 'maracatu', customOffsets: [0, 8, -29, -58], swingIntensity: 100 },
@@ -36,6 +40,8 @@ export const useTransportStore = create<TransportState>((set) => ({
   preRollSettings: defaultPreRollSettings,
 
   setIsMetroOn: (isMetroOn) => set({ isMetroOn }),
+  setIsVisualMetronomeActive: (isVisualMetronomeActive) => set({ isVisualMetronomeActive }),
+  toggleVisualMetronome: () => set((state) => ({ isVisualMetronomeActive: !state.isVisualMetronomeActive })),
   setMetroVolume: (metroVolume) => set({ metroVolume: Math.max(0, Math.min(100, metroVolume)) }),
   setMetroSound: (metroSound) => set({ metroSound }),
   setGlobalSwing: (globalSwing) => set({ globalSwing }),

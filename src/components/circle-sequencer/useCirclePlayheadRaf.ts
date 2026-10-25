@@ -13,6 +13,7 @@ import { drawCenterKaraoke } from './drawCenterKaraoke';
 import { useThemeColors } from './useThemeColors';
 import { getAudioTime } from './circleAudioTime';
 import { Ripple, LivePlaybackState } from './circleSequencerTypes';
+import { createMetronomeHaloState, drawMetronomeHalo } from './drawMetronomeHalo';
 
 export function useCirclePlayheadRaf(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -57,6 +58,7 @@ export function useCirclePlayheadRaf(
     let lastThemeDark: boolean | undefined = undefined;
     let animId: number;
     let ripples: Ripple[] = [];
+    const haloState = createMetronomeHaloState();
     let lastDrawTime = performance.now();
 
     const drawLoop = () => {
@@ -116,15 +118,12 @@ export function useCirclePlayheadRaf(
 
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
       const stickAngle = computeStickAngle(live, isCurrentlyPlaying, getAudioTime(), isEco, usePerformanceStore.getState().disablePlayheadRAF, frozenStickAngleRef);
-      const dynamicScale = activeVisibleTracks.length <= 2
-        ? 1.95
-        : activeVisibleTracks.length > 0
-        ? 1 + ((10 - Math.min(activeVisibleTracks.length, 10)) * 0.08)
-        : 1;
+      const dynamicScale = activeVisibleTracks.length <= 2 ? 1.95 : (activeVisibleTracks.length > 0 ? 1 + ((10 - Math.min(activeVisibleTracks.length, 10)) * 0.08) : 1);
 
       drawAndUpdateRipples(ctx, ripples);
       renderTrackStepLayer(ctx, activeVisibleTracks, localRawTracks, theme.skinBorder, theme.skinWood, theme.skinInk, getLiveActivePatternId, livePlaybackRef, stateRef.current, pendingTargetMeasureRef, activeVariationsRef, dynamicScale, isEco, 600, 600);
       drawDrumstickNeedle(ctx, 600, 600, stickAngle, activeVisibleTracks, theme.skinWood, theme.skinBorder, isHeavyDisabled);
+      drawMetronomeHalo(ctx, 600, 600, live, isCurrentlyPlaying, localTimeSig, getAudioTime(), Boolean(theme.isDark), isEco, haloState);
 
       if (stateRef.current.isLetraActive) {
         drawCenterKaraoke(ctx, 600, 600, live, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs);

@@ -1,6 +1,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import { useTransportStore } from '../../stores/useTransportStore';
 import { TransportPreRollPopup } from './TransportPreRollPopup';
 
 interface TransportMetronomeSectionProps {
@@ -25,6 +27,24 @@ export const TransportMetronomeSection: React.FC<TransportMetronomeSectionProps>
   const [isPreRollPopupOpen, setIsPreRollPopupOpen] = useState(false);
   const metroContainerRef = useRef<HTMLDivElement>(null);
 
+  const { isVisualMetronomeActive, setIsVisualMetronomeActive } = useTransportStore(
+    useShallow((state) => ({
+      isVisualMetronomeActive: state.isVisualMetronomeActive,
+      setIsVisualMetronomeActive: state.setIsVisualMetronomeActive,
+    }))
+  );
+
+  const isAnyMetroActive = isMetroOn || isVisualMetronomeActive;
+
+  const handleToggleMain = () => {
+    if (isAnyMetroActive) {
+      setIsMetroOn(false);
+      setIsVisualMetronomeActive(false);
+    } else {
+      setIsMetroOn(true);
+    }
+  };
+
   useEffect(() => {
     if (!isPreRollPopupOpen) return;
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
@@ -48,9 +68,9 @@ export const TransportMetronomeSection: React.FC<TransportMetronomeSectionProps>
   return (
     <div className="relative flex items-center bg-[var(--cordel-bg)] h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] shrink-0" ref={metroContainerRef}>
       <button
-        onClick={() => setIsMetroOn(!isMetroOn)}
+        onClick={handleToggleMain}
         className={`px-1.5 sm:px-2.5 font-cactus font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 h-full transition-colors cursor-pointer select-none rounded-none ${
-          isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
+          isAnyMetroActive ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
         }`}
         title={t('metroBtn')}
       >

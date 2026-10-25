@@ -91,6 +91,7 @@ export interface LivePlaybackState {
   measureStartTime?: number;
   measureDuration?: number;
   isPreRoll?: boolean;
+  preRollBeat?: number;
 }
 
 export interface OverlayCacheState {
