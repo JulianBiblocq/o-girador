@@ -15,16 +15,14 @@ export const GlobalErrorListener: React.FC = () => {
     };
 
     const handleError = (e: ErrorEvent) => {
-      const msg = `[Global Error] ${e.message} at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack || ''}`;
-      setErrorMsg(msg);
+      console.warn('[Ignored Runtime Error]:', e.message, e.error);
       sendTelemetry('GlobalError', e.message, e.error?.stack);
     };
 
     const handleRejection = (e: PromiseRejectionEvent) => {
       const reason = e.reason;
       const stack = reason?.stack || reason?.message || String(reason);
-      const msg = `[Promise Rejection] ${stack}`;
-      setErrorMsg(msg);
+      console.warn('[Ignored Promise Rejection]:', stack);
       sendTelemetry('UnhandledRejection', String(reason?.message || reason), stack);
     };
 

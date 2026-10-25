@@ -26,8 +26,17 @@ export function useFaderMidiAndAudio({
       const channelNode = channels[trackId] || (busChannels ? busChannels[trackId] : undefined);
       if (channelNode && channelNode.volume) {
         const db = faderPositionToDb(val);
-        const safeDb = Number.isFinite(db) ? db : -100;
-        channelNode.volume.rampTo(safeDb, 0.02);
+        const safeDb = (typeof db !== 'number' || Number.isNaN(db)) ? 0 : (db < -100 ? -100 : db);
+        try {
+          channelNode.volume.rampTo(safeDb, 0.02);
+        } catch {
+          try {
+            channelNode.volume.cancelScheduledValues?.(0);
+            channelNode.volume.value = safeDb;
+          } catch {
+            // Silence total : ne jamais bloquer l'interface
+          }
+        }
       }
     }
   };
