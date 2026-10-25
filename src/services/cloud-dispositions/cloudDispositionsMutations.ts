@@ -28,13 +28,21 @@ export async function saveDispositionToCloud(
     }
   }
 
-  let effectiveGroupId = groupId ? groupId.trim() : '';
-  const isSamambaiaGroup =
+  const rawGroupId = groupId ? groupId.trim() : '';
+  const isOtherGroup = Boolean(
+    rawGroupId &&
+    !rawGroupId.toLowerCase().includes('samambaia') &&
+    !rawGroupId.toLowerCase().includes('sammbia')
+  );
+
+  let effectiveGroupId = rawGroupId;
+  const isSamambaiaGroup = !isOtherGroup && (
     ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
     effectiveGroupId.toLowerCase().includes('samambaia') ||
     effectiveGroupId.toLowerCase().includes('sammbia') ||
-    Boolean(canWriteSequenciador);
+    Boolean(canWriteSequenciador)
+  );
 
   if (isSamambaiaGroup) {
     effectiveGroupId = 'samambaia';

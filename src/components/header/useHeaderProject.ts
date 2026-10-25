@@ -12,29 +12,42 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
   const metadata = useSequencerStore((state) => state.metadata);
   const queryClient = useQueryClient();
 
-  const isOtherDistinctGroup = Boolean(
-    userProfile?.groupId &&
-    !userProfile.groupId.toLowerCase().includes('samambaia') &&
-    !userProfile.groupId.toLowerCase().includes('sammbia')
+  const rawGroupId = (userProfile?.groupId || '').trim();
+  const isSamambaia = Boolean(
+    rawGroupId.toLowerCase().includes('samambaia') ||
+    rawGroupId.toLowerCase().includes('sammbia')
   );
-  const isSamambaia = !isOtherDistinctGroup;
-  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || 'Samambaia';
+  const isOtherDistinctGroup = Boolean(rawGroupId && !isSamambaia);
+
+  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || (rawGroupId || 'Samambaia');
+
+  // Résolution dynamique du logo de groupe :
+  // - Pour Samambaia : son logo dédié ou logo configuré
+  // - Pour un autre groupe : son logo configuré ou le blason neutre vectoriel O Girador
+  // - Visiteur sans groupe : logo Samambaia par défaut (rétrocompatibilité)
+  const groupLogo = isOtherDistinctGroup
+    ? (userProfile?.groupLogoUrl || '/o-girador-logo.svg')
+    : (userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png');
 
   const isPublicPreset = (p: { visibility?: string }) =>
     p.visibility === 'admin_global' || p.visibility === 'public';
   const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
   const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
-  const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia));
+  const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || isOtherDistinctGroup));
 
   const [groupDefaultPresetId, setGroupDefaultPresetId] = useState<string | null>(null);
 
   useEffect(() => {
-    const targetGroupId = userProfile?.groupId || (isSamambaia ? 'Samambaia' : null);
+    const targetGroupId = isOtherDistinctGroup ? rawGroupId : (userProfile?.groupId || (isSamambaia ? 'Samambaia' : null));
+    if (!targetGroupId) {
+      setGroupDefaultPresetId(null);
+      return;
+    }
     const unsub = subscribeToGroupDefaultPreset(targetGroupId, (id) => {
       setGroupDefaultPresetId(id);
     });
     return () => unsub();
-  }, [userProfile?.groupId, isSamambaia]);
+  }, [rawGroupId, userProfile?.groupId, isSamambaia, isOtherDistinctGroup]);
 
   const canSetDefaultPreset = Boolean(
     userProfile && (
@@ -108,6 +121,7 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
 
   return {
     groupLabel,
+    groupLogo,
     publicCloudPresets,
     privateCloudPresets,
     showGroupCatalogue,

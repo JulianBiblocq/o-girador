@@ -28,14 +28,23 @@ export async function saveSectionToCloud(
   }
 
   const dataString = LZString.compressToBase64(JSON.stringify(sectionData));
-  let effectiveGroupId = groupId ? groupId.trim() : '';
+  const rawGroupId = groupId ? groupId.trim() : '';
+  const isOtherGroup = Boolean(
+    rawGroupId &&
+    !rawGroupId.toLowerCase().includes('samambaia') &&
+    !rawGroupId.toLowerCase().includes('sammbia')
+  );
+
+  let effectiveGroupId = rawGroupId;
   let effectiveMestreId = (userRole === 'mestre' || userRole === 'mestri') ? ownerId : (mestreId || null);
 
-  const isSamambaiaGroup =
+  const isSamambaiaGroup = !isOtherGroup && (
     ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
     effectiveGroupId.toLowerCase().includes('samambaia') ||
     effectiveGroupId.toLowerCase().includes('sammbia') ||
-    Boolean(canWriteSequenciador);
+    Boolean(canWriteSequenciador)
+  );
 
   if (isSamambaiaGroup) {
     effectiveGroupId = 'samambaia';

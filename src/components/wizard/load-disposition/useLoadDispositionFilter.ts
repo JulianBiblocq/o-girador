@@ -33,7 +33,7 @@ export function useFilteredDispositions({
           d.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
           d.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'
         );
-        return matchVisibility || matchGroup || isSamambaiaItem;
+        return (groupId ? matchGroup : matchVisibility) || isSamambaiaItem;
       }
       if (activeTab === 'public') {
         return d.visibility === 'public' || d.visibility === 'admin_global';

@@ -69,7 +69,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
             onToggle={() => setIsGroupOpen((prev) => !prev)}
             title={groupTitle}
             count={visiblePrivate.length}
-            logo={groupLogo || '/Pictures/logo-samambaia.png'}
+            logo={groupLogo || '/o-girador-logo.svg'}
             items={visiblePrivate}
             itemIcon=""
             emptyMsg={lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)'}

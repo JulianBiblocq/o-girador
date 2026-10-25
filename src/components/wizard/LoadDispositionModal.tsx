@@ -37,12 +37,17 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
 
   const userUid = userProfile?.uid || currentUser?.uid || 'local';
   const groupId = userProfile?.groupId ? String(userProfile.groupId).toLowerCase() : null;
-  const isMestreOrAdmin = isAdmin || userProfile?.role === 'mestre' || (userProfile as any)?.dbRole === 'mestre';
-  const isSamambaiaMember =
+  const isOtherGroup = Boolean(
+    groupId &&
+    !groupId.includes('samambaia') &&
+    !groupId.includes('sammbia')
+  );
+  const isSamambaiaMember = !isOtherGroup && (
     userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     userUid === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
     Boolean(groupId && groupId.includes('samambaia')) ||
-    Boolean((userProfile as any)?.canWriteSequenciador);
+    Boolean((userProfile as any)?.canWriteSequenciador)
+  );
 
   const filteredDispositions = useFilteredDispositions({
     dispositions,

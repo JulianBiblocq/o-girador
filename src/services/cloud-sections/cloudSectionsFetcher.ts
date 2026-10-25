@@ -29,10 +29,15 @@ export async function fetchCloudSections(
       promises.push(getDocs(query(sectionsRef, where('ownerId', '==', userUid), limit(100))));
       promises.push(getDocs(query(sectionsRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
 
-      const effectiveGroup = groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null);
+      const isOtherGroup = Boolean(
+        groupId &&
+        !groupId.toLowerCase().includes('samambaia') &&
+        !groupId.toLowerCase().includes('sammbia')
+      );
+      const effectiveGroup = isOtherGroup ? groupId : (groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null));
       if (effectiveGroup) {
         const norm = effectiveGroup.trim().toLowerCase();
-        const isSam = norm.includes('samambaia') || norm.includes('sammbia') || canWriteSequenciador;
+        const isSam = !isOtherGroup && (norm.includes('samambaia') || norm.includes('sammbia') || canWriteSequenciador);
         const groupIdVariants = Array.from(new Set([
           effectiveGroup, norm, ...(isSam ? ['samambaia', 'Samambaia', 'SAMAMBAIA'] : [effectiveGroup, norm])
         ]));
@@ -63,7 +68,7 @@ export async function fetchCloudSections(
       const isAdminGlobal = data.visibility === 'admin_global';
       const isPublic = data.visibility === 'public';
       const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase().trim();
-      const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase().trim();
+      const userGroupNorm = String(groupId || (isSamambaiaGroup ? 'samambaia' : '')).toLowerCase().trim();
 
       const isSamambaiaSection =
         dataGroupIdNorm.includes('samambaia') ||
@@ -74,13 +79,13 @@ export async function fetchCloudSections(
 
       const matchesGroup = Boolean(
         (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
-        ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && isSamambaiaSection)
+        (!isOtherGroup && (userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && isSamambaiaSection)
       );
       const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
       const isMemberOrEleve = userRole === 'eleve' || userRole === 'membre' || userRole === 'mestre' || userRole === 'admin';
-      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup || isSamambaiaSection);
+      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup || (isSamambaiaGroup && isSamambaiaSection));
 
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre || ((isSamambaiaGroup || isMemberOrEleve) && isSamambaiaSection)) {
+      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre || (isSamambaiaGroup && isMemberOrEleve && isSamambaiaSection)) {
         sections.push({
           id: docSnap.id,
           name: data.name,

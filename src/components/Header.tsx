@@ -52,7 +52,7 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
     isCloudPresetsLoading: Boolean(props.isCloudPresetsLoading),
     showGroupCatalogue: project.showGroupCatalogue,
     groupLabel: project.groupLabel,
-    groupLogo: '/Pictures/logo-samambaia.png',
+    groupLogo: project.groupLogo,
     defaultPresetId: project.groupDefaultPresetId,
     canSetDefaultPreset: project.canSetDefaultPreset,
     canEdit: project.isEditor,

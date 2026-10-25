@@ -11,8 +11,15 @@ export function isSamambaiaGroupHelper(
   mestreId?: string | null,
   canWriteSequenciador?: boolean
 ): boolean {
-  const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
   const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
+  const isOtherGroup = Boolean(
+    normalizedUserGroupId &&
+    !normalizedUserGroupId.includes('samambaia') &&
+    !normalizedUserGroupId.includes('sammbia')
+  );
+  if (isOtherGroup) return false;
+
+  const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
   return isJulian ||
     normalizedUserGroupId.includes('samambaia') ||
     normalizedUserGroupId.includes('sammbia') ||

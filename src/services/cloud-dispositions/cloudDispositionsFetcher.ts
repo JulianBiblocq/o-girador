@@ -21,11 +21,16 @@ export async function fetchCloudDispositions(
     const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
     let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
     const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-    const isSamambaiaGroup = isJulian ||
+    const isOtherGroup = Boolean(
+      normalizedUserGroupId &&
+      !normalizedUserGroupId.includes('samambaia') &&
+      !normalizedUserGroupId.includes('sammbia')
+    );
+    const isSamambaiaGroup = !isOtherGroup && (isJulian ||
       userUid === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
       normalizedUserGroupId.includes('samambaia') ||
       normalizedUserGroupId.includes('sammbia') ||
-      Boolean(canWriteSequenciador);
+      Boolean(canWriteSequenciador));
 
     if (isSamambaiaGroup && !myGroupMestreId) {
       myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';

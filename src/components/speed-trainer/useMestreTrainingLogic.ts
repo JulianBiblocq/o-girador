@@ -43,7 +43,13 @@ export const useMestreTrainingLogic = (
     return raw ? raw.toLowerCase().replace(/[^a-z0-9_-]/g, '_') : '';
   }, [audioPresetName, metadataToada]);
 
-  const effectiveGroupId = useMemo(() => (userProfile?.groupId || 'samambaia').trim(), [userProfile?.groupId]);
+  const effectiveGroupId = useMemo(() => {
+    const raw = (userProfile?.groupId || '').trim();
+    if (!raw) return 'samambaia';
+    const isSam = raw.toLowerCase().includes('samambaia') || raw.toLowerCase().includes('sammbia');
+    if (isSam) return 'samambaia';
+    return raw;
+  }, [userProfile?.groupId]);
 
   const loadTrainings = useCallback(async () => {
     if (!resolvedPresetId || !effectiveGroupId) {
