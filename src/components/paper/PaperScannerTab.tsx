@@ -27,6 +27,7 @@ import { usePaperScanScrollHighlight } from '../../hooks/paper/usePaperScanScrol
 import { PaperScanCropModal } from './PaperScanCropModal';
 import { PaperScanStatusBanner } from './PaperScanStatusBanner';
 import { PaperScanProgressOverlay } from './PaperScanProgressOverlay';
+import { PaperScanCordelDialog } from './PaperScanCordelDialog';
 import { isPaperImportProcessed, togglePaperImportProcessed, setPaperImportProcessed, getProcessedPaperImportIds } from '../../utils/paper/paperProcessedTracker';
 
 interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; initialPreset?: PaperPreset; }
@@ -61,7 +62,8 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
 
   const {
     cropModal, fileInputRef, handleFileInputChange, handleCropConfirm, handleCropCancel,
-    scanBanner, setScanBanner, isAnalyzing, triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
+    scanBanner, setScanBanner, isAnalyzing, cordelDialog, closeCordelDialog,
+    triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
   } = usePaperScanCropActions({
     globalTimeSig, sections, onRescanPattern: handleRescanSinglePattern, onAddNewPattern: handleAddNewPattern,
     onRescanSequence: handleRescanSequence, onHighlightTarget: (tgt) => triggerScrollHighlight(tgt, 260), setMetricOverrides, setPhotoPreview, lang,
@@ -118,6 +120,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
     <div className="flex flex-col gap-2.5 font-sans text-xs">
       <input type="file" ref={fileInputRef} accept="image/*" capture="environment" onChange={handleFileInputChange} className="hidden" />
       <PaperScanProgressOverlay isOpen={isAnalyzing} lang={lang} onComplete={() => { if (highlightedTarget) scrollToTarget(highlightedTarget); }} />
+      {cordelDialog && <PaperScanCordelDialog {...cordelDialog} onClose={closeCordelDialog} lang={lang} />}
       {cropModal?.isOpen && <PaperScanCropModal isOpen={cropModal.isOpen} imageSrc={cropModal.imageSrc} title={cropModal.title} onConfirm={handleCropConfirm} onCancel={handleCropCancel} lang={lang} />}
       {resumeBannerDraft && <PaperResumeDraftBanner draft={resumeBannerDraft} onResume={handleLoadDraft} onDismiss={() => setDismissedDraftId(resumeBannerDraft.id)} lang={lang} />}
       <PaperScannerUploadBar photoPreview={photoPreview} onPhotoUpload={(e) => { triggerFullScan(); handleFileInputChange(e); }} selectedPresetId={selectedPreset.id} presetsList={presetsList} onSelectPreset={handleSelectPreset} draftsList={draftsList} selectedDraftId={activeDraftId} onSelectDraft={handleLoadDraft} onDeleteDraft={removeDraft} lang={lang} hideProcessed={hideProcessed} onToggleHideProcessed={() => setHideProcessed((v) => !v)} processedCount={processedCount} isCurrentProcessed={isCurrentProcessed} onToggleCurrentProcessed={() => { togglePaperImportProcessed(activeItemKey); }} isProcessedId={isPaperImportProcessed} />

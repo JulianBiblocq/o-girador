@@ -1,5 +1,6 @@
 /**
- * Hook d'orchestration pour le rognage et le rescan ciblé Vision (< 100 lignes).
+ * Hook d'orchestration pour le rognage et le rescan ciblé Vision (< 135 lignes).
+ * Gestion d'état pour la modale Cordel sans alert/prompt natif.
  */
 import { useState, useRef, useCallback } from 'react';
 import { PaperSectionItem } from '../../utils/paper/paperSectionRenamer';
@@ -8,19 +9,18 @@ import { analyzePaperImageWithVision } from '../../utils/paper/paperVisionScanSe
 import { processVisionPatternData, ProcessedVisionPattern } from '../../utils/paper/paperPatternMergeHelper';
 import { resolvePupitreAbbr } from '../../utils/paper/paperNomenclatureHelper';
 import { ScanStatusBannerData } from '../../components/paper/PaperScanStatusBanner';
+import { CordelDialogState } from '../../components/paper/PaperScanCordelDialog';
 
 type ScanTarget = 'full' | { type: 'pattern'; sectionName: string } | { type: 'new_pattern' } | { type: 'sequence' };
 
 interface ActionsParams {
-  globalTimeSig: string;
-  sections: PaperSectionItem[];
+  globalTimeSig: string; sections: PaperSectionItem[]; lang: 'fr' | 'pt';
   onRescanPattern: (secName: string, data: ProcessedVisionPattern) => void;
   onAddNewPattern: (data: ProcessedVisionPattern) => string | void;
   onRescanSequence: (tokens: string[]) => void;
   onHighlightTarget?: (target: string) => void;
   setMetricOverrides: React.Dispatch<React.SetStateAction<Record<string, PatternMetricOverride>>>;
   setPhotoPreview: (src: string | null) => void;
-  lang: 'fr' | 'pt';
 }
 
 export function usePaperScanCropActions({
@@ -31,15 +31,26 @@ export function usePaperScanCropActions({
   const [scanTarget, setScanTarget] = useState<ScanTarget>('full');
   const [cropModal, setCropModal] = useState<{ isOpen: boolean; imageSrc: string; title: string } | null>(null);
   const [scanBanner, setScanBanner] = useState<ScanStatusBannerData | null>(null);
+  const [cordelDialog, setCordelDialog] = useState<CordelDialogState | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const promptUserKey = useCallback((isRetry = false): Promise<string | null> => {
+    return new Promise((resolve) => {
+      setCordelDialog({
+        isOpen: true, type: 'prompt_key',
+        message: isRetry
+          ? (isFr ? 'Clé non autorisée (400/403). Saisissez une clé valide :' : 'Chave inválida (400/403). Insira uma chave válida :')
+          : (isFr ? 'Clé d\'accès requise pour le scan. Collez votre clé :' : 'Chave necessária para o serviço. Cole sua chave :'),
+        onConfirm: (val) => { setCordelDialog(null); resolve(val || null); },
+        onCancel: () => { setCordelDialog(null); resolve(null); },
+      });
+    });
+  }, [isFr]);
+
   const startScan = useCallback((target: ScanTarget) => {
     setScanTarget(target);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
+    if (fileInputRef.current) { fileInputRef.current.value = ''; fileInputRef.current.click(); }
   }, []);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,9 +61,9 @@ export function usePaperScanCropActions({
       const src = ev.target?.result as string;
       let title = isFr ? 'Cadrer la partition' : 'Enquadrar partitura';
       if (typeof scanTarget === 'object') {
-        if (scanTarget.type === 'pattern') title = isFr ? `Rescan ciblé : "${scanTarget.sectionName}"` : `Rescan do padrão : "${scanTarget.sectionName}"`;
-        else if (scanTarget.type === 'new_pattern') title = isFr ? 'Scanner un nouveau motif seul' : 'Escanear novo padrão';
-        else if (scanTarget.type === 'sequence') title = isFr ? 'Rescan ciblé de la séquence / conducteur' : 'Rescan do condutor';
+        if (scanTarget.type === 'pattern') title = isFr ? `Rescan : "${scanTarget.sectionName}"` : `Rescan : "${scanTarget.sectionName}"`;
+        else if (scanTarget.type === 'new_pattern') title = isFr ? 'Scanner un nouveau motif' : 'Escanear novo padrão';
+        else if (scanTarget.type === 'sequence') title = isFr ? 'Rescan du conducteur' : 'Rescan do condutor';
       }
       setCropModal({ isOpen: true, imageSrc: src, title });
     };
@@ -61,18 +72,15 @@ export function usePaperScanCropActions({
 
   const handleCropConfirm = useCallback(async (processedDataUrl: string) => {
     setCropModal(null);
-    if (scanTarget === 'full') {
-      setPhotoPreview(processedDataUrl);
-      return;
-    }
+    if (scanTarget === 'full') { setPhotoPreview(processedDataUrl); return; }
     if (typeof scanTarget === 'object' && scanTarget.type === 'sequence') {
       setIsAnalyzing(true);
       setScanBanner({ type: 'loading', message: isFr ? 'Lecture du conducteur en cours...' : 'Leitura do condutor...' });
-      const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'sequence_only', existingSectionNames: sections.map((s) => s.name), lang });
+      const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'sequence_only', existingSectionNames: sections.map((s) => s.name), lang }, promptUserKey);
       if (!res.success || !res.sequence || res.sequence.length === 0) {
         const errMsg = res.error || (isFr ? 'Échec de la lecture de la séquence.' : 'Falha na leitura do condutor.');
         setScanBanner({ type: 'error', message: errMsg });
-        if (typeof window !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent)) window.alert(errMsg);
+        setCordelDialog({ isOpen: true, type: 'error', message: errMsg, techCode: res.techCode });
         setIsAnalyzing(false);
         return;
       }
@@ -86,20 +94,20 @@ export function usePaperScanCropActions({
     const secName = typeof scanTarget === 'object' && scanTarget.type === 'pattern' ? scanTarget.sectionName : undefined;
     setIsAnalyzing(true);
     setScanBanner({ type: 'loading', message: isFr ? `Scan du motif ${secName ? `"${secName}"` : ''}...` : `Escaneamento do padrão ${secName ? `"${secName}"` : ''}...` });
-    const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'single_pattern', targetSectionName: secName, lang });
+    const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'single_pattern', targetSectionName: secName, lang }, promptUserKey);
     if (!res.success || !res.pattern) {
-      const errMsg = res.error || (isFr ? "Échec de la numérisation du motif." : "Falha no escaneamento do padrão.");
+      const errMsg = res.error || (isFr ? 'Échec de la numérisation du motif.' : 'Falha no escaneamento.');
       setScanBanner({ type: 'error', message: errMsg });
-      if (typeof window !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent)) window.alert(errMsg);
+      setCordelDialog({ isOpen: true, type: 'error', message: errMsg, techCode: res.techCode });
       setIsAnalyzing(false);
       return;
     }
     const processed = processVisionPatternData(res.pattern, globalTimeSig);
     const roleKeys = Object.keys(processed.pupitreMap);
     if (roleKeys.length === 0) {
-      const errMsg = isFr ? "Aucune ligne d'instrument reconnue sur l'image." : "Nenhuma linha reconhecida.";
+      const errMsg = isFr ? "Aucune ligne d'instrument reconnue sur l'image." : 'Nenhuma linha reconhecida.';
       setScanBanner({ type: 'error', message: errMsg });
-      if (typeof window !== 'undefined' && /Mobi|Android|iPhone/i.test(navigator.userAgent)) window.alert(errMsg);
+      setCordelDialog({ isOpen: true, type: 'error', message: errMsg, techCode: 'EMPTY_GRID' });
       setIsAnalyzing(false);
       return;
     }
@@ -115,13 +123,12 @@ export function usePaperScanCropActions({
     }
     setScanBanner({ type: 'success', message: isFr ? `Motif "${processed.name}" mis à jour : ${roleKeys.length} pupitres (${abbrs})` : `Padrão "${processed.name}" atualizado : ${roleKeys.length} pupitres (${abbrs})` });
     setIsAnalyzing(false);
-  }, [scanTarget, setPhotoPreview, sections, lang, globalTimeSig, onRescanSequence, onAddNewPattern, onHighlightTarget, setMetricOverrides, onRescanPattern]);
+  }, [scanTarget, setPhotoPreview, sections, lang, globalTimeSig, onRescanSequence, onAddNewPattern, onHighlightTarget, setMetricOverrides, onRescanPattern, promptUserKey, isFr]);
 
   return {
     cropModal, fileInputRef, handleFileInputChange, handleCropConfirm,
-    handleCropCancel: () => setCropModal(null),
-    scanBanner, setScanBanner, isAnalyzing,
-    triggerFullScan: () => startScan('full'),
+    handleCropCancel: () => setCropModal(null), scanBanner, setScanBanner, isAnalyzing, cordelDialog,
+    closeCordelDialog: () => setCordelDialog(null), triggerFullScan: () => startScan('full'),
     triggerPatternRescan: (secName: string) => startScan({ type: 'pattern', sectionName: secName }),
     triggerAddNewPatternScan: () => startScan({ type: 'new_pattern' }),
     triggerSequenceRescan: () => startScan({ type: 'sequence' }),
