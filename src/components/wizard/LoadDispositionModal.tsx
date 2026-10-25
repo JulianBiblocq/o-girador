@@ -37,6 +37,7 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
 
   const userUid = userProfile?.uid || currentUser?.uid || 'local';
   const groupId = userProfile?.groupId ? String(userProfile.groupId).toLowerCase() : null;
+  const isMestreOrAdmin = isAdmin || userProfile?.role === 'mestre' || (userProfile as any)?.dbRole === 'mestre';
   const isOtherGroup = Boolean(
     groupId &&
     !groupId.includes('samambaia') &&

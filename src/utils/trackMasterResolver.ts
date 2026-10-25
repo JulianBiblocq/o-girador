@@ -1,10 +1,24 @@
 /**
- * Résolution de la piste Maître et du motif correspondant pour pistes liées/esclaves (< 80 lignes).
+ * Résolution de la piste Maître et du motif correspondant pour pistes liées/esclaves (< 90 lignes).
  */
 import { TrackGroup } from '../types/store.types';
 
-export function isSlaveTrack(track?: TrackGroup | null): boolean {
+export function isSlaveTrack(track?: TrackGroup | null, allTracks?: TrackGroup[]): boolean {
   if (!track) return false;
+  if (!track.linkedToTrackId || track.isLinkFolder || track.isLinkMaster === true) return false;
+
+  // Si la liste complète des pistes est fournie, appliquer le repli robuste anti-blocage
+  if (allTracks && allTracks.length > 0) {
+    const groupTracks = allTracks.filter(
+      (t) => !t.isLinkFolder && (String(t.linkedToTrackId) === String(track.linkedToTrackId) || String(t.id) === String(track.linkedToTrackId))
+    );
+    const hasExplicitMaster = groupTracks.some((t) => t.isLinkMaster === true);
+    if (!hasExplicitMaster && groupTracks.length > 0) {
+      // Aucun membre n'a isLinkMaster: true -> le premier membre fait office de Maître (non-esclave)
+      return track.id !== groupTracks[0].id;
+    }
+  }
+
   return Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
 }
 
@@ -14,16 +28,27 @@ export function resolveMasterTrack(trackId: number, tracks: TrackGroup[]): Track
 
   // Dossier Bus ou Link Folder -> trouver la piste Maître liée
   if (current.isBusFolder || current.isLinkFolder) {
-    return tracks.find((t) => String(t.linkedToTrackId) === String(current.id) && t.isLinkMaster)
-      || tracks.find((t) => String(t.busId) === String(current.id) && !t.isBusFolder && !t.isLinkFolder)
+    return tracks.find((t) => String(t.linkedToTrackId) === String(current.id) && t.isLinkMaster && !t.isLinkFolder)
+      || tracks.find((t) => String(t.busId) === String(current.id) && !t.isBusFolder && !t.isLinkFolder && t.isLinkMaster)
+      || tracks.find((t) => (String(t.linkedToTrackId) === String(current.id) || String(t.busId) === String(current.id)) && !t.isBusFolder && !t.isLinkFolder)
       || current;
   }
 
   // Piste Esclave -> trouver la piste Maître liée
-  if (isSlaveTrack(current)) {
-    return tracks.find((t) =>
-      t.isLinkMaster && (String(t.linkedToTrackId) === String(current.linkedToTrackId) || String(t.id) === String(current.linkedToTrackId))
-    ) || current;
+  if (isSlaveTrack(current, tracks)) {
+    // 1. Chercher la piste ayant isLinkMaster: true
+    const explicitMaster = tracks.find((t) =>
+      t.isLinkMaster === true && !t.isLinkFolder &&
+      (String(t.linkedToTrackId) === String(current.linkedToTrackId) || String(t.id) === String(current.linkedToTrackId))
+    );
+    if (explicitMaster) return explicitMaster;
+
+    // 2. Repli: première piste enfant du même groupe lié
+    const groupFirstTrack = tracks.find((t) =>
+      !t.isLinkFolder &&
+      (String(t.linkedToTrackId) === String(current.linkedToTrackId) || String(t.id) === String(current.linkedToTrackId))
+    );
+    if (groupFirstTrack) return groupFirstTrack;
   }
 
   // Piste déjà Maître ou indépendante

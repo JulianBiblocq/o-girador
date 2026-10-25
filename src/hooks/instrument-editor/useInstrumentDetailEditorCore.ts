@@ -20,6 +20,7 @@ import { useInstrumentDetailEditorController } from './useInstrumentDetailEditor
 import { useInstrumentDetailEditorState } from './useInstrumentDetailEditorState';
 import { useInstrumentEditorShortcuts } from './useInstrumentEditorShortcuts';
 import { useEditorPatternCardProps } from './useEditorPatternCardProps';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
 
 export function useInstrumentDetailEditorCore(props: {
   trackId: number; onClose: () => void; isMobile: boolean; isDetached?: boolean;
@@ -38,13 +39,14 @@ export function useInstrumentDetailEditorCore(props: {
   const currentBpm = useSequencerStore((s) => s.measureBpms[0] || 100);
   const currentTimeSig = useSequencerStore((s) => s.measureTimeSigs[0] || '4/4');
   const track = useSequencerStore(useCallback((s) => s.tracks.find((t) => t.id === trackId), [trackId]));
+  const allTracks = useSequencerStore((s) => s.tracks);
   const balancoPresets = useBalancoStore((s) => s.presets);
   const globalSwing = useTransportStore((s) => s.globalSwing);
   const isSettingsOpen = useSequencerSettingsStore((s) => s.isSettingsOpen);
   const handleTrackBalancoChange = useSequencerStore((s) => s.handleTrackBalancoChange);
   const handlePatternBalancoChange = useSequencerStore((s) => s.handlePatternBalancoChange);
 
-  const isSlave = Boolean(track?.linkedToTrackId && !track?.isLinkMaster);
+  const isSlave = isSlaveTrack(track, allTracks);
   const isToada = Boolean(track && (isToadaBus(track) || track.customName === 'Toada' || track.instrumentIdx === 12));
   const toadaConfig = instrumentsConfig.find((i) => i.id === 'toada') || instrumentsConfig[12];
   const inst = track ? (isToada && toadaConfig ? toadaConfig : instrumentsConfig[track.instrumentIdx]) : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };

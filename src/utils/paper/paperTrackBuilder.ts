@@ -67,9 +67,9 @@ export function buildScannedScoreTracks(preset: PaperPreset, totalM: number, opt
   if (hasAl && linkAl) {
     const busId = baseId + 10;
     tracks.push(makeTrack(busId, 0, 'ALFAIAS', { isBusFolder: true, isLinkFolder: true }));
-    tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: true }));
-    tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: false }));
-    tracks.push(makeTrack(baseId + 13, 2, 'Repique (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: false }));
+    tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: true, isLinkFolder: false }));
+    tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: false, isLinkFolder: false }));
+    tracks.push(makeTrack(baseId + 13, 2, 'Repique (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: false, isLinkFolder: false }));
   } else {
     if (activeRoles.has('al') || activeRoles.has('mc')) tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)'));
     if (activeRoles.has('me')) tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)'));
@@ -79,16 +79,16 @@ export function buildScannedScoreTracks(preset: PaperPreset, totalM: number, opt
   const hasCx = activeRoles.has('cx'), hasTr = activeRoles.has('tr');
   const cxMode = options?.caixasLinkMode ?? (options?.linkCaixas ? 'caixa_tarol' : 'none');
 
-  if (cxMode === 'caixa_tarol' && hasCx) {
+  if (cxMode === 'caixa_tarol' && (hasCx || hasTr)) {
     const cxBusId = baseId + 20;
     tracks.push(makeTrack(cxBusId, 3, 'CAIXAS', { isBusFolder: true, isLinkFolder: true }));
-    tracks.push(makeTrack(baseId + 21, 3, 'Caixa', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: true, panVal: -25, pan: -25 }));
-    tracks.push(makeTrack(baseId + 22, 4, 'Tarol', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: false, panVal: 25, pan: 25 }));
+    tracks.push(makeTrack(baseId + 21, 3, 'Caixa', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: true, isLinkFolder: false, panVal: -25, pan: -25 }));
+    tracks.push(makeTrack(baseId + 22, 4, 'Tarol', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: false, isLinkFolder: false, panVal: 25, pan: 25 }));
   } else if (cxMode === 'two_caixas' && hasCx) {
     const cxBusId = baseId + 20;
     tracks.push(makeTrack(cxBusId, 3, 'CAIXAS', { isBusFolder: true, isLinkFolder: true }));
-    tracks.push(makeTrack(baseId + 21, 3, 'Caixa 1 (G)', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: true, panVal: -40, pan: -40 }));
-    tracks.push(makeTrack(baseId + 22, 3, 'Caixa 2 (D)', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: false, panVal: 40, pan: 40 }));
+    tracks.push(makeTrack(baseId + 21, 3, 'Caixa 1 (G)', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: true, isLinkFolder: false, panVal: -40, pan: -40 }));
+    tracks.push(makeTrack(baseId + 22, 3, 'Caixa 2 (D)', { busId: String(cxBusId), linkedToTrackId: String(cxBusId), isLinkMaster: false, isLinkFolder: false, panVal: 40, pan: 40 }));
   } else if (hasCx && hasTr) {
     const cxBusId = baseId + 20;
     tracks.push(makeTrack(cxBusId, 3, 'CAIXAS', { isBusFolder: true, isLinkFolder: false }));

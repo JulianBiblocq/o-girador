@@ -1,5 +1,5 @@
 /**
- * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 130 lignes).
+ * Assigne les motifs et mesures de la Timeline lors de l'injection papier (< 150 lignes).
  */
 import { instrumentsConfig } from '../../data';
 import { PaperPreset } from '../../types/paperWorkshop.types';
@@ -8,14 +8,11 @@ import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { CODE_MAP } from './paperMissingTracksEnsurer';
 import { parseConductorVariationToken, resolveSectionFromDictionaryFallback } from './paperVariationCallParser';
 import { findDictionarySection, findDictionaryVariation } from './paperRhythmDictionary';
+import { hasRealStrokes, cloneStepValue } from './paperStrokeUtils';
+import { isSlaveTrack } from '../trackMasterResolver';
 
 export { buildMergedSongSections } from './paperSectionMerger';
 export { ensureMissingTracks } from './paperMissingTracksEnsurer';
-
-function cloneStepValue(s: any): any {
-  if (Array.isArray(s)) return [...s];
-  return s === 0 ? 0 : s;
-}
 
 export const assignPatternsToTracks = (
   tracks: TrackGroup[], preset: PaperPreset, sequence: string[], totalM: number
@@ -52,10 +49,22 @@ export const assignPatternsToTracks = (
       }
       const padSteps = Array(targetSteps).fill(0);
       rawSteps.forEach((s, i) => { if (i < targetSteps) padSteps[i] = cloneStepValue(s); });
+
+      // Vérifier si cette piste ou le maître de son groupe lié possède des frappes réelles
+      let groupMasterHasStrokes = false;
+      if (pupitreMap && typeof pupitreMap === 'object') {
+        if (isAlfaia) {
+          groupMasterHasStrokes = hasRealStrokes((pupitreMap as any)['al'] || (pupitreMap as any)['mc']);
+        } else if (isCaixaGroup) {
+          groupMasterHasStrokes = hasRealStrokes((pupitreMap as any)['cx']);
+        }
+      }
+
+      if (!hasRealStrokes(padSteps) && !groupMasterHasStrokes) return;
+
       const patId = track.id * 1000 + idx + 1;
       const patTimeSig = override?.timeSignature || (targetSteps === 8 ? '2/4' : (targetSteps === 12 ? '12/8' : '4/4'));
 
-      // Initialisation des variations du dictionnaire
       const patVars: any[] = [];
       const dictSec = findDictionarySection(sectionName);
       if (dictSec?.variations) {
@@ -75,7 +84,7 @@ export const assignPatternsToTracks = (
       });
 
       const isBusOrFolder = Boolean(track.isBusFolder || track.isLinkFolder);
-      const isSlave = Boolean(track.linkedToTrackId && !track.isLinkMaster);
+      const isSlave = isSlaveTrack(track, tracks);
       if (!isBusOrFolder && !isSlave) {
         if (specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, specificCode, track.id, patId);
         if (groupCode && groupCode !== specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, groupCode, track.id, patId);
@@ -94,13 +103,15 @@ export const assignPatternsToTracks = (
         const dictFallback = resolveSectionFromDictionaryFallback(targetSec, parsedToken.variationCalls);
         if (dictFallback) {
           const fbSteps = (dictFallback[specificCode] || dictFallback[groupCode] || Array(16).fill(0)) as any[];
-          const patId = track.id * 1000 + newPatterns.length + 1;
-          pat = {
-            id: patId, name: targetSec, steps: 16, length: 16, timeSignature: '4/4', activeSteps: fbSteps.map(cloneStepValue),
-            volumes: Array(16).fill(80), decays: Array(16).fill(100), lyrics: Array(16).fill(''), notes: Array(16).fill(''),
-            measureAssignments: Array(totalM).fill(false), measureAllowVariations: Array(totalM).fill(!hasAnyVarCall),
-          };
-          newPatterns.push(pat);
+          if (hasRealStrokes(fbSteps)) {
+            const patId = track.id * 1000 + newPatterns.length + 1;
+            pat = {
+              id: patId, name: targetSec, steps: 16, length: 16, timeSignature: '4/4', activeSteps: fbSteps.map(cloneStepValue),
+              volumes: Array(16).fill(80), decays: Array(16).fill(100), lyrics: Array(16).fill(''), notes: Array(16).fill(''),
+              measureAssignments: Array(totalM).fill(false), measureAllowVariations: Array(totalM).fill(!hasAnyVarCall),
+            };
+            newPatterns.push(pat);
+          }
         }
       }
 

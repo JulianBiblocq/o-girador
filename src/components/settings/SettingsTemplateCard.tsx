@@ -1,6 +1,7 @@
 import React from 'react';
 import { WorkspaceTemplate } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { Check, X, Pencil, Trash2 } from 'lucide-react';
 
 interface SettingsTemplateCardProps {
   tpl: WorkspaceTemplate;
@@ -52,15 +53,17 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
               />
               <button
                 onClick={onSaveRename}
-                className="px-2 py-0.5 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700"
+                className="px-2 py-1 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700 flex items-center justify-center"
+                title={lang === 'pt' ? 'Salvar' : 'Enregistrer'}
               >
-                
+                <Check size={12} className="stroke-[2.5]" />
               </button>
               <button
                 onClick={onCancelEdit}
-                className="px-2 py-0.5 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200"
+                className="px-2 py-1 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200 flex items-center justify-center"
+                title={lang === 'pt' ? 'Cancelar' : 'Annuler'}
               >
-                
+                <X size={12} className="stroke-[2.5]" />
               </button>
             </div>
           ) : (
@@ -73,7 +76,7 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
                 className="text-[11px] opacity-60 hover:opacity-100 cursor-pointer p-0.5"
                 title={lang === 'pt' ? 'Renomear modelo' : 'Renommer le gabarit'}
               >
-                
+                <Pencil size={12} />
               </button>
             </div>
           )}
@@ -113,13 +116,13 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
             <button onClick={onConfirmDelete} className="px-2 py-1 bg-red-700 text-white font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-red-800">
               {lang === 'pt' ? 'Excluir' : 'Suppr.'}
             </button>
-            <button onClick={onCancelDelete} className="px-2 py-1 bg-white text-black font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100">
-              
+            <button onClick={onCancelDelete} className="px-2 py-1 bg-white text-black font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100 flex items-center justify-center">
+              <X size={12} className="stroke-[2.5]" />
             </button>
           </div>
         ) : (
-          <button onClick={onAskDelete} className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none">
-            
+          <button onClick={onAskDelete} className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-center">
+            <Trash2 size={13} />
           </button>
         )}
       </div>

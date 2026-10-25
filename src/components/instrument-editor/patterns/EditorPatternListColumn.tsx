@@ -4,7 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { SortablePatternCard } from './SortablePatternCard';
 import { PatternUsageItem } from '../../../utils/editorPatternUsage';
 import { Pattern, TrackGroup } from '../../../types';
-import { resolveMasterTrackId, resolveMatchingPatternIdOnMaster } from '../../../utils/trackMasterResolver';
+import { resolveMasterTrack, resolveMasterTrackId, resolveMatchingPatternIdOnMaster } from '../../../utils/trackMasterResolver';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { Pencil } from 'lucide-react';
 
@@ -44,8 +44,8 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
 
   const handleSwitchToMaster = () => {
     const store = useSequencerStore.getState();
-    const masterTrackId = resolveMasterTrackId(track.id, store.tracks);
-    const masterTrack = store.tracks.find((t) => t.id === masterTrackId);
+    const masterTrack = resolveMasterTrack(track.id, store.tracks);
+    const masterTrackId = masterTrack?.id ?? resolveMasterTrackId(track.id, store.tracks);
     const patId = masterTrack ? resolveMatchingPatternIdOnMaster(masterTrack, track, selectedPatternId) : selectedPatternId;
     store.setEditingTrackId(masterTrackId);
     if (patId) store.setSelectedPatternId(patId);

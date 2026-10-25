@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudio } from '../../contexts/AudioContext';
+import { useSequencer } from '../../contexts/SequencerContext';
 import { ApplyWorkspaceTemplateOptions, Language } from '../../types';
 import { notifyToast } from '../../utils/toastHelper';
 import { Trash2, CheckCircle2 } from 'lucide-react';
@@ -19,6 +20,7 @@ interface Props {
 
 export const LoadWorkspaceTemplateTab: React.FC<Props> = ({ lang, onClose, onSwitchToSave }) => {
   const audio = useAudio();
+  const { confirmAsync } = useSequencer();
   const templates = useWorkspaceTemplateStore((s) => s.templates);
   const deleteTemplate = useWorkspaceTemplateStore((s) => s.deleteTemplate);
   const [selectedId, setSelectedId] = useState<string>(templates[0]?.id || '');
@@ -43,9 +45,14 @@ export const LoadWorkspaceTemplateTab: React.FC<Props> = ({ lang, onClose, onSwi
     onClose();
   };
 
-  const handleDelete = (id: string, name: string) => {
-    const msg = lang === 'pt' ? `Excluir o gabarito "${name}" ?` : `Supprimer le gabarit "${name}" ?`;
-    if (window.confirm(msg)) {
+  const handleDelete = async (id: string, name: string) => {
+    const msg = lang === 'pt' ? `Excluir o gabarito « ${name} » ?` : `Supprimer le gabarit « ${name} » ?`;
+    const ok = await confirmAsync(
+      msg,
+      lang === 'pt' ? 'Excluir' : 'Supprimer',
+      lang === 'pt' ? 'Cancelar' : 'Annuler'
+    );
+    if (ok) {
       deleteTemplate(id);
       if (selectedId === id) {
         const remaining = templates.filter((t) => t.id !== id);

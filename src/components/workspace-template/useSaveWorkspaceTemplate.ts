@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAudio } from '../../contexts/AudioContext';
+import { useSequencer } from '../../contexts/SequencerContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { WorkspaceTemplateOptions, WorkspaceTemplateTrack, Language } from '../../types';
@@ -16,6 +17,7 @@ interface UseSaveTemplateParams {
 export function useSaveWorkspaceTemplate({ lang, onClose }: UseSaveTemplateParams) {
   const { userProfile } = useAuth();
   const audio = useAudio();
+  const { confirmAsync } = useSequencer();
   const tracks = useSequencerStore((state) => state.tracks);
   const rodaTrackOrder = useSequencerStore((state) => state.rodaTrackOrder);
   const existingTemplates = useWorkspaceTemplateStore((state) => state.templates);
@@ -53,6 +55,22 @@ export function useSaveWorkspaceTemplate({ lang, onClose }: UseSaveTemplateParam
     e.preventDefault();
     const finalName = name.trim() || computedDefaultName;
     if (isSaving) return;
+
+    const existingTpl = existingTemplates.find(
+      (t) => t.name.trim().toLowerCase() === finalName.toLowerCase()
+    );
+    if (existingTpl) {
+      const confirmMsg = lang === 'pt'
+        ? `O gabarito « ${finalName} » já existe. Deseja substituí-lo?`
+        : `Le gabarit « ${finalName} » existe déjà. Voulez-vous le remplacer ?`;
+      const ok = await confirmAsync(
+        confirmMsg,
+        lang === 'pt' ? 'Substituir' : 'Remplacer',
+        lang === 'pt' ? 'Cancelar' : 'Annuler'
+      );
+      if (!ok) return;
+      await useWorkspaceTemplateStore.getState().deleteTemplate(existingTpl.id);
+    }
 
     setIsSaving(true);
 

@@ -22,6 +22,11 @@ export async function fetchCloudSections(
     const myGroupMestreId = await resolveCloudGroupMestreId(userUid, groupId, userRole, mestreId, canWriteSequenciador);
     const promises: Promise<any>[] = [];
     const isSysAdmin = userRole === 'admin';
+    const isOtherGroup = Boolean(
+      groupId &&
+      !groupId.toLowerCase().includes('samambaia') &&
+      !groupId.toLowerCase().includes('sammbia')
+    );
 
     if (isSysAdmin) {
       promises.push(getDocs(query(sectionsRef, orderBy('createdAt', 'desc'), limit(200))));
@@ -29,11 +34,6 @@ export async function fetchCloudSections(
       promises.push(getDocs(query(sectionsRef, where('ownerId', '==', userUid), limit(100))));
       promises.push(getDocs(query(sectionsRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
 
-      const isOtherGroup = Boolean(
-        groupId &&
-        !groupId.toLowerCase().includes('samambaia') &&
-        !groupId.toLowerCase().includes('sammbia')
-      );
       const effectiveGroup = isOtherGroup ? groupId : (groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null));
       if (effectiveGroup) {
         const norm = effectiveGroup.trim().toLowerCase();
