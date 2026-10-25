@@ -24,6 +24,7 @@ import { PaperScanDraftDocument, autoSaveDraftOnInject } from '../../utils/paper
 import { usePaperScannerWorkflow, mapPatternsToSectionIds } from '../../hooks/paper/usePaperScannerWorkflow';
 import { usePaperScanCropActions } from '../../hooks/paper/usePaperScanCropActions';
 import { PaperScanCropModal } from './PaperScanCropModal';
+import { PaperScanStatusBanner } from './PaperScanStatusBanner';
 import { isPaperImportProcessed, togglePaperImportProcessed, setPaperImportProcessed, getProcessedPaperImportIds } from '../../utils/paper/paperProcessedTracker';
 
 interface Props { canImport: boolean; lang: 'fr' | 'pt'; onClose?: () => void; initialPreset?: PaperPreset; }
@@ -57,7 +58,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
 
   const {
     cropModal, fileInputRef, handleFileInputChange, handleCropConfirm, handleCropCancel,
-    triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
+    scanBanner, setScanBanner, triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
   } = usePaperScanCropActions({
     globalTimeSig, sections, onRescanPattern: handleRescanSinglePattern, onAddNewPattern: handleAddNewPattern,
     onRescanSequence: handleRescanSequence, setMetricOverrides, setPhotoPreview, lang,
@@ -117,6 +118,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
       {resumeBannerDraft && <PaperResumeDraftBanner draft={resumeBannerDraft} onResume={handleLoadDraft} onDismiss={() => setDismissedDraftId(resumeBannerDraft.id)} lang={lang} />}
       <PaperScannerUploadBar photoPreview={photoPreview} onPhotoUpload={(e) => { triggerFullScan(); handleFileInputChange(e); }} selectedPresetId={selectedPreset.id} presetsList={presetsList} onSelectPreset={handleSelectPreset} draftsList={draftsList} selectedDraftId={activeDraftId} onSelectDraft={handleLoadDraft} onDeleteDraft={removeDraft} lang={lang} hideProcessed={hideProcessed} onToggleHideProcessed={() => setHideProcessed((v) => !v)} processedCount={processedCount} isCurrentProcessed={isCurrentProcessed} onToggleCurrentProcessed={() => { togglePaperImportProcessed(activeItemKey); }} isProcessedId={isPaperImportProcessed} />
       <PaperScannerGlobalSettingsBanner title={metaOverrides.toada || selectedPreset.name} onChangeTitle={(t) => setMetaOverrides((prev) => ({ ...prev, toada: t }))} bpm={globalBpm} onChangeBpm={setGlobalBpm} timeSig={globalTimeSig} onChangeTimeSig={setGlobalTimeSig} onApplyToAllPatterns={() => setMetricOverrides({})} linkAlfaias={Boolean(injectOpts.linkAlfaias)} onToggleLinkAlfaias={(v) => setInjectOpts((prev) => ({ ...prev, linkAlfaias: v }))} busCaixas={Boolean(injectOpts.linkCaixas)} onToggleBusCaixas={(v) => setInjectOpts((prev) => ({ ...prev, linkCaixas: v }))} busSementes={Boolean(injectOpts.busSementes)} onToggleBusSementes={(v) => setInjectOpts((prev) => ({ ...prev, busSementes: v }))} lang={lang} />
+      <PaperScanStatusBanner banner={scanBanner} onDismiss={() => setScanBanner(null)} lang={lang} />
       <PaperPatternPreviewGrid scoreId={scoreId} sections={sections} patterns={patternsById} reusableSections={reusableSections} onToggleReusable={(sec) => setReusableSections((prev) => { const n = new Set(prev); if (n.has(sec)) n.delete(sec); else n.add(sec); return n; })} onRenameSection={handleRenameSection} onUpdateStep={handleUpdateStep} onRescanPattern={triggerPatternRescan} onAddNewScannedPattern={triggerAddNewPatternScan} globalBpm={globalBpm} globalTimeSig={globalTimeSig} metricOverrides={metricOverrides} onSaveOverride={(pName, ov) => setMetricOverrides((prev) => { const next = { ...prev }; if (!ov) delete next[pName]; else next[pName] = ov; return next; })} lang={lang} />
       <SequenceTagBuilder availableSections={sections} sequenceItems={sequenceItems} onChangeSequence={setSequenceItems} onRescanSequence={triggerSequenceRescan} lang={lang} />
       <PaperInjectOptionsBar preset={{ ...selectedPreset, patterns: exportedPatterns }} options={injectOpts} onChange={setInjectOpts} />

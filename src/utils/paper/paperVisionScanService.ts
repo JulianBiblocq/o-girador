@@ -84,40 +84,47 @@ export async function analyzePaperImageWithVision(
     generationConfig: { response_mime_type: 'application/json', temperature: 0.1 },
   };
 
+  const models = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
   try {
-    let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    let lastRes: Response | null = null;
+    for (const model of models) {
+      let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    if (res.status === 400 || res.status === 401 || res.status === 403) {
-      clearStoredGeminiApiKey();
-      const newKey = requestUserApiKey(lang, true);
-      if (newKey) {
-        apiKey = newKey;
-        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        clearStoredGeminiApiKey();
+        const newKey = requestUserApiKey(lang, true);
+        if (newKey) {
+          apiKey = newKey;
+          res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
       }
+
+      if (res.ok) {
+        const json = await res.json();
+        const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        return { success: true, ...parsed };
+      }
+
+      lastRes = res;
+      if (res.status !== 404) break; // Si ce n'est pas 404 (ex: erreur de payload), ne pas reboucler inutilement
     }
 
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => null);
-      const detail = errJson?.error?.message || `HTTP ${res.status}`;
-      return {
-        success: false,
-        error: `${lang === 'fr' ? 'Erreur Gemini Vision' : 'Erro Gemini Vision'} (${res.status}): ${detail}`,
-      };
-    }
-
-    const json = await res.json();
-    const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleaned);
-    return { success: true, ...parsed };
+    const errJson = lastRes ? await lastRes.json().catch(() => null) : null;
+    const detail = errJson?.error?.message || (lastRes ? `HTTP ${lastRes.status}` : 'Inconnu');
+    return {
+      success: false,
+      error: `${lang === 'fr' ? 'Erreur Gemini Vision' : 'Erro Gemini Vision'} (${lastRes?.status || 500}): ${detail}`,
+    };
   } catch (err: any) {
     return {
       success: false,

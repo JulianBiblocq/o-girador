@@ -77,7 +77,11 @@ export function usePaperScannerWorkflow({
     const targetSec = sections.find((s) => s.name.toLowerCase() === secName.toLowerCase() || s.id === secName) || sections[0];
     const secId = targetSec ? targetSec.id : secName;
     const realSecName = targetSec ? targetSec.name : secName;
-    setPatternsById((prev: any) => ({ ...prev, [secId]: patternData.pupitreMap }));
+    setPatternsById((prev: any) => ({
+      ...prev,
+      [secId]: { ...patternData.pupitreMap },
+      [realSecName]: { ...patternData.pupitreMap },
+    }));
     usePaperVigilanceStore.getState().clearDoubtsForSection(scoreId, realSecName);
     const doubts = detectDoubtPointsInPatterns({ [realSecName]: patternData.pupitreMap });
     usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, realSecName, doubts);
