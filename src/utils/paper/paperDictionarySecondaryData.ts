@@ -52,4 +52,26 @@ export const SECONDARY_DICTIONARY_ITEMS: DictItem[] = [
       { varIndex: 2, pupitre: 'al', name: 'Al Var 2 Contretemps', steps: [0, 'D', 0, 'D', 0, 'D', 0, 'D', 0, 0, 'D', 0, 0, 'D', 0, 0] },
     ],
   },
+  // 6. PITOMBA
+  {
+    id: 'pitomba_base',
+    name: 'PITOMBA BASE',
+    family: 'bases_paradas',
+    patterns: {
+      mc: ['D', 0, 0, 0, 'D', 0, 'e', 0, 'D', 0, 'e', 'e', 'D', 0, 'e', 0],
+      me: ['D', 0, 'e', 'D', 'e', 0, 'D', 0, 'e', 'D', 0, 'e', 'e', 'D', 0, 'e'],
+      rp: ['D', 'e', 'd', 'e', 'd', 'e', 'D', 'e', 'd', 'e', 'D', 'e', 'd', 'e', 'D', 'e'],
+      cx: ['D', 'e', 'd', 'E', 'd', 'e', 'D', 'e', 'd', 'e', 'E', 'd', 'e', 'd', 'E', 'e'],
+      gg: [0, 'G', 0, 0, 'G', 0, 'G', 0, 0, 'G', 0, 0, 'G', 0, 'G', 0],
+      mi: ['P', 't', 'P', 'T', 'P', 't', 'P', 'T', 'P', 't', 'P', 'T', 'P', 't', 'P', 'T'],
+    },
+    variations: [
+      {
+        varIndex: 1,
+        pupitre: 'rp',
+        name: 'Rp Var Pitomba',
+        steps: ['D', 'E', 0, 'e', 'D', 'E', 0, 'e', 'D', 'E', 0, 'e', 'D', 'E', 0, 'e'],
+      },
+    ],
+  },
 ];

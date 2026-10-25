@@ -8,7 +8,7 @@ export type BlankSheetType = 'grid32' | 'isolated' | 'sections' | 'sequence' | '
 
 export type GridMode = '4/4' | '2/4' | '3/4' | '12/8' | 'free_portrait' | 'free_landscape';
 
-export type PupitreCode = 'al' | 'cx' | 'gg' | 'ab' | 'mi' | 'tb' | 'td';
+export type PupitreCode = 'al' | 'cx' | 'gg' | 'ab' | 'mi' | 'tb' | 'td' | 'mc' | 'me' | 'rp' | 'tr';
 
 export interface PupitreInfo {
   code: PupitreCode;
@@ -76,6 +76,7 @@ export interface PaperPreset {
   id: string;
   name: string;
   nacao?: string;
+  ritmo?: string;
   bpm: number;
   timeSig: string;
   totalMeasures: number;
@@ -84,6 +85,7 @@ export interface PaperPreset {
   caixasLinkMode?: 'none' | 'caixa_tarol' | 'two_caixas';
   pupitres: PupitreCode[];
   patterns: Record<string, Partial<Record<PupitreCode, PaperStepValue[]>>>;
+  variations?: Record<string, Array<{ pupitre: string; steps: PaperStepValue[]; name?: string; probability?: number; varIndex?: number }>>;
   sequenceString: string;
   defaultSequence: string[];
   metricOverrides?: Record<string, PatternMetricOverride>;

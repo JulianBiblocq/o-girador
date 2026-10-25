@@ -66,13 +66,22 @@ export const assignPatternsToTracks = (
       const patTimeSig = override?.timeSignature || (targetSteps === 8 ? '2/4' : (targetSteps === 12 ? '12/8' : '4/4'));
 
       const patVars: any[] = [];
-      const dictSec = findDictionarySection(sectionName);
-      if (dictSec?.variations) {
-        dictSec.variations.forEach((dv) => {
-          if (dv.pupitre === specificCode || dv.pupitre === groupCode) {
-            patVars.push({ id: `var-${patId}-${dv.varIndex}`, name: dv.name, steps: dv.steps.map(cloneStepValue), probability: 30 });
+      if (preset.variations?.[sectionName]) {
+        preset.variations[sectionName].forEach((pv, vIdx) => {
+          if (pv.pupitre === specificCode || pv.pupitre === groupCode) {
+            patVars.push({ id: `var-${patId}-${pv.varIndex || (vIdx + 1)}`, name: pv.name || `Var ${specificCode.toUpperCase()}`, steps: pv.steps.map(cloneStepValue), probability: pv.probability ?? 30 });
           }
         });
+      }
+      if (patVars.length === 0) {
+        const dictSec = findDictionarySection(sectionName);
+        if (dictSec?.variations) {
+          dictSec.variations.forEach((dv) => {
+            if (dv.pupitre === specificCode || dv.pupitre === groupCode) {
+              patVars.push({ id: `var-${patId}-${dv.varIndex}`, name: dv.name, steps: dv.steps.map(cloneStepValue), probability: 30 });
+            }
+          });
+        }
       }
 
       newPatterns.push({
@@ -125,7 +134,9 @@ export const assignPatternsToTracks = (
           matchingCalls.forEach((vCall) => {
             if (vCall.probability !== undefined) {
               if (!pat!.variations?.length) {
-                const fbSteps = findDictionaryVariation(pat!.name, specificCode, 1) || findDictionaryVariation(pat!.name, groupCode, 1);
+                const fbSteps = findDictionaryVariation(pat!.name, specificCode, 1)
+                  || findDictionaryVariation(pat!.name, groupCode, 1)
+                  || preset.variations?.[pat!.name]?.find((v) => v.pupitre === specificCode || v.pupitre === groupCode)?.steps;
                 if (fbSteps) pat!.variations = [{ id: `var-${pat!.id}-1`, name: `Var ${groupCode.toUpperCase()}`, steps: fbSteps.map(cloneStepValue), probability: vCall.probability }];
               } else {
                 pat!.variations.forEach((v) => { v.probability = vCall.probability!; });

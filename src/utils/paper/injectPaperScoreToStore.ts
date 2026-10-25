@@ -32,17 +32,18 @@ export const injectPaperScoreToStore = (
     incomingName && currentSongName &&
     normalizePresetName(incomingName) === normalizePresetName(currentSongName)
   );
-  const preservedMorceauId = (isExistingActiveSong || isSameSongName) ? curMeta.morceauId : undefined;
+  const isPreserveMode = isExistingActiveSong || isSameSongName;
+  const preservedMorceauId = isPreserveMode ? curMeta.morceauId : undefined;
   const cleanMetadata: PresetMetadata = {
-    toada: customMetadata?.toada?.trim() || curMeta.toada || preset.name || '',
-    nacao: customMetadata?.nacao?.trim() ?? (curMeta.nacao || preset.nacao || ''),
-    compositor: customMetadata?.compositor?.trim() ?? (isExistingActiveSong ? curMeta.compositor || '' : ''),
-    ritmo: customMetadata?.ritmo?.trim() ?? (isExistingActiveSong ? curMeta.ritmo || '' : ''),
-    youtubeUrl: customMetadata?.youtubeUrl?.trim() ?? (isExistingActiveSong ? curMeta.youtubeUrl || '' : ''),
-    description: customMetadata?.description?.trim() ?? (isExistingActiveSong ? curMeta.description || '' : ''),
-    descriptionPt: customMetadata?.descriptionPt?.trim() ?? (isExistingActiveSong ? curMeta.descriptionPt || '' : ''),
-    descriptionFr: customMetadata?.descriptionFr?.trim() ?? (isExistingActiveSong ? curMeta.descriptionFr || '' : ''),
-    ...(isExistingActiveSong ? {} : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: preservedMorceauId, vocalPreset: undefined }),
+    toada: customMetadata?.toada?.trim() || (isPreserveMode ? curMeta.toada : preset.name) || preset.name || '',
+    nacao: customMetadata?.nacao?.trim() ?? (isPreserveMode ? curMeta.nacao : preset.nacao) ?? (preset.nacao || ''),
+    compositor: customMetadata?.compositor?.trim() ?? (isPreserveMode ? curMeta.compositor || '' : ''),
+    ritmo: customMetadata?.ritmo?.trim() ?? (isPreserveMode ? curMeta.ritmo : preset.ritmo) ?? (preset.ritmo || ''),
+    youtubeUrl: customMetadata?.youtubeUrl?.trim() ?? (isPreserveMode ? curMeta.youtubeUrl || '' : ''),
+    description: customMetadata?.description?.trim() ?? (isPreserveMode ? curMeta.description || '' : ''),
+    descriptionPt: customMetadata?.descriptionPt?.trim() ?? (isPreserveMode ? curMeta.descriptionPt || '' : ''),
+    descriptionFr: customMetadata?.descriptionFr?.trim() ?? (isPreserveMode ? curMeta.descriptionFr || '' : ''),
+    ...(isPreserveMode ? {} : { rhythmSignals: [], partitionImage: customMetadata?.partitionImage, morceauId: preservedMorceauId, vocalPreset: undefined }),
   };
 
   const sequence = sequenceOverride && sequenceOverride.length > 0 ? sequenceOverride : preset.defaultSequence;
