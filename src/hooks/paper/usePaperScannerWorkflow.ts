@@ -74,12 +74,13 @@ export function usePaperScannerWorkflow({
   }, [sections]);
 
   const handleRescanSinglePattern = useCallback((secName: string, patternData: ProcessedVisionPattern) => {
-    const targetSec = sections.find((s) => s.name.toLowerCase() === secName.toLowerCase()) || sections[0];
+    const targetSec = sections.find((s) => s.name.toLowerCase() === secName.toLowerCase() || s.id === secName) || sections[0];
     const secId = targetSec ? targetSec.id : secName;
+    const realSecName = targetSec ? targetSec.name : secName;
     setPatternsById((prev: any) => ({ ...prev, [secId]: patternData.pupitreMap }));
-    usePaperVigilanceStore.getState().clearDoubtsForSection(scoreId, secName);
-    const doubts = detectDoubtPointsInPatterns({ [secName]: patternData.pupitreMap });
-    usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, secName, doubts);
+    usePaperVigilanceStore.getState().clearDoubtsForSection(scoreId, realSecName);
+    const doubts = detectDoubtPointsInPatterns({ [realSecName]: patternData.pupitreMap });
+    usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, realSecName, doubts);
   }, [sections, scoreId]);
 
   const handleAddNewPattern = useCallback((patternData: ProcessedVisionPattern) => {

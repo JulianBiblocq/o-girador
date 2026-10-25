@@ -62,22 +62,38 @@ export function usePaperScanCropActions({
     }
     if (typeof scanTarget === 'object' && scanTarget.type === 'sequence') {
       const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'sequence_only', existingSectionNames: sections.map((s) => s.name), lang });
-      if (res.sequence) onRescanSequence(res.sequence);
+      if (!res.success || !res.sequence || res.sequence.length === 0) {
+        const errMsg = res.error || (isFr ? 'Échec de la lecture de la séquence.' : 'Falha na leitura do condutor.');
+        window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: errMsg } }));
+        return;
+      }
+      onRescanSequence(res.sequence);
       return;
     }
     const isNew = typeof scanTarget === 'object' && scanTarget.type === 'new_pattern';
     const secName = typeof scanTarget === 'object' && scanTarget.type === 'pattern' ? scanTarget.sectionName : undefined;
     const res = await analyzePaperImageWithVision(processedDataUrl, { mode: 'single_pattern', targetSectionName: secName, lang });
-    if (res.pattern) {
-      const processed = processVisionPatternData(res.pattern, globalTimeSig);
-      if (isNew) {
-        onAddNewPattern(processed);
-        setMetricOverrides((prev) => ({ ...prev, [processed.name]: processed.metricOverride }));
-      } else if (secName) {
-        onRescanPattern(secName, processed);
-        setMetricOverrides((prev) => ({ ...prev, [secName]: processed.metricOverride }));
-      }
+    if (!res.success || !res.pattern) {
+      const errMsg = res.error || (isFr ? "Échec de l'analyse Vision du motif." : "Falha na análise Vision do padrão.");
+      window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: errMsg } }));
+      return;
     }
+    const processed = processVisionPatternData(res.pattern, globalTimeSig);
+    const rolesCount = Object.keys(processed.pupitreMap).length;
+    if (rolesCount === 0) {
+      const errMsg = isFr ? "Aucune ligne d'instrument reconnue sur l'image." : "Nenhuma linha reconhecida.";
+      window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'error', message: errMsg } }));
+      return;
+    }
+    if (isNew) {
+      onAddNewPattern(processed);
+      setMetricOverrides((prev) => ({ ...prev, [processed.name]: processed.metricOverride }));
+    } else if (secName) {
+      onRescanPattern(secName, processed);
+      setMetricOverrides((prev) => ({ ...prev, [secName]: processed.metricOverride }));
+    }
+    const successMsg = isFr ? `Motif "${processed.name}" mis à jour (${rolesCount} pupitres)` : `Padrão "${processed.name}" atualizado`;
+    window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: successMsg } }));
   }, [scanTarget, setPhotoPreview, sections, lang, globalTimeSig, onRescanSequence, onAddNewPattern, setMetricOverrides, onRescanPattern]);
 
   return {

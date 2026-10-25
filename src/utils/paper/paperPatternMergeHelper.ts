@@ -4,7 +4,7 @@
 import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { VisionSinglePatternData } from './paperVisionScanService';
 import { parsePupitreHeader } from './paperNomenclatureHelper';
-import { parseStepValue, sanitizePatternSteps } from './paperScoreEngine';
+import { sanitizePatternSteps } from './paperScoreEngine';
 import { detectMetricFromResolutions, detectMetricFromTotalSteps } from './paperMetricDetector';
 
 export interface ProcessedVisionPattern {
@@ -14,14 +14,31 @@ export interface ProcessedVisionPattern {
   totalSteps: number;
 }
 
+export function cleanVisionStepCell(raw: any): PaperStepValue {
+  if (raw === undefined || raw === null || raw === '' || raw === ' ' || raw === 0 || raw === '0') {
+    return 0;
+  }
+  const s = String(Array.isArray(raw) ? raw[0] : raw).trim();
+  if (s === '.' || s === '·' || s === '•' || s === '_') return 0;
+  if (s === '-') return '-';
+  if (Array.isArray(raw)) {
+    return raw.length >= 2 ? [String(raw[0]).trim(), String(raw[1]).trim()] : (raw[0] ?? 0);
+  }
+  if (s.includes('/') || (s.includes('|') && s !== '||' && s !== '|')) {
+    const parts = s.includes('/') ? s.split('/') : s.split('|');
+    return [parts[0].trim() || '0', parts[1].trim() || '0'];
+  }
+  return s;
+}
+
 export function flattenBeatsToSteps(beats: string[][], fallbackSteps: number = 16): PaperStepValue[] {
   if (!beats || beats.length === 0) return Array(fallbackSteps).fill(0);
-  const flattened: any[] = [];
+  const flattened: PaperStepValue[] = [];
   beats.forEach((b) => {
     if (Array.isArray(b)) {
-      b.forEach((cell) => flattened.push(parseStepValue(cell)));
+      b.forEach((cell) => flattened.push(cleanVisionStepCell(cell)));
     } else {
-      flattened.push(parseStepValue(b));
+      flattened.push(cleanVisionStepCell(b));
     }
   });
   return sanitizePatternSteps(flattened, flattened.length || fallbackSteps);
@@ -40,12 +57,14 @@ export function processVisionPatternData(
   const pupitreMap: Partial<Record<string, PaperStepValue[]>> = {};
 
   (data.lines || []).forEach((line) => {
-    const parsedHeader = parsePupitreHeader(line.role);
-    const targetCodes = parsedHeader.targetCodes.length > 0 ? parsedHeader.targetCodes : [line.role.toLowerCase()];
+    let rawRole = (line.role || '').trim().replace(/^\{+\s*/, '');
+    if (rawRole.toLowerCase() === 'ae') rawRole = 'al';
+    const parsedHeader = parsePupitreHeader(rawRole);
+    const targetCodes = parsedHeader.targetCodes.length > 0 ? parsedHeader.targetCodes : [rawRole.toLowerCase()];
     const steps = flattenBeatsToSteps(line.beats, totalSteps);
 
     targetCodes.forEach((code) => {
-      pupitreMap[code] = steps;
+      if (code) pupitreMap[code] = steps;
     });
   });
 
