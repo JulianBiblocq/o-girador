@@ -54,10 +54,29 @@ export function useGridPointerInteractions(params: UseGridPointerInteractionsPar
     e.stopPropagation(); if (e.button !== 0) return;
     setSelectedPatternId(pattern.id); setSelectedVariationId(null);
 
-    if (e.shiftKey || e.ctrlKey || e.metaKey) {
-      if (!isMultiSelectActive) setIsMultiSelectActive(true);
-      handleStepMouseDownMulti(e, idx, true); return;
+    if (e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      const state = useSequencerStore.getState();
+      const currentStart = state.selectedStepRange?.start ?? ((state.selectedStepIdx !== null && state.selectedStepIdx !== undefined)
+        ? { isPreRoll: false, step: state.selectedStepIdx }
+        : { isPreRoll: false, step: idx });
+      useSequencerStore.getState().setSelectedStepRange({
+        start: currentStart,
+        end: { isPreRoll: false, step: idx },
+        patternId: pattern.id,
+        trackId
+      });
+      return;
     }
+
+    if (e.ctrlKey || e.metaKey) {
+      if (!isMultiSelectActive) setIsMultiSelectActive(true);
+      handleStepMouseDownMulti(e, idx, true);
+      return;
+    }
+
+    useSequencerStore.getState().setSelectedStepRange(null);
 
     if (isMultiSelectActive) {
       setIsMultiSelectActive(false); setSelectedStepIndices([idx]); setSelectedStepIdx(idx); setSelectedSubIndex(subIndex ?? null); return;

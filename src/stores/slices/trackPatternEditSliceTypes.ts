@@ -33,4 +33,5 @@ export interface TrackPatternEditSlice {
   handleTrackStepMicrotimingChange?: (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => void;
   handlePatternBeatResolutionChange: (patternId: number, beatIndex: number, newResolution: number) => void;
   handleSetPatternAllBeatsResolution: (patternId: number, newResolution: number) => void;
+  shiftPatternSteps: (trackId: number, patternId: number, direction: -1 | 1, range?: { startStep: number; endStep: number; isPreRoll?: boolean } | null) => void;
 }

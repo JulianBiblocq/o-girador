@@ -99,10 +99,15 @@ export const handleTimelinePatternAssignState = (
 
       // Synchronisation miroir de sécurité sur le dossier bus parent
       if (parentBusId && String(t.id) === parentBusId && t.isLinkFolder) {
-        const busMatchPtn = pattern ? t.patterns.find((bp) => bp.id === pattern.id || bp.name.trim().toLowerCase() === pattern.name.trim().toLowerCase()) : null;
+        let busMatchPtn = pattern ? t.patterns.find((bp) => bp.id === pattern.id || bp.name.trim().toLowerCase() === pattern.name.trim().toLowerCase()) : null;
+        let busPatterns = [...t.patterns];
+        if (pattern && !busMatchPtn) {
+          busMatchPtn = { ...pattern, measureAssignments: Array(nextTotal).fill(false) };
+          busPatterns.push(busMatchPtn);
+        }
         return {
           ...t,
-          patterns: t.patterns.map((bp) => {
+          patterns: busPatterns.map((bp) => {
             const assign = [...bp.measureAssignments];
             while (assign.length < nextTotal) assign.push(false);
             for (let offset = 0; offset < spanMeasures; offset++) {

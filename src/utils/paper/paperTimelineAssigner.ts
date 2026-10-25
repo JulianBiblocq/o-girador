@@ -7,9 +7,10 @@ import { Pattern, TrackGroup } from '../../types/store.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { CODE_MAP } from './paperMissingTracksEnsurer';
 import { parseConductorVariationToken, resolveSectionFromDictionaryFallback } from './paperVariationCallParser';
-import { findDictionarySection, findDictionaryVariation } from './paperRhythmDictionary';
+import { findDictionarySection } from './paperRhythmDictionary';
 import { hasRealStrokes, cloneStepValue } from './paperStrokeUtils';
 import { isSlaveTrack } from '../trackMasterResolver';
+import { applyVariationCallsToPattern } from './paperVariationDiceHelper';
 
 export { buildMergedSongSections } from './paperSectionMerger';
 export { ensureMissingTracks } from './paperMissingTracksEnsurer';
@@ -28,6 +29,15 @@ export const assignPatternsToTracks = (
     const isCaixaGroup = instId === 'caixa' || instId === 'tarol' || (track.isLinkFolder && track.instrumentIdx === 3);
     const groupCode = isAlfaia ? 'al' : (isCaixaGroup ? 'cx' : specificCode);
     if (!groupCode) return track;
+
+    if (isSlaveTrack(track, tracks)) {
+      return {
+        ...track, patterns: [], selectedPatternId: 0, patternOverrides: {},
+        automation: undefined, volumeAutomation: undefined, panAutomation: undefined, isAutomated: false,
+        automationBypass: { volume: false, pan: false, reverb: false }, measureVols: undefined, measureVolTransitions: undefined,
+        measurePans: undefined, measurePanTransitions: undefined, measureReverbSends: undefined, measureReverbTransitions: undefined,
+      };
+    }
 
     const newPatterns: Pattern[] = [];
     const secEntries = Object.entries(preset.patterns);
@@ -92,9 +102,7 @@ export const assignPatternsToTracks = (
         variations: patVars.length > 0 ? patVars : undefined,
       });
 
-      const isBusOrFolder = Boolean(track.isBusFolder || track.isLinkFolder);
-      const isSlave = isSlaveTrack(track, tracks);
-      if (!isBusOrFolder && !isSlave) {
+      if (!track.isBusFolder && !track.isLinkFolder) {
         if (specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, specificCode, track.id, patId);
         if (groupCode && groupCode !== specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, groupCode, track.id, patId);
       }
@@ -126,26 +134,7 @@ export const assignPatternsToTracks = (
 
       if (pat) {
         pat.measureAssignments[mIdx] = true;
-        const matchingCalls = parsedToken.variationCalls.filter((v) => !v.targetInstrument || v.targetInstrument === specificCode || v.targetInstrument === groupCode);
-        const hasDiceOnTrack = rawSecName.includes('⊡') || matchingCalls.length > 0;
-        if (hasDiceOnTrack) {
-          if (!pat.measureAllowVariations) pat.measureAllowVariations = Array(totalM).fill(false);
-          pat.measureAllowVariations[mIdx] = true;
-          matchingCalls.forEach((vCall) => {
-            if (vCall.probability !== undefined) {
-              if (!pat!.variations?.length) {
-                const fbSteps = findDictionaryVariation(pat!.name, specificCode, 1)
-                  || findDictionaryVariation(pat!.name, groupCode, 1)
-                  || preset.variations?.[pat!.name]?.find((v) => v.pupitre === specificCode || v.pupitre === groupCode)?.steps;
-                if (fbSteps) pat!.variations = [{ id: `var-${pat!.id}-1`, name: `Var ${groupCode.toUpperCase()}`, steps: fbSteps.map(cloneStepValue), probability: vCall.probability }];
-              } else {
-                pat!.variations.forEach((v) => { v.probability = vCall.probability!; });
-              }
-            }
-          });
-        } else if (hasAnyVarCall && pat.measureAllowVariations) {
-          pat.measureAllowVariations[mIdx] = false;
-        }
+        applyVariationCallsToPattern(pat, parsedToken, specificCode, groupCode, preset, rawSecName, mIdx, totalM, hasAnyVarCall);
       }
     });
 

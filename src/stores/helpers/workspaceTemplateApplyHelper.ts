@@ -4,6 +4,7 @@
 import { TrackGroup, Pattern, WorkspaceTemplate, ApplyWorkspaceTemplateOptions } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { matchTemplateTracksWithSong, isVoiceTrack } from './workspaceTemplateMatcher';
+import { getBusFamily } from './workspaceTemplateBusMatcher';
 import { applyRadii } from './trackRodaGeometryHelpers';
 
 export function applyWorkspaceTemplateToSongState(
@@ -26,6 +27,10 @@ export function applyWorkspaceTemplateToSongState(
   const defaultSteps = state.tracks[0]?.patterns[0]?.steps || 16;
   const now = Date.now();
 
+  const songAlfaias = state.tracks.filter(t => !t.isBusFolder && [0, 1, 2].includes(t.instrumentIdx));
+  const areSongAlfaiasIndependent = songAlfaias.length > 0 && songAlfaias.every(t => !t.linkedToTrackId && !t.isLinkMaster);
+  const tplAlfaiaBus = template.tracks.find(t => t.isBusFolder && getBusFamily(t, template.tracks, instrumentsConfig) === 'alfaias');
+
   // 1. Mise a jour ou creation de chaque piste du gabarit
   const templateMappedTracks: TrackGroup[] = template.tracks.map((tplT, i) => {
     const songId = tplToSongIdMap.get(tplT.id)!;
@@ -34,46 +39,51 @@ export function applyWorkspaceTemplateToSongState(
     const isPureBus = Boolean(tplT.isBusFolder && !tplT.isLinkFolder);
     const newPatId = now + 1000 + i;
     const blankPattern: Pattern = {
-      id: newPatId,
-      name: state.lang === 'pt' ? 'Padrão 1' : 'Motif 1',
-      steps: defaultSteps,
-      activeSteps: Array(defaultSteps).fill(0),
-      volumes: Array(defaultSteps).fill(80),
-      decays: Array(defaultSteps).fill(100),
-      microtimings: Array(defaultSteps).fill(0),
-      measureAssignments: Array(totalM).fill(true),
-      lyrics: Array(defaultSteps).fill(''),
-      notes: Array(defaultSteps).fill(''),
+      id: newPatId, name: state.lang === 'pt' ? 'Padrão 1' : 'Motif 1', steps: defaultSteps,
+      activeSteps: Array(defaultSteps).fill(0), volumes: Array(defaultSteps).fill(80),
+      decays: Array(defaultSteps).fill(100), microtimings: Array(defaultSteps).fill(0),
+      measureAssignments: Array(totalM).fill(true), lyrics: Array(defaultSteps).fill(''), notes: Array(defaultSteps).fill(''),
     };
 
     // Resolution securisee des IDs de routage
-    const newBusId = options.includeStructure && tplT.busId
-      ? String(tplToSongIdMap.get(Number(tplT.busId)) ?? tplT.busId)
-      : existing?.busId;
-
-    const newLinkedId = options.includeStructure && tplT.linkedToTrackId
-      ? String(tplToSongIdMap.get(Number(tplT.linkedToTrackId)) ?? tplT.linkedToTrackId)
-      : existing?.linkedToTrackId;
+    const newBusId = options.includeStructure && tplT.busId ? String(tplToSongIdMap.get(Number(tplT.busId)) ?? tplT.busId) : existing?.busId;
+    const newLinkedId = options.includeStructure && tplT.linkedToTrackId ? String(tplToSongIdMap.get(Number(tplT.linkedToTrackId)) ?? tplT.linkedToTrackId) : existing?.linkedToTrackId;
 
     const baseTrack: TrackGroup = existing ? { ...existing } : {
-      id: songId,
-      instrumentIdx: tplT.instrumentIdx,
-      customName: tplT.customName,
-      patterns: isPureBus ? [] : [blankPattern],
-      selectedPatternId: isPureBus ? 0 : newPatId,
-      isMute: false,
-      isSolo: false,
-      isHidden: false,
-      volumeVal: 75,
+      id: songId, instrumentIdx: tplT.instrumentIdx, customName: tplT.customName,
+      patterns: isPureBus ? [] : [blankPattern], selectedPatternId: isPureBus ? 0 : newPatId,
+      isMute: false, isSolo: false, isHidden: false, volumeVal: 75,
     };
 
     if (options.includeStructure) {
-      baseTrack.isBusFolder = tplT.isBusFolder;
-      baseTrack.isLinkFolder = tplT.isLinkFolder;
-      baseTrack.isLinkMaster = tplT.isLinkMaster;
-      baseTrack.busId = newBusId;
-      baseTrack.linkedToTrackId = newLinkedId;
-      baseTrack.isHidden = Boolean(tplT.linkedToTrackId && !tplT.isLinkFolder && !tplT.isLinkMaster);
+      if (areSongAlfaiasIndependent && tplAlfaiaBus) {
+        if (tplT.id === tplAlfaiaBus.id) {
+          baseTrack.customName = tplAlfaiaBus.customName || 'ALFAIAS';
+          baseTrack.isBusFolder = true;
+          baseTrack.isLinkFolder = false;
+        } else if ([0, 1, 2].includes(tplT.instrumentIdx)) {
+          const alfaiaBusSongId = tplToSongIdMap.get(tplAlfaiaBus.id);
+          baseTrack.busId = alfaiaBusSongId ? String(alfaiaBusSongId) : newBusId;
+          baseTrack.linkedToTrackId = undefined;
+          baseTrack.isLinkMaster = undefined;
+          baseTrack.isLinkFolder = false;
+          baseTrack.isHidden = false;
+        } else {
+          baseTrack.isBusFolder = tplT.isBusFolder;
+          baseTrack.isLinkFolder = tplT.isLinkFolder;
+          baseTrack.isLinkMaster = tplT.isLinkMaster;
+          baseTrack.busId = newBusId;
+          baseTrack.linkedToTrackId = newLinkedId;
+          baseTrack.isHidden = Boolean(tplT.linkedToTrackId && !tplT.isLinkFolder && !tplT.isLinkMaster);
+        }
+      } else {
+        baseTrack.isBusFolder = tplT.isBusFolder;
+        baseTrack.isLinkFolder = tplT.isLinkFolder;
+        baseTrack.isLinkMaster = tplT.isLinkMaster;
+        baseTrack.busId = newBusId;
+        baseTrack.linkedToTrackId = newLinkedId;
+        baseTrack.isHidden = Boolean(tplT.linkedToTrackId && !tplT.isLinkFolder && !tplT.isLinkMaster);
+      }
     }
     if (options.includeVolumePan) {
       baseTrack.volumeVal = tplT.volumeVal ?? baseTrack.volumeVal ?? 75;

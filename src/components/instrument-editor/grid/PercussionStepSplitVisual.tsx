@@ -2,6 +2,7 @@
 import React from 'react';
 import { GLUE_CURSOR } from './gridConstants';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { isStepInRange } from '../../../hooks/instrument-editor/gridStepRangeHelper';
 import { SplitHalfZone } from './SplitHalfZone';
 
 interface PercussionStepSplitVisualProps {
@@ -39,12 +40,16 @@ export const PercussionStepSplitVisual: React.FC<PercussionStepSplitVisualProps>
     isSextuplet, isTriplet, isOcto, indexInGroup, onContextMenu
   } = props;
   const lang = useSequencerStore(state => state.lang);
+  const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
+  const isInRange = isStepInRange(selectedStepRange, false, i, 0);
 
   const borderClass = isMultiSelected
     ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
     : (isFocused && (selectedSubIndex === null || selectedSubIndex === undefined))
       ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-      : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]';
+      : isInRange
+        ? '!border-2 !border-amber-500/90 bg-amber-500/25 shadow-[0_0_8px_rgba(245,158,11,0.6)] rounded-none m-[1px]'
+        : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]';
 
   return (
     <div

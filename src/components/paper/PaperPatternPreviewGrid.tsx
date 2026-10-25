@@ -15,6 +15,7 @@ interface Props {
   onToggleReusable: (sectionName: string) => void;
   onRenameSection?: (secId: string, newName: string) => void;
   onUpdateStep?: (secName: string, roleKey: string, stepIndex: number, newVal: PaperStepValue) => void;
+  onUpdatePupitreRow?: (secIdOrName: string, roleKey: string, newSteps: PaperStepValue[]) => void;
   onRescanPattern?: (secName: string) => void;
   onAddNewScannedPattern?: () => void;
   globalBpm?: number;
@@ -27,7 +28,7 @@ interface Props {
 
 export const PaperPatternPreviewGrid: React.FC<Props> = ({
   scoreId, sections, patterns, reusableSections, onToggleReusable, onRenameSection, onUpdateStep,
-  onRescanPattern, onAddNewScannedPattern, globalBpm = 96, globalTimeSig = '4/4', metricOverrides = {},
+  onUpdatePupitreRow, onRescanPattern, onAddNewScannedPattern, globalBpm = 96, globalTimeSig = '4/4', metricOverrides = {},
   onSaveOverride, isSectionHighlighted, lang,
 }) => {
   const isFr = lang === 'fr';
@@ -96,6 +97,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
             pupitreMap={item.pupitreMap} isReusable={reusableSections.has(item.secName) || reusableSections.has(item.id)}
             onToggleReusable={() => onToggleReusable(item.secName)} points={points}
             onCellClick={(role, idx, val) => handleCellClick(item.secName, role, idx, val)}
+            onShiftRow={(role, newSteps) => onUpdatePupitreRow?.(item.id || item.secName, role, newSteps)}
             globalTimeSig={globalTimeSig} override={metricOverrides[item.secName] || metricOverrides[item.id]}
             onOpenOverrideModal={() => setOverrideModalPattern(item.secName)}
             onRescan={onRescanPattern ? () => onRescanPattern(item.secName) : undefined}

@@ -70,6 +70,19 @@ export function usePaperScannerWorkflow({
     });
   }, [sections]);
 
+  const handleUpdatePupitreRow = useCallback((secIdOrName: string, roleKey: string, newSteps: PaperStepValue[]) => {
+    setPatternsById((prev: any) => {
+      const copy = { ...prev };
+      const sec = sections.find((s) => s.id === secIdOrName || s.name.toLowerCase() === secIdOrName.toLowerCase());
+      const secId = sec ? sec.id : secIdOrName;
+      const secName = sec ? sec.name : secIdOrName;
+      const secCopy = { ...(copy[secId] || copy[secName] || {}), [roleKey]: [...newSteps] };
+      copy[secId] = secCopy;
+      copy[secName] = secCopy;
+      return copy;
+    });
+  }, [sections]);
+
   const handleRescanSinglePattern = useCallback((secName: string, patternData: ProcessedVisionPattern) => {
     const targetSec = sections.find((s) => s.name.toLowerCase() === secName.toLowerCase() || s.id === secName) || sections[0];
     const secId = targetSec ? targetSec.id : secName;
@@ -80,7 +93,7 @@ export function usePaperScannerWorkflow({
       [realSecName]: { ...patternData.pupitreMap },
     }));
     usePaperVigilanceStore.getState().clearDoubtsForSection(scoreId, realSecName);
-    const doubts = detectDoubtPointsInPatterns({ [realSecName]: patternData.pupitreMap });
+    const doubts = [...detectDoubtPointsInPatterns({ [realSecName]: patternData.pupitreMap }), ...(patternData.rawDoubts || [])];
     usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, realSecName, doubts);
   }, [sections, scoreId]);
 
@@ -93,7 +106,7 @@ export function usePaperScannerWorkflow({
     const newId = `sec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setSections((prev) => [...prev, { id: newId, name: uniqueName }]);
     setPatternsById((prev: any) => ({ ...prev, [newId]: { ...patternData.pupitreMap }, [uniqueName]: { ...patternData.pupitreMap } }));
-    const doubts = detectDoubtPointsInPatterns({ [uniqueName]: patternData.pupitreMap });
+    const doubts = [...detectDoubtPointsInPatterns({ [uniqueName]: patternData.pupitreMap }), ...(patternData.rawDoubts || [])];
     usePaperVigilanceStore.getState().registerSectionDoubts(scoreId, uniqueName, doubts);
     return uniqueName;
   }, [sections, scoreId]);
@@ -130,6 +143,6 @@ export function usePaperScannerWorkflow({
   return {
     sections, setSections, patternsById, setPatternsById, sequenceItems, setSequenceItems,
     reusableSections, setReusableSections, exportedPatterns, handleRenameSection, handleUpdateStep,
-    handleRescanSinglePattern, handleAddNewPattern, handleRescanSequence, handleSaveDraft,
+    handleUpdatePupitreRow, handleRescanSinglePattern, handleAddNewPattern, handleRescanSequence, handleSaveDraft,
   };
 }

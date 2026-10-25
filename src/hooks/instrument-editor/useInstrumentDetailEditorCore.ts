@@ -20,7 +20,7 @@ import { useInstrumentDetailEditorController } from './useInstrumentDetailEditor
 import { useInstrumentDetailEditorState } from './useInstrumentDetailEditorState';
 import { useInstrumentEditorShortcuts } from './useInstrumentEditorShortcuts';
 import { useEditorPatternCardProps } from './useEditorPatternCardProps';
-import { isSlaveTrack } from '../../utils/trackMasterResolver';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export function useInstrumentDetailEditorCore(props: {
   trackId: number; onClose: () => void; isMobile: boolean; isDetached?: boolean;
@@ -66,7 +66,10 @@ export function useInstrumentDetailEditorCore(props: {
   const effectiveEditTrackId = (isToada && (!track?.patterns || track.patterns.length === 0) && activeVocalChildTrack) ? activeVocalChildTrack.id : trackId;
   const effectiveTrack = useSequencerStore(useCallback((s) => s.tracks.find((t) => t.id === effectiveEditTrackId) || track, [effectiveEditTrackId, track]));
   const targetBalancoTrack = effectiveTrack;
-  const displayedPatterns = effectiveTrack?.patterns || [];
+  const masterTrack = isSlave ? resolveMasterTrack(trackId, allTracks) : null;
+  const displayedPatterns = isSlave
+    ? (effectiveTrack?.patterns?.length ? effectiveTrack.patterns : (masterTrack?.patterns || []))
+    : (effectiveTrack?.patterns || []);
 
   const { puxTrack, coroTrack } = useSequencerStore(useShallow((s) => ({
     puxTrack: s.tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || String(t.id) === 'puxador' || t.customName === 'Puxador'),

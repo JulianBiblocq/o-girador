@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GripHorizontal, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { ASSETS_BASE_URL } from '../../../data';
 import { TrackGroup } from '../../../types';
 import { useSequencer } from '../../../contexts/SequencerContext';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { BusManagementModal } from '../BusManagementModal';
 
 interface ChannelStripHeaderProps {
   track: TrackGroup;
@@ -42,6 +43,7 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
   setIsEditingName,
   customDeleteMessage,
 }) => {
+  const [isBusModalOpen, setIsBusModalOpen] = useState(false);
   const sequencer = useSequencer();
   const lang = useSequencerStore(state => state.lang);
 
@@ -98,7 +100,16 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
               autoFocus
             />
           ) : (
-            <div onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))} className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6">
+            <div
+              onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsBusModalOpen(true);
+              }}
+              className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6"
+              title={lang === 'fr' ? 'Clic gauche : plier/déplier | Clic droit : gérer le bus' : 'Clique esquerdo : recolher/expandir | Clique direito : gerenciar o bus'}
+            >
               {track.isFolded ? <ChevronDown size={11} className="shrink-0" /> : <ChevronRight size={11} className="shrink-0" />}
               <span className="font-cactus truncate uppercase tracking-wider">{track.customName || (track.isLinkFolder ? 'ALFAIAS' : 'Bus')}</span>
             </div>
@@ -112,6 +123,14 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
           </div>
         )}
       </div>
+
+      {isBusModalOpen && (
+        <BusManagementModal
+          busTrack={track}
+          isOpen={isBusModalOpen}
+          onClose={() => setIsBusModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

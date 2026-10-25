@@ -46,10 +46,13 @@ export function resolveActivePattern(
     const master = tracks.find((t: any) => (String(t.linkedToTrackId) === String(track.linkedToTrackId) || String(t.id) === String(track.linkedToTrackId)) && t.isLinkMaster);
     const masterPtn = master?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
     if (masterPtn) {
-      const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
-      if (matchByName) return matchByName;
-      const mIdx = master?.patterns?.findIndex((p: any) => p.id === masterPtn.id);
-      if (mIdx !== undefined && mIdx >= 0 && track.patterns?.[mIdx]) return track.patterns[mIdx];
+      if (track.patterns && track.patterns.length > 0) {
+        const matchByName = track.patterns.find((p: any) => p.name === masterPtn.name);
+        if (matchByName) return matchByName;
+        const mIdx = master?.patterns?.findIndex((p: any) => p.id === masterPtn.id);
+        if (mIdx !== undefined && mIdx >= 0 && track.patterns[mIdx]) return track.patterns[mIdx];
+      }
+      return masterPtn;
     }
   }
 
@@ -57,8 +60,11 @@ export function resolveActivePattern(
     const bus = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId) || String(t.id) === String(track.busId));
     const busPtn = bus?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
     if (busPtn) {
-      const matchByName = track.patterns?.find((p: any) => p.name === busPtn.name);
-      if (matchByName) return matchByName;
+      if (track.patterns && track.patterns.length > 0) {
+        const matchByName = track.patterns.find((p: any) => p.name === busPtn.name);
+        if (matchByName) return matchByName;
+      }
+      return busPtn;
     }
   }
 

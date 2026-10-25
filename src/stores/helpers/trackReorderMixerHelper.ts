@@ -94,17 +94,14 @@ export const handleReorderMixerTracksState = (
   // Détermination du bus cible et règles d'exclusion
   const targetBusIdStr = overTrack.isBusFolder ? String(overTrack.id) : (overTrack.busId ? String(overTrack.busId) : null);
   const targetBus = targetBusIdStr ? currentTracks.find(t => String(t.id) === targetBusIdStr && t.isBusFolder) : null;
-  const isTargetLinkGroup = Boolean(targetBus?.isLinkFolder || overLinkId);
+  const isTargetLinkGroup = Boolean(targetBus?.isLinkFolder);
   const isDroppingLeftOfBusHeader = Boolean(overTrack.isBusFolder && dropSide === 'left');
-
-  const busChildren = targetBus
-    ? currentTracks.filter(t => !t.isBusFolder && (String(t.busId) === String(targetBus.id) || String(t.linkedToTrackId) === String(targetBus.id)))
-    : [];
-  const isLastChildOfBus = Boolean(busChildren.length > 0 && busChildren[busChildren.length - 1].id === overTrack.id);
-  const isDroppingAfterLastChild = isLastChildOfBus && dropSide === 'right';
+  const isOverBusOrChild = Boolean(
+    targetBus && (overTrack.id === targetBus.id || (overTrack.busId && String(overTrack.busId) === String(targetBus.id)))
+  );
 
   const shouldJoinBus = Boolean(
-    targetBus && !isTargetLinkGroup && !dragged.isBusFolder && !isDroppingLeftOfBusHeader && !isDroppingAfterLastChild
+    targetBus && !isTargetLinkGroup && !dragged.isBusFolder && isOverBusOrChild && !isDroppingLeftOfBusHeader
   );
 
   // Cas 1 : Intégration autorisée dans un Bus Audio (à droite de la tranche BUS ou entre ses enfants)

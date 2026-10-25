@@ -17,9 +17,11 @@ export function resolvePatternsListForTrack(targetTrack: any, tracks: any[]): Pa
     return [...(pux?.patterns || []), ...(coro?.patterns || [])];
   }
   if (isSlaveTrack(targetTrack, tracks)) {
-    if (targetTrack.patterns && targetTrack.patterns.length > 0) return targetTrack.patterns;
+    const parentBus = targetTrack.linkedToTrackId ? tracks.find(t => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
+    if (parentBus?.patterns && parentBus.patterns.length > 0) return parentBus.patterns;
     const master = resolveMasterTrack(targetTrack.id, tracks);
-    return master?.patterns || [];
+    if (master?.patterns && master.patterns.length > 0) return master.patterns;
+    return targetTrack.patterns || [];
   }
   return targetTrack.patterns || [];
 }
@@ -55,21 +57,30 @@ export function resolveActivePatternForCell(
       const master = resolveMasterTrack(targetTrack.id, tracks);
       const masterPtn = master?.patterns?.find((p: Pattern) => p.id === override);
       if (masterPtn) return { activePattern: masterPtn, ownerTrack: master };
+      const parentBus = targetTrack.linkedToTrackId ? tracks.find(t => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
+      const busPtn = parentBus?.patterns?.find((p: Pattern) => p.id === override);
+      if (busPtn) return { activePattern: busPtn, ownerTrack: parentBus };
       return { activePattern: null, ownerTrack: targetTrack };
     }
+
     const master = resolveMasterTrack(targetTrack.id, tracks);
-    const masterPtn = master?.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx]));
+    const parentBus = targetTrack.linkedToTrackId ? tracks.find(t => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
+    const masterPtn = master?.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx]))
+      || parentBus?.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx]));
+
     if (!masterPtn) return { activePattern: null, ownerTrack: targetTrack };
 
-    const norm = masterPtn.name?.trim().toLowerCase();
-    const matchByName = targetTrack.patterns?.find((p: Pattern) => p.name?.trim().toLowerCase() === norm);
-    if (matchByName) return { activePattern: matchByName, ownerTrack: targetTrack };
+    if (targetTrack.patterns && targetTrack.patterns.length > 0) {
+      const norm = masterPtn.name?.trim().toLowerCase();
+      const matchByName = targetTrack.patterns.find((p: Pattern) => p.name?.trim().toLowerCase() === norm);
+      if (matchByName) return { activePattern: matchByName, ownerTrack: targetTrack };
 
-    const mIdx = master?.patterns?.indexOf(masterPtn);
-    if (mIdx !== undefined && mIdx >= 0 && targetTrack.patterns?.[mIdx]) {
-      return { activePattern: targetTrack.patterns[mIdx], ownerTrack: targetTrack };
+      const mIdx = master?.patterns?.indexOf(masterPtn);
+      if (mIdx !== undefined && mIdx >= 0 && targetTrack.patterns[mIdx]) {
+        return { activePattern: targetTrack.patterns[mIdx], ownerTrack: targetTrack };
+      }
     }
-    return { activePattern: masterPtn, ownerTrack: master || targetTrack };
+    return { activePattern: masterPtn, ownerTrack: master || parentBus || targetTrack };
   }
 
   // Piste Maître (isLinkMaster) ou Piste Standard

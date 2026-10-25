@@ -95,3 +95,14 @@ function buildFallbackMetric(sig: string): DetectedMetric {
       return { timeSignature: '4/4', steps: 16, beatResolutions: [4, 4, 4, 4], isMixed: false, measuresCount: 1, description: '4/4 (16 pas)' };
   }
 }
+
+export function checkLineLengthDiscrepancy(
+  rawLengths: number[],
+  expectedSteps = 16
+): { hasDiscrepancy: boolean; discordantIndices: number[] } {
+  const discordantIndices: number[] = [];
+  rawLengths.forEach((len, idx) => {
+    if (len !== expectedSteps) discordantIndices.push(idx);
+  });
+  return { hasDiscrepancy: discordantIndices.length > 0, discordantIndices };
+}

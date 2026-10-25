@@ -20,6 +20,7 @@ import {
   handlePatternBeatResolutionChangeState,
   handleSetPatternAllBeatsResolutionState
 } from '../helpers/patternResolutionHelper';
+import { shiftPatternStepsState } from '../helpers/stepShiftHelpers';
 
 export const createTrackPatternEditSlice: StateCreator<SequencerStore, [], [], TrackPatternEditSlice> = (set, get) => ({
   handleTimelinePatternAssign: (trackId, patternId, measureIdx) => {
@@ -125,5 +126,10 @@ export const createTrackPatternEditSlice: StateCreator<SequencerStore, [], [], T
       const res = handleSetPatternAllBeatsResolutionState(state.tracks, patternId, newResolution, state.timeSig, state.selectedPatternId, state.selectedStepIdx);
       return { tracks: res.tracks, selectedStepIdx: res.selectedStepIdx, tracksVersion: state.tracksVersion + 1 };
     });
+  },
+
+  shiftPatternSteps: (trackId, patternId, direction, range) => {
+    get().pushUndoState();
+    set(state => shiftPatternStepsState(state, trackId, patternId, direction, range));
   }
 });

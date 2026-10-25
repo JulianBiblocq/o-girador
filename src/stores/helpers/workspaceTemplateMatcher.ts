@@ -2,6 +2,7 @@
  * Appariement intelligent des pistes de gabarit avec les pistes du morceau (< 100 lignes).
  */
 import { TrackGroup, WorkspaceTemplateTrack } from '../../types';
+import { findMatchingBusForTemplate } from './workspaceTemplateBusMatcher';
 
 export interface TemplateMatchResult {
   tplToSongIdMap: Map<number, number>;
@@ -32,11 +33,7 @@ export function matchTemplateTracksWithSong(
 
   tplTracks.forEach((tplT, i) => {
     if (!tplT.isBusFolder) return;
-    const match = songBusFolders.find(
-      (sb) => !matchedBusSongIds.has(sb.id) && (
-        (tplT.customName && sb.customName && tplT.customName.trim().toLowerCase() === sb.customName.trim().toLowerCase())
-      )
-    ) || songBusFolders.find((sb) => !matchedBusSongIds.has(sb.id));
+    const match = findMatchingBusForTemplate(tplT, songBusFolders, matchedBusSongIds, tplTracks, songTracks, config);
 
     if (match) {
       tplToSongIdMap.set(tplT.id, match.id);

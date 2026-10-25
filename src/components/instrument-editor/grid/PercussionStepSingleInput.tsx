@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { isStepInRange } from '../../../hooks/instrument-editor/gridStepRangeHelper';
 import { SCISSORS_CURSOR } from './gridConstants';
 
 interface PercussionStepSingleInputProps {
@@ -38,15 +39,19 @@ export const PercussionStepSingleInput: React.FC<PercussionStepSingleInputProps>
     onContextMenu, onChange, onKeyDown, onSelectForSculpt
   } = props;
   const lang = useSequencerStore(state => state.lang);
+  const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
+  const isInRange = isStepInRange(selectedStepRange, false, i, 0);
   const isEmpty = val === 0 || val === '0' || !val;
 
   const borderClass = isMultiSelected
     ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
     : isFocused
       ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-      : isEmpty
-        ? 'bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
-        : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]';
+      : isInRange
+        ? '!border-2 !border-amber-500/90 bg-amber-500/25 shadow-[0_0_8px_rgba(245,158,11,0.6)] rounded-none m-[1px]'
+        : isEmpty
+          ? 'bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
+          : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]';
 
   return (
     <input

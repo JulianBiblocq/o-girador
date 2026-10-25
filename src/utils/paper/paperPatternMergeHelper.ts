@@ -6,12 +6,14 @@ import { VisionSinglePatternData } from './paperVisionScanService';
 import { parsePupitreHeader } from './paperNomenclatureHelper';
 import { sanitizePatternSteps } from './paperScoreEngine';
 import { detectMetricFromResolutions, detectMetricFromTotalSteps } from './paperMetricDetector';
+import { detectRawBeatShiftDoubts } from './paperVigilanceDetector';
 
 export interface ProcessedVisionPattern {
   name: string;
   pupitreMap: Partial<Record<string, PaperStepValue[]>>;
   metricOverride: PatternMetricOverride;
   totalSteps: number;
+  rawDoubts?: any[];
 }
 
 export function cleanVisionStepCell(raw: any): PaperStepValue {
@@ -54,6 +56,12 @@ export function processVisionPatternData(
     : detectMetricFromTotalSteps(data.totalSteps || 16, fallbackTimeSig);
 
   const totalSteps = detected.steps || 16;
+  const rawDoubts = detectRawBeatShiftDoubts(
+    data.name || 'Motif',
+    data.lines || [],
+    detected.beatResolutions || [4, 4, 4, 4],
+    totalSteps
+  );
   const pupitreMap: Partial<Record<string, PaperStepValue[]>> = {};
 
   (data.lines || []).forEach((line) => {
@@ -80,5 +88,6 @@ export function processVisionPatternData(
     pupitreMap,
     metricOverride,
     totalSteps,
+    rawDoubts,
   };
 }

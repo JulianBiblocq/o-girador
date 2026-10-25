@@ -27,7 +27,10 @@ RÈGLES D'IDENTIFICATION MANUSCRITE :
 3. Extraire TOUTES les lignes écrites dans la marge gauche (Al, Cx, Gg, Ab, Mi, Tb, Tr, Mc, Me, Rp, Ap...).
 4. ZÉRO "1" : INTERDICTION FORMELLE DE REMPLACER LES LETTRES PAR DES "1". Conserver fidèlement les lettres manuscrites exactes (ex: D, d, E, e, G, g, A, a, T, t, P, p, I, i, R, F, X, B, C).
 5. Silences / cases vides : "." ou "-" ou espace vide -> renvoyer "0".
-6. Alignement temporel : les barres verticales "|" séparent les temps (ex: 4 temps en 4/4) et "||" termine le motif. Si les Temps 1 et 2 sont vides (ex: ". . . . | . . . ."), renvoyer pour ces temps ["0","0","0","0"]. Les frappes écrites dans les 3e et 4e compartiments doivent obligatoirement tomber sur les Temps 3 et 4.`;
+6. Alignement temporel : les barres verticales "|" séparent les temps (ex: 4 temps en 4/4) et "||" termine le motif. Si les Temps 1 et 2 sont vides (ex: ". . . . | . . . ."), renvoyer pour ces temps ["0","0","0","0"]. Les frappes écrites dans les 3e et 4e compartiments doivent obligatoirement tomber sur les Temps 3 et 4.
+7. Alignement vertical & micro-points : vérifier impérativement l'alignement des frappes avec les colonnes 1..32 en haut de la feuille et les micro-points de repère tous les 4 carreaux (4, 8, 12, 16, 20, 24, 28).
+8. ZÉRO remplissage silencieux : ne JAMAIS compléter silencieusement la fin d'un temps ou d'une mesure avec des "0" ou "." si le compte de cases lues entre deux barres "|" (ou avant "||") ne tombe pas juste (ex: 3 ou 5 cases lues au lieu de 4, ou 15 / 17 cases au lieu de 16).
+9. Vigilance décalage : dès qu'une case est étroite, effacée ou que le compte de cases d'un temps est incertain, inclure obligatoirement un objet dans "doubts" avec la raison "Décalage possible : nombre de cases incertain sur ce temps".`;
 
   if (mode === 'single_pattern') {
     const secTarget = opts.targetSectionName ? `CIBLE : Motif "${opts.targetSectionName}".` : 'CIBLE : Détecte l\'unique motif cadré.';
@@ -46,7 +49,8 @@ RÉPONSE JSON STRICTE (sans texte autour) :
       { "role": "cx", "isVariation": false, "beats": [["0","0","0","0"],["0","0","0","0"],["0","0","D","0"],["D","0","D","0"]] },
       { "role": "gg", "isVariation": false, "beats": [["0","0","0","0"],["0","0","0","0"],["0","0","G","0"],["G","0","G","0"]] },
       { "role": "ab", "isVariation": false, "beats": [["0","0","0","0"],["0","0","0","0"],["0","0","T","0"],["P","0","T","0"]] }
-    ]
+    ],
+    "doubts": [{ "role": "cx", "stepIndex": 12, "reason": "Décalage possible : nombre de cases incertain sur ce temps" }]
   }
 }`.trim();
   }
@@ -73,6 +77,7 @@ RÈGLES D'EXTRACTION :
 2. Découpage en temps : renvoie les cellules découpées temps par temps ("beats").
 3. Subdivisions : 4x4=16 (4/4), 2x4=8 (2/4), 3x4=12 (3/4), 4x3=12 (12/8).
 4. Lettres exactes, jamais de "1". Case coupée : "d/I". Tiret "-" ou "." = silence ("0").
+5. Si un temps n'a pas le bon compte de cellules, renvoyer les cellules lues et ajouter un objet dans "doubts".
 RÉPONSE JSON STRICTE :
 {
   "songTitle": string,
@@ -86,7 +91,8 @@ RÉPONSE JSON STRICTE :
       "totalSteps": number,
       "lines": [
         { "role": string, "isVariation": boolean, "beats": string[][] }
-      ]
+      ],
+      "doubts"?: [{ "role": string, "stepIndex": number, "reason": string }]
     }
   ],
   "sequence": string[]

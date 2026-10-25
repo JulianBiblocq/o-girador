@@ -2,6 +2,7 @@ import { TrackGroup } from '../../types';
 import { applyRadii } from './trackRodaGeometryHelpers';
 import { selectTracksMeta } from './trackMetaCache';
 import { getDisplayedMixerTracks } from './mixerOrderingHelpers';
+import { sortTracksHierarchically } from './trackReorderMixerHelper';
 
 const createBaseBusTrack = (id: number, instIdx: number, customName: string, isLinkFolder = false, patterns: any[] = []): TrackGroup => ({
   id,
@@ -111,7 +112,10 @@ export const handleAssignToBusState = (
   tracks: TrackGroup[],
   trackId: number,
   busId: string | null
-): TrackGroup[] => tracks.map((t) => t.id === trackId ? { ...t, busId: busId || undefined } : t);
+): TrackGroup[] => {
+  const updated = tracks.map((t) => (t.id === trackId ? { ...t, busId: busId || undefined } : t));
+  return applyRadii(sortTracksHierarchically(updated));
+};
 
 export const handleSetPatternOverrideState = (
   tracks: TrackGroup[],
