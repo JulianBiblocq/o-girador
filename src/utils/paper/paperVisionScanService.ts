@@ -1,47 +1,36 @@
 /**
- * Service d'analyse Gemini Vision pour l'Atelier Papier (< 110 lignes).
- * Gère l'appel REST direct à Gemini et la saisie interactive de clé API.
+ * Service d'analyse visuelle pour l'Atelier Papier (< 130 lignes).
+ * Cascade multi-modèles anti-quota 429, mémorisation de session et gestion de clé.
  */
 import { buildGeminiVisionPaperPrompt, VisionPromptOptions } from './geminiVisionPaperPrompt';
 
 export interface VisionSinglePatternData {
-  name: string;
-  detectedTimeSig?: string;
-  beatResolutions?: number[];
-  totalSteps?: number;
+  name: string; detectedTimeSig?: string; beatResolutions?: number[]; totalSteps?: number;
   lines: Array<{ role: string; isVariation?: boolean; beats: string[][] }>;
 }
 
 export interface VisionScanResponse {
-  success: boolean;
-  songTitle?: string;
-  globalBpm?: number;
-  globalTimeSig?: string;
-  pattern?: VisionSinglePatternData;
-  patterns?: VisionSinglePatternData[];
-  sequence?: string[];
-  error?: string;
+  success: boolean; songTitle?: string; globalBpm?: number; globalTimeSig?: string;
+  pattern?: VisionSinglePatternData; patterns?: VisionSinglePatternData[]; sequence?: string[]; error?: string;
 }
 
 const STORAGE_KEY = 'girador_gemini_api_key';
+const ACTIVE_MODEL_KEY = 'girador_active_scan_model_idx';
+
+export const SCAN_VISION_MODELS = [
+  'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-3.8-flash',
+] as const;
 
 export function getStoredGeminiApiKey(): string | null {
-  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY;
+  const env = (import.meta as any).env;
+  const envKey = env?.VITE_GEMINI_API_KEY || env?.GEMINI_API_KEY;
   if (envKey && typeof envKey === 'string' && envKey.trim()) return envKey.trim();
-  try {
-    const local = localStorage.getItem(STORAGE_KEY)?.trim();
-    if (local) return local;
-  } catch {}
-  const fbKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY;
-  if (fbKey && typeof fbKey === 'string' && fbKey.trim()) return fbKey.trim();
-  return null;
+  try { const local = localStorage.getItem(STORAGE_KEY)?.trim(); if (local) return local; } catch {}
+  return (env?.VITE_FIREBASE_API_KEY && typeof env.VITE_FIREBASE_API_KEY === 'string') ? env.VITE_FIREBASE_API_KEY.trim() : null;
 }
 
 export function saveStoredGeminiApiKey(key: string): void {
-  try {
-    if (key.trim()) localStorage.setItem(STORAGE_KEY, key.trim());
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {}
+  try { if (key.trim()) localStorage.setItem(STORAGE_KEY, key.trim()); else localStorage.removeItem(STORAGE_KEY); } catch {}
 }
 
 export function clearStoredGeminiApiKey(): void {
@@ -57,6 +46,16 @@ function requestUserApiKey(lang: string, isRetry = false): string | null {
   return null;
 }
 
+function getOrderedModelIndices(): number[] {
+  let startIdx = 0;
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_MODEL_KEY);
+    const parsed = raw ? parseInt(raw, 10) : 0;
+    if (!isNaN(parsed) && parsed >= 0 && parsed < SCAN_VISION_MODELS.length) startIdx = parsed;
+  } catch {}
+  return SCAN_VISION_MODELS.map((_, i) => (startIdx + i) % SCAN_VISION_MODELS.length);
+}
+
 export async function analyzePaperImageWithVision(
   imageDataUrl: string,
   options: VisionPromptOptions
@@ -66,14 +65,7 @@ export async function analyzePaperImageWithVision(
 
   if (!apiKey) {
     apiKey = requestUserApiKey(lang, false);
-    if (!apiKey) {
-      return {
-        success: false,
-        error: lang === 'fr'
-          ? "Clé d'accès manquante pour le service de numérisation."
-          : 'Chave de acesso ausente para o serviço de escaneamento.',
-      };
-    }
+    if (!apiKey) return { success: false, error: lang === 'fr' ? "Clé d'accès manquante pour le service de numérisation." : 'Chave de acesso ausente para o serviço de escaneamento.' };
   }
 
   const prompt = buildGeminiVisionPaperPrompt(options);
@@ -84,15 +76,15 @@ export async function analyzePaperImageWithVision(
     generationConfig: { response_mime_type: 'application/json', temperature: 0.1 },
   };
 
-  const models = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
+  const orderedIndices = getOrderedModelIndices();
+  let lastStatus = 0;
+  let all429 = true;
+
   try {
-    let lastRes: Response | null = null;
-    for (const model of models) {
-      let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    for (const idx of orderedIndices) {
+      const model = SCAN_VISION_MODELS[idx];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      let res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
       if (res.status === 400 || res.status === 401 || res.status === 403) {
         clearStoredGeminiApiKey();
@@ -100,35 +92,42 @@ export async function analyzePaperImageWithVision(
         if (newKey) {
           apiKey = newKey;
           res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
           });
         }
       }
 
       if (res.ok) {
+        try { sessionStorage.setItem(ACTIVE_MODEL_KEY, String(idx)); } catch {}
         const json = await res.json();
         const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(cleaned);
-        return { success: true, ...parsed };
+        return { success: true, ...JSON.parse(rawText.replace(/```json/gi, '').replace(/```/g, '').trim()) };
       }
 
-      lastRes = res;
-      if (res.status !== 404) break; // Si ce n'est pas 404 (ex: erreur de payload), ne pas reboucler inutilement
+      lastStatus = res.status;
+      if (res.status !== 429) all429 = false;
+
+      // Rotation silencieuse immédiate si quota (429), indisponible (404) ou surcharge temporaire (503)
+      if (res.status === 429 || res.status === 404 || res.status === 503) continue;
     }
 
-    const errJson = lastRes ? await lastRes.json().catch(() => null) : null;
-    const detail = errJson?.error?.message || (lastRes ? `HTTP ${lastRes.status}` : 'Inconnu');
+    if (all429 && lastStatus === 429) {
+      return {
+        success: false,
+        error: lang === 'fr'
+          ? "Limite quotidienne de scans gratuits atteinte sur cette clé. Vous pouvez saisir une autre clé ou réessayer plus tard."
+          : "Limite diário de escaneamentos gratuitos atingido nesta chave. Você pode inserir outra chave ou tentar mais tarde.",
+      };
+    }
+
     return {
       success: false,
-      error: `${lang === 'fr' ? 'Erreur de lecture du scan' : 'Erro de leitura do scan'} (${lastRes?.status || 500}): ${detail}`,
+      error: lang === 'fr' ? 'Échec de lecture de la partition. Veuillez réessayer.' : 'Falha na leitura da partitura. Por favor tente novamente.',
     };
-  } catch (err: any) {
+  } catch {
     return {
       success: false,
-      error: `${lang === 'fr' ? 'Échec de connexion au service de numérisation' : 'Falha de conexão com o serviço de escaneamento'}: ${err?.message || 'Erreur réseau'}`,
+      error: lang === 'fr' ? 'Échec de connexion au service de numérisation.' : 'Falha de conexão com o serviço de escaneamento.',
     };
   }
 }
