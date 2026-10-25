@@ -21,16 +21,10 @@ export function mapPatternsToSectionIds(patterns: Record<string, any>, secs: Pap
 }
 
 interface WorkflowParams {
-  initialPreset: PaperPreset;
-  scoreId: string;
-  globalBpm: number;
-  globalTimeSig: string;
-  metricOverrides: Record<string, PatternMetricOverride>;
-  toadaTitle: string;
-  injectOpts: any;
+  initialPreset: PaperPreset; scoreId: string; globalBpm: number; globalTimeSig: string;
+  metricOverrides: Record<string, PatternMetricOverride>; toadaTitle: string; injectOpts: any;
   saveCurrentDraft: (title: string, payload: PaperScanDraftPayload, deviceType: 'mobile' | 'desktop') => Promise<any>;
-  setActiveDraftId: (id: string | null) => void;
-  lang: 'fr' | 'pt';
+  setActiveDraftId: (id: string | null) => void; lang: 'fr' | 'pt';
 }
 
 export function usePaperScannerWorkflow({
@@ -62,13 +56,16 @@ export function usePaperScannerWorkflow({
   const handleUpdateStep = useCallback((secIdOrName: string, roleKey: string, stepIndex: number, newVal: PaperStepValue) => {
     setPatternsById((prev: any) => {
       const copy = { ...prev };
-      const key = copy[secIdOrName] ? secIdOrName : (sections.find((s) => s.name === secIdOrName)?.id || secIdOrName);
-      if (!copy[key]) copy[key] = {};
-      const secCopy = { ...copy[key] };
+      const sec = sections.find((s) => s.id === secIdOrName || s.name.toLowerCase() === secIdOrName.toLowerCase());
+      const secId = sec ? sec.id : secIdOrName;
+      const secName = sec ? sec.name : secIdOrName;
+      const base = copy[secId] || copy[secName] || {};
+      const secCopy = { ...base };
       if (!secCopy[roleKey]) secCopy[roleKey] = Array(16).fill(0);
       else secCopy[roleKey] = [...secCopy[roleKey]];
       secCopy[roleKey][stepIndex] = newVal;
-      copy[key] = secCopy;
+      copy[secId] = secCopy;
+      copy[secName] = secCopy;
       return copy;
     });
   }, [sections]);

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { PaperStepValue, PatternMetricOverride } from '../../types/paperWorkshop.types';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
-import { PaperStepValidationPopover } from './PaperStepValidationPopover';
+import { PaperStepQuickEditor } from './PaperStepQuickEditor';
 import { PaperPatternCard } from './PaperPatternCard';
 import { PaperPatternOverrideModal } from './PaperPatternOverrideModal';
-import { AlertTriangle, Check, Camera, Filter } from 'lucide-react';
+import { Check, Camera, Filter } from 'lucide-react';
 import { PaperSectionItem } from '../../utils/paper/paperSectionRenamer';
 
 interface Props {
@@ -44,8 +44,7 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
   const allPoints = usePaperVigilanceStore((s) => s.points);
   const points = React.useMemo(() => allPoints.filter((p) => p.scoreId === activeScoreId), [allPoints, activeScoreId]);
   const removePoint = usePaperVigilanceStore((s) => s.removePoint);
-  const togglePoint = usePaperVigilanceStore((s) => s.togglePoint);
-  const clearAllForScore = usePaperVigilanceStore((s) => s.clearAllForScore);
+  const togglePoint = usePaperVigilanceStore((s) => s.togglePoint); const clearAllForScore = usePaperVigilanceStore((s) => s.clearAllForScore);
 
   const displayedSections = React.useMemo(() => {
     if (!filterDoubtsOnly || points.length === 0) return sectionItems;
@@ -117,10 +116,11 @@ export const PaperPatternPreviewGrid: React.FC<Props> = ({
       )}
 
       {popover && (
-        <PaperStepValidationPopover
-          roleKey={popover.role} stepIndex={popover.idx} currentValue={popover.val} isVigilance={popover.isVig}
-          onValidateCurrent={() => handleSelect()} onSelectStroke={(st) => handleSelect(st)}
-          onToggleVigilance={() => { togglePoint(activeScoreId, popover.sec, popover.role, popover.idx); setPopover(null); }}
+        <PaperStepQuickEditor
+          roleKey={popover.role} stepIndex={popover.idx} currentValue={popover.val}
+          isVigilance={points.some((p) => p.sectionName === popover.sec && p.roleKey === popover.role && p.stepIndex === popover.idx)}
+          onSelectStroke={(st) => handleSelect(st)}
+          onToggleVigilance={() => togglePoint(activeScoreId, popover.sec, popover.role, popover.idx)}
           onClose={() => setPopover(null)} lang={lang}
         />
       )}

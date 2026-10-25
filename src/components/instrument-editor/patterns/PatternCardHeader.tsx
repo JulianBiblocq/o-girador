@@ -25,7 +25,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
     if (e.touches.length === 1) {
       const t = e.touches[0];
       cardTouchStartPosRef.current = { x: t.clientX, y: t.clientY };
-      cardLongPressTimerRef.current = setTimeout(() => { onOpenContextMenu(ptn, t.clientX, t.clientY); cardLongPressTimerRef.current = null; }, 400);
+      cardLongPressTimerRef.current = setTimeout(() => { onOpenContextMenu?.(ptn, t.clientX, t.clientY); cardLongPressTimerRef.current = null; }, 400);
     }
   };
   const onTouchMove = (e: React.TouchEvent) => {
@@ -44,7 +44,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
 
   return (
     <div
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenContextMenu(ptn, e.clientX, e.clientY); }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenContextMenu?.(ptn, e.clientX, e.clientY); }}
       onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
       className="flex flex-wrap items-center justify-between gap-2 border-b-[2px] border-[#1a1a1a] pb-1.5 select-none"
     >
@@ -54,18 +54,18 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
             <GripVertical size={16} />
           </div>
         )}
-        <input type="radio" checked={isSelected} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[#1a1a1a] cursor-pointer" />
+        <input type="radio" checked={isSelected} onChange={() => onSelectPattern?.(ptn.id)} className="w-4 h-4 accent-[#1a1a1a] cursor-pointer" />
         {editingPatternId === ptn.id ? (
           <input
-            type="text" value={editName} onChange={(e) => setEditName(e.target.value)} onBlur={() => handleSaveName(ptn.id)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(ptn.id); if (e.key === 'Escape') setEditingPatternId(null); }}
+            type="text" value={editName} onChange={(e) => setEditName(e.target.value)} onBlur={() => handleSaveName?.(ptn.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName?.(ptn.id); if (e.key === 'Escape') setEditingPatternId(null); }}
             className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 font-cactus font-bold text-sm px-1.5 py-0.5 rounded border border-[#1a1a1a] bg-[#f4ecd8] outline-none text-[#1a1a1a]`}
             autoFocus onFocus={(e) => e.target.select()}
           />
         ) : (
           <span
             className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 truncate font-cactus font-bold text-sm cursor-pointer select-none px-1.5 py-0.5 rounded border border-transparent ${isSelected ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
-            onClick={() => onSelectPattern(ptn.id)} onDoubleClick={() => { setEditingPatternId(ptn.id); setEditName(ptn.name || ''); }}
+            onClick={() => onSelectPattern?.(ptn.id)} onDoubleClick={() => { setEditingPatternId(ptn.id); setEditName(ptn.name || ''); }}
           >
             {ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
           </span>
@@ -75,7 +75,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
             <XiloChisel size={10} />
           </button>
         )}
-        <span ref={badgeRef} data-active-badge={ptn.id} onClick={() => !isSelected && onSelectPattern(ptn.id)} className={isSelected ? 'bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]' : 'text-[#666] text-[9px] uppercase px-1 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none cursor-pointer'}>
+        <span ref={badgeRef} data-active-badge={ptn.id} onClick={() => !isSelected && onSelectPattern?.(ptn.id)} className={isSelected ? 'bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]' : 'text-[#666] text-[9px] uppercase px-1 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none cursor-pointer'}>
           {isSelected ? `► ${lang === 'fr' ? 'ACTIF' : 'ATIVO'}` : (lang === 'fr' ? 'Activer' : 'Ativar')}
         </span>
         <button
@@ -87,7 +87,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
         </button>
         {!isVocalContext && (
           <button
-            onClick={(e) => { e.stopPropagation(); toggleArmPattern(trackId, ptn.id); }}
+            onClick={(e) => { e.stopPropagation(); toggleArmPattern?.(trackId, ptn.id); }}
             className={`px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm transition-all cursor-pointer select-none flex items-center gap-1 ${armedPatternId === ptn.id ? 'bg-[#e67e22] text-[#1a1a1a] shadow-sm animate-pulse' : 'border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] bg-transparent'}`}
           >
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${armedPatternId === ptn.id ? 'bg-[#8b2a1a]' : 'bg-[#1a1a1a]/40'}`} />
@@ -115,7 +115,7 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
           </div>
         )}
         <MetricDivisionSelector steps={ptn.steps} patternId={ptn.id} lang={lang} onChangeSteps={onStepsChange} />
-        <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]' : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'}`}></button>
+        <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern?.(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]' : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'}`}></button>
       </div>
     </div>
   );

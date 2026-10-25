@@ -36,9 +36,9 @@ export const SortablePatternCard: React.FC<SortablePatternCardProps> = React.mem
           data-pattern-id={ptn.id}
           data-selected={isSelected}
           onClick={() => {
-            onSelectPattern(ptn.id);
-            setSelectedPatternId(ptn.id);
-            setSelectedVariationId(null);
+            onSelectPattern?.(ptn.id);
+            setSelectedPatternId?.(ptn.id);
+            setSelectedVariationId?.(null);
           }}
           className={`p-4 flex flex-col gap-3 transition-all duration-150 cursor-pointer rounded-xs ${
             isSelected

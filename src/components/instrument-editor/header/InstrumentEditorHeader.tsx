@@ -28,7 +28,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
             <div className="w-full flex items-stretch h-7 rounded border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] overflow-hidden bg-[#f4ecd8] select-none shrink-0 flex-shrink-0">
               <button
                 type="button"
-                onClick={() => onSwitchVocalTrack(puxTrack)}
+                onClick={() => onSwitchVocalTrack?.(puxTrack)}
                 className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer shrink-0 ${!isCoroActive ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
                 title={lang === 'fr' ? 'Éditer le Puxador (Solo) [Tab]' : 'Editar o Puxador (Solo) [Tab]'}
               >
@@ -38,7 +38,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
               <div className="w-[1px] bg-[#1a1a1a] shrink-0" />
               <button
                 type="button"
-                onClick={() => onSwitchVocalTrack(coroTrack)}
+                onClick={() => onSwitchVocalTrack?.(coroTrack)}
                 className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold font-cactus tracking-wide transition-colors cursor-pointer shrink-0 ${isCoroActive ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
                 title={lang === 'fr' ? 'Éditer le Coro (Chœur) [Tab]' : 'Editar o Coro (Coro) [Tab]'}
               >
@@ -86,7 +86,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
         {onToggleSoloLoop && (
           <button
             type="button"
-            onClick={onToggleSoloLoop}
+            onClick={() => onToggleSoloLoop?.()}
             className={`h-8 px-2.5 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 flex-shrink-0 ${isSoloLoopPlaying ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'}`}
             title={lang === 'fr' ? 'Boucle locale' : 'Loop local'}
           >
@@ -96,7 +96,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
         {!isVocalContext && (
           <button
             type="button"
-            onClick={togglePatternRecording}
+            onClick={() => togglePatternRecording?.()}
             className={`h-8 px-2.5 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 flex-shrink-0 ${isPatternRecording ? 'bg-[#e74c3c] text-white cordel-arm-pulse animate-pulse shadow-md' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] border border-[#1a1a1a]'}`}
             title={lang === 'fr' ? "Enregistrement MIDI (R)" : "Gravação MIDI (R)"}
           >
@@ -104,9 +104,9 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
             <span>REC (R)</span>
           </button>
         )}
-        <button type="button" onClick={onMuteToggle} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isMute && !isSolo ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'}`} title="Mute">M</button>
-        <button type="button" onClick={onSoloToggle} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'}`} title="Solo">S</button>
-        <button type="button" onClick={onClose} disabled={isClosing} className="w-9 h-9 shrink-0 flex items-center justify-center bg-[#c25e38] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm hover:bg-[#a04b2b] cursor-pointer transition-colors ml-1 border border-[#f4ecd8]" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
+        <button type="button" onClick={() => onMuteToggle?.()} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isMute && !isSolo ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'}`} title="Mute">M</button>
+        <button type="button" onClick={() => onSoloToggle?.()} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'}`} title="Solo">S</button>
+        <button type="button" onClick={() => onClose?.()} disabled={isClosing} className="w-9 h-9 shrink-0 flex items-center justify-center bg-[#c25e38] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm hover:bg-[#a04b2b] cursor-pointer transition-colors ml-1 border border-[#f4ecd8]" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
           {isClosing ? '...' : <X className="w-5 h-5 text-[#f4ecd8] stroke-[2.5]" />}
         </button>
       </div>

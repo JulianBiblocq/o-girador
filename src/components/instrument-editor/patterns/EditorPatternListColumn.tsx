@@ -26,7 +26,7 @@ export interface EditorPatternListColumnProps {
   onPasteAsNewPattern: () => void;
   copyAllTrackPatterns: (tId: number, name: string) => void;
   pasteAllTrackPatterns: (tId: number) => void;
-  isAllPatternsPasteable: (tId: number) => boolean;
+  isAllPatternsPasteable?: boolean | ((tId: number) => boolean);
   instrumentPatternsClipboard: any;
   effectiveTrack: TrackGroup;
   inst: any;
@@ -50,6 +50,10 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
     store.setEditingTrackId(masterTrackId);
     if (patId) store.setSelectedPatternId(patId);
   };
+
+  const canPasteAll = typeof isAllPatternsPasteable === 'function'
+    ? Boolean(isAllPatternsPasteable(effectiveEditTrackId))
+    : Boolean(isAllPatternsPasteable);
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0 bg-transparent text-[#1a1a1a] relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -82,20 +86,20 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
 
         {!isSlave && (
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <button onClick={onAddPattern} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
+            <button onClick={() => onAddPattern?.()} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
               + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
             </button>
             {canPaste && (
-              <button onClick={onPasteAsNewPattern} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
+              <button onClick={() => onPasteAsNewPattern?.()} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
                 {lang === 'fr' ? 'Coller comme nouveau motif' : 'Colar como novo padrão'}
               </button>
             )}
             <div className="ml-auto flex items-center gap-2">
-              <button onClick={() => copyAllTrackPatterns(effectiveTrack.id, inst.name)} className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors" title={lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}>
+              <button onClick={() => copyAllTrackPatterns?.(effectiveTrack.id, inst.name)} className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors" title={lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}>
                 {lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}
               </button>
-              {isAllPatternsPasteable(effectiveEditTrackId) && (
-                <button onClick={() => pasteAllTrackPatterns(effectiveEditTrackId)} className="bg-[#d4af37] text-[#1a1a1a] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
+              {canPasteAll && (
+                <button onClick={() => pasteAllTrackPatterns?.(effectiveEditTrackId)} className="bg-[#d4af37] text-[#1a1a1a] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
                   {lang === 'fr' ? `Remplacer par "${instrumentPatternsClipboard?.instrumentName}"` : `Substituir`}
                 </button>
               )}
