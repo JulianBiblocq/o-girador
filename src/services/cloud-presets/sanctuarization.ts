@@ -30,12 +30,16 @@ export function isTestEnvironment(): boolean {
   );
 }
 
-export async function deleteCloudPreset(presetId: string, audioUrl?: string | null): Promise<void> {
+export async function deleteCloudPreset(
+  presetId: string,
+  audioUrl?: string | null,
+  isEditorOrMestre?: boolean
+): Promise<void> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
-  if (SANCTUARIZED_PRESET_IDS.has(presetId) && !isRestoration) {
+  if (SANCTUARIZED_PRESET_IDS.has(presetId) && !isRestoration && !isEditorOrMestre) {
     throw new Error(`[Sanctuarisation] Suppression formellement interdite du preset officiel sanctuarisé "${presetId}".`);
   }
-  if (isTestEnvironment() && !isRestoration && !presetId.startsWith('test_e2e_')) {
+  if (isTestEnvironment() && !isRestoration && !presetId.startsWith('test_e2e_') && !isEditorOrMestre) {
     throw new Error(`[Sanctuarisation E2E] Suppression interdite d'un preset non-E2E en contexte de test ("${presetId}").`);
   }
   presetCache.delete(presetId);

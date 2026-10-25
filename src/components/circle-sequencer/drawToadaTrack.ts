@@ -34,6 +34,9 @@ export const drawToadaTrack = (
   themeBorder: string,
   themeText: string
 ): void => {
+  ctx.save();
+  ctx.globalAlpha = 1.0;
+  ctx.globalCompositeOperation = 'source-over';
   let puxTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
   let coroTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 

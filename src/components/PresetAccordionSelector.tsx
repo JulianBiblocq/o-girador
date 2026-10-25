@@ -31,7 +31,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   className = '',
 }) => {
   const audio = useAudio();
-  const { canDeletePreset, handleDeletePreset } = useCatalogPresetDeletion(lang);
+  const { canDeletePreset, handleDeletePreset } = useCatalogPresetDeletion(lang, canEdit);
   const [isGroupOpen, setIsGroupOpen] = useState(showGroupCatalogue);
   const [isPublicOpen, setIsPublicOpen] = useState(!showGroupCatalogue);
 

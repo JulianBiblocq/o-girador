@@ -1,4 +1,3 @@
-
 import { ThemeColors } from './circleSequencerTypes';
 import { drawAlfaiaRims } from './drawAlfaiaRims';
 import { drawAlfaiaMarkers } from './drawAlfaiaMarkers';
@@ -13,8 +12,11 @@ export const drawAlfaiaBackground = (
   centerY: number,
   theme: ThemeColors
 ): void => {
-  bgCtx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
   bgCtx.save();
+  bgCtx.globalAlpha = 1.0;
+  bgCtx.globalCompositeOperation = 'source-over';
+  bgCtx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
+
   if (isEco) {
     bgCtx.scale(0.5, 0.5);
   }
@@ -22,7 +24,5 @@ export const drawAlfaiaBackground = (
   drawAlfaiaRims(bgCtx, centerX, centerY, theme);
   drawAlfaiaMarkers(bgCtx, centerX, centerY, localTimeSig, localTicks, theme);
 
-  if (isEco) {
-    bgCtx.restore();
-  }
+  bgCtx.restore();
 };

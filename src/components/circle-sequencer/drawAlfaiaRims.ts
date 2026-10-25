@@ -80,11 +80,15 @@ export const drawAlfaiaRims = (
   bgCtx.strokeStyle = '#1a1a1a';
   bgCtx.stroke();
 
-  // 4. Peau d'Alfaia (Couro) : ambrée sablée rgba(224, 213, 190, 0.88) permanente (mode clair & sombre)
+  // 4. Peau d'Alfaia (Couro) : ambrée sablée rgba(226, 216, 195, 0.88) permanente (mode clair & sombre)
+  bgCtx.save();
+  bgCtx.globalAlpha = 1.0;
+  bgCtx.globalCompositeOperation = 'source-over';
   bgCtx.beginPath();
   bgCtx.arc(centerX, centerY, INNER_SKIN_RADIUS, 0, Math.PI * 2);
-  bgCtx.fillStyle = 'rgba(224, 213, 190, 0.88)';
+  bgCtx.fillStyle = 'rgba(226, 216, 195, 0.88)';
   bgCtx.fill();
+  bgCtx.restore();
 
   bgCtx.beginPath();
   bgCtx.arc(centerX, centerY, INNER_SKIN_RADIUS, 0, Math.PI * 2);

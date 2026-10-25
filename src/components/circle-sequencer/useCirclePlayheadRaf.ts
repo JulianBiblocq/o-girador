@@ -54,6 +54,7 @@ export function useCirclePlayheadRaf(
     let isBgCached = false;
     let lastTimeSig = '';
     let lastTicks = -1;
+    let lastThemeDark: boolean | undefined = undefined;
     let animId: number;
     let ripples: Ripple[] = [];
     let lastDrawTime = performance.now();
@@ -90,21 +91,27 @@ export function useCirclePlayheadRaf(
         processHitTriggers(hitTriggersRef.current, localRawTracks, activeVisibleTracks, getLiveActivePatternId, theme.skinInk, ripples);
       }
 
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
       ctx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
-      ctx.save();
-      if (shouldScaleDown) ctx.scale(0.5, 0.5);
 
-      if (lastTimeSig !== localTimeSig || lastTicks !== localTicks) {
-        isBgCached = false; lastTimeSig = localTimeSig; lastTicks = localTicks;
+      if (lastTimeSig !== localTimeSig || lastTicks !== localTicks || lastThemeDark !== theme.isDark) {
+        isBgCached = false; lastTimeSig = localTimeSig; lastTicks = localTicks; lastThemeDark = theme.isDark;
       }
       if (!isBgCached && bgCtx) {
         drawAlfaiaBackground(bgCtx, currentCanvasSize, shouldScaleDown, localTimeSig, localTicks, 600, 600, theme);
         isBgCached = true;
       }
 
-      ctx.restore();
-      ctx.drawImage(bgCanvas, 0, 0);
       ctx.save();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(bgCanvas, 0, 0);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
       if (shouldScaleDown) ctx.scale(0.5, 0.5);
 
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
@@ -124,6 +131,8 @@ export function useCirclePlayheadRaf(
       }
 
       ctx.restore();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'source-over';
       animId = requestAnimationFrame(drawLoop);
     };
 

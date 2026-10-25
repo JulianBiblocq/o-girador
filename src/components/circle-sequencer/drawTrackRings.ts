@@ -1,4 +1,3 @@
-
 import { TrackGroup } from '../../types';
 import { getBusColor } from '../../utils/colorHelpers';
 import { instrumentsConfig } from '../../data';
@@ -19,10 +18,11 @@ export const drawTrackRing = (
     ? getBusColor(String(track.busId || track.linkedToTrackId || track.id), localRawTracks, instrumentsConfig)
     : null;
 
+  const tRad = getTrackRadius(visibleIdx, totalTracks);
+
   ctx.save();
   ctx.globalAlpha = isActiveState ? 1.0 : 0.25;
 
-  const tRad = getTrackRadius(visibleIdx, totalTracks);
   ctx.beginPath();
   ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
   ctx.strokeStyle = busColor || themeBorder;
@@ -30,14 +30,14 @@ export const drawTrackRing = (
   ctx.setLineDash([5, 5]);
 
   if (!track.isSolo) {
-    ctx.save();
-    ctx.globalAlpha = ctx.globalAlpha * 0.2;
+    ctx.globalAlpha = (isActiveState ? 1.0 : 0.25) * 0.2;
     ctx.stroke();
-    ctx.restore();
   } else {
     ctx.stroke();
   }
+
   ctx.setLineDash([]);
+  ctx.restore();
 
   return tRad;
 };
