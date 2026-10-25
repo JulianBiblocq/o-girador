@@ -1,6 +1,8 @@
 import { Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { resolveActivePatternForCell, resolvePatternsListForTrack } from '../../utils/timelinePatternResolver';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
 
 export interface ResolvedMeasureData {
   activePattern: Pattern | null;
@@ -21,23 +23,16 @@ export interface ResolvedMeasureData {
 }
 
 export function resolveTimelineTrackMeasureData(
-  mIdx: number,
-  isToada: boolean,
-  trackData: any,
-  inst: any,
-  trackIndex: number,
-  tracksMeta: any[],
-  trackMeta: any,
-  isLinkedChild: boolean,
-  puxTrack: any,
-  coroTrack: any
+  mIdx: number, isToada: boolean, trackData: any, inst: any, trackIndex: number,
+  tracksMeta: any[], trackMeta: any, isLinkedChild: boolean, puxTrack: any, coroTrack: any,
+  allTracksParam?: any[]
 ): ResolvedMeasureData {
   let activePattern: Pattern | null = null;
   let activeTrack: any = null;
   let currentTrackId = trackData.id;
   let currentInstrumentIdx = trackData.instrumentIdx;
   let currentInst = inst;
-  let currentPatternsList = trackData.patterns;
+  let currentPatternsList = trackData.patterns || [];
   let currentTrackIdx = trackIndex;
   let isOverridden = false;
   let isSilence = false;
@@ -45,29 +40,28 @@ export function resolveTimelineTrackMeasureData(
   let toadaCompositePatterns: any = undefined;
   let toadaVocalBadges: { pPtnName?: string; cPtnName?: string } | undefined = undefined;
 
+  const rawTracks = (allTracksParam && allTracksParam.length > 0) ? allTracksParam : (useSequencerStore.getState().tracks || []);
+  const allTracks = rawTracks.length > 0 ? rawTracks : (trackData ? [trackData] : []);
+  const targetTrack = allTracks.find((t: any) => t.id === trackData.id) || trackData;
+
   if (isToada) {
     const pPtn = puxTrack?.patterns?.find((p: any) => Boolean(p.measureAssignments?.[mIdx]));
     const cPtn = coroTrack?.patterns?.find((p: any) => Boolean(p.measureAssignments?.[mIdx]));
-
     if (pPtn && cPtn) {
-      activePattern = pPtn;
-      activeTrack = puxTrack;
+      activePattern = pPtn; activeTrack = puxTrack;
       currentTrackIdx = tracksMeta.findIndex((t) => t.id === puxTrack!.id);
       toadaVocalBadges = { pPtnName: pPtn.name, cPtnName: cPtn.name };
       isToadaComposite = true;
       toadaCompositePatterns = { puxPtn: pPtn, coroPtn: cPtn, puxTrackId: puxTrack?.id, coroTrackId: coroTrack?.id };
     } else if (pPtn) {
-      activePattern = pPtn;
-      activeTrack = puxTrack;
+      activePattern = pPtn; activeTrack = puxTrack;
       currentTrackIdx = tracksMeta.findIndex((t) => t.id === puxTrack!.id);
       toadaVocalBadges = { pPtnName: pPtn.name };
     } else if (cPtn) {
-      activePattern = cPtn;
-      activeTrack = coroTrack;
+      activePattern = cPtn; activeTrack = coroTrack;
       currentTrackIdx = tracksMeta.findIndex((t) => t.id === coroTrack!.id);
       toadaVocalBadges = { cPtnName: cPtn.name };
     }
-
     if (activeTrack) {
       currentTrackId = activeTrack.id;
       currentInstrumentIdx = activeTrack.instrumentIdx;
@@ -77,26 +71,21 @@ export function resolveTimelineTrackMeasureData(
     if (puxTrack?.patterns) toadaList.push(...puxTrack.patterns);
     if (coroTrack?.patterns) toadaList.push(...coroTrack.patterns);
     currentPatternsList = toadaList;
-  } else if (isLinkedChild && trackMeta) {
-    const parentBus = useSequencerStore.getState().tracks.find((p) => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
-    if (parentBus) {
-      const override = trackMeta.isLinkMaster ? undefined : trackMeta.patternOverrides?.[mIdx];
-      if (override === null) {
-        isSilence = true;
-        isOverridden = true;
-      } else if (override !== undefined) {
-        activePattern = parentBus.patterns?.find((p: any) => p.id === override) || null;
-        isOverridden = true;
-      } else {
-        activePattern = parentBus.patterns?.find((p: any) => Boolean(p.measureAssignments?.[mIdx])) || null;
-      }
-      activeTrack = parentBus;
-      currentPatternsList = parentBus.patterns || [];
-      currentTrackIdx = tracksMeta.findIndex((t) => t.id === parentBus.id);
-    }
   } else {
-    activePattern = trackData.patterns?.find((p: any) => Boolean(p.measureAssignments?.[mIdx])) || null;
-    activeTrack = trackData;
+    const isSlave = isSlaveTrack(trackMeta || targetTrack, allTracks);
+    if (isSlave) {
+      const override = trackMeta?.patternOverrides?.[mIdx];
+      if (override === null) {
+        isSilence = true; isOverridden = true;
+      } else if (override !== undefined) {
+        isOverridden = true;
+      }
+    }
+    const resolved = resolveActivePatternForCell(trackData.id, mIdx, null, allTracks);
+    activePattern = resolved.activePattern;
+    activeTrack = resolved.ownerTrack || targetTrack;
+    if (!isSlave && !activePattern) isSilence = true;
+    currentPatternsList = resolvePatternsListForTrack(targetTrack, allTracks);
   }
 
   const stepsPerMeasure = 16;
@@ -114,20 +103,8 @@ export function resolveTimelineTrackMeasureData(
   const sliceSteps = activePattern?.activeSteps ? activePattern.activeSteps.slice(stepStart, stepStart + stepsPerMeasure) : undefined;
 
   return {
-    activePattern,
-    activeTrack,
-    currentTrackId,
-    currentInstrumentIdx,
-    currentInst,
-    currentPatternsList,
-    currentTrackIdx,
-    isOverridden,
-    isSilence,
-    isToadaComposite,
-    toadaCompositePatterns,
-    toadaVocalBadges,
-    spanMeasures,
-    relativeIdx,
-    sliceSteps,
+    activePattern, activeTrack, currentTrackId, currentInstrumentIdx, currentInst,
+    currentPatternsList, currentTrackIdx, isOverridden, isSilence, isToadaComposite,
+    toadaCompositePatterns, toadaVocalBadges, spanMeasures, relativeIdx, sliceSteps,
   };
 }

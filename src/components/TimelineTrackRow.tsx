@@ -47,7 +47,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     }
     if (isMacro) return '';
     const t = state.tracks.find((c) => c.id === trackId);
-    return t ? JSON.stringify(t.patterns.map((p) => ({ id: p.id, name: p.name, steps: p.steps, vocalMode: p.vocalMode, measureAssignments: p.measureAssignments, measureAllowVariations: p.measureAllowVariations, variationsCount: p.variations?.length || 0 }))) : '';
+    if (!t) return '';
+    const isSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+    const master = isSlave ? state.tracks.find((m) => (String(m.linkedToTrackId) === String(t.linkedToTrackId) || String(m.id) === String(t.linkedToTrackId)) && m.isLinkMaster) : null;
+    return JSON.stringify({
+      patterns: t.patterns.map((p) => ({ id: p.id, name: p.name, steps: p.steps, vocalMode: p.vocalMode, measureAssignments: p.measureAssignments, measureAllowVariations: p.measureAllowVariations, variationsCount: p.variations?.length || 0 })),
+      overrides: t.patternOverrides,
+      masterAssignments: master?.patterns.map((p) => ({ id: p.id, name: p.name, assignments: p.measureAssignments })),
+    });
   });
 
   const autoData = useSequencerStore(useShallow((s) => {
@@ -60,7 +67,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const trackData = useMemo(() => {
     if (isMacro && !isToada) return fullTrack;
     if (!trackStructureJson && !isToada) return null;
-    return { id: trackId, instrumentIdx: trackMeta?.instrumentIdx ?? 0, isMute: trackMeta?.isMute ?? false, isSolo: trackMeta?.isSolo ?? false, isBusFolder: trackMeta?.isBusFolder, isLinkFolder: trackMeta?.isLinkFolder, isLinkMaster: trackMeta?.isLinkMaster, customName: trackMeta?.customName, patterns: isToada ? [] : (trackStructureJson ? JSON.parse(trackStructureJson) : []) };
+    const parsed = trackStructureJson ? JSON.parse(trackStructureJson) : null;
+    const patterns = isToada ? [] : (parsed?.patterns || (Array.isArray(parsed) ? parsed : []));
+    return { id: trackId, instrumentIdx: trackMeta?.instrumentIdx ?? 0, isMute: trackMeta?.isMute ?? false, isSolo: trackMeta?.isSolo ?? false, isBusFolder: trackMeta?.isBusFolder, isLinkFolder: trackMeta?.isLinkFolder, isLinkMaster: trackMeta?.isLinkMaster, customName: trackMeta?.customName, patterns };
   }, [isMacro, isToada, fullTrack, trackStructureJson, trackId, trackMeta]);
 
   const totalMeasures = useSequencerStore((s) => s.totalMeasures);
@@ -107,7 +116,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         <div className={`flex h-full items-center overflow-hidden ${isMuted ? 'opacity-40' : ''}`} style={{ width: `${totalContentW}px`, minWidth: `${totalContentW}px` }}>
           {visibleRange.start > 0 && <div style={{ width: `${leftSpacerW}px`, minWidth: `${leftSpacerW}px` }} className="shrink-0" />}
           {Array.from({ length: totalMeasures }).map((_, mIdx) => ({ mIdx })).filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end).map(({ mIdx }) => {
-            const m = resolveTimelineTrackMeasureData(mIdx, isToada, trackData, trackInst, trackIndex, tracksMeta, trackMeta, isLinkedChild, puxTrack, coroTrack);
+            const m = resolveTimelineTrackMeasureData(mIdx, isToada, trackData, trackInst, trackIndex, tracksMeta, trackMeta, isLinkedChild, puxTrack, coroTrack, useSequencerStore.getState().tracks);
             const sec = (songSections || []).find((s) => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
             const inLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
             const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null ? (inLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const)) : 'none' as const;

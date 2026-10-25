@@ -44,6 +44,11 @@ export const TimelineMeasureHeaderBadge: React.FC<TimelineMeasureHeaderBadgeProp
           {p.vocalMode === 'micro' ? '' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
         </option>
       ))}
+      {!isSlave && patternId !== -1 && !isSilence && !patternsList.some((p) => String(p.id) === String(patternId)) && (
+        <option value={String(patternId)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+          {activePatternName || String(patternId)}
+        </option>
+      )}
     </select>
   );
 

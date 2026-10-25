@@ -41,6 +41,11 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
       {patternsList.map((p, pidx) => (
         <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{p.vocalMode === 'micro' ? '[MIC] ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}</option>
       ))}
+      {patternId !== -1 && !patternsList.some((p) => String(p.id) === String(patternId)) && (
+        <option value={String(patternId)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+          {activePatternName || String(patternId)}
+        </option>
+      )}
     </select>
   );
 

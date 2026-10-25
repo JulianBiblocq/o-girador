@@ -1,10 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
-import { Pattern } from '../types';
 import { checkAndTriggerToadaQuickPrompt } from '../utils/toadaArrangement';
 import { TimelinePatternPickerList } from './timeline/TimelinePatternPickerList';
+import { resolvePatternsListForTrack, resolveActivePatternForCell } from '../utils/timelinePatternResolver';
+import { isSlaveTrack } from '../utils/trackMasterResolver';
 
 export interface TimelinePatternPickerPopoverProps {
   trackId: number; measureIdx: number; anchorRect: DOMRect; onClose: () => void;
@@ -24,38 +25,12 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
   const inst = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
   const trackTitle = targetTrack?.customName || inst?.name || (lang === 'fr' ? 'Piste' : 'Faixa');
   const instColor = inst?.colors?.['D'] || inst?.color || inst?.mixerBg || '#e67e22';
-  const isSlave = Boolean(targetTrack?.linkedToTrackId && !targetTrack.isLinkFolder && !targetTrack.isLinkMaster);
 
-  let patternsList: Pattern[] = [];
-  if (targetTrack) {
-    if (isToadaBus(targetTrack)) {
-      const pux = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-      const coro = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-      patternsList = [...(pux?.patterns || []), ...(coro?.patterns || [])];
-    } else if (targetTrack.linkedToTrackId && !targetTrack.isLinkFolder) {
-      const parentBus = tracks.find((p) => String(p.id) === String(targetTrack.linkedToTrackId) && p.isLinkFolder);
-      patternsList = parentBus ? parentBus.patterns : targetTrack.patterns;
-    } else patternsList = targetTrack.patterns;
-  }
-
-  let activePatternId: number | null | undefined = null;
-  let isFollowingMaster = false;
-  if (isSlave) {
-    const ov = targetTrack?.patternOverrides?.[measureIdx];
-    if (ov === null) activePatternId = null;
-    else if (ov !== undefined) activePatternId = ov;
-    else {
-      isFollowingMaster = true;
-      const parentBus = tracks.find((p) => String(p.id) === String(targetTrack?.linkedToTrackId) && p.isLinkFolder);
-      activePatternId = parentBus?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? null;
-    }
-  } else if (targetTrack && isToadaBus(targetTrack)) {
-    const pux = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-    const coro = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-    activePatternId = pux?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? coro?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? null;
-  } else {
-    activePatternId = targetTrack?.patterns.find((p) => p.measureAssignments[measureIdx])?.id ?? null;
-  }
+  const isSlave = isSlaveTrack(targetTrack, tracks);
+  const patternsList = resolvePatternsListForTrack(targetTrack, tracks);
+  const resolved = resolveActivePatternForCell(trackId, measureIdx, null, tracks);
+  const activePatternId = resolved.activePattern?.id ?? null;
+  const isFollowingMaster = isSlave && targetTrack?.patternOverrides?.[measureIdx] === undefined;
 
   useLayoutEffect(() => {
     if (!popoverRef.current) return;

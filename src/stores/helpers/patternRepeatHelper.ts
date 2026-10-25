@@ -55,11 +55,7 @@ export const repeatPatternRangeState = (
 
   let targetTrackId = trackId;
   let sourceOwnerTrack = clickedTrack;
-  if (isLinkMaster && clickedTrack.linkedToTrackId) {
-    targetTrackId = Number(clickedTrack.linkedToTrackId);
-    const owner = nextTracks.find(t => t.id === targetTrackId);
-    if (owner) sourceOwnerTrack = owner;
-  }
+  const parentBusId = isLinkMaster && clickedTrack.linkedToTrackId ? String(clickedTrack.linkedToTrackId) : null;
 
   const isToadaTrackId = isToadaBus(clickedTrack);
   const puxTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
@@ -123,6 +119,20 @@ export const repeatPatternRangeState = (
             }
             return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
           })
+        };
+      }
+      if (parentBusId && String(t.id) === parentBusId && t.isLinkFolder) {
+        const busMatchPtn = activePat ? t.patterns.find((bp) => bp.id === activePat.id || bp.name.trim().toLowerCase() === activePat.name.trim().toLowerCase()) : null;
+        return {
+          ...t,
+          patterns: t.patterns.map((bp) => {
+            const assign = [...bp.measureAssignments];
+            while (assign.length < nextTotal) assign.push(false);
+            for (let step = 1; step <= count; step++) {
+              assign[srcIdx + step] = Boolean(busMatchPtn && bp.id === busMatchPtn.id);
+            }
+            return { ...bp, measureAssignments: assign };
+          }),
         };
       }
       return t;
