@@ -1,12 +1,28 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { checkHasFullPlaybackAccess, UserProfile } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import { useTransportStore } from '../stores/useTransportStore';
-import { syncMobileViewModeWithProfile } from '../utils/viewModeResolver';
+import { syncMobileViewModeWithProfile, isStudioPrivilegedProfile } from '../utils/viewModeResolver';
 
 export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: boolean) {
+  const initializedStudioUidRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const currentKey = userProfile?.uid || (isAdmin ? 'admin' : null);
+    if (!currentKey || initializedStudioUidRef.current === currentKey) return;
+    initializedStudioUidRef.current = currentKey;
+
+    if (isStudioPrivilegedProfile(userProfile, isAdmin)) {
+      useSequencerStore.getState().setIsPracticeMode(false);
+      const urlParams = new URLSearchParams(window.location.search);
+      if (!urlParams.has('mode')) {
+        useSequencerStore.getState().setMobileViewMode('complet');
+      }
+    }
+  }, [userProfile?.uid, userProfile?.role, userProfile?.canWriteSequenciador, isAdmin]);
+
   useEffect(() => {
     if (userProfile) {
       const { mobileViewMode, setMobileViewMode } = useSequencerStore.getState();

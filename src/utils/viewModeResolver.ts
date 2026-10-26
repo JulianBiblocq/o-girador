@@ -7,28 +7,26 @@ export type MobileViewMode = 'danse' | 'percussion' | 'editeur' | 'complet';
 
 export const MOBILE_VIEW_MODE_STORAGE_KEY = 'sequenciador_last_view_mode';
 
+export function isStudioPrivilegedProfile(profile?: any, isAdmin = false): boolean {
+  if (isAdmin) return true;
+  if (!profile) return false;
+  const role = String(profile.role || profile.dbRole || '').toLowerCase();
+  return role === 'mestre' || role === 'mestri' || role === 'admin' || Boolean(profile.canWriteSequenciador);
+}
+
 export function hasDirectModeUrlParam(): boolean {
   if (typeof window === 'undefined') return false;
   const p = new URLSearchParams(window.location.search);
-  return (
-    p.has('mode') ||
-    p.has('view') ||
-    p.has('tocarJunto') ||
-    p.has('trainingId') ||
-    p.has('role')
-  );
+  return p.has('mode') || p.has('view') || p.has('tocarJunto') || p.has('trainingId') || p.has('role');
 }
 
 export function persistMobileViewModeLocally(mode: MobileViewMode): void {
   if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(MOBILE_VIEW_MODE_STORAGE_KEY, mode);
-  } catch (_) {}
+  try { localStorage.setItem(MOBILE_VIEW_MODE_STORAGE_KEY, mode); } catch (_) {}
 }
 
 export function persistMobileViewMode(mode: MobileViewMode): void {
   persistMobileViewModeLocally(mode);
-
   try {
     const uid = auth.currentUser?.uid;
     if (uid) {
@@ -44,7 +42,6 @@ export function persistMobileViewMode(mode: MobileViewMode): void {
 
 export function getInitialMobileViewMode(): MobileViewMode {
   if (typeof window === 'undefined') return 'complet';
-
   const urlParams = new URLSearchParams(window.location.search);
   const modeParam = (urlParams.get('mode') || '').toLowerCase();
   const viewParam = (urlParams.get('view') || '').toLowerCase();
@@ -56,43 +53,25 @@ export function getInitialMobileViewMode(): MobileViewMode {
   if (modeParam === 'editeur' || modeParam === 'edition') { persistMobileViewModeLocally('editeur'); return 'editeur'; }
   if (modeParam === 'complet' || modeParam === 'studio') { persistMobileViewModeLocally('complet'); return 'complet'; }
 
-  // PRIORITÉ 2 — Mémoire de l'utilisateur (sequenciador_last_view_mode)
   try {
     const saved = localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY);
     if (saved === 'danse' || saved === 'percussion' || saved === 'editeur' || saved === 'complet') {
       return saved;
     }
   } catch (_) {}
-
-  // PRIORITÉ 3 — Primo-arrivée sans mémoire (défaut après Landing Page)
   return 'complet';
 }
 
 export function resolveDefaultModeFromProfile(profile: UserProfile): MobileViewMode {
+  if (isStudioPrivilegedProfile(profile)) return 'complet';
+
   const role = (profile.dbRole || profile.role || '').toLowerCase();
   const inst = (profile.instrument || '').toLowerCase();
-  const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || window.matchMedia('(hover: none) and (pointer: coarse) and (max-height: 540px)').matches);
-
-  if (role === 'mestre' || role === 'mestri' || Boolean(profile.canWriteSequenciador)) {
-    return isMobile ? 'editeur' : 'complet';
-  }
-
-  const isDanseur =
-    role.includes('danse') ||
-    inst.includes('danse') ||
-    Boolean(profile.canWriteDansador) ||
-    Boolean(profile.hasDancaAccess);
-
+  const isDanseur = role.includes('danse') || inst.includes('danse') || Boolean(profile.canWriteDansador) || Boolean(profile.hasDancaAccess);
   if (isDanseur) return 'danse';
 
-  const isPercussion =
-    role.includes('percu') ||
-    role === 'eleve' ||
-    role === 'membre' ||
-    (Boolean(inst) && !inst.includes('danse'));
-
+  const isPercussion = role.includes('percu') || role === 'eleve' || role === 'membre' || (Boolean(inst) && !inst.includes('danse'));
   if (isPercussion) return 'percussion';
-
   return 'complet';
 }
 
@@ -102,9 +81,15 @@ export function syncMobileViewModeWithProfile(
   setMobileViewMode?: (mode: MobileViewMode) => void
 ): void {
   if (!profile || typeof window === 'undefined') return;
-
-  // Priorité absolue à l'URL : ne jamais écraser un lien ciblé
   if (hasDirectModeUrlParam()) return;
+
+  if (isStudioPrivilegedProfile(profile)) {
+    if (setMobileViewMode && currentStoreMode !== 'complet') {
+      setMobileViewMode('complet');
+    }
+    persistMobileViewModeLocally('complet');
+    return;
+  }
 
   if (profile.lastSequenciadorMode) {
     const cloudMode = profile.lastSequenciadorMode;
