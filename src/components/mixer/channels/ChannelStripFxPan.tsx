@@ -73,7 +73,7 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
               }}
               className={`absolute right-1 top-1/2 -translate-y-1/2 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer transition-all ${
                 isRevActive
-                  ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)]'
+                  ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)]'
                   : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
               }`}
               title={isRevActive ? 'Automation Réverbe active (Clic: débrayer)' : 'Automation Réverbe débrayée (Clic: réactiver)'}
@@ -98,7 +98,7 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
                 }}
                 className={`w-[16px] h-[16px] rounded-[2px] flex items-center justify-center font-bold text-[9px] cursor-pointer transition-all ${
                   isPanActive
-                    ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)]'
+                    ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)]'
                     : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
                 }`}
                 title={isPanActive ? 'Automation Pan active (Clic: débrayer)' : 'Automation Pan débrayée (Clic: réactiver)'}

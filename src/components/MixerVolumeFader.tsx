@@ -32,7 +32,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   fontSize, isMaster = false, faderHandleRef, valueTextRefProp, travelRangeRef,
   hasVolAuto, isVolActive, onToggleVolBypass,
 }) => {
-  const resolvedFaderColor = faderColor || (isMaster ? 'var(--master-fader-thumb)' : '#d4af37');
+  const resolvedFaderColor = faderColor || (isMaster ? 'var(--master-fader-thumb)' : 'var(--cordel-gold)');
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -117,7 +117,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
             }}
             className={`w-[18px] h-[19px] shrink-0 rounded-[2px] flex items-center justify-center font-bold text-[9px] cursor-pointer transition-all ${
               isVolActive
-                ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)]'
+                ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)]'
                 : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
             }`}
             title={isVolActive ? 'Automation Volume active (Clic: débrayer)' : 'Automation Volume débrayée (Clic: réactiver)'}

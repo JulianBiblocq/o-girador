@@ -69,7 +69,7 @@ export const ChannelStripFaderSection: React.FC<ChannelStripFaderSectionProps> =
         <button
           onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(trackId); }}
           className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
-            (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            (track.isMute && !track.isSolo) ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
           }`}
           title="Mute"
         >
@@ -78,7 +78,7 @@ export const ChannelStripFaderSection: React.FC<ChannelStripFaderSectionProps> =
         <button
           onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(trackId); }}
           className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
-            track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            track.isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
           }`}
           title="Solo"
         >

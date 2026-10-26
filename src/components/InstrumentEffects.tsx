@@ -81,8 +81,8 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
   };
 
   return (
-    <div className="bg-[#ece4d0] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
-      <div className="flex items-center justify-between text-xs border-b border-[#1a1a1a]/20 pb-1.5 text-[#1a1a1a]">
+    <div className="bg-[var(--cordel-parchment-panel)] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
+      <div className="flex items-center justify-between text-xs border-b border-[var(--cordel-ink-dark)]/20 pb-1.5 text-[var(--cordel-ink-dark)]">
         <span className="font-bold">
           {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {!isSingle ? `${selectedStepIndices.length} ${lang === 'fr' ? 'pas' : 'passos'}` : `${lang === 'fr' ? 'Pas' : 'Passo'} ${selectedStepIdx + 1}`}
           {activeVarObj && ` (Var: ${activeVarObj.name})`}
@@ -91,11 +91,11 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
           {!isSingle && isSplitStep && ` — ${selectedSubIndex === 0 ? (lang === 'fr' ? '1er Coup' : '1º Golpe') : selectedSubIndex === 1 ? (lang === 'fr' ? '2ème Coup' : '2º Golpe') : (lang === 'fr' ? 'Coups liés' : 'Golpes ligados')}`}
         </span>
         <div className="flex items-center gap-2">
-          <button onClick={resetValues} className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer">
+          <button onClick={resetValues} className="text-[var(--cordel-wood)] font-bold text-[10px] uppercase hover:underline cursor-pointer">
             {lang === 'fr' ? 'Réinitialiser' : 'Resetar'}
           </button>
           {onClose && (
-            <button type="button" onClick={onClose} aria-label="Fermer" className="w-5 h-5 flex items-center justify-center rounded-xs bg-[#1a1a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer text-xs font-bold shrink-0 ml-1"><X size={14} /></button>
+            <button type="button" onClick={onClose} aria-label="Fermer" className="w-5 h-5 flex items-center justify-center rounded-xs bg-[var(--cordel-ink-dark)]/10 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] transition-colors cursor-pointer text-xs font-bold shrink-0 ml-1"><X size={14} /></button>
           )}
         </div>
       </div>
@@ -104,7 +104,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
         <SplitStepTargetSelector stepVal={splitPreviewVal} selectedSubIndex={selectedSubIndex} lang={lang} onSelectSubIndex={onSelectSubIndex} />
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#1a1a1a]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[var(--cordel-ink-dark)]">
         <VolumeSliderControl currVol={currVol} onChange={(val) => selectedVariationId ? handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass) : handleTrackStepVolumeChange(trackId, pattern.id, targets, val, subToPass)} />
         <div className="flex flex-col gap-0.5">
           <DecaySliderControl initialValue={currDecay} isVoice={isVoice} lang={lang} onCommit={(val) => selectedVariationId ? handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass) : handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass)} />

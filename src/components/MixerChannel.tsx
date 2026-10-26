@@ -1,10 +1,7 @@
-
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
-import { instrumentsConfig } from '../data';
-import { getTrackDisplayName } from '../utils/colorHelpers';
 import { useAudio } from '../contexts/AudioContext';
 import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
 import { useTrackMixerContextMenu } from './mixer/useTrackMixerContextMenu';
@@ -12,23 +9,15 @@ import { trackHasRealVolAuto, trackHasRealPanAuto, trackHasRealRevAuto } from '.
 import { isAutomationBypassed } from '../utils/automationBypassHelper';
 import { computeChannelStripStyles } from './mixer/channels/channelStripStyles';
 import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutomation';
+import { useChannelStripMeta } from './mixer/channels/useChannelStripMeta';
 import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
 import { ChannelStripBody } from './mixer/channels/ChannelStripBody';
 import { MixerChannelProps } from './mixer/channels/channelStripTypes';
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
-  trackId,
-  channelOrdinal,
-  midiFaderIndex = null,
-  isUnderMidiControl = false,
-  onOpenDetailEditor,
-  isActive = true,
-  busPosition = 'none',
-  linkPosition = 'none',
-  isDragOver = false,
-  dropIndicator = null,
-  activeWagonSize = 1,
-  isWagonMember = false,
+  trackId, channelOrdinal, midiFaderIndex = null, isUnderMidiControl = false,
+  onOpenDetailEditor, isActive = true, busPosition = 'none', linkPosition = 'none',
+  isDragOver = false, dropIndicator = null, activeWagonSize = 1, isWagonMember = false,
   isDraggingWagon = false,
 }) => {
   const { isPlaying } = useAudio();
@@ -40,43 +29,28 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const globalBypass = useSequencerStore(state => state.globalAutomationBypass);
 
   const { contextMenuPos, handleContextMenuOpen, handleContextMenuClose, touchHandlers } = useTrackMixerContextMenu();
-
   const isVolActive = trackHasRealVolAuto(track) && !isAutomationBypassed(track, 'volume', globalBypass);
   const isPanActive = trackHasRealPanAuto(track) && !isAutomationBypassed(track, 'pan', globalBypass);
   const isRevActive = trackHasRealRevAuto(track) && !isAutomationBypassed(track, 'reverb', globalBypass);
 
   const { faderHandleRef, faderTextRef, travelRangeRef, panKnobRef, reverbGaugeRef, reverbTextRef } = useChannelStripAutomation({
-    track,
-    isPlaying,
-    isEcoMode,
-    totalMeasures,
-    isVolActive,
-    isPanActive,
-    isRevActive,
+    track, isPlaying, isEcoMode, totalMeasures, isVolActive, isPanActive, isRevActive,
   });
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `track-${trackId}` });
   const [nameVal, setNameVal] = useState<string>(track?.customName || '');
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
 
-  if (!track) return null;
-  const inst = instrumentsConfig[track.instrumentIdx];
-  if (!inst) return null;
+  const { inst, displayName, customDeleteMessage, effectiveOnOpenDetailEditor } = useChannelStripMeta(
+    track, tracksMeta, lang, onOpenDetailEditor
+  );
 
-  const displayName = getTrackDisplayName(track, tracksMeta);
+  if (!track || !inst) return null;
+
   const isMuted = getEffectiveMuteState(tracksMeta, trackId);
   const { groupStyle, linkStyle, faderColor, faderTextColor, paddingTop, paddingBottom, style } = computeChannelStripStyles({
-    track,
-    tracksMeta,
-    inst,
-    busPosition,
-    linkPosition,
-    isDragOver,
-    transform,
-    transition,
-    activeWagonSize,
-    isWagonMember,
-    isDraggingWagon,
+    track, tracksMeta, inst, busPosition, linkPosition, isDragOver, transform, transition,
+    activeWagonSize, isWagonMember, isDraggingWagon,
   });
 
   const handleRenameSubmit = () => {
@@ -110,9 +84,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
       <ChannelStripHeader
         track={track} inst={inst} channelOrdinal={channelOrdinal} midiFaderIndex={midiFaderIndex}
-        isUnderMidiControl={isUnderMidiControl} displayName={displayName} onOpenDetailEditor={onOpenDetailEditor}
+        isUnderMidiControl={isUnderMidiControl} displayName={displayName} onOpenDetailEditor={effectiveOnOpenDetailEditor}
         attributes={attributes} listeners={listeners} isEditingName={isEditingName} nameVal={nameVal}
         setNameVal={setNameVal} handleRenameSubmit={handleRenameSubmit} setIsEditingName={setIsEditingName}
+        customDeleteMessage={customDeleteMessage}
       />
 
       <ChannelStripBody
@@ -125,11 +100,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
       {contextMenuPos && (
         <TrackContextMenu
-          trackId={trackId}
-          x={contextMenuPos.x}
-          y={contextMenuPos.y}
-          onClose={handleContextMenuClose}
-          onRename={() => setIsEditingName(true)}
+          trackId={trackId} x={contextMenuPos.x} y={contextMenuPos.y}
+          onClose={handleContextMenuClose} onRename={() => setIsEditingName(true)}
         />
       )}
     </div>

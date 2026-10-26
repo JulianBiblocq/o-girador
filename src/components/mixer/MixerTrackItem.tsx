@@ -1,8 +1,6 @@
 import React from 'react';
 import { TrackMeta } from '../../stores/useSequencerStore';
 import { MixerChannel } from '../MixerChannel';
-import { MixerLinkedTrack } from '../MixerLinkedTrack';
-import { MixerFolderBus } from '../MixerFolderBus';
 
 interface MixerTrackItemProps {
   track: TrackMeta;
@@ -33,70 +31,32 @@ interface MixerTrackItemProps {
 }
 
 export const MixerTrackItem: React.FC<MixerTrackItemProps> = ({
-  track,
-  index,
-  channelOrdinal,
-  midiFaderIndex,
-  isUnderMidiControl,
-  isActive,
-  busPosition,
-  linkPosition,
-  isThisGroupHovered,
-  dropIndicator,
-  wagonSize,
-  isWagonMember,
-  isDraggingWagon,
-  onOpenDetailEditor,
-  onStepTouchStart,
-  handleCopyPattern,
-  handlePastePattern,
-  copiedPattern,
+  track, index, channelOrdinal, midiFaderIndex, isUnderMidiControl, isActive,
+  busPosition, linkPosition, isThisGroupHovered, dropIndicator, wagonSize,
+  isWagonMember, isDraggingWagon, onOpenDetailEditor, onStepTouchStart,
+  handleCopyPattern, handlePastePattern, copiedPattern,
 }) => {
-  const commonProps = {
-    trackId: track.id,
-    index,
-    channelOrdinal,
-    midiFaderIndex,
-    isUnderMidiControl,
-    isActive,
-    busPosition,
-    linkPosition,
-    isDragOver: isThisGroupHovered,
-    dropIndicator,
-    activeWagonSize: wagonSize,
-    isWagonMember,
-    isDraggingWagon,
-  };
-
-  if (track.isBusFolder) {
-    if (track.isLinkFolder) {
-      return (
-        <MixerChannel
-          key={track.id}
-          {...commonProps}
-          onOpenDetailEditor={onOpenDetailEditor}
-          onCopyPattern={handleCopyPattern}
-          onPastePattern={handlePastePattern}
-          canPaste={copiedPattern !== null}
-        />
-      );
-    }
-    return <MixerFolderBus key={track.id} {...commonProps} />;
-  }
-
-  if (track.linkedToTrackId) {
-    return <MixerLinkedTrack key={track.id} {...commonProps} onOpenDetailEditor={onOpenDetailEditor} />;
-  }
-
   return (
     <MixerChannel
       key={track.id}
-      {...commonProps}
+      trackId={track.id}
+      index={index}
+      channelOrdinal={channelOrdinal}
+      midiFaderIndex={midiFaderIndex}
+      isUnderMidiControl={isUnderMidiControl}
+      isActive={isActive}
+      busPosition={busPosition}
+      linkPosition={linkPosition}
+      isDragOver={isThisGroupHovered}
+      dropIndicator={dropIndicator}
+      activeWagonSize={wagonSize}
+      isWagonMember={isWagonMember}
+      isDraggingWagon={isDraggingWagon}
       onOpenDetailEditor={onOpenDetailEditor}
       onStepTouchStart={onStepTouchStart}
       onCopyPattern={handleCopyPattern}
       onPastePattern={handlePastePattern}
-      canPaste={!!copiedPattern}
+      canPaste={Boolean(copiedPattern)}
     />
   );
 };

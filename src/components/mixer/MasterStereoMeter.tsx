@@ -19,7 +19,7 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
       <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] border border-[var(--master-border)]/40 relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
         <div
           className="flex-1 h-full relative overflow-hidden pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)' }}
+          style={{ background: 'linear-gradient(to top, var(--vu-level-nominal) 0%, var(--vu-level-nominal) 65%, var(--vu-level-warn) 80%, var(--vu-level-clip) 95%)' }}
         >
           <div
             ref={vuMeterLeftRef}
@@ -29,7 +29,7 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
         </div>
         <div
           className="flex-1 h-full relative overflow-hidden pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #3b8c82 0%, #3b8c82 65%, #d99b26 80%, #c25e38 95%)' }}
+          style={{ background: 'linear-gradient(to top, var(--vu-level-nominal) 0%, var(--vu-level-nominal) 65%, var(--vu-level-warn) 80%, var(--vu-level-clip) 95%)' }}
         >
           <div
             ref={vuMeterRightRef}

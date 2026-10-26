@@ -4,22 +4,26 @@
   font-family: 'Cactus';
   src: url('/fonts/Cactus Regular.otf') format('opentype'),
        url('../public/fonts/Cactus Regular.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
+  font-weight: normal; font-style: normal; font-display: swap;
 }
 
 :root, [data-theme='dark'] {
   color-scheme: dark;
-  /* Dark mode is default */
   --cordel-bg: #121212;
   --cordel-surface: #1e1b18;
   --cordel-text: #f4ecd8;
   --cordel-text-muted: #d6cbb5;
   --cordel-border: rgba(244, 236, 216, 0.35);
   --cordel-wood: #8b2a1a;
+  --cordel-gold: #d4af37;
   --cordel-accent: #b94a2c;
-  /* Roda Skin Constants (Toujours style clair dans les 2 thèmes) */
+  --cordel-parchment-bg: #f4ecd8;
+  --cordel-parchment-panel: #ece4d0;
+  --cordel-parchment-surface: #efe7d3;
+  --cordel-ink-dark: #1a1a1a;
+  --vu-level-nominal: #3b8c82;
+  --vu-level-warn: #d99b26;
+  --vu-level-clip: #c25e38;
   --roda-skin-bg: #f4ecd8;
   --roda-skin-text: #1a1a1a;
   --roda-skin-ink: #1a1a1a;
@@ -30,12 +34,10 @@
   --cordel-card-btn-border: rgba(244, 236, 216, 0.3);
   --cordel-beat-odd: #1e1b18;
   --cordel-beat-even: #292524;
-  /* --cordel-master-bg: #121212; -- Old charcoal tint */
-  --cordel-master-bg: #251c1a; /* Deeper earth-red tinted dark background (10% #8b2a1a) */
-  --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
+  --cordel-master-bg: #251c1a;
+  --cordel-shadow-color: rgba(0, 0, 0, 0.55);
   --title-text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
   --title-drop-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-  /* Master Strip Tokens (Dark default) */
   --master-header-bg: #0f0f0f;
   --master-header-text: #f4ecd8;
   --master-border: #f4ecd8;
@@ -51,40 +53,15 @@
   --wallpaper-mixer-opacity: 0.16;
 }
 
-/* Master Strip Custom Range Slider Styles */
-.master-fader {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.master-fader::-webkit-slider-runnable-track {
-  width: 100%;
-  height: 6px;
-  background: #2a2a2a;
-  border-radius: 3px;
-  border: 1px solid var(--master-border);
-}
-
+.master-fader { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+.master-fader::-webkit-slider-runnable-track { width: 100%; height: 6px; background: #2a2a2a; border-radius: 3px; border: 1px solid var(--master-border); }
 .master-fader::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 24px;
-  background: var(--master-fader-thumb);
-  border: 1.5px solid var(--master-border);
-  border-radius: 2px;
-  margin-top: -10px;
-  box-shadow: 1px 1px 0px rgba(0,0,0,0.5);
-  cursor: ew-resize;
+  -webkit-appearance: none; appearance: none; width: 16px; height: 24px;
+  background: var(--master-fader-thumb); border: 1.5px solid var(--master-border);
+  border-radius: 2px; margin-top: -10px; box-shadow: 1px 1px 0px rgba(0,0,0,0.5); cursor: ew-resize;
 }
+.master-fader:focus { outline: none; }
 
-.master-fader:focus {
-  outline: none;
-}
-
-/* Portée d'isolation claire pour l'intérieur du tambour de la Roda */
 .roda-skin-scope {
   --cordel-bg: var(--roda-skin-bg);
   --cordel-text: var(--roda-skin-text);
@@ -100,19 +77,24 @@
   --cordel-text-muted: #44403c;
   --cordel-border: #1a1a1a;
   --cordel-wood: #8b2a1a;
+  --cordel-gold: #d4af37;
   --cordel-accent: #b94a2c;
+  --cordel-parchment-bg: #f4ecd8;
+  --cordel-parchment-panel: #ece4d0;
+  --cordel-parchment-surface: #efe7d3;
+  --cordel-ink-dark: #1a1a1a;
+  --vu-level-nominal: #3b8c82;
+  --vu-level-warn: #d99b26;
+  --vu-level-clip: #c25e38;
   --cordel-card-btn-bg: #efe6d0;
   --cordel-card-btn-text: #1a1a1a;
   --cordel-card-btn-border: #1a1a1a;
   --cordel-beat-odd: #f4ecd8;
   --cordel-beat-even: #e2d5b5;
-  /* --cordel-master-bg: #eae1cd; -- Old antique beige */
-  --cordel-master-bg: #e7d5c1; /* Deeper earth-red tinted light background (12% #8b2a1a) */
-  --cordel-shadow-color: rgba(26, 26, 26, 0.25); /* Ombre sombre classique */
+  --cordel-master-bg: #e7d5c1;
+  --cordel-shadow-color: rgba(26, 26, 26, 0.25);
   --title-text-shadow: none;
   --title-drop-shadow: none;
-
-  /* Master Strip Tokens (Light mode) */
   --master-header-bg: #1a1a1a;
   --master-header-text: #f4ecd8;
   --master-border: #1a1a1a;
@@ -129,4 +111,4 @@
   --disto-color: #c25e1a;
   --wallpaper-opacity: 0.12;
   --wallpaper-mixer-opacity: 0.12;
-}
+}

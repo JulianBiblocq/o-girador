@@ -71,13 +71,13 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const { getStrokeStats, applyMacroVolumeDelta, applyMacroDecayDelta } = useStrokeInspectorStats(trackId, isVoice);
 
   return (
-    <div className={`flex flex-col gap-2.5 p-3 sm:px-4 sm:py-3 overflow-y-auto overflow-x-hidden max-h-full w-full min-w-0 box-border ${isMobileDrawer ? '' : 'bg-[#efe7d3]'}`}>
+    <div className={`flex flex-col gap-2.5 p-3 sm:px-4 sm:py-3 overflow-y-auto overflow-x-hidden max-h-full w-full min-w-0 box-border ${isMobileDrawer ? '' : 'bg-[var(--cordel-parchment-surface)]'}`}>
       {isMobileDrawer && (
-        <div className="flex items-center justify-between pb-1 border-b border-[#1a1a1a]/20">
-          <span className="font-cactus font-bold text-xs uppercase text-[#1a1a1a]">
+        <div className="flex items-center justify-between pb-1 border-b border-[var(--cordel-border)]/20">
+          <span className="font-cactus font-bold text-xs uppercase text-[var(--cordel-ink-dark)]">
             {isFr ? "Inspecteur de l'instrument" : 'Inspetor do instrumento'}
           </span>
-          <button type="button" onClick={onCloseMobileDrawer} className="p-1 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] rounded text-[#1a1a1a] transition-colors">
+          <button type="button" onClick={onCloseMobileDrawer} className="p-1 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] rounded text-[var(--cordel-ink-dark)] transition-colors">
             <X size={16} />
           </button>
         </div>

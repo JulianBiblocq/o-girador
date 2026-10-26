@@ -76,7 +76,7 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={handleDelete} className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs cursor-pointer" title={track.isBusFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : (lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa')}>
+          <button onClick={handleDelete} className="w-5 h-5 bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-parchment-bg)] text-xs cursor-pointer" title={track.isBusFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : (lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa')}>
             <Trash2 size={11} />
           </button>
         </div>

@@ -35,19 +35,19 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       data-theme="light"
       data-instrument-detail-editor={model.isVocalContext ? 'voice' : 'percussion'}
       data-voice-editor={model.isVocalContext ? 'true' : 'false'}
-      className={`bg-[#ece4d0] ${model.isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full max-md:fixed max-md:inset-0 max-md:w-screen max-md:h-dvh max-md:max-w-none max-md:max-h-none max-md:rounded-none max-md:border-0 max-h-[520px]:fixed max-h-[520px]:inset-0 max-h-[520px]:w-screen max-h-[520px]:h-dvh max-h-[520px]:max-w-none max-h-[520px]:max-h-none max-h-[520px]:rounded-none max-h-[520px]:border-0'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
+      className={`bg-[var(--cordel-parchment-panel)] ${model.isDetached ? 'w-full h-full' : 'cordel-border-sm w-[95vw] max-w-7xl h-[calc(100%-0.5rem)] max-h-full max-md:fixed max-md:inset-0 max-md:w-screen max-md:h-dvh max-md:max-w-none max-md:max-h-none max-md:rounded-none max-md:border-0 max-h-[520px]:fixed max-h-[520px]:inset-0 max-h-[520px]:w-screen max-h-[520px]:h-dvh max-h-[520px]:max-w-none max-h-[520px]:max-h-none max-h-[520px]:rounded-none max-h-[520px]:border-0'} text-[var(--cordel-ink-dark)] flex flex-col relative overflow-hidden`}
       style={model.isDetached ? { width: '100%', height: '100%', colorScheme: 'light' } : {
         maxWidth: model.isMobile ? '100%' : '80rem',
         width: model.isMobile ? '100vw' : '95vw',
         height: model.isMobile ? '100dvh' : 'calc(100% - 0.5rem)',
         maxHeight: '100%',
-        boxShadow: model.isMobile ? 'none' : '8px 8px 0px 0px #1a1a1a',
+        boxShadow: model.isMobile ? 'none' : '8px 8px 0px 0px var(--cordel-ink-dark)',
         colorScheme: 'light',
       }}
     >
       <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg opacity-15" aria-hidden="true" />
       {model.isClosing && !model.isDetached && (
-        <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-20 pointer-events-auto" />
+        <div className="absolute inset-0 bg-[var(--cordel-parchment-bg)]/20 backdrop-blur-[0.5px] z-20 pointer-events-auto" />
       )}
 
       <InstrumentEditorHeader {...model.headerProps} />
@@ -65,7 +65,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   if (model.isDetached) {
     return (
-      <div className="w-full h-full relative overflow-hidden flex flex-col bg-[#ece4d0] text-[#1a1a1a]" data-theme="light" style={{ colorScheme: 'light' }}>
+      <div className="w-full h-full relative overflow-hidden flex flex-col bg-[var(--cordel-parchment-panel)] text-[var(--cordel-ink-dark)]" data-theme="light" style={{ colorScheme: 'light' }}>
         {wrapperContent}
       </div>
     );
