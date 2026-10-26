@@ -7,31 +7,21 @@ import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
 import { migrateAndSanitizePresetTracks } from './audioPresetTracksMigrator';
 import { restorePresetVocalRecordings } from './audioPresetVocalRestorer';
 import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
+import { restorePresetLoopState } from './audioPresetLoopRestorer';
 import { restorePresetAutomationsAndVocal, restorePresetVigilancePoints } from './presetSerializationHelpers';
 
 export async function executeApplyPreset(
   p: any,
   sequencer: any,
   audioSync: any,
-  setters: {
-    setMasterEQ: (eq: any) => void;
-    setMasterCompressor: (comp: any) => void;
-    setMasterVol: (vol: number) => void;
-    setMasterReverbVol: (vol: number) => void;
-    setReverbDecay: (decay: number) => void;
-  }
+  setters: { setMasterEQ: (eq: any) => void; setMasterCompressor: (comp: any) => void; setMasterVol: (vol: number) => void; setMasterReverbVol: (vol: number) => void; setReverbDecay: (decay: number) => void; }
 ): Promise<void> {
   vocalEngineService.disposeAllVocalPlayers();
   useSequencerStore.getState().resetFirstPassRegistry();
   sequencer.clearHistory();
-  sequencer.setMetadata({
-    toada: p.metadata?.toada || '',
-    nacao: p.metadata?.nacao || '',
-    compositor: p.metadata?.compositor || '',
-    ritmo: p.metadata?.ritmo || '',
-    rhythmSignals: p.metadata?.rhythmSignals || [],
-    ...(p.metadata || {})
-  });
+  const fullMeta = { toada: p.metadata?.toada || '', nacao: p.metadata?.nacao || '', compositor: p.metadata?.compositor || '', ritmo: p.metadata?.ritmo || '', rhythmSignals: p.metadata?.rhythmSignals || [], ...(p.metadata || {}) };
+  sequencer.setMetadata(fullMeta);
+  useSequencerStore.getState().setMetadata(fullMeta);
 
   const loadedMeasures = p.totalMeasures || 8;
   const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
@@ -66,10 +56,14 @@ export async function executeApplyPreset(
   const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms) ? p.measureBpms.map((b: number) => Math.round(b)) : Array(loadedMeasures).fill(defaultBpm);
   const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs) ? p.measureTimeSigs : Array(loadedMeasures).fill(defaultTimeSig);
   const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions) ? p.measureBpmTransitions : Array(loadedMeasures).fill('immediate');
-  const loadedVols = p.measureVols && Array.isArray(p.measureVols) ? p.measureVols.map((v: number) => {
+  let rawMeasureVols = p.measureVols && Array.isArray(p.measureVols) ? p.measureVols.map((v: number) => {
     const rounded = Math.round(v);
     return !isAudioV2 ? (rounded === 100 ? 75 : Math.round(rounded * 0.75)) : rounded;
-  }) : Array(loadedMeasures).fill(75);
+  }) : Array(loadedMeasures).fill(100);
+  if (rawMeasureVols.length > 0 && rawMeasureVols.every((v: number) => v === 75)) {
+    rawMeasureVols = Array(loadedMeasures).fill(100);
+  }
+  const loadedVols = rawMeasureVols;
   const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions) ? p.measureVolTransitions : Array(loadedMeasures).fill('immediate');
 
   sequencer.setTotalMeasures(loadedMeasures, true);
@@ -80,16 +74,9 @@ export async function executeApplyPreset(
   sequencer.setMeasureBpms(loadedBpms); sequencer.setMeasureTimeSigs(loadedTimeSigs);
   sequencer.setMeasureBpmTransitions(loadedBpmTransitions); sequencer.setMeasureVols(loadedVols); sequencer.setMeasureVolTransitions(loadedVolTransitions);
 
-  useSequencerStore.getState().clearLoopExitRequest();
-  useSequencerStore.getState().setIsLoopBypassed(false);
-  useSequencerStore.getState().setCurrentLoopIteration(1);
-  useSequencerStore.getState().setLoopMode(p.loopMode !== undefined ? p.loopMode : 'infinite');
-  const hasLoop = p.loopStartMeasure !== undefined && p.loopStartMeasure !== null;
-  const isLoopRegionActive = p.isLoopRegionActive !== undefined ? p.isLoopRegionActive : hasLoop;
-  sequencer.setLoopStartMeasure(p.loopStartMeasure !== undefined ? p.loopStartMeasure : null);
-  sequencer.setLoopEndMeasure(p.loopEndMeasure !== undefined ? p.loopEndMeasure : null);
-  sequencer.setIsLoopRegionActive(isLoopRegionActive);
-  if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
+  const {
+    loadedLoopMode, isLoopRegionActive, loadedIsLooping, loopStartMeasure, loopEndMeasure
+  } = restorePresetLoopState(p, sequencer);
 
   const loadedSections = (p.songSections && Array.isArray(p.songSections)) ? JSON.parse(JSON.stringify(p.songSections)) : [];
   const rawMarkers = p.songMarkers || p.markers;
@@ -102,13 +89,25 @@ export async function executeApplyPreset(
     songMarkers: loadedMarkers,
     measureSignals: loadedSignals,
     mestreSignals: loadedMestreSignals,
-    loopStartMeasure: p.loopStartMeasure !== undefined ? p.loopStartMeasure : null,
-    loopEndMeasure: p.loopEndMeasure !== undefined ? p.loopEndMeasure : null,
+    loopStartMeasure,
+    loopEndMeasure,
     isLoopRegionActive,
+    loopMode: loadedLoopMode,
+    isLooping: loadedIsLooping,
+    isLoopBypassed: false,
+    isLoopExitRequested: false,
+    currentLoopIteration: 1,
     pendingLoopRange: null,
     currentMeasure: 0,
     currentExpandedMeasureIdx: 0,
+    isMasterVolumeBypassed: Boolean(p.isMasterVolumeBypassed),
+    globalAutomationBypass: p.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
+    vocalTransposeSteps: p.vocalTransposeSteps ?? 0,
   });
+  if (p.letras !== undefined) {
+    useSequencerStore.getState().setLetras(p.letras);
+    sequencer.setLetras(p.letras);
+  }
   sequencer.setSongSections(loadedSections); sequencer.setSongMarkers(loadedMarkers); sequencer.setMeasureSignals(loadedSignals);
   if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
   if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;

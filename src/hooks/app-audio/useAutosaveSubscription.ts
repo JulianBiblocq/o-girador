@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useTransportStore } from '../../stores/useTransportStore';
+import { useAudioStore } from '../../stores/useAudioStore';
 import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
 
 export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefObject<any>) {
@@ -30,6 +32,9 @@ export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefOb
         })
       }));
 
+      const currentPreRoll = useTransportStore.getState().preRollSettings;
+      const currentVocalPreset = useAudioStore.getState().vocalPreset || 'guide';
+
       const dataToSave = {
         version: 3,
         tracks: tracksCopy,
@@ -45,6 +50,7 @@ export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefOb
         songSections: state.songSections,
         songMarkers: state.songMarkers,
         measureSignals: state.measureSignals,
+        mestreSignals: state.mestreSignals,
         loopStartMeasure: state.loopStartMeasure,
         loopEndMeasure: state.loopEndMeasure,
         isLoopRegionActive: state.isLoopRegionActive,
@@ -52,15 +58,20 @@ export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefOb
         isLooping: state.isLooping,
         letras: state.letras,
         metadata: state.metadata,
-        masterEQ: audioRef.current.masterEQ,
-        masterCompressor: audioRef.current.masterCompressor,
-        masterVol: audioRef.current.masterVol,
-        masterReverbVol: audioRef.current.masterReverbVol,
-        reverbDecay: audioRef.current.reverbDecay,
+        preRollSettings: currentPreRoll,
+        vocalPreset: currentVocalPreset,
+        vocalTransposeSteps: state.vocalTransposeSteps ?? 0,
+        isMasterVolumeBypassed: Boolean(state.isMasterVolumeBypassed),
+        globalAutomationBypass: state.globalAutomationBypass,
+        masterEQ: audioRef.current?.masterEQ,
+        masterCompressor: audioRef.current?.masterCompressor,
+        masterVol: audioRef.current?.masterVol,
+        masterReverbVol: audioRef.current?.masterReverbVol,
+        reverbDecay: audioRef.current?.reverbDecay,
         masterFX: state.masterFX,
         masterDistortion: state.masterFX?.distortion?.returnVolume,
         masterDistortionDrive: state.masterFX?.distortion?.drive,
-        globalSwing: audioRef.current.globalSwing,
+        globalSwing: audioRef.current?.globalSwing,
         audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION,
       };
 
@@ -72,7 +83,9 @@ export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefOb
       loopMode: state.loopMode, isLooping: state.isLooping, loopStartMeasure: state.loopStartMeasure,
       loopEndMeasure: state.loopEndMeasure, isLoopRegionActive: state.isLoopRegionActive,
       metadata: state.metadata, letras: state.letras, songSections: state.songSections,
-      measureBpms: state.measureBpms, measureTimeSigs: state.measureTimeSigs,
+      measureBpms: state.measureBpms, measureTimeSigs: state.measureTimeSigs, measureVols: state.measureVols,
+      mestreSignals: state.mestreSignals, vocalTransposeSteps: state.vocalTransposeSteps,
+      isMasterVolumeBypassed: state.isMasterVolumeBypassed,
       tracks: state.tracks.map((t: any) => ({
         id: t.id, instrumentIdx: t.instrumentIdx, isMute: t.isMute, volumeVal: t.volumeVal,
         patterns: t.patterns.map((p: any) => ({ id: p.id, steps: p.steps, activeSteps: p.activeSteps }))

@@ -97,6 +97,9 @@ export interface Preset {
   loopMode?: 'infinite' | number;
   isLooping?: boolean;
   isLoopExitRequested?: boolean;
+  mestreSignals?: CloudRhythmSignal[];
+  defaultDisplayMeasure?: number;
+  isDraft?: boolean;
   version?: number;
   audioScaleVersion?: number;
   rodaTrackOrder?: number[];

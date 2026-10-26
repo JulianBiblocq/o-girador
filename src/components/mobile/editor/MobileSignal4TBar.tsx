@@ -1,5 +1,5 @@
 /**
- * Barre de contrôle 4 Temps pour animation et débrayage de trames (< 80 lignes).
+ * Barre de contrôle Multi-Trames pour animation et débrayage de trames (< 85 lignes).
  */
 
 import React from 'react';
@@ -42,9 +42,9 @@ export const MobileSignal4TBar: React.FC<Props> = ({
         <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
       </button>
 
-      {/* 4 Pastilles [ 1 ] [ 2 ] [ 3 ] [ 4 ] */}
+      {/* Pastilles dynamiques [ 1 ] .. [ N ] */}
       <div className="flex items-center gap-1">
-        {Array.from({ length: Math.max(4, framesCount) }, (_, i) => {
+        {Array.from({ length: Math.max(1, framesCount) }, (_, i) => {
           const isActive = selectedIndex === i;
           return (
             <button

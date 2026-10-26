@@ -54,6 +54,8 @@ export interface CircleSequencerProps {
   trackId?: number;
   rodaTrackOrder?: number[];
   visibleTrackIds?: (number | string)[];
+  secondaryFocusTrackId?: number | null;
+  referenceTrackId?: number | null;
   isLetraActive?: boolean;
 }
 

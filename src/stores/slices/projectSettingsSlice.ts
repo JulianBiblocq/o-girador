@@ -5,7 +5,7 @@ import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
 import { detectEcoMode } from '../helpers/ecoModeDetector';
 import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
 import { Language } from '../../types';
-import { getInitialMobileViewMode, persistMobileViewMode } from '../../utils/viewModeResolver';
+import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORAGE_KEY } from '../../utils/viewModeResolver';
 
 export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => {
   const initialMobileMode = getInitialMobileViewMode();
@@ -112,12 +112,16 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   openSubscriptionModal: () => set({ isSubscriptionModalOpen: true }),
   closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false }),
   setIsMobileStudioMode: (val) => {
-    const mode = val ? 'complet' : 'danse';
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
+    const fallback = (saved === 'percussion' || saved === 'danse') ? (saved as any) : 'percussion';
+    const mode = val ? 'complet' : fallback;
     persistMobileViewMode(mode);
     set({ isMobileStudioMode: val, mobileViewMode: mode, isTracksCollapsed: true });
   },
   toggleMobileStudioMode: () => set((state) => {
-    const mode = !state.isMobileStudioMode ? 'complet' : 'danse';
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
+    const fallback = (saved === 'percussion' || saved === 'danse') ? (saved as any) : 'percussion';
+    const mode = !state.isMobileStudioMode ? 'complet' : fallback;
     persistMobileViewMode(mode);
     return { isMobileStudioMode: !state.isMobileStudioMode, mobileViewMode: mode, isTracksCollapsed: true };
   }),

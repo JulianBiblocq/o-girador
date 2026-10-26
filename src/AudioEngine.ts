@@ -21,9 +21,12 @@ import { EngineNotePlayer } from './audio/engine/engineNotePlayer';
 import { EnginePurge } from './audio/engine/enginePurge';
 import { EngineVisibility } from './audio/engine/engineVisibility';
 import { EngineDisposer } from './audio/engine/engineDisposer';
+import * as Tone from 'tone';
 import { scheduleAudioContextAutoSuspend, safeResumeAudioContext, safeSuspendAudioContext } from './audio/audioContextSuspendManager';
 
 export type { ActiveInstrumentData };
+
+let audioEngine: AudioEngine | null = null;
 
 export class AudioEngine {
   private clock: EngineSchedulerClock;
@@ -48,6 +51,7 @@ export class AudioEngine {
     getTickDuration: () => number,
     getTicksPerMeasure: (measureIdx: number) => number = () => 96
   ) {
+    audioEngine = this;
     this.updateTrackLookupMap(useSequencerStore.getState().tracks);
     this.unsubscribeTracks = useSequencerStore.subscribe((s) => this.updateTrackLookupMap(s.tracks));
     this.barulho.init(audioContext, this.channels, this.voiceGuard, this.activeGainNodes);
@@ -128,11 +132,16 @@ export class AudioEngine {
       activeGainNodes: this.activeGainNodes, channels: this.channels, voiceSynthManager: this.voiceSynthManager
     });
     this.unsubscribeTracks = null; this.cleanupVisibility = null;
+    if (audioEngine === this) {
+      audioEngine = null;
+    }
   }
 }
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    safeSuspendAudioContext();
+    try { audioEngine?.stop(); safeSuspendAudioContext(); (Tone.getContext().rawContext as any)?.suspend?.(); } catch {}
   });
 }
+
+

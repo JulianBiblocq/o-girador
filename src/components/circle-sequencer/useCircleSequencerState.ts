@@ -1,6 +1,7 @@
 
 import { useRef, useEffect, useMemo } from 'react';
-import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
+import { isSequencerVisibleTrack, useSequencerStore } from '../../stores/useSequencerStore';
+import { instrumentsConfig } from '../../data';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
@@ -32,6 +33,17 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   if (props.visibleTrackIds && props.visibleTrackIds.length > 0) {
     const allowed = new Set(props.visibleTrackIds.map(String));
     tracks = tracks.filter(t => allowed.has(String(t.id)));
+  } else if (props.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768)) {
+    const storeState = useSequencerStore.getState();
+    const targetId = storeState.focusTrackId ?? storeState.editingTrackId;
+    const primaryTrack = (targetId !== null && targetId !== undefined ? tracks.find(t => t.id === targetId) : undefined)
+      || tracks.find(t => instrumentsConfig[t.instrumentIdx]?.type !== 'voice')
+      || tracks[0];
+    const allowedIds = new Set<string>();
+    if (primaryTrack) allowedIds.add(String(primaryTrack.id));
+    const refId = props.secondaryFocusTrackId ?? props.referenceTrackId;
+    if (refId !== undefined && refId !== null) allowedIds.add(String(refId));
+    tracks = tracks.filter(t => allowedIds.has(String(t.id)));
   }
 
   const totalMeasures = props.totalMeasures ?? storeData.totalMeasures;
@@ -115,8 +127,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     getLiveActivePatternId, sequencer.activeVariationsRef
   );
 
-  const activeBpm = measureBpms?.[currentMeasure] ?? bpm;
-  const activeVol = measureVols?.[currentMeasure] ?? 100;
+  const activeBpm = measureBpms?.[currentMeasure] ?? bpm, activeVol = measureVols?.[currentMeasure] ?? 100;
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
   const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
   const activeRepIndex = expanded.findIndex(item => item.baseMeasure === currentMeasure);

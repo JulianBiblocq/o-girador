@@ -46,11 +46,8 @@ export const TransportLoopControl: React.FC<TransportLoopControlProps> = ({
           loopBtnRef.current.querySelector('.icon-repeat')?.classList.remove('hidden');
           loopBtnRef.current.querySelector('.icon-arrow')?.classList.add('hidden');
           loopBtnRef.current.querySelector('.loop-count')?.classList.remove('hidden');
-          if (useSequencerStore.getState().isLooping) {
-            loopBtnRef.current.classList.add('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]');
-          } else {
-            loopBtnRef.current.classList.add('bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
-          }
+          const isLp = useSequencerStore.getState().isLooping;
+          loopBtnRef.current.classList.add(isLp ? 'bg-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)]', isLp ? 'text-[#f4ecd8]' : 'text-[var(--cordel-text)]');
         }
       }
     });
@@ -105,24 +102,44 @@ export const TransportLoopControl: React.FC<TransportLoopControlProps> = ({
       </button>
 
       {showLoopMenu && (
-        <div className="absolute bottom-[calc(100%+8px)] right-0 sm:left-1/2 sm:-translate-x-1/2 w-36 bg-[var(--cordel-bg)] cordel-border z-50 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col">
+        <div className="absolute bottom-[calc(100%+8px)] right-0 sm:left-1/2 sm:-translate-x-1/2 w-48 bg-[var(--cordel-bg)] cordel-border z-50 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col text-[var(--cordel-text)]">
+          <button
+            onClick={() => { useSequencerStore.getState().setLoopMode(1); setShowLoopMenu(false); }}
+            className={`px-3 py-2 text-left text-xs font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === 1 ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
+          >
+            {lang === 'fr' ? '1x (Lecture simple)' : '1x (Leitura simples)'}
+          </button>
+          <div className="grid grid-cols-3 border-b border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+            {([2, 4, 8] as const).map((count) => (
+              <button
+                key={count}
+                onClick={() => { useSequencerStore.getState().setLoopMode(count); setShowLoopMenu(false); }}
+                className={`py-1.5 text-center text-xs font-bold border-r border-[var(--cordel-border)] last:border-r-0 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === count ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
+              >
+                {`${count}x`}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => { useSequencerStore.getState().setLoopMode('infinite'); setShowLoopMenu(false); }}
-            className={`px-3 py-2 text-left text-sm font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
+            className={`px-3 py-2 text-left text-xs font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
           >
-            {lang === 'fr' ? '∞ Infini' : '∞ Infinito'}
+            {lang === 'fr' ? '∞ Infini (Boucle)' : '∞ Infinito (Loop)'}
           </button>
-          <div className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-b border-[var(--cordel-border)]">
-            <input
-              type="number"
-              min={1}
-              max={99}
-              value={loopMode === 'infinite' ? 4 : loopMode}
-              onChange={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val > 0) useSequencerStore.getState().setLoopMode(val); }}
-              onKeyDown={(e) => { if (e.key === 'Enter') setShowLoopMenu(false); }}
-              className="w-12 text-sm font-bold border-2 border-[var(--cordel-border)] px-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] outline-none focus:bg-[var(--cordel-border)]/10"
-            />
-            <span className="text-xs font-bold">{lang === 'fr' ? 'fois' : 'vezes'}</span>
+          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+            <span className="text-[11px] font-bold">{lang === 'fr' ? 'Personnalisé :' : 'Personalizado :'}</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={1}
+                max={99}
+                value={loopMode === 'infinite' ? 4 : loopMode}
+                onChange={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val > 0) useSequencerStore.getState().setLoopMode(val); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') setShowLoopMenu(false); }}
+                className="w-11 text-xs font-bold border-2 border-[var(--cordel-border)] px-1 py-0.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] outline-none text-center"
+              />
+              <span className="text-[10px] font-bold">x</span>
+            </div>
           </div>
         </div>
       )}

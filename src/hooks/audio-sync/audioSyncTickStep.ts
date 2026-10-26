@@ -38,6 +38,9 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     stepIdx = 0;
     ctx.currentStepIndexRef.current = 0;
     advanceMeasureOnTickBoundary(currentMeasureIdx, ctx);
+    if (ctx.isPlayingRef && !ctx.isPlayingRef.current) {
+      return true;
+    }
     currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
     currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
     currentTicks = ctx.maxTicksRef.current;

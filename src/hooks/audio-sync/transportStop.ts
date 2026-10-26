@@ -32,6 +32,8 @@ export interface TransportStopContext {
   measureCountRef: { current: number };
   lastPlayedSignalIdRef: { current: string | null };
   tickEventDetailRef: { current: any };
+  isLoopExitRequestedRef?: { current: boolean };
+  currentLoopIterationRef?: { current: number };
   audioEngine: AudioEngine | null;
   setIsPlaying: (playing: boolean) => void;
   setSoloPatternPlayId: (id: number | null) => void;
@@ -57,6 +59,9 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   ctx.pendingIterationRef.current = null;
   useSequencerStore.getState().setCurrentLoopIteration(1);
   useSequencerStore.getState().clearLoopExitRequest();
+  useSequencerStore.getState().setIsLoopBypassed(false);
+  if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
+  if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
   if (ctx.soloPatternPlayIdRef.current !== null) {
     ctx.setSoloPatternPlayId(null);
   }
@@ -131,4 +136,9 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   tickSubscribers.forEach((cb) => {
     try { cb(detail); } catch (err) { console.error(err); }
   });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
+    window.dispatchEvent(new CustomEvent('o-girador-playback-stopped'));
+  }
 }

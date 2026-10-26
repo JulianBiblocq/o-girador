@@ -4,8 +4,7 @@ import { drawAlfaiaMarkers } from './drawAlfaiaMarkers';
 
 export const drawAlfaiaBackground = (
   bgCtx: CanvasRenderingContext2D,
-  currentCanvasSize: number,
-  isEco: boolean,
+  logicalSize: number,
   localTimeSig: string,
   localTicks: number,
   centerX: number,
@@ -15,11 +14,7 @@ export const drawAlfaiaBackground = (
   bgCtx.save();
   bgCtx.globalAlpha = 1.0;
   bgCtx.globalCompositeOperation = 'source-over';
-  bgCtx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
-
-  if (isEco) {
-    bgCtx.scale(0.5, 0.5);
-  }
+  bgCtx.clearRect(0, 0, logicalSize, logicalSize);
 
   drawAlfaiaRims(bgCtx, centerX, centerY, theme);
   drawAlfaiaMarkers(bgCtx, centerX, centerY, localTimeSig, localTicks, theme);

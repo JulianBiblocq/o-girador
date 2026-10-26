@@ -8,6 +8,7 @@ export interface TickStepContext {
   measureTimeSigsRef: { current: Record<number, string> }; measureBpmsRef: { current: number[] }; maxTicksRef: { current: number };
   currentMeasureStartTickRef: { current: number }; absoluteTickCountRef: { current: number }; isLoopRegionActiveRef: { current: boolean };
   loopStartRef: { current: number | null }; loopEndRef: { current: number | null }; isLoopingRef: { current: boolean };
+  isPlayingRef?: { current: boolean };
   loopModeRef?: { current: 'infinite' | number }; isLoopExitRequestedRef?: { current: boolean }; currentLoopIterationRef?: { current: number };
   isPlaybackEndingRef: { current: boolean }; lastPlayedSignalIdRef: { current: string | null }; isMetroOnRef: { current: boolean };
   metroVolumeRef: { current: number }; metroSoundRef: { current: 'synth' | 'clave' | 'cowbell' }; metroChannelRef: { current: Tone.Channel | null };

@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { safeSuspendAudioContext } from '../../../audio/audioContextSuspendManager';
 
 export function usePhotoBoothCamera() {
@@ -6,16 +6,30 @@ export function usePhotoBoothCamera() {
   const streamRef = useRef<MediaStream | null>(null);
   const rawBase64ImagesRef = useRef<string[]>([]);
   const isCancelledRef = useRef(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
-  const startCamera = useCallback(async () => {
+  const stopCamera = useCallback(() => {
+    isCancelledRef.current = true;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
+  const startCamera = useCallback(async (targetFacing?: 'user' | 'environment') => {
+    const effectiveFacing = targetFacing ?? facingMode;
     isCancelledRef.current = false;
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
       await safeSuspendAudioContext();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: effectiveFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       if (isCancelledRef.current) {
         stream.getTracks().forEach((t) => t.stop());
@@ -33,18 +47,13 @@ export function usePhotoBoothCamera() {
       }
       console.error('[PhotoBooth] Erreur caméra:', err);
     }
-  }, []);
+  }, [facingMode]);
 
-  const stopCamera = useCallback(() => {
-    isCancelledRef.current = true;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  }, []);
+  const flipCamera = useCallback(async () => {
+    const nextFacing = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextFacing);
+    await startCamera(nextFacing);
+  }, [facingMode, startCamera]);
 
   const captureCurrentFrame = useCallback(() => {
     const video = videoRef.current;
@@ -61,11 +70,15 @@ export function usePhotoBoothCamera() {
     workCanvas.height = workSize;
     const ctx = workCanvas.getContext('2d');
     if (ctx) {
+      if (facingMode === 'user') {
+        ctx.translate(workSize, 0);
+        ctx.scale(-1, 1);
+      }
       ctx.drawImage(video, sx, sy, size, size, 0, 0, workSize, workSize);
       const b64 = workCanvas.toDataURL('image/jpeg', 0.9);
       rawBase64ImagesRef.current.push(b64);
     }
-  }, []);
+  }, [facingMode]);
 
   if (import.meta.hot) {
     import.meta.hot.dispose(() => {
@@ -73,6 +86,14 @@ export function usePhotoBoothCamera() {
     });
   }
 
-  return { videoRef, streamRef, rawBase64ImagesRef, startCamera, stopCamera, captureCurrentFrame };
+  return {
+    videoRef,
+    streamRef,
+    rawBase64ImagesRef,
+    facingMode,
+    startCamera,
+    stopCamera,
+    flipCamera,
+    captureCurrentFrame,
+  };
 }
-

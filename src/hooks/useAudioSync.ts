@@ -116,11 +116,18 @@ export default useAudioSync;
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (_) {}
-    const engine = getAudioEngine();
-    if (engine) { engine.stop(); engine.dispose(); }
-    stopAudioRecording();
-    VocalRecordingService.stopRecording();
-    safeSuspendAudioContext();
+    try {
+      try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch (_) {}
+      const engine = getAudioEngine() || audioEngine;
+      if (engine) {
+        try { engine.stop(); } catch {}
+        try { engine.dispose(); } catch {}
+      }
+      try { stopAudioRecording(); } catch {}
+      try { VocalRecordingService.stopRecording(); } catch {}
+      try { safeSuspendAudioContext(); } catch {}
+      try { (Tone.getContext().rawContext as any)?.suspend?.(); } catch {}
+    } catch {}
   });
 }
+

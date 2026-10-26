@@ -81,7 +81,10 @@ export function syncMobileViewModeWithProfile(
   setMobileViewMode?: (mode: MobileViewMode) => void
 ): void {
   if (!profile || typeof window === 'undefined') return;
-  if (hasDirectModeUrlParam()) return;
+  const savedLocal = localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY);
+  if (savedLocal && ['danse', 'percussion', 'editeur', 'complet'].includes(savedLocal)) {
+    return;
+  }
 
   if (isStudioPrivilegedProfile(profile)) {
     if (setMobileViewMode && currentStoreMode !== 'complet') {
@@ -102,7 +105,6 @@ export function syncMobileViewModeWithProfile(
     }
   }
 
-  const savedLocal = localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY);
   if (!savedLocal && setMobileViewMode) {
     const resolved = resolveDefaultModeFromProfile(profile);
     setMobileViewMode(resolved);

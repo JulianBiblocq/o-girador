@@ -106,7 +106,7 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       />
       <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
       <div className="relative flex-1 min-h-0 overflow-hidden z-10 flex items-center justify-center">
-        <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} />
+        <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} isMobile={true} />
       </div>
       <MobilePercTransport isPlaying={props.isPlaying} isLoading={props.isLoading} onTogglePlay={props.onTogglePlay} onStop={props.onStop} bpm={effectiveBpm} onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)} onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()} loopMode={loopMode} onChangeLoopMode={setLoopMode} isLoopExitRequested={isLoopExitRequested} onRequestLoopExit={requestLoopExit} onOpenSpeedTrainer={openSpeedTrainerModal} />
       {isLetraDrawerOpen && <MobileLetraDrawer onClose={() => setIsLetraDrawerOpen(false)} lang={lang} />}

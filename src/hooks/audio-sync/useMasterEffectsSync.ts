@@ -29,7 +29,10 @@ export function useMasterEffectsSync({
         return;
       }
 
-      const baseGain = masterVol <= -60 || !Number.isFinite(masterVol) ? 0 : Tone.dbToGain(masterVol);
+      const safeDb = typeof masterVol === 'number' && Number.isFinite(masterVol) && masterVol <= 12
+        ? Math.max(-100, masterVol)
+        : 0;
+      const baseGain = safeDb <= -60 ? 0 : Tone.dbToGain(safeDb);
       masterVolumeNode.gain.setValueAtTime(baseGain, Tone.context.currentTime);
     }
   }, [masterVol]);

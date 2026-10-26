@@ -15,11 +15,10 @@ export function restoreMasterFxFromPreset(
   if (p.masterCompressor) setMasterCompressor(p.masterCompressor);
   else setMasterCompressor({ threshold: -20, ratio: 4 });
 
-  if (p.masterVol !== undefined && typeof p.masterVol === 'number' && !isNaN(p.masterVol)) {
-    setMasterVol(p.masterVol);
-  } else {
-    setMasterVol(0);
-  }
+  const safeMasterVol = (typeof p.masterVol === 'number' && !isNaN(p.masterVol) && p.masterVol <= 12)
+    ? p.masterVol
+    : 0;
+  setMasterVol(safeMasterVol);
 
   const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
   const rawMasterFX = p.masterFX;

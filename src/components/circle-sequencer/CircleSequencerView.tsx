@@ -59,7 +59,7 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
           }}
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}
-          className={`max-w-full max-h-full aspect-square cursor-pointer block select-none ${isPlaying ? 'pointer-events-none' : ''}`}
+          className={`w-full h-full max-w-full max-h-full aspect-square cursor-pointer block select-none ${isPlaying ? 'pointer-events-none' : ''}`}
           style={{ touchAction: 'none' }}
           role="application"
           aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}

@@ -24,6 +24,10 @@ export const MobileMestreSignalTab: React.FC = () => {
     frameOverrides,
   } = useMestreSignalEditorState();
 
+  const ghostReferenceImage = previewImgs[0] || (mestreSignals.length > 0
+    ? (mestreSignals[mestreSignals.length - 1]?.frames?.[0] || mestreSignals[mestreSignals.length - 1]?.imageUrl)
+    : undefined);
+
   return (
     <div className="flex flex-col gap-2.5 p-2 overflow-y-auto max-h-[calc(100vh-175px)] text-[var(--cordel-text)]">
       {/* 1. Bandeau supérieur compact */}
@@ -37,7 +41,7 @@ export const MobileMestreSignalTab: React.FC = () => {
           if (!files.length) return;
           Promise.all(files.map((f) => new Promise<string>((res) => {
             const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(f);
-          }))).then((imgs) => { setRawImages(imgs); setSelectedFrame(0); setIsPlaying(imgs.length > 1 && mode === 'four'); });
+          }))).then((imgs) => { setRawImages(imgs); setSelectedFrame(0); setIsPlaying(imgs.length > 1); });
         }}
         lang={lang}
       />
@@ -47,7 +51,8 @@ export const MobileMestreSignalTab: React.FC = () => {
         {isLiveCameraOpen ? (
           <MobileLiveCameraBox
             isOpen={isLiveCameraOpen} onClose={() => setIsLiveCameraOpen(false)} defaultFacingMode="user" mode={mode}
-            onCapture={(imgs) => { setRawImages(imgs); setSelectedFrame(0); setIsPlaying(imgs.length > 1 && mode === 'four'); }}
+            onCapture={(imgs) => { setRawImages(imgs); setSelectedFrame(0); setIsPlaying(imgs.length > 1); }}
+            ghostReferenceImage={ghostReferenceImage}
             lang={lang} isInline
           />
         ) : previewImgs[selectedFrame] || previewImgs[0] ? (
@@ -60,12 +65,12 @@ export const MobileMestreSignalTab: React.FC = () => {
         )}
       </div>
 
-      {/* 3. Barre 4 Temps si mode 4T */}
-      {mode === 'four' && (
+      {/* 3. Barre Multi-Trames visible dès qu'il y a plus d'1 image */}
+      {previewImgs.length > 1 && (
         <MobileSignal4TBar
           isPlaying={isPlaying} onTogglePlay={() => setIsPlaying((p) => !p)}
           selectedIndex={selectedFrame} onSelectFrame={(i) => { setIsPlaying(false); setSelectedFrame(i); }}
-          framesCount={rawImages.length || 4} isOverridden={Boolean(frameOverrides[selectedFrame])}
+          framesCount={previewImgs.length} isOverridden={Boolean(frameOverrides[selectedFrame])}
           onToggleOverride={toggleFrameOverride} lang={lang}
         />
       )}

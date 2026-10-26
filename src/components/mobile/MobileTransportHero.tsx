@@ -62,13 +62,13 @@ export const MobileTransportHero: React.FC<Props> = ({
           })}
         </div>
 
-        {/* Boucles [ ∞ | ×2 | ×4 | ×8 ] */}
+        {/* Boucles [ ×1 | ×2 | ×4 | ×8 | ∞ ] */}
         <div className="flex-[4] min-w-0 flex items-stretch bg-[var(--cordel-card-btn-bg)] border-2 border-[#1a1a1a] dark:border-[#f4ecd8]/40 shadow-[1px_1px_0_#000] overflow-hidden">
-          {(['infinite', 2, 4, 8] as const).map((mode) => (
+          {([1, 2, 4, 8, 'infinite'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => onChangeLoopMode(mode)}
-              className={`flex-1 min-w-[22px] h-full px-0.5 font-cactus font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center cursor-pointer border-r border-[#1a1a1a]/30 dark:border-[#f4ecd8]/20 last:border-r-0 ${
+              className={`flex-1 min-w-[20px] h-full px-0.5 font-cactus font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center cursor-pointer border-r border-[#1a1a1a]/30 dark:border-[#f4ecd8]/20 last:border-r-0 ${
                 loopMode === mode ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'text-[var(--cordel-card-btn-text)] hover:bg-black/10 dark:hover:bg-white/10'
               }`}
             >

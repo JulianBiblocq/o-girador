@@ -3,6 +3,7 @@ import { Settings } from 'lucide-react';
 import { XiloRoda, XiloConsole, XiloTimeline, XiloDrum } from '../XiloIcons';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { MOBILE_VIEW_MODE_STORAGE_KEY, persistMobileViewModeLocally } from '../../utils/viewModeResolver';
 
 interface HeaderMobileQuickActionsProps {
   lang: 'pt' | 'fr';
@@ -29,8 +30,13 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       {/* TÉLÉCOMMANDE RÉPÉTITION */}
       <button
         onClick={() => {
-          useSequencerStore.getState().closeDetailEditor();
-          useSequencerStore.getState().setMobileViewMode('danse');
+          const s = useSequencerStore.getState();
+          s.closeDetailEditor();
+          s.setIsMobileStudioMode(false);
+          const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
+          const target = (saved === 'percussion' || saved === 'danse') ? saved : 'percussion';
+          persistMobileViewModeLocally(target);
+          s.setMobileViewMode(target);
         }}
         className="px-1.5 sm:px-2 h-8 sm:h-9 flex items-center justify-center font-cactus font-bold text-[11px] sm:text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#b94a2c] text-[#f4ecd8] shadow-[2px_2px_0_#000] shrink-0"
         title="Retour Télécommande Répétition"
