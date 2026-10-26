@@ -39,7 +39,7 @@ export function useTimelineMeasureHandlers({
     const rect = e.currentTarget.getBoundingClientRect();
     onMeasureClick(mIdx, steps, e.clientX - rect.left);
     if ((instType === 'voice' || isToada) && patternId !== -1) {
-      useAudioStore.getState().setSelectedVocalPatternId(patternId);
+      useAudioStore.getState().setSelectedVocalPatternId(patternId, trackId);
       if (useSequencerStore.getState().armedPatternId !== null) useSequencerStore.getState().disarmAllPatterns();
     }
   };

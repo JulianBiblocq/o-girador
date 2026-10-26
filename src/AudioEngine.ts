@@ -93,7 +93,7 @@ export class AudioEngine {
   }
 
   public playNote(trackId: number | string, stroke: string, time: number, vel: number, decay: number, isLiveHold = false): void { EngineNotePlayer.playNote(this.getNotePlayerDeps(), trackId, stroke, time, vel, decay, isLiveHold); }
-  public playPreview(instId: string, stroke: string, pitch = 0, vel = 1.0, time?: number, decay = 1.0): void { EngineNotePlayer.playPreview(this.getNotePlayerDeps(), instId, stroke, pitch, vel, time, decay); }
+  public playPreview(instId: string, stroke: string, pitch = 0, vel = 1.0, time?: number, decay = 1.0, trackId: number | string | null = null): void { EngineNotePlayer.playPreview(this.getNotePlayerDeps(), instId, stroke, pitch, vel, time, decay, trackId); }
   public triggerVoicePitch(pitch: string | number, vel = 0.8, trackId?: string | number): void { EngineVocalActions.triggerPitch(this.audioContext, this.voiceSynthManager, pitch, vel, trackId); }
   public triggerVoiceAttackRelease(pitch: string | number, dur: number | string, time?: number, vel = 0.8, trackId?: string | number): void { EngineVocalActions.triggerAttackRelease(this.audioContext, this.voiceSynthManager, pitch, dur, time, vel, trackId); }
   public releaseVoicePitch(pitch?: string | number, trackId?: string | number): void { EngineVocalActions.releasePitch(this.voiceSynthManager, pitch, trackId); }

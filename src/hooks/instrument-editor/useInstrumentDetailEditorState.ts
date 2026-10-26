@@ -2,25 +2,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Copy, Eraser, Clipboard, Trash2, CopyPlus } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useAudioStore } from '../../stores/useAudioStore';
 import { Pattern } from '../../types';
 import { CordelMenuItem } from '../../components/ui/CordelContextMenu';
 import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export interface UseInstrumentDetailEditorStateParams {
-  track: any;
-  inst?: any;
-  effectiveEditTrackId: number;
-  trackId: number;
-  displayedPatterns: Pattern[];
-  setEditingTrackId: (id: number | null) => void;
-  handleDuplicatePattern: (ptn: Pattern) => void;
-  handleClearPatternStrokes: (ptnId: number) => void;
-  handleContextDeletePattern: (ptnId: number) => void;
-  onCopyPattern?: (ptn: Pattern) => void;
-  onPastePattern?: (ptnId: number) => void;
-  canPaste?: boolean;
-  lang: string;
-  isVocalContext: boolean;
+  track: any; inst?: any; effectiveEditTrackId: number; trackId: number; displayedPatterns: Pattern[];
+  setEditingTrackId: (id: number | null) => void; handleDuplicatePattern: (ptn: Pattern) => void;
+  handleClearPatternStrokes: (ptnId: number) => void; handleContextDeletePattern: (ptnId: number) => void;
+  onCopyPattern?: (ptn: Pattern) => void; onPastePattern?: (ptnId: number) => void;
+  canPaste?: boolean; lang: string; isVocalContext: boolean;
 }
 
 export function getDefaultPrimaryStroke(instId?: string, instType?: string): string {
@@ -106,7 +98,9 @@ export function useInstrumentDetailEditorState({
     if (targetPattern) {
       setSelectedPatternId(targetPattern.id);
       useSequencerStore.getState().setSelectedPatternId(targetTrack.id, targetPattern.id);
+      useAudioStore.getState().setSelectedVocalPatternId(targetPattern.id, targetTrack.id);
     }
+    useAudioStore.getState().setSelectedVocalTrackId(targetTrack.id);
     setSelectedVariationId(null);
     setSelectedStepIdx(null);
     setSelectedStepIndices([]);

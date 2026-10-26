@@ -25,7 +25,7 @@ export class EngineStrokePlayback {
     decayMultiplier: number,
     isLiveHold: boolean
   ): void {
-    const normVel = velocity > 1.5 ? velocity / 100 : velocity;
+    const normVel = velocity > 3.0 ? velocity / 100 : velocity;
     if (normVel <= 0.001) return;
 
     const source = ctx.audioContext.createBufferSource();
@@ -35,7 +35,7 @@ export class EngineStrokePlayback {
     const gainNode = ctx.channels.getGainNode(ctx.audioContext, trackId, instrumentId);
     source.connect(gainNode);
 
-    const gainMultiplier = Math.pow(Math.max(0, Math.min(1.5, normVel)), 1.8);
+    const gainMultiplier = Math.pow(Math.max(0, Math.min(2.0, normVel)), 1.8);
 
     if (stroke.isBarulho) {
       playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, decayMultiplier, isLiveHold);
@@ -59,7 +59,7 @@ export class EngineStrokePlayback {
     ctx.scheduledHits.add(source);
     const originalBufferDuration = buffer.duration;
     const realWorldDuration = originalBufferDuration / calculatedPitch;
-    const normDecay = decayMultiplier > 1.5 ? decayMultiplier / 100 : Math.max(0.05, Math.min(1.0, decayMultiplier));
+    const normDecay = decayMultiplier > 3.0 ? decayMultiplier / 100 : Math.max(0.05, Math.min(1.0, decayMultiplier));
 
     let expectedEnd: number;
 

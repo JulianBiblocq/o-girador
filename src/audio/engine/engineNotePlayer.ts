@@ -1,20 +1,14 @@
 /**
- * O Girador - Audio Engine High-Level Note & Preview Player
+ * O Girador - Audio Engine High-Level Note & Preview Player (< 120 lignes)
  */
-
 import { getTone } from '../../ToneLoader';
-import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { instrumentsConfig } from '../../data';
-import { TrackGroup } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { EngineVirtualStrokes } from './engineVirtualStrokes';
-import { EngineRoundRobin } from './engineRoundRobin';
-import { EngineVoiceGuard } from './engineVoiceGuard';
-import { EngineSampleLoader } from './engineSampleLoader';
-import { PlaybackContext } from './engineStrokePlayback';
 import { NotePlayerDeps } from './enginePlayerTypes';
 import { EngineExecuteStroke } from './engineExecuteStroke';
+import { ensureAudiblePreview } from './enginePreviewMuteGuard';
 
 export type { NotePlayerDeps };
 
@@ -31,6 +25,7 @@ export class EngineNotePlayer {
       timeSlotHitCounts, getSchedulingMeasure
     };
   }
+
   public static playNote(
     deps: NotePlayerDeps,
     trackIdOrInstrumentId: number | string,
@@ -38,7 +33,7 @@ export class EngineNotePlayer {
     time: number,
     velocity: number,
     decayMultiplier: number,
-    isLiveHold: boolean = false
+    isLiveHold = false
   ): void {
     const currentTime = deps.playbackCtx.audioContext.currentTime;
     if (time < currentTime - 0.120) return;
@@ -59,13 +54,13 @@ export class EngineNotePlayer {
     const currentHits = (deps.timeSlotHitCounts.get(timeSlot) || 0) + 1;
     deps.timeSlotHitCounts.set(timeSlot, currentHits);
 
-    // Conserver l'intégralité des frappes même sur pistes esclaves doublées (zéro voice-stealing)
-
     const config = deps.configMap.get(instrumentId);
     if (!config) return;
 
     const stroke = EngineVirtualStrokes.resolveStroke(deps.strokesMaps, instrumentId, strokeSymbol);
     if (!stroke) return;
+
+    if (trackId !== null) ensureAudiblePreview(trackId);
 
     EngineExecuteStroke.execute(
       deps, trackId, instrumentId, config, stroke, safeTime, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol
@@ -76,10 +71,11 @@ export class EngineNotePlayer {
     deps: NotePlayerDeps,
     instrumentId: string,
     strokeSymbol: string,
-    pitchSemitones: number = 0,
-    velocity: number = 1.0,
+    pitchSemitones = 0,
+    velocity = 1.0,
     time?: number,
-    decayMultiplier: number = 1.0
+    decayMultiplier = 1.0,
+    trackId: number | string | null = null
   ): void {
     const Tone = getTone();
     if (deps.playbackCtx.audioContext?.state !== 'running') deps.playbackCtx.audioContext.resume().catch(() => {});
@@ -94,9 +90,16 @@ export class EngineNotePlayer {
     const stroke = config ? EngineVirtualStrokes.resolveStroke(deps.strokesMaps, instrumentId, strokeSymbol) : null;
     if (!config || !stroke) return;
 
+    const track = trackId !== null
+      ? (deps.trackLookupMap.get(String(trackId)) || useSequencerStore.getState().tracks.find((t) => String(t.id) === String(trackId)) || null)
+      : null;
+    const resolvedTrackId = track ? track.id : (trackId !== null ? Number(trackId) : null);
+
+    if (resolvedTrackId !== null) ensureAudiblePreview(resolvedTrackId);
+
     const triggerTime = time !== undefined ? time : (Tone?.now() || deps.playbackCtx.audioContext.currentTime);
     EngineExecuteStroke.execute(
-      deps, null, instrumentId, config, stroke, triggerTime, velocity, decayMultiplier, pitchSemitones, false, null, strokeSymbol
+      deps, resolvedTrackId, instrumentId, config, stroke, triggerTime, velocity, decayMultiplier, pitchSemitones, false, track, strokeSymbol
     );
   }
 }

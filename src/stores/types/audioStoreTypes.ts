@@ -18,6 +18,8 @@ export interface AudioState {
   vocalBuffers: Record<string | number, AudioBuffer>;
   tempRecording: TempRecordingData | null;
   selectedVocalPatternId: number | null;
+  selectedVocalTrackId: number | null;
+  setSelectedVocalTrackId: (id: number | null) => void;
   isAudioUnlocked: boolean;
   selectedOutputDeviceId: string | null;
   availableOutputDevices: Array<{ deviceId: string; label: string }>;
@@ -32,7 +34,7 @@ export interface AudioState {
   setVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
   setVocalBuffersBatch: (entries: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }>) => void;
   removeVocalBuffer: (patternId: string | number) => void;
-  setSelectedVocalPatternId: (id: number | null) => void;
+  setSelectedVocalPatternId: (id: number | null, trackId?: number | null) => void;
   unlockAudio: () => void;
   vocalMode: 'voice' | 'synth' | 'both';
   setVocalMode: (mode: 'voice' | 'synth' | 'both') => void;

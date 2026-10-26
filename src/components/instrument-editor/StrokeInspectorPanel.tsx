@@ -63,8 +63,8 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
     if (!audioEngine) return;
     const instId = instrument.id;
     const strokeSymbol = instId === 'timbal' ? 'A' : 'D';
-    audioEngine.playPreview(instId, strokeSymbol, track?.tuning || 0, 1.0, undefined, 1.0);
-  }, [instrument.id, track?.tuning]);
+    audioEngine.playPreview(instId, strokeSymbol, track?.tuning || 0, 1.0, undefined, 1.0, track?.id ?? trackId);
+  }, [audioEngine, instrument.id, track?.tuning, track?.id, trackId]);
 
   const pairs = useMemo(() => getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded), [instrument.id, instrument.type, lang, isLeftHanded]);
   const currentPair = useMemo(() => pairs.find(p => p.id === activeTool || p.strong.symbol === activeTool || p.strokes.some(s => s.symbol === activeTool)), [pairs, activeTool]);

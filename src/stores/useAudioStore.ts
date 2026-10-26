@@ -12,6 +12,8 @@ export const useAudioStore = create<AudioState>((set) => ({
   recordingStatus: 'inactive',
   setRecordingStatus: (status) => set({ recordingStatus: status }),
   selectedVocalPatternId: null,
+  selectedVocalTrackId: null,
+  setSelectedVocalTrackId: (id) => set({ selectedVocalTrackId: id }),
   isAudioUnlocked: false,
   voiceInputMode: 'free',
   setVoiceInputMode: (mode) => set({ voiceInputMode: mode }),
@@ -48,7 +50,11 @@ export const useAudioStore = create<AudioState>((set) => ({
   setTargetPatternId: (id) => set({ targetPatternId: id }),
   setTargetMeasureIdx: (idx) => set({ targetMeasureIdx: idx }),
   setTempRecording: (temp) => set({ tempRecording: temp }),
-  setSelectedVocalPatternId: (id) => set({ selectedVocalPatternId: id }),
+  setSelectedVocalPatternId: (id, trackId) =>
+    set((state) => ({
+      selectedVocalPatternId: id,
+      selectedVocalTrackId: trackId !== undefined ? trackId : state.selectedVocalTrackId,
+    })),
   unlockAudio: () => set({ isAudioUnlocked: true }),
   addVocalBlob: (patternId, blob) =>
     set((state) => ({

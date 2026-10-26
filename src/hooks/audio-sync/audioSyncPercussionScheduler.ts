@@ -2,7 +2,7 @@ import * as Tone from 'tone';
 import { Track, Pattern, GlobalSwing } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getTrackFamilyIds, getEffectiveVolume, getEffectiveMuteState } from '../../stores/useSequencerStore';
-import { faderPositionToGain } from '../../utils/audioMath';
+import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { AudioEngine } from '../../AudioEngine';
@@ -20,10 +20,9 @@ export interface PercussionSchedulerParams {
 
 export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
   const {
-    time, stepIdx, currentTicks, currentMeasureIdx, tick96nSec,
-    swingJitter, globalMode, stepDurationSec, isDocHidden, tracks,
-    soloPatternPlayId, globalSwing, familyMuteSet, flatCompiledSchedule,
-    flatArrayPointerRef, lastCompiledScheduleRef, lastAbsoluteTickRef,
+    time, stepIdx, currentTicks, currentMeasureIdx, tick96nSec, swingJitter, globalMode,
+    stepDurationSec, isDocHidden, tracks, soloPatternPlayId, globalSwing, familyMuteSet,
+    flatCompiledSchedule, flatArrayPointerRef, lastCompiledScheduleRef, lastAbsoluteTickRef,
     currentMeasureStartTick, audioEngine, busChannels
   } = p;
 
@@ -65,12 +64,9 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
           const isConnectedToBus = Boolean(liveTrack.busId && busChannels[liveTrack.busId]);
           const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 75) : getEffectiveVolume(tracks, liveTrack.id);
           const isMuted = soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, liveTrack.id);
-          if (trackVolPct > 3 && !isMuted) {
-            const trackVolLinear = faderPositionToGain(trackVolPct);
-            const finalVel = velocity * trackVolLinear;
+          if (!isMuted && (trackVolPct > 3 || hasActiveTrackAutomation(liveTrack, 'volume'))) {
             const strokeSymbol = String.fromCharCode(strokeCharCode);
             const decayMultiplier = decayPct / 100;
-
             const patterns = liveTrack.patterns;
             let activePattern: Pattern | null = soloPatternPlayId !== null ? (patterns.find(p => String(p.id) === String(soloPatternPlayId)) || null) : null;
             if (soloPatternPlayId !== null && !activePattern) {
@@ -108,7 +104,7 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
             }
 
             if (!isTocarJuntoMuted) {
-              audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+              audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier);
             }
 
             if (!isDocHidden) {
