@@ -4,6 +4,8 @@ import { faderPositionToDbString } from '../../utils/audioMath';
 interface UseFaderTouchDragProps {
   railRef: React.RefObject<HTMLDivElement | null>;
   calculateValueFromPointer: (clientY: number) => number;
+  cacheRailRect: () => DOMRect | null;
+  clearRailRect: () => void;
   visualThumbRef: React.MutableRefObject<HTMLDivElement | null>;
   valueTextRef: React.MutableRefObject<HTMLSpanElement | null>;
   updateAudioNode: (val: number) => void;
@@ -14,6 +16,8 @@ interface UseFaderTouchDragProps {
 export function useFaderTouchDrag({
   railRef,
   calculateValueFromPointer,
+  cacheRailRect,
+  clearRailRect,
   visualThumbRef,
   valueTextRef,
   updateAudioNode,
@@ -33,12 +37,14 @@ export function useFaderTouchDrag({
         if (now - lastTouchTimeRef.current < 300) {
           e.preventDefault();
           lastTouchTimeRef.current = 0;
+          clearRailRect();
           resetToUnity(e);
           return;
         }
         lastTouchTimeRef.current = now;
         e.preventDefault();
         isDraggingRef.current = true;
+        cacheRailRect();
         const val = calculateValueFromPointer(e.touches[0].clientY);
         if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
         if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
@@ -66,6 +72,7 @@ export function useFaderTouchDrag({
           updateAudioNode(val);
           onChange(val);
         }
+        clearRailRect();
       }
     };
 
@@ -79,5 +86,5 @@ export function useFaderTouchDrag({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [calculateValueFromPointer, resetToUnity, onChange, updateAudioNode, visualThumbRef, valueTextRef, railRef]);
+  }, [calculateValueFromPointer, cacheRailRect, clearRailRect, resetToUnity, onChange, updateAudioNode, visualThumbRef, valueTextRef, railRef]);
 }

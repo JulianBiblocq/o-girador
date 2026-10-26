@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { faderPositionToDbString, sanitizeFaderPosition, UNITY_GAIN_FADER_POSITION } from '../../utils/audioMath';
 import { useFaderTouchDrag } from './useFaderTouchDrag';
 import { useFaderMidiAndAudio } from './useFaderMidiAndAudio';
@@ -30,13 +30,23 @@ export function useMixerVolumeFaderSync({
 }: UseMixerVolumeFaderSyncProps) {
   const isDraggingRef = useRef(false);
   const railRef = useRef<HTMLDivElement>(null);
+  const railRectRef = useRef<DOMRect | null>(null);
+
+  const cacheRailRect = useCallback(() => {
+    railRectRef.current = railRef.current?.getBoundingClientRect() || null;
+    return railRectRef.current;
+  }, []);
+
+  const clearRailRect = useCallback(() => {
+    railRectRef.current = null;
+  }, []);
 
   const { updateAudioNode } = useFaderMidiAndAudio({
     trackId, isMaster, visualThumbRef, valueTextRef, onAudioDrag
   });
 
   const calculateValueFromPointer = (clientY: number) => {
-    const rect = railRef.current?.getBoundingClientRect();
+    const rect = railRectRef.current || cacheRailRect();
     if (!rect || rect.height <= 0) return sanitizeFaderPosition(value);
     const ratio = (rect.bottom - clientY) / rect.height;
     return Math.max(0, Math.min(100, Math.round(ratio * 1000) / 10));
@@ -48,6 +58,7 @@ export function useMixerVolumeFaderSync({
       if (typeof (e as any).stopPropagation === 'function') (e as any).stopPropagation();
     }
     setIsEditing(false);
+    clearRailRect();
     const unityPos = defaultValue !== undefined ? defaultValue : UNITY_GAIN_FADER_POSITION;
     if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${unityPos}%`;
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(unityPos);
@@ -59,6 +70,7 @@ export function useMixerVolumeFaderSync({
     e.preventDefault();
     isDraggingRef.current = true;
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    cacheRailRect();
     const val = calculateValueFromPointer(e.clientY);
     if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
@@ -79,12 +91,13 @@ export function useMixerVolumeFaderSync({
     isDraggingRef.current = false;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
     const val = calculateValueFromPointer(e.clientY);
+    clearRailRect();
     updateAudioNode(val);
     onChange(val);
   };
 
   useFaderTouchDrag({
-    railRef, calculateValueFromPointer,
+    railRef, calculateValueFromPointer, cacheRailRect, clearRailRect,
     visualThumbRef, valueTextRef, updateAudioNode, onChange, resetToUnity
   });
 

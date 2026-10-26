@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X } from 'lucide-react';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -51,8 +50,10 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
   const effectiveDecays = activeVarObj ? activeVarObj.decays : pattern.decays;
   const effectiveMicros = activeVarObj ? activeVarObj.microtimings : pattern.microtimings;
 
-  const stepVal = isSingle ? effectiveSteps[selectedStepIdx] : null;
-  const isSplitStep = isSingle && Array.isArray(stepVal);
+  const firstSplitIdx = targets.find((idx) => Array.isArray(effectiveSteps?.[idx]));
+  const isSplitStep = firstSplitIdx !== undefined;
+  const splitPreviewVal = isSplitStep ? (effectiveSteps[firstSplitIdx] as [string, string]) : null;
+  const stepVal = isSingle ? effectiveSteps[selectedStepIdx] : splitPreviewVal;
   const activeSub: 0 | 1 | null = isSplitStep ? (selectedSubIndex ?? 0) : null;
   const subToPass = isSplitStep && selectedSubIndex !== null && selectedSubIndex !== undefined ? selectedSubIndex : undefined;
 
@@ -87,6 +88,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
           {activeVarObj && ` (Var: ${activeVarObj.name})`}
           {isSingle && isSplitStep && ` — ${selectedSubIndex === 0 ? (lang === 'fr' ? '1er Coup' : '1º Golpe') : selectedSubIndex === 1 ? (lang === 'fr' ? '2ème Coup' : '2º Golpe') : (lang === 'fr' ? 'Coups liés' : 'Golpes ligados')} (${(stepVal as [string, string]).join(', ')})`}
           {isSingle && !isSplitStep && ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`}
+          {!isSingle && isSplitStep && ` — ${selectedSubIndex === 0 ? (lang === 'fr' ? '1er Coup' : '1º Golpe') : selectedSubIndex === 1 ? (lang === 'fr' ? '2ème Coup' : '2º Golpe') : (lang === 'fr' ? 'Coups liés' : 'Golpes ligados')}`}
         </span>
         <div className="flex items-center gap-2">
           <button onClick={resetValues} className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer">
@@ -98,8 +100,8 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
         </div>
       </div>
 
-      {isSplitStep && (
-        <SplitStepTargetSelector stepVal={stepVal as [string, string]} selectedSubIndex={selectedSubIndex} lang={lang} onSelectSubIndex={onSelectSubIndex} />
+      {isSplitStep && splitPreviewVal && (
+        <SplitStepTargetSelector stepVal={splitPreviewVal} selectedSubIndex={selectedSubIndex} lang={lang} onSelectSubIndex={onSelectSubIndex} />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#1a1a1a]">

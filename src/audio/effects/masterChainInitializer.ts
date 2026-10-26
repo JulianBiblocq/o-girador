@@ -62,20 +62,6 @@ export function initMasterEffectsChain(
   const masterLimiterNode = new Tone.Limiter(-2);
   comp.connect(masterLimiterNode);
 
-  const clipper = new Tone.WaveShaper();
-  const curveSize = 8192;
-  const clipperCurve = new Float32Array(curveSize);
-  for (let i = 0; i < curveSize; i++) {
-    const x = (2 * i) / (curveSize - 1) - 1;
-    let y = (3 * x - Math.pow(x, 3)) / 2;
-    if (x <= -1) y = -1.0;
-    else if (x >= 1) y = 1.0;
-    clipperCurve[i] = y;
-  }
-  clipper.curve = clipperCurve;
-  clipper.oversample = '4x';
-  nodes.setMasterSoftClipperNode(clipper);
-
   try {
     Tone.Destination.channelCount = 2;
     Tone.Destination.channelCountMode = "explicit";

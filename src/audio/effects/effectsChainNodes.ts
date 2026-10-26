@@ -20,9 +20,6 @@ export function setMasterEQNode(node: MasterEQNodeInterface | null) { masterEQNo
 export let masterCompressorNode: Tone.Compressor | null = null;
 export function setMasterCompressorNode(node: Tone.Compressor | null) { masterCompressorNode = node; }
 
-export let masterSoftClipperNode: Tone.WaveShaper | null = null;
-export function setMasterSoftClipperNode(node: Tone.WaveShaper | null) { masterSoftClipperNode = node; }
-
 export let masterMeterNode: Tone.Meter | null = null;
 export function setMasterMeterNode(node: Tone.Meter | null) { masterMeterNode = node; }
 
