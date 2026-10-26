@@ -26,32 +26,43 @@ export function syncPatternAcrossLinkedFamily(
   if (!sourceTrack) return tracks;
 
   const isMaster = Boolean(sourceTrack.isLinkMaster && !sourceTrack.isBusFolder && !sourceTrack.isLinkFolder);
+  const isLinkFolderSource = Boolean(sourceTrack.isLinkFolder);
   const sourcePatternIdx = sourceTrack.patterns.findIndex((p) => String(p.id) === String(patternId));
   const sourcePattern = sourcePatternIdx >= 0 ? sourceTrack.patterns[sourcePatternIdx] : undefined;
   const normSource = sourcePattern?.name?.trim().toLowerCase();
 
-  if (!isMaster) {
+  if (!isMaster && !isLinkFolderSource) {
     return tracks.map((t) => {
       if (String(t.id) !== String(sourceTrackId)) return t;
       return { ...t, patterns: t.patterns.map((p) => (String(p.id) === String(patternId) ? updater(p, true, t) : p)) };
     });
   }
 
-  const slaveIds = new Set<string>();
-  const parentFolderId = sourceTrack.busId || sourceTrack.linkedToTrackId || (sourceTrack as any).parentId;
-  let linkFolderIdStr: string | null = null;
-
-  tracks.forEach((t) => {
-    if (String(t.id) === String(sourceTrackId)) return;
-    if (isSlaveTrack(t, tracks) && resolveMasterTrack(t.id, tracks)?.id === sourceTrack.id) slaveIds.add(String(t.id));
-    if (parentFolderId && String(t.id) === String(parentFolderId) && t.isLinkFolder) linkFolderIdStr = String(t.id);
-  });
+  const targetTrackIds = new Set<string>();
+  if (isLinkFolderSource) {
+    tracks.forEach((t) => {
+      if (String(t.id) === String(sourceTrackId)) return;
+      if (!t.isBusFolder && !t.isLinkFolder &&
+          (String(t.linkedToTrackId) === String(sourceTrack.id) || String(t.busId) === String(sourceTrack.id))) {
+        targetTrackIds.add(String(t.id));
+      }
+    });
+  } else if (isMaster) {
+    const parentFolderId = sourceTrack.busId || sourceTrack.linkedToTrackId || (sourceTrack as any).parentId;
+    tracks.forEach((t) => {
+      if (String(t.id) === String(sourceTrackId)) return;
+      if (isSlaveTrack(t, tracks) && resolveMasterTrack(t.id, tracks)?.id === sourceTrack.id) {
+        targetTrackIds.add(String(t.id));
+      }
+      if (parentFolderId && String(t.id) === String(parentFolderId) && t.isLinkFolder) {
+        targetTrackIds.add(String(t.id));
+      }
+    });
+  }
 
   return tracks.map((t) => {
     const isSourceTrack = String(t.id) === String(sourceTrackId);
-    const isSlave = slaveIds.has(String(t.id));
-    const isLinkFolderParent = linkFolderIdStr !== null && String(t.id) === linkFolderIdStr;
-    if (!isSourceTrack && !isSlave && !isLinkFolderParent) return t;
+    if (!isSourceTrack && !targetTrackIds.has(String(t.id))) return t;
 
     const targetIdx = findMatchingPatternIndex(
       t.patterns, patternId, normSource, sourcePatternIdx, sourceTrack.patterns.length, isSourceTrack

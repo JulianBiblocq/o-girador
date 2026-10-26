@@ -64,7 +64,7 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
           const isConnectedToBus = Boolean(liveTrack.busId && busChannels[liveTrack.busId]);
           const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 75) : getEffectiveVolume(tracks, liveTrack.id);
           const isMuted = soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, liveTrack.id);
-          if (!isMuted && (trackVolPct > 3 || hasActiveTrackAutomation(liveTrack, 'volume'))) {
+          if (!isMuted && (soloPatternPlayId !== null || trackVolPct > 3 || hasActiveTrackAutomation(liveTrack, 'volume'))) {
             const strokeSymbol = String.fromCharCode(strokeCharCode);
             const decayMultiplier = decayPct / 100;
             const patterns = liveTrack.patterns;

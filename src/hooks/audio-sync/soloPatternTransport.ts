@@ -59,10 +59,13 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   const trackId = soloTrack ? soloTrack.id : null;
 
   if (trackId !== null && soloTrack) {
-    const busId = soloTrack.busId || soloTrack.linkedToTrackId;
-    const slaves = currentTracks.filter(s => s.id !== soloTrack.id && s.linkedToTrackId &&
-      (String(s.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(s.linkedToTrackId) === String(soloTrack.id)));
-    const targetChannelIds = [trackId, ...slaves.map(s => s.id)];
+    const busId = (soloTrack.isBusFolder || soloTrack.isLinkFolder) ? soloTrack.id : (soloTrack.busId || soloTrack.linkedToTrackId);
+    const familyGroupKey = (soloTrack.isBusFolder || soloTrack.isLinkFolder) ? String(soloTrack.id) : String(soloTrack.linkedToTrackId || soloTrack.id);
+    const familyTracks = currentTracks.filter(s =>
+      s.id !== soloTrack.id && !s.isBusFolder && !s.isLinkFolder &&
+      (String(s.linkedToTrackId) === familyGroupKey || String(s.busId) === familyGroupKey)
+    );
+    const targetChannelIds = soloTrack.isBusFolder ? familyTracks.map(s => s.id) : [soloTrack.id, ...familyTracks.map(s => s.id)];
 
     ctx.savedSoloMuteStateRef.current = {
       channelStates: targetChannelIds.map(id => ({ id, mute: ctx.channels[id]?.mute, vol: ctx.channels[id]?.volume.value })),

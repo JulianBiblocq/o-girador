@@ -39,10 +39,15 @@ export function useGridPercussionTick({
         if (soloPlayId !== undefined && soloPlayId !== null) {
           if (String(pattern?.id) === String(soloPlayId)) return true;
           const soloTrack = storeState.tracks.find(t => t.patterns?.some(p => String(p.id) === String(soloPlayId)));
-          if (soloTrack && (soloTrack.id === trackId || (trackObj.linkedToTrackId &&
-            (String(trackObj.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(trackObj.linkedToTrackId) === String(soloTrack.id))))) {
+          if (!soloTrack) return false;
+          const isSameFamily = soloTrack.id === trackId ||
+            (trackObj.linkedToTrackId && (String(trackObj.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(trackObj.linkedToTrackId) === String(soloTrack.id))) ||
+            (trackObj.busId && String(trackObj.busId) === String(soloTrack.id)) ||
+            (soloTrack.linkedToTrackId && String(soloTrack.linkedToTrackId) === String(trackId)) ||
+            (soloTrack.busId && String(soloTrack.busId) === String(trackId));
+          if (isSameFamily) {
             const soloPtn = soloTrack.patterns?.find(p => String(p.id) === String(soloPlayId));
-            if (soloPtn && pattern?.name === soloPtn.name) return true;
+            if (soloPtn && pattern?.name?.trim().toLowerCase() === soloPtn.name?.trim().toLowerCase()) return true;
             const sIdx = soloTrack.patterns?.findIndex(p => String(p.id) === String(soloPlayId));
             if (sIdx !== undefined && sIdx >= 0 && trackObj.patterns?.[sIdx]?.id === pattern?.id) return true;
           }
