@@ -6,6 +6,7 @@ import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { busInputs } from './audioEngineNodes';
 import { syncBusInsertChain } from '../../audio/effectsChain';
+import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
 
 export interface SyncBusChannelsParams {
   tracks: Track[];
@@ -64,13 +65,12 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const eqHighF = t.eqBands?.high?.f ?? 8000;
 
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
-    const paramHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}_${bypassKey}`;
+    const busChannelHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${isEcoMode}_${bypassKey}`;
+    const busEqHash = `eq_bus_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
-    if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-      try { busChannels[t.id].volume.cancelScheduledValues(Tone.now()); } catch (_) {}
-      busChannels[t.id].volume.value = safeDb;
-      try { busChannels[t.id].pan.cancelScheduledValues(Tone.now()); } catch (_) {}
-      busChannels[t.id].pan.value = acousticPan;
+    if (lastAppliedTracksParamsRef.current[t.id] !== busChannelHash) {
+      safeRampDb(busChannels[t.id].volume, safeDb, 0.02);
+      safeRampPan(busChannels[t.id].pan, acousticPan, 0.02);
       busChannels[t.id].mute = muteState;
 
       if (!reverbSends[t.id]) {
@@ -83,14 +83,19 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       const targetRevDb = percentToDb(isEcoMode ? 0 : reverb);
       const targetDistDb = percentToDb(distortion);
       if (reverbSends[t.id]) {
-        try { reverbSends[t.id].gain.value = targetRevDb; } catch (_) {}
+        safeRampDb(reverbSends[t.id].gain, targetRevDb, 0.02);
       }
       if (distortionSends[t.id]) {
-        try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
+        safeRampDb(distortionSends[t.id].gain, targetDistDb, 0.02);
       }
 
+      lastAppliedTracksParamsRef.current[t.id] = busChannelHash;
+    }
+
+    const busEqKey = `eq_bus_${t.id}`;
+    if (lastAppliedTracksParamsRef.current[busEqKey] !== busEqHash) {
       syncBusInsertChain(t.id, t);
-      lastAppliedTracksParamsRef.current[t.id] = paramHash;
+      lastAppliedTracksParamsRef.current[busEqKey] = busEqHash;
     }
 
     const currentBusId = t.busId || null;

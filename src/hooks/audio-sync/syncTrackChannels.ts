@@ -6,6 +6,7 @@ import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { syncTrackInsertChain } from '../../audio/effectsChain';
+import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
 import { busInputs } from './audioEngineNodes';
 import { AudioEngine } from '../../AudioEngine';
 
@@ -80,27 +81,28 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const eqHighF = t.eqBands?.high?.f ?? 8000;
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
 
-    const paramHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}_${bypassKey}`;
+    const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+    const channelHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${isEcoMode}_${bypassKey}`;
+    const eqHash = `eq_${lowCut}_${isLinkedSlave}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
-    if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-      try { channels[t.id].volume.cancelScheduledValues(Tone.now()); } catch (_) {}
-      channels[t.id].volume.value = finalDb;
-      try { channels[t.id].pan.cancelScheduledValues(Tone.now()); } catch (_) {}
-      channels[t.id].pan.value = acousticPan;
+    if (lastAppliedTracksParamsRef.current[t.id] !== channelHash) {
+      safeRampDb(channels[t.id].volume, finalDb, 0.02);
+      safeRampPan(channels[t.id].pan, acousticPan, 0.02);
       channels[t.id].mute = muteState;
 
       if (reverbSends[t.id]) {
-        try {
-          reverbSends[t.id].gain.cancelScheduledValues(Tone.now());
-          reverbSends[t.id].gain.value = percentToDb(isEcoMode ? 0 : reverb);
-        } catch (_) {}
+        safeRampDb(reverbSends[t.id].gain, percentToDb(isEcoMode ? 0 : reverb), 0.02);
       }
       if (distortionSends[t.id]) {
-        try { distortionSends[t.id].gain.value = percentToDb(distortion); } catch (_) {}
+        safeRampDb(distortionSends[t.id].gain, percentToDb(distortion), 0.02);
       }
+      lastAppliedTracksParamsRef.current[t.id] = channelHash;
+    }
 
+    const eqKey = `eq_${t.id}`;
+    if (lastAppliedTracksParamsRef.current[eqKey] !== eqHash) {
       syncTrackInsertChain(t.id, t);
-      lastAppliedTracksParamsRef.current[t.id] = paramHash;
+      lastAppliedTracksParamsRef.current[eqKey] = eqHash;
     }
 
     let targetBusNode: any = (targetBusId && String(targetBusId) !== String(t.id))

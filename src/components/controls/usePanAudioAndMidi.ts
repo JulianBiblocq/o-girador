@@ -3,6 +3,7 @@ import { channels, busChannels } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
+import { safeRampPan, safeRampDb } from '../../utils/audio/safeAudioParamRamp';
 
 export function usePanAudioAndMidi(
   trackId: number | undefined,
@@ -33,12 +34,12 @@ export function usePanAudioAndMidi(
         const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(val);
         const node = track.isBusFolder ? busChannels[track.id] : channels[track.id];
         if (node?.pan) {
-          node.pan.rampTo(acousticPan, 0.02);
+          safeRampPan(node.pan, acousticPan, 0.02);
         }
         if (node?.volume && !track.isBusFolder) {
           const baseDb = faderPositionToDb(track.volumeVal ?? 75);
           if (baseDb > -90) {
-            node.volume.rampTo(baseDb + panCompensationDb, 0.02);
+            safeRampDb(node.volume, baseDb + panCompensationDb, 0.02);
           }
         }
       }

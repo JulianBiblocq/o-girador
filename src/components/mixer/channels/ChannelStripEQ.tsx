@@ -2,6 +2,7 @@ import React from 'react';
 import { MixerKnob } from '../../MixerKnob';
 import { MixerSlantedDivider } from '../../MixerSlantedDivider';
 import { eqNodes } from '../../../audio/effectsChain';
+import { safeRampFreq, safeRampGainDb } from '../../../utils/audio/safeAudioParamRamp';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { TrackGroup } from '../../../types';
 
@@ -27,12 +28,12 @@ export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang }) =
   const handleEQChange = (bands: Partial<typeof eq>) => useSequencerStore.getState().handleTrackEQChange(trackId, bands);
   const handleEQReset = () => { if (isEQModified) useSequencerStore.getState().handleTrackEQReset(trackId); };
 
-  const handleHFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.high) eqNodes[trackId].high.frequency.value = val; } catch (_) {} };
-  const handleHGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.high) eqNodes[trackId].high.gain.value = val; } catch (_) {} };
-  const handleMFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.mid) eqNodes[trackId].mid.frequency.value = val; } catch (_) {} };
-  const handleMGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.mid) eqNodes[trackId].mid.gain.value = val; } catch (_) {} };
-  const handleLFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.low) eqNodes[trackId].low.frequency.value = val; } catch (_) {} };
-  const handleLGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.low) eqNodes[trackId].low.gain.value = val; } catch (_) {} };
+  const handleHFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.high) safeRampFreq(eqNodes[trackId].high.frequency, val, 0.02); } catch (_) {} };
+  const handleHGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.high) safeRampGainDb(eqNodes[trackId].high.gain, val, 0.02); } catch (_) {} };
+  const handleMFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.mid) safeRampFreq(eqNodes[trackId].mid.frequency, val, 0.02); } catch (_) {} };
+  const handleMGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.mid) safeRampGainDb(eqNodes[trackId].mid.gain, val, 0.02); } catch (_) {} };
+  const handleLFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.low) safeRampFreq(eqNodes[trackId].low.frequency, val, 0.02); } catch (_) {} };
+  const handleLGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.low) safeRampGainDb(eqNodes[trackId].low.gain, val, 0.02); } catch (_) {} };
 
   return (
     <div className="w-full flex flex-col shrink-0">
