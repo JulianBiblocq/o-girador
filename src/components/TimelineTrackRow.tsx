@@ -8,6 +8,7 @@ import { getTrackDisplayName, getBusColor, getTopParentBusId } from '../utils/co
 import { TimelineTrackAutomationLane } from './timeline/TimelineTrackAutomationLane';
 import { TimelineTrackHeader } from './timeline/TimelineTrackHeader';
 import { resolveTimelineTrackMeasureData } from './timeline/TimelineTrackToadaMirror';
+import { isSlaveTrack } from '../utils/trackMasterResolver';
 
 interface TimelineTrackRowProps {
   trackId: number;
@@ -48,7 +49,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     if (isMacro) return '';
     const t = state.tracks.find((c) => c.id === trackId);
     if (!t) return '';
-    const isSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+    const isSlave = Boolean(t && isSlaveTrack(t, state.tracks));
     const master = isSlave ? state.tracks.find((m) => (String(m.linkedToTrackId) === String(t.linkedToTrackId) || String(m.id) === String(t.linkedToTrackId)) && m.isLinkMaster) : null;
     return JSON.stringify({
       patterns: t.patterns.map((p) => ({ id: p.id, name: p.name, steps: p.steps, vocalMode: p.vocalMode, measureAssignments: p.measureAssignments, measureAllowVariations: p.measureAllowVariations, variationsCount: p.variations?.length || 0 })),
@@ -84,10 +85,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   if (!trackData || !trackInst) return null;
   const trackIndex = tracksMeta.findIndex((t) => t.id === trackId);
   const isToadaChildTrack = Boolean(trackMeta && isToadaChild(trackMeta as any, tracksMeta as any));
-  const isLinkedSlave = Boolean(trackMeta?.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster && !isToadaChildTrack);
-  const isLinkedChild = Boolean(trackMeta?.linkedToTrackId && !trackMeta.isLinkFolder && !isToadaChildTrack);
-  const isLinkFolder = Boolean(trackMeta?.isLinkFolder);
-  const isLinkMaster = Boolean(trackMeta?.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster && !isToadaChildTrack);
+  const isLinkedSlave = Boolean(trackMeta && isSlaveTrack(trackMeta as any, tracksMeta as any) && !isToadaChildTrack);
+  const isLinkedChild = isLinkedSlave;
+  const isLinkFolder = Boolean(trackMeta?.isLinkFolder && !trackMeta?.isBusFolder);
+  const isLinkMaster = Boolean(trackMeta?.isLinkMaster && !trackMeta?.isBusFolder && !isToadaChildTrack);
   const isChild = isLinkedSlave || isToadaChildTrack;
   const displayName = isToada ? 'Toada' : (isChild ? `↳ ${getTrackDisplayName(trackMeta as any, tracksMeta as any)}` : getTrackDisplayName(trackMeta as any, tracksMeta as any));
 

@@ -16,4 +16,5 @@ export interface WorkspaceTemplateStoreState {
   deleteTemplate: (id: string) => Promise<void>;
   syncCloudTemplates: (userUid: string | null, userRole?: string) => Promise<void>;
   syncWithCloud: (userUid: string | null, userRole?: string) => Promise<void>;
+  mergeFromSnapshot: (cloudTemplates: WorkspaceTemplate[], userUid?: string) => Promise<void>;
 }

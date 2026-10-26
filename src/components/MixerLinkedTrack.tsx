@@ -1,13 +1,15 @@
 /**
  * Tranche de piste liée (MixerLinkedTrack) avec pastilles d'automation [ A ] (< 130 lignes).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig } from '../data';
 import { getTrackDisplayName } from '../utils/colorHelpers';
 import { useAudio } from '../contexts/AudioContext';
+import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
+import { useTrackMixerContextMenu } from './mixer/useTrackMixerContextMenu';
 import { computeChannelStripStyles } from './mixer/channels/channelStripStyles';
 import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutomation';
 import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
@@ -32,6 +34,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const isEcoMode = useSequencerStore(state => state.isEcoMode);
   const globalBypass = useSequencerStore(state => state.globalAutomationBypass);
 
+  const { contextMenuPos, handleContextMenuOpen, handleContextMenuClose, touchHandlers } = useTrackMixerContextMenu();
+
   const isVolActive = trackHasRealVolAuto(track) && !isAutomationBypassed(track, 'volume', globalBypass);
   const isPanActive = trackHasRealPanAuto(track) && !isAutomationBypassed(track, 'pan', globalBypass);
   const isRevActive = trackHasRealRevAuto(track) && !isAutomationBypassed(track, 'reverb', globalBypass);
@@ -41,6 +45,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   });
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `track-${trackId}` });
+  const [nameVal, setNameVal] = useState<string>(track?.customName || '');
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
 
   if (!track) return null;
   const inst = instrumentsConfig[track.instrumentIdx];
@@ -58,10 +64,17 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     ? `Supprimer définitivement la piste liée "${displayName}" et tous ses motifs ?`
     : `Excluir definitivamente a faixa vinculada "${displayName}" e todos os seus padrões?`;
 
+  const handleRenameSubmit = () => {
+    if (nameVal.trim()) useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, customName: nameVal.trim() } : t));
+    setIsEditingName(false);
+  };
+
   return (
     <div
       ref={setNodeRef}
       data-track-id={trackId}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleContextMenuOpen(e.clientX, e.clientY); }}
+      {...touchHandlers}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
@@ -82,6 +95,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         midiFaderIndex={midiFaderIndex} isUnderMidiControl={isUnderMidiControl}
         displayName={displayName} onOpenDetailEditor={onOpenDetailEditor}
         attributes={attributes} listeners={listeners} customDeleteMessage={customDeleteMessage}
+        isEditingName={isEditingName} nameVal={nameVal} setNameVal={setNameVal}
+        handleRenameSubmit={handleRenameSubmit} setIsEditingName={setIsEditingName}
       />
 
       <ChannelStripBody
@@ -91,6 +106,16 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         faderHandleRef={faderHandleRef} faderTextRef={faderTextRef} travelRangeRef={travelRangeRef}
         panKnobRef={panKnobRef} reverbGaugeRef={reverbGaugeRef} reverbTextRef={reverbTextRef}
       />
+
+      {contextMenuPos && (
+        <TrackContextMenu
+          trackId={trackId}
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          onClose={handleContextMenuClose}
+          onRename={() => setIsEditingName(true)}
+        />
+      )}
     </div>
   );
 };

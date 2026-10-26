@@ -36,14 +36,10 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
   const presetsList = useMemo(() => getAllAvailablePaperPresets(lang), [lang]);
   const activeInit = initialPreset || presetsList.find((p) => !isPaperImportProcessed(p.id)) || presetsList[0];
   const [selectedPreset, setSelectedPreset] = useState<PaperPreset>(() => activeInit);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' });
-  const [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: activeInit.name }));
-  const [dismissedDraftId, setDismissedDraftId] = useState<string | null>(null);
-  const [hideProcessed, setHideProcessed] = useState<boolean>(true);
-  const [procRevision, setProcRevision] = useState<number>(0);
-  const [globalBpm, setGlobalBpm] = useState<number>(() => activeInit.bpm || 96);
-  const [globalTimeSig, setGlobalTimeSig] = useState<string>(() => activeInit.timeSig || '4/4');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null), [dismissedDraftId, setDismissedDraftId] = useState<string | null>(null);
+  const [injectOpts, setInjectOpts] = useState<PaperInjectOptions>({ linkAlfaias: true, linkCaixas: true, caixasLinkMode: 'caixa_tarol' }), [metaOverrides, setMetaOverrides] = useState<Partial<PresetMetadata>>(() => ({ toada: activeInit.name }));
+  const [hideProcessed, setHideProcessed] = useState<boolean>(true), [procRevision, setProcRevision] = useState<number>(0);
+  const [globalBpm, setGlobalBpm] = useState<number>(() => activeInit.bpm || 96), [globalTimeSig, setGlobalTimeSig] = useState<string>(() => activeInit.timeSig || '4/4');
   const [metricOverrides, setMetricOverrides] = useState<Record<string, PatternMetricOverride>>(() => (activeInit?.metricOverrides ? { ...activeInit.metricOverrides } : {}));
 
   const scoreId = selectedPreset.id || selectedPreset.name.toLowerCase().replace(/\s+/g, '_');
@@ -54,7 +50,7 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
   const {
     sections, setSections, patternsById, setPatternsById, sequenceItems, setSequenceItems, reusableSections,
     setReusableSections, exportedPatterns, handleRenameSection, handleUpdateStep, handleUpdatePupitreRow,
-    handleRescanSinglePattern, handleAddNewPattern, handleRescanSequence, handleSaveDraft,
+    handleRescanSinglePattern, handleAddNewPattern, handleRescanSequence, handleApplyFullScan, handleSaveDraft,
   } = usePaperScannerWorkflow({
     initialPreset: selectedPreset, scoreId, globalBpm, globalTimeSig, metricOverrides,
     toadaTitle: metaOverrides.toada || selectedPreset.name, injectOpts, saveCurrentDraft, setActiveDraftId, lang,
@@ -65,8 +61,14 @@ export const PaperScannerTab: React.FC<Props> = ({ canImport, lang, onClose, ini
     scanBanner, setScanBanner, isAnalyzing, cordelDialog, closeCordelDialog,
     triggerFullScan, triggerPatternRescan, triggerAddNewPatternScan, triggerSequenceRescan,
   } = usePaperScanCropActions({
-    globalTimeSig, sections, onRescanPattern: handleRescanSinglePattern, onAddNewPattern: handleAddNewPattern,
+    globalTimeSig, sections, scoreId, onRescanPattern: handleRescanSinglePattern, onAddNewPattern: handleAddNewPattern,
     onRescanSequence: handleRescanSequence, onHighlightTarget: (tgt) => triggerScrollHighlight(tgt, 260), setMetricOverrides, setPhotoPreview, lang,
+    onFullScanResult: (h) => {
+      handleApplyFullScan(h);
+      if (h.songTitle) setMetaOverrides((prev) => ({ ...prev, toada: h.songTitle }));
+      if (h.globalBpm) setGlobalBpm(h.globalBpm);
+      if (h.globalTimeSig) setGlobalTimeSig(h.globalTimeSig);
+    },
   });
 
   useEffect(() => {

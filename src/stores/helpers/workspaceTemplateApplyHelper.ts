@@ -4,7 +4,7 @@
 import { TrackGroup, Pattern, WorkspaceTemplate, ApplyWorkspaceTemplateOptions } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { matchTemplateTracksWithSong, isVoiceTrack } from './workspaceTemplateMatcher';
-import { getBusFamily } from './workspaceTemplateBusMatcher';
+import { normalizeWorkspaceTemplateLinks } from './workspaceTemplateLinkNormalizer';
 import { applyRadii } from './trackRodaGeometryHelpers';
 
 export function applyWorkspaceTemplateToSongState(
@@ -29,7 +29,6 @@ export function applyWorkspaceTemplateToSongState(
 
   const songAlfaias = state.tracks.filter(t => !t.isBusFolder && [0, 1, 2].includes(t.instrumentIdx));
   const areSongAlfaiasIndependent = songAlfaias.length > 0 && songAlfaias.every(t => !t.linkedToTrackId && !t.isLinkMaster);
-  const tplAlfaiaBus = template.tracks.find(t => t.isBusFolder && getBusFamily(t, template.tracks, instrumentsConfig) === 'alfaias');
 
   // 1. Mise a jour ou creation de chaque piste du gabarit
   const templateMappedTracks: TrackGroup[] = template.tracks.map((tplT, i) => {
@@ -56,34 +55,12 @@ export function applyWorkspaceTemplateToSongState(
     };
 
     if (options.includeStructure) {
-      if (areSongAlfaiasIndependent && tplAlfaiaBus) {
-        if (tplT.id === tplAlfaiaBus.id) {
-          baseTrack.customName = tplAlfaiaBus.customName || 'ALFAIAS';
-          baseTrack.isBusFolder = true;
-          baseTrack.isLinkFolder = false;
-        } else if ([0, 1, 2].includes(tplT.instrumentIdx)) {
-          const alfaiaBusSongId = tplToSongIdMap.get(tplAlfaiaBus.id);
-          baseTrack.busId = alfaiaBusSongId ? String(alfaiaBusSongId) : newBusId;
-          baseTrack.linkedToTrackId = undefined;
-          baseTrack.isLinkMaster = undefined;
-          baseTrack.isLinkFolder = false;
-          baseTrack.isHidden = false;
-        } else {
-          baseTrack.isBusFolder = tplT.isBusFolder;
-          baseTrack.isLinkFolder = tplT.isLinkFolder;
-          baseTrack.isLinkMaster = tplT.isLinkMaster;
-          baseTrack.busId = newBusId;
-          baseTrack.linkedToTrackId = newLinkedId;
-          baseTrack.isHidden = Boolean(tplT.linkedToTrackId && !tplT.isLinkFolder && !tplT.isLinkMaster);
-        }
-      } else {
-        baseTrack.isBusFolder = tplT.isBusFolder;
-        baseTrack.isLinkFolder = tplT.isLinkFolder;
-        baseTrack.isLinkMaster = tplT.isLinkMaster;
-        baseTrack.busId = newBusId;
-        baseTrack.linkedToTrackId = newLinkedId;
-        baseTrack.isHidden = Boolean(tplT.linkedToTrackId && !tplT.isLinkFolder && !tplT.isLinkMaster);
-      }
+      baseTrack.isBusFolder = tplT.isBusFolder;
+      baseTrack.isLinkFolder = tplT.isLinkFolder;
+      baseTrack.isLinkMaster = existing?.isLinkMaster ?? tplT.isLinkMaster;
+      baseTrack.busId = newBusId;
+      baseTrack.linkedToTrackId = newLinkedId;
+      baseTrack.isHidden = Boolean(tplT.linkedToTrackId && !tplT.isLinkFolder && !tplT.isLinkMaster);
     }
     if (options.includeVolumePan) {
       baseTrack.volumeVal = tplT.volumeVal ?? baseTrack.volumeVal ?? 75;
@@ -104,15 +81,18 @@ export function applyWorkspaceTemplateToSongState(
   // 2. Gestion des pistes existantes non couvertes par le gabarit
   const preservedExtraTracks = state.tracks.filter((st) => {
     if (matchedSongTrackIds.has(st.id)) return false;
-    // Si l'utilisateur demande le nettoyage, on conserve toujours les pistes vocales
     if (options.removeExtraTracks) return isVoiceTrack(st, instrumentsConfig);
     return true;
   });
 
-  // 3. Assemblage et ordre d'affichage (Mixeur & Roda)
-  const finalTracks = options.includeDisplayOrder
+  // 3. Assemblage et normalisation des liaisons (Caixas & Alfaias)
+  const mergedTracks = options.includeDisplayOrder
     ? [...templateMappedTracks, ...preservedExtraTracks]
     : [...state.tracks.filter(t => !matchedSongTrackIds.has(t.id) && preservedExtraTracks.includes(t)), ...templateMappedTracks];
+
+  const finalTracks = options.includeStructure
+    ? normalizeWorkspaceTemplateLinks(mergedTracks, areSongAlfaiasIndependent)
+    : mergedTracks;
 
   let finalRodaOrder: number[] = [];
   if (options.includeDisplayOrder && template.rodaTrackOrder?.length) {

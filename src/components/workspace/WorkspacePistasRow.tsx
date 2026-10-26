@@ -6,6 +6,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { instrumentsConfig } from '../../data';
 import { DawStepGrid } from '../daw/DawStepGrid';
 import { resolveDawPattern, computeBeatGroups } from '../daw/dawStepMath';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
 
 interface WorkspacePistasRowProps {
   track: TrackGroup;
@@ -30,7 +31,7 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
   registerStepRef,
   trackResolutionsRef,
 }) => {
-  const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
+  const isLinkedSlave = isSlaveTrack(track, tracks);
   const isToada = isToadaBus(track);
 
   const activeChildTrack = useMemo(() => {

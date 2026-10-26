@@ -4,13 +4,13 @@
 import { PaperPreset, PaperStepValue } from '../types/paperWorkshop.types';
 import { expandSequenceString } from './paper/paperScoreEngine';
 
-const S0: PaperStepValue[] = Array(16).fill(0);
-const finAlCx: PaperStepValue[] = ['D', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-const finGg: PaperStepValue[] = ['G', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-const finMi: PaperStepValue[] = ['P', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const s0 = (): PaperStepValue[] => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const finD = (): PaperStepValue[] => ['D', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const finG = (): PaperStepValue[] => ['G', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const finP = (): PaperStepValue[] => ['P', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 const sharedPatterns = {
-  'SILENCE': { mc: S0, me: S0, rp: S0, cx: S0, gg: S0, mi: S0 },
+  'SILENCE': { mc: s0(), me: s0(), rp: s0(), cx: s0(), gg: s0(), mi: s0() },
   'PITOMBA BASE': {
     mc: ['D', 0, 0, 0, 'D', 0, 'e', 0, 'D', 0, 'e', 'e', 'D', 0, 'e', 0] as PaperStepValue[],
     me: ['D', 0, 'e', 'D', 'e', 0, 'D', 0, 'e', 'D', 0, 'e', 'e', 'D', 0, 'e'] as PaperStepValue[],
@@ -36,11 +36,11 @@ const sharedPatterns = {
     mi: [0, 0, 'T', 0, 'P', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as PaperStepValue[],
   },
   'PITOMBA APPEL': {
-    mc: S0, me: S0, rp: S0,
+    mc: s0(), me: s0(), rp: s0(),
     cx: ['D', 0, 'E', 'D', 'E', 0, 'D', 0, 'e', 'R', 0, 'e', 'e', 'R', 0, 'e'] as PaperStepValue[],
-    gg: S0, mi: S0,
+    gg: s0(), mi: s0(),
   },
-  'FIN': { mc: finAlCx, me: finAlCx, rp: finAlCx, cx: finAlCx, gg: finGg, mi: finMi },
+  'FIN': { mc: finD(), me: finD(), rp: finD(), cx: finD(), gg: finG(), mi: finP() },
 };
 
 const pitombaVariations = {

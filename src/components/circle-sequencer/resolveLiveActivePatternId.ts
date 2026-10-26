@@ -3,6 +3,7 @@ import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus } from '../../stores/useSequencerStore';
 import { LivePlaybackState } from './circleSequencerTypes';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export function resolveLiveActivePatternId(
   track: TrackGroup,
@@ -40,32 +41,24 @@ export function resolveLiveActivePatternId(
   }
 
   const soloPlayId = state.soloPatternPlayId;
-  const isLinkedChild = Boolean(track.linkedToTrackId && !track.isLinkFolder);
-  const parentBus = isLinkedChild ? state.rawTracks.find((t: any) => String(t.id) === String(track.linkedToTrackId)) : null;
+  const isSlave = isSlaveTrack(track, state.rawTracks);
 
   if (soloPlayId !== undefined && soloPlayId !== null) {
     const foundOwn = track.patterns?.find((p: any) => p.id === soloPlayId);
     if (foundOwn) return soloPlayId;
-    if (parentBus) {
-      const foundInBus = parentBus.patterns?.find((p: any) => p.id === soloPlayId);
-      if (foundInBus) {
-        const matchByName = track.patterns?.find((p: any) => p.name === foundInBus.name);
-        return matchByName ? matchByName.id : soloPlayId;
-      }
-    }
-    if (isLinkedChild && !track.isLinkMaster) {
-      const master = state.rawTracks.find((t: any) => String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster);
+
+    if (isSlave) {
+      const master = resolveMasterTrack(track.id, state.rawTracks);
       const masterPtn = master?.patterns?.find((p: any) => p.id === soloPlayId);
       if (masterPtn) {
         const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
-        if (matchByName) return matchByName.id;
-        return soloPlayId;
+        return matchByName ? matchByName.id : soloPlayId;
       }
     }
     return null;
   }
 
-  if (isLinkedChild && !track.isLinkMaster) {
+  if (isSlave) {
     const override = track.patternOverrides?.[measureIdx];
     if (override === null) return null;
     if (override !== undefined) return override;
@@ -74,19 +67,12 @@ export function resolveLiveActivePatternId(
   const ownPtn = track.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
   if (ownPtn) return ownPtn.id;
 
-  if (isLinkedChild) {
-    if (parentBus) {
-      const busPtn = parentBus.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
-      if (busPtn) return busPtn.id;
-    }
-    if (!track.isLinkMaster) {
-      const master = state.rawTracks.find((t: any) => String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster);
-      const masterPtn = master?.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
-      if (masterPtn) {
-        const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
-        if (matchByName) return matchByName.id;
-        return masterPtn.id;
-      }
+  if (isSlave) {
+    const master = resolveMasterTrack(track.id, state.rawTracks);
+    const masterPtn = master?.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
+    if (masterPtn) {
+      const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
+      return matchByName ? matchByName.id : masterPtn.id;
     }
   }
 

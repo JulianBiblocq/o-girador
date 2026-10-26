@@ -29,15 +29,7 @@ export const assignPatternsToTracks = (
     const isCaixaGroup = instId === 'caixa' || instId === 'tarol' || (track.isLinkFolder && track.instrumentIdx === 3);
     const groupCode = isAlfaia ? 'al' : (isCaixaGroup ? 'cx' : specificCode);
     if (!groupCode) return track;
-
-    if (isSlaveTrack(track, tracks)) {
-      return {
-        ...track, patterns: [], selectedPatternId: 0, patternOverrides: {},
-        automation: undefined, volumeAutomation: undefined, panAutomation: undefined, isAutomated: false,
-        automationBypass: { volume: false, pan: false, reverb: false }, measureVols: undefined, measureVolTransitions: undefined,
-        measurePans: undefined, measurePanTransitions: undefined, measureReverbSends: undefined, measureReverbTransitions: undefined,
-      };
-    }
+    const isSlave = isSlaveTrack(track, tracks);
 
     const newPatterns: Pattern[] = [];
     const secEntries = Object.entries(preset.patterns);
@@ -50,11 +42,13 @@ export const assignPatternsToTracks = (
       }
       const override = preset.metricOverrides?.[sectionName];
       const targetSteps = override?.steps || nativeSecLength || 16;
-      const stepVal: any = (pupitreMap as any)[specificCode] || (pupitreMap as any)[groupCode] || Array(targetSteps).fill(0);
+      const fallbackGroupVal = (pupitreMap as any)[groupCode] ?? (isAlfaia ? (pupitreMap as any)['mc'] : undefined);
+      const stepVal: any = (pupitreMap as any)[specificCode] ?? fallbackGroupVal ?? Array(targetSteps).fill(0);
       let rawSteps: any[] = Array.isArray(stepVal) ? stepVal : Array(targetSteps).fill(0);
       if (typeof stepVal === 'string' && /^(base|idem|%)$/i.test(stepVal.trim())) {
         const baseMap = secEntries[0]?.[1] || {};
-        const baseVal: any = (baseMap as any)[specificCode] || (baseMap as any)[groupCode] || Array(targetSteps).fill(0);
+        const baseFallback = (baseMap as any)[groupCode] ?? (isAlfaia ? (baseMap as any)['mc'] : undefined);
+        const baseVal: any = (baseMap as any)[specificCode] ?? baseFallback ?? Array(targetSteps).fill(0);
         rawSteps = Array.isArray(baseVal) ? baseVal : Array(targetSteps).fill(0);
       }
       const padSteps = Array(targetSteps).fill(0);
@@ -76,23 +70,12 @@ export const assignPatternsToTracks = (
       const patTimeSig = override?.timeSignature || (targetSteps === 8 ? '2/4' : (targetSteps === 12 ? '12/8' : '4/4'));
 
       const patVars: any[] = [];
-      if (preset.variations?.[sectionName]) {
-        preset.variations[sectionName].forEach((pv, vIdx) => {
-          if (pv.pupitre === specificCode || pv.pupitre === groupCode) {
-            patVars.push({ id: `var-${patId}-${pv.varIndex || (vIdx + 1)}`, name: pv.name || `Var ${specificCode.toUpperCase()}`, steps: pv.steps.map(cloneStepValue), probability: pv.probability ?? 30 });
-          }
-        });
-      }
-      if (patVars.length === 0) {
-        const dictSec = findDictionarySection(sectionName);
-        if (dictSec?.variations) {
-          dictSec.variations.forEach((dv) => {
-            if (dv.pupitre === specificCode || dv.pupitre === groupCode) {
-              patVars.push({ id: `var-${patId}-${dv.varIndex}`, name: dv.name, steps: dv.steps.map(cloneStepValue), probability: 30 });
-            }
-          });
+      const varList = preset.variations?.[sectionName] || findDictionarySection(sectionName)?.variations || [];
+      varList.forEach((pv: any, vIdx: number) => {
+        if (pv.pupitre === specificCode || pv.pupitre === groupCode) {
+          patVars.push({ id: `var-${patId}-${pv.varIndex || (vIdx + 1)}`, name: pv.name || `Var ${specificCode.toUpperCase()}`, steps: pv.steps.map(cloneStepValue), probability: pv.probability ?? 30 });
         }
-      }
+      });
 
       newPatterns.push({
         id: patId, name: sectionName, steps: targetSteps, length: targetSteps, timeSignature: patTimeSig,
@@ -104,7 +87,9 @@ export const assignPatternsToTracks = (
 
       if (!track.isBusFolder && !track.isLinkFolder) {
         if (specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, specificCode, track.id, patId);
-        if (groupCode && groupCode !== specificCode) vigilance.linkPointsToTrack(scoreId, sectionName, groupCode, track.id, patId);
+        if (!isSlave && groupCode && groupCode !== specificCode) {
+          vigilance.linkPointsToTrack(scoreId, sectionName, groupCode, track.id, patId);
+        }
       }
     });
 

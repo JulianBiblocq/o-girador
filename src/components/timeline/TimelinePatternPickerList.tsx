@@ -26,42 +26,46 @@ export const TimelinePatternPickerList: React.FC<TimelinePatternPickerListProps>
       {isSlave && (
         <button
           type="button"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(undefined); }}
           onClick={() => onSelect(undefined)}
+          style={isFollowingMaster ? { backgroundColor: '#1a1a1a', color: '#f4ecd8' } : { backgroundColor: '#f4ecd8', color: '#1a1a1a' }}
           className={`w-full text-left px-2 py-1.5 rounded-none font-bold text-xs flex items-center justify-between transition-colors cursor-pointer ${
-            isFollowingMaster
-              ? 'bg-[#1a1a1a] text-[#f4ecd8]'
-              : 'hover:bg-[#1a1a1a]/10 text-[var(--cordel-text)]'
+            isFollowingMaster ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'hover:bg-[#e6dac3] text-[#1a1a1a]'
           }`}
         >
-          <span className="truncate">{lang === 'fr' ? 'Suivre le maître' : 'Seguir mestre'}</span>
-          {isFollowingMaster && <Check size={12} className="shrink-0 ml-1" />}
+          <span className="truncate" style={{ color: isFollowingMaster ? '#f4ecd8' : '#1a1a1a' }}>
+            {lang === 'fr' ? 'Suivre le maître' : 'Seguir mestre'}
+          </span>
+          {isFollowingMaster && <Check size={12} className="shrink-0 ml-1" style={{ color: '#f4ecd8' }} />}
         </button>
       )}
 
       <button
         type="button"
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(null); }}
         onClick={() => onSelect(null)}
+        style={activePatternId === null && !isFollowingMaster ? { backgroundColor: '#1a1a1a', color: '#f4ecd8' } : { backgroundColor: '#f4ecd8', color: '#1a1a1a' }}
         className={`w-full text-left px-2 py-1.5 rounded-none font-bold text-xs flex items-center justify-between transition-colors cursor-pointer ${
-          activePatternId === null && !isFollowingMaster
-            ? 'bg-[#1a1a1a] text-[#f4ecd8]'
-            : 'hover:bg-[#1a1a1a]/10 text-[var(--cordel-text)]/70'
+          activePatternId === null && !isFollowingMaster ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'hover:bg-[#e6dac3] text-[#1a1a1a]'
         }`}
       >
-        <span className="truncate">— {lang === 'fr' ? 'Silence' : 'Silêncio'}</span>
-        {activePatternId === null && !isFollowingMaster && <Check size={12} className="shrink-0 ml-1" />}
+        <span className="truncate" style={{ color: activePatternId === null && !isFollowingMaster ? '#f4ecd8' : '#1a1a1a' }}>
+          — {lang === 'fr' ? 'Silence' : 'Silêncio'}
+        </span>
+        {activePatternId === null && !isFollowingMaster && <Check size={12} className="shrink-0 ml-1" style={{ color: '#f4ecd8' }} />}
       </button>
 
       {patternsList.map((p, idx) => {
-        const isCurrent = !isFollowingMaster && activePatternId === p.id;
+        const isCurrent = !isFollowingMaster && (activePatternId !== null && activePatternId !== undefined && String(activePatternId) === String(p.id));
         return (
           <button
             key={p.id}
             type="button"
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onSelect(p.id); }}
             onClick={() => onSelect(p.id)}
+            style={isCurrent ? { backgroundColor: '#1a1a1a', color: '#f4ecd8' } : { backgroundColor: '#f4ecd8', color: '#1a1a1a' }}
             className={`w-full text-left px-2 py-1.5 rounded-none font-bold text-xs flex items-center justify-between transition-colors cursor-pointer ${
-              isCurrent
-                ? 'bg-[#1a1a1a] text-[#f4ecd8]'
-                : 'hover:bg-[#1a1a1a]/10 text-[var(--cordel-text)]'
+              isCurrent ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'hover:bg-[#e6dac3] text-[#1a1a1a]'
             }`}
           >
             <div className="flex items-center gap-1.5 truncate">
@@ -71,10 +75,12 @@ export const TimelinePatternPickerList: React.FC<TimelinePatternPickerListProps>
               />
               <span className="truncate flex items-center gap-1">
                 {p.vocalMode === 'micro' && <Mic size={10} className="shrink-0 text-[#8b2a1a]" />}
-                <span>{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}</span>
+                <span style={{ color: isCurrent ? '#f4ecd8' : '#1a1a1a' }}>
+                  {p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
+                </span>
               </span>
             </div>
-            {isCurrent && <Check size={12} className="shrink-0 ml-1" />}
+            {isCurrent && <Check size={12} className="shrink-0 ml-1" style={{ color: '#f4ecd8' }} />}
           </button>
         );
       })}

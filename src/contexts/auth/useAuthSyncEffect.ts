@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { User, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -6,6 +5,7 @@ import { auth, db } from '../../firebase/config';
 import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useMuteGroupStore } from '../../stores/useMuteGroupStore';
+import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { UserProfile } from './authTypes';
 import { getInitialTestProfile } from './authTestProfile';
 import { resolveUserProfileAndGroup } from './authGroupResolver';
@@ -43,9 +43,7 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
     }
 
     if (checkTestProfile()) {
-      return () => {
-        if (unsubscribeProfile) unsubscribeProfile();
-      };
+      return () => { if (unsubscribeProfile) unsubscribeProfile(); };
     }
 
     const searchParams = new URLSearchParams(window.location.search);
@@ -60,13 +58,8 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
 
       setLoading(true);
       signInWithCustomToken(auth, ssoToken)
-        .catch((err) => {
-          console.warn("[Sequenciador SSO] Erreur connexion SSO :", err);
-          setLoading(false);
-        })
-        .finally(() => {
-          isSSOPending = false;
-        });
+        .catch((err) => { console.warn("[Sequenciador SSO] Erreur connexion SSO :", err); setLoading(false); })
+        .finally(() => { isSSOPending = false; });
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -79,6 +72,7 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
       }
 
       if (user) {
+        useWorkspaceTemplateStore.getState().syncCloudTemplates(user.uid);
         const userRef = doc(db, 'users', user.uid);
         unsubscribeProfile = onSnapshot(userRef, async (docSnap) => {
           if (docSnap.exists()) {
@@ -87,29 +81,23 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
             if (docSnap.data()?.muteGroups) {
               useMuteGroupStore.getState().setAssignmentsFromCloud(docSnap.data().muteGroups);
             }
+            if (docSnap.data()?.workspaceTemplates) {
+              useWorkspaceTemplateStore.getState().mergeFromSnapshot(docSnap.data().workspaceTemplates, user.uid);
+            }
             try {
-              localStorage.setItem(
-                'girador_user_cached_profile',
-                JSON.stringify({
-                  photoURL: resolvedProfile.photoURL || user.photoURL || null,
-                  displayName: resolvedProfile.displayName || user.displayName || null,
-                  groupId: resolvedProfile.groupId || null,
-                  groupName: resolvedProfile.groupName || null,
-                })
-              );
+              localStorage.setItem('girador_user_cached_profile', JSON.stringify({
+                photoURL: resolvedProfile.photoURL || user.photoURL || null,
+                displayName: resolvedProfile.displayName || user.displayName || null,
+                groupId: resolvedProfile.groupId || null,
+                groupName: resolvedProfile.groupName || null,
+              }));
             } catch (_) {}
             useNomenclatureStore.getState().syncGroupNomenclature(resolvedProfile.groupId || null);
           } else {
             const newProfile: UserProfile = {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              role: 'membre',
-              mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-              groupId: 'Samambaia',
-              groupName: 'Samambaia',
-              createdAt: Date.now(),
+              uid: user.uid, email: user.email, displayName: user.displayName,
+              photoURL: user.photoURL, role: 'membre', mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+              groupId: 'Samambaia', groupName: 'Samambaia', createdAt: Date.now(),
             };
             await setDoc(userRef, newProfile, { merge: true });
             setUserProfile({ ...newProfile, dbRole: newProfile.role });

@@ -50,7 +50,8 @@ export const parseLineMultiplier = (label: string): { cleanLabel: string; multip
 export const resolveSectionPatterns = (
   sectionPatterns: Partial<Record<string, any>> | Array<{ header: string; steps: any[] }>,
   basePatterns: Partial<Record<string, PaperStepValue[]>> = {},
-  targetLength?: number
+  targetLength?: number,
+  beatResolutions?: number[]
 ): Partial<Record<string, PaperStepValue[]>> => {
   const entries: Array<{ rawKey: string; val: any }> = Array.isArray(sectionPatterns)
     ? sectionPatterns.map((l) => ({ rawKey: l.header, val: l.steps }))
@@ -61,8 +62,12 @@ export const resolveSectionPatterns = (
     const arrayLengths = entries
       .filter((e) => Array.isArray(e.val))
       .map((e) => e.val.length);
-    effectiveLength = arrayLengths.length > 0 && Math.max(...arrayLengths) === 8 ? 8 : 16;
+    effectiveLength = arrayLengths.length > 0 && Math.max(...arrayLengths) === 8 ? 8 : (beatResolutions?.reduce((a, b) => a + b, 0) || 16);
   }
+
+  const beatLengths = beatResolutions?.length
+    ? beatResolutions
+    : (effectiveLength === 12 ? [3, 3, 3, 3] : Array(Math.max(1, Math.floor(effectiveLength / 4))).fill(4));
 
   const resolved: Partial<Record<string, PaperStepValue[]>> = {};
   let lastMasterSteps: PaperStepValue[] = Array(effectiveLength).fill(0);
@@ -90,20 +95,22 @@ export const resolveSectionPatterns = (
       if (parsed.isVariation) {
         // Règle du Temps Vide vs Tiret (-) sur sous-ligne de variation
         const childSteps: PaperStepValue[] = [];
-        for (let beat = 0; beat < effectiveLength / 4; beat++) {
-          const beatSlice = sanitized.slice(beat * 4, beat * 4 + 4);
+        let offset = 0;
+        for (const bLen of beatLengths) {
+          const beatSlice = sanitized.slice(offset, offset + bLen);
           const isEntireBeatEmpty = beatSlice.every((st) => st === 0);
 
           if (isEntireBeatEmpty) {
             // Recopie automatique du temps de la ligne maîtresse
-            for (let s = 0; s < 4; s++) childSteps.push(lastMasterSteps[beat * 4 + s] ?? 0);
+            for (let s = 0; s < bLen; s++) childSteps.push(lastMasterSteps[offset + s] ?? 0);
           } else {
             // Traitement case par case : tiret '-' = vrai silence (0), sinon valeur
-            for (let s = 0; s < 4; s++) {
-              const val = beatSlice[s];
-              childSteps.push(val === '-' ? 0 : (val === 0 ? (lastMasterSteps[beat * 4 + s] ?? 0) : val));
+            for (let s = 0; s < bLen; s++) {
+              const v = beatSlice[s];
+              childSteps.push(v === '-' ? 0 : (v === 0 ? (lastMasterSteps[offset + s] ?? 0) : v));
             }
           }
+          offset += bLen;
         }
         for (const t of targets) resolved[t] = childSteps;
       } else {

@@ -70,10 +70,16 @@ export function buildScannedScoreTracks(preset: PaperPreset, totalM: number, opt
     tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: true, isLinkFolder: false }));
     tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: false, isLinkFolder: false }));
     tracks.push(makeTrack(baseId + 13, 2, 'Repique (alfaia)', { busId: String(busId), linkedToTrackId: String(busId), isLinkMaster: false, isLinkFolder: false }));
+  } else if (hasAl) {
+    const busId = baseId + 10;
+    tracks.push(makeTrack(busId, 0, 'ALFAIAS', { isBusFolder: true, isLinkFolder: false }));
+    tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)', { busId: String(busId), isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined }));
+    tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)', { busId: String(busId), isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined }));
+    tracks.push(makeTrack(baseId + 13, 2, 'Repique (alfaia)', { busId: String(busId), isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined }));
   } else {
-    if (activeRoles.has('al') || activeRoles.has('mc')) tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)'));
-    if (activeRoles.has('me')) tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)'));
-    if (activeRoles.has('rp')) tracks.push(makeTrack(baseId + 13, 2, 'Repique (alfaia)'));
+    if (activeRoles.has('al') || activeRoles.has('mc')) tracks.push(makeTrack(baseId + 11, 0, 'Marcante (alfaia)', { isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined }));
+    if (activeRoles.has('me')) tracks.push(makeTrack(baseId + 12, 1, 'Meião (alfaia)', { isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined }));
+    if (activeRoles.has('rp')) tracks.push(makeTrack(baseId + 13, 2, 'Repique (alfaia)', { isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined }));
   }
 
   const hasCx = activeRoles.has('cx'), hasTr = activeRoles.has('tr');

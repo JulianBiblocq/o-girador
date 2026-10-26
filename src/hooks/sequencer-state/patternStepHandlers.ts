@@ -5,6 +5,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { handleTrackStepKeyDownHelper } from './trackStepKeyNavigationHelper';
 import { syncPatternAcrossLinkedFamily } from '../../stores/helpers/patternStepLinkedTracksSync';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export interface PatternStepContext {
   pushUndoState: () => void;
@@ -90,12 +91,18 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
 
   const handlePatternNameChange = (trackId: number, patternId: number, newName: string) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => ({ ...p, name: newName })));
+    setTracks((prev: TrackGroup[]) => {
+      const updated = syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => ({ ...p, name: newName }));
+      return syncMasterPatternsToLinkedFamily(updated, trackId).tracks;
+    });
   };
 
   const handleReorderPatternsDnd = (trackId: number, oldIndex: number, newIndex: number) => {
     pushUndoState();
-    setTracks((prevTracks: TrackGroup[]) => prevTracks.map((t: TrackGroup) => t.id !== trackId ? t : { ...t, patterns: arrayMove(t.patterns, oldIndex, newIndex) }));
+    setTracks((prevTracks: TrackGroup[]) => {
+      const updated = prevTracks.map((t: TrackGroup) => t.id !== trackId ? t : { ...t, patterns: arrayMove(t.patterns, oldIndex, newIndex) });
+      return syncMasterPatternsToLinkedFamily(updated, trackId).tracks;
+    });
   };
 
   const handleDeletePatternMeasure = (trackId: number, patternId: number, measureIndex: number) => {

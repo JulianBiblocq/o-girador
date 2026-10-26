@@ -48,7 +48,7 @@ export const handleCreateBusState = (
   if (idx === -1) return {};
   const busId = Date.now();
   const bus = createBaseBusTrack(busId, state.tracks[idx].instrumentIdx, name, false, []);
-  const updated = state.tracks.map(t => t.id === trackId ? { ...t, busId: String(busId), linkedToTrackId: undefined } : t);
+  const updated = state.tracks.map(t => t.id === trackId ? { ...t, busId: String(busId), linkedToTrackId: undefined, isLinkMaster: false } : t);
   const next = [...updated.slice(0, idx), bus, ...updated.slice(idx)];
   return { tracks: applyRadii(next), tracksVersion: state.tracksVersion + 1 };
 };
@@ -64,7 +64,7 @@ export const handleCreateCustomBusState = (
   const firstIdx = Math.min(...indices);
   const busId = Date.now();
   const bus = createBaseBusTrack(busId, state.tracks[firstIdx].instrumentIdx, name, false, []);
-  const updatedSel = state.tracks.filter(t => trackIds.includes(t.id)).map(t => ({ ...t, busId: String(busId), linkedToTrackId: undefined }));
+  const updatedSel = state.tracks.filter(t => trackIds.includes(t.id)).map(t => ({ ...t, busId: String(busId), linkedToTrackId: undefined, isLinkMaster: false }));
   const rem = state.tracks.filter(t => !trackIds.includes(t.id));
   const ins = Math.max(0, Math.min(firstIdx, rem.length));
   const next = [...rem.slice(0, ins), bus, ...updatedSel, ...rem.slice(ins)];
@@ -113,7 +113,16 @@ export const handleAssignToBusState = (
   trackId: number,
   busId: string | null
 ): TrackGroup[] => {
-  const updated = tracks.map((t) => (t.id === trackId ? { ...t, busId: busId || undefined } : t));
+  const updated = tracks.map((t) => {
+    if (t.id !== trackId) return t;
+    const parentBus = busId ? tracks.find(p => String(p.id) === String(busId)) : null;
+    const isPureAudioBus = parentBus ? Boolean(parentBus.isBusFolder && !parentBus.isLinkFolder) : false;
+    return {
+      ...t,
+      busId: busId || undefined,
+      ...(isPureAudioBus ? { linkedToTrackId: undefined, isLinkMaster: false } : {}),
+    };
+  });
   return applyRadii(sortTracksHierarchically(updated));
 };
 

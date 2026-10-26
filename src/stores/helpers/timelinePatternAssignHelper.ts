@@ -2,6 +2,8 @@ import { TrackGroup, TimeSignature, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus } from './trackVisibilityHelpers';
 import { autoExpandMeasuresState } from './timelineGridAutoExpandHelper';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
 
 export const handleTimelinePatternAssignState = (
   state: {
@@ -22,20 +24,23 @@ export const handleTimelinePatternAssignState = (
   measureIdx: number
 ): Record<string, any> => {
   const clickedTrack = state.tracks.find((t) => t.id === trackId);
-  const isLinkedSlave = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
-  const isLinkMaster = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
+  const isLinkedSlave = isSlaveTrack(clickedTrack, state.tracks);
+  const isLinkMaster = Boolean(clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster);
 
   let targetTrackId = trackId;
   let targetTrack = clickedTrack;
-  if (!isLinkMaster && patternId !== null && patternId !== undefined) {
-    const ownerTrack = state.tracks.find((t) => t.patterns?.some((p) => p.id === patternId));
+  if (clickedTrack?.patterns?.some((p) => String(p.id) === String(patternId))) {
+    targetTrackId = clickedTrack.id;
+    targetTrack = clickedTrack;
+  } else if (!isLinkMaster && patternId !== null && patternId !== undefined) {
+    const ownerTrack = state.tracks.find((t) => t.patterns?.some((p) => String(p.id) === String(patternId)));
     if (ownerTrack) {
       targetTrackId = ownerTrack.id;
       targetTrack = ownerTrack;
     }
   }
 
-  const pattern = targetTrack?.patterns?.find((p) => p.id === patternId);
+  const pattern = targetTrack?.patterns?.find((p) => String(p.id) === String(patternId));
   const stepsPerMeasure = 16;
   const spanMeasures = pattern ? Math.max(1, Math.round((pattern.steps || stepsPerMeasure) / stepsPerMeasure)) : 1;
   const requiredTotal = measureIdx + spanMeasures;
@@ -68,58 +73,50 @@ export const handleTimelinePatternAssignState = (
   const coroTrack = nextTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
   const parentBusId = isLinkMaster && clickedTrack?.linkedToTrackId ? String(clickedTrack.linkedToTrackId) : null;
 
+  const updatedTracks = nextTracks.map((t) => {
+    if (isToadaTrackId && patternId === null && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+      return {
+        ...t,
+        patterns: t.patterns.map((p) => {
+          const assign = [...p.measureAssignments];
+          while (assign.length < nextTotal) assign.push(false);
+          for (let offset = 0; offset < spanMeasures; offset++) assign[measureIdx + offset] = false;
+          return { ...p, measureAssignments: assign };
+        }),
+      };
+    }
+
+    if (t.id === targetTrackId) {
+      const overrides = t.patternOverrides ? { ...t.patternOverrides } : undefined;
+      if (overrides) {
+        for (let offset = 0; offset < spanMeasures; offset++) {
+          delete overrides[measureIdx + offset];
+        }
+      }
+      return {
+        ...t,
+        patternOverrides: overrides,
+        patterns: t.patterns.map((p) => {
+          const assign = [...p.measureAssignments];
+          while (assign.length < nextTotal) assign.push(false);
+          for (let offset = 0; offset < spanMeasures; offset++) {
+            assign[measureIdx + offset] = patternId !== null && patternId !== undefined && String(p.id) === String(patternId);
+          }
+          return { ...p, measureAssignments: assign };
+        }),
+      };
+    }
+
+    return t;
+  });
+
+  const finalTracks = (isLinkMaster || parentBusId)
+    ? syncMasterPatternsToLinkedFamily(updatedTracks, targetTrackId).tracks
+    : updatedTracks;
+
   return {
     ...expanded,
-    tracks: nextTracks.map((t) => {
-      if (isToadaTrackId && patternId === null && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
-        return {
-          ...t,
-          patterns: t.patterns.map((p) => {
-            const assign = [...p.measureAssignments];
-            while (assign.length < nextTotal) assign.push(false);
-            for (let offset = 0; offset < spanMeasures; offset++) assign[measureIdx + offset] = false;
-            return { ...p, measureAssignments: assign };
-          }),
-        };
-      }
-
-      if (t.id === targetTrackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map((p) => {
-            const assign = [...p.measureAssignments];
-            while (assign.length < nextTotal) assign.push(false);
-            for (let offset = 0; offset < spanMeasures; offset++) {
-              assign[measureIdx + offset] = patternId !== null && patternId !== undefined && p.id === patternId;
-            }
-            return { ...p, measureAssignments: assign };
-          }),
-        };
-      }
-
-      // Synchronisation miroir de sécurité sur le dossier bus parent
-      if (parentBusId && String(t.id) === parentBusId && t.isLinkFolder) {
-        let busMatchPtn = pattern ? t.patterns.find((bp) => bp.id === pattern.id || bp.name.trim().toLowerCase() === pattern.name.trim().toLowerCase()) : null;
-        let busPatterns = [...t.patterns];
-        if (pattern && !busMatchPtn) {
-          busMatchPtn = { ...pattern, measureAssignments: Array(nextTotal).fill(false) };
-          busPatterns.push(busMatchPtn);
-        }
-        return {
-          ...t,
-          patterns: busPatterns.map((bp) => {
-            const assign = [...bp.measureAssignments];
-            while (assign.length < nextTotal) assign.push(false);
-            for (let offset = 0; offset < spanMeasures; offset++) {
-              assign[measureIdx + offset] = Boolean(busMatchPtn && bp.id === busMatchPtn.id);
-            }
-            return { ...bp, measureAssignments: assign };
-          }),
-        };
-      }
-
-      return t;
-    }),
+    tracks: finalTracks,
     tracksVersion: state.tracksVersion + 1,
   };
 };

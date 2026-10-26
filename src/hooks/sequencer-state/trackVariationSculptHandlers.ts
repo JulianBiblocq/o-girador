@@ -1,5 +1,9 @@
-import { TrackGroup, Pattern, StepSculptValue } from '../../types';
+import { TrackGroup } from '../../types';
 import { updateStepSculptValue } from './sequencerStateTypes';
+import {
+  syncPatternAcrossLinkedFamily,
+  syncVariationAcrossLinkedFamily,
+} from '../../stores/helpers/patternStepLinkedTracksSync';
 
 export interface VariationSculptContext {
   pushUndoState: () => void;
@@ -10,118 +14,80 @@ export function createTrackVariationSculptHandlers(ctx: VariationSculptContext) 
   const { pushUndoState, setTracks } = ctx;
 
   const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId) return p;
-          const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
-          if (Array.isArray(stepIdx)) {
-            stepIdx.forEach((idx: number) => { copyVols[idx] = updateStepSculptValue(copyVols[idx], 80, val, subIndex, Array.isArray(p.activeSteps[idx])); });
-          } else {
-            copyVols[stepIdx] = updateStepSculptValue(copyVols[stepIdx], 80, val, subIndex, Array.isArray(p.activeSteps[stepIdx]));
-          }
-          return { ...p, volumes: copyVols };
-        })
-      };
+    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+      const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
+      const indices = Array.isArray(stepIdx) ? stepIdx : [stepIdx];
+      indices.forEach((idx) => { copyVols[idx] = updateStepSculptValue(copyVols[idx], 80, val, subIndex, Array.isArray(p.activeSteps[idx])); });
+      return { ...p, volumes: copyVols };
     }));
   };
 
   const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId) return p;
-          const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
-          if (Array.isArray(stepIdx)) {
-            stepIdx.forEach((idx: number) => { copyDecays[idx] = updateStepSculptValue(copyDecays[idx], 100, val, subIndex, Array.isArray(p.activeSteps[idx])); });
-          } else {
-            copyDecays[stepIdx] = updateStepSculptValue(copyDecays[stepIdx], 100, val, subIndex, Array.isArray(p.activeSteps[stepIdx]));
-          }
-          return { ...p, decays: copyDecays };
-        })
-      };
+    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+      const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
+      const indices = Array.isArray(stepIdx) ? stepIdx : [stepIdx];
+      indices.forEach((idx) => { copyDecays[idx] = updateStepSculptValue(copyDecays[idx], 100, val, subIndex, Array.isArray(p.activeSteps[idx])); });
+      return { ...p, decays: copyDecays };
     }));
   };
 
   const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId) return p;
-          const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
-          if (Array.isArray(stepIdx)) {
-            stepIdx.forEach((idx: number) => { copyMicros[idx] = updateStepSculptValue(copyMicros[idx], 0, val, subIndex, Array.isArray(p.activeSteps[idx])); });
-          } else {
-            copyMicros[stepIdx] = updateStepSculptValue(copyMicros[stepIdx], 0, val, subIndex, Array.isArray(p.activeSteps[stepIdx]));
-          }
-          return { ...p, microtimings: copyMicros };
-        })
-      };
+    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+      const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
+      const indices = Array.isArray(stepIdx) ? stepIdx : [stepIdx];
+      indices.forEach((idx) => { copyMicros[idx] = updateStepSculptValue(copyMicros[idx], 0, val, subIndex, Array.isArray(p.activeSteps[idx])); });
+      return { ...p, microtimings: copyMicros };
     }));
   };
 
   const handleAddPatternVariation = (trackId: number, patternId: number) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId) return p;
-          const currentVariations = p.variations || [];
-          const newVar = { id: Date.now().toString(), name: `Var ${currentVariations.length + 1}`, steps: [...p.activeSteps], probability: 30, playFirstTimeOnly: currentVariations.length === 0 };
-          return { ...p, variations: [...currentVariations, newVar] };
-        })
+    const newVarId = Date.now().toString();
+    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+      const currentVars = p.variations || [];
+      const newVar = {
+        id: newVarId,
+        name: `Var ${currentVars.length + 1}`,
+        steps: [...p.activeSteps],
+        probability: 30,
+        playFirstTimeOnly: currentVars.length === 0,
+        stepVolumes: p.volumes ? [...p.volumes] : undefined,
+        stepDecays: p.decays ? [...p.decays] : undefined,
+        stepMicrotimings: p.microtimings ? [...p.microtimings] : undefined,
       };
+      return { ...p, variations: [...currentVars, newVar] };
     }));
   };
 
   const handleUpdatePatternVariationProbability = (trackId: number, patternId: number, variationId: string, probability: number) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId || !p.variations) return p;
-          return { ...p, variations: p.variations.map((v: any) => v.id === variationId ? { ...v, probability: Math.max(0, Math.min(100, probability)) } : v) };
-        })
-      };
-    }));
+    const clamped = Math.max(0, Math.min(100, probability));
+    setTracks((prev) => syncVariationAcrossLinkedFamily(prev, trackId, patternId, variationId, (v) => ({ ...v, probability: clamped })));
   };
 
   const handleTogglePatternVariationFirstTimeOnly = (trackId: number, patternId: number, variationId: string, val: boolean) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId || !p.variations) return p;
-          return { ...p, variations: p.variations.map((v: any) => v.id === variationId ? { ...v, playFirstTimeOnly: val } : v) };
-        })
-      };
-    }));
+    setTracks((prev) => syncVariationAcrossLinkedFamily(prev, trackId, patternId, variationId, (v) => ({ ...v, playFirstTimeOnly: val })));
   };
 
   const handleDeletePatternVariation = (trackId: number, patternId: number, variationId: string) => {
     pushUndoState();
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => {
-      if (t.id !== trackId) return t;
-      return {
-        ...t,
-        patterns: t.patterns.map((p: Pattern) => {
-          if (p.id !== patternId || !p.variations) return p;
-          return { ...p, variations: p.variations.filter((v: any) => v.id !== variationId) };
-        })
-      };
-    }));
+    setTracks((prev) => {
+      const srcTrack = prev.find((t) => String(t.id) === String(trackId));
+      const srcPattern = srcTrack?.patterns.find((p) => String(p.id) === String(patternId));
+      const srcVarIdx = srcPattern?.variations?.findIndex((v) => String(v.id) === String(variationId)) ?? -1;
+      const normVarName = srcVarIdx >= 0 ? srcPattern?.variations?.[srcVarIdx]?.name?.trim().toLowerCase() : undefined;
+
+      return syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p, isSource) => {
+        if (!p.variations?.length) return p;
+        if (isSource) return { ...p, variations: p.variations.filter((v) => String(v.id) !== String(variationId)) };
+        let delIdx = p.variations.findIndex((v) => String(v.id) === String(variationId));
+        if (delIdx === -1 && normVarName) delIdx = p.variations.findIndex((v) => v.name?.trim().toLowerCase() === normVarName);
+        if (delIdx === -1 && srcVarIdx >= 0 && srcVarIdx < p.variations.length) delIdx = srcVarIdx;
+        if (delIdx === -1) return p;
+        return { ...p, variations: p.variations.filter((_, idx) => idx !== delIdx) };
+      });
+    });
   };
 
   return {

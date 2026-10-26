@@ -8,11 +8,11 @@ import { resolvePatternsListForTrack, resolveActivePatternForCell } from '../uti
 import { isSlaveTrack } from '../utils/trackMasterResolver';
 
 export interface TimelinePatternPickerPopoverProps {
-  trackId: number; measureIdx: number; anchorRect: DOMRect; onClose: () => void;
+  trackId: number; measureIdx: number; anchorRect: DOMRect; triggerRef?: React.RefObject<HTMLElement | null>; onClose: () => void;
 }
 
 export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopoverProps> = ({
-  trackId, measureIdx, anchorRect, onClose,
+  trackId, measureIdx, anchorRect, triggerRef, onClose,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: anchorRect.bottom + 4, left: Math.max(8, Math.min(anchorRect.left, window.innerWidth - 200)) });
@@ -46,7 +46,13 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
     const t0 = Date.now(), sc = document.getElementById('timeline-scroll-container');
     const sL = sc?.scrollLeft || 0, sT = sc?.scrollTop || 0, wX = window.scrollX, wY = window.scrollY;
 
-    const onDown = (e: PointerEvent) => { if (attached && popoverRef.current && !popoverRef.current.contains(e.target as Node)) onClose(); };
+    const onDown = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (popoverRef.current?.contains(target)) return;
+      if (triggerRef?.current?.contains(target)) return;
+      if (attached) onClose();
+    };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onClose(); } };
     const onScroll = (e: Event) => {
       if ((popoverRef.current && popoverRef.current.contains(e.target as Node)) || Date.now() - t0 < 150) return;
@@ -56,14 +62,17 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
     };
 
     const timer = setTimeout(() => { attached = true; }, 150);
-    window.addEventListener('pointerdown', onDown); window.addEventListener('keydown', onKey, { capture: true });
+    window.addEventListener('pointerdown', onDown); window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey, { capture: true });
     window.addEventListener('scroll', onScroll, { capture: true, passive: true });
     window.addEventListener('wheel', onScroll, { capture: true, passive: true });
     return () => {
-      clearTimeout(timer); window.removeEventListener('pointerdown', onDown); window.removeEventListener('keydown', onKey, { capture: true });
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', onDown); window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey, { capture: true });
       window.removeEventListener('scroll', onScroll, { capture: true }); window.removeEventListener('wheel', onScroll, { capture: true });
     };
-  }, [onClose]);
+  }, [onClose, triggerRef]);
 
   const handleSelect = (pId: number | null | undefined) => {
     useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx });
@@ -79,9 +88,9 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
       style={{ top: `${pos.top}px`, left: `${pos.left}px` }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="px-2 py-1 border-b border-[#1a1a1a]/30 font-bold text-xs uppercase tracking-wider flex items-center justify-between text-[#1a1a1a]/80">
+      <div className="px-2 py-1 border-b border-[#1a1a1a]/30 font-bold text-xs uppercase tracking-wider flex items-center justify-between !text-[#1a1a1a]/80">
         <span className="truncate">{trackTitle}</span>
-        <span className="font-mono text-[10px] text-[#1a1a1a]/50">M{measureIdx + 1}</span>
+        <span className="font-mono text-[10px] !text-[#1a1a1a]/50">M{measureIdx + 1}</span>
       </div>
       <TimelinePatternPickerList patternsList={patternsList} activePatternId={activePatternId} isSlave={isSlave} isFollowingMaster={isFollowingMaster} instColor={instColor} lang={lang} onSelect={handleSelect} />
     </div>,

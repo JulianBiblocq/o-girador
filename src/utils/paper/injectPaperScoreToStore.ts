@@ -7,6 +7,7 @@ import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import { PresetMetadata } from '../../types';
 import { assignPatternsToTracks, buildMergedSongSections } from './paperTimelineAssigner';
 import { buildScannedScoreTracks, PaperInjectOptions } from './paperTrackBuilder';
+import { applyLinkingOptionsToTracks } from './paperMissingTracksEnsurer';
 import { disambiguateAllPresetPatterns } from './paperRoleDisambiguator';
 import { resetActiveCloudPresetId } from '../cloudPresetState';
 import { setPaperImportProcessed } from './paperProcessedTracker';
@@ -56,6 +57,7 @@ export const injectPaperScoreToStore = (
 
   const cleanTracks = buildScannedScoreTracks(disambiguatedPreset, totalMeasures, effectiveOptions);
   const updatedTracks = assignPatternsToTracks(cleanTracks, disambiguatedPreset, sequence, totalMeasures);
+  const finalTracks = applyLinkingOptionsToTracks(updatedTracks, effectiveOptions);
   const mergedSections = buildMergedSongSections(sequence);
 
   const targetBpm = preset.bpm || store.bpm || 96;
@@ -70,7 +72,7 @@ export const injectPaperScoreToStore = (
   const mSigs = resolvePatternTimeSignatures(sequence, preset.patterns, preset.metricOverrides, targetTimeSig);
 
   useSequencerStore.setState((state: any) => ({
-    tracks: updatedTracks, totalMeasures, bpm: targetBpm, nominalPresetBpm: targetBpm,
+    tracks: finalTracks, totalMeasures, bpm: targetBpm, nominalPresetBpm: targetBpm,
     nominalPresetMeasureBpms: [...mBpms], timeSig: targetTimeSig, metadata: cleanMetadata,
     letras: isExistingActiveSong ? state.letras : '', songSections: mergedSections,
     measureBpms: mBpms, measureTimeSigs: mSigs as any, measureVols: undefined, measurePans: undefined, measureReverbSends: undefined,

@@ -51,7 +51,8 @@ function getOrderedModelIndices(): number[] {
 
 function normalizeScanJson(rawText: string, defaultName = 'Motif'): any {
   const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(cleaned);
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  const parsed = JSON.parse(match ? match[0] : cleaned);
   if (Array.isArray(parsed?.lines) && !parsed.pattern) {
     parsed.pattern = { name: parsed.name || defaultName, detectedTimeSig: parsed.detectedTimeSig || '4/4', beatResolutions: parsed.beatResolutions || [4, 4, 4, 4], totalSteps: parsed.totalSteps || 16, lines: parsed.lines };
   } else if (Array.isArray(parsed?.patterns) && parsed.patterns.length > 0 && !parsed.pattern) {

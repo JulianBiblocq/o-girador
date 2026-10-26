@@ -1,11 +1,11 @@
-
+/**
+ * Store Zustand pour les gabarits de batuque avec fusion résiliente (< 135 lignes).
+ */
 import { create } from 'zustand';
 import { WorkspaceTemplate } from '../types/workspaceTemplate.types';
 import { WorkspaceTemplateStoreState } from './types/workspaceTemplateStoreTypes';
-import {
-  loadInitialLocalTemplates,
-  saveTemplatesToStorage,
-} from './helpers/workspaceTemplateStorageHelper';
+import { loadInitialLocalTemplates, saveTemplatesToStorage } from './helpers/workspaceTemplateStorageHelper';
+import { mergeTemplatesLists } from './helpers/workspaceTemplateMergeHelper';
 
 export type { WorkspaceTemplateStoreState };
 
@@ -28,13 +28,7 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
     const isOfflineOrGuest = !templateData.ownerId || templateData.ownerId === 'local';
     const localId = `tpl_local_${now}_${Math.random().toString(36).substring(2, 9)}`;
 
-    const newTemplate: WorkspaceTemplate = {
-      ...templateData,
-      id: localId,
-      createdAt: now,
-      updatedAt: now
-    };
-
+    const newTemplate: WorkspaceTemplate = { ...templateData, id: localId, createdAt: now, updatedAt: now };
     const currentList = get().templates;
     const updatedLocally = [newTemplate, ...currentList.filter((t) => t.id !== localId)];
     saveTemplatesToStorage(updatedLocally);
@@ -44,24 +38,15 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
       try {
         const { saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
         const cloudId = await saveWorkspaceTemplateToCloud(newTemplate, userRole);
-
-        const templateWithCloudId: WorkspaceTemplate = {
-          ...newTemplate,
-          id: cloudId
-        };
-
-        const finalizedList = get().templates.map((t) =>
-          t.id === localId ? templateWithCloudId : t
-        );
+        const templateWithCloudId: WorkspaceTemplate = { ...newTemplate, id: cloudId };
+        const finalizedList = get().templates.map((t) => (t.id === localId ? templateWithCloudId : t));
         saveTemplatesToStorage(finalizedList);
         set({ templates: finalizedList });
-
         return templateWithCloudId;
       } catch (err) {
-        console.warn("Synchronisation Cloud du gabarit échouée (sauvegarde locale conservée):", err);
+        console.warn('Synchronisation Cloud du gabarit échouée (sauvegarde locale conservée):', err);
       }
     }
-
     return newTemplate;
   },
 
@@ -69,19 +54,15 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
     const cleanName = newName.trim();
     if (!cleanName) return;
 
-    const updated = get().templates.map((t) =>
-      t.id === id ? { ...t, name: cleanName, updatedAt: Date.now() } : t
-    );
+    const updated = get().templates.map((t) => (t.id === id ? { ...t, name: cleanName, updatedAt: Date.now() } : t));
     saveTemplatesToStorage(updated);
     set({ templates: updated });
 
-    if (!id.startsWith('tpl_local_')) {
-      try {
-        const { updateWorkspaceTemplateNameInCloud } = await import('../cloudWorkspaceTemplates');
-        await updateWorkspaceTemplateNameInCloud(id, cleanName);
-      } catch (err) {
-        console.warn("Échec mise à jour nom gabarit Cloud:", err);
-      }
+    try {
+      const { updateWorkspaceTemplateNameInCloud } = await import('../cloudWorkspaceTemplates');
+      await updateWorkspaceTemplateNameInCloud(id, cleanName);
+    } catch (err) {
+      console.warn('Échec mise à jour nom gabarit Cloud:', err);
     }
   },
 
@@ -90,43 +71,63 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
     saveTemplatesToStorage(remaining);
     set({ templates: remaining });
 
-    if (!id.startsWith('tpl_local_')) {
-      try {
-        const { deleteWorkspaceTemplateFromCloud } = await import('../cloudWorkspaceTemplates');
-        await deleteWorkspaceTemplateFromCloud(id);
-      } catch (err) {
-        console.warn("Suppression Cloud du gabarit ignorée ou échouée:", err);
-      }
+    try {
+      const { deleteWorkspaceTemplateFromCloud } = await import('../cloudWorkspaceTemplates');
+      await deleteWorkspaceTemplateFromCloud(id);
+    } catch (err) {
+      console.warn('Suppression Cloud du gabarit échouée:', err);
     }
   },
 
-  syncCloudTemplates: async (userUid) => {
+  syncCloudTemplates: async (userUid, userRole) => {
     if (!userUid || userUid === 'local') return;
 
     set({ isLoadingCloud: true });
     try {
-      const { fetchCloudWorkspaceTemplates } = await import('../cloudWorkspaceTemplates');
+      const { fetchCloudWorkspaceTemplates, saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
       const cloudTemplates = await fetchCloudWorkspaceTemplates(userUid);
       const currentTemplates = get().templates;
 
-      const mergedMap = new Map<string, WorkspaceTemplate>();
-      currentTemplates.forEach((t) => mergedMap.set(t.id, t));
-      cloudTemplates.forEach((t) => mergedMap.set(t.id, t));
+      const { merged, templatesToUpload, hasChanges } = mergeTemplatesLists(currentTemplates, cloudTemplates, userUid);
 
-      const mergedList = Array.from(mergedMap.values());
-      mergedList.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+      if (hasChanges) {
+        saveTemplatesToStorage(merged);
+        set({ templates: merged, isLoadingCloud: false });
+      } else {
+        set({ isLoadingCloud: false });
+      }
 
-      saveTemplatesToStorage(mergedList);
-      set({
-        templates: mergedList,
-        isLoadingCloud: false
-      });
+      // Auto-migration en arrière-plan des gabarits locaux vers le profil Cloud
+      if (templatesToUpload.length > 0) {
+        for (const tpl of templatesToUpload) {
+          saveWorkspaceTemplateToCloud(tpl, userRole).catch(() => {});
+        }
+      }
     } catch (err) {
-      console.warn("Erreur lors de la synchronisation des gabarits cloud:", err);
+      console.warn('Erreur lors de la synchronisation des gabarits cloud:', err);
       set({ isLoadingCloud: false });
     }
   },
 
+  mergeFromSnapshot: async (cloudTemplates, userUid) => {
+    if (!Array.isArray(cloudTemplates)) return;
+    const currentTemplates = get().templates;
+    const { merged, templatesToUpload, hasChanges } = mergeTemplatesLists(currentTemplates, cloudTemplates, userUid);
+
+    // Garde anti-boucle infinie (Règle 1) : arrêt immédiat si aucun changement
+    if (!hasChanges) return;
+
+    saveTemplatesToStorage(merged);
+    set({ templates: merged });
+
+    if (templatesToUpload.length > 0 && userUid && userUid !== 'local') {
+      const { saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
+      for (const tpl of templatesToUpload) {
+        saveWorkspaceTemplateToCloud(tpl).catch(() => {});
+      }
+    }
+  },
+
   renameTemplate: (id, newName) => get().updateTemplateName(id, newName),
-  syncWithCloud: (userUid, userRole) => get().syncCloudTemplates(userUid, userRole)
+  syncWithCloud: (userUid, userRole) => get().syncCloudTemplates(userUid, userRole),
 }));

@@ -1,38 +1,32 @@
-
 import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Pattern } from '../../types';
 import { getNextPatternName } from '../../utils/patternNaming';
 import { notifyToast } from '../../utils/toastHelper';
 import { resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export interface UseInstrumentEditorPatternsParams {
-  effectiveEditTrackId: number;
-  totalMeasures: number;
-  lang: string;
-  sequencer: any;
+  effectiveEditTrackId: number; totalMeasures: number; lang: string; sequencer: any;
   setSelectedPatternId: (id: number) => void;
 }
 
 export function useInstrumentEditorPatterns({
   effectiveEditTrackId, totalMeasures, lang, sequencer, setSelectedPatternId,
 }: UseInstrumentEditorPatternsParams) {
-  const getTargetTrackInfo = React.useCallback(() => {
+  const getMasterId = React.useCallback(() => {
     const store = useSequencerStore.getState();
-    const master = resolveMasterTrack(effectiveEditTrackId, store.tracks);
-    const masterId = master?.id ?? effectiveEditTrackId;
-    const busId = master?.linkedToTrackId ? String(master.linkedToTrackId) : null;
-    return { masterId, busId };
+    return resolveMasterTrack(effectiveEditTrackId, store.tracks)?.id ?? effectiveEditTrackId;
   }, [effectiveEditTrackId]);
+
   const onAddPattern = React.useCallback(() => {
     sequencer.pushUndoState();
-    const { masterId, busId } = getTargetTrackInfo();
+    const masterId = getMasterId();
     let createdId: number | null = null;
 
     useSequencerStore.getState().setTracks((prev) => {
       const masterTrack = prev.find((t) => t.id === masterId);
-      const p = masterTrack?.patterns?.[0];
-      const steps = p ? p.steps : 16;
+      const steps = masterTrack?.patterns?.[0]?.steps || 16;
       const newPattern: Pattern = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         name: getNextPatternName(masterTrack?.patterns || [], undefined, lang),
@@ -44,74 +38,70 @@ export function useInstrumentEditorPatterns({
       };
       createdId = newPattern.id;
 
-      return prev.map((t) => {
-        if (t.id === masterId) return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
-        if (busId && String(t.id) === busId && t.isLinkFolder) return { ...t, patterns: [...t.patterns, { ...newPattern }] };
-        return t;
-      });
+      const updated = prev.map((t) => t.id === masterId
+        ? { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id } : t
+      );
+      return syncMasterPatternsToLinkedFamily(updated, masterId).tracks;
     });
     if (createdId) setSelectedPatternId(createdId);
-  }, [getTargetTrackInfo, sequencer, totalMeasures, lang, setSelectedPatternId]);
+  }, [getMasterId, sequencer, totalMeasures, lang, setSelectedPatternId]);
 
   const onDeletePattern = React.useCallback((patternId: number) => {
     sequencer.pushUndoState();
-    const { masterId, busId } = getTargetTrackInfo();
-    useSequencerStore.getState().setTracks((prev) => prev.map((t) => {
-      if ((t.id === masterId || (busId && String(t.id) === busId && t.isLinkFolder)) && t.patterns.length > 1) {
-        const nextPatterns = t.patterns.filter((p) => p.id !== patternId);
-        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0]?.id || 0 : t.selectedPatternId;
-        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
-      }
-      return t;
-    }));
-  }, [getTargetTrackInfo, sequencer]);
+    const masterId = getMasterId();
+    useSequencerStore.getState().setTracks((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id === masterId && t.patterns.length > 1) {
+          const next = t.patterns.filter((p) => p.id !== patternId);
+          return { ...t, patterns: next, selectedPatternId: t.selectedPatternId === patternId ? next[0]?.id || 0 : t.selectedPatternId };
+        }
+        return t;
+      });
+      return syncMasterPatternsToLinkedFamily(updated, masterId).tracks;
+    });
+  }, [getMasterId, sequencer]);
 
   const handleDuplicatePattern = React.useCallback((sourcePtn: Pattern) => {
     sequencer.pushUndoState();
-    const { masterId, busId } = getTargetTrackInfo();
+    const masterId = getMasterId();
     const newId = Date.now() + Math.floor(Math.random() * 1000);
-    const copySuffix = lang === 'fr' ? '(Copie)' : '(Cópia)';
     const newPattern: Pattern = {
-      ...JSON.parse(JSON.stringify(sourcePtn)),
-      id: newId,
-      name: `${sourcePtn.name || (lang === 'fr' ? 'Motif' : 'Padrão')} ${copySuffix}`,
+      ...JSON.parse(JSON.stringify(sourcePtn)), id: newId,
+      name: `${sourcePtn.name || (lang === 'fr' ? 'Motif' : 'Padrão')} ${lang === 'fr' ? '(Copie)' : '(Cópia)'}`,
       measureAssignments: Array(totalMeasures).fill(false),
     };
-    useSequencerStore.getState().setTracks((prev) => prev.map((t) => {
-      if (t.id === masterId || (busId && String(t.id) === busId && t.isLinkFolder)) {
+    useSequencerStore.getState().setTracks((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id !== masterId) return t;
         const pIndex = t.patterns.findIndex((p) => p.id === sourcePtn.id);
-        const nextPatterns = [...t.patterns];
-        if (pIndex !== -1) nextPatterns.splice(pIndex + 1, 0, newPattern);
-        else nextPatterns.push(newPattern);
-        return { ...t, patterns: nextPatterns, selectedPatternId: newId };
-      }
-      return t;
-    }));
+        const next = [...t.patterns];
+        if (pIndex !== -1) next.splice(pIndex + 1, 0, newPattern); else next.push(newPattern);
+        return { ...t, patterns: next, selectedPatternId: newId };
+      });
+      return syncMasterPatternsToLinkedFamily(updated, masterId).tracks;
+    });
     setSelectedPatternId(newId);
-  }, [getTargetTrackInfo, sequencer, totalMeasures, lang, setSelectedPatternId]);
+  }, [getMasterId, sequencer, totalMeasures, lang, setSelectedPatternId]);
 
   const handleClearPatternStrokes = React.useCallback((patternId: number) => {
     sequencer.pushUndoState();
-    const { masterId, busId } = getTargetTrackInfo();
-    useSequencerStore.getState().setTracks((prev) => prev.map((t) => {
-      if (t.id === masterId || (busId && String(t.id) === busId && t.isLinkFolder)) {
-        return {
-          ...t,
-          patterns: t.patterns.map((p) => (p.id === patternId ? {
-            ...p,
-            activeSteps: Array(p.steps).fill(0), lyrics: Array(p.steps).fill(''), notes: Array(p.steps).fill(''),
-            preRollActiveSteps: p.preRollActiveSteps ? Array(p.preRollActiveSteps.length).fill(0) : undefined,
-            preRollLyrics: p.preRollLyrics ? Array(p.preRollLyrics.length).fill('') : undefined,
-            preRollNotes: p.preRollNotes ? Array(p.preRollNotes.length).fill('') : undefined,
-          } : p)),
-        };
-      }
-      return t;
-    }));
-  }, [getTargetTrackInfo, sequencer]);
+    const masterId = getMasterId();
+    useSequencerStore.getState().setTracks((prev) => {
+      const updated = prev.map((t) => (t.id === masterId ? {
+        ...t,
+        patterns: t.patterns.map((p) => (p.id === patternId ? {
+          ...p, activeSteps: Array(p.steps).fill(0), lyrics: Array(p.steps).fill(''), notes: Array(p.steps).fill(''),
+          preRollActiveSteps: p.preRollActiveSteps ? Array(p.preRollActiveSteps.length).fill(0) : undefined,
+          preRollLyrics: p.preRollLyrics ? Array(p.preRollLyrics.length).fill('') : undefined,
+          preRollNotes: p.preRollNotes ? Array(p.preRollNotes.length).fill('') : undefined,
+        } : p)),
+      } : t));
+      return syncMasterPatternsToLinkedFamily(updated, masterId).tracks;
+    });
+  }, [getMasterId, sequencer]);
 
   const handleContextDeletePattern = React.useCallback(async (patternId: number) => {
-    const { masterId } = getTargetTrackInfo();
+    const masterId = getMasterId();
     const currentTrack = useSequencerStore.getState().tracks.find((t) => t.id === masterId);
     if (!currentTrack || currentTrack.patterns.length <= 1) {
       notifyToast(lang === 'fr' ? 'Impossible de supprimer le dernier motif restant.' : 'Não é possível excluir o último padrão restante.', 'error');
@@ -125,7 +115,7 @@ export function useInstrumentEditorPatterns({
       if (!confirm) return;
     }
     onDeletePattern(patternId);
-  }, [getTargetTrackInfo, lang, sequencer, onDeletePattern]);
+  }, [getMasterId, lang, sequencer, onDeletePattern]);
 
   const onReorderPatternsDnd = React.useCallback((oldIndex: number, newIndex: number) => {
     sequencer.handleReorderPatternsDnd?.(effectiveEditTrackId, oldIndex, newIndex);

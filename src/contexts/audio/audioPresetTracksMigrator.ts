@@ -4,6 +4,7 @@ import { migrateCirclesToTracks } from '../../migration';
 import { CURRENT_AUDIO_SCALE_VERSION, normalizeToFaderPosition, sanitizeFaderPosition } from '../../utils/audioMath';
 import { normalizePatternData } from './audioPatternNormalizer';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
+import { sanitizeTrackLinkingAndBuses } from './audioPresetLinkSanitizer';
 
 export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): TrackGroup[] {
   let loadedTracks: TrackGroup[] = [];
@@ -124,45 +125,24 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
   // Assainissement systématique des paramètres de mixage des pistes
   loadedTracks.forEach(t => {
     t.volumeVal = sanitizeFaderPosition(t.volumeVal);
-    const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal)
-      ? t.panVal
-      : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);
-    t.panVal = rawPan;
-    t.pan = rawPan;
-    t.isMute = Boolean(t.isMute);
-    t.isSolo = Boolean(t.isSolo);
+    const rawPan = typeof t.panVal === 'number' && !isNaN(t.panVal) ? t.panVal : (typeof t.pan === 'number' ? (Math.abs(t.pan) <= 1 && t.pan !== 0 ? Math.round(t.pan * 100) : t.pan) : 0);
+    t.panVal = rawPan; t.pan = rawPan;
+    t.isMute = Boolean(t.isMute); t.isSolo = Boolean(t.isSolo);
     if (t.busId !== undefined && t.busId !== null) t.busId = String(t.busId);
     if (t.linkedToTrackId !== undefined && t.linkedToTrackId !== null) t.linkedToTrackId = String(t.linkedToTrackId);
-    const isLinkedChild = Boolean(t.linkedToTrackId && !t.isLinkFolder);
-    if (t.isLinkMaster || isLinkedChild) {
-      t.isBusFolder = false; t.isLinkFolder = false; t.isHidden = false;
-      if (!t.patterns?.length) {
-        const parent = loadedTracks.find(p => (String(p.id) === String(t.linkedToTrackId) || String(p.id) === String(t.busId)));
-        if (parent?.patterns?.length) t.patterns = JSON.parse(JSON.stringify(parent.patterns));
-      }
-    } else {
-      t.isHidden = Boolean(t.isHidden);
-    }
     if (!t.fxSends) t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
   });
 
-  loadedTracks.filter(m => m.isLinkMaster).forEach(m => {
-    const slaves = loadedTracks.filter(s => s.id !== m.id && !s.isLinkFolder && !s.isLinkMaster && s.linkedToTrackId &&
+  const sanitizedTracks = sanitizeTrackLinkingAndBuses(loadedTracks);
+
+  sanitizedTracks.filter(m => m.isLinkMaster && !m.isBusFolder && !m.isLinkFolder).forEach(m => {
+    const slaves = sanitizedTracks.filter(s => s.id !== m.id && !s.isLinkFolder && !s.isLinkMaster && s.linkedToTrackId &&
       (String(s.linkedToTrackId) === String(m.linkedToTrackId) || String(s.linkedToTrackId) === String(m.id)));
     slaves.forEach(s => {
       if (m.balancoPresetId !== undefined) s.balancoPresetId = m.balancoPresetId;
-      if (m.balancoAmount !== undefined) s.balancoAmount = m.balancoAmount;
-      if (m.swingIntensity !== undefined) s.swingIntensity = m.swingIntensity;
-      m.patterns?.forEach(mP => {
-        const sP = s.patterns?.find(p => p.name === mP.name);
-        if (sP) {
-          sP.balancoPresetId = mP.balancoPresetId;
-          sP.balancoAmount = mP.balancoAmount;
-          sP.swingIntensity = mP.swingIntensity;
-        }
-      });
+      if (m.balancoAmount !== undefined) s.balancoAmount = m.balancoAmount; if (m.swingIntensity !== undefined) s.swingIntensity = m.swingIntensity;
     });
   });
 
-  return loadedTracks;
+  return sanitizedTracks;
 }

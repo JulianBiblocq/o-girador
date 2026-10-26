@@ -123,7 +123,15 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         reverbGaugeRef={reverbGaugeRef} reverbTextRef={reverbTextRef}
       />
 
-      {contextMenuPos && <TrackContextMenu trackId={trackId} x={contextMenuPos.x} y={contextMenuPos.y} onClose={handleContextMenuClose} />}
+      {contextMenuPos && (
+        <TrackContextMenu
+          trackId={trackId}
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          onClose={handleContextMenuClose}
+          onRename={() => setIsEditingName(true)}
+        />
+      )}
     </div>
   );
 };

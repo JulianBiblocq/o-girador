@@ -12,6 +12,7 @@ import { executeApplyPreset } from './audio/audioPresetApplier';
 import { fetchFallbackPresetData } from './audio/audioPresetLoader';
 import { buildCurrentPresetData } from './audio/audioPresetDataBuilder';
 import { handleTimeSigChange as resizeTimeSig } from './audio/audioTimeSigService';
+import { reconcileAllLinkedTracks } from '../utils/trackLinkingSync';
 
 export * from './audio/audioContextTypes';
 
@@ -57,6 +58,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPresetLoading(true);
     try {
       await executeApplyPreset(p, sequencer, audioSync, fxState);
+      const rec = reconcileAllLinkedTracks(useSequencerStore.getState().tracks);
+      if (rec.changed) useSequencerStore.getState().setTracks(rec.tracks);
     } finally {
       setTimeout(() => setIsPresetLoading(false), 300);
     }

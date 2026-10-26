@@ -1,88 +1,94 @@
-
-import { db } from './firebase/config';
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  query,
-  where,
-  getCountFromServer,
-} from 'firebase/firestore';
+/**
+ * Gestionnaire Cloud hybride résilient pour les gabarits de batuque (< 120 lignes).
+ */
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { db, auth } from './firebase/config';
 import { WorkspaceTemplate } from './types';
 import { cleanPayload } from './utils/cleanPayload';
+import {
+  fetchUserDocWorkspaceTemplates,
+  saveUserDocWorkspaceTemplates,
+  upsertUserDocWorkspaceTemplate,
+  removeUserDocWorkspaceTemplate,
+} from './cloudWorkspaceUserSync';
 
 export const CLOUD_WORKSPACE_TEMPLATES_COLLECTION = 'workspace_templates';
 
 export async function saveWorkspaceTemplateToCloud(
   template: WorkspaceTemplate,
-  userRole?: string
+  _userRole?: string
 ): Promise<string> {
   const { id, ownerId, name, authorName, options, tracks, rodaTrackOrder, masterSettings } = template;
+  if (!ownerId || ownerId === 'local') throw new Error('Utilisateur non connecté');
 
-  if (!ownerId || ownerId === 'local') {
-    throw new Error('Utilisateur non connecté');
-  }
+  const now = Date.now();
+  const templateId = id && !id.startsWith('tpl_local_') ? id : `tpl_cloud_${now}_${Math.random().toString(36).substring(2, 7)}`;
 
-  const isNew = !id || id.startsWith('tpl_local_');
-  if (isNew && (!userRole || userRole === 'visiteur')) {
-    try {
-      const collRef = collection(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION);
-      const q = query(collRef, where('ownerId', '==', ownerId));
-      const snapshot = await getCountFromServer(q);
-      if (snapshot.data().count >= 10) {
-        throw new Error('Limite de 10 gabarits atteinte pour ce compte.');
-      }
-    } catch (e: any) {
-      if (e?.message?.includes('Limite')) throw e;
-    }
-  }
-
-  const payload = cleanPayload({
-    name: name?.trim() || 'Gabarit sans nom',
-    ownerId: ownerId,
-    authorId: ownerId,
-    uid: ownerId,
+  const cleanTpl: WorkspaceTemplate = cleanPayload({
+    ...template,
+    id: templateId,
+    ownerId,
     authorName: authorName || '',
-    options: options,
-    tracks: tracks,
-    rodaTrackOrder: rodaTrackOrder || [],
-    masterSettings: masterSettings || null,
-    updatedAt: Date.now(),
+    updatedAt: now,
   });
 
-  const isExistingCloudDoc = id && !id.startsWith('tpl_local_');
+  // 1. Sauvegarde résiliente prioritaire sur /users/{uid}
+  await upsertUserDocWorkspaceTemplate(ownerId, cleanTpl);
 
-  if (isExistingCloudDoc) {
-    const docRef = doc(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION, id);
-    await updateDoc(docRef, payload);
-    return id;
-  } else {
-    const docRef = await addDoc(collection(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION), {
-      ...payload,
-      createdAt: template.createdAt || Date.now(),
+  // 2. Tentative complémentaire non-bloquante sur la collection globale
+  try {
+    const payload = cleanPayload({
+      name: name?.trim() || 'Gabarit',
+      ownerId, authorId: ownerId, uid: ownerId,
+      authorName: authorName || '', options, tracks,
+      rodaTrackOrder: rodaTrackOrder || [], masterSettings: masterSettings || null,
+      updatedAt: now,
     });
-    return docRef.id;
+    if (id && !id.startsWith('tpl_local_')) {
+      await updateDoc(doc(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION, id), payload);
+    } else {
+      await addDoc(collection(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION), { ...payload, createdAt: template.createdAt || now });
+    }
+  } catch (err) {
+    console.warn('[WorkspaceTemplates] Collection globale inaccessible (sauvegardé sur profil utilisateur):', err);
   }
+
+  return templateId;
 }
 
 export async function updateWorkspaceTemplateNameInCloud(
   templateId: string,
-  name: string
+  name: string,
+  userUid?: string
 ): Promise<void> {
-  if (!templateId || templateId.startsWith('tpl_local_')) return;
-  const docRef = doc(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION, templateId);
-  await updateDoc(docRef, {
-    name: name.trim(),
-    updatedAt: Date.now(),
-  });
+  const uid = userUid || auth.currentUser?.uid;
+  if (uid && uid !== 'local') {
+    const userTpls = await fetchUserDocWorkspaceTemplates(uid);
+    const updated = userTpls.map((t) => (t.id === templateId ? { ...t, name: name.trim(), updatedAt: Date.now() } : t));
+    await saveUserDocWorkspaceTemplates(uid, updated);
+  }
+
+  try {
+    if (templateId && !templateId.startsWith('tpl_local_')) {
+      await updateDoc(doc(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION, templateId), { name: name.trim(), updatedAt: Date.now() });
+    }
+  } catch (_) {}
 }
 
-export async function deleteWorkspaceTemplateFromCloud(templateId: string): Promise<void> {
-  if (!templateId || templateId.startsWith('tpl_local_')) return;
-  await deleteDoc(doc(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION, templateId));
+export async function deleteWorkspaceTemplateFromCloud(
+  templateId: string,
+  userUid?: string
+): Promise<void> {
+  const uid = userUid || auth.currentUser?.uid;
+  if (uid && uid !== 'local') {
+    await removeUserDocWorkspaceTemplate(uid, templateId);
+  }
+
+  try {
+    if (templateId && !templateId.startsWith('tpl_local_')) {
+      await deleteDoc(doc(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION, templateId));
+    }
+  } catch (_) {}
 }
 
 export async function fetchCloudWorkspaceTemplates(
@@ -90,33 +96,39 @@ export async function fetchCloudWorkspaceTemplates(
 ): Promise<WorkspaceTemplate[]> {
   if (!userUid || userUid === 'local') return [];
 
-  const collRef = collection(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION);
-  const q = query(collRef, where('ownerId', '==', userUid));
-  const snapshot = await getDocs(q);
+  // 1. Lecture directe depuis /users/{uid}
+  const userTemplates = await fetchUserDocWorkspaceTemplates(userUid);
 
-  const templates: WorkspaceTemplate[] = [];
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    templates.push({
-      id: docSnap.id,
-      name: data.name || 'Gabarit',
-      ownerId: data.ownerId || userUid,
-      authorName: data.authorName || '',
-      createdAt: data.createdAt || 0,
-      updatedAt: data.updatedAt || 0,
-      options: data.options || {
-        includeStructure: true,
-        includeDisplayOrder: true,
-        includeVolumePan: true,
-        includeEQ: true,
-        includeFX: true,
-      },
-      tracks: data.tracks || [],
-      rodaTrackOrder: data.rodaTrackOrder || [],
-      masterSettings: data.masterSettings || undefined,
+  // 2. Lecture complémentaire sur la collection globale (tolérante aux erreurs)
+  const collectionTemplates: WorkspaceTemplate[] = [];
+  try {
+    const collRef = collection(db, CLOUD_WORKSPACE_TEMPLATES_COLLECTION);
+    const q = query(collRef, where('ownerId', '==', userUid));
+    const snapshot = await getDocs(q);
+    snapshot.forEach((docSnap) => {
+      const d = docSnap.data();
+      collectionTemplates.push({
+        id: docSnap.id, name: d.name || 'Gabarit', ownerId: d.ownerId || userUid,
+        authorName: d.authorName || '', createdAt: d.createdAt || 0, updatedAt: d.updatedAt || 0,
+        options: d.options || { includeStructure: true, includeDisplayOrder: true, includeVolumePan: true, includeEQ: true, includeFX: true },
+        tracks: d.tracks || [], rodaTrackOrder: d.rodaTrackOrder || [], masterSettings: d.masterSettings || undefined,
+      });
     });
+  } catch (err) {
+    console.warn('[WorkspaceTemplates] Collection globale restreinte, lecture depuis profil utilisateur:', err);
+  }
+
+  // 3. Fusion par id conservant la version la plus récente
+  const map = new Map<string, WorkspaceTemplate>();
+  collectionTemplates.forEach((t) => map.set(t.id, t));
+  userTemplates.forEach((t) => {
+    const existing = map.get(t.id);
+    if (!existing || (t.updatedAt || 0) >= (existing.updatedAt || 0)) {
+      map.set(t.id, t);
+    }
   });
 
-  templates.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-  return templates;
+  const merged = Array.from(map.values());
+  merged.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  return merged;
 }

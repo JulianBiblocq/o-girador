@@ -4,6 +4,7 @@ import { Copy, Eraser, Clipboard, Trash2, CopyPlus } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Pattern } from '../../types';
 import { CordelMenuItem } from '../../components/ui/CordelContextMenu';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export interface UseInstrumentDetailEditorStateParams {
   track: any;
@@ -59,6 +60,12 @@ export function useInstrumentDetailEditorState({
       prevPatternIndexRef.current = displayedPatterns.findIndex((p) => p.id === selectedPatternId);
     }
   }, [selectedPatternId, displayedPatterns]);
+
+  useEffect(() => {
+    const store = useSequencerStore.getState();
+    const res = syncMasterPatternsToLinkedFamily(store.tracks, effectiveEditTrackId);
+    if (res.changed) store.setTracks(res.tracks);
+  }, [effectiveEditTrackId]);
 
   useEffect(() => {
     if (prevTrackIdRef.current !== effectiveEditTrackId) {

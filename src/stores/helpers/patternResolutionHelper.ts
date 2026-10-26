@@ -1,12 +1,14 @@
 import { TrackGroup, Pattern, TimeSignature } from '../../types';
 import { resizePatternBeatResolution, resizePatternAllBeatsResolution, clampStepIndex } from '../../utils/vocalTimingUtils';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export const handleTrackStepsChangeState = (
   tracks: TrackGroup[],
   trackId: number,
   patternId: number,
   targetSteps: number
-): TrackGroup[] => tracks.map((t) => {
+): TrackGroup[] => {
+  const updated = tracks.map((t) => {
   if (t.id === trackId) {
     return {
       ...t,
@@ -44,7 +46,9 @@ export const handleTrackStepsChangeState = (
     };
   }
   return t;
-});
+  });
+  return syncMasterPatternsToLinkedFamily(updated, trackId).tracks;
+};
 
 export const handlePatternBeatResolutionChangeState = (
   tracks: TrackGroup[],

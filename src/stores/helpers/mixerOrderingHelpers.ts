@@ -1,5 +1,40 @@
-import { instrumentsConfig } from '../../data';
 import { TrackMeta } from './trackMetaCache';
+
+function isParentBusFolded(track: TrackMeta, allTracks: TrackMeta[]): boolean {
+  let currentId = track.busId || track.linkedToTrackId;
+  const visited = new Set<string>();
+
+  while (currentId) {
+    const idStr = String(currentId);
+    if (visited.has(idStr)) break;
+    visited.add(idStr);
+
+    const parent = allTracks.find((p) => String(p.id) === idStr);
+    if (!parent) break;
+    if (parent.isFolded) return true;
+    currentId = parent.busId || parent.linkedToTrackId;
+  }
+
+  return false;
+}
+
+function hasParentBus(track: TrackMeta, allTracks: TrackMeta[]): boolean {
+  let currentId = track.busId || track.linkedToTrackId;
+  const visited = new Set<string>();
+
+  while (currentId) {
+    const idStr = String(currentId);
+    if (visited.has(idStr)) break;
+    visited.add(idStr);
+
+    const parent = allTracks.find((p) => String(p.id) === idStr);
+    if (!parent) break;
+    if (parent.isBusFolder || parent.isLinkFolder) return true;
+    currentId = parent.busId || parent.linkedToTrackId;
+  }
+
+  return false;
+}
 
 const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => {
   const visited = new Set<number>();
@@ -9,10 +44,8 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
     if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
       return false;
     }
-
     const busIdStr = t.busId;
     if (!busIdStr) return true;
-
     const hasParent = tracksList.some(p => String(p.id) === String(busIdStr));
     return !hasParent;
   };
@@ -32,9 +65,13 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
     });
 
     children.sort((a, b) => {
-      const aScore = a.isBusFolder ? 1 : 0;
-      const bScore = b.isBusFolder ? 1 : 0;
-      return bScore - aScore;
+      if (a.isBusFolder !== b.isBusFolder) {
+        return (b.isBusFolder ? 1 : 0) - (a.isBusFolder ? 1 : 0);
+      }
+      if (a.isLinkMaster !== b.isLinkMaster) {
+        return (b.isLinkMaster ? 1 : 0) - (a.isLinkMaster ? 1 : 0);
+      }
+      return 0;
     });
 
     children.forEach(visit);
@@ -53,44 +90,17 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
 
 export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] => {
   const filtered = tracksMeta.filter(t => {
-    const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
+    if (t.isBusFolder || t.isLinkFolder) {
+      if (isParentBusFolded(t, tracksMeta)) return false;
+      return true;
+    }
 
-    if (isLinkedSlave && t.isHidden) {
-      const parentBus = tracksMeta.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-      if (parentBus && !parentBus.isFolded) {
-        return true;
-      }
-      return false;
+    if (hasParentBus(t, tracksMeta)) {
+      if (isParentBusFolded(t, tracksMeta)) return false;
+      return true;
     }
 
     if (t.isHidden) return false;
-
-    if (t.busId) {
-      let currentParent = tracksMeta.find(p => String(p.id) === String(t.busId));
-      while (currentParent) {
-        if (currentParent.isFolded) return false;
-        const nextId = currentParent.busId || currentParent.linkedToTrackId;
-        if (nextId) {
-          currentParent = tracksMeta.find(p => String(p.id) === String(nextId));
-        } else {
-          break;
-        }
-      }
-    }
-
-    if (t.linkedToTrackId && !t.isLinkFolder) {
-      let currentLinkParent = tracksMeta.find(p => String(p.id) === String(t.linkedToTrackId));
-      while (currentLinkParent) {
-        if (currentLinkParent.isFolded) return false;
-        const nextId = currentLinkParent.linkedToTrackId || currentLinkParent.busId;
-        if (nextId) {
-          currentLinkParent = tracksMeta.find(p => String(p.id) === String(nextId));
-        } else {
-          break;
-        }
-      }
-    }
-
     return true;
   });
 

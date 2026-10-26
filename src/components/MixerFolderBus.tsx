@@ -7,6 +7,8 @@ import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../s
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig } from '../data';
 import { useAudio } from '../contexts/AudioContext';
+import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
+import { useTrackMixerContextMenu } from './mixer/useTrackMixerContextMenu';
 import { computeChannelStripStyles } from './mixer/channels/channelStripStyles';
 import { useChannelStripAutomation } from './mixer/channels/useChannelStripAutomation';
 import { ChannelStripHeader } from './mixer/channels/ChannelStripHeader';
@@ -29,6 +31,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const isEcoMode = useSequencerStore(state => state.isEcoMode);
   const globalBypass = useSequencerStore(state => state.globalAutomationBypass);
+
+  const { contextMenuPos, handleContextMenuOpen, handleContextMenuClose, touchHandlers } = useTrackMixerContextMenu();
 
   const isVolActive = trackHasRealVolAuto(track) && !isAutomationBypassed(track, 'volume', globalBypass);
   const isPanActive = trackHasRealPanAuto(track) && !isAutomationBypassed(track, 'pan', globalBypass);
@@ -61,6 +65,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     <div
       ref={setNodeRef}
       data-track-id={trackId}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); handleContextMenuOpen(e.clientX, e.clientY); }}
+      {...touchHandlers}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
@@ -92,6 +98,16 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         faderHandleRef={faderHandleRef} faderTextRef={faderTextRef} travelRangeRef={travelRangeRef}
         panKnobRef={panKnobRef} reverbGaugeRef={reverbGaugeRef} reverbTextRef={reverbTextRef}
       />
+
+      {contextMenuPos && (
+        <TrackContextMenu
+          trackId={trackId}
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          onClose={handleContextMenuClose}
+          onRename={() => setIsEditingName(true)}
+        />
+      )}
     </div>
   );
 };

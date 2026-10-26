@@ -1,3 +1,5 @@
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
+
 export function resolveActivePattern(
   track: any,
   tracks: any[],
@@ -5,32 +7,26 @@ export function resolveActivePattern(
   isSoloPlayActive: boolean,
   soloPatternPlayId: number | null
 ): any | null {
-  const isLinkedChild = Boolean(track.linkedToTrackId && !track.isLinkFolder);
+  const isSlave = isSlaveTrack(track, tracks);
 
   if (isSoloPlayActive) {
     const ownMatch = track.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
     if (ownMatch) return ownMatch;
 
-    const soloTrack = tracks.find((t: any) => t.patterns?.some((p: any) => String(p.id) === String(soloPatternPlayId)));
-    if (soloTrack) {
-      const isSameGroup = (soloTrack.id === track.id) ||
-        (track.linkedToTrackId && (String(track.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(track.linkedToTrackId) === String(soloTrack.id) || String(track.id) === String(soloTrack.linkedToTrackId))) ||
-        (soloTrack.linkedToTrackId && (String(soloTrack.linkedToTrackId) === String(track.linkedToTrackId) || String(soloTrack.linkedToTrackId) === String(track.id)));
-
-      if (isSameGroup) {
-        const soloPtn = soloTrack.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
-        if (soloPtn) {
-          const matchByName = track.patterns?.find((p: any) => p.name === soloPtn.name);
-          if (matchByName) return matchByName;
-          const soloIdx = soloTrack.patterns?.findIndex((p: any) => String(p.id) === String(soloPatternPlayId));
-          if (soloIdx !== undefined && soloIdx >= 0 && track.patterns?.[soloIdx]) return track.patterns[soloIdx];
-        }
+    if (isSlave) {
+      const master = resolveMasterTrack(track.id, tracks);
+      const masterPtn = master?.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
+      if (masterPtn) {
+        const matchByName = track.patterns?.find((p: any) => p.name === masterPtn.name);
+        if (matchByName) return matchByName;
+        const soloIdx = master?.patterns?.findIndex((p: any) => String(p.id) === String(soloPatternPlayId));
+        if (soloIdx !== undefined && soloIdx >= 0 && track.patterns?.[soloIdx]) return track.patterns[soloIdx];
       }
     }
     return null;
   }
 
-  if (isLinkedChild && !track.isLinkMaster) {
+  if (isSlave) {
     const override = track.patternOverrides?.[measureIdx];
     if (override === null) return null;
     if (override !== undefined) {
@@ -42,11 +38,13 @@ export function resolveActivePattern(
   const assigned = track.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
   if (assigned) return assigned;
 
-  if (isLinkedChild && !track.isLinkMaster) {
-    const master = tracks.find((t: any) => (String(t.linkedToTrackId) === String(track.linkedToTrackId) || String(t.id) === String(track.linkedToTrackId)) && t.isLinkMaster);
+  if (isSlave) {
+    const master = resolveMasterTrack(track.id, tracks);
     const masterPtn = master?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
     if (masterPtn) {
       if (track.patterns && track.patterns.length > 0) {
+        const matchById = track.patterns.find((p: any) => String(p.id) === String(masterPtn.id));
+        if (matchById) return matchById;
         const matchByName = track.patterns.find((p: any) => p.name === masterPtn.name);
         if (matchByName) return matchByName;
         const mIdx = master?.patterns?.findIndex((p: any) => p.id === masterPtn.id);
@@ -54,17 +52,13 @@ export function resolveActivePattern(
       }
       return masterPtn;
     }
-  }
 
-  if (isLinkedChild) {
-    const bus = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId) || String(t.id) === String(track.busId));
-    const busPtn = bus?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
-    if (busPtn) {
-      if (track.patterns && track.patterns.length > 0) {
-        const matchByName = track.patterns.find((p: any) => p.name === busPtn.name);
-        if (matchByName) return matchByName;
-      }
-      return busPtn;
+    const linkFolder = tracks.find((t: any) => t.isLinkFolder && !t.isBusFolder && String(t.id) === String(track.linkedToTrackId));
+    const folderPtn = linkFolder?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
+    if (folderPtn) {
+      const matchByName = track.patterns?.find((p: any) => p.name === folderPtn.name);
+      if (matchByName) return matchByName;
+      return folderPtn;
     }
   }
 
