@@ -1,6 +1,7 @@
 
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { isActualTextEntry } from './isActualTextEntry';
+import { isDetailEditorOpen } from '../../components/controls/vuMeterTicker';
 
 interface DawClipboardParams {
   e: KeyboardEvent;
@@ -78,7 +79,7 @@ export function handleDawClipboardShortcuts({ e, handleUndo, handleRedo }: DawCl
 
   if (key === 'a') {
     if (isActualTextEntry(document.activeElement as HTMLElement | null)) return false;
-    if (!(window as any).oGiradorDetailEditorOpen) {
+    if (!isDetailEditorOpen()) {
       e.preventDefault();
       e.stopPropagation();
       useSequencerStore.getState().selectAllTimelineCells();

@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { masterLeftMeterNode, masterRightMeterNode } from '../../audio/effectsChain';
+import { subscribeVuMeter } from '../controls/vuMeterTicker';
 
 interface UseMasterVuMeterProps {
   isPlaying: boolean;
@@ -10,43 +11,26 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
   const vuMeterLeftRef = useRef<HTMLDivElement>(null);
   const vuMeterRightRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
-  const isPlayingRef = useRef(false);
   const lastMasterLeftRef = useRef<number>(0);
   const lastMasterRightRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!isActive || !isPlaying) {
+    const resetMasterMeters = () => {
       lastMasterLeftRef.current = 0;
       lastMasterRightRef.current = 0;
       if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
       if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
       if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
+    };
+
+    if (!isActive || !isPlaying) {
+      resetMasterMeters();
       return;
     }
 
-    let animationFrameId: number;
-    let idleTimerId: ReturnType<typeof setTimeout> | null = null;
-    isPlayingRef.current = isPlaying;
-
     const updateMasterMeter = () => {
-      if ((window as any).oGiradorDetailEditorOpen) {
-        animationFrameId = requestAnimationFrame(updateMasterMeter);
-        return;
-      }
-      if (!isPlayingRef.current) {
-        lastMasterLeftRef.current = 0;
-        lastMasterRightRef.current = 0;
-        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
-        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
-        if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
-        idleTimerId = setTimeout(() => {
-          animationFrameId = requestAnimationFrame(updateMasterMeter);
-        }, 250);
-        return;
-      }
-
-      const liveLeftMeter = (window as any).masterLeftMeterNode || masterLeftMeterNode;
-      const liveRightMeter = (window as any).masterRightMeterNode || masterRightMeterNode;
+      const liveLeftMeter = masterLeftMeterNode;
+      const liveRightMeter = masterRightMeterNode;
 
       if (liveLeftMeter && liveRightMeter) {
         try {
@@ -83,24 +67,19 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
           if (vuMeterRightRef.current) {
             vuMeterRightRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - currentRightScale))})`;
           }
-        } catch (e) {
-          console.error('Error reading master meter value:', e);
-        }
+        } catch (_) {}
       } else {
         if (dbTextRef.current) dbTextRef.current.innerText = 'NO MTR';
         if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
         if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
       }
-      animationFrameId = requestAnimationFrame(updateMasterMeter);
     };
 
-    animationFrameId = requestAnimationFrame(updateMasterMeter);
+    const unsubscribeTicker = subscribeVuMeter(updateMasterMeter);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
-      if (idleTimerId) clearTimeout(idleTimerId);
-      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
-      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
+      unsubscribeTicker();
+      resetMasterMeters();
     };
   }, [isPlaying, isActive]);
 

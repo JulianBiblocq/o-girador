@@ -73,7 +73,6 @@ export function initMasterEffectsChain(
 
   const meter = new Tone.Meter();
   nodes.setMasterMeterNode(meter);
-  (window as any).masterMeterNode = meter;
   masterLimiterNode.connect(meter);
 
   const masterSplit = new Tone.Split(2);
@@ -85,8 +84,6 @@ export function initMasterEffectsChain(
   nodes.setMasterRightMeterNode(rightMeter);
   masterSplit.connect(leftMeter, 0);
   masterSplit.connect(rightMeter, 1);
-  (window as any).masterLeftMeterNode = leftMeter;
-  (window as any).masterRightMeterNode = rightMeter;
 
   const metro = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).connect(vol);
   metro.mute = !isMetroOn;

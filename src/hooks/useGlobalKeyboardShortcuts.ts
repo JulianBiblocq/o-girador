@@ -8,6 +8,7 @@ import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { isActualTextEntry } from './keyboard-shortcuts/isActualTextEntry';
 import { handleDawClipboardShortcuts } from './keyboard-shortcuts/handleDawClipboardShortcuts';
 import { handleNavigationShortcuts } from './keyboard-shortcuts/handleNavigationShortcuts';
+import { isDetailEditorOpen } from '../components/controls/vuMeterTicker';
 
 export function useGlobalKeyboardShortcuts() {
   const audio = useAudio();
@@ -19,12 +20,12 @@ export function useGlobalKeyboardShortcuts() {
   // InputManager Keyboard Listeners (Live Erase, etc.)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((window as any).oGiradorDetailEditorOpen) return;
+      if (isDetailEditorOpen()) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (inputManager) inputManager.handleKeyDown(e);
     };
     const handleGlobalKeyUp = (e: KeyboardEvent) => {
-      if ((window as any).oGiradorDetailEditorOpen) return;
+      if (isDetailEditorOpen()) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (inputManager) inputManager.handleKeyUp(e);
     };
@@ -106,7 +107,7 @@ export function useGlobalKeyboardShortcuts() {
       // Touche Suppr / Delete / Backspace : vider sélection timeline (réservé Timeline)
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (!isTimelineView || isActualTextEntry(document.activeElement as HTMLElement | null)) return;
-        if (!(window as any).oGiradorDetailEditorOpen) {
+        if (!isDetailEditorOpen()) {
           const store = useSequencerStore.getState();
           if (store.selectedTimelineCells.length > 0 || store.activeTimelineCell) {
             e.preventDefault();

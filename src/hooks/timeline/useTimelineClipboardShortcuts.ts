@@ -1,4 +1,5 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { isDetailEditorOpen } from '../../components/controls/vuMeterTicker';
 
 export function handleTimelineClipboardKeyDown(e: KeyboardEvent, isTextEntry: boolean): boolean {
   if (isTextEntry) return false;
@@ -70,7 +71,7 @@ export function handleTimelineClipboardKeyDown(e: KeyboardEvent, isTextEntry: bo
 
   // Ctrl+A / Cmd+A : Tout sélectionner
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-    if (!(window as any).oGiradorDetailEditorOpen) {
+    if (!isDetailEditorOpen()) {
       e.preventDefault(); e.stopPropagation();
       store.selectAllTimelineCells();
       return true;

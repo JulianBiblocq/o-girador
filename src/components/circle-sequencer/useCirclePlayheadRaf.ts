@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { usePerformanceStore } from '../../stores/usePerformanceStore';
@@ -14,15 +13,12 @@ import { useThemeColors } from './useThemeColors';
 import { getAudioTime } from './circleAudioTime';
 import { Ripple, LivePlaybackState } from './circleSequencerTypes';
 import { createMetronomeHaloState, drawMetronomeHalo } from './drawMetronomeHalo';
+import { isDetailEditorOpen } from '../controls/vuMeterTicker';
 
 export function useCirclePlayheadRaf(
-  canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  isActive: boolean,
-  stateRef: React.MutableRefObject<any>,
-  livePlaybackRef: React.MutableRefObject<LivePlaybackState>,
-  frozenStickAngleRef: React.MutableRefObject<number>,
-  pendingTargetMeasureRef: React.MutableRefObject<number | null>,
-  getLiveActivePatternId: (t: any) => number | null,
+  canvasRef: React.RefObject<HTMLCanvasElement | null>, isActive: boolean, stateRef: React.MutableRefObject<any>,
+  livePlaybackRef: React.MutableRefObject<LivePlaybackState>, frozenStickAngleRef: React.MutableRefObject<number>,
+  pendingTargetMeasureRef: React.MutableRefObject<number | null>, getLiveActivePatternId: (t: any) => number | null,
   activeVariationsRef?: React.MutableRefObject<{ [trackId: number]: any }>
 ) {
   const visibleRef = useRef(isActive);
@@ -62,7 +58,7 @@ export function useCirclePlayheadRaf(
     let lastDrawTime = performance.now();
 
     const drawLoop = () => {
-      if ((window as any).oGiradorDetailEditorOpen) { animId = requestAnimationFrame(drawLoop); return; }
+      if (isDetailEditorOpen()) { animId = requestAnimationFrame(drawLoop); return; }
       if (!visibleRef.current) { loopRunningRef.current = false; return; }
 
       const time = performance.now();

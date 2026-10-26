@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { meters, busMeters } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { readMeterDb, computeNextMeterScale } from './controls/vuMeterMath';
+import { subscribeVuMeter } from './controls/vuMeterTicker';
 
 interface VUMeterProps {
   trackId?: number;
@@ -24,26 +25,21 @@ export const VUMeter: React.FC<VUMeterProps> = ({
 }) => {
   const gaugeRef = useRef<HTMLDivElement>(null);
   const lastLevelRef = useRef<number>(0);
-  const isEcoRef = useRef<boolean>(useSequencerStore.getState().isEcoMode);
 
   useEffect(() => {
-    isEcoRef.current = useSequencerStore.getState().isEcoMode;
-    let animationFrameId: number | null = null;
+    const resetGauge = () => {
+      lastLevelRef.current = 0;
+      if (gaugeRef.current) {
+        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
+      }
+    };
+
+    if (!isActive || !isPlaying) {
+      resetGauge();
+      return;
+    }
 
     const updateMeter = () => {
-      if ((window as any).oGiradorDetailEditorOpen) {
-        animationFrameId = requestAnimationFrame(updateMeter);
-        return;
-      }
-      if (isEcoRef.current) {
-        lastLevelRef.current = 0;
-        if (gaugeRef.current) {
-          gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
-        }
-        animationFrameId = null;
-        return;
-      }
-
       const meterNode = (busId && busMeters ? busMeters[busId] : undefined) || 
                         (meters && trackId !== undefined ? meters[trackId] : undefined) ||
                         (busMeters && trackId !== undefined ? busMeters[trackId] : undefined);
@@ -60,48 +56,18 @@ export const VUMeter: React.FC<VUMeterProps> = ({
             : `scaleX(${maskScale})`;
         }
       }
-
-      animationFrameId = requestAnimationFrame(updateMeter);
     };
 
-    const unsubscribe = useSequencerStore.subscribe((state) => {
-      const nextEco = state.isEcoMode;
-      if (isEcoRef.current !== nextEco) {
-        isEcoRef.current = nextEco;
-        if (!nextEco) {
-          if (animationFrameId === null && isActive && isPlaying) {
-            updateMeter();
-          }
-        } else {
-          if (animationFrameId !== null) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-          }
-          lastLevelRef.current = 0;
-          if (gaugeRef.current) {
-            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
-          }
-        }
-      }
+    const unsubscribeTicker = subscribeVuMeter(updateMeter);
+
+    const unsubscribeStore = useSequencerStore.subscribe((state) => {
+      if (state.isEcoMode) resetGauge();
     });
 
-    if (!isActive || !isPlaying) {
-      lastLevelRef.current = 0;
-      if (gaugeRef.current) {
-        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(1)' : 'scaleX(1)';
-      }
-      return () => unsubscribe();
-    }
-
-    if (!isEcoRef.current) {
-      updateMeter();
-    }
-
     return () => {
-      if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      unsubscribe();
+      unsubscribeTicker();
+      unsubscribeStore();
+      resetGauge();
     };
   }, [trackId, busId, orientation, isActive, isPlaying]);
 
