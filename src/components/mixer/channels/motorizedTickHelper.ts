@@ -32,8 +32,9 @@ export function applyMotorizedTick({
   reverbTextEl: HTMLSpanElement | null;
 }) {
   if (isVolActive && t.measureVols && t.measureVols.length > 0) {
-    const rawStart = t.measureVols[prevM] !== undefined ? t.measureVols[prevM] : 75;
-    const rawEnd = t.measureVols[currentM] !== undefined ? t.measureVols[currentM] : 75;
+    const manualVol = t.volumeVal ?? 75;
+    const rawStart = t.measureVols[prevM] !== undefined ? t.measureVols[prevM] : manualVol;
+    const rawEnd = t.measureVols[currentM] !== undefined ? t.measureVols[currentM] : manualVol;
     const trans = t.measureVolTransitions?.[currentM] || 'immediate';
     const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
     if (faderHandleEl) {

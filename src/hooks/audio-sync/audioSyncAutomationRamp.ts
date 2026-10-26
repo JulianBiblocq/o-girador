@@ -1,11 +1,11 @@
 /**
- * Programmation des rampes d'automation audio Web Audio / Tone.js (< 135 lignes).
+ * Programmation des rampes d'automation audio Web Audio / Tone.js (< 130 lignes).
  */
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
-import { channels, busChannels, reverbSends } from './audioEngineNodes';
-import { faderPositionToGain } from '../../utils/audioMath';
-import { getEffectiveVolume, useSequencerStore } from '../../stores/useSequencerStore';
+import { channels, busChannels, busInputs, reverbSends } from './audioEngineNodes';
+import { faderPositionToDb } from '../../utils/audioMath';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { isAutomationBypassed } from '../../utils/automationBypassHelper';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
@@ -28,6 +28,21 @@ function makeEaseCurve(start: number, end: number, steps = 8): number[] {
   return curve;
 }
 
+function applyParamTransition(
+  param: any, start: number, end: number, trans: string, time: number, dur: number
+): void {
+  param.cancelScheduledValues(time);
+  if (start !== end && trans !== 'immediate') {
+    if (trans === 'bezier') {
+      try { param.setValueCurveAtTime(makeEaseCurve(start, end), time, dur); return; } catch (_) {}
+    }
+    param.setValueAtTime(start, time);
+    param.linearRampToValueAtTime(end, time + dur);
+  } else {
+    param.setValueAtTime(end, time);
+  }
+}
+
 export function scheduleMeasureAutomationRamps({
   tracks, currentMeasureIdx, prevMeasureIdx, measureDurationSec, time,
 }: ScheduleAutomationProps): void {
@@ -39,27 +54,34 @@ export function scheduleMeasureAutomationRamps({
 
   // Pistes & Bus
   tracks.forEach((t) => {
-    const channel = t.isBusFolder ? busChannels[t.id] : channels[t.id];
+    const isGroupBus = Boolean(t.isBusFolder || t.isLinkFolder);
+    const channel = isGroupBus ? busChannels[t.id] : channels[t.id];
     if (!channel) return;
 
     // 1. Volume
     if (!isAutomationBypassed(t, 'volume', globalBypass) && hasActiveTrackAutomation(t, 'volume') && t.measureVols?.length && channel.volume) {
       try {
-        const isConnected = Boolean(t.busId && busChannels?.[t.busId]);
-        const baseGain = faderPositionToGain(isConnected ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id));
-        const rawTarget = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : 75;
-        const rawPrev = t.measureVols[prevMeasureIdx] !== undefined ? t.measureVols[prevMeasureIdx] : 75;
+        const defaultVol = t.volumeVal ?? 75;
+        const rawTarget = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : defaultVol;
+        const rawPrev = t.measureVols[prevMeasureIdx] !== undefined ? t.measureVols[prevMeasureIdx] : defaultVol;
         const trans = t.measureVolTransitions?.[currentMeasureIdx] || 'immediate';
-        const startG = Math.max(0.00001, baseGain * faderPositionToGain(rawPrev));
-        const endG = Math.max(0.00001, baseGain * faderPositionToGain(rawTarget));
-        channel.volume.cancelScheduledValues(time);
-        if (startG !== endG && trans !== 'immediate') {
-          channel.volume.setValueAtTime(Tone.gainToDb(startG), time);
-          if (trans === 'bezier') channel.volume.exponentialRampToValueAtTime(Tone.gainToDb(endG), time + measureDurationSec);
-          else channel.volume.linearRampToValueAtTime(Tone.gainToDb(endG), time + measureDurationSec);
-        } else {
-          channel.volume.setValueAtTime(Tone.gainToDb(endG), time);
-        }
+
+        const targetBusId = t.busId || (t.linkedToTrackId ? t.linkedToTrackId : null);
+        const isConnectedToBus = Boolean(targetBusId && (busInputs[targetBusId] || busChannels[targetBusId]));
+        void isConnectedToBus;
+
+        const activePanVal = (!isAutomationBypassed(t, 'pan', globalBypass) && hasActiveTrackAutomation(t, 'pan') && t.measurePans?.[currentMeasureIdx] !== undefined)
+          ? t.measurePans[currentMeasureIdx]
+          : (t.panVal ?? t.pan ?? 0);
+        const { panCompensationDb } = isGroupBus ? { panCompensationDb: 0 } : applyMonoCompatiblePan(activePanVal);
+
+        const toTrackDb = (pos: number): number => {
+          const rawDb = faderPositionToDb(pos);
+          const safeDb = Number.isFinite(rawDb) ? Math.max(-100, Math.min(12, rawDb)) : -100;
+          return safeDb > -90 ? Math.min(12, safeDb + panCompensationDb) : safeDb;
+        };
+
+        applyParamTransition(channel.volume, toTrackDb(rawPrev), toTrackDb(rawTarget), trans, time, measureDurationSec);
       } catch (_) {}
     }
 
@@ -72,18 +94,7 @@ export function scheduleMeasureAutomationRamps({
         const trans = t.measurePanTransitions?.[currentMeasureIdx] || 'immediate';
         const startP = applyMonoCompatiblePan(rawPrev).acousticPan;
         const endP = applyMonoCompatiblePan(rawTarget).acousticPan;
-        channel.pan.cancelScheduledValues(time);
-        if (startP !== endP && trans !== 'immediate') {
-          if (trans === 'bezier') {
-            try { channel.pan.setValueCurveAtTime(makeEaseCurve(startP, endP), time, measureDurationSec); }
-            catch (_) { channel.pan.linearRampToValueAtTime(endP, time + measureDurationSec); }
-          } else {
-            channel.pan.setValueAtTime(startP, time);
-            channel.pan.linearRampToValueAtTime(endP, time + measureDurationSec);
-          }
-        } else {
-          channel.pan.setValueAtTime(endP, time);
-        }
+        applyParamTransition(channel.pan, startP, endP, trans, time, measureDurationSec);
       } catch (_) {}
     }
 
@@ -97,20 +108,7 @@ export function scheduleMeasureAutomationRamps({
         const trans = t.measureReverbTransitions?.[currentMeasureIdx] || 'immediate';
         const isDb = send.gain.units === 'decibels';
         const toVal = (r: number) => isDb ? (r <= 0 ? -100 : Tone.gainToDb(Math.max(0.0001, r / 100))) : Math.max(0, Math.min(1, r / 100));
-        const startVal = toVal(rawPrev);
-        const endVal = toVal(rawTarget);
-        send.gain.cancelScheduledValues(time);
-        if (startVal !== endVal && trans !== 'immediate') {
-          if (trans === 'bezier') {
-            try { send.gain.setValueCurveAtTime(makeEaseCurve(startVal, endVal), time, measureDurationSec); }
-            catch (_) { send.gain.linearRampToValueAtTime(endVal, time + measureDurationSec); }
-          } else {
-            send.gain.setValueAtTime(startVal, time);
-            send.gain.linearRampToValueAtTime(endVal, time + measureDurationSec);
-          }
-        } else {
-          send.gain.setValueAtTime(endVal, time);
-        }
+        applyParamTransition(send.gain, toVal(rawPrev), toVal(rawTarget), trans, time, measureDurationSec);
       } catch (_) {}
     }
   });
