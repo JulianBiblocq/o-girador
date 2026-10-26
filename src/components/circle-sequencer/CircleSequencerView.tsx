@@ -48,32 +48,45 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
         />
       )}
 
-      <div className="flex-1 min-h-0 relative w-full h-full max-w-[800px] max-h-[calc(100%-20px)] mx-auto flex items-center justify-center py-3">
-        <canvas
-          ref={canvasRef}
-          width={1200}
-          height={1200}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+      <div
+        className="relative flex-1 w-full h-full min-w-0 min-h-0 max-w-[800px] flex items-center justify-center overflow-hidden py-2"
+        style={{ containerType: 'size' }}
+      >
+        <div
+          className="relative aspect-square shrink-0 flex items-center justify-center"
+          style={{
+            width: 'min(100cqw, 100cqh)',
+            height: 'min(100cqw, 100cqh)',
+            maxWidth: '100%',
+            maxHeight: '100%',
           }}
-          onPointerDown={handleCanvasPointerDown}
-          onPointerMove={handleCanvasPointerMove}
-          className={`w-full h-full max-w-full max-h-full aspect-square cursor-pointer block select-none ${isPlaying ? 'pointer-events-none' : ''}`}
-          style={{ touchAction: 'none' }}
-          role="application"
-          aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}
-        />
+        >
+          <canvas
+            ref={canvasRef}
+            width={1200}
+            height={1200}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={handleCanvasPointerDown}
+            onPointerMove={handleCanvasPointerMove}
+            className={`w-full h-full block aspect-square cursor-pointer select-none ${isPlaying ? 'pointer-events-none' : ''}`}
+            style={{ touchAction: 'none' }}
+            role="application"
+            aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}
+          />
 
-        <CircleCenterOverlay
-          centerOverlayRef={centerOverlayRef}
-          centerAfficheurRef={centerAfficheurRef}
-          centerOverlayImgRef={centerOverlayImgRef}
-          centerOverlayTintRef={centerOverlayTintRef}
-          centerOverlayTextRef={centerOverlayTextRef}
-          isCenterShaking={isCenterShaking}
-          isLetraActive={isLetraActive}
-        />
+          <CircleCenterOverlay
+            centerOverlayRef={centerOverlayRef}
+            centerAfficheurRef={centerAfficheurRef}
+            centerOverlayImgRef={centerOverlayImgRef}
+            centerOverlayTintRef={centerOverlayTintRef}
+            centerOverlayTextRef={centerOverlayTextRef}
+            isCenterShaking={isCenterShaking}
+            isLetraActive={isLetraActive}
+          />
+        </div>
       </div>
 
       {!isMobile && (
