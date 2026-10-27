@@ -11,6 +11,7 @@ export function useVariationStepPointerHandlers(params: {
   isMultiSelectActive: boolean;
   selectedStepIdx: number | null;
   selectedStepIndices: number[];
+  selectedSubIndex?: 0 | 1 | null;
   onSelectPattern: (id: number) => void;
   setSelectedPatternId: (id: number) => void;
   setSelectedVariationId: (id: string | null) => void;
@@ -20,12 +21,12 @@ export function useVariationStepPointerHandlers(params: {
   setIsMultiSelectActive: (val: boolean) => void;
   onVariationStepValueChange?: (ptnId: number, varId: string, idx: any, val: any) => void;
   onStepTouchStart?: any;
-  applyStrokeToVariationStep: (varId: string, idx: number, val: any, isInitial?: boolean) => void;
+  applyStrokeToVariationStep: (varId: string, idx: number, val: any, subIndex?: 0 | 1) => void;
   isMouseDownRef: React.MutableRefObject<boolean>;
 }) {
   const {
     i, val, variation, ptn, inst, isTouchDevice, isMultiSelectActive,
-    selectedStepIdx, selectedStepIndices, onSelectPattern, setSelectedPatternId,
+    selectedStepIdx, selectedStepIndices, selectedSubIndex, onSelectPattern, setSelectedPatternId,
     setSelectedVariationId, setSelectedStepIdx, setSelectedStepIndices,
     setSelectedSubIndex, setIsMultiSelectActive, onVariationStepValueChange,
     onStepTouchStart, applyStrokeToVariationStep, isMouseDownRef,
@@ -60,17 +61,13 @@ export function useVariationStepPointerHandlers(params: {
 
     setSelectedStepIdx(i);
     setSelectedStepIndices([i]);
-    setSelectedSubIndex?.(null);
+    const sub = (selectedSubIndex === 0 || selectedSubIndex === 1) ? selectedSubIndex : undefined;
     isMouseDownRef.current = true;
-    applyStrokeToVariationStep(variation.id, i, val, true);
+    applyStrokeToVariationStep(variation.id, i, val, sub);
   };
 
   const handleMouseEnter = () => {
-    if (!isMouseDownRef.current) return;
-    setSelectedStepIdx(i);
-    setSelectedStepIndices([i]);
-    setSelectedSubIndex?.(null);
-    applyStrokeToVariationStep(variation.id, i, val, false);
+    // Drag-to-paint désactivé sur les variations
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {

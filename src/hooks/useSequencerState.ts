@@ -120,6 +120,8 @@ export function useSequencerState() {
     confirmAsync: dialog.confirmAsync, alertAsync: dialog.alertAsync,
     ...getSequencerStoreDelegates(), ...refs, ...history, ...trackMgmt, ...trackSculpt,
     ...varStepSculpt, ...measureSection, ...loops, ...measureInsertDelete, ...voiceSteps,
-    ...voicePreRoll, ...patternSteps, ...clipboard, handleAddTrackInstrument: handleAddTrack,
+    ...voicePreRoll, ...patternSteps, ...clipboard,
+    handleAddTrack: handleAddTrack,
+    handleAddTrackInstrument: handleAddTrack,
   };
 }

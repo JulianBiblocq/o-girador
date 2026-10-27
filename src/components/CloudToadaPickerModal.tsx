@@ -55,7 +55,7 @@ export const CloudToadaPickerModal: React.FC<CloudToadaPickerModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-xs select-none p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[450] flex items-center justify-center bg-black/70 backdrop-blur-xs select-none p-4" onClick={onClose}>
       <div
         className="w-full max-w-[520px] bg-[var(--cordel-bg,#f4ecd8)] text-[var(--cordel-text,#1a1a1a)] border-2 border-[var(--cordel-border,#1a1a1a)] shadow-[6px_6px_0px_var(--cordel-border,#1a1a1a)] font-cactus p-5 flex flex-col gap-3.5 max-h-[85vh] animate-in fade-in zoom-in-95 duration-100"
         onClick={(e) => e.stopPropagation()}

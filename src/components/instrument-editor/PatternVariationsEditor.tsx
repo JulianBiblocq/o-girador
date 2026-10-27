@@ -29,20 +29,39 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
     setSelectedSubIndex: props.setSelectedSubIndex, onSelectPattern: props.onSelectPattern,
   });
 
-  const applyStrokeToVariationStep = useCallback((
-    variationId: string, stepIdx: number, currentVal: string | number | [string, string], isInitialClick = false
-  ) => {
-    if (activeTool === 'scissors') return;
-    let strokeToApply: string | number;
-    if (activeTool === '0' || activeTool === '' || activeTool === undefined) strokeToApply = 0;
-    else if (isAlternating) strokeToApply = getAlternatingStroke(stepIdx, activeTool, inst.id, inst.type, lang, isLeftHanded);
-    else if (isInitialClick) strokeToApply = getNextNuanceState(Array.isArray(currentVal) ? currentVal[0] : currentVal, activeTool, inst.id, inst.type, lang, isLeftHanded);
-    else strokeToApply = activeTool;
+  const activeToolRef = useRef(activeTool);
+  activeToolRef.current = activeTool;
+  const isAlternatingRef = useRef(isAlternating);
+  isAlternatingRef.current = isAlternating;
 
-    let finalVal: string | [string, string] = String(strokeToApply);
+  const applyStrokeToVariationStep = useCallback((
+    variationId: string, stepIdx: number, currentVal: string | number | [string, string], subIndex?: 0 | 1
+  ) => {
+    const tool = activeToolRef.current;
+    if (tool === 'scissors') return;
+    let strokeToApply: string | number;
+    if (!tool || tool === '0' || tool === '') {
+      strokeToApply = 0;
+    } else {
+      const cur = Array.isArray(currentVal)
+        ? (subIndex !== undefined ? currentVal[subIndex] : currentVal[0])
+        : currentVal;
+      const normCur = String(cur ?? '0').trim();
+      const isAlternationEligible = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
+      if (isAlternationEligible) {
+        strokeToApply = getAlternatingStroke(stepIdx, tool, inst.id, inst.type, lang, isLeftHanded);
+      } else if (normCur === tool) {
+        strokeToApply = 0;
+      } else {
+        strokeToApply = tool;
+      }
+    }
+
+    let finalVal: string | number | [string, string] = strokeToApply === '0' ? 0 : strokeToApply;
     if (Array.isArray(currentVal)) {
       const arr = [...currentVal] as [string, string];
-      arr[0] = String(strokeToApply);
+      const targetSub = subIndex !== undefined ? subIndex : 0;
+      arr[targetSub] = String(strokeToApply);
       finalVal = arr;
     }
     props.onVariationStepValueChange?.(ptn.id, variationId, stepIdx, finalVal as any);
@@ -57,7 +76,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
         audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
       } catch (_) {}
     }
-  }, [activeTool, isAlternating, inst.id, inst.type, lang, isLeftHanded, props, ptn.id, ptn.variations, trackId]);
+  }, [inst.id, inst.type, lang, isLeftHanded, props, ptn.id, ptn.variations, trackId]);
 
   if (inst.type === 'voice' || inst.id === 'apito') return null;
 

@@ -51,7 +51,7 @@ export const CompactStepCell: React.FC<CompactStepCellProps> = React.memo((props
       : (isVoice ? inst.color : (inst.colors[visualVal as string] || '#111'));
     let txtColor = isVoice ? noteColor : (inst.colors.text || '#f4ecd8');
     if (isLinkFolder) txtColor = getContrastColor(bgColor);
-    else if (!isVoice && isDarkText(inst.id, visualVal as string)) txtColor = '#1a1a1a';
+    else if (!isVoice && isDarkText(inst.id, visualVal as string, bgColor)) txtColor = '#1a1a1a';
 
     colorStyle = {
       backgroundColor: bgColor, color: txtColor,

@@ -18,6 +18,10 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressFiredRef = useRef<boolean>(false);
+  const activeToolRef = useRef(activeTool);
+  activeToolRef.current = activeTool;
+  const isAlternatingRef = useRef(isAlternating);
+  isAlternatingRef.current = isAlternating;
 
   const handleStart = React.useCallback((e: any, stepIdx: number, currentVal: any, subIndex?: 0 | 1) => {
     if ('shiftKey' in e && e.shiftKey) return;
@@ -41,7 +45,7 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
   }, [onStepTouchStart, pattern.id, instrument.id, selectedVariationId, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
 
   const handleCellTouchStart = React.useCallback((e: React.TouchEvent<any>, idx: number, value: any, subIndex?: 0 | 1) => {
-    if (activeTool === 'scissors') { e.preventDefault(); e.stopPropagation(); return; }
+    if (activeToolRef.current === 'scissors') { e.preventDefault(); e.stopPropagation(); return; }
     e.stopPropagation();
     if (isMultiSelectActive) { handleStepTouchStartMulti(e, idx); return; }
 
@@ -55,7 +59,7 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
       isLongPressFiredRef.current = true;
       handleStart(e, idx, value, subIndex);
     }, 400);
-  }, [activeTool, isMultiSelectActive, handleStepTouchStartMulti, handleStart]);
+  }, [isMultiSelectActive, handleStepTouchStartMulti, handleStart]);
 
   const handleCellTouchMove = React.useCallback((e: React.TouchEvent<any>) => {
     if (touchStartPosRef.current && e.touches && e.touches.length > 0) {
@@ -73,7 +77,7 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
     if (isLongPressFiredRef.current) { isLongPressFiredRef.current = false; return; }
     if (isMultiSelectActive) return;
 
-    if (activeTool === 'scissors') {
+    if (activeToolRef.current === 'scissors') {
       e.preventDefault();
       e.stopPropagation();
       handleScissorsClick(idx, value);
@@ -81,12 +85,23 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
     }
 
     const currentSubVal = (subIndex !== undefined && Array.isArray(value)) ? value[subIndex] : (Array.isArray(value) ? value[0] : value);
+    const tool = activeToolRef.current;
     let nextVal: string | number;
-    if (activeTool === '0' || activeTool === '' || activeTool === undefined) nextVal = 0;
-    else if (isAlternating) nextVal = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
-    else nextVal = getNextNuanceState(currentSubVal, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
+    if (!tool || tool === '0' || tool === '') {
+      nextVal = 0;
+    } else {
+      const normCur = String(currentSubVal ?? '0').trim();
+      const isAlternationEligible = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
+      if (isAlternationEligible) {
+        nextVal = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
+      } else if (normCur === tool) {
+        nextVal = 0;
+      } else {
+        nextVal = tool;
+      }
+    }
 
-    let finalVal: string | number | [string, string] = nextVal;
+    let finalVal: string | number | [string, string] = nextVal === '0' ? 0 : nextVal;
     if (Array.isArray(value)) {
       const arr = [...value] as [string, string];
       const targetSub = subIndex !== undefined ? subIndex : 0;
@@ -116,7 +131,7 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
         }
       } catch (_) {}
     }
-  }, [activeTool, handleScissorsClick, isMultiSelectActive, isAlternating, instrument?.id, instrument?.type, lang, isLeftHanded, selectedVariationId, handleVariationStepValueChange, trackId, pattern.id, handleTrackStepValueChange, setSelectedSubIndex, setSelectedStepIdx, setSelectedStepIndices, pattern?.volumes, pattern?.decays]);
+  }, [handleScissorsClick, isMultiSelectActive, instrument?.id, instrument?.type, lang, isLeftHanded, selectedVariationId, handleVariationStepValueChange, trackId, pattern.id, handleTrackStepValueChange, setSelectedSubIndex, setSelectedStepIdx, setSelectedStepIndices, pattern?.volumes, pattern?.decays]);
 
   return { handleCellTouchStart, handleCellTouchMove, handleCellTouchEnd };
 }

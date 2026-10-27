@@ -29,7 +29,7 @@ export const StrokeWritingDockPairButton: React.FC<StrokeWritingDockPairButtonPr
     : strokes[0];
 
   const bgCol = instrument.colors?.[displayedStroke.colorKey] || instrument.colors?.[displayedStroke.symbol] || instrument.colors?.[pair.strong.colorKey] || '#666';
-  const isDark = isDarkText(instrument.id, displayedStroke.symbol);
+  const isDark = isDarkText(instrument?.id, displayedStroke.symbol, bgCol);
   const txtCol = isDark ? '#1a1a1a' : '#f4ecd8';
   const strokeChain = strokeSymbols.join(' / ');
 
@@ -79,7 +79,7 @@ export const StrokeWritingDockPairButton: React.FC<StrokeWritingDockPairButtonPr
       title={`${pair.mainLabel} (${strokeChain}) — ${isFr ? 'Clic / Molette: Variantes | Raccourci' : 'Clique / Roda: Variantes | Tecla'}: ${pair.strong.shortcut}`}
     >
       <div
-        className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner transition-colors"
+        className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner transition-colors border border-[#1a1a1a]/20"
         style={{ backgroundColor: bgCol, color: txtCol }}
       >
         {displayedStroke.symbol}

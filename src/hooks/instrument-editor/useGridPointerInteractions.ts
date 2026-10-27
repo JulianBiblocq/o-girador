@@ -47,7 +47,7 @@ export function useGridPointerInteractions(params: UseGridPointerInteractionsPar
   isAlternatingRef.current = isAlternating;
 
   const handleCellMouseDown = React.useCallback((e: React.MouseEvent<any>, idx: number, value: any, subIndex?: 0 | 1) => {
-    if (activeTool === 'scissors') {
+    if (activeToolRef.current === 'scissors') {
       e.preventDefault(); e.stopPropagation(); if (e.button !== 0) return;
       handleScissorsClick(idx, value); return;
     }
@@ -88,15 +88,23 @@ export function useGridPointerInteractions(params: UseGridPointerInteractionsPar
     isMouseDownRef.current = true;
     const tool = activeToolRef.current;
     let strokeToApply: string | number;
-    if (tool === '0' || tool === '' || tool === undefined) strokeToApply = 0;
-    else if (isAlternatingRef.current) strokeToApply = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
-    else {
+    if (!tool || tool === '0' || tool === '') {
+      strokeToApply = 0;
+    } else {
       const curSub = (subIndex !== undefined && Array.isArray(value)) ? value[subIndex] : (Array.isArray(value) ? value[0] : value);
-      strokeToApply = getNextNuanceState(curSub, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
+      const normCur = String(curSub ?? '0').trim();
+      const isAlternationEligible = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
+      if (isAlternationEligible) {
+        strokeToApply = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
+      } else if (normCur === tool) {
+        strokeToApply = 0;
+      } else {
+        strokeToApply = tool;
+      }
     }
 
     paintValueRef.current = strokeToApply === '0' ? 0 : strokeToApply;
-    let finalVal: string | number | [string, string] = strokeToApply;
+    let finalVal: string | number | [string, string] = strokeToApply === '0' ? 0 : strokeToApply;
     if (Array.isArray(value)) {
       const arr = [...value] as [string, string]; const targetSub = subIndex ?? 0;
       arr[targetSub] = String(strokeToApply); finalVal = arr; setSelectedSubIndex(targetSub);
@@ -107,25 +115,14 @@ export function useGridPointerInteractions(params: UseGridPointerInteractionsPar
 
     const noteToPreview = Array.isArray(finalVal) ? (subIndex !== undefined ? finalVal[subIndex] : finalVal[0]) : finalVal;
     playGridStepPreview(trackId, pattern, noteToPreview, idx, subIndex);
-  }, [activeTool, handleScissorsClick, pattern, isMultiSelectActive, handleStepMouseDownMulti, setSelectedPatternId, setSelectedVariationId, setIsMultiSelectActive, setSelectedStepIndices, setSelectedStepIdx, setSelectedSubIndex, instrument, lang, isLeftHanded, selectedVariationId, handleVariationStepValueChange, trackId, handleTrackStepValueChange]);
+  }, [handleScissorsClick, pattern, isMultiSelectActive, handleStepMouseDownMulti, setSelectedPatternId, setSelectedVariationId, setIsMultiSelectActive, setSelectedStepIndices, setSelectedStepIdx, setSelectedSubIndex, instrument, lang, isLeftHanded, selectedVariationId, handleVariationStepValueChange, trackId, handleTrackStepValueChange]);
 
   const handleCellMouseEnter = React.useCallback((idx: number, e?: React.MouseEvent) => {
     if (e && e.buttons === 2) { handleClearStep(idx); return; }
     if (activeToolRef.current === 'scissors') return;
-    if (isMultiSelectActive) { handleStepMouseEnterMulti(idx); return; }
-    if (isMouseDownRef.current) {
-      const tool = activeToolRef.current;
-      let strokeToApply: string | number;
-      if (tool === '0' || tool === '' || tool === undefined) strokeToApply = 0;
-      else if (isAlternatingRef.current) strokeToApply = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
-      else strokeToApply = paintValueRef.current;
-
-      if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, strokeToApply as any);
-      else handleTrackStepValueChange(trackId, pattern.id, idx, strokeToApply as any);
-
-      playGridStepPreview(trackId, pattern, strokeToApply, idx);
-    }
-  }, [handleClearStep, isMultiSelectActive, handleStepMouseEnterMulti, selectedVariationId, handleVariationStepValueChange, trackId, pattern, handleTrackStepValueChange, instrument, lang, isLeftHanded]);
+    if (isMultiSelectActive) { handleStepMouseEnterMulti(idx); }
+    // Drag-to-paint désactivé : pose au clic uniquement
+  }, [handleClearStep, isMultiSelectActive, handleStepMouseEnterMulti]);
 
   return { isMouseDownRef, handleCellMouseDown, handleCellMouseEnter };
 }

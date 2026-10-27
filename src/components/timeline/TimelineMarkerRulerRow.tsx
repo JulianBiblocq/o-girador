@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin } from 'lucide-react';
 import { SongMarker, Language } from '../../types';
+import { isLightColor } from '../../data';
 
 export interface TimelineMarkerRulerRowProps {
   headerWidth: number;
@@ -48,14 +49,20 @@ export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
 
         {songMarkers.map((marker) => {
           const posX = measureLeftPositions[marker.measure] ?? (marker.measure * measureWidth);
+          const bgColor = marker.color || '#f19066';
+          const isLight = isLightColor(bgColor);
+          const textColor = isLight ? '#1a1a1a' : '#ffffff';
+          const fontClass = isLight ? 'font-extrabold' : 'font-bold';
+          const borderClass = isLight ? 'border border-[#1a1a1a]/40' : 'border border-black/10';
+
           return (
             <div
               key={`marker-${marker.id}`}
               data-marker="true"
-              className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-20 ${
+              className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] ${fontClass} flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 ${borderClass} z-20 ${
                 isPanningActive ? 'pointer-events-none' : ''
               }`}
-              style={{ left: `${posX}px`, backgroundColor: marker.color || '#f19066' }}
+              style={{ left: `${posX}px`, backgroundColor: bgColor, color: textColor }}
               onPointerDown={(e) => onMarkerPointerDown(e, marker)}
               onClick={(e) => {
                 if ((e.currentTarget as HTMLElement).dataset.hasMoved === 'true') return;
@@ -67,11 +74,14 @@ export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
                 onMarkerEdit(marker);
               }}
             >
-              <MapPin size={9} className="shrink-0" />
-              <span className="whitespace-nowrap truncate max-w-[140px]">{marker.name.replace(/\n/g, ' / ')}</span>
+              <MapPin size={9} className="shrink-0" style={{ color: textColor }} />
+              <span className="whitespace-nowrap truncate max-w-[140px]" style={{ color: textColor }}>
+                {marker.name.replace(/\n/g, ' / ')}
+              </span>
               <span
                 onClick={(e) => { e.stopPropagation(); onDeleteMarker(marker.id); }}
                 className="opacity-70 hover:opacity-100 cursor-pointer ml-1 text-[11px]"
+                style={{ color: textColor }}
                 title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
               >
                 &times;

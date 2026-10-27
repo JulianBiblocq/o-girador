@@ -26,7 +26,7 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
   } = props;
 
   const bgCol = instrument.colors?.[symbol] || '#666';
-  const txtCol = isDarkText(instrument.id, symbol) ? '#1a1a1a' : '#f4ecd8';
+  const txtCol = isDarkText(instrument?.id, symbol, bgCol) ? '#1a1a1a' : '#f4ecd8';
   const volLabelRef = useRef<HTMLSpanElement>(null);
   const decayLabelRef = useRef<HTMLSpanElement>(null);
   const currentVolRef = useRef<number>(stats.avgVolume);
@@ -43,7 +43,7 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
               } catch (_) {}
             }
           }}
-          className="w-6 h-6 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner cursor-pointer active:scale-95 transition-transform shrink-0"
+          className="w-6 h-6 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner cursor-pointer active:scale-95 transition-transform shrink-0 border border-[#1a1a1a]/30"
           style={{ backgroundColor: bgCol, color: txtCol }}
           title={isFr ? 'Cliquer pour écouter la frappe' : 'Clique para ouvir o toque'}
         >

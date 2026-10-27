@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useVocalInspectorActions } from './useVocalInspectorActions';
 
@@ -96,9 +97,19 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     toastMessage: cloud.toastMessage, contextMenuPos: ctrl.contextMenuPos,
     handleCloseContextMenu: ctrl.handleCloseContextMenu, isAddPickerOpen: ctrl.isAddPickerOpen,
     addPickerAnchorRect: ctrl.addPickerAnchorRect,
-    handleAddInstrumentFromRibbon: (idx: number) => { sequencer.handleAddTrack(idx); ctrl.handleCloseAddPicker(); },
-    handleCloseAddPicker: ctrl.handleCloseAddPicker, patternCardContextMenu: ctrl.patternCardContextMenu,
-    getPatternCardMenuItems: editorState.getPatternCardMenuItems, setPatternCardContextMenu: ctrl.setPatternCardContextMenu,
+    handleAddInstrumentFromRibbon: (idx: number) => {
+      const currentM = useSequencerStore.getState().currentMeasure || 0;
+      const addFn = sequencer.handleAddTrackInstrument || sequencer.handleAddTrack;
+      const newTrackId = addFn ? addFn(idx, currentM) : undefined;
+      if (newTrackId !== undefined && newTrackId !== null) {
+        setEditingTrackId(newTrackId);
+      }
+      ctrl.handleCloseAddPicker();
+    },
+    handleCloseAddPicker: ctrl.handleCloseAddPicker,
+    patternCardContextMenu: ctrl.patternCardContextMenu,
+    getPatternCardMenuItems: editorState.getPatternCardMenuItems,
+    setPatternCardContextMenu: ctrl.setPatternCardContextMenu,
     lang,
   };
 

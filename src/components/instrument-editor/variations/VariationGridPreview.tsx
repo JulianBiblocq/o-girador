@@ -28,7 +28,7 @@ export interface VariationGridPreviewProps {
   onVariationStepValueChange?: (ptnId: number, varId: string, idx: any, val: any) => void;
   onStepTouchStart?: any;
   handleTogglePlay: () => void;
-  applyStrokeToVariationStep: (varId: string, idx: number, val: any, isInitial?: boolean) => void;
+  applyStrokeToVariationStep: (varId: string, idx: number, val: any, subIndex?: 0 | 1) => void;
   isMouseDownRef: React.MutableRefObject<boolean>;
 }
 

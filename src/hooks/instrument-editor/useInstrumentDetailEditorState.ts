@@ -36,7 +36,7 @@ export function useInstrumentDetailEditorState({
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
   const [activeTool, setActiveTool] = useState<string>(() => getDefaultPrimaryStroke(inst?.id, inst?.type));
-  const [isAlternating, setIsAlternating] = useState<boolean>(true);
+  const [isAlternating, setIsAlternating] = useState<boolean>(false);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [selectedStepIsPreRoll, setSelectedStepIsPreRoll] = useState<boolean>(false);
   const isTupletEditMode = selectedSubIndex !== null;

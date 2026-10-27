@@ -32,7 +32,7 @@ export interface VariationStepCellProps {
   onVariationStepValueChange?: (ptnId: number, varId: string, idx: any, val: any) => void;
   onStepTouchStart?: any;
   handleTogglePlay: () => void;
-  applyStrokeToVariationStep: (varId: string, idx: number, val: any, isInitial?: boolean) => void;
+  applyStrokeToVariationStep: (varId: string, idx: number, val: any, subIndex?: 0 | 1) => void;
   isMouseDownRef: React.MutableRefObject<boolean>;
 }
 
@@ -50,8 +50,10 @@ export const VariationStepCell: React.FC<VariationStepCellProps> = React.memo((p
   const isActive = val !== 0 && val !== '0' && val !== '';
   let colorStyle: React.CSSProperties = {};
   if (isActive) {
-    const bgColor = inst.colors[val as string] || '#111';
-    const txtColor = isDarkText(inst.id, val as string) ? '#1a1a1a' : (inst.colors.text || '#f4ecd8');
+    const stroke = Array.isArray(val) ? String(val[0] ?? '0') : String(val);
+    const lookup = stroke === 'f' && !inst?.colors?.['f'] ? 'F' : stroke === 'v' && !inst?.colors?.['v'] ? 'V' : stroke;
+    const bgColor = inst?.colors?.[lookup] || '#111';
+    const txtColor = isDarkText(inst?.id, lookup, bgColor) ? '#1a1a1a' : (inst?.colors?.text || '#f4ecd8');
     colorStyle = { backgroundColor: bgColor, color: txtColor };
   }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
@@ -74,6 +75,7 @@ export const InstrumentAddPickerPopover: React.FC<InstrumentAddPickerPopoverProp
         left: `${left}px`,
         top: `${top}px`,
       }}
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -86,9 +88,11 @@ export const InstrumentAddPickerPopover: React.FC<InstrumentAddPickerPopoverProp
         <button
           type="button"
           onClick={onClose}
-          className="text-xs text-[#1a1a1a]/50 hover:text-[#1a1a1a] px-1 font-bold cursor-pointer"
+          className="text-xs text-[#1a1a1a]/60 hover:text-[#1a1a1a] p-0.5 rounded cursor-pointer transition-colors"
+          title={lang === 'fr' ? 'Fermer' : 'Fechar'}
         >
-                  </button>
+          <X size={14} />
+        </button>
       </div>
 
       {/* Grille des instruments */}
@@ -99,7 +103,9 @@ export const InstrumentAddPickerPopover: React.FC<InstrumentAddPickerPopoverProp
             <button
               key={idx}
               type="button"
-              onClick={() => {
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
                 onSelectInstrument(idx);
                 onClose();
               }}
@@ -115,8 +121,9 @@ export const InstrumentAddPickerPopover: React.FC<InstrumentAddPickerPopoverProp
                   }}
                 />
               ) : (
-                <span className="w-5 h-5 flex items-center justify-center font-cactus text-[10px] shrink-0">
-                                  </span>
+                <span className="w-5 h-5 flex items-center justify-center font-cactus text-[10px] shrink-0 font-bold">
+                  {label.slice(0, 2).toUpperCase()}
+                </span>
               )}
               <span className="font-cactus font-bold text-[11px] uppercase tracking-wide truncate">
                 {label}
