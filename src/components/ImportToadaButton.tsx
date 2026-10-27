@@ -3,11 +3,9 @@
  * Bouton Cordel [ Charger Toada ] et pont Cloud direct vers Cantador (< 125 lignes).
  * Supporte la sélection visuelle (CloudToadaPickerModal) et les deep links ?loadToadaId=...
  */
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { importToadaPackIntoSequencer } from '../utils/toadaPackImporter';
-import { fetchCloudToadaById } from '../services/cloudToadas';
 import { CloudToadaPickerModal } from './CloudToadaPickerModal';
 import { ToadaImportModal } from './ToadaImportModal';
 import { Cloud } from 'lucide-react';
@@ -18,19 +16,11 @@ interface ImportToadaButtonProps {
 }
 
 export const ImportToadaButton: React.FC<ImportToadaButtonProps> = ({ lang = 'fr', className = '' }) => {
-  const { userProfile } = useAuth();
   const totalMeasures = useSequencerStore((state) => state.totalMeasures);
   const [isLoading, setIsLoading] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingPack, setPendingPack] = useState<any>(null);
-
-  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const canImport = isLocalhost || Boolean(
-    userProfile?.canWriteSequenciador || userProfile?.role === 'mestre' || userProfile?.role === 'admin' || (userProfile as any)?.isSystemAdmin
-  );
-
-  if (!canImport) return null;
 
   const handleSelectCloudPack = (pack: any) => {
     setPendingPack(pack);

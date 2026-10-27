@@ -49,6 +49,7 @@ function processSteps(rawSteps: any[], count: number, roleSymbol: string): Conve
     const noteRaw = typeof s.note === 'string' ? s.note.trim() : '';
     const sylRaw = typeof s.syllable === 'string' ? s.syllable.trim() : '';
     const isHold =
+      Boolean(s.isTie) ||
       noteRaw === '───' ||
       noteRaw === '-' ||
       sylRaw === '───' ||

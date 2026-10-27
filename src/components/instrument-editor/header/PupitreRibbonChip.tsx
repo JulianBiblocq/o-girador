@@ -34,6 +34,13 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
   const titleText = isToada ? 'Toada' : (customName || tInst?.name || 'Instrument');
 
+  let instColor = (tInst?.color || tInst?.mixerBg || (useSequencerStore.getState().tracks.find((t) => t.id === trackId) as any)?.color || '#1a1a1a');
+  if (tInst?.id === 'puxador' || customName?.toLowerCase().includes('puxador')) {
+    instColor = '#c25e38';
+  } else if (tInst?.id === 'coro' || customName?.toLowerCase().includes('coro')) {
+    instColor = '#2a9d8f';
+  }
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       const touch = e.touches[0];
@@ -78,10 +85,14 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
       title={titleText}
-      className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
+      style={{
+        borderColor: instColor,
+        boxShadow: isActive ? `2px 2px 0px ${instColor}` : '1px 1px 0px rgba(0,0,0,0.5)',
+      }}
+      className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none border-2 ${
         isActive
-          ? 'bg-[#fbf8f0] border-2 border-[#1a1a1a] ring-2 ring-[#d4af37] ring-offset-1 ring-offset-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10 cursor-default'
-          : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] border-2 border-[#1a1a1a]/50 hover:border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,0.5)] hover:shadow-[2px_2px_0px_#1a1a1a] opacity-75 hover:opacity-100 hover:-translate-y-[1px] cursor-pointer'
+          ? 'bg-[#fbf8f0] ring-2 ring-offset-1 ring-offset-[#1a1a1a] scale-105 z-10 cursor-default'
+          : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] opacity-85 hover:opacity-100 hover:shadow-[2px_2px_0px_#1a1a1a] hover:-translate-y-[1px] cursor-pointer'
       }`}
     >
       {tInst?.iconImg ? (
@@ -96,6 +107,12 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
           {titleText.slice(0, 2).toUpperCase()}
         </span>
       )}
+      <span
+        className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 rounded-full pointer-events-none transition-all ${
+          isActive ? 'w-4' : 'w-2.5 opacity-80'
+        }`}
+        style={{ backgroundColor: instColor }}
+      />
     </button>
   );
 });

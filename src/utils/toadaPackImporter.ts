@@ -77,12 +77,20 @@ export async function importToadaPackIntoSequencer(
       [numId, String(numId), p.id, `${roleTrackId}_${numId}`, `${roleTrackId}_${String(numId)}`].forEach((k) => {
         aStore.setVocalBuffer(k, audioBuffer); aStore.addVocalBlob(k, wavBlob!);
       });
+      const rawStartOffset = variant?.startOffsetSec ?? p.startOffsetSec;
+      const rawT1 = variant?.t1OffsetSec ?? p.t1OffsetSec;
+      const calculatedStartOffset = rawStartOffset !== undefined
+        ? rawStartOffset
+        : (rawT1 !== undefined ? -rawT1 : (hasAnacrusis ? -anacrusisDurationSec : 0));
+      const anacSec = Math.max(0, -calculatedStartOffset);
+      const anacBeats = anacSec > 0 ? (anacSec / (60 / effectiveBpm)) : 0;
+
       clipMeta = {
         id: numId, patternId: numId, baseBpm: effectiveBpm, sampleBpm: effectiveBpm,
         trimStartSec: variant?.trimStartSec ?? 0,
         trimEndSec: variant?.trimEndSec ?? (variant?.durationSec || audioBuffer.duration),
-        nudgeMs: existingNudge, anacrusisBeats: hasAnacrusis ? 4 : 0, anacrusisSec: hasAnacrusis ? anacrusisDurationSec : 0,
-        startOffsetSec: hasAnacrusis ? -anacrusisDurationSec : 0, updatedAt: Date.now(),
+        nudgeMs: existingNudge, anacrusisBeats: anacBeats, anacrusisSec: anacSec,
+        startOffsetSec: calculatedStartOffset, updatedAt: Date.now(),
         variantKeys: loadedVariantKeys.length > 0 ? loadedVariantKeys : undefined,
       };
     }

@@ -27,7 +27,7 @@ export interface StrokeWritingDockProps {
 }
 
 export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
-  instrument, lang, isLeftHanded, activeTool, onSelectTool,
+  trackId, instrument, lang, isLeftHanded, activeTool, onSelectTool,
   isAlternating = false, onToggleAlternating, onOpenBottomSheet, showInspectorButton = true,
 }) => {
   const isFr = lang === 'fr';
@@ -42,7 +42,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
       <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pl-2 pr-3 py-1.5 min-w-0 flex-1 scrollbar-none">
         {pairs.map((pair) => (
           <StrokeWritingDockPairButton
-            key={pair.id} pair={pair} instrument={instrument} activeTool={activeTool}
+            key={pair.id} trackId={trackId} pair={pair} instrument={instrument} activeTool={activeTool}
             isScissorsActive={isScissorsActive} isEraserActive={isEraserActive} isFr={isFr} onSelectTool={onSelectTool}
           />
         ))}
