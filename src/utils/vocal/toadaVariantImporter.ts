@@ -1,10 +1,15 @@
 /**
  * toadaVariantImporter.ts
- * Décodage par lot des déclinaisons audio vocales et sauvegarde IndexedDB/AudioStore.
+ * Décodage par lot des déclinaisons audio vocales avec cache d'URL pour éviter tout téléchargement redondant.
  * Plafond strict : < 110 lignes.
  */
 import { useAudioStore } from '../../stores/useAudioStore';
 import { saveVocalRecording } from '../../db';
+
+export interface DecodedUrlAudio {
+  blob: Blob;
+  buffer: AudioBuffer;
+}
 
 export function base64ToBlob(b64: string): Blob {
   const bin = atob(b64.replace(/^data:audio\/\w+;base64,/, ''));
@@ -13,12 +18,31 @@ export function base64ToBlob(b64: string): Blob {
   return new Blob([bytes], { type: 'audio/wav' });
 }
 
+export async function fetchAndDecodeAudioUrl(
+  url: string,
+  rawCtx: AudioContext,
+  urlCache?: Map<string, DecodedUrlAudio>
+): Promise<DecodedUrlAudio | null> {
+  if (!url) return null;
+  const cached = urlCache?.get(url);
+  if (cached) return cached;
+
+  const resp = await fetch(url);
+  if (!resp.ok) return null;
+  const blob = await resp.blob();
+  const buffer = await rawCtx.decodeAudioData(await blob.arrayBuffer());
+  const entry = { blob, buffer };
+  urlCache?.set(url, entry);
+  return entry;
+}
+
 export async function importPatternVariants(
   variants: Record<string, any> | undefined,
   numId: number,
   origId: string,
   roleTrackId: number,
-  rawCtx: AudioContext
+  rawCtx: AudioContext,
+  urlCache?: Map<string, DecodedUrlAudio>
 ): Promise<string[]> {
   const loadedKeys: string[] = [];
   if (!variants || typeof variants !== 'object') return loadedKeys;
@@ -29,15 +53,20 @@ export async function importPatternVariants(
   for (const [key, v] of entries) {
     try {
       let b: Blob | null = null;
+      let buf: AudioBuffer | null = null;
+
       if (v?.audioBase64) {
         b = base64ToBlob(v.audioBase64);
+        buf = await rawCtx.decodeAudioData(await b.arrayBuffer());
       } else if (v?.audioUrl) {
-        const resp = await fetch(v.audioUrl);
-        if (resp.ok) b = await resp.blob();
+        const decoded = await fetchAndDecodeAudioUrl(v.audioUrl, rawCtx, urlCache);
+        if (decoded) {
+          b = decoded.blob;
+          buf = decoded.buffer;
+        }
       }
 
-      if (b) {
-        const buf = await rawCtx.decodeAudioData(await b.arrayBuffer());
+      if (b && buf) {
         const compositeKey = `${numId}__${key}`;
         const trackCompositeKey = `${roleTrackId}_${numId}__${key}`;
         const origCompositeKey = `${origId}__${key}`;

@@ -36,11 +36,14 @@ export class VocalTimingCalculator {
 
   public static calculateTiming(p: VocalTimingParams): VocalTimingResult {
     const beatDurationSec = 60 / p.effectiveBpm;
+    const clipSampleBpm = Number(p.clip?.sampleBpm || p.clip?.baseBpm || p.ptnRef?.vocalBaseBpm || p.effectiveBpm);
+    const playbackRate = clipSampleBpm > 0 ? (p.effectiveBpm / clipSampleBpm) : 1;
+
     let triggerOffsetSec = 0;
     if (p.clip?.startOffsetSec !== undefined) {
-      triggerOffsetSec = p.clip.startOffsetSec;
+      triggerOffsetSec = p.clip.startOffsetSec / playbackRate;
     } else if (p.clip?.anacrusisSec !== undefined) {
-      triggerOffsetSec = -p.clip.anacrusisSec;
+      triggerOffsetSec = -p.clip.anacrusisSec / playbackRate;
     } else if (p.clip?.anacrusisBeats !== undefined) {
       triggerOffsetSec = -(p.clip.anacrusisBeats * beatDurationSec);
     }

@@ -1,8 +1,8 @@
 /**
  * toadaPackImporter.ts
- * Décodage et injection locale d'un pack Toada (.json) dans Sequenciador.
- * Zéro écriture Firestore (RAM Zustand + IndexedDB vocalRecordings).
- * Strictement < 120 lignes.
+ * Décodage et injection locale d'un pack Toada (.json / Firestore) dans Sequenciador.
+ * Téléchargement unique par audioUrl via cache en mémoire.
+ * Strictement < 130 lignes.
  */
 import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -11,7 +11,7 @@ import { saveVocalRecording } from '../db';
 import { buildToadaConductorSlots } from './toadaArrangement';
 import { convertToadaPattern, isStepActive } from './toadaPatternConverter';
 import { isBlankPattern, getOrCreateTrack } from './vocal/toadaImportHelpers';
-import { importPatternVariants, base64ToBlob } from './vocal/toadaVariantImporter';
+import { importPatternVariants, base64ToBlob, fetchAndDecodeAudioUrl, type DecodedUrlAudio } from './vocal/toadaVariantImporter';
 import type { Pattern, VocalClipMeta } from '../types/store.types';
 
 export interface ToadaImportOptions {
@@ -33,6 +33,7 @@ export async function importToadaPackIntoSequencer(
   if (!tracks.some((t) => t.id === coroTrack.id)) tracks.push(coroTrack);
   const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
   const patIdMap = new Map<string, number>(), convertedPats: Array<{ pat: Pattern; role: 'puxador' | 'coro'; origId: string }> = [];
+  const urlCache = new Map<string, DecodedUrlAudio>();
   const baseId = Date.now() + 10000;
 
   for (let i = 0; i < pack.patterns.length; i++) {
@@ -43,7 +44,7 @@ export async function importToadaPackIntoSequencer(
 
     const variant = p.variants?.[p.activeVariantKey] || p.variants?.['spd100_pit0'] || Object.values(p.variants || {})[0] as any;
     let clipMeta: VocalClipMeta | undefined;
-    const effectiveBpm = p.baseBpm || pack.project?.bpm || store.bpm;
+    const effectiveBpm = Number(p.baseBpm || p.bpm || pack.project?.bpm || pack.bpm || store.bpm || 88);
     const anacrusisDurationSec = (4 * 60) / effectiveBpm;
     const explicitAnac = p.hasAnacrusis !== undefined ? Boolean(p.hasAnacrusis) : null;
     const hasAnacrusis = explicitAnac !== null
@@ -55,27 +56,33 @@ export async function importToadaPackIntoSequencer(
     const existingNudge = existingPat?.vocalClip?.nudgeMs ?? 0;
 
     let wavBlob: Blob | null = null;
+    let audioBuffer: AudioBuffer | null = null;
+    const targetUrl = variant?.audioUrl || p.audioUrl;
+
     if (variant?.audioBase64) {
       wavBlob = base64ToBlob(variant.audioBase64);
-    } else if (variant?.audioUrl || p.audioUrl) {
+      audioBuffer = await rawCtx.decodeAudioData(await wavBlob.arrayBuffer());
+    } else if (targetUrl) {
       try {
-        const resp = await fetch(variant?.audioUrl || p.audioUrl);
-        if (resp.ok) wavBlob = await resp.blob();
+        const decoded = await fetchAndDecodeAudioUrl(targetUrl, rawCtx, urlCache);
+        if (decoded) {
+          wavBlob = decoded.blob;
+          audioBuffer = decoded.buffer;
+        }
       } catch (err) {
         console.warn('[toadaPackImporter] Échec fetch audioUrl:', err);
       }
     }
 
-    const loadedVariantKeys = await importPatternVariants(p.variants, numId, p.id, targetTrack.id, rawCtx);
+    const loadedVariantKeys = await importPatternVariants(p.variants, numId, p.id, targetTrack.id, rawCtx, urlCache);
 
-    if (wavBlob) {
-      const audioBuffer = await rawCtx.decodeAudioData(await wavBlob.arrayBuffer());
+    if (wavBlob && audioBuffer) {
       await saveVocalRecording(numId, wavBlob);
       if (String(numId) !== p.id) await saveVocalRecording(p.id, wavBlob);
       const aStore = useAudioStore.getState();
       const roleTrackId = targetTrack.id;
       [numId, String(numId), p.id, `${roleTrackId}_${numId}`, `${roleTrackId}_${String(numId)}`].forEach((k) => {
-        aStore.setVocalBuffer(k, audioBuffer); aStore.addVocalBlob(k, wavBlob!);
+        aStore.setVocalBuffer(k, audioBuffer!); aStore.addVocalBlob(k, wavBlob!);
       });
       const rawStartOffset = variant?.startOffsetSec ?? p.startOffsetSec;
       const rawT1 = variant?.t1OffsetSec ?? p.t1OffsetSec;
@@ -101,7 +108,7 @@ export async function importToadaPackIntoSequencer(
   }
 
   store.pushUndoState();
-  const conductorSlots = buildToadaConductorSlots(pack.arrangementSlots, pack.patterns, patIdMap);
+  const conductorSlots = buildToadaConductorSlots(pack.arrangementSlots || pack.slots, pack.patterns, patIdMap);
   store.setToadaConductorSlots(conductorSlots);
 
   const nextTracks = tracks.map((t) => {
@@ -116,8 +123,10 @@ export async function importToadaPackIntoSequencer(
   });
 
   store.setTracks(nextTracks);
-  if (pack.project?.bpm) store.setBpm(pack.project.bpm);
-  if (pack.project?.title) store.setMetadata({ ...store.metadata, toada: pack.project.title });
+  const packBpm = pack.project?.bpm || pack.bpm;
+  if (packBpm) store.setBpm(Number(packBpm));
+  const packTitle = pack.project?.title || pack.title;
+  if (packTitle) store.setMetadata({ ...store.metadata, toada: packTitle });
   useAudioStore.getState().setVocalMode('voice');
 
   const deployed = options.deployStartMeasureIdx !== null && options.deployStartMeasureIdx !== undefined;
