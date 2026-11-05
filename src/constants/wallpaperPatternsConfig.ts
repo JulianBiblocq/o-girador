@@ -21,7 +21,7 @@ export function getWallpaperPatternsConfig(isPt: boolean): {
       title: isPt ? 'Opção B : Damasco 45°' : 'Option B : Damassé 45°',
       subtitle: isPt
         ? 'Treliça em losango diagonal. Linhas de Mineiros ritmadas com instrumentos nas células.'
-        : 'Treillis géométrique en losange. Trame de Mineiros abritant les fûts de bateria.',
+        : 'Treillis géométrique en losange. Trame de Mineiros abritant les fûts du Baque.',
       badge: '45° Mesh',
     },
     {

@@ -3,7 +3,7 @@
  * O-Girador - Color Map Builder for Maracatu Instruments
  */
 
-import { ThemePalette, STROKE_INTENSITY_MAP } from './maracatuTheme';
+import { type ThemePalette, STROKE_INTENSITY_MAP } from './maracatuTheme';
 
 /**
  * Generates an O(1) lookup dictionary for a given instrument's colors.

@@ -1,6 +1,6 @@
 
-import { Pattern, CatalogVisibility } from './pattern.types';
-import { TimeSignature } from './common.types';
+import type { Pattern, CatalogVisibility } from './pattern.types';
+import type { TimeSignature } from './common.types';
 
 export interface CatalogItem {
   file: string;

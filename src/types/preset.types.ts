@@ -1,6 +1,6 @@
 
-import { TimeSignature } from './common.types';
-import { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';
+import type { TimeSignature } from './common.types';
+import type { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';
 import type { CordelOptions } from '../utils/cordelEffect';
 import type { GlobalAutomationBypass } from '../utils/automationBypassHelper';
 

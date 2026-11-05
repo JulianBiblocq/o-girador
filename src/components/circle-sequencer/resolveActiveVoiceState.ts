@@ -6,7 +6,7 @@ import { resolvePatternForMeasure, getDefaultStepsForMeasure, getPhysicalStepFro
 
 export interface ActiveVoiceState {
   activePattern: Pattern | null | undefined;
-  activeRole: 'puxador' | 'coro' | 'none';
+  activeRole: 'puxador' | 'coro' | 'baque' | 'none';
   isAnacrusis: boolean;
   currentStep: number;
   totalSteps: number;
@@ -45,8 +45,12 @@ export function resolveActiveVoiceState(
     });
   }
 
-  const puxPattern = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId) || puxTrack?.patterns?.[0];
-  const coroPattern = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId) || coroTrack?.patterns?.[0];
+  const hasTimelineVocalAssignments = Boolean(
+    puxTrack?.patterns?.some(p => p.measureAssignments?.some(Boolean)) ||
+    coroTrack?.patterns?.some(p => p.measureAssignments?.some(Boolean))
+  );
+  const puxPattern = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId) || (!hasTimelineVocalAssignments ? puxTrack?.patterns?.[0] : null);
+  const coroPattern = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId) || (!hasTimelineVocalAssignments ? coroTrack?.patterns?.[0] : null);
 
   let nextMeasureIdx: number;
   if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {
@@ -73,7 +77,7 @@ export function resolveActiveVoiceState(
 
   let isAnacrusis = Boolean(live.isPreRoll);
   let activePattern: Pattern | null | undefined = undefined;
-  let activeRole: 'puxador' | 'coro' | 'none' = 'none';
+  let activeRole: 'puxador' | 'coro' | 'baque' | 'none' = 'none';
 
   if (isAnacrusis) {
     const nextPuxPre = puxPattern?.preRollActiveSteps;
@@ -117,6 +121,8 @@ export function resolveActiveVoiceState(
     } else if (coroHasNotes) {
       activeRole = 'coro';
       activePattern = coroPattern;
+    } else if (hasTimelineVocalAssignments) {
+      activeRole = 'baque';
     }
   }
 

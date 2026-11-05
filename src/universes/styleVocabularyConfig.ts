@@ -8,16 +8,16 @@ export interface EnsembleVocabulary {
 
 const ENSEMBLE_VOCABULARY: Record<StyleUniverse, { fr: EnsembleVocabulary; pt: EnsembleVocabulary }> = {
   maracatu: {
-    fr: { ensembleName: 'Batuque', restOfEnsemble: 'Reste du Batuque' },
-    pt: { ensembleName: 'Batuque', restOfEnsemble: 'Resto do Batuque' },
+    fr: { ensembleName: 'Baque', restOfEnsemble: 'Reste du Baque' },
+    pt: { ensembleName: 'Baque', restOfEnsemble: 'Resto do Baque' },
   },
   capoeira: {
     fr: { ensembleName: 'Roda', restOfEnsemble: 'Reste de la Roda' },
     pt: { ensembleName: 'Roda', restOfEnsemble: 'Resto da Roda' },
   },
   samba: {
-    fr: { ensembleName: 'Bateria', restOfEnsemble: 'Reste de la Bateria' },
-    pt: { ensembleName: 'Bateria', restOfEnsemble: 'Resto da Bateria' },
+    fr: { ensembleName: 'Baque', restOfEnsemble: 'Reste du Baque' },
+    pt: { ensembleName: 'Baque', restOfEnsemble: 'Resto do Baque' },
   },
   samba_reggae: {
     fr: { ensembleName: 'Bloco', restOfEnsemble: 'Reste du Bloco' },

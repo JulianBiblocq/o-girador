@@ -1,5 +1,5 @@
 
-import { Pattern } from './pattern.types';
+import type { Pattern } from './pattern.types';
 
 export * from './pattern.types';
 export * from './section.types';
@@ -101,4 +101,6 @@ export interface ToadaConductorSlot {
   puxadorPatternId?: number;
   coroPatternId?: number;
   measuresCount: number;
+  advanceMeasures?: number;
+  isSilenceSlot?: boolean;
 }

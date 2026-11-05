@@ -3,7 +3,7 @@
  * O Girador - Instruments Configuration Catalog (< 50 lignes)
  */
 
-import { InstrumentConfig } from '../../../types';
+import type { InstrumentConfig } from '../../../types/config.types';
 import { MARACATU_THEME, buildInstrumentColors } from '../theme';
 
 export const ASSETS_BASE_URL = (import.meta as any).env?.BASE_URL || '/';

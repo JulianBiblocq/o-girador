@@ -8,11 +8,13 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { saveVocalRecording } from '../db';
-import { buildToadaConductorSlots } from './toadaArrangement';
+import { buildToadaConductorSlots, deployToadaCycle } from './toadaArrangement';
 import { convertToadaPattern, isStepActive } from './toadaPatternConverter';
 import { isBlankPattern, getOrCreateTrack } from './vocal/toadaImportHelpers';
 import { importPatternVariants, base64ToBlob, fetchAndDecodeAudioUrl, type DecodedUrlAudio } from './vocal/toadaVariantImporter';
 import type { Pattern, VocalClipMeta } from '../types/store.types';
+
+export { buildToadaConductorSlots, deployToadaCycle };
 
 export interface ToadaImportOptions {
   deployStartMeasureIdx?: number | null;

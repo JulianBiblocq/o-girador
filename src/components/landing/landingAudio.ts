@@ -11,14 +11,14 @@ export interface InstrumentStrokeInfo {
   file: string;
 }
 
-export interface BateriaInstrumentDef {
+export interface BaqueInstrumentDef {
   id: string;
   name: string;
   Icon: React.FC;
   strokes: InstrumentStrokeInfo[];
 }
 
-export const BATERIA_INSTRUMENTS_DATA: BateriaInstrumentDef[] = [
+export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
   {
     id: 'marcante',
     name: 'Alfaia',
@@ -84,7 +84,7 @@ export const BATERIA_INSTRUMENTS_DATA: BateriaInstrumentDef[] = [
 
 import { getRawAudioContext } from '../../audio/audioContextSuspendManager';
 
-export const ALL_LANDING_SAMPLES = BATERIA_INSTRUMENTS_DATA.flatMap(inst =>
+export const ALL_LANDING_SAMPLES = BAQUE_INSTRUMENTS_DATA.flatMap(inst =>
   inst.strokes.map(s => ({ id: inst.id, symbol: s.symbol, file: s.file }))
 );
 

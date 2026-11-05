@@ -1,40 +1,35 @@
 /**
  * toadaPatternConverter.ts
- * Conversion d'un motif Toada exporté en Pattern Sequenciador canonique (< 115 lignes).
+ * Conversion d'un motif Toada exporté en Pattern Sequenciador canonique (< 135 lignes).
  */
 import type { Pattern, VocalClipMeta } from '../types/store.types';
 
 export function isStepActive(s: any): boolean {
   if (!s) return false;
-  const hasValidNote = Boolean(s.note && s.note !== '0' && String(s.note).trim() !== '');
-  const hasValidSyl = Boolean(s.syllable && String(s.syllable).trim() !== '');
-  return Boolean(s.active || hasValidNote || hasValidSyl);
+  const noteRaw = typeof s.note === 'string' ? s.note.trim() : '';
+  const rawSylVal = s.syllable ?? s.lyricSyllable;
+  const sylRaw = typeof rawSylVal === 'string' ? rawSylVal.trim() : '';
+  const isExplicitTie = Boolean(s.isTie) || noteRaw === '───' || sylRaw === '───';
+  if (s.active === false && !isExplicitTie) return false;
+  if (s.midiNumber === null && !isExplicitTie && s.active !== true) return false;
+  const hasValidNote = Boolean(noteRaw && noteRaw !== '0' && noteRaw !== '𝄽');
+  const hasValidSyl = Boolean(sylRaw && sylRaw !== '' && sylRaw !== '_' && sylRaw !== '𝄽');
+  return Boolean(s.active || isExplicitTie || hasValidNote || hasValidSyl);
 }
 
 interface ConvertedSteps {
-  activeSteps: any[];
-  notes: string[];
-  lyrics: string[];
-  volumes: number[];
-  decays: number[];
+  activeSteps: any[]; notes: string[]; lyrics: string[]; volumes: number[]; decays: number[];
 }
 
 function processSteps(rawSteps: any[], count: number, roleSymbol: string): ConvertedSteps {
-  const activeSteps: any[] = Array(count).fill(0);
-  const notes: string[] = Array(count).fill('');
-  const lyrics: string[] = Array(count).fill('');
-  const volumes: number[] = Array(count).fill(80);
-  const decays: number[] = Array(count).fill(10);
-
-  let lastActivePitch = '';
-  let attackHeadIdx = -1;
-  let spanSteps = 0;
+  const activeSteps: any[] = Array(count).fill(0), notes: string[] = Array(count).fill('');
+  const lyrics: string[] = Array(count).fill(''), volumes: number[] = Array(count).fill(80), decays: number[] = Array(count).fill(10);
+  let lastActivePitch = '', attackHeadIdx = -1, spanSteps = 0;
 
   const finalizeHold = () => {
     if (attackHeadIdx >= 0) {
       decays[attackHeadIdx] = Math.min(100, Math.max(10, spanSteps * 10));
-      attackHeadIdx = -1;
-      spanSteps = 0;
+      attackHeadIdx = -1; spanSteps = 0;
     }
   };
 
@@ -47,7 +42,8 @@ function processSteps(rawSteps: any[], count: number, roleSymbol: string): Conve
     }
 
     const noteRaw = typeof s.note === 'string' ? s.note.trim() : '';
-    const sylRaw = typeof s.syllable === 'string' ? s.syllable.trim() : '';
+    const rawSylVal = s.syllable ?? s.lyricSyllable;
+    const sylRaw = typeof rawSylVal === 'string' ? rawSylVal.trim() : '';
     const isHold =
       Boolean(s.isTie) ||
       noteRaw === '───' ||
@@ -56,9 +52,15 @@ function processSteps(rawSteps: any[], count: number, roleSymbol: string): Conve
       (sylRaw === '-' && (!noteRaw || noteRaw === lastActivePitch));
 
     if (isHold) {
+      if (!lastActivePitch && (!noteRaw || noteRaw === '───' || noteRaw === '-' || noteRaw === '0')) {
+        finalizeHold();
+        continue;
+      }
+      const holdPitch = lastActivePitch || noteRaw;
+      lastActivePitch = holdPitch;
       activeSteps[idx] = roleSymbol;
-      notes[idx] = lastActivePitch || 'C4';
-      lyrics[idx] = '-';
+      notes[idx] = holdPitch;
+      lyrics[idx] = '───';
       if (s.velocity !== undefined) volumes[idx] = s.velocity;
       if (attackHeadIdx >= 0) {
         spanSteps++;
@@ -68,13 +70,13 @@ function processSteps(rawSteps: any[], count: number, roleSymbol: string): Conve
       }
     } else {
       finalizeHold();
-      const currentPitch = noteRaw && noteRaw !== '0' ? noteRaw : (lastActivePitch || 'C4');
+      const currentPitch = noteRaw && noteRaw !== '0' && noteRaw !== '───' ? noteRaw : (lastActivePitch || 'C4');
       lastActivePitch = currentPitch;
       attackHeadIdx = idx;
       spanSteps = 1;
       activeSteps[idx] = roleSymbol;
       notes[idx] = currentPitch;
-      lyrics[idx] = sylRaw || '-';
+      lyrics[idx] = (sylRaw && sylRaw !== '_') ? sylRaw : '-';
       if (s.velocity !== undefined) volumes[idx] = s.velocity;
     }
   }
@@ -94,13 +96,16 @@ export function convertToadaPattern(
   explicitHasAnacrusis?: boolean
 ): Pattern {
   const roleSymbol = role === 'coro' ? 'C' : 'P';
-  const stepsCount = (p.measuresCount || 1) * 16;
+  const stepsCount = Math.max(1, Number(p.measuresCount) || 1) * 16;
   const hasAnacrusis = explicitHasAnacrusis !== undefined ? explicitHasAnacrusis : (p.hasAnacrusis !== undefined ? Boolean(p.hasAnacrusis) : true);
   let anacrusisRaw: any[] = hasAnacrusis ? (p.anacrusisSteps || []) : [];
   let mainRaw: any[] = p.mainSteps || [];
   if (hasAnacrusis && mainRaw.length >= stepsCount + 16 && anacrusisRaw.length === 0) {
     anacrusisRaw = mainRaw.slice(0, 16);
     mainRaw = mainRaw.slice(16, 16 + stepsCount);
+  } else if (mainRaw.length > stepsCount) {
+    // Le débordement +1T (4 pas sur le Temps 1 suivant) ne gonfle pas le nombre de mesures du pattern
+    mainRaw = mainRaw.slice(0, stepsCount);
   }
 
   const main = processSteps(mainRaw, stepsCount, roleSymbol);
@@ -129,4 +134,3 @@ export function convertToadaPattern(
     hasAnacrusis,
   };
 }
-

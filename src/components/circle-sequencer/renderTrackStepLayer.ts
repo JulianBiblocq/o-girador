@@ -69,28 +69,29 @@ export function renderTrackStepLayer(
     const hasAnyNotes = Boolean(activePlayingSteps && activePlayingSteps.some((s: any) => s !== 0));
     const tRad = drawTrackRing(ctx, track, visibleIdx, activeVisibleTracks.length, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
 
-    if (!activePattern) return;
+    const isVoiceOrToada = isToada || currentInst.type === 'voice';
+    if (!activePattern && !isVoiceOrToada) return;
 
     const measureIdx = (live && live.step >= 0)
       ? live.measure
       : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure);
 
     const activeTimeSig = stateVal.measureTimeSigs ? (stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4') : (stateVal.timeSig || '4/4');
-    const patSteps = activePattern.steps || 16;
+    const patSteps = activePattern?.steps || 16;
     const resolvedBeats = resolveBeatsFromTimeSig(String(activeTimeSig), patSteps);
-    const stepAngles = computeStepAngles(resolvedBeats, activePattern.beatResolutions);
+    const stepAngles = computeStepAngles(resolvedBeats, activePattern?.beatResolutions);
 
     const effectiveStepCount = stepAngles.length;
     const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * effectiveStepCount) : -1;
 
-    if (isToada || currentInst.type === 'voice') {
+    if (isVoiceOrToada) {
       drawToadaTrack(
-        ctx, track, currentInst, isToada, localRawTracks, activePattern, activePlayingSteps,
+        ctx, track, currentInst, isToada, localRawTracks, activePattern as any, activePlayingSteps,
         stepAngles, effectiveStepCount, currentStep, tRad, centerX, centerY, dynamicScale, isEco,
         measureIdx, stateVal.soloPatternPlayId, stateVal.totalMeasures, stateVal.isLoopRegionActive,
         stateVal.loopStartMeasure, stateVal.loopEndMeasure, activeVariationsRef, themeWood, themeBorder, themeText
       );
-    } else {
+    } else if (activePattern) {
       drawPercussionTrack(
         ctx, track, currentInst, activePattern, activePlayingSteps, stepAngles, effectiveStepCount,
         currentStep, tRad, centerX, centerY, dynamicScale, isEco, measureIdx, localRawTracks,

@@ -3,6 +3,7 @@ import React from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { Language } from '../types';
 import { ExportTrackSelectionList } from './export/ExportTrackSelectionList';
+import { ExportBaqueBounceButton } from './ExportBaqueBounceButton';
 
 interface ExportMenuModalProps {
   onClose: () => void;
@@ -75,6 +76,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
         </div>
 
         <div className="flex flex-col gap-2 pt-3 border-t-2 border-[var(--cordel-border)] border-dashed">
+          <ExportBaqueBounceButton lang={lang === 'fr' ? 'fr' : 'pt'} className="w-full py-2 text-xs" />
           <button
             onClick={() => { onClose(); printLegendOnly(); }}
             className="w-full px-3 py-2 text-sm bg-[var(--cordel-border)] text-[var(--cordel-bg)] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus text-center"

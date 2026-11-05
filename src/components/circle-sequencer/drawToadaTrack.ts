@@ -95,7 +95,8 @@ export const drawToadaTrack = (
 
   drawVoiceRibbons(ctx, centerX, centerY, tRad, stepAngles, effectiveStepCount, puxBlocks, coroBlocks, dynamicScale);
 
-  const trackLabel = track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix');
+  const isPauseMeasure = !puxPattern && !coroPattern;
+  const trackLabel = isPauseMeasure ? '🥁 Baque' : (track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix'));
   drawVoicePastilles(
     ctx,
     centerX,

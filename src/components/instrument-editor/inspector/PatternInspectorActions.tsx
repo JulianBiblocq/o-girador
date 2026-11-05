@@ -3,6 +3,7 @@ import React from 'react';
 import { Copy, Download, CloudUpload, FolderOpen } from 'lucide-react';
 import { ImportToadaButton } from '../../ImportToadaButton';
 import { AtelierVocalButton } from '../../AtelierVocalButton';
+import { ExportBaqueBounceButton } from '../../ExportBaqueBounceButton';
 
 export interface PatternInspectorActionsProps {
   isFr: boolean;
@@ -50,6 +51,7 @@ export const PatternInspectorActions: React.FC<PatternInspectorActionsProps> = R
         <>
           <ImportToadaButton lang={isFr ? 'fr' : 'pt'} className="w-full justify-center" />
           <AtelierVocalButton lang={isFr ? 'fr' : 'pt'} className="w-full justify-center" />
+          <ExportBaqueBounceButton lang={isFr ? 'fr' : 'pt'} className="col-span-2 w-full justify-center" />
         </>
       ) : (
         <>

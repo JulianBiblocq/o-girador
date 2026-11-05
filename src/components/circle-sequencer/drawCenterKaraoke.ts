@@ -35,12 +35,13 @@ export const drawCenterKaraoke = (
       measureTimeSigs
     );
 
-    if (!activePattern || activeRole === 'none') return;
-    const words = getPatternWords(activePattern, isAnacrusis, totalSteps);
-    if (words.length === 0) return;
+    if (activeRole === 'none') return;
+    const isPauseBaque = activeRole === 'baque';
+    const words = (!isPauseBaque && activePattern) ? getPatternWords(activePattern, isAnacrusis, totalSteps) : [];
+    if (!isPauseBaque && words.length === 0) return;
 
-    const roleColor = activeRole === 'coro' ? '#1e40af' : '#c25e38';
-    const roleLabel = isAnacrusis ? 'ANACROUSE T1' : (activeRole === 'coro' ? 'CORO' : 'PUXADOR');
+    const roleColor = isPauseBaque ? '#44403c' : (activeRole === 'coro' ? '#1e40af' : '#c25e38');
+    const roleLabel = isPauseBaque ? '🥁 BAQUE' : (isAnacrusis ? 'ANACROUSE T1' : (activeRole === 'coro' ? 'CORO' : 'PUXADOR'));
 
     const diskRadius = 135 * dynamicScale;
     ctx.beginPath();
@@ -79,6 +80,15 @@ export const drawCenterKaraoke = (
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(roleLabel, centerX, badgeY + badgeH / 2 + 0.5);
+
+    if (isPauseBaque) {
+      ctx.font = `900 ${Math.floor(24 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
+      ctx.fillStyle = '#44403c';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🥁 Baque', centerX, centerY);
+      return;
+    }
 
     let activeWord: WordItem | null = null;
     let activeSyllableIndex = -1;

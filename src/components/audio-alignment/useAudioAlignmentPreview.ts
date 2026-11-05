@@ -96,12 +96,12 @@ export function useAudioAlignmentPreview(params: UseAudioAlignmentPreviewParams)
 
       const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
       const now = rawCtx ? rawCtx.currentTime : Tone.context.currentTime;
-      const bateriaStartTime = now + leadTime;
+      const baqueStartTime = now + leadTime;
       setIsPlayingPreview(true);
       isPlayingPreviewRef.current = true;
 
-      await handleTogglePlay({ skipPreRoll: true, targetMeasure: effectiveMeasure, scheduledStartTime: bateriaStartTime });
-      scheduleVocalIteration(bateriaStartTime + totalOffsetSec);
+      await handleTogglePlay({ skipPreRoll: true, targetMeasure: effectiveMeasure, scheduledStartTime: baqueStartTime });
+      scheduleVocalIteration(baqueStartTime + totalOffsetSec);
     }
   };
 

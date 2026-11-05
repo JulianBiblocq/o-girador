@@ -33,7 +33,7 @@ export function getPatternWords(
   for (let s = 0; s < stepsCount; s++) {
     const isActive = activeSteps[s] !== undefined && activeSteps[s] !== null && activeSteps[s] !== 0 && activeSteps[s] !== '0';
     const rawText = lyrics[s];
-    if (isActive && rawText && typeof rawText === 'string' && rawText.trim() !== '' && rawText.trim() !== '-') {
+    if (isActive && rawText && typeof rawText === 'string' && rawText.trim() !== '' && rawText.trim() !== '-' && rawText.trim() !== '───') {
       const hasSpace = rawText.endsWith(' ') || rawText.endsWith('  ');
       const cleanText = rawText.trim().replace(/-$/, '');
       const note = notes?.[s]?.trim();

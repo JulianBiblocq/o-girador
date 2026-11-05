@@ -3,7 +3,7 @@
  * Logique pure d'arrangement et de déploiement d'un tour de Toada sur la Timeline.
  * Respect strict de l'architecture anti-monolithe (< 150 lignes).
  */
-import { instrumentsConfig } from '../data';
+import { instrumentsConfig } from '../universes/maracatu/presets/instrumentsConfig';
 import type { TrackGroup, ToadaConductorSlot } from '../types/store.types';
 
 export function buildToadaConductorSlots(
@@ -14,11 +14,16 @@ export function buildToadaConductorSlots(
   return rawSlots.map((s) => {
     const pPat = rawPatterns.find((x: any) => x.id === s.puxadorPatternId);
     const cPat = rawPatterns.find((x: any) => x.id === s.coroPatternId);
-    const measuresCount = Math.max(pPat?.measuresCount || 0, cPat?.measuresCount || 0, 1);
+    const explicitAdv = Number(s.advanceMeasures || 0);
+    const patMeasures = Math.max(pPat?.measuresCount || 0, cPat?.measuresCount || 0);
+    const measuresCount = Math.max(1, Math.min(8, explicitAdv > 0 ? explicitAdv : Math.max(Number(s.measuresCount) || 0, patMeasures, 1)));
+    const isSilenceSlot = Boolean(s.isSilenceSlot) || (!s.puxadorPatternId && !s.coroPatternId);
     return {
       puxadorPatternId: s.puxadorPatternId ? patIdMap.get(s.puxadorPatternId) : undefined,
       coroPatternId: s.coroPatternId ? patIdMap.get(s.coroPatternId) : undefined,
-      measuresCount
+      measuresCount,
+      advanceMeasures: measuresCount,
+      isSilenceSlot,
     };
   });
 }
@@ -31,7 +36,7 @@ export function deployToadaCycle(state: any, startMeasureIdx: number): Partial<a
   const coroTrack = state.tracks.find((t: TrackGroup) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
   if (!puxTrack && !coroTrack) return {};
 
-  const totalCycleMeasures = slots.reduce((acc, s) => acc + Math.max(1, s.measuresCount || 1), 0);
+  const totalCycleMeasures = slots.reduce((acc, s) => acc + Math.max(1, s.advanceMeasures || s.measuresCount || 1), 0);
   const endMeasure = startMeasureIdx + totalCycleMeasures;
   const nextTotal = Math.max(state.totalMeasures || 8, endMeasure);
 
@@ -63,15 +68,17 @@ export function deployToadaCycle(state: any, startMeasureIdx: number): Partial<a
       return { ...p, measureAssignments: assign };
     });
 
-    // Déploiement slot par slot (Cohabitation Puxador & Coro verrouillée)
+    // Déploiement slot par slot (Cohabitation Puxador & Coro verrouillée + avancement sur slots [PAUSE XM])
     let curM = startMeasureIdx;
     for (const slot of slots) {
-      const span = Math.max(1, slot.measuresCount || 1);
-      const targetPatId = isPux ? slot.puxadorPatternId : slot.coroPatternId;
-      if (targetPatId !== undefined) {
-        const pat = resetPatterns.find((p) => p.id === targetPatId);
-        if (pat) {
-          for (let m = curM; m < curM + span && m < nextTotal; m++) pat.measureAssignments[m] = true;
+      const span = Math.max(1, slot.advanceMeasures || slot.measuresCount || 1);
+      if (!slot.isSilenceSlot) {
+        const targetPatId = isPux ? slot.puxadorPatternId : slot.coroPatternId;
+        if (targetPatId !== undefined) {
+          const pat = resetPatterns.find((p) => p.id === targetPatId);
+          if (pat) {
+            for (let m = curM; m < curM + span && m < nextTotal; m++) pat.measureAssignments[m] = true;
+          }
         }
       }
       curM += span;

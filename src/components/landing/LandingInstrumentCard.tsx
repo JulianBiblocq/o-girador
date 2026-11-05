@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { BateriaInstrumentDef } from './landingAudio';
+import { BaqueInstrumentDef } from './landingAudio';
 
 interface LandingInstrumentCardProps {
-  instrument: BateriaInstrumentDef;
+  instrument: BaqueInstrumentDef;
   isFr: boolean;
   onPlayStroke: (instId: string, strokeSymbol: string, strokeFile: string) => void;
 }
