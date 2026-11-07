@@ -50,9 +50,13 @@ export const drawToadaTrack = (
     if (currentInst.id === 'coro') {
       coroPattern = activePattern;
       coroTrackObj = track;
+      puxTrackObj = undefined;
+      puxPattern = null;
     } else {
       puxPattern = activePattern;
       puxTrackObj = track;
+      coroTrackObj = undefined;
+      coroPattern = null;
     }
   }
 
@@ -64,8 +68,19 @@ export const drawToadaTrack = (
     nextMeasureIdx = (measureIdx + 1) % totalM;
   }
 
+  let prevMeasureIdx = -1;
+  if (isLoopRegionActive && loopStartMeasure !== null && loopStartMeasure !== undefined && measureIdx === loopStartMeasure) {
+    prevMeasureIdx = (loopEndMeasure !== null && loopEndMeasure !== undefined) ? loopEndMeasure : -1;
+  } else if (measureIdx > 0) {
+    prevMeasureIdx = measureIdx - 1;
+  } else if (currentStep >= 0 && totalM > 1) {
+    prevMeasureIdx = totalM - 1;
+  }
+
   const nextPuxPattern = resolvePatternForMeasure(puxTrackObj, nextMeasureIdx, soloPlayId);
   const nextCoroPattern = resolvePatternForMeasure(coroTrackObj, nextMeasureIdx, soloPlayId);
+  const prevPuxPattern = prevMeasureIdx >= 0 ? resolvePatternForMeasure(puxTrackObj, prevMeasureIdx, soloPlayId) : null;
+  const prevCoroPattern = prevMeasureIdx >= 0 ? resolvePatternForMeasure(coroTrackObj, prevMeasureIdx, soloPlayId) : null;
 
   const hasSeparateVoiceTracks = Boolean(puxTrackObj || coroTrackObj);
   const puxPlayingSteps = (activeVariationsRef?.current && puxTrackObj)
@@ -87,7 +102,10 @@ export const drawToadaTrack = (
     puxPlayingSteps,
     coroPlayingSteps,
     activePlayingSteps,
-    soloPlayId
+    soloPlayId,
+    prevPuxPattern,
+    prevCoroPattern,
+    currentStep
   );
 
   const puxBlocks = buildVoiceBlocks(puxSteps, effectiveStepCount);
@@ -96,7 +114,7 @@ export const drawToadaTrack = (
   drawVoiceRibbons(ctx, centerX, centerY, tRad, stepAngles, effectiveStepCount, puxBlocks, coroBlocks, dynamicScale);
 
   const isPauseMeasure = !puxPattern && !coroPattern;
-  const trackLabel = isPauseMeasure ? '🥁 Baque' : (track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix'));
+  const trackLabel = isPauseMeasure ? 'Baque' : (track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix'));
   drawVoicePastilles(
     ctx,
     centerX,

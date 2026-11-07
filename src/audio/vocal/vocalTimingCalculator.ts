@@ -58,11 +58,14 @@ export class VocalTimingCalculator {
     const tempoRatio = currentBpm > 0 ? (recordedBpm / currentBpm) : 1;
 
     let triggerOffsetSec = 0;
-    if (p.clip?.t1OffsetSec !== undefined) {
-      const trimStartSec = Number(p.clip.trimStartSec ?? 0);
-      triggerOffsetSec = (trimStartSec - Number(p.clip.t1OffsetSec)) * tempoRatio;
-    } else if (p.clip?.startOffsetSec !== undefined) {
-      triggerOffsetSec = Number(p.clip.startOffsetSec) * tempoRatio;
+    const rawT1 = p.clip?.t1OffsetSec !== undefined ? Number(p.clip.t1OffsetSec) : undefined;
+    const rawStartOffset = p.clip?.startOffsetSec !== undefined ? Number(p.clip.startOffsetSec) : undefined;
+    const trimStartSec = Number(p.clip?.trimStartSec ?? 0);
+
+    if (rawT1 !== undefined && (Math.abs(trimStartSec - rawT1) > 1e-4 || !rawStartOffset)) {
+      triggerOffsetSec = (trimStartSec - rawT1) * tempoRatio;
+    } else if (rawStartOffset !== undefined) {
+      triggerOffsetSec = rawStartOffset * tempoRatio;
     } else if (p.clip?.anacrusisSec !== undefined) {
       triggerOffsetSec = -Number(p.clip.anacrusisSec) * tempoRatio;
     } else if (p.clip?.anacrusisBeats !== undefined) {

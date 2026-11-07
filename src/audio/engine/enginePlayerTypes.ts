@@ -1,5 +1,5 @@
 /**
- * O Girador - Audio Engine Note Player Types
+ * O Girador - Audio Engine Note Player Types (< 25 lignes)
  */
 
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
@@ -17,6 +17,5 @@ export interface NotePlayerDeps {
   configMap: Map<string, InstrumentAudioConfig>;
   strokesMaps: Map<string, Map<string, StrokeMapping>>;
   trackLookupMap: Map<string, TrackGroup>;
-  timeSlotHitCounts: Map<number, number>;
   getSchedulingMeasure: () => number;
 }

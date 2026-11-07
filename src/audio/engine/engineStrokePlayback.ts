@@ -1,16 +1,42 @@
 /**
- * O Girador - Audio Engine Native Web Audio Buffer Playback & Envelopes
+ * O Girador - Audio Engine Native Web Audio Buffer Playback & Progressive Hold+Damping Envelopes (< 125 lignes)
  */
 
 import { StrokeMapping } from '../../data/audioConfig';
-import { GainNodeMapping, PlaybackContext } from './engineTypes';
-import { EngineChannels } from './engineChannels';
-import { EngineVoiceGuard } from './engineVoiceGuard';
-import { EngineBarulhoPlayer } from './engineBarulhoPlayer';
+import { PlaybackContext } from './engineTypes';
 import { playBarulhoStroke } from './engineBarulhoPlayback';
 
 export type { PlaybackContext };
 
+export interface ProgressiveDecayEnvelope {
+  isFullBuffer: boolean;
+  totalAudibleSec: number;
+  holdSec: number;
+  releaseSec: number;
+}
+
+export function computeProgressiveDecayEnvelope(
+  realWorldDuration: number,
+  rawDecay: number
+): ProgressiveDecayEnvelope {
+  const effectiveDecayNorm = rawDecay > 1 ? rawDecay / 100 : Math.max(0.15, Math.min(1.0, rawDecay));
+  if (effectiveDecayNorm >= 0.995) {
+    return {
+      isFullBuffer: true,
+      totalAudibleSec: realWorldDuration,
+      holdSec: Math.max(0, realWorldDuration - Math.min(0.015, realWorldDuration / 2)),
+      releaseSec: Math.min(0.015, realWorldDuration / 2),
+    };
+  }
+  const minDurationSec = 0.085;
+  const maxDurationSec = Math.min(realWorldDuration, 1.35);
+  const t = Math.max(0, Math.min(1, (effectiveDecayNorm - 0.15) / 0.85));
+  const shapedT = Math.pow(t, 1.6);
+  const totalAudibleSec = minDurationSec + shapedT * Math.max(0, maxDurationSec - minDurationSec);
+  const holdSec = Math.max(0.030, totalAudibleSec * 0.55);
+  const releaseSec = Math.max(0.040, totalAudibleSec - holdSec);
+  return { isFullBuffer: false, totalAudibleSec, holdSec, releaseSec };
+}
 
 export class EngineStrokePlayback {
   public static play(
@@ -57,28 +83,25 @@ export class EngineStrokePlayback {
     decayMultiplier: number
   ): void {
     ctx.scheduledHits.add(source);
-    const originalBufferDuration = buffer.duration;
-    const realWorldDuration = originalBufferDuration / calculatedPitch;
-    const normDecay = decayMultiplier > 3.0 ? decayMultiplier / 100 : Math.max(0.05, Math.min(1.0, decayMultiplier));
+    const realWorldDuration = buffer.duration / calculatedPitch;
+    const env = computeProgressiveDecayEnvelope(realWorldDuration, decayMultiplier);
 
     let expectedEnd: number;
 
-    if (normDecay < 0.98) {
-      const minDecaySec = 0.04;
-      const maxDecaySec = Math.min(realWorldDuration, 1.2);
-      const effectiveDecaySec = Math.max(minDecaySec, minDecaySec + Math.pow(normDecay, 1.7) * (maxDecaySec - minDecaySec));
-      expectedEnd = time + effectiveDecaySec + 0.01;
+    if (!env.isFullBuffer) {
+      const holdEnd = time + env.holdSec;
+      const releaseEnd = holdEnd + env.releaseSec;
+      expectedEnd = releaseEnd + 0.01;
 
       ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
 
-      const attackHold = Math.min(0.015, effectiveDecaySec * 0.25);
       const safeGain = Math.max(0.0001, gainMultiplier);
-
       gainNode.gain.cancelScheduledValues(time);
       gainNode.gain.setValueAtTime(safeGain, time);
-      gainNode.gain.setValueAtTime(safeGain, time + attackHold);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, time + effectiveDecaySec);
-      gainNode.gain.linearRampToValueAtTime(0, time + effectiveDecaySec + 0.005);
+      gainNode.gain.setValueAtTime(safeGain, holdEnd);
+      gainNode.gain.linearRampToValueAtTime(safeGain * 0.35, holdEnd + env.releaseSec * 0.5);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, releaseEnd);
+      gainNode.gain.linearRampToValueAtTime(0, expectedEnd);
 
       source.start(time);
       source.stop(expectedEnd);
@@ -86,10 +109,9 @@ export class EngineStrokePlayback {
       expectedEnd = time + realWorldDuration;
       ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
 
-      const fadeTime = Math.min(0.015, realWorldDuration / 2);
       gainNode.gain.cancelScheduledValues(time);
       gainNode.gain.setValueAtTime(gainMultiplier, time);
-      gainNode.gain.setValueAtTime(gainMultiplier, time + Math.max(0, realWorldDuration - fadeTime));
+      gainNode.gain.setValueAtTime(gainMultiplier, time + env.holdSec);
       gainNode.gain.linearRampToValueAtTime(0, expectedEnd);
 
       source.start(time);
@@ -104,20 +126,10 @@ export class EngineStrokePlayback {
       if (mapping) { mapping.gainNode = null; mapping.instrumentId = ''; }
       ctx.activeGainNodes.delete(source);
       ctx.voiceGuard.removeActiveVoice(instrumentId, source);
-      if (trackId !== null) {
-        const tv = ctx.voiceGuard.trackVoices.get(String(trackId));
-        if (tv) {
-          const idx = tv.findIndex(v => v.source === source);
-          if (idx !== -1) tv.splice(idx, 1);
-        }
-      }
     };
 
-    const activeVoice = ctx.voiceGuard.getActiveVoice(source, gainNode, time, gainMultiplier, instrumentId);
-    const voices = ctx.voiceGuard.instrumentVoices.get(instrumentId) || [];
-    voices.push(activeVoice);
-    ctx.voiceGuard.instrumentVoices.set(instrumentId, voices);
     if (trackId !== null) {
+      const activeVoice = ctx.voiceGuard.getActiveVoice(source, gainNode, time, gainMultiplier, instrumentId);
       const tv = ctx.voiceGuard.trackVoices.get(String(trackId)) || [];
       tv.push(activeVoice);
       ctx.voiceGuard.trackVoices.set(String(trackId), tv);

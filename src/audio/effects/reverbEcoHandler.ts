@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as nodes from './effectsChainNodes';
+import { createStudioConvolverReverb } from './studioReverbImpulse';
 
 let deferredReverbActivation = false;
 
@@ -20,15 +21,14 @@ export function ensureReverbConnected() {
 
   if (!nodes.reverbNode) {
     try {
-      const savedDecay = localStorage.getItem('oGirador_reverb_decay');
-      const decay = savedDecay ? parseFloat(savedDecay) : 2.5;
-      const rev = new Tone.Reverb({ decay, preDelay: 0.02, wet: 1 }).connect(nodes.masterReverbVolumeNode);
+      const rev = createStudioConvolverReverb();
+      rev.connect(nodes.masterReverbVolumeNode);
       if (nodes.reverbBusReceive && !shouldBypass) {
         nodes.reverbBusReceive.connect(rev);
       }
       nodes.setReverbNode(rev);
     } catch (err) {
-      console.error("Failed to instantiate and connect Reverb:", err);
+      console.error('Failed to instantiate and connect Studio Convolver Reverb:', err);
     }
   } else {
     try {
@@ -43,7 +43,8 @@ export function ensureReverbConnected() {
 
   const savedVol = localStorage.getItem('oGirador_master_reverb_vol');
   const masterReverbVol = savedVol ? parseFloat(savedVol) : 0;
-  nodes.masterReverbVolumeNode.gain.value = Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol);
+  const targetGain = Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol);
+  nodes.masterReverbVolumeNode.gain.rampTo(targetGain, 0.02);
 }
 
 export function handleReverbEcoToggle(isEco: boolean, isPlaying: boolean) {

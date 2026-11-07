@@ -1,5 +1,5 @@
 /**
- * O Girador - High-Precision Web Audio Lookahead Engine & Sampler Orchestrator
+ * O Girador - High-Precision Web Audio Lookahead Engine & Sampler Orchestrator (< 140 lignes)
  */
 
 import { instrumentAudioConfigs, InstrumentAudioConfig } from './data/audioConfig';
@@ -38,10 +38,9 @@ export class AudioEngine {
   private barulho = new EngineBarulhoPlayer();
   private scheduledHits = new Set<AudioBufferSourceNode>();
   private activeGainNodes = new Map<AudioBufferSourceNode, GainNodeMapping>();
-  private configMap = new Map<string, InstrumentAudioConfig>(instrumentAudioConfigs.map(c => [c.id, c]));
+  private configMap = new Map<string, InstrumentAudioConfig>(instrumentAudioConfigs.map((c) => [c.id, c]));
   private strokesMaps = EngineVirtualStrokes.buildStrokesMaps(instrumentAudioConfigs);
   private trackLookupMap = new Map<string, TrackGroup>();
-  private timeSlotHitCounts = new Map<number, number>();
   private unsubscribeTracks: (() => void) | null = null;
   private cleanupVisibility: (() => void) | null = null;
 
@@ -91,7 +90,7 @@ export class AudioEngine {
     return EngineNotePlayer.buildDeps(
       this.audioContext, this.channels, this.voiceGuard, this.barulho,
       this.scheduledHits, this.activeGainNodes, this.sampleLoader, this.roundRobin,
-      this.configMap, this.strokesMaps, this.trackLookupMap, this.timeSlotHitCounts,
+      this.configMap, this.strokesMaps, this.trackLookupMap,
       () => this.clock.schedulingMeasure
     );
   }
@@ -132,9 +131,7 @@ export class AudioEngine {
       activeGainNodes: this.activeGainNodes, channels: this.channels, voiceSynthManager: this.voiceSynthManager
     });
     this.unsubscribeTracks = null; this.cleanupVisibility = null;
-    if (audioEngine === this) {
-      audioEngine = null;
-    }
+    if (audioEngine === this) audioEngine = null;
   }
 }
 
@@ -143,5 +140,3 @@ if (import.meta.hot) {
     try { audioEngine?.stop(); safeSuspendAudioContext(); (Tone.getContext().rawContext as any)?.suspend?.(); } catch {}
   });
 }
-
-

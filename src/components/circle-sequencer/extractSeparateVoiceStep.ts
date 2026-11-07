@@ -20,7 +20,10 @@ export function extractSeparateVoiceStep(
   nextCoroPattern: Pattern | null,
   puxPlayingSteps: any,
   coroPlayingSteps: any,
-  soloPlayId: number | null | undefined
+  soloPlayId: number | null | undefined,
+  prevPuxPattern: Pattern | null = null,
+  prevCoroPattern: Pattern | null = null,
+  currentStep: number = -1
 ): { pActive: boolean; pNote: string; pSyl: string; pAnacrusis: boolean; cActive: boolean; cNote: string; cSyl: string; cAnacrusis: boolean } {
   let pActive = false;
   let pNote = '';
@@ -41,6 +44,31 @@ export function extractSeparateVoiceStep(
     cActive = true;
     cSyl = (coroPattern.lyrics?.[i] || '').trim();
     cNote = sanitizeStepNote(coroPattern.notes?.[i] || '', cSyl, coroPattern.ignoreMelodyPitch);
+  }
+
+  // Projection de la queue +1T (pas 16..19 -> pas 0..3 sur le Temps 1) lorsque les pas 0..3 sont silencieux
+  if (i < 4) {
+    const preferPrev = currentStep >= 0 && currentStep < 4 && (soloPlayId === undefined || soloPlayId === null);
+    if (!pActive) {
+      const pTailPat = preferPrev
+        ? (isStepValActive(prevPuxPattern?.tailActiveSteps?.[i]) ? prevPuxPattern : puxPattern)
+        : (isStepValActive(puxPattern?.tailActiveSteps?.[i]) ? puxPattern : prevPuxPattern);
+      if (isStepValActive(pTailPat?.tailActiveSteps?.[i])) {
+        pActive = true;
+        pSyl = (pTailPat?.tailLyrics?.[i] || '').trim();
+        pNote = sanitizeStepNote(pTailPat?.tailNotes?.[i] || '', pSyl, pTailPat?.ignoreMelodyPitch);
+      }
+    }
+    if (!cActive) {
+      const cTailPat = preferPrev
+        ? (isStepValActive(prevCoroPattern?.tailActiveSteps?.[i]) ? prevCoroPattern : coroPattern)
+        : (isStepValActive(coroPattern?.tailActiveSteps?.[i]) ? coroPattern : prevCoroPattern);
+      if (isStepValActive(cTailPat?.tailActiveSteps?.[i])) {
+        cActive = true;
+        cSyl = (cTailPat?.tailLyrics?.[i] || '').trim();
+        cNote = sanitizeStepNote(cTailPat?.tailNotes?.[i] || '', cSyl, cTailPat?.ignoreMelodyPitch);
+      }
+    }
   }
 
   if (soloPlayId !== undefined && soloPlayId !== null) {

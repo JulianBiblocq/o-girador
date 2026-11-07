@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Agbê Audio Configuration
+ * O Girador - Agbê Audio Configuration (< 85 lignes)
  */
 
 import { InstrumentAudioConfig } from './types';

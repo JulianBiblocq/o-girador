@@ -39,6 +39,7 @@ export const useWizardStore = create<WizardState>((set) => ({
   bpm: 100,
   timeSig: '4/4',
   instrumentTunings: {},
+  instrumentDecays: {},
   selectedBalancoId: 'maracatu-trad',
 
   setIntroModalOpen: (isIntroModalOpen) => set({ isIntroModalOpen }),
@@ -90,43 +91,19 @@ export const useWizardStore = create<WizardState>((set) => ({
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (timeSig) => set({ timeSig }),
   setInstrumentTuning: (instrumentType, semitones) => set((state) => ({
-    instrumentTunings: {
-      ...state.instrumentTunings,
-      [instrumentType]: semitones
-    }
+    instrumentTunings: { ...state.instrumentTunings, [instrumentType]: semitones }
+  })),
+  setInstrumentDecay: (instrumentType, decayPct) => set((state) => ({
+    instrumentDecays: { ...state.instrumentDecays, [instrumentType]: Math.max(15, Math.min(100, Math.round(decayPct))) }
   })),
   setSelectedBalancoId: (selectedBalancoId) => set({ selectedBalancoId }),
 
   resetWizard: () => set({
-    isIntroModalOpen: false,
-    isWizardOpen: false,
-    step: 1,
-    wizardData: {},
-    placedInstruments: [],
-    hasToada: false,
-    wizardLang: 'fr',
-    alfaiaGroupingMode: 'bloc',
-    selectedBasePatternId: null,
-    selectedSwingId: 'maracatu',
-    swingIntensities: {
-      alfaias: 100,
-      caixas: 100,
-      sementes: 100,
-      gongue: 100,
-      timbal: 100,
-    },
+    isIntroModalOpen: false, isWizardOpen: false, step: 1, wizardData: {}, placedInstruments: [], hasToada: false,
+    wizardLang: 'fr', alfaiaGroupingMode: 'bloc', selectedBasePatternId: null, selectedSwingId: 'maracatu',
+    swingIntensities: { alfaias: 100, caixas: 100, sementes: 100, gongue: 100, timbal: 100 },
     selectedSignIds: [],
-    songInfo: {
-      rodaName: '',
-      toadaName: '',
-      nacaoName: '',
-      composer: '',
-      mainRythm: '',
-      youtubeUrl: '',
-    },
-    bpm: 100,
-    timeSig: '4/4',
-    instrumentTunings: {},
-    selectedBalancoId: 'maracatu-trad',
+    songInfo: { rodaName: '', toadaName: '', nacaoName: '', composer: '', mainRythm: '', youtubeUrl: '' },
+    bpm: 100, timeSig: '4/4', instrumentTunings: {}, instrumentDecays: {}, selectedBalancoId: 'maracatu-trad',
   }),
 }));

@@ -20,28 +20,30 @@ export const drawVoiceRibbons = (
     return (-Math.PI / 2 + Math.PI * 2) - stepAngles[sIdx];
   };
 
-  // Traînées Puxador
+  // Traînées Puxador (uniquement pour les notes tenues sur plusieurs pas : endIndex > startIndex)
   puxBlocks.forEach(b => {
+    if (b.endIndex <= b.startIndex) return;
     const thetaStart = stepAngles[b.startIndex];
     const isWrapped = b.endIndex >= effectiveStepCount;
     const normEnd = isWrapped ? (b.endIndex % effectiveStepCount) : b.endIndex;
     const span = getStepSpan(normEnd);
     const baseEnd = isWrapped ? (stepAngles[normEnd] + Math.PI * 2) : stepAngles[normEnd];
-    const thetaEnd = baseEnd + span * 0.88;
-    const thetaFilEnd = baseEnd + span * 0.75;
+    const thetaEnd = baseEnd + span * 0.45;
+    const thetaFilEnd = baseEnd + span * 0.35;
     const ribbonColor = b.isAnacrusis ? 'rgba(194, 94, 56, 0.72)' : '#c25e38';
     drawGouacheRibbon(ctx, centerX, centerY, tRad, thetaStart, thetaEnd, thetaFilEnd, ribbonColor, dynamicScale);
   });
 
-  // Traînées Coro
+  // Traînées Coro (uniquement pour les notes tenues sur plusieurs pas : endIndex > startIndex)
   coroBlocks.forEach(b => {
+    if (b.endIndex <= b.startIndex) return;
     const thetaStart = stepAngles[b.startIndex];
     const isWrapped = b.endIndex >= effectiveStepCount;
     const normEnd = isWrapped ? (b.endIndex % effectiveStepCount) : b.endIndex;
     const span = getStepSpan(normEnd);
     const baseEnd = isWrapped ? (stepAngles[normEnd] + Math.PI * 2) : stepAngles[normEnd];
-    const thetaEnd = baseEnd + span * 0.88;
-    const thetaFilEnd = baseEnd + span * 0.75;
+    const thetaEnd = baseEnd + span * 0.45;
+    const thetaFilEnd = baseEnd + span * 0.35;
     const ribbonColor = b.isAnacrusis ? 'rgba(42, 157, 143, 0.72)' : '#2a9d8f';
     drawGouacheRibbon(ctx, centerX, centerY, tRad, thetaStart, thetaEnd, thetaFilEnd, ribbonColor, dynamicScale);
   });

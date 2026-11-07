@@ -33,3 +33,48 @@ export function getOrCreateTrack(tracks: TrackGroup[], role: 'puxador' | 'coro')
     fxSends: { reverb: 0, distortion: 0 },
   };
 }
+
+export function resolveImportedT1OffsetSec(
+  p: any,
+  variant: any,
+  trimStartSec: number,
+  hasAnacrusis: boolean,
+  anacrusisDurationSec: number,
+  effectiveBpm: number,
+  audioBuffer: AudioBuffer,
+  isStepActiveFn: (s: any) => boolean
+): number {
+  const rawStartOffset = p.startOffsetSec ?? variant?.startOffsetSec;
+  const rawT1 = p.t1OffsetSec ?? variant?.t1OffsetSec;
+  let t1OffsetSec = rawT1 !== undefined && (Number(rawT1) !== 0 || rawStartOffset === undefined)
+    ? Number(rawT1)
+    : (rawStartOffset !== undefined ? (trimStartSec - Number(rawStartOffset)) : (hasAnacrusis ? (trimStartSec + anacrusisDurationSec) : trimStartSec));
+
+  if (!hasAnacrusis && Math.abs(t1OffsetSec - trimStartSec) < 0.02 && audioBuffer) {
+    const mainSteps: any[] = p.mainSteps || [];
+    const firstActiveIdx = mainSteps.findIndex(isStepActiveFn);
+    if (firstActiveIdx > 0 && firstActiveIdx < 16) {
+      const expectedRestSec = firstActiveIdx * (60 / Math.max(30, effectiveBpm) / 4);
+      if (expectedRestSec >= 0.30) {
+        const ch = audioBuffer.getChannelData(0), sr = audioBuffer.sampleRate;
+        const startSample = Math.max(0, Math.floor(trimStartSec * sr));
+        const winSamples = Math.max(1, Math.floor(0.025 * sr));
+        let peakRms = 0;
+        const rmsList: Array<{ sec: number; rms: number }> = [];
+        for (let s = startSample; s + winSamples <= ch.length; s += winSamples) {
+          let sumSq = 0;
+          for (let k = 0; k < winSamples; k++) sumSq += ch[s + k] * ch[s + k];
+          const rms = Math.sqrt(sumSq / winSamples);
+          if (rms > peakRms) peakRms = rms;
+          rmsList.push({ sec: (s - startSample) / sr, rms });
+        }
+        const thresh = Math.max(0.012, peakRms * 0.16);
+        const firstOnset = rmsList.find((w) => w.rms >= thresh)?.sec ?? expectedRestSec;
+        if (firstOnset < expectedRestSec - 0.22) {
+          t1OffsetSec = Number((trimStartSec - (expectedRestSec - firstOnset)).toFixed(6));
+        }
+      }
+    }
+  }
+  return t1OffsetSec;
+}

@@ -1,16 +1,16 @@
 /**
  * vocalDspPrewarmer.ts
- * Pré-calcul asynchrone (Web Worker) des buffers vocaux haute définition dès qu'un pack
- * est chargé ou que le BPM / la Tonalité Troupe change dans Sequenciador (< 65 lignes).
+ * Pré-chauffage proactif en arrière-plan (`src/workers/vocalDsp.worker.ts`) dès la fin de l'import
+ * ou chargement d'une Toada, et dès que `currentBpm` ou `vocalTransposeSteps` change
+ * (avec debounce de 80 ms pendant le glissement du curseur de BPM) (< 85 lignes).
  */
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { requestVocalPatternDspAsync } from './vocalPatternBufferCache';
 
-export function prewarmProjectVocalDspBuffers(
-  overrideBpm?: number,
-  overrideTranspositionSemitones?: number
-): void {
+let prewarmDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function executeVocalDspPrewarm(overrideBpm?: number, overrideTranspositionSemitones?: number): void {
   try {
     const seqState = useSequencerStore.getState();
     const audioState = useAudioStore.getState();
@@ -22,31 +22,65 @@ export function prewarmProjectVocalDspBuffers(
         if (!pat || (!pat.hasVocalAudio && !pat.vocalClip)) continue;
         const clip = pat.vocalClip;
         const patId = pat.id;
-        const clipId = clip?.id;
+        const canonicalKey = `${track.id}_${patId}`;
         const baseBuffer =
-          audioState.vocalBuffers[`${track.id}_${patId}`] ||
+          audioState.vocalBuffers[canonicalKey] ||
           audioState.vocalBuffers[patId] ||
-          (clipId ? audioState.vocalBuffers[`${track.id}_${clipId}`] || audioState.vocalBuffers[clipId] : undefined);
+          (clip?.id ? audioState.vocalBuffers[`${track.id}_${clip.id}`] || audioState.vocalBuffers[clip.id] : undefined);
         if (!baseBuffer) continue;
 
         const recordedBpm = Number(clip?.recordedBpm || clip?.sampleBpm || clip?.baseBpm || pat.vocalBaseBpm || liveBpm);
         const packTransposition = Number(pat.packTranspositionSemitones ?? clip?.packTranspositionSemitones ?? 0);
-        const patTranspose = Number((pat as any).vocalTransposeSteps ?? globalTranspose);
+        const trackTuningSt = Math.round((track.tuning ?? 0) * 12);
+        const patTranspose = Number((pat as any).vocalTransposeSteps ?? globalTranspose) + trackTuningSt;
 
-        void requestVocalPatternDspAsync(
-          patId,
-          baseBuffer,
-          recordedBpm,
-          liveBpm,
-          patTranspose,
-          packTransposition,
-          {
-            t1OffsetSec: clip?.t1OffsetSec,
-            trimStartSec: clip?.trimStartSec,
-            trimEndSec: clip?.trimEndSec,
-          }
-        );
+        const targetBpms = new Set<number>([Math.round(liveBpm)]);
+        if (Array.isArray(pat.measureAssignments) && Array.isArray(seqState.measureBpms)) {
+          pat.measureAssignments.forEach((assigned: boolean, mIdx: number) => {
+            if (assigned && seqState.measureBpms[mIdx] > 0) {
+              targetBpms.add(Math.round(seqState.measureBpms[mIdx]));
+            }
+          });
+        }
+
+        for (const targetBpm of targetBpms) {
+          void requestVocalPatternDspAsync(
+            canonicalKey,
+            baseBuffer,
+            recordedBpm,
+            targetBpm,
+            patTranspose,
+            packTransposition,
+            {
+              t1OffsetSec: clip?.t1OffsetSec,
+              trimStartSec: clip?.trimStartSec,
+              trimEndSec: clip?.trimEndSec,
+            },
+            (entry) => {
+              useAudioStore.getState().setVocalBuffer(entry.cacheKey, entry.audioBuffer);
+            }
+          );
+        }
       }
     }
   } catch (_) {}
+}
+
+export function prewarmProjectVocalDspBuffers(
+  overrideBpm?: number,
+  overrideTranspositionSemitones?: number,
+  immediate: boolean = false
+): void {
+  if (prewarmDebounceTimer) {
+    clearTimeout(prewarmDebounceTimer);
+    prewarmDebounceTimer = null;
+  }
+  if (immediate || typeof window === 'undefined') {
+    executeVocalDspPrewarm(overrideBpm, overrideTranspositionSemitones);
+    return;
+  }
+  prewarmDebounceTimer = setTimeout(() => {
+    prewarmDebounceTimer = null;
+    executeVocalDspPrewarm(overrideBpm, overrideTranspositionSemitones);
+  }, 80);
 }

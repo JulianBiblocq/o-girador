@@ -1,5 +1,8 @@
 /**
- * O Girador - Audio Engine Low-Level Stroke Execution
+ * O Girador - Audio Engine Low-Level Stroke Execution (< 85 lignes)
+ * - Lecture phase-continue 100 % naturelle des tambours (`playbackRate = 2^(st/12)`).
+ * - Micro-dispersion temporelle d'unisson réservée aux fûts esclaves liés (`isLinkedSlave`).
+ * - Combinaison multiplicative sans double division (`effectiveDecayNorm`) de `stepDecay` et `trackDecay`.
  */
 
 import { getTone } from '../../ToneLoader';
@@ -7,8 +10,22 @@ import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { TrackGroup } from '../../types';
 import { EngineTuning } from './engineTuning';
 import { EngineStrokePlayback } from './engineStrokePlayback';
-import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import type { NotePlayerDeps } from './enginePlayerTypes';
+
+export function computeEffectiveDecayNorm(
+  rawStepDecay: number | undefined,
+  rawTrackDecay: number | undefined,
+  isPreviewOverride: boolean = false
+): number {
+  const s = rawStepDecay ?? 1;
+  const stepDecayNorm = s > 1 ? s / 100 : s;
+  const t = rawTrackDecay ?? 100;
+  const trackDecayNorm = t > 1 ? t / 100 : t;
+  if (isPreviewOverride && stepDecayNorm < 0.999) {
+    return Math.max(0.15, Math.min(1.0, stepDecayNorm));
+  }
+  return Math.max(0.15, Math.min(1.0, stepDecayNorm * trackDecayNorm));
+}
 
 export class EngineExecuteStroke {
   public static execute(
@@ -42,26 +59,37 @@ export class EngineExecuteStroke {
     }
 
     const filePath = deps.roundRobin.selectFile(instrumentId, stroke, time, trackId);
-    const buffer = deps.sampleLoader.bufferPool.get(filePath);
-    if (!buffer || !buffer.loaded) return;
+    const bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+    if (!bufferEntry || !bufferEntry.loaded) return;
 
-    // Élimination du voice stealing arbitraire et étouffement strictement isolé par piste (trackId)
-    deps.voiceGuard.chokeTrackVoice(trackId, requestedSymbol || stroke.symbol, time);
+    const microDelaySec = EngineTuning.calculateUnisonMicroDelaySec(track, instrumentId);
+    const effectiveTime = time + microDelaySec;
 
+    // Étouffement (choke) strictement isolé par piste (trackId)
+    deps.voiceGuard.chokeTrackVoice(trackId, requestedSymbol || stroke.symbol, effectiveTime);
+
+    const rawBuffer = bufferEntry.get() as AudioBuffer;
     const isLeftHandRufada = (requestedSymbol || stroke.symbol) === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
     const pitchNuance = isLeftHandRufada ? 0.985 : 1.0;
-    const calculatedPitch = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning) * pitchNuance;
+    const microDetune = EngineTuning.calculateMicroDetuneMultiplier(instrumentId, trackId);
+    const baseRate = stroke.isBarulho
+      ? 1.0
+      : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
+    const calculatedPitch = baseRate * pitchNuance * microDetune;
+
+    const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
+
     EngineStrokePlayback.play(
       deps.playbackCtx, trackId, instrumentId, stroke,
-      buffer.get() as AudioBuffer, calculatedPitch, time, finalVelocity, decayMultiplier, isLiveHold
+      rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold
     );
 
     if (instrumentId === 'apito') {
       const Tone = getTone();
       Tone?.Draw?.schedule?.(() => {
         window.dispatchEvent(new CustomEvent('o-girador-apito-shake'));
-      }, time);
+      }, effectiveTime);
     }
   }
 }

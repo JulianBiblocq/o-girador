@@ -57,25 +57,20 @@ export const isVoiceStepProlongation = (
   currentActive: boolean,
   prevActive: boolean,
   curNote: string | undefined | null,
-  prevNote: string | undefined | null,
+  _prevNote: string | undefined | null,
   curSyl: string | undefined | null
 ): boolean => {
   // Un silence / pas inactif ne peut JAMAIS être une prolongation (stoppe immédiatement toute boucle de tenue)
   if (!currentActive || !prevActive) return false;
   const curNoteTrim = (curNote || '').trim();
-  const prevNoteTrim = (prevNote || '').trim();
-  const isCurHoldSyl = isVoiceHoldSyllable(curSyl);
+  const curSylTrim = (curSyl || '').trim();
 
-  // Si la cellule courante contient une syllabe explicite d'attaque (ex: "Vou", "Ma"), ce n'est pas une prolongation
-  if (!isCurHoldSyl) return false;
+  // Si la cellule courante contient une syllabe explicite d'attaque (ex: "Vou", "Ma", "ca"), ce n'est jamais une prolongation
+  if (!isVoiceHoldSyllable(curSylTrim)) return false;
 
-  // Si la note courante est un symbole explicite de tenue ('───', '-')
-  if (isVoiceHoldNote(curNoteTrim)) return true;
+  // Si la note ou la syllabe courante est un symbole explicite de tenue ('───', '-', '—', '~', '_')
+  if (isVoiceHoldNote(curNoteTrim) || isVoiceHoldNote(curSylTrim)) return true;
 
-  // Si la note courante est identique à la note précédente
-  if (curNoteTrim && prevNoteTrim && curNoteTrim === prevNoteTrim) return true;
-
-  // Une cellule active SANS note ni symbole de tenue (paroles vides comprises) n'est pas une tenue implicite :
-  // sinon la note précédente déborderait sur toutes les cellules vides suivantes (bourdon multi-mesures).
+  // Une attaque de syllabe distincte (même sur la même hauteur de note que le pas précédent) n'est jamais convertie en prolongation
   return false;
 };

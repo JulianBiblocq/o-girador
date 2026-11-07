@@ -18,12 +18,11 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   const channelNode = channels[trackId];
   if (!inputNode || !channelNode) return;
 
-  const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
   const hasLowCut = !!track.lowCut;
 
   let currentLowCut = lowCutNodes[trackId];
   if (!currentLowCut) {
-    currentLowCut = new Tone.Filter(hasLowCut ? (isLinkedSlave ? 110 : 80) : 20, 'highpass');
+    currentLowCut = new Tone.Filter(hasLowCut ? 80 : 20, 'highpass');
     lowCutNodes[trackId] = currentLowCut;
   }
 
@@ -48,17 +47,16 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     wiredInsertChains.set(trackId, { input: inputNode, channel: channelNode });
   }
 
-  const targetCutFreq = hasLowCut ? (isLinkedSlave ? 110 : 80) : 20;
+  const targetCutFreq = hasLowCut ? 80 : 20;
   safeRampFreq(currentLowCut.frequency, targetCutFreq, 0.02);
 
-  if (currentEQ && eq) {
-    const lowGainOffset = isLinkedSlave ? -1.5 : 0;
-    safeRampFreq(currentEQ.low.frequency, eq.low?.f ?? 100, 0.02);
-    safeRampGainDb(currentEQ.low.gain, (eq.low?.g ?? 0) + lowGainOffset, 0.02);
-    safeRampFreq(currentEQ.mid.frequency, eq.mid?.f ?? 1000, 0.02);
-    safeRampGainDb(currentEQ.mid.gain, eq.mid?.g ?? 0, 0.02);
-    currentEQ.mid.Q.value = eq.mid?.q === 'narrow' ? 2.5 : 0.7;
-    safeRampFreq(currentEQ.high.frequency, eq.high?.f ?? 8000, 0.02);
-    safeRampGainDb(currentEQ.high.gain, eq.high?.g ?? 0, 0.02);
+  if (currentEQ) {
+    safeRampFreq(currentEQ.low.frequency, eq?.low?.f ?? 100, 0.02);
+    safeRampGainDb(currentEQ.low.gain, eq ? (eq.low?.g ?? 0) : 0, 0.02);
+    safeRampFreq(currentEQ.mid.frequency, eq?.mid?.f ?? 1000, 0.02);
+    safeRampGainDb(currentEQ.mid.gain, eq ? (eq.mid?.g ?? 0) : 0, 0.02);
+    currentEQ.mid.Q.value = eq?.mid?.q === 'narrow' ? 2.5 : 0.7;
+    safeRampFreq(currentEQ.high.frequency, eq?.high?.f ?? 8000, 0.02);
+    safeRampGainDb(currentEQ.high.gain, eq ? (eq.high?.g ?? 0) : 0, 0.02);
   }
 }

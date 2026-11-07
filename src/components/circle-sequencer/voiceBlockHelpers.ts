@@ -13,26 +13,29 @@ export function buildVoiceBlocks(
   effectiveStepCount: number
 ): VoiceBlock[] {
   const blocks: VoiceBlock[] = [];
-  let curBlock: VoiceBlock | null = null;
+  const visited = new Set<number>();
 
   for (let i = 0; i < effectiveStepCount; i++) {
+    if (visited.has(i)) continue;
     if (steps[i].active) {
-      if (steps[i].isProlongation && curBlock) {
-        curBlock.endIndex = i;
-      } else {
-        if (curBlock) blocks.push(curBlock);
-        curBlock = { startIndex: i, endIndex: i, isAnacrusis: steps[i].isAnacrusis };
+      const isAnac = Boolean(steps[i].isAnacrusis);
+      let endIdx = i;
+      let nextIdx = i + 1;
+      while (
+        nextIdx < effectiveStepCount &&
+        steps[nextIdx].active &&
+        steps[nextIdx].isProlongation &&
+        isAnac === Boolean(steps[nextIdx].isAnacrusis)
+      ) {
+        endIdx = nextIdx;
+        visited.add(nextIdx);
+        nextIdx++;
       }
-    } else {
-      if (curBlock) {
-        blocks.push(curBlock);
-        curBlock = null;
-      }
+      blocks.push({ startIndex: i, endIndex: endIdx, isAnacrusis: isAnac });
     }
   }
-  if (curBlock) blocks.push(curBlock);
 
-  // Raccord de boucle 15 -> 0
+  // Raccord de boucle 15 -> 0 uniquement si le pas 0 est une prolongation explicite du pas 15
   if (
     blocks.length > 1 &&
     blocks[0].startIndex === 0 &&
@@ -43,6 +46,7 @@ export function buildVoiceBlocks(
     if (
       step0.active &&
       stepLast.active &&
+      step0.isProlongation &&
       isVoiceHoldSyllable(step0.syl) &&
       (step0.note !== '' && stepLast.note !== '' ? step0.note === stepLast.note : true)
     ) {

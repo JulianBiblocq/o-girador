@@ -2,6 +2,8 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as nodes from './effectsChainNodes';
 import { initMasterMonoNodes } from './masterMonoHandler';
+import { createStudioConvolverReverb } from './studioReverbImpulse';
+import { safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
 
 export function initMasterEffectsChain(
   masterVol: number,
@@ -18,11 +20,11 @@ export function initMasterEffectsChain(
   }
 
   const lowFilter = new Tone.BiquadFilter(100, 'lowshelf');
-  lowFilter.gain.value = masterEQ.low;
+  safeRampGainDb(lowFilter.gain, masterEQ.low, 0.02);
   const midFilter = new Tone.BiquadFilter({ frequency: 1000, type: 'peaking', Q: 0.7 });
-  midFilter.gain.value = masterEQ.mid;
+  safeRampGainDb(midFilter.gain, masterEQ.mid, 0.02);
   const highFilter = new Tone.BiquadFilter(4500, 'highshelf');
-  highFilter.gain.value = masterEQ.high;
+  safeRampGainDb(highFilter.gain, masterEQ.high, 0.02);
 
   nodes.setMasterEQNode({
     low: lowFilter.gain,
@@ -40,17 +42,18 @@ export function initMasterEffectsChain(
   const isCompBypassed = !isCompActive;
 
   const comp = new Tone.Compressor({
-    threshold: isCompBypassed ? 0 : -3,
+    threshold: isCompBypassed ? 0 : -6,
     ratio: isCompBypassed ? 1 : 2,
     attack: 0.03,
-    release: 0.15
+    release: 0.15,
+    knee: 6,
   });
   nodes.setMasterCompressorNode(comp);
 
   const vol = new Tone.Gain(1.0);
   try {
     vol.channelCount = 2;
-    vol.channelCountMode = "explicit";
+    vol.channelCountMode = 'explicit';
   } catch (_) {}
   nodes.setMasterVolumeNode(vol);
 
@@ -59,17 +62,18 @@ export function initMasterEffectsChain(
   midFilter.connect(highFilter);
   highFilter.connect(comp);
 
-  const masterLimiterNode = new Tone.Limiter(-2);
+  const masterLimiterNode = new Tone.Limiter(-0.5);
   comp.connect(masterLimiterNode);
 
   try {
     Tone.Destination.channelCount = 2;
-    Tone.Destination.channelCountMode = "explicit";
+    Tone.Destination.channelCountMode = 'explicit';
   } catch (_) {}
   initMasterMonoNodes(masterLimiterNode);
 
-  const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : Math.min(0, masterVol));
-  vol.gain.value = Math.min(1.0, baseGain);
+  const clampedDb = masterVol === -40 ? -Infinity : Math.max(-100, Math.min(12, masterVol));
+  const baseGain = clampedDb <= -60 ? 0 : Tone.dbToGain(clampedDb);
+  vol.gain.rampTo(baseGain, 0.02);
 
   const meter = new Tone.Meter();
   nodes.setMasterMeterNode(meter);
@@ -93,11 +97,12 @@ export function initMasterEffectsChain(
   nodes.setMasterReverbVolumeNode(revVol);
 
   const revBus = new Tone.Channel();
-  revBus.receive("reverb");
+  revBus.receive('reverb');
   nodes.setReverbBusReceive(revBus);
 
   if (!disableFx) {
-    const rev = new Tone.Reverb({ decay: 2.5, preDelay: 0.02, wet: 1 }).connect(revVol);
+    const rev = createStudioConvolverReverb();
+    rev.connect(revVol);
     revBus.connect(rev);
     nodes.setReverbNode(rev);
   } else {
@@ -111,7 +116,7 @@ export function initMasterEffectsChain(
   nodes.setMasterDistortionVolumeNode(distVol);
 
   const distBus = new Tone.Channel();
-  distBus.receive("distortion");
+  distBus.receive('distortion');
   distBus.connect(dist);
   nodes.setDistortionBusReceive(distBus);
 }

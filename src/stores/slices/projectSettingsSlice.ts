@@ -101,6 +101,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
       tracks: newTracks, tracksVersion: (state.tracksVersion || 0) + 1, vocalTransposeSteps: nextSteps,
       metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta,
     });
+    prewarmProjectVocalDspBuffers(undefined, nextSteps);
     if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
     if (noteToPreview && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
   },

@@ -1,5 +1,5 @@
 /**
- * O Girador - Audio Engine High-Level Note & Preview Player (< 120 lignes)
+ * O Girador - Audio Engine High-Level Note & Preview Player (< 105 lignes)
  */
 import { getTone } from '../../ToneLoader';
 import { instrumentsConfig } from '../../data';
@@ -16,13 +16,13 @@ export class EngineNotePlayer {
   public static buildDeps(
     audioContext: AudioContext, channels: any, voiceGuard: any, barulho: any,
     scheduledHits: any, activeGainNodes: any, sampleLoader: any, roundRobin: any,
-    configMap: any, strokesMaps: any, trackLookupMap: any, timeSlotHitCounts: any,
+    configMap: any, strokesMaps: any, trackLookupMap: any,
     getSchedulingMeasure: () => number
   ): NotePlayerDeps {
     return {
       playbackCtx: { audioContext, channels, voiceGuard, barulho, scheduledHits, activeGainNodes },
       sampleLoader, roundRobin, voiceGuard, configMap, strokesMaps, trackLookupMap,
-      timeSlotHitCounts, getSchedulingMeasure
+      getSchedulingMeasure
     };
   }
 
@@ -48,11 +48,6 @@ export class EngineNotePlayer {
     } else {
       instrumentId = String(trackIdOrInstrumentId);
     }
-
-    const timeSlot = Math.round(safeTime * 333);
-    if (deps.timeSlotHitCounts.size > 2000) deps.timeSlotHitCounts.clear();
-    const currentHits = (deps.timeSlotHitCounts.get(timeSlot) || 0) + 1;
-    deps.timeSlotHitCounts.set(timeSlot, currentHits);
 
     const config = deps.configMap.get(instrumentId);
     if (!config) return;

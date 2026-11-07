@@ -3,6 +3,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
+import { CURRENT_LUTHERIE_VERSION } from './acousticNormalizer';
 
 export function buildCurrentPresetData(
   sequencer: any,
@@ -89,6 +90,7 @@ export function buildCurrentPresetData(
     vocalTransposeSteps: storeState.vocalTransposeSteps ?? 0,
     isMasterVolumeBypassed: Boolean(storeState.isMasterVolumeBypassed),
     globalAutomationBypass: storeState.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
-    audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION
-  };
+    audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION,
+    lutherieVersion: CURRENT_LUTHERIE_VERSION
+  } as Preset;
 }

@@ -1,14 +1,14 @@
 /**
  * formantPreservingTimePitchEngine.ts
  * Étage 3 du moteur DSP Vocal Studio (Sequenciador) :
- * Synthèse Conjointe Time-Stretch (alpha = recordedBpm / liveBpm) + Pitch-Shift (r = 2^(st/12))
+ * Synthèse Conjointe Time-Stretch (alpha = recordedBpm / currentBpm) + Pitch-Shift (r = 2^(st/12))
  * synchrone aux époques glottiques TD-PSOLA avec préservation LPC des formants F1/F2/F3
- * et verrouillage 1:1 des consonnes percussives (< 138 lignes).
+ * et verrouillage 1:1 des consonnes percussives (< 140 lignes).
  */
 import { type VocalFrameClassification, analyzeVocalFrames, extractTransientRegions, blendUnvoicedTransientsTimeStretched } from './vocalTransientSeparator';
 import { detectGlottalEpochs } from './tdPsolaEpochDetector';
 
-const LPC_ORDER = 10;
+const LPC_ORDER = 14;
 
 function sampleHermite4(buf: Float32Array, pos: number): number {
   const n = buf.length;
@@ -32,7 +32,7 @@ function computeLpcCoeffs(frame: Float32Array, order = LPC_ORDER): Float32Array 
   for (let i = 1; i <= order; i++) {
     let acc = r[i];
     for (let j = 1; j < i; j++) acc += a[j] * r[i - j];
-    const kRefl = Math.max(-0.95, Math.min(0.95, -acc / Math.max(1e-9, err)));
+    const kRefl = Math.max(-0.96, Math.min(0.96, -acc / Math.max(1e-9, err)));
     prev.set(a); a[i] = kRefl;
     for (let j = 1; j < i; j++) a[j] = prev[j] + kRefl * prev[i - j];
     err *= 1 - kRefl * kRefl;
@@ -122,12 +122,13 @@ export function synthesizeTimePitchHybridTdPsola(pcm: Float32Array, sampleRate: 
     const fIdx = Math.min(framePeriods.length - 1, Math.max(0, Math.floor(tauSrc / hopSamples)));
     const T0 = Math.max(16, m1 - m0 > 12 && m1 - m0 < sampleRate / 60 ? m1 - m0 : (framePeriods[fIdx] || defaultT0));
     const frac = m1 > m0 ? Math.max(0, Math.min(1, (tauSrc - m0) / (m1 - m0))) : 0;
-    const synthStep = Math.max(12, T0 / r), L = Math.max(16, Math.round(r < 1 ? synthStep : T0));
+    const mSrc = frac < 0.5 ? m0 : m1;
+    const synthStep = Math.max(12, T0 / r), L = Math.max(16, Math.round(synthStep));
     for (let d = -L; d <= L; d++) {
       const dstIdx = dCenter + d;
       if (dstIdx < 0 || dstIdx >= nOut) continue;
       const w = 0.5 * (1 + Math.cos((Math.PI * d) / L));
-      synthAcc[dstIdx] += ((1 - frac) * sampleHermite4(pcm, m0 + d) + frac * sampleHermite4(pcm, m1 + d)) * w;
+      synthAcc[dstIdx] += sampleHermite4(pcm, mSrc + d) * w;
       winDensity[dstIdx] += w;
     }
     tOut += synthStep;
@@ -135,8 +136,7 @@ export function synthesizeTimePitchHybridTdPsola(pcm: Float32Array, sampleRate: 
 
   const voicedOut = new Float32Array(nOut);
   for (let i = 0; i < nOut; i++) {
-    const norm = winDensity[i] > 1.15 ? 1 + 0.85 * (winDensity[i] - 1.15) : Math.max(0.85, winDensity[i]);
-    voicedOut[i] = winDensity[i] > 1e-4 ? Math.max(-1, Math.min(1, synthAcc[i] / norm)) : sampleHermite4(pcm, timeMap[i]);
+    voicedOut[i] = winDensity[i] > 1e-4 ? Math.max(-1, Math.min(1, synthAcc[i] / winDensity[i])) : sampleHermite4(pcm, timeMap[i]);
   }
   const formantRestored = Math.abs(clampedSt) >= 0.05 ? restoreFormantEnvelopeLpc(pcm, voicedOut, timeMap, sampleRate) : voicedOut;
   return blendUnvoicedTransientsTimeStretched(pcm, formantRestored, sampleRate, safeAlpha, frames, 4);

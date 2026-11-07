@@ -24,7 +24,10 @@ export function extractVoiceSteps(
   puxPlayingSteps: any,
   coroPlayingSteps: any,
   activePlayingSteps: any,
-  soloPlayId: number | null | undefined
+  soloPlayId: number | null | undefined,
+  prevPuxPattern: Pattern | null = null,
+  prevCoroPattern: Pattern | null = null,
+  currentStep: number = -1
 ): { puxSteps: VoiceStepData[]; coroSteps: VoiceStepData[] } {
   const puxSteps: VoiceStepData[] = [];
   const coroSteps: VoiceStepData[] = [];
@@ -40,7 +43,10 @@ export function extractVoiceSteps(
           nextCoroPattern,
           puxPlayingSteps,
           coroPlayingSteps,
-          soloPlayId
+          soloPlayId,
+          prevPuxPattern,
+          prevCoroPattern,
+          currentStep
         )
       : extractLegacyVoiceStep(
           i,

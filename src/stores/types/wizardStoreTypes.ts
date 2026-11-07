@@ -45,6 +45,7 @@ export interface WizardState {
   bpm: number;
   timeSig: string;
   instrumentTunings: Record<string, number>;
+  instrumentDecays: Record<string, number>;
   selectedBalancoId: string;
   
   setIntroModalOpen: (open: boolean) => void;
@@ -68,6 +69,7 @@ export interface WizardState {
   setBpm: (bpm: number) => void;
   setTimeSig: (timeSig: string) => void;
   setInstrumentTuning: (instrumentType: string, semitones: number) => void;
+  setInstrumentDecay: (instrumentType: string, decayPct: number) => void;
   setSelectedBalancoId: (balancoId: string) => void;
   
   resetWizard: () => void;

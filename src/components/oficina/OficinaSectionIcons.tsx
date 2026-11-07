@@ -80,8 +80,17 @@ export const IconAideLivret: React.FC<OficinaIconProps> = ({ className = 'w-4 h-
   </svg>
 );
 
+export const IconLutherieTuningFork: React.FC<OficinaIconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} fill-none stroke-current stroke-[2.2]`} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 3v7a3 3 0 0 0 6 0V3" />
+    <line x1="12" y1="13" x2="12" y2="21" />
+    <circle cx="12" cy="21" r="1.5" fill="currentColor" />
+  </svg>
+);
+
 export const OficinaSectionIcon: React.FC<{ sectionId: string; className?: string }> = ({ sectionId, className = 'w-4 h-4' }) => {
   switch (sectionId) {
+    case 'lutherie': return <IconLutherieTuningFork className={className} />;
     case 'groove': return <IconGrooveMetronome className={className} />;
     case 'gabarits': return <IconGabaritsParchemin className={className} />;
     case 'desktopLayouts': return <IconWorkspacesCadres className={className} />;

@@ -1,17 +1,15 @@
 /**
- * O Girador - Audio Engine Voice Guard Architecture
+ * O Girador - Audio Engine Voice Guard (Pool d'Objets Zéro-Allocation & Choke Isolé par TrackId) (< 70 lignes)
  */
 
 import { ActiveVoice, GainNodeMapping } from './engineTypes';
-import { useSequencerStore } from '../../stores/useSequencerStore';
-import { EngineVoiceStealing } from './engineVoiceStealing';
 
 export class EngineVoiceGuard {
-  public instrumentVoices = new Map<string, ActiveVoice[]>();
   public gainNodeMappingPool: GainNodeMapping[] = [];
   public gainNodeMappingPoolIndex = 0;
   public activeVoicePool: ActiveVoice[] = [];
   public activeVoicePoolIndex = 0;
+  public trackVoices = new Map<string, ActiveVoice[]>();
 
   constructor() {
     for (let i = 0; i < 512; i++) {
@@ -42,22 +40,18 @@ export class EngineVoiceGuard {
     return obj;
   }
 
-  public removeActiveVoice(instrumentId: string, source: AudioBufferSourceNode): void {
-    const voices = this.instrumentVoices.get(instrumentId);
-    if (!voices) return;
-    for (let i = 0; i < voices.length; i++) {
-      if (voices[i].source === source) {
-        const v = voices[i];
+  public removeActiveVoice(_instrumentId: string, source: AudioBufferSourceNode): void {
+    this.trackVoices.forEach((voices) => {
+      const idx = voices.findIndex((v) => v.source === source);
+      if (idx !== -1) {
+        const v = voices[idx];
         v.source = null as any;
         v.gainNode = null as any;
         v.instrumentId = '';
-        voices.splice(i, 1);
-        break;
+        voices.splice(idx, 1);
       }
-    }
+    });
   }
-
-  public trackVoices = new Map<string, ActiveVoice[]>();
 
   public chokeTrackVoice(trackId: number | string | null, strokeSymbol: string, time: number): void {
     if (trackId === null || trackId === undefined) return;
@@ -79,13 +73,5 @@ export class EngineVoiceGuard {
         } catch (_) {}
       }
     }
-  }
-
-  public enforceAlfaiaVoiceLimit(_time: number): void {
-    // Zéro voice stealing : laisser sonner intégralement toutes les résonances
-  }
-
-  public enforceStandardVoiceLimit(_instrumentId: string, _time: number): void {
-    // Zéro voice stealing : aucune limitation arbitraire de polyphonie
   }
 }

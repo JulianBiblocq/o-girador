@@ -1,4 +1,3 @@
-
 export interface SettingsSectionItem {
   id: string;
   title: string;
@@ -6,6 +5,7 @@ export interface SettingsSectionItem {
 
 export function getSettingsSections(lang: string, isDesktop: boolean): SettingsSectionItem[] {
   return [
+    { id: 'lutherie', title: lang === 'pt' ? 'Afinação & Lutheria dos Tambores' : 'Accordage & Lutherie des Tambours' },
     { id: 'groove', title: lang === 'pt' ? 'Balanço, Kit & Metrônomo' : 'Balanço, Kit & Métronome' },
     { id: 'gabarits', title: lang === 'pt' ? 'Meus Modelos de Batuque' : 'Mes Gabarits de Batuque' },
     ...(isDesktop ? [{ id: 'desktopLayouts', title: lang === 'pt' ? 'Espaços de Trabalho' : 'Espaces de Travail' }] : []),

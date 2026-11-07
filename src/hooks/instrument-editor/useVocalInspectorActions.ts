@@ -1,4 +1,3 @@
-
 import { useCallback } from 'react';
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
@@ -13,20 +12,20 @@ export function useVocalInspectorActions(
     const pId = selectedPatternId || firstPatternId;
     if (!pId) return;
     const store = useAudioStore.getState();
-    const compositeKey = `${effectiveEditTrackId}_${pId}`;
-    let buffer = store.vocalBuffers[compositeKey] || store.vocalBuffers[pId];
-    let blob = store.vocalBlobs[compositeKey] || store.vocalBlobs[pId];
+    const canonicalKey = `${effectiveEditTrackId}_${pId}`;
+    let buffer = store.vocalBuffers[canonicalKey] || store.vocalBuffers[pId];
+    let blob = store.vocalBlobs[canonicalKey] || store.vocalBlobs[pId];
 
     if (!buffer || !blob) {
-      const dbBlob = await getVocalRecording(pId);
+      const dbBlob = (await getVocalRecording(canonicalKey)) || (await getVocalRecording(pId));
       if (dbBlob) {
         blob = dbBlob;
-        store.addVocalBlob(pId, dbBlob);
+        store.addVocalBlob(canonicalKey, dbBlob);
         try {
           const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
           const arrayBuffer = await dbBlob.arrayBuffer();
           buffer = await rawCtx.decodeAudioData(arrayBuffer);
-          store.setVocalBuffer(pId, buffer);
+          store.setVocalBuffer(canonicalKey, buffer);
         } catch (_) {}
       }
     }

@@ -1,5 +1,6 @@
 import { MasterFX } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { convertLegacyReverbDbToPercent } from './acousticNormalizer';
 
 export function restoreMasterFxFromPreset(
   p: any,
@@ -13,7 +14,7 @@ export function restoreMasterFxFromPreset(
   else setMasterEQ({ low: 0, mid: 0, high: 0 });
 
   if (p.masterCompressor) setMasterCompressor(p.masterCompressor);
-  else setMasterCompressor({ threshold: -20, ratio: 4 });
+  else setMasterCompressor({ threshold: -6, ratio: 2 });
 
   const safeMasterVol = (typeof p.masterVol === 'number' && !isNaN(p.masterVol) && p.masterVol <= 12)
     ? p.masterVol
@@ -23,7 +24,7 @@ export function restoreMasterFxFromPreset(
   const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
   const rawMasterFX = p.masterFX;
 
-  let fallbackReverbTime = 30;
+  let fallbackReverbTime = 25;
   if (isValidNum(p.reverbDecay)) {
     fallbackReverbTime = Math.max(0, Math.min(100, Math.round(((p.reverbDecay - 0.5) / 7.5) * 100)));
   } else if ((p as any).reverbType) {
@@ -36,8 +37,8 @@ export function restoreMasterFxFromPreset(
   const loadedMasterFX: MasterFX = {
     reverb: {
       returnVolume: isValidNum(rawMasterFX?.reverb?.returnVolume)
-        ? rawMasterFX.reverb.returnVolume
-        : (isValidNum(p.masterReverbVol) ? p.masterReverbVol : 70),
+        ? convertLegacyReverbDbToPercent(rawMasterFX.reverb.returnVolume)
+        : (isValidNum(p.masterReverbVol) ? convertLegacyReverbDbToPercent(p.masterReverbVol) : 20),
       time: isValidNum(rawMasterFX?.reverb?.time)
         ? rawMasterFX.reverb.time
         : fallbackReverbTime,

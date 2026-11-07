@@ -2,8 +2,8 @@
  * vocalSequencerPlayer.ts
  * Lecteur vocal Studio du séquenceur (Zéro GrainPlayer) :
  * - Moteur Hybride TD-PSOLA + Formants LPC + Consonnes 1:1 (`vocalPatternBufferCache`).
- * - Déclenchement natif `Tone.Player` (`playbackRate = 1.0`) selon :
- *   `when = slotMeasureT1Time + (scaledTrimStartSec - scaledT1OffsetSec)` (< 138 lignes).
+ * - Déclenchement natif `Tone.Player` (`playbackRate = 1.0`, `detune = 0`) selon :
+ *   `when = slotMeasureT1Time + (effectiveTrimStart - effectiveT1Offset)` (< 140 lignes).
  */
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
@@ -29,17 +29,16 @@ export class VocalSequencerPlayer {
       ? sequencerStore.tracks.find((t) => String(t.id) === String(trackId))
       : sequencerStore.tracks.find((t) => t.patterns.some((p) => Number(p.id) === Number(patternId)));
 
-    const compositeKey = voiceTrack ? `${voiceTrack.id}_${patternId}` : String(patternId);
-    let audioBuffer = store.vocalBuffers[compositeKey] || store.vocalBuffers[patternId];
+    const canonicalKey = voiceTrack ? `${voiceTrack.id}_${patternId}` : String(patternId);
+    let audioBuffer = store.vocalBuffers[canonicalKey] || store.vocalBuffers[patternId];
     if (!audioBuffer) {
-      const blob = store.vocalBlobs[compositeKey] || store.vocalBlobs[patternId] || (loadRecordingFn ? await loadRecordingFn(patternId) : null);
+      const blob = store.vocalBlobs[canonicalKey] || store.vocalBlobs[patternId] || (loadRecordingFn ? await loadRecordingFn(patternId) : null);
       if (!blob) return;
       try {
         const arrayBuffer = await blob.arrayBuffer();
         const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
         audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
-        store.setVocalBuffer(compositeKey, audioBuffer);
-        store.setVocalBuffer(patternId, audioBuffer);
+        store.setVocalBuffer(canonicalKey, audioBuffer);
       } catch (_) { return; }
     }
 
@@ -52,19 +51,18 @@ export class VocalSequencerPlayer {
       ? VocalTimingCalculator.calculateTiming({ clip: ptnRef.vocalClip, ptnRef, voiceTrack, effectiveBpm: anchorBpm, measureStartTime: time, sequencerStore })
       : { triggerOffsetSec: 0, nudgeMs: 0, balancoOffset: 0, triggerTime: time, actualStartTime: time };
     const previewTime = time - timing.triggerOffsetSec - (timing.nudgeMs / 1000);
-    this.playSequencerVocal(voiceTrack?.id ?? 0, patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
+    this.scheduleVoicePlayback(voiceTrack?.id ?? 0, patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
   }
 
-  public static playSequencerVocal(
+  public static scheduleVoicePlayback(
     trackId: string | number,
     patternId: number | string,
-    measureStartTime: number,
+    slotMeasureT1Time: number,
     currentBpm: number,
     outputNode: any,
     trackVolPct: number,
     isCoroTrack: boolean,
-    onStop?: () => void,
-    _isDirectStep0: boolean = false
+    onStop?: () => void
   ): any {
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
@@ -80,36 +78,35 @@ export class VocalSequencerPlayer {
 
     const clip = ptnRef.vocalClip;
     const patId = ptnRef.id;
-    const clipId = clip?.id;
-    const audioBuffer = store.vocalBuffers[`${trackId}_${patId}`] || store.vocalBuffers[patId] ||
-      (clipId ? store.vocalBuffers[`${trackId}_${clipId}`] || store.vocalBuffers[clipId] : undefined) ||
+    const canonicalKey = `${trackId}_${patId}`;
+    const audioBuffer = store.vocalBuffers[canonicalKey] || store.vocalBuffers[patId] ||
       store.vocalBuffers[`${trackId}_${patternId}`] || store.vocalBuffers[patternId];
     if (!audioBuffer) return null;
 
-    const compositeKey = `${trackId}_${patId}`;
     const anchorMeasureBpm = VocalTimingCalculator.calculateAnchorBpm(ptnRef, sequencerStore);
     const effectiveBpm = currentBpm || sequencerStore.bpm || anchorMeasureBpm;
-    const clipSampleBpm = clip?.recordedBpm || clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
-
+    const recordedBpm = clip?.recordedBpm || clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
     const vocalTr = (ptnRef as any).vocalTransposeSteps ?? sequencerStore.vocalTransposeSteps ?? 0;
-    const resolved = resolveVocalPlaybackBuffer(ptnRef, voiceTrack, effectiveBpm, clipSampleBpm, audioBuffer, store.vocalBuffers, vocalTr);
-    const { buffer: activeAudioBuffer, scaledT1OffsetSec, scaledTrimStartSec, scaledTrimEndSec } = resolved;
 
-    const timing = VocalTimingCalculator.calculateTiming({ clip, ptnRef, voiceTrack, effectiveBpm, measureStartTime, sequencerStore });
+    const resolved = resolveVocalPlaybackBuffer(ptnRef, voiceTrack, effectiveBpm, recordedBpm, audioBuffer, store.vocalBuffers, vocalTr);
+    const { buffer: activeAudioBuffer, effectiveTrimStart, effectiveTrimEnd, effectiveT1Offset } = resolved;
+
+    const timing = VocalTimingCalculator.calculateTiming({ clip, ptnRef, voiceTrack, effectiveBpm, measureStartTime: slotMeasureT1Time, sequencerStore });
     const when = clip?.t1OffsetSec !== undefined
-      ? measureStartTime + (scaledTrimStartSec - scaledT1OffsetSec) + (timing.nudgeMs / 1000) + timing.balancoOffset
+      ? slotMeasureT1Time + (effectiveTrimStart - effectiveT1Offset) + (timing.nudgeMs / 1000) + timing.balancoOffset
       : timing.triggerTime;
 
-    const playerKey = resolved.variantKey ? `${compositeKey}__${resolved.variantKey}` : compositeKey;
+    const playerKey = resolved.variantKey ? `${canonicalKey}__${resolved.variantKey}` : canonicalKey;
     const activeEntry = VocalPlayerPool.getOrCreate(playerKey, activeAudioBuffer, outputNode, isCoroTrack, trackId, true);
     const { mainPlayer, mainGain } = activeEntry;
 
     mainPlayer.playbackRate = 1.0;
+    if ('detune' in (mainPlayer as any)) (mainPlayer as any).detune = 0;
     mainPlayer.loop = false;
 
     const baseGainLinear = faderPositionToGain(trackVolPct);
-    const trimStart = Math.max(0, scaledTrimStartSec);
-    const trimEnd = scaledTrimEndSec > trimStart && scaledTrimEndSec <= activeAudioBuffer.duration ? scaledTrimEndSec : activeAudioBuffer.duration;
+    const trimStart = Math.max(0, effectiveTrimStart);
+    const trimEnd = effectiveTrimEnd > trimStart && effectiveTrimEnd <= activeAudioBuffer.duration ? effectiveTrimEnd : activeAudioBuffer.duration;
     const playDuration = Math.max(0.05, trimEnd - trimStart);
 
     if (when >= 0) {
@@ -129,11 +126,15 @@ export class VocalSequencerPlayer {
     return {
       mainPlayer, patternId: patId, hasTailBeat: Boolean(ptnRef.hasTailBeat || clip?.hasTailBeat),
       stop: () => {
-        try {
-          mainPlayer.onstop = () => {}; mainPlayer.stop();
-          if (activeEntry.directPlayer) { activeEntry.directPlayer.onstop = () => {}; activeEntry.directPlayer.stop(); }
-        } catch (_) {}
+        try { mainPlayer.onstop = () => {}; mainPlayer.stop(); } catch (_) {}
       }
     };
+  }
+
+  public static playSequencerVocal(
+    trackId: string | number, patternId: number | string, measureStartTime: number, currentBpm: number,
+    outputNode: any, trackVolPct: number, isCoroTrack: boolean, onStop?: () => void, _isDirectStep0: boolean = false
+  ): any {
+    return this.scheduleVoicePlayback(trackId, patternId, measureStartTime, currentBpm, outputNode, trackVolPct, isCoroTrack, onStop);
   }
 }

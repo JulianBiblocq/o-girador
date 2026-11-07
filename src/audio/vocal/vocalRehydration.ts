@@ -9,6 +9,7 @@ import { getAllVocalRecordings } from '../../db';
 import { getRawAudioContext } from '../audioContextSuspendManager';
 import { VocalIdbScanner } from './vocalIdbScanner';
 import { VocalRemoteScanner } from './vocalRemoteScanner';
+import { prewarmProjectVocalDspBuffers } from '../vocalDsp/vocalDspPrewarmer';
 
 let rehydratingPromise: Promise<void> | null = null;
 
@@ -59,6 +60,7 @@ export class VocalRehydration {
 
         if (entriesToBatch.length > 0) {
           useAudioStore.getState().setVocalBuffersBatch(entriesToBatch);
+          prewarmProjectVocalDspBuffers(undefined, undefined, true);
         }
       } catch (err) {
         console.error('[VOCAL REHYDRATE] Global error during rehydration:', err);

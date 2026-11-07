@@ -22,6 +22,7 @@ export interface TrackAcousticsSlice {
   handleTrackMeasureReverbTransitionChange: (trackId: number, mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
   toggleTrackAutomationBypass: (trackId: number, type: 'volume' | 'pan' | 'reverb') => void;
   setTrackTuning: (trackId: number, tuning: number) => void;
+  setTrackDecay: (trackId: number, decayPct: number) => void;
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
   handleTrackSwingChange: (id: number, val: number) => void;

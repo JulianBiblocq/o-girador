@@ -1,7 +1,7 @@
 /**
  * toadaVariantImporter.ts
- * Décodage par lot des déclinaisons audio vocales (`variants` et `speedVariants: { '75', '88', '100' }`)
- * avec cache d'URL pour éviter tout téléchargement redondant (< 115 lignes).
+ * Décodage du fichier `.wav` maître unique par pattern vocal publié par Cantador
+ * avec cache d'URL et stockage sous clé canonique unique `${trackId}_${patternId}` (< 65 lignes).
  */
 import { useAudioStore } from '../../stores/useAudioStore';
 import { saveVocalRecording } from '../../db';
@@ -36,77 +36,30 @@ export async function fetchAndDecodeAudioUrl(
   return entry;
 }
 
-export async function importPatternVariants(
-  variants: Record<string, any> | undefined,
+export async function importPatternMasterWav(
+  source: { audioBase64?: string; audioUrl?: string } | undefined,
   numId: number,
-  origId: string,
   roleTrackId: number,
   rawCtx: AudioContext,
-  urlCache?: Map<string, DecodedUrlAudio>,
-  speedVariants?: Record<string, string>
-): Promise<string[]> {
-  const loadedKeys: string[] = [];
-  const mergedVariants: Record<string, any> = { ...(variants || {}) };
+  urlCache?: Map<string, DecodedUrlAudio>
+): Promise<DecodedUrlAudio | null> {
+  if (!source) return null;
+  const canonicalKey = `${roleTrackId}_${numId}`;
+  let decoded: DecodedUrlAudio | null = null;
 
-  if (speedVariants && typeof speedVariants === 'object') {
-    for (const [spdKey, url] of Object.entries(speedVariants)) {
-      if (!url) continue;
-      const pct = parseInt(spdKey, 10);
-      if (!Number.isFinite(pct) || pct <= 0) continue;
-      const normKey = `spd${pct}_pit0`;
-      if (!mergedVariants[normKey]) {
-        mergedVariants[normKey] = {
-          variantKey: normKey,
-          speedRatio: pct / 100,
-          pitchShiftSemitones: 0,
-          audioUrl: url,
-        };
-      }
-    }
+  if (source.audioBase64) {
+    const blob = base64ToBlob(source.audioBase64);
+    const buffer = await rawCtx.decodeAudioData(await blob.arrayBuffer());
+    decoded = { blob, buffer };
+  } else if (source.audioUrl) {
+    decoded = await fetchAndDecodeAudioUrl(source.audioUrl, rawCtx, urlCache);
   }
 
-  const entries = Object.entries(mergedVariants);
-  if (entries.length === 0) return loadedKeys;
-
-  const aStore = useAudioStore.getState();
-
-  for (const [key, v] of entries) {
-    try {
-      let b: Blob | null = null;
-      let buf: AudioBuffer | null = null;
-
-      if (v?.audioBase64) {
-        b = base64ToBlob(v.audioBase64);
-        buf = await rawCtx.decodeAudioData(await b.arrayBuffer());
-      } else if (v?.audioUrl) {
-        const decoded = await fetchAndDecodeAudioUrl(v.audioUrl, rawCtx, urlCache);
-        if (decoded) {
-          b = decoded.blob;
-          buf = decoded.buffer;
-        }
-      }
-
-      if (b && buf) {
-        const compositeKey = `${numId}__${key}`;
-        const trackCompositeKey = `${roleTrackId}_${numId}__${key}`;
-        const origCompositeKey = `${origId}__${key}`;
-
-        aStore.setVocalBuffer(compositeKey, buf);
-        aStore.setVocalBuffer(trackCompositeKey, buf);
-        aStore.setVocalBuffer(origCompositeKey, buf);
-        aStore.addVocalBlob(compositeKey, b);
-
-        await saveVocalRecording(compositeKey, b);
-        if (origCompositeKey !== compositeKey) {
-          await saveVocalRecording(origCompositeKey, b);
-        }
-
-        loadedKeys.push(key);
-      }
-    } catch (err) {
-      console.warn(`[toadaVariantImporter] Erreur import déclinaison ${key}:`, err);
-    }
+  if (decoded) {
+    const aStore = useAudioStore.getState();
+    aStore.setVocalBuffer(canonicalKey, decoded.buffer);
+    aStore.addVocalBlob(canonicalKey, decoded.blob);
+    await saveVocalRecording(canonicalKey, decoded.blob);
   }
-
-  return loadedKeys;
+  return decoded;
 }

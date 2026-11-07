@@ -78,6 +78,9 @@ export interface Pattern {
   preRollVolumes?: StepSculptValue[];
   preRollDecays?: StepSculptValue[];
   preRollMicrotimings?: StepSculptValue[];
+  tailActiveSteps?: (string | number | [string, string])[];
+  tailLyrics?: string[];
+  tailNotes?: string[];
   hasAnacrusis?: boolean;
   vocalVariantKeys?: string[];
 }

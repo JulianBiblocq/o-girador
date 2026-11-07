@@ -14,6 +14,30 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
   } = core;
   const { trackId, setEditingTrackId } = props;
 
+  const activePatternId = editorState.selectedPatternId || displayedPatterns[0]?.id;
+  const activePattern = useMemo(
+    () => displayedPatterns.find((p: any) => p.id === activePatternId) || displayedPatterns[0],
+    [displayedPatterns, activePatternId]
+  );
+
+  const hasVocalRecording = useAudioStore(
+    useCallback(
+      (s) => {
+        if (!activePatternId) return false;
+        const canonicalKey = `${effectiveEditTrackId}_${activePatternId}`;
+        return Boolean(
+          s.vocalBuffers[canonicalKey] ||
+          s.vocalBlobs[canonicalKey] ||
+          s.vocalBuffers[activePatternId] ||
+          s.vocalBlobs[activePatternId] ||
+          activePattern?.hasVocalAudio ||
+          activePattern?.vocalClip
+        );
+      },
+      [effectiveEditTrackId, activePatternId, activePattern]
+    )
+  );
+
   const { onOpenAlignment, onImportAudio } = useVocalInspectorActions(
     effectiveEditTrackId, editorState.selectedPatternId, displayedPatterns[0]?.id
   );
@@ -50,25 +74,25 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
 
   const acousticDrawersProps = {
     trackId: effectiveEditTrackId, inst, lang, isLeftHanded, activeTool: editorState.activeTool,
-    patternId: editorState.selectedPatternId || displayedPatterns[0]?.id, patterns: displayedPatterns,
+    patternId: activePatternId, patterns: displayedPatterns,
     canPaste: clipboard.canPaste, balancoPresets, onSelectPattern: (pId: number) => editorState.setSelectedPatternId(pId),
     onAddPattern: patternOps.onAddPattern,
-    onCopyPattern: () => sequencer.handleCopyPattern(displayedPatterns.find((p: any) => p.id === editorState.selectedPatternId) || displayedPatterns[0]),
-    onPastePattern: () => sequencer.handlePastePattern(effectiveEditTrackId, editorState.selectedPatternId || displayedPatterns[0]?.id),
+    onCopyPattern: () => sequencer.handleCopyPattern(activePattern),
+    onPastePattern: () => sequencer.handlePastePattern(effectiveEditTrackId, activePatternId),
     onSavePattern: () => {
-      const pId = editorState.selectedPatternId || displayedPatterns[0]?.id;
-      const p = displayedPatterns.find((pt: any) => pt.id === pId);
-      cloud.setSaveModalPatternId(pId); cloud.setSavePatternName(p?.name || ''); cloud.setSavePatternFolder(cloud.existingFolders[0] || 'Général');
+      cloud.setSaveModalPatternId(activePatternId);
+      cloud.setSavePatternName(activePattern?.name || '');
+      cloud.setSavePatternFolder(cloud.existingFolders[0] || 'Général');
     },
-    onLoadPattern: () => cloud.setLoadModalPatternId(editorState.selectedPatternId || displayedPatterns[0]?.id),
+    onLoadPattern: () => cloud.setLoadModalPatternId(activePatternId),
     onDeletePattern: patternOps.onDeletePattern, onBalancoChange: handlePatternBalancoChange,
-    isVoice: isVocalContext, hasVocalRecording: Boolean(useAudioStore.getState().vocalBlobs[editorState.selectedPatternId || 0]),
+    isVoice: isVocalContext, hasVocalRecording,
     onOpenAlignment, onImportAudio,
     isInspectorMobileOpen: ctrl.isInspectorMobileOpen, setIsInspectorMobileOpen: ctrl.setIsInspectorMobileOpen,
   };
 
   const bottomDockProps = {
-    isVocalContext, effectiveEditTrackId, patternId: editorState.selectedPatternId || displayedPatterns[0]?.id || 0,
+    isVocalContext, effectiveEditTrackId, patternId: activePatternId || 0,
     selectedStepIdx: editorState.selectedStepIdx, setSelectedStepIdx: editorState.setSelectedStepIdx,
     selectedStepIsPreRoll: editorState.selectedStepIsPreRoll, setSelectedStepIsPreRoll: editorState.setSelectedStepIsPreRoll,
     lang, patternSteps: displayedPatterns[0]?.steps || 16, inst, isLeftHanded, activeTool: editorState.activeTool,
@@ -101,9 +125,7 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
       const currentM = useSequencerStore.getState().currentMeasure || 0;
       const addFn = sequencer.handleAddTrackInstrument || sequencer.handleAddTrack;
       const newTrackId = addFn ? addFn(idx, currentM) : undefined;
-      if (newTrackId !== undefined && newTrackId !== null) {
-        setEditingTrackId(newTrackId);
-      }
+      if (newTrackId !== undefined && newTrackId !== null) setEditingTrackId(newTrackId);
       ctrl.handleCloseAddPicker();
     },
     handleCloseAddPicker: ctrl.handleCloseAddPicker,

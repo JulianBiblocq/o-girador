@@ -4,6 +4,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { invalidateAudioParamsCache } from '../../hooks/useAudioSync';
 import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
+import { normalizePresetAcousticsOnLoad } from './acousticNormalizer';
 import { migrateAndSanitizePresetTracks } from './audioPresetTracksMigrator';
 import { restorePresetVocalRecordings } from './audioPresetVocalRestorer';
 import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
@@ -16,6 +17,7 @@ export async function executeApplyPreset(
   audioSync: any,
   setters: { setMasterEQ: (eq: any) => void; setMasterCompressor: (comp: any) => void; setMasterVol: (vol: number) => void; setMasterReverbVol: (vol: number) => void; setReverbDecay: (decay: number) => void; }
 ): Promise<void> {
+  normalizePresetAcousticsOnLoad(p);
   vocalEngineService.disposeAllVocalPlayers();
   useSequencerStore.getState().resetFirstPassRegistry();
   sequencer.clearHistory();

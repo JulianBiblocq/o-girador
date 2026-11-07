@@ -1,7 +1,8 @@
 /**
  * toadaPackImporter.ts
  * Décodage et injection locale d'un pack Toada (`/toada_packs`) dans Sequenciador.
- * Un seul fichier `.wav` HD par pattern vocal + pré-chauffage du moteur DSP Studio (< 130 lignes).
+ * Un seul fichier `.wav` maître par pattern sous la clé canonique `${trackId}_${patternId}`
+ * + pré-chauffage proactif du Web Worker DSP Studio (< 125 lignes).
  */
 import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -9,7 +10,7 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { saveVocalRecording } from '../db';
 import { buildToadaConductorSlots, deployToadaCycle } from './toadaArrangement';
 import { convertToadaPattern, isStepActive } from './toadaPatternConverter';
-import { isBlankPattern, getOrCreateTrack } from './vocal/toadaImportHelpers';
+import { isBlankPattern, getOrCreateTrack, resolveImportedT1OffsetSec } from './vocal/toadaImportHelpers';
 import { base64ToBlob, fetchAndDecodeAudioUrl, type DecodedUrlAudio } from './vocal/toadaVariantImporter';
 import { prewarmProjectVocalDspBuffers } from '../audio/vocalDsp/vocalDspPrewarmer';
 import type { Pattern, VocalClipMeta } from '../types/store.types';
@@ -59,9 +60,10 @@ export async function importToadaPackIntoSequencer(
     const existingNudge = targetTrack.patterns?.find((ep) => ep.name === p.name || String(ep.id) === p.id)?.vocalClip?.nudgeMs ?? 0;
 
     let wavBlob: Blob | null = null, audioBuffer: AudioBuffer | null = null;
+    const rawBase64 = p.audioBase64 || variant?.audioBase64;
     const targetUrl = p.audioUrl || variant?.audioUrl;
-    if (variant?.audioBase64) {
-      wavBlob = base64ToBlob(variant.audioBase64);
+    if (rawBase64) {
+      wavBlob = base64ToBlob(rawBase64);
       audioBuffer = await rawCtx.decodeAudioData(await wavBlob.arrayBuffer());
     } else if (targetUrl) {
       try {
@@ -71,16 +73,15 @@ export async function importToadaPackIntoSequencer(
     }
 
     if (wavBlob && audioBuffer) {
-      await saveVocalRecording(numId, wavBlob);
-      if (String(numId) !== p.id) await saveVocalRecording(p.id, wavBlob);
-      const aStore = useAudioStore.getState(), roleTrackId = targetTrack.id;
-      [numId, String(numId), p.id, `${roleTrackId}_${numId}`, `${roleTrackId}_${String(numId)}`].forEach((k) => {
-        aStore.setVocalBuffer(k, audioBuffer!); aStore.addVocalBlob(k, wavBlob!);
-      });
+      const canonicalKey = `${targetTrack.id}_${numId}`;
+      await saveVocalRecording(canonicalKey, wavBlob);
+      const aStore = useAudioStore.getState();
+      aStore.setVocalBuffer(canonicalKey, audioBuffer);
+      aStore.addVocalBlob(canonicalKey, wavBlob);
+
       const trimStartSec = Number(p.trimStartSec ?? variant?.trimStartSec ?? 0);
       const trimEndSec = Number(p.trimEndSec ?? variant?.trimEndSec ?? (variant?.durationSec || audioBuffer.duration));
-      const rawStartOffset = p.startOffsetSec ?? variant?.startOffsetSec, rawT1 = p.t1OffsetSec ?? variant?.t1OffsetSec;
-      const t1OffsetSec = rawT1 !== undefined ? Number(rawT1) : (rawStartOffset !== undefined ? (trimStartSec - Number(rawStartOffset)) : (hasAnacrusis ? (trimStartSec + anacrusisDurationSec) : trimStartSec));
+      const t1OffsetSec = resolveImportedT1OffsetSec(p, variant, trimStartSec, hasAnacrusis, anacrusisDurationSec, effectiveBpm, audioBuffer, isStepActive);
       const calculatedStartOffset = trimStartSec - t1OffsetSec, anacSec = Math.max(0, -calculatedStartOffset);
       clipMeta = {
         id: numId, patternId: numId, baseBpm: effectiveBpm, sampleBpm: effectiveBpm, recordedBpm: effectiveBpm,
@@ -112,7 +113,7 @@ export async function importToadaPackIntoSequencer(
   store.setTracks(nextTracks);
   if (packBpm) { store.setGlobalBpm(packBpm); store.setBpm(packBpm); }
   store.setVocalTransposeSteps(packTranspositionSt);
-  prewarmProjectVocalDspBuffers(packBpm, packTranspositionSt);
+  prewarmProjectVocalDspBuffers(packBpm, packTranspositionSt, true);
   store.setMetadata({
     ...store.metadata, toada: pack.project?.title || pack.title || store.metadata.toada, toadaPackId: pack.id || pack.project?.id,
     ignoreMelodyPitch: packIgnoreMelodyPitch, sequenciadorExportMode: packIgnoreMelodyPitch ? 'rhythm_only' : 'with_notes',

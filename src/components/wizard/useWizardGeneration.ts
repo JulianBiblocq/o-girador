@@ -22,6 +22,7 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
   const swingIntensities = useWizardStore((state) => state.swingIntensities);
   const alfaiaGroupingMode = useWizardStore((state) => state.alfaiaGroupingMode);
   const instrumentTunings = useWizardStore((state) => state.instrumentTunings);
+  const instrumentDecays = useWizardStore((state) => state.instrumentDecays);
   const hasToada = useWizardStore((state) => state.hasToada);
 
   const generateRodaFromWizard = async () => {
@@ -72,6 +73,7 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
         isMute: false, isSolo: false, isHidden: false, volumeVal, selectedPatternId: trackId + 10000,
         reverbVal: calculatedReverb, panVal: panPct, pan: panPct, swingIntensity: intensity, balancoPresetId: selectedBalancoId,
         tuning: instrumentTunings[inst.instrumentType] || 0,
+        trackDecay: instrumentDecays[inst.instrumentType] ?? 100,
         fxSends: { reverb: calculatedReverb, distortion: 0 },
       });
       if (audioEngine) audioEngine.loadInstrumentSamples(inst.instrumentType).catch(console.error);

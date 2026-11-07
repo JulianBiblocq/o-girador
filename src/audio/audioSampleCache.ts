@@ -1,9 +1,7 @@
 /**
- * 
  * O-Girador - IndexedDB Raw PCM Cache for Decoded Audio Samples
- * 
- * Stores raw Float32Array PCM channel buffers in IndexedDB to completely
- * bypass the CPU overhead of decodeAudioData() on startup.
+ * Versioned via SAMPLE_CACHE_VERSION (`v${SAMPLE_CACHE_VERSION}_${path}_${sampleRate}`)
+ * with automatic purge of stale versions on startup (< 135 lignes).
  */
 
 export interface CachedPcmSample {
@@ -17,117 +15,100 @@ export interface CachedPcmSample {
   timestamp: number;
 }
 
+export const SAMPLE_CACHE_VERSION = 2;
 const DB_NAME = 'OGirador_AudioCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio_sample_cache';
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
+let stalePurgeTriggered = false;
+
+function purgeStaleCacheEntries(db: IDBDatabase): void {
+  if (stalePurgeTriggered) return;
+  stalePurgeTriggered = true;
+  try {
+    const prefix = `v${SAMPLE_CACHE_VERSION}_`;
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const req = tx.objectStore(STORE_NAME).openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      if (!String(cursor.key || '').startsWith(prefix)) {
+        try { cursor.delete(); } catch (_) {}
+      }
+      cursor.continue();
+    };
+  } catch (_) {}
+}
 
 function getDB(): Promise<IDBDatabase | null> {
-  if (typeof window === 'undefined' || !('indexedDB' in window)) {
-    return Promise.resolve(null);
-  }
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return Promise.resolve(null);
   if (!dbPromise) {
     dbPromise = new Promise((resolve) => {
       try {
         const request = window.indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = () => {
           const db = request.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-          }
+          if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (err) => {
-          console.warn('[AudioCache] Failed to open IndexedDB:', err);
-          resolve(null);
+        request.onsuccess = () => {
+          const db = request.result;
+          purgeStaleCacheEntries(db);
+          resolve(db);
         };
-      } catch (e) {
-        console.warn('[AudioCache] IndexedDB initialization error:', e);
-        resolve(null);
-      }
+        request.onerror = () => resolve(null);
+      } catch (_) { resolve(null); }
     });
   }
   return dbPromise;
 }
 
-function getCacheKey(path: string, sampleRate: number): string {
-  return `${path}_${sampleRate}`;
+export function getSampleCacheKey(path: string, sampleRate: number): string {
+  return `v${SAMPLE_CACHE_VERSION}_${path}_${sampleRate}`;
 }
 
 export async function getCachedPcmSample(path: string, sampleRate: number): Promise<CachedPcmSample | null> {
   try {
     const db = await getDB();
     if (!db) return null;
-
     return new Promise((resolve) => {
       try {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(getCacheKey(path, sampleRate));
+        const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(getSampleCacheKey(path, sampleRate));
         req.onsuccess = () => {
-          if (req.result && req.result.channels && req.result.sampleRate === sampleRate) {
-            resolve(req.result as CachedPcmSample);
-          } else {
-            resolve(null);
-          }
+          if (req.result && req.result.channels && req.result.sampleRate === sampleRate) resolve(req.result as CachedPcmSample);
+          else resolve(null);
         };
         req.onerror = () => resolve(null);
-      } catch (_) {
-        resolve(null);
-      }
+      } catch (_) { resolve(null); }
     });
-  } catch (_) {
-    return null;
-  }
+  } catch (_) { return null; }
 }
 
 export async function saveCachedPcmSample(path: string, audioBuffer: AudioBuffer): Promise<void> {
   try {
     const db = await getDB();
     if (!db) return;
-
     const numberOfChannels = audioBuffer.numberOfChannels;
     const channels: Float32Array[] = [];
-    for (let c = 0; c < numberOfChannels; c++) {
-      channels.push(new Float32Array(audioBuffer.getChannelData(c)));
-    }
-
+    for (let c = 0; c < numberOfChannels; c++) channels.push(new Float32Array(audioBuffer.getChannelData(c)));
     const entry: CachedPcmSample = {
-      id: getCacheKey(path, audioBuffer.sampleRate),
-      path,
-      sampleRate: audioBuffer.sampleRate,
-      numberOfChannels,
-      length: audioBuffer.length,
-      duration: audioBuffer.duration,
-      channels,
-      timestamp: Date.now()
+      id: getSampleCacheKey(path, audioBuffer.sampleRate),
+      path, sampleRate: audioBuffer.sampleRate, numberOfChannels,
+      length: audioBuffer.length, duration: audioBuffer.duration, channels, timestamp: Date.now()
     };
-
     return new Promise((resolve) => {
       try {
         const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.put(entry);
+        tx.objectStore(STORE_NAME).put(entry);
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
-      } catch (_) {
-        resolve();
-      }
+      } catch (_) { resolve(); }
     });
-  } catch (_) {
-    // Non-critical background cache write
-  }
+  } catch (_) {}
 }
 
 export function reconstructAudioBuffer(audioContext: AudioContext, cached: CachedPcmSample): AudioBuffer {
-  const buffer = audioContext.createBuffer(
-    cached.numberOfChannels,
-    cached.length,
-    cached.sampleRate
-  );
-  for (let c = 0; c < cached.numberOfChannels; c++) {
-    buffer.copyToChannel(cached.channels[c] as any, c);
-  }
+  const buffer = audioContext.createBuffer(cached.numberOfChannels, cached.length, cached.sampleRate);
+  for (let c = 0; c < cached.numberOfChannels; c++) buffer.copyToChannel(cached.channels[c] as any, c);
   return buffer;
 }

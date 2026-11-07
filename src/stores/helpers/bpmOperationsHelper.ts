@@ -1,5 +1,6 @@
 
 import { applyBpmDelta, getEffectiveBpm } from '../../utils/bpmUtils';
+import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrewarmer';
 
 export function applyGlobalBpmDeltaState(state: any, delta: number) {
   const currentMeasure = state.currentMeasure || 0;
@@ -50,6 +51,7 @@ export function handleMeasureBpmChangeState(get: () => any, set: (fn: any) => vo
     arr[idx] = val;
     return { measureBpms: arr, bpm: idx === 0 ? val : s.bpm, tracksVersion: s.tracksVersion + 1 };
   });
+  prewarmProjectVocalDspBuffers(idx === 0 ? val : undefined);
 }
 
 export function handleMeasureVolChangeState(get: () => any, set: (fn: any) => void, idx: number, val: number) {

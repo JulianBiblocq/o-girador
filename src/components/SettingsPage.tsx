@@ -6,6 +6,7 @@ import { i18n } from '../data';
 import { CloudRhythmSignal } from '../types';
 import { SettingsHeader } from './settings/SettingsHeader';
 import { SettingsClosingModal } from './settings/SettingsClosingModal';
+import { BaqueLutherieBench } from './oficina/BaqueLutherieBench';
 import { SettingsGrooveTab } from './settings/SettingsGrooveTab';
 import { SettingsKitTab } from './settings/SettingsKitTab';
 import { SettingsTemplatesTab } from './settings/SettingsTemplatesTab';
@@ -32,7 +33,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   const [isLoading, setIsLoading] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
-  const [activeSection, setActiveSection] = useState<string | null>('groove');
+  const [activeSection, setActiveSection] = useState<string | null>('lutherie');
 
   const sequencer = useSequencer();
   const lang = sequencer?.lang || 'fr';
@@ -68,7 +69,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   return createPortal(
     <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-      <div className="bg-[#f4ecd8] border-4 border-black w-full md:w-[92vw] max-w-6xl h-[85vh] flex flex-col shadow-[8px_8px_0px_#000] relative overflow-hidden text-[#1a1a1a]">
+      <div className="bg-[var(--cordel-bg)] border-4 border-[var(--cordel-text)] w-full md:w-[92vw] max-w-6xl h-[85vh] flex flex-col shadow-[8px_8px_0px_var(--cordel-text)] relative overflow-hidden text-[var(--cordel-text)]">
         <SettingsHeader lang={lang} onSetLang={(l) => sequencer?.setLang?.(l)} onClose={handleClose} />
         <div className="flex-grow overflow-y-auto p-6 custom-scrollbar min-h-0 flex flex-col justify-start">
           {isLoading ? (
@@ -80,8 +81,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
               {sections.map((sec) => {
                 const isOpen = activeSection === sec.id;
                 return (
-                  <div key={sec.id} className="border-t-2 border-b-4 border-l-3 border-r-2 border-black rounded-[4px_10px_6px_12px] bg-white shadow-[4px_4px_0px_#000] flex flex-col overflow-hidden">
-                    <button onClick={() => setActiveSection(isOpen ? null : sec.id)} className="w-full text-left px-4 py-2.5 font-cactus font-bold text-xs md:text-sm uppercase flex justify-between items-center transition-colors bg-white hover:bg-black hover:text-white cursor-pointer select-none border-none outline-none">
+                  <div key={sec.id} className="border-t-2 border-b-4 border-l-3 border-r-2 border-[var(--cordel-text)] rounded-[4px_10px_6px_12px] bg-[var(--cordel-surface)] shadow-[4px_4px_0px_var(--cordel-text)] flex flex-col overflow-hidden">
+                    <button onClick={() => setActiveSection(isOpen ? null : sec.id)} className="w-full text-left px-4 py-2.5 font-cactus font-bold text-xs md:text-sm uppercase flex justify-between items-center transition-colors bg-[var(--cordel-surface)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer select-none border-none outline-none">
                       <span className="flex items-center gap-2.5">
                         <OficinaSectionIcon sectionId={sec.id} className="w-4 h-4 shrink-0 text-current" />
                         <span>{sec.title}</span>
@@ -89,7 +90,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                       <span className="font-black text-lg transition-transform duration-200">{isOpen ? '▲' : '▼'}</span>
                     </button>
                     {isOpen && (
-                      <div className="p-5 border-t-2 border-black bg-[#fbf8f0] text-xs leading-relaxed font-sans text-left">
+                      <div className="p-5 border-t-2 border-[var(--cordel-text)] bg-[var(--cordel-bg)] text-xs leading-relaxed font-sans text-left">
+                        {sec.id === 'lutherie' && <BaqueLutherieBench lang={lang} mode="sequencer" />}
                         {sec.id === 'groove' && (
                           <div className="flex flex-col gap-6">
                             <SettingsGrooveTab lang={lang} />

@@ -1,5 +1,6 @@
 /**
  * O Girador - Vocal Remote / Embedded Patterns Rehydration Scanner
+ * Unification du cache vocal sous la clé canonique unique `${trackId}_${patternId}` (< 75 lignes).
  */
 
 import { useAudioStore } from '../../stores/useAudioStore';
@@ -33,26 +34,27 @@ export class VocalRemoteScanner {
 
       for (const pattern of track.patterns) {
         const patternId = Number(pattern.id);
-        const compositeKey = `${track.id}_${patternId}`;
+        const canonicalKey = `${track.id}_${patternId}`;
         const currentBuffers = useAudioStore.getState().vocalBuffers;
 
-        if (currentBuffers[compositeKey] && currentBuffers[patternId]) continue;
+        if (currentBuffers[canonicalKey]) continue;
 
         try {
-          let blob: Blob | null = await getVocalRecording(patternId);
+          let blob: Blob | null = await getVocalRecording(canonicalKey);
+          if (!blob) blob = await getVocalRecording(patternId);
           if (!blob && pattern.id !== patternId) blob = await getVocalRecording(pattern.id);
 
           if (!blob && pattern.vocalAudioData) {
             try {
               blob = base64ToBlob(pattern.vocalAudioData);
-              await saveVocalRecording(patternId, blob);
+              await saveVocalRecording(canonicalKey, blob);
             } catch (_) {}
           } else if (!blob && pattern.vocalAudioUrl) {
             try {
               const res = await fetch(pattern.vocalAudioUrl);
               if (res.ok) {
                 blob = await res.blob();
-                await saveVocalRecording(patternId, blob);
+                await saveVocalRecording(canonicalKey, blob);
               }
             } catch (_) {}
           }
@@ -62,14 +64,10 @@ export class VocalRemoteScanner {
           const arrayBuffer = await blob.arrayBuffer();
           const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
 
-          useAudioStore.getState().setVocalBuffer(patternId, audioBuffer);
-          useAudioStore.getState().setVocalBuffer(compositeKey, audioBuffer);
-          entriesToBatch.push(
-            { key: patternId, buffer: audioBuffer, blob },
-            { key: compositeKey, buffer: audioBuffer, blob }
-          );
+          useAudioStore.getState().setVocalBuffer(canonicalKey, audioBuffer);
+          entriesToBatch.push({ key: canonicalKey, buffer: audioBuffer, blob });
         } catch (err) {
-          console.error(`[VOCAL REHYDRATE] Erreur rehydration motif ${patternId}:`, err);
+          console.error(`[VOCAL REHYDRATE] Erreur rehydration motif ${canonicalKey}:`, err);
         }
       }
     }

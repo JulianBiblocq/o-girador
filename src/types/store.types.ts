@@ -17,6 +17,7 @@ export interface TrackGroup {
   reverbVal?: number;
   panVal?: number;
   tuning?: number;
+  trackDecay?: number;
   pan?: number;
   swingIntensity?: number;
   balancoPresetId?: string;
