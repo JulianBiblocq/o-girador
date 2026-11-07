@@ -12,7 +12,6 @@ export class VocalOldPlayerFade {
         try {
           entry.mainPlayer.onstop = () => {};
           if (entry.directPlayer) entry.directPlayer.onstop = () => {};
-          if (entry.grainPlayer) entry.grainPlayer.onstop = () => {};
 
           const oldGain = entry.mainGain.gain;
           const now = Tone.now();
@@ -25,11 +24,8 @@ export class VocalOldPlayerFade {
           if (entry.directPlayer && entry.directPlayer !== entry.mainPlayer) {
             try { entry.directPlayer.stop(fadeStart + 0.02); } catch (_) {}
           }
-          if (entry.grainPlayer && entry.grainPlayer !== entry.mainPlayer) {
-            try { entry.grainPlayer.stop(fadeStart + 0.02); } catch (_) {}
-          }
 
-          const { mainPlayer, directPlayer, grainPlayer, mainGain, haasNodes, chorusPlayers, chorusGains, panners } = entry;
+          const { mainPlayer, directPlayer, mainGain, haasNodes, chorusPlayers, chorusGains, panners } = entry;
           const delayMs = Math.max(50, (fadeStart + 0.1 - now) * 1000);
 
           setTimeout(() => {
@@ -37,9 +33,6 @@ export class VocalOldPlayerFade {
               mainPlayer.onstop = () => {}; mainPlayer.disconnect(); mainPlayer.dispose();
               if (directPlayer && directPlayer !== mainPlayer) {
                 directPlayer.onstop = () => {}; directPlayer.disconnect(); directPlayer.dispose();
-              }
-              if (grainPlayer && grainPlayer !== mainPlayer) {
-                grainPlayer.onstop = () => {}; grainPlayer.disconnect(); grainPlayer.dispose();
               }
               mainGain.disconnect(); mainGain.dispose();
               if (haasNodes) {

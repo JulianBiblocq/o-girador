@@ -5,6 +5,7 @@ import type { TransportSlice } from './transportSliceTypes';
 import { deleteMeasureState, insertMeasureState } from '../helpers/measureOperationsHelper';
 import { resizeTotalMeasuresState } from '../helpers/measureResizeHelper';
 import { notifyToast } from '../../utils/toastHelper';
+import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrewarmer';
 import {
   applyGlobalBpmDeltaState,
   setGlobalBpmState,
@@ -34,10 +35,22 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
   measureSignals: Array(8).fill(null),
   isMasterVolumeBypassed: false,
 
-  setBpm: (bpm) => set({ bpm }),
-  applyGlobalBpmDelta: (delta) => set((state) => applyGlobalBpmDeltaState(state, delta)),
-  setGlobalBpm: (targetBpm) => set((state) => setGlobalBpmState(state, targetBpm)),
-  resetTempoToNominal: () => set((state) => resetTempoToNominalState(state)),
+  setBpm: (bpm) => {
+    set({ bpm });
+    prewarmProjectVocalDspBuffers(bpm);
+  },
+  applyGlobalBpmDelta: (delta) => {
+    set((state) => applyGlobalBpmDeltaState(state, delta));
+    prewarmProjectVocalDspBuffers();
+  },
+  setGlobalBpm: (targetBpm) => {
+    set((state) => setGlobalBpmState(state, targetBpm));
+    prewarmProjectVocalDspBuffers(targetBpm);
+  },
+  resetTempoToNominal: () => {
+    set((state) => resetTempoToNominalState(state));
+    prewarmProjectVocalDspBuffers();
+  },
   setNominalPresetTempo: (bpm, measureBpms) => set({ nominalPresetBpm: bpm, nominalPresetMeasureBpms: [...measureBpms] }),
   setTimeSig: (sig) => set({ timeSig: sig }),
   setTotalMeasures: (updater, bypassLimit = false) => set(state => {

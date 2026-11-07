@@ -5,6 +5,7 @@ import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
 import { detectEcoMode } from '../helpers/ecoModeDetector';
 import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
 import { computeTransposedTroupeKey, syncCloudToadaTransposition } from '../../services/cloudToadas';
+import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrewarmer';
 import { Language } from '../../types';
 import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORAGE_KEY } from '../../utils/viewModeResolver';
 
@@ -80,6 +81,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     const meta = get().metadata;
     const troupeKey = meta?.sungKey ? computeTransposedTroupeKey(meta.sungKey, nextSteps) : meta?.troupeKey;
     set({ vocalTransposeSteps: nextSteps, metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta });
+    prewarmProjectVocalDspBuffers(undefined, nextSteps);
     if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
   },
   incrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.min(12, (get().vocalTransposeSteps || 0) + 1)),

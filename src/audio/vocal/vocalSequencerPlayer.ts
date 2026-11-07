@@ -1,7 +1,9 @@
 /**
  * vocalSequencerPlayer.ts
- * Lecteur vocal du séquenceur : alignement canonique (anacrouse M-1 + chute +1T),
- * bascule multi-vitesses (75% / 88% / 100%) et transposition formantique (< 140 lignes).
+ * Lecteur vocal Studio du séquenceur (Zéro GrainPlayer) :
+ * - Moteur Hybride TD-PSOLA + Formants LPC + Consonnes 1:1 (`vocalPatternBufferCache`).
+ * - Déclenchement natif `Tone.Player` (`playbackRate = 1.0`) selon :
+ *   `when = slotMeasureT1Time + (scaledTrimStartSec - scaledT1OffsetSec)` (< 138 lignes).
  */
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
@@ -91,40 +93,35 @@ export class VocalSequencerPlayer {
 
     const vocalTr = (ptnRef as any).vocalTransposeSteps ?? sequencerStore.vocalTransposeSteps ?? 0;
     const resolved = resolveVocalPlaybackBuffer(ptnRef, voiceTrack, effectiveBpm, clipSampleBpm, audioBuffer, store.vocalBuffers, vocalTr);
-    const { buffer: activeAudioBuffer, playbackRate, detuneCents: residualDetuneCents, isVariant } = resolved;
-    const isPurePlayback = Math.abs(residualDetuneCents) < 1 && Math.abs(playbackRate - 1.0) < 0.001;
+    const { buffer: activeAudioBuffer, scaledT1OffsetSec, scaledTrimStartSec, scaledTrimEndSec } = resolved;
 
     const timing = VocalTimingCalculator.calculateTiming({ clip, ptnRef, voiceTrack, effectiveBpm, measureStartTime, sequencerStore });
+    const when = clip?.t1OffsetSec !== undefined
+      ? measureStartTime + (scaledTrimStartSec - scaledT1OffsetSec) + (timing.nudgeMs / 1000) + timing.balancoOffset
+      : timing.triggerTime;
 
-    // Clé dédiée par pattern pour laisser résonner la chute +1T (`hasTailBeat`) du pattern précédent sans coupure
-    const playerKey = isVariant ? `${compositeKey}__${resolved.variantKey}` : compositeKey;
-    const activeEntry = VocalPlayerPool.getOrCreate(playerKey, activeAudioBuffer, outputNode, isCoroTrack, trackId, isPurePlayback);
+    const playerKey = resolved.variantKey ? `${compositeKey}__${resolved.variantKey}` : compositeKey;
+    const activeEntry = VocalPlayerPool.getOrCreate(playerKey, activeAudioBuffer, outputNode, isCoroTrack, trackId, true);
     const { mainPlayer, mainGain } = activeEntry;
 
-    mainPlayer.playbackRate = playbackRate;
-    if (activeEntry.grainPlayer) { activeEntry.grainPlayer.playbackRate = playbackRate; try { (activeEntry.grainPlayer as any).detune = residualDetuneCents; } catch (_) {} }
-    try { (mainPlayer as any).detune = residualDetuneCents; } catch (_) {}
+    mainPlayer.playbackRate = 1.0;
     mainPlayer.loop = false;
-    if (!isPurePlayback) (mainPlayer as any).fadeIn = 0;
 
     const baseGainLinear = faderPositionToGain(trackVolPct);
-    const internalTrimStart = Math.max(0, Number(clip?.trimStartSec ?? 0));
-    const rawTrimEnd = (clip?.trimEndSec && clip.trimEndSec > internalTrimStart && clip.trimEndSec <= activeAudioBuffer.duration)
-      ? clip.trimEndSec
-      : activeAudioBuffer.duration;
-    const usefulSec = Math.max(0.05, rawTrimEnd - internalTrimStart);
-    const playDuration = usefulSec / playbackRate;
+    const trimStart = Math.max(0, scaledTrimStartSec);
+    const trimEnd = scaledTrimEndSec > trimStart && scaledTrimEndSec <= activeAudioBuffer.duration ? scaledTrimEndSec : activeAudioBuffer.duration;
+    const playDuration = Math.max(0.05, trimEnd - trimStart);
 
-    if (timing.triggerTime >= 0) {
-      mainGain.gain.setValueAtTime(baseGainLinear, timing.triggerTime);
-      mainPlayer.start(timing.triggerTime, internalTrimStart, playDuration);
+    if (when >= 0) {
+      mainGain.gain.setValueAtTime(baseGainLinear, when);
+      mainPlayer.start(when, trimStart, playDuration);
     } else {
-      const skipSec = Math.abs(timing.triggerTime) * playbackRate;
-      const internalBufferOffset = Math.min(internalTrimStart + skipSec, Math.max(internalTrimStart, rawTrimEnd - 0.05));
-      const remainingDuration = Math.max(0, rawTrimEnd - internalBufferOffset);
+      const skipSec = Math.abs(when);
+      const internalOffset = Math.min(trimStart + skipSec, Math.max(trimStart, trimEnd - 0.05));
+      const remainingDuration = Math.max(0, trimEnd - internalOffset);
       if (remainingDuration <= 0) return null;
       mainGain.gain.setValueAtTime(baseGainLinear, 0);
-      mainPlayer.start(0, internalBufferOffset, remainingDuration / playbackRate);
+      mainPlayer.start(0, internalOffset, remainingDuration);
     }
 
     mainPlayer.onstop = typeof onStop === 'function' ? () => { try { onStop(); } catch (_) {} } : () => {};
@@ -135,7 +132,6 @@ export class VocalSequencerPlayer {
         try {
           mainPlayer.onstop = () => {}; mainPlayer.stop();
           if (activeEntry.directPlayer) { activeEntry.directPlayer.onstop = () => {}; activeEntry.directPlayer.stop(); }
-          if (activeEntry.grainPlayer) { activeEntry.grainPlayer.onstop = () => {}; activeEntry.grainPlayer.stop(); }
         } catch (_) {}
       }
     };

@@ -1,33 +1,27 @@
-
+/**
+ * audioAlignmentPlayerScheduler.ts
+ * Lecteur d'alignement vocal utilisant exclusivement le moteur DSP Studio (`vocalPatternBufferCache`)
+ * et un `Tone.Player` natif à `playbackRate = 1.0` (Zéro GrainPlayer) (< 45 lignes).
+ */
 import * as Tone from 'tone';
+import { getOrComputeVocalPatternDspSync } from '../../audio/vocalDsp/vocalPatternBufferCache';
 
-export function createAlignmentPlayer(audioBuffer: AudioBuffer, sampleBpm: number, anchorBpm: number) {
+export function createAlignmentPlayer(audioBuffer: AudioBuffer, sampleBpm: number, anchorBpm: number): Tone.Player {
   const sBpm = sampleBpm > 0 ? sampleBpm : anchorBpm;
-  const rate = sBpm > 0 ? (anchorBpm / sBpm) : 1.0;
-  const isPure = Math.abs(rate - 1.0) < 0.001;
+  const lBpm = anchorBpm > 0 ? anchorBpm : sBpm;
+  const dspEntry = getOrComputeVocalPatternDspSync('alignment_preview', audioBuffer, sBpm, lBpm, 0, 0);
 
-  let player: Tone.Player | Tone.GrainPlayer;
-  if (isPure) {
-    const directPlayer = new Tone.Player(audioBuffer);
-    directPlayer.playbackRate = 1.0;
-    directPlayer.fadeIn = 0.01;
-    directPlayer.fadeOut = 0.03;
-    directPlayer.loop = false;
-    player = directPlayer;
-  } else {
-    const grainPlayer = new Tone.GrainPlayer(audioBuffer);
-    grainPlayer.grainSize = 0.09;
-    grainPlayer.overlap = 0.04;
-    grainPlayer.playbackRate = rate;
-    grainPlayer.loop = false;
-    player = grainPlayer;
-  }
-  player.volume.value = 0;
-  player.toDestination();
-  return player;
+  const directPlayer = new Tone.Player(dspEntry.audioBuffer);
+  directPlayer.playbackRate = 1.0;
+  directPlayer.fadeIn = 0.005;
+  directPlayer.fadeOut = 0.02;
+  directPlayer.loop = false;
+  directPlayer.volume.value = 0;
+  directPlayer.toDestination();
+  return directPlayer;
 }
 
-export function playScheduledPlayer(player: Tone.Player | Tone.GrainPlayer, iterationTime: number, tStart: number, duration: number) {
+export function playScheduledPlayer(player: Tone.Player, iterationTime: number, tStart: number, duration: number) {
   const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
   const now = rawCtx ? rawCtx.currentTime : Tone.context.currentTime;
   if (iterationTime >= now) {

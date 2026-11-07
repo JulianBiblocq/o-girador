@@ -1,5 +1,7 @@
 /**
  * O Girador - Vocal Player Instance Pooling & Lifecycle
+ * Zéro GrainPlayer : utilise exclusivement `Tone.Player` (`AudioBufferSourceNode` natif) à `playbackRate = 1.0`
+ * sur les buffers haute définition calculés par le moteur DSP Studio (`vocalDsp`) (< 115 lignes).
  */
 
 import * as Tone from 'tone';
@@ -16,7 +18,7 @@ export class VocalPlayerPool {
     outputNode: any,
     isCoroTrack: boolean = false,
     trackId?: string | number,
-    useDirectPlayer: boolean = false
+    _useDirectPlayer: boolean = true
   ): ActiveVocal {
     const resolvedOutput = outputNode && outputNode !== Tone.Destination && outputNode !== (Tone as any).getDestination?.()
       ? outputNode
@@ -25,29 +27,10 @@ export class VocalPlayerPool {
     let entry = activeVocals.get(vocalKey);
     if (entry) {
       if (entry.currentBuffer !== audioBuffer) {
-        if (entry.grainPlayer) entry.grainPlayer.buffer.set(audioBuffer);
-        if (entry.directPlayer) entry.directPlayer.buffer.set(audioBuffer);
+        entry.mainPlayer.buffer.set(audioBuffer);
         entry.currentBuffer = audioBuffer;
       }
-      if (useDirectPlayer) {
-        if (!entry.directPlayer) {
-          const direct = new Tone.Player(audioBuffer);
-          direct.volume.value = 0; direct.loop = false; direct.fadeIn = 0.01; direct.fadeOut = 0.03; direct.onstop = () => {};
-          direct.connect(entry.mainGain);
-          entry.directPlayer = direct;
-        }
-        entry.mainPlayer = entry.directPlayer;
-        if (entry.grainPlayer) { try { entry.grainPlayer.playbackRate = 1.0; } catch (_) {} }
-      } else {
-        if (!entry.grainPlayer) {
-          const grain = new Tone.GrainPlayer(audioBuffer);
-          grain.grainSize = 0.09; grain.overlap = 0.04; grain.volume.value = 0; grain.loop = false;
-          (grain as any).fadeIn = 0; grain.onstop = () => {};
-          grain.connect(entry.mainGain);
-          entry.grainPlayer = grain;
-        }
-        entry.mainPlayer = entry.grainPlayer;
-      }
+      entry.mainPlayer.playbackRate = 1.0;
       entry.mainPlayer.loop = false;
       entry.mainPlayer.onstop = () => {};
       return entry;
@@ -64,22 +47,25 @@ export class VocalPlayerPool {
       mainGain.connect(dest);
     }
 
-    let directPlayer: Tone.Player | undefined;
-    let grainPlayer: Tone.GrainPlayer | undefined;
-    let mainPlayer: Tone.GrainPlayer | Tone.Player;
+    const directPlayer = new Tone.Player(audioBuffer);
+    directPlayer.volume.value = 0;
+    directPlayer.playbackRate = 1.0;
+    directPlayer.loop = false;
+    directPlayer.fadeIn = 0.004;
+    directPlayer.fadeOut = 0.015;
+    directPlayer.onstop = () => {};
+    directPlayer.connect(mainGain);
 
-    if (useDirectPlayer) {
-      directPlayer = new Tone.Player(audioBuffer);
-      directPlayer.volume.value = 0; directPlayer.loop = false; directPlayer.fadeIn = 0.01; directPlayer.fadeOut = 0.03; directPlayer.onstop = () => {};
-      directPlayer.connect(mainGain); mainPlayer = directPlayer;
-    } else {
-      grainPlayer = new Tone.GrainPlayer(audioBuffer);
-      grainPlayer.grainSize = 0.09; grainPlayer.overlap = 0.04; grainPlayer.volume.value = 0; grainPlayer.loop = false;
-      (grainPlayer as any).fadeIn = 0; grainPlayer.onstop = () => {};
-      grainPlayer.connect(mainGain); mainPlayer = grainPlayer;
-    }
-
-    entry = { mainPlayer, directPlayer, grainPlayer, mainGain, currentBuffer: audioBuffer, haasNodes, chorusPlayers: [], chorusGains: [], panners: [] };
+    entry = {
+      mainPlayer: directPlayer,
+      directPlayer,
+      mainGain,
+      currentBuffer: audioBuffer,
+      haasNodes,
+      chorusPlayers: [],
+      chorusGains: [],
+      panners: [],
+    };
     activeVocals.set(vocalKey, entry);
     return entry;
   }
@@ -105,8 +91,9 @@ export class VocalPlayerPool {
 
   private static disposeEntry(e: ActiveVocal): void {
     try { e.mainPlayer.onstop = () => {}; e.mainPlayer.stop(); e.mainPlayer.disconnect(); e.mainPlayer.dispose(); } catch (_) {}
-    if (e.directPlayer && e.directPlayer !== e.mainPlayer) { try { e.directPlayer.onstop = () => {}; e.directPlayer.stop(); e.directPlayer.disconnect(); e.directPlayer.dispose(); } catch (_) {} }
-    if (e.grainPlayer && e.grainPlayer !== e.mainPlayer) { try { e.grainPlayer.onstop = () => {}; e.grainPlayer.stop(); e.grainPlayer.disconnect(); e.grainPlayer.dispose(); } catch (_) {} }
+    if (e.directPlayer && e.directPlayer !== e.mainPlayer) {
+      try { e.directPlayer.onstop = () => {}; e.directPlayer.stop(); e.directPlayer.disconnect(); e.directPlayer.dispose(); } catch (_) {}
+    }
     try { e.mainGain.disconnect(); e.mainGain.dispose(); } catch (_) {}
     disposeHaasNodes(e.haasNodes);
     e.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
@@ -120,7 +107,6 @@ export class VocalPlayerPool {
       if (filter ? k === filter : (k.endsWith(`_${patternId}`) || k === String(patternId))) {
         try { entry.mainPlayer.stop(); } catch (_) {}
         try { entry.directPlayer?.stop(); } catch (_) {}
-        try { entry.grainPlayer?.stop(); } catch (_) {}
         entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
       }
     });
@@ -130,7 +116,6 @@ export class VocalPlayerPool {
     activeVocals.forEach((entry) => {
       try { entry.mainPlayer.onstop = () => {}; entry.mainPlayer.stop(); } catch (_) {}
       try { entry.directPlayer?.stop(); } catch (_) {}
-      try { entry.grainPlayer?.stop(); } catch (_) {}
       entry.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); } catch (_) {} });
     });
   }
