@@ -46,6 +46,14 @@ export interface PresetMetadata {
   preRollSettings?: PreRollSettings;
   vocalPreset?: string;
   morceauId?: string;
+  toadaPackId?: string;
+  ignoreMelodyPitch?: boolean;
+  sequenciadorExportMode?: 'rhythm_only' | 'with_notes';
+  sungKey?: string;
+  troupeKey?: string;
+  sungScaleMode?: string;
+  packTranspositionSemitones?: number;
+  transpositionSemitones?: number;
 }
 
 export interface Circle {

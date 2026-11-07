@@ -78,7 +78,8 @@ export function evaluateSilentMeasurePreRollSyllables(p: SilentMeasureVocalParam
 
   const anacrusisVocalBuf = getVocalBufferForPattern(track.id, nextPattern);
   const anacrusisHasSample = Boolean(anacrusisVocalBuf && isVocalSamplePattern(nextPattern));
-  if (anacrusisHasSample || trackVolPct <= 3) return;
+  const isPitchIgnored = Boolean(nextPattern.ignoreMelodyPitch || useSequencerStore.getState().metadata?.ignoreMelodyPitch);
+  if (isPitchIgnored || anacrusisHasSample || trackVolPct <= 3) return;
 
   const preNote = nextPattern.preRollNotes?.[cellIdx];
   const noteVal = typeof preNote === 'string' ? preNote.trim() : '';

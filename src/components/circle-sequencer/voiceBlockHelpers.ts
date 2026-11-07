@@ -1,6 +1,6 @@
 
 import { isVoiceHoldSyllable } from '../../utils/musicTheory';
-import { VoiceStepData } from './voiceStepExtraction';
+import type { VoiceStepData } from './voiceStepExtraction';
 
 export interface VoiceBlock {
   startIndex: number;

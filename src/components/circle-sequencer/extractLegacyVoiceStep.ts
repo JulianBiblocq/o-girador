@@ -4,6 +4,13 @@ import { Pattern, InstrumentConfig } from '../../types';
 const isStepValActive = (val: any) =>
   val !== 0 && val !== '0' && val !== '' && val !== undefined && val !== null && val !== '-';
 
+const sanitizeStepNote = (rawNote: string, rawSyl: string, ignorePitch?: boolean): string => {
+  const n = (rawNote || '').trim();
+  const s = (rawSyl || '').trim();
+  if (!ignorePitch) return n;
+  return (n === '───' || n === '-' || s === '───') ? '───' : '';
+};
+
 export function extractLegacyVoiceStep(
   i: number,
   effectiveStepCount: number,
@@ -33,8 +40,8 @@ export function extractLegacyVoiceStep(
   const isRawActive = isStepValActive(sVal);
 
   if (isRawActive) {
-    const noteVal = (basePat?.notes?.[i] || '').trim();
     const sylVal = (basePat?.lyrics?.[i] || '').trim();
+    const noteVal = sanitizeStepNote(basePat?.notes?.[i] || '', sylVal, basePat?.ignoreMelodyPitch);
     if (sStr === 'C' || (currentInst.id === 'coro' && sStr !== 'P')) {
       cActive = true;
       cNote = noteVal;
@@ -42,6 +49,7 @@ export function extractLegacyVoiceStep(
     } else {
       pActive = true;
       pNote = noteVal;
+      cSyl = cSyl;
       pSyl = sylVal;
     }
   } else {
@@ -55,8 +63,8 @@ export function extractLegacyVoiceStep(
     const activeVal = isPreActive ? preVal : (isNextPreActive ? nextPreVal : null);
 
     if (targetPat && activeVal) {
-      const noteVal = (targetPat.preRollNotes?.[i] || '').trim();
       const sylVal = (targetPat.preRollLyrics?.[i] || '').trim();
+      const noteVal = sanitizeStepNote(targetPat.preRollNotes?.[i] || '', sylVal, targetPat.ignoreMelodyPitch);
       const preStr = String(activeVal).toUpperCase();
       if (preStr === 'C' || (currentInst.id === 'coro' && preStr !== 'P')) {
         cActive = true;

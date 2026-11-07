@@ -4,6 +4,7 @@ import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
 import { detectEcoMode } from '../helpers/ecoModeDetector';
 import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
+import { computeTransposedTroupeKey, syncCloudToadaTransposition } from '../../services/cloudToadas';
 import { Language } from '../../types';
 import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORAGE_KEY } from '../../utils/viewModeResolver';
 
@@ -74,32 +75,32 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex, selectedStepRange: null }),
   setSelectedStepIndex: (idx, isPreRoll = false) => set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: null, selectedStepRange: null }),
   setSelectedStepRange: (range) => set({ selectedStepRange: range }),
-  setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
-  incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
-  decrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.max(-12, state.vocalTransposeSteps - 1) })),
+  setVocalTransposeSteps: (steps) => {
+    const nextSteps = Math.max(-12, Math.min(12, steps));
+    const meta = get().metadata;
+    const troupeKey = meta?.sungKey ? computeTransposedTroupeKey(meta.sungKey, nextSteps) : meta?.troupeKey;
+    set({ vocalTransposeSteps: nextSteps, metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta });
+    if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
+  },
+  incrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.min(12, (get().vocalTransposeSteps || 0) + 1)),
+  decrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.max(-12, (get().vocalTransposeSteps || 0) - 1)),
   transposePatternNotes: (trackId, patternId, semitones) => {
     if (!semitones) return;
     const state = get();
     state.pushUndoState();
     try {
-      if (typeof window !== 'undefined' && Tone.context && Tone.context.state !== 'running') {
-        Tone.start().catch(() => {});
-      }
+      if (typeof window !== 'undefined' && Tone.context && Tone.context.state !== 'running') Tone.start().catch(() => {});
     } catch (_) {}
-
     const { tracks: newTracks, noteToPreview } = transposePatternNotesState(state.tracks, trackId, patternId, semitones);
-    const currentSteps = state.vocalTransposeSteps || 0;
-    const nextSteps = currentSteps + semitones;
-
+    const nextSteps = Math.max(-12, Math.min(12, (state.vocalTransposeSteps || 0) + semitones));
+    const meta = state.metadata;
+    const troupeKey = meta?.sungKey ? computeTransposedTroupeKey(meta.sungKey, nextSteps) : meta?.troupeKey;
     set({
-      tracks: newTracks,
-      tracksVersion: (state.tracksVersion || 0) + 1,
-      vocalTransposeSteps: nextSteps,
+      tracks: newTracks, tracksVersion: (state.tracksVersion || 0) + 1, vocalTransposeSteps: nextSteps,
+      metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta,
     });
-
-    if (noteToPreview && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
-    }
+    if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
+    if (noteToPreview && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
   },
   handleExtractLyrics: () => {
     const letras = extractLyricsFromTracks(get().tracks);

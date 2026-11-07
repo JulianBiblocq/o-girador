@@ -1,8 +1,15 @@
 
-import { Pattern } from '../../types';
+import type { Pattern } from '../../types';
 
 const isStepValActive = (val: any) =>
   val !== 0 && val !== '0' && val !== '' && val !== undefined && val !== null && val !== '-';
+
+const sanitizeStepNote = (rawNote: string, rawSyl: string, ignorePitch?: boolean): string => {
+  const n = (rawNote || '').trim();
+  const s = (rawSyl || '').trim();
+  if (!ignorePitch) return n;
+  return (n === '───' || n === '-' || s === '───') ? '───' : '';
+};
 
 export function extractSeparateVoiceStep(
   i: number,
@@ -27,26 +34,26 @@ export function extractSeparateVoiceStep(
 
   if (puxPattern && puxPlayingSteps && isStepValActive(puxPlayingSteps[i])) {
     pActive = true;
-    pNote = (puxPattern.notes?.[i] || '').trim();
     pSyl = (puxPattern.lyrics?.[i] || '').trim();
+    pNote = sanitizeStepNote(puxPattern.notes?.[i] || '', pSyl, puxPattern.ignoreMelodyPitch);
   }
   if (coroPattern && coroPlayingSteps && isStepValActive(coroPlayingSteps[i])) {
     cActive = true;
-    cNote = (coroPattern.notes?.[i] || '').trim();
     cSyl = (coroPattern.lyrics?.[i] || '').trim();
+    cNote = sanitizeStepNote(coroPattern.notes?.[i] || '', cSyl, coroPattern.ignoreMelodyPitch);
   }
 
   if (soloPlayId !== undefined && soloPlayId !== null) {
     if (!pActive && isStepValActive(puxPattern?.preRollActiveSteps?.[i])) {
       pActive = true;
-      pNote = (puxPattern?.preRollNotes?.[i] || '').trim();
       pSyl = (puxPattern?.preRollLyrics?.[i] || '').trim();
+      pNote = sanitizeStepNote(puxPattern?.preRollNotes?.[i] || '', pSyl, puxPattern?.ignoreMelodyPitch);
       pAnacrusis = true;
     }
     if (!cActive && isStepValActive(coroPattern?.preRollActiveSteps?.[i])) {
       cActive = true;
-      cNote = (coroPattern?.preRollNotes?.[i] || '').trim();
       cSyl = (coroPattern?.preRollLyrics?.[i] || '').trim();
+      cNote = sanitizeStepNote(coroPattern?.preRollNotes?.[i] || '', cSyl, coroPattern?.ignoreMelodyPitch);
       cAnacrusis = true;
     }
   } else {
@@ -54,14 +61,14 @@ export function extractSeparateVoiceStep(
     if (isPickupWindow && !pActive && !cActive) {
       if (isStepValActive(nextPuxPattern?.preRollActiveSteps?.[i])) {
         pActive = true;
-        pNote = (nextPuxPattern?.preRollNotes?.[i] || '').trim();
         pSyl = (nextPuxPattern?.preRollLyrics?.[i] || '').trim();
+        pNote = sanitizeStepNote(nextPuxPattern?.preRollNotes?.[i] || '', pSyl, nextPuxPattern?.ignoreMelodyPitch);
         pAnacrusis = true;
       }
       if (isStepValActive(nextCoroPattern?.preRollActiveSteps?.[i])) {
         cActive = true;
-        cNote = (nextCoroPattern?.preRollNotes?.[i] || '').trim();
         cSyl = (nextCoroPattern?.preRollLyrics?.[i] || '').trim();
+        cNote = sanitizeStepNote(nextCoroPattern?.preRollNotes?.[i] || '', cSyl, nextCoroPattern?.ignoreMelodyPitch);
         cAnacrusis = true;
       }
     }

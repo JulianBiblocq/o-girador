@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { Track, Pattern, GlobalSwing } from '../../types';
-import { getEffectiveVolume } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, useSequencerStore } from '../../stores/useSequencerStore';
 import { faderPositionToGain } from '../../utils/audioMath';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { getBalancoOffsetSec } from '../../utils/balancoUtils';
@@ -76,7 +76,8 @@ export function playActiveVoiceStep(p: ActiveVoiceStepParams): void {
   const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
 
   const isProlongation = isVoiceStepProlongation(true, prevIsActive, noteVal, prevNoteVal, curSyl);
-  const allowSynthPlayback = currentVocalMode === 'synth' || currentVocalMode === 'both' || !hasVocalSample;
+  const isPitchIgnored = Boolean(effectivePattern.ignoreMelodyPitch || useSequencerStore.getState().metadata?.ignoreMelodyPitch);
+  const allowSynthPlayback = !isPitchIgnored && (currentVocalMode === 'synth' || currentVocalMode === 'both' || !hasVocalSample);
 
   if (allowSynthPlayback && trackVolPct > 3 && !isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
     let spanSteps = 1;

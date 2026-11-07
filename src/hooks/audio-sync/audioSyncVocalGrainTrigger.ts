@@ -44,20 +44,21 @@ export function triggerVocalGrainAtStep0(p: VocalGrainTriggerParams): void {
 
   if (!hasVocalSample || stepIdx !== 0 || isAlreadyAnticipated || !canStartSampleHere) return;
 
+  // Ne coupe pas un bloc précédent si celui-ci porte une chute +1T (`hasTailBeat`) résonnant sur le Temps 1
   activeSequencerVocals.forEach((handle, key) => {
-    if (key.startsWith(`${track.id}_`) && key !== currentKey) {
+    if (key.startsWith(`${track.id}_`) && key !== currentKey && !handle?.hasTailBeat) {
       try { handle.stop(); } catch (_) {}
       activeSequencerVocals.delete(key);
     }
   });
 
-  const toadaTrack = tracks.find(trk => isToadaBus(trk));
+  const toadaTrack = tracks.find((trk) => isToadaBus(trk));
   const outputNode = trackInputs[track.id] || channels[track.id] || (toadaTrack && (busInputs[toadaTrack.id] || busChannels[toadaTrack.id])) || masterVolumeNode;
   const voiceInst = instrumentsConfig[track.instrumentIdx];
   const isCoroTrack = voiceInst?.id === 'coro';
   const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
   let vocalVol = isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(tracks, track.id);
-  const isSoloTrack = (soloPatternPlayId !== null) && track.patterns.some(pat => String(pat.id) === String(soloPatternPlayId));
+  const isSoloTrack = (soloPatternPlayId !== null) && track.patterns.some((pat) => String(pat.id) === String(soloPatternPlayId));
   if (isSoloTrack && vocalVol <= 3) {
     vocalVol = 75;
   }

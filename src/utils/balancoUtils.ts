@@ -1,5 +1,5 @@
 
-import { Pattern, Track, GlobalSwing } from '../types';
+import type { Pattern, Track, GlobalSwing } from '../types';
 import { useBalancoStore } from '../stores/useBalancoStore';
 
 export interface StepBalancoParams {

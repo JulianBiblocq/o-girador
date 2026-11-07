@@ -3,7 +3,7 @@
  * O Girador - Time Signature Beat Markers and Max Ticks Helpers
  */
 
-import { TimeSignature } from '../../../types';
+import type { TimeSignature } from '../../../types';
 
 export function getMarkers(timeSignature: TimeSignature, maxTicks: number): number[] {
   if (timeSignature === '4/4') return [0, 24, 48, 72];

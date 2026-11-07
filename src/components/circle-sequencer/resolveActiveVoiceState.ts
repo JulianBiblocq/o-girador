@@ -1,5 +1,5 @@
 
-import { TrackGroup, Pattern } from '../../types';
+import type { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { resolvePatternForMeasure, getDefaultStepsForMeasure, getPhysicalStepFromRatio } from './measurePatternHelpers';
@@ -107,8 +107,8 @@ export function resolveActiveVoiceState(
   }
 
   if (!isAnacrusis) {
-    const puxHasNotes = Boolean(puxPattern?.activeSteps && Object.values(puxPattern.activeSteps).some(v => v && v !== 0 && v !== '0'));
-    const coroHasNotes = Boolean(coroPattern?.activeSteps && Object.values(coroPattern.activeSteps).some(v => v && v !== 0 && v !== '0'));
+    const puxHasNotes = Boolean(puxPattern && ((puxPattern.activeSteps && Object.values(puxPattern.activeSteps).some((v) => v && v !== 0 && v !== '0')) || puxPattern.hasVocalAudio || puxPattern.vocalClip));
+    const coroHasNotes = Boolean(coroPattern && ((coroPattern.activeSteps && Object.values(coroPattern.activeSteps).some((v) => v && v !== 0 && v !== '0')) || coroPattern.hasVocalAudio || coroPattern.vocalClip));
 
     if (puxHasNotes && coroHasNotes) {
       const puxHitNow = Boolean(puxPattern?.activeSteps?.[currentStep] && puxPattern.activeSteps[currentStep] !== 0);

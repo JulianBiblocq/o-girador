@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { Track, Pattern, GlobalSwing } from '../../types';
-import { getEffectiveVolume } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, useSequencerStore } from '../../stores/useSequencerStore';
 import { faderPositionToGain } from '../../utils/audioMath';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { getBalancoOffsetSec } from '../../utils/balancoUtils';
@@ -65,7 +65,8 @@ export function evaluateFreeStepAnacrusis(p: FreeStepAnacrusisParams): void {
   const anacrusisVocalBuf = getVocalBufferForPattern(track.id, targetAnacrusisPat);
   const allowAnacrusisSample = isSamplePlaybackAllowed(currentVocalMode);
   const anacrusisHasSample = Boolean(anacrusisVocalBuf && isVocalSamplePattern(targetAnacrusisPat) && allowAnacrusisSample);
-  const allowAnacrusisSynth = currentVocalMode === 'synth' || currentVocalMode === 'both' || !anacrusisHasSample;
+  const isPitchIgnored = Boolean(targetAnacrusisPat.ignoreMelodyPitch || useSequencerStore.getState().metadata?.ignoreMelodyPitch);
+  const allowAnacrusisSynth = !isPitchIgnored && (currentVocalMode === 'synth' || currentVocalMode === 'both' || !anacrusisHasSample);
 
   if (allowAnacrusisSynth && trackVolPct > 3) {
     const preNote = targetAnacrusisPat.preRollNotes?.[cellIdx];

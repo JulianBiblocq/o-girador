@@ -1,5 +1,5 @@
 
-import { BalancoPreset } from '../../types/balanco.types';
+import type { BalancoPreset } from '../../types/balanco.types';
 
 export const FACTORY_BALANCOS: BalancoPreset[] = [
   {
@@ -43,6 +43,7 @@ export const FACTORY_BALANCOS: BalancoPreset[] = [
 export const LOCAL_BALANCOS_STORAGE_KEY = 'girador_user_balancos';
 
 export const loadInitialUserBalancoPresets = (): BalancoPreset[] => {
+  if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(LOCAL_BALANCOS_STORAGE_KEY);
     if (raw) {

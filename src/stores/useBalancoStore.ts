@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { BalancoPreset } from '../types/balanco.types';
+import type { BalancoPreset } from '../types/balanco.types';
 import {
   FACTORY_BALANCOS,
   loadInitialUserBalancoPresets,

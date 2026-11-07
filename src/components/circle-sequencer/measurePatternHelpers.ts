@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { TrackGroup, Pattern } from '../../types';
+import type { TrackGroup, Pattern } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { EMPTY_ARRAY } from './circleSequencerConstants';
 

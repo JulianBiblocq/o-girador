@@ -1,7 +1,7 @@
 /**
  * toadaVariantImporter.ts
- * Décodage par lot des déclinaisons audio vocales avec cache d'URL pour éviter tout téléchargement redondant.
- * Plafond strict : < 110 lignes.
+ * Décodage par lot des déclinaisons audio vocales (`variants` et `speedVariants: { '75', '88', '100' }`)
+ * avec cache d'URL pour éviter tout téléchargement redondant (< 115 lignes).
  */
 import { useAudioStore } from '../../stores/useAudioStore';
 import { saveVocalRecording } from '../../db';
@@ -42,13 +42,33 @@ export async function importPatternVariants(
   origId: string,
   roleTrackId: number,
   rawCtx: AudioContext,
-  urlCache?: Map<string, DecodedUrlAudio>
+  urlCache?: Map<string, DecodedUrlAudio>,
+  speedVariants?: Record<string, string>
 ): Promise<string[]> {
   const loadedKeys: string[] = [];
-  if (!variants || typeof variants !== 'object') return loadedKeys;
+  const mergedVariants: Record<string, any> = { ...(variants || {}) };
+
+  if (speedVariants && typeof speedVariants === 'object') {
+    for (const [spdKey, url] of Object.entries(speedVariants)) {
+      if (!url) continue;
+      const pct = parseInt(spdKey, 10);
+      if (!Number.isFinite(pct) || pct <= 0) continue;
+      const normKey = `spd${pct}_pit0`;
+      if (!mergedVariants[normKey]) {
+        mergedVariants[normKey] = {
+          variantKey: normKey,
+          speedRatio: pct / 100,
+          pitchShiftSemitones: 0,
+          audioUrl: url,
+        };
+      }
+    }
+  }
+
+  const entries = Object.entries(mergedVariants);
+  if (entries.length === 0) return loadedKeys;
 
   const aStore = useAudioStore.getState();
-  const entries = Object.entries(variants);
 
   for (const [key, v] of entries) {
     try {

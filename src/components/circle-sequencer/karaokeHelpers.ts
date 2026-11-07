@@ -1,6 +1,6 @@
 
-import { Pattern } from '../../types';
-import { WordItem, SyllableItem } from './circleSequencerTypes';
+import type { Pattern } from '../../types';
+import type { WordItem, SyllableItem } from './circleSequencerTypes';
 
 export const patternWordsCache = new Map<string, WordItem[]>();
 
@@ -36,7 +36,7 @@ export function getPatternWords(
     if (isActive && rawText && typeof rawText === 'string' && rawText.trim() !== '' && rawText.trim() !== '-' && rawText.trim() !== '───') {
       const hasSpace = rawText.endsWith(' ') || rawText.endsWith('  ');
       const cleanText = rawText.trim().replace(/-$/, '');
-      const note = notes?.[s]?.trim();
+      const note = pattern.ignoreMelodyPitch ? undefined : notes?.[s]?.trim();
 
       currentSyllables.push({ step: s, cleanText, hasSpace, note });
 

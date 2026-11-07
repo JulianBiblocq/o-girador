@@ -3,7 +3,7 @@
  * O Girador - Factory Preset: Baque de Imalê
  */
 
-import { Preset } from '../../../types';
+import type { Preset } from '../../../types';
 
 export const baqueDeImalePreset: Preset = {
   bpm: 77,

@@ -1,5 +1,5 @@
 
-import { MasterFX } from './store.types';
+import type { MasterFX } from './store.types';
 
 export interface WorkspaceTemplateOptions {
   includeStructure: boolean;    // Estrutura do batuque & Bus (vínculos mestre/escravos, subgrupos)

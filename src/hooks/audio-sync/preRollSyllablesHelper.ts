@@ -31,7 +31,8 @@ export function schedulePreRollSyllables(
       pushVisualHitTrigger(track.id, s, stateCode, stepTime);
     }
 
-    if (!hasVocalSample && vocalVol > 0) {
+    const isPitchIgnored = Boolean(activePattern.ignoreMelodyPitch || useSequencerStore.getState().metadata?.ignoreMelodyPitch);
+    if (!isPitchIgnored && !hasVocalSample && vocalVol > 0) {
       const preNote = activePattern.preRollNotes?.[s];
       const noteVal = typeof preNote === 'string' ? preNote.trim() : '';
       const preRollLyrics = activePattern.preRollLyrics || [];

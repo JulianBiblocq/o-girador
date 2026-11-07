@@ -1,7 +1,8 @@
 /**
- * O Girador - Vocal Sequencer Player & Preview Dispatcher
+ * vocalSequencerPlayer.ts
+ * Lecteur vocal du séquenceur : alignement canonique (anacrouse M-1 + chute +1T),
+ * bascule multi-vitesses (75% / 88% / 100%) et transposition formantique (< 140 lignes).
  */
-
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -10,7 +11,6 @@ import { faderPositionToGain } from '../../utils/audioMath';
 import { resolveVocalPlaybackBuffer } from '../../utils/vocal/vocalPlaybackHelper';
 import { resolveVocalOutputNode } from './vocalOutputNode';
 import { VocalPlayerPool } from './vocalPlayerPool';
-import { VocalOldPlayerFade } from './vocalOldPlayerFade';
 import { VocalTimingCalculator } from './vocalTimingCalculator';
 
 export class VocalSequencerPlayer {
@@ -24,8 +24,8 @@ export class VocalSequencerPlayer {
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
     const voiceTrack = trackId
-      ? sequencerStore.tracks.find(t => String(t.id) === String(trackId))
-      : sequencerStore.tracks.find(t => t.patterns.some(p => Number(p.id) === Number(patternId)));
+      ? sequencerStore.tracks.find((t) => String(t.id) === String(trackId))
+      : sequencerStore.tracks.find((t) => t.patterns.some((p) => Number(p.id) === Number(patternId)));
 
     const compositeKey = voiceTrack ? `${voiceTrack.id}_${patternId}` : String(patternId);
     let audioBuffer = store.vocalBuffers[compositeKey] || store.vocalBuffers[patternId];
@@ -44,7 +44,7 @@ export class VocalSequencerPlayer {
     const isCoro = voiceTrack ? instrumentsConfig[voiceTrack.instrumentIdx]?.id === 'coro' : false;
     const outputNode = resolveVocalOutputNode(voiceTrack?.id, isCoro);
     const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 75) : 75;
-    const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
+    const ptnRef = voiceTrack?.patterns.find((p) => Number(p.id) === Number(patternId));
     const anchorBpm = ptnRef ? VocalTimingCalculator.calculateAnchorBpm(ptnRef, sequencerStore) : sequencerStore.bpm;
     const timing = ptnRef
       ? VocalTimingCalculator.calculateTiming({ clip: ptnRef.vocalClip, ptnRef, voiceTrack, effectiveBpm: anchorBpm, measureStartTime: time, sequencerStore })
@@ -62,14 +62,14 @@ export class VocalSequencerPlayer {
     trackVolPct: number,
     isCoroTrack: boolean,
     onStop?: () => void,
-    isDirectStep0: boolean = false
+    _isDirectStep0: boolean = false
   ): any {
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
-    const voiceTrack = sequencerStore.tracks.find(t => String(t.id) === String(trackId));
+    const voiceTrack = sequencerStore.tracks.find((t) => String(t.id) === String(trackId));
     if (!voiceTrack) return null;
 
-    const ptnRef = voiceTrack.patterns.find(p => p && (
+    const ptnRef = voiceTrack.patterns.find((p) => p && (
       p.id === patternId || String(p.id) === String(patternId) ||
       (!isNaN(Number(patternId)) && Number(p.id) === Number(patternId)) ||
       (p.vocalClip && (p.vocalClip.id === patternId || String(p.vocalClip.id) === String(patternId) || (!isNaN(Number(patternId)) && Number(p.vocalClip.id) === Number(patternId))))
@@ -86,17 +86,17 @@ export class VocalSequencerPlayer {
 
     const compositeKey = `${trackId}_${patId}`;
     const anchorMeasureBpm = VocalTimingCalculator.calculateAnchorBpm(ptnRef, sequencerStore);
-    const effectiveBpm = currentBpm || anchorMeasureBpm;
-    const clipSampleBpm = clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
+    const effectiveBpm = currentBpm || sequencerStore.bpm || anchorMeasureBpm;
+    const clipSampleBpm = clip?.recordedBpm || clip?.sampleBpm || clip?.baseBpm || ptnRef.vocalBaseBpm || anchorMeasureBpm;
 
-    const vocalTr = (ptnRef as any).vocalTransposeSteps || sequencerStore.vocalTransposeSteps || 0;
+    const vocalTr = (ptnRef as any).vocalTransposeSteps ?? sequencerStore.vocalTransposeSteps ?? 0;
     const resolved = resolveVocalPlaybackBuffer(ptnRef, voiceTrack, effectiveBpm, clipSampleBpm, audioBuffer, store.vocalBuffers, vocalTr);
     const { buffer: activeAudioBuffer, playbackRate, detuneCents: residualDetuneCents, isVariant } = resolved;
-    const isPurePlayback = !isVariant && Math.abs(playbackRate - 1.0) < 0.001;
+    const isPurePlayback = Math.abs(residualDetuneCents) < 1 && Math.abs(playbackRate - 1.0) < 0.001;
 
     const timing = VocalTimingCalculator.calculateTiming({ clip, ptnRef, voiceTrack, effectiveBpm, measureStartTime, sequencerStore });
-    VocalOldPlayerFade.fadeAndDispose(trackId, timing.actualStartTime);
 
+    // Clé dédiée par pattern pour laisser résonner la chute +1T (`hasTailBeat`) du pattern précédent sans coupure
     const playerKey = isVariant ? `${compositeKey}__${resolved.variantKey}` : compositeKey;
     const activeEntry = VocalPlayerPool.getOrCreate(playerKey, activeAudioBuffer, outputNode, isCoroTrack, trackId, isPurePlayback);
     const { mainPlayer, mainGain } = activeEntry;
@@ -108,15 +108,20 @@ export class VocalSequencerPlayer {
     if (!isPurePlayback) (mainPlayer as any).fadeIn = 0;
 
     const baseGainLinear = faderPositionToGain(trackVolPct);
-    const usefulSec = (clip?.trimEndSec && clip.trimEndSec > 0 && clip.trimEndSec < activeAudioBuffer.duration) ? clip.trimEndSec : activeAudioBuffer.duration;
+    const internalTrimStart = Math.max(0, Number(clip?.trimStartSec ?? 0));
+    const rawTrimEnd = (clip?.trimEndSec && clip.trimEndSec > internalTrimStart && clip.trimEndSec <= activeAudioBuffer.duration)
+      ? clip.trimEndSec
+      : activeAudioBuffer.duration;
+    const usefulSec = Math.max(0.05, rawTrimEnd - internalTrimStart);
     const playDuration = usefulSec / playbackRate;
 
     if (timing.triggerTime >= 0) {
       mainGain.gain.setValueAtTime(baseGainLinear, timing.triggerTime);
-      mainPlayer.start(timing.triggerTime, 0, playDuration);
+      mainPlayer.start(timing.triggerTime, internalTrimStart, playDuration);
     } else {
-      const internalBufferOffset = Math.min(Math.abs(timing.triggerTime) * playbackRate, Math.max(0, usefulSec - 0.05));
-      const remainingDuration = Math.max(0, usefulSec - internalBufferOffset);
+      const skipSec = Math.abs(timing.triggerTime) * playbackRate;
+      const internalBufferOffset = Math.min(internalTrimStart + skipSec, Math.max(internalTrimStart, rawTrimEnd - 0.05));
+      const remainingDuration = Math.max(0, rawTrimEnd - internalBufferOffset);
       if (remainingDuration <= 0) return null;
       mainGain.gain.setValueAtTime(baseGainLinear, 0);
       mainPlayer.start(0, internalBufferOffset, remainingDuration / playbackRate);
@@ -125,7 +130,7 @@ export class VocalSequencerPlayer {
     mainPlayer.onstop = typeof onStop === 'function' ? () => { try { onStop(); } catch (_) {} } : () => {};
 
     return {
-      mainPlayer,
+      mainPlayer, patternId: patId, hasTailBeat: Boolean(ptnRef.hasTailBeat || clip?.hasTailBeat),
       stop: () => {
         try {
           mainPlayer.onstop = () => {}; mainPlayer.stop();

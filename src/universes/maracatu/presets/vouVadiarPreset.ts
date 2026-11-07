@@ -3,7 +3,7 @@
  * O Girador - Factory Preset: Vou Vadiar (Carnaval)
  */
 
-import { Preset } from '../../../types';
+import type { Preset } from '../../../types';
 
 export const vouVadiarPreset: Preset = {
   bpm: 83,
