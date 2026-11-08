@@ -20,6 +20,7 @@ export { buildToadaConductorSlots, deployToadaCycle };
 export interface ToadaImportOptions {
   deployStartMeasureIdx?: number | null;
   pack?: any;
+  preserveMasterBpm?: boolean;
 }
 
 export async function importToadaPackIntoSequencer(
@@ -111,7 +112,7 @@ export async function importToadaPackIntoSequencer(
   });
 
   store.setTracks(nextTracks);
-  if (packBpm) { store.setGlobalBpm(packBpm); store.setBpm(packBpm); }
+  if (packBpm && !options.preserveMasterBpm) { store.setGlobalBpm(packBpm); store.setBpm(packBpm); }
   store.setVocalTransposeSteps(packTranspositionSt);
   prewarmProjectVocalDspBuffers(packBpm, packTranspositionSt, true);
   store.setMetadata({

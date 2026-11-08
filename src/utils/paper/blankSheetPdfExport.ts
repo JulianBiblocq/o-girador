@@ -1,11 +1,21 @@
 /**
- * Orchestrateur d'impression des fiches vierges Cordel et Légende Complète A4 (< 145 lignes).
+ * Orchestrateur d'impression des fiches vierges Cordel et Légende Complète A4 avec repères optiques ■ (< 115 lignes).
  */
 import { BlankSheetOptions } from '../../types/paperWorkshop.types';
 import { renderBlankSheetGrid32x25, renderBlankSheetA, renderBlankSheetB, renderBlankSheetC, renderBlankSheetUniversal, renderBlankSheetDictionary } from './blankSheetHtmlTemplates';
 import { renderLegendStrokesHTML } from './paperLegendStrokesHtml';
 import { renderLegendConductorHTML } from './paperLegendConductorHtml';
 import { printViaInvisibleIframe } from '../print/printIframeHelper';
+
+export function renderOpticalFiducialsHTML(): string {
+  const base = 'position:fixed;width:6mm;height:6mm;background:#000;color:#fff;font-size:7pt;display:flex;align-items:center;justify-content:center;font-weight:900;z-index:50;';
+  return `
+    <div class="fiducial-tl" style="${base}top:2mm;left:2mm;">■</div>
+    <div class="fiducial-tr" style="${base}top:2mm;right:2mm;">■</div>
+    <div class="fiducial-bl" style="${base}bottom:2mm;left:2mm;">■</div>
+    <div class="fiducial-br" style="${base}bottom:2mm;right:2mm;">■</div>
+  `;
+}
 
 export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | 'pt'): void => {
   let content = '';
@@ -28,20 +38,11 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
       @page { size: A4 ${orientation}; margin: ${isGrid32 ? '5mm 13.5mm' : '8mm'}; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: sans-serif; }
-      .page-wrapper { width: 100%; max-width: ${maxWidth}; margin: 0 auto; padding: 4px; }
+      .page-wrapper { position: relative; width: 100%; max-width: ${maxWidth}; margin: 0 auto; padding: 4px; }
       .sheet-page {
-        width: 100%;
-        max-width: ${maxWidth};
-        height: ${pageHeight};
-        max-height: ${pageHeight};
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        overflow: hidden;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-        break-inside: avoid;
+        width: 100%; max-width: ${maxWidth}; height: ${pageHeight}; max-height: ${pageHeight};
+        box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;
+        overflow: hidden; page-break-after: avoid; page-break-inside: avoid; break-inside: avoid;
       }
       @media print {
         html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; }
@@ -50,9 +51,8 @@ export const exportBlankSheetToPdf = (options: BlankSheetOptions, lang: 'fr' | '
         .sheet-page { page-break-after: avoid !important; break-inside: avoid !important; }
       }
     </style></head><body>
-      <div class="page-wrapper">
-        ${content}
-      </div>
+      ${renderOpticalFiducialsHTML()}
+      <div class="page-wrapper">${content}</div>
     </body></html>
   `;
   printViaInvisibleIframe(fullHtml, title);
@@ -71,6 +71,7 @@ export const printCompletePaperLegend = (lang: 'fr' | 'pt'): void => {
       body { margin: 0; padding: 8px; background: #fff; color: #1a1a1a; font-family: sans-serif; }
       @media print { body { padding: 0; } .no-print { display: none !important; } }
     </style></head><body>
+      ${renderOpticalFiducialsHTML()}
       <div style="border: 2px solid #1a1a1a; padding: 10px; background: #ffffff;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8b2a1a; padding-bottom: 4px; margin-bottom: 8px;">
           <div>
@@ -81,14 +82,10 @@ export const printCompletePaperLegend = (lang: 'fr' | 'pt'): void => {
               ${isFr ? 'Notation manuscrite pour fiches vierges Cordel et décodage photo' : 'Notação manuscrita para folhas livres Cordel'}
             </div>
           </div>
-          <div style="font-size: 9px; font-weight: bold; border: 1.5px solid #1a1a1a; padding: 2px 6px; background: #f4ecd8;">
-            A4 PORTRAIT
-          </div>
+          <div style="font-size: 9px; font-weight: bold; border: 1.5px solid #1a1a1a; padding: 2px 6px; background: #f4ecd8;">A4 PORTRAIT</div>
         </div>
         ${strokesHtml}
-        <div style="margin-top: 8px;">
-          ${conductorHtml}
-        </div>
+        <div style="margin-top: 8px;">${conductorHtml}</div>
         <div style="margin-top: 8px; text-align: center; font-size: 7.5px; color: #777; border-top: 1px solid #ccc; padding-top: 3px;">
           O Girador • Écosystème Maracatu & Musiques Traditionnelles • 100% Hors-Ligne & Conforme Cordel
         </div>
