@@ -3,6 +3,8 @@
  * Impression A4 100 % N&B des 4 feuilles vocales et conversion multi-photos vers les pistes 5. Puxador & 6. Coro (< 138 lignes).
  * Préserve les pistes de percussion (instrumentIdx < 10) et le BPM maître du Batuque.
  */
+import { collection, getDocs, limit, query } from 'firebase/firestore';
+import { db } from '../../firebase/config';
 import { printViaInvisibleIframe } from '../print/printIframeHelper';
 import { importToadaPackIntoSequencer } from '../toadaPackImporter';
 
@@ -16,10 +18,7 @@ export function setVocalOpticalApiKey(key: string): void {
 }
 
 const KEYBOARD_ROWS = [
-  { key: 'A', label: 'La (A)', isBlack: false, strong: true }, { key: 'Bb', label: 'Si♭', isBlack: true }, { key: 'B', label: 'Si (B)', isBlack: false },
-  { key: 'C', label: 'Do (C)', isBlack: false, strong: true }, { key: 'C#', label: 'Do#', isBlack: true }, { key: 'D', label: 'Ré (D)', isBlack: false },
-  { key: 'Eb', label: 'Mi♭', isBlack: true }, { key: 'E', label: 'Mi (E)', isBlack: false }, { key: 'F', label: 'Fa (F)', isBlack: false },
-  { key: 'F#', label: 'Fa#', isBlack: true }, { key: 'G', label: 'Sol (G)', isBlack: false }, { key: 'G#', label: 'Sol#', isBlack: true },
+  { key: 'A', label: 'La (A)', isBlack: false, strong: true }, { key: 'Bb', label: 'Si♭', isBlack: true }, { key: 'B', label: 'Si (B)', isBlack: false }, { key: 'C', label: 'Do (C)', isBlack: false, strong: true }, { key: 'C#', label: 'Do#', isBlack: true }, { key: 'D', label: 'Ré (D)', isBlack: false }, { key: 'Eb', label: 'Mi♭', isBlack: true }, { key: 'E', label: 'Mi (E)', isBlack: false }, { key: 'F', label: 'Fa (F)', isBlack: false }, { key: 'F#', label: 'Fa#', isBlack: true }, { key: 'G', label: 'Sol (G)', isBlack: false }, { key: 'G#', label: 'Sol#', isBlack: true },
 ];
 const SEMITONE_FROM_A3: Record<string, number> = { A: 0, LA: 0, BB: 1, 'A#': 1, SIB: 1, 'SI♭': 1, B: 2, SI: 2, C: 3, DO: 3, DÓ: 3, 'C#': 4, 'DO#': 4, D: 5, RE: 5, RÉ: 5, EB: 6, 'D#': 6, MIB: 6, 'MI♭': 6, E: 7, MI: 7, F: 8, FA: 8, 'F#': 9, 'FA#': 9, G: 10, SOL: 10, 'G#': 11, 'SOL#': 11 };
 const MIDI_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -118,18 +117,23 @@ export function buildSequencerToadaPackFromVocalScan(scanResult: any, activeBpm 
 export async function scanAndInjectVocalPaperInSequenciador(photoDataUrls: string[], activeBpm: number, customTitle?: string, customKey?: string): Promise<{ success: boolean; count?: number; error?: string }> {
   const apiKey = customKey?.trim() || getVocalOpticalApiKey();
   if (!apiKey) return { success: false, error: "Clé d'accès requise pour le service de lecture optique." };
-  const prompt = `Tu es le moteur de lecture optique de l'Atelier Papier du Chant (O Girador). Analyse ces photos (CHANT-SEQ, CHANT-NOTES-1M/2M, CHANT-RYTHME) et réponds UNIQUEMENT en JSON valide: {"title":"...","sequenceColumns":[{"measureNumber":1,"puxCode":"P1","corCode":"X"}],"patterns":[{"code":"P1","measuresCount":1,"hasAnacrusis":false,"hasTailBeat":false,"rhythmOnlyMode":false,"anacrusisCells":[],"mainCells":[{"stepIndex":0,"syllable":"VO-","isTie":false,"pitchKey":"C","octaveShift":0}],"tailCells":[]}]}`;
+  let refLyrics = '';
+  if (customTitle?.trim()) {
+    try {
+      const normT = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+      const target = normT(customTitle), snap = await getDocs(query(collection(db, 'documents'), limit(200)));
+      snap.forEach((d) => { const data = d.data(); if (!refLyrics && normT(String(data.titre || '')) === target) refLyrics = String(data.parolesOriginales || data.rawTxtCode || '').replace(/<[^>]+>/g, ' ').trim(); });
+    } catch {}
+  }
+  const refBlock = refLyrics ? `\nTEXTE OFFICIEL :\n"""${refLyrics}"""\n« Les paroles officielles de ce chant sont déjà connues ci-dessus. L'écriture manuscrite sur la grille peut être rapide, abrégée ou sans accents. Utilise obligatoirement les mots et syllabes du texte officiel fourni pour identifier chaque syllabe manuscrite, tout en respectant à 100 % les cases de temps/subdivisions où elles sont inscrites sur la grille. »\n` : '';
+  const prompt = `Tu es le moteur de lecture optique de l'Atelier Papier du Chant (O Girador). Analyse ces photos (CHANT-SEQ, CHANT-NOTES-1M/2M, CHANT-RYTHME).${refBlock}Réponds UNIQUEMENT en JSON valide: {"title":"...","sequenceColumns":[{"measureNumber":1,"puxCode":"P1","corCode":"X"}],"patterns":[{"code":"P1","measuresCount":1,"hasAnacrusis":false,"hasTailBeat":false,"rhythmOnlyMode":false,"anacrusisCells":[],"mainCells":[{"stepIndex":0,"syllable":"VO-","isTie":false,"pitchKey":"C","octaveShift":0}],"tailCells":[]}]}`;
   const parts: any[] = [{ text: prompt }, ...photoDataUrls.map((u) => ({ inline_data: { mime_type: 'image/jpeg', data: u.replace(/^data:image\/\w+;base64,/, '') } }))];
   for (const model of OPTICAL_MODELS) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }], generationConfig: { response_mime_type: 'application/json', temperature: 0.1 } }),
-      });
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts }], generationConfig: { response_mime_type: 'application/json', temperature: 0.1 } }) });
       if (!res.ok) continue;
       const json = await res.json(), raw = (json?.candidates?.[0]?.content?.parts?.[0]?.text || '{}').replace(/```json|```/gi, '').trim();
-      const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw);
-      const pack = buildSequencerToadaPackFromVocalScan(parsed, activeBpm, customTitle);
+      const pack = buildSequencerToadaPackFromVocalScan(JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw), activeBpm, customTitle);
       const imp = await importToadaPackIntoSequencer(null, { pack, deployStartMeasureIdx: 0, preserveMasterBpm: true });
       return { success: true, count: imp.count };
     } catch {}
