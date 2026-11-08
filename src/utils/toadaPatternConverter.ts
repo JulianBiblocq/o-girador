@@ -9,7 +9,7 @@ import type { Pattern, VocalClipMeta } from '../types/store.types';
 export function isStepActive(s: any): boolean {
   if (!s) return false;
   const noteRaw = typeof s.note === 'string' ? s.note.trim() : '';
-  const rawSylVal = s.syllable ?? s.lyricSyllable;
+  const rawSylVal = s.syllable ?? s.lyric ?? s.lyricSyllable;
   const sylRaw = typeof rawSylVal === 'string' ? rawSylVal.trim() : '';
   const isExplicitTie = Boolean(s.isTie) || noteRaw === '───' || sylRaw === '───';
   if (s.active === false && !isExplicitTie) return false;
@@ -80,7 +80,8 @@ function fillMissingAttackLyrics(activeSteps: any[], lyrics: string[], assignedT
   for (let k = 0; k < attackIdxs.length; k++) {
     const idx = attackIdxs[k], curSyl = lyrics[idx];
     if (curSyl) {
-      const pos = full.toLowerCase().indexOf(curSyl.toLowerCase(), cursor);
+      let pos = full.toLowerCase().indexOf(curSyl.toLowerCase(), cursor);
+      if (pos < 0 && curSyl.includes("'")) pos = full.toLowerCase().indexOf(curSyl.replace(/'/g, ' ').toLowerCase(), cursor);
       if (pos >= 0) cursor = pos + curSyl.length;
     } else if (k + 1 < attackIdxs.length && lyrics[attackIdxs[k + 1]]) {
       const nextSyl = lyrics[attackIdxs[k + 1]];
