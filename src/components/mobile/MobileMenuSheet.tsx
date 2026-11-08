@@ -1,11 +1,12 @@
 /**
- * Menu tiroir Mobile avec sélecteur de mode, égalisation, [ FR | BR ] et aperçu partition (< 130 lignes).
+ * Menu tiroir Mobile avec sélecteur de mode, égalisation, [ FR | BR ] et aperçu partition (< 135 lignes).
  */
 
 import React, { useState } from 'react';
 import { X, Sliders, Moon, Sun, Monitor, Printer } from 'lucide-react';
 import { MobileViewModeSelector } from './MobileViewModeSelector';
 import { MobilePartitionPreviewModal } from './MobilePartitionPreviewModal';
+import { openAoVivoLabWithActiveTrack } from '../AoVivo/aoVivoStrokeTester';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { tMobile } from '../../i18n/mobileTranslations';
 
@@ -40,10 +41,10 @@ export const MobileMenuSheet: React.FC<Props> = ({
   return (
     <>
       <div onClick={(e) => e.target === e.currentTarget && onClose()} className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs select-none">
-        <div className="w-full max-w-sm max-h-[88dvh] flex flex-col bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0px_#000] overflow-hidden text-[var(--cordel-text)]">
-          <div className="p-2.5 border-b-2 border-black flex items-center justify-between bg-[#1a1a1a] shrink-0">
-            <span className="font-cactus font-bold text-xs uppercase tracking-wider text-[#f4ecd8]">{tMobile(lang, 'toolsMenu')}</span>
-            <button type="button" onClick={onClose} className="p-1 text-[#f4ecd8] hover:text-[#b94a2c] active:scale-95 cursor-pointer"><X size={16} /></button>
+        <div className="w-full max-w-sm max-h-[88dvh] flex flex-col bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0px_var(--cordel-border)] overflow-hidden text-[var(--cordel-text)]">
+          <div className="p-2.5 border-b-2 border-[var(--cordel-border)] flex items-center justify-between bg-[var(--cordel-surface)] shrink-0">
+            <span className="font-cactus font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]">{tMobile(lang, 'toolsMenu')}</span>
+            <button type="button" onClick={onClose} className="p-1 text-[var(--cordel-text)] hover:text-[var(--cordel-accent)] active:scale-95 cursor-pointer"><X size={16} /></button>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3 custom-scrollbar">
@@ -54,7 +55,7 @@ export const MobileMenuSheet: React.FC<Props> = ({
 
             <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--cordel-border)]/40">
               <span className="text-[10px] font-mono uppercase text-[var(--cordel-text-muted)] tracking-wider flex items-center gap-1 font-bold">
-                <Sliders size={12} className="text-[#b94a2c]" /> {tMobile(lang, 'masterEQ')}
+                <Sliders size={12} className="text-[var(--cordel-accent)]" /> {tMobile(lang, 'masterEQ')}
               </span>
               <div className="grid grid-cols-2 gap-1.5">
                 {EQ_PROFILES.map((prof) => {
@@ -63,7 +64,7 @@ export const MobileMenuSheet: React.FC<Props> = ({
                     <button
                       key={prof.id} type="button" onClick={() => setMasterEQ(prof.eq)}
                       className={`p-2 text-left border-2 transition-all text-[9.5px] font-cactus font-bold uppercase tracking-wider cursor-pointer ${
-                        isActive ? 'bg-[#b94a2c] text-[#f4ecd8] border-black shadow-[1px_1px_0px_#000]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
+                        isActive ? 'bg-[var(--cordel-accent)] text-[var(--cordel-parchment-bg)] border-[var(--cordel-border)]' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
                       }`}
                     >
                       {tMobile(lang, prof.key)}
@@ -78,13 +79,13 @@ export const MobileMenuSheet: React.FC<Props> = ({
                 <div className="flex border-2 border-[var(--cordel-border)] bg-[var(--cordel-card-btn-bg)] overflow-hidden font-mono text-[10px] font-bold h-9">
                   <button
                     type="button" onClick={(e) => { e.stopPropagation(); setLang(lang === 'fr' ? 'pt' : 'fr'); }}
-                    className={`flex-1 flex items-center justify-center transition-colors cursor-pointer pointer-events-auto relative z-10 ${lang === 'fr' ? 'bg-[#b94a2c] text-[#f4ecd8] font-bold' : 'text-[var(--cordel-card-btn-text)] hover:bg-black/5'}`}
+                    className={`flex-1 flex items-center justify-center transition-colors cursor-pointer pointer-events-auto relative z-10 ${lang === 'fr' ? 'bg-[var(--cordel-accent)] text-[var(--cordel-parchment-bg)] font-bold' : 'text-[var(--cordel-card-btn-text)]'}`}
                   >
                     FR
                   </button>
                   <button
                     type="button" onClick={(e) => { e.stopPropagation(); setLang(lang === 'pt' ? 'fr' : 'pt'); }}
-                    className={`flex-1 flex items-center justify-center transition-colors border-l border-[var(--cordel-border)] cursor-pointer pointer-events-auto relative z-10 ${lang === 'pt' ? 'bg-[#b94a2c] text-[#f4ecd8] font-bold' : 'text-[var(--cordel-card-btn-text)] hover:bg-black/5'}`}
+                    className={`flex-1 flex items-center justify-center transition-colors border-l border-[var(--cordel-border)] cursor-pointer pointer-events-auto relative z-10 ${lang === 'pt' ? 'bg-[var(--cordel-accent)] text-[var(--cordel-parchment-bg)] font-bold' : 'text-[var(--cordel-card-btn-text)]'}`}
                   >
                     BR
                   </button>
@@ -94,21 +95,28 @@ export const MobileMenuSheet: React.FC<Props> = ({
                   type="button" onClick={onToggleDarkMode}
                   className="h-9 px-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  {isDarkMode ? <Sun size={13} className="text-[#d4a017]" /> : <Moon size={13} className="text-[#8b2a1a]" />}
+                  {isDarkMode ? <Sun size={13} /> : <Moon size={13} />}
                   {isDarkMode ? tMobile(lang, 'themeLight') : tMobile(lang, 'themeDark')}
                 </button>
               </div>
 
               <button
                 type="button" onClick={() => setIsPartitionModalOpen(true)}
-                className="p-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:border-[#b94a2c] cursor-pointer"
+                className="p-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Printer size={14} className="text-[#b94a2c]" /> {tMobile(lang, 'printScores')}
+                <Printer size={14} /> {tMobile(lang, 'printScores')}
+              </button>
+
+              <button
+                type="button" onClick={() => { openAoVivoLabWithActiveTrack(primaryTrackId); onClose(); }}
+                className="p-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sliders size={14} /> {lang === 'pt' ? 'Labo Posição Ao Vivo (Mobile)' : 'Labo Position Ao Vivo (Mobile)'}
               </button>
 
               <button
                 type="button" onClick={() => { onClose(); onToggleStudio(); }}
-                className="p-2.5 bg-[#b94a2c] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer"
+                className="p-2.5 bg-[var(--cordel-accent)] text-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:translate-y-0.5 cursor-pointer"
               >
                 <Monitor size={15} /> {lang === 'pt' ? 'Modo Estúdio Completo' : 'Mode Édition Studio'}
               </button>

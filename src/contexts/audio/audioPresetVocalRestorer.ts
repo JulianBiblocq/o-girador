@@ -7,7 +7,7 @@ import { base64ToBlob } from './audioVocalBase64';
 export async function restorePresetVocalRecordings(loadedTracks: TrackGroup[]): Promise<void> {
   const promises: Promise<void>[] = [];
 
-  loadedTracks.forEach(t => {
+  loadedTracks.forEach((t) => {
     const inst = instrumentsConfig[t.instrumentIdx];
     const isVocalTrack = Boolean(
       inst?.type === 'voice' ||
@@ -19,8 +19,9 @@ export async function restorePresetVocalRecordings(loadedTracks: TrackGroup[]): 
     );
     if (!isVocalTrack) return;
 
-    t.patterns?.forEach(ptn => {
+    t.patterns?.forEach((ptn) => {
       const patternId = ptn.id;
+      const canonicalKey = `${t.id}_${patternId}`;
       const clipId = ptn.vocalClip?.id;
 
       if (ptn.vocalAudioData) {
@@ -30,7 +31,9 @@ export async function restorePresetVocalRecordings(loadedTracks: TrackGroup[]): 
           (async () => {
             try {
               const blob = base64ToBlob(b64);
+              await saveVocalRecording(canonicalKey, blob);
               await saveVocalRecording(patternId, blob);
+              useAudioStore.getState().addVocalBlob(canonicalKey, blob);
               if (clipId && String(clipId) !== String(patternId)) {
                 await saveVocalRecording(clipId, blob);
               }
@@ -48,7 +51,9 @@ export async function restorePresetVocalRecordings(loadedTracks: TrackGroup[]): 
               const response = await fetch(fetchUrl);
               if (!response.ok) throw new Error(`HTTP error ${response.status}`);
               const blob = await response.blob();
+              await saveVocalRecording(canonicalKey, blob);
               await saveVocalRecording(patternId, blob);
+              useAudioStore.getState().addVocalBlob(canonicalKey, blob);
               useAudioStore.getState().addVocalBlob(patternId, blob);
               useAudioStore.getState().addVocalBlob(String(patternId), blob);
               if (clipId && String(clipId) !== String(patternId)) {
@@ -69,7 +74,7 @@ export async function restorePresetVocalRecordings(loadedTracks: TrackGroup[]): 
     try {
       await Promise.all(promises);
     } catch (err) {
-      console.error("Error restoring vocal recordings from preset:", err);
+      console.error('Error restoring vocal recordings from preset:', err);
     }
   }
 }

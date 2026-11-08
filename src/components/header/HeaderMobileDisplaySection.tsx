@@ -1,5 +1,7 @@
 import React from 'react';
+import { Sliders } from 'lucide-react';
 import { XiloSun, XiloMoon } from '../XiloIcons';
+import { openAoVivoLabWithActiveTrack } from '../AoVivo/aoVivoStrokeTester';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 
 interface HeaderMobileDisplaySectionProps {
@@ -21,7 +23,7 @@ export const HeaderMobileDisplaySection: React.FC<HeaderMobileDisplaySectionProp
 
   return (
     <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-      <span className="text-[10px] font-bold text-[#d99b26] uppercase tracking-wide flex items-center gap-1">
+      <span className="text-[10px] font-bold text-[var(--cordel-accent)] uppercase tracking-wide flex items-center gap-1">
         {lang === 'pt' ? 'Visualização & Idioma' : 'Affichage & Langue'}
       </span>
       <div className="grid grid-cols-2 gap-1.5 mt-1">
@@ -59,6 +61,16 @@ export const HeaderMobileDisplaySection: React.FC<HeaderMobileDisplaySectionProp
           className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1 col-span-2"
         >
           {lang === 'fr' ? "L'Atelier" : 'A Oficina'}
+        </button>
+        <button
+          onClick={() => {
+            openAoVivoLabWithActiveTrack();
+            onCloseMenu();
+          }}
+          className="px-2 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1 col-span-2"
+        >
+          <Sliders size={12} className="shrink-0" />
+          <span>{lang === 'pt' ? 'Labo Posição Ao Vivo (Mobile)' : 'Labo Position Ao Vivo (Mobile)'}</span>
         </button>
       </div>
     </div>

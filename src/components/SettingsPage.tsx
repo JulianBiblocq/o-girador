@@ -20,6 +20,7 @@ import { SettingsHelpTab } from './settings/SettingsHelpTab';
 import { useActiveStrokesByInstrument } from './settings/useActiveStrokesByInstrument';
 import { getSettingsSections } from './settings/settingsSections';
 import { OficinaSectionIcon } from './oficina/OficinaSectionIcons';
+import { openAoVivoLabWithActiveTrack } from './AoVivo/aoVivoStrokeTester';
 
 export { SettingsSignalThumb } from './settings/SettingsSignalThumb';
 
@@ -78,6 +79,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
             </div>
           ) : (
             <div className="flex flex-col gap-4 pb-32">
+              <button
+                type="button"
+                onClick={() => { openAoVivoLabWithActiveTrack(); handleClose(); }}
+                className="w-full py-2.5 px-4 border-2 border-[var(--cordel-text)] bg-[var(--cordel-accent)] text-[var(--cordel-parchment-bg)] font-cactus font-bold text-xs md:text-sm uppercase tracking-wider shadow-[4px_4px_0px_var(--cordel-text)] hover:opacity-95 active:translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>{lang === 'pt' ? '[ Abrir o Labo Ao Vivo (Calibragem Baquetas & Mãos) ]' : '[ Ouvrir le Labo Ao Vivo (Calibrage Baguettes & Mains) ]'}</span>
+              </button>
               {sections.map((sec) => {
                 const isOpen = activeSection === sec.id;
                 return (

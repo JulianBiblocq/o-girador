@@ -6,6 +6,8 @@ import { instrumentsConfig } from '../../data';
 import { useAoVivoGeometry } from './useAoVivoGeometry';
 import { useAoVivoAnimationEngine } from './useAoVivoAnimationEngine';
 import { AoVivoInstrumentRenderers } from './AoVivoInstrumentRenderers';
+import { AoVivoSticksLabBar } from './AoVivoSticksLabBar';
+import { registerAoVivoTesterRefs } from './aoVivoStrokeTester';
 
 export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = ({ activeAoVivoTrackId }) => {
   const { isLeftHanded } = useSequencer();
@@ -63,6 +65,18 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
   );
 
   if (!activeTrack || !inst) return null;
+  registerAoVivoTesterRefs({
+    instId: inst.id,
+    activeTrack,
+    isLeftHanded,
+    leftStickRef,
+    rightStickRef,
+    gongueStickRef,
+    agbeWholeRef,
+    mineiroStickRef,
+    haloRef,
+    geometryRef,
+  });
 
   return (
     <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none perspective-[1000px]">
@@ -71,10 +85,11 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
         className="absolute pointer-events-none opacity-0 mix-blend-screen"
         style={{ transform: 'translate(-50%, -50%)', zIndex: 4 }}
       >
-        <div className="w-[120px] h-[120px] sm:w-[200px] sm:h-[200px] rounded-full bg-[#fbbf24] blur-xl" />
+        <div className="w-[120px] h-[120px] sm:w-[200px] sm:h-[200px] rounded-full blur-xl" style={{ backgroundColor: 'var(--cordel-accent)' }} />
       </div>
       <AoVivoInstrumentRenderers
         instId={inst.id}
+        activeTrack={activeTrack}
         isLeftHanded={isLeftHanded}
         haloRef={haloRef}
         leftWrapperRef={leftWrapperRef}
@@ -88,6 +103,7 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
         gongueWrapperRef={gongueWrapperRef}
         gongueStickRef={gongueStickRef}
       />
+      <AoVivoSticksLabBar instId={inst.id} />
     </div>
   );
 };

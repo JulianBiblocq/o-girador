@@ -1,4 +1,91 @@
-import { CONFIG_STICKS, CONFIG_GONGUE, CONFIG_MINEIRO, getTimbalRestTransform } from '../../audio/animationGenerators';
+import { CONFIG_MINEIRO } from '../../audio/animationGenerators';
+import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
+import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematics';
+import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
+import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
+import { resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
+import { resetGongueStickAndShadow, resetAgbeAndMineiroRest } from './aoVivoOtherDispatchers';
+import { resolveMasterTrack } from '../../utils/trackMasterResolver';
+
+export function resolveAoVivoPatternAndSteps(
+  activeTrack: any,
+  allTracks: any[],
+  measure: number,
+  soloPlayId: number | null,
+  varMap: Record<number, any> | undefined,
+  isAlfaia: boolean
+): { pattern: any | null; activePlayingSteps: any[] } {
+  if (!activeTrack) return { pattern: null, activePlayingSteps: [] };
+  const targetBusId = activeTrack.busId || activeTrack.linkedToTrackId || activeTrack.id;
+  const parent = allTracks.find((t: any) => String(t.id) === String(targetBusId) && t.id !== activeTrack.id);
+  const master = resolveMasterTrack(activeTrack.id, allTracks);
+  const groupTracks = allTracks.filter(
+    (t: any) =>
+      String(t.id) === String(targetBusId) ||
+      String(t.linkedToTrackId) === String(targetBusId) ||
+      String(t.busId) === String(targetBusId)
+  );
+
+  const findById = (pid: any) => {
+    for (const src of [activeTrack, parent, master, ...groupTracks]) {
+      const found = src?.patterns?.find((p: any) => String(p.id) === String(pid));
+      if (found) return found;
+    }
+    return null;
+  };
+
+  let pattern: any = null;
+  if (soloPlayId !== null && soloPlayId !== undefined) {
+    pattern = findById(soloPlayId);
+  }
+  if (!pattern && activeTrack.patternOverrides?.[measure] !== undefined) {
+    const ov = activeTrack.patternOverrides[measure];
+    if (ov === null) return { pattern: null, activePlayingSteps: [] };
+    pattern = findById(ov);
+  }
+  if (!pattern) {
+    for (const src of [activeTrack, parent, master]) {
+      const assigned = src?.patterns?.find((p: any) => p?.measureAssignments?.[measure]);
+      if (assigned) {
+        pattern = activeTrack.patterns?.find((p: any) => p.name === assigned.name) || assigned;
+        break;
+      }
+    }
+  }
+  if (!pattern) {
+    pattern = activeTrack.patterns?.[0] || parent?.patterns?.[0] || master?.patterns?.[0] || null;
+  }
+  if (!pattern) return { pattern: null, activePlayingSteps: [] };
+
+  const baseSteps: any[] =
+    varMap?.[activeTrack.id] ||
+    (parent ? varMap?.[parent.id] : undefined) ||
+    (master ? varMap?.[master.id] : undefined) ||
+    pattern.activeSteps ||
+    [];
+
+  if (!isAlfaia) return { pattern, activePlayingSteps: baseSteps };
+
+  const combined = baseSteps.slice();
+  for (const c of groupTracks) {
+    if (c.id === activeTrack.id || c.isBusFolder) continue;
+    const ov = c.patternOverrides?.[measure];
+    const cPat = ov !== undefined && ov !== null ? findById(ov) : null;
+    const cSteps = varMap?.[c.id] || cPat?.activeSteps;
+    if (!cSteps) continue;
+    for (let i = 0; i < Math.max(combined.length, cSteps.length); i++) {
+      const mVal = combined[i];
+      const cVal = cSteps[i];
+      const hasM = Boolean(mVal && mVal !== 0 && mVal !== '0' && mVal !== '-');
+      const hasC = Boolean(cVal && cVal !== 0 && cVal !== '0' && cVal !== '-');
+      if (!hasM && hasC) combined[i] = cVal;
+      else if (hasM && hasC && mVal !== cVal && !Array.isArray(mVal) && !Array.isArray(cVal)) {
+        combined[i] = { sim: [String(mVal), String(cVal)] };
+      }
+    }
+  }
+  return { pattern, activePlayingSteps: combined };
+}
 
 export function resetAoVivoRestPosition(
   instId: string | undefined,
@@ -7,53 +94,22 @@ export function resetAoVivoRestPosition(
   rightStickRef: React.RefObject<SVGSVGElement | null>,
   gongueStickRef: React.RefObject<SVGSVGElement | null>,
   mineiroStickRef: React.RefObject<SVGSVGElement | null>,
-  agbeWholeRef: React.RefObject<SVGGElement | null>
+  agbeWholeRef: React.RefObject<SVGGElement | null>,
+  activeTrack?: any
 ) {
   if (!instId) return;
+  resetHandPostureMemory();
+  resetGonguePostureMemory();
 
   if (['marcante', 'meiao', 'repique'].includes(instId)) {
-    if (leftStickRef.current) {
-      const angle = isLeftHanded ? -CONFIG_STICKS.angles.alfaia.macaneta : CONFIG_STICKS.angles.alfaia.bacalhau;
-      leftStickRef.current.style.transition = 'none';
-      leftStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${angle}deg) scale(${CONFIG_STICKS.rest.scale})`;
-    }
-    if (rightStickRef.current) {
-      const angle = isLeftHanded ? -CONFIG_STICKS.angles.alfaia.bacalhau : CONFIG_STICKS.angles.alfaia.macaneta;
-      rightStickRef.current.style.transition = 'none';
-      rightStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${angle}deg) scale(${CONFIG_STICKS.rest.scale})`;
-    }
+    resetAlfaiaSticksAndShadows(activeTrack, isLeftHanded, leftStickRef.current, rightStickRef.current);
   } else if (['caixa', 'tarol'].includes(instId)) {
-    if (leftStickRef.current) {
-      leftStickRef.current.style.transition = 'none';
-      leftStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.angles.drum.left}deg) scale(${CONFIG_STICKS.rest.scale})`;
-    }
-    if (rightStickRef.current) {
-      rightStickRef.current.style.transition = 'none';
-      rightStickRef.current.style.transform = `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.angles.drum.right}deg) scale(${CONFIG_STICKS.rest.scale})`;
-    }
+    resetCaixaSticksAndShadows(instId, leftStickRef.current, rightStickRef.current);
   } else if (instId === 'timbal') {
-    if (leftStickRef.current) {
-      leftStickRef.current.style.transition = 'none';
-      leftStickRef.current.style.transform = getTimbalRestTransform(true);
-    }
-    if (rightStickRef.current) {
-      rightStickRef.current.style.transition = 'none';
-      rightStickRef.current.style.transform = getTimbalRestTransform(false);
-    }
+    resetTimbalHandsAndShadows(leftStickRef.current, rightStickRef.current);
   } else if (instId === 'gongue') {
-    if (gongueStickRef.current) {
-      gongueStickRef.current.style.transition = 'none';
-      gongueStickRef.current.style.transform = `translate(0px, ${CONFIG_GONGUE.rest.translateY}px) rotateX(${CONFIG_GONGUE.rest.rotateX}deg) scale(${CONFIG_GONGUE.perspective.scaleXCenter}, ${CONFIG_GONGUE.rest.scaleY})`;
-    }
-  } else if (instId === 'mineiro') {
-    if (mineiroStickRef.current) {
-      mineiroStickRef.current.style.transition = 'none';
-      mineiroStickRef.current.style.transform = `translate3d(0, ${CONFIG_MINEIRO.backWeak.y}px, 0) scale(${CONFIG_MINEIRO.backWeak.scale}) rotateZ(${CONFIG_MINEIRO.backWeak.rotateZ}deg)`;
-    }
-  } else if (instId === 'agbe') {
-    if (agbeWholeRef.current) {
-      agbeWholeRef.current.style.transition = 'none';
-      agbeWholeRef.current.style.transform = 'translate3d(0, 0, 0)';
-    }
+    resetGongueStickAndShadow(isLeftHanded, gongueStickRef.current);
+  } else if (instId === 'mineiro' || instId === 'agbe') {
+    resetAgbeAndMineiroRest(agbeWholeRef.current, mineiroStickRef.current);
   }
 }

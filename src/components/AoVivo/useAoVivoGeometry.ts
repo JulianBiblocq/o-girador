@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { CONFIG_TIMBAL, CONFIG_STICKS } from '../../audio/animationGenerators';
+import { CONFIG_ALFAIA_STICKS, subscribeAlfaiaSticksConfig } from '../../audio/animations/alfaiaKinematics';
+import { getEffectiveMobileOffset, subscribeMobileOffsets } from '../../audio/animations/aoVivoMobileOffsets';
+import { CONFIG_CAIXA_STICKS, subscribeCaixaSticksConfig } from '../../audio/animations/caixaKinematics';
+import { subscribeGongueStickConfig } from '../../audio/animations/gongueKinematics';
+import { CONFIG_TIMBAL_HANDS, subscribeTimbalHandsConfig } from '../../audio/animations/timbalKinematics';
 import { instrumentsConfig } from '../../data';
 
 export function useAoVivoGeometry(
@@ -36,70 +40,51 @@ export function useAoVivoGeometry(
       const isTimbal = instId === 'timbal';
       const isDrum = instId === 'caixa' || instId === 'tarol';
       const isAlfaia = instId === 'marcante' || instId === 'meiao' || instId === 'repique';
-      const handSpread = (isTimbal ? CONFIG_TIMBAL.handSpread : Math.min(width * 0.45, 550)) * scale;
-      const xOffset = (isTimbal ? CONFIG_TIMBAL.targetXOffset : isDrum ? CONFIG_STICKS.spacing.targetXOffsetDrum : CONFIG_STICKS.spacing.targetXOffsetAlfaia) * scale;
-      const strikeTargetY = isTimbal ? targetY - 40 * scale : isDrum || isAlfaia ? targetY - 75 * scale : targetY;
+      const mob = getEffectiveMobileOffset(instId);
 
-      if (leftWrapperRef.current) {
-        const leftX = targetX - xOffset;
-        const originLeftX = width / 2 - handSpread;
-        const originLeftY = height + (280 * scale);
-        const dLeftX = leftX - originLeftX;
-        const dLeftY = strikeTargetY - originLeftY;
-        const angleLeft = Math.atan2(dLeftY, dLeftX) * (180 / Math.PI) + 90;
-        leftWrapperRef.current.style.left = `${originLeftX}px`;
-        leftWrapperRef.current.style.height = `${Math.hypot(dLeftX, dLeftY)}px`;
-        leftWrapperRef.current.style.transform = `translateX(-50%) rotate(${angleLeft}deg) scale(${scale})`;
-      }
+      const applyStickWrapper = (el: HTMLDivElement | null, isLeft: boolean) => {
+        if (!el) return;
+        const sign = isLeft ? -1 : 1;
+        if (isAlfaia || isDrum || isTimbal) {
+          const stickAngleDeg = isAlfaia
+            ? CONFIG_ALFAIA_STICKS.stickAngleDeg
+            : isDrum
+              ? CONFIG_CAIXA_STICKS.stickAngleDeg
+              : CONFIG_TIMBAL_HANDS.anatomy.vShapeAngleDeg;
+          const stickSpreadPx = (isAlfaia
+            ? CONFIG_ALFAIA_STICKS.stickSpreadPx
+            : isDrum
+              ? CONFIG_CAIXA_STICKS.stickSpreadPx
+              : CONFIG_TIMBAL_HANDS.anatomy.handSpreadPx) + mob.spreadDeltaPx;
+          const effScale = scale * mob.scaleMult;
+          const originX = targetX + mob.offsetX + sign * (rodaDiameter * 0.12 + stickSpreadPx * scale);
+          const originY = targetY + mob.offsetY + rodaDiameter * 0.44;
+          const restHeadX = targetX + mob.offsetX + sign * stickSpreadPx * scale;
+          const restHeadY = targetY + mob.offsetY + rodaDiameter * 0.09;
+          el.style.left = `${originX}px`;
+          el.style.bottom = `${height - originY}px`;
+          el.style.height = `${Math.hypot(restHeadX - originX, restHeadY - originY)}px`;
+          el.style.transform = `translateX(-50%) rotate(${isLeft ? stickAngleDeg : -stickAngleDeg}deg) scale(${effScale})`;
+        }
+      };
 
-      if (rightWrapperRef.current) {
-        const rightX = targetX + xOffset;
-        const originRightX = width / 2 + handSpread;
-        const originRightY = height + (280 * scale);
-        const dRightX = rightX - originRightX;
-        const dRightY = strikeTargetY - originRightY;
-        const angleRight = Math.atan2(dRightY, dRightX) * (180 / Math.PI) + 90;
-        rightWrapperRef.current.style.left = `${originRightX}px`;
-        rightWrapperRef.current.style.height = `${Math.hypot(dRightX, dRightY)}px`;
-        rightWrapperRef.current.style.transform = `translateX(-50%) rotate(${angleRight}deg) scale(${scale})`;
-      }
+      applyStickWrapper(leftWrapperRef.current, true);
+      applyStickWrapper(rightWrapperRef.current, false);
 
-      if (mineiroWrapperRef.current) {
-        mineiroWrapperRef.current.style.left = `${targetX}px`;
-        mineiroWrapperRef.current.style.top = `${targetY}px`;
-        mineiroWrapperRef.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
-      }
-
-      if (agbeWrapperRef.current) {
-        agbeWrapperRef.current.style.left = `${targetX}px`;
-        agbeWrapperRef.current.style.top = `${targetY}px`;
-        agbeWrapperRef.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
-      }
-
-      if (voiceWrapperRef.current) {
-        voiceWrapperRef.current.style.left = `${targetX}px`;
-        voiceWrapperRef.current.style.top = `${targetY}px`;
-        voiceWrapperRef.current.style.transform = `scale(${scale})`;
-      }
-
-      if (flashRef.current) {
-        flashRef.current.style.left = `${targetX}px`;
-        flashRef.current.style.top = `${targetY}px`;
-        flashRef.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
-      }
-
-      if (gongueWrapperRef.current) {
-        const gongueSpread = Math.min(width * 0.15, 200) * scale;
-        const offset = isLeftHanded ? -gongueSpread : gongueSpread;
-        const originX = width / 2 + offset;
-        const originY = height + (280 * scale);
-        const dx = targetX - originX;
-        const dy = (targetY - 30 * scale) - originY;
-        const angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
-        gongueWrapperRef.current.style.left = `${originX}px`;
-        gongueWrapperRef.current.style.height = `${Math.hypot(dx, dy)}px`;
-        gongueWrapperRef.current.style.transform = `translateX(-50%) rotate(${angle}deg) scale(${scale})`;
-      }
+      const centerEl = (el: HTMLDivElement | null, useTranslate = true, applyMob = false) => {
+        if (!el) return;
+        const cx = applyMob ? targetX + mob.offsetX + mob.spreadDeltaPx * 0.5 : targetX;
+        const cy = applyMob ? targetY + mob.offsetY + mob.reachDeltaY : targetY;
+        const sc = applyMob ? scale * mob.scaleMult : scale;
+        el.style.left = `${cx}px`;
+        el.style.top = `${cy}px`;
+        el.style.transform = useTranslate ? `translate(-50%, -50%) scale(${sc})` : `scale(${sc})`;
+      };
+      centerEl(mineiroWrapperRef.current, true, true);
+      centerEl(agbeWrapperRef.current, true, true);
+      centerEl(voiceWrapperRef.current, false, false);
+      centerEl(flashRef.current, true, false);
+      centerEl(gongueWrapperRef.current, true, true);
     };
 
     updateGeometry();
@@ -109,7 +94,13 @@ export function useAoVivoGeometry(
     const resizeObserver = new ResizeObserver(() => updateGeometry());
     resizeObserver.observe(panel);
     window.addEventListener('resize', updateGeometry);
+    const u1 = subscribeAlfaiaSticksConfig(() => updateGeometry());
+    const u2 = subscribeCaixaSticksConfig(() => updateGeometry());
+    const u3 = subscribeGongueStickConfig(() => updateGeometry());
+    const u4 = subscribeTimbalHandsConfig(() => updateGeometry());
+    const u5 = subscribeMobileOffsets(() => updateGeometry());
     return () => {
+      u1(); u2(); u3(); u4(); u5();
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateGeometry);
     };

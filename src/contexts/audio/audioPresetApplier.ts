@@ -30,27 +30,33 @@ export async function executeApplyPreset(
   const loadedTracks = migrateAndSanitizePresetTracks(p, loadedMeasures);
   await restorePresetVocalRecordings(loadedTracks);
 
-  const loadedTrackIds = new Set(loadedTracks.map(t => t.id));
+  const loadedTrackIds = new Set(loadedTracks.map((t) => t.id));
   const rawRodaOrder = Array.isArray(p.rodaTrackOrder) ? p.rodaTrackOrder : [];
   const validExisting = rawRodaOrder.filter((id: any) => typeof id === 'number' && loadedTrackIds.has(id));
-  const missing = loadedTracks.map(t => t.id).filter(id => !validExisting.includes(id));
+  const missing = loadedTracks.map((t) => t.id).filter((id) => !validExisting.includes(id));
   const finalRodaOrder = [...validExisting, ...missing];
-  loadedTracks.forEach(t => { delete (t as any).radius; });
+  loadedTracks.forEach((t) => { delete (t as any).radius; });
 
   useSequencerStore.setState({
     rodaTrackOrder: finalRodaOrder,
     totalMeasures: loadedMeasures,
     tracksVersion: useSequencerStore.getState().tracksVersion + 1,
-    isLetraActive: false
+    isLetraActive: false,
+    toadaConductorSlots: Array.isArray(p.toadaConductorSlots) ? p.toadaConductorSlots : [],
   });
   useSequencerStore.getState().setTracks(loadedTracks);
   useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);
   useSequencerStore.getState().resetSpeedTrainerConfig();
 
+  const hasRecordedVocal = Boolean(p.metadata?.toadaPackId) || loadedTracks.some((t) =>
+    (t.instrumentIdx === 10 || t.instrumentIdx === 11) && t.patterns?.some((ptn: any) => Boolean(ptn.vocalAudioUrl || ptn.vocalClip || ptn.vocalMode === 'micro'))
+  );
+  if (hasRecordedVocal) useAudioStore.getState().setVocalMode('voice');
+
   try {
     await vocalEngineService.rehydrateVocalBuffers(loadedTracks);
   } catch (err) {
-    console.error("[VOCAL REHYDRATE] Error during applyPreset:", err);
+    console.error('[VOCAL REHYDRATE] Error during applyPreset:', err);
   }
 
   const defaultBpm = Math.round(p.bpm || 90);
@@ -62,9 +68,7 @@ export async function executeApplyPreset(
     const rounded = Math.round(v);
     return !isAudioV2 ? (rounded === 100 ? 75 : Math.round(rounded * 0.75)) : rounded;
   }) : Array(loadedMeasures).fill(100);
-  if (rawMeasureVols.length > 0 && rawMeasureVols.every((v: number) => v === 75)) {
-    rawMeasureVols = Array(loadedMeasures).fill(100);
-  }
+  if (rawMeasureVols.length > 0 && rawMeasureVols.every((v: number) => v === 75)) rawMeasureVols = Array(loadedMeasures).fill(100);
   const loadedVols = rawMeasureVols;
   const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions) ? p.measureVolTransitions : Array(loadedMeasures).fill('immediate');
 
@@ -76,10 +80,7 @@ export async function executeApplyPreset(
   sequencer.setMeasureBpms(loadedBpms); sequencer.setMeasureTimeSigs(loadedTimeSigs);
   sequencer.setMeasureBpmTransitions(loadedBpmTransitions); sequencer.setMeasureVols(loadedVols); sequencer.setMeasureVolTransitions(loadedVolTransitions);
 
-  const {
-    loadedLoopMode, isLoopRegionActive, loadedIsLooping, loopStartMeasure, loopEndMeasure
-  } = restorePresetLoopState(p, sequencer);
-
+  const { loadedLoopMode, isLoopRegionActive, loadedIsLooping, loopStartMeasure, loopEndMeasure } = restorePresetLoopState(p, sequencer);
   const loadedSections = (p.songSections && Array.isArray(p.songSections)) ? JSON.parse(JSON.stringify(p.songSections)) : [];
   const rawMarkers = p.songMarkers || p.markers;
   const loadedMarkers = (rawMarkers && Array.isArray(rawMarkers)) ? JSON.parse(JSON.stringify(rawMarkers)) : [];
@@ -87,21 +88,10 @@ export async function executeApplyPreset(
   const loadedMestreSignals = (p.mestreSignals && Array.isArray(p.mestreSignals)) ? JSON.parse(JSON.stringify(p.mestreSignals)) : [];
 
   useSequencerStore.setState({
-    songSections: loadedSections,
-    songMarkers: loadedMarkers,
-    measureSignals: loadedSignals,
-    mestreSignals: loadedMestreSignals,
-    loopStartMeasure,
-    loopEndMeasure,
-    isLoopRegionActive,
-    loopMode: loadedLoopMode,
-    isLooping: loadedIsLooping,
-    isLoopBypassed: false,
-    isLoopExitRequested: false,
-    currentLoopIteration: 1,
-    pendingLoopRange: null,
-    currentMeasure: 0,
-    currentExpandedMeasureIdx: 0,
+    songSections: loadedSections, songMarkers: loadedMarkers, measureSignals: loadedSignals, mestreSignals: loadedMestreSignals,
+    loopStartMeasure, loopEndMeasure, isLoopRegionActive, loopMode: loadedLoopMode, isLooping: loadedIsLooping,
+    isLoopBypassed: false, isLoopExitRequested: false, currentLoopIteration: 1, pendingLoopRange: null,
+    currentMeasure: 0, currentExpandedMeasureIdx: 0,
     isMasterVolumeBypassed: Boolean(p.isMasterVolumeBypassed),
     globalAutomationBypass: p.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
     vocalTransposeSteps: p.vocalTransposeSteps ?? 0,
