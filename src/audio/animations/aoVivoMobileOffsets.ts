@@ -1,4 +1,5 @@
 export type AoVivoMobileFamily = 'alfaia' | 'caixa' | 'tarol' | 'gongue' | 'timbal' | 'agbe' | 'mineiro';
+export type AoVivoInstrumentFamily = AoVivoMobileFamily;
 
 export interface InstrumentMobileOffset {
   offsetY: number;
@@ -8,35 +9,31 @@ export interface InstrumentMobileOffset {
   reachDeltaY: number;
 }
 
-const MOBILE_STORAGE_KEY = 'og_aovivo_mobile_offsets_v1';
+const MOBILE_STORAGE_KEY = 'og_aovivo_mobile_offsets_v2';
 
-export const ZERO_MOBILE_OFFSET: InstrumentMobileOffset = {
-  offsetY: 0,
-  offsetX: 0,
-  scaleMult: 1,
-  spreadDeltaPx: 0,
-  reachDeltaY: 0,
+export const ZERO_MOBILE_OFFSET: InstrumentMobileOffset = { offsetY: 0, offsetX: 0, scaleMult: 1, spreadDeltaPx: 0, reachDeltaY: 0 };
+
+export const DEFAULT_AO_VIVO_MOBILE_OFFSETS: Record<AoVivoInstrumentFamily, InstrumentMobileOffset> = {
+  alfaia: { offsetY: 42, offsetX: 0, scaleMult: 1.34, spreadDeltaPx: 0, reachDeltaY: 0 },
+  caixa: { offsetY: 70, offsetX: 0, scaleMult: 1.4, spreadDeltaPx: 32, reachDeltaY: 0 },
+  tarol: { offsetY: 70, offsetX: 0, scaleMult: 1.4, spreadDeltaPx: 32, reachDeltaY: 0 },
+  gongue: { offsetY: 0, offsetX: -200, scaleMult: 1, spreadDeltaPx: 0, reachDeltaY: 0 },
+  timbal: { offsetY: -36, offsetX: 0, scaleMult: 1.16, spreadDeltaPx: -120, reachDeltaY: -64 },
+  agbe: { offsetY: 0, offsetX: 0, scaleMult: 1.14, spreadDeltaPx: 0, reachDeltaY: 0 },
+  mineiro: { offsetY: 0, offsetX: 0, scaleMult: 1.42, spreadDeltaPx: 0, reachDeltaY: 0 },
 };
 
-export const DEFAULT_MOBILE_OFFSETS: Record<AoVivoMobileFamily, InstrumentMobileOffset> = {
-  alfaia: { ...ZERO_MOBILE_OFFSET },
-  caixa: { ...ZERO_MOBILE_OFFSET },
-  tarol: { ...ZERO_MOBILE_OFFSET },
-  gongue: { ...ZERO_MOBILE_OFFSET },
-  timbal: { ...ZERO_MOBILE_OFFSET },
-  agbe: { ...ZERO_MOBILE_OFFSET },
-  mineiro: { ...ZERO_MOBILE_OFFSET },
-};
+export const DEFAULT_MOBILE_OFFSETS = DEFAULT_AO_VIVO_MOBILE_OFFSETS;
 
 function loadMobileOffsets(): Record<AoVivoMobileFamily, InstrumentMobileOffset> {
   const out: Record<AoVivoMobileFamily, InstrumentMobileOffset> = {
-    alfaia: { ...DEFAULT_MOBILE_OFFSETS.alfaia },
-    caixa: { ...DEFAULT_MOBILE_OFFSETS.caixa },
-    tarol: { ...DEFAULT_MOBILE_OFFSETS.tarol },
-    gongue: { ...DEFAULT_MOBILE_OFFSETS.gongue },
-    timbal: { ...DEFAULT_MOBILE_OFFSETS.timbal },
-    agbe: { ...DEFAULT_MOBILE_OFFSETS.agbe },
-    mineiro: { ...DEFAULT_MOBILE_OFFSETS.mineiro },
+    alfaia: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.alfaia },
+    caixa: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.caixa },
+    tarol: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.tarol },
+    gongue: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.gongue },
+    timbal: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.timbal },
+    agbe: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.agbe },
+    mineiro: { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS.mineiro },
   };
   try {
     if (typeof window === 'undefined' || !window.localStorage) return out;
@@ -102,10 +99,10 @@ export function updateMobileOffset(fam: AoVivoMobileFamily, patch: Partial<Instr
 
 export function resetMobileOffsets(fam?: AoVivoMobileFamily): void {
   if (fam) {
-    MOBILE_OFFSETS[fam] = { ...DEFAULT_MOBILE_OFFSETS[fam] };
+    MOBILE_OFFSETS[fam] = { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS[fam] };
   } else {
-    (Object.keys(DEFAULT_MOBILE_OFFSETS) as AoVivoMobileFamily[]).forEach((k) => {
-      MOBILE_OFFSETS[k] = { ...DEFAULT_MOBILE_OFFSETS[k] };
+    (Object.keys(DEFAULT_AO_VIVO_MOBILE_OFFSETS) as AoVivoMobileFamily[]).forEach((k) => {
+      MOBILE_OFFSETS[k] = { ...DEFAULT_AO_VIVO_MOBILE_OFFSETS[k] };
     });
   }
   saveAndNotify();
