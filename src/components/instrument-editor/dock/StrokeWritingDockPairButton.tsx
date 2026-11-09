@@ -38,7 +38,7 @@ export const StrokeWritingDockPairButton: React.FC<StrokeWritingDockPairButtonPr
   const playPreview = useCallback((symbol: string) => {
     if (trackId !== undefined && audioEngine && symbol && symbol !== '0') {
       try {
-        audioEngine.playNote(trackId, String(symbol), Tone.now(), 0.8, 1.0);
+        audioEngine.playNote(trackId, String(symbol), Tone.now(), 0.7, 1.0);
       } catch (_) {}
     }
   }, [trackId]);

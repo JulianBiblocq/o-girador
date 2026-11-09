@@ -58,7 +58,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
   const subToPass = isSplitStep && selectedSubIndex !== null && selectedSubIndex !== undefined ? selectedSubIndex : undefined;
 
   const rawVol = effectiveVolumes?.[selectedStepIdx];
-  const currVol = Array.isArray(rawVol) ? (activeSub === 1 ? (rawVol[1] ?? 80) : (rawVol[0] ?? 80)) : (rawVol ?? 80);
+  const currVol = Array.isArray(rawVol) ? (activeSub === 1 ? (rawVol[1] ?? 70) : (rawVol[0] ?? 70)) : (rawVol ?? 70);
 
   const rawDecay = effectiveDecays?.[selectedStepIdx];
   const defaultDecay = isVoice ? 10 : 100;
@@ -70,11 +70,11 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
 
   const resetValues = () => {
     if (selectedVariationId) {
-      handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 80, subToPass);
+      handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 70, subToPass);
       handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, 100, subToPass);
       handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, 0, subToPass);
     } else {
-      handleTrackStepVolumeChange(trackId, pattern.id, targets, 80, subToPass);
+      handleTrackStepVolumeChange(trackId, pattern.id, targets, 70, subToPass);
       handleTrackStepDecayChange(trackId, pattern.id, targets, 100, subToPass);
       handleTrackStepMicrotimingChange(trackId, pattern.id, targets, 0, subToPass);
     }

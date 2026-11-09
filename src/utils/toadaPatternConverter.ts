@@ -25,7 +25,7 @@ interface ConvertedSteps {
 
 function processSteps(rawSteps: any[], count: number, roleSymbol: string, ignoreMelodyPitch = false): ConvertedSteps {
   const activeSteps: any[] = Array(count).fill(0), notes: string[] = Array(count).fill('');
-  const lyrics: string[] = Array(count).fill(''), volumes: number[] = Array(count).fill(80), decays: number[] = Array(count).fill(10);
+  const lyrics: string[] = Array(count).fill(''), volumes: number[] = Array(count).fill(70), decays: number[] = Array(count).fill(10);
   let lastActivePitch = '', attackHeadIdx = -1, spanSteps = 0;
 
   const finalizeHold = () => {

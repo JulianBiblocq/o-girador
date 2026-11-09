@@ -29,7 +29,7 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
       arrSteps[stepIdx] = newState;
       const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
       const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-      const arrVols = [...(p.volumes || Array(p.steps).fill(80))];
+      const arrVols = [...(p.volumes || Array(p.steps).fill(70))];
       const arrDecays = [...(p.decays || Array(p.steps).fill(100))];
       if (defaults) {
         if (defaults.volume !== undefined) arrVols[stepIdx] = defaults.volume;
@@ -80,7 +80,7 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
         activeSteps: copySteps,
         lyrics: copyLyrics,
         notes: copyNotes,
-        volumes: p.volumes ? [...p.volumes] : Array(p.steps).fill(80),
+        volumes: p.volumes ? [...p.volumes] : Array(p.steps).fill(70),
       };
     }));
   };

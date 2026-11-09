@@ -8,7 +8,7 @@ export function calculateStrokeStats(
   strokeDefaults: Record<string, { volume?: number; decay?: number }>
 ): { avgVolume: number; avgDecay: number } {
   const defaultDecay = isVoice ? 10 : 100;
-  if (!track) return { avgVolume: 80, avgDecay: defaultDecay };
+  if (!track) return { avgVolume: 70, avgDecay: defaultDecay };
 
   let volSum = 0;
   let volCount = 0;
@@ -20,19 +20,19 @@ export function calculateStrokeStats(
     const d = decays[idx];
     if (Array.isArray(step)) {
       if (step[0] === stroke) {
-        volSum += v !== undefined ? (Array.isArray(v) ? v[0] : v) : 80;
+        volSum += v !== undefined ? (Array.isArray(v) ? v[0] : v) : 70;
         volCount++;
         decaySum += d !== undefined ? (Array.isArray(d) ? d[0] : d) : defaultDecay;
         decayCount++;
       }
       if (step[1] === stroke) {
-        volSum += v !== undefined ? (Array.isArray(v) ? v[1] : v) : 80;
+        volSum += v !== undefined ? (Array.isArray(v) ? v[1] : v) : 70;
         volCount++;
         decaySum += d !== undefined ? (Array.isArray(d) ? d[1] : d) : defaultDecay;
         decayCount++;
       }
     } else if (step === stroke) {
-      volSum += v !== undefined ? (Array.isArray(v) ? v[0] : v) : 80;
+      volSum += v !== undefined ? (Array.isArray(v) ? v[0] : v) : 70;
       volCount++;
       decaySum += d !== undefined ? (Array.isArray(d) ? d[0] : d) : defaultDecay;
       decayCount++;
@@ -59,7 +59,7 @@ export function calculateStrokeStats(
 
   const defaults = strokeDefaults[`${track.id}:${stroke}`];
   return {
-    avgVolume: defaults?.volume !== undefined ? defaults.volume : 80,
+    avgVolume: defaults?.volume !== undefined ? defaults.volume : 70,
     avgDecay: defaults?.decay !== undefined ? defaults.decay : defaultDecay,
   };
 }

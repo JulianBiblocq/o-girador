@@ -27,8 +27,8 @@ export const PercussionStepSculptBars: React.FC<PercussionStepSculptBarsProps> =
 }) => {
   const lang = useSequencerStore(state => state.lang);
   const isSplit = Array.isArray(val);
-  const vol0 = Array.isArray(volume) ? (volume[0] ?? 80) : (volume ?? 80);
-  const vol1 = Array.isArray(volume) ? (volume[1] ?? 80) : (volume ?? 80);
+  const vol0 = Array.isArray(volume) ? (volume[0] ?? 70) : (volume ?? 70);
+  const vol1 = Array.isArray(volume) ? (volume[1] ?? 70) : (volume ?? 70);
   const decay0 = Array.isArray(decay) ? (decay[0] ?? 100) : (decay ?? 100);
   const decay1 = Array.isArray(decay) ? (decay[1] ?? 100) : (decay ?? 100);
   const shift0 = Array.isArray(totalShift) ? (totalShift[0] ?? 0) : (totalShift ?? 0);

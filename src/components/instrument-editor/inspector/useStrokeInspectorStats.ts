@@ -55,12 +55,12 @@ export function useStrokeInspectorStats(trackId: number, isVoice: boolean) {
         patterns: t.patterns.map((p) => {
           const newVols = [...(p.volumes || [])];
           p.activeSteps.forEach((s, idx) => {
-            newVols[idx] = updateStepParam(newVols[idx], s, stroke, delta, 0, 80);
+            newVols[idx] = updateStepParam(newVols[idx], s, stroke, delta, 0, 70);
           });
           const newVars = p.variations?.map((v) => {
             const varVols = [...(v.volumes || [])];
             v.steps.forEach((s, idx) => {
-              varVols[idx] = updateStepParam(varVols[idx], s, stroke, delta, 0, 80);
+              varVols[idx] = updateStepParam(varVols[idx], s, stroke, delta, 0, 70);
             });
             return { ...v, volumes: varVols };
           });

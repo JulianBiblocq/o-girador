@@ -99,7 +99,7 @@ export const PercussionStepWrapper: React.FC<PercussionStepWrapperProps> = ({
       <PercussionStepCell
         i={i}
         val={vis.val}
-        volume={pattern?.volumes?.[i] ?? 80}
+        volume={pattern?.volumes?.[i] ?? 70}
         decay={pattern?.decays?.[i] ?? 100}
         microtiming={pattern?.microtimings?.[i] ?? 0}
         isSelected={selectedStepIndices.includes(i)}

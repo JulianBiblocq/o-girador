@@ -70,7 +70,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
       try {
         const variation = ptn.variations?.find((v) => v.id === variationId);
         const rawVol = variation?.volumes?.[stepIdx];
-        const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+        const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 70)) as number) / 100;
         const rawDec = variation?.decays?.[stepIdx];
         const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
         audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);

@@ -38,7 +38,7 @@ export function resizePatternAllBeatsResolution(
     return result;
   };
 
-  const pVolumes = pattern.volumes || Array(pattern.steps || 16).fill(80);
+  const pVolumes = pattern.volumes || Array(pattern.steps || 16).fill(70);
   const pDecays = pattern.decays || Array(pattern.steps || 16).fill(100);
   const pMicro = pattern.microtimings || Array(pattern.steps || 16).fill(0);
   const pLyrics = pattern.lyrics || Array(pattern.steps || 16).fill('');
@@ -52,13 +52,13 @@ export function resizePatternAllBeatsResolution(
     activeSteps: reindexArray(pattern.activeSteps, 0) as (string | number)[],
     lyrics: reindexArray(pLyrics, ''),
     notes: reindexArray(pNotes, ''),
-    volumes: reindexArray(pVolumes, 80),
+    volumes: reindexArray(pVolumes, 70),
     decays: reindexArray(pDecays, 100),
     microtimings: reindexArray(pMicro, 0, isTuplet),
     preRollActiveSteps: pattern.preRollActiveSteps ? reindexArray(pattern.preRollActiveSteps, 0) as (string | number)[] : undefined,
     preRollLyrics: pattern.preRollLyrics ? reindexArray(pattern.preRollLyrics, '') : undefined,
     preRollNotes: pattern.preRollNotes ? reindexArray(pattern.preRollNotes, '') : undefined,
-    preRollVolumes: pattern.preRollVolumes ? reindexArray(pattern.preRollVolumes, 80) : undefined,
+    preRollVolumes: pattern.preRollVolumes ? reindexArray(pattern.preRollVolumes, 70) : undefined,
     preRollDecays: pattern.preRollDecays ? reindexArray(pattern.preRollDecays, 100) : undefined,
   };
 

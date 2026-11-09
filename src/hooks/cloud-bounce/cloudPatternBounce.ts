@@ -89,8 +89,8 @@ export async function renderAndUploadPatternBounce(
       if (player) {
         const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
         const timeSec = (tickIdx / maxTicks) * beats * (60 / bpm);
-        let baseVol = patternData.volumes?.[step] ?? 80;
-        const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
+        let baseVol = patternData.volumes?.[step] ?? 70;
+        const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 70) : (typeof baseVol === 'number' ? baseVol : 70);
         const stepVolMultiplier = baseVolNum / 100;
         const db = 40 * Math.log10(Math.max(0.0001, stepVolMultiplier));
         player.volume.setValueAtTime(db, timeSec);

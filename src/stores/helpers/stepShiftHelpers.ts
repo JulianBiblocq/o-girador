@@ -37,7 +37,7 @@ function shiftPatternData(pattern: Pattern, minStep: number, maxStep: number, di
       preRollActiveSteps: shiftArrayRange(baseActives, minStep, maxStep, direction, '0'),
       preRollNotes: shiftArrayRange(baseNotes, minStep, maxStep, direction, ''),
       preRollLyrics: shiftArrayRange(baseLyrics, minStep, maxStep, direction, ''),
-      preRollVolumes: pattern.preRollVolumes ? shiftArrayRange(pattern.preRollVolumes, minStep, maxStep, direction, 80) : undefined,
+      preRollVolumes: pattern.preRollVolumes ? shiftArrayRange(pattern.preRollVolumes, minStep, maxStep, direction, 70) : undefined,
       preRollDecays: pattern.preRollDecays ? shiftArrayRange(pattern.preRollDecays, minStep, maxStep, direction, 100) : undefined,
       preRollMicrotimings: pattern.preRollMicrotimings ? shiftArrayRange(pattern.preRollMicrotimings, minStep, maxStep, direction, 0) : undefined,
     };
@@ -53,7 +53,7 @@ function shiftPatternData(pattern: Pattern, minStep: number, maxStep: number, di
     activeSteps: shiftArrayRange(baseActives, minStep, maxStep, direction, '0'),
     notes: shiftArrayRange(baseNotes, minStep, maxStep, direction, ''),
     lyrics: shiftArrayRange(baseLyrics, minStep, maxStep, direction, ''),
-    volumes: pattern.volumes ? shiftArrayRange(pattern.volumes, minStep, maxStep, direction, 80) : undefined,
+    volumes: pattern.volumes ? shiftArrayRange(pattern.volumes, minStep, maxStep, direction, 70) : undefined,
     decays: pattern.decays ? shiftArrayRange(pattern.decays, minStep, maxStep, direction, 100) : undefined,
     microtimings: pattern.microtimings ? shiftArrayRange(pattern.microtimings, minStep, maxStep, direction, 0) : undefined,
   };

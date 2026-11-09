@@ -20,13 +20,13 @@ export function createVariationStepSculptHandlers(ctx: VariationStepSculptContex
   ) => {
     setTracks((prev: TrackGroup[]) =>
       syncVariationAcrossLinkedFamily(prev, trackId, patternId, variationId, (v) => {
-        const copyVols = [...(v.volumes || Array(v.steps?.length || 16).fill(80))];
+        const copyVols = [...(v.volumes || Array(v.steps?.length || 16).fill(70))];
         if (Array.isArray(stepIdx)) {
           stepIdx.forEach((idx: number) => {
-            copyVols[idx] = updateStepSculptValue(copyVols[idx], 80, val, subIndex, Array.isArray(v.steps[idx]));
+            copyVols[idx] = updateStepSculptValue(copyVols[idx], 70, val, subIndex, Array.isArray(v.steps[idx]));
           });
         } else {
-          copyVols[stepIdx] = updateStepSculptValue(copyVols[stepIdx], 80, val, subIndex, Array.isArray(v.steps[stepIdx]));
+          copyVols[stepIdx] = updateStepSculptValue(copyVols[stepIdx], 70, val, subIndex, Array.isArray(v.steps[stepIdx]));
         }
         return { ...v, volumes: copyVols };
       })

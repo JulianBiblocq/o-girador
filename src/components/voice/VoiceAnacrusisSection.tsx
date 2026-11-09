@@ -62,7 +62,7 @@ export const VoiceAnacrusisSection: React.FC<VoiceAnacrusisProps> = (props) => {
         return (
           <VoiceStepCell
             key={`preroll-cell-${i}`} i={i} steps={pattern?.steps || 16} trackId={trackId} patternId={pattern.id}
-            state={state} syl={syl} note={note} volume={pattern?.preRollVolumes?.[i] ?? 100} decay={pattern?.preRollDecays?.[i] ?? 10}
+            state={state} syl={syl} note={note} volume={pattern?.preRollVolumes?.[i] ?? 70} decay={pattern?.preRollDecays?.[i] ?? 10}
             isSelected={props.selectedPatternId === pattern.id && props.selectedStepIdx === i && Boolean(props.selectedStepIsPreRoll)}
             isMultiSelectActive={false} manualMicro={0} totalShift={0} shiftPx={0} isLinked={false} isPreRoll={true}
             isInRange={props.isStepInRange(props.selectedStepRange, true, i, props.preRollLengthComputed)}

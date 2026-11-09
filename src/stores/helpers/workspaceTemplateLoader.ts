@@ -34,7 +34,7 @@ export const createTracksFromTemplateState = (
       name: state.lang === 'pt' ? 'Padrão 1' : 'Motif 1',
       steps,
       activeSteps: Array(steps).fill(0),
-      volumes: Array(steps).fill(80),
+      volumes: Array(steps).fill(70),
       decays: Array(steps).fill(100),
       microtimings: Array(steps).fill(0),
       measureAssignments: Array(totalM).fill(true),

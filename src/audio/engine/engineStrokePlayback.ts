@@ -61,7 +61,8 @@ export class EngineStrokePlayback {
     const gainNode = ctx.channels.getGainNode(ctx.audioContext, trackId, instrumentId);
     source.connect(gainNode);
 
-    const gainMultiplier = Math.pow(Math.max(0, Math.min(2.0, normVel)), 1.8);
+    const compensatedVel = normVel * 1.142857;
+    const gainMultiplier = Math.pow(Math.max(0, Math.min(2.0, compensatedVel)), 1.8);
 
     if (stroke.isBarulho) {
       playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, decayMultiplier, isLiveHold);

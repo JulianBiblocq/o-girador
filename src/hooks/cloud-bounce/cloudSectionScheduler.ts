@@ -48,8 +48,8 @@ export function scheduleSectionStrokes(
               const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
               const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / effectiveBpm);
 
-              let baseVol = pattern.volumes?.[step] ?? 80;
-              const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
+              let baseVol = pattern.volumes?.[step] ?? 70;
+              const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 70) : (typeof baseVol === 'number' ? baseVol : 70);
               const stepVolMultiplier = baseVolNum / 100;
               const db = 40 * Math.log10(Math.max(0.0001, stepVolMultiplier));
 

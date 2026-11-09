@@ -17,7 +17,7 @@ export const handleTrackStepsChangeState = (
           const arrSteps = Array(targetSteps).fill(0);
           const arrLyrics = Array(targetSteps).fill('');
           const arrNotes = Array(targetSteps).fill('');
-          const arrVols = Array(targetSteps).fill(80);
+          const arrVols = Array(targetSteps).fill(70);
           const arrDecays = Array(targetSteps).fill(100);
           const arrMicro = Array(targetSteps).fill(0);
 

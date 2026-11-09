@@ -29,6 +29,7 @@ export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
         max="100"
         value={currVol}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        onDoubleClick={() => onChange(70)}
         className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
       />
     </div>

@@ -88,7 +88,7 @@ export function usePatternVariationsWheel(params: {
         if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
           try {
             const rawVol = variation.volumes?.[stepIdx];
-            const vol = ((Array.isArray(rawVol) ? (subIdx === 1 ? rawVol[1] : rawVol[0]) : (rawVol ?? 80)) as number) / 100;
+            const vol = ((Array.isArray(rawVol) ? (subIdx === 1 ? rawVol[1] : rawVol[0]) : (rawVol ?? 70)) as number) / 100;
             const rawDec = variation.decays?.[stepIdx];
             const dec = ((Array.isArray(rawDec) ? (subIdx === 1 ? rawDec[1] : rawDec[0]) : (rawDec ?? 100)) as number) / 100;
             audioEngine.playNote(params.trackId, String(nextVal), Tone.now(), vol, dec);

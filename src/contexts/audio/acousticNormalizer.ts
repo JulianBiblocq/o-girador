@@ -3,11 +3,11 @@
  * Normalisateur Acoustique non-intrusif au chargement :
  * - Ne force JAMAIS d'égalisation (`eqBands`), de `distortion` ou de `reverb` non désirée sur les morceaux existants.
  * - Corrige uniquement le bug d'échelle `masterReverbVol < 0` (en dB) vers un retour discret (max 22 %).
- * - Assure la migration douce `audioScaleVersion` et recalibre les grilles figées à 100 vers 80 (< 65 lignes).
+ * - Assure la migration douce `audioScaleVersion` et recalibre le niveau nominal des pas de 100/80 vers 70 (< 85 lignes).
  */
 import { CURRENT_AUDIO_SCALE_VERSION, normalizeToFaderPosition } from '../../utils/audioMath';
 
-export const CURRENT_LUTHERIE_VERSION = 2;
+export const CURRENT_LUTHERIE_VERSION = 3;
 
 export function convertLegacyReverbDbToPercent(val: number | undefined): number {
   if (typeof val !== 'number' || isNaN(val)) return 20;
@@ -18,13 +18,36 @@ export function convertLegacyReverbDbToPercent(val: number | undefined): number 
   return Math.round(Math.max(0, Math.min(22, rawPct)));
 }
 
-function recalibrateFlatStepVelocities(pattern: any): void {
-  if (!pattern || !Array.isArray(pattern.volumes) || pattern.volumes.length === 0) return;
-  const isAllFlat100 = pattern.volumes.every((v: any) =>
+function recalibrateVolumesArray(volumes: any[] | undefined): any[] | undefined {
+  if (!Array.isArray(volumes) || volumes.length === 0) return volumes;
+  const isAllFlat100 = volumes.every((v: any) =>
     Array.isArray(v) ? Number(v[0]) === 100 && Number(v[1]) === 100 : Number(v) === 100
   );
   if (isAllFlat100) {
-    pattern.volumes = pattern.volumes.map((v: any) => (Array.isArray(v) ? [80, 80] : 80));
+    return volumes.map((v: any) => (Array.isArray(v) ? [70, 70] : 70));
+  }
+  return volumes.map((v: any) => {
+    if (Array.isArray(v)) {
+      return [Number(v[0]) === 80 ? 70 : v[0], Number(v[1]) === 80 ? 70 : v[1]];
+    }
+    return Number(v) === 80 ? 70 : v;
+  });
+}
+
+function recalibrateFlatStepVelocities(pattern: any): void {
+  if (!pattern || typeof pattern !== 'object') return;
+  if (Array.isArray(pattern.volumes)) {
+    pattern.volumes = recalibrateVolumesArray(pattern.volumes);
+  }
+  if (Array.isArray(pattern.preRollVolumes)) {
+    pattern.preRollVolumes = recalibrateVolumesArray(pattern.preRollVolumes);
+  }
+  if (Array.isArray(pattern.variations)) {
+    pattern.variations.forEach((v: any) => {
+      if (v && Array.isArray(v.volumes)) {
+        v.volumes = recalibrateVolumesArray(v.volumes);
+      }
+    });
   }
 }
 

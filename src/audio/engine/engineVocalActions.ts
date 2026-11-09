@@ -11,7 +11,7 @@ export class EngineVocalActions {
     audioCtx: AudioContext,
     mgr: EngineVoiceSynthManager,
     pitch: string | number,
-    vel = 0.8,
+    vel = 0.7,
     trackId?: string | number
   ): void {
     EngineVoiceTriggers.triggerVoicePitch(audioCtx, mgr, pitch, vel, trackId);
@@ -23,7 +23,7 @@ export class EngineVocalActions {
     pitch: string | number,
     dur: number | string,
     time?: number,
-    vel = 0.8,
+    vel = 0.7,
     trackId?: string | number
   ): void {
     EngineVoiceTriggers.triggerVoiceAttackRelease(audioCtx, mgr, pitch, dur, time, vel, trackId);

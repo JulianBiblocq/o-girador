@@ -39,7 +39,7 @@ export const handleTrackStepVolumeChangeState = (
   subIndex?: 0 | 1
 ): TrackGroup[] => syncPatternAcrossLinkedFamily(tracks, trackId, patternId, (p) => ({
   ...p,
-  volumes: applyStepParamUpdate(p.volumes, p.steps, 80, stepIdx, val, subIndex, p.activeSteps),
+  volumes: applyStepParamUpdate(p.volumes, p.steps, 70, stepIdx, val, subIndex, p.activeSteps),
 }));
 
 export const handleTrackStepDecayChangeState = (

@@ -46,7 +46,7 @@ export function createClipboardHandlers(ctx: ClipboardContext) {
           lyrics: [...patternToPaste.lyrics],
           notes: [...patternToPaste.notes],
           measureAssignments: Array(ctx.totalMeasuresRef.current).fill(true),
-          volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
+          volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(70),
           decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
           microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(patternToPaste.steps).fill(0),
           beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,
@@ -74,7 +74,7 @@ export function createClipboardHandlers(ctx: ClipboardContext) {
         }
         return {
           ...p, steps: patternToPaste.steps, activeSteps: nextActiveSteps, lyrics: [...patternToPaste.lyrics], notes: [...patternToPaste.notes],
-          volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(patternToPaste.steps).fill(80),
+          volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(patternToPaste.steps).fill(70),
           decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(patternToPaste.steps).fill(100),
           microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(patternToPaste.steps).fill(0),
           beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,

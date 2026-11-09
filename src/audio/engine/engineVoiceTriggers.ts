@@ -12,7 +12,7 @@ export class EngineVoiceTriggers {
     audioContext: AudioContext,
     voiceSynthManager: EngineVoiceSynthManager,
     pitch: string | number,
-    velocity: number = 0.8,
+    velocity: number = 0.7,
     targetTrackId?: string | number
   ): void {
     try {
@@ -48,7 +48,7 @@ export class EngineVoiceTriggers {
     pitch: string | number,
     duration: number | string,
     time?: number,
-    velocity: number = 0.8,
+    velocity: number = 0.7,
     targetTrackId?: string | number
   ): void {
     EngineVoiceAttack.trigger(audioContext, voiceSynthManager, pitch, duration, time, velocity, targetTrackId);

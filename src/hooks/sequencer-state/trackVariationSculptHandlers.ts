@@ -15,9 +15,9 @@ export function createTrackVariationSculptHandlers(ctx: VariationSculptContext) 
 
   const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
-      const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
+      const copyVols = [...(p.volumes || Array(p.steps).fill(70))];
       const indices = Array.isArray(stepIdx) ? stepIdx : [stepIdx];
-      indices.forEach((idx) => { copyVols[idx] = updateStepSculptValue(copyVols[idx], 80, val, subIndex, Array.isArray(p.activeSteps[idx])); });
+      indices.forEach((idx) => { copyVols[idx] = updateStepSculptValue(copyVols[idx], 70, val, subIndex, Array.isArray(p.activeSteps[idx])); });
       return { ...p, volumes: copyVols };
     }));
   };

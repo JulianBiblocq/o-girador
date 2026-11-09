@@ -32,9 +32,9 @@ export function useInstrumentEditorPatterns({
         name: getNextPatternName(masterTrack?.patterns || [], undefined, lang),
         steps, activeSteps: Array(steps).fill(0), lyrics: Array(steps).fill(''),
         notes: Array(steps).fill(''), measureAssignments: Array(totalMeasures).fill(false),
-        volumes: Array(steps).fill(80), decays: Array(steps).fill(100), microtimings: Array(steps).fill(0),
+        volumes: Array(steps).fill(70), decays: Array(steps).fill(100), microtimings: Array(steps).fill(0),
         variations: [], preRollActiveSteps: Array(16).fill(0), preRollLyrics: Array(16).fill(''),
-        preRollNotes: Array(16).fill(''), preRollVolumes: Array(16).fill(80), preRollDecays: Array(16).fill(10),
+        preRollNotes: Array(16).fill(''), preRollVolumes: Array(16).fill(70), preRollDecays: Array(16).fill(10),
       };
       createdId = newPattern.id;
 

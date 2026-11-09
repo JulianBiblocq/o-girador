@@ -61,7 +61,7 @@ export function handleVariationStepKeyDown(params: {
       if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
         try {
           const rawVol = volumes?.[stepIdx];
-          const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+          const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 70)) as number) / 100;
           const rawDec = decays?.[stepIdx];
           const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
           audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
@@ -102,7 +102,7 @@ export function handleVariationStepKeyDown(params: {
     if (audioEngine) {
       try {
         const rawVol = volumes?.[stepIdx];
-        const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+        const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 70)) as number) / 100;
         const rawDec = decays?.[stepIdx];
         const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
         audioEngine.playNote(trackId, char, Tone.now(), vol, dec);

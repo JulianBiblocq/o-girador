@@ -14,11 +14,11 @@ export function normalizeStrokeKey(inst: any, state: any): string | null {
 }
 
 export function computeStepVolume(rawStepVol: any, strokeIndex: number, nextRand: () => number): number {
-  let baseVol = Array.isArray(rawStepVol) ? (rawStepVol[strokeIndex] ?? 80) : (rawStepVol ?? 80);
-  if (baseVol === null || isNaN(baseVol)) baseVol = 80;
+  let baseVol = Array.isArray(rawStepVol) ? (rawStepVol[strokeIndex] ?? 70) : (rawStepVol ?? 70);
+  if (baseVol === null || isNaN(baseVol)) baseVol = 70;
   const volVariation = (nextRand() * 2 - 1) * (baseVol * 0.15);
   let finalVol = Math.max(0, Math.min(100, baseVol + volVariation));
-  if (isNaN(finalVol)) finalVol = 80;
+  if (isNaN(finalVol)) finalVol = 70;
   return finalVol / 100;
 }
 

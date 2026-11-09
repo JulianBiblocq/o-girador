@@ -39,7 +39,7 @@ export function applyWorkspaceTemplateToSongState(
     const newPatId = now + 1000 + i;
     const blankPattern: Pattern = {
       id: newPatId, name: state.lang === 'pt' ? 'Padrão 1' : 'Motif 1', steps: defaultSteps,
-      activeSteps: Array(defaultSteps).fill(0), volumes: Array(defaultSteps).fill(80),
+      activeSteps: Array(defaultSteps).fill(0), volumes: Array(defaultSteps).fill(70),
       decays: Array(defaultSteps).fill(100), microtimings: Array(defaultSteps).fill(0),
       measureAssignments: Array(totalM).fill(true), lyrics: Array(defaultSteps).fill(''), notes: Array(defaultSteps).fill(''),
     };

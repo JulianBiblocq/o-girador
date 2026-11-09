@@ -14,7 +14,7 @@ export class EngineVoiceAttack {
     pitch: string | number,
     duration: number | string,
     time?: number,
-    velocity: number = 0.8,
+    velocity: number = 0.7,
     targetTrackId?: string | number
   ): void {
     try {

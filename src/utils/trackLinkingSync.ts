@@ -49,7 +49,7 @@ export function reconcileSlavePatterns(slave: TrackGroup, master: TrackGroup): {
     return {
       id: mPtn.id, name: mPtn.name, steps: mPtn.steps,
       activeSteps: Array(mPtn.steps).fill(0), lyrics: Array(mPtn.steps).fill(''), notes: Array(mPtn.steps).fill(''),
-      volumes: Array(mPtn.steps).fill(80), decays: Array(mPtn.steps).fill(100), microtimings: Array(mPtn.steps).fill(0),
+      volumes: Array(mPtn.steps).fill(70), decays: Array(mPtn.steps).fill(100), microtimings: Array(mPtn.steps).fill(0),
       variations: [], measureAssignments: copyAssigns,
     };
   });

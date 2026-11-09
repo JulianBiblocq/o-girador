@@ -54,7 +54,7 @@ export function resizePatternBeatResolution(
   const targetSteps = (pattern.steps || 16) - oldRes + newResolution;
   const startIndex = currentRes.slice(0, beatIndex).reduce((sum: number, val: number) => sum + val, 0);
 
-  const pVolumes = pattern.volumes || Array(pattern.steps || 16).fill(80);
+  const pVolumes = pattern.volumes || Array(pattern.steps || 16).fill(70);
   const pDecays = pattern.decays || Array(pattern.steps || 16).fill(100);
   const pMicro = pattern.microtimings || Array(pattern.steps || 16).fill(0);
   const pLyrics = pattern.lyrics || Array(pattern.steps || 16).fill('');
@@ -68,13 +68,13 @@ export function resizePatternBeatResolution(
     activeSteps: spliceStepArray(pattern.activeSteps, 0, startIndex, oldRes, newResolution) as (string | number)[],
     lyrics: spliceStepArray(pLyrics, '', startIndex, oldRes, newResolution),
     notes: spliceStepArray(pNotes, '', startIndex, oldRes, newResolution),
-    volumes: spliceStepArray(pVolumes, 80, startIndex, oldRes, newResolution),
+    volumes: spliceStepArray(pVolumes, 70, startIndex, oldRes, newResolution),
     decays: spliceStepArray(pDecays, 100, startIndex, oldRes, newResolution),
     microtimings: spliceStepArray(pMicro, 0, startIndex, oldRes, newResolution, isTuplet),
     preRollActiveSteps: pattern.preRollActiveSteps ? spliceStepArray(pattern.preRollActiveSteps, 0, startIndex, oldRes, newResolution) : undefined,
     preRollLyrics: pattern.preRollLyrics ? spliceStepArray(pattern.preRollLyrics, '', startIndex, oldRes, newResolution) : undefined,
     preRollNotes: pattern.preRollNotes ? spliceStepArray(pattern.preRollNotes, '', startIndex, oldRes, newResolution) : undefined,
-    preRollVolumes: pattern.preRollVolumes ? spliceStepArray(pattern.preRollVolumes, 80, startIndex, oldRes, newResolution) : undefined,
+    preRollVolumes: pattern.preRollVolumes ? spliceStepArray(pattern.preRollVolumes, 70, startIndex, oldRes, newResolution) : undefined,
     preRollDecays: pattern.preRollDecays ? spliceStepArray(pattern.preRollDecays, 100, startIndex, oldRes, newResolution) : undefined,
   };
 
