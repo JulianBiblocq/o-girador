@@ -10,9 +10,9 @@ import { printSequenciadorVocalSheet, scanAndInjectVocalPaperInSequenciador, get
 
 const VOCAL_SHEETS = [
   { id: 'sequence' as const, code: 'CHANT-SEQ', title: 'Feuille 1 — Séquence & Paroles (Pux / Cor)', desc: 'Grille M1..M32 sur 2 lignes (Pux / Cor) pour attribuer P1..Pn, X (Pause) et Unisson.' },
-  { id: 'notes_1m' as const, code: 'CHANT-NOTES-1M', title: 'Feuille 2A — Patterns & Clavier 1 Octave (1 Mesure)', desc: '3 blocs neutres [Pattern : P__] Portrait • Clavier La ➔ Sol# hachuré N&B, OCT/±, Ana T3-T4, +T1.' },
-  { id: 'notes_2m' as const, code: 'CHANT-NOTES-2M', title: 'Feuille 2B — Patterns & Clavier 1 Octave (2 Mesures)', desc: '2 blocs neutres [Pattern : P__] Paysage • Clavier La ➔ Sol# hachuré N&B, 2 mesures / ligne.' },
-  { id: 'rhythm_only' as const, code: 'CHANT-RYTHME', title: 'Feuille 3 — Paroles & Rythme Seul (Sans Notes)', desc: '5 blocs neutres [Pattern : P__] sans clavier : Ana T3-T4, Temps 1..4 (4 sous-cases) et +T1.' },
+  { id: 'notes_1m' as const, code: 'CHANT-NOTES-1M', title: 'Feuille 2A — Patterns & Clavier 1 Octave (1 Mesure)', desc: '5 blocs neutres [Pattern : P__] Portrait • Clavier La ➔ Sol#, OCTAVE (3/4/5) et bande SYLLABES ouverte.' },
+  { id: 'notes_2m' as const, code: 'CHANT-NOTES-2M', title: 'Feuille 2B — Patterns & Clavier 1 Octave (2 Mesures)', desc: '4 blocs neutres [Pattern : P__] Paysage • Clavier La ➔ Sol#, 2 mesures / ligne et SYLLABES ouverte.' },
+  { id: 'rhythm_only' as const, code: 'CHANT-RYTHME', title: 'Feuille 3 — Paroles & Rythme Seul (Sans Notes)', desc: '6 blocs neutres [Pattern : P__] : piste RYTHME / DURÉE (4 sous-cases/temps) + bande SYLLABES ouverte.' },
   { id: 'instructions' as const, code: 'CHANT-GUIDE', title: "Feuille 4 — Guide & Conventions d'écriture", desc: 'Mémo illustré : séparation Pux/Cor, tirets "-" intra-mots, élisions "E\'O" et tenues "───►".' },
 ];
 
