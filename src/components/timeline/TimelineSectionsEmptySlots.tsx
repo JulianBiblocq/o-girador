@@ -17,10 +17,12 @@ export const TimelineSectionsEmptySlots = React.memo<TimelineSectionsEmptySlotsP
   totalMeasures, visibleRange, measureWidths, measureWidth, copiedSection, lang,
   onEmptySlotPointerDown, onEmptySlotPointerEnter, onPlusClick,
 }) => {
+  const safeBaseW = measureWidth > 0 ? measureWidth : 120;
   return (
     <div className="absolute inset-0 flex pointer-events-none z-0">
       {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-        const mW = `${measureWidths[mIdx] ?? measureWidth}px`;
+        const ratio = (measureWidths[mIdx] ?? safeBaseW) / safeBaseW;
+        const mW = ratio === 1 ? 'var(--measure-width, 120px)' : `calc(var(--measure-width, 120px) * ${ratio})`;
         if (mIdx < visibleRange.start || mIdx > visibleRange.end) {
           return <div key={mIdx} style={{ width: mW, minWidth: mW, height: '100%' }} />;
         }

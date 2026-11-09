@@ -7,7 +7,7 @@ import { TimelineMeasureToadaDualWave } from './timeline/TimelineMeasureToadaDua
 import { TimelineMeasureMacroBlock } from './timeline/TimelineMeasureMacroBlock';
 
 interface TimelineMeasureProps {
-  mIdx: number; trackId: number; trackIdx: number; instrumentIdx: number; currentMeasureW: number;
+  mIdx: number; trackId: number; trackIdx: number; instrumentIdx: number; currentMeasureW: number; widthRatio?: number;
   patternId: number; patternIdx: number; steps: number; spanMeasures?: number; relativeIdx?: number;
   beatResolutions?: number[]; sectionColor: string; isSectionStart: boolean; isSectionEnd: boolean;
   loopStatus: 'inside-active' | 'outside-active' | 'none'; isPanningActive: boolean; instId: string;
@@ -27,7 +27,7 @@ interface TimelineMeasureProps {
 }
 
 const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
-  mIdx, trackId, trackIdx, instrumentIdx, currentMeasureW, patternId, patternIdx, steps, spanMeasures = 1,
+  mIdx, trackId, trackIdx, instrumentIdx, widthRatio = 1, patternId, patternIdx, steps, spanMeasures = 1,
   relativeIdx = 0, beatResolutions, sectionColor, isSectionStart, isSectionEnd, loopStatus, isPanningActive,
   instId, instType, lang, activePatternName, patternsList, onPatternAssignForMeasure, onPatternVariationToggleForMeasure,
   measureAllowVariations, variationsCount, isMacro, isMinZoom, instColors, instMixerBg, activePatternActiveSteps,
@@ -35,6 +35,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   slaveTrackIds, isOverridden, isSilence, hasChildOverrides, isToada, toadaVocalBadges, isToadaComposite,
   onStepTouchStart, onOpenPatternPicker,
 }) => {
+  const cssMeasureW = widthRatio === 1 ? 'var(--measure-width, 120px)' : `calc(var(--measure-width, 120px) * ${widthRatio})`;
   const timeSigStr = useSequencerStore((s) => s.measureTimeSigs?.[mIdx] || s.timeSig || '4/4');
   const isMulti = useSequencerStore(React.useCallback((s) => s.selectedTimelineCells.some((c) => c.trackId === trackId && c.mIdx === mIdx), [trackId, mIdx]));
   const isActive = useSequencerStore(React.useCallback((s) => s.selectedTimelineCells.length === 0 && s.activeTimelineCell?.trackId === trackId && s.activeTimelineCell?.measureIdx === mIdx, [trackId, mIdx]));
@@ -68,7 +69,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   return (
     <div
       className={`h-full cursor-pointer border-r shrink-0 select-none relative transition-all duration-100 ${isMulti ? 'ring-2 ring-inset ring-[#8b2a1a] shadow-[inset_0_0_0_2px_var(--cordel-bg)] bg-[#8b2a1a]/[0.08] z-20' : (isActive ? 'ring-2 ring-inset ring-[#8b2a1a] bg-[#8b2a1a]/[0.08] shadow-[inset_0_0_0_1px_#8b2a1a,0_0_8px_rgba(139,42,26,0.3)] z-20' : '')} ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]' : 'border-r-[var(--cordel-border)]/20'} ${loopBg} ${sectionColor ? 'cell-section-tint' : ''} ${isSectionStart ? 'cell-section-start' : ''} ${isSectionEnd ? 'cell-section-end' : ''}`}
-      style={{ width: currentMeasureW, minWidth: currentMeasureW, contain: 'layout paint style', opacity: 1.0, WebkitTouchCallout: 'none', userSelect: 'none', ...({ '--section-color': sectionColor } as React.CSSProperties) }}
+      style={{ width: cssMeasureW, minWidth: cssMeasureW, contain: 'layout paint style', opacity: 1.0, WebkitTouchCallout: 'none', userSelect: 'none', ...({ '--section-color': sectionColor } as React.CSSProperties) }}
       onPointerDown={handlers.handlePointerDown} onClick={handlers.handleClick} onDoubleClick={handlers.handleDoubleClick} onContextMenu={handlers.handleContextMenu} onTouchStart={handlers.handleTouchStart} onTouchMove={handlers.handleTouchMove} onTouchEnd={handlers.handleTouchEnd} onTouchCancel={handlers.handleTouchCancel}
     >
       {isSel && <div className="absolute top-0 right-0 w-2.5 h-2.5 pointer-events-none z-20"><div className="w-full h-full bg-[#8b2a1a]" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} /></div>}
@@ -107,5 +108,5 @@ const arePatternsListsEqual = (p?: Array<{ id: number; name: string; vocalMode?:
 };
 
 export const TimelineMeasure = React.memo(TimelineMeasureComponent, (p, n) => (
-  p.mIdx === n.mIdx && p.trackId === n.trackId && p.trackIdx === n.trackIdx && p.instrumentIdx === n.instrumentIdx && p.currentMeasureW === n.currentMeasureW && p.patternId === n.patternId && p.patternIdx === n.patternIdx && p.steps === n.steps && p.spanMeasures === n.spanMeasures && p.relativeIdx === n.relativeIdx && p.sectionColor === n.sectionColor && p.isSectionStart === n.isSectionStart && p.isSectionEnd === n.isSectionEnd && p.loopStatus === n.loopStatus && p.isPanningActive === n.isPanningActive && p.lang === n.lang && p.activePatternName === n.activePatternName && p.measureAllowVariations === n.measureAllowVariations && p.signalDropdownOpen === n.signalDropdownOpen && p.isMacro === n.isMacro && p.isMinZoom === n.isMinZoom && p.activePatternActiveSteps === n.activePatternActiveSteps && p.isLinkedChild === n.isLinkedChild && p.isLinkMaster === n.isLinkMaster && p.isOverridden === n.isOverridden && p.isLinkFolder === n.isLinkFolder && p.isSlave === n.isSlave && p.isSilence === n.isSilence && p.isToada === n.isToada && p.isToadaComposite === n.isToadaComposite && p.toadaVocalBadges?.pPtnName === n.toadaVocalBadges?.pPtnName && p.toadaVocalBadges?.cPtnName === n.toadaVocalBadges?.cPtnName && p.parentBusTrackId === n.parentBusTrackId && p.masterTrackId === n.masterTrackId && p.hasChildOverrides === n.hasChildOverrides && p.slaveTrackIds === n.slaveTrackIds && p.instMixerBg === n.instMixerBg && arePatternsListsEqual(p.patternsList, n.patternsList)
+  p.mIdx === n.mIdx && p.trackId === n.trackId && p.trackIdx === n.trackIdx && p.instrumentIdx === n.instrumentIdx && (p.widthRatio ?? 1) === (n.widthRatio ?? 1) && p.patternId === n.patternId && p.patternIdx === n.patternIdx && p.steps === n.steps && p.spanMeasures === n.spanMeasures && p.relativeIdx === n.relativeIdx && p.sectionColor === n.sectionColor && p.isSectionStart === n.isSectionStart && p.isSectionEnd === n.isSectionEnd && p.loopStatus === n.loopStatus && p.isPanningActive === n.isPanningActive && p.lang === n.lang && p.activePatternName === n.activePatternName && p.measureAllowVariations === n.measureAllowVariations && p.signalDropdownOpen === n.signalDropdownOpen && p.isMacro === n.isMacro && p.isMinZoom === n.isMinZoom && p.activePatternActiveSteps === n.activePatternActiveSteps && p.isLinkedChild === n.isLinkedChild && p.isLinkMaster === n.isLinkMaster && p.isOverridden === n.isOverridden && p.isLinkFolder === n.isLinkFolder && p.isSlave === n.isSlave && p.isSilence === n.isSilence && p.isToada === n.isToada && p.isToadaComposite === n.isToadaComposite && p.toadaVocalBadges?.pPtnName === n.toadaVocalBadges?.pPtnName && p.toadaVocalBadges?.cPtnName === n.toadaVocalBadges?.cPtnName && p.parentBusTrackId === n.parentBusTrackId && p.masterTrackId === n.masterTrackId && p.hasChildOverrides === n.hasChildOverrides && p.slaveTrackIds === n.slaveTrackIds && p.instMixerBg === n.instMixerBg && arePatternsListsEqual(p.patternsList, n.patternsList)
 ));

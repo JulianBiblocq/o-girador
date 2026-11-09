@@ -9,6 +9,10 @@ export interface UseTimelineViewportOptions {
   isActive?: boolean;
 }
 
+const VIRTUALIZATION_MIN_MEASURES = 24;
+const VIEWPORT_BUFFER_MEASURES = 8;
+const SCROLL_HYSTERESIS_MEASURES = 4;
+
 export function useTimelineViewport({
   totalMeasures, measureWidth, headerWidth, scrollRef, isPlaying, isActive = true,
 }: UseTimelineViewportOptions) {
@@ -18,10 +22,12 @@ export function useTimelineViewport({
   measureWidthRef.current = measureWidth;
 
   const [visibleRange, setVisibleRange] = useState(() => {
-    if (totalMeasures <= 48) return { start: 0, end: Math.max(0, totalMeasures - 1) };
+    if (totalMeasures <= VIRTUALIZATION_MIN_MEASURES) {
+      return { start: 0, end: Math.max(0, totalMeasures - 1) };
+    }
     const initW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    const initVis = Math.ceil((initW - headerWidth) / measureWidth);
-    return { start: 0, end: Math.min(totalMeasures - 1, initVis + 8) };
+    const initVis = Math.ceil((initW - headerWidth) / Math.max(20, measureWidth));
+    return { start: 0, end: Math.min(totalMeasures - 1, initVis + VIEWPORT_BUFFER_MEASURES) };
   });
 
   const isRangeScheduledRef = useRef(false);
@@ -31,19 +37,30 @@ export function useTimelineViewport({
   });
 
   const updateVisibleRange = useCallback((immediate = false) => {
-    if (totalMeasures <= 48) {
+    if (totalMeasures <= VIRTUALIZATION_MIN_MEASURES) {
       setVisibleRange(prev => (prev.start === 0 && prev.end === Math.max(0, totalMeasures - 1)) ? prev : { start: 0, end: Math.max(0, totalMeasures - 1) });
       return;
     }
     const computeRange = () => {
       const { lastScrollLeft, width } = viewportCacheRef.current;
-      const curW = measureWidthRef.current;
-      const buffer = 8;
-      let start = Math.max(0, Math.floor(lastScrollLeft / curW) - buffer);
-      const end = Math.min(totalMeasures - 1, Math.ceil((lastScrollLeft + width) / curW) + buffer);
-      if (start > end) start = Math.max(0, end - buffer);
+      const curW = Math.max(20, measureWidthRef.current);
+      let start = Math.max(0, Math.floor(lastScrollLeft / curW) - VIEWPORT_BUFFER_MEASURES);
+      const end = Math.min(totalMeasures - 1, Math.ceil((lastScrollLeft + width) / curW) + VIEWPORT_BUFFER_MEASURES);
+      if (start > end) start = Math.max(0, end - VIEWPORT_BUFFER_MEASURES);
       startTransition(() => {
-        setVisibleRange(prev => (prev.start === start && prev.end === end) ? prev : { start, end });
+        setVisibleRange(prev => {
+          if (prev.start === start && prev.end === end) return prev;
+          if (!immediate) {
+            const atLeftEdge = start === 0 && prev.start !== 0;
+            const atRightEdge = end === totalMeasures - 1 && prev.end !== totalMeasures - 1;
+            const deltaStart = Math.abs(prev.start - start);
+            const deltaEnd = Math.abs(prev.end - end);
+            if (!atLeftEdge && !atRightEdge && deltaStart < SCROLL_HYSTERESIS_MEASURES && deltaEnd < SCROLL_HYSTERESIS_MEASURES) {
+              return prev;
+            }
+          }
+          return { start, end };
+        });
       });
     };
     if (immediate) {
@@ -65,7 +82,7 @@ export function useTimelineViewport({
     viewportCacheRef.current.width = el.clientWidth - headerWidth;
     const handleScroll = () => {
       viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
-      if (!isPlayingRef.current && totalMeasures > 48) updateVisibleRange(false);
+      if (totalMeasures > VIRTUALIZATION_MIN_MEASURES) updateVisibleRange(false);
     };
     el.addEventListener('scroll', handleScroll, { passive: true });
     updateVisibleRange(true);
@@ -81,16 +98,9 @@ export function useTimelineViewport({
   }, [updateVisibleRange, scrollRef, isActive, totalMeasures, headerWidth]);
 
   useEffect(() => {
+    if (scrollRef.current) viewportCacheRef.current.lastScrollLeft = scrollRef.current.scrollLeft;
     updateVisibleRange(true);
-  }, [measureWidth, totalMeasures, updateVisibleRange]);
-
-  useEffect(() => {
-    if (isPlaying) {
-      if (totalMeasures > 48) setVisibleRange({ start: 0, end: Math.max(0, totalMeasures - 1) });
-    } else {
-      updateVisibleRange(true);
-    }
-  }, [isPlaying, totalMeasures, updateVisibleRange]);
+  }, [measureWidth, totalMeasures, updateVisibleRange, scrollRef]);
 
   return { visibleRange, viewportCacheRef, updateVisibleRange };
 }

@@ -16,7 +16,7 @@ export interface ClockCallbacks {
 export class EngineSchedulerClock {
   public isPlaying: boolean = false;
   public LOOKAHEAD_INTERVAL: number = 25.0;
-  public SCHEDULE_AHEAD_TIME: number = 0.250;
+  public SCHEDULE_AHEAD_TIME: number = 0.350;
   public nextTickTime: number = 0.0;
   public sequenceStartTime: number = 0.0;
   public currentStep: number = 0;
@@ -42,13 +42,13 @@ export class EngineSchedulerClock {
   }
 
   public updateSchedulingParameters(): void {
-    this.SCHEDULE_AHEAD_TIME = 0.250;
+    this.SCHEDULE_AHEAD_TIME = 0.350;
     this.LOOKAHEAD_INTERVAL = 25.0;
 
     try {
       const Tone = getTone();
-      if (Tone?.context) Tone.context.lookAhead = 0.25;
-      if (Tone?.Transport) (Tone.Transport as any).scheduleAheadTime = 0.25;
+      if (Tone?.context) Tone.context.lookAhead = 0.35;
+      if (Tone?.Transport) (Tone.Transport as any).scheduleAheadTime = 0.35;
     } catch (_) {}
 
     if (!this.clockHandle?.hasWorkletTicked && !this.clockHandle?.clockNode && this.isPlaying && this.clockHandle?.fallbackTimerId !== null) {

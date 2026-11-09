@@ -32,11 +32,14 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
 }) => {
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = useState<number | null>(null);
   const maxLevel = Math.max(1, ...songSections.map((s) => s.level || 0));
+  const safeBaseW = measureWidth > 0 ? measureWidth : 120;
 
   return (
     <>
       {songSections.map((section) => {
         const { left: startX, width } = getSectionBounds(section.startMeasure, section.endMeasure, measureLeftPositions, measureWidths);
+        const leftRatio = startX / safeBaseW;
+        const widthRatio = width / safeBaseW;
         const topOffset = (maxLevel - (section.level || 0)) * 26 + 4;
         const bg = section.color || '#eaddcf';
         const isDark = isDarkOrRedBanner(bg);
@@ -54,7 +57,7 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
             onPointerDown={(e) => onSectionBlockPointerDown(e, section)}
             onDoubleClick={(e) => { e.stopPropagation(); onEditSection(section); }}
             style={{
-              left: `${startX}px`, width: `${width - 8}px`, marginLeft: '4px', top: `${topOffset}px`,
+              left: `calc(var(--measure-width, 120px) * ${leftRatio})`, width: `calc(var(--measure-width, 120px) * ${widthRatio} - 8px)`, marginLeft: '4px', top: `${topOffset}px`,
               height: '24px', backgroundColor: bg, color: textColor,
               textShadow: isDark ? '0 1px 1px rgba(0,0,0,0.65)' : 'none',
               borderColor: '#1a1a1a', borderWidth: '1.5px', zIndex: 10,

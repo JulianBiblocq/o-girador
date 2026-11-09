@@ -61,8 +61,8 @@ export function useTimelineGridController(p: UseTimelineGridControllerParams) {
   const { visibleRange } = useTimelineViewport({ totalMeasures: p.totalMeasures, measureWidth: MEASURE_W, headerWidth: HEADER_W, scrollRef: p.scrollRef, isPlaying: p.isPlaying, isActive: p.isActive });
   const pinchPan = useTimelinePinchPan({
     containerRef: p.containerRef, scrollRef: p.scrollRef, gridRef: p.gridRef, measureWidth: MEASURE_W, headerWidth: HEADER_W,
-    totalMeasures: p.totalMeasures, isPlaying: p.isPlaying, onMeasureWidthChange: p.onMeasureWidthChange, toolMode, isSpacePressed: false,
-    isMultiSelectMode: p.isMultiSelectMode, clearTimelineSelection: p.clearTimelineSelection, clearAutomationSelection: p.clearAutomationSelection,
+    totalMeasures: p.totalMeasures, totalContentW, leftPositions, widths, isPlaying: p.isPlaying, onMeasureWidthChange: p.onMeasureWidthChange,
+    toolMode, isSpacePressed: false, isMultiSelectMode: p.isMultiSelectMode, clearTimelineSelection: p.clearTimelineSelection, clearAutomationSelection: p.clearAutomationSelection,
   });
 
   const scrubbing = useTimelineScrubbing({

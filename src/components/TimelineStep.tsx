@@ -1,7 +1,6 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { resolveTimelineStepData } from './timeline/TimelineStepPatternResolver';
 import { TimelineStepCellVisuals } from './timeline/TimelineStepCellVisuals';
 
@@ -20,8 +19,6 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   isSlave: propIsSlave, isLinkMaster: propIsLinkMaster, parentBusTrackId, masterTrackId,
   slaveTrackIds, hasChildOverrides,
 }) => {
-  const uiContext = useContext(TimelineUIContext);
-
   const stepData = useSequencerStore(
     useShallow((state) => {
       const currentTrack = state.tracks.find((t) => t.id === trackId) || state.tracks[trackIdx];
@@ -47,7 +44,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     })
   );
 
-  if (!uiContext || !stepData) return null;
+  if (!stepData) return null;
 
   const defaultBeats = parseInt(stepData.timeSigStr.split('/')[0], 10) || 4;
   const beatRes = beatResolutions || Array(defaultBeats).fill(4);
@@ -66,7 +63,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     <TimelineStepCellVisuals
       stepData={stepData} trackId={trackId} patternId={patternId} measureIdx={measureIdx}
       stepIdx={stepIdx} stepsCount={stepsCount} isTriplet={beatCount === 3} isSextuplet={beatCount === 6}
-      indexInBeat={indexInBeat} isMacro={uiContext.isMacro} isMinZoom={uiContext.isMinZoom}
+      indexInBeat={indexInBeat} isMacro={false} isMinZoom={false}
     />
   );
 };
