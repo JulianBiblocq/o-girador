@@ -3,7 +3,7 @@
  */
 
 import { StrokeMapping } from '../../data/audioConfig';
-import { PlaybackContext } from './engineTypes';
+import { PlaybackContext, PooledGainNode } from './engineTypes';
 import { playBarulhoStroke } from './engineBarulhoPlayback';
 
 export type { PlaybackContext };
@@ -59,6 +59,7 @@ export class EngineStrokePlayback {
     source.playbackRate.value = calculatedPitch;
 
     const gainNode = ctx.channels.getGainNode(ctx.audioContext, trackId, instrumentId);
+    (gainNode as PooledGainNode)._activeSource = source;
     source.connect(gainNode);
 
     const compensatedVel = normVel * 1.142857;
@@ -86,16 +87,13 @@ export class EngineStrokePlayback {
     ctx.scheduledHits.add(source);
     const realWorldDuration = buffer.duration / calculatedPitch;
     const env = computeProgressiveDecayEnvelope(realWorldDuration, decayMultiplier);
+    const holdEnd = time + env.holdSec;
+    const releaseEnd = env.isFullBuffer ? time + realWorldDuration : holdEnd + env.releaseSec;
+    const expectedEnd = env.isFullBuffer ? releaseEnd : releaseEnd + 0.01;
 
-    let expectedEnd: number;
+    ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
 
     if (!env.isFullBuffer) {
-      const holdEnd = time + env.holdSec;
-      const releaseEnd = holdEnd + env.releaseSec;
-      expectedEnd = releaseEnd + 0.01;
-
-      ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
-
       const safeGain = Math.max(0.0001, gainMultiplier);
       gainNode.gain.cancelScheduledValues(time);
       gainNode.gain.setValueAtTime(safeGain, time);
@@ -107,12 +105,9 @@ export class EngineStrokePlayback {
       source.start(time);
       source.stop(expectedEnd);
     } else {
-      expectedEnd = time + realWorldDuration;
-      ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
-
       gainNode.gain.cancelScheduledValues(time);
       gainNode.gain.setValueAtTime(gainMultiplier, time);
-      gainNode.gain.setValueAtTime(gainMultiplier, time + env.holdSec);
+      gainNode.gain.setValueAtTime(gainMultiplier, holdEnd);
       gainNode.gain.linearRampToValueAtTime(0, expectedEnd);
 
       source.start(time);
@@ -130,7 +125,9 @@ export class EngineStrokePlayback {
     };
 
     if (trackId !== null) {
-      const activeVoice = ctx.voiceGuard.getActiveVoice(source, gainNode, time, gainMultiplier, instrumentId);
+      const activeVoice = ctx.voiceGuard.getActiveVoice(
+        source, gainNode, time, holdEnd, releaseEnd, expectedEnd, gainMultiplier, env.isFullBuffer, instrumentId
+      );
       const tv = ctx.voiceGuard.trackVoices.get(String(trackId)) || [];
       tv.push(activeVoice);
       ctx.voiceGuard.trackVoices.set(String(trackId), tv);

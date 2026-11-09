@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { applyAnchoredTimelineZoom, attachTouchPinch, computeWheelZoomTarget, livePlayheadZoomState, setTimelineZoomingDomFlag } from '../../utils/timeline/timelineZoomUtils';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
 
 export interface UseTimelinePinchPanOptions {
   containerRef: React.RefObject<HTMLDivElement | null>; scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -57,12 +58,13 @@ export function useTimelinePinchPan({
       const diff = targetW - curW;
       const nextW = Math.abs(diff) <= 0.8 ? targetW : Math.round((curW + diff * 0.42) * 100) / 100;
       const g = geomRef.current, st = useSequencerStore.getState();
-      const anchorM = st.activeTimelineCell?.measureIdx ?? st.selectedTimelineCells[0]?.mIdx ?? st.currentMeasure ?? 0;
+      const liveM = getLiveOrStoreMeasure(st.currentMeasure ?? 0);
+      const anchorM = st.activeTimelineCell?.measureIdx ?? st.selectedTimelineCells[0]?.mIdx ?? liveM;
       const res = applyAnchoredTimelineZoom({
         containerEl: cEl, scrollEl: sEl, gridEl: gridRef.current, currentW: curW, targetW: nextW,
         baseMeasureW: g.baseMeasureW, headerWidth: g.headerWidth, totalMeasures: g.totalMeasures, totalContentW: g.totalContentW,
         leftPositions: g.leftPositions, widths: g.widths, isPlaying: g.isPlaying, anchorMeasureIdx: anchorM,
-        playheadMeasureIdx: st.currentMeasure ?? 0,
+        playheadMeasureIdx: liveM,
       });
       currentVisualWidthRef.current = res ? res.targetW : nextW;
       if (res) pendingScrollLeft.current = res.newScrollLeft;

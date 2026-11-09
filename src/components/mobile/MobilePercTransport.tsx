@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Play, Square, RotateCcw, Zap } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTapTempo } from '../../hooks/useTapTempo';
 import { tMobile } from '../../i18n/mobileTranslations';
+import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
+import { getEffectiveBpm } from '../../utils/bpmUtils';
 
 interface Props {
   isPlaying: boolean;
@@ -27,6 +29,23 @@ export const MobilePercTransport: React.FC<Props> = ({
   const lang = useSequencerStore((s) => s.lang);
   const isSpeedTrainerActive = useSequencerStore((s) => s.isSpeedTrainerActive);
   const { registerTap } = useTapTempo();
+  const bpmSpanRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let lastM = -1;
+    const handleTick = (evt: any) => {
+      if (!evt || evt.step < 0 || evt.isPreRoll) return;
+      if (evt.measure !== lastM && bpmSpanRef.current) {
+        lastM = evt.measure;
+        const st = useSequencerStore.getState();
+        const txt = String(getEffectiveBpm(st.bpm, st.measureBpms, evt.measure));
+        if (bpmSpanRef.current.textContent !== txt) bpmSpanRef.current.textContent = txt;
+      }
+    };
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
+  }, [isPlaying]);
 
   return (
     <footer className="w-full bg-[var(--cordel-surface)] border-t-2 border-[var(--cordel-border)] flex flex-col gap-1.5 p-2 shrink-0 select-none relative z-30">
@@ -37,7 +56,7 @@ export const MobilePercTransport: React.FC<Props> = ({
           <button onClick={() => onChangeBpm(-5)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 cursor-pointer" title="-5 BPM">-5</button>
           <button onClick={() => onChangeBpm(-1)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="-1 BPM">-1</button>
           <button onClick={registerTap} className="flex-[1.3] min-w-[30px] h-full px-1 flex items-center justify-center font-cactus text-[11px] sm:text-xs font-extrabold tabular-nums text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-95 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="Tap Tempo">
-            <span>{bpm}</span>
+            <span ref={bpmSpanRef}>{bpm}</span>
           </button>
           <button onClick={onResetBpm} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center text-[#b94a2c] hover:bg-black/10 active:scale-95 border-l border-r border-[var(--cordel-border)]/40 cursor-pointer" title="Reset BPM">
             <RotateCcw size={10} />

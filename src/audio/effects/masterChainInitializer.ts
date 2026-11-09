@@ -37,7 +37,7 @@ export function initMasterEffectsChain(
     output: highFilter,
   });
 
-  const disableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? isEco;
+  const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
   const isCompActive = useSequencerStore.getState().masterEffectsActive?.compressor ?? true;
   const isCompBypassed = !isCompActive;
 
@@ -93,21 +93,18 @@ export function initMasterEffectsChain(
   metro.mute = !isMetroOn;
   nodes.setMetroChannel(metro);
 
-  const revVol = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(vol);
+  const initialRevGain = disableFx ? 0 : Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol);
+  const revVol = new Tone.Gain(Number.isFinite(initialRevGain) ? initialRevGain : 0).connect(vol);
   nodes.setMasterReverbVolumeNode(revVol);
 
   const revBus = new Tone.Channel();
   revBus.receive('reverb');
   nodes.setReverbBusReceive(revBus);
 
-  if (!disableFx) {
-    const rev = createStudioConvolverReverb();
-    rev.connect(revVol);
-    revBus.connect(rev);
-    nodes.setReverbNode(rev);
-  } else {
-    nodes.setReverbNode(null);
-  }
+  const rev = createStudioConvolverReverb();
+  rev.connect(revVol);
+  revBus.connect(rev);
+  nodes.setReverbNode(rev);
 
   const dist = new Tone.Distortion({ distortion: 0.15, wet: 1 });
   const distVol = new Tone.Gain(0.0).connect(vol);

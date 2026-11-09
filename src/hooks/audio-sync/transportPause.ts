@@ -1,8 +1,9 @@
 import * as Tone from 'tone';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { stopAllNativeOscillators } from '../../audio/nativeSynths';
-import { flushVisualBuffers, purgeVisualTickBuffer, getLastAudibleTick } from '../../audio/visualTickBuffer';
+import { flushVisualBuffers, purgeVisualTickBuffer, getLastAudibleTick, setLastAudibleTick } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getExpandedMeasures } from '../../utils/measureHelpers';
 import { releaseWakeLock } from './wakeLockHelper';
 import { tickSubscribers } from './audioSyncTypes';
 import { AudioEngine } from '../../AudioEngine';
@@ -23,15 +24,18 @@ export interface TransportPauseContext {
   currentStepIndexRef: { current: number };
   maxTicksRef: { current: number };
   tickEventDetailRef: { current: any };
+  currentLoopIterationRef?: { current: number };
   isPlayingRef: { current: boolean };
   setIsPlaying: (p: boolean) => void;
   setCurrentMeasure: (m: number) => void;
 }
 
 export function executeTransportPause(ctx: TransportPauseContext): void {
+  const audibleTickSnapshot = getLastAudibleTick() ? { ...getLastAudibleTick()! } : null;
   ctx.isPreRollActiveRef.current = false;
   ctx.preRollRemainingMeasuresRef.current = 0;
-  useSequencerStore.getState().setIsPreRolling(false);
+  const store = useSequencerStore.getState();
+  store.setIsPreRolling(false);
   const activeEngine = ctx.audioEngine || getAudioEngine();
   activeEngine?.stop();
   Tone.Transport.pause();
@@ -39,6 +43,7 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   Tone.Draw.cancel();
   flushVisualBuffers();
   purgeVisualTickBuffer();
+  setLastAudibleTick(null);
   ctx.hitTriggersRef.current.clear();
 
   activeEngine?.stopAllBarulho();
@@ -49,7 +54,7 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   vocalEngineService.disposeAllVocalPlayers();
   ctx.activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
   ctx.activeSequencerVocalsRef.current.clear();
-  useSequencerStore.getState().resetFirstPassRegistry();
+  store.resetFirstPassRegistry();
   ctx.anticipatedMeasuresRef.current.clear();
   ctx.soloLoopCycleRef.current = 0;
   ctx.lastElapsedSecRef.current = 0;
@@ -59,25 +64,31 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
 
   const totalM = ctx.totalMeasuresRef.current || 1;
   const safeMeasure = Math.max(0, Math.min(ctx.measureCountRef.current, totalM - 1));
-  ctx.measureCountRef.current = safeMeasure;
-  ctx.setCurrentMeasure(safeMeasure);
-
-  const audibleTick = getLastAudibleTick();
-  const pausedStep = audibleTick ? audibleTick.step : 0;
-  const rawPausedMeasure = audibleTick ? audibleTick.measure : safeMeasure;
+  const pausedStep = audibleTickSnapshot ? audibleTickSnapshot.step : 0;
+  const rawPausedMeasure = audibleTickSnapshot ? audibleTickSnapshot.measure : safeMeasure;
   const pausedMeasure = Math.max(0, Math.min(rawPausedMeasure, totalM - 1));
-  const pausedMaxTicks = audibleTick ? audibleTick.maxTicks : ctx.maxTicksRef.current;
-  const ratioVal = audibleTick ? audibleTick.ratio : 0;
+  const pausedMaxTicks = audibleTickSnapshot ? audibleTickSnapshot.maxTicks : ctx.maxTicksRef.current;
+  const ratioVal = audibleTickSnapshot ? audibleTickSnapshot.ratio : 0;
+  const pausedIter = audibleTickSnapshot ? audibleTickSnapshot.iteration : 1;
+  const pausedLoopIter = audibleTickSnapshot?.loopIteration ?? ctx.currentLoopIterationRef?.current ?? 1;
 
-  if (audibleTick && audibleTick.measureDuration && audibleTick.measureDuration > 0) {
-    const measureDurationSec = audibleTick.measureDuration;
+  ctx.measureCountRef.current = pausedMeasure;
+  ctx.setCurrentMeasure(pausedMeasure);
+  store.setCurrentLoopIteration(pausedLoopIter);
+
+  const expanded = getExpandedMeasures(totalM, store.songSections);
+  const expIdx = expanded.findIndex(item => item.baseMeasure === pausedMeasure && item.iteration === pausedIter);
+  const fallbackExpIdx = expIdx !== -1 ? expIdx : expanded.findIndex(item => item.baseMeasure === pausedMeasure);
+  store.setCurrentExpandedMeasureIdx(fallbackExpIdx !== -1 ? fallbackExpIdx : pausedMeasure);
+
+  if (audibleTickSnapshot && audibleTickSnapshot.measureDuration && audibleTickSnapshot.measureDuration > 0) {
+    const measureDurationSec = audibleTickSnapshot.measureDuration;
     Tone.Transport.seconds = (pausedMeasure * measureDurationSec) + (ratioVal * measureDurationSec);
     if (ctx.audioEngine) {
       ctx.audioEngine.currentStep = pausedStep;
       ctx.audioEngine.currentMeasure = pausedMeasure;
     }
     ctx.currentStepIndexRef.current = pausedStep;
-    ctx.setCurrentMeasure(pausedMeasure);
   }
 
   const detail = ctx.tickEventDetailRef.current;
@@ -88,7 +99,8 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   detail.visualStep16 = Math.floor(ratioVal * 16);
   detail.visualStep12 = Math.floor(ratioVal * 12);
   detail.time = Tone.context.currentTime;
-  detail.iteration = audibleTick ? audibleTick.iteration : 1;
+  detail.iteration = pausedIter;
+  detail.loopIteration = pausedLoopIter;
   detail.isPaused = true;
 
   tickSubscribers.forEach((cb) => {

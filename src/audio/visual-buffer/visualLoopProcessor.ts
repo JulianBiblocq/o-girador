@@ -42,16 +42,8 @@ function processVisualLoop(): void {
       st.setIsPreRolling(false);
     }
 
-    if (st.queuedMeasure !== null) {
-      if (evt.step === 0 && evt.measure === st.queuedMeasure) {
-        if (st.queuedExpandedMeasureIdx !== null) {
-          st.setCurrentExpandedMeasureIdx(st.queuedExpandedMeasureIdx);
-        }
-        st.setCurrentMeasure(evt.measure);
-        st.clearQueuedMeasure(st.queuedMeasureSeq);
-      }
-    } else if (evt.step === 0 || evt.measure !== st.currentMeasure) {
-      st.setCurrentMeasure(evt.measure);
+    if (st.queuedMeasure !== null && evt.step === 0 && evt.measure === st.queuedMeasure) {
+      st.clearQueuedMeasure(st.queuedMeasureSeq);
     }
 
     let shouldDispatch = true;
@@ -69,7 +61,7 @@ function processVisualLoop(): void {
     }
 
     if (shouldDispatch) {
-      setLastAudibleTick({ ...evt });
+      setLastAudibleTick(evt);
       tickSubscribers.forEach((cb) => {
         try {
           cb(evt);

@@ -71,14 +71,9 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => ({
       disableCSSAnimations: lodLevel >= 1,
       bypassEQ: lodLevel >= 2,
       bypassReverbFX: lodLevel >= 3,
-      reducePolyphony: lodLevel >= 4,
+      reducePolyphony: false,
       disablePlayheadRAF: isUltra,
     });
-
-    if (typeof document !== 'undefined') {
-      document.body.classList.toggle('disable-heavy-animations', lodLevel >= 1);
-      document.body.classList.toggle('tier3-ultra-eco', isUltra);
-    }
   },
 
   setAudioQuality: (audioQuality: AudioQuality) => {

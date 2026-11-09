@@ -1,11 +1,13 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Play, Square, RotateCcw } from 'lucide-react';
 import { useMuteGroupStore } from '../../stores/useMuteGroupStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTapTempo } from '../../hooks/useTapTempo';
 import { tMobile } from '../../i18n/mobileTranslations';
 import { ALL_MUTE_GROUP_IDS, ANALOG_BUTTON_STYLES } from './mobileFamilyConfig';
+import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
+import { getEffectiveBpm } from '../../utils/bpmUtils';
 
 interface Props {
   isPlaying: boolean; isLoading: boolean; onTogglePlay: (opts?: any) => void; onStop: () => void;
@@ -23,6 +25,23 @@ export const MobileTransportHero: React.FC<Props> = ({
   const muteGroupAssignments = useMuteGroupStore((s) => s.muteGroupAssignments);
   const toggleMuteGroupActive = useMuteGroupStore((s) => s.toggleMuteGroupActive);
   const { registerTap } = useTapTempo();
+  const bpmSpanRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let lastM = -1;
+    const handleTick = (evt: any) => {
+      if (!evt || evt.step < 0 || evt.isPreRoll) return;
+      if (evt.measure !== lastM && bpmSpanRef.current) {
+        lastM = evt.measure;
+        const st = useSequencerStore.getState();
+        const txt = String(getEffectiveBpm(st.bpm, st.measureBpms, evt.measure));
+        if (bpmSpanRef.current.textContent !== txt) bpmSpanRef.current.textContent = txt;
+      }
+    };
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
+  }, [isPlaying]);
 
   return (
     <footer className="w-full bg-[var(--cordel-surface)] border-t-2 border-[var(--cordel-border)] flex flex-col gap-2 p-2 shrink-0 select-none">
@@ -33,7 +52,7 @@ export const MobileTransportHero: React.FC<Props> = ({
           <button onClick={() => onChangeBpm(-5)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 cursor-pointer" title="-5 BPM">-5</button>
           <button onClick={() => onChangeBpm(-1)} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-90 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="-1 BPM">-1</button>
           <button onClick={registerTap} className="flex-[1.3] min-w-[30px] h-full px-1 flex items-center justify-center font-cactus text-[11px] sm:text-xs font-extrabold tabular-nums text-[var(--cordel-card-btn-text)] hover:text-[#b94a2c] active:scale-95 border-l border-[var(--cordel-border)]/40 cursor-pointer" title="Tap Tempo">
-            <span>{bpm}</span>
+            <span ref={bpmSpanRef}>{bpm}</span>
           </button>
           <button onClick={onResetBpm} className="flex-1 min-w-[22px] h-full px-0.5 flex items-center justify-center text-[#b94a2c] hover:bg-black/10 dark:hover:bg-white/10 active:scale-95 border-l border-r border-[var(--cordel-border)]/40 cursor-pointer" title="Reset BPM">
             <RotateCcw size={10} />
@@ -68,9 +87,8 @@ export const MobileTransportHero: React.FC<Props> = ({
             <button
               key={mode}
               onClick={() => onChangeLoopMode(mode)}
-              className={`flex-1 min-w-[20px] h-full px-0.5 font-cactus font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center cursor-pointer border-r border-[#1a1a1a]/30 dark:border-[#f4ecd8]/20 last:border-r-0 ${
-                loopMode === mode ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'text-[var(--cordel-card-btn-text)] hover:bg-black/10 dark:hover:bg-white/10'
-              }`}
+              className={`flex-1 min-w-[20px] h-full px-0.5 font-cactus font-bold text-[11px] sm:text-xs transition-colors flex items-center justify-center cursor-pointer border-r border-[#1a1a1a]/30 dark:border-[#f4ecd8]/20 last:border-r-0 ${loopMode === mode ? 'bg-[#b94a2c] text-[#f4ecd8]' : 'text-[var(--cordel-card-btn-text)] hover:bg-black/10 dark:hover:bg-white/10'
+                }`}
             >
               {mode === 'infinite' ? '∞' : `×${mode}`}
             </button>
@@ -82,11 +100,10 @@ export const MobileTransportHero: React.FC<Props> = ({
       <div className="w-full flex items-center gap-2">
         <button
           onClick={onRequestLoopExit}
-          className={`flex-1 min-h-[44px] py-2 border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase tracking-wider active:translate-y-0.5 shadow-[2px_2px_0px_var(--cordel-border)] text-center transition-all ${
-            isLoopExitRequested
+          className={`flex-1 min-h-[44px] py-2 border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase tracking-wider active:translate-y-0.5 shadow-[2px_2px_0px_var(--cordel-border)] text-center transition-all ${isLoopExitRequested
               ? 'bg-[#b94a2c] text-[#f4ecd8] animate-pulse border-[#f4ecd8]'
               : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] hover:border-[#b94a2c]'
-          }`}
+            }`}
           title={lang === 'pt' ? 'Sair do loop no próximo giro' : 'Sortir de la boucle au prochain tour'}
         >
           {isLoopExitRequested ? '...' : tMobile(lang, 'exitNextLap')}
@@ -103,9 +120,8 @@ export const MobileTransportHero: React.FC<Props> = ({
         <button
           onClick={() => onTogglePlay()}
           disabled={isLoading}
-          className={`min-h-[44px] px-5 border-2 border-[var(--cordel-border)] flex items-center justify-center font-cactus font-bold text-base tracking-wider shadow-[2px_2px_0px_var(--cordel-border)] active:translate-y-0.5 transition-colors gap-2 shrink-0 ${
-            isPlaying ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#15803d] text-white hover:bg-[#166534]'
-          }`}
+          className={`min-h-[44px] px-5 border-2 border-[var(--cordel-border)] flex items-center justify-center font-cactus font-bold text-base tracking-wider shadow-[2px_2px_0px_var(--cordel-border)] active:translate-y-0.5 transition-colors gap-2 shrink-0 ${isPlaying ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#15803d] text-white hover:bg-[#166534]'
+            }`}
         >
           {isPlaying ? <Square size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
           <span>{isPlaying ? 'STOP' : 'PLAY'}</span>

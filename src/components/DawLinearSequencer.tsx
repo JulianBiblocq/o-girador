@@ -11,6 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useLiveMeasure } from '../hooks/useLiveMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { DawTrackRow } from './DawTrackRow';
@@ -36,7 +37,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
   const audio = useAudio();
   const lang = useSequencerStore(state => state.lang);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
-  const currentMeasure = useSequencerStore(state => (isActive ? state.currentMeasure : 0));
+  const currentMeasure = useLiveMeasure(isActive);
   const timeSig = useSequencerStore(state => state.timeSig);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const handleReorderRodaTracks = useSequencerStore(state => state.handleReorderRodaTracks);

@@ -1,6 +1,9 @@
 
 import React, { useRef, useCallback, useEffect } from 'react';
 import { Gauge } from 'lucide-react';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
+import { getEffectiveBpm } from '../../utils/bpmUtils';
 
 interface TransportBpmControlProps {
   bpm: number;
@@ -11,6 +14,23 @@ interface TransportBpmControlProps {
 export const TransportBpmControl: React.FC<TransportBpmControlProps> = ({ bpm, setBpm, lang }) => {
   const bpmIntervalRef = useRef<number | null>(null);
   const bpmTimeoutRef = useRef<number | null>(null);
+  const bpmSpanRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    let lastM = -1;
+    const handleTick = (evt: any) => {
+      if (!evt || evt.step < 0 || evt.isPreRoll) return;
+      if (evt.measure !== lastM && bpmSpanRef.current) {
+        lastM = evt.measure;
+        const st = useSequencerStore.getState();
+        const eff = getEffectiveBpm(st.bpm, st.measureBpms, evt.measure);
+        const txt = String(eff);
+        if (bpmSpanRef.current.textContent !== txt) bpmSpanRef.current.textContent = txt;
+      }
+    };
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
+  }, []);
 
   const stopBpmChange = useCallback(() => {
     if (bpmTimeoutRef.current) { window.clearTimeout(bpmTimeoutRef.current); bpmTimeoutRef.current = null; }
@@ -31,7 +51,7 @@ export const TransportBpmControl: React.FC<TransportBpmControlProps> = ({ bpm, s
   return (
     <div className="flex items-center gap-1 sm:gap-2 bg-[var(--cordel-bg)] px-1.5 sm:px-2 h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] shrink-0">
       <Gauge className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--cordel-text)] shrink-0" />
-      <span className="font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-text)] tabular-nums select-none">{bpm}</span>
+      <span ref={bpmSpanRef} className="font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-text)] tabular-nums select-none">{bpm}</span>
       <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[var(--cordel-text)]/70 uppercase select-none max-[380px]:hidden">BPM</span>
       <div className="flex items-center gap-0.5 sm:gap-1 ml-0.5">
         <button

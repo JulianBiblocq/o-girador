@@ -10,6 +10,7 @@ import {
   setDeferredReverbActivation
 } from '../../audio/effectsChain';
 import { percentToDb } from './audioParamsCache';
+import { safeRampDb, safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 
 interface UseEcoReverbSendsSyncProps {
   isPlayingRef: React.MutableRefObject<boolean>;
@@ -21,8 +22,9 @@ export function useEcoReverbSendsSync({
   isPlaying,
 }: UseEcoReverbSendsSyncProps) {
   useEffect(() => {
-    let lastDisableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? useSequencerStore.getState().isEcoMode;
-    let lastDisableEq = useSequencerStore.getState().ecoConfig?.disableEq ?? useSequencerStore.getState().isEcoMode;
+    let lastDisableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
+    let lastDisableEq = Boolean(useSequencerStore.getState().ecoConfig?.disableEq);
+    let lastEcoMode = Boolean(useSequencerStore.getState().isEcoMode);
 
     const applyEcoReverbSendsAndToggle = (disableFx: boolean, tracks: any[]) => {
       handleReverbEcoToggle(disableFx, isPlayingRef.current);
@@ -30,9 +32,15 @@ export function useEcoReverbSendsSync({
       tracks.forEach((t) => {
         if (reverbSends[t.id]) {
           try {
-            const reverbPct = t.fxSends?.reverb ?? t.reverbVal ?? 0;
-            const reverbDb = percentToDb(disableFx ? 0 : reverbPct);
-            reverbSends[t.id].gain.value = reverbDb;
+            const reverbPct = disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0);
+            const reverbDb = Math.max(-100, Math.min(12, percentToDb(reverbPct)));
+            const gainParam = reverbSends[t.id].gain;
+            if (gainParam?.units === 'decibels') {
+              safeRampDb(gainParam, reverbDb, 0.025);
+            } else {
+              const lin = reverbDb <= -99 ? 0 : Tone.dbToGain(reverbDb);
+              safeRampTo(gainParam, Number.isFinite(lin) ? lin : 0, 0.025, 0, 4);
+            }
           } catch (_) {}
         }
       });
@@ -51,11 +59,13 @@ export function useEcoReverbSendsSync({
     applyEqSync(initialStore.tracks);
 
     const unsubscribe = useSequencerStore.subscribe((state) => {
-      const nextDisableFx = state.ecoConfig?.disableFx ?? state.isEcoMode;
-      const nextDisableEq = state.ecoConfig?.disableEq ?? state.isEcoMode;
+      const nextDisableFx = Boolean(state.ecoConfig?.disableFx);
+      const nextDisableEq = Boolean(state.ecoConfig?.disableEq);
+      const nextEcoMode = Boolean(state.isEcoMode);
 
-      if (nextDisableFx !== lastDisableFx) {
+      if (nextDisableFx !== lastDisableFx || nextEcoMode !== lastEcoMode) {
         lastDisableFx = nextDisableFx;
+        lastEcoMode = nextEcoMode;
         applyEcoReverbSendsAndToggle(nextDisableFx, state.tracks);
       }
       if (nextDisableEq !== lastDisableEq) {

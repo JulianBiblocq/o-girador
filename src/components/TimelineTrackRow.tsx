@@ -13,16 +13,22 @@ import { isSlaveTrack } from '../utils/trackMasterResolver';
 
 interface TimelineTrackRowProps {
   trackId: number; visibleRange: { start: number; end: number }; currentMeasureW: number;
+  totalContentW?: number; measureWidths?: number[]; measureLeftPositions?: number[];
   onStepTouchStart?: (e: React.MouseEvent | React.TouchEvent, pId: number, sIdx: number, iId: string, val: string | number, onSel: (v: string) => void) => void;
   isAutomationOpen?: boolean; onToggleAutomation?: () => void;
 }
 
 const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
-  trackId, visibleRange = { start: 0, end: 8 }, currentMeasureW, onStepTouchStart, isAutomationOpen = false, onToggleAutomation,
+  trackId, visibleRange = { start: 0, end: 8 }, currentMeasureW,
+  totalContentW: propTotalW, measureWidths: propWidths, measureLeftPositions: propLefts,
+  onStepTouchStart, isAutomationOpen = false, onToggleAutomation,
 }) => {
   const uiContext = useContext(TimelineUIContext);
   if (!uiContext) return null;
-  const { HEADER_W, totalContentW = 0, isMobile, isMacro, isMinZoom, isPanningActive, lang, onOpenPatternPicker, measureWidths, measureLeftPositions } = uiContext;
+  const { HEADER_W, isMobile, isMacro, isMinZoom, isPanningActive, lang, onOpenPatternPicker } = uiContext;
+  const totalContentW = propTotalW ?? uiContext.totalContentW ?? 0;
+  const measureWidths = propWidths ?? uiContext.measureWidths;
+  const measureLeftPositions = propLefts ?? uiContext.measureLeftPositions;
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const trackMeta = tracksMeta.find((t) => t.id === trackId);
@@ -133,5 +139,5 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 };
 
 export const TimelineTrackRow = React.memo(TimelineTrackRowComponent, (prev, next) => (
-  prev.trackId === next.trackId && prev.currentMeasureW === next.currentMeasureW && prev.visibleRange.start === next.visibleRange.start && prev.visibleRange.end === next.visibleRange.end && prev.isAutomationOpen === next.isAutomationOpen
+  prev.trackId === next.trackId && prev.currentMeasureW === next.currentMeasureW && prev.totalContentW === next.totalContentW && prev.measureWidths === next.measureWidths && prev.measureLeftPositions === next.measureLeftPositions && prev.visibleRange.start === next.visibleRange.start && prev.visibleRange.end === next.visibleRange.end && prev.isAutomationOpen === next.isAutomationOpen
 ));

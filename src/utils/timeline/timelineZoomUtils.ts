@@ -2,15 +2,8 @@ export const livePlayheadZoomState = {
   measure: 0, ratio: 0, measureDuration: 0, lastTickPerfMs: 0, liveMeasureW: 0, lastScrollX: -1, isZooming: false,
 };
 
-export function setTimelineZoomingDomFlag(containerEl: HTMLElement | null, scrollEl: HTMLElement | null, active: boolean) {
+export function setTimelineZoomingDomFlag(_containerEl: HTMLElement | null, _scrollEl: HTMLElement | null, active: boolean) {
   livePlayheadZoomState.isZooming = active;
-  if (active) {
-    if (containerEl) containerEl.dataset.zooming = 'true';
-    if (scrollEl) scrollEl.dataset.zooming = 'true';
-  } else {
-    if (containerEl) delete containerEl.dataset.zooming;
-    if (scrollEl) delete scrollEl.dataset.zooming;
-  }
 }
 
 export interface AnchoredZoomParams {

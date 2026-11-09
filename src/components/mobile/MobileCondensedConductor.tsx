@@ -7,6 +7,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
+import { useLiveMeasure, useLiveLoopIteration } from '../../hooks/useLiveMeasure';
 import { instrumentsConfig } from '../../data';
 import { resolveTopLevelSectionForMeasure } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 import { MobileConductorSongInfo } from './MobileConductorSongInfo';
@@ -22,10 +23,11 @@ export const MobileCondensedConductor: React.FC<Props> = ({ isLetraOpen, onToggl
   const beatRefs = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
   const isMetroOn = useTransportStore((s) => s.isMetroOn);
   const setIsMetroOn = useTransportStore((s) => s.setIsMetroOn);
-  const { lang: sLang, currentMeasure, totalMeasures, loopMode, currentLoopIteration, songSections, songMarkers, measureSignals, mestreSignals, tracks } =
+  const currentMeasure = useLiveMeasure(true);
+  const currentLoopIteration = useLiveLoopIteration(true);
+  const { lang: sLang, totalMeasures, loopMode, songSections, songMarkers, measureSignals, mestreSignals, tracks } =
     useSequencerStore(useShallow((s) => ({
-      lang: s.lang, currentMeasure: s.currentMeasure, totalMeasures: s.totalMeasures,
-      loopMode: s.loopMode ?? 'infinite', currentLoopIteration: s.currentLoopIteration ?? 1,
+      lang: s.lang, totalMeasures: s.totalMeasures, loopMode: s.loopMode ?? 'infinite',
       songSections: s.songSections || [], songMarkers: s.songMarkers || [],
       measureSignals: s.measureSignals || [], mestreSignals: s.mestreSignals || [], tracks: s.tracks || [],
     })));

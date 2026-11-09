@@ -18,7 +18,6 @@ import { TimelineGlobalAutomationsArea } from './timeline/TimelineGlobalAutomati
 import { TimelineModalsContainer } from './timeline/TimelineModalsContainer';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { useTimelineMultiSelection } from '../hooks/timeline/useTimelineMultiSelection';
-import { useTimelinePlayheadHighlight } from '../hooks/timeline/useTimelinePlayheadHighlight';
 import { useTimelineGridController } from '../hooks/timeline/useTimelineGridController';
 import { useTimelineHeaderSelection } from '../hooks/timeline/useTimelineHeaderSelection';
 
@@ -76,7 +75,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const onMeasureSignalChange = useCallback((m: number, sig: string | null) => sequencer.setMeasureSignals((prev: (string | null)[]) => { const a = [...prev]; while (a.length <= m) a.push(null); a[m] = sig; return a; }), [sequencer]);
 
   useTimelineMultiSelection({ isPlaying, onTrackStepValueChange: sequencer.handleTrackStepValueChange });
-  useTimelinePlayheadHighlight({ containerRef, isActive });
 
   const headerSelection = useTimelineHeaderSelection({
     totalMeasures,
@@ -94,9 +92,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     clearTimelineSelection, clearAutomationSelection, isMultiSelectMode,
   });
 
+  const handleOpenPatternPicker = useCallback((trackId: number, measureIdx: number, rect: DOMRect) => {
+    setPickerState({ trackId, measureIdx, rect });
+  }, []);
+
   const ctxVal = useMemo(() => ({
-    MEASURE_W: g.MEASURE_W, HEADER_W: g.HEADER_W, totalContentW: g.totalContentW, measureWidths: g.widths, measureLeftPositions: g.leftPositions, isMobile, isMacro: g.isMacro, isMinZoom: g.isMinZoom, isPanningActive: g.pinchPan.isPanningActive, lang, signalDropdownOpen, setSignalDropdownOpen, onOpenPatternPicker: (trackId: number, measureIdx: number, rect: DOMRect) => setPickerState({ trackId, measureIdx, rect }),
-  }), [g, isMobile, lang, signalDropdownOpen]);
+    MEASURE_W: g.MEASURE_W, HEADER_W: g.HEADER_W, totalContentW: g.totalContentW, measureWidths: g.widths, measureLeftPositions: g.leftPositions, isMobile, isMacro: g.isMacro, isMinZoom: g.isMinZoom, isPanningActive: g.pinchPan.isPanningActive, lang, signalDropdownOpen, setSignalDropdownOpen, onOpenPatternPicker: handleOpenPatternPicker,
+  }), [g.HEADER_W, g.isMacro, g.isMinZoom, g.pinchPan.isPanningActive, isMobile, lang, signalDropdownOpen, handleOpenPatternPicker]);
 
   if (!trackIds) return null;
 
@@ -111,8 +113,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             <TimelineSectionsRow headerWidth={g.HEADER_W} totalContentW={g.totalContentW} isMobile={isMobile} lang={lang} songSections={songSections} snapMode={g.snapMode} setSnapMode={g.setSnapMode} onOpenCreateSectionModal={(lvl?: number) => { setEditingSection(null); setDefaultSectionLevel(lvl ?? 0); setSectionModalOpen(true); }} measureLeftPositions={g.leftPositions} measureWidths={g.widths} isDraggingRange={g.sectionInteractions.isDraggingRange} dragStartMeasure={g.sectionInteractions.dragStartMeasure} dragCurrentMeasure={g.sectionInteractions.dragCurrentMeasure} emptySlotsProps={{ totalMeasures, visibleRange: g.visibleRange, measureWidths: g.widths, measureWidth: g.MEASURE_W, copiedSection, lang, onEmptySlotPointerDown: g.sectionInteractions.handleEmptySlotPointerDown, onEmptySlotPointerEnter: g.sectionInteractions.handleEmptySlotPointerEnter, onPlusClick: g.sectionInteractions.handlePlusClick }} bannersProps={{ songSections, totalMeasures, visibleRange: g.visibleRange, measureWidths: g.widths, measureLeftPositions: g.leftPositions, measureWidth: g.MEASURE_W, isPanningActive: Boolean(g.pinchPan.isPanningActive), copiedSection, lang, onSectionBlockPointerDown: g.sectionInteractions.handleSectionBlockPointerDown, onResizePointerDown: g.sectionStretch.handleResizePointerDown, onEditSection: s => { setEditingSection(s); setSectionModalOpen(true); }, onDeleteSection: handleDeleteSongSection, onCopySection: handleCopySongSection, onPasteSection: handlePasteSongSection }} quickPopoverProps={{ quickSectionRange: g.sectionInteractions.quickSectionRange, quickSectionName: g.sectionInteractions.quickSectionName, quickSectionColor: g.sectionInteractions.quickSectionColor, quickSectionLevel: g.sectionInteractions.quickSectionLevel, totalMeasures, measureLeftPositions: g.leftPositions, measureWidth: g.MEASURE_W, lang, onClose: () => g.sectionInteractions.setQuickSectionRange(null), onNameChange: g.sectionInteractions.setQuickSectionName, onColorChange: g.sectionInteractions.setQuickSectionColor, onLevelChange: g.sectionInteractions.setQuickSectionLevel, onRangeChange: g.sectionInteractions.setQuickSectionRange, onCreate: g.sectionInteractions.handleQuickSectionCreate, onLoadCloudSection }} />
             <TimelineRulerRow headerWidth={g.HEADER_W} totalContentW={g.totalContentW} isMobile={isMobile} lang={lang} totalMeasures={totalMeasures} measureWidth={g.MEASURE_W} measureWidths={g.widths} measureLeftPositions={g.leftPositions} visibleRange={g.visibleRange} loopStartMeasure={loopStartMeasure} loopEndMeasure={loopEndMeasure} isLoopRegionActive={isLoopRegionActive} setIsLoopRegionActive={a => sequencer.setIsLoopRegionActive(a)} measureTimeSigs={measureTimeSigs} measureLabelsMap={g.measureLabelsMap} measureSignals={measureSignals} rhythmSignals={rhythmSignals} enabledSignalIds={enabledSignalIds} signalDropdownOpen={signalDropdownOpen} setSignalDropdownOpen={setSignalDropdownOpen} onMeasureSignalChange={onMeasureSignalChange} onSetLoopStart={handleSetLoopStart} onSetLoopEnd={handleSetLoopEnd} onMeasureTimeSigChange={handleMeasureTimeSigChange} onInsertMeasure={handleInsertMeasure} onDeleteMeasure={handleDeleteMeasure} confirmAsync={sequencer.confirmAsync} onPointerDown={g.scrubbing.handleRulerPointerDown} onPointerMove={g.scrubbing.handleRulerPointerMove} onPointerUp={g.scrubbing.handleRulerPointerUp} onZoom={g.pinchPan.handleZoom} isMultiSelectMode={isMultiSelectMode} selectedTimelineCellsCount={selectedTimelineCellsCount} toggleMultiSelectMode={toggleMultiSelectMode} onOpenAddMeasuresModal={() => setInsertPrompt({ isOpen: true, targetIdx: null })} isPlaying={isPlaying} alertAsync={sequencer.alertAsync} selectedHeaderMeasures={headerSelection.selectedHeaderMeasures} handleHeaderMeasureClick={headerSelection.handleHeaderMeasureClick} onDeleteMeasuresPrompt={headerSelection.handleDeleteMeasuresPrompt} />
             <TimelineGlobalAutomationsArea totalMeasures={totalMeasures} measureWidth={g.MEASURE_W} headerWidth={g.HEADER_W} lang={lang} measureBpms={measureBpms || []} measureBpmTransitions={measureBpmTransitions || []} measureVols={measureVols || []} measureVolTransitions={measureVolTransitions || []} isMasterVolumeBypassed={Boolean(isMasterVolumeBypassed)} onMeasureBpmChange={handleMeasureBpmChange} onMeasureTransitionChange={handleMeasureTransitionChange} onMeasureVolChange={handleMeasureVolChange} onMeasureVolTransitionChange={handleMeasureVolTransitionChange} toggleMasterVolumeBypass={toggleMasterVolumeBypass} />
-            {trackIds.map(id => (<TimelineTrackRow key={id} trackId={id} visibleRange={g.visibleRange} currentMeasureW={g.MEASURE_W} onStepTouchStart={onStepTouchStart} isAutomationOpen={expandedAutoIds.has(id)} onToggleAutomation={() => toggleAutoTrack(id)} />))}
-            <TimelinePlayhead isActive={isActive} />
+            {trackIds.map(id => (<TimelineTrackRow key={id} trackId={id} visibleRange={g.visibleRange} currentMeasureW={g.MEASURE_W} totalContentW={g.totalContentW} measureWidths={g.widths} measureLeftPositions={g.leftPositions} onStepTouchStart={onStepTouchStart} isAutomationOpen={expandedAutoIds.has(id)} onToggleAutomation={() => toggleAutoTrack(id)} />))}
+            <TimelinePlayhead isActive={isActive} headerWidth={g.HEADER_W} measureWidth={g.MEASURE_W} measureWidths={g.widths} measureLeftPositions={g.leftPositions} />
             {g.sectionInteractions.snapGuideX !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 shadow-[0_0_8px_#f1c40f] z-50 pointer-events-none" style={{ left: `${g.sectionInteractions.snapGuideX}px` }} />}
           </div>
         </div>

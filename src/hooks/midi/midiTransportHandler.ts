@@ -1,5 +1,6 @@
 import { TransportAction } from '../../stores/useMidiStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
 
 let lastTransportActionTime = 0;
 
@@ -56,14 +57,14 @@ export function handleMidiTransportAction(
           }
           break;
         case 'nextMeasure': {
-          const current = useSequencerStore.getState().currentMeasure;
+          const current = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
           const total = useSequencerStore.getState().totalMeasures;
           const nextIdx = (current + 1) % (total || 1);
           audio.handleTimelineNavigate(nextIdx, 0, 16);
           break;
         }
         case 'prevMeasure': {
-          const current = useSequencerStore.getState().currentMeasure;
+          const current = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
           const total = useSequencerStore.getState().totalMeasures;
           const prevIdx = (current - 1 + total) % (total || 1);
           audio.handleTimelineNavigate(prevIdx, 0, 16);

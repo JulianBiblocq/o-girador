@@ -19,6 +19,7 @@ export interface VisualTickDispatchParams {
   anchoredMeasureStartSecRef: React.MutableRefObject<number>;
   anchoredMeasureIdxRef: React.MutableRefObject<number>;
   sectionIteration: number;
+  loopIteration?: number;
   isDocHidden: boolean;
 }
 
@@ -35,6 +36,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
     anchoredMeasureStartSecRef,
     anchoredMeasureIdxRef,
     sectionIteration,
+    loopIteration = 1,
     isDocHidden,
   } = params;
 
@@ -73,6 +75,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
       visualStep12: Math.floor(ratioVal * 12) % 12,
       time: drawTime,
       iteration: sectionIteration,
+      loopIteration,
       measureStartTime: measureStartTimeSec,
       measureDuration: measureDurationSec,
       isPreRoll: false,

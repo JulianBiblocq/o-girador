@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useLiveMeasure } from '../../hooks/useLiveMeasure';
 import { CompassoSelector } from '../CompassoSelector';
 import { RodaSectionRibbon } from './RodaSectionRibbon';
 import { PistasMestreSignalBadge } from './PistasMestreSignalBadge';
@@ -8,13 +9,19 @@ import { RodaSweepModeToggle } from './RodaSweepModeToggle';
 interface RodaCentralTopBarProps {
   className?: string;
   isPistasOpen?: boolean;
+  isActive?: boolean;
   rightAction?: React.ReactNode;
 }
 
-export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className = '', isPistasOpen = false, rightAction }) => {
+export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({
+  className = '',
+  isPistasOpen = false,
+  isActive = true,
+  rightAction,
+}) => {
   const lang = useSequencerStore((s) => s.lang);
   const timeSig = useSequencerStore((s) => s.timeSig);
-  const currentMeasure = useSequencerStore((s) => s.currentMeasure);
+  const currentMeasure = useLiveMeasure(isActive);
   const measureTimeSigs = useSequencerStore((s) => s.measureTimeSigs);
   const activeTimeSig = (measureTimeSigs && measureTimeSigs[currentMeasure]) || timeSig;
 
@@ -23,13 +30,13 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className 
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !isActive) return;
     const ro = new ResizeObserver((entries) => {
       if (entries[0]) setIsNarrow(entries[0].contentRect.width < 620);
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [isActive]);
 
   const borderBgClass = isPistasOpen
     ? 'bg-[var(--cordel-bg)] border-b border-[var(--cordel-border,#1a1a1a)]/20 shadow-sm'
@@ -43,8 +50,8 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className 
       >
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-1.5 shrink-0 z-10">
-            <CompassoSelector className="shrink-0" />
-            <PistasMestreSignalBadge isPistasOpen={isPistasOpen} />
+            <CompassoSelector className="shrink-0" isActive={isActive} />
+            <PistasMestreSignalBadge isPistasOpen={isPistasOpen} isActive={isActive} />
           </div>
           <div className="flex items-center gap-1.5 shrink-0 z-10">
             <RodaSweepModeToggle compact />
@@ -56,7 +63,7 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className 
           </div>
         </div>
         <div className="flex justify-center w-full pointer-events-auto">
-          <RodaSectionRibbon compact />
+          <RodaSectionRibbon compact isActive={isActive} />
         </div>
       </div>
     );
@@ -68,12 +75,12 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({ className 
       className={`relative w-full px-3 flex items-center justify-between gap-2 z-20 pointer-events-auto select-none transition-colors duration-300 h-[52px] min-h-[52px] max-h-[52px] ${borderBgClass} ${className}`}
     >
       <div className="flex items-center gap-1.5 shrink-0 z-10">
-        <CompassoSelector className="shrink-0" />
-        <PistasMestreSignalBadge isPistasOpen={isPistasOpen} />
+        <CompassoSelector className="shrink-0" isActive={isActive} />
+        <PistasMestreSignalBadge isPistasOpen={isPistasOpen} isActive={isActive} />
       </div>
 
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex justify-center pointer-events-auto">
-        <RodaSectionRibbon />
+        <RodaSectionRibbon isActive={isActive} />
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0 z-10">

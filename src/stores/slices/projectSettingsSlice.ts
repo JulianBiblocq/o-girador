@@ -22,7 +22,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     isLeftHanded: false,
     lang: (typeof window !== 'undefined' && (localStorage.getItem('o_girador_lang') as Language)) || 'pt',
     isEcoMode: detectEcoMode(),
-    ecoConfig: { disableFx: detectEcoMode(), disableEq: detectEcoMode(), disableAnimations: detectEcoMode() },
+    ecoConfig: { disableFx: false, disableEq: false, disableAnimations: detectEcoMode() },
     rodaSweepMode: initialSweepMode,
     editingTrackId: null,
     selectedPatternId: null,
@@ -61,7 +61,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
       set((state) => {
         const next = !state.isEcoMode;
         localStorage.setItem('o-girador-eco-mode', String(next));
-        return { isEcoMode: next, ecoConfig: { disableFx: next, disableEq: next, disableAnimations: next } };
+        return { isEcoMode: next, ecoConfig: { disableFx: false, disableEq: false, disableAnimations: next } };
       }),
     toggleTracksCollapsed: () => set((state) => ({ isTracksCollapsed: !state.isTracksCollapsed })),
     toggleEcoOption: (key) =>

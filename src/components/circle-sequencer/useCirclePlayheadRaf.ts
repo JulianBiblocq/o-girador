@@ -21,7 +21,7 @@ export function useCirclePlayheadRaf(
   pendingTargetMeasureRef: React.MutableRefObject<number | null>, getLiveActivePatternId: (t: any) => number | null,
   activeVariationsRef?: React.MutableRefObject<{ [trackId: number]: any }>
 ) {
-  const visibleRef = useRef(isActive), loopRunningRef = useRef(false);
+  const visibleRef = useRef(isActive), loopRunningRef = useRef(false), animIdRef = useRef<number | null>(null);
   const drawLoopRef = useRef<() => void>(() => {}), themeRef = useThemeColors();
 
   useEffect(() => {
@@ -31,6 +31,10 @@ export function useCirclePlayheadRaf(
       drawLoopRef.current();
     } else if (!isActive) {
       loopRunningRef.current = false;
+      if (animIdRef.current !== null) {
+        cancelAnimationFrame(animIdRef.current);
+        animIdRef.current = null;
+      }
     }
   }, [isActive]);
 
@@ -45,13 +49,13 @@ export function useCirclePlayheadRaf(
     const bgCtx = bgCanvas.getContext('2d');
 
     let isBgCached = false, lastTimeSig = '', lastTicks = -1, lastThemeDark: boolean | undefined = undefined;
-    let animId: number, ripples: Ripple[] = [];
+    let ripples: Ripple[] = [];
     const haloState = createMetronomeHaloState();
     let lastDrawTime = performance.now();
 
     const drawLoop = () => {
-      if (isDetailEditorOpen()) { animId = requestAnimationFrame(drawLoop); return; }
-      if (!visibleRef.current) { loopRunningRef.current = false; return; }
+      if (!visibleRef.current) { loopRunningRef.current = false; animIdRef.current = null; return; }
+      if (isDetailEditorOpen()) { animIdRef.current = requestAnimationFrame(drawLoop); return; }
 
       const time = performance.now();
       const seqState = useSequencerStore.getState();
@@ -67,7 +71,7 @@ export function useCirclePlayheadRaf(
         isBgCached = false;
       }
 
-      if (isEco && time - lastDrawTime < 33) { animId = requestAnimationFrame(drawLoop); return; }
+      if (isEco && time - lastDrawTime < 33) { animIdRef.current = requestAnimationFrame(drawLoop); return; }
       lastDrawTime = time;
 
       const scaleFactor = canvas.width / 1200;
@@ -117,11 +121,15 @@ export function useCirclePlayheadRaf(
       }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      animId = requestAnimationFrame(drawLoop);
+      animIdRef.current = requestAnimationFrame(drawLoop);
     };
 
     drawLoopRef.current = drawLoop;
     if (visibleRef.current) { loopRunningRef.current = true; drawLoop(); }
-    return () => { cancelAnimationFrame(animId); loopRunningRef.current = false; };
+    return () => {
+      if (animIdRef.current !== null) cancelAnimationFrame(animIdRef.current);
+      animIdRef.current = null;
+      loopRunningRef.current = false;
+    };
   }, []);
 }

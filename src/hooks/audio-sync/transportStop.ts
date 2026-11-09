@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { stopAllNativeOscillators } from '../../audio/nativeSynths';
-import { flushVisualBuffers, purgeVisualTickBuffer, resetVisualTickBuffer } from '../../audio/visualTickBuffer';
+import { flushVisualBuffers, purgeVisualTickBuffer, resetVisualTickBuffer, setLastAudibleTick } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { releaseWakeLock } from './wakeLockHelper';
 import { resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
@@ -84,6 +84,7 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   flushVisualBuffers();
   purgeVisualTickBuffer();
   resetVisualTickBuffer();
+  setLastAudibleTick(null);
   ctx.hitTriggersRef.current.clear();
   ctx.lastPlayedPatternRef.current = {};
   store.resetFirstPassRegistry();
@@ -116,6 +117,7 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   ctx.isPlaybackEndingRef.current = false;
   ctx.measureCountRef.current = 0;
   ctx.setCurrentMeasure(0);
+  store.setCurrentExpandedMeasureIdx(0);
   ctx.lastPlayedSignalIdRef.current = null;
 
   const detail = ctx.tickEventDetailRef.current;

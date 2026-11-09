@@ -1,6 +1,7 @@
 
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
 import { isActualTextEntry } from './isActualTextEntry';
 
 interface NavigationShortcutsParams {
@@ -59,7 +60,7 @@ export function handleNavigationShortcuts({
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     if (isActualTextEntry(document.activeElement as HTMLElement | null)) return false;
     e.preventDefault();
-    const curM = useSequencerStore.getState().currentMeasure;
+    const curM = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
     const totalM = useSequencerStore.getState().totalMeasures;
     const delta = e.shiftKey ? 4 : 1;
     const targetM = e.key === 'ArrowLeft' ? Math.max(0, curM - delta) : Math.min(totalM - 1, curM + delta);
@@ -74,7 +75,7 @@ export function handleNavigationShortcuts({
   if (isPrevMeasureKey || isNextMeasureKey) {
     if (isActualTextEntry(document.activeElement as HTMLElement | null)) return false;
     e.preventDefault();
-    const curM = useSequencerStore.getState().currentMeasure;
+    const curM = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
     const totalM = useSequencerStore.getState().totalMeasures;
     const targetM = isPrevMeasureKey ? Math.max(0, curM - 1) : Math.min(totalM - 1, curM + 1);
     if (seekToMeasure) seekToMeasure(targetM, 0);

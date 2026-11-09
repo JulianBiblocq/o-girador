@@ -49,7 +49,8 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     time, stepIdx, currentTicks, currentMeasureIdx, totalMeasures: ctx.totalMeasuresRef.current,
     soloPatternPlayId: ctx.soloPatternPlayIdRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
     measureBpms: ctx.measureBpmsRef.current, anchoredMeasureStartSecRef: ctx.anchoredMeasureStartSecRef,
-    anchoredMeasureIdxRef: ctx.anchoredMeasureIdxRef, sectionIteration: ctx.sectionIterationRef.current, isDocHidden,
+    anchoredMeasureIdxRef: ctx.anchoredMeasureIdxRef, sectionIteration: ctx.sectionIterationRef.current,
+    loopIteration: ctx.currentLoopIterationRef?.current ?? 1, isDocHidden,
   });
 
   const currentBpm = ctx.measureBpmsRef.current?.[currentMeasureIdx] || ctx.measureBpmsRef.current?.[0] || 100;

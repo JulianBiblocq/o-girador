@@ -2,18 +2,21 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
 import { Repeat } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useLiveMeasure } from '../../hooks/useLiveMeasure';
 import { SongSection } from '../../types';
 import { filterTopLevelSections } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 
 interface RodaSectionRibbonProps {
   compact?: boolean;
+  isActive?: boolean;
 }
 
 const EMPTY_SECTIONS: SongSection[] = [];
 
-export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = false }) => {
+export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = false, isActive = true }) => {
   const songSections = useSequencerStore(s => s.songSections ?? EMPTY_SECTIONS);
-  const currentMeasure = useSequencerStore(s => s.currentMeasure), isPlaying = useSequencerStore(s => s.isPlaying);
+  const currentMeasure = useLiveMeasure(isActive);
+  const isPlaying = useSequencerStore(s => s.isPlaying);
   const loopStartMeasure = useSequencerStore(s => s.loopStartMeasure), loopEndMeasure = useSequencerStore(s => s.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore(s => s.isLoopRegionActive), handleClearLoop = useSequencerStore(s => s.handleClearLoop);
   const handleSetLoopStart = useSequencerStore(s => s.handleSetLoopStart), handleSetLoopEnd = useSequencerStore(s => s.handleSetLoopEnd);
@@ -33,6 +36,7 @@ export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = 
 
   // Centrage strict de la section active sur 50% (au-dessus du 1 de la Roda)
   useLayoutEffect(() => {
+    if (!isActive) return;
     const update = () => {
       const pill = pillRefs.current[targetIdx];
       if (pill) { setTranslateX(-(pill.offsetLeft + pill.offsetWidth / 2)); setIsReady(true); }
@@ -43,7 +47,7 @@ export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = 
     ro?.observe(container!);
     window.addEventListener('resize', update);
     return () => { ro?.disconnect(); window.removeEventListener('resize', update); };
-  }, [targetIdx, macroSections]);
+  }, [targetIdx, macroSections, isActive]);
 
   useEffect(() => { setWheelIndex(null); }, [activeIdx, isPlaying]);
   useEffect(() => {
