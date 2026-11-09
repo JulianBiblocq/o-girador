@@ -73,22 +73,25 @@ export const drawPercussionTrack = (
     ctx.save();
     ctx.globalAlpha = finalAlpha;
 
-    if (isVariationStep && !isEco) {
-      ctx.beginPath();
-      ctx.arc(x, y, finalRadiusSize + 2.5, 0, Math.PI * 2);
-      ctx.strokeStyle = '#c25e38';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+    let hitIntensity = 0;
+    if (isPlaying && !isEco) {
+      const stickAngle = -Math.PI / 2 + playheadRatio * Math.PI * 2;
+      const deltaRad = ((stickAngle - stepAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const decayArcRad = 0.52;
+      if (deltaRad <= decayArcRad) {
+        hitIntensity = Math.pow(1 - deltaRad / decayArcRad, 1.55);
+      }
     }
 
     drawSplitStepPastille(
       ctx, x, y, finalRadiusSize, false, false,
       pastille.leftFillColor, pastille.rightFillColor, pastille.leftText, pastille.rightText,
-      pastille.leftTxtColor, pastille.rightTxtColor, stepIdx === currentStep, isEco, themeWood, themeBorder, dynamicScale
+      pastille.leftTxtColor, pastille.rightTxtColor, stepIdx === currentStep, isEco,
+      themeWood, themeBorder, dynamicScale, hitIntensity, isVariationStep
     );
 
     if (isRas) {
-      drawRasSubStep(ctx, rawState[1], stepAngle, anglePerStep, centerX, centerY, tRad, currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale, themeBorder);
+      drawRasSubStep(ctx, rawState[1], stepAngle, anglePerStep, centerX, centerY, tRad, currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale, themeBorder, isPlaying, playheadRatio, isEco);
     }
     ctx.restore();
   };

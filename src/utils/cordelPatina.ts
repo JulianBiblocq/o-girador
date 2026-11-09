@@ -3,8 +3,8 @@ const patinatedOutputs = new Set<string>();
 
 /**
  * Filtre d'encre patinée Cordel (gouache / encre d'imprimerie sur peau d'Alfaia #e2d8c3).
- * Désature légèrement les teintes trop fluo, fusionne à ~22 % avec la peau chaude (#e2d8c3)
- * et assombrit d'une pointe d'encre (#1a1a1a à 6 %). Idempotent et mis en cache O(1).
+ * Conserve ~89 % de la saturation d'origine, fusionne légèrement (11 %) avec la peau chaude (#e2d8c3)
+ * et ajoute une pointe de densité d'encre (#1a1a1a à 5 %) pour la profondeur. Idempotent et mis en cache O(1).
  */
 export function applyCordelInkedPatina(hexColor: string): string {
   if (!hexColor || typeof hexColor !== 'string') return '#8b2a1a';
@@ -27,13 +27,13 @@ export function applyCordelInkedPatina(hexColor: string): string {
   if (isNaN(r) || isNaN(g) || isNaN(b)) return hexColor;
 
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  const rDesat = r * 0.86 + lum * 0.14;
-  const gDesat = g * 0.86 + lum * 0.14;
-  const bDesat = b * 0.86 + lum * 0.14;
+  const rDesat = r * 0.94 + lum * 0.06;
+  const gDesat = g * 0.94 + lum * 0.06;
+  const bDesat = b * 0.94 + lum * 0.06;
 
-  const rOut = Math.max(0, Math.min(255, Math.round(rDesat * 0.72 + 226 * 0.22 + 26 * 0.06)));
-  const gOut = Math.max(0, Math.min(255, Math.round(gDesat * 0.72 + 216 * 0.22 + 26 * 0.06)));
-  const bOut = Math.max(0, Math.min(255, Math.round(bDesat * 0.72 + 195 * 0.22 + 26 * 0.06)));
+  const rOut = Math.max(0, Math.min(255, Math.round(rDesat * 0.84 + 226 * 0.11 + 26 * 0.05)));
+  const gOut = Math.max(0, Math.min(255, Math.round(gDesat * 0.84 + 216 * 0.11 + 26 * 0.05)));
+  const bOut = Math.max(0, Math.min(255, Math.round(bDesat * 0.84 + 195 * 0.11 + 26 * 0.05)));
 
   const outHex = `#${rOut.toString(16).padStart(2, '0')}${gOut.toString(16).padStart(2, '0')}${bOut.toString(16).padStart(2, '0')}`;
   patinaCache.set(norm, outHex);

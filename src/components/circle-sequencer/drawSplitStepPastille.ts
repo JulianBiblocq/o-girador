@@ -13,32 +13,31 @@ export const drawSplitStepPastille = (
   _rightText: string,
   leftTxtColor: string,
   _rightTxtColor: string,
-  isCurrentStep: boolean,
+  _isCurrentStep: boolean,
   isEco: boolean,
-  themeWood: string,
+  _themeWood: string,
   _themeBorder: string,
-  dynamicScale: number
+  dynamicScale: number,
+  hitIntensity: number = 0,
+  isVariationAccent: boolean = false
 ): void => {
-  if (!isEco && isCurrentStep) {
-    ctx.beginPath();
-    ctx.arc(x, y, radiusSize + 4, 0, Math.PI * 2);
-    ctx.strokeStyle = themeWood;
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-  }
-
-  const sprite = getOrCreateXiloStampSprite(leftFillColor, leftTxtColor, leftText, radiusSize, dynamicScale, false);
+  const sprite = getOrCreateXiloStampSprite(leftFillColor, leftTxtColor, leftText, radiusSize, dynamicScale, isVariationAccent);
   if (sprite) {
-    const half = sprite.logicalSize * 0.5;
-    ctx.drawImage(sprite.canvas, x - half, y - half, sprite.logicalSize, sprite.logicalSize);
-    return;
-  }
+    const clampedHit = !isEco && hitIntensity > 0.01 ? Math.min(1, hitIntensity) : 0;
+    const pulseScale = 1 + 0.18 * clampedHit;
 
-  ctx.beginPath();
-  ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
-  ctx.fillStyle = leftFillColor;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = '#1a1a1a';
-  ctx.stroke();
+    // Halo facetté épousant exactement la silhouette taillée à la gouge du tampon (0 cercle rouge)
+    if (clampedHit > 0) {
+      const prevAlpha = ctx.globalAlpha;
+      const haloSize = sprite.logicalSize * pulseScale * 1.13;
+      const haloHalf = haloSize * 0.5;
+      ctx.globalAlpha = prevAlpha * (0.35 * clampedHit);
+      ctx.drawImage(sprite.canvas, x - haloHalf, y - haloHalf, haloSize, haloSize);
+      ctx.globalAlpha = prevAlpha;
+    }
+
+    const drawSize = sprite.logicalSize * pulseScale;
+    const half = drawSize * 0.5;
+    ctx.drawImage(sprite.canvas, x - half, y - half, drawSize, drawSize);
+  }
 };

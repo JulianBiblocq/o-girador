@@ -17,7 +17,10 @@ export const drawRasSubStep = (
   _instrumentsConfig: any,
   localLeftHanded: boolean,
   dynamicScale: number,
-  _themeBorder: string
+  _themeBorder: string,
+  isPlaying: boolean = false,
+  playheadRatio: number = 0,
+  isEco: boolean = false
 ): void => {
   if (
     secondState === 0 ||
@@ -48,7 +51,26 @@ export const drawRasSubStep = (
 
   const sprite = getOrCreateXiloStampSprite(fillColor, txtColor, text, subRadiusSize, dynamicScale, isAccent);
   if (sprite) {
-    const half = sprite.logicalSize * 0.5;
-    ctx.drawImage(sprite.canvas, secondX - half, secondY - half, sprite.logicalSize, sprite.logicalSize);
+    let hitIntensity = 0;
+    if (isPlaying && !isEco) {
+      const stickAngle = -Math.PI / 2 + playheadRatio * Math.PI * 2;
+      const deltaRad = ((stickAngle - finalAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const decayArcRad = 0.42;
+      if (deltaRad <= decayArcRad) {
+        hitIntensity = Math.pow(1 - deltaRad / decayArcRad, 1.55);
+      }
+    }
+    const pulseScale = 1 + 0.18 * hitIntensity;
+    if (hitIntensity > 0.01) {
+      const prevAlpha = ctx.globalAlpha;
+      const haloSize = sprite.logicalSize * pulseScale * 1.13;
+      const haloHalf = haloSize * 0.5;
+      ctx.globalAlpha = prevAlpha * (0.35 * hitIntensity);
+      ctx.drawImage(sprite.canvas, secondX - haloHalf, secondY - haloHalf, haloSize, haloSize);
+      ctx.globalAlpha = prevAlpha;
+    }
+    const drawSize = sprite.logicalSize * pulseScale;
+    const half = drawSize * 0.5;
+    ctx.drawImage(sprite.canvas, secondX - half, secondY - half, drawSize, drawSize);
   }
 };
