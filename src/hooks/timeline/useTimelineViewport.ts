@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, startTransition } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, startTransition } from 'react';
 
 export interface UseTimelineViewportOptions {
   totalMeasures: number;
@@ -9,71 +9,62 @@ export interface UseTimelineViewportOptions {
   isActive?: boolean;
 }
 
-const VIRTUALIZATION_MIN_MEASURES = 24;
-const VIEWPORT_BUFFER_MEASURES = 8;
-const SCROLL_HYSTERESIS_MEASURES = 4;
+const SCROLL_HYSTERESIS_MEASURES = 3;
+
+function computeViewportBounds(totalMeasures: number, scrollLeft: number, viewW: number, measureW: number) {
+  const curW = Math.max(20, measureW);
+  const buffer = curW >= 140 ? 2 : 6;
+  const visibleCount = Math.ceil(Math.max(300, viewW) / curW);
+  if (totalMeasures <= visibleCount + buffer * 2) {
+    return { start: 0, end: Math.max(0, totalMeasures - 1) };
+  }
+  let start = Math.max(0, Math.floor(scrollLeft / curW) - buffer);
+  const end = Math.min(totalMeasures - 1, Math.ceil((scrollLeft + viewW) / curW) + buffer);
+  if (start > end) start = Math.max(0, end - buffer);
+  return { start, end };
+}
 
 export function useTimelineViewport({
-  totalMeasures, measureWidth, headerWidth, scrollRef, isPlaying, isActive = true,
+  totalMeasures, measureWidth, headerWidth, scrollRef, isActive = true,
 }: UseTimelineViewportOptions) {
-  const isPlayingRef = useRef(isPlaying);
-  isPlayingRef.current = isPlaying;
   const measureWidthRef = useRef(measureWidth);
   measureWidthRef.current = measureWidth;
 
-  const [visibleRange, setVisibleRange] = useState(() => {
-    if (totalMeasures <= VIRTUALIZATION_MIN_MEASURES) {
-      return { start: 0, end: Math.max(0, totalMeasures - 1) };
-    }
-    const initW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    const initVis = Math.ceil((initW - headerWidth) / Math.max(20, measureWidth));
-    return { start: 0, end: Math.min(totalMeasures - 1, initVis + VIEWPORT_BUFFER_MEASURES) };
-  });
-
-  const isRangeScheduledRef = useRef(false);
   const viewportCacheRef = useRef({
     width: typeof window !== 'undefined' ? window.innerWidth - headerWidth : 1200,
     lastScrollLeft: 0,
   });
 
+  const [rangeState, setRangeState] = useState(() =>
+    computeViewportBounds(totalMeasures, 0, viewportCacheRef.current.width, measureWidth)
+  );
+  const isRangeScheduledRef = useRef(false);
+
   const updateVisibleRange = useCallback((immediate = false) => {
-    if (totalMeasures <= VIRTUALIZATION_MIN_MEASURES) {
-      setVisibleRange(prev => (prev.start === 0 && prev.end === Math.max(0, totalMeasures - 1)) ? prev : { start: 0, end: Math.max(0, totalMeasures - 1) });
-      return;
-    }
-    const computeRange = () => {
+    const apply = () => {
+      if (scrollRef.current) viewportCacheRef.current.lastScrollLeft = scrollRef.current.scrollLeft;
       const { lastScrollLeft, width } = viewportCacheRef.current;
-      const curW = Math.max(20, measureWidthRef.current);
-      let start = Math.max(0, Math.floor(lastScrollLeft / curW) - VIEWPORT_BUFFER_MEASURES);
-      const end = Math.min(totalMeasures - 1, Math.ceil((lastScrollLeft + width) / curW) + VIEWPORT_BUFFER_MEASURES);
-      if (start > end) start = Math.max(0, end - VIEWPORT_BUFFER_MEASURES);
+      const next = computeViewportBounds(totalMeasures, lastScrollLeft, width, measureWidthRef.current);
       startTransition(() => {
-        setVisibleRange(prev => {
-          if (prev.start === start && prev.end === end) return prev;
+        setRangeState(prev => {
+          if (prev.start === next.start && prev.end === next.end) return prev;
           if (!immediate) {
-            const atLeftEdge = start === 0 && prev.start !== 0;
-            const atRightEdge = end === totalMeasures - 1 && prev.end !== totalMeasures - 1;
-            const deltaStart = Math.abs(prev.start - start);
-            const deltaEnd = Math.abs(prev.end - end);
-            if (!atLeftEdge && !atRightEdge && deltaStart < SCROLL_HYSTERESIS_MEASURES && deltaEnd < SCROLL_HYSTERESIS_MEASURES) {
-              return prev;
-            }
+            const atLeft = next.start === 0 && prev.start !== 0;
+            const atRight = next.end === totalMeasures - 1 && prev.end !== totalMeasures - 1;
+            const dS = Math.abs(prev.start - next.start), dE = Math.abs(prev.end - next.end);
+            if (!atLeft && !atRight && dS < SCROLL_HYSTERESIS_MEASURES && dE < SCROLL_HYSTERESIS_MEASURES) return prev;
           }
-          return { start, end };
+          return next;
         });
       });
     };
     if (immediate) {
-      computeRange();
-    } else {
-      if (isRangeScheduledRef.current) return;
+      apply();
+    } else if (!isRangeScheduledRef.current) {
       isRangeScheduledRef.current = true;
-      requestAnimationFrame(() => {
-        isRangeScheduledRef.current = false;
-        computeRange();
-      });
+      requestAnimationFrame(() => { isRangeScheduledRef.current = false; apply(); });
     }
-  }, [totalMeasures]);
+  }, [totalMeasures, scrollRef]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -82,7 +73,7 @@ export function useTimelineViewport({
     viewportCacheRef.current.width = el.clientWidth - headerWidth;
     const handleScroll = () => {
       viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
-      if (totalMeasures > VIRTUALIZATION_MIN_MEASURES) updateVisibleRange(false);
+      updateVisibleRange(false);
     };
     el.addEventListener('scroll', handleScroll, { passive: true });
     updateVisibleRange(true);
@@ -91,16 +82,19 @@ export function useTimelineViewport({
       updateVisibleRange(true);
     });
     ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      ro.disconnect();
-    };
+    return () => { el.removeEventListener('scroll', handleScroll); ro.disconnect(); };
   }, [updateVisibleRange, scrollRef, isActive, totalMeasures, headerWidth]);
 
-  useEffect(() => {
-    if (scrollRef.current) viewportCacheRef.current.lastScrollLeft = scrollRef.current.scrollLeft;
-    updateVisibleRange(true);
-  }, [measureWidth, totalMeasures, updateVisibleRange, scrollRef]);
+  useEffect(() => { updateVisibleRange(true); }, [measureWidth, totalMeasures, updateVisibleRange]);
+
+  const visibleRange = useMemo(() => {
+    const liveScroll = scrollRef.current ? scrollRef.current.scrollLeft : viewportCacheRef.current.lastScrollLeft;
+    const syncBounds = computeViewportBounds(totalMeasures, liveScroll, viewportCacheRef.current.width, measureWidth);
+    if (measureWidth >= 140 && (syncBounds.end - syncBounds.start) < (rangeState.end - rangeState.start)) {
+      return syncBounds;
+    }
+    return rangeState;
+  }, [measureWidth, totalMeasures, rangeState, scrollRef]);
 
   return { visibleRange, viewportCacheRef, updateVisibleRange };
 }

@@ -75,13 +75,23 @@ export function useTimelineMinimapDrag({
       const vW = scrollRef.current ? scrollRef.current.clientWidth - HEADER_W : 800;
       const clampedW = Math.max(20, Math.min(960, ((M * vW) / targetS - 150) / totalMeasures));
 
-      React.startTransition(() => {
-        const newScrollLeft = (targetL / M) * (totalMeasures * clampedW + 150);
-        pendingScrollLeftRef.current = newScrollLeft;
-        if (scrollRef.current) scrollRef.current.scrollLeft = newScrollLeft;
-        onMeasureWidthChange(clampedW);
-        if (isFinal) onZoomEnd?.();
-      });
+      const newScrollLeft = (targetL / M) * (totalMeasures * clampedW + 150);
+      pendingScrollLeftRef.current = newScrollLeft;
+      if (scrollRef.current) {
+        scrollRef.current.style.setProperty('--measure-width', `${clampedW}px`);
+        const cEl = scrollRef.current.closest('.timeline-container') as HTMLElement | null;
+        if (cEl) {
+          cEl.style.setProperty('--measure-width', `${clampedW}px`);
+          cEl.style.setProperty('--zoom-level', String(clampedW / 480));
+        }
+        scrollRef.current.scrollLeft = newScrollLeft;
+      }
+      if (isFinal) {
+        React.startTransition(() => {
+          onMeasureWidthChange(Math.round(clampedW));
+          onZoomEnd?.();
+        });
+      }
 
       if (minimapSliderRef.current) {
         sliderWidthRef.current = targetS; sliderLeftRef.current = targetL;
