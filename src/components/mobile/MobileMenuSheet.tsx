@@ -1,11 +1,8 @@
-/**
- * Menu tiroir Mobile avec sélecteur de mode, égalisation, [ FR | BR ] et aperçu partition (< 135 lignes).
- */
-
 import React, { useState } from 'react';
 import { X, Sliders, Moon, Sun, Monitor, Printer } from 'lucide-react';
 import { MobileViewModeSelector } from './MobileViewModeSelector';
 import { MobilePartitionPreviewModal } from './MobilePartitionPreviewModal';
+import { RodaSweepModeToggle } from '../roda/RodaSweepModeToggle';
 import { openAoVivoLabWithActiveTrack } from '../AoVivo/aoVivoStrokeTester';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { tMobile } from '../../i18n/mobileTranslations';
@@ -99,6 +96,8 @@ export const MobileMenuSheet: React.FC<Props> = ({
                   {isDarkMode ? tMobile(lang, 'themeLight') : tMobile(lang, 'themeDark')}
                 </button>
               </div>
+
+              <RodaSweepModeToggle fullWidth />
 
               <button
                 type="button" onClick={() => setIsPartitionModalOpen(true)}

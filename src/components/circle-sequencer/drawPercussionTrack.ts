@@ -1,14 +1,12 @@
 import { InstrumentConfig, TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import {
-  areStepValuesEqual,
-  resolveSlaveStepOpacity,
-  SlaveFocusContext,
-} from '../../utils/slaveStepOpacityResolver';
+import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
+import { areStepValuesEqual, resolveSlaveStepOpacity, SlaveFocusContext } from '../../utils/slaveStepOpacityResolver';
 import { resolveStepPastilleData } from './resolveStepPastilleData';
 import { drawSplitStepPastille } from './drawSplitStepPastille';
 import { drawRasSubStep } from './drawRasSubStep';
+import { resolveTrackStepsForMeasure, resolveStepSweepBlend } from './rodaSweepMath';
 
 export const drawPercussionTrack = (
   ctx: CanvasRenderingContext2D,
@@ -30,59 +28,47 @@ export const drawPercussionTrack = (
   localLeftHanded: boolean,
   themeWood: string,
   themeBorder: string,
-  themeText: string
+  themeText: string,
+  isPlaying: boolean = false,
+  playheadRatio: number = 0,
+  soloPatternPlayId: number | null = null
 ): void => {
-  const storeState = useSequencerStore.getState();
+  const st = useSequencerStore.getState();
   const focusCtx: SlaveFocusContext = {
-    isFocusActive: storeState.isFocusActive,
-    focusTrackId: storeState.focusTrackId,
-    referenceTrackId: storeState.referenceTrackId,
-    activeAoVivoTrackId: storeState.activeAoVivoTrackId,
-    editingTrackId: storeState.editingTrackId,
-    mobileViewMode: storeState.mobileViewMode,
+    isFocusActive: st.isFocusActive, focusTrackId: st.focusTrackId, referenceTrackId: st.referenceTrackId,
+    activeAoVivoTrackId: st.activeAoVivoTrackId, editingTrackId: st.editingTrackId, mobileViewMode: st.mobileViewMode,
   };
 
-  for (let i = 0; i < effectiveStepCount; i++) {
-    const stepAngle = stepAngles[i];
-    const x = centerX + Math.cos(stepAngle) * tRad;
-    const y = centerY + Math.sin(stepAngle) * tRad;
+  const snapshots = getLiveVariationRodaSnapshots();
+  const totalM = st.totalMeasures || 1;
+  const isAtLoopEnd = st.isLoopRegionActive && st.loopEndMeasure !== null && measureIdx === st.loopEndMeasure && !st.isLoopExitRequested;
+  const fallbackNextM = isAtLoopEnd ? (st.loopStartMeasure ?? 0) : (measureIdx + 1) % totalM;
+  const nextMeasureIdx = st.queuedMeasure !== null && st.queuedMeasure !== undefined ? st.queuedMeasure : (snapshots.nextMeasureIdx ?? fallbackNextM);
 
-    const rawMasterState = activePlayingSteps?.[i] ?? 0;
-    const baseState = activePattern?.activeSteps?.[i] ?? 0;
-    const isVariationStep = !areStepValuesEqual(rawMasterState, baseState);
-    const isRas = Array.isArray(rawMasterState) && rawMasterState.length === 2;
-    const masterState = isRas ? rawMasterState[0] : rawMasterState;
+  const nextResolved = resolveTrackStepsForMeasure(track, rawTracks, nextMeasureIdx, soloPatternPlayId, snapshots.nextStepsByTrackId);
+  const prevResolved = snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null
+    ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId)
+    : { activeSteps: [], baseSteps: [], pattern: null };
 
-    const pastille = resolveStepPastilleData(
-      masterState,
-      [],
-      currentInst,
-      track,
-      rawTracks,
-      instrumentsConfig,
-      localLeftHanded,
-      dynamicScale
-    );
+  const maxAllowedRadius = ((Math.PI * tRad) / effectiveStepCount) * 0.85;
+  const anglePerStep = stepAngles[1] ? stepAngles[1] - stepAngles[0] : (Math.PI * 2) / effectiveStepCount;
 
-    if (!pastille.hasEvent) continue;
+  const drawSingleStateAtStep = (rawState: any, baseState: any, mIdx: number, stepIdx: number, stepAngle: number, x: number, y: number, blendWeight: number) => {
+    const isRas = Array.isArray(rawState) && rawState.length === 2;
+    const masterState = isRas ? rawState[0] : rawState;
+    const pastille = resolveStepPastilleData(masterState, [], currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale);
+    if (!pastille.hasEvent) return;
 
-    const stepOpacity = isVariationStep
+    const isVariationStep = !areStepValuesEqual(rawState, baseState);
+    const slaveOpacity = isVariationStep
       ? 1.0
-      : resolveSlaveStepOpacity({
-          track,
-          allTracks: rawTracks,
-          measureIdx,
-          stepIdx: i,
-          ownStepVal: rawMasterState,
-          focusCtx,
-          activeVariationsMap: activeVariationsRef?.current,
-        });
+      : resolveSlaveStepOpacity({ track, allTracks: rawTracks, measureIdx: mIdx, stepIdx, ownStepVal: rawState, focusCtx, activeVariationsMap: activeVariationsRef?.current });
+    const finalAlpha = slaveOpacity * blendWeight;
+    if (finalAlpha <= 0.01) return;
 
-    const maxAllowedRadius = ((Math.PI * tRad) / effectiveStepCount) * 0.85;
     const finalRadiusSize = Math.min(pastille.radiusSize, maxAllowedRadius);
-
     ctx.save();
-    ctx.globalAlpha = stepOpacity;
+    ctx.globalAlpha = finalAlpha;
 
     if (isVariationStep && !isEco) {
       ctx.beginPath();
@@ -93,46 +79,34 @@ export const drawPercussionTrack = (
     }
 
     drawSplitStepPastille(
-      ctx,
-      x,
-      y,
-      finalRadiusSize,
-      false,
-      false,
-      pastille.leftFillColor,
-      pastille.rightFillColor,
-      pastille.leftText,
-      pastille.rightText,
-      pastille.leftTxtColor,
-      pastille.rightTxtColor,
-      i === currentStep,
-      isEco,
-      themeWood,
-      themeBorder,
-      dynamicScale
+      ctx, x, y, finalRadiusSize, false, false,
+      pastille.leftFillColor, pastille.rightFillColor, pastille.leftText, pastille.rightText,
+      pastille.leftTxtColor, pastille.rightTxtColor, stepIdx === currentStep, isEco, themeWood, themeBorder, dynamicScale
     );
 
     if (isRas) {
-      const anglePerStep = stepAngles[1] ? stepAngles[1] - stepAngles[0] : (Math.PI * 2) / effectiveStepCount;
-      drawRasSubStep(
-        ctx,
-        rawMasterState[1],
-        stepAngle,
-        anglePerStep,
-        centerX,
-        centerY,
-        tRad,
-        currentInst,
-        track,
-        rawTracks,
-        instrumentsConfig,
-        localLeftHanded,
-        dynamicScale,
-        themeBorder
-      );
+      drawRasSubStep(ctx, rawState[1], stepAngle, anglePerStep, centerX, centerY, tRad, currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale, themeBorder);
     }
-
     ctx.restore();
+  };
+
+  for (let i = 0; i < effectiveStepCount; i++) {
+    const stepAngle = stepAngles[i];
+    const x = centerX + Math.cos(stepAngle) * tRad;
+    const y = centerY + Math.sin(stepAngle) * tRad;
+
+    const blend = resolveStepSweepBlend({
+      stepIdx: i, stepAngle, isPlaying, playheadRatio, rodaSweepMode: st.rodaSweepMode,
+      currentMeasureIdx: measureIdx, nextMeasureIdx, prevMeasureIdx: snapshots.prevMeasureIdx, hasPrevMeasure: snapshots.hasPrevMeasure,
+      currentActiveSteps: activePlayingSteps || [], currentBaseSteps: activePattern?.activeSteps || [],
+      nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps,
+      prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps,
+    });
+
+    drawSingleStateAtStep(blend.primaryState, blend.primaryBaseState, blend.primaryMeasureIdx, i, stepAngle, x, y, blend.primaryAlpha);
+    if (blend.isBlending && blend.secondaryMeasureIdx !== undefined && blend.secondaryAlpha) {
+      drawSingleStateAtStep(blend.secondaryState, blend.secondaryBaseState, blend.secondaryMeasureIdx, i, stepAngle, x, y, blend.secondaryAlpha);
+    }
   }
 
   if (!isEco) {
@@ -143,8 +117,7 @@ export const drawPercussionTrack = (
     ctx.fillStyle = themeText;
     ctx.font = 'bold 10px serif';
     ctx.textAlign = 'left';
-    const labelText = track.customName || currentInst.name;
-    ctx.fillText(labelText, x0 + 20, y0 + 3);
+    ctx.fillText(track.customName || currentInst.name, x0 + 20, y0 + 3);
     ctx.restore();
   }
 };

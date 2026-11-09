@@ -9,6 +9,7 @@ export interface ProjectSettingsSlice {
   lang: Language;
   isEcoMode: boolean;
   ecoConfig: EcoConfig;
+  rodaSweepMode: 'sweep6h' | 'fullMeasure';
   editingTrackId: number | null;
   selectedPatternId: number | null;
   selectedStepIdx: number | null;
@@ -29,6 +30,8 @@ export interface ProjectSettingsSlice {
   setMetadata: (metadata: PresetMetadata) => void;
   setIsLeftHanded: (val: boolean) => void;
   setLang: (lang: Language) => void;
+  setRodaSweepMode: (mode: 'sweep6h' | 'fullMeasure') => void;
+  toggleRodaSweepMode: () => void;
   handleExtractLyrics: () => void;
   toggleEcoMode: () => void;
   toggleEcoOption: (key: keyof EcoConfig) => void;
