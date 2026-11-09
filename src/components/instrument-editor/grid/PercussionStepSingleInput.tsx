@@ -73,6 +73,8 @@ export const PercussionStepSingleInput: React.FC<PercussionStepSingleInputProps>
       onChange={(e) => onChange(e, i, val)}
       onKeyDown={(e) => onKeyDown(e, i, val)}
       className={`step-input-cell text-center font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+        !isEmpty ? 'xilo-wood-stamp' : ''
+      } ${
         isOcto ? 'text-[9px]' : 'text-sm'
       } ${borderClass}`}
       style={{

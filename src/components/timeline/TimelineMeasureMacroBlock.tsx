@@ -34,7 +34,7 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
         if (isPanningActive || isToada) return;
         onOpenPatternPicker?.(trackId, mIdx, (e.currentTarget.closest('.macro-pattern-block') || e.currentTarget).getBoundingClientRect());
       }}
-      className="absolute right-0 top-0 bottom-0 w-6 bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+      className="absolute right-0 top-0 bottom-0 w-6 bg-transparent text-transparent border-none cursor-pointer z-20 appearance-none outline-none"
       title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
     >
       <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">{lang === 'fr' ? '— Silence' : '— Silêncio'}</option>
@@ -69,16 +69,29 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
         borderLeftColor: relativeIdx > 0 ? `${borderCol}60` : borderCol,
       };
 
+  const renderRhythmDots = (isWatermark: boolean) => (
+    <div className={isWatermark ? 'absolute inset-x-1.5 bottom-1 flex items-center gap-[2px] opacity-45 pointer-events-none overflow-hidden z-0' : 'flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5'}>
+      <div className={`flex flex-wrap gap-[2px] ${isWatermark ? 'justify-start' : 'justify-center'} w-full`}>
+        {activePatternActiveSteps?.map((val: any, sIdx: number) => {
+          if (val === 0 || val === '' || val === '0') return null;
+          const strokeKey = Array.isArray(val) ? String(val[0] ?? 'D') : String(val);
+          return <span key={sIdx} className="w-1.5 h-1.5 rounded-full flex-shrink-0 ring-[0.5px] ring-black/40" style={{ backgroundColor: instColors?.[strokeKey] || '#111' }} />;
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div
-      className={`macro-pattern-block w-full h-full flex ${isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-center p-1.5'} border rounded-sm transition-all relative overflow-hidden ${isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''}`}
+      className={`macro-pattern-block w-full h-full flex ${isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-start pt-1 px-1.5 pb-1'} border rounded-sm transition-all relative overflow-hidden ${isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''}`}
       onDoubleClick={(e) => { e.stopPropagation(); if (isPanningActive || isToada) return; onOpenPatternPicker?.(trackId, mIdx, e.currentTarget.getBoundingClientRect()); }}
       style={blockStyle}
     >
       {!isMinZoom && (
         <>
+          {!isToada && renderRhythmDots(true)}
           {toadaVocalBadges ? (
-            <div className="flex items-center gap-1 overflow-hidden truncate max-w-full whitespace-nowrap">
+            <div className="relative z-10 flex items-center gap-1 overflow-hidden truncate max-w-full whitespace-nowrap my-auto">
               {toadaVocalBadges.pPtnName && (
                 <span className="font-cactus text-[8px] font-bold text-[#8b2a1a] dark:text-[#f39c12] truncate max-w-[48px] flex items-center gap-0.5">
                   <span>[P]</span>{relativeIdx > 0 ? <span className="flex items-center gap-0.5"><Link size={9} className="opacity-70" /><span>[{relativeIdx + 1}/{spanMeasures}]</span></span> : <span className="truncate">{toadaVocalBadges.pPtnName}</span>}
@@ -92,25 +105,16 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
               )}
             </div>
           ) : (
-            <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] pr-3 flex items-center gap-0.5">
+            <span className="relative z-10 font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)] pr-3 flex items-center gap-0.5 leading-tight">
               {relativeIdx > 0 && <Link size={9} className="opacity-70" />}
               <span>{relativeIdx > 0 ? `[${relativeIdx + 1}/${spanMeasures}]` : activePatternName}</span>
             </span>
           )}
-          {!isToada && <span className="opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center"><ChevronDown size={8} /></span>}
+          {!isToada && <span className="opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center z-10"><ChevronDown size={8} /></span>}
           {renderSelect()}
         </>
       )}
-      {isMinZoom && (
-        <div className="flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5">
-          <div className="flex flex-wrap gap-[2px] justify-center w-full">
-            {activePatternActiveSteps?.map((val: any, sIdx: number) => {
-              if (val === 0 || val === '') return null;
-              return <span key={sIdx} className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: instColors?.[val as string] || '#111' }} />;
-            })}
-          </div>
-        </div>
-      )}
+      {isMinZoom && renderRhythmDots(false)}
     </div>
   );
 };

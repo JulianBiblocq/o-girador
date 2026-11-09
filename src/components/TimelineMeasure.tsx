@@ -53,6 +53,17 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
   const handlers = useTimelineMeasureHandlers({ trackId, mIdx, steps: stepsInMeasure, patternId, instType, isToada, isPanningActive, onMeasureClick, onOpenPatternPicker });
   const loopBg = loopStatus === 'inside-active' ? 'bg-blue-600/[0.03]' : (loopStatus === 'outside-active' ? 'bg-black/10 dark:bg-black/30 opacity-70' : '');
+  const hasActiveDetailedTint = !isMacro && patternId !== -1 && !isSilence && !isToada;
+  const tintHex = instMixerBg || instColors?.['D'] || instColors?.['E'] || '#8b2a1a';
+  const detailedBlockStyle: React.CSSProperties | undefined = hasActiveDetailedTint
+    ? {
+        backgroundColor: `${tintHex}2e`, // ~18% d'opacité pour continuité visuelle avec les zooms éloignés
+        border: `1px solid ${tintHex}4d`, // 30% d'opacité sur la bordure fine
+        borderLeftWidth: relativeIdx > 0 ? '1px' : '2px',
+        borderLeftStyle: relativeIdx > 0 ? 'dashed' : 'solid',
+        borderLeftColor: `${tintHex}80`,
+      }
+    : undefined;
 
   return (
     <div
@@ -62,7 +73,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
     >
       {isSel && <div className="absolute top-0 right-0 w-2.5 h-2.5 pointer-events-none z-20"><div className="w-full h-full bg-[#8b2a1a]" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} /></div>}
       {!isMacro && (
-        <div className="cell-detailed w-full h-full relative">
+        <div className="cell-detailed w-full h-full relative box-border" style={detailedBlockStyle}>
           <TimelineMeasureHeaderBadge trackId={trackId} mIdx={mIdx} patternId={patternId} activePatternName={activePatternName} patternsList={patternsList} spanMeasures={spanMeasures} relativeIdx={relativeIdx} isToada={isToada} toadaVocalBadges={toadaVocalBadges} isSlave={isSlave} isFollowingMaster={Boolean(isSlave && !isOverridden)} isOverridden={isOverridden} isSilence={isSilence} isSelectedCell={isSel} isPanningActive={isPanningActive} hasChildOverrides={hasChildOverrides} lang={lang} instType={instType} instId={instId} variationsCount={variationsCount} measureAllowVariations={measureAllowVariations} onPatternAssignForMeasure={onPatternAssignForMeasure} onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure} />
           {isToada || patternId === -1 ? (
             <TimelineMeasureToadaDualWave patternId={patternId} isSelectedCell={isSel} isToadaComposite={isToadaComposite} toadaVocalBadges={toadaVocalBadges} />
@@ -96,5 +107,5 @@ const arePatternsListsEqual = (p?: Array<{ id: number; name: string; vocalMode?:
 };
 
 export const TimelineMeasure = React.memo(TimelineMeasureComponent, (p, n) => (
-  p.mIdx === n.mIdx && p.trackId === n.trackId && p.trackIdx === n.trackIdx && p.instrumentIdx === n.instrumentIdx && p.currentMeasureW === n.currentMeasureW && p.patternId === n.patternId && p.patternIdx === n.patternIdx && p.steps === n.steps && p.spanMeasures === n.spanMeasures && p.relativeIdx === n.relativeIdx && p.sectionColor === n.sectionColor && p.isSectionStart === n.isSectionStart && p.isSectionEnd === n.isSectionEnd && p.loopStatus === n.loopStatus && p.isPanningActive === n.isPanningActive && p.lang === n.lang && p.activePatternName === n.activePatternName && p.measureAllowVariations === n.measureAllowVariations && p.signalDropdownOpen === n.signalDropdownOpen && p.isMacro === n.isMacro && p.isMinZoom === n.isMinZoom && p.activePatternActiveSteps === n.activePatternActiveSteps && p.isLinkedChild === n.isLinkedChild && p.isLinkMaster === n.isLinkMaster && p.isOverridden === n.isOverridden && p.isLinkFolder === n.isLinkFolder && p.isSlave === n.isSlave && p.isSilence === n.isSilence && p.isToada === n.isToada && p.isToadaComposite === n.isToadaComposite && p.toadaVocalBadges?.pPtnName === n.toadaVocalBadges?.pPtnName && p.toadaVocalBadges?.cPtnName === n.toadaVocalBadges?.cPtnName && p.parentBusTrackId === n.parentBusTrackId && p.masterTrackId === n.masterTrackId && p.hasChildOverrides === n.hasChildOverrides && p.slaveTrackIds === n.slaveTrackIds && arePatternsListsEqual(p.patternsList, n.patternsList)
+  p.mIdx === n.mIdx && p.trackId === n.trackId && p.trackIdx === n.trackIdx && p.instrumentIdx === n.instrumentIdx && p.currentMeasureW === n.currentMeasureW && p.patternId === n.patternId && p.patternIdx === n.patternIdx && p.steps === n.steps && p.spanMeasures === n.spanMeasures && p.relativeIdx === n.relativeIdx && p.sectionColor === n.sectionColor && p.isSectionStart === n.isSectionStart && p.isSectionEnd === n.isSectionEnd && p.loopStatus === n.loopStatus && p.isPanningActive === n.isPanningActive && p.lang === n.lang && p.activePatternName === n.activePatternName && p.measureAllowVariations === n.measureAllowVariations && p.signalDropdownOpen === n.signalDropdownOpen && p.isMacro === n.isMacro && p.isMinZoom === n.isMinZoom && p.activePatternActiveSteps === n.activePatternActiveSteps && p.isLinkedChild === n.isLinkedChild && p.isLinkMaster === n.isLinkMaster && p.isOverridden === n.isOverridden && p.isLinkFolder === n.isLinkFolder && p.isSlave === n.isSlave && p.isSilence === n.isSilence && p.isToada === n.isToada && p.isToadaComposite === n.isToadaComposite && p.toadaVocalBadges?.pPtnName === n.toadaVocalBadges?.pPtnName && p.toadaVocalBadges?.cPtnName === n.toadaVocalBadges?.cPtnName && p.parentBusTrackId === n.parentBusTrackId && p.masterTrackId === n.masterTrackId && p.hasChildOverrides === n.hasChildOverrides && p.slaveTrackIds === n.slaveTrackIds && p.instMixerBg === n.instMixerBg && arePatternsListsEqual(p.patternsList, n.patternsList)
 ));

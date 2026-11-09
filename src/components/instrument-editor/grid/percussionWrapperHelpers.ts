@@ -2,6 +2,7 @@
 import React from 'react';
 import { isDarkText } from '../../../data';
 import { Pattern } from '../../../types';
+import { applyCordelInkedPatina } from '../../../utils/colorHelpers';
 
 export interface StepVisualProps {
   val: any;
@@ -33,14 +34,14 @@ export function computeStepVisualProps(
     const lookup0 = s0 === 'f' && !instrument?.colors?.['f'] ? 'F' : s0 === 'v' && !instrument?.colors?.['v'] ? 'V' : s0;
     const lookup1 = s1 === 'f' && !instrument?.colors?.['f'] ? 'F' : s1 === 'v' && !instrument?.colors?.['v'] ? 'V' : s1;
 
-    splitLeftColor = instrument?.colors?.[lookup0] || '#666';
-    splitRightColor = instrument?.colors?.[lookup1] || '#666';
+    splitLeftColor = applyCordelInkedPatina(instrument?.colors?.[lookup0] || '#666');
+    splitRightColor = applyCordelInkedPatina(instrument?.colors?.[lookup1] || '#666');
     splitLeftText = isDarkText(instrument?.id, lookup0, splitLeftColor) ? '#1a1a1a' : instrument?.colors?.text || '#f4ecd8';
     splitRightText = isDarkText(instrument?.id, lookup1, splitRightColor) ? '#1a1a1a' : instrument?.colors?.text || '#f4ecd8';
   } else if (val !== 0 && val !== '') {
     const s = String(val);
     const lookup = s === 'f' && !instrument?.colors?.['f'] ? 'F' : s === 'v' && !instrument?.colors?.['v'] ? 'V' : s;
-    const bgColor = instrument?.colors?.[lookup] || '#111';
+    const bgColor = applyCordelInkedPatina(instrument?.colors?.[lookup] || '#111');
     let txtColor = instrument?.colors?.text || '#f4ecd8';
     if (isDarkText(instrument?.id, lookup, bgColor)) txtColor = '#1a1a1a';
     colorStyle = { backgroundColor: bgColor, color: txtColor };

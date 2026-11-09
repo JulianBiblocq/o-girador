@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { isDarkText } from '../../../data';
+import { applyCordelInkedPatina } from '../../../utils/colorHelpers';
 import { VariationStepSculptBars } from './VariationStepSculptBars';
 import { handleVariationStepKeyDown } from './useVariationStepKeyHandler';
 import { useVariationStepPointerHandlers } from './useVariationStepPointerHandlers';
@@ -52,7 +53,7 @@ export const VariationStepCell: React.FC<VariationStepCellProps> = React.memo((p
   if (isActive) {
     const stroke = Array.isArray(val) ? String(val[0] ?? '0') : String(val);
     const lookup = stroke === 'f' && !inst?.colors?.['f'] ? 'F' : stroke === 'v' && !inst?.colors?.['v'] ? 'V' : stroke;
-    const bgColor = inst?.colors?.[lookup] || '#111';
+    const bgColor = applyCordelInkedPatina(inst?.colors?.[lookup] || '#111');
     const txtColor = isDarkText(inst?.id, lookup, bgColor) ? '#1a1a1a' : (inst?.colors?.text || '#f4ecd8');
     colorStyle = { backgroundColor: bgColor, color: txtColor };
   }
@@ -84,6 +85,8 @@ export const VariationStepCell: React.FC<VariationStepCellProps> = React.memo((p
           setSelectedStepIndices, handleTogglePlay,
         })}
         className={`step-input-cell text-center text-sm font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 cursor-pointer ${
+          isActive ? 'xilo-wood-stamp' : ''
+        } ${
           isCurrentSelected
             ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
             : (!val || val === 0 || val === '0')

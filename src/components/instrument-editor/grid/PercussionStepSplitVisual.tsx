@@ -53,7 +53,7 @@ export const PercussionStepSplitVisual: React.FC<PercussionStepSplitVisualProps>
 
   return (
     <div
-      className={`step-input-cell relative flex items-center justify-center font-bold outline-none p-0 box-border z-10 transition-all duration-200 overflow-hidden ${
+      className={`step-input-cell xilo-wood-stamp relative flex items-center justify-center font-bold outline-none p-0 box-border z-10 transition-all duration-200 overflow-hidden ${
         isOcto ? 'text-[9px]' : 'text-sm'
       } ${borderClass}`}
       style={{
@@ -81,6 +81,7 @@ export const PercussionStepSplitVisual: React.FC<PercussionStepSplitVisualProps>
       }}
       title={activeTool === 'scissors' ? (lang === 'fr' ? '/ Recoller le pas (Fusionner)' : '/ Juntar o passo (Mesclar)') : undefined}
     >
+      <div className="xilo-wood-stamp absolute inset-0 pointer-events-none z-0" />
       <SplitHalfZone
         trackId={trackId} patternId={patternId} i={i} subIndex={0}
         textVal={val[0]} textColor={splitLeftText} activeTool={activeTool}

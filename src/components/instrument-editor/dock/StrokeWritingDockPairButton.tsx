@@ -81,7 +81,7 @@ export const StrokeWritingDockPairButton: React.FC<StrokeWritingDockPairButtonPr
       title={`${pair.mainLabel} (${strokeChain}) — ${isFr ? 'Clic / Molette: Variantes | Raccourci' : 'Clique / Roda: Variantes | Tecla'}: ${pair.strong.shortcut}`}
     >
       <div
-        className="xilo-wood-stamp w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs transition-colors border border-[#1a1a1a]/30"
+        className="xilo-wood-stamp w-7 h-7 rounded-none flex items-center justify-center font-bold text-xs transition-colors border border-[#1a1a1a]/40"
         style={{ backgroundColor: bgCol, color: txtCol }}
       >
         {displayedStroke.symbol}
