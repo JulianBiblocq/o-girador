@@ -75,10 +75,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       {...touchHandlers}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
-      } ${busPosition === 'none' ? 'cordel-border' : ''}`}
+      } ${busPosition === 'none' && linkPosition === 'none' ? 'cordel-border' : ''}`}
       style={rootStyle}
     >
-      {(linkPosition !== 'none' || !track.isBusFolder) && <div style={linkStyle} className="rounded-sm" />}
+      {!track.isBusFolder && <div style={linkStyle} className="rounded-sm" />}
       {dropIndicator === 'left' && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />}
       {dropIndicator === 'right' && <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />}
 

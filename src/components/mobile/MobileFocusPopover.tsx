@@ -60,7 +60,7 @@ export const MobileFocusPopover: React.FC<Props> = ({
               return (
                 <button
                   key={t.id} onClick={() => handleSelectTrack(t)}
-                  className={`flex items-center gap-1 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'}`}
+                  className={`xilo-wood-stamp flex items-center gap-1 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'}`}
                   style={{ backgroundColor: bg, color: fg }}
                 >
                   <img src={`${ASSETS_BASE_URL}${inst?.iconImg}`} alt={name} className="w-3.5 h-3.5 object-contain filter invert opacity-90 shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />

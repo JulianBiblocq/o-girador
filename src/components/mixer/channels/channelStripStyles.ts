@@ -44,10 +44,13 @@ export function computeChannelStripStyles({
   };
 
   const topBusId = getTopParentBusId(track, tracksMeta);
+  const rootLinkId = getRootLinkGroupId(track, tracksMeta);
+  const effectiveGroupPos = busPosition !== 'none' ? busPosition : linkPosition;
+  const effectiveGroupId = topBusId || rootLinkId;
   const borderWidth = isDragOver ? '5px' : '3px';
 
-  if (busPosition !== 'none' && topBusId) {
-    const memberColors = getBusMemberColors(topBusId, tracksMeta, instrumentsConfig);
+  if (effectiveGroupPos !== 'none' && effectiveGroupId) {
+    const memberColors = getBusMemberColors(effectiveGroupId, tracksMeta, instrumentsConfig);
     const busColor = memberColors[0] || '#8b2a1a';
     const lastBusColor = memberColors[memberColors.length - 1] || busColor;
     if (isDragOver) {
@@ -56,25 +59,19 @@ export function computeChannelStripStyles({
     }
     groupStyle.borderTop = `${borderWidth} solid ${busColor}`;
     groupStyle.borderBottom = `${borderWidth} solid ${lastBusColor}`;
-    if (busPosition === 'first') {
+    if (effectiveGroupPos === 'first') {
       groupStyle.borderLeft = `${borderWidth} solid ${busColor}`;
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    } else if (busPosition === 'middle') {
+    } else if (effectiveGroupPos === 'middle') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    } else if (busPosition === 'last') {
+    } else if (effectiveGroupPos === 'last') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
       groupStyle.borderRight = `${borderWidth} solid ${lastBusColor}`;
     }
   }
 
-  const rootLinkId = getRootLinkGroupId(track, tracksMeta);
-  const linkMemberColors = rootLinkId
-    ? getBusMemberColors(rootLinkId, tracksMeta, instrumentsConfig)
-    : [getInstrumentPrimaryStrongColor(inst, track)];
-  const linkColor = linkMemberColors[0] || getInstrumentPrimaryStrongColor(inst, track);
-  const lastLinkColor = linkMemberColors[linkMemberColors.length - 1] || linkColor;
-
+  const ownInstrumentColor = getInstrumentPrimaryStrongColor(inst, track);
   const linkBorderWidth = isDragOver ? '4px' : '2.5px';
   const linkStyle: React.CSSProperties = {
     position: 'absolute',
@@ -84,31 +81,16 @@ export function computeChannelStripStyles({
     right: '3px',
     pointerEvents: 'none',
     zIndex: 2,
-    borderTop: `${linkBorderWidth} solid ${linkColor}`,
-    borderBottom: `${linkBorderWidth} solid ${lastLinkColor}`,
+    border: `${linkBorderWidth} solid ${ownInstrumentColor}`,
   };
 
-  if (linkPosition === 'first') {
-    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
-    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-  } else if (linkPosition === 'middle') {
-    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
-  } else if (linkPosition === 'last') {
-    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = `${linkBorderWidth} solid ${lastLinkColor}`;
-  } else if (linkPosition === 'none' && (!track.isBusFolder || track.isLinkFolder)) {
-    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
-    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
-  }
-
-  const faderColor = rootLinkId && track.isLinkFolder
-    ? getBusColor(rootLinkId, tracksMeta, instrumentsConfig)
-    : getInstrumentPrimaryStrongColor(inst, track);
+  const faderColor = (effectiveGroupId && (track.isBusFolder || track.isLinkFolder))
+    ? getBusColor(effectiveGroupId, tracksMeta, instrumentsConfig)
+    : ownInstrumentColor;
 
   const faderTextColor = getContrastColor(faderColor);
-  const hasOuterBorder = busPosition === 'none';
-  const hasGroupBorder = busPosition !== 'none' && (track.isBusFolder || track.isLinkFolder || !!track.busId);
+  const hasOuterBorder = effectiveGroupPos === 'none';
+  const hasGroupBorder = effectiveGroupPos !== 'none';
   const borderThicknessTop = hasOuterBorder || hasGroupBorder ? (isDragOver ? 5 : 3) : 0;
   const borderThicknessBottom = hasOuterBorder || hasGroupBorder ? (isDragOver ? 5 : 3) : 0;
   const paddingTop = Math.max(0, 3 - borderThicknessTop);

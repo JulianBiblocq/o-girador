@@ -39,7 +39,7 @@ export const MobileSecondInstrumentSelector: React.FC<Props> = ({
         onClick={() => setIsOpen((prev) => !prev)}
         className={`w-full h-full px-1.5 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-between gap-1 transition-colors shadow-[1px_1px_0_#000] cursor-pointer ${
           referenceTrackId !== null
-            ? 'bg-[#c25e38] text-[#f4ecd8] border-black'
+            ? 'xilo-wood-stamp bg-[#c25e38] text-[#f4ecd8] border-black'
             : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:border-[#b94a2c]'
         }`}
       >
@@ -111,7 +111,7 @@ export const MobileSecondInstrumentSelector: React.FC<Props> = ({
                   }}
                   className={`w-full flex items-center gap-1.5 px-2 py-1 border text-left cursor-pointer transition-colors text-[11px] font-bold ${
                     isSelected
-                      ? 'bg-[#c25e38] text-[#f4ecd8] border-black font-black'
+                      ? 'xilo-wood-stamp bg-[#c25e38] text-[#f4ecd8] border-black font-black'
                       : 'bg-[var(--cordel-card-btn-bg)] hover:bg-[#b94a2c]/20 border-transparent text-[var(--cordel-text)]'
                   }`}
                 >

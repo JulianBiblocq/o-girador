@@ -1,63 +1,21 @@
 import React from 'react';
+import { applyCordelInkedPatina } from '../../utils/colorHelpers';
 
 interface DawStepCellProps {
-  stepIdx: number;
-  indexInGroup: number;
-  val: any;
-  effectiveTrackId: number;
-  activePattern: any;
-  inst: any;
-  trackId: number;
+  stepIdx: number; indexInGroup: number; val: any; effectiveTrackId: number; activePattern: any; inst: any; trackId: number;
   registerStepRef: (trackId: number | string, stepIdx: number, el: HTMLButtonElement | null) => void;
   handleStepClick: (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => void;
-  isTriplet: boolean;
-  isSextuplet: boolean;
-  isVariationStep: boolean;
-  isGhostStep: boolean;
-  stepOpacity?: number;
-  isSplit: boolean;
-  displayVal: string;
-  bgColor: string;
-  txtColor: string;
-  leftBg: string;
-  leftTxt: string;
-  leftSym: string;
-  rightBg: string;
-  rightTxt: string;
-  rightSym: string;
-  isStepActive: boolean;
-  isVoice: boolean;
-  isProlongation: boolean;
+  isTriplet: boolean; isSextuplet: boolean; isVariationStep: boolean; isGhostStep: boolean; stepOpacity?: number;
+  isSplit: boolean; displayVal: string; bgColor: string; txtColor: string;
+  leftBg: string; leftTxt: string; leftSym: string; rightBg: string; rightTxt: string; rightSym: string;
+  isStepActive: boolean; isVoice: boolean; isProlongation: boolean;
 }
 
 export const DawStepCell: React.FC<DawStepCellProps> = ({
-  stepIdx,
-  indexInGroup,
-  val,
-  effectiveTrackId,
-  activePattern,
-  inst,
-  trackId,
-  registerStepRef,
-  handleStepClick,
-  isTriplet,
-  isSextuplet,
-  isVariationStep,
-  isGhostStep,
-  stepOpacity,
-  isSplit,
-  displayVal,
-  bgColor,
-  txtColor,
-  leftBg,
-  leftTxt,
-  leftSym,
-  rightBg,
-  rightTxt,
-  rightSym,
-  isStepActive,
-  isVoice,
-  isProlongation,
+  stepIdx, indexInGroup, val, effectiveTrackId, activePattern, inst, trackId,
+  registerStepRef, handleStepClick, isTriplet, isSextuplet, isVariationStep, isGhostStep, stepOpacity,
+  isSplit, displayVal, bgColor, txtColor, leftBg, leftTxt, leftSym, rightBg, rightTxt, rightSym,
+  isStepActive, isVoice, isProlongation,
 }) => {
   const commonButtonProps = {
     ref: (el: HTMLButtonElement | null) => registerStepRef(trackId, stepIdx, el),
@@ -94,16 +52,16 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
           style={baseStyle}
         >
           <div
-            className="absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a]"
-            style={{ backgroundColor: leftBg, color: leftTxt }}
+            className="xilo-wood-stamp-cell absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a]"
+            style={{ backgroundColor: applyCordelInkedPatina(leftBg), color: leftTxt }}
           >
             <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
               {leftSym}
             </span>
           </div>
           <div
-            className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center"
-            style={{ backgroundColor: rightBg, color: rightTxt }}
+            className="xilo-wood-stamp-cell absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center"
+            style={{ backgroundColor: applyCordelInkedPatina(rightBg), color: rightTxt }}
           >
             <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
               {rightSym}
@@ -115,8 +73,9 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
   }
 
   const borderClass = isStepActive
-    ? 'border-[1.5px] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
+    ? 'xilo-wood-stamp-cell border-[1.5px] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
     : 'border-[1.5px] border-[#1a1a1a]/35 shadow-[1px_1px_0px_rgba(26,26,26,0.15)] bg-[#ede4d0] dark:bg-[#ebe2ce] text-[#1a1a1a]/50 dark:text-[#1a1a1a]/50';
+  const inkedBg = isStepActive ? applyCordelInkedPatina(bgColor) : undefined;
 
   return (
     <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
@@ -127,7 +86,7 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
         }`}
         style={{
           ...baseStyle,
-          backgroundColor: isTriplet || isSextuplet ? (isStepActive ? bgColor : 'rgba(26, 26, 26, 0.12)') : isStepActive ? bgColor : undefined,
+          backgroundColor: isTriplet || isSextuplet ? (isStepActive ? inkedBg : 'rgba(26, 26, 26, 0.12)') : inkedBg,
           color: isStepActive ? txtColor : undefined,
         }}
       >

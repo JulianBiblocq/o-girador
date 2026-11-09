@@ -57,7 +57,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
         <button
           type="button"
           onClick={onOpenBottomSheet}
-          className="flex lg:hidden items-center gap-1.5 px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm font-cactus font-bold text-xs uppercase tracking-wide shrink-0 shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
+          className="xilo-wood-stamp flex lg:hidden items-center gap-1.5 px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm font-cactus font-bold text-xs uppercase tracking-wide shrink-0 shadow-[2px_2px_0px_#1a1a1a] hover:bg-[#722215] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
           title={isFr ? "Ouvrir l'inspecteur de frappe et accordage" : 'Abrir inspetor de toque e afinação'}
         >
           <Sliders size={14} />

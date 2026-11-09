@@ -84,7 +84,7 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
         borderColor: instColor,
         boxShadow: isActive ? `2px 2px 0px ${instColor}` : '1px 1px 0px rgba(0,0,0,0.5)',
       }}
-      className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none border-2 ${
+      className={`xilo-wood-stamp shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none border-2 ${
         isActive
           ? 'bg-[#fbf8f0] ring-2 ring-offset-1 ring-offset-[#1a1a1a] scale-105 z-10 cursor-default'
           : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] opacity-85 hover:opacity-100 hover:shadow-[2px_2px_0px_#1a1a1a] hover:-translate-y-[1px] cursor-pointer'

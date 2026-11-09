@@ -73,7 +73,7 @@ export const TimelineTrackHeader: React.FC<TimelineTrackHeaderProps> = ({
             onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().selectTrackTimelineCells(trackId, e.shiftKey || e.ctrlKey || e.metaKey); }}
             onDoubleClick={(e) => { e.stopPropagation(); setIsEditingName(true); }}
             style={{ backgroundColor: badgeColor, color: badgeText }}
-            className="track-header-name font-cactus text-xs font-black truncate tracking-wider cursor-pointer cordel-border-sm px-1.5 py-0.5 select-none shadow-[inset_0_0_0_1px_rgba(26,26,26,0.25)]"
+            className="xilo-wood-stamp track-header-name font-cactus text-xs font-black truncate tracking-wider cursor-pointer cordel-border-sm px-1.5 py-0.5 select-none"
             title={lang === 'fr' ? 'Cliquer pour sélectionner la piste, double-cliquer pour renommer' : 'Clique para selecionar a faixa, duplo clique para renomear'}
           >
             {displayName}

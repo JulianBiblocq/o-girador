@@ -103,7 +103,7 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
           ) : (
             <div
               onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(track.id))}
-              className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6"
+              className="xilo-wood-stamp flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px] h-6"
               title={lang === 'fr' ? 'Clic gauche : plier/déplier | Clic droit : menu' : 'Clique esquerdo : recolher/expandir | Clique direito : menu'}
             >
               {track.isFolded ? <ChevronDown size={11} className="shrink-0" /> : <ChevronRight size={11} className="shrink-0" />}
@@ -114,7 +114,7 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
           <div
             onClick={() => onOpenDetailEditor?.(track.id)}
             style={{ backgroundColor: badgeBg, color: badgeText }}
-            className="flex items-center gap-1 cordel-border-sm cordel-button px-1 py-1 cursor-pointer transition-opacity hover:opacity-90 w-full justify-between h-6 shadow-[inset_0_0_0_1px_rgba(26,26,26,0.25)]"
+            className="xilo-wood-stamp flex items-center gap-1 cordel-border-sm cordel-button px-1 py-1 cursor-pointer transition-opacity hover:opacity-90 w-full justify-between h-6"
             title={linkedSlavesTooltip || displayName}
           >
             <div className="flex items-center gap-1 flex-1 min-w-0">

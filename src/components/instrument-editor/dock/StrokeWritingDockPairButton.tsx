@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import * as Tone from 'tone';
 import { isDarkText } from '../../../data';
 import { audioEngine } from '../../../hooks/useAudioSync';
+import { applyCordelInkedPatina } from '../../../utils/colorHelpers';
 
 interface StrokeWritingDockPairButtonProps {
   trackId?: number;
@@ -28,7 +29,8 @@ export const StrokeWritingDockPairButton: React.FC<StrokeWritingDockPairButtonPr
     ? strokes[currentStrokeIdx]
     : strokes[0];
 
-  const bgCol = instrument.colors?.[displayedStroke.colorKey] || instrument.colors?.[displayedStroke.symbol] || instrument.colors?.[pair.strong.colorKey] || '#666';
+  const rawCol = instrument.colors?.[displayedStroke.colorKey] || instrument.colors?.[displayedStroke.symbol] || instrument.colors?.[pair.strong.colorKey] || '#666';
+  const bgCol = applyCordelInkedPatina(rawCol);
   const isDark = isDarkText(instrument?.id, displayedStroke.symbol, bgCol);
   const txtCol = isDark ? '#1a1a1a' : '#f4ecd8';
   const strokeChain = strokeSymbols.join(' / ');
@@ -79,7 +81,7 @@ export const StrokeWritingDockPairButton: React.FC<StrokeWritingDockPairButtonPr
       title={`${pair.mainLabel} (${strokeChain}) — ${isFr ? 'Clic / Molette: Variantes | Raccourci' : 'Clique / Roda: Variantes | Tecla'}: ${pair.strong.shortcut}`}
     >
       <div
-        className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs shadow-inner transition-colors border border-[#1a1a1a]/20"
+        className="xilo-wood-stamp w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs transition-colors border border-[#1a1a1a]/30"
         style={{ backgroundColor: bgCol, color: txtCol }}
       >
         {displayedStroke.symbol}

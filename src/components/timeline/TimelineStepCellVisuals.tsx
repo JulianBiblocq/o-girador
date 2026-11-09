@@ -1,6 +1,7 @@
 import React from 'react';
 import { TimelineStepData } from './TimelineStepPatternResolver';
 import { NEWTON_NOTE_COLORS } from '../../data';
+import { applyCordelInkedPatina } from '../../utils/colorHelpers';
 
 interface TimelineStepCellVisualsProps {
   stepData: TimelineStepData;
@@ -26,10 +27,13 @@ export const TimelineStepCellVisuals: React.FC<TimelineStepCellVisualsProps> = (
   let stepBg = '#111';
   let hasBackground = false;
   if (stepData.isSplit) {
-    stepBg = `linear-gradient(90deg, ${stepData.leftFillColor} 50%, ${stepData.rightFillColor} 50%)`;
+    const lCol = applyCordelInkedPatina(stepData.leftFillColor);
+    const rCol = applyCordelInkedPatina(stepData.rightFillColor);
+    stepBg = `linear-gradient(90deg, ${lCol} 50%, ${rCol} 50%)`;
     hasBackground = true;
   } else if (stepData.leftFillColor !== 'transparent') {
-    stepBg = stepData.isVoice ? (noteColor !== '#1a1a1a' ? noteColor : stepData.leftFillColor) : stepData.leftFillColor;
+    const rawBg = stepData.isVoice ? (noteColor !== '#1a1a1a' ? noteColor : stepData.leftFillColor) : stepData.leftFillColor;
+    stepBg = applyCordelInkedPatina(rawBg);
     hasBackground = true;
   }
 
@@ -66,7 +70,7 @@ export const TimelineStepCellVisuals: React.FC<TimelineStepCellVisualsProps> = (
 
     return (
       <div className={`timeline-step relative h-full flex-1 ${containerBorder} flex items-center justify-center pointer-events-none select-none py-[1px]`} data-measure={measureIdx} data-step={stepIdx} data-track-id={trackId} data-pattern-id={patternId}>
-        <div className={`w-full h-3 md:h-3.5 flex items-center justify-center transition-all ${voiceBorderClass}`} style={{ backgroundColor: stepData.voiceColor, opacity: bgOpacity }}>
+        <div className={`xilo-wood-stamp-cell w-full h-3 md:h-3.5 flex items-center justify-center transition-all ${voiceBorderClass}`} style={{ backgroundColor: applyCordelInkedPatina(stepData.voiceColor), opacity: bgOpacity }}>
           {isStart && <span className="text-[7px] md:text-[8px] font-bold text-white leading-none truncate px-0.5 select-none">{displayText}</span>}
           {!isStart && !isMacro && !isMinZoom && <span className="text-[6px] text-white/70 font-mono leading-none select-none">──</span>}
         </div>
@@ -77,7 +81,7 @@ export const TimelineStepCellVisuals: React.FC<TimelineStepCellVisualsProps> = (
   return (
     <div className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none p-[1px]" data-measure={measureIdx} data-step={stepIdx} data-steps={stepsCount} data-track-id={trackId} data-pattern-id={patternId} data-val={Array.isArray(stepData.val) ? stepData.val.join('-') : stepData.val}>
       {hasBackground ? (
-        <div className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3 rounded-none m-[1px]' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${accentClass}`} style={{ background: stepData.isSplit ? stepBg : undefined, backgroundColor: stepData.isSplit ? undefined : stepBg, opacity: bgOpacity, clipPath: shapeClipPath, borderRadius: shapeClipPath ? '0px' : undefined }} />
+        <div className={`xilo-wood-stamp-cell ${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3 rounded-none m-[1px]' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${accentClass}`} style={{ background: stepData.isSplit ? stepBg : undefined, backgroundColor: stepData.isSplit ? undefined : stepBg, opacity: bgOpacity, clipPath: shapeClipPath, borderRadius: shapeClipPath ? '0px' : undefined }} />
       ) : (
         <div className={isTriplet || isSextuplet ? 'w-1.5 h-1.5 bg-black/20 dark:bg-white/20' : 'w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full'} style={{ clipPath: shapeClipPath }} />
       )}

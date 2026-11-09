@@ -23,7 +23,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
 
   return (
     <div
-      className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0 relative z-10"
+      className="xilo-wood-stamp flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0 relative z-10"
       style={{ backgroundColor: headerBg, color: headerText }}
     >
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
