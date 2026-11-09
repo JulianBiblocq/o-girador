@@ -2,13 +2,22 @@
  * Dessine le faisceau de balayage progressif de la Roda à +180° (6h d'écart avec la baguette)
  * façon « Balai de Paille de Lavagem » (vassoura de palha) :
  * 1. Halo angulaire doux en cloche sin²(pi*t) élargi de +20 % (bords 100 % fondus à 0).
- * 2. 9 brins de paille ondulés partant resserrés contre le médaillon central (±2.5°)
- *    et s'évasant en éventail vers le cerclage extérieur (±10°), avec ondulation sinusoïdale
- *    naturelle le long du rayon et alternance chanvre/encre (1.4px) et paille dorée (1.2px).
+ * 2. 18 brins de paille ondulés aux longueurs étagées (de 32 % à 98 % du rayon utile),
+ *    partant groupés contre le médaillon central (±3°) et s'évasant en éventail vers le bord (±10.5°),
+ *    avec ondulation sinusoïdale organique et alternance chanvre foncé (1.35px) / paille dorée (1.15px).
  */
-const BRISTLE_TIP_RATIOS = [0.91, 0.96, 0.92, 0.98, 0.94, 0.97, 0.90, 0.95, 0.93];
-const BRISTLE_PHASES = [0.2, 1.3, 2.5, 0.8, 3.4, 1.9, 4.2, 2.9, 5.1];
-const BRISTLE_AMPS = [0.015, 0.018, 0.013, 0.019, 0.014, 0.017, 0.016, 0.018, 0.014];
+const BRISTLE_TIP_RATIOS = [
+  0.91, 0.44, 0.96, 0.76, 0.92, 0.32, 0.98, 0.88, 0.67,
+  0.94, 0.55, 0.96, 0.97, 0.84, 0.90, 0.92, 0.95, 0.93,
+];
+const BRISTLE_PHASES = [
+  0.2, 2.1, 1.3, 3.8, 2.5, 0.9, 0.8, 4.5, 1.7,
+  3.4, 5.2, 1.9, 2.8, 4.1, 4.2, 0.5, 2.9, 5.1,
+];
+const BRISTLE_AMPS = [
+  0.015, 0.012, 0.018, 0.014, 0.013, 0.011, 0.019, 0.016, 0.013,
+  0.014, 0.012, 0.017, 0.016, 0.015, 0.016, 0.014, 0.018, 0.014,
+];
 
 export function drawRodaSweepWave(
   ctx: CanvasRenderingContext2D,
@@ -54,20 +63,23 @@ export function drawRodaSweepWave(
     ctx.fill();
   }
 
-  // 2. 9 brins de paille ondulés partant groupés du centre (±2.5°) et s'évasant vers le bord (±10°)
+  // 2. 18 brins de paille ondulés aux longueurs étagées (32% à 98%), liés au centre (±3°) et évasés (±10.5°)
   const radialSpan = outerRadius - innerRadius;
-  const collarHalfSpan = (2.5 * Math.PI) / 180; // ±2.5° au col lié
-  const fanHalfSpan = (10.0 * Math.PI) / 180;   // ±10° aux pointes
+  const collarHalfSpan = (3.0 * Math.PI) / 180;  // ±3° au col lié contre le médaillon
+  const fanHalfSpan = (10.5 * Math.PI) / 180;    // ±10.5° d'éventail complet
+  const bristleCount = BRISTLE_TIP_RATIOS.length;
   const segments = 7;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  for (let i = 0; i < 9; i++) {
-    const u = (i - 4) / 4; // [-1, 1]
+  for (let i = 0; i < bristleCount; i++) {
+    const u = (i - (bristleCount - 1) * 0.5) / ((bristleCount - 1) * 0.5); // [-1, 1]
+    const tipRatio = BRISTLE_TIP_RATIOS[i];
     const thetaCollar = sweepAngle + u * collarHalfSpan;
-    const thetaTip = sweepAngle + u * fanHalfSpan;
+    // L'écart angulaire à la pointe est proportionné à la longueur du brin pour suivre le cône du balai
+    const thetaTip = sweepAngle + u * (collarHalfSpan + (fanHalfSpan - collarHalfSpan) * tipRatio);
     const rStart = innerRadius + radialSpan * 0.015;
-    const rTip = innerRadius + radialSpan * BRISTLE_TIP_RATIOS[i];
+    const rTip = innerRadius + radialSpan * tipRatio;
     const amp = BRISTLE_AMPS[i];
     const phase = BRISTLE_PHASES[i];
 
@@ -85,10 +97,10 @@ export function drawRodaSweepWave(
     }
 
     if (i % 2 === 0) {
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = 1.35;
       ctx.strokeStyle = 'rgba(42, 26, 14, 0.62)';
     } else {
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.15;
       ctx.strokeStyle = 'rgba(202, 156, 78, 0.68)';
     }
     ctx.stroke();

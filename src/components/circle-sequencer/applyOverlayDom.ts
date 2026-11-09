@@ -32,6 +32,9 @@ export function applyOverlayDom(
   } else if (activeMarker) {
     applyMarkerOverlay(container, afficheurEl, imgEl, tintEl, textEl, cache, lastOverlayTextRef, activeMarker);
   } else {
+    if (afficheurEl.classList.contains('xilo-wood-stamp')) {
+      afficheurEl.classList.remove('xilo-wood-stamp');
+    }
     if (cache.imgDisplay !== 'none') {
       imgEl.style.display = 'none';
       cache.imgDisplay = 'none';

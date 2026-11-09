@@ -4,6 +4,7 @@ import { getPatternWords } from './karaokeHelpers';
 import { drawCenterKaraokeText } from './drawCenterKaraokeText';
 import { resolveActiveVoiceState } from './resolveActiveVoiceState';
 import { WordItem } from './circleSequencerTypes';
+import { applyCordelInkedPatina } from '../../utils/colorHelpers';
 
 export const drawCenterKaraoke = (
   ctx: CanvasRenderingContext2D,
@@ -40,8 +41,8 @@ export const drawCenterKaraoke = (
     const words = (!isPauseBaque && activePattern) ? getPatternWords(activePattern, isAnacrusis, totalSteps) : [];
     if (!isPauseBaque && words.length === 0) return;
 
-    const roleColor = isPauseBaque ? '#44403c' : (activeRole === 'coro' ? '#1e40af' : '#c25e38');
-    const roleLabel = isPauseBaque ? '🥁 BAQUE' : (isAnacrusis ? 'ANACROUSE T1' : (activeRole === 'coro' ? 'CORO' : 'PUXADOR'));
+    const roleColor = applyCordelInkedPatina(isPauseBaque ? '#44403c' : (activeRole === 'coro' ? '#1e40af' : '#c25e38'));
+    const roleLabel = isPauseBaque ? 'BAQUE' : (isAnacrusis ? 'ANACROUSE T1' : (activeRole === 'coro' ? 'CORO' : 'PUXADOR'));
 
     const diskRadius = 135 * dynamicScale;
     ctx.beginPath();
@@ -86,7 +87,7 @@ export const drawCenterKaraoke = (
       ctx.fillStyle = '#44403c';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('🥁 Baque', centerX, centerY);
+      ctx.fillText('Baque', centerX, centerY);
       return;
     }
 

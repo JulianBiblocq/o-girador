@@ -1,6 +1,6 @@
-
 import { SongMarker } from '../../types';
 import { OverlayCacheState } from './circleSequencerTypes';
+import { applyCordelInkedPatina } from '../../utils/colorHelpers';
 
 export function applyPreRollCountdown(
   container: HTMLDivElement,
@@ -19,6 +19,9 @@ export function applyPreRollCountdown(
   if (cache.tintDisplay !== 'none') {
     tintEl.style.display = 'none';
     cache.tintDisplay = 'none';
+  }
+  if (!afficheurEl.classList.contains('xilo-wood-stamp')) {
+    afficheurEl.classList.add('xilo-wood-stamp');
   }
   const countNum = String(currentBeat + 1);
   if (lastOverlayTextRef.current !== countNum) {
@@ -72,7 +75,10 @@ export function applyMarkerOverlay(
     tintEl.style.display = 'none';
     cache.tintDisplay = 'none';
   }
-  const targetBgColor = activeMarker.color || '#f19066';
+  if (!afficheurEl.classList.contains('xilo-wood-stamp')) {
+    afficheurEl.classList.add('xilo-wood-stamp');
+  }
+  const targetBgColor = applyCordelInkedPatina(activeMarker.color || '#f19066');
   if (cache.bgColor !== targetBgColor) {
     afficheurEl.style.backgroundColor = targetBgColor;
     cache.bgColor = targetBgColor;
@@ -85,9 +91,9 @@ export function applyMarkerOverlay(
     textEl.style.color = '#1a1a1a';
     cache.color = '#1a1a1a';
   }
-  if (cache.textShadow !== 'none') {
-    textEl.style.textShadow = 'none';
-    cache.textShadow = 'none';
+  if (cache.textShadow !== '0 1px 0 rgba(244,236,216,0.28)') {
+    textEl.style.textShadow = '0 1px 0 rgba(244,236,216,0.28)';
+    cache.textShadow = '0 1px 0 rgba(244,236,216,0.28)';
   }
 
   const lines = activeMarker.name.split('\n');
@@ -102,8 +108,8 @@ export function applyMarkerOverlay(
     textEl.style.setProperty('--dynamic-font-size', sizeVal);
     cache.fontSize = sizeVal;
   }
-  if (cache.opacity !== '0.85') {
-    container.style.opacity = '0.85';
-    cache.opacity = '0.85';
+  if (cache.opacity !== '0.94') {
+    container.style.opacity = '0.94';
+    cache.opacity = '0.94';
   }
 }

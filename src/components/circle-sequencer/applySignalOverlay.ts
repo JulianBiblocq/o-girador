@@ -28,6 +28,9 @@ export function applySignalOverlay(
     targetSrc = activeSig.frames[0] || activeSig.image;
   }
 
+  if (afficheurEl.classList.contains('xilo-wood-stamp')) {
+    afficheurEl.classList.remove('xilo-wood-stamp');
+  }
   if (cache.imgSrc !== targetSrc) {
     imgEl.src = targetSrc;
     cache.imgSrc = targetSrc;
