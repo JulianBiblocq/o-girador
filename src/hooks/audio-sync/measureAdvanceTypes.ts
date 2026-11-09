@@ -12,6 +12,9 @@ export interface AdvanceMeasureContext {
   loopModeRef?: { current: 'infinite' | number };
   isLoopExitRequestedRef?: { current: boolean };
   currentLoopIterationRef?: { current: number };
+  pendingMeasureRef?: { current: number | null };
+  pendingIterationRef?: { current: number | null };
+  sectionIterationRef?: { current: number };
   speedTrainerCurrentBpmRef: { current: number };
   speedTrainerConsolidationLapsDoneRef: { current: number };
   handleStop: () => void;

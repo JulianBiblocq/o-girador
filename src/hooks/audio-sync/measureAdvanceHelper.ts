@@ -33,10 +33,33 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
   const totalMeasures = ctx.totalMeasuresRef.current || 1;
   const lastMeasureIdx = totalMeasures - 1;
 
+  // 1. Consommation prioritaire d'une cible armée (queuedMeasure / pendingMeasureRef) au passage à 12h
+  const queuedTarget = ctx.pendingMeasureRef?.current ?? store.queuedMeasure;
+  if (queuedTarget !== null && queuedTarget !== undefined) {
+    const consumedSeq = store.queuedMeasureSeq;
+    const consumedExpandedIdx = store.queuedExpandedMeasureIdx;
+    const clampedTarget = Math.max(0, Math.min(lastMeasureIdx, queuedTarget));
+
+    if (ctx.pendingMeasureRef) ctx.pendingMeasureRef.current = null;
+    if (ctx.pendingIterationRef && ctx.pendingIterationRef.current !== null) {
+      if (ctx.sectionIterationRef) ctx.sectionIterationRef.current = ctx.pendingIterationRef.current;
+      ctx.pendingIterationRef.current = null;
+    }
+
+    ctx.measureCountRef.current = clampedTarget;
+    ctx.setCurrentMeasure(clampedTarget);
+    if (consumedExpandedIdx !== null) store.setCurrentExpandedMeasureIdx(consumedExpandedIdx);
+    store.clearQueuedMeasure(consumedSeq);
+
+    const nextSig = ctx.measureTimeSigsRef.current[clampedTarget] || '4/4';
+    ctx.maxTicksRef.current = getMaxTicks(nextSig as any);
+    ctx.currentMeasureStartTickRef.current = getMeasureStartTick(clampedTarget, ctx.measureTimeSigsRef.current);
+    ctx.absoluteTickCountRef.current = ctx.currentMeasureStartTickRef.current;
+    return;
+  }
+
   const isLoopRegionActive = Boolean(
-    ctx.isLoopRegionActiveRef.current &&
-    ctx.loopStartRef.current !== null &&
-    ctx.loopEndRef.current !== null
+    ctx.isLoopRegionActiveRef.current && ctx.loopStartRef.current !== null && ctx.loopEndRef.current !== null
   );
   const loopStartMeasure = isLoopRegionActive ? ctx.loopStartRef.current! : 0;
   const loopEndMeasure = isLoopRegionActive ? ctx.loopEndRef.current! : lastMeasureIdx;
@@ -54,9 +77,7 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
   } else if (isLoopRegionActive) {
     if (currentMeasureIdx === loopEndMeasure) {
       const isFixedLoopsReached = typeof loopMode === 'number' && loopMode > 0 && currentIter >= loopMode;
-      const shouldExit = isExitRequested || isFixedLoopsReached || !isLooping;
-
-      if (shouldExit) {
+      if (isExitRequested || isFixedLoopsReached || !isLooping) {
         if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
         store.clearLoopExitRequest();
         if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
@@ -82,45 +103,38 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
       const nextMeasure = currentMeasureIdx + 1;
       ctx.measureCountRef.current = nextMeasure; ctx.setCurrentMeasure(nextMeasure);
     }
-  } else {
-    if (store.pendingLoopRange) {
-      const songSections = store.songSections || [];
-      const activeSection = songSections.find(s => s.startMeasure <= currentMeasureIdx && currentMeasureIdx <= s.endMeasure);
-      const activeSectionEndMeasure = activeSection ? activeSection.endMeasure : null;
-
-      if (activeSectionEndMeasure !== null && currentMeasureIdx === activeSectionEndMeasure) {
-        applyPendingLoopRange(store.pendingLoopRange, store, ctx);
-      } else {
-        const nextMeasure = currentMeasureIdx + 1;
-        if (nextMeasure >= totalMeasures) { ctx.handleStop(); return; }
-        ctx.measureCountRef.current = nextMeasure; ctx.setCurrentMeasure(nextMeasure);
-      }
-    } else if (currentMeasureIdx >= lastMeasureIdx) {
-      const isLinear1x = loopMode === 1 || !isLooping;
-      const isFixedLoopsReached = typeof loopMode === 'number' && loopMode > 0 && currentIter >= loopMode;
-
-      if (isExitRequested || isLinear1x || isFixedLoopsReached) {
-        if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
-        store.clearLoopExitRequest();
-        if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
-        store.setCurrentLoopIteration(1);
-        ctx.handleStop();
-        return;
-      }
-
-      const nextIter = currentIter + 1;
-      if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = nextIter;
-      store.setCurrentLoopIteration(nextIter);
-      ctx.measureCountRef.current = 0; ctx.setCurrentMeasure(0);
-      handleSpeedTrainerLap({
-        speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
-        speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
-        handleStop: ctx.handleStop,
-      });
+  } else if (store.pendingLoopRange) {
+    const activeSection = (store.songSections || []).find((s) => s.startMeasure <= currentMeasureIdx && currentMeasureIdx <= s.endMeasure);
+    if (activeSection && currentMeasureIdx === activeSection.endMeasure) {
+      applyPendingLoopRange(store.pendingLoopRange, store, ctx);
     } else {
       const nextMeasure = currentMeasureIdx + 1;
+      if (nextMeasure >= totalMeasures) { ctx.handleStop(); return; }
       ctx.measureCountRef.current = nextMeasure; ctx.setCurrentMeasure(nextMeasure);
     }
+  } else if (currentMeasureIdx >= lastMeasureIdx) {
+    const isLinear1x = loopMode === 1 || !isLooping;
+    const isFixedLoopsReached = typeof loopMode === 'number' && loopMode > 0 && currentIter >= loopMode;
+    if (isExitRequested || isLinear1x || isFixedLoopsReached) {
+      if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
+      store.clearLoopExitRequest();
+      if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
+      store.setCurrentLoopIteration(1);
+      ctx.handleStop();
+      return;
+    }
+    const nextIter = currentIter + 1;
+    if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = nextIter;
+    store.setCurrentLoopIteration(nextIter);
+    ctx.measureCountRef.current = 0; ctx.setCurrentMeasure(0);
+    handleSpeedTrainerLap({
+      speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
+      speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
+      handleStop: ctx.handleStop,
+    });
+  } else {
+    const nextMeasure = currentMeasureIdx + 1;
+    ctx.measureCountRef.current = nextMeasure; ctx.setCurrentMeasure(nextMeasure);
   }
 
   const nextMIdx = ctx.measureCountRef.current;

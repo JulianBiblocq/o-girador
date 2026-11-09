@@ -1,7 +1,3 @@
-/**
- * Types d'interface pour la navigation dans le transport (< 35 lignes).
- */
-
 import { AudioEngine } from '../../AudioEngine';
 
 export interface NavigationContext {
@@ -17,6 +13,9 @@ export interface NavigationContext {
   isPlayingRef: { current: boolean };
   pendingMeasureRef: { current: number | null };
   pendingIterationRef: { current: number | null };
+  tracksRef?: { current: any[] };
+  soloPatternPlayIdRef?: { current: number | null };
+  soloPatternVariationIdRef?: { current: string | null };
   activeSequencerVocalsRef: { current: Map<string, any> };
   anticipatedMeasuresRef: { current: Set<string> };
   tickEventDetailRef: { current: any };

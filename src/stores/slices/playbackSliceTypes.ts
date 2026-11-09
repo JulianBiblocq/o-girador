@@ -1,7 +1,9 @@
-
 export interface PlaybackSlice {
   currentMeasure: number;
   currentExpandedMeasureIdx: number;
+  queuedMeasure: number | null;
+  queuedExpandedMeasureIdx: number | null;
+  queuedMeasureSeq: number;
   loopStartMeasure: number | null;
   loopEndMeasure: number | null;
   isLoopRegionActive: boolean;
@@ -30,5 +32,7 @@ export interface PlaybackSlice {
   setLoopEndMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
   setCurrentMeasure: (measure: number | ((prev: number) => number)) => void;
   setCurrentExpandedMeasureIdx: (idx: number | ((prev: number) => number)) => void;
+  armQueuedMeasure: (measure: number, expandedIdx: number) => void;
+  clearQueuedMeasure: (consumedSeq?: number) => void;
   setIsPreRolling: (isPreRolling: boolean) => void;
 }

@@ -7,6 +7,9 @@ export type { PlaybackSlice };
 export const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> = (set, get) => ({
   currentMeasure: 0,
   currentExpandedMeasureIdx: 0,
+  queuedMeasure: null,
+  queuedExpandedMeasureIdx: null,
+  queuedMeasureSeq: 0,
   loopStartMeasure: null,
   loopEndMeasure: null,
   isLoopRegionActive: true,
@@ -21,14 +24,31 @@ export const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackS
 
   setIsPreRolling: (isPreRolling) => set({ isPreRolling }),
 
-  setCurrentMeasure: (updater) => set(state => {
-    const raw = typeof updater === 'function' ? updater(state.currentMeasure) : updater;
-    const safe = Math.max(0, Math.min(raw, (state.totalMeasures || 1) - 1));
-    return { currentMeasure: safe };
-  }),
-  setCurrentExpandedMeasureIdx: (updater) => set(state => ({ currentExpandedMeasureIdx: typeof updater === 'function' ? updater(state.currentExpandedMeasureIdx) : updater })),
-  setLoopStartMeasure: (updater) => set(state => ({ loopStartMeasure: typeof updater === 'function' ? updater(state.loopStartMeasure) : updater })),
-  setLoopEndMeasure: (updater) => set(state => ({ loopEndMeasure: typeof updater === 'function' ? updater(state.loopEndMeasure) : updater })),
+  setCurrentMeasure: (updater) =>
+    set((state) => {
+      const raw = typeof updater === 'function' ? updater(state.currentMeasure) : updater;
+      const safe = Math.max(0, Math.min(raw, (state.totalMeasures || 1) - 1));
+      return { currentMeasure: safe };
+    }),
+  setCurrentExpandedMeasureIdx: (updater) =>
+    set((state) => ({
+      currentExpandedMeasureIdx: typeof updater === 'function' ? updater(state.currentExpandedMeasureIdx) : updater,
+    })),
+  armQueuedMeasure: (measure, expandedIdx) =>
+    set((state) => ({
+      queuedMeasure: measure,
+      queuedExpandedMeasureIdx: expandedIdx,
+      queuedMeasureSeq: state.queuedMeasureSeq + 1,
+    })),
+  clearQueuedMeasure: (consumedSeq) =>
+    set((state) => {
+      if (consumedSeq !== undefined && state.queuedMeasureSeq !== consumedSeq) return {};
+      return { queuedMeasure: null, queuedExpandedMeasureIdx: null };
+    }),
+  setLoopStartMeasure: (updater) =>
+    set((state) => ({ loopStartMeasure: typeof updater === 'function' ? updater(state.loopStartMeasure) : updater })),
+  setLoopEndMeasure: (updater) =>
+    set((state) => ({ loopEndMeasure: typeof updater === 'function' ? updater(state.loopEndMeasure) : updater })),
 
   setLoopMode: (mode) => set({ loopMode: mode }),
   setCurrentLoopIteration: (iteration) => set({ currentLoopIteration: iteration }),
@@ -66,7 +86,8 @@ export const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackS
   },
 
   handleClearLoop: () => set({ loopStartMeasure: null, loopEndMeasure: null, isLoopRegionActive: false }),
-  setIsLoopRegionActive: (updater) => set(state => ({ isLoopRegionActive: typeof updater === 'function' ? (updater as any)(state.isLoopRegionActive) : updater })),
+  setIsLoopRegionActive: (updater) =>
+    set((state) => ({ isLoopRegionActive: typeof updater === 'function' ? (updater as any)(state.isLoopRegionActive) : updater })),
   setIsLooping: (looping) => set({ isLooping: looping }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),
 });
