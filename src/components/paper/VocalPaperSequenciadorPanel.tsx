@@ -10,7 +10,7 @@ import { printSequenciadorVocalSheet, scanAndInjectVocalPaperInSequenciador, get
 
 const VOCAL_SHEETS = [
   { id: 'sequence' as const, code: 'CHANT-SEQ', title: 'Feuille 1 — Séquence & Paroles (Pux / Cor)', desc: 'Grille M1..M32 sur 2 lignes (Pux / Cor) pour attribuer P1..Pn, X (Pause) et Unisson.' },
-  { id: 'notes_1m' as const, code: 'CHANT-NOTES-1M', title: 'Feuille 2 — Patterns & Clavier 1 Octave (Paysage • 8 Temps Libres)', desc: '4 systèmes [ P__ ] A4 Paysage (32 subdivisions de 8.4mm) : TEMPS libre (1M+Ana ou 2M), OCTAVE (3/4/5), Clavier La➔Sol# & SYLLABES ouverte.' },
+  { id: 'notes_1m' as const, code: 'CHANT-NOTES-1M', title: 'Feuille 2 — Patterns & Clavier 1 Octave (Paysage • 8 Temps Libres)', desc: '3 systèmes [ P1 ]..[ P3 ] A4 Paysage (32 subdivisions) : Piano Roll A (en bas) ➔ G# (en haut), lettres A..G seules, OCT (3/4/5) & SYLLABES ouverte.' },
   { id: 'rhythm_only' as const, code: 'CHANT-RYTHME', title: 'Feuille 3 — Paroles & Rythme Seul (Paysage • 8 Temps Libres)', desc: '6 systèmes [ P__ ] A4 Paysage (32 subdivisions de 8.4mm) : bande TEMPS libre, bande RYTHME (5.5mm) + bande SYLLABES ouverte (11mm).' },
   { id: 'instructions' as const, code: 'CHANT-GUIDE', title: "Feuille 4 — Guide & Conventions d'écriture", desc: 'Mémo illustré : grille 8 temps libres (2|3|4|1|2|3|4|1 ou 2M), tirets "-" intra-mots, élisions "E\'O" et traits (───).' },
 ];
