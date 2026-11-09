@@ -39,6 +39,7 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
   );
   const [selectionMode, setSelectionMode] = useState<RodaSheetSelectionMode>('auto');
   const [customMeasures, setCustomMeasures] = useState<Set<number>>(() => new Set([currentMeasure]));
+  const [hiddenCardKeys, setHiddenCardKeys] = useState<Set<string>>(() => new Set());
   const [density, setDensity] = useState<RodaSheetDensity>(8);
 
   const selectedTracksOrdered = useMemo(
@@ -46,7 +47,7 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
     [eligibleTracks, selectedTrackIds]
   );
 
-  const items = useMemo(
+  const rawItems = useMemo(
     () =>
       buildRodaSheetMeasureItems({
         totalMeasures: totalMeasures || 1, selectedTracks: selectedTracksOrdered, allTracks: tracks,
@@ -54,6 +55,11 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
         measureTimeSigs, songMarkers, songSections,
       }),
     [totalMeasures, selectedTracksOrdered, tracks, selectionMode, customMeasures, timeSig, measureTimeSigs, songMarkers, songSections]
+  );
+
+  const items = useMemo(
+    () => rawItems.filter((it) => !hiddenCardKeys.has(it.key)),
+    [rawItems, hiddenCardKeys]
   );
 
   const handleToggleTrack = (trackId: number) => {
@@ -73,6 +79,10 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
     });
   };
 
+  const handleHideCard = (cardKey: string) => {
+    setHiddenCardKeys((prev) => new Set(prev).add(cardKey));
+  };
+
   const songTitle = metadata?.toada?.trim() || (isFr ? 'Partition O Girador' : 'Partitura O Girador');
 
   return (
@@ -83,14 +93,20 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
         totalMeasures={totalMeasures || 1} currentMeasure={currentMeasure} customMeasures={customMeasures}
         onToggleCustomMeasure={handleToggleCustomMeasure}
         onAddCurrentMeasure={() => setCustomMeasures((prev) => new Set(prev).add(currentMeasure))}
-        onSelectAllMeasures={() => setCustomMeasures(new Set(Array.from({ length: totalMeasures || 1 }, (_, i) => i)))}
+        onSelectAllMeasures={() => {
+          setHiddenCardKeys(new Set());
+          setCustomMeasures(new Set(Array.from({ length: totalMeasures || 1 }, (_, i) => i)));
+        }}
         onClearMeasures={() => setCustomMeasures(new Set())}
         density={density} onChangeDensity={setDensity}
+        hiddenCount={hiddenCardKeys.size}
+        onRestoreHidden={() => setHiddenCardKeys(new Set())}
       />
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar bg-[#262220]/30 p-2 sm:p-4 border-2 border-[var(--cordel-border)]">
         <RodaSheetPrintView
           items={items} selectedTracks={selectedTracksOrdered} density={density}
           songTitle={songTitle} ritmo={metadata?.ritmo} bpm={bpm || 90} isLeftHanded={isLeftHanded} lang={lang}
+          onHideCard={handleHideCard}
         />
       </div>
       <div className="flex items-center justify-between gap-3 pt-1 shrink-0">

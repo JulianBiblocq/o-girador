@@ -23,6 +23,7 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
   const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
 
   useEffect(() => {
+    if (queuedExpandedMeasureIdx !== null) return;
     const currentBase = expanded[currentExpandedMeasureIdx]?.baseMeasure;
     if (currentBase !== currentMeasure) {
       const firstMatch = expanded.findIndex((item) => item.baseMeasure === currentMeasure);
@@ -30,12 +31,12 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
         useSequencerStore.getState().setCurrentExpandedMeasureIdx(firstMatch);
       }
     }
-  }, [currentMeasure, expanded, currentExpandedMeasureIdx]);
+  }, [currentMeasure, expanded, currentExpandedMeasureIdx, queuedExpandedMeasureIdx]);
 
   const effectiveExpandedIdx =
     isPlaying && queuedExpandedMeasureIdx !== null ? queuedExpandedMeasureIdx : currentExpandedMeasureIdx;
   const displayMeasure = effectiveExpandedIdx + 1;
-  const isArmed = isPlaying && queuedExpandedMeasureIdx !== null && queuedExpandedMeasureIdx !== currentExpandedMeasureIdx;
+  const isArmed = Boolean(isPlaying && queuedExpandedMeasureIdx !== null);
 
   const navigateStep = (delta: -1 | 1) => {
     if (displayTotal <= 0) return;

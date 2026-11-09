@@ -38,7 +38,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
   const setIsSettingsOpen = useSequencerSettingsStore((state) => state.setIsSettingsOpen);
   const { currentUser, userProfile } = useAuth();
-
   const [isLoading, setIsLoading] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>('lutherie');
@@ -46,7 +45,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const sequencer = useSequencer();
   const lang = sequencer?.lang || 'fr';
   const t = (key: string) => (i18n[lang] as any)?.[key] || key;
-
   const isDesktop = typeof window !== 'undefined' && (
     !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.screen.width >= 768
   );
@@ -77,7 +75,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   if (!isSettingsOpen) return null;
   if (isClosing) return <SettingsClosingModal lang={lang} />;
-
   const sections = getSettingsSections(lang, isDesktop);
 
   return createPortal(
@@ -105,24 +102,16 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                     {isOpen && (
                       <div className="p-5 border-t-2 border-[#1a1a1a] dark:border-[#d6cbb5]/50 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-xs leading-relaxed font-sans text-left">
                         {sec.id === 'lutherie' && <BaqueLutherieBench lang={lang} mode="sequencer" />}
-                        {sec.id === 'groove' && (
-                          <div className="flex flex-col gap-6">
-                            <SettingsGrooveTab lang={lang} />
-                            <SettingsKitTab lang={lang} isLeftHanded={sequencer?.isLeftHanded || false} />
-                          </div>
-                        )}
+                        {sec.id === 'groove' && <div className="flex flex-col gap-6"><SettingsGrooveTab lang={lang} /><SettingsKitTab lang={lang} isLeftHanded={sequencer?.isLeftHanded || false} /></div>}
                         {sec.id === 'gabarits' && <SettingsTemplatesTab lang={lang} confirmAsync={sequencer?.confirmAsync} onClose={handleClose} />}
                         {sec.id === 'desktopLayouts' && <SettingsDesktopLayoutsTab lang={lang} />}
                         {sec.id === 'midi' && <MidiManagerPanel />}
                         {sec.id === 'sinais' && <SettingsSignalsTab lang={lang} mestreSignals={mestreSignals} />}
                         {sec.id === 'prensa' && (
                           <SettingsPrensaTab
-                            lang={lang}
-                            metadata={sequencer?.metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] }}
-                            letras={sequencer?.letras || ''}
-                            onMetaChange={(f, v) => sequencer?.setMetadata?.({ ...sequencer.metadata, [f]: v })}
-                            onLetrasChange={(v) => sequencer?.setLetras?.(v)}
-                            measureBpms={sequencer?.measureBpms}
+                            lang={lang} metadata={sequencer?.metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] }}
+                            letras={sequencer?.letras || ''} onMetaChange={(f, v) => sequencer?.setMetadata?.({ ...sequencer.metadata, [f]: v })}
+                            onLetrasChange={(v) => sequencer?.setLetras?.(v)} measureBpms={sequencer?.measureBpms}
                           />
                         )}
                         {sec.id === 'performance' && <SettingsEcoTab lang={lang} confirmAsync={sequencer?.confirmAsync} alertAsync={sequencer?.alertAsync} />}
@@ -133,18 +122,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                   </div>
                 );
               })}
-
               {canSeeAoVivoLab && (
-                <button
-                  type="button"
-                  onClick={() => { openAoVivoLabWithActiveTrack(); handleClose(); }}
-                  className={`w-full rounded-[4px_10px_6px_12px] text-left px-4 py-2.5 font-cactus font-bold text-xs md:text-sm uppercase flex justify-between items-center transition-colors cursor-pointer select-none ${ACCORDION_BANNER_IDLE}`}
-                >
+                <button type="button" onClick={() => { openAoVivoLabWithActiveTrack(); handleClose(); }} className={`w-full rounded-[4px_10px_6px_12px] text-left px-4 py-2.5 font-cactus font-bold text-xs md:text-sm uppercase flex justify-between items-center transition-colors cursor-pointer select-none ${ACCORDION_BANNER_IDLE}`}>
                   <span className="flex items-center gap-2.5">
                     <OficinaSectionIcon sectionId="aovivo-lab" className="w-4 h-4 shrink-0 text-current" />
                     <span>{lang === 'pt' ? 'Labo Ao Vivo (Calibragem Baquetas & Mãos)' : 'Labo Ao Vivo (Calibrage Baguettes & Mains)'}</span>
                   </span>
-                  <span className="font-black text-xs opacity-70">➔</span>
                 </button>
               )}
             </div>

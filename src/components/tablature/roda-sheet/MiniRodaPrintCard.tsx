@@ -8,6 +8,8 @@ interface MiniRodaPrintCardProps {
   tracks: RodaSheetTrackInfo[];
   isLeftHanded?: boolean;
   compact?: boolean;
+  onHideCard?: (cardKey: string) => void;
+  hideTitle?: string;
 }
 
 function buildGougePointsAttr(cx: number, cy: number, r: number, seed: number): string {
@@ -21,42 +23,46 @@ function buildGougePointsAttr(cx: number, cy: number, r: number, seed: number): 
 }
 
 export const MiniRodaPrintCard: React.FC<MiniRodaPrintCardProps> = ({
-  item, tracks, isLeftHanded = false, compact = false,
+  item, tracks, isLeftHanded = false, compact = false, onHideCard, hideTitle,
 }) => {
   const cx = 110, cy = 110, outerR = 94, innerR = 32;
-  const nTracks = Math.max(1, tracks.length);
-  const radialSpan = outerR - innerR;
+  const nTracks = Math.max(1, tracks.length), radialSpan = outerR - innerR;
   const stepCount = item.stepCount || 16;
   const beatsCount = item.timeSig === '2/4' || item.timeSig === '6/8' ? 2 : item.timeSig === '3/4' ? 3 : 4;
+  const fullLabel = `${item.label}${item.multiplierLabel ? ` (${item.multiplierLabel})` : ''}`;
 
   const getTrackRadius = (idx: number): number => {
     if (nTracks === 1) return innerR + radialSpan * 0.56;
-    const pad = radialSpan / (nTracks + 0.5);
-    return outerR - pad * (idx + 0.75);
+    return outerR - (radialSpan / (nTracks + 0.5)) * (idx + 0.75);
   };
 
   return (
     <div
-      className="bg-white text-[#1a1a1a] border-[1.5px] border-[#1a1a1a] flex flex-col items-center justify-center p-1 select-none"
+      className="relative bg-white text-[#1a1a1a] border-[1.5px] border-[#1a1a1a] flex flex-col items-center justify-center p-1 select-none"
       style={{ backgroundColor: '#ffffff', pageBreakInside: 'avoid', breakInside: 'avoid' }}
     >
+      {onHideCard && (
+        <button
+          type="button" onClick={() => onHideCard(item.key)} title={hideTitle || 'Masquer cette Roda de la planche'}
+          className="print:hidden absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-[#f4ecd8] hover:bg-[#8b2a1a] text-[#1a1a1a] hover:text-[#f4ecd8] border border-[#1a1a1a] font-mono font-black text-xs leading-none cursor-pointer z-10 shadow-[1px_1px_0px_#1a1a1a] transition-colors"
+        >×</button>
+      )}
+      {fullLabel.length > 9 && (
+        <div className="w-full text-left px-1 pt-0.5 font-mono font-black text-[9px] text-[#1a1a1a] leading-tight pr-6">{fullLabel}</div>
+      )}
       <svg viewBox="0 0 220 220" className="w-full h-auto block" style={{ maxHeight: compact ? '54mm' : '60mm', backgroundColor: '#ffffff' }}>
         <circle cx={cx} cy={cy} r={outerR} fill="#ffffff" stroke="#1a1a1a" strokeWidth={1.8} />
-
         {Array.from({ length: stepCount }).map((_, sIdx) => {
           const angle = -Math.PI / 2 + (sIdx / stepCount) * Math.PI * 2;
           const isBeat = (sIdx * beatsCount) % stepCount === 0;
           return (
             <line
-              key={`ray-${sIdx}`}
-              x1={cx + Math.cos(angle) * innerR} y1={cy + Math.sin(angle) * innerR}
+              key={`ray-${sIdx}`} x1={cx + Math.cos(angle) * innerR} y1={cy + Math.sin(angle) * innerR}
               x2={cx + Math.cos(angle) * outerR} y2={cy + Math.sin(angle) * outerR}
-              stroke={isBeat ? '#a8a29e' : '#e7e5e4'} strokeWidth={isBeat ? 0.95 : 0.6}
-              strokeDasharray={isBeat ? undefined : '2,2'}
+              stroke={isBeat ? '#a8a29e' : '#e7e5e4'} strokeWidth={isBeat ? 0.95 : 0.6} strokeDasharray={isBeat ? undefined : '2,2'}
             />
           );
         })}
-
         {tracks.map((tInfo, tIdx) => {
           const r = getTrackRadius(tIdx);
           return (
@@ -69,7 +75,6 @@ export const MiniRodaPrintCard: React.FC<MiniRodaPrintCardProps> = ({
             </g>
           );
         })}
-
         {Array.from({ length: beatsCount }).map((_, bIdx) => {
           const angle = -Math.PI / 2 + (bIdx / beatsCount) * Math.PI * 2;
           const bx = cx + Math.cos(angle) * (outerR + 9.5), by = cy + Math.sin(angle) * (outerR + 9.5);
@@ -80,19 +85,14 @@ export const MiniRodaPrintCard: React.FC<MiniRodaPrintCardProps> = ({
             </g>
           );
         })}
-
         {tracks.map((tInfo, tIdx) => {
-          const r = getTrackRadius(tIdx);
-          const steps = item.stepsByTrackId[tInfo.track.id] || [];
-          const arcDist = (2 * Math.PI * r) / stepCount;
-          const radialGap = radialSpan / Math.max(1.5, nTracks + 0.5);
+          const r = getTrackRadius(tIdx), steps = item.stepsByTrackId[tInfo.track.id] || [];
+          const arcDist = (2 * Math.PI * r) / stepCount, radialGap = radialSpan / Math.max(1.5, nTracks + 0.5);
           const baseStampR = Math.max(4.4, Math.min(8.2, arcDist * 0.42, radialGap * 0.44));
-
           return steps.map((rawVal, sIdx) => {
             if (rawVal === 0 || rawVal === '0' || rawVal === '' || rawVal === null || rawVal === undefined) return null;
             const angle = -Math.PI / 2 + (sIdx / stepCount) * Math.PI * 2;
-            const px = cx + Math.cos(angle) * r, py = cy + Math.sin(angle) * r;
-            const isSplit = Array.isArray(rawVal);
+            const px = cx + Math.cos(angle) * r, py = cy + Math.sin(angle) * r, isSplit = Array.isArray(rawVal);
             const rawPrimary = isSplit ? (rawVal[0] !== '0' && rawVal[0] ? rawVal[0] : rawVal[1]) : rawVal;
             const visSym = String(getVisualStrokeSymbol(rawPrimary, isLeftHanded, tInfo.inst.id));
             const isStrong = visSym === visSym.toUpperCase() && visSym !== '-' && visSym !== '0';
@@ -102,33 +102,25 @@ export const MiniRodaPrintCard: React.FC<MiniRodaPrintCardProps> = ({
               : formatStrokeSymbol(tInfo.inst.id, visSym);
             const polyPts = buildGougePointsAttr(px, py, stampR, tIdx * 31 + sIdx * 7);
             const outerPts = buildGougePointsAttr(px, py, stampR + (isStrong ? 1.5 : 1.0), tIdx * 31 + sIdx * 7);
-
             return (
               <g key={`step-${tInfo.track.id}-${sIdx}`}>
                 <polygon points={outerPts} fill="#ffffff" stroke="#1a1a1a" strokeWidth={0.65} strokeLinejoin="round" />
                 <polygon points={polyPts} fill="#ffffff" stroke={tInfo.color} strokeWidth={isStrong ? 2.8 : 1.8} strokeLinejoin="round" />
-                <text x={px} y={py + 0.4} textAnchor="middle" dominantBaseline="central" fill="#1a1a1a" fontSize={symText.length > 1 ? stampR * 0.85 : stampR * 1.15} fontWeight={900} fontFamily="Outfit, Inter, sans-serif">
-                  {symText}
-                </text>
+                <text x={px} y={py + 0.4} textAnchor="middle" dominantBaseline="central" fill="#1a1a1a" fontSize={symText.length > 1 ? stampR * 0.85 : stampR * 1.15} fontWeight={900} fontFamily="Outfit, Inter, sans-serif">{symText}</text>
               </g>
             );
           });
         })}
-
         <circle cx={cx} cy={cy} r={innerR} fill="#ffffff" stroke="#1a1a1a" strokeWidth={1.7} />
         <circle cx={cx} cy={cy} r={innerR - 2.2} fill="none" stroke="#1a1a1a" strokeWidth={0.5} strokeDasharray="2,1.5" />
-        <text x={cx} y={item.sectionName ? cy - 6 : (item.multiplierLabel ? cy - 4 : cy)} textAnchor="middle" dominantBaseline="central" fill="#1a1a1a" fontSize={item.label.length > 5 ? 8.8 : 10.2} fontWeight={900} fontFamily="sans-serif">
-          {item.label}{item.multiplierLabel ? ` (${item.multiplierLabel})` : ''}
+        <text x={cx} y={item.sectionName ? cy - 6 : (item.multiplierLabel ? cy - 4 : cy)} textAnchor="middle" dominantBaseline="central" fill="#1a1a1a" fontSize={fullLabel.length > 13 ? 6.0 : fullLabel.length > 8 ? 7.2 : 9.6} fontWeight={900} fontFamily="sans-serif">
+          {fullLabel.length > 18 ? `${item.label.slice(0, 14)}…` : fullLabel}
         </text>
         {item.sectionName && (
-          <text x={cx} y={cy + 6.5} textAnchor="middle" dominantBaseline="central" fill="#1a1a1a" fontSize={6.8} fontWeight={800} fontFamily="sans-serif">
-            {item.sectionName.slice(0, 12).toUpperCase()}
-          </text>
+          <text x={cx} y={cy + 6.5} textAnchor="middle" dominantBaseline="central" fill="#1a1a1a" fontSize={6.8} fontWeight={800} fontFamily="sans-serif">{item.sectionName.slice(0, 12).toUpperCase()}</text>
         )}
         {item.timeSig !== '4/4' && (
-          <text x={cx} y={cy + (item.sectionName ? 14 : 9)} textAnchor="middle" dominantBaseline="central" fill="#57534e" fontSize={6.2} fontWeight={800} fontFamily="monospace">
-            [{item.timeSig}]
-          </text>
+          <text x={cx} y={cy + (item.sectionName ? 14 : 9)} textAnchor="middle" dominantBaseline="central" fill="#57534e" fontSize={6.2} fontWeight={800} fontFamily="monospace">[{item.timeSig}]</text>
         )}
       </svg>
     </div>

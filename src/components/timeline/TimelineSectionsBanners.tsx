@@ -3,6 +3,18 @@ import { Clipboard, X } from 'lucide-react';
 import { SongSection, Language } from '../../types';
 import { getSectionBounds } from '../../utils/timeline/timelineMeasureWidths';
 
+function isDarkOrRedBanner(color?: string): boolean {
+  const raw = (color || '#eaddcf').replace('#', '').trim();
+  const hex = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+  if (hex.length !== 6) return false;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return false;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum < 0.56 || (r > 120 && g < 110 && b < 110);
+}
+
 export interface TimelineSectionsBannersProps {
   songSections: SongSection[]; totalMeasures: number; visibleRange: { start: number; end: number };
   measureWidths: number[]; measureLeftPositions: number[]; measureWidth: number; isPanningActive?: boolean;
@@ -19,27 +31,32 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
   onResizePointerDown, onEditSection, onDeleteSection, onCopySection, onPasteSection,
 }) => {
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = useState<number | null>(null);
-  const maxLevel = Math.max(1, ...songSections.map(s => s.level || 0));
+  const maxLevel = Math.max(1, ...songSections.map((s) => s.level || 0));
 
   return (
     <>
       {songSections.map((section) => {
         const { left: startX, width } = getSectionBounds(section.startMeasure, section.endMeasure, measureLeftPositions, measureWidths);
         const topOffset = (maxLevel - (section.level || 0)) * 26 + 4;
+        const bg = section.color || '#eaddcf';
+        const isDark = isDarkOrRedBanner(bg);
+        const textColor = isDark ? '#f4ecd8' : '#1a1a1a';
+        const gripClass = isDark ? 'w-[1px] h-2 bg-[#f4ecd8]/70' : 'w-[1px] h-2 bg-black/45';
 
         return (
           <div
             key={section.id}
             data-testid={`section-block-${section.name}`}
             data-section-id={section.id}
-            className={`absolute flex items-center justify-between px-2 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
+            className={`absolute flex items-center justify-between px-2 text-xs font-extrabold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
               isPanningActive ? 'pointer-events-none' : ''
             }`}
             onPointerDown={(e) => onSectionBlockPointerDown(e, section)}
             onDoubleClick={(e) => { e.stopPropagation(); onEditSection(section); }}
             style={{
               left: `${startX}px`, width: `${width - 8}px`, marginLeft: '4px', top: `${topOffset}px`,
-              height: '24px', backgroundColor: section.color || '#eaddcf', color: '#1a1a1a',
+              height: '24px', backgroundColor: bg, color: textColor,
+              textShadow: isDark ? '0 1px 1px rgba(0,0,0,0.65)' : 'none',
               borderColor: '#1a1a1a', borderWidth: '1.5px', zIndex: 10,
             }}
           >
@@ -50,14 +67,15 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
               title={lang === 'fr' ? 'Étendre à droite' : 'Estender para direita'}
             >
               <div className="flex gap-[0.5px]">
-                <div className="w-[1px] h-2 bg-black/40" /><div className="w-[1px] h-2 bg-black/40" /><div className="w-[1px] h-2 bg-black/40" />
+                <div className={gripClass} /><div className={gripClass} /><div className={gripClass} />
               </div>
             </div>
 
             <span
               onDoubleClick={(e) => { e.stopPropagation(); onEditSection(section); }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="truncate max-w-[65%] font-cactus uppercase tracking-wider cursor-pointer hover:underline z-10"
+              style={{ color: textColor }}
+              className="truncate max-w-[65%] font-cactus font-extrabold uppercase tracking-wider cursor-pointer hover:underline z-10"
               title={lang === 'fr' ? 'Double-cliquez pour modifier' : 'Duplo clique para editar'}
             >
               {section.name}
@@ -67,15 +85,15 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
               {onCopySection && (
                 <button
                   type="button" onClick={(e) => { e.stopPropagation(); onCopySection(section); }}
-                  className="bg-black/10 hover:bg-black/25 text-black text-[9px] p-1 rounded cordel-border-sm cursor-pointer flex items-center justify-center"
+                  className="bg-[#f4ecd8] hover:bg-[#1a1a1a] !text-[#1a1a1a] hover:!text-[#f4ecd8] text-[9px] p-1 rounded border border-[#1a1a1a] cursor-pointer flex items-center justify-center transition-colors"
                   title={lang === 'fr' ? 'Copier la section' : 'Copiar seção'}
                 ><Clipboard size={10} className="shrink-0" /></button>
               )}
               <button
                 type="button" onClick={(e) => { e.stopPropagation(); onDeleteSection(section.id); }}
-                className="bg-red-800/80 hover:bg-red-800 text-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer flex items-center justify-center"
+                className="bg-[#f4ecd8] hover:bg-[#8b2a1a] !text-[#1a1a1a] hover:!text-[#f4ecd8] text-[9px] p-0.5 px-1 rounded border border-[#1a1a1a] cursor-pointer flex items-center justify-center transition-colors"
                 title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-              ><X size={9} /></button>
+              ><X size={9} strokeWidth={2.5} /></button>
             </div>
           </div>
         );
@@ -100,12 +118,14 @@ export const TimelineSectionsBanners = React.memo<TimelineSectionsBannersProps>(
 
       {copiedSection && hoveredPasteMeasure !== null && (() => {
         const pb = getSectionBounds(hoveredPasteMeasure, hoveredPasteMeasure + (copiedSection.length || 1) - 1, measureLeftPositions, measureWidths);
+        const previewBg = copiedSection.color || '#f19066';
+        const previewDark = isDarkOrRedBanner(previewBg);
         return (
           <div
-            className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded border border-dashed pointer-events-none opacity-50 z-20 animate-pulse"
+            className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-extrabold rounded border border-dashed pointer-events-none opacity-60 z-20 animate-pulse"
             style={{
               left: `${pb.left}px`, width: `${Math.max(0, pb.width - 8)}px`, marginLeft: '4px',
-              backgroundColor: copiedSection.color || '#f19066', color: '#1a1a1a', borderColor: '#1a1a1a', borderWidth: '1.5px',
+              backgroundColor: previewBg, color: previewDark ? '#f4ecd8' : '#1a1a1a', borderColor: '#1a1a1a', borderWidth: '1.5px',
             }}
           >
             <span className="truncate max-w-[80%] font-cactus uppercase tracking-wider">

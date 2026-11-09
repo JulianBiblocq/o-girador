@@ -98,3 +98,4 @@ export const ShortcutsPanoramaSection: React.FC<ShortcutsPanoramaSectionProps> =
     </details>
   );
 };
+

@@ -6,13 +6,25 @@ import { getDefaultStepsForMeasure, resolvePatternForMeasure } from '../../circl
 import { sortTracksByRodaOrder } from '../../circle-sequencer/sortTracksByRodaOrder';
 import { RodaSheetMeasureItem, RodaSheetSelectionMode, RodaSheetTrackInfo } from './rodaSheetTypes';
 
+export function formatCompactMeasuresLabel(measureIndices: number[]): string {
+  if (measureIndices.length === 0) return 'M.1';
+  const sorted = [...measureIndices].sort((a, b) => a - b);
+  const runs: string[] = [];
+  let start = sorted[0], end = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) end = sorted[i];
+    else { runs.push(start === end ? `${start + 1}` : `${start + 1}–${end + 1}`); start = end = sorted[i]; }
+  }
+  runs.push(start === end ? `${start + 1}` : `${start + 1}–${end + 1}`);
+  return `M.${runs.join(', ')}`;
+}
+
 export function getEligibleRodaSheetTracks(allTracks: TrackGroup[], rodaTrackOrder: number[]): RodaSheetTrackInfo[] {
   const drawable = allTracks.filter((t) => {
     if (t.isBusFolder || t.isLinkFolder || t.instrumentIdx === undefined) return false;
     const inst = instrumentsConfig[t.instrumentIdx];
     if (!inst || inst.type === 'voice') return false;
-    const idLower = (inst.id || '').toLowerCase();
-    const nameLower = (t.customName || inst.name || '').toLowerCase();
+    const idLower = (inst.id || '').toLowerCase(), nameLower = (t.customName || inst.name || '').toLowerCase();
     return idLower !== 'apito' && !nameLower.includes('apito');
   });
   return sortTracksByRodaOrder(drawable, rodaTrackOrder).map((track, idx) => {
@@ -56,25 +68,20 @@ function resolveEffectivePatternAtMeasure(track: TrackGroup, allTracks: TrackGro
 function resolveTrackStepsAtMeasure(track: TrackGroup, allTracks: TrackGroup[], mIdx: number, stepCount: number): any[] {
   const ptn = resolveEffectivePatternAtMeasure(track, allTracks, mIdx);
   if (!ptn || !ptn.activeSteps) return Array(stepCount).fill(0);
-
   let relIdx = 0;
   for (let prev = mIdx - 1; prev >= 0; prev--) {
     const prevPtn = resolveEffectivePatternAtMeasure(track, allTracks, prev);
-    if (prevPtn && prevPtn.id === ptn.id) relIdx++;
-    else break;
+    if (prevPtn && prevPtn.id === ptn.id) relIdx++; else break;
   }
-
   let effectiveSteps = ptn.activeSteps;
   if (ptn.variations && ptn.variations.length > 0) {
     const firstPassVar = relIdx === 0 ? ptn.variations.find((v) => v.playFirstTimeOnly && v.steps?.length) : undefined;
-    if (firstPassVar) {
-      effectiveSteps = firstPassVar.steps;
-    } else if (ptn.measureAllowVariations?.[mIdx] === true) {
+    if (firstPassVar) effectiveSteps = firstPassVar.steps;
+    else if (ptn.measureAllowVariations?.[mIdx] === true) {
       const detVar = ptn.variations.find((v) => !v.playFirstTimeOnly && (v.probability ?? 0) >= 100 && v.steps?.length);
       if (detVar) effectiveSteps = detVar.steps;
     }
   }
-
   const spanMeasures = Math.max(1, Math.round((ptn.steps || 16) / 16));
   const startStep = (relIdx % spanMeasures) * stepCount;
   const sliced = effectiveSteps.slice(startStep, startStep + stepCount);
@@ -107,7 +114,7 @@ export function buildRodaSheetMeasureItems(params: {
       fpParts.push(`${info.track.id}:${JSON.stringify(steps)}`);
     }
     return {
-      key: `m-${mIdx}`, startMeasure: mIdx, endMeasure: mIdx, repeatCount: 1,
+      key: `m-${mIdx}`, startMeasure: mIdx, endMeasure: mIdx, measureIndices: [mIdx], repeatCount: 1,
       label: `M.${mIdx + 1}`, multiplierLabel: null,
       sectionName: resolveMeasureSectionLabel(mIdx, songMarkers, songSections),
       timeSig, stepCount, stepsByTrackId, fingerprint: fpParts.join('|'),
@@ -121,16 +128,14 @@ export function buildRodaSheetMeasureItems(params: {
   const grouped: Array<RodaSheetMeasureItem & { fingerprint: string }> = [];
   for (let m = 0; m < totalMeasures; m++) {
     const cur = buildSingle(m);
-    const prev = grouped[grouped.length - 1];
-    if (prev && prev.fingerprint === cur.fingerprint && (prev.sectionName || '') === (cur.sectionName || '')) {
-      prev.endMeasure = m;
-      prev.repeatCount += 1;
-      prev.label = `M.${prev.startMeasure + 1}–${m + 1}`;
-      prev.multiplierLabel = `×${prev.repeatCount}`;
-      prev.key = `m-${prev.startMeasure}-${m}`;
-    } else {
-      grouped.push(cur);
-    }
+    const existing = grouped.find((g) => g.fingerprint === cur.fingerprint);
+    if (existing) {
+      existing.measureIndices.push(m);
+      existing.endMeasure = m;
+      existing.repeatCount = existing.measureIndices.length;
+      existing.label = formatCompactMeasuresLabel(existing.measureIndices);
+      existing.multiplierLabel = `×${existing.repeatCount}`;
+    } else grouped.push(cur);
   }
   return grouped;
 }

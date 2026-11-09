@@ -37,13 +37,21 @@ function processVisualLoop(): void {
       syncAudioEngine.currentMeasure = evt.measure;
     }
 
-    if (!evt.isPreRoll && useSequencerStore.getState().isPreRolling) {
-      useSequencerStore.getState().setIsPreRolling(false);
+    const st = useSequencerStore.getState();
+    if (!evt.isPreRoll && st.isPreRolling) {
+      st.setIsPreRolling(false);
     }
 
-    const prevMeasure = useSequencerStore.getState().currentMeasure;
-    if (evt.step === 0 || evt.measure !== prevMeasure) {
-      useSequencerStore.getState().setCurrentMeasure(evt.measure);
+    if (st.queuedMeasure !== null) {
+      if (evt.step === 0 && evt.measure === st.queuedMeasure) {
+        if (st.queuedExpandedMeasureIdx !== null) {
+          st.setCurrentExpandedMeasureIdx(st.queuedExpandedMeasureIdx);
+        }
+        st.setCurrentMeasure(evt.measure);
+        st.clearQueuedMeasure(st.queuedMeasureSeq);
+      }
+    } else if (evt.step === 0 || evt.measure !== st.currentMeasure) {
+      st.setCurrentMeasure(evt.measure);
     }
 
     let shouldDispatch = true;

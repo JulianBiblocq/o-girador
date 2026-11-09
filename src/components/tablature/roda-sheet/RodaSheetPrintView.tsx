@@ -11,10 +11,11 @@ interface RodaSheetPrintViewProps {
   bpm: number;
   isLeftHanded?: boolean;
   lang: 'fr' | 'pt';
+  onHideCard?: (cardKey: string) => void;
 }
 
 export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
-  items, selectedTracks, density, songTitle, ritmo, bpm, isLeftHanded = false, lang,
+  items, selectedTracks, density, songTitle, ritmo, bpm, isLeftHanded = false, lang, onHideCard,
 }) => {
   const isFr = lang === 'fr';
   const pages: RodaSheetMeasureItem[][] = [];
@@ -36,7 +37,6 @@ export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
             breakAfter: pIdx < pages.length - 1 ? 'page' : 'auto',
           }}
         >
-          {/* En-tête compact A4 : Titre, Rythme, BPM & Légende des Instruments (Extérieur -> Intérieur) */}
           <div className="border-b-2 border-[#1a1a1a] pb-2 mb-3 flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2 flex-wrap">
@@ -57,7 +57,6 @@ export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
               </span>
             </div>
 
-            {/* Légende couleur de l'extérieur vers l'intérieur */}
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-bold text-[#1a1a1a]">
               <span className="font-mono uppercase text-[9px] text-[#57534e]">
                 {isFr ? 'Orbites (Ext. → Int.) :' : 'Órbitas (Ext. → Int.) :'}
@@ -77,12 +76,11 @@ export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
             </div>
           </div>
 
-          {/* Grille A4 des Mini-Rodas (2x4 ou 3x4) */}
           {pageItems.length === 0 ? (
             <div className="py-16 text-center font-cactus font-bold text-sm text-[#57534e]">
               {isFr
-                ? 'Aucune mesure sélectionnée dans le panier. Cliquez sur les mesures ci-dessus pour les ajouter.'
-                : 'Nenhum compasso selecionado na cesta. Clique nos compassos acima para adicioná-los.'}
+                ? 'Aucune Roda affichée. Cliquez sur "Réafficher" ou sélectionnez des mesures ci-dessus.'
+                : 'Nenhuma Roda exibida. Clique em "Reexibir" ou selecione compassos acima.'}
             </div>
           ) : (
             <div className={`grid gap-2.5 ${density === 12 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
@@ -93,12 +91,13 @@ export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
                   tracks={selectedTracks}
                   isLeftHanded={isLeftHanded}
                   compact={density === 12}
+                  onHideCard={onHideCard}
+                  hideTitle={isFr ? 'Masquer cette Roda de la planche' : 'Ocultar esta Roda da prancha'}
                 />
               ))}
             </div>
           )}
 
-          {/* Pied de page discret */}
           <div className="mt-2 pt-1 border-t border-[#d6d3d1] flex justify-between items-center text-[9px] font-mono text-[#57534e]">
             <span>O Girador — Séquenciad&apos;Or</span>
             <span>{isFr ? 'Tampons Éco-Encre (Fond blanc • Coup fort = trait épais)' : 'Carimbos Eco-Tinta (Fundo branco • Toque forte = traço grosso)'}</span>
@@ -108,4 +107,3 @@ export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
     </div>
   );
 };
-

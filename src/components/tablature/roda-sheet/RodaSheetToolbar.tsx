@@ -17,12 +17,15 @@ interface RodaSheetToolbarProps {
   onClearMeasures: () => void;
   density: RodaSheetDensity;
   onChangeDensity: (d: RodaSheetDensity) => void;
+  hiddenCount?: number;
+  onRestoreHidden?: () => void;
 }
 
 export const RodaSheetToolbar: React.FC<RodaSheetToolbarProps> = ({
   lang, eligibleTracks, selectedTrackIds, onToggleTrack, selectionMode, onChangeSelectionMode,
   totalMeasures, currentMeasure, customMeasures, onToggleCustomMeasure,
   onAddCurrentMeasure, onSelectAllMeasures, onClearMeasures, density, onChangeDensity,
+  hiddenCount = 0, onRestoreHidden,
 }) => {
   const isFr = lang === 'fr';
 
@@ -58,7 +61,7 @@ export const RodaSheetToolbar: React.FC<RodaSheetToolbarProps> = ({
           <button
             type="button" onClick={() => onChangeSelectionMode('auto')}
             className={`px-2.5 py-1 border-2 font-cactus font-bold text-[10px] uppercase cursor-pointer ${
-              selectionMode === 'auto' ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)]'
+              selectionMode === 'auto' ? 'bg-[#8b2a1a] !text-[#f4ecd8] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)]'
             }`}
           >
             {isFr ? 'Mesures uniques (Auto)' : 'Compassos únicos (Auto)'}
@@ -66,11 +69,19 @@ export const RodaSheetToolbar: React.FC<RodaSheetToolbarProps> = ({
           <button
             type="button" onClick={() => onChangeSelectionMode('custom')}
             className={`px-2.5 py-1 border-2 font-cactus font-bold text-[10px] uppercase cursor-pointer ${
-              selectionMode === 'custom' ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)]'
+              selectionMode === 'custom' ? 'bg-[#8b2a1a] !text-[#f4ecd8] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)]'
             }`}
           >
             {isFr ? 'Panier à la carte' : 'Cesta sob medida'} ({customMeasures.size})
           </button>
+          {hiddenCount > 0 && onRestoreHidden && (
+            <button
+              type="button" onClick={onRestoreHidden}
+              className="px-2.5 py-1 border-2 border-[#1a1a1a] bg-[#f4ecd8] hover:bg-[#1a1a1a] text-[#8b2a1a] hover:!text-[#f4ecd8] font-cactus font-bold text-[10px] uppercase cursor-pointer shadow-[1px_1px_0px_#1a1a1a] transition-colors"
+            >
+              {isFr ? `[ Réafficher les ${hiddenCount} roue(s) masquée(s) ]` : `[ Reexibir ${hiddenCount} roda(s) oculta(s) ]`}
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
@@ -99,7 +110,7 @@ export const RodaSheetToolbar: React.FC<RodaSheetToolbarProps> = ({
       {selectionMode === 'custom' && (
         <div className="flex flex-col gap-1.5 pt-1.5 border-t border-dashed border-[var(--cordel-border)]/40">
           <div className="flex flex-wrap items-center gap-1.5">
-            <button type="button" onClick={onAddCurrentMeasure} className="px-2 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] border border-[#1a1a1a] font-cactus font-bold text-[10px] cursor-pointer">
+            <button type="button" onClick={onAddCurrentMeasure} className="px-2 py-0.5 bg-[#8b2a1a] !text-[#f4ecd8] border border-[#1a1a1a] font-cactus font-bold text-[10px] cursor-pointer">
               + {isFr ? `Mesure actuelle (M.${currentMeasure + 1})` : `Compasso atual (M.${currentMeasure + 1})`}
             </button>
             <button type="button" onClick={onSelectAllMeasures} className="px-2 py-0.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-cactus font-bold text-[10px] cursor-pointer">
