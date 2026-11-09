@@ -10,53 +10,65 @@ interface MeasureVariationSnapshot {
   measureIdx: number;
   stepsByTrackId: Record<number, StepArray>;
   variedPatternsByTrackId: Map<number, { pattern: Pattern; variation: PatternVariation }>;
-  consumedKeys: string[];
+  patternIdByTrackId: Record<number, number | null>;
 }
 
 let prevSnapshot: MeasureVariationSnapshot | null = null;
 let currentSnapshot: MeasureVariationSnapshot | null = null;
 let nextSnapshot: MeasureVariationSnapshot | null = null;
+let lastPlayedPatternIdByTrack: Record<number, number | null> = {};
 let currentVariationNotes: number[] = [];
 let currentVariedTrackIds = new Set<number>();
 
 function rollMeasureVariations(
-  measureIdx: number, tracks: Track[], soloPatternPlayId: number | null,
-  soloPatternVariationId: string | null, extraConsumedKeys?: Set<string>
+  measureIdx: number,
+  tracks: Track[],
+  soloPatternPlayId: number | null,
+  soloPatternVariationId: string | null,
+  precedingPatternIdByTrack: Record<number, number | null>
 ): MeasureVariationSnapshot {
   const store = useSequencerStore.getState();
   const isSoloPlayActive = soloPatternPlayId !== null;
   const isolateBaseOnly = Boolean(store.isolateBaseOnly);
-  const firstPassRegistry = store.firstPassRegistry || {};
 
   const stepsByTrackId: Record<number, StepArray> = {};
   const variedPatternsByTrackId = new Map<number, { pattern: Pattern; variation: PatternVariation }>();
-  const consumedKeys: string[] = [];
+  const patternIdByTrackId: Record<number, number | null> = {};
 
   tracks.forEach((track) => {
     if (track.isBusFolder) return;
     const activePattern = resolveActivePattern(track, tracks, measureIdx, isSoloPlayActive, soloPatternPlayId);
-    if (!activePattern) return;
+    if (!activePattern) {
+      patternIdByTrackId[track.id] = null;
+      return;
+    }
 
-    const key = `${track.id}-${activePattern.id}`;
-    const alreadyConsumed = Boolean(firstPassRegistry[key] || extraConsumedKeys?.has(key));
+    patternIdByTrackId[track.id] = activePattern.id;
+    const isEnteringPatternBlock = precedingPatternIdByTrack[track.id] !== activePattern.id;
     const resolved = resolveCurrentPattern({
-      pattern: activePattern, trackId: track.id, measureIdx,
-      currentPlayCount: alreadyConsumed ? 1 : 0, isFirstPassConsumed: alreadyConsumed,
-      isolateBaseOnly, isSoloPlayActive, soloPatternPlayId, soloPatternVariationId,
+      pattern: activePattern,
+      trackId: track.id,
+      measureIdx,
+      currentPlayCount: isEnteringPatternBlock ? 0 : 1,
+      isFirstPassConsumed: !isEnteringPatternBlock,
+      isolateBaseOnly,
+      isSoloPlayActive,
+      soloPatternPlayId,
+      soloPatternVariationId,
     });
 
     stepsByTrackId[track.id] = resolved.steps;
-    consumedKeys.push(key);
     if (resolved.matchedVariation) {
       variedPatternsByTrackId.set(track.id, { pattern: activePattern, variation: resolved.matchedVariation });
     }
   });
 
-  return { measureIdx, stepsByTrackId, variedPatternsByTrackId, consumedKeys };
+  return { measureIdx, stepsByTrackId, variedPatternsByTrackId, patternIdByTrackId };
 }
 
 export function resetLiveVariationLookahead(activeVariationsRef?: { current: Record<number, any> }): void {
   prevSnapshot = null; currentSnapshot = null; nextSnapshot = null;
+  lastPlayedPatternIdByTrack = {};
   currentVariationNotes = []; currentVariedTrackIds = new Set<number>();
   if (activeVariationsRef) activeVariationsRef.current = {};
 }
@@ -72,11 +84,9 @@ export function advanceLiveVariationLookahead(params: {
   if (currentSnapshot) prevSnapshot = currentSnapshot;
   currentSnapshot = (nextSnapshot && nextSnapshot.measureIdx === currentMeasureIdx)
     ? nextSnapshot
-    : rollMeasureVariations(currentMeasureIdx, tracks, soloPatternPlayId, soloPatternVariationId);
+    : rollMeasureVariations(currentMeasureIdx, tracks, soloPatternPlayId, soloPatternVariationId, lastPlayedPatternIdByTrack);
 
-  const store = useSequencerStore.getState();
-  const extraConsumed = new Set<string>(currentSnapshot.consumedKeys);
-  currentSnapshot.consumedKeys.forEach((k) => store.markFirstPassConsumed(k));
+  lastPlayedPatternIdByTrack = { ...currentSnapshot.patternIdByTrackId };
   if (activeVariationsRef) activeVariationsRef.current = currentSnapshot.stepsByTrackId;
 
   currentVariedTrackIds = new Set(currentSnapshot.variedPatternsByTrackId.keys());
@@ -86,15 +96,15 @@ export function advanceLiveVariationLookahead(params: {
     variedPatternsByTrackId: currentSnapshot.variedPatternsByTrackId,
   });
 
-  nextSnapshot = rollMeasureVariations(nextMeasureIdx, tracks, soloPatternPlayId, soloPatternVariationId, extraConsumed);
+  nextSnapshot = rollMeasureVariations(nextMeasureIdx, tracks, soloPatternPlayId, soloPatternVariationId, lastPlayedPatternIdByTrack);
 }
 
 export function recalculateLookaheadForQueuedMeasure(
   queuedMeasureIdx: number, tracks: Track[],
   soloPatternPlayId: number | null = null, soloPatternVariationId: string | null = null
 ): void {
-  const extraConsumed = new Set<string>(currentSnapshot?.consumedKeys || []);
-  nextSnapshot = rollMeasureVariations(queuedMeasureIdx, tracks, soloPatternPlayId, soloPatternVariationId, extraConsumed);
+  const preceding = currentSnapshot?.patternIdByTrackId ?? lastPlayedPatternIdByTrack;
+  nextSnapshot = rollMeasureVariations(queuedMeasureIdx, tracks, soloPatternPlayId, soloPatternVariationId, preceding);
 }
 
 export function getLiveVariationAudioOverride() {

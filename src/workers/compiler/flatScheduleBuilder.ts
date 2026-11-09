@@ -20,7 +20,7 @@ export function buildFlatSongSchedule(
   const notesList: number[] = [];
   const isSoloPlayActive = soloPatternPlayId !== null;
   let accumulatedTicks = 0;
-  const patternPlayCounts = new Map<string, number>();
+  const lastPatternIdByTrack = new Map<number, number | null>();
   const effectiveTotalMeasures = isSoloPlayActive ? Math.max(totalMeasures, 2) : totalMeasures;
 
   for (let measureIdx = 0; measureIdx < effectiveTotalMeasures; measureIdx++) {
@@ -36,11 +36,14 @@ export function buildFlatSongSchedule(
       if (!inst || inst.type === 'voice') return;
 
       const activePattern = resolveActivePattern(track, tracks, measureIdx, isSoloPlayActive, soloPatternPlayId);
-      if (!activePattern) return;
+      if (!activePattern) {
+        lastPatternIdByTrack.set(track.id, null);
+        return;
+      }
 
-      const trackPatternKey = `${track.id}-${activePattern.id}`;
-      const currentPlayCount = patternPlayCounts.get(trackPatternKey) || 0;
-      patternPlayCounts.set(trackPatternKey, currentPlayCount + 1);
+      const isEnteringPatternBlock = lastPatternIdByTrack.get(track.id) !== activePattern.id;
+      const currentPlayCount = isEnteringPatternBlock ? 0 : 1;
+      lastPatternIdByTrack.set(track.id, activePattern.id);
 
       let stepsToPlay = activePattern.activeSteps;
       let effectiveVolumes = activePattern.volumes;

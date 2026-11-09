@@ -2,7 +2,7 @@ import * as Tone from 'tone';
 import { getMaxTicks } from '../../data';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { recalculateLookaheadForQueuedMeasure } from './liveVariationLookaheadEngine';
+import { recalculateLookaheadForQueuedMeasure, resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
 import { tickSubscribers } from './audioSyncTypes';
 import type { NavigationContext } from './transportNavigationTypes';
 
@@ -25,6 +25,7 @@ export function seekToMeasure(
   ctx.sectionIterationRef.current = 1;
   ctx.soloLoopCycleRef.current = 0;
   useSequencerStore.getState().resetFirstPassRegistry();
+  resetLiveVariationLookahead();
   ctx.setCurrentMeasure(clampedM);
   ctx.hasFinishedRef.current = false;
   ctx.isPlaybackEndingRef.current = false;
