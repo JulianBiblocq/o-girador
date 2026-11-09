@@ -1,6 +1,6 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { getBusStripeGradient } from '../../utils/colorHelpers';
+import { getBusStripeGradient, getInstrumentPrimaryStrongColor } from '../../utils/colorHelpers';
 
 export interface TrackGroupVisualInfo {
   isGroupMember: boolean;
@@ -8,6 +8,7 @@ export interface TrackGroupVisualInfo {
   isSlave: boolean;
   groupColor: string;
   groupBackground: string;
+  horizontalBackground: string;
 }
 
 export function getTrackGroupVisual(
@@ -42,6 +43,7 @@ export function getTrackGroupVisual(
   );
 
   let isMaster = false;
+  let isSlave = false;
   let masterTrack: TrackGroup | undefined;
 
   if (hasLinkRelationship) {
@@ -51,43 +53,40 @@ export function getTrackGroupVisual(
     );
     const isPrimaryMasterOfLinkFolder = Boolean(
       track.isLinkFolder ||
-        (groupMembers.some((m) => m.isLinkFolder) &&
-          !groupMembers.some((m) => m.id !== track.id && m.isLinkMaster) &&
-          groupMembers[0]?.id === track.id)
+        (!groupMembers.some((m) => m.id !== track.id && m.isLinkMaster) && groupMembers[0]?.id === track.id)
     );
 
     isMaster = isDirectLinkMaster || isTargetedAsMasterBySlaves || isPrimaryMasterOfLinkFolder;
+    isSlave = !isMaster;
     masterTrack =
       groupMembers.find((m) => Boolean(m.isLinkMaster)) ||
       groupMembers.find((m) =>
         groupMembers.some((o) => o.id !== m.id && o.linkedToTrackId && String(o.linkedToTrackId) === String(m.id))
       ) ||
       groupMembers[0];
-  }
-
-  if (hasLinkRelationship && masterTrack) {
-    const masterColor = instrumentsConfig[masterTrack.instrumentIdx]?.color || '#8b2a1a';
-    return {
-      isGroupMember: true,
-      isMaster,
-      isSlave: !isMaster,
-      groupColor: masterColor,
-      groupBackground: masterColor,
-    };
+  } else {
+    isMaster = groupMembers[0]?.id === track.id;
+    isSlave = false;
+    masterTrack = groupMembers[0];
   }
 
   const distinctColors: string[] = [];
   groupMembers.forEach((m) => {
-    const c = instrumentsConfig[m.instrumentIdx]?.color || '#8b2a1a';
+    const inst = instrumentsConfig[m.instrumentIdx];
+    const c = getInstrumentPrimaryStrongColor(inst, m);
     if (!distinctColors.includes(c)) distinctColors.push(c);
   });
-  const primaryColor = distinctColors[0] || '#8b2a1a';
+
+  const masterColor = masterTrack
+    ? getInstrumentPrimaryStrongColor(instrumentsConfig[masterTrack.instrumentIdx], masterTrack)
+    : distinctColors[0] || '#8b2a1a';
 
   return {
     isGroupMember: true,
-    isMaster: false,
-    isSlave: false,
-    groupColor: primaryColor,
+    isMaster,
+    isSlave,
+    groupColor: masterColor,
     groupBackground: getBusStripeGradient(distinctColors, 'to bottom'),
+    horizontalBackground: getBusStripeGradient(distinctColors, 'to right'),
   };
 }

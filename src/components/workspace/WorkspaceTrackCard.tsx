@@ -9,6 +9,7 @@ import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
 import { TrackInkVolumeSlider } from '../mixer/TrackInkVolumeSlider';
 import { getTrackGroupVisual } from './trackGroupVisual';
 import { TrackCardGroupIndicator } from './TrackCardGroupIndicator';
+import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 
 interface WorkspaceTrackCardProps {
   track: TrackGroup;
@@ -79,6 +80,8 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
   };
 
   if (!inst) return null;
+  const badgeBg = getInstrumentPrimaryStrongColor(inst, track);
+  const badgeText = getContrastColor(badgeBg);
 
   return (
     <div className={`flex flex-col justify-between w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-2 pt-[6px] relative z-10 bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] select-none transition-opacity duration-200 ${isCardDimmed ? 'opacity-40' : 'opacity-100'}`}>
@@ -92,7 +95,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           <button
             onClick={handleBadgeClick}
             className={`flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-xs transition-all h-[28px] min-h-[28px] ${isPracticeMode ? 'flex-1 min-w-0' : 'w-[116px] shrink-0'} ${(!isPracticeMode || isFocusEligible) ? 'cursor-pointer' : 'cursor-default'} ${isCurrentFocus ? 'ring-2 ring-[#1a1a1a] dark:ring-[#f4ecd8] shadow-inner font-black' : ''}`}
-            style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
+            style={{ backgroundColor: badgeBg, color: badgeText }}
             title={badgeTitle}
           >
             <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-3.5 h-3.5 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />

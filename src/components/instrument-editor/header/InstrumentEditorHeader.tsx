@@ -4,6 +4,7 @@ import { Play, Square, X, Mic, Users, SlidersHorizontal } from 'lucide-react';
 import { PupitreRibbon } from './PupitreRibbon';
 import { HeaderBalancoControl } from './HeaderBalancoControl';
 import { InstrumentEditorHeaderProps } from './headerTypes';
+import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../../utils/colorHelpers';
 
 export type { InstrumentEditorHeaderProps };
 
@@ -17,10 +18,13 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps> = Rea
     selectedPatternId, activePatternId, onToggleSoloLoop, isSoloLoopPlaying,
   } = props;
 
+  const headerBg = getInstrumentPrimaryStrongColor(inst, targetBalancoTrack);
+  const headerText = getContrastColor(headerBg);
+
   return (
     <div
       className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5 border-b-[3px] border-[#1a1a1a] shrink-0 relative z-10"
-      style={{ backgroundColor: inst.mixerBg, color: inst.colors?.text }}
+      style={{ backgroundColor: headerBg, color: headerText }}
     >
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 mr-2">
         <div className="w-[150px] min-w-[150px] shrink-0 flex-shrink-0 flex items-center">

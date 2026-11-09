@@ -1,5 +1,38 @@
 export { getTopParentBusId, getTrackDisplayName } from './trackHelpers';
 
+/**
+ * Retourne la couleur pure du coup fort principal de l'instrument sur la Roda
+ * ('1' / 'D' / 'G' / 'P' / 'W' dans inst.colors), sans jamais faire de moyenne RGB.
+ * Conserve la distinction Puxador (#c25e38) / Coro (#2a9d8f).
+ */
+export function getInstrumentPrimaryStrongColor(inst?: any, track?: any): string {
+  const customLower = (track?.customName || '').toLowerCase();
+  const instId = (inst?.id || '').toLowerCase();
+
+  if (instId === 'coro' || customLower.includes('coro')) return '#2a9d8f';
+  if (
+    instId === 'puxador' ||
+    instId === 'toada' ||
+    customLower.includes('puxador') ||
+    customLower === 'toada' ||
+    String(track?.id) === 'toada'
+  ) {
+    return '#c25e38';
+  }
+
+  const colors = inst?.colors;
+  if (colors) {
+    if (instId === 'mineiro' && colors['P']) return colors['P'];
+    if (instId === 'gongue' && colors['G']) return colors['G'];
+    if (instId === 'apito' && colors['W']) return colors['W'];
+    if (instId === 'timbal' && (colors['A'] || colors['G'])) return colors['A'] || colors['G'];
+    const strong = colors['1'] || colors['D'] || colors['G'] || colors['P'] || colors['W'];
+    if (strong) return strong;
+  }
+
+  return inst?.color || '#8b2a1a';
+}
+
 function collectIndividualTracks(busId: string, tracks: any[]): any[] {
   const visited = new Set<string>();
 
@@ -35,16 +68,10 @@ export function getBusMemberColors(busId: string, tracks: any[], instrumentsConf
   const children = collectIndividualTracks(busId, tracks);
   if (children.length === 0) return ['#8b2a1a'];
 
-  const master = children.find((t: any) => Boolean(t.isLinkMaster));
-  if (master) {
-    const masterInst = instrumentsConfig[master.instrumentIdx];
-    return [masterInst?.color || '#8b2a1a'];
-  }
-
   const distinctColors: string[] = [];
   children.forEach((t: any) => {
     const inst = instrumentsConfig[t.instrumentIdx];
-    const c = inst?.color || '#8b2a1a';
+    const c = getInstrumentPrimaryStrongColor(inst, t);
     if (!distinctColors.includes(c)) {
       distinctColors.push(c);
     }
@@ -69,12 +96,16 @@ export function getBusStripeGradient(
 }
 
 /**
- * Retourne la couleur franche du Maître pour un groupe Track-Linking,
- * ou la couleur franche du premier membre pour un Bus Audio (zéro moyenne RGB).
+ * Retourne la couleur vive du coup fort du Maître pour un groupe Track-Linking,
+ * ou la couleur vive du premier membre pour un Bus Audio.
  */
 export function getBusColor(busId: string, tracks: any[], instrumentsConfig: any[]): string {
-  const colors = getBusMemberColors(busId, tracks, instrumentsConfig);
-  return colors[0] || '#8b2a1a';
+  const children = collectIndividualTracks(busId, tracks);
+  const master = children.find((t: any) => Boolean(t.isLinkMaster)) || children[0];
+  if (master) {
+    return getInstrumentPrimaryStrongColor(instrumentsConfig[master.instrumentIdx], master);
+  }
+  return '#8b2a1a';
 }
 
 export function getBusNoteColor(
@@ -87,7 +118,7 @@ export function getBusNoteColor(
   const target = children.find((t: any) => Boolean(t.isLinkMaster)) || children[0];
   if (!target) return '#8b2a1a';
   const inst = instrumentsConfig[target.instrumentIdx];
-  return (inst?.colors && inst.colors[visualState]) || inst?.color || '#8b2a1a';
+  return (inst?.colors && inst.colors[visualState]) || getInstrumentPrimaryStrongColor(inst, target);
 }
 
 export function getContrastColor(hexcolor: string): string {

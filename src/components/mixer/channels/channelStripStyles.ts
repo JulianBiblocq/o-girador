@@ -8,6 +8,7 @@ import {
   getBusMemberColors,
   getBusStripeGradient,
   getContrastColor,
+  getInstrumentPrimaryStrongColor,
   getTopParentBusId,
 } from '../../../utils/colorHelpers';
 
@@ -74,7 +75,7 @@ export function computeChannelStripStyles({
     ? getBusColor(String(track.id), tracksMeta, instrumentsConfig)
     : track.linkedToTrackId
       ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig)
-      : inst?.color || '#8b2a1a';
+      : getInstrumentPrimaryStrongColor(inst, track);
 
   const linkBorderWidth = isDragOver ? '4px' : '2.5px';
   const linkStyle: React.CSSProperties = {
@@ -105,7 +106,7 @@ export function computeChannelStripStyles({
 
   const faderColor = track.isLinkFolder
     ? getBusColor(String(track.id), tracksMeta, instrumentsConfig)
-    : inst?.color || '#8b2a1a';
+    : getInstrumentPrimaryStrongColor(inst, track);
 
   const faderTextColor = getContrastColor(faderColor);
   const hasOuterBorder = busPosition === 'none';

@@ -4,6 +4,7 @@ import { ASSETS_BASE_URL, instrumentsConfig } from '../../data';
 import { TrackGroup } from '../../types';
 import { useSequencerStore, isToadaBus } from '../../stores/useSequencerStore';
 import { TrackInkVolumeSlider } from '../mixer/TrackInkVolumeSlider';
+import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 
 interface DawTrackRowHeaderProps {
   track: TrackGroup;
@@ -32,6 +33,8 @@ export const DawTrackRowHeader: React.FC<DawTrackRowHeaderProps> = ({
   sequencer,
 }) => {
   const isToada = isToadaBus(track);
+  const badgeBg = getInstrumentPrimaryStrongColor(inst, track);
+  const badgeText = getContrastColor(badgeBg);
 
   const handleDelete = async () => {
     const trackName = displayName || inst?.name || (lang === 'fr' ? 'cette piste' : 'esta faixa');
@@ -62,7 +65,7 @@ export const DawTrackRowHeader: React.FC<DawTrackRowHeaderProps> = ({
               useSequencerStore.getState().setEditingTrackId(targetTrack.id);
             }}
             className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-0.5 text-xs cursor-pointer transition-colors w-[130px] h-[38px] min-h-[38px] shrink-0"
-            style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
+            style={{ backgroundColor: badgeBg, color: badgeText }}
             title={lang === 'pt' ? 'Editar instrumento' : "Éditer l'instrument"}
           >
             <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />

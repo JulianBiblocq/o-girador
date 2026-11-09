@@ -17,16 +17,19 @@ export const RodaSweepModeToggle: React.FC<RodaSweepModeToggleProps> = ({
 
   const label = isSweep6h
     ? lang === 'pt'
-      ? 'Varredura 6h'
-      : 'Balayage 6h'
+      ? 'Progressivo'
+      : 'Progressif'
     : lang === 'pt'
-      ? 'Compasso Inteiro'
-      : 'Mesure Entière';
+      ? 'Por compasso'
+      : 'Par mesure';
 
-  const title =
-    lang === 'pt'
-      ? 'Alternar entre Varredura Progressiva às 6h (+180°) e Compasso Inteiro às 12h'
-      : 'Basculer entre le Balayage Progressif à 6h (+180°) et la Mesure Entière à 12h';
+  const title = isSweep6h
+    ? lang === 'pt'
+      ? 'Substituição progressiva dos passos durante a leitura'
+      : 'Remplacement progressif des pas au fil de la lecture'
+    : lang === 'pt'
+      ? 'Mudança do compasso inteiro no 1º tempo'
+      : "Changement de toute la mesure d'un coup au 1er temps";
 
   if (fullWidth) {
     return (
@@ -44,7 +47,7 @@ export const RodaSweepModeToggle: React.FC<RodaSweepModeToggleProps> = ({
           <circle cx="12" cy="12" r="9" />
           <path d="M12 3v9l6 6" />
         </svg>
-        <span>{lang === 'pt' ? `Roda : ${label}` : `Roda : ${label}`}</span>
+        <span>{`Roda : ${label}`}</span>
       </button>
     );
   }
@@ -62,7 +65,7 @@ export const RodaSweepModeToggle: React.FC<RodaSweepModeToggleProps> = ({
         {lang === 'pt' ? 'Leitura Roda' : 'Lecture Roda'}
       </span>
       <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-cactus font-bold leading-tight mt-0.5 flex items-center gap-1`}>
-        <span>{isSweep6h ? '6h (+180°)' : '12h'}</span>
+        <span>{label}</span>
       </span>
     </button>
   );

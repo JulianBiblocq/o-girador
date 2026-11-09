@@ -6,7 +6,9 @@ import { TrackGroup } from '../types';
 import { isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig } from '../data';
-import { getBusColor, getTopParentBusId, getTrackDisplayName } from '../utils/colorHelpers';
+import { getTrackDisplayName } from '../utils/colorHelpers';
+import { getTrackGroupVisual } from './workspace/trackGroupVisual';
+import { TrackCardGroupIndicator } from './workspace/TrackCardGroupIndicator';
 import { DawTrackRowHeader } from './daw/DawTrackRowHeader';
 import { DawStepGrid } from './daw/DawStepGrid';
 import { resolveDawPattern, computeBeatGroups } from './daw/dawStepMath';
@@ -29,19 +31,13 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
     disabled: isChild,
   });
 
-  const topBusId = useMemo(() => {
-    return getTopParentBusId(track, tracks) ||
-      (track.linkedToTrackId ? String(track.linkedToTrackId) : (track.isLinkMaster ? String(track.id) : null));
-  }, [track, tracks]);
-
-  const busColor = useMemo(() => (topBusId ? getBusColor(topBusId, tracks, instrumentsConfig) : null), [topBusId, tracks]);
+  const groupVisual = useMemo(() => getTrackGroupVisual(track, tracks), [track, tracks]);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 1,
     opacity: isDragging ? 0.75 : 1,
-    borderLeft: busColor ? `4px solid ${busColor}` : '4px solid var(--cordel-border, #1a1a1a)',
   };
 
   const activeChildTrack = useMemo(() => {
@@ -84,6 +80,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
       style={style}
       className="flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] justify-start shrink-0 text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] px-2 py-0.5 relative overflow-hidden z-[1] select-none"
     >
+      <TrackCardGroupIndicator visual={groupVisual} />
       <DawTrackRowHeader
         track={track}
         trackIdx={trackIdx}

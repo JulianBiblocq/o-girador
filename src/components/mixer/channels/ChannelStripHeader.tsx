@@ -4,6 +4,7 @@ import { ASSETS_BASE_URL } from '../../../data';
 import { TrackGroup } from '../../../types';
 import { useSequencer } from '../../../contexts/SequencerContext';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../../utils/colorHelpers';
 
 interface ChannelStripHeaderProps {
   track: TrackGroup;
@@ -44,6 +45,8 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
 }) => {
   const sequencer = useSequencer();
   const lang = useSequencerStore(state => state.lang);
+  const badgeBg = getInstrumentPrimaryStrongColor(inst, track);
+  const badgeText = getContrastColor(badgeBg);
 
   const handleDelete = async () => {
     const isBus = track.isLinkFolder || track.isBusFolder;
@@ -108,10 +111,15 @@ export const ChannelStripHeader: React.FC<ChannelStripHeaderProps> = ({
             </div>
           )
         ) : (
-          <div onClick={() => onOpenDetailEditor?.(track.id)} className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between h-6" title={linkedSlavesTooltip || displayName}>
+          <div
+            onClick={() => onOpenDetailEditor?.(track.id)}
+            style={{ backgroundColor: badgeBg, color: badgeText }}
+            className="flex items-center gap-1 cordel-border-sm cordel-button px-1 py-1 cursor-pointer transition-opacity hover:opacity-90 w-full justify-between h-6"
+            title={linkedSlavesTooltip || displayName}
+          >
             <div className="flex items-center gap-1 flex-1 min-w-0">
               <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-4 h-4 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
-              <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
+              <span className="font-cactus font-black text-[9px] truncate">{displayName}</span>
             </div>
           </div>
         )}

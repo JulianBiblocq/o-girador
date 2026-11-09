@@ -2,6 +2,7 @@ import React from 'react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
 import { getPlayableFocusTracks, getEligibleReferenceTracks } from '../../utils/focusTrackSelector';
+import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 import { getEnsembleVocabulary } from '../../universes/styleVocabularyConfig';
 import { TrackGroup } from '../../types';
 import { CordelTarget } from '../ui/CordelTarget';
@@ -55,11 +56,12 @@ export const MobileFocusPopover: React.FC<Props> = ({
               const inst = instrumentsConfig[t.instrumentIdx], isSelected = t.id === focusTrackId;
               const raw = t.customName || inst?.name || `Track ${idx + 1}`;
               const name = raw.replace(/\s*\([^)]*\)/g, '').replace(/^\d+[\.\s\-]+/, '').trim();
+              const bg = getInstrumentPrimaryStrongColor(inst, t), fg = getContrastColor(bg);
               return (
                 <button
                   key={t.id} onClick={() => handleSelectTrack(t)}
                   className={`flex items-center gap-1 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'}`}
-                  style={{ backgroundColor: inst?.mixerBg || '#f4ecd8', color: inst?.colors.text || '#1a1a1a' }}
+                  style={{ backgroundColor: bg, color: fg }}
                 >
                   <img src={`${ASSETS_BASE_URL}${inst?.iconImg}`} alt={name} className="w-3.5 h-3.5 object-contain filter invert opacity-90 shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                   <span className="truncate flex-1 text-[10.5px] leading-tight font-medium">{idx + 1}. {name}</span>

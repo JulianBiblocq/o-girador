@@ -1,6 +1,6 @@
 import { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { isToadaBus } from '../../stores/useSequencerStore';
+import { isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import { drawTrackRing } from './drawTrackRings';
 import { resolveBeatsFromTimeSig, computeStepAngles } from './circleGeometry';
 import { drawToadaTrack } from './drawToadaTrack';
@@ -31,8 +31,11 @@ export function renderTrackStepLayer(
   const isPlaying = Boolean(localStep >= 0 && stateVal.isPlaying);
   const playheadRatio = localStep >= 0 && localTicks > 0 ? localStep / localTicks : (live.ratio ?? 0);
 
-  const sweepRatio = computeContinuousSweepRatio(isPlaying, playheadRatio, stateVal.rodaSweepMode);
-  drawRodaSweepWave(ctx, centerX, centerY, 155, 510, sweepRatio, isEco);
+  const rodaSweepMode = useSequencerStore.getState().rodaSweepMode || 'sweep6h';
+  if (rodaSweepMode === 'sweep6h' && isPlaying) {
+    const sweepRatio = computeContinuousSweepRatio(isPlaying, playheadRatio, rodaSweepMode);
+    drawRodaSweepWave(ctx, centerX, centerY, 155, 510, sweepRatio, isEco);
+  }
 
   activeVisibleTracks.forEach((track, visibleIdx) => {
     const inst = instrumentsConfig[track.instrumentIdx];

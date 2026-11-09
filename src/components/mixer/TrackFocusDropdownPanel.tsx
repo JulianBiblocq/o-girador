@@ -3,6 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
 import { getPlayableFocusTracks } from '../../utils/focusTrackSelector';
+import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 import { TrackGroup } from '../../types';
 import { TrackFocusTocarJuntoSection } from './TrackFocusTocarJuntoSection';
 
@@ -66,6 +67,8 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
             const isSelected = t.id === focusTrackId;
             const raw = t.customName || inst?.name || `Track ${idx + 1}`;
             const name = raw.replace(/\s*\([^)]*\)/g, '').replace(/^\d+[\.\s\-]+/, '').trim();
+            const bg = getInstrumentPrimaryStrongColor(inst, t);
+            const fg = getContrastColor(bg);
             return (
               <button
                 key={t.id}
@@ -74,7 +77,7 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
                 className={`flex items-center gap-1.5 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${
                   isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'
                 }`}
-                style={{ backgroundColor: inst?.mixerBg || '#f4ecd8', color: inst?.colors.text || '#1a1a1a' }}
+                style={{ backgroundColor: bg, color: fg }}
               >
                 <img
                   src={`${ASSETS_BASE_URL}${inst?.iconImg}`}

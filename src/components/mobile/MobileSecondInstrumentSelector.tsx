@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { getEligibleReferenceTracks, getPlayableFocusTracks } from '../../utils/focusTrackSelector';
+import { getInstrumentPrimaryStrongColor } from '../../utils/colorHelpers';
 import { Eye, X } from 'lucide-react';
 
 interface Props {
@@ -46,7 +47,7 @@ export const MobileSecondInstrumentSelector: React.FC<Props> = ({
           {referenceTrackId !== null ? (
             <span
               className="w-2 h-2 rounded-full shrink-0 border border-black/40"
-              style={{ backgroundColor: refInst?.mixerBg || '#f4ecd8' }}
+              style={{ backgroundColor: getInstrumentPrimaryStrongColor(refInst, refTrack) }}
             />
           ) : (
             <Eye size={12} className="shrink-0" />
@@ -116,7 +117,7 @@ export const MobileSecondInstrumentSelector: React.FC<Props> = ({
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/30"
-                    style={{ backgroundColor: inst?.mixerBg || '#f4ecd8' }}
+                    style={{ backgroundColor: getInstrumentPrimaryStrongColor(inst, t) }}
                   />
                   <span className="truncate flex-1">{num}{name}</span>
                   {isSelected && <span className="text-[10px] font-black shrink-0"></span>}

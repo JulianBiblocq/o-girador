@@ -3,6 +3,7 @@ import React, { useRef, useEffect } from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../../data';
 import { getAlfaiaIconSizeClass } from '../../../utils/alfaiaUtils';
+import { getInstrumentPrimaryStrongColor } from '../../../utils/colorHelpers';
 
 export interface PupitreRibbonChipProps {
   trackId: number;
@@ -33,13 +34,7 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   const tInst = isToada && toadaConfig ? toadaConfig : instrumentsConfig[instrumentIdx];
   const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
   const titleText = isToada ? 'Toada' : (customName || tInst?.name || 'Instrument');
-
-  let instColor = (tInst?.color || tInst?.mixerBg || (useSequencerStore.getState().tracks.find((t) => t.id === trackId) as any)?.color || '#1a1a1a');
-  if (tInst?.id === 'puxador' || customName?.toLowerCase().includes('puxador')) {
-    instColor = '#c25e38';
-  } else if (tInst?.id === 'coro' || customName?.toLowerCase().includes('coro')) {
-    instColor = '#2a9d8f';
-  }
+  const instColor = getInstrumentPrimaryStrongColor(tInst, { id: trackId, customName });
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
