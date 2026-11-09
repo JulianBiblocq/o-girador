@@ -63,6 +63,15 @@ Si du code est généré ou modifié, ces règles doivent être strictement resp
 - **Composants vectoriels SVG monochromes** : Toute icône doit être un composant vectoriel SVG monochrome (`stroke="currentColor"` ou `fill="currentColor"`, esthétique gravure sur bois / Xilogravura, zéro dégradé moderne).
 - **Nettoyage systématique** : À chaque fois qu'un fichier est touché, retirer systématiquement tout emoji système résiduel qui s'y trouverait.
 
+### F. Protocole d'Audit Systématique : Performance, Qualité Audio, Pérennité du Code & Veille des Mises à jour
+À chaque mission d'audit demandée par l'utilisateur, l'agent doit systématiquement inspecter le périmètre touché ainsi que l'état général du dépôt pour inclure un volet de propositions proactives sur 4 axes :
+1. **Performance & Étanchéité Mémoire (4 Commandements) :** Traquer tout re-render inutile (sélecteurs Zustand non atomiques), tout `Layout Thrashing` (`getBoundingClientRect` synchrone en boucle), toute fuite d'écouteurs (`addEventListener` / `subscribeToTick`) ou de nœuds audio non détruits (`.disconnect()`, `.dispose()`).
+2. **Qualité Audio & Standards Studio DAW Pro :** Vérifier dans les fichiers audités l'absence de recâblage dynamique en lecture, le lissage des paramètres (`safeRampTo` / `setTargetAtTime` sans clic ni zipper noise), le respect du Gain Staging, du Round-Robin / anti-phase et de la précision de l'horloge (`lookahead`).
+3. **Pérennité, Propreté & Zéro Code Mort :** Signaler les fonctions/fichiers orphelins (`knip`), les dépendances circulaires (`madge`), les pièges "Falsy Zero" (`||` au lieu de `??` sur des valeurs numériques pouvant valoir `0`), et les styles/couleurs encore codés en dur.
+4. **Veille Proactive des Mises à jour (`npm outdated`) :** Vérifier régulièrement l'état des dépendances npm pour éviter toute accumulation bloquante de dette de mise à jour, en classant toujours les paquets en :
+   - **Catégorie A (Patchs & Mineures sûres)** : applicables au fil de l'eau sans rupture.
+   - **Catégorie B (Majeures à risque)** : signalées pour information mais isolées.
+
 ---
 
 ## RÈGLE STRICTE DES PORTS LOCAUX (ÉCOSYSTÈME O GIRADOR)

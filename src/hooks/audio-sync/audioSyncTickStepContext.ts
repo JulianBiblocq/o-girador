@@ -1,4 +1,3 @@
-
 import React from 'react';
 import * as Tone from 'tone';
 import { AudioEngine } from '../../AudioEngine';
@@ -20,6 +19,9 @@ export interface TickStepContext {
   speedTrainerConsolidationLapsDoneRef: { current: number }; anchoredMeasureStartSecRef: React.MutableRefObject<number>;
   anchoredMeasureIdxRef: React.MutableRefObject<number>; sectionIterationRef: { current: number };
   lastScheduledMeasureRef?: { current: number };
+  activeVariationsRef?: { current: Record<number, any> };
+  pendingMeasureRef?: { current: number | null };
+  pendingIterationRef?: { current: number | null };
   trackInputs: Record<string | number, Tone.Gain>; channels: Record<string | number, Tone.Channel>; busChannels: Record<string | number, Tone.Channel>;
   masterVolumeNode: Tone.Volume | null; audioEngine: AudioEngine | null; handleStop: () => void; setCurrentMeasure: (m: number) => void;
 }

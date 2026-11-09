@@ -1,5 +1,10 @@
 import React from 'react';
-import { TrackGroup, Pattern } from '../../types';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import {
+  areStepValuesEqual,
+  resolveSlaveStepOpacity,
+  SlaveFocusContext,
+} from '../../utils/slaveStepOpacityResolver';
 import { DawStepCell } from './DawStepCell';
 import { resolveStepVisual } from './dawStepVisualResolver';
 import type { DawStepGridProps } from './dawStepGridTypes';
@@ -19,6 +24,16 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
   handleStepClick,
   registerStepRef,
 }) => {
+  const storeState = useSequencerStore.getState();
+  const focusCtx: SlaveFocusContext = {
+    isFocusActive: storeState.isFocusActive,
+    focusTrackId: storeState.focusTrackId,
+    referenceTrackId: storeState.referenceTrackId,
+    activeAoVivoTrackId: storeState.activeAoVivoTrackId,
+    editingTrackId: storeState.editingTrackId,
+    mobileViewMode: storeState.mobileViewMode,
+  };
+
   return (
     <div className="flex items-center flex-grow pl-4 pr-3 h-full transition-all duration-200">
       <div className="flex w-full h-full items-center gap-1.5 select-none">
@@ -39,7 +54,8 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
               }`}
               style={{
                 ...(group.length === 0 && {
-                  backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0, rgba(0,0,0,0.08) 4px, transparent 4px, transparent 20px)',
+                  backgroundImage:
+                    'repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0, rgba(0,0,0,0.08) 4px, transparent 4px, transparent 20px)',
                   backgroundSize: '100% 100%',
                 }),
               }}
@@ -51,24 +67,23 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
                   : (activePattern?.activeSteps?.[stepIdx] ?? 0);
                 const liveVal = activePlayingSteps ? (activePlayingSteps[stepIdx] ?? baseVal) : baseVal;
                 const val = isGhostStep ? baseVal : liveVal;
-                const isVariationStep = Boolean(activePlayingSteps && val !== baseVal);
+                const isVariationStep = Boolean(activePlayingSteps && !areStepValuesEqual(val, baseVal));
                 const isActiveCell = val !== 0 && val !== '';
                 const curPat = isGhostStep ? masterActivePattern : activePattern;
 
-                const {
-                  isVoice,
-                  isProlongation,
-                  displayVal,
-                  isSplit,
-                  bgColor,
-                  txtColor,
-                  leftBg,
-                  leftTxt,
-                  leftSym,
-                  rightBg,
-                  rightTxt,
-                  rightSym,
-                } = resolveStepVisual({
+                const stepOpacity = isVariationStep
+                  ? 1.0
+                  : resolveSlaveStepOpacity({
+                      track: effectiveTrack,
+                      allTracks: tracks,
+                      measureIdx: currentMeasure,
+                      stepIdx,
+                      ownStepVal: val,
+                      focusCtx,
+                      activeVariationsMap: sequencer.activeVariationsRef?.current,
+                    });
+
+                const visual = resolveStepVisual({
                   stepIdx,
                   val,
                   isActiveCell,
@@ -85,7 +100,7 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
                 });
 
                 const isStepActive = Boolean(
-                  isActiveCell || (isVoice && val !== 0 && val !== '' && val !== '0' && val !== '-')
+                  isActiveCell || (visual.isVoice && val !== 0 && val !== '' && val !== '0' && val !== '-')
                 );
 
                 return (
@@ -104,19 +119,20 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
                     isSextuplet={isSextuplet}
                     isVariationStep={isVariationStep}
                     isGhostStep={isGhostStep}
-                    isSplit={isSplit}
-                    displayVal={displayVal}
-                    bgColor={bgColor}
-                    txtColor={txtColor}
-                    leftBg={leftBg}
-                    leftTxt={leftTxt}
-                    leftSym={leftSym}
-                    rightBg={rightBg}
-                    rightTxt={rightTxt}
-                    rightSym={rightSym}
+                    stepOpacity={stepOpacity}
+                    isSplit={visual.isSplit}
+                    displayVal={visual.displayVal}
+                    bgColor={visual.bgColor}
+                    txtColor={visual.txtColor}
+                    leftBg={visual.leftBg}
+                    leftTxt={visual.leftTxt}
+                    leftSym={visual.leftSym}
+                    rightBg={visual.rightBg}
+                    rightTxt={visual.rightTxt}
+                    rightSym={visual.rightSym}
                     isStepActive={isStepActive}
-                    isVoice={isVoice}
-                    isProlongation={isProlongation}
+                    isVoice={visual.isVoice}
+                    isProlongation={visual.isProlongation}
                   />
                 );
               })}

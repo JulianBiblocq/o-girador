@@ -14,6 +14,7 @@ interface DawStepCellProps {
   isSextuplet: boolean;
   isVariationStep: boolean;
   isGhostStep: boolean;
+  stepOpacity?: number;
   isSplit: boolean;
   displayVal: string;
   bgColor: string;
@@ -43,6 +44,7 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
   isSextuplet,
   isVariationStep,
   isGhostStep,
+  stepOpacity,
   isSplit,
   displayVal,
   bgColor,
@@ -64,15 +66,21 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
   };
 
   const clipPath = isSextuplet
-    ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
-    : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined;
+    ? indexInGroup % 2 === 0
+      ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+      : 'polygon(0% 0%, 100% 0%, 50% 100%)'
+    : isTriplet
+      ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+      : undefined;
+
+  const effectiveOpacity = stepOpacity !== undefined ? stepOpacity : isGhostStep ? 0.45 : 1;
 
   const baseStyle: React.CSSProperties = {
-    filter: (isTriplet || isSextuplet) ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
+    filter: isTriplet || isSextuplet ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
     clipPath,
     outline: isVariationStep ? '2px solid #c25e38' : undefined,
     outlineOffset: isVariationStep ? '-2px' : undefined,
-    opacity: isGhostStep ? 0.35 : 1,
+    opacity: isStepActive ? effectiveOpacity : 1,
   };
 
   if (isSplit) {
@@ -85,11 +93,21 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
           }`}
           style={baseStyle}
         >
-          <div className="absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a]" style={{ backgroundColor: leftBg, color: leftTxt }}>
-            <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>{leftSym}</span>
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a]"
+            style={{ backgroundColor: leftBg, color: leftTxt }}
+          >
+            <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
+              {leftSym}
+            </span>
           </div>
-          <div className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center" style={{ backgroundColor: rightBg, color: rightTxt }}>
-            <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>{rightSym}</span>
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center"
+            style={{ backgroundColor: rightBg, color: rightTxt }}
+          >
+            <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
+              {rightSym}
+            </span>
           </div>
         </button>
       </div>
@@ -109,7 +127,7 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
         }`}
         style={{
           ...baseStyle,
-          backgroundColor: (isTriplet || isSextuplet) ? (isStepActive ? bgColor : 'rgba(26, 26, 26, 0.12)') : (isStepActive ? bgColor : undefined),
+          backgroundColor: isTriplet || isSextuplet ? (isStepActive ? bgColor : 'rgba(26, 26, 26, 0.12)') : isStepActive ? bgColor : undefined,
           color: isStepActive ? txtColor : undefined,
         }}
       >

@@ -3,7 +3,13 @@ import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup } from '../../../types';
 import { TrackMeta } from '../../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../../data';
-import { getBusColor, getContrastColor, getTopParentBusId } from '../../../utils/colorHelpers';
+import {
+  getBusColor,
+  getBusMemberColors,
+  getBusStripeGradient,
+  getContrastColor,
+  getTopParentBusId,
+} from '../../../utils/colorHelpers';
 
 export function computeChannelStripStyles({
   track,
@@ -33,20 +39,25 @@ export function computeChannelStripStyles({
   const isInsideBusBlock = busPosition === 'first' || busPosition === 'middle';
   const isInsideLinkBlock = linkPosition === 'first' || linkPosition === 'middle';
   const groupStyle: React.CSSProperties = {
-    marginRight: (isInsideBusBlock || isInsideLinkBlock) ? '0px' : '16px',
+    marginRight: isInsideBusBlock || isInsideLinkBlock ? '0px' : '16px',
   };
 
   const topBusId = getTopParentBusId(track, tracksMeta);
   const borderWidth = isDragOver ? '5px' : '3px';
 
   if (busPosition !== 'none' && topBusId) {
-    const busColor = getBusColor(topBusId, tracksMeta, instrumentsConfig);
+    const memberColors = getBusMemberColors(topBusId, tracksMeta, instrumentsConfig);
+    const busColor = memberColors[0] || '#8b2a1a';
+    const lastBusColor = memberColors[memberColors.length - 1] || busColor;
     if (isDragOver) {
       groupStyle.backgroundColor = `color-mix(in srgb, var(--cordel-bg) 82%, ${busColor} 18%)`;
       groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
     }
     groupStyle.borderTop = `${borderWidth} solid ${busColor}`;
-    groupStyle.borderBottom = `${borderWidth} solid ${busColor}`;
+    groupStyle.borderBottom = `${borderWidth} solid ${lastBusColor}`;
+    if (memberColors.length > 1) {
+      groupStyle.borderImage = `${getBusStripeGradient(memberColors, 'to right')} 1`;
+    }
     if (busPosition === 'first') {
       groupStyle.borderLeft = `${borderWidth} solid ${busColor}`;
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
@@ -55,15 +66,15 @@ export function computeChannelStripStyles({
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
     } else if (busPosition === 'last') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-      groupStyle.borderRight = `${borderWidth} solid ${busColor}`;
+      groupStyle.borderRight = `${borderWidth} solid ${lastBusColor}`;
     }
   }
 
   const linkColor = track.isLinkFolder
     ? getBusColor(String(track.id), tracksMeta, instrumentsConfig)
-    : (track.linkedToTrackId
-        ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig)
-        : (inst?.color || '#8b2a1a'));
+    : track.linkedToTrackId
+      ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig)
+      : inst?.color || '#8b2a1a';
 
   const linkBorderWidth = isDragOver ? '4px' : '2.5px';
   const linkStyle: React.CSSProperties = {
@@ -94,33 +105,25 @@ export function computeChannelStripStyles({
 
   const faderColor = track.isLinkFolder
     ? getBusColor(String(track.id), tracksMeta, instrumentsConfig)
-    : (inst?.color || '#8b2a1a');
+    : inst?.color || '#8b2a1a';
 
   const faderTextColor = getContrastColor(faderColor);
   const hasOuterBorder = busPosition === 'none';
   const hasGroupBorder = busPosition !== 'none' && (track.isBusFolder || track.isLinkFolder || !!track.busId);
-  const borderThicknessTop = (hasOuterBorder || hasGroupBorder) ? (isDragOver ? 5 : 3) : 0;
-  const borderThicknessBottom = (hasOuterBorder || hasGroupBorder) ? (isDragOver ? 5 : 3) : 0;
+  const borderThicknessTop = hasOuterBorder || hasGroupBorder ? (isDragOver ? 5 : 3) : 0;
+  const borderThicknessBottom = hasOuterBorder || hasGroupBorder ? (isDragOver ? 5 : 3) : 0;
   const paddingTop = Math.max(0, 3 - borderThicknessTop);
   const paddingBottom = Math.max(0, 3 - borderThicknessBottom);
 
   const style: React.CSSProperties = {
-    transform: transform ? (
-      activeWagonSize > 1 && !isWagonMember
+    transform: transform
+      ? activeWagonSize > 1 && !isWagonMember
         ? CSS.Transform.toString({ ...transform, x: transform.x * activeWagonSize })
         : CSS.Transform.toString(transform)
-    ) : undefined,
+      : undefined,
     transition,
     opacity: isWagonMember && isDraggingWagon ? 0.25 : undefined,
   };
 
-  return {
-    groupStyle,
-    linkStyle,
-    faderColor,
-    faderTextColor,
-    paddingTop,
-    paddingBottom,
-    style,
-  };
+  return { groupStyle, linkStyle, faderColor, faderTextColor, paddingTop, paddingBottom, style };
 }

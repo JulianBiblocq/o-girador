@@ -4,6 +4,7 @@ import { stopAllNativeOscillators } from '../../audio/nativeSynths';
 import { flushVisualBuffers, purgeVisualTickBuffer, resetVisualTickBuffer } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { releaseWakeLock } from './wakeLockHelper';
+import { resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
 import { tickSubscribers } from './audioSyncTypes';
 import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
@@ -34,6 +35,7 @@ export interface TransportStopContext {
   tickEventDetailRef: { current: any };
   isLoopExitRequestedRef?: { current: boolean };
   currentLoopIterationRef?: { current: number };
+  activeVariationsRef?: { current: Record<number, any> };
   audioEngine: AudioEngine | null;
   setIsPlaying: (playing: boolean) => void;
   setSoloPatternPlayId: (id: number | null) => void;
@@ -46,25 +48,25 @@ export function executeTransportStop(ctx: TransportStopContext): void {
     ctx.autoStopTimeoutRef.current = null;
   }
 
-  ctx.speedTrainerTimeoutsRef.current.forEach(t => clearTimeout(t));
+  ctx.speedTrainerTimeoutsRef.current.forEach((t) => clearTimeout(t));
   ctx.speedTrainerTimeoutsRef.current = [];
-  if (useSequencerStore.getState().isSpeedTrainerActive) {
-    useSequencerStore.getState().stopSpeedTrainer();
-    Tone.Transport.bpm.value = useSequencerStore.getState().bpm;
+  const store = useSequencerStore.getState();
+  if (store.isSpeedTrainerActive) {
+    store.stopSpeedTrainer();
+    Tone.Transport.bpm.value = store.bpm;
   }
 
-  ctx.engineTimeoutsRef.current.forEach(t => clearTimeout(t));
+  ctx.engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
   ctx.engineTimeoutsRef.current.clear();
   ctx.pendingMeasureRef.current = null;
   ctx.pendingIterationRef.current = null;
-  useSequencerStore.getState().setCurrentLoopIteration(1);
-  useSequencerStore.getState().clearLoopExitRequest();
-  useSequencerStore.getState().setIsLoopBypassed(false);
+  store.setCurrentLoopIteration(1);
+  store.clearLoopExitRequest();
+  store.setIsLoopBypassed(false);
+  if ((store as any).clearQueuedMeasure) (store as any).clearQueuedMeasure();
   if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
   if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
-  if (ctx.soloPatternPlayIdRef.current !== null) {
-    ctx.setSoloPatternPlayId(null);
-  }
+  if (ctx.soloPatternPlayIdRef.current !== null) ctx.setSoloPatternPlayId(null);
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
   activeEngine?.stop();
@@ -73,10 +75,8 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   ctx.mutedVoiceTracksRef.current.clear();
 
   if (activeEngine) {
-    activeEngine.currentMeasure = 0;
-    activeEngine.currentStep = 0;
-    activeEngine.schedulingMeasure = 0;
-    activeEngine.schedulingStep = 0;
+    activeEngine.currentMeasure = 0; activeEngine.currentStep = 0;
+    activeEngine.schedulingMeasure = 0; activeEngine.schedulingStep = 0;
     activeEngine.purgeScheduledHits();
   }
 
@@ -86,23 +86,22 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   resetVisualTickBuffer();
   ctx.hitTriggersRef.current.clear();
   ctx.lastPlayedPatternRef.current = {};
-  useSequencerStore.getState().resetFirstPassRegistry();
+  store.resetFirstPassRegistry();
+  resetLiveVariationLookahead(ctx.activeVariationsRef);
 
   try {
-    Tone.Transport.stop();
-    Tone.Transport.position = 0;
-    Tone.Transport.seconds = 0;
+    Tone.Transport.stop(); Tone.Transport.position = 0; Tone.Transport.seconds = 0;
   } catch (_) {}
 
   activeEngine?.stopAllBarulho();
   stopAllNativeOscillators();
   ctx.isPreRollActiveRef.current = false;
   ctx.preRollRemainingMeasuresRef.current = 0;
-  useSequencerStore.getState().setIsPreRolling(false);
+  store.setIsPreRolling(false);
 
   vocalEngineService.stopAllVocalPlayback();
   vocalEngineService.disposeAllVocalPlayers();
-  ctx.activeSequencerVocalsRef.current.forEach(v => { try { v.stop(); } catch (_) {} });
+  ctx.activeSequencerVocalsRef.current.forEach((v) => { try { v.stop(); } catch (_) {} });
   ctx.activeSequencerVocalsRef.current.clear();
   ctx.anticipatedMeasuresRef.current.clear();
   ctx.lastElapsedSecRef.current = 0;
@@ -120,18 +119,11 @@ export function executeTransportStop(ctx: TransportStopContext): void {
   ctx.lastPlayedSignalIdRef.current = null;
 
   const detail = ctx.tickEventDetailRef.current;
-  detail.step = -1;
-  detail.measure = 0;
-  detail.maxTicks = 16;
-  detail.ratio = 0;
-  detail.visualStep16 = 0;
-  detail.visualStep12 = 0;
-  detail.time = Tone.context.currentTime;
-  detail.iteration = 1;
-  detail.measureStartTime = 0;
-  detail.measureDuration = 0;
-  detail.isPaused = false;
-  detail.isNavigation = false;
+  Object.assign(detail, {
+    step: -1, measure: 0, maxTicks: 16, ratio: 0, visualStep16: 0, visualStep12: 0,
+    time: Tone.context.currentTime, iteration: 1, measureStartTime: 0, measureDuration: 0,
+    isPaused: false, isNavigation: false,
+  });
 
   tickSubscribers.forEach((cb) => {
     try { cb(detail); } catch (err) { console.error(err); }

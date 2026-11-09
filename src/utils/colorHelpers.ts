@@ -1,120 +1,93 @@
-
 export { getTopParentBusId, getTrackDisplayName } from './trackHelpers';
 
-/**
- * Calculates the average RGB color of all child tracks inside a bus
- * to dynamically colorize the bus connection outlines.
- */
-export function getBusColor(busId: string, tracks: any[], instrumentsConfig: any[]): string {
+function collectIndividualTracks(busId: string, tracks: any[]): any[] {
   const visited = new Set<string>();
 
-  const collectIndividualTracks = (currentId: string): any[] => {
+  const walk = (currentId: string): any[] => {
     if (visited.has(currentId)) return [];
     visited.add(currentId);
 
-    const directChildren = tracks.filter((t: any) =>
-      String(t.busId) === String(currentId) || String(t.linkedToTrackId) === String(currentId)
+    const selfTrack = tracks.find((t: any) => String(t.id) === String(currentId));
+    const directChildren = tracks.filter(
+      (t: any) =>
+        String(t.id) !== String(currentId) &&
+        (String(t.busId) === String(currentId) || String(t.linkedToTrackId) === String(currentId))
     );
 
     let results: any[] = [];
+    if (selfTrack && !selfTrack.isBusFolder && !selfTrack.isLinkFolder) {
+      results.push(selfTrack);
+    }
     directChildren.forEach((t: any) => {
-      if (!t.isBusFolder) {
+      if (!t.isBusFolder && !t.isLinkFolder) {
         results.push(t);
       } else {
-        results = results.concat(collectIndividualTracks(String(t.id)));
+        results = results.concat(walk(String(t.id)));
       }
     });
     return results;
   };
 
-  const children = collectIndividualTracks(busId);
-  if (children.length === 0) return '#bdc3c7';
-
-  let rSum = 0;
-  let gSum = 0;
-  let bSum = 0;
-  let count = 0;
-
-  children.forEach((t: any) => {
-    const inst = instrumentsConfig[t.instrumentIdx];
-    const colorHex = inst?.color || '#bdc3c7';
-    const hex = colorHex.replace('#', '');
-    if (hex.length === 6) {
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-        rSum += r;
-        gSum += g;
-        bSum += b;
-        count++;
-      }
-    }
-  });
-
-  if (count === 0) return '#bdc3c7';
-
-  const rAvg = Math.round(rSum / count).toString(16).padStart(2, '0');
-  const gAvg = Math.round(gSum / count).toString(16).padStart(2, '0');
-  const bAvg = Math.round(bSum / count).toString(16).padStart(2, '0');
-
-  return `#${rAvg}${gAvg}${bAvg}`;
+  return walk(busId);
 }
 
-export function getBusNoteColor(busId: string, visualState: string, tracks: any[], instrumentsConfig: any[]): string {
-  const visited = new Set<string>();
+export function getBusMemberColors(busId: string, tracks: any[], instrumentsConfig: any[]): string[] {
+  const children = collectIndividualTracks(busId, tracks);
+  if (children.length === 0) return ['#8b2a1a'];
 
-  const collectIndividualTracks = (currentId: string): any[] => {
-    if (visited.has(currentId)) return [];
-    visited.add(currentId);
+  const master = children.find((t: any) => Boolean(t.isLinkMaster));
+  if (master) {
+    const masterInst = instrumentsConfig[master.instrumentIdx];
+    return [masterInst?.color || '#8b2a1a'];
+  }
 
-    const directChildren = tracks.filter((t: any) =>
-      String(t.busId) === String(currentId) || String(t.linkedToTrackId) === String(currentId)
-    );
-
-    let results: any[] = [];
-    directChildren.forEach((t: any) => {
-      if (!t.isBusFolder) {
-        results.push(t);
-      } else {
-        results = results.concat(collectIndividualTracks(String(t.id)));
-      }
-    });
-    return results;
-  };
-
-  const children = collectIndividualTracks(busId);
-  if (children.length === 0) return '#bdc3c7';
-
-  let rSum = 0;
-  let gSum = 0;
-  let bSum = 0;
-  let count = 0;
-
+  const distinctColors: string[] = [];
   children.forEach((t: any) => {
     const inst = instrumentsConfig[t.instrumentIdx];
-    const colorHex = (inst?.colors && inst.colors[visualState]) || inst?.color || '#bdc3c7';
-    const hex = colorHex.replace('#', '');
-    if (hex.length === 6) {
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-        rSum += r;
-        gSum += g;
-        bSum += b;
-        count++;
-      }
+    const c = inst?.color || '#8b2a1a';
+    if (!distinctColors.includes(c)) {
+      distinctColors.push(c);
     }
   });
 
-  if (count === 0) return '#bdc3c7';
+  return distinctColors.length > 0 ? distinctColors : ['#8b2a1a'];
+}
 
-  const rAvg = Math.round(rSum / count).toString(16).padStart(2, '0');
-  const gAvg = Math.round(gSum / count).toString(16).padStart(2, '0');
-  const bAvg = Math.round(bSum / count).toString(16).padStart(2, '0');
+export function getBusStripeGradient(
+  colors: string[],
+  direction: 'to bottom' | 'to right' = 'to bottom'
+): string {
+  if (!colors || colors.length === 0) return '#8b2a1a';
+  if (colors.length === 1) return colors[0];
+  const step = 100 / colors.length;
+  const stops = colors.map((c, idx) => {
+    const start = (idx * step).toFixed(1);
+    const end = ((idx + 1) * step).toFixed(1);
+    return `${c} ${start}%, ${c} ${end}%`;
+  });
+  return `linear-gradient(${direction}, ${stops.join(', ')})`;
+}
 
-  return `#${rAvg}${gAvg}${bAvg}`;
+/**
+ * Retourne la couleur franche du Maître pour un groupe Track-Linking,
+ * ou la couleur franche du premier membre pour un Bus Audio (zéro moyenne RGB).
+ */
+export function getBusColor(busId: string, tracks: any[], instrumentsConfig: any[]): string {
+  const colors = getBusMemberColors(busId, tracks, instrumentsConfig);
+  return colors[0] || '#8b2a1a';
+}
+
+export function getBusNoteColor(
+  busId: string,
+  visualState: string,
+  tracks: any[],
+  instrumentsConfig: any[]
+): string {
+  const children = collectIndividualTracks(busId, tracks);
+  const target = children.find((t: any) => Boolean(t.isLinkMaster)) || children[0];
+  if (!target) return '#8b2a1a';
+  const inst = instrumentsConfig[target.instrumentIdx];
+  return (inst?.colors && inst.colors[visualState]) || inst?.color || '#8b2a1a';
 }
 
 export function getContrastColor(hexcolor: string): string {
@@ -125,8 +98,8 @@ export function getContrastColor(hexcolor: string): string {
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
     if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-      return (yiq >= 128) ? '#1a1a1a' : '#f4ecd8';
+      const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+      return yiq >= 128 ? '#1a1a1a' : '#f4ecd8';
     }
   }
   return '#1a1a1a';

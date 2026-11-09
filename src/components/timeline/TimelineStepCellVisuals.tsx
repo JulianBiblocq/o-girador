@@ -25,18 +25,15 @@ export const TimelineStepCellVisuals: React.FC<TimelineStepCellVisualsProps> = (
 
   let stepBg = '#111';
   let hasBackground = false;
-  if (stepData.isRightHalfOnly) {
-    stepBg = `linear-gradient(135deg, transparent 50%, ${stepData.rightFillColor} 50%)`;
-    hasBackground = true;
-  } else if (stepData.isSplit) {
-    stepBg = `linear-gradient(135deg, ${stepData.leftFillColor} 50%, ${stepData.rightFillColor} 50%)`;
+  if (stepData.isSplit) {
+    stepBg = `linear-gradient(90deg, ${stepData.leftFillColor} 50%, ${stepData.rightFillColor} 50%)`;
     hasBackground = true;
   } else if (stepData.leftFillColor !== 'transparent') {
     stepBg = stepData.isVoice ? (noteColor !== '#1a1a1a' ? noteColor : stepData.leftFillColor) : stepData.leftFillColor;
     hasBackground = true;
   }
 
-  const bgOpacity = stepData.renderCas === 4 ? 0.4 : (hasBackground ? 1.0 : 0);
+  const bgOpacity = hasBackground ? (stepData.stepOpacity ?? (stepData.renderCas === 4 ? 0.45 : 1.0)) : 0;
   const cordelStepBorder = 'border border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] dark:shadow-[1px_1px_0px_rgba(0,0,0,0.8)]';
   const borderClass = stepData.leftIsAccent ? `${cordelStepBorder} ring-1 ring-white/60` : cordelStepBorder;
   const accentClass = `${stepData.leftIsAccent ? 'scale-120' : ''} ${borderClass}`;
@@ -80,7 +77,7 @@ export const TimelineStepCellVisuals: React.FC<TimelineStepCellVisualsProps> = (
   return (
     <div className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none p-[1px]" data-measure={measureIdx} data-step={stepIdx} data-steps={stepsCount} data-track-id={trackId} data-pattern-id={patternId} data-val={Array.isArray(stepData.val) ? stepData.val.join('-') : stepData.val}>
       {hasBackground ? (
-        <div className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3 rounded-none m-[1px]' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${accentClass}`} style={{ background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined, backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg, opacity: bgOpacity, clipPath: shapeClipPath, borderRadius: shapeClipPath ? '0px' : undefined }} />
+        <div className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3 rounded-none m-[1px]' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-none m-[1px]'} ${accentClass}`} style={{ background: stepData.isSplit ? stepBg : undefined, backgroundColor: stepData.isSplit ? undefined : stepBg, opacity: bgOpacity, clipPath: shapeClipPath, borderRadius: shapeClipPath ? '0px' : undefined }} />
       ) : (
         <div className={isTriplet || isSextuplet ? 'w-1.5 h-1.5 bg-black/20 dark:bg-white/20' : 'w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full'} style={{ clipPath: shapeClipPath }} />
       )}

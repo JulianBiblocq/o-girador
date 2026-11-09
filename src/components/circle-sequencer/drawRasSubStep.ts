@@ -1,7 +1,5 @@
-
 import { InstrumentConfig, TrackGroup } from '../../types';
 import { getVisualStrokeSymbol, isDarkText } from '../../data';
-import { getBusNoteColor } from '../../utils/colorHelpers';
 import { formatStrokeSymbol } from './percussionSatelliteHelpers';
 
 export const drawRasSubStep = (
@@ -13,14 +11,20 @@ export const drawRasSubStep = (
   centerY: number,
   tRad: number,
   currentInst: InstrumentConfig,
-  track: TrackGroup,
-  localRawTracks: TrackGroup[],
-  instrumentsConfig: any,
+  _track: TrackGroup,
+  _localRawTracks: TrackGroup[],
+  _instrumentsConfig: any,
   localLeftHanded: boolean,
   dynamicScale: number,
   themeBorder: string
 ): void => {
-  if (secondState === 0 || secondState === '0' || secondState === '' || secondState === undefined || secondState === null) {
+  if (
+    secondState === 0 ||
+    secondState === '0' ||
+    secondState === '' ||
+    secondState === undefined ||
+    secondState === null
+  ) {
     return;
   }
 
@@ -34,9 +38,10 @@ export const drawRasSubStep = (
   const subRadiusSize = 9 * dynamicScale;
 
   const isAccent = visualStateStr === visualStateStr.toUpperCase();
-  const fillColor = track.isLinkFolder
-    ? getBusNoteColor(String(track.id), String(primaryVisual), localRawTracks, instrumentsConfig)
-    : ((currentInst.colors && currentInst.colors[primaryVisual as string]) ? currentInst.colors[primaryVisual as string] : '#fff');
+  const fillColor =
+    currentInst.colors && currentInst.colors[primaryVisual as string]
+      ? currentInst.colors[primaryVisual as string]
+      : currentInst.color || '#fff';
   const txtColor = isDarkText(currentInst.id, String(secondState)) ? '#1a1a1a' : '#f4ecd8';
   const text = formatStrokeSymbol(currentInst.id, visualStateStr);
 

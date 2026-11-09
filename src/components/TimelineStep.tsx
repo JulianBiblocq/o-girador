@@ -34,7 +34,15 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       return resolveTimelineStepData(
         currentTrack, state.tracks, actualStepIdx, patternId, patternIdx, measureIdx,
         instrumentIdx, Boolean(state.isLeftHanded), Boolean(state.isEcoMode), isLinkFolder, isSlave, isLinkMaster,
-        parentBusTrackId, masterTrackId, slaveTrackIds, hasChildOverrides, state.measureTimeSigs, state.timeSig
+        parentBusTrackId, masterTrackId, slaveTrackIds, hasChildOverrides, state.measureTimeSigs, state.timeSig,
+        {
+          isFocusActive: state.isFocusActive,
+          focusTrackId: state.focusTrackId,
+          referenceTrackId: state.referenceTrackId,
+          activeAoVivoTrackId: state.activeAoVivoTrackId,
+          editingTrackId: state.editingTrackId,
+          mobileViewMode: state.mobileViewMode,
+        }
       );
     })
   );

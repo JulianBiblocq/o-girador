@@ -1,7 +1,11 @@
-
 import { InstrumentConfig, TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { resolveSatellites } from './percussionSatelliteHelpers';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import {
+  areStepValuesEqual,
+  resolveSlaveStepOpacity,
+  SlaveFocusContext,
+} from '../../utils/slaveStepOpacityResolver';
 import { resolveStepPastilleData } from './resolveStepPastilleData';
 import { drawSplitStepPastille } from './drawSplitStepPastille';
 import { drawRasSubStep } from './drawRasSubStep';
@@ -28,27 +32,30 @@ export const drawPercussionTrack = (
   themeBorder: string,
   themeText: string
 ): void => {
+  const storeState = useSequencerStore.getState();
+  const focusCtx: SlaveFocusContext = {
+    isFocusActive: storeState.isFocusActive,
+    focusTrackId: storeState.focusTrackId,
+    referenceTrackId: storeState.referenceTrackId,
+    activeAoVivoTrackId: storeState.activeAoVivoTrackId,
+    editingTrackId: storeState.editingTrackId,
+    mobileViewMode: storeState.mobileViewMode,
+  };
+
   for (let i = 0; i < effectiveStepCount; i++) {
     const stepAngle = stepAngles[i];
     const x = centerX + Math.cos(stepAngle) * tRad;
     const y = centerY + Math.sin(stepAngle) * tRad;
 
-    const satellites = resolveSatellites(
-      track,
-      i,
-      measureIdx,
-      rawTracks,
-      activeVariationsRef,
-      localLeftHanded
-    );
-
-    const rawMasterState = activePlayingSteps[i];
+    const rawMasterState = activePlayingSteps?.[i] ?? 0;
+    const baseState = activePattern?.activeSteps?.[i] ?? 0;
+    const isVariationStep = !areStepValuesEqual(rawMasterState, baseState);
     const isRas = Array.isArray(rawMasterState) && rawMasterState.length === 2;
     const masterState = isRas ? rawMasterState[0] : rawMasterState;
 
     const pastille = resolveStepPastilleData(
       masterState,
-      satellites,
+      [],
       currentInst,
       track,
       rawTracks,
@@ -59,16 +66,39 @@ export const drawPercussionTrack = (
 
     if (!pastille.hasEvent) continue;
 
-    const maxAllowedRadius = (Math.PI * tRad / effectiveStepCount) * 0.85;
+    const stepOpacity = isVariationStep
+      ? 1.0
+      : resolveSlaveStepOpacity({
+          track,
+          allTracks: rawTracks,
+          measureIdx,
+          stepIdx: i,
+          ownStepVal: rawMasterState,
+          focusCtx,
+          activeVariationsMap: activeVariationsRef?.current,
+        });
+
+    const maxAllowedRadius = ((Math.PI * tRad) / effectiveStepCount) * 0.85;
     const finalRadiusSize = Math.min(pastille.radiusSize, maxAllowedRadius);
+
+    ctx.save();
+    ctx.globalAlpha = stepOpacity;
+
+    if (isVariationStep && !isEco) {
+      ctx.beginPath();
+      ctx.arc(x, y, finalRadiusSize + 2.5, 0, Math.PI * 2);
+      ctx.strokeStyle = '#c25e38';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
     drawSplitStepPastille(
       ctx,
       x,
       y,
       finalRadiusSize,
-      pastille.isSplit,
-      pastille.isRightHalfOnly,
+      false,
+      false,
       pastille.leftFillColor,
       pastille.rightFillColor,
       pastille.leftText,
@@ -101,9 +131,10 @@ export const drawPercussionTrack = (
         themeBorder
       );
     }
+
+    ctx.restore();
   }
 
-  // Label de la piste au pas 0
   if (!isEco) {
     const x0 = centerX + Math.cos(stepAngles[0]) * tRad;
     const y0 = centerY + Math.sin(stepAngles[0]) * tRad;
@@ -116,6 +147,4 @@ export const drawPercussionTrack = (
     ctx.fillText(labelText, x0 + 20, y0 + 3);
     ctx.restore();
   }
-
-  ctx.restore();
 };

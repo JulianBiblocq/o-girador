@@ -47,10 +47,15 @@ export function buildFlatSongSchedule(
       let effectiveDecays = activePattern.decays;
       let effectiveMicrotimings = activePattern.microtimings;
 
-      const matchedVariation = resolvePatternVariation(
-        activePattern, isSoloPlayActive, soloPatternPlayId, soloPatternVariationId,
-        currentPlayCount, measureIdx, isolateBaseOnly, nextRandom
+      const shouldUseStaticSoloVariation = Boolean(
+        isSoloPlayActive && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble'
       );
+      const matchedVariation = shouldUseStaticSoloVariation
+        ? resolvePatternVariation(
+            activePattern, isSoloPlayActive, soloPatternPlayId, soloPatternVariationId,
+            currentPlayCount, measureIdx, isolateBaseOnly, nextRandom
+          )
+        : null;
       if (matchedVariation) {
         stepsToPlay = matchedVariation.steps;
         if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
