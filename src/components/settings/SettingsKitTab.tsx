@@ -25,11 +25,11 @@ export const SettingsKitTab: React.FC<SettingsKitTabProps> = ({ lang, isLeftHand
   } = useSettingsKitMacros();
 
   return (
-    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000]">
-      <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
+    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white text-[#1a1a1a] shadow-[3.5px_3.5px_0px_#000]">
+      <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
         {lang === 'fr' ? 'Montage du Kit (Macros)' : 'Montagem do Kit (Macros)'}
       </h3>
-      <p className="text-[10px] opacity-75 mb-4">
+      <p className="text-[10px] text-[#44403c] font-semibold mb-4">
         {lang === 'pt'
           ? 'Clique em uma batida para ajustar proporcionalmente seu volume e ressonância. Batidas tracejadas/foscas ainda não estão em uso, mas você pode definir seus valores padrão.'
           : 'Cliquez sur une frappe pour régler son volume et sa résonance globale. Les frappes grisées/pointillées ne sont pas utilisées, mais vous pouvez définir leurs valeurs par défaut.'}
@@ -37,7 +37,7 @@ export const SettingsKitTab: React.FC<SettingsKitTabProps> = ({ lang, isLeftHand
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {activeTracks.length === 0 ? (
-          <p className="text-[10px] italic opacity-60">
+          <p className="text-[10px] italic text-[#44403c]">
             {lang === 'fr' ? 'Aucun instrument actif dans cette session.' : 'Nenhum instrumento ativo nesta sessão.'}
           </p>
         ) : (

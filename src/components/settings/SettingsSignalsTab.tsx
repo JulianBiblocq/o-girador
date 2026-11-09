@@ -73,18 +73,18 @@ export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
               <button
                 key={sig.id}
                 onClick={() => toggleSignalEnabled(sig.id, allSignalIds)}
-                className={`border-2 border-black p-3 bg-white flex flex-col items-center gap-2 cursor-pointer text-center relative shadow-[3px_3px_0px_#000] hover:scale-[1.02] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
+                className={`border-2 border-black p-3 bg-white text-[#1a1a1a] flex flex-col items-center gap-2 cursor-pointer text-center relative shadow-[3px_3px_0px_#000] hover:scale-[1.02] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
                   isEnabled ? 'bg-white border-black font-bold' : 'opacity-40 grayscale bg-gray-50 border-dashed shadow-none'
                 }`}
               >
-                <div className="absolute top-1.5 right-1.5 w-4 h-4 border-2 border-black bg-white flex items-center justify-center font-cactus text-[9px] font-black text-black">
-                  {isEnabled ? '' : ''}
+                <div className="absolute top-1.5 right-1.5 w-4 h-4 border-2 border-black bg-white flex items-center justify-center font-cactus text-[9px] font-black text-[#1a1a1a]">
+                  {isEnabled ? '✓' : ''}
                 </div>
                 <div className="w-12 h-12 flex items-center justify-center bg-black/5 border border-black/10 rounded overflow-hidden">
                   <SettingsSignalThumb name={sig.name} image={sig.image} />
                 </div>
-                <span className="text-[9px] uppercase font-bold tracking-wider truncate w-full">{sig.name}</span>
-                <span className="text-[8px] opacity-50 font-normal">{sig.isCloud ? 'Cloud' : 'Local'}</span>
+                <span className="text-[9px] text-[#1a1a1a] uppercase font-bold tracking-wider truncate w-full">{sig.name}</span>
+                <span className="text-[8px] text-[#44403c] font-semibold">{sig.isCloud ? 'Cloud' : 'Local'}</span>
               </button>
             );
           })}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 interface SettingsHeaderProps {
   lang: string;
@@ -30,6 +31,7 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
       <div className="flex items-center gap-3">
         <div className="flex border-2 border-[#f4ecd8] bg-black text-[10px] md:text-xs font-cactus font-bold uppercase overflow-hidden shadow-[2px_2px_0px_#f4ecd8]/20">
           <button
+            type="button"
             onClick={() => onSetLang('fr')}
             className={`px-2 py-1 cursor-pointer transition-colors ${
               lang === 'fr'
@@ -42,6 +44,7 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
           </button>
           <div className="w-[2px] bg-[#f4ecd8]/30"></div>
           <button
+            type="button"
             onClick={() => onSetLang('pt')}
             className={`px-2 py-1 cursor-pointer transition-colors ${
               lang === 'pt'
@@ -55,11 +58,13 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={onClose}
-          className="bg-[#f4ecd8] text-black border-2 border-black hover:bg-black hover:text-[#f4ecd8] transition-colors px-3 py-1 font-cactus font-black text-lg cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+          className="bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#f4ecd8] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] transition-colors px-2.5 py-1.5 flex items-center justify-center font-cactus font-black cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
           title={lang === 'fr' ? 'Fermer' : 'Fechar'}
+          aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
         >
-          
+          <X className="w-5 h-5 stroke-[2.5] shrink-0" />
         </button>
       </div>
     </div>

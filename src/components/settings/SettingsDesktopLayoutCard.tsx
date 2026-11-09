@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check, X, Pencil, Trash2 } from 'lucide-react';
 import { DesktopWorkspaceLayout } from '../../types/desktopWorkspace.types';
 
 interface SettingsDesktopLayoutCardProps {
@@ -38,7 +39,7 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
 
   return (
     <div
-      className={`border-2 border-black bg-white p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 rounded-[3px_6px_4px_8px] transition-all ${
+      className={`border-2 border-black bg-white text-[#1a1a1a] p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 rounded-[3px_6px_4px_8px] transition-all ${
         isActiveLayout ? 'ring-2 ring-[#8b2a1a] bg-[#fbf8f0]' : ''
       }`}
     >
@@ -50,34 +51,34 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
                 type="text"
                 value={editingName}
                 onChange={(e) => onNameChange(e.target.value)}
-                className="border-2 border-black px-2 py-0.5 text-xs font-cactus font-bold bg-[#f4ecd8] flex-1 outline-none"
+                className="border-2 border-black px-2 py-0.5 text-xs font-cactus font-bold bg-[#f4ecd8] text-[#1a1a1a] flex-1 outline-none"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onSaveRename();
                   if (e.key === 'Escape') onCancelEdit();
                 }}
               />
-              <button onClick={onSaveRename} className="px-2 py-0.5 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700">
-                
+              <button onClick={onSaveRename} className="px-2 py-1 bg-black !text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700 flex items-center justify-center">
+                <Check size={12} className="stroke-[2.5]" />
               </button>
-              <button onClick={onCancelEdit} className="px-2 py-0.5 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200">
-                
+              <button onClick={onCancelEdit} className="px-2 py-1 bg-white text-[#1a1a1a] border border-black font-bold text-xs cursor-pointer hover:bg-gray-200 flex items-center justify-center">
+                <X size={12} className="stroke-[2.5]" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="font-cactus font-bold text-sm text-black truncate" title={layout.name}>
+              <span className="font-cactus font-bold text-sm text-[#1a1a1a] truncate" title={layout.name}>
                 {layout.name}
               </span>
-              <button onClick={onStartEdit} className="text-[11px] opacity-60 hover:opacity-100 cursor-pointer p-0.5">
-                
+              <button onClick={onStartEdit} className="text-[11px] text-[#1a1a1a] opacity-60 hover:opacity-100 cursor-pointer p-0.5">
+                <Pencil size={12} />
               </button>
               {isActiveLayout && (
-                <span className="text-[9px] font-bold font-cactus bg-[#8b2a1a] text-white px-1.5 py-0.2 rounded shrink-0">
+                <span className="text-[9px] font-bold font-cactus bg-[#8b2a1a] !text-[#f4ecd8] px-1.5 py-0.2 rounded shrink-0">
                   {lang === 'pt' ? 'Ativo' : 'Actif'}
                 </span>
               )}
-              <span className="text-[9px] opacity-40 ml-auto font-mono">
+              <span className="text-[9px] text-[#44403c] ml-auto font-mono">
                 {new Date(layout.createdAt).toLocaleDateString()}
               </span>
             </div>
@@ -85,10 +86,10 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
         </div>
 
         <div className="flex flex-wrap gap-1.5 text-[9px] font-cactus font-bold">
-          <span className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${mixer?.detached ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40' : 'bg-gray-100 text-black/60 border-gray-300'}`}>
+          <span className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${mixer?.detached ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40' : 'bg-gray-100 text-[#44403c] border-gray-300'}`}>
             {mixer?.detached ? (lang === 'pt' ? 'Mesa déportada' : 'Console déportée') : (lang === 'pt' ? 'Mesa ancorada' : 'Console ancrée')}
           </span>
-          <span className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${roda?.detached ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40' : 'bg-gray-100 text-black/60 border-gray-300'}`}>
+          <span className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${roda?.detached ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40' : 'bg-gray-100 text-[#44403c] border-gray-300'}`}>
             {roda?.detached ? (lang === 'pt' ? 'Roda déportada' : 'Roda déportée') : (lang === 'pt' ? 'Roda ancorada' : 'Roda ancrée')}
           </span>
           {detailEditor?.detached && (
@@ -103,7 +104,7 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
         <button
           onClick={onApply}
           className={`flex-1 font-cactus font-bold uppercase text-[10px] md:text-xs py-1.5 px-3 border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
-            isActiveLayout ? 'bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#a83220]' : 'bg-black text-[#f4ecd8] hover:bg-[#8b2a1a]'
+            isActiveLayout ? 'bg-[#8b2a1a] !text-[#f4ecd8] hover:bg-[#a83220]' : 'bg-black !text-[#f4ecd8] hover:bg-[#8b2a1a]'
           }`}
         >
           {lang === 'pt' ? 'Aplicar espaço' : "Appliquer l'espace"}
@@ -111,16 +112,16 @@ export const SettingsDesktopLayoutCard: React.FC<SettingsDesktopLayoutCardProps>
 
         {isConfirmingDelete ? (
           <div className="flex items-center gap-1">
-            <button onClick={onConfirmDelete} className="px-2 py-1 bg-red-700 text-white font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-red-800">
+            <button onClick={onConfirmDelete} className="px-2 py-1 bg-red-700 !text-white font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-red-800">
               {lang === 'pt' ? 'Excluir' : 'Suppr.'}
             </button>
-            <button onClick={onCancelDelete} className="px-2 py-1 bg-white text-black font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100">
-              
+            <button onClick={onCancelDelete} className="px-2 py-1 bg-white text-[#1a1a1a] font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100 flex items-center justify-center">
+              <X size={12} className="stroke-[2.5]" />
             </button>
           </div>
         ) : (
-          <button onClick={onAskDelete} className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none">
-            
+          <button onClick={onAskDelete} className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-center">
+            <Trash2 size={13} />
           </button>
         )}
       </div>

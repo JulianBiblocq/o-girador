@@ -29,8 +29,8 @@ export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
   onDecayChange,
 }) => {
   return (
-    <div className="mt-2 border-2 border-dashed border-black p-3 bg-white flex flex-col gap-3">
-      <div className="flex justify-between items-center text-[10px] font-bold border-b border-black/10 pb-1.5 flex-wrap gap-2">
+    <div className="mt-2 border-2 border-dashed border-black p-3 bg-white text-[#1a1a1a] flex flex-col gap-3">
+      <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a] border-b border-black/10 pb-1.5 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span>
             {lang === 'fr' ? `CONFIGURATION DE FRAPPE : [${stroke}]` : `CONFIGURAÇÃO DE BATIDA : [${stroke}]`}

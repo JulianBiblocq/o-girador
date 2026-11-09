@@ -73,21 +73,19 @@ export const SettingsTemplatesTab: React.FC<SettingsTemplatesTabProps> = ({
           <button
             onClick={() => syncWorkspaceTemplates(userProfile.uid)}
             disabled={isSyncingTemplates}
-            className="px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5"
+            className="px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white text-[#1a1a1a] hover:bg-black hover:!text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5"
           >
-            <span>{isSyncingTemplates ? '' : ''}</span>
             <span>{isSyncingTemplates ? (lang === 'pt' ? 'Sincronizando...' : 'Synchronisation...') : (lang === 'pt' ? 'Sincronizar' : 'Synchroniser')}</span>
           </button>
         )}
       </div>
 
       {workspaceTemplates.length === 0 ? (
-        <div className="p-6 border-2 border-dashed border-black/40 bg-white/60 text-center flex flex-col items-center justify-center gap-2 rounded">
-          <span className="text-3xl"></span>
-          <span className="font-cactus font-bold text-sm uppercase">
+        <div className="p-6 border-2 border-dashed border-[#1a1a1a]/40 bg-[#f4ecd8] text-[#1a1a1a] text-center flex flex-col items-center justify-center gap-2 rounded">
+          <span className="font-cactus font-bold text-sm uppercase text-[#1a1a1a]">
             {lang === 'pt' ? 'Nenhum modelo salvo' : 'Aucun gabarit enregistré'}
           </span>
-          <p className="text-[11px] opacity-75 max-w-sm">
+          <p className="text-[11px] text-[#44403c] font-semibold max-w-sm">
             {lang === 'pt'
               ? 'Para criar um modelo, configure as pistas desejadas e clique em "Memorizar modelo" na régua Master.'
               : 'Pour créer un gabarit, configurez vos pistes et cliquez sur "Mémoriser gabarit" sur la tranche Master.'}

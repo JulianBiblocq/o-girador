@@ -41,13 +41,13 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
         <div className="flex items-center justify-between text-[10px] font-cactus font-bold uppercase text-[var(--cordel-text)]">
           <span>{isFr ? 'Accordage (Pitch)' : 'Afinação (Pitch)'}</span>
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[var(--cordel-wood)]">{noteInfo.semitonesLabel}</span>
+            <span className="font-mono font-bold text-[#8b2a1a] dark:text-[#f59e0b]">{noteInfo.semitonesLabel}</span>
             {tuning !== 0 && (
               <button
                 type="button"
                 onClick={() => { onChangeTuning(0); onPreviewStroke(defaultStroke); }}
                 title={isFr ? 'Réinitialiser à 0 st' : 'Redefinir para 0 st'}
-                className="p-0.5 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-text)] rounded-xs cursor-pointer transition-colors"
+                className="p-0.5 hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] rounded-xs cursor-pointer transition-colors"
               >
                 <RotateCcw size={10} />
               </button>
@@ -59,7 +59,7 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
           onChange={(e) => onChangeTuning(Number(e.target.value))}
           onPointerUp={() => onPreviewStroke(defaultStroke)}
           onKeyUp={() => onPreviewStroke(defaultStroke)}
-          className="w-full accent-[var(--cordel-wood)] cursor-pointer h-1.5"
+          className="w-full accent-[#8b2a1a] dark:accent-[#f59e0b] cursor-pointer h-1.5"
         />
         <div className="flex justify-between text-[9px] font-mono text-[var(--cordel-text)]/70">
           <span>-6 st</span><span>0 st</span><span>+6 st</span>
@@ -70,14 +70,14 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-cactus font-bold uppercase text-[var(--cordel-text)]">
           <span>{isFr ? 'Résonance / Decay' : 'Ressonância / Decay'}</span>
-          <span className="font-mono text-[var(--cordel-wood)]">{decayPct}%</span>
+          <span className="font-mono font-bold text-[#8b2a1a] dark:text-[#f59e0b]">{decayPct}%</span>
         </div>
         <input
           type="range" min={15} max={100} step={1} value={decayPct}
           onChange={(e) => onChangeDecay(Number(e.target.value))}
           onPointerUp={() => onPreviewStroke(defaultStroke)}
           onKeyUp={() => onPreviewStroke(defaultStroke)}
-          className="w-full accent-[var(--cordel-wood)] cursor-pointer h-1.5"
+          className="w-full accent-[#8b2a1a] dark:accent-[#f59e0b] cursor-pointer h-1.5"
         />
         <div className="flex justify-between text-[9px] font-bold text-[var(--cordel-text)]/70">
           <span>{isFr ? 'Sec (15%)' : 'Seco (15%)'}</span>
@@ -89,15 +89,15 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
       <div className="flex items-center gap-1.5 pt-1 mt-auto">
         {isTimbal ? (
           <>
-            <button type="button" onClick={() => onPreviewStroke('A')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
+            <button type="button" onClick={() => onPreviewStroke('A')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
               <Volume2 size={12} /><span>{isFr ? 'Frappe A (Aberto)' : 'Toque A (Aberto)'}</span>
             </button>
-            <button type="button" onClick={() => onPreviewStroke('S')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-surface)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
+            <button type="button" onClick={() => onPreviewStroke('S')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-surface)] hover:bg-[#8b2a1a] text-[var(--cordel-text)] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
               <Volume2 size={12} /><span>{isFr ? 'Frappe S (Slap)' : 'Toque S (Slap)'}</span>
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => onPreviewStroke('D')} className="w-full py-1.5 px-2 bg-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+          <button type="button" onClick={() => onPreviewStroke('D')} className="w-full py-1.5 px-2 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
             <Volume2 size={12} /><span>{isFr ? 'Frappe D' : 'Toque D'}</span>
           </button>
         )}

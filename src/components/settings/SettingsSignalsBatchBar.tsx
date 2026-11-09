@@ -27,13 +27,13 @@ export const SettingsSignalsBatchBar: React.FC<SettingsSignalsBatchBarProps> = (
     setSignalsBatch(localIds, enable, allSignalIds);
   };
 
-  const btnStyle = "px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none";
-  const btnDangerStyle = "px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-[#8b2a1a] hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none";
+  const btnStyle = "px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white text-[#1a1a1a] hover:bg-black hover:!text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none";
+  const btnDangerStyle = "px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white text-[#1a1a1a] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none";
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-2 border-black p-3 bg-[#eaddcf]/30 mb-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-2 border-black p-3 bg-[#f4ecd8] text-[#1a1a1a] mb-2">
       <div className="flex flex-col gap-2">
-        <span className="font-bold text-[10px] uppercase text-black/60 flex items-center gap-1.5">
+        <span className="font-bold text-[10px] uppercase text-[#1a1a1a] flex items-center gap-1.5">
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           <span>{lang === 'fr' ? 'Signaux Cloud' : 'Sinais Cloud'}</span>
         </span>
@@ -47,7 +47,7 @@ export const SettingsSignalsBatchBar: React.FC<SettingsSignalsBatchBarProps> = (
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <span className="font-bold text-[10px] uppercase text-black/60 flex items-center gap-1.5">
+        <span className="font-bold text-[10px] uppercase text-[#1a1a1a] flex items-center gap-1.5">
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <span>{lang === 'fr' ? 'Signaux Locaux' : 'Sinais Locais'}</span>
         </span>

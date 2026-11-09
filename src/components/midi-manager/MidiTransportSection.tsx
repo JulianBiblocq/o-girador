@@ -24,8 +24,8 @@ export const MidiTransportSection: React.FC = () => {
   ];
 
   return (
-    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
-      <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
+    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
+      <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
         {t('Commandes de Transport', 'Controles de Transporte')}
       </h3>
 
@@ -37,11 +37,11 @@ export const MidiTransportSection: React.FC = () => {
           return (
             <div
               key={action.id}
-              className="flex flex-col md:flex-row md:items-center justify-between border border-black/10 bg-[#fbf8f0] p-2 rounded-sm gap-2"
+              className="flex flex-col md:flex-row md:items-center justify-between border border-black/10 bg-[#fbf8f0] text-[#1a1a1a] p-2 rounded-sm gap-2"
             >
               <div className="flex flex-col min-w-0">
                 <span className="text-[11px] font-bold text-[#1a1a1a]">{action.label}</span>
-                <span className="text-[9px] text-gray-500">{action.desc}</span>
+                <span className="text-[9px] text-[#44403c] font-semibold">{action.desc}</span>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">

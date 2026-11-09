@@ -102,9 +102,8 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
       )}
 
       {desktopLayouts.length === 0 ? (
-        <div className="p-6 border-2 border-dashed border-black/40 bg-white/60 text-center flex flex-col items-center justify-center gap-2 rounded">
-          <span className="text-3xl"></span>
-          <span className="font-cactus font-bold text-sm uppercase text-black/80">
+        <div className="p-6 border-2 border-dashed border-[#1a1a1a]/40 bg-[#f4ecd8] text-[#1a1a1a] text-center flex flex-col items-center justify-center gap-2 rounded">
+          <span className="font-cactus font-bold text-sm uppercase text-[#1a1a1a]">
             {lang === 'pt' ? 'Nenhum espaço de trabalho salvo' : 'Aucun espace de travail enregistré'}
           </span>
         </div>

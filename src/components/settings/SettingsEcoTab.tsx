@@ -20,30 +20,30 @@ export const SettingsEcoTab: React.FC<SettingsEcoTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6 text-left">
-      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000]">
-        <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white text-[#1a1a1a] shadow-[3.5px_3.5px_0px_#000]">
+        <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
           {lang === 'fr' ? 'Optimisation & Mode Éco' : 'Otimização & Modo Eco'}
         </h3>
-        <p className="text-[10px] opacity-75 mb-4">
+        <p className="text-[10px] text-[#44403c] font-semibold mb-4">
           {lang === 'pt'
             ? 'Ative o modo econômico para aliviar o processador (CPU/GPU) em dispositivos mais modestos.'
             : 'Activez le mode économique pour soulager le processeur (CPU/GPU) sur les appareils modestes.'}
         </p>
 
-        <div className="flex items-center gap-3 border-2 border-black p-3 bg-[#eaddcf]/20 mb-4">
+        <div className="flex items-center gap-3 border-2 border-black p-3 bg-[#eaddcf]/30 text-[#1a1a1a] mb-4">
           <button
             onClick={toggleEcoMode}
             className={`px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-              isEcoMode ? 'bg-[#8b2a1a] text-[#fdfaf2]' : 'bg-white text-[#1a1a1a] hover:bg-black/5'
+              isEcoMode ? 'bg-[#8b2a1a] !text-[#f4ecd8]' : 'bg-white text-[#1a1a1a] hover:bg-black/5'
             }`}
           >
             {isEcoMode ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Désactivé' : 'Desativado')}
           </button>
           <div className="flex flex-col">
-            <span className="font-cactus font-bold text-xs uppercase">
+            <span className="font-cactus font-bold text-xs uppercase text-[#1a1a1a]">
               {lang === 'fr' ? 'Interrupteur Général Mode Éco' : 'Chave Geral Modo Eco'}
             </span>
-            <span className="text-[9px] opacity-70">
+            <span className="text-[9px] text-[#44403c] font-semibold">
               {lang === 'fr' ? 'Réduit drastiquement la charge CPU globale.' : 'Reduz drasticamente o consumo geral de CPU.'}
             </span>
           </div>

@@ -17,13 +17,13 @@ export const MidiPadsSection: React.FC = () => {
   };
 
   return (
-    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
-      <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center justify-between border-b border-black/10 pb-1">
+    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
+      <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center justify-between border-b border-black/10 pb-1">
         <span>{t('Mappage des Instruments (Pads)', 'Mapeamento de Instrumentos (Pads)')}</span>
         {Object.keys(mappings).length > 0 && (
           <button
             onClick={handleClearAll}
-            className="text-[9px] border border-red-600 text-red-600 bg-red-50 hover:bg-red-600 hover:text-white px-2 py-0.5 font-bold font-mono transition-colors rounded-sm cursor-pointer"
+            className="text-[9px] border border-red-600 text-red-600 bg-red-50 hover:bg-red-600 hover:!text-white px-2 py-0.5 font-bold font-mono transition-colors rounded-sm cursor-pointer"
           >
             {t('Tout effacer', 'Limpar Tudo')}
           </button>
@@ -31,7 +31,7 @@ export const MidiPadsSection: React.FC = () => {
       </h3>
 
       {Object.keys(mappings).length === 0 ? (
-        <p className="text-[10px] text-gray-500 italic py-2">
+        <p className="text-[10px] text-[#44403c] font-semibold italic py-2">
           {t(
             'Aucune touche MIDI n\'est associée pour le moment. Allez dans l\'Officine d\'un instrument pour assigner des touches physiques.',
             'Nenhuma tecla MIDI associada no momento. Vá na Oficina de um instrumento para associar as teclas físicas.'

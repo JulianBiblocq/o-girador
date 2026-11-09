@@ -35,7 +35,7 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
   onConfirmDelete,
 }) => {
   return (
-    <div className="border-2 border-black bg-white p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 rounded-[3px_6px_4px_8px]">
+    <div className="border-2 border-black bg-white text-[#1a1a1a] p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 rounded-[3px_6px_4px_8px]">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-2">
           {isEditing ? (
@@ -44,7 +44,7 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
                 type="text"
                 value={editingName}
                 onChange={(e) => onNameChange(e.target.value)}
-                className="border-2 border-black px-2 py-0.5 text-xs font-cactus font-bold bg-[#f4ecd8] flex-1 outline-none"
+                className="border-2 border-black px-2 py-0.5 text-xs font-cactus font-bold bg-[#f4ecd8] text-[#1a1a1a] flex-1 outline-none"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onSaveRename();
@@ -53,14 +53,14 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
               />
               <button
                 onClick={onSaveRename}
-                className="px-2 py-1 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700 flex items-center justify-center"
+                className="px-2 py-1 bg-black !text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700 flex items-center justify-center"
                 title={lang === 'pt' ? 'Salvar' : 'Enregistrer'}
               >
                 <Check size={12} className="stroke-[2.5]" />
               </button>
               <button
                 onClick={onCancelEdit}
-                className="px-2 py-1 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200 flex items-center justify-center"
+                className="px-2 py-1 bg-white text-[#1a1a1a] border border-black font-bold text-xs cursor-pointer hover:bg-gray-200 flex items-center justify-center"
                 title={lang === 'pt' ? 'Cancelar' : 'Annuler'}
               >
                 <X size={12} className="stroke-[2.5]" />
@@ -68,19 +68,19 @@ export const SettingsTemplateCard: React.FC<SettingsTemplateCardProps> = ({
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="font-cactus font-bold text-sm text-black truncate" title={tpl.name}>
+              <span className="font-cactus font-bold text-sm text-[#1a1a1a] truncate" title={tpl.name}>
                 {tpl.name}
               </span>
               <button
                 onClick={onStartEdit}
-                className="text-[11px] opacity-60 hover:opacity-100 cursor-pointer p-0.5"
+                className="text-[11px] text-[#1a1a1a] opacity-60 hover:opacity-100 cursor-pointer p-0.5"
                 title={lang === 'pt' ? 'Renomear modelo' : 'Renommer le gabarit'}
               >
                 <Pencil size={12} />
               </button>
             </div>
           )}
-          <span className="text-[9px] font-bold font-cactus bg-black/5 border border-black/20 px-1.5 py-0.5 rounded shrink-0">
+          <span className="text-[9px] font-bold font-cactus bg-black/5 text-[#1a1a1a] border border-black/20 px-1.5 py-0.5 rounded shrink-0">
             {lang === 'pt' ? 'Privado' : 'Privé'}
           </span>
         </div>

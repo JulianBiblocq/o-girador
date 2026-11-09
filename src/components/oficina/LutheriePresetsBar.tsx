@@ -57,7 +57,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
               <button
                 key={preset.id} type="button" onClick={() => onApplyPreset(preset)}
                 className={`px-2.5 py-1 border-2 border-[var(--cordel-text)] flex flex-col items-start text-left cursor-pointer transition-colors shadow-[2px_2px_0px_var(--cordel-text)] ${
-                  isActive ? 'bg-[var(--cordel-terracotta,var(--cordel-wood))] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-bg)]'
+                  isActive ? 'bg-[#8b2a1a] !text-[#f4ecd8] font-bold' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8]'
                 }`}
               >
                 <span className="font-cactus font-bold uppercase text-[10px] leading-tight">{isFr ? preset.nameFr : preset.namePt}</span>
@@ -80,7 +80,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
               <div
                 key={preset.id} onClick={() => onApplyPreset(preset)}
                 className={`px-2 py-1 border-2 border-[var(--cordel-text)] flex items-center gap-1.5 cursor-pointer transition-colors shadow-[2px_2px_0px_var(--cordel-text)] ${
-                  isActive ? 'bg-[var(--cordel-terracotta,var(--cordel-wood))] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-bg)]'
+                  isActive ? 'bg-[#8b2a1a] !text-[#f4ecd8] font-bold' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8]'
                 }`}
               >
                 <span className="font-cactus font-bold uppercase text-[10px]">{preset.nameFr}</span>
@@ -102,7 +102,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
                 placeholder={isFr ? 'Nom du réglage...' : 'Nome do ajuste...'}
                 className="px-1.5 py-0.5 text-[10px] font-cactus font-bold bg-transparent text-[var(--cordel-text)] outline-none w-32"
               />
-              <button type="button" onClick={handleSaveSubmit} className="px-1.5 py-0.5 bg-[var(--cordel-wood)] text-[var(--cordel-bg)] font-cactus font-bold text-[10px] flex items-center gap-0.5 cursor-pointer">
+              <button type="button" onClick={handleSaveSubmit} className="px-1.5 py-0.5 bg-[#8b2a1a] !text-[#f4ecd8] font-cactus font-bold text-[10px] flex items-center gap-0.5 cursor-pointer">
                 <Check size={11} /><span>OK</span>
               </button>
               <button type="button" onClick={() => { setIsSaving(false); setNewName(''); }} className="p-0.5 text-[var(--cordel-text)] cursor-pointer">
@@ -112,7 +112,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
           ) : (
             <button
               type="button" onClick={() => setIsSaving(true)}
-              className="px-2.5 py-1 bg-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors"
+              className="px-2.5 py-1 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors"
             >
               <Plus size={12} /><span>{isFr ? 'Sauver ce réglage' : 'Salvar ajuste'}</span>
             </button>

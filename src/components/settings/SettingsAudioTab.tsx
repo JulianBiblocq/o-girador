@@ -31,8 +31,8 @@ export const SettingsAudioTab: React.FC<SettingsAudioTabProps> = ({ lang, alertA
 
   return (
     <div className="flex flex-col gap-6 text-left">
-      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
-        <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
+      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
+        <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
           {lang === 'fr' ? 'Périphériques de Sortie Audio' : 'Dispositivos de Saída de Áudio'}
         </h3>
         <div className="flex flex-col gap-4">
@@ -40,13 +40,13 @@ export const SettingsAudioTab: React.FC<SettingsAudioTabProps> = ({ lang, alertA
             <button
               onClick={handleRequestAudioPermission}
               disabled={isAskingPermission}
-              className="px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none bg-[#8b2a1a] text-[#fdfaf2] hover:bg-[#1a1a1a] flex items-center gap-2"
+              className="px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none bg-[#8b2a1a] !text-[#f4ecd8] hover:bg-[#1a1a1a] flex items-center gap-2"
             >
               {isAskingPermission
                 ? (lang === 'fr' ? 'Détection...' : 'Detectando...')
                 : (lang === 'fr' ? 'Lister les Sorties Audio' : 'Listar Saídas de Áudio')}
             </button>
-            <span className="text-[10px] font-sans text-[#1a1a1a]/70">
+            <span className="text-[10px] font-sans text-[#44403c] font-semibold">
               {lang === 'fr'
                 ? 'Cliquez pour rafraîchir la liste des sorties et casques.'
                 : 'Clique para atualizar a lista de saídas e fones.'}
@@ -61,7 +61,7 @@ export const SettingsAudioTab: React.FC<SettingsAudioTabProps> = ({ lang, alertA
               <select
                 value={selectedOutputDeviceId || ''}
                 onChange={(e) => setSelectedOutputDeviceId(e.target.value || null)}
-                className="bg-[#fbf8f0] border-2 border-black p-2 font-mono font-bold text-xs outline-none cursor-pointer focus:bg-white w-full truncate shadow-[1.5px_1.5px_0px_#000]"
+                className="bg-[#f4ecd8] text-[#1a1a1a] border-2 border-black p-2 font-mono font-bold text-xs outline-none cursor-pointer focus:bg-white w-full truncate shadow-[1.5px_1.5px_0px_#000]"
               >
                 <option value="">{lang === 'fr' ? '-- Par défaut --' : '-- Padrão --'}</option>
                 {availableOutputDevices.map((device) => (

@@ -13,7 +13,7 @@ import { RodaSheetDensity, RodaSheetSelectionMode } from './rodaSheetTypes';
 
 interface RodaSheetContainerProps {
   lang: 'fr' | 'pt';
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, onClose }) => {
@@ -94,16 +94,18 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
         />
       </div>
       <div className="flex items-center justify-between gap-3 pt-1 shrink-0">
-        <button type="button" onClick={onClose} className="px-4 py-2 text-sm border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors font-bold cursor-pointer font-cactus">
-          {isFr ? 'Fermer' : 'Fechar'}
-        </button>
+        {onClose ? (
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors font-bold cursor-pointer font-cactus">
+            {isFr ? 'Fermer' : 'Fechar'}
+          </button>
+        ) : <div />}
         <button
           type="button" onClick={() => printRodaSheetA4(songTitle, density)}
           disabled={items.length === 0 || selectedTracksOrdered.length === 0}
-          className="px-5 py-2 text-sm bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus flex items-center gap-2 disabled:opacity-50"
+          className="px-5 py-2 text-sm bg-[#8b2a1a] !text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus flex items-center gap-2 disabled:opacity-50"
         >
           <Printer size={16} />
-          <span>{isFr ? 'Imprimer / PDF (A4)' : 'Imprimir / PDF (A4)'}</span>
+          <span>{isFr ? 'Imprimer / PDF la Planche de Rodas' : 'Imprimir / PDF a Prancha de Rodas'}</span>
         </button>
       </div>
     </div>

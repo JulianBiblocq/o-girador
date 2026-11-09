@@ -88,6 +88,15 @@ export const IconLutherieTuningFork: React.FC<OficinaIconProps> = ({ className =
   </svg>
 );
 
+export const IconAoVivoLabSticks: React.FC<OficinaIconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} fill-none stroke-current stroke-[2.1]`} strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="20" x2="19" y2="5" />
+    <circle cx="19.5" cy="4.5" r="2" fill="currentColor" />
+    <line x1="20" y1="20" x2="5" y2="5" />
+    <circle cx="4.5" cy="4.5" r="2" fill="currentColor" />
+  </svg>
+);
+
 export const OficinaSectionIcon: React.FC<{ sectionId: string; className?: string }> = ({ sectionId, className = 'w-4 h-4' }) => {
   switch (sectionId) {
     case 'lutherie': return <IconLutherieTuningFork className={className} />;
@@ -100,6 +109,7 @@ export const OficinaSectionIcon: React.FC<{ sectionId: string; className?: strin
     case 'performance': return <XiloLightning size={16} className={`shrink-0 ${className}`} />;
     case 'audio': return <IconAudioHeadphones className={className} />;
     case 'ajuda': return <IconAideLivret className={className} />;
+    case 'aovivo-lab': return <IconAoVivoLabSticks className={className} />;
     default: return null;
   }
 };

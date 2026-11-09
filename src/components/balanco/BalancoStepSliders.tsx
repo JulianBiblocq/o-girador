@@ -17,7 +17,7 @@ export const BalancoStepSliders: React.FC<BalancoStepSlidersProps> = ({
   onResetCustom,
 }) => {
   return (
-    <div className="flex flex-col gap-4 bg-[#eaddcf]/50 p-3 border border-black/15 rounded-sm">
+    <div className="flex flex-col gap-4 bg-[#eaddcf]/50 p-3 border border-black/15 rounded-sm text-[#1a1a1a]">
       <div className="flex justify-between items-center mb-1">
         <span className="font-bold text-[10px] uppercase text-[#1a1a1a]">
           {lang === 'fr' ? 'Micro-timing des 4 doubles croches' : 'Micro-timing das 4 semicolcheias'}
@@ -26,7 +26,7 @@ export const BalancoStepSliders: React.FC<BalancoStepSlidersProps> = ({
           <button
             type="button"
             onClick={onResetCustom}
-            className="px-2 py-0.5 bg-white border border-black text-[9px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer"
+            className="px-2 py-0.5 bg-white text-[#1a1a1a] border border-black text-[9px] font-bold hover:bg-black hover:!text-white transition-colors cursor-pointer"
           >
             {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
           </button>
@@ -39,7 +39,7 @@ export const BalancoStepSliders: React.FC<BalancoStepSlidersProps> = ({
             <div className="relative w-full h-12 flex items-center justify-center">
               <div className="absolute top-0 bottom-0 left-1/2 w-0 border-l border-dashed border-black/20 -translate-x-1/2 z-0" />
               <div
-                className="flex items-center justify-center bg-[#f4ecd8] border border-black shadow-[1.5px_1.5px_0px_#000] z-10 w-8 h-8 font-cactus font-black text-xs transition-transform duration-100"
+                className="flex items-center justify-center bg-[#f4ecd8] text-[#1a1a1a] border border-black shadow-[1.5px_1.5px_0px_#000] z-10 w-8 h-8 font-cactus font-black text-xs transition-transform duration-100"
                 style={{ transform: `translateX(${(offset / 100) * 16}px)` }}
               >
                 {idx + 1}
@@ -65,7 +65,7 @@ export const BalancoStepSliders: React.FC<BalancoStepSlidersProps> = ({
         ))}
       </div>
 
-      <p className="text-[9px] opacity-75 text-center leading-tight">
+      <p className="text-[9px] text-[#44403c] font-semibold text-center leading-tight">
         {lang === 'fr'
           ? 'Axe central = pulsation stricte. Droite : Retard (+). Gauche : Anticipation / Avance (-).'
           : 'Eixo central = pulso estrito. Direita: Atraso (+). Esquerda: Antecipação / Avanço (-).'}

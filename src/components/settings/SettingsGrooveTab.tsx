@@ -31,8 +31,8 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 1. BLOC GROOVE (BALANÇO COMPLET INLINE) */}
-      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
-        <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
+      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
+        <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
           {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
         </h3>
         <BalancoEditorPanel
@@ -44,8 +44,8 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
       </div>
 
       {/* 2. BLOC MÉTRONOME */}
-      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
-        <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
+      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
+        <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
           {lang === 'fr' ? 'Métronome' : 'Metrônomo'}
         </h3>
         <div className="flex flex-col gap-4">
@@ -56,26 +56,26 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
                 onClick={() => setIsMetroOn(!isMetroOn)}
                 className={`px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
                   isMetroOn
-                    ? 'bg-black text-white'
-                    : 'bg-white text-black hover:bg-black/5'
+                    ? 'bg-black !text-white'
+                    : 'bg-white text-[#1a1a1a] hover:bg-black/5'
                 }`}
               >
                 {isMetroOn ? 'On' : 'Off'}
               </button>
-              <span className="text-[10px] font-bold">
+              <span className="text-[10px] font-bold text-[#1a1a1a]">
                 {lang === 'pt' ? 'Ativar Clique' : 'Activer le Clic'}
               </span>
             </div>
 
             {/* Droite : Choix du son */}
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]">
                 {lang === 'pt' ? 'Som :' : 'Son :'}
               </span>
               <select
                 value={metroSound}
                 onChange={(e) => setMetroSound(e.target.value as any)}
-                className="bg-white border-2 border-black p-1.5 font-cactus font-bold text-xs uppercase outline-none cursor-pointer focus:bg-[#fbf8f0] min-w-[100px]"
+                className="bg-[#f4ecd8] text-[#1a1a1a] border-2 border-black p-1.5 font-cactus font-bold text-xs uppercase outline-none cursor-pointer focus:bg-[#fbf8f0] min-w-[100px]"
               >
                 <option value="synth">Synth</option>
                 <option value="clave">Clave</option>
@@ -86,7 +86,7 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
 
           {/* Volume */}
           <div className="flex flex-col gap-1">
-            <div className="flex justify-between items-center text-[10px] font-bold">
+            <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a]">
               <span>Volume :</span>
               <span>{metroVolume}%</span>
             </div>
@@ -96,7 +96,7 @@ export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) =>
               max="100"
               value={metroVolume}
               onChange={(e) => handleMetroVolumeChange(parseInt(e.target.value, 10))}
-              className="w-full accent-black cursor-pointer h-1.5 bg-black/10"
+              className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
             />
           </div>
         </div>

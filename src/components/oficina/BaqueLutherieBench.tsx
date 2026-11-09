@@ -94,7 +94,7 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
       <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-text)]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[var(--cordel-text)]/20 pb-2">
           <div>
-            <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-wood)]">
+            <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[#8b2a1a] dark:text-[#f59e0b]">
               {isFr ? '1. Trio des Alfaias (Sous-Graves & Corps)' : '1. Trio de Alfaias (Subgraves & Corpo)'}
             </h4>
             <p className="text-[10px] text-[var(--cordel-text)]/75">
@@ -102,10 +102,10 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={previewAlfaiasArpeggio} className="px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
+            <button type="button" onClick={previewAlfaiasArpeggio} className="px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[#8b2a1a] text-[var(--cordel-text)] hover:!text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
               <Volume2 size={13} /><span>{isFr ? 'Égrener le Trio' : 'Dedilhar o Trio'}</span>
             </button>
-            <button type="button" onClick={() => previewAlfaiasChord()} className="px-2.5 py-1.5 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
+            <button type="button" onClick={() => previewAlfaiasChord()} className="px-2.5 py-1.5 bg-[#8b2a1a] hover:bg-[#a83220] !text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
               <Layers size={13} /><span>{isFr ? 'Accord des 3 Alfaias' : 'Acorde das 3 Alfaias'}</span>
             </button>
           </div>
@@ -116,8 +116,8 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-text)]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[var(--cordel-text)]/20 pb-2">
-            <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-wood)]">2. Caixas de Guerra & Tarol</h4>
-            <button type="button" onClick={previewCaixasChord} className="px-2.5 py-1.5 bg-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
+            <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[#8b2a1a] dark:text-[#f59e0b]">2. Caixas de Guerra & Tarol</h4>
+            <button type="button" onClick={previewCaixasChord} className="px-2.5 py-1.5 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
               <Layers size={13} /><span>{isFr ? 'Accord Caixa + Tarol' : 'Acorde Caixa + Tarol'}</span>
             </button>
           </div>
@@ -125,14 +125,14 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
         </div>
 
         <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-text)]">
-          <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-wood)] border-b-2 border-[var(--cordel-text)]/20 pb-2">
+          <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[#8b2a1a] dark:text-[#f59e0b] border-b-2 border-[var(--cordel-text)]/20 pb-2">
             {isFr ? '3. Timbal (Tonique & Slap)' : '3. Timbal (Tônica & Slap)'}
           </h4>
           {renderCard('timbal')}
         </div>
       </div>
 
-      <button type="button" onClick={previewFullBaqueChord} className="w-full py-3 px-4 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] shadow-[4px_4px_0px_var(--cordel-text)] font-cactus font-bold uppercase text-xs md:text-sm tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors">
+      <button type="button" onClick={previewFullBaqueChord} className="w-full py-3 px-4 bg-[#8b2a1a] hover:bg-[#a83220] !text-[#f4ecd8] border-2 border-[var(--cordel-text)] shadow-[4px_4px_0px_var(--cordel-text)] font-cactus font-bold uppercase text-xs md:text-sm tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors">
         <Layers size={16} /><span>{isFr ? "Écouter l'Accord Complet du Baque" : 'Ouvir o Acorde Completo do Baque'}</span>
       </button>
     </div>
