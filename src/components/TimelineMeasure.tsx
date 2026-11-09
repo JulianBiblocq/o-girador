@@ -68,7 +68,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
   return (
     <div
-      className={`h-full cursor-pointer border-r shrink-0 select-none relative transition-all duration-100 ${isMulti ? 'ring-2 ring-inset ring-[#8b2a1a] shadow-[inset_0_0_0_2px_var(--cordel-bg)] bg-[#8b2a1a]/[0.08] z-20' : (isActive ? 'ring-2 ring-inset ring-[#8b2a1a] bg-[#8b2a1a]/[0.08] shadow-[inset_0_0_0_1px_#8b2a1a,0_0_8px_rgba(139,42,26,0.3)] z-20' : '')} ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]' : 'border-r-[var(--cordel-border)]/20'} ${loopBg} ${sectionColor ? 'cell-section-tint' : ''} ${isSectionStart ? 'cell-section-start' : ''} ${isSectionEnd ? 'cell-section-end' : ''}`}
+      className={`timeline-measure-block-shell h-full cursor-pointer border-r shrink-0 select-none relative transition-colors duration-100 ${isMulti ? 'ring-2 ring-inset ring-[#8b2a1a] shadow-[inset_0_0_0_2px_var(--cordel-bg)] bg-[#8b2a1a]/[0.08] z-20' : (isActive ? 'ring-2 ring-inset ring-[#8b2a1a] bg-[#8b2a1a]/[0.08] shadow-[inset_0_0_0_1px_#8b2a1a,0_0_8px_rgba(139,42,26,0.3)] z-20' : '')} ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]' : 'border-r-[var(--cordel-border)]/20'} ${loopBg} ${sectionColor ? 'cell-section-tint' : ''} ${isSectionStart ? 'cell-section-start' : ''} ${isSectionEnd ? 'cell-section-end' : ''}`}
       style={{ width: cssMeasureW, minWidth: cssMeasureW, contain: 'layout paint style', opacity: 1.0, WebkitTouchCallout: 'none', userSelect: 'none', ...({ '--section-color': sectionColor } as React.CSSProperties) }}
       onPointerDown={handlers.handlePointerDown} onClick={handlers.handleClick} onDoubleClick={handlers.handleDoubleClick} onContextMenu={handlers.handleContextMenu} onTouchStart={handlers.handleTouchStart} onTouchMove={handlers.handleTouchMove} onTouchEnd={handlers.handleTouchEnd} onTouchCancel={handlers.handleTouchCancel}
     >
@@ -79,7 +79,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           {isToada || patternId === -1 ? (
             <TimelineMeasureToadaDualWave patternId={patternId} isSelectedCell={isSel} isToadaComposite={isToadaComposite} toadaVocalBadges={toadaVocalBadges} />
           ) : (
-            <div className="flex h-full w-full pointer-events-none">
+            <div className="timeline-measure-steps-detail flex h-full w-full pointer-events-none">
               {beatGroups.map((group, bIdx) => (
                 <div key={bIdx} className="flex flex-1 h-full items-center border-r border-[var(--cordel-border)]/20 last:border-r-0">
                   {group.map((sIdx) => (

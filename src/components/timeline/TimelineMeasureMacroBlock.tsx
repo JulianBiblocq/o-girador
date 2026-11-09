@@ -70,7 +70,7 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
       };
 
   const renderRhythmDots = (isWatermark: boolean) => (
-    <div className={isWatermark ? 'absolute inset-x-1.5 bottom-1 flex items-center gap-[2px] opacity-45 pointer-events-none overflow-hidden z-0' : 'flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5'}>
+    <div className={`timeline-measure-steps-detail ${isWatermark ? 'absolute inset-x-1.5 bottom-1 flex items-center gap-[2px] opacity-45 pointer-events-none overflow-hidden z-0' : 'flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5'}`}>
       <div className={`flex flex-wrap gap-[2px] ${isWatermark ? 'justify-start' : 'justify-center'} w-full`}>
         {activePatternActiveSteps?.map((val: any, sIdx: number) => {
           if (val === 0 || val === '' || val === '0') return null;
@@ -83,7 +83,7 @@ export const TimelineMeasureMacroBlock: React.FC<TimelineMeasureMacroBlockProps>
 
   return (
     <div
-      className={`macro-pattern-block w-full h-full flex ${isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-start pt-1 px-1.5 pb-1'} border rounded-sm transition-all relative overflow-hidden ${isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''}`}
+      className={`macro-pattern-block timeline-measure-block-shell w-full h-full flex ${isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-start pt-1 px-1.5 pb-1'} border rounded-sm transition-colors relative overflow-hidden ${isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''}`}
       onDoubleClick={(e) => { e.stopPropagation(); if (isPanningActive || isToada) return; onOpenPatternPicker?.(trackId, mIdx, e.currentTarget.getBoundingClientRect()); }}
       style={blockStyle}
     >

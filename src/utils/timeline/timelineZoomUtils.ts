@@ -1,27 +1,37 @@
 export const livePlayheadZoomState = {
-  measure: 0, ratio: 0, measureDuration: 0, lastTickPerfMs: 0, liveMeasureW: 0, lastScrollX: -1,
+  measure: 0, ratio: 0, measureDuration: 0, lastTickPerfMs: 0, liveMeasureW: 0, lastScrollX: -1, isZooming: false,
 };
+
+export function setTimelineZoomingDomFlag(containerEl: HTMLElement | null, scrollEl: HTMLElement | null, active: boolean) {
+  livePlayheadZoomState.isZooming = active;
+  if (active) {
+    if (containerEl) containerEl.dataset.zooming = 'true';
+    if (scrollEl) scrollEl.dataset.zooming = 'true';
+  } else {
+    if (containerEl) delete containerEl.dataset.zooming;
+    if (scrollEl) delete scrollEl.dataset.zooming;
+  }
+}
 
 export interface AnchoredZoomParams {
   containerEl: HTMLElement; scrollEl: HTMLElement; gridEl: HTMLElement | null;
   currentW: number; targetW: number; baseMeasureW: number; headerWidth: number;
   totalMeasures: number; totalContentW: number; leftPositions: number[]; widths: number[];
-  isPlaying: boolean; anchorMeasureIdx: number; playheadMeasureIdx: number; disablePlayheadRAF?: boolean;
+  isPlaying: boolean; anchorMeasureIdx: number; playheadMeasureIdx: number;
 }
 
-export function computeWheelZoomTarget(rawDelta: number, currentVisualW: number, currentTargetW: number): number | null {
+export function computeWheelZoomTarget(rawDelta: number, currentTargetW: number): number | null {
   if (rawDelta === 0) return null;
-  const clampedDelta = Math.max(-40, Math.min(40, rawDelta));
-  const stepFactor = 1 - (clampedDelta / 40) * 0.055;
-  const rawNext = currentTargetW * stepFactor;
-  const nextTarget = Math.max(60, Math.min(320, Math.max(currentVisualW * 0.78, Math.min(currentVisualW * 1.22, rawNext))));
+  const clampedDelta = Math.max(-120, Math.min(120, rawDelta));
+  const stepFactor = Math.pow(1.0018, -clampedDelta);
+  const nextTarget = Math.max(60, Math.min(320, currentTargetW * stepFactor));
   return Math.abs(nextTarget - currentTargetW) > 0.1 ? nextTarget : null;
 }
 
 export function applyAnchoredTimelineZoom({
   containerEl, scrollEl, gridEl, currentW, targetW, baseMeasureW,
   headerWidth, totalMeasures, totalContentW, leftPositions, widths,
-  isPlaying, anchorMeasureIdx, playheadMeasureIdx, disablePlayheadRAF = false,
+  isPlaying, anchorMeasureIdx, playheadMeasureIdx,
 }: AnchoredZoomParams): { targetW: number; newScrollLeft: number } | null {
   if (targetW === currentW) return null;
 
@@ -69,25 +79,11 @@ export function applyAnchoredTimelineZoom({
   const playheadEl = document.getElementById('timeline-playhead-line') as HTMLElement | null;
   if (playheadEl) {
     const phMeasure = Math.max(0, Math.min(totalMeasures - 1, isPlaying ? livePlayheadZoomState.measure : playheadMeasureIdx));
-    const phBaseLeft = leftPositions[phMeasure] ?? (phMeasure * safeBaseW), phBaseW = widths[phMeasure] ?? safeBaseW;
+    const phBaseLeft = leftPositions[phMeasure] ?? (phMeasure * safeBaseW);
     const phX = isPlaying ? xNew : phBaseLeft * newScale;
     playheadEl.style.transition = 'none';
     playheadEl.style.transform = `translate3d(${headerWidth + phX}px, 0, 0)`;
     playheadEl.style.visibility = phX >= newScrollLeft ? 'visible' : 'hidden';
-
-    if (isPlaying && livePlayheadZoomState.measureDuration > 0 && !disablePlayheadRAF) {
-      const elapsedSec = livePlayheadZoomState.lastTickPerfMs > 0
-        ? Math.max(0, (performance.now() - livePlayheadZoomState.lastTickPerfMs) / 1000) : 0;
-      const curRatio = Math.min(1, livePlayheadZoomState.ratio + elapsedSec / livePlayheadZoomState.measureDuration);
-      const remSec = Math.max(0.05, (1 - curRatio) * livePlayheadZoomState.measureDuration);
-      const endX = (phBaseLeft + phBaseW) * newScale;
-      requestAnimationFrame(() => {
-        if (playheadEl && livePlayheadZoomState.liveMeasureW === targetW) {
-          playheadEl.style.transition = `transform ${remSec}s linear`;
-          playheadEl.style.transform = `translate3d(${headerWidth + endX}px, 0, 0)`;
-        }
-      });
-    }
   }
 
   return { targetW, newScrollLeft };
@@ -104,7 +100,7 @@ export function attachTouchPinch(el: HTMLElement, getMeasureW: () => number, onZ
   const onMove = (e: TouchEvent) => {
     if (e.touches.length === 2 && initialDist !== null) {
       const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      if (dist > 0) onZoomTarget(Math.max(60, Math.min(320, Math.round(initialW * (dist / initialDist)))));
+      if (dist > 0) onZoomTarget(Math.max(60, Math.min(320, initialW * (dist / initialDist))));
       e.preventDefault();
     }
   };

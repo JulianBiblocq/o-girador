@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import { livePlayheadZoomState } from '../../utils/timeline/timelineZoomUtils';
 
 export interface UsePlayheadFollowerOptions {
@@ -105,7 +104,7 @@ export function usePlayheadFollower({
       Object.assign(livePlayheadZoomState, { measure, ratio, measureDuration: measureDuration ?? live.current.measureDuration, lastTickPerfMs: performance.now() });
 
       const isVis = exactX >= scrollEl.scrollLeft;
-      Object.assign(el.style, { display: 'block', visibility: isVis ? 'visible' : 'hidden' });
+      Object.assign(el.style, { transition: 'none', display: 'block', visibility: isVis ? 'visible' : 'hidden', transform: `translate3d(${headerWidth + exactX}px, 0, 0)` });
       if (measureHighlightRef.current) {
         Object.assign(measureHighlightRef.current.style, { display: 'block', visibility: isVis ? 'visible' : 'hidden', transform: `translate3d(${headerWidth + mLeft}px, 0, 0)`, width: `${mW}px` });
       }
@@ -113,22 +112,10 @@ export function usePlayheadFollower({
       live.current = { step, measure, ratio, iteration, measureStartTime: isNewM ? (measureStartTime || live.current.measureStartTime) : live.current.measureStartTime, measureDuration: measureDuration ?? live.current.measureDuration };
       const dx = prevExactX >= 0 ? exactX - prevExactX : 0;
 
-      if (layout.current.vw > 0 && scrollEl) {
+      if (!livePlayheadZoomState.isZooming && layout.current.vw > 0 && scrollEl) {
         const isRupture = dx < 0 || Math.abs(dx) > mW * 0.5;
         const target = isRupture ? Math.max(0, exactX - layout.current.vw * 0.1) : (exactX > layout.current.lastScrollX + layout.current.vw - (mW * 1.2) || exactX < layout.current.lastScrollX) ? Math.max(0, exactX - layout.current.vw * 0.15) : null;
         if (target !== null) { scrollEl.scrollLeft = target; layout.current.lastScrollX = target; }
-      }
-
-      if (usePerformanceStore.getState().disablePlayheadRAF) {
-        el.style.transition = 'none'; el.style.transform = `translate3d(${headerWidth + exactX}px, 0, 0)`;
-      } else if (isNewM && measureDuration && measureDuration > 0) {
-        el.style.transition = 'none'; el.style.transform = `translate3d(${headerWidth + exactX}px, 0, 0)`;
-        requestAnimationFrame(() => {
-          if (playheadRef.current) {
-            playheadRef.current.style.transition = `transform ${Math.max(0.1, (1 - ratio) * measureDuration)}s linear`;
-            playheadRef.current.style.transform = `translate3d(${headerWidth + mLeft + mW}px, 0, 0)`;
-          }
-        });
       }
     };
 
