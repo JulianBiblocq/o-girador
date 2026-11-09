@@ -63,9 +63,21 @@ function resolveTrackStepsAtMeasure(track: TrackGroup, allTracks: TrackGroup[], 
     if (prevPtn && prevPtn.id === ptn.id) relIdx++;
     else break;
   }
+
+  let effectiveSteps = ptn.activeSteps;
+  if (ptn.variations && ptn.variations.length > 0) {
+    const firstPassVar = relIdx === 0 ? ptn.variations.find((v) => v.playFirstTimeOnly && v.steps?.length) : undefined;
+    if (firstPassVar) {
+      effectiveSteps = firstPassVar.steps;
+    } else if (ptn.measureAllowVariations?.[mIdx] === true) {
+      const detVar = ptn.variations.find((v) => !v.playFirstTimeOnly && (v.probability ?? 0) >= 100 && v.steps?.length);
+      if (detVar) effectiveSteps = detVar.steps;
+    }
+  }
+
   const spanMeasures = Math.max(1, Math.round((ptn.steps || 16) / 16));
   const startStep = (relIdx % spanMeasures) * stepCount;
-  const sliced = ptn.activeSteps.slice(startStep, startStep + stepCount);
+  const sliced = effectiveSteps.slice(startStep, startStep + stepCount);
   while (sliced.length < stepCount) sliced.push(0);
   return sliced;
 }

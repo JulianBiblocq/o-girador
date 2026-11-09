@@ -2,6 +2,8 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { PresetAccordionSelector } from '../PresetAccordionSelector';
+import { useHeaderProject } from '../header/useHeaderProject';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 
 interface Props {
   isOpen: boolean;
@@ -22,10 +24,10 @@ export const MobileSongPickerModal: React.FC<Props> = ({
   onPresetChange,
   lang,
 }) => {
-  if (!isOpen) return null;
+  const metadata = useSequencerStore((s) => s.metadata);
+  const project = useHeaderProject(cloudPresets, activePreset);
 
-  const publicPresets = cloudPresets.filter((p) => p.visibility !== 'group' && p.visibility !== 'private');
-  const privatePresets = cloudPresets.filter((p) => p.visibility === 'group' || p.visibility === 'private');
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-3 backdrop-blur-xs select-none">
@@ -42,12 +44,19 @@ export const MobileSongPickerModal: React.FC<Props> = ({
           <PresetAccordionSelector
             lang={lang}
             activePreset={activePreset}
-            publicCloudPresets={publicPresets}
-            privateCloudPresets={privatePresets}
+            currentSongTitle={metadata?.toada}
+            publicCloudPresets={project.publicCloudPresets}
+            privateCloudPresets={project.privateCloudPresets}
             localPresets={localPresets}
             isCloudPresetsLoading={false}
-            showGroupCatalogue={privatePresets.length > 0}
-            groupLabel="Groupe"
+            showGroupCatalogue={project.showGroupCatalogue}
+            groupLabel={project.groupLabel}
+            groupLogo={project.groupLogo}
+            defaultPresetId={project.groupDefaultPresetId}
+            canSetDefaultPreset={project.canSetDefaultPreset}
+            canEdit={project.isEditor}
+            onSetDefaultPreset={project.handleSetDefaultPreset}
+            onToggleDraft={project.handleToggleDraft}
             onSelectPreset={(val) => { onPresetChange(val); onClose(); }}
           />
         </div>

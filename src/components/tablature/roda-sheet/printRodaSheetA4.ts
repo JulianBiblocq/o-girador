@@ -96,3 +96,4 @@ export function printRodaSheetA4(songTitle: string, density: 8 | 12): void {
     }
   }, 250);
 }
+
