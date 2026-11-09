@@ -37,7 +37,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 1,
-    opacity: isDragging ? 0.75 : 1,
+    opacity: 1,
   };
 
   const activeChildTrack = useMemo(() => {

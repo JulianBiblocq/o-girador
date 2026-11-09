@@ -8,6 +8,7 @@ import { drawToadaTrack } from './drawToadaTrack';
 import { drawPercussionTrack } from './drawPercussionTrack';
 import { computeContinuousSweepRatio } from './rodaSweepMath';
 import { drawRodaSweepWave } from './drawRodaSweepWave';
+import { syncLiveVariationRodaVisualFrame } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
 
 export function renderTrackStepLayer(
   ctx: CanvasRenderingContext2D,
@@ -31,6 +32,14 @@ export function renderTrackStepLayer(
   const localTicks = live.maxTicks || 96;
   const isPlaying = Boolean(localStep >= 0 && stateVal.isPlaying);
   const playheadRatio = localStep >= 0 && localTicks > 0 ? localStep / localTicks : (live.ratio ?? 0);
+  const measureIdx =
+    live && live.step >= 0
+      ? live.measure
+      : pendingTargetMeasureRef.current !== null
+        ? pendingTargetMeasureRef.current
+        : stateVal.currentMeasure;
+
+  syncLiveVariationRodaVisualFrame(isPlaying, measureIdx, playheadRatio, activeVariationsRef);
 
   const rodaSweepMode = useSequencerStore.getState().rodaSweepMode || 'sweep6h';
   if (rodaSweepMode === 'sweep6h' && isPlaying) {
@@ -84,14 +93,7 @@ export function renderTrackStepLayer(
     const tRad = drawTrackRing(ctx, track, ringIndex, totalRings, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
 
     const isVoiceOrToada = isToada || currentInst.type === 'voice';
-    if (!activePattern && !isVoiceOrToada) return;
-
-    const measureIdx =
-      live && live.step >= 0
-        ? live.measure
-        : pendingTargetMeasureRef.current !== null
-          ? pendingTargetMeasureRef.current
-          : stateVal.currentMeasure;
+    if (!activePattern && !isVoiceOrToada && !isPlaying) return;
 
     const activeTimeSig = stateVal.measureTimeSigs
       ? stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4'
@@ -110,7 +112,7 @@ export function renderTrackStepLayer(
         measureIdx, stateVal.soloPatternPlayId, stateVal.totalMeasures, stateVal.isLoopRegionActive,
         stateVal.loopStartMeasure, stateVal.loopEndMeasure, activeVariationsRef, themeWood, themeBorder, themeText
       );
-    } else if (activePattern) {
+    } else {
       drawPercussionTrack(
         ctx, track, currentInst, activePattern, activePlayingSteps, stepAngles, effectiveStepCount,
         currentStep, tRad, centerX, centerY, dynamicScale, isEco, measureIdx, localRawTracks,

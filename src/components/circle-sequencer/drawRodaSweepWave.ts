@@ -1,15 +1,9 @@
-const STRAW_PALETTE = [
-  { r: 55, g: 35, b: 18, baseA: 0.62, width: 1.9 },   // Chanvre / paille grillée foncée
-  { r: 185, g: 130, b: 45, baseA: 0.68, width: 1.7 }, // Paille dorée chaude
-  { r: 55, g: 35, b: 18, baseA: 0.62, width: 2.15 },  // Chanvre épais
-  { r: 185, g: 130, b: 45, baseA: 0.68, width: 1.45 },// Paille dorée fine
-];
-
 /**
- * Dessine le balai de paille organique (Vassoura de Palha) à +180° (6h d'écart avec la baguette) :
- * - Halo angulaire contrasté (~33°) en 14 tranches à bords 100 % estompés (courbe sin²), cœur terre d'ombre / sépia
- *   bordé d'un sillage d'écume parchemin claire côté nouveaux pas, zéro bord dur.
- * - 24 brins de paille contrastés (chanvre foncé + paille dorée) qui balaient la peau (#e2d8c3).
+ * Dessine le faisceau de balayage progressif de la Roda à +180° (6h d'écart avec la baguette) :
+ * - Zéro arc ou demi-cercle tangentiel interne.
+ * - Halo angulaire progressif très doux (18 fines tranches radiales jointives en cloche sin²(pi*t) de 0.0 à 0.20 max)
+ *   en teinte ambre/sépia doux rgba(110, 72, 38, alpha) doublée d'un filet parchemin clair rgba(244, 236, 216, alpha * 1.4).
+ * - Quelques stries droites purement radiales (orientées du centre vers l'extérieur le long de l'angle theta), très fines (1px) et discrètes.
  */
 export function drawRodaSweepWave(
   ctx: CanvasRenderingContext2D,
@@ -23,70 +17,61 @@ export function drawRodaSweepWave(
   if (sweepRatio === null || isEco) return;
 
   const sweepAngle = -Math.PI / 2 + sweepRatio * Math.PI * 2;
-  const totalSpanRad = 0.58; // ~33° d'éventail total
-  const startAngle = sweepAngle - totalSpanRad * 0.65;
-  const slices = 14;
+  const totalSpanRad = 0.48; // ~27.5° d'éventail doux
+  const startAngle = sweepAngle - totalSpanRad * 0.62;
+  const slices = 18;
   const sliceSpan = totalSpanRad / slices;
 
   ctx.save();
 
-  // 1. Halo estompé en 14 tranches jointives (courbe en cloche sin² : 0.0 -> max -> 0.0)
+  // 1. Halo angulaire progressif très doux (18 fines tranches radiales jointives, cloche sin²(pi * t))
   for (let s = 0; s < slices; s++) {
     const t = (s + 0.5) / slices;
     const bell = Math.pow(Math.sin(t * Math.PI), 2);
-    if (bell <= 0.01) continue;
+    if (bell <= 0.005) continue;
 
-    const a0 = startAngle + s * sliceSpan - 0.004;
-    const a1 = startAngle + (s + 1) * sliceSpan + 0.004;
+    const a0 = startAngle + s * sliceSpan - 0.0012;
+    const a1 = startAngle + (s + 1) * sliceSpan + 0.0012;
 
     ctx.beginPath();
     ctx.arc(centerX, centerY, outerRadius, a0, a1, false);
     ctx.arc(centerX, centerY, innerRadius, a1, a0, true);
     ctx.closePath();
 
-    // Sillage d'écume parchemin claire côté nouveaux pas (arrière du balai) + cœur terre d'ombre / sépia chaud
-    if (t < 0.42) {
-      const wakeBell = Math.pow(Math.sin((t / 0.42) * Math.PI), 2);
-      ctx.fillStyle = `rgba(250, 244, 232, ${(wakeBell * 0.45).toFixed(3)})`;
+    const alpha = bell * 0.20;
+    if (t < 0.46) {
+      const wakeBell = Math.pow(Math.sin((t / 0.46) * Math.PI), 2);
+      const wakeAlpha = Math.min(0.28, wakeBell * 0.20 * 1.4);
+      ctx.fillStyle = `rgba(244, 236, 216, ${wakeAlpha.toFixed(3)})`;
       ctx.fill();
     }
-    const sepiaAlpha = bell * 0.25;
-    ctx.fillStyle = `rgba(95, 60, 28, ${sepiaAlpha.toFixed(3)})`;
+    ctx.fillStyle = `rgba(110, 72, 38, ${alpha.toFixed(3)})`;
     ctx.fill();
   }
 
-  // 2. 24 brins de paille organiques contrastés (Vassoura de Palha) au cœur de l'éventail
-  const strawCount = 24;
-  const usableRadius = outerRadius - innerRadius - 16;
-  for (let i = 0; i < strawCount; i++) {
-    const frac = (i + 0.5) / strawCount;
-    const rMid = innerRadius + 8 + frac * usableRadius;
-    const jitter = Math.sin(i * 4.7 + 1.3) * 0.5 + Math.cos(i * 2.9) * 0.5;
-    const angleOffset = jitter * (totalSpanRad * 0.35);
-    const centerBell = Math.cos((angleOffset / (totalSpanRad * 0.5)) * (Math.PI * 0.5));
-    const brinAngle = sweepAngle - totalSpanRad * 0.12 + angleOffset;
+  // 2. Quelques stries droites purement radiales (orientées du centre vers l'extérieur le long de theta, 1px)
+  const rayOffsets = [-0.14, -0.09, -0.05, -0.015, 0.02, 0.06, 0.10, 0.14];
+  const radialSpan = outerRadius - innerRadius;
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'round';
 
-    const radialHalf = 16 + (i % 4) * 5;
-    const r0 = Math.max(innerRadius + 3, rMid - radialHalf);
-    const r1 = Math.min(outerRadius - 3, rMid + radialHalf);
-    const bendRad = 0.058 + (i % 3) * 0.019;
+  for (let i = 0; i < rayOffsets.length; i++) {
+    const offset = rayOffsets[i];
+    const theta = sweepAngle - totalSpanRad * 0.10 + offset;
+    const normDist = Math.min(1, Math.abs(offset) / 0.16);
+    const rayBell = Math.pow(Math.cos(normDist * Math.PI * 0.5), 2);
 
-    const x0 = centerX + Math.cos(brinAngle - bendRad) * r0;
-    const y0 = centerY + Math.sin(brinAngle - bendRad) * r0;
-    const xc = centerX + Math.cos(brinAngle + bendRad * 0.48) * rMid;
-    const yc = centerY + Math.sin(brinAngle + bendRad * 0.48) * rMid;
-    const x1 = centerX + Math.cos(brinAngle - bendRad * 0.26) * r1;
-    const y1 = centerY + Math.sin(brinAngle - bendRad * 0.26) * r1;
-
-    const tone = STRAW_PALETTE[i % STRAW_PALETTE.length];
-    const finalAlpha = Math.max(0.14, tone.baseA * Math.max(0.32, centerBell));
+    const rStart = innerRadius + radialSpan * (0.06 + (i % 3) * 0.08);
+    const rEnd = outerRadius - radialSpan * (0.05 + ((i + 1) % 3) * 0.07);
+    const cosT = Math.cos(theta);
+    const sinT = Math.sin(theta);
 
     ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.quadraticCurveTo(xc, yc, x1, y1);
-    ctx.strokeStyle = `rgba(${tone.r}, ${tone.g}, ${tone.b}, ${finalAlpha.toFixed(3)})`;
-    ctx.lineWidth = tone.width;
-    ctx.lineCap = 'round';
+    ctx.moveTo(centerX + cosT * rStart, centerY + sinT * rStart);
+    ctx.lineTo(centerX + cosT * rEnd, centerY + sinT * rEnd);
+    ctx.strokeStyle = i % 2 === 0
+      ? `rgba(95, 60, 28, ${(0.22 * rayBell).toFixed(3)})`
+      : `rgba(244, 236, 216, ${(0.28 * rayBell).toFixed(3)})`;
     ctx.stroke();
   }
 

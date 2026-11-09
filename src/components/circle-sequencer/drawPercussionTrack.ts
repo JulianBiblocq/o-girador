@@ -6,13 +6,13 @@ import { areStepValuesEqual, resolveSlaveStepOpacity, SlaveFocusContext } from '
 import { resolveStepPastilleData } from './resolveStepPastilleData';
 import { drawSplitStepPastille } from './drawSplitStepPastille';
 import { drawRasSubStep } from './drawRasSubStep';
-import { resolveTrackStepsForMeasure, resolveStepSweepBlend } from './rodaSweepMath';
+import { resolveTrackStepsForMeasure, buildCandidateAnglesForSweep, resolveStepSweepBlend } from './rodaSweepMath';
 
 export const drawPercussionTrack = (
   ctx: CanvasRenderingContext2D,
   track: TrackGroup,
   currentInst: InstrumentConfig,
-  activePattern: Pattern,
+  activePattern: Pattern | null | undefined,
   activePlayingSteps: any,
   stepAngles: number[],
   effectiveStepCount: number,
@@ -40,36 +40,37 @@ export const drawPercussionTrack = (
     activeAoVivoTrackId: st.activeAoVivoTrackId, editingTrackId: st.editingTrackId, mobileViewMode: st.mobileViewMode,
   };
 
-  const snapshots = getLiveVariationRodaSnapshots();
   const totalM = st.totalMeasures || 1;
   const isAtLoopEnd = st.isLoopRegionActive && st.loopEndMeasure !== null && measureIdx === st.loopEndMeasure && !st.isLoopExitRequested;
   const fallbackNextM = isAtLoopEnd ? (st.loopStartMeasure ?? 0) : (measureIdx + 1) % totalM;
-  const nextMeasureIdx = st.queuedMeasure !== null && st.queuedMeasure !== undefined ? st.queuedMeasure : (snapshots.nextMeasureIdx ?? fallbackNextM);
+  const nextMeasureIdx = st.queuedMeasure !== null && st.queuedMeasure !== undefined ? st.queuedMeasure : fallbackNextM;
+  const snapshots = getLiveVariationRodaSnapshots(nextMeasureIdx);
 
-  const nextResolved = resolveTrackStepsForMeasure(track, rawTracks, nextMeasureIdx, soloPatternPlayId, snapshots.nextStepsByTrackId);
+  const nextResolved = resolveTrackStepsForMeasure(track, rawTracks, nextMeasureIdx, soloPatternPlayId, snapshots.nextStepsByTrackId, st.measureTimeSigs, st.timeSig);
   const prevResolved = snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null
-    ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId)
-    : { activeSteps: [], baseSteps: [], pattern: null };
+    ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId, st.measureTimeSigs, st.timeSig)
+    : { activeSteps: [], baseSteps: [], pattern: null, stepAngles: [], stepCount: effectiveStepCount };
 
-  const anglePerStep = stepAngles[1] ? stepAngles[1] - stepAngles[0] : (Math.PI * 2) / effectiveStepCount;
-
-  const drawSingleStateAtStep = (rawState: any, baseState: any, mIdx: number, stepIdx: number, stepAngle: number, x: number, y: number, blendWeight: number) => {
+  const drawSingleStateAtStep = (
+    rawState: any, baseState: any, mIdx: number, stepIdx: number, stepCountForM: number,
+    stepAngle: number, x: number, y: number, blendWeight: number
+  ) => {
     const isRas = Array.isArray(rawState) && rawState.length === 2;
     const masterState = isRas ? rawState[0] : rawState;
     const pastille = resolveStepPastilleData(
       masterState, [], currentInst, track, rawTracks, instrumentsConfig,
-      localLeftHanded, dynamicScale, totalTracks, tRad, effectiveStepCount
+      localLeftHanded, dynamicScale, totalTracks, tRad, stepCountForM
     );
     if (!pastille.hasEvent) return;
 
     const isVariationStep = !areStepValuesEqual(rawState, baseState);
+    const varMapForM = mIdx === measureIdx ? (snapshots.currentStepsByTrackId || activeVariationsRef?.current) : (mIdx === nextMeasureIdx ? snapshots.nextStepsByTrackId : snapshots.prevStepsByTrackId);
     const slaveOpacity = isVariationStep
       ? 1.0
-      : resolveSlaveStepOpacity({ track, allTracks: rawTracks, measureIdx: mIdx, stepIdx, ownStepVal: rawState, focusCtx, activeVariationsMap: activeVariationsRef?.current });
+      : resolveSlaveStepOpacity({ track, allTracks: rawTracks, measureIdx: mIdx, stepIdx, ownStepVal: rawState, focusCtx, activeVariationsMap: varMapForM });
     const finalAlpha = slaveOpacity * blendWeight;
     if (finalAlpha <= 0.01) return;
 
-    const finalRadiusSize = pastille.radiusSize;
     ctx.save();
     ctx.globalAlpha = finalAlpha;
 
@@ -78,40 +79,40 @@ export const drawPercussionTrack = (
       const stickAngle = -Math.PI / 2 + playheadRatio * Math.PI * 2;
       const deltaRad = ((stickAngle - stepAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
       const decayArcRad = 0.52;
-      if (deltaRad <= decayArcRad) {
-        hitIntensity = Math.pow(1 - deltaRad / decayArcRad, 1.55);
-      }
+      if (deltaRad <= decayArcRad) hitIntensity = Math.pow(1 - deltaRad / decayArcRad, 1.55);
     }
 
     drawSplitStepPastille(
-      ctx, x, y, finalRadiusSize, false, false,
+      ctx, x, y, pastille.radiusSize, false, false,
       pastille.leftFillColor, pastille.rightFillColor, pastille.leftText, pastille.rightText,
-      pastille.leftTxtColor, pastille.rightTxtColor, stepIdx === currentStep, isEco,
+      pastille.leftTxtColor, pastille.rightTxtColor, mIdx === measureIdx && stepIdx === currentStep, isEco,
       themeWood, themeBorder, dynamicScale, hitIntensity, isVariationStep
     );
 
     if (isRas) {
-      drawRasSubStep(ctx, rawState[1], stepAngle, anglePerStep, centerX, centerY, tRad, currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale, themeBorder, isPlaying, playheadRatio, isEco);
+      const anglePerStepM = (Math.PI * 2) / Math.max(1, stepCountForM);
+      drawRasSubStep(ctx, rawState[1], stepAngle, anglePerStepM, centerX, centerY, tRad, currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale, themeBorder, isPlaying, playheadRatio, isEco);
     }
     ctx.restore();
   };
 
-  for (let i = 0; i < effectiveStepCount; i++) {
-    const stepAngle = stepAngles[i];
+  const candidates = buildCandidateAnglesForSweep(stepAngles, nextResolved.stepAngles, prevResolved.stepAngles, isPlaying, st.rodaSweepMode);
+  for (let i = 0; i < candidates.length; i++) {
+    const { p, angle: stepAngle } = candidates[i];
     const x = centerX + Math.cos(stepAngle) * tRad;
     const y = centerY + Math.sin(stepAngle) * tRad;
 
     const blend = resolveStepSweepBlend({
-      stepIdx: i, stepAngle, isPlaying, playheadRatio, rodaSweepMode: st.rodaSweepMode,
+      p, isPlaying, playheadRatio, rodaSweepMode: st.rodaSweepMode,
       currentMeasureIdx: measureIdx, nextMeasureIdx, prevMeasureIdx: snapshots.prevMeasureIdx, hasPrevMeasure: snapshots.hasPrevMeasure,
-      currentActiveSteps: activePlayingSteps || [], currentBaseSteps: activePattern?.activeSteps || [],
-      nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps,
-      prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps,
+      currStepCount: effectiveStepCount, currentActiveSteps: activePlayingSteps || [], currentBaseSteps: activePattern?.activeSteps || [],
+      nextStepCount: nextResolved.stepCount, nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps,
+      prevStepCount: prevResolved.stepCount, prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps,
     });
 
-    drawSingleStateAtStep(blend.primaryState, blend.primaryBaseState, blend.primaryMeasureIdx, i, stepAngle, x, y, blend.primaryAlpha);
+    drawSingleStateAtStep(blend.primaryState, blend.primaryBaseState, blend.primaryMeasureIdx, blend.primaryStepIdx, blend.primaryStepCount, stepAngle, x, y, blend.primaryAlpha);
     if (blend.isBlending && blend.secondaryMeasureIdx !== undefined && blend.secondaryAlpha) {
-      drawSingleStateAtStep(blend.secondaryState, blend.secondaryBaseState, blend.secondaryMeasureIdx, i, stepAngle, x, y, blend.secondaryAlpha);
+      drawSingleStateAtStep(blend.secondaryState, blend.secondaryBaseState, blend.secondaryMeasureIdx, blend.secondaryStepIdx ?? 0, blend.secondaryStepCount ?? effectiveStepCount, stepAngle, x, y, blend.secondaryAlpha);
     }
   }
 

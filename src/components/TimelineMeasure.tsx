@@ -41,19 +41,18 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   const isSel = isMulti || isActive;
   const isSlave = propIsSlave !== undefined ? Boolean(propIsSlave) : Boolean(isLinkedChild && !isLinkMaster);
 
-  const handlers = useTimelineMeasureHandlers({ trackId, mIdx, steps, patternId, instType, isToada, isPanningActive, onMeasureClick, onOpenPatternPicker });
-  const loopBg = loopStatus === 'inside-active' ? 'bg-blue-600/[0.03]' : (loopStatus === 'outside-active' ? 'bg-black/10 dark:bg-black/30 opacity-70' : '');
-
-  const defaultBeats = parseInt(timeSigStr.split('/')[0], 10) || 4;
-  const activeWidthPct = Math.min(100, (defaultBeats / 4) * 100);
+  const defaultBeats = timeSigStr === '2/4' || timeSigStr === '6/8' ? 2 : timeSigStr === '3/4' ? 3 : (parseInt(timeSigStr.split('/')[0], 10) || 4);
   const beatRes = beatResolutions || Array(defaultBeats).fill(4);
   const beatGroups: number[][] = [];
-  let acc = 0;
+  let stepsInMeasure = 0;
   for (let b = 0; b < defaultBeats; b++) {
     const res = beatRes[b] ?? 4;
-    beatGroups.push(Array.from({ length: res }, (_, i) => acc + i));
-    acc += res;
+    beatGroups.push(Array.from({ length: res }, (_, i) => stepsInMeasure + i));
+    stepsInMeasure += res;
   }
+
+  const handlers = useTimelineMeasureHandlers({ trackId, mIdx, steps: stepsInMeasure, patternId, instType, isToada, isPanningActive, onMeasureClick, onOpenPatternPicker });
+  const loopBg = loopStatus === 'inside-active' ? 'bg-blue-600/[0.03]' : (loopStatus === 'outside-active' ? 'bg-black/10 dark:bg-black/30 opacity-70' : '');
 
   return (
     <div
@@ -69,23 +68,20 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
             <TimelineMeasureToadaDualWave patternId={patternId} isSelectedCell={isSel} isToadaComposite={isToadaComposite} toadaVocalBadges={toadaVocalBadges} />
           ) : (
             <div className="flex h-full w-full pointer-events-none">
-              <div className="flex h-full" style={{ width: `${activeWidthPct}%` }}>
-                {beatGroups.map((group, bIdx) => (
-                  <div key={bIdx} className="flex flex-1 h-full items-center border-r border-[var(--cordel-border)]/20 last:border-r-0">
-                    {group.map((sIdx) => (
-                      <TimelineStep key={sIdx} trackId={trackId} patternId={patternId} measureIdx={mIdx} stepIdx={sIdx} patternStepOffset={(relativeIdx || 0) * 16} stepsCount={steps} trackIdx={trackIdx} patternIdx={patternIdx} instrumentIdx={instrumentIdx} beatResolutions={beatResolutions} onStepTouchStart={onStepTouchStart} isLinkFolder={isLinkFolder} isSlave={isSlave} isLinkMaster={isLinkMaster} parentBusTrackId={parentBusTrackId} masterTrackId={masterTrackId} slaveTrackIds={slaveTrackIds} hasChildOverrides={hasChildOverrides} />
-                    ))}
-                  </div>
-                ))}
-              </div>
-              {defaultBeats < 4 && <div className="flex h-full" style={{ width: `${100 - activeWidthPct}%`, backgroundColor: 'var(--cordel-bg)', backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)', backgroundSize: '10px 10px', opacity: 0.15, borderLeft: '1px dashed var(--cordel-border)' }} />}
+              {beatGroups.map((group, bIdx) => (
+                <div key={bIdx} className="flex flex-1 h-full items-center border-r border-[var(--cordel-border)]/20 last:border-r-0">
+                  {group.map((sIdx) => (
+                    <TimelineStep key={sIdx} trackId={trackId} patternId={patternId} measureIdx={mIdx} stepIdx={sIdx} patternStepOffset={(relativeIdx || 0) * 16} stepsCount={stepsInMeasure} trackIdx={trackIdx} patternIdx={patternIdx} instrumentIdx={instrumentIdx} beatResolutions={beatResolutions} onStepTouchStart={onStepTouchStart} isLinkFolder={isLinkFolder} isSlave={isSlave} isLinkMaster={isLinkMaster} parentBusTrackId={parentBusTrackId} masterTrackId={masterTrackId} slaveTrackIds={slaveTrackIds} hasChildOverrides={hasChildOverrides} />
+                  ))}
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
       {isMacro && (
         <div className="cell-macro w-full h-full p-1 relative">
-          <TimelineMeasureMacroBlock trackId={trackId} mIdx={mIdx} patternId={patternId} spanMeasures={spanMeasures} relativeIdx={relativeIdx} isToada={isToada} isToadaComposite={isToadaComposite} toadaVocalBadges={toadaVocalBadges} isSelectedCell={isSel} isMinZoom={isMinZoom} isPanningActive={isPanningActive} instColors={instColors} instMixerBg={instMixerBg} activePatternName={activePatternName} activePatternActiveSteps={activePatternActiveSteps} patternsList={patternsList} lang={lang} onPatternAssignForMeasure={onPatternAssignForMeasure} onOpenPatternPicker={onOpenPatternPicker} />
+          <TimelineMeasureMacroBlock trackId={trackId} mIdx={mIdx} patternId={patternId} spanMeasures={spanMeasures} relativeIdx={relativeIdx} isToada={isToada} isToadaComposite={isToadaComposite} toadaVocalBadges={toadaVocalBadges} isSelectedCell={isSel} isMinZoom={isMinZoom} isPanningActive={isPanningActive} instColors={instColors} instMixerBg={instMixerBg} activePatternName={activePatternName} activePatternActiveSteps={activePatternActiveSteps?.slice(0, stepsInMeasure)} patternsList={patternsList} lang={lang} onPatternAssignForMeasure={onPatternAssignForMeasure} onOpenPatternPicker={onOpenPatternPicker} />
         </div>
       )}
     </div>

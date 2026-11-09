@@ -31,14 +31,17 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
       ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
       : undefined;
 
-  const effectiveOpacity = stepOpacity !== undefined ? stepOpacity : isGhostStep ? 0.45 : 1;
+  const rawOpacity = stepOpacity !== undefined ? stepOpacity : isGhostStep ? 0.45 : 1;
+  const isDimmedSlave = isStepActive && rawOpacity < 0.99;
+  const fillOpacity = isDimmedSlave ? 0.62 : 1;
+  const textOpacity = isDimmedSlave ? 0.95 : 1;
 
   const baseStyle: React.CSSProperties = {
     filter: isTriplet || isSextuplet ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
     clipPath,
     outline: isVariationStep ? '2px solid #c25e38' : undefined,
     outlineOffset: isVariationStep ? '-2px' : undefined,
-    opacity: isStepActive ? effectiveOpacity : 1,
+    opacity: 1,
   };
 
   if (isSplit) {
@@ -46,24 +49,26 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
       <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
         <button
           {...commonButtonProps}
-          className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-8 rounded-none outline-none border-[1.5px] border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] ${
+          className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-8 rounded-none outline-none bg-[#ede4d0] dark:bg-[#ebe2ce] border-[1.5px] border-[#1a1a1a] dark:border-black shadow-[1px_1px_0px_#1a1a1a] ${
             isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
           }`}
           style={baseStyle}
         >
-          <div
-            className="xilo-wood-stamp-cell absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a]"
-            style={{ backgroundColor: applyCordelInkedPatina(leftBg), color: leftTxt }}
-          >
-            <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
+          <div className="absolute left-0 top-0 bottom-0 w-1/2 flex items-center justify-center border-r-[1.5px] border-[#1a1a1a] overflow-hidden">
+            <div className="xilo-wood-stamp-cell absolute inset-0 pointer-events-none" style={{ backgroundColor: applyCordelInkedPatina(leftBg), opacity: fillOpacity }} />
+            <span
+              className={`relative z-10 font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}
+              style={{ color: leftTxt, opacity: textOpacity, textShadow: leftTxt === '#1a1a1a' ? 'none' : '0 1px 1px rgba(26,26,26,0.55)' }}
+            >
               {leftSym}
             </span>
           </div>
-          <div
-            className="xilo-wood-stamp-cell absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center"
-            style={{ backgroundColor: applyCordelInkedPatina(rightBg), color: rightTxt }}
-          >
-            <span className={`font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}>
+          <div className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center overflow-hidden">
+            <div className="xilo-wood-stamp-cell absolute inset-0 pointer-events-none" style={{ backgroundColor: applyCordelInkedPatina(rightBg), opacity: fillOpacity }} />
+            <span
+              className={`relative z-10 font-bold text-xs md:text-sm ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}`}
+              style={{ color: rightTxt, opacity: textOpacity, textShadow: rightTxt === '#1a1a1a' ? 'none' : '0 1px 1px rgba(26,26,26,0.55)' }}
+            >
               {rightSym}
             </span>
           </div>
@@ -73,7 +78,7 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
   }
 
   const borderClass = isStepActive
-    ? 'xilo-wood-stamp-cell border-[1.5px] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
+    ? 'border-[1.5px] border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] bg-[#ede4d0] dark:bg-[#ebe2ce]'
     : 'border-[1.5px] border-[#1a1a1a]/35 shadow-[1px_1px_0px_rgba(26,26,26,0.15)] bg-[#ede4d0] dark:bg-[#ebe2ce] text-[#1a1a1a]/50 dark:text-[#1a1a1a]/50';
   const inkedBg = isStepActive ? applyCordelInkedPatina(bgColor) : undefined;
 
@@ -81,16 +86,25 @@ export const DawStepCell: React.FC<DawStepCellProps> = ({
     <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
       <button
         {...commonButtonProps}
-        className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-7.5 rounded-none outline-none ${borderClass} ${
+        className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-7.5 rounded-none outline-none overflow-hidden ${borderClass} ${
           isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
         }`}
         style={{
           ...baseStyle,
-          backgroundColor: isTriplet || isSextuplet ? (isStepActive ? inkedBg : 'rgba(26, 26, 26, 0.12)') : inkedBg,
+          backgroundColor: !isStepActive && (isTriplet || isSextuplet) ? 'rgba(26, 26, 26, 0.12)' : undefined,
           color: isStepActive ? txtColor : undefined,
         }}
       >
-        <span className={`${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''} ${isVoice && isProlongation ? 'tracking-widest font-mono text-xs md:text-sm' : ''} ${isVoice && !isProlongation ? 'font-bold text-xs md:text-sm truncate px-0.5' : ''} ${!isVoice ? 'font-bold text-xs md:text-sm' : ''}`}>
+        {isStepActive && (
+          <div
+            className="xilo-wood-stamp-cell absolute inset-0 pointer-events-none"
+            style={{ backgroundColor: inkedBg, opacity: fillOpacity }}
+          />
+        )}
+        <span
+          className={`relative z-10 ${isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''} ${isVoice && isProlongation ? 'tracking-widest font-mono text-xs md:text-sm' : ''} ${isVoice && !isProlongation ? 'font-bold text-xs md:text-sm truncate px-0.5' : ''} ${!isVoice ? 'font-bold text-xs md:text-sm' : ''}`}
+          style={isStepActive ? { opacity: textOpacity, textShadow: txtColor === '#1a1a1a' ? 'none' : '0 1px 1px rgba(26,26,26,0.55)' } : undefined}
+        >
           {displayVal || '---'}
         </span>
       </button>
