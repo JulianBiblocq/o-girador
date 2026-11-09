@@ -29,7 +29,7 @@ function hasParentBus(track: TrackMeta, allTracks: TrackMeta[]): boolean {
 
     const parent = allTracks.find((p) => String(p.id) === idStr);
     if (!parent) break;
-    if (parent.isBusFolder || parent.isLinkFolder) return true;
+    if (parent.isBusFolder || parent.isLinkFolder || parent.isLinkMaster) return true;
     currentId = parent.busId || parent.linkedToTrackId;
   }
 
@@ -41,12 +41,13 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
   const ordered: TrackMeta[] = [];
 
   const isRoot = (t: TrackMeta) => {
-    if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
-      return false;
+    if (t.linkedToTrackId && !t.isLinkFolder) {
+      const hasLinkParent = tracksList.some(p => p.id !== t.id && String(p.id) === String(t.linkedToTrackId));
+      if (hasLinkParent) return false;
     }
     const busIdStr = t.busId;
     if (!busIdStr) return true;
-    const hasParent = tracksList.some(p => String(p.id) === String(busIdStr));
+    const hasParent = tracksList.some(p => p.id !== t.id && String(p.id) === String(busIdStr));
     return !hasParent;
   };
 

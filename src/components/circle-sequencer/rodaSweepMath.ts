@@ -15,7 +15,7 @@ export interface StepSweepBlend {
   secondaryAlpha?: number;
 }
 
-const SWEEP_HALF_WIDTH = 0.042;
+const SWEEP_HALF_WIDTH = 0.065;
 
 export function resolveTrackStepsForMeasure(
   track: TrackGroup,

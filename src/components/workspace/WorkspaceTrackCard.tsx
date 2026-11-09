@@ -94,7 +94,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
 
           <button
             onClick={handleBadgeClick}
-            className={`flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-xs transition-all h-[28px] min-h-[28px] ${isPracticeMode ? 'flex-1 min-w-0' : 'w-[116px] shrink-0'} ${(!isPracticeMode || isFocusEligible) ? 'cursor-pointer' : 'cursor-default'} ${isCurrentFocus ? 'ring-2 ring-[#1a1a1a] dark:ring-[#f4ecd8] shadow-inner font-black' : ''}`}
+            className={`flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-xs transition-all h-[28px] min-h-[28px] shadow-[inset_0_0_0_1px_rgba(26,26,26,0.25)] ${isPracticeMode ? 'flex-1 min-w-0' : 'w-[116px] shrink-0'} ${(!isPracticeMode || isFocusEligible) ? 'cursor-pointer' : 'cursor-default'} ${isCurrentFocus ? 'ring-2 ring-[#1a1a1a] dark:ring-[#f4ecd8] shadow-inner font-black' : ''}`}
             style={{ backgroundColor: badgeBg, color: badgeText }}
             title={badgeTitle}
           >

@@ -6,9 +6,9 @@ import { instrumentsConfig } from '../../../data';
 import {
   getBusColor,
   getBusMemberColors,
-  getBusStripeGradient,
   getContrastColor,
   getInstrumentPrimaryStrongColor,
+  getRootLinkGroupId,
   getTopParentBusId,
 } from '../../../utils/colorHelpers';
 
@@ -56,9 +56,6 @@ export function computeChannelStripStyles({
     }
     groupStyle.borderTop = `${borderWidth} solid ${busColor}`;
     groupStyle.borderBottom = `${borderWidth} solid ${lastBusColor}`;
-    if (memberColors.length > 1) {
-      groupStyle.borderImage = `${getBusStripeGradient(memberColors, 'to right')} 1`;
-    }
     if (busPosition === 'first') {
       groupStyle.borderLeft = `${borderWidth} solid ${busColor}`;
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
@@ -71,11 +68,12 @@ export function computeChannelStripStyles({
     }
   }
 
-  const linkColor = track.isLinkFolder
-    ? getBusColor(String(track.id), tracksMeta, instrumentsConfig)
-    : track.linkedToTrackId
-      ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig)
-      : getInstrumentPrimaryStrongColor(inst, track);
+  const rootLinkId = getRootLinkGroupId(track, tracksMeta);
+  const linkMemberColors = rootLinkId
+    ? getBusMemberColors(rootLinkId, tracksMeta, instrumentsConfig)
+    : [getInstrumentPrimaryStrongColor(inst, track)];
+  const linkColor = linkMemberColors[0] || getInstrumentPrimaryStrongColor(inst, track);
+  const lastLinkColor = linkMemberColors[linkMemberColors.length - 1] || linkColor;
 
   const linkBorderWidth = isDragOver ? '4px' : '2.5px';
   const linkStyle: React.CSSProperties = {
@@ -87,7 +85,7 @@ export function computeChannelStripStyles({
     pointerEvents: 'none',
     zIndex: 2,
     borderTop: `${linkBorderWidth} solid ${linkColor}`,
-    borderBottom: `${linkBorderWidth} solid ${linkColor}`,
+    borderBottom: `${linkBorderWidth} solid ${lastLinkColor}`,
   };
 
   if (linkPosition === 'first') {
@@ -98,14 +96,14 @@ export function computeChannelStripStyles({
     linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
   } else if (linkPosition === 'last') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
+    linkStyle.borderRight = `${linkBorderWidth} solid ${lastLinkColor}`;
   } else if (linkPosition === 'none' && (!track.isBusFolder || track.isLinkFolder)) {
     linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
     linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
   }
 
-  const faderColor = track.isLinkFolder
-    ? getBusColor(String(track.id), tracksMeta, instrumentsConfig)
+  const faderColor = rootLinkId && track.isLinkFolder
+    ? getBusColor(rootLinkId, tracksMeta, instrumentsConfig)
     : getInstrumentPrimaryStrongColor(inst, track);
 
   const faderTextColor = getContrastColor(faderColor);

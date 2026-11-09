@@ -1,6 +1,6 @@
 import { TrackGroup } from '../../types';
 import { TrackMeta } from '../../stores/useSequencerStore';
-import { getTopParentBusId } from '../../utils/colorHelpers';
+import { getTopParentBusId, getRootLinkGroupId } from '../../utils/colorHelpers';
 
 export const getTrackGroupKey = (
   t: TrackGroup | TrackMeta | null | undefined,
@@ -9,8 +9,8 @@ export const getTrackGroupKey = (
   if (!t) return null;
   const topBus = getTopParentBusId(t, allTracks as any);
   if (topBus) return topBus;
-  if (t.isLinkFolder) return String(t.id);
-  if (t.linkedToTrackId) return String(t.linkedToTrackId);
+  const rootLink = getRootLinkGroupId(t, allTracks as any);
+  if (rootLink) return rootLink;
   if (t.busId) return String(t.busId);
   return null;
 };
@@ -34,21 +34,9 @@ export function computeBusAndLinkPositions(
     else if (hasPrev && !hasNext) busPosition = 'last';
   }
 
-  const linkGroupId = track.isLinkFolder
-    ? String(track.id)
-    : (track.linkedToTrackId ? String(track.linkedToTrackId) : null);
-
-  const prevLinkGroupId = prevTrack
-    ? (prevTrack.isLinkFolder
-        ? String(prevTrack.id)
-        : (prevTrack.linkedToTrackId ? String(prevTrack.linkedToTrackId) : null))
-    : null;
-
-  const nextLinkGroupId = nextTrack
-    ? (nextTrack.isLinkFolder
-        ? String(nextTrack.id)
-        : (nextTrack.linkedToTrackId ? String(nextTrack.linkedToTrackId) : null))
-    : null;
+  const linkGroupId = getRootLinkGroupId(track, tracksMeta as any);
+  const prevLinkGroupId = prevTrack ? getRootLinkGroupId(prevTrack, tracksMeta as any) : null;
+  const nextLinkGroupId = nextTrack ? getRootLinkGroupId(nextTrack, tracksMeta as any) : null;
 
   let linkPosition: 'first' | 'middle' | 'last' | 'none' = 'none';
   if (linkGroupId) {

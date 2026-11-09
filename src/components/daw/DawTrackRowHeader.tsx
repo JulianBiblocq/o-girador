@@ -64,7 +64,7 @@ export const DawTrackRowHeader: React.FC<DawTrackRowHeaderProps> = ({
                 : track;
               useSequencerStore.getState().setEditingTrackId(targetTrack.id);
             }}
-            className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-0.5 text-xs cursor-pointer transition-colors w-[130px] h-[38px] min-h-[38px] shrink-0"
+            className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-0.5 text-xs cursor-pointer transition-colors w-[130px] h-[38px] min-h-[38px] shrink-0 shadow-[inset_0_0_0_1px_rgba(26,26,26,0.25)]"
             style={{ backgroundColor: badgeBg, color: badgeText }}
             title={lang === 'pt' ? 'Editar instrumento' : "Éditer l'instrument"}
           >

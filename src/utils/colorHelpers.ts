@@ -1,7 +1,10 @@
-export { getTopParentBusId, getTrackDisplayName } from './trackHelpers';
+export { getTopParentBusId, getRootLinkGroupId, getTrackDisplayName } from './trackHelpers';
+import { applyCordelInkedPatina } from './cordelPatina';
+
+export { applyCordelInkedPatina };
 
 /**
- * Retourne la couleur pure du coup fort principal de l'instrument sur la Roda
+ * Retourne la couleur patinée du coup fort principal de l'instrument sur la Roda
  * ('1' / 'D' / 'G' / 'P' / 'W' dans inst.colors), sans jamais faire de moyenne RGB.
  * Conserve la distinction Puxador (#c25e38) / Coro (#2a9d8f).
  */
@@ -9,7 +12,7 @@ export function getInstrumentPrimaryStrongColor(inst?: any, track?: any): string
   const customLower = (track?.customName || '').toLowerCase();
   const instId = (inst?.id || '').toLowerCase();
 
-  if (instId === 'coro' || customLower.includes('coro')) return '#2a9d8f';
+  if (instId === 'coro' || customLower.includes('coro')) return applyCordelInkedPatina('#2a9d8f');
   if (
     instId === 'puxador' ||
     instId === 'toada' ||
@@ -17,20 +20,20 @@ export function getInstrumentPrimaryStrongColor(inst?: any, track?: any): string
     customLower === 'toada' ||
     String(track?.id) === 'toada'
   ) {
-    return '#c25e38';
+    return applyCordelInkedPatina('#c25e38');
   }
 
   const colors = inst?.colors;
   if (colors) {
-    if (instId === 'mineiro' && colors['P']) return colors['P'];
-    if (instId === 'gongue' && colors['G']) return colors['G'];
-    if (instId === 'apito' && colors['W']) return colors['W'];
-    if (instId === 'timbal' && (colors['A'] || colors['G'])) return colors['A'] || colors['G'];
+    if (instId === 'mineiro' && colors['P']) return applyCordelInkedPatina(colors['P']);
+    if (instId === 'gongue' && colors['G']) return applyCordelInkedPatina(colors['G']);
+    if (instId === 'apito' && colors['W']) return applyCordelInkedPatina(colors['W']);
+    if (instId === 'timbal' && (colors['A'] || colors['G'])) return applyCordelInkedPatina(colors['A'] || colors['G']);
     const strong = colors['1'] || colors['D'] || colors['G'] || colors['P'] || colors['W'];
-    if (strong) return strong;
+    if (strong) return applyCordelInkedPatina(strong);
   }
 
-  return inst?.color || '#8b2a1a';
+  return applyCordelInkedPatina(inst?.color || '#8b2a1a');
 }
 
 function collectIndividualTracks(busId: string, tracks: any[]): any[] {
@@ -52,11 +55,7 @@ function collectIndividualTracks(busId: string, tracks: any[]): any[] {
       results.push(selfTrack);
     }
     directChildren.forEach((t: any) => {
-      if (!t.isBusFolder && !t.isLinkFolder) {
-        results.push(t);
-      } else {
-        results = results.concat(walk(String(t.id)));
-      }
+      results = results.concat(walk(String(t.id)));
     });
     return results;
   };

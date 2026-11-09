@@ -13,6 +13,10 @@ export function sanitizeTrackLinkingAndBuses(tracks: TrackGroup[]): TrackGroup[]
     return a.patterns && next.patterns && (a.patterns.length !== next.patterns.length || a.patterns[0]?.id !== next.patterns[0]?.id);
   });
 
+  const caixasBus = tracks.find(
+    (t) => t.isBusFolder && (t.customName?.toUpperCase().includes('CAIXA') || t.instrumentIdx === 3)
+  );
+
   return tracks.map((track) => {
     // Si c'est le bus ALFAIAS alors que les tambours ont des motifs distincts, forcer isLinkFolder = false
     if (track.isBusFolder && track.customName?.toUpperCase().includes('ALFAIA') && haveDistinctPatterns) {
@@ -22,6 +26,17 @@ export function sanitizeTrackLinkingAndBuses(tracks: TrackGroup[]): TrackGroup[]
     // Si c'est une Alfaia indépendante dans ce contexte
     if ((track.instrumentIdx === 0 || track.instrumentIdx === 1 || track.instrumentIdx === 2) && haveDistinctPatterns) {
       return { ...track, isLinkMaster: false, isLinkFolder: false, linkedToTrackId: undefined };
+    }
+
+    // Cohérence du groupe Caixas / Tarol lorsqu'un bus CAIXAS est présent
+    if (!track.isBusFolder && (track.instrumentIdx === 3 || track.instrumentIdx === 4) && caixasBus) {
+      const cxBusId = String(caixasBus.id);
+      if (caixasBus.isLinkFolder) {
+        return { ...track, busId: cxBusId, linkedToTrackId: cxBusId };
+      }
+      if (!track.busId) {
+        return { ...track, busId: cxBusId };
+      }
     }
 
     if (!track.linkedToTrackId) return track;

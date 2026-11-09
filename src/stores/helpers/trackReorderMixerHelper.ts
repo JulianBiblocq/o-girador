@@ -1,5 +1,6 @@
 import { arrayMove } from '@dnd-kit/sortable';
 import { TrackGroup } from '../../types';
+import { getRootLinkGroupId } from '../../utils/trackHelpers';
 import { applyRadii } from './trackRodaGeometryHelpers';
 
 export const sortTracksHierarchically = (tracksList: TrackGroup[]): TrackGroup[] => {
@@ -7,7 +8,9 @@ export const sortTracksHierarchically = (tracksList: TrackGroup[]): TrackGroup[]
   const ordered: TrackGroup[] = [];
 
   const isRoot = (t: TrackGroup) => {
-    if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) return false;
+    const hasLinkParent =
+      t.linkedToTrackId && tracksList.some(p => p.id !== t.id && String(p.id) === String(t.linkedToTrackId));
+    if (hasLinkParent && !t.isLinkFolder) return false;
     const busIdStr = t.busId;
     if (!busIdStr) return true;
     return !tracksList.some(p => p.id !== t.id && String(p.id) === String(busIdStr));
@@ -34,12 +37,8 @@ export const sortTracksHierarchically = (tracksList: TrackGroup[]): TrackGroup[]
   return ordered;
 };
 
-const getLinkGroupId = (t: TrackGroup, list: TrackGroup[]): string | null => {
-  if (t.isLinkFolder) return String(t.id);
-  if (t.linkedToTrackId) return String(t.linkedToTrackId);
-  if (t.isLinkMaster) return String(t.id);
-  return list.some(o => o.linkedToTrackId && String(o.linkedToTrackId) === String(t.id)) ? String(t.id) : null;
-};
+const getLinkGroupId = (t: TrackGroup, list: TrackGroup[]): string | null =>
+  getRootLinkGroupId(t, list);
 
 const isMemberOfSolidBlock = (cand: TrackGroup, ref: TrackGroup, list: TrackGroup[]): boolean => {
   const refLinkId = getLinkGroupId(ref, list);

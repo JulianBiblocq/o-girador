@@ -5,6 +5,7 @@
 
 import type { InstrumentConfig } from '../../../types/config.types';
 import { MARACATU_THEME, buildInstrumentColors } from '../theme';
+import { applyCordelInkedPatina } from '../../../utils/cordelPatina';
 
 export const ASSETS_BASE_URL = (import.meta as any).env?.BASE_URL || '/';
 
@@ -17,7 +18,7 @@ function makeInst(id: keyof typeof MARACATU_THEME, name: string, type: any, icon
     mixerBg: MARACATU_THEME[id].mixerBg,
     path,
     colors: buildInstrumentColors(MARACATU_THEME, id as any),
-    color: MARACATU_THEME[id].color
+    color: applyCordelInkedPatina(MARACATU_THEME[id].color)
   };
 }
 
