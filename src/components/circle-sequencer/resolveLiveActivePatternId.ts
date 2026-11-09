@@ -76,5 +76,14 @@ export function resolveLiveActivePatternId(
     }
   }
 
+  if (track.linkedToTrackId) {
+    const parent = state.rawTracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
+    const parentPtn = parent?.patterns?.find((p: any) => p?.measureAssignments?.[measureIdx]);
+    if (parentPtn) {
+      const matchByName = track.patterns?.find((p: any) => p.name === parentPtn.name);
+      return matchByName ? matchByName.id : parentPtn.id;
+    }
+  }
+
   return null;
 }

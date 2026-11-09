@@ -3,7 +3,16 @@ import { MIN_RADIUS, MAX_RADIUS } from './circleSequencerConstants';
 
 export const getTrackRadius = (visibleIdx: number, totalTracks: number): number => {
   if (totalTracks <= 0) return 0;
-  const t = totalTracks > 1 ? visibleIdx / (totalTracks - 1) : 0.5;
+  if (totalTracks === 1) {
+    return MIN_RADIUS + 0.5 * (MAX_RADIUS - MIN_RADIUS);
+  }
+  if (totalTracks === 2) {
+    // visibleIdx === 0 : anneau extérieur (position 3/4, t = 0.65 depuis MIN_RADIUS) -> focusTrackId
+    // visibleIdx === 1 : anneau intérieur (position 2/4, t = 0.35 depuis MIN_RADIUS) -> referenceTrackId
+    const radialRatio = visibleIdx === 0 ? 0.65 : 0.35;
+    return MIN_RADIUS + radialRatio * (MAX_RADIUS - MIN_RADIUS);
+  }
+  const t = visibleIdx / (totalTracks - 1);
   return MAX_RADIUS - t * (MAX_RADIUS - MIN_RADIUS);
 };
 

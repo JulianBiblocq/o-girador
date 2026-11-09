@@ -1,12 +1,12 @@
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrackCoreSlice } from './trackCoreSliceTypes';
+import { handleFocusAwareTrackHideToggle } from '../helpers/focusVisibilityHelpers';
 import {
   handleTrackDeleteState,
   duplicateTrackState,
   handleTrackMuteToggleState,
   handleTrackSoloToggleState,
-  handleTrackHideToggleState,
   handleTrackInstrumentIdxChangeState
 } from '../helpers/trackLifecycleHelpers';
 import {
@@ -88,7 +88,7 @@ export const createTrackCoreSlice: StateCreator<SequencerStore, [], [], TrackCor
   },
 
   handleTrackHideToggle: (id) => {
-    set(state => ({ tracks: handleTrackHideToggleState(state.tracks, id) }));
+    set(state => handleFocusAwareTrackHideToggle(state, id));
   },
 
   handleTrackDelete: (id) => {

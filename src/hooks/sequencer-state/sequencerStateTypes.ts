@@ -43,8 +43,16 @@ export function applyRadii(list: TrackGroup[]): TrackGroup[] {
     if (drawableIdx === -1) {
       return t;
     }
-    const tNorm = visibleCount > 1 ? drawableIdx / (visibleCount - 1) : 0.5;
-    const newRadius = maxRadius - tNorm * (maxRadius - minRadius);
+    let newRadius: number;
+    if (visibleCount <= 1) {
+      newRadius = minRadius + 0.5 * (maxRadius - minRadius);
+    } else if (visibleCount === 2) {
+      const radialRatio = drawableIdx === 0 ? 0.65 : 0.35;
+      newRadius = minRadius + radialRatio * (maxRadius - minRadius);
+    } else {
+      const tNorm = drawableIdx / (visibleCount - 1);
+      newRadius = maxRadius - tNorm * (maxRadius - minRadius);
+    }
     if (t.radius !== newRadius) {
       return { ...t, radius: newRadius };
     }

@@ -25,7 +25,7 @@ export const processHitTriggers = (
     pool.readIndex = (pool.readIndex + 1) % pool.size;
 
     let track = tracksMap.get(hit.trackId);
-    if (track && track.linkedToTrackId) {
+    if (track && activeVisibleTracks.findIndex(vt => vt.id === track!.id) === -1 && track.linkedToTrackId) {
       track = tracksMap.get(track.linkedToTrackId) || tracksMap.get(Number(track.linkedToTrackId));
     }
     if (track && !track.isHidden && !track.isMute) {

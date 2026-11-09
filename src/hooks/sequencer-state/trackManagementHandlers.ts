@@ -24,7 +24,7 @@ export function createTrackManagementHandlers(ctx: TrackManagementContext) {
   };
 
   const handleTrackHideToggle = (id: number) => {
-    setTracks((prev: TrackGroup[]) => applyRadii(prev.map((t: TrackGroup) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t))));
+    useSequencerStore.getState().handleTrackHideToggle(id);
   };
 
   const handleTrackDelete = (id: number) => {

@@ -37,13 +37,13 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
   const currentMeasure = useSequencerStore((s) => s.currentMeasure), measureBpms = useSequencerStore((s) => s.measureBpms);
   const activeAoVivoTrackId = useSequencerStore((s) => s.activeAoVivoTrackId), setActiveAoVivoTrackId = useSequencerStore((s) => s.setActiveAoVivoTrackId);
   const focusTrackId = useSequencerStore((s) => s.focusTrackId);
+  const referenceTrackId = useSequencerStore((s) => s.referenceTrackId), setReferenceTrackId = useSequencerStore((s) => s.setReferenceTrackId);
   const syncFocusWithTracks = useSequencerStore((s) => s.syncFocusWithTracks);
   const loopMode = useSequencerStore((s) => s.loopMode ?? 'infinite'), setLoopMode = useSequencerStore((s) => s.setLoopMode);
   const isLoopExitRequested = useSequencerStore((s) => s.isLoopExitRequested), requestLoopExit = useSequencerStore((s) => s.requestLoopExit);
   const isSpeedTrainerOpen = useSequencerStore((s) => s.isSpeedTrainerOpen), openSpeedTrainerModal = useSequencerStore((s) => s.openSpeedTrainerModal);
   const isLetraActive = useSequencerStore((s) => s.isLetraActive), toggleLetraActive = useSequencerStore((s) => s.toggleLetraActive);
 
-  const [referenceTrackId, setReferenceTrackId] = useState<number | null>(null);
   const [isFocusPopoverOpen, setIsFocusPopoverOpen] = useState(false);
   const [isRestMuted, setIsRestMuted] = useState(false);
   const [isLetraDrawerOpen, setIsLetraDrawerOpen] = useState(false);
@@ -51,10 +51,10 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    syncFocusWithTracks(tracks, userProfile);
     if (!useSequencerStore.getState().isFocusActive) {
       useSequencerStore.setState({ isFocusActive: true });
     }
+    syncFocusWithTracks(tracks, userProfile);
   }, [tracks, userProfile, syncFocusWithTracks]);
 
   useEffect(() => {

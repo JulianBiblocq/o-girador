@@ -4,7 +4,7 @@ import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
 import { getTone } from '../../ToneLoader';
-import { sortTracksByRodaOrder } from './sortTracksByRodaOrder';
+import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks } from './sortTracksByRodaOrder';
 import { clearStepAtCanvasCoords } from './clearStepAtCoords';
 import { handleStepClickAction } from './handleStepClickAction';
 import { findStepUnderPointer } from './findStepUnderPointer';
@@ -69,11 +69,14 @@ export function useCircleTouchInteraction(
     const currentRodaOrder = stateRef.current.rodaTrackOrder;
     const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
 
-    const activeVisibleTracksToDraw = sortedCurrentTracks.filter(t => {
-      if (t.isHidden) return false;
-      if (!isSequencerVisibleTrack(t, currentTracks)) return false;
-      return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
-    });
+    const activeVisibleTracksToDraw = orderActiveVisibleRodaTracks(
+      sortedCurrentTracks.filter(t => {
+        if (t.isHidden) return false;
+        if (!isSequencerVisibleTrack(t, currentTracks)) return false;
+        return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
+      }),
+      currentRawTracks || currentTracks
+    );
 
     const hit = findStepUnderPointer(dx, dy, distance, activeVisibleTracksToDraw, currentTracks, getLiveActivePatternId);
     if (hit) {

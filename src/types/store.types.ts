@@ -83,6 +83,7 @@ export interface TrainingState {
   firstPassRegistry: Record<string, boolean>;
   isFocusActive: boolean;
   focusTrackId: number | null;
+  referenceTrackId: number | null;
   preferredInstrumentName: string | null;
 }
 
@@ -94,6 +95,7 @@ export interface TrainingSlice extends TrainingState {
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;
   setFocusTrackId: (trackId: number | null, preferredName?: string) => void;
+  setReferenceTrackId: (trackId: number | null) => void;
   toggleFocusMode: (explicitTrackId?: number) => void;
   syncFocusWithTracks: (tracks: TrackGroup[], userProfile?: any) => void;
 }

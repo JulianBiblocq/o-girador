@@ -2,6 +2,7 @@
 import { TrackGroup, InstrumentConfig } from '../../types';
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../../data';
 import { getBusNoteColor } from '../../utils/colorHelpers';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 
 export interface SatelliteItem {
   color: string;
@@ -21,6 +22,7 @@ export function resolveSatellites(
 ): SatelliteItem[] {
   const satellites: SatelliteItem[] = [];
   if (!track.isLinkFolder && !track.isLinkMaster) return satellites;
+  if (useSequencerStore.getState().isFocusActive && !track.isLinkFolder) return satellites;
 
   const targetBusId = track.busId || track.linkedToTrackId || track.id;
   const parentBus = track.isLinkFolder
@@ -32,6 +34,7 @@ export function resolveSatellites(
       !t.isBusFolder &&
       !t.isLinkMaster &&
       t.id !== track.id &&
+      t.isHidden !== false &&
       (String(t.linkedToTrackId) === String(targetBusId) ||
        String(t.linkedToTrackId) === String(track.id) ||
        (targetBusId && String(t.busId) === String(targetBusId)))

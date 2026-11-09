@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import { audioEngine } from '../../hooks/useAudioSync';
-import { sortTracksByRodaOrder } from './sortTracksByRodaOrder';
+import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks } from './sortTracksByRodaOrder';
 import { drawAlfaiaBackground } from './drawAlfaiaBackground';
 import { computeStickAngle } from './computeStickAngle';
 import { processHitTriggers, drawAndUpdateRipples } from './drawRipples';
@@ -74,7 +74,10 @@ export function useCirclePlayheadRaf(
       const { tracks, rawTracks: localRawTracks, rodaTrackOrder: localRodaOrder, isPlaying: localPlaying, timeSig: localTimeSig, hitTriggersRef } = stateRef.current;
       const live = livePlaybackRef.current, localTicks = live.maxTicks || 96, theme = themeRef.current;
       const sortedTracks = sortTracksByRodaOrder(tracks, localRodaOrder);
-      const activeVisibleTracks = sortedTracks.filter(t => !t.isHidden && t.instrumentIdx !== undefined);
+      const activeVisibleTracks = orderActiveVisibleRodaTracks(
+        sortedTracks.filter(t => !t.isHidden && t.instrumentIdx !== undefined),
+        localRawTracks
+      );
       const isHeavyDisabled = isEco || isMobileDevice;
 
       if (hitTriggersRef?.current && !isHeavyDisabled) {

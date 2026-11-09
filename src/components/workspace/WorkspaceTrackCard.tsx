@@ -38,7 +38,8 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
   const inst = instrumentsConfig[track.instrumentIdx] || (isToada ? instrumentsConfig.find(i => i.id === 'puxador' || i.type === 'voice') : null);
   const isLinkedSlave = Boolean(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
   const isFocusEligible = !track.isBusFolder && !track.isLinkFolder && !isToada && !!inst && inst.id !== 'apito' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.type !== 'voice';
-  const isCurrentFocus = isPracticeMode && isFocusActive && focusTrackId === track.id;
+  const isCurrentFocus = isFocusActive && focusTrackId === track.id;
+  const isCardDimmed = isFocusActive && Boolean(track.isHidden) && !isCurrentFocus;
 
   const displayName = useMemo(() => isToada ? 'Toada' : (!inst ? 'Instrument' : useNomenclatureStore.getState().getInstrumentLabel(track)), [isToada, inst, track]);
   const groupVisual = useMemo(() => getTrackGroupVisual(track, tracks), [track, tracks]);
@@ -80,7 +81,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
   if (!inst) return null;
 
   return (
-    <div className="flex flex-col justify-between w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-2 pt-[6px] relative z-10 bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] select-none">
+    <div className={`flex flex-col justify-between w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-2 pt-[6px] relative z-10 bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] select-none transition-opacity duration-200 ${isCardDimmed ? 'opacity-40' : 'opacity-100'}`}>
       <TrackCardGroupIndicator visual={groupVisual} />
       <div className="flex items-center justify-between w-full h-[28px] min-h-[28px] max-h-[28px]">
         <div className="flex items-center gap-1 min-w-0 flex-1 mr-2">
@@ -111,7 +112,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'}`}>S</button>
           {inst.id !== 'apito' ? (
             <>
-              <button onClick={() => !isPistasOpen && useSequencerStore.getState().handleTrackHideToggle(track.id)} className={`w-5 h-5 cordel-border-sm cordel-button text-[9px] font-bold transition-all flex items-center justify-center ${isPistasOpen ? 'opacity-30 pointer-events-none' : 'cursor-pointer'} ${track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'}`} title={isPistasOpen ? (lang === 'fr' ? 'Disponible en vue Roda' : 'Disponível na vista Roda') : (track.isHidden ? (lang === 'fr' ? 'Afficher la piste' : 'Exibir pista') : (lang === 'fr' ? 'Masquer la piste' : 'Ocultar pista'))}>
+              <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackHideToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button text-[9px] font-bold transition-all flex items-center justify-center cursor-pointer ${track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'}`} title={track.isHidden ? (lang === 'fr' ? 'Afficher la piste' : 'Exibir pista') : (lang === 'fr' ? 'Masquer la piste' : 'Ocultar pista')}>
                 {track.isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
               </button>
               <button onClick={(e) => { e.stopPropagation(); if (!isPistasOpen) { (inst.type === 'voice' || isToada) ? toggleLetraActive() : toggleAoVivo(); } }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold transition-all flex items-center justify-center ${isPistasOpen ? 'opacity-30 pointer-events-none' : 'cursor-pointer'} ${(inst.type === 'voice' || isToada) ? (isLetraActive ? 'bg-[#c25e38] text-white shadow-[1px_1px_0px_#1a1a1a]' : 'bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]') : (isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]')}`} title={isPistasOpen ? (lang === 'fr' ? 'Disponible en vue Roda' : 'Disponível na vista Roda') : ((inst.type === 'voice' || isToada) ? (lang === 'fr' ? (isLetraActive ? 'Masquer la Letra' : 'Afficher la Letra') : (isLetraActive ? 'Ocultar Letra' : 'Exibir Letra')) : (lang === 'fr' ? 'Vue en direct' : 'Ao Vivo'))}>

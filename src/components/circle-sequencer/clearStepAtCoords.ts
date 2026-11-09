@@ -2,7 +2,7 @@
 import { Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isSequencerVisibleTrack, isToadaBus } from '../../stores/useSequencerStore';
-import { sortTracksByRodaOrder } from './sortTracksByRodaOrder';
+import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks } from './sortTracksByRodaOrder';
 import { getTrackRadius } from './circleGeometry';
 
 export function clearStepAtCanvasCoords(
@@ -32,11 +32,14 @@ export function clearStepAtCanvasCoords(
   const currentRodaOrder = stateRef.current.rodaTrackOrder;
   const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
 
-  const activeVisibleTracksToDraw = sortedCurrentTracks.filter(t => {
-    if (t.isHidden) return false;
-    if (!isSequencerVisibleTrack(t, currentTracks)) return false;
-    return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
-  });
+  const activeVisibleTracksToDraw = orderActiveVisibleRodaTracks(
+    sortedCurrentTracks.filter(t => {
+      if (t.isHidden) return false;
+      if (!isSequencerVisibleTrack(t, currentTracks)) return false;
+      return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
+    }),
+    currentRawTracks || currentTracks
+  );
 
   for (let visibleIdx = 0; visibleIdx < activeVisibleTracksToDraw.length; visibleIdx++) {
     const track = activeVisibleTracksToDraw[visibleIdx];
