@@ -5,14 +5,27 @@
  * (avec debounce de 80 ms pendant le glissement du curseur de BPM) (< 85 lignes).
  */
 import { useAudioStore } from '../../stores/useAudioStore';
-import { useSequencerStore } from '../../stores/useSequencerStore';
 import { requestVocalPatternDspAsync } from './vocalPatternBufferCache';
 
 let prewarmDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let sequencerStateGetter: (() => any) | null = null;
+
+export function registerVocalDspSequencerStoreGetter(getter: () => any): void {
+  sequencerStateGetter = getter;
+}
+
+function getSequencerStateSnapshot(): any {
+  if (sequencerStateGetter) return sequencerStateGetter();
+  if (typeof window !== 'undefined' && (window as any).useSequencerStore?.getState) {
+    return (window as any).useSequencerStore.getState();
+  }
+  return null;
+}
 
 function executeVocalDspPrewarm(overrideBpm?: number, overrideTranspositionSemitones?: number): void {
   try {
-    const seqState = useSequencerStore.getState();
+    const seqState = getSequencerStateSnapshot();
+    if (!seqState) return;
     const audioState = useAudioStore.getState();
     const liveBpm = Number(overrideBpm ?? seqState.bpm ?? 88);
     const globalTranspose = Number(overrideTranspositionSemitones ?? seqState.vocalTransposeSteps ?? 0);

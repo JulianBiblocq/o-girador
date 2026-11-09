@@ -105,3 +105,4 @@ export function resolveSlaveStepOpacity(params: {
 
   return areStepValuesEqual(ownStepVal, resolvedMasterVal) ? 0.45 : 1.0;
 }
+

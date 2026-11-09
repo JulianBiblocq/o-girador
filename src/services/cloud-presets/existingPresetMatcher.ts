@@ -3,9 +3,8 @@
  */
 import { db } from '../../firebase/config';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { CLOUD_PRESETS_COLLECTION } from './presetCache';
+import { CLOUD_PRESETS_COLLECTION, normalizePresetName } from './presetCache';
 import { SANCTUARIZED_PRESET_IDS } from './sanctuarization';
-import { normalizePresetName } from '../../hooks/queries/useCloudPresets';
 
 export async function findExistingPresetId(
   name: string,

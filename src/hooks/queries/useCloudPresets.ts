@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { CloudPreset } from '../../types';
+import { normalizePresetName } from '../../services/cloud-presets/presetCache';
+
+export { normalizePresetName };
 
 interface UseCloudPresetsProps {
   userUid: string | null;
@@ -9,15 +12,6 @@ interface UseCloudPresetsProps {
   groupName?: string | null;
   canWriteSequenciador?: boolean;
 }
-
-export const normalizePresetName = (name: string) =>
-  (name || '')
-    .replace(/\.json$/i, '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .trim();
 
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, groupName, canWriteSequenciador }: UseCloudPresetsProps) {
   const isOtherDistinctGroup = Boolean(
