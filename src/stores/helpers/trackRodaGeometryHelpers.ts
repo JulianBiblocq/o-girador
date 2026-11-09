@@ -1,6 +1,7 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isSequencerVisibleTrack } from './trackVisibilityHelpers';
+import { getTrackRadius, isRodaDrawableTrack } from '../../components/circle-sequencer/circleGeometry';
 
 export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
   const puxTrack = list.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
@@ -82,9 +83,9 @@ export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): Track
 
   const drawableTracks = list.filter(t => {
     const isLinkedChild = Boolean(t.linkedToTrackId && !t.isLinkFolder);
-    return (!t.isHidden || isLinkedChild) && 
-      isSequencerVisibleTrack(t, list) && 
-      instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
+    return (!t.isHidden || isLinkedChild) &&
+      isSequencerVisibleTrack(t, list) &&
+      isRodaDrawableTrack({ ...t, isHidden: false });
   });
 
   drawableTracks.sort((a, b) => {
@@ -94,24 +95,13 @@ export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): Track
   });
 
   const visibleCount = drawableTracks.length;
-  const minRadius = 180;
-  const maxRadius = 495;
 
   return list.map(t => {
     const drawableIdx = drawableTracks.findIndex(dt => dt.id === t.id);
     if (drawableIdx === -1) {
       return t;
     }
-    let newRadius: number;
-    if (visibleCount <= 1) {
-      newRadius = minRadius + 0.5 * (maxRadius - minRadius);
-    } else if (visibleCount === 2) {
-      const radialRatio = drawableIdx === 0 ? 0.65 : 0.35;
-      newRadius = minRadius + radialRatio * (maxRadius - minRadius);
-    } else {
-      const tNorm = drawableIdx / (visibleCount - 1);
-      newRadius = maxRadius - tNorm * (maxRadius - minRadius);
-    }
+    const newRadius = getTrackRadius(drawableIdx, visibleCount);
     if (t.radius !== newRadius) {
       return { ...t, radius: newRadius };
     }

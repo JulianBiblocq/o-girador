@@ -49,7 +49,7 @@ export function getOrCreateXiloStampSprite(
   const inkedFill = applyCordelInkedPatina(fillColor || '#1a1a1a');
   const qRadius = Math.max(4, Math.round(radiusSize * 2) / 2);
   const qScale = Math.round(dynamicScale * 20) / 20;
-  const key = `v2_${inkedFill}_${txtColor}_${text}_${qRadius}_${qScale}_${isAccentRing ? 1 : 0}`;
+  const key = `v3_${inkedFill}_${txtColor}_${text}_${qRadius}_${qScale}_${isAccentRing ? 1 : 0}`;
   const logicalSize = Math.ceil((qRadius + 6) * 2);
 
   const existing = stampCache.get(key);
@@ -120,10 +120,10 @@ export function getOrCreateXiloStampSprite(
     sCtx.stroke();
   }
 
-  // 3. Symbole gravé au centre
+  // 3. Symbole gravé au centre (taille proportionnelle au rayon dynamique)
   if (text) {
-    const baseLarge = qRadius < 10.5 ? (text.length > 1 ? 13 : 17) : (text.length > 1 ? 15 : 19);
-    const fontSize = Math.max(9, Math.floor(baseLarge * qScale * 0.9));
+    const ratio = text.length > 1 ? 0.88 : 1.12;
+    const fontSize = Math.max(9, Math.round(qRadius * ratio));
     sCtx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
     sCtx.fillStyle = txtColor;
     sCtx.textAlign = 'center';
@@ -131,7 +131,7 @@ export function getOrCreateXiloStampSprite(
     const textY = cy + 1.5;
     if (['↑', '↓', '←', '→'].includes(text)) {
       sCtx.strokeStyle = txtColor;
-      sCtx.lineWidth = 2.2;
+      sCtx.lineWidth = Math.max(1.8, qRadius * 0.11);
       sCtx.strokeText(text, cx, textY);
     }
     sCtx.fillText(text, cx, textY);

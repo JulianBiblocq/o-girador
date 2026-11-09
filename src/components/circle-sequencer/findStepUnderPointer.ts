@@ -2,7 +2,7 @@
 import { TrackGroup, Pattern, InstrumentConfig } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus } from '../../stores/useSequencerStore';
-import { getTrackRadius } from './circleGeometry';
+import { getTrackRadius, computeBaseStampRadius } from './circleGeometry';
 
 export interface HitStepResult {
   ownerTrack: TrackGroup;
@@ -54,7 +54,8 @@ export function findStepUnderPointer(
     if (!inst) continue;
 
     const tRad = getTrackRadius(visibleIdx, activeVisibleTracks.length);
-    if (Math.abs(distance - tRad) < 18) {
+    const hitTolerance = Math.max(18, computeBaseStampRadius(activeVisibleTracks.length) + 2);
+    if (Math.abs(distance - tRad) < hitTolerance) {
       let clickAngle = Math.atan2(dy, dx) + Math.PI / 2;
       if (clickAngle < 0) clickAngle += Math.PI * 2;
       const stepAngleSize = (Math.PI * 2) / activePattern.steps;

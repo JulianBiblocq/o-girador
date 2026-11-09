@@ -1,10 +1,9 @@
 
 import React from 'react';
 import { TrackGroup } from '../../types';
-import { instrumentsConfig } from '../../data';
 import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
 import { getTone } from '../../ToneLoader';
-import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks } from './sortTracksByRodaOrder';
+import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
 import { clearStepAtCanvasCoords } from './clearStepAtCoords';
 import { handleStepClickAction } from './handleStepClickAction';
 import { findStepUnderPointer } from './findStepUnderPointer';
@@ -70,11 +69,7 @@ export function useCircleTouchInteraction(
     const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
 
     const activeVisibleTracksToDraw = orderActiveVisibleRodaTracks(
-      sortedCurrentTracks.filter(t => {
-        if (t.isHidden) return false;
-        if (!isSequencerVisibleTrack(t, currentTracks)) return false;
-        return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
-      }),
+      sortedCurrentTracks.filter(t => isRodaDrawableTrack(t) && isSequencerVisibleTrack(t, currentTracks)),
       currentRawTracks || currentTracks
     );
 

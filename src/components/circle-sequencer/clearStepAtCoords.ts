@@ -2,8 +2,8 @@
 import { Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isSequencerVisibleTrack, isToadaBus } from '../../stores/useSequencerStore';
-import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks } from './sortTracksByRodaOrder';
-import { getTrackRadius } from './circleGeometry';
+import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
+import { getTrackRadius, computeBaseStampRadius } from './circleGeometry';
 
 export function clearStepAtCanvasCoords(
   clientX: number,
@@ -33,14 +33,11 @@ export function clearStepAtCanvasCoords(
   const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
 
   const activeVisibleTracksToDraw = orderActiveVisibleRodaTracks(
-    sortedCurrentTracks.filter(t => {
-      if (t.isHidden) return false;
-      if (!isSequencerVisibleTrack(t, currentTracks)) return false;
-      return instrumentsConfig[t.instrumentIdx]?.id !== 'apito';
-    }),
+    sortedCurrentTracks.filter(t => isRodaDrawableTrack(t) && isSequencerVisibleTrack(t, currentTracks)),
     currentRawTracks || currentTracks
   );
 
+  const hitTolerance = Math.max(18, computeBaseStampRadius(activeVisibleTracksToDraw.length) + 2);
   for (let visibleIdx = 0; visibleIdx < activeVisibleTracksToDraw.length; visibleIdx++) {
     const track = activeVisibleTracksToDraw[visibleIdx];
     const isToada = isToadaBus(track);
@@ -67,7 +64,7 @@ export function clearStepAtCanvasCoords(
     if (!activePattern) continue;
     const tRad = getTrackRadius(visibleIdx, activeVisibleTracksToDraw.length);
 
-    if (Math.abs(distance - tRad) < 18) {
+    if (Math.abs(distance - tRad) < hitTolerance) {
       let clickAngle = Math.atan2(dy, dx) + Math.PI / 2;
       if (clickAngle < 0) clickAngle += Math.PI * 2;
       const stepAngleSize = (Math.PI * 2) / activePattern.steps;

@@ -1,5 +1,8 @@
 import { TrackGroup } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { isRodaDrawableTrack } from './circleGeometry';
+
+export { isRodaDrawableTrack };
 
 export const sortTracksByRodaOrder = (tracks: TrackGroup[], rodaTrackOrder: number[]): TrackGroup[] => {
   if (!rodaTrackOrder || rodaTrackOrder.length === 0) return tracks;

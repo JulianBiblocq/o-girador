@@ -3,6 +3,7 @@ import { instrumentsConfig } from '../../data';
 import { isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import { drawTrackRing } from './drawTrackRings';
 import { resolveBeatsFromTimeSig, computeStepAngles } from './circleGeometry';
+import { isRodaDrawableTrack } from './sortTracksByRodaOrder';
 import { drawToadaTrack } from './drawToadaTrack';
 import { drawPercussionTrack } from './drawPercussionTrack';
 import { computeContinuousSweepRatio } from './rodaSweepMath';
@@ -34,12 +35,15 @@ export function renderTrackStepLayer(
   const rodaSweepMode = useSequencerStore.getState().rodaSweepMode || 'sweep6h';
   if (rodaSweepMode === 'sweep6h' && isPlaying) {
     const sweepRatio = computeContinuousSweepRatio(isPlaying, playheadRatio, rodaSweepMode);
-    drawRodaSweepWave(ctx, centerX, centerY, 155, 510, sweepRatio, isEco);
+    drawRodaSweepWave(ctx, centerX, centerY, 130, 512, sweepRatio, isEco);
   }
 
-  activeVisibleTracks.forEach((track, visibleIdx) => {
+  const rodaTracks = activeVisibleTracks.filter(isRodaDrawableTrack);
+  const totalRings = rodaTracks.length;
+
+  rodaTracks.forEach((track, ringIndex) => {
     const inst = instrumentsConfig[track.instrumentIdx];
-    if (!inst || track.isHidden || inst.id === 'apito') return;
+    if (!inst) return;
 
     const activePatternId = getLiveActivePatternId(track);
     let activePattern: Pattern | null | undefined = null;
@@ -77,7 +81,7 @@ export function renderTrackStepLayer(
         : activePattern?.activeSteps;
 
     const hasAnyNotes = Boolean(activePlayingSteps && activePlayingSteps.some((s: any) => s !== 0));
-    const tRad = drawTrackRing(ctx, track, visibleIdx, activeVisibleTracks.length, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
+    const tRad = drawTrackRing(ctx, track, ringIndex, totalRings, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
 
     const isVoiceOrToada = isToada || currentInst.type === 'voice';
     if (!activePattern && !isVoiceOrToada) return;
@@ -111,7 +115,7 @@ export function renderTrackStepLayer(
         ctx, track, currentInst, activePattern, activePlayingSteps, stepAngles, effectiveStepCount,
         currentStep, tRad, centerX, centerY, dynamicScale, isEco, measureIdx, localRawTracks,
         activeVariationsRef, stateVal.isLeftHanded || false, themeWood, themeBorder, themeText,
-        isPlaying, playheadRatio, stateVal.soloPatternPlayId ?? null
+        isPlaying, playheadRatio, stateVal.soloPatternPlayId ?? null, totalRings
       );
     }
   });

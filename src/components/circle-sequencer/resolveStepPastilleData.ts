@@ -1,6 +1,7 @@
 import { InstrumentConfig, TrackGroup } from '../../types';
 import { getVisualStrokeSymbol, isDarkText } from '../../data';
 import { formatStrokeSymbol } from './percussionSatelliteHelpers';
+import { computeStepStampRadius } from './circleGeometry';
 
 export interface StepPastilleData {
   hasEvent: boolean;
@@ -23,7 +24,10 @@ export function resolveStepPastilleData(
   _localRawTracks: TrackGroup[],
   _instrumentsConfig: any,
   localLeftHanded: boolean,
-  dynamicScale: number
+  dynamicScale: number,
+  totalTracks: number = 7,
+  ringRadius: number = 300,
+  effectiveStepCount: number = 16
 ): StepPastilleData {
   const hasMasterEvent =
     masterState !== 0 &&
@@ -50,13 +54,13 @@ export function resolveStepPastilleData(
   let masterText = '';
   let masterFillColor = 'rgba(255,255,255,0.2)';
   let masterTxtColor = '#f4ecd8';
-  let masterRadiusSize = 12 * dynamicScale;
+  let masterRadiusSize = computeStepStampRadius(totalTracks, ringRadius, effectiveStepCount, false);
 
   const visualState = getVisualStrokeSymbol(masterState, localLeftHanded, currentInst.id);
   const visualStateStr = String(visualState);
   if (visualState !== 0 && visualState !== '0') {
     const isAccent = visualStateStr === visualStateStr.toUpperCase();
-    masterRadiusSize = (isAccent ? 15 : 12) * dynamicScale;
+    masterRadiusSize = computeStepStampRadius(totalTracks, ringRadius, effectiveStepCount, isAccent);
     const primaryVisual = Array.isArray(visualState) ? visualState[0] : visualState;
     masterFillColor =
       currentInst.colors && currentInst.colors[primaryVisual as string]
@@ -65,7 +69,7 @@ export function resolveStepPastilleData(
     masterText = formatStrokeSymbol(currentInst.id, visualStateStr);
     masterTxtColor = isDarkText(currentInst.id, String(masterState)) ? '#1a1a1a' : '#f4ecd8';
   } else if (visualStateStr === '0' || visualStateStr === '-') {
-    masterRadiusSize = 12 * dynamicScale;
+    masterRadiusSize = computeStepStampRadius(totalTracks, ringRadius, effectiveStepCount, false);
     masterFillColor = '#ab5318';
     masterText = '-';
     masterTxtColor = '#1a1a1a';

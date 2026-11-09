@@ -31,7 +31,8 @@ export const drawPercussionTrack = (
   themeText: string,
   isPlaying: boolean = false,
   playheadRatio: number = 0,
-  soloPatternPlayId: number | null = null
+  soloPatternPlayId: number | null = null,
+  totalTracks: number = 7
 ): void => {
   const st = useSequencerStore.getState();
   const focusCtx: SlaveFocusContext = {
@@ -50,13 +51,15 @@ export const drawPercussionTrack = (
     ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId)
     : { activeSteps: [], baseSteps: [], pattern: null };
 
-  const maxAllowedRadius = ((Math.PI * tRad) / effectiveStepCount) * 0.85;
   const anglePerStep = stepAngles[1] ? stepAngles[1] - stepAngles[0] : (Math.PI * 2) / effectiveStepCount;
 
   const drawSingleStateAtStep = (rawState: any, baseState: any, mIdx: number, stepIdx: number, stepAngle: number, x: number, y: number, blendWeight: number) => {
     const isRas = Array.isArray(rawState) && rawState.length === 2;
     const masterState = isRas ? rawState[0] : rawState;
-    const pastille = resolveStepPastilleData(masterState, [], currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale);
+    const pastille = resolveStepPastilleData(
+      masterState, [], currentInst, track, rawTracks, instrumentsConfig,
+      localLeftHanded, dynamicScale, totalTracks, tRad, effectiveStepCount
+    );
     if (!pastille.hasEvent) return;
 
     const isVariationStep = !areStepValuesEqual(rawState, baseState);
@@ -66,7 +69,7 @@ export const drawPercussionTrack = (
     const finalAlpha = slaveOpacity * blendWeight;
     if (finalAlpha <= 0.01) return;
 
-    const finalRadiusSize = Math.min(pastille.radiusSize, maxAllowedRadius);
+    const finalRadiusSize = pastille.radiusSize;
     ctx.save();
     ctx.globalAlpha = finalAlpha;
 
