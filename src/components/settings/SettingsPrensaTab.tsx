@@ -24,6 +24,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
 }) => {
   const [activePrensaMode, setActivePrensaMode] = useState<'linear' | 'roda-sheet'>('linear');
   const [bodyFontSize, setBodyFontSize] = useState<number>(13);
+  const [containerWidthPx, setContainerWidthPx] = useState<number>(786);
   const {
     validExportTracks,
     selectedExportTracks,
@@ -34,7 +35,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
     refreshPreviewText,
     handleToggleTrackExport,
     handleToggleTrackAnnex,
-  } = usePrensaGenerator(lang, letras, measureBpms);
+  } = usePrensaGenerator(lang, letras, measureBpms, bodyFontSize, containerWidthPx);
   const isFr = lang === 'fr';
 
   return (
@@ -92,6 +93,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
             onLiveTextChange={setLiveText}
             onFontSizeChange={setBodyFontSize}
             onRefresh={refreshPreviewText}
+            onContainerWidthChange={setContainerWidthPx}
           />
 
           <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000] flex flex-col gap-4">

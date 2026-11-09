@@ -1,9 +1,18 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { generateTablatureCore, generateAnnexTablature } from '../../utils/exportTablature';
 
-export function usePrensaGenerator(lang: string, letras: string, measureBpms?: number[]) {
+const DEFAULT_A4_WIDTH_PX = 786;
+const SHEET_PADDING_PX = 48;
+
+export function usePrensaGenerator(
+  lang: string,
+  letras: string,
+  measureBpms?: number[],
+  bodyFontSize: number = 13,
+  containerWidthPx: number = DEFAULT_A4_WIDTH_PX
+) {
   const tracks = useSequencerStore((state) => state.tracks);
   const totalMeasures = useSequencerStore((state) => state.totalMeasures);
   const songSections = useSequencerStore((state) => state.songSections);
@@ -18,24 +27,22 @@ export function usePrensaGenerator(lang: string, letras: string, measureBpms?: n
 
   const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
   const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
-  const [liveText, setLiveText] = useState<string>('');
+  const [liveText, setLiveTextState] = useState<string>('');
+  const [isManuallyEdited, setIsManuallyEdited] = useState<boolean>(false);
+
+  const maxCharsPerLine = useMemo(() => {
+    const safeWidth = containerWidthPx > 250 ? containerWidthPx : DEFAULT_A4_WIDTH_PX;
+    const usablePx = Math.max(240, safeWidth - SHEET_PADDING_PX);
+    return Math.max(45, Math.floor(usablePx / (bodyFontSize * 0.61)));
+  }, [containerWidthPx, bodyFontSize]);
 
   useEffect(() => {
     if (validExportTracks.length > 0 && selectedExportTracks.size === 0) {
       setSelectedExportTracks(new Set(validExportTracks.map((t) => t.id)));
     }
-  }, [validExportTracks]);
+  }, [validExportTracks, selectedExportTracks.size]);
 
-  const handleToggleAll = () => {
-    if (validExportTracks.length === selectedExportTracks.size) {
-      setSelectedExportTracks(new Set());
-      setSelectedAnnexTracks(new Set());
-    } else {
-      setSelectedExportTracks(new Set(validExportTracks.map((t) => t.id)));
-    }
-  };
-
-  const refreshPreviewText = () => {
+  const buildTablatureText = useCallback(() => {
     const tracksToExport = tracks.filter((t) => selectedExportTracks.has(t.id));
     const outputTxt = generateTablatureCore(
       tracksToExport,
@@ -43,7 +50,8 @@ export function usePrensaGenerator(lang: string, letras: string, measureBpms?: n
       songSections,
       measureTimeSigs,
       measureBpms || Array(totalMeasures).fill(83),
-      false
+      false,
+      maxCharsPerLine
     );
     const annexTxt = generateAnnexTablature(tracks, selectedAnnexTracks, false);
     let finalTxt = outputTxt;
@@ -52,14 +60,37 @@ export function usePrensaGenerator(lang: string, letras: string, measureBpms?: n
       finalTxt += lang === 'fr' ? `\n--- VOIX / PAROLES ---\n${letras}\n` : `\n--- VOZES / LETRAS ---\n${letras}\n`;
     }
     finalTxt += lang === 'fr' ? `\n(Généré avec O Girador)\n` : `\n(Gerado com O Girador)\n`;
-    setLiveText(finalTxt);
-  };
+    return finalTxt;
+  }, [tracks, selectedExportTracks, selectedAnnexTracks, totalMeasures, songSections, measureTimeSigs, measureBpms, maxCharsPerLine, letras, lang]);
+
+  const refreshPreviewText = useCallback(() => {
+    setIsManuallyEdited(false);
+    setLiveTextState(buildTablatureText());
+  }, [buildTablatureText]);
 
   useEffect(() => {
-    if (selectedExportTracks.size > 0 && !liveText) refreshPreviewText();
-  }, [selectedExportTracks.size, liveText]);
+    if (selectedExportTracks.size > 0 && !isManuallyEdited) {
+      setLiveTextState(buildTablatureText());
+    }
+  }, [selectedExportTracks.size, isManuallyEdited, buildTablatureText]);
+
+  const setLiveText = (val: string) => {
+    setIsManuallyEdited(true);
+    setLiveTextState(val);
+  };
+
+  const handleToggleAll = () => {
+    setIsManuallyEdited(false);
+    if (validExportTracks.length === selectedExportTracks.size) {
+      setSelectedExportTracks(new Set());
+      setSelectedAnnexTracks(new Set());
+    } else {
+      setSelectedExportTracks(new Set(validExportTracks.map((t) => t.id)));
+    }
+  };
 
   const handleToggleTrackExport = (trackId: number, checked: boolean) => {
+    setIsManuallyEdited(false);
     const newSet = new Set(selectedExportTracks);
     if (checked) {
       newSet.add(trackId);
@@ -73,6 +104,7 @@ export function usePrensaGenerator(lang: string, letras: string, measureBpms?: n
   };
 
   const handleToggleTrackAnnex = (trackId: number, checked: boolean) => {
+    setIsManuallyEdited(false);
     const newSet = new Set(selectedAnnexTracks);
     if (checked) newSet.add(trackId);
     else newSet.delete(trackId);

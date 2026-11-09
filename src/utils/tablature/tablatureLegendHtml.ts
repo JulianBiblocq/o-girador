@@ -10,8 +10,14 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
     ? 'Barras de repetição. Indica que a seção deve ser repetida.'
     : 'Barres de reprise. Indique qu\'il faut répéter la section.';
   const pickupDesc = isPt
-    ? 'Frase introdutória tocada apenas na primeira iteração do loop.'
-    : 'Indique une phrase de transition à jouer juste avant d\'entrer dans une variation.';
+    ? 'Tocada na 1ª medida de cada novo bloco contíguo deste motivo (na linha do tempo ou na 1ª volta em loop simples), depois substituída pelo motivo principal nas medidas seguintes.'
+    : 'Jouée à la 1ère mesure de chaque nouveau bloc contigu de ce motif (dans l\'arrangement ou au 1er tour en boucle simple), puis remplacée par le motif principal sur les mesures suivantes.';
+  const masterSlaveDesc = isPt
+    ? 'Na Roda e nas Pranchas A4, as pistas Mestras [M] que conduzem a chamada são exibidas com opacidade total (100 %), enquanto as pistas Escravas [E] ficam atenuadas (45 %) para destacar a pergunta-resposta.'
+    : 'Sur la Roda et les Planches A4, les pistes Maîtres [M] qui lancent l\'appel s\'affichent en pleine opacité (100 %), tandis que les pistes Esclaves [E] sont atténuées (45 %) pour mettre en évidence le dialogue appel/réponse.';
+  const rodaSheetDesc = isPt
+    ? 'Modo de impressão circular (8 ou 12 rodas por página A4) com seleção de medidas no cesto e resolução exata das variações 1ª VEZ e chamadas.'
+    : 'Mode d\'impression circulaire (8 ou 12 rodas par page A4) avec panier de sélection de mesures et résolution exacte des variations 1ª VEZ et appels.';
 
   return `
     <div style="${forcePageBreak ? 'page-break-before: always; ' : ''}font-family: sans-serif; padding-top: 20px; color: black; background: white;">
@@ -44,7 +50,9 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
       <h3 style="font-size: 16px; margin-top: 30px; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">${subtitleStructure}</h3>
       <ul style="list-style-type: none; padding-left: 0; font-size: 14px;">
         <li style="margin-bottom: 8px;"><strong>||: &nbsp; &nbsp; :||</strong> : ${repeatDesc}</li>
-        <li style="margin-bottom: 8px;"><strong>(${isPt ? 'Levada / 1ª vez apenas' : 'Levée / 1ère fois uniquement'})</strong> : ${pickupDesc}</li>
+        <li style="margin-bottom: 8px;"><strong>[1ª VEZ] (${isPt ? 'Entrada de Bloco' : 'Entrée de Bloc'})</strong> : ${pickupDesc}</li>
+        <li style="margin-bottom: 8px;"><strong>[M] / [E] (${isPt ? 'Mestre 100% / Escravo 45%' : 'Maître 100% / Esclave 45%'})</strong> : ${masterSlaveDesc}</li>
+        <li style="margin-bottom: 8px;"><strong>${isPt ? 'Prancha de Mini-Rodas (A4 Eco-Tinta)' : 'Planche de Mini-Rodas (A4 Éco-Encre)'}</strong> : ${rodaSheetDesc}</li>
       </ul>
       ${renderHandwritingGuideHTML(lang as any)}
     </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface SettingsPrensaPreviewProps {
   lang: string;
@@ -8,6 +8,7 @@ interface SettingsPrensaPreviewProps {
   onLiveTextChange: (val: string) => void;
   onFontSizeChange: (size: number) => void;
   onRefresh: () => void;
+  onContainerWidthChange?: (widthPx: number) => void;
 }
 
 export const SettingsPrensaPreview: React.FC<SettingsPrensaPreviewProps> = ({
@@ -18,7 +19,21 @@ export const SettingsPrensaPreview: React.FC<SettingsPrensaPreviewProps> = ({
   onLiveTextChange,
   onFontSizeChange,
   onRefresh,
+  onContainerWidthChange,
 }) => {
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el || !onContainerWidthChange) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w > 250) onContainerWidthChange(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onContainerWidthChange]);
+
   return (
     <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000] flex flex-col gap-4">
       <div className="flex flex-wrap justify-between items-center gap-2 border-b border-black/10 pb-2">
@@ -48,11 +63,14 @@ export const SettingsPrensaPreview: React.FC<SettingsPrensaPreviewProps> = ({
       </div>
       <p className="text-[11px] italic font-semibold text-[#44403c] text-center border-b border-dashed border-black/15 pb-2">
         {lang === 'fr'
-          ? "Consigne d'atelier : Vous pouvez modifier, aérer ou annoter directement la partition ci-dessous avant impression ou export."
-          : 'Instrução de oficina: Você pode editar, espaçar ou anotar diretamente a partitura abaixo antes de imprimir ou exportar.'}
+          ? "Consigne d'atelier : Le nombre de mesures par ligne s'adapte dynamiquement à la taille de police. Vous pouvez aussi annoter directement le texte ci-dessous."
+          : 'Instrução de oficina: O número de compassos por linha adapta-se dinamicamente ao tamanho da fonte. Você também pode editar diretamente o texto abaixo.'}
       </p>
       <div className="w-full p-4 md:p-8 bg-black/5 border border-black/10 rounded-md overflow-x-auto flex justify-center">
-        <div className="w-[21cm] h-[29.7cm] shrink-0 bg-[#fbf8f0] text-[#1a1a1a] p-12 md:p-16 border-4 border-black shadow-[8px_8px_0px_rgba(0,0,0,0.15)] flex flex-col text-left overflow-hidden">
+        <div
+          ref={sheetRef}
+          className="w-[21cm] h-[29.7cm] shrink-0 bg-[#fbf8f0] text-[#1a1a1a] px-6 py-10 border-4 border-black shadow-[8px_8px_0px_rgba(0,0,0,0.15)] flex flex-col text-left overflow-hidden"
+        >
           <div className="text-center mb-1">
             <h2 className="font-cactus text-3xl md:text-4xl font-bold text-[#1a1a1a] uppercase tracking-wider text-center">
               {metadata.toada || (lang === 'fr' ? 'PARTITION SANS TITRE' : 'PARTITURA SEM TÍTULO')}
