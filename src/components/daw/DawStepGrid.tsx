@@ -52,13 +52,15 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
               className={`flex flex-1 h-full items-center py-0.5 px-1 rounded-none border-[1.5px] border-[#1a1a1a]/35 gap-[2px] ${beatBgClass} ${
                 isTriplet ? 'justify-between' : ''
               }`}
-              style={{
-                ...(group.length === 0 && {
-                  backgroundImage:
-                    'repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0, rgba(0,0,0,0.08) 4px, transparent 4px, transparent 20px)',
-                  backgroundSize: '100% 100%',
-                }),
-              }}
+              style={
+                group.length === 0
+                  ? {
+                      backgroundImage:
+                        'repeating-linear-gradient(45deg, rgba(0,0,0,0.08) 0, rgba(0,0,0,0.08) 4px, transparent 4px, transparent 20px)',
+                      backgroundSize: '100% 100%',
+                    }
+                  : undefined
+              }
             >
               {group.map((stepIdx, indexInGroup) => {
                 const activePlayingSteps = sequencer.activeVariationsRef?.current?.[effectiveTrack.id];
@@ -84,19 +86,8 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
                     });
 
                 const visual = resolveStepVisual({
-                  stepIdx,
-                  val,
-                  isActiveCell,
-                  isGhostStep,
-                  curPat,
-                  inst,
-                  track,
-                  tracks,
-                  currentMeasure,
-                  isLeftHanded,
-                  emptyStepBg,
-                  effectiveTrack,
-                  activePattern,
+                  stepIdx, val, isActiveCell, isGhostStep, curPat, inst, track,
+                  tracks, currentMeasure, isLeftHanded, emptyStepBg, effectiveTrack, activePattern,
                 });
 
                 const isStepActive = Boolean(
