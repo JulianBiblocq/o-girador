@@ -4,6 +4,7 @@ import type {
   StudioDistortionConfig,
   StudioMasterBusConfig,
 } from '../audio/effects/studioFxPresets';
+import type { BusCompressorSettings } from '../audio/effects/busCompressorTypes';
 
 export * from './pattern.types';
 export * from './section.types';
@@ -56,6 +57,10 @@ export interface TrackGroup {
     pan?: boolean;
     reverb?: boolean;
   };
+  /** Inversion de polarité 180° (Pistes ET dossiers Bus / Link / Toada), `false` par défaut. */
+  phaseInverted?: boolean;
+  /** Compresseur VCA de sous-groupe (`isBusFolder`, `isLinkFolder`, bus vocal Toada). */
+  busCompressor?: BusCompressorSettings;
 }
 
 export type Track = TrackGroup;

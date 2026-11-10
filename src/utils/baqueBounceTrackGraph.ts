@@ -1,7 +1,7 @@
 /**
  * baqueBounceTrackGraph.ts
  * Graphe hors-ligne (OfflineAudioContext) par piste pour le Bounce Baque :
- * Coupe-bas Butterworth (Q = 0.7071), EQ 3 bandes, Pan mono-compatible, Bus/Link et Choke (< 135 lignes).
+ * Coupe-bas Butterworth (Q = 0.7071), EQ 3 bandes, Pan mono-compatible, Bus/Link, Polarité Ø, Stems de Bus compressés et Choke (< 140 lignes).
  */
 import { getEffectiveVolume, useSequencerStore } from '../stores/useSequencerStore';
 import { CONSOLE_HEADROOM_GAIN, faderPositionToDb, faderPositionToGain } from './audioMath';
@@ -14,6 +14,9 @@ import { isAutomationBypassed } from './automationBypassHelper';
 import { hasActiveTrackAutomation } from './automationDetectHelper';
 import type { ActiveVoice } from '../audio/engine/engineTypes';
 import type { BaqueCycleTimingResult } from './baqueBounceTiming';
+import {
+  EMPTY_BOUNCE_STEM_PLAN, createOfflineStemInputs, resolveOfflineTrackRouting, type BounceBusStemPlan,
+} from './baqueBounceBusStems';
 
 export interface OfflineTrackGraph {
   trackInputs: Map<number, GainNode>;
@@ -29,15 +32,18 @@ function computeTrackLinearGain(allTracks: any[], track: any, posOverride?: numb
 }
 
 export function buildOfflineTrackGraph(
-  ctx: OfflineAudioContext, allTracks: any[], baqueTracks: any[], timing: BaqueCycleTimingResult, startMeasureIdx: number
+  ctx: OfflineAudioContext, allTracks: any[], baqueTracks: any[], timing: BaqueCycleTimingResult, startMeasureIdx: number,
+  stemPlan: BounceBusStemPlan = EMPTY_BOUNCE_STEM_PLAN
 ): OfflineTrackGraph {
   const state = useSequencerStore.getState();
   const disableEq = Boolean(state.ecoConfig?.disableEq), globalBypass = state.globalAutomationBypass;
   const trackInputs = new Map<number, GainNode>(), activeVoicesByTrack = new Map<number, ActiveVoice[]>();
+  const stems = createOfflineStemInputs(ctx, stemPlan);
 
   for (const track of baqueTracks) {
+    const route = resolveOfflineTrackRouting(track, allTracks, stemPlan);
     const input = ctx.createGain();
-    input.gain.value = CONSOLE_HEADROOM_GAIN;
+    input.gain.value = CONSOLE_HEADROOM_GAIN * route.sign;
     const lowCut = ctx.createBiquadFilter();
     lowCut.type = 'highpass'; lowCut.Q.value = BUTTERWORTH_Q; lowCut.frequency.value = resolveLowCutTargetHz(track, disableEq);
 
@@ -56,7 +62,7 @@ export function buildOfflineTrackGraph(
     panner.pan.value = applyMonoCompatiblePan(basePan).acousticPan;
 
     const fader = ctx.createGain();
-    fader.gain.value = computeTrackLinearGain(allTracks, track);
+    fader.gain.value = computeTrackLinearGain(allTracks, track) * route.stemScale;
 
     if (!isAutomationBypassed(track, 'volume', globalBypass) && hasActiveTrackAutomation(track, 'volume') && track.measureVols?.length) {
       const parentScale = (track.volumeVal ?? 75) > 0
@@ -64,7 +70,7 @@ export function buildOfflineTrackGraph(
         : 1;
       for (let m = 0; m < timing.totalMeasures; m++) {
         const pos = track.measureVols[startMeasureIdx + m] ?? (track.volumeVal ?? 75);
-        fader.gain.setValueAtTime(computeTrackLinearGain(allTracks, track, pos) * parentScale, timing.measureStartsSec[m]);
+        fader.gain.setValueAtTime(computeTrackLinearGain(allTracks, track, pos) * parentScale * route.stemScale, timing.measureStartsSec[m]);
       }
     }
     if (!isAutomationBypassed(track, 'pan', globalBypass) && hasActiveTrackAutomation(track, 'pan') && track.measurePans?.length) {
@@ -75,7 +81,7 @@ export function buildOfflineTrackGraph(
     }
 
     input.connect(lowCut); lowCut.connect(eqLow); eqLow.connect(eqMid); eqMid.connect(eqHigh);
-    eqHigh.connect(panner); panner.connect(fader); fader.connect(ctx.destination);
+    eqHigh.connect(panner); panner.connect(fader); fader.connect(stems[route.stemIndex] ?? ctx.destination);
     trackInputs.set(track.id, input); activeVoicesByTrack.set(track.id, []);
   }
   return { trackInputs, activeVoicesByTrack };

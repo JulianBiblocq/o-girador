@@ -1,7 +1,7 @@
 /**
  * baqueBounceExporter.ts
  * Export hors-ligne (OfflineAudioContext) en 1 clic d'un cycle du Baque (sans Puxador/Coro)
- * calé à l'échantillon 0 sur M1•T1 avec parité complète console (Bus/Link, Pan, EQ, Decay, Choke, Swing) (< 120 lignes).
+ * calé à l'échantillon 0 sur M1•T1 avec parité complète console (Bus/Link, Pan, EQ, Decay, Choke, Swing, Polarité Ø, Compression de Bus) (< 130 lignes).
  */
 import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
@@ -17,6 +17,8 @@ import { audioBufferToWav } from './audio-buffer/audioBufferWavConverter';
 import { buildOfflineTrackGraph, scheduleOfflineStrokeHit } from './baqueBounceTrackGraph';
 import { processOfflineStereoArraysThroughMasterBus } from '../audio/worklet/master-bus/masterBusProcessor';
 import { calibrateBounceLoudnessInPlace } from './bounceLoudnessCalibrator';
+import { planBounceBusStems } from './baqueBounceBusStems';
+import { collapseBounceStemsToStereo } from './baqueBounceBusDynamics';
 import {
   formatBaqueBounceFilename,
   computeBaqueCycleTiming,
@@ -75,8 +77,9 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
 
   const schedule = buildFlatSongSchedule(baqueTracks, cycleMeasures, slicedSigs, instrumentsConfig, null, null, false);
   const OfflineCtx = (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext) as typeof OfflineAudioContext;
-  const offlineCtx = new OfflineCtx(2, timing.exactTotalSamples, timing.sampleRate);
-  const graph = buildOfflineTrackGraph(offlineCtx, state.tracks, baqueTracks, timing, startM);
+  const stemPlan = planBounceBusStems(state.tracks, baqueTracks, Boolean(state.ecoConfig?.disableFx));
+  const offlineCtx = new OfflineCtx(stemPlan.totalChannels, timing.exactTotalSamples, timing.sampleRate);
+  const graph = buildOfflineTrackGraph(offlineCtx, state.tracks, baqueTracks, timing, startM, stemPlan);
   const strokesMaps = EngineVirtualStrokes.buildStrokesMaps(instrumentAudioConfigs);
   const configMap = new Map(instrumentAudioConfigs.map((c) => [c.id, c]));
   const sampleCache = new Map<string, AudioBuffer>();
@@ -107,7 +110,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     scheduleOfflineStrokeHit(offlineCtx, graph, track, inst.id, strokeSymbol, buf, pitch, triggerSec, stepVol, stepDecayNorm, timing.totalDurationSec);
   }
 
-  const rendered = await offlineCtx.startRendering();
+  const rendered = collapseBounceStemsToStereo(offlineCtx, await offlineCtx.startRendering(), stemPlan, state.tracks);
   if (rendered.numberOfChannels >= 2) {
     const chL = rendered.getChannelData(0), chR = rendered.getChannelData(1);
     const compActive = (state.masterEffectsActive?.compressor ?? true) && !state.ecoConfig?.disableFx;

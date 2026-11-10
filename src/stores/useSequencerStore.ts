@@ -13,6 +13,7 @@ import { createClipboardSlice } from './slices/clipboardSlice';
 import { createProjectSettingsSlice } from './slices/projectSettingsSlice';
 import { createPracticeModeSlice } from './slices/practiceModeSlice';
 import { createAutomationBypassSlice } from './slices/automationBypassSlice';
+import { createBusDynamicsSlice } from './slices/busDynamicsSliceActions';
 
 import { SequencerStore, TrackSlice, MasterEffectsActiveState } from './types/sequencerStoreTypes';
 
@@ -36,6 +37,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createTrainingSlice(...a),
   ...createPracticeModeSlice(...a),
   ...createAutomationBypassSlice(...a),
+  ...createBusDynamicsSlice(...a),
 }));
 
 // ---------------------------------------------------------

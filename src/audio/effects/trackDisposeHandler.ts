@@ -11,6 +11,7 @@ import {
   busReverbSendVca,
   busDistoSendVca,
 } from './effectsChainNodes';
+import { disposeBusCompressorInsert } from './busCompressorInsert';
 
 let onTrackDisposeCallback: ((trackId: number) => void) | null = null;
 
@@ -52,6 +53,8 @@ export function disposeTrackNodes(trackId: number) {
       delete busDistoSendVca[trackId];
     }
   } catch (_) {}
+
+  try { disposeBusCompressorInsert(trackId); } catch (_) {}
 
   try {
     if (lowCutNodes[trackId]) {

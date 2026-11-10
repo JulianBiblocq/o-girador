@@ -19,6 +19,7 @@ import {
 import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
 import { busInputs, masterVocalInputNode } from './audioEngineNodes';
 import { AudioEngine } from '../../AudioEngine';
+import { applyInputPolarity } from '../../utils/audio/polarityGain';
 
 export interface SyncTrackChannelsParams {
   tracks: Track[];
@@ -63,6 +64,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
       trackInputs[t.id] = new Tone.Gain(CONSOLE_HEADROOM_GAIN);
       syncTrackInsertChain(t.id, t);
     }
+    applyInputPolarity(trackInputs[t.id], CONSOLE_HEADROOM_GAIN, Boolean(t.phaseInverted));
 
     const gainNode = trackInputs[t.id] || channels[t.id];
     audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);

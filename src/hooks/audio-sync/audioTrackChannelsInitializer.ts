@@ -19,6 +19,7 @@ import {
   resolveImmediateBusId,
 } from '../../audio/effectsChain';
 import { AudioEngine } from '../../AudioEngine';
+import { applyInputPolarity } from '../../utils/audio/polarityGain';
 
 export function initTrackChannelsAudioNodes(
   tracks: TrackGroup[],
@@ -77,6 +78,7 @@ export function initTrackChannelsAudioNodes(
     if (!trackInputs[t.id]) {
       trackInputs[t.id] = new Tone.Gain(CONSOLE_HEADROOM_GAIN);
     }
+    applyInputPolarity(trackInputs[t.id], CONSOLE_HEADROOM_GAIN, Boolean(t.phaseInverted), true);
     syncTrackInsertChain(t.id, t);
 
     const gainNode = trackInputs[t.id] || channels[t.id];

@@ -18,6 +18,7 @@ import {
   resolveImmediateBusId,
 } from '../../audio/effectsChain';
 import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
+import { pruneBusDynamics, syncBusDynamics } from '../../audio/effects/busDynamicsSync';
 
 export interface SyncBusChannelsParams {
   tracks: Track[];
@@ -103,6 +104,7 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       syncBusInsertChain(t.id, t);
       lastAppliedTracksParamsRef.current[busEqKey] = busEqHash;
     }
+    syncBusDynamics(t, disableFx);
 
     const busKey = currentBusId !== null ? String(currentBusId) : null;
     if (lastAppliedBussesRef.current[t.id] !== busKey) {
@@ -127,4 +129,5 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       lastAppliedBussesRef.current[t.id] = busKey;
     }
   });
+  pruneBusDynamics(tracks);
 }

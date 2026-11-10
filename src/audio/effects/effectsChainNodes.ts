@@ -89,3 +89,6 @@ export const busChannels: { [busId: string | number]: Tone.Channel } = (hmrStore
 export const busMeters: { [busId: string | number]: any } = (hmrStore.busMeters ||= {});
 export const busReverbSendVca: { [busId: string | number]: Tone.Gain } = (hmrStore.busReverbSendVca ||= {});
 export const busDistoSendVca: { [busId: string | number]: Tone.Gain } = (hmrStore.busDistoSendVca ||= {});
+/** Insert Compresseur de Bus (Post-EQ / Pré-Fader) : prise native vers le Worklet + pont de repli SAC. */
+export const busCompTaps: { [busId: string | number]: Tone.Gain } = (hmrStore.busCompTaps ||= {});
+export const busCompFallbacks: { [busId: string | number]: Tone.Gain } = (hmrStore.busCompFallbacks ||= {});

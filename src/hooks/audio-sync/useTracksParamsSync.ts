@@ -9,6 +9,7 @@ import { mapReverbTimeKnobToDecaySec, updateStudioReverbNode } from '../../audio
 import { updateStudioSaturationNode } from '../../audio/effects/studioSaturationChain';
 import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
 import { syncMasterBusWorkletParams } from '../../audio/effectsChain';
+import { syncAllBusCompressorsEco } from '../../audio/effects/busDynamicsSync';
 import {
   masterReverbVolumeNode, reverbNode, masterDistortionVolumeNode,
   distortionNode, masterVolumeNode, masterEQNode, channels,
@@ -81,6 +82,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         }
 
         const busCfg = masterFX.masterBus;
+        syncAllBusCompressorsEco(state.tracks, disableFx);
         if (busCfg) {
           syncMasterBusWorkletParams(busCfg);
           syncToadaVocalSlapback(busCfg.toadaSlapbackMode ?? 'off', busCfg.toadaSlapbackWet ?? 0, disableFx);

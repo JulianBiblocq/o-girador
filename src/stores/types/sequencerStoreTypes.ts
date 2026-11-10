@@ -12,8 +12,9 @@ import { ProjectSettingsSlice } from '../slices/projectSettingsSliceTypes';
 import { UISlice } from '../slices/uiSliceTypes';
 import { PracticeModeSlice } from '../slices/practiceModeSliceTypes';
 import { AutomationBypassSlice } from '../slices/automationBypassSliceTypes';
+import { BusDynamicsSlice } from '../slices/busDynamicsSliceTypes';
 
-export type TrackSlice = TrackCoreSlice & TrackHierarchySlice & TrackAcousticsSlice & TrackPatternEditSlice;
+export type TrackSlice = TrackCoreSlice & TrackHierarchySlice & TrackAcousticsSlice & TrackPatternEditSlice & BusDynamicsSlice;
 
 export type SequencerStore = TrackSlice &
   StructureSlice &

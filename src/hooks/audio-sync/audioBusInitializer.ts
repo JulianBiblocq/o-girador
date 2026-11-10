@@ -17,6 +17,7 @@ import {
   computeBusLinearVcaGain,
   resolveImmediateBusId,
 } from '../../audio/effectsChain';
+import { syncBusDynamics } from '../../audio/effects/busDynamicsSync';
 
 export function initBusesAudioNodes(
   tracks: TrackGroup[],
@@ -44,6 +45,7 @@ export function initBusesAudioNodes(
       busInputs[t.id] = new Tone.Gain(1.0);
     }
     syncBusInsertChain(t.id, t);
+    syncBusDynamics(t, disableFx, true);
 
     const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
