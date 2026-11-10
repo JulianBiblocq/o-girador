@@ -1,6 +1,6 @@
 import { TrackGroup } from '../../../types';
 import { interpolateAutomationValue } from '../../../utils/automationMath';
-import { faderPositionToDbString } from '../../../utils/audioMath';
+import { faderPositionToDbString, setFaderThumbPercent } from '../../../utils/audioMath';
 
 export function applyMotorizedTick({
   t,
@@ -38,7 +38,7 @@ export function applyMotorizedTick({
     const trans = t.measureVolTransitions?.[currentM] || 'immediate';
     const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
     if (faderHandleEl) {
-      faderHandleEl.style.bottom = `${Math.max(0, Math.min(100, interpVol))}%`;
+      setFaderThumbPercent(faderHandleEl, interpVol);
     }
     if (faderTextEl) {
       faderTextEl.textContent = faderPositionToDbString(interpVol);

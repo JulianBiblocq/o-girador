@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
-import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, selectTracksHierarchyMeta } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useAudio } from '../contexts/AudioContext';
 import { TrackContextMenu } from './instrument-editor/TrackContextMenu';
@@ -22,7 +22,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 }) => {
   const { isPlaying } = useAudio();
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
-  const tracksMeta = useSequencerStore(selectTracksMeta);
+  const tracksMeta = useSequencerStore(selectTracksHierarchyMeta);
+  const isMuted = useSequencerStore(useCallback(state => getEffectiveMuteState(state.tracks, trackId), [trackId]));
   const lang = useSequencerStore(state => state.lang);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const isEcoMode = useSequencerStore(state => state.isEcoMode);
@@ -47,7 +48,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   if (!track || !inst) return null;
 
-  const isMuted = getEffectiveMuteState(tracksMeta, trackId);
   const { groupStyle, linkStyle, faderColor, faderTextColor, paddingTop, paddingBottom, style } = computeChannelStripStyles({
     track, tracksMeta, inst, busPosition, linkPosition, isDragOver, transform, transition,
     activeWagonSize, isWagonMember, isDraggingWagon,

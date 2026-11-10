@@ -1,135 +1,137 @@
-/**
- * Tranche Master de la table de mixage (< 140 lignes).
- */
 import React, { useRef, useState } from 'react';
-import { XiloMestre, XiloScroll } from '../XiloIcons';
-import { MixerVolumeFader } from '../MixerVolumeFader';
-import { dbToFaderPosition, faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
-import { masterVolumeNode } from '../../audio/effectsChain';
+import { Sliders, ChevronRight } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { MasterEqCompressorSection } from './MasterEqCompressorSection';
-import { MasterStereoMeter } from './MasterStereoMeter';
-import { MasterMonoCheckButton } from './MasterMonoCheckButton';
-import { MasterAutomationBypassBox } from './master/MasterAutomationBypassBox';
-import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
+import { masterVolumeNode } from '../../hooks/useAudioSync';
+import { dbToFaderPosition, faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
+import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 import { anyTrackHasRealAuto } from '../../utils/automationDetectHelper';
-import { useMasterFaderAutomation } from './useMasterFaderAutomation';
+import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
+import { MixerMasterEffects } from '../MixerMasterEffects';
+import { StudioRackModuleId } from './masterEffectsTypes';
+import { MixerVolumeFader } from '../MixerVolumeFader';
 import { useMasterVuMeter } from './useMasterVuMeter';
+import { useMasterFaderAutomation } from './useMasterFaderAutomation';
 import { useMasterThemeTokens } from './useMasterThemeTokens';
+import { MasterStereoMeter } from './MasterStereoMeter';
+import { MasterCollapsedStrip } from './MasterCollapsedStrip';
+import { MasterAutomationBypassBox } from './master/MasterAutomationBypassBox';
 
 interface MixerMasterStripProps {
   isMobile: boolean; isActive: boolean; isPlaying: boolean; lang: string;
-  t: (key: string) => string;
-  masterVol: number; onMasterVolChange: (db: number) => void;
+  t: (key: string) => string; masterVol: number; onMasterVolChange: (vol: number) => void;
   masterEQ: { low: number; mid: number; high: number };
   onMasterEQChange: (eq: { low: number; mid: number; high: number }) => void;
   masterCompressor: { threshold: number; ratio: number };
   onMasterCompressorChange: (comp: { threshold: number; ratio: number }) => void;
   onOpenSaveTemplate: () => void;
+  onOpenStudioRack?: (module: StudioRackModuleId) => void;
 }
 
 export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
   isMobile, isActive, isPlaying, lang, t, masterVol, onMasterVolChange,
-  masterEQ, onMasterEQChange, masterCompressor, onMasterCompressorChange, onOpenSaveTemplate,
+  masterEQ, onMasterEQChange, masterCompressor, onMasterCompressorChange,
+  onOpenSaveTemplate, onOpenStudioRack,
 }) => {
+  const isEcoMode = useSequencerStore(s => s.isEcoMode);
+  const isPracticeMode = useSequencerStore(s => Boolean((s as any).isPracticeMode));
+  const totalMeasures = useSequencerStore(s => s.totalMeasures);
+  const measureVols = useSequencerStore(s => s.measureVols);
+  const measureVolTransitions = useSequencerStore(s => s.measureVolTransitions);
+  const isMasterVolumeBypassed = useSequencerStore(s => s.isMasterVolumeBypassed);
+  const globalAutomationBypass = useSequencerStore(s => s.globalAutomationBypass);
+  const toggleMasterVolumeBypass = useSequencerStore(s => s.toggleMasterVolumeBypass);
+  const isMasterMono = useSequencerStore(s => s.isMasterMono);
+  const toggleMasterMono = useSequencerStore(s => s.toggleMasterMono);
+  const masterEffectsActive = useSequencerStore(s => s.masterEffectsActive);
+  const toggleMasterEffectActive = useSequencerStore(s => s.toggleMasterEffectActive);
+  const hasTrackAuto = useSequencerStore(s => anyTrackHasRealAuto(s.tracks));
+
+  const hasMasterVolAuto = Boolean(measureVols && measureVols.some(v => v !== 100 && v !== 75));
+  const isMasterVolActive = hasMasterVolAuto && !isMasterVolumeBypassedHelper(isMasterVolumeBypassed, globalAutomationBypass);
+  const hasAnyGlobalAuto = hasMasterVolAuto || hasTrackAuto;
   const masterContainerRef = useRef<HTMLDivElement>(null);
   const [isMasterCollapsed, setIsMasterCollapsed] = useState(isMobile);
+  useMasterThemeTokens(masterContainerRef);
 
-  const { isEcoMode, totalMeasures, measureVols, measureVolTransitions, isMasterVolumeBypassed,
-    toggleMasterVolumeBypass, globalAutomationBypass, isMasterMono, toggleMasterMono, tracks } = useSequencerStore();
-
-  const hasMasterVolAuto = measureVols && measureVols.some(v => v !== 100);
-  const isMasterVolEffectiveBypassed = isMasterVolumeBypassedHelper(isMasterVolumeBypassed, globalAutomationBypass);
-  const isMasterVolActive = !!hasMasterVolAuto && !isMasterVolEffectiveBypassed;
-  const hasTrackAuto = anyTrackHasRealAuto(tracks) || hasMasterVolAuto;
+  const {
+    vuMeterLeftRef, vuMeterRightRef, peakLeftRef, peakRightRef,
+    clipLeftRef, clipRightRef, grMeterRef, dbTextRef, clearMasterClipLeds,
+  } = useMasterVuMeter({ isPlaying, isActive });
 
   const { masterFaderHandleRef, masterFaderTextRef, masterTravelRangeRef } = useMasterFaderAutomation({
     isPlaying, isMasterVolActive, isEcoMode, masterVol, totalMeasures, measureVols, measureVolTransitions,
   });
 
-  const { vuMeterLeftRef, vuMeterRightRef } = useMasterVuMeter({ isPlaying, isActive });
-  useMasterThemeTokens(masterContainerRef);
-
-  const templateTooltip = lang === 'pt' ? 'Memorizar ou carregar um gabarito do batuque' : 'Mémoriser ou charger un gabarit du batuque';
-
   return (
-    <div className="flex shrink-0 sticky right-0 z-20 items-stretch shadow-[-8px_0_16px_rgba(0,0,0,0.18)] ml-auto">
-      <div
-        ref={masterContainerRef}
-        className={`flex flex-col cordel-master-strip shrink-0 text-[var(--cordel-text)] overflow-hidden pb-2 transition-all duration-300 border-2 border-[var(--master-border)] ${
-          isMasterCollapsed ? 'w-[45px]' : 'w-[240px]'
-        }`}
-        style={{ '--fader-thumb-bg': 'var(--master-fader-thumb)', '--fader-thumb-border': 'var(--master-border)' } as React.CSSProperties}
-      >
-        <div className="relative px-3 py-1.5 flex justify-between items-center h-[42px] border-b-2 border-[var(--master-border)] bg-[var(--master-header-bg)] text-[var(--master-header-text)] w-full transition-colors">
-          {!isMasterCollapsed ? (
-            <>
-              <span className="font-cactus font-black text-sm tracking-widest flex items-center gap-1.5 uppercase select-none">
-                <XiloMestre size={14} className="shrink-0" /> MASTER
-              </span>
-              <button type="button" onClick={() => setIsMasterCollapsed(true)} className="w-6 h-6 border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center rounded-[2px] cursor-pointer text-[10px]" title={lang === 'fr' ? 'Replier le Master' : 'Recolher o Master'}>►</button>
-            </>
-          ) : (
-            <button type="button" onClick={() => setIsMasterCollapsed(false)} className="w-7 h-7 mx-auto border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center rounded-[2px] cursor-pointer text-[10px]" title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}>◄</button>
-          )}
-        </div>
-
-        {!isMasterCollapsed ? (
-          <>
-            <div className="p-1.5 px-2 border-b-2 border-[var(--master-border)] bg-[var(--cordel-bg)] shrink-0 flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onOpenSaveTemplate}
-                title={templateTooltip}
-                className="flex-1 py-1 px-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] cordel-button font-cactus font-bold text-[10px] uppercase flex items-center justify-center gap-1 transition-colors shadow-[1px_1px_0px_#1a1a1a] cursor-pointer truncate"
-              >
-                <XiloScroll size={13} className="shrink-0" />
-                <span className="truncate">{lang === 'pt' ? 'Gabarito do batuque' : 'Gabarit du batuque'}</span>
-              </button>
-              <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} />
+    <div ref={masterContainerRef} className={`${isMasterCollapsed ? 'w-[44px]' : 'w-[218px] md:w-[236px]'} shrink-0 h-full cordel-master-strip flex flex-col justify-between text-[var(--cordel-text)] z-20 transition-all duration-300 relative select-none`}>
+      {isMasterCollapsed ? (
+        <MasterCollapsedStrip
+          lang={lang} isMasterMono={isMasterMono} onToggleMono={toggleMasterMono}
+          onExpand={() => setIsMasterCollapsed(false)}
+          vuMeterLeftRef={vuMeterLeftRef} vuMeterRightRef={vuMeterRightRef}
+          peakLeftRef={peakLeftRef} peakRightRef={peakRightRef}
+          clipLeftRef={clipLeftRef} clipRightRef={clipRightRef} onClearClip={clearMasterClipLeds}
+        />
+      ) : (
+        <>
+          <div className="bg-[var(--master-header-bg)] text-[var(--master-header-text)] p-1.5 text-center border-b-[3px] border-[var(--cordel-border)] flex items-center justify-between gap-1 shrink-0 min-h-[36px]">
+            <button
+              type="button" onClick={() => setIsMasterCollapsed(true)}
+              className="text-[var(--master-header-text)]/80 hover:text-[var(--master-header-text)] p-0.5 rounded transition-colors cursor-pointer shrink-0 flex items-center justify-center"
+              title={lang === 'fr' ? 'Replier la tranche Master' : 'Recolher a faixa Master'}
+            >
+              <ChevronRight size={16} />
+            </button>
+            <div className="flex items-center justify-center gap-1.5 flex-1">
+              <Sliders size={14} className="shrink-0" />
+              <span className="font-cactus font-black text-base tracking-widest uppercase truncate">{t('masterTitle')}</span>
             </div>
-            {hasTrackAuto && (
-              <div className="p-1.5 px-2 border-b border-[var(--master-border)]/40 bg-[var(--cordel-bg)] shrink-0">
-                <MasterAutomationBypassBox lang={lang} />
-              </div>
-            )}
-            <MasterEqCompressorSection t={t} lang={lang} masterEQ={masterEQ} onMasterEQChange={onMasterEQChange} masterCompressor={masterCompressor} onMasterCompressorChange={onMasterCompressorChange} />
-            <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[140px] h-auto gap-7 overflow-hidden">
-              <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
-                <div className="flex items-center justify-between w-full px-1 shrink-0 h-4">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
-                  {hasMasterVolAuto && (
-                    <button type="button" onClick={(e) => { e.stopPropagation(); toggleMasterVolumeBypass(); }} className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] cursor-pointer transition-all ${isMasterVolActive ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220]' : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'}`} title={isMasterVolActive ? 'Automation Master active (Clic: débrayer)' : 'Automation Master débrayée (Clic: réactiver)'}>A</button>
-                  )}
-                </div>
-                <div className={`flex-grow flex-1 w-full flex items-center justify-center min-h-0 transition-opacity ${isMasterVolActive ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <MixerVolumeFader value={dbToFaderPosition(masterVol ?? 0)} defaultValue={75} thumbWidth={44} thumbHeight={24} fontSize="text-[10px]" isMaster={true} faderColor="var(--master-fader-thumb)" textColor="var(--cordel-cream, var(--cordel-bg))" faderHandleRef={masterFaderHandleRef} valueTextRefProp={masterFaderTextRef} travelRangeRef={masterTravelRangeRef} onChange={(val) => onMasterVolChange(faderPositionToDb(val))} onAudioDrag={(val) => { if (masterVolumeNode?.gain) { const rawGain = faderPositionToGain(val); const safeGain = (typeof rawGain !== 'number' || Number.isNaN(rawGain)) ? 0 : Math.max(0, Math.min(2, rawGain)); try { masterVolumeNode.gain.rampTo(safeGain, 0.02); } catch { try { masterVolumeNode.gain.cancelScheduledValues?.(0); masterVolumeNode.gain.value = safeGain; } catch {} } } }} />
-                </div>
-              </div>
-              <MasterStereoMeter vuMeterLeftRef={vuMeterLeftRef} vuMeterRightRef={vuMeterRightRef} />
-            </div>
-          </>
-        ) : (
-          <div className="flex-grow flex flex-col items-center justify-between py-3 px-1 w-full gap-4 min-h-0 bg-[var(--master-header-bg)] text-[var(--master-header-text)] transition-colors">
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={onOpenSaveTemplate}
-                title={templateTooltip}
-                className="w-7 h-7 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] flex items-center justify-center cursor-pointer transition-colors"
-              >
-                <XiloScroll size={14} className="shrink-0" />
-              </button>
-              <MasterMonoCheckButton isMasterMono={isMasterMono} onToggle={toggleMasterMono} lang={lang} collapsed={true} />
-            </div>
-            <div className="flex-grow flex items-center justify-center select-none py-2 cursor-pointer" onClick={() => setIsMasterCollapsed(false)} title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}>
-              <span className="font-cactus font-black text-xs tracking-widest text-[var(--master-header-text)] opacity-85 hover:opacity-100 transition-opacity uppercase" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>MASTER</span>
-            </div>
-            <MasterStereoMeter vuMeterLeftRef={vuMeterLeftRef} vuMeterRightRef={vuMeterRightRef} labelColorClass="text-[var(--master-header-text)]/60" containerHeightClass="h-[280px] pb-2" />
+            <div className="w-4 shrink-0" />
           </div>
-        )}
-        <div className="w-4 shrink-0 bg-[var(--cordel-bg)] z-10 transition-colors" />
-      </div>
+
+          <div className="flex p-2 flex-col gap-2 flex-grow justify-between overflow-y-auto overflow-x-hidden">
+            {hasAnyGlobalAuto && <MasterAutomationBypassBox lang={lang} />}
+            <MixerMasterEffects
+              t={t} lang={lang} isMobile={isMobile} isPracticeMode={isPracticeMode}
+              masterEQ={masterEQ} onMasterEQChange={onMasterEQChange}
+              masterCompressor={masterCompressor} onMasterCompressorChange={onMasterCompressorChange}
+              masterEffectsActive={masterEffectsActive} onToggleEffect={toggleMasterEffectActive}
+              onOpenStudioRack={onOpenStudioRack} grMeterRef={grMeterRef}
+            />
+
+            <div className="flex flex-col flex-grow justify-end mt-1 pt-1.5 border-t border-[var(--cordel-border)] min-h-[155px]">
+              <span className="font-cactus font-extrabold text-[9.5px] uppercase text-center mb-1 tracking-widest text-[var(--cordel-text)] opacity-90 shrink-0">
+                {t('masterVol')}
+              </span>
+              <div className="flex items-center justify-center gap-3 flex-grow px-2">
+                <div className="h-full flex-grow flex justify-center py-0.5">
+                  <MixerVolumeFader
+                    isMaster={true} value={dbToFaderPosition(masterVol)}
+                    onAudioDrag={(pos) => { if (masterVolumeNode?.gain) safeRampTo(masterVolumeNode.gain, faderPositionToGain(pos), 0.02, 0, 2); }}
+                    onChange={(pos) => onMasterVolChange(faderPositionToDb(pos))}
+                    faderHandleRef={masterFaderHandleRef} valueTextRefProp={masterFaderTextRef} travelRangeRef={masterTravelRangeRef}
+                    hasVolAuto={hasMasterVolAuto} isVolActive={isMasterVolActive} onToggleVolBypass={toggleMasterVolumeBypass}
+                  />
+                </div>
+                <MasterStereoMeter
+                  lang={lang} dbTextRef={dbTextRef} vuMeterLeftRef={vuMeterLeftRef} vuMeterRightRef={vuMeterRightRef}
+                  peakLeftRef={peakLeftRef} peakRightRef={peakRightRef} clipLeftRef={clipLeftRef} clipRightRef={clipRightRef} onClearClip={clearMasterClipLeds}
+                />
+              </div>
+              <div className="mt-2 pt-1.5 border-t border-[var(--cordel-border)]/45 shrink-0">
+                <button
+                  type="button" onClick={onOpenSaveTemplate}
+                  className="w-full min-h-[40px] py-2.5 px-3 bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_var(--cordel-ink-dark)] rounded-[2px] font-cactus font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  title={lang === 'fr' ? 'Sauvegarder la disposition actuelle comme gabarit par défaut' : 'Salvar o layout atual como modelo padrão'}
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
+                  <span className="truncate">{lang === 'fr' ? 'Gabarit du Baque' : 'Modelo do Baque'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

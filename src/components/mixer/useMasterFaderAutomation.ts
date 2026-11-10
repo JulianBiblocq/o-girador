@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import * as Tone from 'tone';
-import { dbToFaderPosition, faderPositionToDbString } from '../../utils/audioMath';
+import { dbToFaderPosition, faderPositionToDbString, setFaderThumbPercent } from '../../utils/audioMath';
 import { interpolateAutomationValue } from '../../utils/automationMath';
 import { getLastAudibleTick } from '../../audio/visualTickBuffer';
 
@@ -41,7 +41,7 @@ export function useMasterFaderAutomation({
   const resetMasterFaderPosition = () => {
     if (masterFaderHandleRef.current) {
       const manualVal = dbToFaderPosition(masterVolRef.current);
-      masterFaderHandleRef.current.style.bottom = `${manualVal}%`;
+      setFaderThumbPercent(masterFaderHandleRef.current, manualVal);
       if (masterFaderTextRef.current) {
         masterFaderTextRef.current.textContent = faderPositionToDbString(manualVal);
       }
@@ -79,7 +79,7 @@ export function useMasterFaderAutomation({
           const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
 
           if (masterFaderHandleRef.current) {
-            masterFaderHandleRef.current.style.bottom = `${Math.max(0, Math.min(100, interpVol))}%`;
+            setFaderThumbPercent(masterFaderHandleRef.current, interpVol);
           }
           if (masterFaderTextRef.current) {
             masterFaderTextRef.current.textContent = faderPositionToDbString(interpVol);

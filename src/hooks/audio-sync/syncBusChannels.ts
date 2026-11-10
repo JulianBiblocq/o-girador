@@ -5,6 +5,7 @@ import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '..
 import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
+import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import { busInputs, masterVocalInputNode } from './audioEngineNodes';
 import {
   syncBusInsertChain,
@@ -48,8 +49,8 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       } catch (_) {}
 
       busChannels[t.id] = channelNode;
-      busMeters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
-      channelNode.connect(busMeters[t.id]);
+      busMeters[t.id] = createLightweightSacAnalyser();
+      Tone.connect(channelNode, busMeters[t.id]);
     }
 
     if (!busInputs[t.id]) {
@@ -119,7 +120,7 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
 
       if (reverbSends[t.id]) busChannels[t.id].connect(reverbSends[t.id]);
       if (distortionSends[t.id]) busChannels[t.id].connect(distortionSends[t.id]);
-      if (busMeters[t.id]) busChannels[t.id].connect(busMeters[t.id]);
+      if (busMeters[t.id]) Tone.connect(busChannels[t.id], busMeters[t.id]);
       wireBusSendVcaOutput(t.id, currentBusId);
       wireAuxSendsToParentOrReceive(t.id, currentBusId);
 

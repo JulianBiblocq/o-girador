@@ -30,6 +30,7 @@
   --cordel-stick-nylon-shade: #e2ded3;
   --cordel-stick-ink: #1a1a1a;
   --vu-level-nominal: #3b8c82;
+  --vu-track-bg: #141210;
   /* Voyant des paliers Eco (pastille du bouton L'Atelier) */
   --eco-tier-off: #22c55e;
   --eco-tier-1: #d99b26;
@@ -61,8 +62,9 @@
   --eq-high-color: #3d8b85;
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
-  --wallpaper-opacity: 0.16;
-  --wallpaper-mixer-opacity: 0.16;
+  --fx-reverb-accent: #2a5c8a; --fx-disto-accent: #c25e1a; --fx-comp-accent: #d4af37;
+  --fx-comp-knob: #d4af37; --fx-active-text: #f4ecd8; --fx-comp-active-text: #1a1a1a;
+  --wallpaper-opacity: 0.16; --wallpaper-mixer-opacity: 0.16;
 }
 
 .master-fader { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
@@ -104,6 +106,7 @@
   --cordel-stick-nylon-shade: #e2ded3;
   --cordel-stick-ink: #1a1a1a;
   --vu-level-nominal: #3b8c82;
+  --vu-track-bg: #221e1b;
   --vu-level-warn: #d99b26;
   --vu-level-clip: #c25e38;
   --cordel-card-btn-bg: #efe6d0;
@@ -127,8 +130,8 @@
   --eq-low-color: #8b2a1a;
   --eq-mid-color: #d4af37;
   --eq-high-color: #3d8b85;
-  --reverb-color: #2a5c8a;
-  --disto-color: #c25e1a;
-  --wallpaper-opacity: 0.12;
-  --wallpaper-mixer-opacity: 0.12;
+  --reverb-color: #2a5c8a; --disto-color: #c25e1a;
+  --fx-reverb-accent: #2a5c8a; --fx-disto-accent: #c25e1a; --fx-comp-accent: #6b4208;
+  --fx-comp-knob: #d4af37; --fx-active-text: #f4ecd8; --fx-comp-active-text: #f4ecd8;
+  --wallpaper-opacity: 0.12; --wallpaper-mixer-opacity: 0.12;
 }

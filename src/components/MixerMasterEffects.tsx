@@ -1,47 +1,94 @@
-
 import React from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { useShallow } from 'zustand/react/shallow';
-import { useSequencer } from '../contexts/SequencerContext';
-import { i18n } from '../data';
+import { MixerMasterEffectsProps } from './mixer/masterEffectsTypes';
+import { MasterEqCompressorSection } from './mixer/MasterEqCompressorSection';
 import { MasterReverbSection } from './mixer/MasterReverbSection';
 import { MasterDistortionSection } from './mixer/MasterDistortionSection';
+import { MasterCompressorColumn } from './mixer/MasterCompressorColumn';
+import { MasterPresetAndMonoBar } from './mixer/MasterPresetAndMonoBar';
 
-export const MixerMasterEffects: React.FC = () => {
-  const { lang = 'pt' } = useSequencer();
-  const t = (key: keyof typeof i18n['fr']) => i18n[lang]?.[key] || i18n['pt']?.[key] || key;
-  const masterFX = useSequencerStore(useShallow((state) => state.masterFX));
-  const isReverbActive = useSequencerStore((state) => state.masterEffectsActive?.reverb ?? true);
-  const isDistoActive = useSequencerStore((state) => state.masterEffectsActive?.disto ?? true);
-  const setMasterFxVolume = useSequencerStore((state) => state.setMasterFxVolume);
-  const setMasterFxParam = useSequencerStore((state) => state.setMasterFxParam);
-  const toggleMasterEffectActive = useSequencerStore((state) => state.toggleMasterEffectActive);
+export type { MixerMasterEffectsProps };
+
+export const MixerMasterEffects: React.FC<MixerMasterEffectsProps> = ({
+  t,
+  lang,
+  isMobile = false,
+  isPracticeMode = false,
+  masterEQ,
+  onMasterEQChange,
+  masterCompressor,
+  onMasterCompressorChange,
+  masterEffectsActive,
+  onToggleEffect,
+  onOpenStudioRack,
+  grMeterRef,
+}) => {
+  const reverbVol = useSequencerStore(s => s.masterFX?.reverb?.returnVolume ?? 70);
+  const reverbTime = useSequencerStore(s => s.masterFX?.reverb?.time ?? 30);
+  const distoVol = useSequencerStore(s => s.masterFX?.distortion?.returnVolume ?? 0);
+  const distoDrive = useSequencerStore(s => s.masterFX?.distortion?.drive ?? 20);
+  const setMasterFxVolume = useSequencerStore(s => s.setMasterFxVolume);
+  const setMasterFxParam = useSequencerStore(s => s.setMasterFxParam);
 
   return (
-    <div className="flex w-full text-[var(--cordel-text)] overflow-hidden relative pb-0.5 transition-colors select-none">
-      <div className="absolute inset-0 bg-[#d4af37]/5 pointer-events-none" />
-
-      <MasterReverbSection
-        reverbTime={masterFX.reverb.time}
-        returnVolume={masterFX.reverb.returnVolume}
-        isReverbActive={isReverbActive}
+    <div className="flex flex-col gap-1.5 w-full shrink-0">
+      <MasterEqCompressorSection
         t={t}
-        setMasterFxParam={setMasterFxParam}
-        setMasterFxVolume={setMasterFxVolume}
-        toggleMasterEffectActive={toggleMasterEffectActive}
+        lang={lang}
+        isMobile={isMobile}
+        isPracticeMode={isPracticeMode}
+        masterEQ={masterEQ}
+        onMasterEQChange={onMasterEQChange}
+        onOpenStudioRack={onOpenStudioRack}
       />
 
-      <MasterDistortionSection
-        distortionDrive={masterFX.distortion.drive}
-        returnVolume={masterFX.distortion.returnVolume}
-        isDistoActive={isDistoActive}
-        t={t}
-        setMasterFxParam={setMasterFxParam}
-        setMasterFxVolume={setMasterFxVolume}
-        toggleMasterEffectActive={toggleMasterEffectActive}
+      <div className="grid grid-cols-3 gap-1 w-full items-stretch">
+        <MasterReverbSection
+          t={t}
+          lang={lang}
+          isMobile={isMobile}
+          isPracticeMode={isPracticeMode}
+          reverbVol={reverbVol}
+          reverbTime={reverbTime}
+          masterEffectsActive={masterEffectsActive}
+          onToggleEffect={onToggleEffect}
+          setMasterFxVolume={setMasterFxVolume}
+          setMasterFxParam={setMasterFxParam}
+          onOpenStudioRack={onOpenStudioRack}
+        />
+
+        <MasterDistortionSection
+          t={t}
+          lang={lang}
+          isMobile={isMobile}
+          isPracticeMode={isPracticeMode}
+          distoVol={distoVol}
+          distoDrive={distoDrive}
+          masterEffectsActive={masterEffectsActive}
+          onToggleEffect={onToggleEffect}
+          setMasterFxVolume={setMasterFxVolume}
+          setMasterFxParam={setMasterFxParam}
+          onOpenStudioRack={onOpenStudioRack}
+        />
+
+        <MasterCompressorColumn
+          t={t}
+          lang={lang}
+          isMobile={isMobile}
+          isPracticeMode={isPracticeMode}
+          masterCompressor={masterCompressor}
+          onMasterCompressorChange={onMasterCompressorChange}
+          masterEffectsActive={masterEffectsActive}
+          onToggleEffect={onToggleEffect}
+          onOpenStudioRack={onOpenStudioRack}
+          grMeterRef={grMeterRef}
+        />
+      </div>
+
+      <MasterPresetAndMonoBar
+        lang={lang}
+        onMasterCompressorChange={onMasterCompressorChange}
       />
     </div>
   );
 };
-
-export default MixerMasterEffects;

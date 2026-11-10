@@ -1,9 +1,10 @@
-import React, { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent, DragMoveEvent } from '@dnd-kit/core';
 import { TrackGroup } from '../../types';
 import { useSequencerStore, TrackMeta } from '../../stores/useSequencerStore';
 import { createMixerCollisionDetection } from './customMixerCollision';
 import { executeMixerDragEnd } from './mixerDragEndHelper';
+import { resolveMixerDragWagon } from './mixerHierarchyHelpers';
 
 interface UseMixerDndProps {
   tracksMeta: TrackMeta[];
@@ -52,32 +53,14 @@ export function useMixerDnd({
     setActiveDragTrackId(activeTrackId);
 
     const currentFullTracks = useSequencerStore.getState().tracks;
-    const activeTrack = tracksMeta.find(t => t.id === activeTrackId);
-    const activeFullTrack = currentFullTracks.find(t => t.id === activeTrackId);
-
-    const isLinkedChild = !!activeTrack?.linkedToTrackId && !activeTrack?.isLinkFolder && !activeTrack?.isLinkMaster;
-    const isBusChild = !!activeTrack?.busId && !activeTrack?.isBusFolder;
-    const isInternalChild = isLinkedChild || isBusChild;
-
-    const isGroupHeader = Boolean(
-      activeTrack && !isInternalChild &&
-      (activeTrack.isBusFolder || activeTrack.isLinkFolder || activeTrack.isLinkMaster ||
-       tracksMeta.some(t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id)))
+    const { blockTrackIds, wagonTracks } = resolveMixerDragWagon(
+      activeTrackId,
+      tracksMeta,
+      displayedTracks,
+      currentFullTracks
     );
-
-    if (isGroupHeader) {
-      const blockTrackIds = displayedTracks.filter(t => 
-        t.id === activeTrackId ||
-        String(t.busId) === String(activeTrackId) ||
-        String(t.linkedToTrackId) === String(activeTrackId) ||
-        (activeTrack?.linkedToTrackId && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId))
-      ).map(c => c.id);
-      activeGroupTrackIdsRef.current = blockTrackIds;
-      setActiveDragWagonTracks(currentFullTracks.filter(t => blockTrackIds.includes(t.id)));
-    } else {
-      activeGroupTrackIdsRef.current = [activeTrackId];
-      setActiveDragWagonTracks(activeFullTrack ? [activeFullTrack] : null);
-    }
+    activeGroupTrackIdsRef.current = blockTrackIds;
+    setActiveDragWagonTracks(wagonTracks);
   }, [tracksMeta, displayedTracks]);
 
   const handleDragMove = useCallback((event: DragMoveEvent) => {

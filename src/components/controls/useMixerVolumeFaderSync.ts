@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import { faderPositionToDbString, sanitizeFaderPosition, UNITY_GAIN_FADER_POSITION } from '../../utils/audioMath';
+import { faderPositionToDbString, sanitizeFaderPosition, setFaderThumbPercent, UNITY_GAIN_FADER_POSITION } from '../../utils/audioMath';
 import { useFaderTouchDrag } from './useFaderTouchDrag';
 import { useFaderMidiAndAudio } from './useFaderMidiAndAudio';
 
@@ -60,7 +60,7 @@ export function useMixerVolumeFaderSync({
     setIsEditing(false);
     clearRailRect();
     const unityPos = defaultValue !== undefined ? defaultValue : UNITY_GAIN_FADER_POSITION;
-    if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${unityPos}%`;
+    setFaderThumbPercent(visualThumbRef.current, unityPos);
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(unityPos);
     updateAudioNode(unityPos);
     onChange(unityPos);
@@ -72,7 +72,7 @@ export function useMixerVolumeFaderSync({
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
     cacheRailRect();
     const val = calculateValueFromPointer(e.clientY);
-    if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
+    setFaderThumbPercent(visualThumbRef.current, val);
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
     updateAudioNode(val);
   };
@@ -81,7 +81,7 @@ export function useMixerVolumeFaderSync({
     if (!isDraggingRef.current) return;
     e.preventDefault();
     const val = calculateValueFromPointer(e.clientY);
-    if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
+    setFaderThumbPercent(visualThumbRef.current, val);
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
     updateAudioNode(val);
   };
@@ -104,7 +104,7 @@ export function useMixerVolumeFaderSync({
   useEffect(() => {
     if (!isDraggingRef.current && !isEditing) {
       const activeVal = sanitizeFaderPosition(value ?? defaultValue ?? UNITY_GAIN_FADER_POSITION);
-      if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${activeVal}%`;
+      setFaderThumbPercent(visualThumbRef.current, activeVal);
       if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(activeVal);
       updateAudioNode(activeVal);
     }

@@ -20,6 +20,9 @@ export function formatKnobValue(val: number, unit = '', decimals?: number): stri
     const rounded = Math.round(val);
     return rounded > 0 ? `+${rounded}` : `${rounded}`;
   }
+  if (decimals !== undefined && decimals > 0) {
+    return `${val.toFixed(decimals)}${unit}`;
+  }
   return `${Math.round(val)}${unit}`;
 }
 
@@ -34,6 +37,7 @@ export function quantizeKnobValue(
   let val = Math.min(max, Math.max(min, rawVal));
   if (step) {
     val = Math.round(val / step) * step;
+    if (step < 1) val = Number(val.toFixed(2));
   }
   const snapThreshold = step ? step * 0.75 : 0.8;
   const targetZero = defaultValue !== undefined ? defaultValue : 0;

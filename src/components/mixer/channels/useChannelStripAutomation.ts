@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 import { TrackGroup } from '../../../types';
-import { faderPositionToDbString, sanitizeFaderPosition } from '../../../utils/audioMath';
+import { faderPositionToDbString, sanitizeFaderPosition, setFaderThumbPercent } from '../../../utils/audioMath';
 import { getLastAudibleTick } from '../../../audio/visualTickBuffer';
 import { applyMotorizedTick } from './motorizedTickHelper';
 
@@ -43,7 +43,7 @@ export function useChannelStripAutomation({
     if (!t) return;
     if (resetVol && faderHandleRef.current) {
       const pos = sanitizeFaderPosition(t.volumeVal);
-      faderHandleRef.current.style.bottom = `${pos}%`;
+      setFaderThumbPercent(faderHandleRef.current, pos);
       if (faderTextRef.current) faderTextRef.current.textContent = faderPositionToDbString(pos);
     }
     if (resetPan && panKnobRef.current) {

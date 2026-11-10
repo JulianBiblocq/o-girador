@@ -108,3 +108,29 @@ export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] =
   prevMetaList = nextMetaList;
   return nextMetaList;
 };
+
+let prevHierarchyTracksArr: TrackGroup[] | null = null;
+let prevHierarchyMetaList: TrackMeta[] = [];
+
+export const selectTracksHierarchyMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] => {
+  const currentTracks = state.tracks;
+  if (currentTracks === prevHierarchyTracksArr) return prevHierarchyMetaList;
+
+  let hasChanged = currentTracks.length !== prevHierarchyMetaList.length;
+  const nextList: TrackMeta[] = [];
+
+  for (let i = 0; i < currentTracks.length; i++) {
+    const t = currentTracks[i];
+    const meta = getCachedTrackMeta(
+      t.id, t.instrumentIdx, t.customName, t.isBusFolder, t.isLinkFolder,
+      t.isLinkMaster, t.busId, t.linkedToTrackId, false, false, t.isHidden, t.isFolded
+    );
+    nextList.push(meta);
+    if (!hasChanged && prevHierarchyMetaList[i] !== meta) hasChanged = true;
+  }
+
+  prevHierarchyTracksArr = currentTracks;
+  if (!hasChanged) return prevHierarchyMetaList;
+  prevHierarchyMetaList = nextList;
+  return nextList;
+};

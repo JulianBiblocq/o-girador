@@ -34,7 +34,7 @@ export const MixerKnobSvg: React.FC<MixerKnobSvgProps> = ({
           cx="16" 
           cy="16" 
           r="13.5" 
-          fill={isGain ? 'var(--cordel-text)' : color} 
+          fill={color && color !== 'var(--cordel-border)' ? color : (isGain ? 'var(--cordel-text)' : color)}
           stroke="var(--cordel-border)" 
           strokeWidth="1.5" 
         />

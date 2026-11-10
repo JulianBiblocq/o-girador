@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { faderPositionToDbString } from '../../utils/audioMath';
+import { faderPositionToDbString, setFaderThumbPercent } from '../../utils/audioMath';
 
 interface UseFaderTouchDragProps {
   railRef: React.RefObject<HTMLDivElement | null>;
@@ -46,7 +46,7 @@ export function useFaderTouchDrag({
         isDraggingRef.current = true;
         cacheRailRect();
         const val = calculateValueFromPointer(e.touches[0].clientY);
-        if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
+        setFaderThumbPercent(visualThumbRef.current, val);
         if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
         updateAudioNode(val);
       }
@@ -56,7 +56,7 @@ export function useFaderTouchDrag({
       if (isDraggingRef.current && e.touches.length > 0) {
         e.preventDefault();
         const val = calculateValueFromPointer(e.touches[0].clientY);
-        if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
+        setFaderThumbPercent(visualThumbRef.current, val);
         if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
         updateAudioNode(val);
       }

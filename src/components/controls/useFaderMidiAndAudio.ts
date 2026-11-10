@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { channels, busChannels } from '../../hooks/useAudioSync';
-import { faderPositionToDb, faderPositionToDbString } from '../../utils/audioMath';
+import { faderPositionToDb, faderPositionToDbString, setFaderThumbPercent } from '../../utils/audioMath';
 import { safeRampDb } from '../../utils/audio/safeAudioParamRamp';
 import { rampBusSendVcaFromFaderDrag } from '../../audio/effectsChain';
 
@@ -40,7 +40,7 @@ export function useFaderMidiAndAudio({
       const { targetId, val } = customEv.detail || {};
       const isCurrent = isMaster ? targetId === 'master' : targetId === trackId;
       if (!isCurrent) return;
-      if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${val}%`;
+      setFaderThumbPercent(visualThumbRef.current, val);
       if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(val);
     };
     window.addEventListener('midi-fader-move', handleMidiFader);

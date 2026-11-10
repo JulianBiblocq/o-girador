@@ -18,7 +18,7 @@ export const MasterAutomationBypassBox: React.FC<MasterAutomationBypassBoxProps>
   const isRevBypassed = isAllBypassed || !!globalBypass?.reverb;
 
   return (
-    <div className="flex flex-col gap-1 p-1.5 rounded-[2px] bg-[var(--cordel-bg)]/80 border border-[var(--cordel-border)]/40 w-full text-[var(--cordel-text)] select-none">
+    <div className="flex flex-col gap-1 p-1.5 rounded-[2px] bg-[var(--cordel-bg)]/80 border border-[var(--cordel-border)]/40 w-full text-[var(--cordel-text)] select-none shrink-0">
       <div className="flex items-center justify-between gap-1">
         <span className="font-cactus font-bold text-[9px] uppercase tracking-wider text-[var(--cordel-text)]/70">
           Automations
@@ -28,7 +28,7 @@ export const MasterAutomationBypassBox: React.FC<MasterAutomationBypassBoxProps>
           onClick={() => toggleGlobal('all')}
           className={`px-1.5 py-0.5 rounded-[2px] font-cactus font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer ${
             !isAllBypassed
-              ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[var(--cordel-border)] hover:bg-[#a83220] shadow-xs'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)] hover:opacity-90 shadow-xs'
               : 'opacity-50 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
           }`}
           title={
@@ -47,7 +47,7 @@ export const MasterAutomationBypassBox: React.FC<MasterAutomationBypassBoxProps>
           onClick={() => toggleGlobal('volume')}
           className={`py-0.5 rounded-[2px] font-cactus font-bold text-[8.5px] uppercase transition-all cursor-pointer text-center ${
             !isVolBypassed
-              ? 'bg-[#8b2a1a]/85 text-[#f4ecd8] border border-[var(--cordel-border)] hover:bg-[#8b2a1a]'
+              ? 'bg-[var(--cordel-wood)]/85 text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)] hover:bg-[var(--cordel-wood)]'
               : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
           }`}
           title={lang === 'pt' ? 'Automações de Volume' : 'Automations de Volume'}
@@ -59,7 +59,7 @@ export const MasterAutomationBypassBox: React.FC<MasterAutomationBypassBoxProps>
           onClick={() => toggleGlobal('pan')}
           className={`py-0.5 rounded-[2px] font-cactus font-bold text-[8.5px] uppercase transition-all cursor-pointer text-center ${
             !isPanBypassed
-              ? 'bg-[#8b2a1a]/85 text-[#f4ecd8] border border-[var(--cordel-border)] hover:bg-[#8b2a1a]'
+              ? 'bg-[var(--cordel-wood)]/85 text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)] hover:bg-[var(--cordel-wood)]'
               : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
           }`}
           title={lang === 'pt' ? 'Automações de Panorâmico' : 'Automations de Panoramique'}
@@ -71,7 +71,7 @@ export const MasterAutomationBypassBox: React.FC<MasterAutomationBypassBoxProps>
           onClick={() => toggleGlobal('reverb')}
           className={`py-0.5 rounded-[2px] font-cactus font-bold text-[8.5px] uppercase transition-all cursor-pointer text-center ${
             !isRevBypassed
-              ? 'bg-[#8b2a1a]/85 text-[#f4ecd8] border border-[var(--cordel-border)] hover:bg-[#8b2a1a]'
+              ? 'bg-[var(--cordel-wood)]/85 text-[var(--cordel-parchment-bg)] border border-[var(--cordel-border)] hover:bg-[var(--cordel-wood)]'
               : 'opacity-45 line-through bg-black/40 text-gray-400 border border-dashed border-gray-600'
           }`}
           title={lang === 'pt' ? 'Automações de Reverb' : 'Automations de Réverbe'}

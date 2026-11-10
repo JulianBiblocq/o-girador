@@ -64,3 +64,49 @@ export function computeMidiAndOrdinal(
 
   return { channelOrdinal, isUnderMidiControl, midiFaderIndex };
 }
+
+export function resolveMixerDragWagon(
+  activeTrackId: number,
+  tracksMeta: TrackMeta[],
+  displayedTracks: TrackMeta[],
+  currentFullTracks: TrackGroup[]
+): { blockTrackIds: number[]; wagonTracks: TrackGroup[] | null } {
+  const activeTrack = tracksMeta.find(t => t.id === activeTrackId);
+  const activeFullTrack = currentFullTracks.find(t => t.id === activeTrackId);
+
+  const isLinkedChild = Boolean(activeTrack?.linkedToTrackId && !activeTrack?.isLinkFolder && !activeTrack?.isLinkMaster);
+  const isBusChild = Boolean(activeTrack?.busId && !activeTrack?.isBusFolder);
+  const isInternalChild = isLinkedChild || isBusChild;
+
+  const isGroupHeader = Boolean(
+    activeTrack &&
+      !isInternalChild &&
+      (activeTrack.isBusFolder ||
+        activeTrack.isLinkFolder ||
+        activeTrack.isLinkMaster ||
+        tracksMeta.some(
+          t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id)
+        ))
+  );
+
+  if (isGroupHeader) {
+    const blockTrackIds = displayedTracks
+      .filter(
+        t =>
+          t.id === activeTrackId ||
+          String(t.busId) === String(activeTrackId) ||
+          String(t.linkedToTrackId) === String(activeTrackId) ||
+          (activeTrack?.linkedToTrackId && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId))
+      )
+      .map(c => c.id);
+    return {
+      blockTrackIds,
+      wagonTracks: currentFullTracks.filter(t => blockTrackIds.includes(t.id)),
+    };
+  }
+
+  return {
+    blockTrackIds: [activeTrackId],
+    wagonTracks: activeFullTrack ? [activeFullTrack] : null,
+  };
+}

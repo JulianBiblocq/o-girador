@@ -5,6 +5,7 @@ import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '..
 import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
+import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import {
   syncTrackInsertChain,
   ensureAuxSendNodes,
@@ -53,8 +54,8 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     if (!channels[t.id]) {
       channels[t.id] = new Tone.Channel({ volume: 0 });
       try { channels[t.id].channelCount = 2; channels[t.id].channelCountMode = "explicit"; } catch (_) {}
-      meters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
-      channels[t.id].connect(meters[t.id]);
+      meters[t.id] = createLightweightSacAnalyser();
+      Tone.connect(channels[t.id], meters[t.id]);
     }
     ensureAuxSendNodes(t.id, percentToDb(disableFx ? 0 : reverb), percentToDb(disableFx ? 0 : distortion));
     if (t.isLinkMaster) ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
@@ -123,7 +124,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
 
       if (reverbSends[t.id]) channels[t.id].connect(reverbSends[t.id]);
       if (distortionSends[t.id]) channels[t.id].connect(distortionSends[t.id]);
-      if (meters[t.id]) channels[t.id].connect(meters[t.id]);
+      if (meters[t.id]) Tone.connect(channels[t.id], meters[t.id]);
       wireAuxSendsToParentOrReceive(t.id, targetBusId);
       if (t.isLinkMaster) wireBusSendVcaOutput(t.id, targetBusId);
 

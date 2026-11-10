@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { faderPositionToDbString, sanitizeFaderPosition, UNITY_GAIN_FADER_POSITION } from '../utils/audioMath';
+import { faderPositionToDbString, sanitizeFaderPosition, setFaderThumbPercent, UNITY_GAIN_FADER_POSITION } from '../utils/audioMath';
 import { FaderTrackArea } from './controls/FaderTrackArea';
 import { FaderDbCartouche } from './controls/FaderDbCartouche';
 import { useMixerVolumeFaderSync } from './controls/useMixerVolumeFaderSync';
@@ -49,8 +49,8 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     if (valueTextRefProp) (valueTextRefProp as React.MutableRefObject<HTMLSpanElement | null>).current = el;
   };
 
-  const resolvedThumbHeight = thumbHeight || 20;
-  const resolvedThumbWidth = thumbWidth || (isMaster ? 44 : 32);
+  const resolvedThumbHeight = thumbHeight || (isMaster ? 26 : 20);
+  const resolvedThumbWidth = thumbWidth || (isMaster ? 50 : 32);
   const clampedPosition = sanitizeFaderPosition(value ?? defaultValue);
 
   if (travelRangeRef) travelRangeRef.current = 100;
@@ -69,7 +69,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
 
   const handleCommitPosition = (newPos: number) => {
     const safePos = sanitizeFaderPosition(newPos);
-    if (visualThumbRef.current) visualThumbRef.current.style.bottom = `${safePos}%`;
+    setFaderThumbPercent(visualThumbRef.current, safePos);
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(safePos);
     updateAudioNode(safePos);
     onChange(safePos);

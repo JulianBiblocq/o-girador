@@ -109,15 +109,20 @@ export const setMasterEffectsActiveState = (
 export const applyStudioFxPresetState = (
   masterFX: MasterFX, module: 'reverb' | 'saturation' | 'compressor', presetId: string
 ): MasterFX => {
-  if (module === 'reverb' && STUDIO_REVERB_PRESETS[presetId]) {
-    return { ...masterFX, reverb: { ...masterFX.reverb, ...STUDIO_REVERB_PRESETS[presetId].params, presetId } };
+  if (module === 'reverb') {
+    const found = STUDIO_REVERB_PRESETS.find(p => p.id === presetId);
+    if (found) return { ...masterFX, reverb: { ...masterFX.reverb, ...found.settings, presetId } };
   }
-  if (module === 'saturation' && STUDIO_SATURATION_PRESETS[presetId]) {
-    return { ...masterFX, distortion: { ...masterFX.distortion, ...STUDIO_SATURATION_PRESETS[presetId].params, presetId } };
+  if (module === 'saturation') {
+    const found = STUDIO_SATURATION_PRESETS.find(p => p.id === presetId);
+    if (found) return { ...masterFX, distortion: { ...masterFX.distortion, ...found.settings, presetId } };
   }
-  if (module === 'compressor' && STUDIO_COMPRESSOR_PRESETS[presetId]) {
-    const curBus: StudioMasterBusConfig = { ...DEFAULT_STUDIO_MASTER_BUS_CONFIG, ...(masterFX.masterBus || {}) };
-    return { ...masterFX, masterBus: { ...curBus, ...STUDIO_COMPRESSOR_PRESETS[presetId].params, presetId } };
+  if (module === 'compressor') {
+    const found = STUDIO_COMPRESSOR_PRESETS.find(p => p.id === presetId);
+    if (found) {
+      const curBus: StudioMasterBusConfig = { ...DEFAULT_STUDIO_MASTER_BUS_CONFIG, ...(masterFX.masterBus || {}) };
+      return { ...masterFX, masterBus: { ...curBus, ...found.settings, compPresetId: presetId } };
+    }
   }
   return masterFX;
 };

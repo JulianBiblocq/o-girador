@@ -1,127 +1,93 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React from 'react';
 import * as Tone from 'tone';
-import { DragNumberBox } from '../DragNumberBox';
-import { XiloReverb } from '../XiloIcons';
-import { masterReverbVolumeNode, reverbNode } from '../../audio/effectsChain';
-import { percentToDb, calcReverbOpacity } from './masterEffectsMath';
-import { updateMasterEffectLabelContrast } from './masterEffectsThemeHelpers';
-import type { MasterReverbSectionProps } from './masterEffectsTypes';
+import { ChevronRight } from 'lucide-react';
+import { MixerKnob } from '../MixerKnob';
+import { masterReverbVolumeNode, reverbNode } from '../../hooks/useAudioSync';
+import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
+import { MasterEffectsActiveState } from '../../stores/useSequencerStore';
+import { percentToDb } from './masterEffectsMath';
+import { getPowerBtnClass, getPowerBtnStyle, getLedClass } from './masterEffectsThemeHelpers';
+import { StudioRackModuleId } from './masterEffectsTypes';
+
+interface MasterReverbSectionProps {
+  t: (key: string) => string;
+  lang: string;
+  isMobile?: boolean;
+  isPracticeMode?: boolean;
+  reverbVol: number;
+  reverbTime: number;
+  masterEffectsActive: MasterEffectsActiveState;
+  onToggleEffect: (effect: keyof MasterEffectsActiveState) => void;
+  setMasterFxVolume: (fx: 'reverb' | 'distortion', val: number) => void;
+  setMasterFxParam: (fx: 'reverb' | 'distortion', param: 'time' | 'drive', val: number) => void;
+  onOpenStudioRack?: (module: StudioRackModuleId) => void;
+}
 
 export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
-  reverbTime,
-  returnVolume,
-  isReverbActive,
-  t,
-  setMasterFxParam,
-  setMasterFxVolume,
-  toggleMasterEffectActive,
+  t, lang, isMobile = false, isPracticeMode = false,
+  reverbVol, reverbTime, masterEffectsActive, onToggleEffect,
+  setMasterFxVolume, setMasterFxParam, onOpenStudioRack,
 }) => {
-  const reverbBgRef = useRef<HTMLDivElement>(null);
-  const reverbBadgeRef = useRef<HTMLDivElement>(null);
-  const reverbLabelRef = useRef<HTMLSpanElement>(null);
-  const currentVolRef = useRef<number>(returnVolume);
-  currentVolRef.current = returnVolume;
-
-  const syncContrast = useCallback((vol: number) => {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const revOp = calcReverbOpacity(vol);
-    updateMasterEffectLabelContrast(reverbLabelRef.current, revOp, isLight, 'reverb');
-  }, []);
-
-  useEffect(() => {
-    const revOp = calcReverbOpacity(returnVolume);
-    if (reverbBadgeRef.current) reverbBadgeRef.current.style.opacity = String(revOp);
-    if (reverbBgRef.current) reverbBgRef.current.style.opacity = String(revOp * 0.15);
-    syncContrast(returnVolume);
-
-    const observer = new MutationObserver(() => syncContrast(currentVolRef.current));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, [returnVolume, syncContrast]);
-
-  const handleReverbDrag = (val: number) => {
-    currentVolRef.current = val;
-    const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
-    if (masterReverbVolumeNode && isReverbActive) {
-      masterReverbVolumeNode.gain.rampTo(gain, 0.05);
-    }
-    const opacity = calcReverbOpacity(val);
-    if (reverbBadgeRef.current) reverbBadgeRef.current.style.opacity = String(opacity);
-    if (reverbBgRef.current) reverbBgRef.current.style.opacity = String(opacity * 0.15);
-    syncContrast(val);
-  };
-
-  const handleReverbTimeDrag = React.useCallback((val: number) => {
-    if (reverbNode) {
-      const decay = 0.4 + 3.6 * (Math.max(0, Math.min(100, val)) / 100);
-      if (reverbNode.decay !== decay) {
-        try { reverbNode.decay = decay; } catch (_) {}
-      }
-    }
-  }, []);
+  const showRackBtn = !isMobile && !isPracticeMode;
+  const durationSec = Number((0.4 + (Math.max(0, Math.min(100, reverbTime)) / 100) * 3.6).toFixed(1));
+  const secToPct = (sec: number) => Math.max(0, Math.min(100, Math.round(((sec - 0.4) / 3.6) * 100)));
 
   return (
-    <div className="flex-1 flex flex-col border-r border-[var(--cordel-border)]/20 relative z-10 py-0.5 overflow-hidden">
-      <div
-        ref={reverbBgRef}
-        className="absolute inset-0 bg-[var(--reverb-color)] pointer-events-none transition-none"
-        style={{ opacity: calcReverbOpacity(returnVolume) * 0.15 }}
-      />
-
-      <div className="pb-0.5 flex justify-between items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10 px-1.5">
-        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden border border-[var(--reverb-color)]">
-          <div
-            ref={reverbBadgeRef}
-            className="absolute inset-0 bg-[var(--reverb-color)] pointer-events-none transition-none"
-            style={{ opacity: calcReverbOpacity(returnVolume) }}
-          />
-          <span
-            ref={reverbLabelRef}
-            className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1 relative z-10 transition-colors"
+    <div
+      data-testid="master-reverb-settings"
+      className="flex flex-col items-center justify-between gap-1.5 p-1.5 rounded-[2px] border border-[var(--cordel-border)]/45 bg-black/5 dark:bg-white/5 w-full"
+    >
+      <div className="flex items-center justify-between w-full border-b border-[var(--cordel-border)]/30 pb-0.5">
+        <span className="font-cactus font-bold text-[9.5px] uppercase tracking-wider text-[var(--cordel-text)]">REV.</span>
+        {showRackBtn && (
+          <button
+            type="button"
+            data-testid="master-reverb-rack-btn"
+            onClick={() => onOpenStudioRack?.('reverb')}
+            title={lang === 'fr' ? 'Réglages Studio Réverbe' : 'Ajustes Studio Reverb'}
+            className="p-0.5 rounded-[2px] text-[var(--cordel-text)]/70 hover:text-[var(--cordel-text)] hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
-            <XiloReverb size={11} className="shrink-0" /> REVERB
-          </span>
-        </div>
-
-        <button
-          type="button"
-          data-testid="master-power-reverb"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleMasterEffectActive('reverb');
-          }}
-          className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none relative z-20 ${
-            isReverbActive
-              ? 'bg-[var(--reverb-color)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/40 border border-[var(--cordel-border)]/30 shadow-none'
-          }`}
-          title={isReverbActive ? 'Réverbe Master active (cliquer pour contourner / bypass)' : 'Réverbe Master bypassée (cliquer pour activer)'}
-        />
+            <ChevronRight size={11} />
+          </button>
+        )}
       </div>
 
-      <div
-        data-testid="master-reverb-settings"
-        className={`px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10 transition-opacity duration-150 ${
-          isReverbActive ? '' : 'opacity-40 grayscale pointer-events-none'
-        }`}
+      <button
+        type="button"
+        data-testid="master-power-reverb"
+        onClick={() => onToggleEffect('reverb')}
+        className={getPowerBtnClass(masterEffectsActive.reverb)}
+        style={getPowerBtnStyle(masterEffectsActive.reverb, 'var(--fx-reverb-accent)')}
+        title={t('tooltipMasterReverb')}
       >
-        <DragNumberBox
-          label={t('reverbTime')}
-          value={reverbTime}
-          defaultValue={50}
-          onChange={(val) => setMasterFxParam('reverb', 'time', val)}
-          onAudioDrag={handleReverbTimeDrag}
-          fillColor="var(--reverb-color)"
-          className="w-20"
+        <span className={getLedClass(masterEffectsActive.reverb)} />
+        <span>{masterEffectsActive.reverb ? 'ON' : 'OFF'}</span>
+      </button>
+
+      <div className={`flex flex-col items-center gap-1.5 w-full transition-opacity ${masterEffectsActive.reverb ? 'opacity-100' : 'opacity-40'}`}>
+        <MixerKnob
+          value={durationSec}
+          min={0.4} max={4.0} step={0.1} decimals={1} defaultValue={1.4}
+          onAudioDrag={(sec) => {
+            if (reverbNode) {
+              try { reverbNode.decay = Math.max(0.4, Math.min(4.0, sec)); } catch (_) {}
+            }
+          }}
+          onChange={(sec) => setMasterFxParam('reverb', 'time', secToPct(sec))}
+          label={lang === 'fr' ? 'Durée' : 'Tempo'}
+          unit="s" size={26} color="var(--fx-reverb-accent)"
         />
-        <DragNumberBox
-          label={t('reverbVol')}
-          value={returnVolume}
-          defaultValue={0}
+        <MixerKnob
+          value={reverbVol}
+          min={0} max={100} step={1} defaultValue={22}
+          onAudioDrag={(val) => {
+            if (masterReverbVolumeNode && masterEffectsActive.reverb) {
+              const gain = val <= 0 ? 0 : Tone.dbToGain(percentToDb(val));
+              safeRampTo(masterReverbVolumeNode.gain, gain, 0.02, 0, 2);
+            }
+          }}
           onChange={(val) => setMasterFxVolume('reverb', val)}
-          onAudioDrag={handleReverbDrag}
-          fillColor="var(--reverb-color)"
-          className="w-20"
+          label="Niv." unit="%" size={26} color="var(--fx-reverb-accent)"
         />
       </div>
     </div>

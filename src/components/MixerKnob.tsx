@@ -65,8 +65,8 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
     >
       <span className={
         isLarge 
-          ? "text-[9px] font-cactus font-bold uppercase tracking-wider text-[var(--cordel-text)] opacity-85 text-center whitespace-nowrap leading-none mb-1 cursor-default"
-          : "text-[7px] font-black uppercase tracking-wider text-[var(--cordel-text)]/40 text-center truncate w-full leading-none mb-0.5"
+          ? "text-[9.5px] font-cactus font-extrabold uppercase tracking-wider text-[var(--cordel-text)] opacity-95 text-center whitespace-nowrap leading-none mb-1 cursor-default"
+          : "text-[7.5px] font-extrabold uppercase tracking-wider text-[var(--cordel-text)]/75 text-center truncate w-full leading-none mb-0.5"
       }>
         {label}
       </span>

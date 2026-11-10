@@ -22,7 +22,9 @@ export const MasterMonoCheckButton: React.FC<Props> = ({ isMasterMono, onToggle,
         onClick={onToggle}
         title={title}
         className={`p-1 rounded-[2px] cursor-pointer border transition-colors ${
-          isMasterMono ? 'bg-[#c25e1a] text-[#f4ecd8] border-[#f4ecd8]' : 'bg-transparent text-[var(--master-header-text)]/60 hover:text-[var(--master-header-text)] border-transparent'
+          isMasterMono
+            ? 'bg-[var(--fx-disto-accent)] text-[var(--fx-active-text)] border-[var(--fx-active-text)]'
+            : 'bg-transparent text-[var(--master-header-text)]/60 hover:text-[var(--master-header-text)] border-transparent'
         }`}
       >
         {isMasterMono ? (
@@ -41,8 +43,8 @@ export const MasterMonoCheckButton: React.FC<Props> = ({ isMasterMono, onToggle,
       title={title}
       className={`py-1 px-2 font-cactus font-bold text-[10px] uppercase flex items-center justify-center gap-1 transition-colors cursor-pointer rounded-[2px] ${
         isMasterMono
-          ? 'bg-[#c25e1a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
-          : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-stone-200 border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]'
+          ? 'bg-[var(--fx-disto-accent)] text-[var(--fx-active-text)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)]'
+          : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:opacity-90 border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)]'
       }`}
     >
       {isMasterMono ? (
