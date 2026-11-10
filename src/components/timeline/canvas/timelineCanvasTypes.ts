@@ -4,6 +4,23 @@ export const TRACK_ROW_HEIGHT = 40;
 export const AUTO_LANE_EXPANDED_HEIGHT = 81;
 export const AUTO_LANE_COLLAPSED_HEIGHT = 31;
 
+export type TimelineHitZone = 'variation-toggle' | 'pattern-badge' | 'cell';
+
+export interface TimelineHitResult {
+  trackId: number; trackIndex: number; measureIdx: number;
+  stepIdx: number; actualStepIdx: number; stepsInMeasure: number;
+  patternId: number; patternIdx: number; relativeIdx: number; spanMeasures: number;
+  zone: TimelineHitZone; isToada: boolean; isSilence: boolean;
+  instId: string; instType: string; allowedStrokes: string[];
+  measureAllowVariations: boolean; variationsCount: number;
+  cellX: number; cellY: number; cellW: number; cellH: number; relCellX: number;
+  anchorRect: DOMRect;
+}
+
+export interface TimelineLassoRect {
+  x: number; y: number; width: number; height: number;
+}
+
 export interface TimelineRowLayout {
   trackId: number; trackIndex: number; top: number; height: number;
   autoHeight: number; totalRowHeight: number; isAutomationOpen: boolean;
@@ -29,6 +46,7 @@ export interface TimelineCanvasRenderParams {
   selectedTimelineCells: Array<{ trackId: number; mIdx: number }>;
   activeTimelineCell: { trackId: number; measureIdx: number } | null;
   hoveredCell?: { trackId: number; mIdx: number; zone?: string } | null;
+  lassoRect?: TimelineLassoRect | null;
   isLeftHanded: boolean; isEcoMode: boolean; isPanningActive: boolean;
   lang: string; focusCtx?: SlaveFocusContext;
 }

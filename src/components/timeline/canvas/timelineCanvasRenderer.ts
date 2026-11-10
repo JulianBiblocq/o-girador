@@ -121,6 +121,14 @@ export function renderTimelineTracksCanvas(params: TimelineCanvasRenderParams): 
     ctx.fillRect(0, drawY + row.height - 1, canvasW, 1);
   }
 
+  if (params.lassoRect && params.lassoRect.width > 0 && params.lassoRect.height > 0) {
+    const { x, y, width, height } = params.lassoRect;
+    ctx.save();
+    ctx.fillStyle = 'rgba(139, 42, 26, 0.10)'; ctx.fillRect(x, y, width, height);
+    ctx.strokeStyle = theme.accentCrimson; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
+    ctx.restore();
+  }
   ctx.restore();
   return { mStart, mEnd, renderedRows, renderedCells };
 }
