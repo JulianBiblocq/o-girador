@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore, getVisibleTimelineTrackIds } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
@@ -16,6 +16,7 @@ import { TimelineSectionsRow } from './timeline/TimelineSectionsRow';
 import { TimelineRulerRow } from './timeline/TimelineRulerRow';
 import { TimelineGlobalAutomationsArea } from './timeline/TimelineGlobalAutomationsArea';
 import { TimelineModalsContainer } from './timeline/TimelineModalsContainer';
+import { TimelineTracksCanvasViewport } from './timeline/canvas/TimelineTracksCanvasViewport';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { useTimelineMultiSelection } from '../hooks/timeline/useTimelineMultiSelection';
 import { useTimelineGridController } from '../hooks/timeline/useTimelineGridController';
@@ -45,7 +46,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 }) => {
   const sequencer = useSequencer(), { hasAccess } = useAuth();
   const { isPlaying, seekToMeasure, handleTimelineNavigate, handleStop } = useAudio();
-  const scrollRef = useRef<HTMLDivElement>(null), gridRef = useRef<HTMLDivElement>(null), containerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null), gridRef = useRef<HTMLDivElement>(null), containerRef = useRef<HTMLDivElement>(null), tracksAreaRef = useRef<HTMLDivElement>(null);
 
   useTimelineShortcuts();
 
@@ -66,20 +67,25 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   const [insertPrompt, setInsertPrompt] = useState<{ isOpen: boolean; targetIdx: number | null }>({ isOpen: false, targetIdx: null });
   const [expandedAutoIds, setExpandedAutoIds] = useState<Set<number>>(() => new Set());
+  const [collapsedAutoLaneIds, setCollapsedAutoLaneIds] = useState<Set<number>>(() => new Set());
   const [pickerState, setPickerState] = useState<{ trackId: number; measureIdx: number; rect: DOMRect } | null>(null);
   const [sectionModalOpen, setSectionModalOpen] = useState(false), [editingSection, setEditingSection] = useState<SongSection | null>(null), [defaultSectionLevel, setDefaultSectionLevel] = useState(0);
   const [signalDropdownOpen, setSignalDropdownOpen] = useState<number | null>(null);
 
-  const toggleAutoTrack = useCallback((id: number) => setExpandedAutoIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }), []);
+  const toggleAutoTrack = useCallback((id: number) => {
+    setExpandedAutoIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+    setCollapsedAutoLaneIds(prev => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
+  }, []);
+  const setAutoTrackExpanded = useCallback((id: number, exp: boolean) => {
+    setCollapsedAutoLaneIds(prev => { const n = new Set(prev); if (exp) n.delete(id); else n.add(id); return n; });
+  }, []);
   const rhythmSignals = useMemo(() => [...mestreSignals.map(s => ({ id: s.id, name: s.name, image: s.imageUrl, isCloud: true })), ...(metadata?.rhythmSignals || []).map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))], [mestreSignals, metadata?.rhythmSignals]);
   const onMeasureSignalChange = useCallback((m: number, sig: string | null) => sequencer.setMeasureSignals((prev: (string | null)[]) => { const a = [...prev]; while (a.length <= m) a.push(null); a[m] = sig; return a; }), [sequencer]);
 
   useTimelineMultiSelection({ isPlaying, onTrackStepValueChange: sequencer.handleTrackStepValueChange });
 
   const headerSelection = useTimelineHeaderSelection({
-    totalMeasures,
-    lang,
-    confirmAsync: sequencer.confirmAsync,
+    totalMeasures, lang, confirmAsync: sequencer.confirmAsync,
     onSeekToMeasure: (mIdx) => (seekToMeasure ? seekToMeasure(mIdx, 0) : handleTimelineNavigate?.(mIdx, 0, 16)),
   });
 
@@ -87,15 +93,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     containerRef, scrollRef, gridRef, measureWidth, totalMeasures, onMeasureWidthChange, isMobile, isPlaying, isActive, timeSig, measureTimeSigs, songSections, copiedSection, lang, seekToMeasure, handleTimelineNavigate, handleStop,
     onCreateSection: (name, start, end, color, repeat, level) => handleCreateSongSection(name, start, end, color, repeat, level),
     onUpdateSection: (id, name, start, end, color, level) => handleUpdateSongSection(id, name, start, end, color, level),
-    onPasteSection: handlePasteSongSection,
-    onUpdateMarker: (id, name, measure, color) => handleUpdateSongMarker(id, name, measure, color),
+    onPasteSection: handlePasteSongSection, onUpdateMarker: (id, name, measure, color) => handleUpdateSongMarker(id, name, measure, color),
     clearTimelineSelection, clearAutomationSelection, isMultiSelectMode,
   });
 
-  const handleOpenPatternPicker = useCallback((trackId: number, measureIdx: number, rect: DOMRect) => {
-    setPickerState({ trackId, measureIdx, rect });
-  }, []);
-
+  const handleOpenPatternPicker = useCallback((trackId: number, measureIdx: number, rect: DOMRect) => setPickerState({ trackId, measureIdx, rect }), []);
   const ctxVal = useMemo(() => ({
     MEASURE_W: g.MEASURE_W, HEADER_W: g.HEADER_W, totalContentW: g.totalContentW, measureWidths: g.widths, measureLeftPositions: g.leftPositions, isMobile, isMacro: g.isMacro, isMinZoom: g.isMinZoom, isPanningActive: g.pinchPan.isPanningActive, lang, signalDropdownOpen, setSignalDropdownOpen, onOpenPatternPicker: handleOpenPatternPicker,
   }), [g.HEADER_W, g.isMacro, g.isMinZoom, g.pinchPan.isPanningActive, isMobile, lang, signalDropdownOpen, handleOpenPatternPicker]);
@@ -113,7 +115,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             <TimelineSectionsRow headerWidth={g.HEADER_W} totalContentW={g.totalContentW} isMobile={isMobile} lang={lang} songSections={songSections} snapMode={g.snapMode} setSnapMode={g.setSnapMode} onOpenCreateSectionModal={(lvl?: number) => { setEditingSection(null); setDefaultSectionLevel(lvl ?? 0); setSectionModalOpen(true); }} measureLeftPositions={g.leftPositions} measureWidths={g.widths} isDraggingRange={g.sectionInteractions.isDraggingRange} dragStartMeasure={g.sectionInteractions.dragStartMeasure} dragCurrentMeasure={g.sectionInteractions.dragCurrentMeasure} emptySlotsProps={{ totalMeasures, visibleRange: g.visibleRange, measureWidths: g.widths, measureWidth: g.MEASURE_W, copiedSection, lang, onEmptySlotPointerDown: g.sectionInteractions.handleEmptySlotPointerDown, onEmptySlotPointerEnter: g.sectionInteractions.handleEmptySlotPointerEnter, onPlusClick: g.sectionInteractions.handlePlusClick }} bannersProps={{ songSections, totalMeasures, visibleRange: g.visibleRange, measureWidths: g.widths, measureLeftPositions: g.leftPositions, measureWidth: g.MEASURE_W, isPanningActive: Boolean(g.pinchPan.isPanningActive), copiedSection, lang, onSectionBlockPointerDown: g.sectionInteractions.handleSectionBlockPointerDown, onResizePointerDown: g.sectionStretch.handleResizePointerDown, onEditSection: s => { setEditingSection(s); setSectionModalOpen(true); }, onDeleteSection: handleDeleteSongSection, onCopySection: handleCopySongSection, onPasteSection: handlePasteSongSection }} quickPopoverProps={{ quickSectionRange: g.sectionInteractions.quickSectionRange, quickSectionName: g.sectionInteractions.quickSectionName, quickSectionColor: g.sectionInteractions.quickSectionColor, quickSectionLevel: g.sectionInteractions.quickSectionLevel, totalMeasures, measureLeftPositions: g.leftPositions, measureWidth: g.MEASURE_W, lang, onClose: () => g.sectionInteractions.setQuickSectionRange(null), onNameChange: g.sectionInteractions.setQuickSectionName, onColorChange: g.sectionInteractions.setQuickSectionColor, onLevelChange: g.sectionInteractions.setQuickSectionLevel, onRangeChange: g.sectionInteractions.setQuickSectionRange, onCreate: g.sectionInteractions.handleQuickSectionCreate, onLoadCloudSection }} />
             <TimelineRulerRow headerWidth={g.HEADER_W} totalContentW={g.totalContentW} isMobile={isMobile} lang={lang} totalMeasures={totalMeasures} measureWidth={g.MEASURE_W} measureWidths={g.widths} measureLeftPositions={g.leftPositions} visibleRange={g.visibleRange} loopStartMeasure={loopStartMeasure} loopEndMeasure={loopEndMeasure} isLoopRegionActive={isLoopRegionActive} setIsLoopRegionActive={a => sequencer.setIsLoopRegionActive(a)} measureTimeSigs={measureTimeSigs} measureLabelsMap={g.measureLabelsMap} measureSignals={measureSignals} rhythmSignals={rhythmSignals} enabledSignalIds={enabledSignalIds} signalDropdownOpen={signalDropdownOpen} setSignalDropdownOpen={setSignalDropdownOpen} onMeasureSignalChange={onMeasureSignalChange} onSetLoopStart={handleSetLoopStart} onSetLoopEnd={handleSetLoopEnd} onMeasureTimeSigChange={handleMeasureTimeSigChange} onInsertMeasure={handleInsertMeasure} onDeleteMeasure={handleDeleteMeasure} confirmAsync={sequencer.confirmAsync} onPointerDown={g.scrubbing.handleRulerPointerDown} onPointerMove={g.scrubbing.handleRulerPointerMove} onPointerUp={g.scrubbing.handleRulerPointerUp} onZoom={g.pinchPan.handleZoom} isMultiSelectMode={isMultiSelectMode} selectedTimelineCellsCount={selectedTimelineCellsCount} toggleMultiSelectMode={toggleMultiSelectMode} onOpenAddMeasuresModal={() => setInsertPrompt({ isOpen: true, targetIdx: null })} isPlaying={isPlaying} alertAsync={sequencer.alertAsync} selectedHeaderMeasures={headerSelection.selectedHeaderMeasures} handleHeaderMeasureClick={headerSelection.handleHeaderMeasureClick} onDeleteMeasuresPrompt={headerSelection.handleDeleteMeasuresPrompt} />
             <TimelineGlobalAutomationsArea totalMeasures={totalMeasures} measureWidth={g.MEASURE_W} headerWidth={g.HEADER_W} lang={lang} measureBpms={measureBpms || []} measureBpmTransitions={measureBpmTransitions || []} measureVols={measureVols || []} measureVolTransitions={measureVolTransitions || []} isMasterVolumeBypassed={Boolean(isMasterVolumeBypassed)} onMeasureBpmChange={handleMeasureBpmChange} onMeasureTransitionChange={handleMeasureTransitionChange} onMeasureVolChange={handleMeasureVolChange} onMeasureVolTransitionChange={handleMeasureVolTransitionChange} toggleMasterVolumeBypass={toggleMasterVolumeBypass} />
-            {trackIds.map(id => (<TimelineTrackRow key={id} trackId={id} visibleRange={g.visibleRange} currentMeasureW={g.MEASURE_W} totalContentW={g.totalContentW} measureWidths={g.widths} measureLeftPositions={g.leftPositions} onStepTouchStart={onStepTouchStart} isAutomationOpen={expandedAutoIds.has(id)} onToggleAutomation={() => toggleAutoTrack(id)} />))}
+            <div ref={tracksAreaRef} className="relative timeline-tracks-area">
+              <TimelineTracksCanvasViewport scrollRef={scrollRef} gridRef={gridRef} tracksAreaRef={tracksAreaRef} trackIds={trackIds} expandedAutoIds={expandedAutoIds} collapsedAutoLaneIds={collapsedAutoLaneIds} headerWidth={g.HEADER_W} measureWidth={g.MEASURE_W} totalMeasures={totalMeasures} measureWidths={g.widths} measureLeftPositions={g.leftPositions} isPanningActive={Boolean(g.pinchPan.isPanningActive)} lang={lang} onOpenPatternPicker={handleOpenPatternPicker} onClearHeaderSelection={headerSelection.clearHeaderSelection} />
+              {trackIds.map(id => (<TimelineTrackRow key={id} trackId={id} currentMeasureW={g.MEASURE_W} totalContentW={g.totalContentW} isAutomationOpen={expandedAutoIds.has(id)} onToggleAutomation={() => toggleAutoTrack(id)} onAutomationExpandedChange={exp => setAutoTrackExpanded(id, exp)} />))}
+            </div>
             <TimelinePlayhead isActive={isActive} headerWidth={g.HEADER_W} measureWidth={g.MEASURE_W} measureWidths={g.widths} measureLeftPositions={g.leftPositions} />
             {g.sectionInteractions.snapGuideX !== null && <div className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 shadow-[0_0_8px_#f1c40f] z-50 pointer-events-none" style={{ left: `${g.sectionInteractions.snapGuideX}px` }} />}
           </div>

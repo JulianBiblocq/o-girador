@@ -11,32 +11,45 @@ export interface UseTimelineCanvasInteractionsParams {
   getLiveMeasureW: () => number; totalMeasures: number;
   measureWidths: number[]; measureLeftPositions: number[]; rowLayouts: TimelineRowLayout[];
   getScrollState: () => { scrollLeft: number; tracksScrollTop: number };
+  getAnalyticalCanvasRect?: () => { left: number; top: number; width: number; height: number } | null;
+  onRefreshViewportRect?: () => void;
   scrollByDelta?: (dx: number, dy: number) => void;
   onRequestRepaint: () => void;
   onOpenPatternPicker?: (trackId: number, measureIdx: number, rect: DOMRect) => void;
+  onClearHeaderSelection?: () => void;
 }
 
 export function useTimelineCanvasInteractions(params: UseTimelineCanvasInteractionsParams) {
   const cachedRectRef = useRef<{ left: number; top: number; width: number; height: number } | null>(null);
 
   const refreshContainerRect = useCallback(() => {
+    params.onRefreshViewportRect?.();
+    if (params.getAnalyticalCanvasRect) {
+      const r = params.getAnalyticalCanvasRect();
+      if (r) { cachedRectRef.current = r; return r; }
+    }
     const el = params.canvasRef.current; if (!el) return null;
     const r = el.getBoundingClientRect();
     cachedRectRef.current = { left: r.left, top: r.top, width: r.width, height: r.height };
     return cachedRectRef.current;
-  }, [params.canvasRef]);
+  }, [params]);
+
+  const getCurrentRect = useCallback(
+    () => (params.getAnalyticalCanvasRect ? params.getAnalyticalCanvasRect() : null) || cachedRectRef.current || refreshContainerRect(),
+    [params, refreshContainerRect]
+  );
 
   useEffect(() => {
     const el = params.canvasRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
+    if (!el || typeof ResizeObserver === 'undefined' || params.getAnalyticalCanvasRect) return;
     const ro = new ResizeObserver(() => { refreshContainerRect(); });
     ro.observe(el); return () => ro.disconnect();
-  }, [params.canvasRef, refreshContainerRect]);
+  }, [params.canvasRef, params.getAnalyticalCanvasRect, refreshContainerRect]);
 
-  const lasso = useTimelineCanvasLassoAndTouch({ ...params, getContainerRect: () => cachedRectRef.current || refreshContainerRect() });
+  const lasso = useTimelineCanvasLassoAndTouch({ ...params, getContainerRect: getCurrentRect });
 
   const hitAt = (clientX: number, clientY: number): TimelineHitResult | null => {
-    const rect = cachedRectRef.current; if (!rect) return null;
+    const rect = getCurrentRect(); if (!rect) return null;
     const st = useSequencerStore.getState(), { scrollLeft, tracksScrollTop } = params.getScrollState();
     return resolveTimelineCanvasHit({
       clientX, clientY, cachedContainerRect: rect, headerOffsetX: params.headerOffsetX,
@@ -48,12 +61,12 @@ export function useTimelineCanvasInteractions(params: UseTimelineCanvasInteracti
   };
 
   const onPointerEnter = () => { refreshContainerRect(); };
-
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     (document.activeElement as HTMLElement)?.blur?.();
     refreshContainerRect(); lasso.suppressNextClickRef.current = false;
     if (params.isPanningActive || e.button === 1 || e.button === 2) return;
     const hit = hitAt(e.clientX, e.clientY); if (!hit) return;
+    params.onClearHeaderSelection?.();
     if (e.pointerType === 'touch') { lasso.startTouchPointer(e, hit); return; }
     if (e.button === 0 && hit.zone === 'cell') {
       const s = useSequencerStore.getState();
@@ -78,9 +91,7 @@ export function useTimelineCanvasInteractions(params: UseTimelineCanvasInteracti
       : null;
   };
 
-  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch') lasso.finishTouchPointer(e); else lasso.endLassoPointer(e);
-  };
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => { if (e.pointerType === 'touch') lasso.finishTouchPointer(e); else lasso.endLassoPointer(e); };
   const onPointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
     lasso.touchPointersRef.current.delete(e.pointerId); lasso.touchCandRef.current = null; lasso.clearTimers(); lasso.endLassoPointer(e);
   };
@@ -90,6 +101,7 @@ export function useTimelineCanvasInteractions(params: UseTimelineCanvasInteracti
     if (params.isPanningActive) return;
     if (lasso.suppressNextClickRef.current) { lasso.suppressNextClickRef.current = false; return; }
     const hit = hitAt(e.clientX, e.clientY); if (!hit) return;
+    params.onClearHeaderSelection?.();
     const s = useSequencerStore.getState();
     if (hit.zone === 'variation-toggle' && hit.patternId !== -1) {
       s.handleTimelinePatternVariationToggle(hit.trackId, hit.patternId, hit.measureIdx, !hit.measureAllowVariations); return;

@@ -47,13 +47,13 @@ const TimelinePlayheadComponent: React.FC<TimelinePlayheadProps> = ({
     <>
       <div
         ref={measureHighlightRef}
-        className="absolute top-0 bottom-0 pointer-events-none z-[10] bg-[rgba(255,255,255,0.08)] mix-blend-screen"
+        className="absolute top-0 bottom-0 pointer-events-none z-20 bg-[rgba(255,255,255,0.08)] mix-blend-screen"
         style={{ left: 0, width: '1px', transformOrigin: '0 0', display: 'none', willChange: 'transform' }}
       />
       <div
         ref={playheadRef}
         id="timeline-playhead-line"
-        className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'
+        className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-20 ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'
           }`}
         style={{ left: 0, display: 'none', willChange: 'transform' }}
       />

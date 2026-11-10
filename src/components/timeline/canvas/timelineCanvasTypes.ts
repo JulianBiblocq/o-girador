@@ -1,8 +1,8 @@
 import { SlaveFocusContext } from '../../../utils/slaveStepOpacityResolver';
 
 export const TRACK_ROW_HEIGHT = 40;
-export const AUTO_LANE_EXPANDED_HEIGHT = 81;
-export const AUTO_LANE_COLLAPSED_HEIGHT = 31;
+export const AUTO_LANE_EXPANDED_HEIGHT = 80;
+export const AUTO_LANE_COLLAPSED_HEIGHT = 24;
 
 export type TimelineHitZone = 'variation-toggle' | 'pattern-badge' | 'cell';
 
@@ -41,7 +41,7 @@ export interface TimelineCanvasRenderParams {
   totalMeasures: number; measureWidths: number[]; measureLeftPositions: number[];
   rowLayouts: TimelineRowLayout[]; tracks: any[]; tracksMeta: any[];
   timeSig: string; measureTimeSigs?: Record<number, string>;
-  songSections?: Array<{ id?: string | number; name?: string; startMeasure: number; endMeasure: number; color: string }>;
+  songSections?: Array<{ id?: string | number; name?: string; startMeasure: number; endMeasure: number; color?: string }>;
   loopStartMeasure: number | null; loopEndMeasure: number | null; isLoopRegionActive: boolean;
   selectedTimelineCells: Array<{ trackId: number; mIdx: number }>;
   activeTimelineCell: { trackId: number; measureIdx: number } | null;

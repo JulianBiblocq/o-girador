@@ -2,6 +2,18 @@ export const livePlayheadZoomState = {
   measure: 0, ratio: 0, measureDuration: 0, lastTickPerfMs: 0, liveMeasureW: 0, lastScrollX: -1, isZooming: false,
 };
 
+type ZoomFrameListener = (targetW: number, newScrollLeft: number) => void;
+const zoomFrameListeners = new Set<ZoomFrameListener>();
+
+export function registerTimelineCanvasZoomListener(fn: ZoomFrameListener): () => void {
+  zoomFrameListeners.add(fn);
+  return () => { zoomFrameListeners.delete(fn); };
+}
+
+export function notifyTimelineCanvasZoomFrame(targetW: number, newScrollLeft: number): void {
+  zoomFrameListeners.forEach((fn) => fn(targetW, newScrollLeft));
+}
+
 export function setTimelineZoomingDomFlag(_containerEl: HTMLElement | null, _scrollEl: HTMLElement | null, active: boolean) {
   livePlayheadZoomState.isZooming = active;
 }
@@ -31,6 +43,12 @@ export function applyAnchoredTimelineZoom({
 }: AnchoredZoomParams): { targetW: number; newScrollLeft: number } | null {
   if (targetW === currentW) return null;
 
+  // 1. Strict Read-First Phase (zero layout read after DOM mutations)
+  const rawClientW = viewportClientWidth !== undefined && viewportClientWidth > 0 ? viewportClientWidth : scrollEl.clientWidth;
+  const activeScrollLeft = currentScrollLeft !== undefined && currentScrollLeft >= 0 ? currentScrollLeft : scrollEl.scrollLeft;
+  const bgEl = cachedBgEl !== undefined ? cachedBgEl : (scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement | null);
+  const playheadEl = cachedPlayheadEl !== undefined ? cachedPlayheadEl : (document.getElementById('timeline-playhead-line') as HTMLElement | null);
+
   const safeBaseW = baseMeasureW > 0 ? baseMeasureW : currentW;
   const oldScale = safeBaseW > 0 ? currentW / safeBaseW : 1;
   const newScale = safeBaseW > 0 ? targetW / safeBaseW : 1;
@@ -54,8 +72,6 @@ export function applyAnchoredTimelineZoom({
     xNew = baseLeft * newScale;
   }
 
-  const rawClientW = viewportClientWidth !== undefined && viewportClientWidth > 0 ? viewportClientWidth : scrollEl.clientWidth;
-  const activeScrollLeft = currentScrollLeft !== undefined && currentScrollLeft >= 0 ? currentScrollLeft : scrollEl.scrollLeft;
   const viewportContentW = Math.max(1, rawClientW - headerWidth);
   const deltaViewport = xOld - activeScrollLeft;
   const isAnchorVisible = deltaViewport >= 0 && deltaViewport <= viewportContentW;
@@ -64,17 +80,16 @@ export function applyAnchoredTimelineZoom({
   livePlayheadZoomState.liveMeasureW = targetW;
   livePlayheadZoomState.lastScrollX = newScrollLeft;
 
+  // 2. Strict Write-Only Phase
   const totalRatio = safeBaseW > 0 && totalContentW > 0 ? totalContentW / safeBaseW : totalMeasures;
   const newTotalGridW = headerWidth + totalRatio * targetW + 150;
   if (gridEl) { gridEl.style.width = `${newTotalGridW}px`; gridEl.style.minWidth = `${newTotalGridW}px`; }
-  const bgEl = cachedBgEl !== undefined ? cachedBgEl : (scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement | null);
   if (bgEl) bgEl.style.width = `max(100%, ${newTotalGridW + 150}px)`;
   scrollEl.style.setProperty('--measure-width', `${targetW}px`);
   containerEl.style.setProperty('--measure-width', `${targetW}px`);
   containerEl.style.setProperty('--zoom-level', String(targetW / 480));
   scrollEl.scrollLeft = newScrollLeft;
 
-  const playheadEl = cachedPlayheadEl !== undefined ? cachedPlayheadEl : (document.getElementById('timeline-playhead-line') as HTMLElement | null);
   if (playheadEl) {
     const phMeasure = Math.max(0, Math.min(totalMeasures - 1, isPlaying ? livePlayheadZoomState.measure : playheadMeasureIdx));
     const phBaseLeft = leftPositions[phMeasure] ?? (phMeasure * safeBaseW);
@@ -84,6 +99,7 @@ export function applyAnchoredTimelineZoom({
     playheadEl.style.visibility = phX >= newScrollLeft ? 'visible' : 'hidden';
   }
 
+  notifyTimelineCanvasZoomFrame(targetW, newScrollLeft);
   return { targetW, newScrollLeft };
 }
 

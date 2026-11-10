@@ -20,6 +20,8 @@ export interface AutomationTrackProps {
   headerWidth: number;
   isBypassed?: boolean;
   onToggleBypass?: () => void;
+  defaultExpanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
   paramSelector?: {
     current: 'volume' | 'pan' | 'reverb';
     onChange: (param: 'volume' | 'pan' | 'reverb') => void;

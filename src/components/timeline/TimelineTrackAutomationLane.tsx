@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AutomationTrack } from '../AutomationTrack';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -13,6 +12,7 @@ export interface TimelineTrackAutomationLaneProps {
   currentMeasureW: number;
   autoData: any;
   onToggleAutomation: () => void;
+  onExpandedChange?: (expanded: boolean) => void;
   trackInst: any;
   lang: string;
   HEADER_W: number;
@@ -28,6 +28,7 @@ export const TimelineTrackAutomationLane: React.FC<TimelineTrackAutomationLanePr
   currentMeasureW,
   autoData,
   onToggleAutomation,
+  onExpandedChange,
   trackInst,
   lang,
   HEADER_W,
@@ -83,6 +84,8 @@ export const TimelineTrackAutomationLane: React.FC<TimelineTrackAutomationLanePr
       onChangeValue={handleChangeValue}
       onChangeTransition={handleChangeTransition}
       onClose={onToggleAutomation}
+      defaultExpanded={true}
+      onExpandedChange={onExpandedChange}
       min={automationParam === 'pan' ? -100 : 0}
       max={100}
       color={color}
