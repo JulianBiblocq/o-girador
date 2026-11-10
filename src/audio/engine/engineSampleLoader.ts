@@ -11,6 +11,7 @@ import { resolveSampleFetchPath, fetchSampleWithRetry } from './sampleFetchUtils
 export class EngineSampleLoader {
   public bufferPool = new Map<string, ToneType.ToneAudioBuffer>();
   public loadingPromises = new Map<string, Promise<void>>();
+  public onSampleDecoded?: (path: string, buffer: AudioBuffer) => void;
 
   public async loadPath(audioContext: AudioContext, path: string): Promise<void> {
     if (this.bufferPool.has(path)) return;
@@ -24,6 +25,7 @@ export class EngineSampleLoader {
             const audioBuffer = reconstructAudioBuffer(audioContext, cachedPcm);
             const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
             this.bufferPool.set(path, toneBuffer);
+            this.onSampleDecoded?.(path, audioBuffer);
             return;
           }
 
@@ -35,6 +37,7 @@ export class EngineSampleLoader {
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
             const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
             this.bufferPool.set(path, toneBuffer);
+            this.onSampleDecoded?.(path, audioBuffer);
             saveCachedPcmSample(path, audioBuffer).catch(() => {});
           } catch (decodeErr) {
             const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
@@ -45,6 +48,7 @@ export class EngineSampleLoader {
               const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
               const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
               this.bufferPool.set(path, toneBuffer);
+              this.onSampleDecoded?.(path, audioBuffer);
               saveCachedPcmSample(path, audioBuffer).catch(() => {});
             } catch (_) {}
           }

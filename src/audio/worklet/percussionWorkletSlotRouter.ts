@@ -1,8 +1,5 @@
 /**
- * O Girador - Routeur Multi-Sorties AudioWorklet (`0..23`) ↔ Canaux Tone.js (< 135 lignes)
- * - Slot `0` réservé aux previews / défaut ; Slots `1..23` alloués dynamiquement aux pistes.
- * - Pont `GainNode` dédié par slot (`workletNode.connect(bridgeGain, slot, 0)`) évitant
- *   tout `InvalidAccessError` entre le nœud multi-sorties et les wrappers Tone.js.
+ * O Girador - Routeur Multi-Sorties AudioWorklet (`0..23`) ↔ Canaux Natifs (< 140 lignes)
  */
 
 import { getTone } from '../../ToneLoader';
@@ -10,51 +7,83 @@ import { MAX_WORKLET_OUTPUTS } from './percussionWorkletTypes';
 
 export const PREVIEW_WORKLET_SLOT = 0;
 
+export function unwrapNativeAudioContext(ctx: unknown): AudioContext | null {
+  let curr: any = ctx;
+  const hasWin = typeof window !== 'undefined';
+  const NativeCtx = hasWin ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+  for (let i = 0; i < 6 && curr; i++) {
+    if (hasWin && NativeCtx && window.BaseAudioContext) {
+      if (curr instanceof window.BaseAudioContext && curr.constructor === NativeCtx) return curr as AudioContext;
+    } else if (!hasWin && curr && typeof curr.createGain === 'function' && !curr._nativeAudioContext && !curr._nativeContext) {
+      return curr as AudioContext;
+    }
+    curr = curr._nativeAudioContext || curr._nativeContext || curr.rawContext || curr.context || null;
+  }
+  return null;
+}
+
+export function unwrapNativeAudioNode(target: unknown): AudioNode | null {
+  let curr: any = target;
+  const hasWinNode = typeof window !== 'undefined' && typeof window.AudioNode !== 'undefined';
+  for (let i = 0; i < 10 && curr; i++) {
+    if (hasWinNode ? curr instanceof window.AudioNode : (typeof curr.connect === 'function' && !curr._nativeAudioNode && !curr._gainNode && !curr.input)) {
+      return curr as AudioNode;
+    }
+    curr = curr._nativeAudioNode || curr._nativeGainNode || curr._nativeAudioDestinationNode || curr._nativeNode
+      || curr._gainNode || (curr.input && curr.input !== curr ? curr.input : null) || (curr.output && curr.output !== curr ? curr.output : null);
+  }
+  return null;
+}
+
 export class PercussionWorkletSlotRouter {
   private readonly slotOwnerTrackId = new Int32Array(MAX_WORKLET_OUTPUTS).fill(-1);
+  private readonly slotConnected = new Uint8Array(MAX_WORKLET_OUTPUTS);
   private readonly trackToSlot = new Map<number, number>();
   private readonly slotBridgeGains: (GainNode | null)[] = new Array(MAX_WORKLET_OUTPUTS).fill(null);
   private readonly slotTargetChannel: unknown[] = new Array(MAX_WORKLET_OUTPUTS).fill(null);
+  private sacKeepAlive: ConstantSourceNode | null = null;
+
+  public get routedSlotCount(): number {
+    let c = 0;
+    for (let s = 1; s < MAX_WORKLET_OUTPUTS; s++) if (this.slotConnected[s] === 1) c++;
+    return c;
+  }
 
   private getDefaultDestination(audioContext: AudioContext | null): unknown {
-    try {
-      const Tone = getTone();
-      if (Tone && typeof Tone.getDestination === 'function') return Tone.getDestination();
-    } catch (_) {}
+    try { const Tone = getTone(); if (Tone?.getDestination) return Tone.getDestination(); } catch (_) {}
     return audioContext ? audioContext.destination : null;
   }
 
-  private connectBridgeToTarget(bridgeGain: GainNode, target: unknown): void {
-    if (!target) return;
-    try {
-      const Tone = getTone();
-      if (Tone && typeof Tone.connect === 'function') {
-        Tone.connect(bridgeGain, target as any);
-        return;
-      }
-    } catch (_) {}
-
-    let unwrapped: any = target;
-    while (unwrapped && unwrapped.input && unwrapped.input !== unwrapped) {
-      unwrapped = unwrapped.input;
+  private connectBridgeToTarget(audioContext: AudioContext, bridgeGain: GainNode, target: unknown): boolean {
+    const nativeTarget = unwrapNativeAudioNode(target);
+    if (!nativeTarget || (typeof window !== 'undefined' && window.AudioNode && !(nativeTarget instanceof window.AudioNode))) {
+      console.error('[PercussionWorkletSlotRouter] Target is not a native window.AudioNode:', target);
+      return false;
     }
     try {
-      if (unwrapped && typeof bridgeGain.connect === 'function') bridgeGain.connect(unwrapped);
+      if (!this.sacKeepAlive && typeof audioContext.createConstantSource === 'function') {
+        this.sacKeepAlive = audioContext.createConstantSource();
+        this.sacKeepAlive.offset.value = 0; this.sacKeepAlive.start(0);
+      }
+      const Tone = getTone();
+      if (this.sacKeepAlive && Tone?.connect) Tone.connect(this.sacKeepAlive, target as any);
     } catch (_) {}
+    try { bridgeGain.connect(nativeTarget); return true; } catch (err) {
+      console.error('[PercussionWorkletSlotRouter] Native bridgeGain.connect failed:', err);
+      return false;
+    }
   }
 
-  public attachWorkletNode(audioContext: AudioContext, workletNode: AudioWorkletNode): void {
+  public attachWorkletNode(audioContext: AudioContext, nativeCtx: AudioContext, workletNode: AudioWorkletNode): void {
     this.detachBridgeGains();
     for (let s = 0; s < MAX_WORKLET_OUTPUTS; s++) {
-      const bridge = audioContext.createGain();
-      bridge.gain.value = 1.0;
-      this.slotBridgeGains[s] = bridge;
-      try { workletNode.connect(bridge, s, 0); } catch (_) {}
-
-      if (s === PREVIEW_WORKLET_SLOT) {
-        this.connectBridgeToTarget(bridge, this.slotTargetChannel[0] ?? this.getDefaultDestination(audioContext));
-      } else if (this.slotOwnerTrackId[s] !== -1) {
-        this.connectBridgeToTarget(bridge, this.slotTargetChannel[s] ?? this.getDefaultDestination(audioContext));
+      const bridge = nativeCtx.createGain();
+      bridge.gain.value = 1.0; this.slotBridgeGains[s] = bridge;
+      try { workletNode.connect(bridge, s, 0); } catch (err) { console.error('[PercussionWorkletSlotRouter] workletNode.connect failed on slot', s, err); }
+      if (s === PREVIEW_WORKLET_SLOT || this.slotOwnerTrackId[s] !== -1) {
+        const ok = this.connectBridgeToTarget(audioContext, bridge, this.slotTargetChannel[s] ?? this.getDefaultDestination(audioContext));
+        this.slotConnected[s] = ok ? 1 : 0;
+        if (!ok && s > 0) { this.trackToSlot.delete(this.slotOwnerTrackId[s]); this.slotOwnerTrackId[s] = -1; }
       }
     }
   }
@@ -62,70 +91,53 @@ export class PercussionWorkletSlotRouter {
   public ensureTrackSlot(audioContext: AudioContext, trackId: number | string, channel: unknown): number {
     const numId = Number(trackId);
     if (!Number.isFinite(numId) || numId < 0) return -1;
-
-    const existingSlot = this.trackToSlot.get(numId);
-    if (existingSlot !== undefined) {
-      if (this.slotTargetChannel[existingSlot] !== channel) {
-        this.slotTargetChannel[existingSlot] = channel;
-        const bridge = this.slotBridgeGains[existingSlot];
-        if (bridge) {
-          try { bridge.disconnect(); } catch (_) {}
-          this.connectBridgeToTarget(bridge, channel ?? this.getDefaultDestination(audioContext));
-        }
-      }
-      return existingSlot;
+    const target = channel ?? this.getDefaultDestination(audioContext);
+    if (!unwrapNativeAudioNode(target)) {
+      console.error(`[PercussionWorkletSlotRouter] Track ${numId} channel has no native AudioNode:`, channel);
+      return -1;
     }
-
-    let freeSlot = -1;
-    for (let s = 1; s < MAX_WORKLET_OUTPUTS; s++) {
-      if (this.slotOwnerTrackId[s] === -1) { freeSlot = s; break; }
-    }
-    if (freeSlot === -1) return -1;
-
-    this.slotOwnerTrackId[freeSlot] = numId;
-    this.trackToSlot.set(numId, freeSlot);
-    this.slotTargetChannel[freeSlot] = channel;
-
-    const bridge = this.slotBridgeGains[freeSlot];
+    let slot = this.trackToSlot.get(numId);
+    if (slot === undefined) {
+      for (let s = 1; s < MAX_WORKLET_OUTPUTS; s++) if (this.slotOwnerTrackId[s] === -1) { slot = s; break; }
+      if (slot === undefined) return -1;
+      this.slotOwnerTrackId[slot] = numId; this.trackToSlot.set(numId, slot);
+    } else if (this.slotTargetChannel[slot] === channel) return slot;
+    this.slotTargetChannel[slot] = channel;
+    const bridge = this.slotBridgeGains[slot];
     if (bridge) {
       try { bridge.disconnect(); } catch (_) {}
-      this.connectBridgeToTarget(bridge, channel ?? this.getDefaultDestination(audioContext));
+      const ok = this.connectBridgeToTarget(audioContext, bridge, target);
+      this.slotConnected[slot] = ok ? 1 : 0;
+      if (!ok) { this.releaseTrackSlot(numId); return -1; }
     }
-    return freeSlot;
+    return slot;
   }
 
   public releaseTrackSlot(trackId: number | string): number {
-    const numId = Number(trackId);
-    const slot = this.trackToSlot.get(numId);
+    const slot = this.trackToSlot.get(Number(trackId));
     if (slot === undefined) return -1;
     try { this.slotBridgeGains[slot]?.disconnect(); } catch (_) {}
-    this.slotOwnerTrackId[slot] = -1;
-    this.slotTargetChannel[slot] = null;
-    this.trackToSlot.delete(numId);
+    this.slotOwnerTrackId[slot] = -1; this.slotConnected[slot] = 0; this.slotTargetChannel[slot] = null;
+    this.trackToSlot.delete(Number(trackId));
     return slot;
   }
 
   public hasWorkletSlot(trackId: number | string): boolean {
-    return this.trackToSlot.has(Number(trackId));
+    const slot = this.trackToSlot.get(Number(trackId));
+    return slot !== undefined && this.slotConnected[slot] === 1;
   }
-
-  public getTrackSlot(trackId: number | string): number {
-    return this.trackToSlot.get(Number(trackId)) ?? -1;
-  }
+  public getTrackSlot(trackId: number | string): number { return this.trackToSlot.get(Number(trackId)) ?? -1; }
 
   private detachBridgeGains(): void {
+    this.slotConnected.fill(0);
     for (let s = 0; s < MAX_WORKLET_OUTPUTS; s++) {
-      if (this.slotBridgeGains[s]) {
-        try { this.slotBridgeGains[s]!.disconnect(); } catch (_) {}
-        this.slotBridgeGains[s] = null;
-      }
+      if (this.slotBridgeGains[s]) { try { this.slotBridgeGains[s]!.disconnect(); } catch (_) {} this.slotBridgeGains[s] = null; }
     }
   }
 
   public dispose(): void {
     this.detachBridgeGains();
-    this.slotOwnerTrackId.fill(-1);
-    this.slotTargetChannel.fill(null);
-    this.trackToSlot.clear();
+    if (this.sacKeepAlive) { try { this.sacKeepAlive.stop(); this.sacKeepAlive.disconnect(); } catch (_) {} this.sacKeepAlive = null; }
+    this.slotOwnerTrackId.fill(-1); this.slotTargetChannel.fill(null); this.trackToSlot.clear();
   }
 }

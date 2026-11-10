@@ -104,6 +104,8 @@ export async function handleTogglePlay(
       }
 
       if (activeEngine) {
+        await activeEngine.waitForWorkletReady();
+        activeEngine.syncTracksToWorklet(startTracks);
         activeEngine.currentMeasure = targetM;
         activeEngine.currentStep = 0;
         activeEngine.schedulingMeasure = targetM;

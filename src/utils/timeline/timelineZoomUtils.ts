@@ -11,6 +11,8 @@ export interface AnchoredZoomParams {
   currentW: number; targetW: number; baseMeasureW: number; headerWidth: number;
   totalMeasures: number; totalContentW: number; leftPositions: number[]; widths: number[];
   isPlaying: boolean; anchorMeasureIdx: number; playheadMeasureIdx: number;
+  viewportClientWidth?: number; currentScrollLeft?: number;
+  bgEl?: HTMLElement | null; playheadEl?: HTMLElement | null;
 }
 
 export function computeWheelZoomTarget(rawDelta: number, currentTargetW: number): number | null {
@@ -25,6 +27,7 @@ export function applyAnchoredTimelineZoom({
   containerEl, scrollEl, gridEl, currentW, targetW, baseMeasureW,
   headerWidth, totalMeasures, totalContentW, leftPositions, widths,
   isPlaying, anchorMeasureIdx, playheadMeasureIdx,
+  viewportClientWidth, currentScrollLeft, bgEl: cachedBgEl, playheadEl: cachedPlayheadEl,
 }: AnchoredZoomParams): { targetW: number; newScrollLeft: number } | null {
   if (targetW === currentW) return null;
 
@@ -51,8 +54,10 @@ export function applyAnchoredTimelineZoom({
     xNew = baseLeft * newScale;
   }
 
-  const viewportContentW = Math.max(1, scrollEl.clientWidth - headerWidth);
-  const deltaViewport = xOld - scrollEl.scrollLeft;
+  const rawClientW = viewportClientWidth !== undefined && viewportClientWidth > 0 ? viewportClientWidth : scrollEl.clientWidth;
+  const activeScrollLeft = currentScrollLeft !== undefined && currentScrollLeft >= 0 ? currentScrollLeft : scrollEl.scrollLeft;
+  const viewportContentW = Math.max(1, rawClientW - headerWidth);
+  const deltaViewport = xOld - activeScrollLeft;
   const isAnchorVisible = deltaViewport >= 0 && deltaViewport <= viewportContentW;
   const newScrollLeft = isAnchorVisible ? Math.max(0, xNew - deltaViewport) : Math.max(0, xNew - viewportContentW * 0.35);
 
@@ -62,14 +67,14 @@ export function applyAnchoredTimelineZoom({
   const totalRatio = safeBaseW > 0 && totalContentW > 0 ? totalContentW / safeBaseW : totalMeasures;
   const newTotalGridW = headerWidth + totalRatio * targetW + 150;
   if (gridEl) { gridEl.style.width = `${newTotalGridW}px`; gridEl.style.minWidth = `${newTotalGridW}px`; }
-  const bgEl = scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement | null;
+  const bgEl = cachedBgEl !== undefined ? cachedBgEl : (scrollEl.querySelector('.wallpaper-surface-bg') as HTMLElement | null);
   if (bgEl) bgEl.style.width = `max(100%, ${newTotalGridW + 150}px)`;
   scrollEl.style.setProperty('--measure-width', `${targetW}px`);
   containerEl.style.setProperty('--measure-width', `${targetW}px`);
   containerEl.style.setProperty('--zoom-level', String(targetW / 480));
   scrollEl.scrollLeft = newScrollLeft;
 
-  const playheadEl = document.getElementById('timeline-playhead-line') as HTMLElement | null;
+  const playheadEl = cachedPlayheadEl !== undefined ? cachedPlayheadEl : (document.getElementById('timeline-playhead-line') as HTMLElement | null);
   if (playheadEl) {
     const phMeasure = Math.max(0, Math.min(totalMeasures - 1, isPlaying ? livePlayheadZoomState.measure : playheadMeasureIdx));
     const phBaseLeft = leftPositions[phMeasure] ?? (phMeasure * safeBaseW);

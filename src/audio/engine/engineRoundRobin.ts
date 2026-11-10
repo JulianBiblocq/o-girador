@@ -88,6 +88,14 @@ export class EngineRoundRobin {
     return stroke.files[chosenIdx];
   }
 
+  public purgeFromTime(fromTimeSec: number): void {
+    for (const [key, list] of this.recentPoolTriggers.entries()) {
+      const kept = list.filter((e) => e.time < fromTimeSec);
+      if (kept.length > 0) this.recentPoolTriggers.set(key, kept);
+      else this.recentPoolTriggers.delete(key);
+    }
+  }
+
   public clear(): void {
     this.lastPlayedIndices.clear();
     this.recentPoolTriggers.clear();

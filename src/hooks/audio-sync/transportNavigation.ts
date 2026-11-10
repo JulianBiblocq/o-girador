@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 import { getMaxTicks } from '../../data';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { recalculateLookaheadForQueuedMeasure, resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
 import { tickSubscribers } from './audioSyncTypes';
 import type { NavigationContext } from './transportNavigationTypes';
@@ -90,6 +91,7 @@ export function handleTimelineNavigate(
       ctx.soloPatternPlayIdRef?.current ?? null,
       ctx.soloPatternVariationIdRef?.current ?? null
     );
+    rebuildWorkletHorizonFromNow('queued');
     window.dispatchEvent(
       new CustomEvent('o-girador-measure-queued', { detail: { measure: targetMeasure, iteration } })
     );

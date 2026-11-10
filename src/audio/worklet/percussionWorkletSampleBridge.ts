@@ -19,6 +19,17 @@ export class PercussionWorkletSampleBridge {
   private nextSampleId = 0;
   private port: WorkletMessagePortLike | null = null;
 
+  public get loadedSampleCount(): number {
+    return this.sentToCurrentPort.size;
+  }
+
+  public syncBufferPool(bufferPool: Map<string, unknown>): void {
+    for (const [path, entry] of bufferPool.entries()) {
+      const audioBuffer = typeof (entry as any)?.get === 'function' ? (entry as any).get() : entry;
+      if (audioBuffer) this.registerSampleBuffer(path, audioBuffer as AudioBuffer);
+    }
+  }
+
   public attachPort(port: WorkletMessagePortLike | null): void {
     this.port = port;
     this.sentToCurrentPort.clear();
@@ -77,7 +88,9 @@ export class PercussionWorkletSampleBridge {
     try {
       this.port.postMessage(msg, transfers);
       this.sentToCurrentPort.add(sampleId);
-    } catch (_) {}
+    } catch (err) {
+      console.error('[PercussionWorkletSampleBridge] Failed to transfer PCM buffer:', err);
+    }
   }
 
   public getSampleId(path: string): number {
@@ -98,4 +111,3 @@ export class PercussionWorkletSampleBridge {
     this.nextSampleId = 0;
   }
 }
-

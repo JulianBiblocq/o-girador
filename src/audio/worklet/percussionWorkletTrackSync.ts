@@ -6,7 +6,8 @@
 
 import { instrumentsConfig } from '../../data';
 import { InstrumentAudioConfig } from '../../data/audioConfig';
-import { getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, getTrackFamilyIds, useSequencerStore } from '../../stores/useSequencerStore';
+import { useTransportStore } from '../../stores/useTransportStore';
 import { TrackGroup } from '../../types';
 import { EngineTuning } from '../engine/engineTuning';
 import { MAX_WORKLET_OUTPUTS, UpdateTrackSlotMessage } from './percussionWorkletTypes';
@@ -19,6 +20,7 @@ export class PercussionWorkletTrackSync {
   private readonly lastPitchRatio = new Float32Array(MAX_WORKLET_OUTPUTS).fill(-1);
   private readonly lastDecayNorm = new Float32Array(MAX_WORKLET_OUTPUTS).fill(-1);
   private readonly trackUnisonDelaySec = new Map<number, number>();
+  private readonly trackPitchRatio = new Map<number, number>();
   private readonly trackInstrumentId = new Map<number, string>();
 
   public resetDiffCache(): void {
@@ -43,6 +45,13 @@ export class PercussionWorkletTrackSync {
     slotRouter: PercussionWorkletSlotRouter,
     configMap: Map<string, InstrumentAudioConfig>
   ): void {
+    const soloPatternPlayId = useTransportStore.getState().soloPatternPlayId;
+    const seqState = useSequencerStore.getState();
+    const tjActive = seqState.tocarJuntoActive && seqState.tocarJuntoIsMuted !== false && seqState.tocarJuntoTrackId !== null;
+    const tjFamilySet = tjActive && seqState.tocarJuntoMuteScope === 'family' && seqState.tocarJuntoTrackId !== null
+      ? new Set(getTrackFamilyIds(seqState.tocarJuntoTrackId, tracks))
+      : null;
+
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i];
       if (!track || track.isBusFolder || track.isLinkFolder) continue;
@@ -58,17 +67,21 @@ export class PercussionWorkletTrackSync {
         EngineTuning.calculateUnisonMicroDelaySec(track, instrumentId)
       );
 
-      const slot = slotRouter.getTrackSlot(trackId);
-      if (slot <= 0 || slot >= MAX_WORKLET_OUTPUTS) continue;
-
       const config = instrumentId ? configMap.get(instrumentId) : undefined;
       const basePitch = config ? EngineTuning.calculatePitch(instrumentId, config, track) : 1.0;
       const detune = instrumentId ? EngineTuning.calculateMicroDetuneMultiplier(instrumentId, trackId) : 1.0;
       const pitchRatio = basePitch * detune;
+      this.trackPitchRatio.set(trackId, pitchRatio);
+
+      const slot = slotRouter.getTrackSlot(trackId);
+      if (slot <= 0 || slot >= MAX_WORKLET_OUTPUTS) continue;
 
       const rawDecay = track.trackDecay !== undefined ? track.trackDecay : 1.0;
       const decayNorm = rawDecay <= 0 ? 1.0 : (rawDecay > 1 ? rawDecay / 100 : rawDecay);
-      const isMuted = getEffectiveMuteState(tracks, trackId);
+      const isTjMuted = tjActive
+        ? (tjFamilySet ? tjFamilySet.has(String(trackId)) : seqState.tocarJuntoTrackId === trackId)
+        : false;
+      const isMuted = (soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, trackId)) || isTjMuted;
       const mutedFlag = isMuted ? 1 : 0;
 
       const hasChanged =
@@ -102,6 +115,10 @@ export class PercussionWorkletTrackSync {
     return this.trackUnisonDelaySec.get(Number(trackId)) ?? 0;
   }
 
+  public getTrackPitchRatio(trackId: number | string): number {
+    return this.trackPitchRatio.get(Number(trackId)) ?? 1.0;
+  }
+
   public getTrackInstrumentId(trackId: number | string): string {
     return this.trackInstrumentId.get(Number(trackId)) ?? '';
   }
@@ -109,6 +126,7 @@ export class PercussionWorkletTrackSync {
   public dispose(): void {
     this.resetDiffCache();
     this.trackUnisonDelaySec.clear();
+    this.trackPitchRatio.clear();
     this.trackInstrumentId.clear();
   }
 }

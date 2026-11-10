@@ -1,22 +1,20 @@
 /**
  * O Girador - Orchestrateur Main Thread du Mixeur PCM AudioWorklet (< 140 lignes)
- * - Initialise `percussion-engine-processor` (24 sorties stéréo, 0 entrée).
- * - Coordonne `PercussionWorkletSlotRouter`, `PercussionWorkletSampleBridge` et `PercussionWorkletTrackSync`.
- * - Repli transparent (`isReady === false`) si `audioWorklet` est indisponible.
+ * - Charge le bundle IIFE autonome (`virtual:percussion-worklet-code`) via `Blob` URL
+ *   directement sur le vrai `window.AudioContext` natif (contournant `standardized-audio-context`).
  */
 
-import { getTone } from '../../ToneLoader';
+import workletIIFECode from 'virtual:percussion-worklet-code';
 import { InstrumentAudioConfig } from '../../data/audioConfig';
 import { TrackGroup } from '../../types';
 import {
   MAX_WORKLET_OUTPUTS, PurgeAllMessage, PurgeFromFrameMessage, PurgeTrackMessage, PushEventsMessage,
 } from './percussionWorkletTypes';
 import { PercussionWorkletSampleBridge } from './percussionWorkletSampleBridge';
-import { PercussionWorkletSlotRouter } from './percussionWorkletSlotRouter';
+import { PercussionWorkletSlotRouter, unwrapNativeAudioContext } from './percussionWorkletSlotRouter';
 import { PercussionWorkletTrackSync } from './percussionWorkletTrackSync';
-import percussionWorkletUrl from './processor/percussionEngineProcessor?worker&url';
 
-export { percussionWorkletUrl };
+export { workletIIFECode };
 
 export class PercussionWorkletManager {
   public readonly slotRouter = new PercussionWorkletSlotRouter();
@@ -36,56 +34,64 @@ export class PercussionWorkletManager {
   public init(
     audioContext: AudioContext,
     configMap: Map<string, InstrumentAudioConfig>,
-    initialTracks: TrackGroup[] = []
+    initialTracks: TrackGroup[] = [],
+    bufferPool?: Map<string, unknown>
   ): Promise<boolean> {
     this.configMap = configMap;
+    if (bufferPool) this.sampleBridge.syncBufferPool(bufferPool);
     if (this._isReady && this.workletNode) return Promise.resolve(true);
     if (this.initPromise) return this.initPromise;
 
-    const isSecure = typeof window !== 'undefined' ? window.isSecureContext !== false : true;
-    const workletApi = (audioContext as any)?.audioWorklet;
-    if (!isSecure || !workletApi || typeof workletApi.addModule !== 'function') {
+    const hasWin = typeof window !== 'undefined';
+    const isSecure = hasWin ? window.isSecureContext !== false : true;
+    const nativeCtx = unwrapNativeAudioContext(audioContext);
+    const NativeCtxCtor = hasWin ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+    const isNativeCtx = Boolean(
+      nativeCtx && (!hasWin || (NativeCtxCtor && nativeCtx instanceof window.BaseAudioContext && nativeCtx.constructor === NativeCtxCtor))
+    );
+    if (!isSecure || !isNativeCtx || !nativeCtx || !nativeCtx.audioWorklet || typeof nativeCtx.audioWorklet.addModule !== 'function') {
+      console.error('[PercussionWorklet] Native window.AudioContext with audioWorklet unavailable:', { isSecure, isNativeCtx, audioContext });
       this._isReady = false;
       return Promise.resolve(false);
     }
 
-    const p: Promise<boolean> = workletApi.addModule(percussionWorkletUrl).then(() => {
-      const options: AudioWorkletNodeOptions = {
+    const blobUrl = URL.createObjectURL(new Blob([workletIIFECode], { type: 'application/javascript; charset=utf-8' }));
+    const p: Promise<boolean> = nativeCtx.audioWorklet.addModule(blobUrl).then(() => {
+      const WorkletNodeCtor = (hasWin && window.AudioWorkletNode) || AudioWorkletNode;
+      const node = new WorkletNodeCtor(nativeCtx, 'percussion-engine-processor', {
         numberOfInputs: 0,
         numberOfOutputs: MAX_WORKLET_OUTPUTS,
         outputChannelCount: new Array(MAX_WORKLET_OUTPUTS).fill(2),
-      };
-      const toneCtx = getTone()?.getContext?.();
-      const node: AudioWorkletNode =
-        toneCtx && toneCtx.rawContext === audioContext && typeof toneCtx.createAudioWorkletNode === 'function'
-          ? toneCtx.createAudioWorkletNode('percussion-engine-processor', options)
-          : new AudioWorkletNode(audioContext, 'percussion-engine-processor', options);
-
+      });
+      node.onprocessorerror = (err) => console.error('[PercussionWorklet] Processor runtime error:', err);
       this.workletNode = node;
-      this.slotRouter.attachWorkletNode(audioContext, node);
+      this.slotRouter.attachWorkletNode(audioContext, nativeCtx, node);
+      if (bufferPool) this.sampleBridge.syncBufferPool(bufferPool);
       this.sampleBridge.attachPort(node.port);
       this.trackSync.resetDiffCache();
       this.trackSync.syncTracks(node.port, initialTracks, this.slotRouter, this.configMap);
       this._isReady = true;
+      if (import.meta.env.DEV) {
+        console.info('[PercussionWorklet] Ready:', {
+          isReady: this.isReady, isNativeCtx, routedSlots: this.slotRouter.routedSlotCount, loadedSamples: this.sampleBridge.loadedSampleCount,
+        });
+      }
       return true;
-    }).catch(() => {
-      this._isReady = false;
-      this.workletNode = null;
+    }).catch((err) => {
+      console.error('[PercussionWorklet] Failed to initialize AudioWorklet:', err);
+      this._isReady = false; this.workletNode = null;
       return false;
     }).finally(() => {
+      try { URL.revokeObjectURL(blobUrl); } catch (_) {}
       this.initPromise = null;
     });
-
     this.initPromise = p;
     return p;
   }
 
   public ensureTrackSlot(audioContext: AudioContext, trackId: number | string, channel: unknown, tracks?: TrackGroup[]): number {
     const slot = this.slotRouter.ensureTrackSlot(audioContext, trackId, channel);
-    if (slot > 0) {
-      this.trackSync.invalidateSlot(slot);
-      if (tracks) this.syncTracks(tracks);
-    }
+    if (slot > 0) { this.trackSync.invalidateSlot(slot); if (tracks) this.syncTracks(tracks); }
     return slot;
   }
 
@@ -99,7 +105,7 @@ export class PercussionWorkletManager {
   public pushPackedEvents(eventsData: Float64Array, eventCount: number): void {
     if (!this.workletNode || eventCount <= 0) return;
     const msg: PushEventsMessage = { type: 'PUSH_EVENTS', eventsData, eventCount };
-    try { this.workletNode.port.postMessage(msg, [eventsData.buffer]); } catch (_) {}
+    try { this.workletNode.port.postMessage(msg, [eventsData.buffer]); } catch (err) { console.error('[PercussionWorklet] pushPackedEvents error:', err); }
   }
 
   public purgeAll(): void {
@@ -121,14 +127,11 @@ export class PercussionWorkletManager {
   }
 
   public dispose(): void {
-    this._isReady = false;
-    this.initPromise = null;
+    this._isReady = false; this.initPromise = null;
     if (this.workletNode) {
       try { this.workletNode.port.onmessage = null; this.workletNode.disconnect(); } catch (_) {}
       this.workletNode = null;
     }
-    this.sampleBridge.dispose();
-    this.slotRouter.dispose();
-    this.trackSync.dispose();
+    this.sampleBridge.dispose(); this.slotRouter.dispose(); this.trackSync.dispose();
   }
 }

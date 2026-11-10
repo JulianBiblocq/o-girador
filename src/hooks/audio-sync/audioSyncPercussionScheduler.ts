@@ -1,11 +1,12 @@
 import * as Tone from 'tone';
-import { Track, Pattern, GlobalSwing } from '../../types';
+import { Track, GlobalSwing } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getTrackFamilyIds, getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { AudioEngine } from '../../AudioEngine';
-import { computePercussionNoteSwing } from './percussionSwingHelper';
+import { isTrackCoveredInWorkletHorizon } from '../../audio/worklet/horizon/percussionHorizonPusher';
+import { computePercussionNoteSwing, resolveActivePatternForMeasure } from './percussionSwingHelper';
 import { getLiveVariationAudioOverride } from './liveVariationLookaheadEngine';
 
 export interface PercussionSchedulerParams {
@@ -42,18 +43,7 @@ function triggerPackedNote(
 
   const strokeSymbol = String.fromCharCode(strokeCharCode);
   const decayMultiplier = decayPct / 100;
-  const patterns = liveTrack.patterns;
-  let activePattern: Pattern | null = soloPatternPlayId !== null ? (patterns.find((pt) => String(pt.id) === String(soloPatternPlayId)) || null) : null;
-  if (soloPatternPlayId !== null && !activePattern) {
-    const soloTrack = tracks.find((t) => t.patterns?.some((pt) => String(pt.id) === String(soloPatternPlayId)));
-    const soloPtn = soloTrack?.patterns?.find((pt) => String(pt.id) === String(soloPatternPlayId));
-    if (soloPtn) {
-      activePattern = patterns.find((pt) => pt.name === soloPtn.name) || null;
-      const sIdx = soloTrack?.patterns?.findIndex((pt) => String(pt.id) === String(soloPatternPlayId));
-      if (!activePattern && sIdx !== undefined && sIdx >= 0 && patterns[sIdx]) activePattern = patterns[sIdx];
-    }
-  }
-  if (!activePattern) activePattern = patterns.find((pt) => pt.measureAssignments[currentMeasureIdx]) || null;
+  const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, currentMeasureIdx, soloPatternPlayId);
 
   const noteSwingOffset = computePercussionNoteSwing({
     activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode, globalSwing, stepDurationSec,
@@ -63,6 +53,8 @@ function triggerPackedNote(
   const stepDurSec = tick96nSec * (currentTicks / stepCount);
   const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
   const triggerTime = time + noteSwingOffset + microOffset;
+  const nowSec = audioEngine ? audioEngine.getCurrentTime() : 0;
+  const isPastCatchupHit = Boolean(audioEngine && triggerTime < nowSec - 0.015);
 
   const storeState = useSequencerStore.getState();
   let isTocarJuntoMuted = false;
@@ -77,10 +69,22 @@ function triggerPackedNote(
     }
   }
 
-  if (!isTocarJuntoMuted) {
-    audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier);
+  if (!isTocarJuntoMuted && !isPastCatchupHit) {
+    const isCoveredByWorklet = Boolean(
+      audioEngine?.isTrackRoutedToWorklet(liveTrack.id, inst.id) &&
+      isTrackCoveredInWorkletHorizon(currentMeasureIdx, liveTrack.id)
+    );
+    if (isCoveredByWorklet) {
+      if (inst.id === 'apito') {
+        Tone.Draw?.schedule?.(() => {
+          window.dispatchEvent(new CustomEvent('o-girador-apito-shake'));
+        }, triggerTime);
+      }
+    } else {
+      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier);
+    }
   }
-  if (!isDocHidden && !storeState.isPreRolling && currentMeasureIdx >= 0) {
+  if (!isDocHidden && !storeState.isPreRolling && currentMeasureIdx >= 0 && !isPastCatchupHit) {
     pushVisualHitTrigger(liveTrack.id, circleStepIdx, strokeCharCode, triggerTime);
   }
 }

@@ -1,4 +1,5 @@
 import { getMaxTicks } from '../../data';
+import { pushWorkletHorizonAtMeasureBoundary } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { nextRandom, getMeasureStartTick } from './audioParamsCache';
 import { advanceMeasureOnTickBoundary } from './measureAdvanceHelper';
 import { scheduleMetronomeClick } from './audioSyncMetronomeScheduler';
@@ -44,22 +45,27 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     activeEngine.schedulingStep = stepIdx;
     activeEngine.schedulingMeasure = currentMeasureIdx;
   }
+  const isCatchupPastTick = Boolean(activeEngine && time < activeEngine.getCurrentTime() - 0.015);
 
-  dispatchVisualTick({
-    time, stepIdx, currentTicks, currentMeasureIdx, totalMeasures: ctx.totalMeasuresRef.current,
-    soloPatternPlayId: ctx.soloPatternPlayIdRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
-    measureBpms: ctx.measureBpmsRef.current, anchoredMeasureStartSecRef: ctx.anchoredMeasureStartSecRef,
-    anchoredMeasureIdxRef: ctx.anchoredMeasureIdxRef, sectionIteration: ctx.sectionIterationRef.current,
-    loopIteration: ctx.currentLoopIterationRef?.current ?? 1, isDocHidden,
-  });
+  if (!isCatchupPastTick || stepIdx === 0) {
+    dispatchVisualTick({
+      time, stepIdx, currentTicks, currentMeasureIdx, totalMeasures: ctx.totalMeasuresRef.current,
+      soloPatternPlayId: ctx.soloPatternPlayIdRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
+      measureBpms: ctx.measureBpmsRef.current, anchoredMeasureStartSecRef: ctx.anchoredMeasureStartSecRef,
+      anchoredMeasureIdxRef: ctx.anchoredMeasureIdxRef, sectionIteration: ctx.sectionIterationRef.current,
+      loopIteration: ctx.currentLoopIterationRef?.current ?? 1, isDocHidden,
+    });
+  }
 
   const currentBpm = ctx.measureBpmsRef.current?.[currentMeasureIdx] || ctx.measureBpmsRef.current?.[0] || 100;
   const tick96nSec = (60 / currentBpm) / 24;
 
-  scheduleMetronomeClick({
-    time, stepIdx, currentMeasureSig: currentTimeSig, currentTicks,
-    isMetroOn: ctx.isMetroOnRef.current, metroVolume: ctx.metroVolumeRef.current, metroSound: ctx.metroSoundRef.current,
-  });
+  if (!isCatchupPastTick) {
+    scheduleMetronomeClick({
+      time, stepIdx, currentMeasureSig: currentTimeSig, currentTicks,
+      isMetroOn: ctx.isMetroOnRef.current, metroVolume: ctx.metroVolumeRef.current, metroSound: ctx.metroSoundRef.current,
+    });
+  }
 
   const shouldScheduleAutomation =
     stepIdx === 0 || (ctx.lastScheduledMeasureRef && ctx.lastScheduledMeasureRef.current !== currentMeasureIdx);
@@ -71,11 +77,17 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
       ? ctx.pendingMeasureRef.current
       : (isAtLoopEnd ? (ctx.loopStartRef.current ?? 0) : (currentMeasureIdx + 1) % totalM);
 
+    const currentMeasureSeqId = pushWorkletHorizonAtMeasureBoundary(time, currentMeasureIdx, {
+      ...ctx,
+      engine: activeEngine,
+    });
+
     advanceLiveVariationLookahead({
       currentMeasureIdx, nextMeasureIdx: predictedNextMeasure,
       currentMeasureStartTick: ctx.currentMeasureStartTickRef.current, tracks: ctx.tracksRef.current,
       measureTimeSigs: ctx.measureTimeSigsRef.current, soloPatternPlayId: ctx.soloPatternPlayIdRef.current,
       soloPatternVariationId: ctx.soloPatternVariationIdRef.current, activeVariationsRef: ctx.activeVariationsRef,
+      currentMeasureSeqId,
     });
 
     const measureDurationSec = (currentTicks / 24) * (60 / currentBpm);
@@ -98,16 +110,18 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     currentMeasureStartTick: ctx.currentMeasureStartTickRef.current, audioEngine: activeEngine, busChannels: ctx.busChannels,
   });
 
-  evaluateVocalTracks({
-    tracks: ctx.tracksRef.current, stepIdx, currentTicks, time, currentMeasureLocal: currentMeasureIdx,
-    totalMeasures: ctx.totalMeasuresRef.current, soloPatternPlayId: ctx.soloPatternPlayIdRef.current,
-    soloPatternVariationId: ctx.soloPatternVariationIdRef.current, soloLoopCycle: ctx.soloLoopCycleRef.current,
-    soloPhraseMeasure: ctx.soloPhraseMeasureRef.current, isLoopRegionActive: ctx.isLoopRegionActiveRef.current,
-    loopStart: ctx.loopStartRef.current, loopEnd: ctx.loopEndRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
-    globalSwing: ctx.globalSwingRef.current, isDocHidden, mutedVoiceTracks: ctx.mutedVoiceTracksRef.current,
-    anticipatedMeasures: ctx.anticipatedMeasuresRef.current, activeSequencerVocals: ctx.activeSequencerVocalsRef.current,
-    trackInputs: ctx.trackInputs, channels: ctx.channels, busChannels: ctx.busChannels, masterVolumeNode: ctx.masterVolumeNode,
-  });
+  if (!isCatchupPastTick || stepIdx === 0) {
+    evaluateVocalTracks({
+      tracks: ctx.tracksRef.current, stepIdx, currentTicks, time, currentMeasureLocal: currentMeasureIdx,
+      totalMeasures: ctx.totalMeasuresRef.current, soloPatternPlayId: ctx.soloPatternPlayIdRef.current,
+      soloPatternVariationId: ctx.soloPatternVariationIdRef.current, soloLoopCycle: ctx.soloLoopCycleRef.current,
+      soloPhraseMeasure: ctx.soloPhraseMeasureRef.current, isLoopRegionActive: ctx.isLoopRegionActiveRef.current,
+      loopStart: ctx.loopStartRef.current, loopEnd: ctx.loopEndRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
+      globalSwing: ctx.globalSwingRef.current, isDocHidden, mutedVoiceTracks: ctx.mutedVoiceTracksRef.current,
+      anticipatedMeasures: ctx.anticipatedMeasuresRef.current, activeSequencerVocals: ctx.activeSequencerVocalsRef.current,
+      trackInputs: ctx.trackInputs, channels: ctx.channels, busChannels: ctx.busChannels, masterVolumeNode: ctx.masterVolumeNode,
+    });
+  }
 
   const effectiveLoopEnd = (ctx.isLoopRegionActiveRef.current && ctx.loopEndRef.current !== null)
     ? ctx.loopEndRef.current : ((ctx.totalMeasuresRef.current || 1) - 1);

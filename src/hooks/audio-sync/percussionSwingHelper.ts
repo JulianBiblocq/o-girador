@@ -39,3 +39,25 @@ export function computePercussionNoteSwing(p: NoteSwingParams): number {
   }
   return (baseSwingOffset * totalBalancoMultiplier) + swingJitter;
 }
+
+export function resolveActivePatternForMeasure(
+  liveTrack: Track,
+  tracks: Track[],
+  measureIdx: number,
+  soloId: number | null
+): Pattern | null {
+  const patterns = liveTrack.patterns;
+  if (soloId !== null) {
+    const direct = patterns.find((pt) => String(pt.id) === String(soloId));
+    if (direct) return direct;
+    const soloTrack = tracks.find((t) => t.patterns?.some((pt) => String(pt.id) === String(soloId)));
+    const soloPtn = soloTrack?.patterns?.find((pt) => String(pt.id) === String(soloId));
+    if (soloPtn) {
+      const byName = patterns.find((pt) => pt.name === soloPtn.name);
+      if (byName) return byName;
+      const sIdx = soloTrack?.patterns?.findIndex((pt) => String(pt.id) === String(soloId));
+      if (sIdx !== undefined && sIdx >= 0 && patterns[sIdx]) return patterns[sIdx];
+    }
+  }
+  return patterns.find((pt) => pt.measureAssignments[measureIdx]) || null;
+}
