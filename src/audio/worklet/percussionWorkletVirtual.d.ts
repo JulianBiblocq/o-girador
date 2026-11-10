@@ -3,3 +3,7 @@ declare module 'virtual:percussion-worklet-code' {
   export default workletIIFECode;
 }
 
+declare module 'virtual:master-bus-worklet-code' {
+  const masterBusWorkletIIFECode: string;
+  export default masterBusWorkletIIFECode;
+}

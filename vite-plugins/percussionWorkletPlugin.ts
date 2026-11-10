@@ -1,20 +1,44 @@
 import path from 'path';
 import { build, Plugin } from 'vite';
 
-const VIRTUAL_ID = 'virtual:percussion-worklet-code';
-const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID;
+interface WorkletBundleSpec {
+  virtualId: string;
+  resolvedId: string;
+  entryRelPath: string;
+  globalName: string;
+  fileName: string;
+  cachedCode: string | null;
+}
+
+const WORKLET_SPECS: WorkletBundleSpec[] = [
+  {
+    virtualId: 'virtual:percussion-worklet-code',
+    resolvedId: '\0virtual:percussion-worklet-code',
+    entryRelPath: 'src/audio/worklet/processor/percussionEngineProcessor.ts',
+    globalName: 'PercussionWorklet',
+    fileName: 'percussion-worklet.iife.js',
+    cachedCode: null,
+  },
+  {
+    virtualId: 'virtual:master-bus-worklet-code',
+    resolvedId: '\0virtual:master-bus-worklet-code',
+    entryRelPath: 'src/audio/worklet/master-bus/masterBusProcessor.ts',
+    globalName: 'MasterBusWorklet',
+    fileName: 'master-bus-worklet.iife.js',
+    cachedCode: null,
+  },
+];
 
 /**
- * Compile `percussionEngineProcessor.ts` et ses dépendances DSP SOA en un bundle IIFE
- * 100 % autonome (zéro `import`/`export`), chargé via `Blob` URL en Dev comme en Prod.
+ * Compile `percussionEngineProcessor.ts` et `masterBusProcessor.ts` en bundles IIFE
+ * 100 % autonomes (zéro `import`/`export`), chargés via `Blob` URL en Dev comme en Prod (< 90 lignes).
  */
 export function percussionWorkletPlugin(): Plugin {
-  let cachedCode: string | null = null;
   let rootDir = process.cwd();
 
-  async function compileWorkletToIIFE(): Promise<string> {
-    if (cachedCode) return cachedCode;
-    const entryPath = path.resolve(rootDir, 'src/audio/worklet/processor/percussionEngineProcessor.ts');
+  async function compileSpecToIIFE(spec: WorkletBundleSpec): Promise<string> {
+    if (spec.cachedCode) return spec.cachedCode;
+    const entryPath = path.resolve(rootDir, spec.entryRelPath);
     const result = await build({
       configFile: false,
       logLevel: 'silent',
@@ -25,8 +49,8 @@ export function percussionWorkletPlugin(): Plugin {
         lib: {
           entry: entryPath,
           formats: ['iife'],
-          name: 'PercussionWorklet',
-          fileName: () => 'percussion-worklet.iife.js',
+          name: spec.globalName,
+          fileName: () => spec.fileName,
         },
       },
     });
@@ -35,28 +59,34 @@ export function percussionWorkletPlugin(): Plugin {
       if ('output' in out) {
         const chunk = out.output.find((item) => item.type === 'chunk');
         if (chunk && chunk.type === 'chunk') {
-          cachedCode = chunk.code;
-          return cachedCode;
+          spec.cachedCode = chunk.code;
+          return spec.cachedCode;
         }
       }
     }
-    throw new Error('[percussionWorkletPlugin] Failed to compile AudioWorklet IIFE bundle');
+    throw new Error(`[percussionWorkletPlugin] Failed to compile IIFE bundle for ${spec.virtualId}`);
   }
 
   return {
     name: 'vite-plugin-percussion-worklet-iife',
     configResolved(config) { rootDir = config.root; },
-    resolveId(id) { return id === VIRTUAL_ID ? RESOLVED_VIRTUAL_ID : null; },
+    resolveId(id) {
+      const match = WORKLET_SPECS.find((s) => s.virtualId === id);
+      return match ? match.resolvedId : null;
+    },
     async load(id) {
-      if (id !== RESOLVED_VIRTUAL_ID) return null;
-      const code = await compileWorkletToIIFE();
+      const match = WORKLET_SPECS.find((s) => s.resolvedId === id);
+      if (!match) return null;
+      const code = await compileSpecToIIFE(match);
       return `export default ${JSON.stringify(code)};`;
     },
     handleHotUpdate({ file, server }) {
       if (file.replace(/\\/g, '/').includes('/src/audio/worklet/')) {
-        cachedCode = null;
-        const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_ID);
-        if (mod) server.moduleGraph.invalidateModule(mod);
+        for (const spec of WORKLET_SPECS) {
+          spec.cachedCode = null;
+          const mod = server.moduleGraph.getModuleById(spec.resolvedId);
+          if (mod) server.moduleGraph.invalidateModule(mod);
+        }
       }
     },
   };
