@@ -8,6 +8,8 @@ import {
   lowCutNodes,
   slaveSubCutNodes,
   eqNodes,
+  busReverbSendVca,
+  busDistoSendVca,
 } from './effectsChainNodes';
 
 let onTrackDisposeCallback: ((trackId: number) => void) | null = null;
@@ -32,8 +34,22 @@ export function disposeTrackNodes(trackId: number) {
 
   try {
     if (distortionSends[trackId]) {
-      try { distortionSends[trackId].dispose(); } catch (_) {}
+      try { distortionSends[trackId].disconnect(); distortionSends[trackId].dispose(); } catch (_) {}
       delete distortionSends[trackId];
+    }
+  } catch (_) {}
+
+  try {
+    if (busReverbSendVca[trackId]) {
+      try { busReverbSendVca[trackId].disconnect(); busReverbSendVca[trackId].dispose(); } catch (_) {}
+      delete busReverbSendVca[trackId];
+    }
+  } catch (_) {}
+
+  try {
+    if (busDistoSendVca[trackId]) {
+      try { busDistoSendVca[trackId].disconnect(); busDistoSendVca[trackId].dispose(); } catch (_) {}
+      delete busDistoSendVca[trackId];
     }
   } catch (_) {}
 

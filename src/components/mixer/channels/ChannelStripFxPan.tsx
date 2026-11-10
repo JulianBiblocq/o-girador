@@ -5,6 +5,7 @@ import React from 'react';
 import { DragNumberBox } from '../../DragNumberBox';
 import { PanKnob } from '../../PanKnob';
 import { reverbSends, distortionSends } from '../../../hooks/useAudioSync';
+import { previewTrackAuxSendDrag } from '../../../audio/effectsChain';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { TrackGroup } from '../../../types';
 
@@ -26,19 +27,11 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
   const trackId = track.id;
 
   const handleDistortionAudioDrag = (val: number) => {
-    const node = distortionSends[trackId];
-    if (node) {
-      const gain = Math.max(0.00001, val / 100);
-      try { node.gain.value = val === 0 ? -100 : 40 * Math.log10(gain); } catch (_) {}
-    }
+    previewTrackAuxSendDrag(distortionSends[trackId], val);
   };
 
   const handleReverbAudioDrag = (val: number) => {
-    const node = reverbSends[trackId];
-    if (node) {
-      const gain = Math.max(0.00001, val / 100);
-      try { node.gain.value = val === 0 ? -100 : 40 * Math.log10(gain); } catch (_) {}
-    }
+    previewTrackAuxSendDrag(reverbSends[trackId], val);
   };
 
   return (

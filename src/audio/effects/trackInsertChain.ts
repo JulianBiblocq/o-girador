@@ -1,4 +1,3 @@
-import * as Tone from 'tone';
 import {
   channels,
   trackInputs,
@@ -6,7 +5,7 @@ import {
   eqNodes,
 } from './effectsChainNodes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { applyInsertEqTargets, createInsertEqNodes } from './insertEqTargets';
+import { applyInsertEqTargets, createInsertEqNodes, createLowCutFilter } from './insertEqTargets';
 
 const wiredInsertChains = new Map<string | number, { input: any; channel: any }>();
 
@@ -19,9 +18,10 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   const channelNode = channels[trackId];
   if (!inputNode || !channelNode) return;
 
+  const isNeutral = Boolean(useSequencerStore.getState().ecoConfig?.disableEq);
   let currentLowCut = lowCutNodes[trackId];
   if (!currentLowCut) {
-    currentLowCut = new Tone.Filter(track.lowCut ? 80 : 20, 'highpass');
+    currentLowCut = createLowCutFilter(track, isNeutral);
     lowCutNodes[trackId] = currentLowCut;
   }
 
@@ -41,6 +41,5 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     wiredInsertChains.set(trackId, { input: inputNode, channel: channelNode });
   }
 
-  const isNeutral = Boolean(useSequencerStore.getState().ecoConfig?.disableEq);
   applyInsertEqTargets(currentLowCut, currentEQ, track, isNeutral);
 }

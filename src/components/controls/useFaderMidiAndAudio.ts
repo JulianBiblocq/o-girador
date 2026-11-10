@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { channels, busChannels } from '../../hooks/useAudioSync';
 import { faderPositionToDb, faderPositionToDbString } from '../../utils/audioMath';
 import { safeRampDb } from '../../utils/audio/safeAudioParamRamp';
+import { rampBusSendVcaFromFaderDrag } from '../../audio/effectsChain';
 
 interface UseFaderMidiAndAudioProps {
   trackId?: number;
@@ -29,6 +30,7 @@ export function useFaderMidiAndAudio({
         const db = faderPositionToDb(val);
         safeRampDb(channelNode.volume, db, 0.02);
       }
+      rampBusSendVcaFromFaderDrag(trackId, val, 0.02);
     }
   };
 

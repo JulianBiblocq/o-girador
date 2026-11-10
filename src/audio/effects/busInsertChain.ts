@@ -1,4 +1,3 @@
-import * as Tone from 'tone';
 import {
   busInputs,
   busChannels,
@@ -6,7 +5,7 @@ import {
   eqNodes,
 } from './effectsChainNodes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { applyInsertEqTargets, createInsertEqNodes } from './insertEqTargets';
+import { applyInsertEqTargets, createInsertEqNodes, createLowCutFilter } from './insertEqTargets';
 
 const wiredBusInsertChains = new Map<string | number, { input: any; channel: any }>();
 
@@ -19,9 +18,10 @@ export function syncBusInsertChain(busId: string | number, track: any) {
   const channelNode = busChannels[busId];
   if (!inputNode || !channelNode) return;
 
+  const isNeutral = Boolean(useSequencerStore.getState().ecoConfig?.disableEq);
   let currentLowCut = lowCutNodes[busId];
   if (!currentLowCut) {
-    currentLowCut = new Tone.Filter(track.lowCut ? 80 : 20, 'highpass');
+    currentLowCut = createLowCutFilter(track, isNeutral);
     lowCutNodes[busId] = currentLowCut;
   }
 
@@ -41,6 +41,5 @@ export function syncBusInsertChain(busId: string | number, track: any) {
     wiredBusInsertChains.set(busId, { input: inputNode, channel: channelNode });
   }
 
-  const isNeutral = Boolean(useSequencerStore.getState().ecoConfig?.disableEq);
   applyInsertEqTargets(currentLowCut, currentEQ, track, isNeutral);
 }

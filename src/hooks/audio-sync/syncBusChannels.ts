@@ -5,7 +5,16 @@ import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { busInputs } from './audioEngineNodes';
-import { syncBusInsertChain } from '../../audio/effectsChain';
+import {
+  syncBusInsertChain,
+  ensureAuxSendNodes,
+  ensureBusSendVcaNodes,
+  wireBusSendVcaOutput,
+  wireAuxSendsToParentOrReceive,
+  syncBusSendVcaGain,
+  computeBusLinearVcaGain,
+  resolveImmediateBusId,
+} from '../../audio/effectsChain';
 import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
 
 export interface SyncBusChannelsParams {
@@ -47,7 +56,8 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       syncBusInsertChain(t.id, t);
     }
 
-    const isConnectedToParentBus = Boolean(t.busId && (busInputs[t.busId] || busChannels[t.busId]));
+    const currentBusId = resolveImmediateBusId(t, tracks);
+    const isConnectedToParentBus = Boolean(currentBusId !== null && (busInputs[currentBusId] || busChannels[currentBusId]));
     const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
@@ -55,6 +65,9 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const reverb = t.fxSends?.reverb ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
     const muteState = getEffectiveMuteState(tracks, t.id);
+
+    ensureAuxSendNodes(t.id, percentToDb(disableFx ? 0 : reverb), percentToDb(disableFx ? 0 : distortion));
+    ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
 
     const lowCut = t.lowCut ?? false;
     const eqLowG = t.eqBands?.low?.g ?? 0;
@@ -73,22 +86,12 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       safeRampDb(busChannels[t.id].volume, safeDb, 0.02);
       safeRampPan(busChannels[t.id].pan, acousticPan, 0.02);
       busChannels[t.id].mute = muteState;
-
-      if (!reverbSends[t.id]) {
-        reverbSends[t.id] = busChannels[t.id].send("reverb", percentToDb(disableFx ? 0 : reverb));
-      }
-      if (!distortionSends[t.id]) {
-        distortionSends[t.id] = busChannels[t.id].send("distortion", percentToDb(disableFx ? 0 : distortion));
-      }
+      syncBusSendVcaGain(t.id, computeBusLinearVcaGain(t, tracks), 0.02);
 
       const targetRevDb = percentToDb(disableFx ? 0 : reverb);
       const targetDistDb = percentToDb(disableFx ? 0 : distortion);
-      if (reverbSends[t.id]) {
-        safeRampDb(reverbSends[t.id].gain, targetRevDb, 0.02);
-      }
-      if (distortionSends[t.id]) {
-        safeRampDb(distortionSends[t.id].gain, targetDistDb, 0.02);
-      }
+      if (reverbSends[t.id]) safeRampDb(reverbSends[t.id].gain, targetRevDb, 0.02);
+      if (distortionSends[t.id]) safeRampDb(distortionSends[t.id].gain, targetDistDb, 0.02);
 
       lastAppliedTracksParamsRef.current[t.id] = busChannelHash;
     }
@@ -99,11 +102,11 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       lastAppliedTracksParamsRef.current[busEqKey] = busEqHash;
     }
 
-    const currentBusId = t.busId || null;
-    if (lastAppliedBussesRef.current[t.id] !== currentBusId) {
+    const busKey = currentBusId !== null ? String(currentBusId) : null;
+    if (lastAppliedBussesRef.current[t.id] !== busKey) {
       busChannels[t.id].disconnect();
 
-      const parentBusInput = currentBusId ? (busInputs[currentBusId] || busChannels[currentBusId] || null) : null;
+      const parentBusInput = currentBusId !== null ? (busInputs[currentBusId] || busChannels[currentBusId] || null) : null;
       if (parentBusInput) {
         busChannels[t.id].connect(parentBusInput);
       } else if (masterVolumeNode) {
@@ -113,8 +116,10 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       if (reverbSends[t.id]) busChannels[t.id].connect(reverbSends[t.id]);
       if (distortionSends[t.id]) busChannels[t.id].connect(distortionSends[t.id]);
       if (busMeters[t.id]) busChannels[t.id].connect(busMeters[t.id]);
+      wireBusSendVcaOutput(t.id, currentBusId);
+      wireAuxSendsToParentOrReceive(t.id, currentBusId);
 
-      lastAppliedBussesRef.current[t.id] = currentBusId;
+      lastAppliedBussesRef.current[t.id] = busKey;
     }
   });
 }

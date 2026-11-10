@@ -20,6 +20,9 @@ export function setMasterEQNode(node: MasterEQNodeInterface | null) { masterEQNo
 export let masterCompressorNode: Tone.Compressor | null = null;
 export function setMasterCompressorNode(node: Tone.Compressor | null) { masterCompressorNode = node; }
 
+export let masterPostLimiterTap: Tone.Gain | null = null;
+export function setMasterPostLimiterTap(node: Tone.Gain | null) { masterPostLimiterTap = node; }
+
 export let masterMeterNode: Tone.Meter | null = null;
 export function setMasterMeterNode(node: Tone.Meter | null) { masterMeterNode = node; }
 
@@ -67,3 +70,5 @@ export const eqNodes: {
 } = {};
 export const busChannels: { [busId: string | number]: Tone.Channel } = {};
 export const busMeters: { [busId: string | number]: any } = {};
+export const busReverbSendVca: { [busId: string | number]: Tone.Gain } = {};
+export const busDistoSendVca: { [busId: string | number]: Tone.Gain } = {};

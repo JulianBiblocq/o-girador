@@ -9,12 +9,14 @@ export {
 } from './effects/reverbEcoHandler';
 export { syncTrackInsertChain } from './effects/trackInsertChain';
 export { syncBusInsertChain } from './effects/busInsertChain';
+export * from './effects/insertEqTargets';
 export {
   setOnTrackDisposeCallback,
   disposeTrackNodes,
   disposeAllTrackNodes,
 } from './effects/trackDisposeHandler';
 export { syncMasterCompressorBypass, previewMasterCompressorSetting, resetMasterCompressorCache } from './effects/masterBypassHandler';
+export * from './effects/postBusSendRouter';
 export {
   initMasterMonoNodes,
   setMasterMonoCheck,

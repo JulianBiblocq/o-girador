@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { loadTone } from '../../ToneLoader';
-import { masterVolumeNode } from '../../audio/effects/effectsChainNodes';
+import { masterPostLimiterTap, masterVolumeNode } from '../../audio/effects/effectsChainNodes';
 import { bufferToWav } from './audioWavEncoder';
 import { scheduleAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 
@@ -8,6 +8,7 @@ let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
 let recorderNode: AudioWorkletNode | null = null;
 let silenceGainNode: GainNode | null = null;
+let connectedTapNode: any = null;
 let recordingSampleRate = 44100;
 
 export async function startAudioRecording(): Promise<boolean> {
@@ -51,11 +52,13 @@ export async function startAudioRecording(): Promise<boolean> {
       }
     };
 
-    if (masterVolumeNode) {
+    const tapNode = masterPostLimiterTap || masterVolumeNode;
+    if (tapNode) {
       try {
-        (masterVolumeNode as any).connect(recorderNode);
+        Tone.connect(tapNode as any, recorderNode);
+        connectedTapNode = tapNode;
       } catch (err) {
-        console.warn('[AudioRecorder] Impossible de connecter masterVolumeNode:', err);
+        console.warn('[AudioRecorder] Impossible de connecter masterPostLimiterTap:', err);
       }
     }
 
@@ -76,10 +79,11 @@ export async function startAudioRecording(): Promise<boolean> {
 export function stopAudioRecording(): void {
   if (recorderNode) {
     try {
-      if (masterVolumeNode) {
-        (masterVolumeNode as any).disconnect(recorderNode);
+      if (connectedTapNode) {
+        Tone.disconnect(connectedTapNode as any, recorderNode);
       }
     } catch (_) {}
+    connectedTapNode = null;
     try {
       recorderNode.port.onmessage = null;
       recorderNode.disconnect();

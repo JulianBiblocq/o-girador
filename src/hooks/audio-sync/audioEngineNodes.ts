@@ -4,6 +4,7 @@ import {
   masterVolumeNode,
   masterEQNode,
   masterCompressorNode,
+  masterPostLimiterTap,
   masterMeterNode,
   masterLeftMeterNode,
   masterRightMeterNode,
@@ -21,7 +22,9 @@ import {
   trackInputs,
   busInputs,
   busChannels,
-  busMeters
+  busMeters,
+  busReverbSendVca,
+  busDistoSendVca
 } from '../../audio/effectsChain';
 import {
   activeNativeOscillators,
@@ -56,6 +59,7 @@ export {
   masterEQNode,
   masterCompressorNode as masterCompressor,
   masterCompressorNode,
+  masterPostLimiterTap,
   masterMeterNode,
   masterLeftMeterNode,
   masterRightMeterNode,
@@ -74,6 +78,8 @@ export {
   busInputs,
   busChannels,
   busMeters,
+  busReverbSendVca,
+  busDistoSendVca,
   activeNativeOscillators,
   playNativeMetroClick,
   playNativeVoiceSynth,

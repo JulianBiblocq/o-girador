@@ -1,7 +1,7 @@
 import React from 'react';
 import { MixerKnob } from '../../MixerKnob';
 import { MixerSlantedDivider } from '../../MixerSlantedDivider';
-import { eqNodes } from '../../../audio/effectsChain';
+import { eqNodes, resetInsertEqImmediate } from '../../../audio/effectsChain';
 import { safeRampFreq, safeRampGainDb } from '../../../utils/audio/safeAudioParamRamp';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { TrackGroup } from '../../../types';
@@ -26,7 +26,11 @@ export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang }) =
 
   const handleLowCutToggle = () => useSequencerStore.getState().handleTrackLowCutToggle(trackId);
   const handleEQChange = (bands: Partial<typeof eq>) => useSequencerStore.getState().handleTrackEQChange(trackId, bands);
-  const handleEQReset = () => { if (isEQModified) useSequencerStore.getState().handleTrackEQReset(trackId); };
+  const handleEQReset = () => {
+    if (!isEQModified) return;
+    resetInsertEqImmediate(trackId);
+    useSequencerStore.getState().handleTrackEQReset(trackId);
+  };
 
   const handleHFAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.high) safeRampFreq(eqNodes[trackId].high.frequency, val, 0.02); } catch (_) {} };
   const handleHGAudioDrag = (val: number) => { try { if (eqNodes[trackId]?.high) safeRampGainDb(eqNodes[trackId].high.gain, val, 0.02); } catch (_) {} };

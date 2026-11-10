@@ -67,11 +67,19 @@ export function initMasterEffectsChain(
   const masterLimiterNode = new Tone.Limiter(-0.5);
   comp.connect(masterLimiterNode);
 
+  const postLimiterTap = new Tone.Gain(1.0);
+  try {
+    postLimiterTap.channelCount = 2;
+    postLimiterTap.channelCountMode = 'explicit';
+  } catch (_) {}
+  masterLimiterNode.connect(postLimiterTap);
+  nodes.setMasterPostLimiterTap(postLimiterTap);
+
   try {
     Tone.Destination.channelCount = 2;
     Tone.Destination.channelCountMode = 'explicit';
   } catch (_) {}
-  initMasterMonoNodes(masterLimiterNode);
+  initMasterMonoNodes(postLimiterTap);
 
   const clampedDb = masterVol === -40 ? -Infinity : Math.max(-100, Math.min(12, masterVol));
   const baseGain = clampedDb <= -60 ? 0 : Tone.dbToGain(clampedDb);
@@ -79,10 +87,10 @@ export function initMasterEffectsChain(
 
   const meter = new Tone.Meter();
   nodes.setMasterMeterNode(meter);
-  masterLimiterNode.connect(meter);
+  postLimiterTap.connect(meter);
 
   const masterSplit = new Tone.Split(2);
-  Tone.getDestination().connect(masterSplit);
+  postLimiterTap.connect(masterSplit);
 
   const leftMeter = new Tone.Meter();
   const rightMeter = new Tone.Meter();
@@ -91,7 +99,7 @@ export function initMasterEffectsChain(
   masterSplit.connect(leftMeter, 0);
   masterSplit.connect(rightMeter, 1);
 
-  const metro = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).connect(vol);
+  const metro = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).toDestination();
   metro.mute = !isMetroOn;
   nodes.setMetroChannel(metro);
 

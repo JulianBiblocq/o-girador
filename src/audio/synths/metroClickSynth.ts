@@ -1,5 +1,5 @@
 import * as Tone from 'tone';
-import { metroChannel, masterVolumeNode } from '../effectsChain';
+import { metroChannel } from '../effectsChain';
 import { activeNativeOscillators } from './nativeOscillatorRegistry';
 
 export const playNativeMetroClick = (time: number, isAccent: boolean, soundType: string, volume: number) => {
@@ -10,8 +10,8 @@ export const playNativeMetroClick = (time: number, isAccent: boolean, soundType:
 
   if (metroChannel) {
     Tone.connect(clickGain, metroChannel as any);
-  } else if (masterVolumeNode) {
-    Tone.connect(clickGain, masterVolumeNode as any);
+  } else if (Tone.getDestination()) {
+    Tone.connect(clickGain, Tone.getDestination() as any);
   } else {
     clickGain.connect(rawCtx.destination);
   }
@@ -67,8 +67,8 @@ export const playCountInBeep = (time: number, freq: number, isAccent: boolean = 
   const clickGain = rawCtx.createGain();
   osc.connect(clickGain);
 
-  if (masterVolumeNode) {
-    Tone.connect(clickGain, masterVolumeNode as any);
+  if (metroChannel) {
+    Tone.connect(clickGain, metroChannel as any);
   } else if (Tone.getDestination()) {
     Tone.connect(clickGain, Tone.getDestination() as any);
   } else {

@@ -5,8 +5,18 @@ import { channels, meters, reverbSends, distortionSends, busInputs, busChannels,
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
-import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
-import { trackInputs, syncTrackInsertChain } from '../../audio/effectsChain';
+import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
+import {
+  trackInputs,
+  syncTrackInsertChain,
+  ensureAuxSendNodes,
+  ensureBusSendVcaNodes,
+  wireBusSendVcaOutput,
+  wireAuxSendsToParentOrReceive,
+  syncBusSendVcaGain,
+  computeBusLinearVcaGain,
+  resolveImmediateBusId,
+} from '../../audio/effectsChain';
 import { AudioEngine } from '../../AudioEngine';
 
 export function initTrackChannelsAudioNodes(
@@ -22,6 +32,9 @@ export function initTrackChannelsAudioNodes(
     const inst = instrumentsConfig[t.instrumentIdx];
     if (!inst) return;
 
+    const initialRevDb = percentToDb(disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+    const initialDistDb = percentToDb(disableFx ? 0 : (t.fxSends?.distortion ?? 0));
+
     if (!channels[t.id]) {
       channels[t.id] = new Tone.Channel({ volume: 0 });
       try {
@@ -31,25 +44,17 @@ export function initTrackChannelsAudioNodes(
 
       meters[t.id] = new Tone.Analyser({ type: 'waveform', size: 1024, channels: 2 }) as any;
       channels[t.id].connect(meters[t.id]);
-
-      const initialRevDb = percentToDb(disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
-      const initialDistDb = percentToDb(disableFx ? 0 : (t.fxSends?.distortion ?? 0));
-
-      reverbSends[t.id] = channels[t.id].send('reverb', initialRevDb);
-      distortionSends[t.id] = channels[t.id].send('distortion', initialDistDb);
     }
+    ensureAuxSendNodes(t.id, initialRevDb, initialDistDb);
 
-    const targetBusId = t.busId || (t.linkedToTrackId ? t.linkedToTrackId : null);
-    let targetBusNode: any = null;
-    if (targetBusId && String(targetBusId) !== String(t.id)) {
-      targetBusNode = busInputs[targetBusId] || busChannels[targetBusId] || trackInputs[targetBusId] || null;
-    }
-    const isVocalTrack = isToadaChild(t, tracks) || inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro';
-    if (isVocalTrack && !targetBusNode) {
-      const toadaTrack = tracks.find(trk => isToadaBus(trk));
-      if (toadaTrack) {
-        targetBusNode = busInputs[toadaTrack.id] || busChannels[toadaTrack.id] || null;
-      }
+    const targetBusId = resolveImmediateBusId(t, tracks);
+    const targetBusNode: any = targetBusId !== null
+      ? (busInputs[targetBusId] || busChannels[targetBusId] || trackInputs[targetBusId] || null)
+      : null;
+
+    if (t.isLinkMaster) {
+      ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
+      wireBusSendVcaOutput(t.id, targetBusId);
     }
 
     channels[t.id].disconnect();
@@ -62,8 +67,9 @@ export function initTrackChannelsAudioNodes(
     if (reverbSends[t.id]) channels[t.id].connect(reverbSends[t.id]);
     if (distortionSends[t.id]) channels[t.id].connect(distortionSends[t.id]);
     if (meters[t.id]) channels[t.id].connect(meters[t.id]);
+    wireAuxSendsToParentOrReceive(t.id, targetBusId);
 
-    lastAppliedBussesRef.current[t.id] = targetBusId ? String(targetBusId) : null;
+    lastAppliedBussesRef.current[t.id] = targetBusId !== null ? String(targetBusId) : null;
 
     if (!trackInputs[t.id]) {
       trackInputs[t.id] = new Tone.Gain(1.0);
@@ -73,7 +79,7 @@ export function initTrackChannelsAudioNodes(
     const gainNode = trackInputs[t.id] || channels[t.id];
     engine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
-    const isConnectedToBus = Boolean(targetBusId && (busInputs[targetBusId] || busChannels[targetBusId]));
+    const isConnectedToBus = Boolean(targetBusId !== null && (busInputs[targetBusId] || busChannels[targetBusId]));
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const db = faderPositionToDb(effectiveVol);
     const safeDb = Number.isFinite(db) ? db : -100;
@@ -84,6 +90,9 @@ export function initTrackChannelsAudioNodes(
     channels[t.id].volume.value = finalDb;
     channels[t.id].pan.value = acousticPan;
     channels[t.id].mute = muteState;
+    if (t.isLinkMaster) {
+      syncBusSendVcaGain(t.id, computeBusLinearVcaGain(t, tracks), 0.01);
+    }
 
     if (reverbSends[t.id]) {
       const targetRevDb = percentToDb(disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));

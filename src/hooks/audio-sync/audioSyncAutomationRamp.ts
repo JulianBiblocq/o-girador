@@ -3,9 +3,9 @@
  */
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
-import { channels, busChannels, busInputs, reverbSends } from './audioEngineNodes';
-import { faderPositionToDb } from '../../utils/audioMath';
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { channels, busChannels, busInputs, reverbSends, busReverbSendVca, busDistoSendVca } from './audioEngineNodes';
+import { faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
+import { useSequencerStore, getEffectiveMuteState } from '../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { isAutomationBypassed } from '../../utils/automationBypassHelper';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
@@ -82,6 +82,11 @@ export function scheduleMeasureAutomationRamps({
         };
 
         applyParamTransition(channel.volume, toTrackDb(rawPrev), toTrackDb(rawTarget), trans, time, measureDurationSec);
+        const isMuted = getEffectiveMuteState(tracks, t.id);
+        const prevLin = isMuted ? 0 : faderPositionToGain(rawPrev);
+        const targetLin = isMuted ? 0 : faderPositionToGain(rawTarget);
+        if (busReverbSendVca[t.id]?.gain) applyParamTransition(busReverbSendVca[t.id].gain, prevLin, targetLin, trans, time, measureDurationSec);
+        if (busDistoSendVca[t.id]?.gain) applyParamTransition(busDistoSendVca[t.id].gain, prevLin, targetLin, trans, time, measureDurationSec);
       } catch (_) {}
     }
 
