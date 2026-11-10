@@ -11,7 +11,7 @@ import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
 import { syncMasterBusWorkletParams } from '../../audio/effectsChain';
 import {
   masterReverbVolumeNode, reverbNode, masterDistortionVolumeNode,
-  distortionNode, masterVolumeNode, channels,
+  distortionNode, masterVolumeNode, masterEQNode, channels,
   meters, trackInputs, busChannels, busMeters, reverbSends,
   distortionSends, audioEngine
 } from './audioEngineNodes';
@@ -84,6 +84,12 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         if (busCfg) {
           syncMasterBusWorkletParams(busCfg);
           syncToadaVocalSlapback(busCfg.toadaSlapbackMode ?? 'off', busCfg.toadaSlapbackWet ?? 0, disableFx);
+          if (masterEQNode?.midFreq && typeof busCfg.eqMidFreqHz === 'number') {
+            safeRampTo(masterEQNode.midFreq, Math.max(250, Math.min(4000, busCfg.eqMidFreqHz)), 0.02);
+          }
+          if (masterEQNode?.midQ && busCfg.eqMidQMode) {
+            safeRampTo(masterEQNode.midQ, busCfg.eqMidQMode === 'narrow' ? 2.5 : 0.7, 0.02);
+          }
         } else {
           syncToadaVocalSlapback('off', 0, disableFx);
         }

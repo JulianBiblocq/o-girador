@@ -8,6 +8,11 @@ import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks, getAllOrd
 import { useMixerDnd } from './mixer/useMixerDnd';
 import { MixerTracksContainer } from './mixer/MixerTracksContainer';
 import { MixerMasterStrip } from './mixer/MixerMasterStrip';
+import { StudioRackModuleId } from './mixer/masterEffectsTypes';
+
+const StudioRackModal = React.lazy(() =>
+  import('./mixer/studio-rack/StudioRackModal').then(m => ({ default: m.StudioRackModal }))
+);
 
 interface ConsoleMixerProps {
   isMobile: boolean;
@@ -41,8 +46,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
   const allOrderedTracks = useMemo(() => getAllOrderedMixerTracks(tracksMeta), [tracksMeta]);
   const mixerBankOffset = useSequencerStore(state => state.mixerBankOffset);
+  const isPracticeMode = useSequencerStore(state => Boolean((state as any).isPracticeMode));
 
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
+  const [studioRackModule, setStudioRackModule] = useState<StudioRackModuleId | null>(null);
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const dnd = useMixerDnd({
@@ -95,8 +102,24 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           masterCompressor={masterCompressor}
           onMasterCompressorChange={setMasterCompressor}
           onOpenSaveTemplate={() => setIsSaveTemplateModalOpen(true)}
+          onOpenStudioRack={!isMobile && !isPracticeMode ? setStudioRackModule : undefined}
         />
       </div>
+
+      {!isMobile && !isPracticeMode && studioRackModule !== null && (
+        <React.Suspense fallback={null}>
+          <StudioRackModal
+            initialTab={studioRackModule}
+            lang={lang}
+            isPlaying={isPlaying}
+            masterEQ={masterEQ}
+            onMasterEQChange={setMasterEQ}
+            masterCompressor={masterCompressor}
+            onMasterCompressorChange={setMasterCompressor}
+            onClose={() => setStudioRackModule(null)}
+          />
+        </React.Suspense>
+      )}
 
       <SaveWorkspaceTemplateModal
         isOpen={isSaveTemplateModalOpen}

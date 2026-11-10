@@ -24,15 +24,17 @@ export interface StudioMasterBusConfig {
   attackMs?: number; releaseMs?: number; kneeDb?: number; makeupDb?: number; compMixPct?: number;
   softClipEnabled?: boolean; softClipDriveDb?: number; ceilingDb?: number;
   toadaSlapbackMode?: ToadaSlapbackMode; toadaSlapbackWet?: number; compPresetId?: string;
+  eqMidFreqHz?: number; eqMidQMode?: 'wide' | 'narrow'; eqPresetId?: string;
 }
 
 export const DEFAULT_STUDIO_MASTER_BUS_CONFIG: Required<StudioMasterBusConfig> = {
   bassMonoEnabled: true, bassMonoCrossoverHz: 110,
   transientAttackDb: 0, transientSustainDb: 0,
   duckingDb: 1.5, scHpfHz: 95,
-  attackMs: 15, releaseMs: 150, kneeDb: 6, makeupDb: 0, compMixPct: 100,
+  attackMs: 15, releaseMs: 120, kneeDb: 6, makeupDb: 0, compMixPct: 75,
   softClipEnabled: true, softClipDriveDb: 1.2, ceilingDb: -0.3,
   toadaSlapbackMode: 'off', toadaSlapbackWet: 0, compPresetId: 'natural_glue',
+  eqMidFreqHz: 1000, eqMidQMode: 'wide', eqPresetId: 'flat_studio',
 };
 
 export interface StudioModulePreset<T> {
@@ -85,5 +87,24 @@ export const STUDIO_COMPRESSOR_PRESETS: StudioModulePreset<StudioCompressorPrese
   {
     id: 'parallel_smash', labelFr: 'Parallèle Denso', labelPt: 'Paralelo Denso',
     settings: { threshold: -16, ratio: 6, scHpfHz: 120, attackMs: 8, releaseMs: 90, kneeDb: 6, makeupDb: 2.5, compMixPct: 55, duckingDb: 2.5, compPresetId: 'parallel_smash' },
+  },
+];
+
+export interface StudioEqPresetPayload extends Partial<StudioMasterBusConfig> {
+  low: number; mid: number; high: number;
+}
+
+export const STUDIO_EQ_PRESETS: StudioModulePreset<StudioEqPresetPayload>[] = [
+  {
+    id: 'flat_studio', labelFr: 'Neutre Studio', labelPt: 'Neutro Estúdio',
+    settings: { low: 0, mid: 0, high: 0, eqMidFreqHz: 1000, eqMidQMode: 'wide', bassMonoEnabled: true, bassMonoCrossoverHz: 110, ceilingDb: -0.3, eqPresetId: 'flat_studio' },
+  },
+  {
+    id: 'cortejo_weight', labelFr: 'Assise Cortège', labelPt: 'Peso de Cortejo',
+    settings: { low: 2.5, mid: -1.5, high: 1.5, eqMidFreqHz: 650, eqMidQMode: 'wide', bassMonoEnabled: true, bassMonoCrossoverHz: 120, ceilingDb: -0.3, eqPresetId: 'cortejo_weight' },
+  },
+  {
+    id: 'air_presence', labelFr: 'Clarté & Air', labelPt: 'Clareza & Ar',
+    settings: { low: 1.0, mid: 1.5, high: 3.0, eqMidFreqHz: 1800, eqMidQMode: 'narrow', bassMonoEnabled: true, bassMonoCrossoverHz: 100, ceilingDb: -0.3, eqPresetId: 'air_presence' },
   },
 ];

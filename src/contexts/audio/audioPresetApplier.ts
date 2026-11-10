@@ -106,6 +106,7 @@ export async function executeApplyPreset(
   if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
   window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
 
+  if ((p as any).speakerProfile !== undefined) delete (p as any).speakerProfile;
   restoreMasterFxFromPreset(p, setters.setMasterEQ, setters.setMasterCompressor, setters.setMasterVol, setters.setMasterReverbVol, setters.setReverbDecay);
 
   if (p.globalSwing) audioSync.setGlobalSwing(p.globalSwing);

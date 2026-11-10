@@ -1,6 +1,8 @@
 import { MasterFX } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { convertLegacyReverbDbToPercent } from './acousticNormalizer';
+import { DEFAULT_STUDIO_MASTER_BUS_CONFIG } from '../../audio/effects/studioFxPresets';
+import { faderPositionToDb } from '../../utils/audioMath';
 
 export function restoreMasterFxFromPreset(
   p: any,
@@ -10,18 +12,24 @@ export function restoreMasterFxFromPreset(
   setMasterReverbVol: (vol: number) => void,
   setReverbDecay: (decay: number) => void
 ): void {
-  if (p.masterEQ) setMasterEQ(p.masterEQ);
-  else setMasterEQ({ low: 0, mid: 0, high: 0 });
+  const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
 
-  if (p.masterCompressor) setMasterCompressor(p.masterCompressor);
-  else setMasterCompressor({ threshold: -6, ratio: 2 });
+  setMasterEQ({
+    low: isValidNum(p.masterEQ?.low) ? p.masterEQ.low : 0,
+    mid: isValidNum(p.masterEQ?.mid) ? p.masterEQ.mid : 0,
+    high: isValidNum(p.masterEQ?.high) ? p.masterEQ.high : 0,
+  });
 
-  const safeMasterVol = (typeof p.masterVol === 'number' && !isNaN(p.masterVol) && p.masterVol <= 12)
-    ? p.masterVol
+  setMasterCompressor({
+    threshold: isValidNum(p.masterCompressor?.threshold) ? p.masterCompressor.threshold : -6,
+    ratio: isValidNum(p.masterCompressor?.ratio) ? p.masterCompressor.ratio : 2,
+  });
+
+  const safeMasterVol = isValidNum(p.masterVol)
+    ? (p.masterVol <= 12 ? p.masterVol : faderPositionToDb(p.masterVol))
     : 0;
   setMasterVol(safeMasterVol);
 
-  const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
   const rawMasterFX = p.masterFX;
 
   let fallbackReverbTime = 25;
@@ -36,6 +44,12 @@ export function restoreMasterFxFromPreset(
 
   const loadedMasterFX: MasterFX = {
     reverb: {
+      spaceType: 'wood_studio',
+      preDelayMs: 12,
+      lowCutHz: 140,
+      dampHz: 7500,
+      stereoWidth: 100,
+      presetId: 'studio_bois',
       ...(rawMasterFX?.reverb || {}),
       returnVolume: isValidNum(rawMasterFX?.reverb?.returnVolume)
         ? convertLegacyReverbDbToPercent(rawMasterFX.reverb.returnVolume)
@@ -46,6 +60,10 @@ export function restoreMasterFxFromPreset(
       isMuted: typeof rawMasterFX?.reverb?.isMuted === 'boolean' ? rawMasterFX.reverb.isMuted : false,
     },
     distortion: {
+      character: 'soft_tube',
+      preHpfHz: 180,
+      toneHz: 6500,
+      presetId: 'warm_triode',
       ...(rawMasterFX?.distortion || {}),
       returnVolume: isValidNum(rawMasterFX?.distortion?.returnVolume)
         ? rawMasterFX.distortion.returnVolume
@@ -55,14 +73,17 @@ export function restoreMasterFxFromPreset(
         : (isValidNum(p.masterDistortionDrive) ? p.masterDistortionDrive : 20),
       isMuted: typeof rawMasterFX?.distortion?.isMuted === 'boolean' ? rawMasterFX.distortion.isMuted : false,
     },
-    ...(rawMasterFX?.masterBus ? { masterBus: rawMasterFX.masterBus } : {}),
+    masterBus: {
+      ...DEFAULT_STUDIO_MASTER_BUS_CONFIG,
+      ...(rawMasterFX?.masterBus || {}),
+    },
   };
 
   useSequencerStore.getState().setMasterFX(loadedMasterFX);
   useSequencerStore.getState().setMasterEffectsActive({
-    compressor: true,
-    reverb: true,
-    disto: true
+    compressor: typeof p.masterEffectsActive?.compressor === 'boolean' ? p.masterEffectsActive.compressor : true,
+    reverb: typeof p.masterEffectsActive?.reverb === 'boolean' ? p.masterEffectsActive.reverb : true,
+    disto: typeof p.masterEffectsActive?.disto === 'boolean' ? p.masterEffectsActive.disto : true,
   });
   setMasterReverbVol(loadedMasterFX.reverb.returnVolume);
   setReverbDecay(0.5 + 7.5 * (loadedMasterFX.reverb.time / 100));

@@ -77,6 +77,8 @@ export function initMasterEffectsChain(
     low: createDualAudioParam(rawCtx, instEq.low.gain, voxEq.low.gain),
     mid: createDualAudioParam(rawCtx, instEq.mid.gain, voxEq.mid.gain),
     high: createDualAudioParam(rawCtx, instEq.high.gain, voxEq.high.gain),
+    midFreq: createDualAudioParam(rawCtx, instEq.mid.frequency, voxEq.mid.frequency),
+    midQ: createDualAudioParam(rawCtx, instEq.mid.Q, voxEq.mid.Q),
     input: instEq.low, output: instEq.out,
   });
 

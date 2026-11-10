@@ -14,6 +14,8 @@ export interface MasterEQNodeInterface {
   low: any;
   mid: any;
   high: any;
+  midFreq?: any;
+  midQ?: any;
   lowFilter?: any;
   midFilter?: any;
   highFilter?: any;

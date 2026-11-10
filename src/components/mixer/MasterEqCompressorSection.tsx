@@ -71,8 +71,8 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
       <div className="grid grid-cols-3 gap-1 w-full justify-items-center pt-0.5">
         <MixerKnob
           value={masterEQ.low}
-          min={-6}
-          max={6}
+          min={-12}
+          max={12}
           step={0.5}
           decimals={1}
           defaultValue={0}
@@ -85,8 +85,8 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
         />
         <MixerKnob
           value={masterEQ.mid}
-          min={-6}
-          max={6}
+          min={-12}
+          max={12}
           step={0.5}
           decimals={1}
           defaultValue={0}
@@ -99,8 +99,8 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
         />
         <MixerKnob
           value={masterEQ.high}
-          min={-6}
-          max={6}
+          min={-12}
+          max={12}
           step={0.5}
           decimals={1}
           defaultValue={0}
