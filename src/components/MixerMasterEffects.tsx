@@ -88,6 +88,7 @@ export const MixerMasterEffects: React.FC<MixerMasterEffectsProps> = ({
       <MasterPresetAndMonoBar
         lang={lang}
         onMasterCompressorChange={onMasterCompressorChange}
+        onMasterEQChange={onMasterEQChange}
       />
     </div>
   );

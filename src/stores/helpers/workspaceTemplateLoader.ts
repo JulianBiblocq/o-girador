@@ -1,7 +1,8 @@
 import { TrackGroup, Pattern, WorkspaceTemplate, MasterFX } from '../../types';
 import { applyRadii } from './trackRodaGeometryHelpers';
+import { applyWorkspaceTemplateAudioSettings, normalizeTemplateMasterFX } from './workspaceTemplateAudioSettings';
 
-export { applyWorkspaceTemplateAudioSettings } from './workspaceTemplateAudioSettings';
+export { applyWorkspaceTemplateAudioSettings };
 
 
 export const createTracksFromTemplateState = (
@@ -93,15 +94,22 @@ export const createTracksFromTemplateState = (
   });
 
   const finalTracks = applyRadii(newTracks, newRodaTrackOrder);
-  const nextMasterFX = (options.includeFX && template.masterSettings?.masterFX)
-    ? JSON.parse(JSON.stringify(template.masterSettings.masterFX))
-    : state.masterFX;
+  const nextMasterFX = normalizeTemplateMasterFX(template.masterSettings, state.masterFX, options);
+  const rawAct = template.masterSettings?.masterEffectsActive;
+  const nextEffectsActive = rawAct
+    ? { compressor: rawAct.compressor ?? true, reverb: rawAct.reverb ?? true, disto: rawAct.disto ?? true }
+    : undefined;
+  const nextMasterMono = template.masterSettings?.isMasterMono !== undefined
+    ? Boolean(template.masterSettings.isMasterMono)
+    : undefined;
 
   return {
     tracks: finalTracks,
     rodaTrackOrder: newRodaTrackOrder,
     tracksVersion: state.tracksVersion + 1,
     masterFX: nextMasterFX,
+    ...(nextEffectsActive ? { masterEffectsActive: nextEffectsActive } : {}),
+    ...(nextMasterMono !== undefined ? { isMasterMono: nextMasterMono } : {}),
     letras: '',
     metadata: { toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', rhythmSignals: [] },
     songSections: [],

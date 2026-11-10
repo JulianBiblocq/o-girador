@@ -89,7 +89,7 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
             <div className="w-4 shrink-0" />
           </div>
 
-          <div className="flex p-2 flex-col gap-2 flex-grow justify-between overflow-y-auto overflow-x-hidden">
+          <div className="flex p-2 flex-col gap-2 flex-1 min-h-0 justify-between overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]">
             {hasAnyGlobalAuto && <MasterAutomationBypassBox lang={lang} />}
             <MixerMasterEffects
               t={t} lang={lang} isMobile={isMobile} isPracticeMode={isPracticeMode}
@@ -99,12 +99,12 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
               onOpenStudioRack={onOpenStudioRack} grMeterRef={grMeterRef}
             />
 
-            <div className="flex flex-col flex-grow justify-end mt-1 pt-1.5 border-t border-[var(--cordel-border)] min-h-[155px]">
-              <span className="font-cactus font-extrabold text-[9.5px] uppercase text-center mb-1 tracking-widest text-[var(--cordel-text)] opacity-90 shrink-0">
+            <div className="flex flex-col flex-1 min-h-[140px] justify-end mt-1 pt-1.5 border-t border-[var(--cordel-border)] overflow-hidden">
+              <span className="font-cactus font-extrabold text-[9.5px] uppercase text-center mb-0.5 tracking-widest text-[var(--cordel-text)] opacity-90 shrink-0">
                 {t('masterVol')}
               </span>
-              <div className="flex items-center justify-center gap-3 flex-grow px-2">
-                <div className="h-full flex-grow flex justify-center py-0.5">
+              <div className="flex items-center justify-center gap-3 flex-1 min-h-0 px-2 overflow-hidden">
+                <div className="h-full flex-1 min-h-0 flex justify-center">
                   <MixerVolumeFader
                     isMaster={true} value={dbToFaderPosition(masterVol)}
                     onAudioDrag={(pos) => { if (masterVolumeNode?.gain) safeRampTo(masterVolumeNode.gain, faderPositionToGain(pos), 0.02, 0, 2); }}

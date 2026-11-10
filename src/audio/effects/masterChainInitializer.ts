@@ -1,21 +1,18 @@
 /**
- * masterChainInitializer.ts
- * Initialisation de la chaîne Master Studio Zéro-GC (< 140 lignes) :
- * - Supprime les 11 nœuds `Tone.*` Master (`Compressor`, `Limiter`, `Split`, 3x `Meter`, `Distortion`, `BiquadFilter`).
- * - Route le sous-mix instrumental vers `MasterBusWorklet.inputs[0]` et `TOADA` vers `inputs[1]` (ducking spectral sans auto-atténuation),
- *   tout en appliquant `masterVolumeNode` et `masterEQNode` à 100 % sur l'instrumental ET sur la voix (via `_param` dual sans muter `vol.gain` read-only).
- * - Maintient le graphe `standardized-audio-context` actif via `sacKeepAlive` et `fallbackBridge.gain = 0`.
+ * masterChainInitializer.ts — Chaîne Master Studio Zéro-GC (< 140 lignes)
+ * Route l'instrumental vers `MasterBusWorklet.inputs[0]` et `TOADA` vers `inputs[1]` (avec subsonic 30 Hz + compensation headroom +4.5 dB).
  */
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as nodes from './effectsChainNodes';
-import { initMasterMonoNodes } from './masterMonoHandler';
+import { initMasterMonoNodes, setMasterMonoWorkletActive } from './masterMonoHandler';
 import { createStudioConvolverReverb } from './studioReverbImpulse';
 import { createStudioSaturationChain } from './studioSaturationChain';
 import { createToadaVocalSlapback } from './toadaVocalSlapback';
 import { initSpeakerProfileStage } from './speakerProfileFilter';
 import { resetMasterCompressorCache } from './masterBypassHandler';
 import { MasterBusWorkletManager } from '../worklet/master-bus/MasterBusWorkletManager';
+import { CONSOLE_MAKEUP_GAIN } from '../worklet/master-bus/masterBusWorkletTypes';
 
 function createDualAudioParam(rawCtx: BaseAudioContext, a: AudioParam, b: AudioParam) {
   return {
@@ -66,11 +63,12 @@ export function initMasterEffectsChain(
   nodes.setMasterVolumeNode(vol); nodes.setMasterVocalInputNode(voxInput);
 
   const makeEq = () => {
+    const subHpf = rawCtx.createBiquadFilter(); subHpf.type = 'highpass'; subHpf.frequency.value = 30; subHpf.Q.value = Math.SQRT1_2;
     const low = rawCtx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 100; low.gain.value = masterEQ.low;
     const mid = rawCtx.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 1000; mid.Q.value = 0.7; mid.gain.value = masterEQ.mid;
     const high = rawCtx.createBiquadFilter(); high.type = 'highshelf'; high.frequency.value = 4500; high.gain.value = masterEQ.high;
-    const out = rawCtx.createGain(); low.connect(mid); mid.connect(high); high.connect(out);
-    return { low, mid, high, out };
+    const out = rawCtx.createGain(); subHpf.connect(low); low.connect(mid); mid.connect(high); high.connect(out);
+    return { subHpf, low, mid, high, out };
   };
   const instEq = makeEq(), voxEq = makeEq();
   nodes.setMasterEQNode({
@@ -79,12 +77,12 @@ export function initMasterEffectsChain(
     high: createDualAudioParam(rawCtx, instEq.high.gain, voxEq.high.gain),
     midFreq: createDualAudioParam(rawCtx, instEq.mid.frequency, voxEq.mid.frequency),
     midQ: createDualAudioParam(rawCtx, instEq.mid.Q, voxEq.mid.Q),
-    input: instEq.low, output: instEq.out,
+    input: instEq.subHpf, output: instEq.out,
   });
 
   const slapback = createToadaVocalSlapback(rawCtx, 'off', 0, disableFx);
-  Tone.connect(vol, instEq.low); Tone.connect(voxInput, voxVolGain);
-  Tone.connect(voxInput, slapback.input); slapback.output.connect(voxVolGain); voxVolGain.connect(voxEq.low);
+  Tone.connect(vol, instEq.subHpf); Tone.connect(voxInput, voxVolGain);
+  Tone.connect(voxInput, slapback.input); slapback.output.connect(voxVolGain); voxVolGain.connect(voxEq.subHpf);
 
   try {
     if (typeof rawCtx.createConstantSource === 'function') {
@@ -99,19 +97,23 @@ export function initMasterEffectsChain(
   nodes.setMasterPostLimiterTap(postLimiterTap);
 
   const fallbackBridge = rawCtx.createGain();
+  fallbackBridge.gain.value = CONSOLE_MAKEUP_GAIN;
   instEq.out.connect(fallbackBridge); voxEq.out.connect(fallbackBridge);
   Tone.connect(fallbackBridge, postLimiterTap);
 
   const workletMgr = new MasterBusWorkletManager();
   nodes.setMasterBusWorkletManager(workletMgr);
   resetMasterCompressorCache();
-  void workletMgr.init(rawCtx).then((ok) => {
+  void workletMgr.init(rawCtx, { monoCheck: Boolean(useSequencerStore.getState().isMasterMono) }).then((ok) => {
     if (!ok) return;
     try {
       const c0 = workletMgr.connectSourceToInput(instEq.out, 0);
       const c1 = workletMgr.connectSourceToInput(voxEq.out, 1);
       const cOut = workletMgr.connectOutputToTarget(postLimiterTap);
-      if (c0 && c1 && cOut) fallbackBridge.gain.value = 0;
+      if (c0 && c1 && cOut) {
+        fallbackBridge.gain.value = 0;
+        setMasterMonoWorkletActive(true);
+      }
       resetMasterCompressorCache();
     } catch (_) {}
   });

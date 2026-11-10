@@ -25,6 +25,7 @@ export * from './effects/postBusSendRouter';
 export {
   initMasterMonoNodes,
   setMasterMonoCheck,
+  setMasterMonoWorkletActive,
   isMasterMonoActive,
   disposeMasterMonoNodes,
 } from './effects/masterMonoHandler';

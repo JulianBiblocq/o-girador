@@ -4,7 +4,7 @@
  * Coupe-bas Butterworth (Q = 0.7071), EQ 3 bandes, Pan mono-compatible, Bus/Link et Choke (< 135 lignes).
  */
 import { getEffectiveVolume, useSequencerStore } from '../stores/useSequencerStore';
-import { faderPositionToDb, faderPositionToGain } from './audioMath';
+import { CONSOLE_HEADROOM_GAIN, faderPositionToDb, faderPositionToGain } from './audioMath';
 import { applyMonoCompatiblePan } from './audio/monoCompatiblePan';
 import { BUTTERWORTH_Q, resolveLowCutTargetHz } from '../audio/effects/insertEqTargets';
 import { computeEffectiveDecayNorm } from '../audio/engine/engineExecuteStroke';
@@ -37,6 +37,7 @@ export function buildOfflineTrackGraph(
 
   for (const track of baqueTracks) {
     const input = ctx.createGain();
+    input.gain.value = CONSOLE_HEADROOM_GAIN;
     const lowCut = ctx.createBiquadFilter();
     lowCut.type = 'highpass'; lowCut.Q.value = BUTTERWORTH_Q; lowCut.frequency.value = resolveLowCutTargetHz(track, disableEq);
 

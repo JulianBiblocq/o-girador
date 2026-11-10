@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { startTransition } from 'react';
 import { Settings } from 'lucide-react';
 import { XiloRoda, XiloConsole, XiloTimeline, XiloDrum } from '../XiloIcons';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -30,15 +30,17 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       {/* TÉLÉCOMMANDE RÉPÉTITION */}
       <button
         onClick={() => {
-          const s = useSequencerStore.getState();
-          s.closeDetailEditor();
-          s.setIsMobileStudioMode(false);
-          const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
-          const target = (saved === 'percussion' || saved === 'danse') ? saved : 'percussion';
-          persistMobileViewModeLocally(target);
-          s.setMobileViewMode(target);
+          startTransition(() => {
+            const s = useSequencerStore.getState();
+            s.closeDetailEditor();
+            s.setIsMobileStudioMode(false);
+            const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
+            const target = (saved === 'percussion' || saved === 'danse') ? saved : 'percussion';
+            persistMobileViewModeLocally(target);
+            s.setMobileViewMode(target);
+          });
         }}
-        className="px-1.5 sm:px-2 h-8 sm:h-9 flex items-center justify-center font-cactus font-bold text-[11px] sm:text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[#b94a2c] text-[#f4ecd8] shadow-[2px_2px_0_#000] shrink-0"
+        className="px-1.5 sm:px-2 h-8 sm:h-9 flex items-center justify-center font-cactus font-bold text-[11px] sm:text-xs uppercase cordel-border-sm cordel-button cursor-pointer bg-[var(--cordel-accent)] text-[var(--cordel-bg)] shadow-[2px_2px_0_var(--cordel-border)] shrink-0"
         title="Retour Télécommande Répétition"
       >
         RÉPÉTITION
@@ -47,10 +49,12 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       {/* RODA */}
       <button
         onClick={() => {
-          useSequencerStore.getState().closeDetailEditor();
-          onViewModeToggle('roda');
-          if (onMobileTabToggle) onMobileTabToggle('roda');
-          useSequencerStore.setState({ isTracksCollapsed: true });
+          startTransition(() => {
+            useSequencerStore.getState().closeDetailEditor();
+            onViewModeToggle('roda');
+            if (onMobileTabToggle) onMobileTabToggle('roda');
+            useSequencerStore.setState({ isTracksCollapsed: true });
+          });
         }}
         className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'roda' && mobileTab === 'roda' && isTracksCollapsed
@@ -66,10 +70,12 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       <button
         onClick={(e) => {
           e.stopPropagation();
-          useSequencerStore.getState().closeDetailEditor();
-          onViewModeToggle('roda');
-          if (onMobileTabToggle) onMobileTabToggle('mixer');
-          useSequencerStore.setState({ isTracksCollapsed: false });
+          startTransition(() => {
+            useSequencerStore.getState().closeDetailEditor();
+            onViewModeToggle('roda');
+            if (onMobileTabToggle) onMobileTabToggle('mixer');
+            useSequencerStore.setState({ isTracksCollapsed: false });
+          });
         }}
         className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'roda' && (mobileTab === 'mixer' || !isTracksCollapsed)
@@ -84,8 +90,10 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       {/* CONSOLE */}
       <button
         onClick={() => {
-          useSequencerStore.getState().closeDetailEditor();
-          onViewModeToggle('console');
+          startTransition(() => {
+            useSequencerStore.getState().closeDetailEditor();
+            onViewModeToggle('console');
+          });
         }}
         className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'console'
@@ -100,8 +108,10 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
       {/* TIMELINE */}
       <button
         onClick={() => {
-          useSequencerStore.getState().closeDetailEditor();
-          onViewModeToggle('timeline');
+          startTransition(() => {
+            useSequencerStore.getState().closeDetailEditor();
+            onViewModeToggle('timeline');
+          });
         }}
         className={`w-8 h-8 sm:w-9 sm:h-9 shrink-0 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
           !isEditorOpen && viewMode === 'timeline'

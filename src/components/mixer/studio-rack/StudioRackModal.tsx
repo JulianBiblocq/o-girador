@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { StudioRackModuleId } from '../masterEffectsTypes';
+import { StudioUserPresetItem } from '../../../audio/effects/studioFxUserPresets';
 import {
-  DEFAULT_STUDIO_MASTER_BUS_CONFIG, STUDIO_COMPRESSOR_PRESETS, STUDIO_EQ_PRESETS,
-} from '../../../audio/effects/studioFxPresets';
-import { masterEQNode } from '../../../hooks/useAudioSync';
-import { safeRampGainDb, safeRampTo } from '../../../utils/audio/safeAudioParamRamp';
+  extractCurrentStudioTabSettings,
+  applyStudioModulePresetSelection,
+  resetStudioRackTabToDefault,
+} from '../../../audio/effects/studioFxPresetApplyHelper';
 import { getStudioRackStrings } from './studioRackI18n';
 import { StudioRackHeader } from './StudioRackHeader';
 import { StudioRackReverbTab } from './StudioRackReverbTab';
@@ -41,7 +43,11 @@ export const StudioRackModal: React.FC<StudioRackModalProps> = ({
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
@@ -52,56 +58,23 @@ export const StudioRackModal: React.FC<StudioRackModalProps> = ({
     : activeTab === 'compressor' ? (masterFX.masterBus?.compPresetId ?? '')
     : (masterFX.masterBus?.eqPresetId ?? '');
 
-  const handleSelectPreset = (presetId: string) => {
-    if (activeTab === 'reverb' || activeTab === 'saturation') {
-      applyStudioFxPreset(activeTab, presetId);
-      return;
-    }
-    if (activeTab === 'compressor') {
-      applyStudioFxPreset('compressor', presetId);
-      const found = STUDIO_COMPRESSOR_PRESETS.find(p => p.id === presetId);
-      if (found) onMasterCompressorChange({ threshold: found.settings.threshold, ratio: found.settings.ratio });
-      return;
-    }
-    const eqP = STUDIO_EQ_PRESETS.find(p => p.id === presetId);
-    if (eqP) {
-      const { low, mid, high, ...busRest } = eqP.settings;
-      if (masterEQNode?.low) safeRampGainDb(masterEQNode.low, low, 0.02);
-      if (masterEQNode?.mid) safeRampGainDb(masterEQNode.mid, mid, 0.02);
-      if (masterEQNode?.high) safeRampGainDb(masterEQNode.high, high, 0.02);
-      onMasterEQChange({ low, mid, high });
-      updateBus({ ...busRest, eqPresetId: presetId });
-    }
+  const callbacks = {
+    applyStudioFxPreset, updateReverb, updateDisto, updateBus, onMasterCompressorChange, onMasterEQChange,
   };
 
-  const handleResetActiveTab = () => {
-    if (activeTab === 'reverb') {
-      updateReverb({ returnVolume: 70, time: 30, spaceType: 'wood_studio', preDelayMs: 12, lowCutHz: 140, dampHz: 7500, stereoWidth: 100, presetId: 'studio_bois' });
-      updateBus({ toadaSlapbackMode: 'off', toadaSlapbackWet: 0 });
-    } else if (activeTab === 'saturation') {
-      updateDisto({ returnVolume: 0, drive: 20, character: 'soft_tube', preHpfHz: 180, toneHz: 6500, presetId: 'warm_triode' });
-      updateBus({ transientAttackDb: 0, transientSustainDb: 0 });
-    } else if (activeTab === 'compressor') {
-      onMasterCompressorChange({ threshold: -6, ratio: 2 });
-      updateBus({ attackMs: 15, releaseMs: 120, scHpfHz: 95, compMixPct: 75, duckingDb: 1.5, compPresetId: 'natural_glue' });
-    } else {
-      if (masterEQNode?.low) safeRampGainDb(masterEQNode.low, 0, 0.02);
-      if (masterEQNode?.mid) safeRampGainDb(masterEQNode.mid, 0, 0.02);
-      if (masterEQNode?.high) safeRampGainDb(masterEQNode.high, 0, 0.02);
-      if (masterEQNode?.midFreq) safeRampTo(masterEQNode.midFreq, 1000, 0.02);
-      if (masterEQNode?.midQ) safeRampTo(masterEQNode.midQ, 0.7, 0.02);
-      onMasterEQChange({ low: 0, mid: 0, high: 0 });
-      updateBus({ eqMidFreqHz: DEFAULT_STUDIO_MASTER_BUS_CONFIG.eqMidFreqHz, eqMidQMode: 'wide', bassMonoEnabled: true, bassMonoCrossoverHz: 110, ceilingDb: -0.3, eqPresetId: 'flat_studio' });
-    }
+  const getCurrentTabSettings = () => extractCurrentStudioTabSettings(activeTab, masterFX, masterEQ, masterCompressor);
+  const handleSelectPreset = (presetId: string, userPreset?: StudioUserPresetItem) => {
+    applyStudioModulePresetSelection(activeTab, presetId, userPreset, callbacks);
   };
+  const handleResetActiveTab = () => resetStudioRackTabToDefault(activeTab, callbacks);
 
-  return (
-    <div data-testid="studio-rack-modal-backdrop" onClick={onClose} className="fixed inset-0 z-50 bg-black/65 pt-14 pb-3 px-4 flex items-center justify-center overflow-y-auto">
-      <div data-testid="studio-rack-modal" onClick={e => e.stopPropagation()} className="w-full max-w-[760px] bg-[var(--cordel-master-bg)] text-[var(--cordel-text)] border-[3px] border-[var(--cordel-border)] shadow-[6px_6px_0px_var(--cordel-ink-dark)] rounded-none flex flex-col overflow-hidden">
+  const modalContent = (
+    <div data-testid="studio-rack-modal-backdrop" onClick={onClose} className="fixed inset-0 z-[100020] bg-black/65 pt-14 pb-3 px-4 flex items-center justify-center overflow-y-auto">
+      <div data-testid="studio-rack-modal" onClick={e => e.stopPropagation()} className="w-full max-w-[780px] bg-[var(--cordel-master-bg)] text-[var(--cordel-text)] border-[3px] border-[var(--cordel-border)] shadow-[6px_6px_0px_var(--cordel-ink-dark)] rounded-none flex flex-col overflow-hidden">
         <StudioRackHeader
           activeTab={activeTab} onSelectTab={setActiveTab} activePresetId={activePresetId}
-          onSelectPreset={handleSelectPreset} onResetActiveTab={handleResetActiveTab}
-          onClose={onClose} lang={lang} s={s} disableFx={disableFx} disableEq={disableEq}
+          onSelectPreset={handleSelectPreset} getCurrentTabSettings={getCurrentTabSettings}
+          onResetActiveTab={handleResetActiveTab} onClose={onClose} lang={lang} s={s} disableFx={disableFx} disableEq={disableEq}
         />
         <div className="p-3.5 overflow-y-auto max-h-[calc(100vh-150px)]">
           {activeTab === 'reverb' && <StudioRackReverbTab s={s} />}
@@ -112,4 +85,6 @@ export const StudioRackModal: React.FC<StudioRackModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

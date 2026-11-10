@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { startTransition, useEffect, useState } from 'react';
 import { Edit3 } from 'lucide-react';
 import { XiloRoda, XiloConsole, XiloTimeline, XiloDrum } from '../XiloIcons';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -25,18 +24,26 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
 }) => {
   const isTracksCollapsed = useSequencerStore((state) => state.isTracksCollapsed);
   const isPracticeMode = useSequencerStore((state) => state.isPracticeMode);
+  const [pendingTab, setPendingTab] = useState<TabKey | null>(null);
+
+  useEffect(() => {
+    setPendingTab(null);
+  }, [viewMode, isTracksCollapsed, isEditorOpen]);
 
   const handleOpenEditor = () => {
-    if (onOpenInstrumentEditor) {
-      onOpenInstrumentEditor();
-    } else {
-      const state = useSequencerStore.getState();
-      if (state.editingTrackId !== null) {
-        state.closeDetailEditor();
-      } else if (state.tracks.length > 0) {
-        state.setEditingTrackId(state.tracks[0].id);
+    setPendingTab(isEditorOpen ? null : 'editor');
+    startTransition(() => {
+      if (onOpenInstrumentEditor) {
+        onOpenInstrumentEditor();
+      } else {
+        const state = useSequencerStore.getState();
+        if (state.editingTrackId !== null) {
+          state.closeDetailEditor();
+        } else if (state.tracks.length > 0) {
+          state.setEditingTrackId(state.tracks[0].id);
+        }
       }
-    }
+    });
   };
 
   return (
@@ -46,12 +53,15 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
         tabKey="roda"
         label="RODA"
         icon={<XiloRoda size={14} className="shrink-0" />}
-        isActive={!isEditorOpen && viewMode === 'roda' && isTracksCollapsed}
+        isActive={pendingTab ? pendingTab === 'roda' : (!isEditorOpen && viewMode === 'roda' && isTracksCollapsed)}
         title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
         onClick={() => {
-          useSequencerStore.getState().closeDetailEditor();
-          onViewModeToggle('roda');
-          useSequencerStore.setState({ isTracksCollapsed: true });
+          setPendingTab('roda');
+          startTransition(() => {
+            useSequencerStore.getState().closeDetailEditor();
+            onViewModeToggle('roda');
+            useSequencerStore.setState({ isTracksCollapsed: true });
+          });
         }}
         createTabTouchHandlers={createTabTouchHandlers}
       />
@@ -61,13 +71,16 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
         tabKey="pistes"
         label={lang === 'fr' ? 'PISTES' : 'PISTAS'}
         icon={<XiloDrum size={14} className="shrink-0" />}
-        isActive={!isEditorOpen && viewMode === 'roda' && !isTracksCollapsed}
+        isActive={pendingTab ? pendingTab === 'pistes' : (!isEditorOpen && viewMode === 'roda' && !isTracksCollapsed)}
         title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
         onClick={(e) => {
           e.stopPropagation();
-          useSequencerStore.getState().closeDetailEditor();
-          onViewModeToggle('roda');
-          useSequencerStore.setState({ isTracksCollapsed: false });
+          setPendingTab('pistes');
+          startTransition(() => {
+            useSequencerStore.getState().closeDetailEditor();
+            onViewModeToggle('roda');
+            useSequencerStore.setState({ isTracksCollapsed: false });
+          });
         }}
         createTabTouchHandlers={createTabTouchHandlers}
       />
@@ -80,11 +93,14 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
             tabKey="mixer"
             label={lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
             icon={<XiloConsole size={14} className="shrink-0" />}
-            isActive={!isEditorOpen && viewMode === 'console'}
+            isActive={pendingTab ? pendingTab === 'mixer' : (!isEditorOpen && viewMode === 'console')}
             title={lang === 'pt' ? 'Visão Console / Mixer vertical' : 'Vue Console / Mixeur vertical'}
             onClick={() => {
-              useSequencerStore.getState().closeDetailEditor();
-              onViewModeToggle('console');
+              setPendingTab('mixer');
+              startTransition(() => {
+                useSequencerStore.getState().closeDetailEditor();
+                onViewModeToggle('console');
+              });
             }}
             createTabTouchHandlers={createTabTouchHandlers}
           />
@@ -94,11 +110,14 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
             tabKey="timeline"
             label={lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
             icon={<XiloTimeline size={14} className="shrink-0" />}
-            isActive={!isEditorOpen && viewMode === 'timeline'}
+            isActive={pendingTab ? pendingTab === 'timeline' : (!isEditorOpen && viewMode === 'timeline')}
             title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
             onClick={() => {
-              useSequencerStore.getState().closeDetailEditor();
-              onViewModeToggle('timeline');
+              setPendingTab('timeline');
+              startTransition(() => {
+                useSequencerStore.getState().closeDetailEditor();
+                onViewModeToggle('timeline');
+              });
             }}
             createTabTouchHandlers={createTabTouchHandlers}
           />
@@ -108,7 +127,7 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
             tabKey="editor"
             label={lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
             icon={<Edit3 size={14} className="shrink-0" />}
-            isActive={isEditorOpen}
+            isActive={pendingTab ? pendingTab === 'editor' : isEditorOpen}
             title={lang === 'fr' ? "Éditeur d'instrument détaillé" : 'Editor de instrumento detalhado'}
             onClick={handleOpenEditor}
             createTabTouchHandlers={createTabTouchHandlers}

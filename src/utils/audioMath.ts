@@ -15,6 +15,12 @@ export {
   parseDbInput,
 } from './audio-math/faderFormatting';
 
+export {
+  CONSOLE_HEADROOM_DB,
+  CONSOLE_HEADROOM_GAIN,
+  CONSOLE_MAKEUP_GAIN,
+} from '../audio/worklet/master-bus/masterBusWorkletTypes';
+
 export function getFaderThumbTransform(pct: number): string {
   const clamped = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 75));
   return `translate3d(0, ${100 - clamped}%, 0)`;

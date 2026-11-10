@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { AudioContextType } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -44,10 +43,12 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     setRenderedView(null);
     setIsFadingIn(false);
 
-    const delay = viewMode === 'timeline' ? 120 : 80;
+    const delay = viewMode === 'timeline' ? 80 : 32;
     const timer = setTimeout(() => {
-      setRenderedView(viewMode);
-      setIsFadingIn(true);
+      startTransition(() => {
+        setRenderedView(viewMode);
+        setIsFadingIn(true);
+      });
     }, delay);
 
     return () => clearTimeout(timer);
@@ -71,15 +72,17 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     const isHeavyView = ['admin'].includes(targetView);
 
     const applyViewChange = () => {
-      useSequencerStore.getState().closeDetailEditor();
-      setViewMode(targetView);
-      if (targetView === 'console' || targetView === 'timeline') {
-        setActiveRightPanelRef.current(null);
-      } else if (targetView === 'roda') {
-        if (window.innerWidth >= 1024) {
-          setActiveRightPanelRef.current('info');
+      startTransition(() => {
+        useSequencerStore.getState().closeDetailEditor();
+        setViewMode(targetView);
+        if (targetView === 'console' || targetView === 'timeline') {
+          setActiveRightPanelRef.current(null);
+        } else if (targetView === 'roda') {
+          if (window.innerWidth >= 1024) {
+            setActiveRightPanelRef.current('info');
+          }
         }
-      }
+      });
     };
 
     if (isHeavyView && audioRef.current.isPlaying) {

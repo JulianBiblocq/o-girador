@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { masterVolumeNode, masterEQNode } from './audioEngineNodes';
-import { syncMasterBusWorkletParams, syncMasterCompressorBypass } from '../../audio/effectsChain';
+import { masterVolumeNode, masterEQNode, masterBusWorkletManager } from './audioEngineNodes';
+import { syncMasterBusWorkletParams, syncMasterCompressorBypass, setMasterMonoCheck, setMasterMonoWorkletActive } from '../../audio/effectsChain';
 import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
-import { safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
+import { safeRampGainDb, safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 
 interface UseMasterEffectsSyncProps {
   masterVol: number;
@@ -53,8 +53,14 @@ export function useMasterEffectsSync({
       const disableFx = Boolean(s.ecoConfig?.disableFx);
       const isBypassed = !(s.masterEffectsActive?.compressor ?? true) || disableFx;
       syncMasterCompressorBypass(isBypassed, masterCompressor, disableFx);
+      setMasterMonoWorkletActive(Boolean(masterBusWorkletManager?.isReady));
+      setMasterMonoCheck(Boolean(s.isMasterMono));
       if (s.masterFX?.masterBus) {
-        syncMasterBusWorkletParams(s.masterFX.masterBus);
+        syncMasterBusWorkletParams({ ...s.masterFX.masterBus, monoCheck: Boolean(s.isMasterMono) });
+        if (masterEQNode?.midFreq) safeRampTo(masterEQNode.midFreq, s.masterFX.masterBus.eqMidFreqHz ?? 1000, 0.02);
+        if (masterEQNode?.midQ) safeRampTo(masterEQNode.midQ, s.masterFX.masterBus.eqMidQMode === 'narrow' ? 2.2 : 0.7, 0.02);
+      } else {
+        syncMasterBusWorkletParams({ monoCheck: Boolean(s.isMasterMono) });
       }
     };
 
@@ -65,7 +71,12 @@ export function useMasterEffectsSync({
       const prevComp = prevState.masterEffectsActive?.compressor ?? true;
       const nextEco = Boolean(state.ecoConfig?.disableFx);
       const prevEco = Boolean(prevState.ecoConfig?.disableFx);
-      if (nextComp !== prevComp || nextEco !== prevEco || state.masterFX?.masterBus !== prevState.masterFX?.masterBus) {
+      if (
+        nextComp !== prevComp ||
+        nextEco !== prevEco ||
+        state.isMasterMono !== prevState.isMasterMono ||
+        state.masterFX?.masterBus !== prevState.masterFX?.masterBus
+      ) {
         applyState(state);
       }
     });

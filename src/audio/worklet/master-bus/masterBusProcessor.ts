@@ -1,12 +1,12 @@
 /**
- * O Girador - Processeur AudioWorklet Master Bus Studio & Noyau Partagé Live / Offline (< 130 lignes)
+ * O Girador - Processeur AudioWorklet Master Bus Studio & Noyau Partagé Live / Offline (< 135 lignes)
  * - Zéro allocation GC dans `process()`, retourne toujours `true` (anti-sommeil navigateur).
- * - Émet la télémétrie plate (`peakL`, `peakR`, `rmsL`, `rmsR`, `grDb`, `duckDb`) toutes les 1 536 frames (~30 Hz).
+ * - Compensation d'entrée `+4.5 dB` (`CONSOLE_MAKEUP_GAIN`) + Sommation `MONO` pré-Stage 3 & pré-télémétrie.
  */
 
 import {
-  MASTER_TELEMETRY_INTERVAL_FRAMES, MasterBusDspParams, MasterBusDspState,
-  MasterBusInboundMessage, MasterBusTelemetryMessage,
+  CONSOLE_MAKEUP_GAIN, MASTER_TELEMETRY_INTERVAL_FRAMES,
+  MasterBusDspParams, MasterBusDspState, MasterBusInboundMessage, MasterBusTelemetryMessage,
   createMasterBusDspState, resetMasterBusDspState, updateMasterBusDspParams,
 } from './masterBusWorkletTypes';
 import { processMasterStage1CrossoverAndShaper } from './masterBusCrossoverAndShaper';
@@ -32,7 +32,8 @@ export function processMasterBusDspBlock(
   in1L: Float32Array | null, in1R: Float32Array | null,
   outL: Float32Array, outR: Float32Array, numFrames: number
 ): void {
-  const g = state.params.masterGainLin ?? 1;
+  const makeup = state.params.compensateConsoleHeadroom === false ? 1 : CONSOLE_MAKEUP_GAIN;
+  const g = (state.params.masterGainLin ?? 1) * makeup;
   for (let i = 0; i < numFrames; i++) {
     const l = (in0L ? in0L[i] : 0) * g;
     outL[i] = l;
@@ -41,6 +42,18 @@ export function processMasterBusDspBlock(
 
   processMasterStage1CrossoverAndShaper(state, outL, outR, numFrames);
   processMasterStage2DuckingAndGlue(state, outL, outR, in1L, in1R, numFrames);
+
+  if (state.params.monoCheck) {
+    const avgPrev = 0.5 * (state.adaaPrevL + state.adaaPrevR);
+    state.adaaPrevL = avgPrev;
+    state.adaaPrevR = avgPrev;
+    for (let i = 0; i < numFrames; i++) {
+      const mono = 0.5 * (outL[i] + outR[i]);
+      outL[i] = mono;
+      outR[i] = mono;
+    }
+  }
+
   processMasterStage3AdaaAndLimiter(state, outL, outR, numFrames);
 
   let pL = state.accumPeakL, pR = state.accumPeakR, sqL = state.accumSumSqL, sqR = state.accumSumSqR;

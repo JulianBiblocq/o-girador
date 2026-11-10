@@ -1,8 +1,7 @@
-
 import type { Pattern } from './pattern.types';
 import type {
-  ReverbSpaceType,
-  TubeSaturationCharacter,
+  StudioReverbConfig,
+  StudioDistortionConfig,
   StudioMasterBusConfig,
 } from '../audio/effects/studioFxPresets';
 
@@ -62,26 +61,8 @@ export interface TrackGroup {
 export type Track = TrackGroup;
 
 export interface MasterFX {
-  reverb: {
-    returnVolume: number;
-    time: number;
-    isMuted: boolean;
-    spaceType?: ReverbSpaceType;
-    preDelayMs?: number;
-    lowCutHz?: number;
-    dampHz?: number;
-    stereoWidth?: number;
-    presetId?: string;
-  };
-  distortion: {
-    returnVolume: number;
-    drive: number;
-    isMuted: boolean;
-    character?: TubeSaturationCharacter;
-    preHpfHz?: number;
-    toneHz?: number;
-    presetId?: string;
-  };
+  reverb: StudioReverbConfig;
+  distortion: StudioDistortionConfig;
   masterBus?: Partial<StudioMasterBusConfig>;
 }
 

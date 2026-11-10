@@ -7,6 +7,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { WorkspaceTemplateOptions, WorkspaceTemplateTrack, Language } from '../../types';
 import { buildTemplateTracks } from './templateTracksBuilder';
+import { buildWorkspaceTemplateMasterSettings } from '../../stores/helpers/workspaceTemplateAudioSettings';
 import { notifyToast } from '../../utils/toastHelper';
 
 interface UseSaveTemplateParams {
@@ -76,16 +77,8 @@ export function useSaveWorkspaceTemplate({ lang, onClose }: UseSaveTemplateParam
 
     try {
       const templateTracks = buildTemplateTracks(tracks, options);
-
-      const currentMasterFX = useSequencerStore.getState().masterFX;
-      const masterSettings = {
-        masterVol: audio?.masterVol,
-        masterEQ: options.includeEQ ? audio?.masterEQ : undefined,
-        masterCompressor: audio?.masterCompressor,
-        reverbDecay: options.includeFX ? audio?.reverbDecay : undefined,
-        masterReverbVol: options.includeFX ? audio?.masterReverbVol : undefined,
-        masterFX: options.includeFX && currentMasterFX ? JSON.parse(JSON.stringify(currentMasterFX)) : undefined,
-      };
+      const storeState = useSequencerStore.getState();
+      const masterSettings = buildWorkspaceTemplateMasterSettings(storeState, audio, options);
 
       const ownerId = userProfile?.uid || 'local';
       const authorName = userProfile?.displayName || (ownerId === 'local' ? 'Local' : 'Utilisateur');

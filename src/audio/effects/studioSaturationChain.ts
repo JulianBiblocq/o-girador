@@ -9,6 +9,10 @@
 import * as Tone from 'tone';
 import type { TubeSaturationCharacter } from './studioFxPresets';
 import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
+import { CONSOLE_HEADROOM_GAIN } from '../worklet/master-bus/masterBusWorkletTypes';
+
+const PRE_DRIVE_GAIN = 1 / CONSOLE_HEADROOM_GAIN;
+const POST_DRIVE_GAIN = CONSOLE_HEADROOM_GAIN;
 
 export interface StudioSaturationOptions {
   drivePct?: number;
@@ -75,7 +79,7 @@ export function updateStudioSaturationNode(
   };
   if (Math.abs(next.drivePct - cur.drivePct) > 0.2 || next.character !== cur.character) {
     satNode._shaper.curve = buildTubeSaturationCurve(next.drivePct, next.character);
-    const compGain = 1 / (1 + 0.28 * (next.drivePct / 100));
+    const compGain = POST_DRIVE_GAIN / (1 + 0.28 * (next.drivePct / 100));
     safeRampTo(satNode._compGain.gain, compGain, 0.02);
   }
   if (Math.abs(next.preHpfHz - cur.preHpfHz) > 0.5) {
@@ -92,7 +96,7 @@ export function updateStudioSaturationNode(
 
 export function createStudioSaturationChain(isEcoMode = false): any {
   const rawCtx = (Tone.getContext().rawContext || Tone.context.rawContext || Tone.context) as AudioContext;
-  const inputGain = new Tone.Gain(1) as any;
+  const inputGain = new Tone.Gain(PRE_DRIVE_GAIN) as any;
   const wetGain = new Tone.Gain(1);
 
   const preHpf = rawCtx.createBiquadFilter();
@@ -103,7 +107,7 @@ export function createStudioSaturationChain(isEcoMode = false): any {
   const postLpf = rawCtx.createBiquadFilter();
   postLpf.type = 'lowpass'; postLpf.frequency.value = DEFAULT_SAT_OPTS.toneHz; postLpf.Q.value = Math.SQRT1_2;
   const compGain = rawCtx.createGain();
-  compGain.gain.value = 1 / (1 + 0.28 * (DEFAULT_SAT_OPTS.drivePct / 100));
+  compGain.gain.value = POST_DRIVE_GAIN / (1 + 0.28 * (DEFAULT_SAT_OPTS.drivePct / 100));
 
   Tone.connect(inputGain, preHpf); preHpf.connect(shaper); shaper.connect(postLpf);
   postLpf.connect(compGain); Tone.connect(compGain, wetGain);

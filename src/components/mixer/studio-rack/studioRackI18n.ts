@@ -1,7 +1,10 @@
 const FR = {
   rackTitle: 'RACK STUDIO MASTER', tabReverb: 'ESPACE & RÉVERBE', tabDisto: 'DISTO & PUNCH',
-  tabComp: 'COMP. & GLUE', tabEq: 'EQ MASTER & SORTIE', presetLabel: 'Couleur de base :',
-  presetCustom: 'Sur mesure', resetBtn: 'Réinitialiser', closeTitle: 'Fermer le Rack Studio (Échap)',
+  tabComp: 'COMP. & GLUE', tabEq: 'EQ MASTER & SORTIE', presetLabel: 'Couleur :',
+  presetCustom: 'Sur mesure', factoryPresetsGroup: 'Presets Studio', userPresetsGroup: 'Mes Presets',
+  savePresetBtn: '+ Sauver', renamePresetBtn: 'Renommer', deletePresetBtn: 'Supprimer',
+  confirmDeletePrompt: 'Confirmer ?', yesBtn: 'Oui', noBtn: 'Non', validateBtn: 'Valider', cancelBtn: 'Annuler',
+  resetBtn: 'Réinitialiser', closeTitle: 'Fermer le Rack Studio (Échap)',
   ecoFxWarning: 'Mode Éco Palier 2 actif : les processeurs d’effets Master sont temporairement mis en veille pour préserver le processeur.',
   ecoEqWarning: 'Mode Éco Palier 2 actif : l’égaliseur Master est temporairement mis en veille pour préserver le processeur.',
   reverbSpacesTitle: 'Lieu Acoustique (Convolution Normalisée L2)',
@@ -37,8 +40,11 @@ const FR = {
 
 const PT: typeof FR = {
   rackTitle: 'RACK ESTÚDIO MASTER', tabReverb: 'ESPAÇO & REVERB', tabDisto: 'DISTO & PUNCH',
-  tabComp: 'COMP. & GLUE', tabEq: 'EQ MASTER & SAÍDA', presetLabel: 'Cor de base :',
-  presetCustom: 'Personalizado', resetBtn: 'Reiniciar', closeTitle: 'Fechar o Rack Estúdio (Esc)',
+  tabComp: 'COMP. & GLUE', tabEq: 'EQ MASTER & SAÍDA', presetLabel: 'Cor :',
+  presetCustom: 'Personalizado', factoryPresetsGroup: 'Presets Estúdio', userPresetsGroup: 'Meus Presets',
+  savePresetBtn: '+ Salvar', renamePresetBtn: 'Renomear', deletePresetBtn: 'Excluir',
+  confirmDeletePrompt: 'Confirmar ?', yesBtn: 'Sim', noBtn: 'Não', validateBtn: 'Validar', cancelBtn: 'Cancelar',
+  resetBtn: 'Reiniciar', closeTitle: 'Fechar o Rack Estúdio (Esc)',
   ecoFxWarning: 'Modo Eco Nível 2 ativo: os efeitos Master estão temporariamente em espera para poupar o processador.',
   ecoEqWarning: 'Modo Eco Nível 2 ativo: o equalizador Master está temporariamente em espera para poupar o processador.',
   reverbSpacesTitle: 'Espaço Acústico (Convolução Normalizada L2)',

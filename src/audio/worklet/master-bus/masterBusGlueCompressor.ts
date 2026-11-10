@@ -6,7 +6,7 @@
  *   soft-knee quadratique, ballistiques douces et Mix % parallèle (`0..100 %`).
  */
 
-import { MasterBusDspState } from './masterBusWorkletTypes';
+import { CONSOLE_HEADROOM_GAIN, CONSOLE_MAKEUP_GAIN, MasterBusDspState } from './masterBusWorkletTypes';
 
 const TWO_PI = 2 * Math.PI;
 const LOG10_20 = 20 / Math.LN10;
@@ -34,7 +34,8 @@ export function processMasterStage2DuckingAndGlue(
   numFrames: number
 ): void {
   const p = s.params;
-  const g = p.masterGainLin ?? 1;
+  const makeup = p.compensateConsoleHeadroom === false ? 1 : CONSOLE_MAKEUP_GAIN;
+  const g = (p.masterGainLin ?? 1) * makeup;
   const sumSc = p.sumSidechainToMix !== false;
   if (p.ecoBypassAesthetic) {
     s.currentDuckDb = 0;
@@ -58,8 +59,9 @@ export function processMasterStage2DuckingAndGlue(
       const vAbs = Math.max(Math.abs(vL), Math.abs(vR));
       scEnv += (vAbs > scEnv ? scAtt : scRel) * (vAbs - scEnv);
 
-      // Map vocal envelope (-40 dB .. -10 dB -> 0 .. 1)
-      const normVox = scEnv <= 0.01 ? 0 : Math.min(1, (scEnv - 0.01) / 0.25);
+      // Map vocal envelope (-46 dB .. -16 dB post -6 dB source headroom -> 0 .. 1)
+      const voxFloor = 0.01 * CONSOLE_HEADROOM_GAIN, voxSpan = 0.25 * CONSOLE_HEADROOM_GAIN;
+      const normVox = scEnv <= voxFloor ? 0 : Math.min(1, (scEnv - voxFloor) / voxSpan);
       const instDuckDb = normVox * p.duckingDb;
       if (instDuckDb > maxDuck) maxDuck = instDuckDb;
       const stageGain = instDuckDb > 1e-4 ? Math.pow(10, -instDuckDb / 40) : 1;

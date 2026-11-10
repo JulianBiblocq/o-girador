@@ -2,18 +2,15 @@ import React from 'react';
 import { RotateCcw, X, Sliders } from 'lucide-react';
 import { StudioRackModuleId } from '../masterEffectsTypes';
 import { StudioRackStrings } from './studioRackI18n';
-import {
-  STUDIO_REVERB_PRESETS,
-  STUDIO_SATURATION_PRESETS,
-  STUDIO_COMPRESSOR_PRESETS,
-  STUDIO_EQ_PRESETS,
-} from '../../../audio/effects/studioFxPresets';
+import { StudioRackPresetManager } from './StudioRackPresetManager';
+import { StudioUserPresetItem } from '../../../audio/effects/studioFxUserPresets';
 
 interface StudioRackHeaderProps {
   activeTab: StudioRackModuleId;
   onSelectTab: (tab: StudioRackModuleId) => void;
   activePresetId: string;
-  onSelectPreset: (presetId: string) => void;
+  onSelectPreset: (presetId: string, userPreset?: StudioUserPresetItem) => void;
+  getCurrentTabSettings: () => Record<string, any>;
   onResetActiveTab: () => void;
   onClose: () => void;
   lang: string;
@@ -34,6 +31,7 @@ export const StudioRackHeader: React.FC<StudioRackHeaderProps> = ({
   onSelectTab,
   activePresetId,
   onSelectPreset,
+  getCurrentTabSettings,
   onResetActiveTab,
   onClose,
   lang,
@@ -41,20 +39,11 @@ export const StudioRackHeader: React.FC<StudioRackHeaderProps> = ({
   disableFx,
   disableEq,
 }) => {
-  const presets =
-    activeTab === 'reverb'
-      ? STUDIO_REVERB_PRESETS
-      : activeTab === 'saturation'
-        ? STUDIO_SATURATION_PRESETS
-        : activeTab === 'compressor'
-          ? STUDIO_COMPRESSOR_PRESETS
-          : STUDIO_EQ_PRESETS;
-
   const showEcoBanner = (activeTab === 'eq' && disableEq) || (activeTab !== 'eq' && disableFx);
 
   return (
     <div className="flex flex-col w-full bg-[var(--master-header-bg)] text-[var(--master-header-text)] border-b-[3px] border-[var(--cordel-border)] shrink-0 select-none">
-      {/* Ligne supérieure : Titre + Preset de base + Réinitialiser + Fermer */}
+      {/* Ligne supérieure : Titre + Gestionnaire de Presets + Réinitialiser + Fermer */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-[var(--cordel-border)]/35">
         <div className="flex items-center gap-2">
           <Sliders size={16} className="text-[var(--cordel-gold)] shrink-0" />
@@ -63,23 +52,15 @@ export const StudioRackHeader: React.FC<StudioRackHeaderProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-[10px] font-cactus font-bold uppercase tracking-wider text-[var(--master-header-text)]/85">
-            <span>{s.presetLabel}</span>
-            <select
-              data-testid="studio-rack-preset-select"
-              value={activePresetId || ''}
-              onChange={(e) => onSelectPreset(e.target.value)}
-              className="py-1 px-2 font-cactus font-bold text-[10px] uppercase tracking-wider bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-2 border-[var(--cordel-ink-dark)] rounded-none cursor-pointer outline-none"
-            >
-              <option value="" disabled>{s.presetCustom}</option>
-              {presets.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {lang === 'fr' ? p.labelFr : p.labelPt}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <StudioRackPresetManager
+            activeTab={activeTab}
+            activePresetId={activePresetId}
+            onSelectPreset={onSelectPreset}
+            getCurrentTabSettings={getCurrentTabSettings}
+            lang={lang}
+            s={s}
+          />
 
           <button
             type="button"
@@ -135,4 +116,3 @@ export const StudioRackHeader: React.FC<StudioRackHeaderProps> = ({
     </div>
   );
 };
-

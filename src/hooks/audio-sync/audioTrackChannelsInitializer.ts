@@ -4,7 +4,7 @@ import { instrumentsConfig } from '../../data';
 import { channels, meters, reverbSends, distortionSends, busInputs, busChannels, masterVolumeNode, masterVocalInputNode } from './audioEngineNodes';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
-import { faderPositionToDb } from '../../utils/audioMath';
+import { CONSOLE_HEADROOM_GAIN, faderPositionToDb } from '../../utils/audioMath';
 import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import {
@@ -75,7 +75,7 @@ export function initTrackChannelsAudioNodes(
     lastAppliedBussesRef.current[t.id] = targetBusId !== null ? String(targetBusId) : null;
 
     if (!trackInputs[t.id]) {
-      trackInputs[t.id] = new Tone.Gain(1.0);
+      trackInputs[t.id] = new Tone.Gain(CONSOLE_HEADROOM_GAIN);
     }
     syncTrackInsertChain(t.id, t);
 

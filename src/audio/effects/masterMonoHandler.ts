@@ -1,5 +1,8 @@
 /**
  * Module de commutation Mono Check Master sans clic audio (< 90 lignes).
+ * - Lorsque le `MasterBusWorkletProcessor` est actif (`workletHandlesMono = true`),
+ *   la sommation `0.5 * (L + R)` est effectuée en interne avant le limiteur et la télémétrie,
+ *   et le doublon aval est neutralisé (`stereoBranchGain = 1`, `monoBranchGain = 0`).
  */
 import * as Tone from 'tone';
 
@@ -7,6 +10,7 @@ let stereoBranchGain: Tone.Gain | null = null;
 let monoSummingNode: Tone.Gain | null = null;
 let monoBranchGain: Tone.Gain | null = null;
 let currentIsMono = false;
+let workletHandlesMono = false;
 
 function setToneGainChannels(toneGain: Tone.Gain, count: number) {
   const rawNode = (toneGain as any)._gainNode || (toneGain as any).input || toneGain;
@@ -15,6 +19,19 @@ function setToneGainChannels(toneGain: Tone.Gain, count: number) {
     rawNode.channelCountMode = 'explicit';
     rawNode.channelInterpretation = 'speakers';
   }
+}
+
+function applyDownstreamMonoBranches(): void {
+  if (!stereoBranchGain || !monoBranchGain) return;
+  const useDownstreamMono = currentIsMono && !workletHandlesMono;
+  stereoBranchGain.gain.rampTo(useDownstreamMono ? 0.0 : 1.0, 0.015);
+  monoBranchGain.gain.rampTo(useDownstreamMono ? 1.0 : 0.0, 0.015);
+}
+
+export function setMasterMonoWorkletActive(active: boolean): void {
+  if (workletHandlesMono === active) return;
+  workletHandlesMono = active;
+  applyDownstreamMonoBranches();
 }
 
 export function initMasterMonoNodes(sourceNode: any): void {
@@ -28,15 +45,15 @@ export function initMasterMonoNodes(sourceNode: any): void {
     try { monoSummingNode.dispose(); } catch (_) {}
   }
 
-  // 1. Branche Stereo directe
-  stereoBranchGain = new Tone.Gain(currentIsMono ? 0.0 : 1.0);
+  const useDownstreamMono = currentIsMono && !workletHandlesMono;
+
+  stereoBranchGain = new Tone.Gain(useDownstreamMono ? 0.0 : 1.0);
   setToneGainChannels(stereoBranchGain, 2);
 
-  // 2. Branche Mono sommatrice W3C (0.5 * (L + R) redistribue sur L et R)
   monoSummingNode = new Tone.Gain(1.0);
   setToneGainChannels(monoSummingNode, 1);
 
-  monoBranchGain = new Tone.Gain(currentIsMono ? 1.0 : 0.0);
+  monoBranchGain = new Tone.Gain(useDownstreamMono ? 1.0 : 0.0);
   setToneGainChannels(monoBranchGain, 2);
 
   Tone.connect(sourceNode, stereoBranchGain);
@@ -49,14 +66,7 @@ export function initMasterMonoNodes(sourceNode: any): void {
 
 export function setMasterMonoCheck(isMono: boolean): void {
   currentIsMono = isMono;
-  if (!stereoBranchGain || !monoBranchGain) return;
-
-  const targetStereo = isMono ? 0.0 : 1.0;
-  const targetMono = isMono ? 1.0 : 0.0;
-
-  // Ancrage strict des rampes Web Audio pour commutation fluide sans clic
-  stereoBranchGain.gain.rampTo(targetStereo, 0.015);
-  monoBranchGain.gain.rampTo(targetMono, 0.015);
+  applyDownstreamMonoBranches();
 }
 
 export function isMasterMonoActive(): boolean {
@@ -70,4 +80,5 @@ export function disposeMasterMonoNodes(): void {
   stereoBranchGain = null;
   monoBranchGain = null;
   monoSummingNode = null;
+  workletHandlesMono = false;
 }

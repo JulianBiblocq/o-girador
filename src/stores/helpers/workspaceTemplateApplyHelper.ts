@@ -6,6 +6,7 @@ import { instrumentsConfig } from '../../data';
 import { matchTemplateTracksWithSong, isVoiceTrack } from './workspaceTemplateMatcher';
 import { normalizeWorkspaceTemplateLinks } from './workspaceTemplateLinkNormalizer';
 import { applyRadii } from './trackRodaGeometryHelpers';
+import { normalizeTemplateMasterFX } from './workspaceTemplateAudioSettings';
 
 export function applyWorkspaceTemplateToSongState(
   state: {
@@ -108,14 +109,21 @@ export function applyWorkspaceTemplateToSongState(
   });
 
   const nextTracks = applyRadii(finalTracks, finalRodaOrder);
-  const nextMasterFX = options.includeFX && template.masterSettings?.masterFX
-    ? JSON.parse(JSON.stringify(template.masterSettings.masterFX))
-    : state.masterFX;
+  const nextMasterFX = normalizeTemplateMasterFX(template.masterSettings, state.masterFX, options);
+  const rawAct = options.includeFX ? template.masterSettings?.masterEffectsActive : undefined;
+  const nextEffectsActive = rawAct
+    ? { compressor: rawAct.compressor ?? true, reverb: rawAct.reverb ?? true, disto: rawAct.disto ?? true }
+    : undefined;
+  const nextMasterMono = options.includeFX && template.masterSettings?.isMasterMono !== undefined
+    ? Boolean(template.masterSettings.isMasterMono)
+    : undefined;
 
   return {
     tracks: nextTracks,
     rodaTrackOrder: finalRodaOrder,
     tracksVersion: state.tracksVersion + 1,
     masterFX: nextMasterFX,
+    ...(nextEffectsActive ? { masterEffectsActive: nextEffectsActive } : {}),
+    ...(nextMasterMono !== undefined ? { isMasterMono: nextMasterMono } : {}),
   };
 }

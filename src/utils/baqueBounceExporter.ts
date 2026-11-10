@@ -117,6 +117,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
         ...(state.masterFX?.masterBus || {}),
         compressorEnabled: compActive,
         ecoBypassAesthetic: Boolean(state.ecoConfig?.disableFx),
+        monoCheck: Boolean(state.isMasterMono),
       }
     );
   }

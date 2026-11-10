@@ -1,4 +1,3 @@
-
 import type { MasterFX } from './store.types';
 
 export interface WorkspaceTemplateOptions {
@@ -35,18 +34,48 @@ export interface WorkspaceTemplateTrack {
   fxSends?: { reverb: number; distortion: number };
 }
 
+export interface WorkspaceTemplateMasterEQ {
+  low: number;
+  mid: number;
+  high: number;
+  midFreqHz?: number;
+  midQ?: 'wide' | 'narrow';
+}
+
+export interface WorkspaceTemplateMasterCompressor {
+  threshold: number;
+  ratio: number;
+  attack?: number;
+  release?: number;
+  knee?: number;
+  sidechainHpfHz?: number;
+  mixPct?: number;
+  makeupDb?: number;
+}
+
 export interface WorkspaceTemplateMasterSettings {
   masterVol?: number;
-  masterEQ?: { low: number; mid: number; high: number };
-  masterCompressor?: { threshold: number; ratio: number };
+  masterEQ?: WorkspaceTemplateMasterEQ;
+  masterCompressor?: WorkspaceTemplateMasterCompressor;
   reverbDecay?: number;
   masterReverbVol?: number;
+  masterEffectsActive?: {
+    compressor: boolean;
+    reverb: boolean;
+    disto: boolean;
+  };
+  isMasterMono?: boolean;
   masterFX?: MasterFX;
 }
 
 export interface WorkspaceTemplate {
   id: string; // 'tpl_local_...' ou ID Firestore
+  templateKey?: 'street_parade' | 'wood_studio' | 'grand_stage' | string;
   name: string;
+  nameFr?: string;
+  namePt?: string;
+  descriptionFr?: string;
+  descriptionPt?: string;
   ownerId: string; // user.uid ou 'local'
   authorName?: string;
   createdAt: number;

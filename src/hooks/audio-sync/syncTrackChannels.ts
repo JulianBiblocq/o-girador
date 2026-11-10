@@ -2,7 +2,7 @@ import * as Tone from 'tone';
 import { Track } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
-import { faderPositionToDb } from '../../utils/audioMath';
+import { CONSOLE_HEADROOM_GAIN, faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
@@ -60,7 +60,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     ensureAuxSendNodes(t.id, percentToDb(disableFx ? 0 : reverb), percentToDb(disableFx ? 0 : distortion));
     if (t.isLinkMaster) ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
     if (!trackInputs[t.id]) {
-      trackInputs[t.id] = new Tone.Gain(1.0);
+      trackInputs[t.id] = new Tone.Gain(CONSOLE_HEADROOM_GAIN);
       syncTrackInsertChain(t.id, t);
     }
 

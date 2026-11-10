@@ -1,9 +1,12 @@
 /**
- * O Girador - Contrats IPC, Paramètres & État Pré-Alloué Zéro-GC du MasterBusWorkletProcessor (< 120 lignes)
+ * O Girador - Contrats IPC, Paramètres & État Pré-Alloué Zéro-GC du MasterBusWorkletProcessor (< 130 lignes)
  */
 
 export const MASTER_LOOKAHEAD_SAMPLES = 64;
 export const MASTER_TELEMETRY_INTERVAL_FRAMES = 1536;
+export const CONSOLE_HEADROOM_DB = -6.0;
+export const CONSOLE_HEADROOM_GAIN = Math.pow(10, CONSOLE_HEADROOM_DB / 20);
+export const CONSOLE_MAKEUP_GAIN = 1.0;
 
 export interface MasterBusDspParams {
   bassMonoEnabled: boolean; bassMonoCrossoverHz: number;
@@ -13,8 +16,10 @@ export interface MasterBusDspParams {
   attackMs: number; releaseMs: number; kneeDb: number; makeupDb: number; compMixPct: number;
   softClipEnabled: boolean; softClipDriveDb: number; ceilingDb: number;
   ecoBypassAesthetic: boolean;
+  monoCheck: boolean;
   sumSidechainToMix?: boolean;
   masterGainLin?: number;
+  compensateConsoleHeadroom?: boolean;
 }
 
 export const DEFAULT_MASTER_BUS_DSP_PARAMS: MasterBusDspParams = {
@@ -25,8 +30,10 @@ export const DEFAULT_MASTER_BUS_DSP_PARAMS: MasterBusDspParams = {
   attackMs: 15, releaseMs: 150, kneeDb: 6, makeupDb: 0, compMixPct: 100,
   softClipEnabled: true, softClipDriveDb: 1.2, ceilingDb: -0.3,
   ecoBypassAesthetic: false,
+  monoCheck: false,
   sumSidechainToMix: true,
   masterGainLin: 1,
+  compensateConsoleHeadroom: true,
 };
 
 export interface MasterBusTelemetrySnapshot {
@@ -101,7 +108,20 @@ export function resetMasterBusDspState(s: MasterBusDspState): void {
 }
 
 export function updateMasterBusDspParams(s: MasterBusDspState, patch: Partial<MasterBusDspParams>): void {
+  const prevMono = s.params.monoCheck;
   Object.assign(s.params, patch);
+  if (!prevMono && s.params.monoCheck) {
+    const avgPrev = 0.5 * (s.adaaPrevL + s.adaaPrevR);
+    s.adaaPrevL = avgPrev; s.adaaPrevR = avgPrev;
+    for (let i = 0; i < MASTER_LOOKAHEAD_SAMPLES; i++) {
+      const m = 0.5 * (s.lookaheadBufL[i] + s.lookaheadBufR[i]);
+      s.lookaheadBufL[i] = m; s.lookaheadBufR[i] = m;
+    }
+    const avgPeak = 0.5 * (s.accumPeakL + s.accumPeakR);
+    const avgSq = 0.5 * (s.accumSumSqL + s.accumSumSqR);
+    s.accumPeakL = avgPeak; s.accumPeakR = avgPeak;
+    s.accumSumSqL = avgSq; s.accumSumSqR = avgSq;
+  }
   s.params.bassMonoCrossoverHz = Math.max(60, Math.min(160, s.params.bassMonoCrossoverHz));
   s.params.transientAttackDb = Math.max(-6, Math.min(6, s.params.transientAttackDb));
   s.params.transientSustainDb = Math.max(-6, Math.min(6, s.params.transientSustainDb));
