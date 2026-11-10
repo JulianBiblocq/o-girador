@@ -50,22 +50,16 @@ export function useMasterEffectsSync({
     }
   }, [masterEQ]);
 
-  // Sync Master Compressor
+  // Sync Master Compressor (bypass doux si desactive OU si Palier 2 Eco `disableFx`)
   useEffect(() => {
-    const applyCompressor = (isCompActive: boolean) => {
-      syncMasterCompressorBypass(!isCompActive, masterCompressor);
-    };
+    const resolveBypass = (s: ReturnType<typeof useSequencerStore.getState>) =>
+      !(s.masterEffectsActive?.compressor ?? true) || Boolean(s.ecoConfig?.disableFx);
 
-    const initialState = useSequencerStore.getState();
-    applyCompressor(initialState.masterEffectsActive?.compressor ?? true);
+    syncMasterCompressorBypass(resolveBypass(useSequencerStore.getState()), masterCompressor);
 
     const unsubscribe = useSequencerStore.subscribe((state, prevState) => {
-      const isCompActive = state.masterEffectsActive?.compressor ?? true;
-      const prevCompActive = prevState.masterEffectsActive?.compressor ?? true;
-
-      if (isCompActive !== prevCompActive) {
-        applyCompressor(isCompActive);
-      }
+      const next = resolveBypass(state);
+      if (next !== resolveBypass(prevState)) syncMasterCompressorBypass(next, masterCompressor);
     });
 
     return () => unsubscribe();

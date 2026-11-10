@@ -5,7 +5,8 @@ import {
   lowCutNodes,
   eqNodes,
 } from './effectsChainNodes';
-import { safeRampFreq, safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { applyInsertEqTargets, createInsertEqNodes } from './insertEqTargets';
 
 const wiredInsertChains = new Map<string | number, { input: any; channel: any }>();
 
@@ -18,22 +19,15 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   const channelNode = channels[trackId];
   if (!inputNode || !channelNode) return;
 
-  const hasLowCut = !!track.lowCut;
-
   let currentLowCut = lowCutNodes[trackId];
   if (!currentLowCut) {
-    currentLowCut = new Tone.Filter(hasLowCut ? 80 : 20, 'highpass');
+    currentLowCut = new Tone.Filter(track.lowCut ? 80 : 20, 'highpass');
     lowCutNodes[trackId] = currentLowCut;
   }
 
-  const eq = track.eqBands;
   let currentEQ = eqNodes[trackId];
   if (!currentEQ) {
-    currentEQ = {
-      low: new Tone.Filter(eq?.low?.f || 100, 'lowshelf'),
-      mid: new Tone.Filter(eq?.mid?.f || 1000, 'peaking'),
-      high: new Tone.Filter(eq?.high?.f || 8000, 'highshelf'),
-    };
+    currentEQ = createInsertEqNodes(track.eqBands);
     eqNodes[trackId] = currentEQ;
   }
 
@@ -47,16 +41,6 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     wiredInsertChains.set(trackId, { input: inputNode, channel: channelNode });
   }
 
-  const targetCutFreq = hasLowCut ? 80 : 20;
-  safeRampFreq(currentLowCut.frequency, targetCutFreq, 0.02);
-
-  if (currentEQ) {
-    safeRampFreq(currentEQ.low.frequency, eq?.low?.f ?? 100, 0.02);
-    safeRampGainDb(currentEQ.low.gain, eq ? (eq.low?.g ?? 0) : 0, 0.02);
-    safeRampFreq(currentEQ.mid.frequency, eq?.mid?.f ?? 1000, 0.02);
-    safeRampGainDb(currentEQ.mid.gain, eq ? (eq.mid?.g ?? 0) : 0, 0.02);
-    currentEQ.mid.Q.value = eq?.mid?.q === 'narrow' ? 2.5 : 0.7;
-    safeRampFreq(currentEQ.high.frequency, eq?.high?.f ?? 8000, 0.02);
-    safeRampGainDb(currentEQ.high.gain, eq ? (eq.high?.g ?? 0) : 0, 0.02);
-  }
+  const isNeutral = Boolean(useSequencerStore.getState().ecoConfig?.disableEq);
+  applyInsertEqTargets(currentLowCut, currentEQ, track, isNeutral);
 }

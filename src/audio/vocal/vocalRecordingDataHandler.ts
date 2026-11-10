@@ -2,6 +2,7 @@
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getLiveOrStoreMeasure } from '../visualTickBuffer';
 
 export function resolveRecordingContext(patternId: number): { trackId: number; measureIdx: number } {
   const seq = useSequencerStore.getState();
@@ -20,7 +21,7 @@ export function resolveRecordingContext(patternId: number): { trackId: number; m
     }
   }
 
-  const measureIdx = targetM ?? seq.activeTimelineCell?.measureIdx ?? seq.currentMeasure ?? 0;
+  const measureIdx = targetM ?? seq.activeTimelineCell?.measureIdx ?? getLiveOrStoreMeasure(seq.currentMeasure ?? 0);
   return { trackId, measureIdx };
 }
 

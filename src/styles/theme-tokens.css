@@ -30,6 +30,10 @@
   --cordel-stick-nylon-shade: #e2ded3;
   --cordel-stick-ink: #1a1a1a;
   --vu-level-nominal: #3b8c82;
+  /* Voyant des paliers Eco (pastille du bouton L'Atelier) */
+  --eco-tier-off: #22c55e;
+  --eco-tier-1: #d99b26;
+  --eco-tier-2: #ea580c;
   --vu-level-warn: #d99b26;
   --vu-level-clip: #c25e38;
   --roda-skin-bg: #f4ecd8;

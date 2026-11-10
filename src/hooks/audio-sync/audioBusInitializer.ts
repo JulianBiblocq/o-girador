@@ -4,15 +4,16 @@ import { busInputs, busChannels, busMeters, reverbSends, distortionSends, master
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
-import { getEffectiveVolume, getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { syncBusInsertChain } from '../../audio/effectsChain';
 
 export function initBusesAudioNodes(
   tracks: TrackGroup[],
-  isEco: boolean,
+  _isEco: boolean,
   lastAppliedBussesRef: React.MutableRefObject<Record<string, string | null>>,
   lastAppliedTracksParamsRef: React.MutableRefObject<Record<string, string>>
 ) {
+  const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
   tracks.forEach((t) => {
     if (!t.isBusFolder && !t.isLinkFolder) return;
 
@@ -37,10 +38,10 @@ export function initBusesAudioNodes(
     const distortion = t.fxSends?.distortion ?? 0;
 
     if (busChannels[t.id] && !reverbSends[t.id]) {
-      reverbSends[t.id] = busChannels[t.id].send('reverb', percentToDb(isEco ? 0 : reverb));
+      reverbSends[t.id] = busChannels[t.id].send('reverb', percentToDb(disableFx ? 0 : reverb));
     }
     if (busChannels[t.id] && !distortionSends[t.id]) {
-      distortionSends[t.id] = busChannels[t.id].send('distortion', percentToDb(distortion));
+      distortionSends[t.id] = busChannels[t.id].send('distortion', percentToDb(disableFx ? 0 : distortion));
     }
 
     const currentBusId = t.busId || null;

@@ -1,15 +1,17 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
+import { subscribeToTick, unsubscribeFromTick, getLastAudibleTick } from '../audio/visualTickBuffer';
 
 interface CompassoSelectorProps {
   className?: string;
   style?: React.CSSProperties;
+  isActive?: boolean;
 }
 
-export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = '', style }) => {
+export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = '', style, isActive = true }) => {
   const lang = useSequencerStore((state) => state.lang);
   const currentMeasure = useSequencerStore((state) => state.currentMeasure);
   const totalMeasures = useSequencerStore((state) => state.totalMeasures);
@@ -21,20 +23,56 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
   const audio = useAudio();
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
   const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+  const labelSpanRef = useRef<HTMLSpanElement>(null);
+  const liveExpandedIdxRef = useRef<number>(currentExpandedMeasureIdx);
 
   useEffect(() => {
-    if (queuedExpandedMeasureIdx !== null) return;
+    if (isPlaying || queuedExpandedMeasureIdx !== null) return;
     const currentBase = expanded[currentExpandedMeasureIdx]?.baseMeasure;
     if (currentBase !== currentMeasure) {
       const firstMatch = expanded.findIndex((item) => item.baseMeasure === currentMeasure);
       if (firstMatch !== -1) {
+        liveExpandedIdxRef.current = firstMatch;
         useSequencerStore.getState().setCurrentExpandedMeasureIdx(firstMatch);
       }
+    } else {
+      liveExpandedIdxRef.current = currentExpandedMeasureIdx;
     }
-  }, [currentMeasure, expanded, currentExpandedMeasureIdx, queuedExpandedMeasureIdx]);
+  }, [currentMeasure, expanded, currentExpandedMeasureIdx, queuedExpandedMeasureIdx, isPlaying]);
+
+  useEffect(() => {
+    if (!isActive || !isPlaying) return;
+    const resolveExpIdx = (m: number, iter: number) => {
+      if (expanded.length === 0) return m;
+      const exact = expanded.findIndex((item) => item.baseMeasure === m && item.iteration === iter);
+      if (exact !== -1) return exact;
+      const first = expanded.findIndex((item) => item.baseMeasure === m);
+      return first !== -1 ? first : m;
+    };
+    const updateDom = (m: number, iter: number) => {
+      const idx = resolveExpIdx(m, iter);
+      liveExpandedIdxRef.current = idx;
+      const qIdx = useSequencerStore.getState().queuedExpandedMeasureIdx;
+      const shownIdx = qIdx !== null ? qIdx : idx;
+      if (labelSpanRef.current) {
+        const nextText = `${shownIdx + 1} / ${displayTotal}`;
+        if (labelSpanRef.current.textContent !== nextText) labelSpanRef.current.textContent = nextText;
+      }
+    };
+    const last = getLastAudibleTick();
+    if (last && last.step >= 0 && !last.isPreRoll) updateDom(last.measure, last.iteration || 1);
+    const handleTick = (evt: any) => {
+      if (!evt || evt.step < 0 || evt.isPreRoll) return;
+      updateDom(evt.measure ?? 0, evt.iteration || 1);
+    };
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
+  }, [isActive, isPlaying, expanded, displayTotal, queuedExpandedMeasureIdx]);
 
   const effectiveExpandedIdx =
-    isPlaying && queuedExpandedMeasureIdx !== null ? queuedExpandedMeasureIdx : currentExpandedMeasureIdx;
+    isPlaying && queuedExpandedMeasureIdx !== null
+      ? queuedExpandedMeasureIdx
+      : (isPlaying ? liveExpandedIdxRef.current : currentExpandedMeasureIdx);
   const displayMeasure = effectiveExpandedIdx + 1;
   const isArmed = Boolean(isPlaying && queuedExpandedMeasureIdx !== null);
 
@@ -44,7 +82,7 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
     const baseIdx =
       store.isPlaying && store.queuedExpandedMeasureIdx !== null
         ? store.queuedExpandedMeasureIdx
-        : store.currentExpandedMeasureIdx;
+        : (store.isPlaying ? liveExpandedIdxRef.current : store.currentExpandedMeasureIdx);
     const nextIdx = (baseIdx + delta + displayTotal) % displayTotal;
     const targetBaseMeasure = expanded.length > 0 ? expanded[nextIdx].baseMeasure : nextIdx;
     const targetIteration = expanded.length > 0 ? expanded[nextIdx].iteration : 1;
@@ -52,6 +90,7 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
     if (store.isPlaying) {
       store.armQueuedMeasure(targetBaseMeasure, nextIdx);
     } else {
+      liveExpandedIdxRef.current = nextIdx;
       store.clearQueuedMeasure();
       store.setCurrentExpandedMeasureIdx(nextIdx);
     }
@@ -78,6 +117,7 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
           {lang === 'pt' ? 'Compasso' : 'Mesure'}
         </span>
         <span
+          ref={labelSpanRef}
           className={`text-xs font-cactus font-bold leading-tight mt-0.5 transition-colors ${
             isArmed ? 'text-[#c25e38]' : ''
           }`}

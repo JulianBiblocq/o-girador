@@ -9,7 +9,7 @@ import { stopAllNativeOscillators } from '../../audio/nativeSynths';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { AudioEngine } from '../../AudioEngine';
 import { InputManager } from '../../InputManager';
-import { initMasterEffectsChain, trackInputs, syncTrackInsertChain } from '../../audio/effectsChain';
+import { initMasterEffectsChain, trackInputs, syncTrackInsertChain, setOnTrackDisposeCallback } from '../../audio/effectsChain';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getAudioEngine, setAudioEngine, setInputManager, channels } from './audioEngineNodes';
 import { setupAudioWindowEvents } from './audioWindowEventsManager';
@@ -79,6 +79,7 @@ export function useAudioInitialization(p: AudioInitProps): void {
         );
         setAudioEngine(engine);
         (window as any).__AUDIO_ENGINE__ = engine;
+        setOnTrackDisposeCallback((id) => getAudioEngine()?.removeInstrumentChannel(id));
 
         engine.setOnPositionJump((step, measure) => {
           currentStepIndexRef.current = step === 0 ? -1 : step - 1;

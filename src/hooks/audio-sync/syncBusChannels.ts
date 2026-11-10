@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { Track } from '../../types';
-import { getEffectiveVolume, getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
@@ -22,9 +22,10 @@ export interface SyncBusChannelsParams {
 
 export function syncBusChannels(p: SyncBusChannelsParams): void {
   const {
-    tracks, isEcoMode, busChannels, busMeters, reverbSends, distortionSends,
+    tracks, busChannels, busMeters, reverbSends, distortionSends,
     lastAppliedTracksParamsRef, lastAppliedBussesRef, masterVolumeNode
   } = p;
+  const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
 
   tracks.forEach((t) => {
     if (!t.isBusFolder && !t.isLinkFolder) return;
@@ -65,7 +66,7 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const eqHighF = t.eqBands?.high?.f ?? 8000;
 
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
-    const busChannelHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${isEcoMode}_${bypassKey}`;
+    const busChannelHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
     const busEqHash = `eq_bus_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== busChannelHash) {
@@ -74,14 +75,14 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       busChannels[t.id].mute = muteState;
 
       if (!reverbSends[t.id]) {
-        reverbSends[t.id] = busChannels[t.id].send("reverb", percentToDb(isEcoMode ? 0 : reverb));
+        reverbSends[t.id] = busChannels[t.id].send("reverb", percentToDb(disableFx ? 0 : reverb));
       }
       if (!distortionSends[t.id]) {
-        distortionSends[t.id] = busChannels[t.id].send("distortion", percentToDb(distortion));
+        distortionSends[t.id] = busChannels[t.id].send("distortion", percentToDb(disableFx ? 0 : distortion));
       }
 
-      const targetRevDb = percentToDb(isEcoMode ? 0 : reverb);
-      const targetDistDb = percentToDb(distortion);
+      const targetRevDb = percentToDb(disableFx ? 0 : reverb);
+      const targetDistDb = percentToDb(disableFx ? 0 : distortion);
       if (reverbSends[t.id]) {
         safeRampDb(reverbSends[t.id].gain, targetRevDb, 0.02);
       }

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
+import { notifyTimelineCanvasZoomFrame } from '../../utils/timeline/timelineZoomUtils';
 
 interface UseTimelineMinimapDragOptions {
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -86,6 +87,7 @@ export function useTimelineMinimapDrag({
         }
         scrollRef.current.scrollLeft = newScrollLeft;
       }
+      notifyTimelineCanvasZoomFrame(clampedW, newScrollLeft);
       if (isFinal) {
         React.startTransition(() => {
           onMeasureWidthChange(Math.round(clampedW));

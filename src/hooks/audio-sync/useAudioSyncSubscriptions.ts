@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { purgeVisualTickBuffer, resetVisualTickBuffer, flushVisualBuffers } from '../../audio/visualTickBuffer';
+import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { getAudioEngine } from './audioEngineNodes';
 
 export interface UseAudioSyncSubscriptionsProps {
@@ -53,8 +54,21 @@ export function useAudioSyncSubscriptions({
 
   useEffect(() => {
     return useSequencerStore.subscribe((state, prev) => {
-      if (state.tocarJuntoActive !== prev.tocarJuntoActive || state.tocarJuntoTrackId !== prev.tocarJuntoTrackId) {
+      if (
+        state.tocarJuntoActive !== prev.tocarJuntoActive ||
+        state.tocarJuntoTrackId !== prev.tocarJuntoTrackId ||
+        state.tocarJuntoIsMuted !== prev.tocarJuntoIsMuted ||
+        state.tocarJuntoMuteScope !== prev.tocarJuntoMuteScope
+      ) {
         refs.familyMuteSetRef.current.clear();
+        getAudioEngine()?.syncTracksToWorklet(state.tracks);
+      }
+      if (
+        state.bpm !== prev.bpm ||
+        state.measureBpms !== prev.measureBpms ||
+        state.measureBpmTransitions !== prev.measureBpmTransitions
+      ) {
+        rebuildWorkletHorizonFromNow('bpm');
       }
     });
   }, [refs.familyMuteSetRef]);

@@ -5,17 +5,18 @@ import { channels, meters, reverbSends, distortionSends, busInputs, busChannels,
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
-import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import { trackInputs, syncTrackInsertChain } from '../../audio/effectsChain';
 import { AudioEngine } from '../../AudioEngine';
 
 export function initTrackChannelsAudioNodes(
   tracks: TrackGroup[],
-  isEco: boolean,
+  _isEco: boolean,
   lastAppliedBussesRef: React.MutableRefObject<Record<string, string | null>>,
   lastAppliedTracksParamsRef: React.MutableRefObject<Record<string, string>>,
   engine: AudioEngine | null
 ) {
+  const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
   tracks.forEach((t) => {
     if (t.isBusFolder || t.isLinkFolder) return;
     const inst = instrumentsConfig[t.instrumentIdx];
@@ -31,8 +32,8 @@ export function initTrackChannelsAudioNodes(
       meters[t.id] = new Tone.Analyser({ type: 'waveform', size: 1024, channels: 2 }) as any;
       channels[t.id].connect(meters[t.id]);
 
-      const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
-      const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
+      const initialRevDb = percentToDb(disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+      const initialDistDb = percentToDb(disableFx ? 0 : (t.fxSends?.distortion ?? 0));
 
       reverbSends[t.id] = channels[t.id].send('reverb', initialRevDb);
       distortionSends[t.id] = channels[t.id].send('distortion', initialDistDb);
@@ -85,11 +86,11 @@ export function initTrackChannelsAudioNodes(
     channels[t.id].mute = muteState;
 
     if (reverbSends[t.id]) {
-      const targetRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+      const targetRevDb = percentToDb(disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
       try { reverbSends[t.id].gain.value = targetRevDb; } catch (_) {}
     }
     if (distortionSends[t.id]) {
-      const targetDistDb = percentToDb(t.fxSends?.distortion ?? 0);
+      const targetDistDb = percentToDb(disableFx ? 0 : (t.fxSends?.distortion ?? 0));
       try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
     }
 

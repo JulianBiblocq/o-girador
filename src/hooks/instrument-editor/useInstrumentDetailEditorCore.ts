@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore, isToadaBus, isToadaChild } from '../../stores/useSequencerStore';
+import { useLiveMeasure } from '../useLiveMeasure';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useTransportStore } from '../../stores/useTransportStore'; import { useBalancoStore } from '../../stores/useBalancoStore';
 import { useAudioStore } from '../../stores/useAudioStore';
@@ -27,9 +28,10 @@ export function useInstrumentDetailEditorCore(props: {
   const sequencer = useSequencer(); const audio = useAudio(); const { userProfile } = useAuth();
   const { genererEtUploaderCloudBounce, isBouncingCloud } = useCloudAudioBounce();
 
-  const { lang, isLeftHanded, totalMeasures, currentMeasure, handleTrackBalancoChange, handlePatternBalancoChange } = useSequencerStore(useShallow((s) => ({
+  const currentMeasure = useLiveMeasure(true);
+  const { lang, isLeftHanded, totalMeasures, handleTrackBalancoChange, handlePatternBalancoChange } = useSequencerStore(useShallow((s) => ({
     lang: s.lang, isLeftHanded: s.isLeftHanded, totalMeasures: s.totalMeasures,
-    currentMeasure: s.currentMeasure, handleTrackBalancoChange: s.handleTrackBalancoChange, handlePatternBalancoChange: s.handlePatternBalancoChange,
+    handleTrackBalancoChange: s.handleTrackBalancoChange, handlePatternBalancoChange: s.handlePatternBalancoChange,
   })));
   const currentBpm = useSequencerStore((s) => s.measureBpms[0] || 100);
   const currentTimeSig = useSequencerStore((s) => s.measureTimeSigs[0] || '4/4');

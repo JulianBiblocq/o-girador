@@ -1,6 +1,7 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useLiveMeasure } from '../../hooks/useLiveMeasure';
 import { useDawVisibleTracks } from '../daw/useDawVisibleTracks';
 import { useDawPlayhead } from '../daw/useDawPlayhead';
 
@@ -12,7 +13,7 @@ const getBeatsFromTimeSig = (sig: string): number => {
 };
 
 export function useWorkspacePistasProps(isActive: boolean) {
-  const currentMeasure = useSequencerStore(state => (isActive ? state.currentMeasure : 0));
+  const currentMeasure = useLiveMeasure(isActive);
   const timeSig = useSequencerStore(state => state.timeSig);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);

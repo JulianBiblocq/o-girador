@@ -100,13 +100,16 @@ export class EngineSchedulerClock {
     this.isScheduling = true;
     try {
       const cur = this.audioContext.currentTime;
-      if (this.nextTickTime < cur + 0.025) {
+      // Verrouillage monotone : ne ré-ancre que sur vraie suspension matérielle (> 6.0 s) ou forceReanchor explicite
+      if (this.nextTickTime < cur - 6.0) {
+        this.callbacks.purgeScheduledHits();
         this.nextTickTime = cur + 0.035;
         this.mustReanchor = true;
       }
-      while (this.isPlaying && this.nextTickTime < cur + this.SCHEDULE_AHEAD_TIME) {
+      let iterations = 0;
+      while (this.isPlaying && this.nextTickTime < cur + this.SCHEDULE_AHEAD_TIME && iterations++ < 512) {
         const prev = this.nextTickTime;
-        const didWrapLoop = this.callbacks.onTick(this.nextTickTime);
+        this.callbacks.onTick(this.nextTickTime);
         if (!this.isPlaying) break;
         const tickDur = this.callbacks.getTickDuration();
         if (this.schedulingStep === 0 || this.schedulingMeasure !== this.lastSchedulingMeasure || this.mustReanchor) {
@@ -116,7 +119,7 @@ export class EngineSchedulerClock {
           this.mustReanchor = false;
         }
         this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDur);
-        if (this.nextTickTime <= prev || didWrapLoop) break;
+        if (this.nextTickTime <= prev) break;
       }
     } finally {
       this.isScheduling = false;

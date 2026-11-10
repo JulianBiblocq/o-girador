@@ -8,7 +8,10 @@ export * from './visual-buffer/visualTickSubscribers';
 export {
   TICK_QUEUE_SIZE,
   HIT_QUEUE_SIZE,
+  setLastAudibleTick,
   getLastAudibleTick,
+  getLiveOrStoreMeasure,
+  getLiveOrStoreLoopIteration,
   pushVisualTick,
   purgeVisualTickBuffer,
   resetVisualTickBuffer,

@@ -43,7 +43,7 @@ export const TimelineTrackHeader: React.FC<TimelineTrackHeaderProps> = ({
 
   return (
     <div
-      className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 relative ${isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')}`}
+      className={`timeline-sticky-header sticky left-0 z-30 pointer-events-auto bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 relative ${isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')}`}
       style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0', borderLeft: (!groupVisual && busColor) ? `4px solid ${busColor}` : undefined }}
       onClick={handleSelectTrack}
     >

@@ -87,6 +87,8 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
   if (activeEngine) {
+    await activeEngine.waitForWorkletReady();
+    activeEngine.syncTracksToWorklet(currentTracks);
     activeEngine.currentMeasure = targetMeasure; activeEngine.currentStep = 0;
     activeEngine.schedulingMeasure = targetMeasure; activeEngine.schedulingStep = 0;
   }
@@ -132,5 +134,6 @@ export function handleStopSoloPattern(ctx: SoloTransportContext): void {
   if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = null;
   if (ctx.soloPatternVariationIdRef) ctx.soloPatternVariationIdRef.current = null;
   ctx.soloLoopCycleRef.current = 0;
+  (ctx.audioEngine || getAudioEngine())?.syncTracksToWorklet(ctx.tracksRef.current);
   if (ctx.isPlayingRef.current) ctx.handleStop();
 }

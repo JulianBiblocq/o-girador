@@ -131,7 +131,7 @@ export function clearFrozenPose(fam: TesterFamily): void {
 
 export function openAoVivoLabWithActiveTrack(preferredTrackId?: number | string | null): void {
   const st = useSequencerStore.getState();
-  if (st.isEcoMode) useSequencerStore.setState({ isEcoMode: false });
+  // Le Mode Eco n'est jamais desactive de force : l'overlay Ao Vivo s'affiche quand le Lab est ouvert.
   if (st.activeAoVivoTrackId === null) {
     const fallbackId = preferredTrackId ?? st.focusTrackId ?? st.tracks?.[0]?.id ?? 1;
     st.setActiveAoVivoTrackId(fallbackId as number);

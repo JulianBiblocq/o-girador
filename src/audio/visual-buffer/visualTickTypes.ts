@@ -16,6 +16,7 @@ export interface VisualTickEvent {
   visualStep12: number;
   time: number;
   iteration: number;
+  loopIteration?: number;
   measureStartTime?: number;
   measureDuration?: number;
   targetStartTime?: number;

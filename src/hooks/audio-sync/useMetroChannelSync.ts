@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useTransportStore } from '../../stores/useTransportStore';
+import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { metroChannel } from './audioEngineNodes';
 import { GlobalSwing } from '../../types';
 
@@ -48,8 +49,11 @@ export function useMetroChannelSync({
     };
 
     syncTransport(useTransportStore.getState());
-    const unsub = useTransportStore.subscribe((state) => {
+    const unsub = useTransportStore.subscribe((state, prev) => {
       syncTransport(state);
+      if (state.globalSwing !== prev.globalSwing) {
+        rebuildWorkletHorizonFromNow('bpm');
+      }
     });
     return unsub;
   }, [isMetroOnRef, globalSwingRef, metroVolumeRef, metroSoundRef, soloPatternPlayIdRef, soloPatternVariationIdRef, soloPhraseMeasureRef, soloLoopCycleRef]);

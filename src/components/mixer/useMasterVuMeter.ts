@@ -75,7 +75,7 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
       }
     };
 
-    const unsubscribeTicker = subscribeVuMeter(updateMasterMeter);
+    const unsubscribeTicker = subscribeVuMeter(updateMasterMeter, resetMasterMeters);
 
     return () => {
       unsubscribeTicker();

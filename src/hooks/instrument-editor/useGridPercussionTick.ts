@@ -27,7 +27,7 @@ export function useGridPercussionTick({
       if (!detail || !gridRef.current) return;
       const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
 
-      const isEco = useSequencerStore.getState().isEcoMode || (window as any).oGiradorVisualEcoMode;
+      const isEco = useSequencerStore.getState().isEcoMode;
       if (isEco) return;
 
       const soloPlayId = useTransportStore.getState().soloPatternPlayId;

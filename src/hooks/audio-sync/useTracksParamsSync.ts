@@ -4,11 +4,10 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { syncBusChannels } from './syncBusChannels';
 import { syncTrackChannels } from './syncTrackChannels';
 import { percentToDb } from './audioParamsCache';
-import { syncMasterReverbBypass, syncMasterDistortionBypass } from './audioSyncMasterBypass';
-import { syncMasterCompressorBypass } from '../../audio/effectsChain';
+import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 import {
   masterReverbVolumeNode, reverbNode, masterDistortionVolumeNode,
-  distortionNode, masterCompressor, masterVolumeNode, channels,
+  distortionNode, masterVolumeNode, channels,
   meters, trackInputs, busChannels, busMeters, reverbSends,
   distortionSends, audioEngine
 } from './audioEngineNodes';
@@ -27,12 +26,14 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
       if (state.masterFX !== prevState.masterFX || state.masterEffectsActive !== prevState.masterEffectsActive) {
         const masterFX = state.masterFX;
         const fxActive = state.masterEffectsActive || { compressor: true, reverb: true, disto: true };
+        const disableFx = Boolean(state.ecoConfig?.disableFx);
+        // Bypass Master par GAIN uniquement (graphe stable, 0 disconnect/connect en lecture) :
+        // retour coupe si effet desactive/mute OU Palier 2 Eco. Compresseur : useMasterEffectsSync.
 
         if (masterReverbVolumeNode) {
-          const revBypassed = !fxActive.reverb || masterFX.reverb.isMuted;
+          const revBypassed = disableFx || !fxActive.reverb || masterFX.reverb.isMuted;
           const revGain = revBypassed ? 0 : Tone.dbToGain(percentToDb(masterFX.reverb.returnVolume));
-          masterReverbVolumeNode.gain.value = revGain;
-          masterReverbVolumeNode.gain.rampTo(revGain, 0.02);
+          safeRampTo(masterReverbVolumeNode.gain, Number.isFinite(revGain) ? revGain : 0, 0.02, 0, 4);
         }
 
         if (reverbNode) {
@@ -42,13 +43,11 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
             (reverbNode as any).wet.rampTo(fxActive.reverb && !masterFX.reverb.isMuted ? 1 : 0, 0.02);
           }
         }
-        syncMasterReverbBypass(!fxActive.reverb || masterFX.reverb.isMuted, masterFX.reverb.returnVolume);
 
         if (masterDistortionVolumeNode) {
-          const distBypassed = !fxActive.disto || masterFX.distortion.isMuted;
+          const distBypassed = disableFx || !fxActive.disto || masterFX.distortion.isMuted;
           const distGain = distBypassed ? 0 : Tone.dbToGain(percentToDb(masterFX.distortion.returnVolume));
-          masterDistortionVolumeNode.gain.value = distGain;
-          masterDistortionVolumeNode.gain.rampTo(distGain, 0.02);
+          safeRampTo(masterDistortionVolumeNode.gain, Number.isFinite(distGain) ? distGain : 0, 0.02, 0, 4);
         }
 
         if (distortionNode) {
@@ -58,8 +57,6 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
             distortionNode.wet.rampTo(fxActive.disto && !masterFX.distortion.isMuted ? 1 : 0, 0.02);
           }
         }
-        syncMasterDistortionBypass(!fxActive.disto || masterFX.distortion.isMuted, masterFX.distortion.returnVolume);
-        syncMasterCompressorBypass(!fxActive.compressor || state.isEcoMode, (masterCompressor as any) || undefined);
       }
 
       const tracksChanged = state.tracks !== prevState.tracks;

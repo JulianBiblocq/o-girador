@@ -10,6 +10,7 @@ import { mergeTemplatesLists } from './helpers/workspaceTemplateMergeHelper';
 export type { WorkspaceTemplateStoreState };
 
 const initialLocalTemplates = loadInitialLocalTemplates();
+const syncingUids = new Set<string>();
 
 export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((set, get) => ({
   templates: initialLocalTemplates,
@@ -53,7 +54,6 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
   updateTemplateName: async (id: string, newName: string) => {
     const cleanName = newName.trim();
     if (!cleanName) return;
-
     const updated = get().templates.map((t) => (t.id === id ? { ...t, name: cleanName, updatedAt: Date.now() } : t));
     saveTemplatesToStorage(updated);
     set({ templates: updated });
@@ -80,14 +80,13 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
   },
 
   syncCloudTemplates: async (userUid, userRole) => {
-    if (!userUid || userUid === 'local') return;
-
+    if (!userUid || userUid === 'local' || syncingUids.has(userUid)) return;
+    syncingUids.add(userUid);
     set({ isLoadingCloud: true });
     try {
       const { fetchCloudWorkspaceTemplates, saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
       const cloudTemplates = await fetchCloudWorkspaceTemplates(userUid);
       const currentTemplates = get().templates;
-
       const { merged, templatesToUpload, hasChanges } = mergeTemplatesLists(currentTemplates, cloudTemplates, userUid);
 
       if (hasChanges) {
@@ -97,15 +96,16 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
         set({ isLoadingCloud: false });
       }
 
-      // Auto-migration en arrière-plan des gabarits locaux vers le profil Cloud
       if (templatesToUpload.length > 0) {
         for (const tpl of templatesToUpload) {
-          saveWorkspaceTemplateToCloud(tpl, userRole).catch(() => {});
+          await saveWorkspaceTemplateToCloud(tpl, userRole).catch(() => {});
         }
       }
     } catch (err) {
       console.warn('Erreur lors de la synchronisation des gabarits cloud:', err);
       set({ isLoadingCloud: false });
+    } finally {
+      syncingUids.delete(userUid);
     }
   },
 
@@ -113,17 +113,20 @@ export const useWorkspaceTemplateStore = create<WorkspaceTemplateStoreState>((se
     if (!Array.isArray(cloudTemplates)) return;
     const currentTemplates = get().templates;
     const { merged, templatesToUpload, hasChanges } = mergeTemplatesLists(currentTemplates, cloudTemplates, userUid);
-
-    // Garde anti-boucle infinie (Règle 1) : arrêt immédiat si aucun changement
     if (!hasChanges) return;
 
     saveTemplatesToStorage(merged);
     set({ templates: merged });
 
-    if (templatesToUpload.length > 0 && userUid && userUid !== 'local') {
-      const { saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
-      for (const tpl of templatesToUpload) {
-        saveWorkspaceTemplateToCloud(tpl).catch(() => {});
+    if (templatesToUpload.length > 0 && userUid && userUid !== 'local' && !syncingUids.has(userUid)) {
+      syncingUids.add(userUid);
+      try {
+        const { saveWorkspaceTemplateToCloud } = await import('../cloudWorkspaceTemplates');
+        for (const tpl of templatesToUpload) {
+          await saveWorkspaceTemplateToCloud(tpl).catch(() => {});
+        }
+      } finally {
+        syncingUids.delete(userUid);
       }
     }
   },

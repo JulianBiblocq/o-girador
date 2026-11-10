@@ -3,6 +3,7 @@
  */
 import React, { useRef, useEffect, useMemo } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useLiveMeasure } from '../../hooks/useLiveMeasure';
 import { SongSection } from '../../types';
 import { filterTopLevelSections } from '../../utils/sections/resolveTopLevelSectionForMeasure';
 import { Repeat } from 'lucide-react';
@@ -14,7 +15,7 @@ interface Props {
 
 export const MobileSectionLooper: React.FC<Props> = ({ isPlaying, onNavigateMeasure }) => {
   const songSections = useSequencerStore((s) => s.songSections || []);
-  const currentMeasure = useSequencerStore((s) => s.currentMeasure);
+  const currentMeasure = useLiveMeasure(true);
   const loopStartMeasure = useSequencerStore((s) => s.loopStartMeasure);
   const loopEndMeasure = useSequencerStore((s) => s.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore((s) => s.isLoopRegionActive);

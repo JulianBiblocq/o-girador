@@ -1,5 +1,6 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
+import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
 
 export const MCU_ALL_NOTES = [46, 47, 48, 49, 80, 81, 86, 88, 89, 91, 92, 93, 94, 95];
 
@@ -71,14 +72,14 @@ export function handleMcuCommand(
         return true;
       }
       case 92: {
-        const current = useSequencerStore.getState().currentMeasure;
+        const current = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
         const total = useSequencerStore.getState().totalMeasures;
         const nextIdx = (current + 1) % (total || 1);
         audio.handleTimelineNavigate(nextIdx, 0, 16);
         return true;
       }
       case 91: {
-        const current = useSequencerStore.getState().currentMeasure;
+        const current = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
         const total = useSequencerStore.getState().totalMeasures;
         const prevIdx = (current - 1 + total) % (total || 1);
         audio.handleTimelineNavigate(prevIdx, 0, 16);

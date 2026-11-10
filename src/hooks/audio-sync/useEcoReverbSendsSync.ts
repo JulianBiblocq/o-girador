@@ -2,65 +2,52 @@ import React, { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import {
-  reverbSends,
   handleReverbEcoToggle,
-  syncTrackInsertChain,
   getDeferredReverbActivation,
   ensureReverbConnected,
   setDeferredReverbActivation
 } from '../../audio/effectsChain';
-import { percentToDb } from './audioParamsCache';
+import { applyFxSendsEco, applyMasterDistortionEco, applyHaasEco, applyEqEco } from './ecoAudioLightening';
 
 interface UseEcoReverbSendsSyncProps {
   isPlayingRef: React.MutableRefObject<boolean>;
   isPlaying: boolean;
 }
 
+/**
+ * Synchronise le Palier 2 Eco (`ecoConfig.disableFx` / `ecoConfig.disableEq`) avec le graphe audio.
+ * Le Palier 1 (`isEcoMode` seul) n'a AUCUN effet audio : seul `disableFx` / `disableEq` est observe.
+ */
 export function useEcoReverbSendsSync({
   isPlayingRef,
   isPlaying,
 }: UseEcoReverbSendsSyncProps) {
   useEffect(() => {
-    let lastDisableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? useSequencerStore.getState().isEcoMode;
-    let lastDisableEq = useSequencerStore.getState().ecoConfig?.disableEq ?? useSequencerStore.getState().isEcoMode;
+    const initial = useSequencerStore.getState();
+    let lastDisableFx = Boolean(initial.ecoConfig?.disableFx);
+    let lastDisableEq = Boolean(initial.ecoConfig?.disableEq);
 
-    const applyEcoReverbSendsAndToggle = (disableFx: boolean, tracks: any[]) => {
+    const applyFx = (disableFx: boolean, state: any) => {
       handleReverbEcoToggle(disableFx, isPlayingRef.current);
-
-      tracks.forEach((t) => {
-        if (reverbSends[t.id]) {
-          try {
-            const reverbPct = t.fxSends?.reverb ?? t.reverbVal ?? 0;
-            const reverbDb = percentToDb(disableFx ? 0 : reverbPct);
-            reverbSends[t.id].gain.value = reverbDb;
-          } catch (_) {}
-        }
-      });
+      applyFxSendsEco(disableFx, state.tracks);
+      applyMasterDistortionEco(disableFx, state);
+      applyHaasEco(disableFx);
     };
 
-    const applyEqSync = (tracks: any[]) => {
-      tracks.forEach((t) => {
-        try {
-          syncTrackInsertChain(t.id, t);
-        } catch (_) {}
-      });
-    };
-
-    const initialStore = useSequencerStore.getState();
-    applyEcoReverbSendsAndToggle(lastDisableFx, initialStore.tracks);
-    applyEqSync(initialStore.tracks);
+    applyFx(lastDisableFx, initial);
+    applyEqEco(initial.tracks);
 
     const unsubscribe = useSequencerStore.subscribe((state) => {
-      const nextDisableFx = state.ecoConfig?.disableFx ?? state.isEcoMode;
-      const nextDisableEq = state.ecoConfig?.disableEq ?? state.isEcoMode;
+      const nextDisableFx = Boolean(state.ecoConfig?.disableFx);
+      const nextDisableEq = Boolean(state.ecoConfig?.disableEq);
 
       if (nextDisableFx !== lastDisableFx) {
         lastDisableFx = nextDisableFx;
-        applyEcoReverbSendsAndToggle(nextDisableFx, state.tracks);
+        applyFx(nextDisableFx, state);
       }
       if (nextDisableEq !== lastDisableEq) {
         lastDisableEq = nextDisableEq;
-        applyEqSync(state.tracks);
+        applyEqEco(state.tracks);
       }
     });
 

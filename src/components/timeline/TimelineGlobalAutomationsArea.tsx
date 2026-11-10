@@ -44,6 +44,7 @@ export const TimelineGlobalAutomationsArea: React.FC<TimelineGlobalAutomationsAr
         color="#f19066"
         lang={lang}
         headerWidth={headerWidth}
+        defaultExpanded={false}
       />
       <AutomationTrack
         type="volume"
@@ -61,6 +62,7 @@ export const TimelineGlobalAutomationsArea: React.FC<TimelineGlobalAutomationsAr
         headerWidth={headerWidth}
         isBypassed={isVolBypassed}
         onToggleBypass={toggleMasterVolumeBypass}
+        defaultExpanded={false}
       />
     </>
   );

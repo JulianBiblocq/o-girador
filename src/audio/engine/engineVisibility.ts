@@ -26,8 +26,13 @@ export class EngineVisibility {
       clock.updateSchedulingParameters();
       if (!document.hidden) {
         if (clock.isPlaying) {
-          purgeScheduledHits();
-          clock.forceReanchor();
+          const needsReanchor =
+            audioContext.state !== 'running' ||
+            clock.nextTickTime < audioContext.currentTime - 0.050;
+          if (needsReanchor) {
+            purgeScheduledHits();
+            clock.forceReanchor();
+          }
         }
         EnginePurge.cleanDeadNodes(
           audioContext,

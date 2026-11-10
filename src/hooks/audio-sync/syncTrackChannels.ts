@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 import { Track } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, getEffectiveMuteState, isToadaChild, isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
@@ -27,10 +27,11 @@ export interface SyncTrackChannelsParams {
 
 export function syncTrackChannels(p: SyncTrackChannelsParams): void {
   const {
-    tracks, isEcoMode, channels, meters, trackInputs, busChannels,
+    tracks, channels, meters, trackInputs, busChannels,
     reverbSends, distortionSends, lastAppliedTracksParamsRef,
     lastAppliedBussesRef, masterVolumeNode, audioEngine
   } = p;
+  const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
 
   tracks.forEach((t) => {
     if (t.isBusFolder || t.isLinkFolder) return;
@@ -46,8 +47,8 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
       meters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
       channels[t.id].connect(meters[t.id]);
 
-      const initialRevDb = percentToDb(isEcoMode ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
-      const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
+      const initialRevDb = percentToDb(disableFx ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+      const initialDistDb = percentToDb(disableFx ? 0 : (t.fxSends?.distortion ?? 0));
       reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
       distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
     }
@@ -82,7 +83,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
 
     const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster);
-    const channelHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${isEcoMode}_${bypassKey}`;
+    const channelHash = `${finalDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
     const eqHash = `eq_${lowCut}_${isLinkedSlave}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== channelHash) {
@@ -91,10 +92,10 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
       channels[t.id].mute = muteState;
 
       if (reverbSends[t.id]) {
-        safeRampDb(reverbSends[t.id].gain, percentToDb(isEcoMode ? 0 : reverb), 0.02);
+        safeRampDb(reverbSends[t.id].gain, percentToDb(disableFx ? 0 : reverb), 0.02);
       }
       if (distortionSends[t.id]) {
-        safeRampDb(distortionSends[t.id].gain, percentToDb(distortion), 0.02);
+        safeRampDb(distortionSends[t.id].gain, percentToDb(disableFx ? 0 : distortion), 0.02);
       }
       lastAppliedTracksParamsRef.current[t.id] = channelHash;
     }

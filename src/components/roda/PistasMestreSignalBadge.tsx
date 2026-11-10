@@ -1,15 +1,18 @@
 
 import React, { useRef, useEffect, useMemo } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useLiveMeasure } from '../../hooks/useLiveMeasure';
+import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
 import { resolveOverlaySignalAndMarker } from '../circle-sequencer/resolveOverlaySignal';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 
 interface Props {
   isPistasOpen: boolean;
+  isActive?: boolean;
 }
 
-export const PistasMestreSignalBadge: React.FC<Props> = ({ isPistasOpen }) => {
-  const currentMeasure = useSequencerStore(s => s.currentMeasure);
+export const PistasMestreSignalBadge: React.FC<Props> = ({ isPistasOpen, isActive = true }) => {
+  const currentMeasure = useLiveMeasure(isActive && isPistasOpen);
   const measureSignals = useSequencerStore(s => s.measureSignals);
   const mestreSignals = useSequencerStore(s => s.mestreSignals);
   const songMarkers = useSequencerStore(s => s.songMarkers);
@@ -33,13 +36,12 @@ export const PistasMestreSignalBadge: React.FC<Props> = ({ isPistasOpen }) => {
 
   // Synchronisation audio temps réel (Zero Render Thrashing) pour les trames gestuelles
   useEffect(() => {
-    if (!isPistasOpen || !activeSig?.frames || activeSig.frames.length <= 1) return;
-    const handleTick = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    if (!isActive || !isPistasOpen || !activeSig?.frames || activeSig.frames.length <= 1) return;
+    const handleTick = (detail: any) => {
       if (!detail || detail.step < 0) return;
       const localSig = (measureTimeSigs && measureTimeSigs[detail.measure]) || timeSig || '4/4';
       const bInM = getBeatsPerMeasure(localSig);
-      const beat = Math.min(bInM - 1, Math.max(0, Math.floor(detail.ratio * bInM)));
+      const beat = Math.min(bInM - 1, Math.max(0, Math.floor((detail.ratio ?? 0) * bInM)));
       if (beat !== currentBeatRef.current) {
         currentBeatRef.current = beat;
         if (imgRef.current && activeSig.frames) {
@@ -49,9 +51,9 @@ export const PistasMestreSignalBadge: React.FC<Props> = ({ isPistasOpen }) => {
         }
       }
     };
-    window.addEventListener('sequencer-tick', handleTick);
-    return () => window.removeEventListener('sequencer-tick', handleTick);
-  }, [isPistasOpen, activeSig, timeSig, measureTimeSigs]);
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
+  }, [isActive, isPistasOpen, activeSig, timeSig, measureTimeSigs]);
 
   if (!isPistasOpen) return null;
   const hasContent = Boolean(activeSig || activeMarker);

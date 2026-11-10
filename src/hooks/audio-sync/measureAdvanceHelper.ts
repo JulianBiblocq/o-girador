@@ -6,10 +6,6 @@ import { AdvanceMeasureContext } from './measureAdvanceTypes';
 
 export type { AdvanceMeasureContext };
 
-function syncStoreMeasureIfHidden(measureIdx: number, ctx: AdvanceMeasureContext): void {
-  if (typeof document !== 'undefined' && document.hidden) ctx.setCurrentMeasure(measureIdx);
-}
-
 function applyPendingLoopRange(pending: { startMeasure: number; endMeasure: number }, store: any, ctx: AdvanceMeasureContext): void {
   store.setPendingLoopRange(null);
   store.setLoopStartMeasure(pending.startMeasure);
@@ -19,15 +15,12 @@ function applyPendingLoopRange(pending: { startMeasure: number; endMeasure: numb
   ctx.loopEndRef.current = pending.endMeasure;
   ctx.isLoopRegionActiveRef.current = true;
   if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
-  store.setCurrentLoopIteration(1);
   ctx.measureCountRef.current = pending.startMeasure;
-  syncStoreMeasureIfHidden(pending.startMeasure, ctx);
 }
 
 export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: AdvanceMeasureContext): void {
   if (ctx.soloPatternPlayIdRef?.current !== null && ctx.soloPatternPlayIdRef?.current !== undefined) {
     ctx.measureCountRef.current = currentMeasureIdx;
-    syncStoreMeasureIfHidden(currentMeasureIdx, ctx);
     ctx.currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, ctx.measureTimeSigsRef.current);
     ctx.absoluteTickCountRef.current = ctx.currentMeasureStartTickRef.current;
     return;
@@ -39,7 +32,6 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
   const queuedTarget = ctx.pendingMeasureRef?.current ?? store.queuedMeasure;
   if (queuedTarget !== null && queuedTarget !== undefined) {
     const consumedSeq = store.queuedMeasureSeq;
-    const consumedExpandedIdx = store.queuedExpandedMeasureIdx;
     const clampedTarget = Math.max(0, Math.min(lastMeasureIdx, queuedTarget));
     if (ctx.pendingMeasureRef) ctx.pendingMeasureRef.current = null;
     if (ctx.pendingIterationRef && ctx.pendingIterationRef.current !== null) {
@@ -48,8 +40,6 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
     }
     ctx.measureCountRef.current = clampedTarget;
     if (typeof document !== 'undefined' && document.hidden) {
-      ctx.setCurrentMeasure(clampedTarget);
-      if (consumedExpandedIdx !== null) store.setCurrentExpandedMeasureIdx(consumedExpandedIdx);
       store.clearQueuedMeasure(consumedSeq);
     }
     const nextSig = ctx.measureTimeSigsRef.current[clampedTarget] || '4/4';
@@ -66,10 +56,10 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
   const isExitRequested = Boolean(ctx.isLoopExitRequestedRef?.current || store.isLoopExitRequested);
   const isLoopBypassed = Boolean(store.isLoopBypassed);
   const isLooping = ctx.isLoopingRef ? ctx.isLoopingRef.current : store.isLooping;
-  const currentIter = ctx.currentLoopIterationRef?.current ?? store.currentLoopIteration ?? 1;  if (isLoopBypassed) {
+  const currentIter = ctx.currentLoopIterationRef?.current ?? store.currentLoopIteration ?? 1;
+  if (isLoopBypassed) {
     if (currentMeasureIdx >= lastMeasureIdx) { ctx.handleStop(); return; }
-    const nextMeasure = currentMeasureIdx + 1;
-    ctx.measureCountRef.current = nextMeasure; syncStoreMeasureIfHidden(nextMeasure, ctx);
+    ctx.measureCountRef.current = currentMeasureIdx + 1;
   } else if (isLoopRegionActive) {
     if (currentMeasureIdx === loopEndMeasure) {
       const isFixedLoopsReached = typeof loopMode === 'number' && loopMode > 0 && currentIter >= loopMode;
@@ -77,18 +67,15 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
         if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
         store.clearLoopExitRequest();
         if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
-        store.setCurrentLoopIteration(1);
         store.setIsLoopBypassed(true);
         if (loopEndMeasure >= lastMeasureIdx) { ctx.handleStop(); return; }
-        const nextMeasure = loopEndMeasure + 1;
-        ctx.measureCountRef.current = nextMeasure; syncStoreMeasureIfHidden(nextMeasure, ctx);
+        ctx.measureCountRef.current = loopEndMeasure + 1;
       } else if (store.pendingLoopRange) {
         applyPendingLoopRange(store.pendingLoopRange, store, ctx);
       } else {
         const nextIter = currentIter + 1;
         if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = nextIter;
-        store.setCurrentLoopIteration(nextIter);
-        ctx.measureCountRef.current = loopStartMeasure; syncStoreMeasureIfHidden(loopStartMeasure, ctx);
+        ctx.measureCountRef.current = loopStartMeasure;
         handleSpeedTrainerLap({
           speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
           speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
@@ -96,8 +83,7 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
         });
       }
     } else {
-      const nextMeasure = currentMeasureIdx + 1;
-      ctx.measureCountRef.current = nextMeasure; syncStoreMeasureIfHidden(nextMeasure, ctx);
+      ctx.measureCountRef.current = currentMeasureIdx + 1;
     }
   } else if (store.pendingLoopRange) {
     const activeSection = (store.songSections || []).find((s) => s.startMeasure <= currentMeasureIdx && currentMeasureIdx <= s.endMeasure);
@@ -106,7 +92,7 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
     } else {
       const nextMeasure = currentMeasureIdx + 1;
       if (nextMeasure >= totalMeasures) { ctx.handleStop(); return; }
-      ctx.measureCountRef.current = nextMeasure; syncStoreMeasureIfHidden(nextMeasure, ctx);
+      ctx.measureCountRef.current = nextMeasure;
     }
   } else if (currentMeasureIdx >= lastMeasureIdx) {
     const isLinear1x = loopMode === 1 || !isLooping;
@@ -115,22 +101,19 @@ export function advanceMeasureOnTickBoundary(currentMeasureIdx: number, ctx: Adv
       if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
       store.clearLoopExitRequest();
       if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
-      store.setCurrentLoopIteration(1);
       ctx.handleStop();
       return;
     }
     const nextIter = currentIter + 1;
     if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = nextIter;
-    store.setCurrentLoopIteration(nextIter);
-    ctx.measureCountRef.current = 0; syncStoreMeasureIfHidden(0, ctx);
+    ctx.measureCountRef.current = 0;
     handleSpeedTrainerLap({
       speedTrainerCurrentBpmRef: ctx.speedTrainerCurrentBpmRef as any,
       speedTrainerConsolidationLapsDoneRef: ctx.speedTrainerConsolidationLapsDoneRef as any,
       handleStop: ctx.handleStop,
     });
   } else {
-    const nextMeasure = currentMeasureIdx + 1;
-    ctx.measureCountRef.current = nextMeasure; syncStoreMeasureIfHidden(nextMeasure, ctx);
+    ctx.measureCountRef.current = currentMeasureIdx + 1;
   }
 
   const nextMIdx = ctx.measureCountRef.current;

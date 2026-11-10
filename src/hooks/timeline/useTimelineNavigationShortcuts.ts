@@ -1,5 +1,6 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
 
 interface NavigationShortcutDeps {
   seekToMeasure?: (mIdx: number, sIdx?: number) => void;
@@ -57,7 +58,7 @@ export function handleTimelineNavigationKeyDown(
 
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     e.preventDefault();
-    const curM = useSequencerStore.getState().currentMeasure, totalM = useSequencerStore.getState().totalMeasures;
+    const curM = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure), totalM = useSequencerStore.getState().totalMeasures;
     const delta = e.shiftKey ? 4 : 1;
     const targetM = e.key === 'ArrowLeft' ? Math.max(0, curM - delta) : Math.min(totalM - 1, curM + delta);
     if (deps.seekToMeasure) deps.seekToMeasure(targetM, 0);
@@ -69,7 +70,7 @@ export function handleTimelineNavigationKeyDown(
   const isNextKey = e.key === '>' || e.key === '.' || e.code === 'NumpadAdd' || (e.key === '+' && !e.ctrlKey && !e.metaKey);
   if (isPrevKey || isNextKey) {
     e.preventDefault();
-    const curM = useSequencerStore.getState().currentMeasure, totalM = useSequencerStore.getState().totalMeasures;
+    const curM = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure), totalM = useSequencerStore.getState().totalMeasures;
     const targetM = isPrevKey ? Math.max(0, curM - 1) : Math.min(totalM - 1, curM + 1);
     if (deps.seekToMeasure) deps.seekToMeasure(targetM, 0);
     else deps.handleTimelineNavigate?.(targetM, 0, 16);

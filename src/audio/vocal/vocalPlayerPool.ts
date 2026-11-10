@@ -37,11 +37,13 @@ export class VocalPlayerPool {
     }
 
     const mainGain = new Tone.Gain(1);
-    const isEcoMode = useSequencerStore.getState().isEcoMode;
+    const isFxLightened = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
     let haasNodes: ActiveVocal['haasNodes'];
 
-    if (isCoroTrack && !isEcoMode) {
-      haasNodes = createHaasModule(mainGain, resolvedOutput);
+    if (isCoroTrack) {
+      // Graphe stable : le module Haas est toujours cable pour le Coro ; le Palier 2 Eco
+      // se contente d'abaisser ses gains Side (voir applyVocalHaasEco), sans recablage.
+      haasNodes = createHaasModule(mainGain, resolvedOutput, isFxLightened);
     } else {
       const dest = (resolvedOutput && (resolvedOutput.input || resolvedOutput)) || (masterVolumeNode && (masterVolumeNode.input || masterVolumeNode));
       mainGain.connect(dest);

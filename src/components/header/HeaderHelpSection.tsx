@@ -1,8 +1,8 @@
 import React from 'react';
-import { HelpCircle, Video, BookOpen, MessageSquare, Share2, ScrollText, Leaf } from 'lucide-react';
+import { HelpCircle, Video, BookOpen, MessageSquare, Share2, ScrollText } from 'lucide-react';
 import { XiloFanion } from '../XiloIcons';
-import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
+import { EcoModeControls } from '../settings/EcoModeControls';
 import { i18n } from '../../data';
 
 interface HeaderHelpSectionProps {
@@ -23,8 +23,6 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
   onCloseMenu,
 }) => {
   const sequencer = useSequencer();
-  const ecoMode = useSequencerStore((state) => state.isEcoMode);
-  const toggleEcoMode = useSequencerStore((state) => state.toggleEcoMode);
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const handleShareApp = async () => {
@@ -111,18 +109,7 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
       </div>
 
       <div className="flex flex-col gap-1 border-t border-[var(--cordel-text)]/30 pt-2 mt-2">
-        <label className="flex items-center gap-2 cursor-pointer select-none font-bold text-[var(--cordel-text)]">
-          <input
-            type="checkbox"
-            checked={ecoMode}
-            onChange={toggleEcoMode}
-            className="accent-[var(--cordel-text)] w-4 h-4 cursor-pointer"
-          />
-          <Leaf className="w-3.5 h-3.5 shrink-0 text-emerald-600 inline" /> {lang === 'fr' ? 'Mode Éco' : 'Modo Eco'} {ecoMode ? '(On)' : '(Off)'}
-        </label>
-        <div className="text-xs opacity-80 leading-tight text-[var(--cordel-text)] font-sans">
-          {lang === 'fr' ? 'Désactive les animations pour soulager la tablette.' : 'Desativa animações para aliviar o tablet.'}
-        </div>
+        <EcoModeControls lang={lang} variant="compact" />
       </div>
     </div>
   );

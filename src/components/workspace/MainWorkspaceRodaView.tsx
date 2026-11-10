@@ -53,8 +53,9 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
     prevIsUnder1280Ref.current = isUnder1280;
   }, [isUnder1280, activeRightPanel, onToggleRightPanel]);
 
-  const pistasProps = useWorkspacePistasProps(viewMode === 'roda');
+  const isRodaWorkspaceActive = viewMode !== 'timeline';
   const isPistasOpen = !isTracksCollapsed;
+  const pistasProps = useWorkspacePistasProps(isRodaWorkspaceActive && isPistasOpen);
 
   const handleOpenDrawer = () => {
     if (isUnder1280) setIsDrawerOpenUnder1280(true);
@@ -81,13 +82,14 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
           <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg"><CircleSequencer isMobile={false} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} isActive /></div>
         </WindowPortal>
       )}
-      {(!isMobile || mobileTab === 'mixer') && (
+      {isRodaWorkspaceActive && (!isMobile || mobileTab === 'mixer') && (
         <WorkspaceTrackColumn tracks={pistasProps.visibleTracks} isPistasOpen={isPistasOpen} onOpenDetailEditor={setEditingTrackId} scrollRef={pistasProps.trackScrollRef} onScroll={pistasProps.handleTrackScroll} />
       )}
       {(!isMobile || mobileTab === 'roda') && (
         <div className="flex-1 min-w-[420px] h-full relative flex flex-col overflow-hidden">
-          {!isMobile && (
+          {!isMobile && isRodaWorkspaceActive && (
             <RodaCentralTopBar
+              isActive={isRodaWorkspaceActive}
               isPistasOpen={isPistasOpen}
               className="w-full shrink-0"
               rightAction={isUnder1280 && !isDrawerOpenUnder1280 ? (
@@ -103,7 +105,7 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
                 <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} isActive={viewMode === 'roda' && !isPistasOpen} />
               </ErrorBoundary>
             )}
-            {!isMobile && (
+            {!isMobile && isRodaWorkspaceActive && (
               <WorkspacePistasOverlay tracks={pistasProps.visibleTracks} isPistasOpen={isPistasOpen} currentMeasure={pistasProps.currentMeasure} defaultBeats={pistasProps.defaultBeats} isLeftHanded={pistasProps.isLeftHanded} sequencer={sequencer} handleStepClick={(_e, id) => { if (!useSequencerStore.getState().isPracticeMode) setEditingTrackId(id); }} registerStepRef={pistasProps.registerStepRef} trackResolutionsRef={pistasProps.trackResolutionsRef} scrollRef={pistasProps.pistasScrollRef} onScroll={pistasProps.handlePistasScroll} />
             )}
           </div>
