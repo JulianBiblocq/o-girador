@@ -36,6 +36,7 @@ export function restoreMasterFxFromPreset(
 
   const loadedMasterFX: MasterFX = {
     reverb: {
+      ...(rawMasterFX?.reverb || {}),
       returnVolume: isValidNum(rawMasterFX?.reverb?.returnVolume)
         ? convertLegacyReverbDbToPercent(rawMasterFX.reverb.returnVolume)
         : (isValidNum(p.masterReverbVol) ? convertLegacyReverbDbToPercent(p.masterReverbVol) : 20),
@@ -45,6 +46,7 @@ export function restoreMasterFxFromPreset(
       isMuted: typeof rawMasterFX?.reverb?.isMuted === 'boolean' ? rawMasterFX.reverb.isMuted : false,
     },
     distortion: {
+      ...(rawMasterFX?.distortion || {}),
       returnVolume: isValidNum(rawMasterFX?.distortion?.returnVolume)
         ? rawMasterFX.distortion.returnVolume
         : (isValidNum(p.masterDistortion) ? p.masterDistortion : 0),
@@ -53,6 +55,7 @@ export function restoreMasterFxFromPreset(
         : (isValidNum(p.masterDistortionDrive) ? p.masterDistortionDrive : 20),
       isMuted: typeof rawMasterFX?.distortion?.isMuted === 'boolean' ? rawMasterFX.distortion.isMuted : false,
     },
+    ...(rawMasterFX?.masterBus ? { masterBus: rawMasterFX.masterBus } : {}),
   };
 
   useSequencerStore.getState().setMasterFX(loadedMasterFX);

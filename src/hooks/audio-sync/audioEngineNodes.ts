@@ -2,6 +2,8 @@ import { AudioEngine } from '../../AudioEngine';
 import { InputManager } from '../../InputManager';
 import {
   masterVolumeNode,
+  masterVocalInputNode,
+  masterBusWorkletManager,
   masterEQNode,
   masterCompressorNode,
   masterPostLimiterTap,
@@ -55,6 +57,8 @@ export function getInputManager(): InputManager | null {
 
 export {
   masterVolumeNode,
+  masterVocalInputNode,
+  masterBusWorkletManager,
   masterEQNode as masterEQ,
   masterEQNode,
   masterCompressorNode as masterCompressor,

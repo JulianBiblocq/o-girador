@@ -15,7 +15,12 @@ export {
   disposeTrackNodes,
   disposeAllTrackNodes,
 } from './effects/trackDisposeHandler';
-export { syncMasterCompressorBypass, previewMasterCompressorSetting, resetMasterCompressorCache } from './effects/masterBypassHandler';
+export {
+  syncMasterCompressorBypass,
+  syncMasterBusWorkletParams,
+  previewMasterCompressorSetting,
+  resetMasterCompressorCache,
+} from './effects/masterBypassHandler';
 export * from './effects/postBusSendRouter';
 export {
   initMasterMonoNodes,

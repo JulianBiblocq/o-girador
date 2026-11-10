@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { masterVolumeNode, masterEQNode } from './audioEngineNodes';
-import { syncMasterCompressorBypass } from '../../audio/effectsChain';
+import { syncMasterBusWorkletParams, syncMasterCompressorBypass } from '../../audio/effectsChain';
 import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
 import { safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
 
@@ -17,7 +17,6 @@ export function useMasterEffectsSync({
   masterEQ,
   masterCompressor,
 }: UseMasterEffectsSyncProps) {
-  // Sync Master Volume node avec lissage Zero-Click (rampTo 20 ms, autorisant jusqu'à +12 dB)
   useEffect(() => {
     if (masterVolumeNode) {
       const state = useSequencerStore.getState();
@@ -41,7 +40,6 @@ export function useMasterEffectsSync({
     }
   }, [masterVol]);
 
-  // Sync Master EQ (lowshelf 100Hz, peaking 1000Hz, highshelf 4500Hz en série permanente avec lissage 20 ms)
   useEffect(() => {
     if (masterEQNode) {
       safeRampGainDb(masterEQNode.low, masterEQ.low, 0.02);
@@ -50,16 +48,26 @@ export function useMasterEffectsSync({
     }
   }, [masterEQ]);
 
-  // Sync Master Compressor (bypass doux si desactive OU si Palier 2 Eco `disableFx`)
   useEffect(() => {
-    const resolveBypass = (s: ReturnType<typeof useSequencerStore.getState>) =>
-      !(s.masterEffectsActive?.compressor ?? true) || Boolean(s.ecoConfig?.disableFx);
+    const applyState = (s: ReturnType<typeof useSequencerStore.getState>) => {
+      const disableFx = Boolean(s.ecoConfig?.disableFx);
+      const isBypassed = !(s.masterEffectsActive?.compressor ?? true) || disableFx;
+      syncMasterCompressorBypass(isBypassed, masterCompressor, disableFx);
+      if (s.masterFX?.masterBus) {
+        syncMasterBusWorkletParams(s.masterFX.masterBus);
+      }
+    };
 
-    syncMasterCompressorBypass(resolveBypass(useSequencerStore.getState()), masterCompressor);
+    applyState(useSequencerStore.getState());
 
     const unsubscribe = useSequencerStore.subscribe((state, prevState) => {
-      const next = resolveBypass(state);
-      if (next !== resolveBypass(prevState)) syncMasterCompressorBypass(next, masterCompressor);
+      const nextComp = state.masterEffectsActive?.compressor ?? true;
+      const prevComp = prevState.masterEffectsActive?.compressor ?? true;
+      const nextEco = Boolean(state.ecoConfig?.disableFx);
+      const prevEco = Boolean(prevState.ecoConfig?.disableFx);
+      if (nextComp !== prevComp || nextEco !== prevEco || state.masterFX?.masterBus !== prevState.masterFX?.masterBus) {
+        applyState(state);
+      }
     });
 
     return () => unsubscribe();

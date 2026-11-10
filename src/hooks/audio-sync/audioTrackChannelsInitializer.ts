@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { channels, meters, reverbSends, distortionSends, busInputs, busChannels, masterVolumeNode } from './audioEngineNodes';
+import { channels, meters, reverbSends, distortionSends, busInputs, busChannels, masterVolumeNode, masterVocalInputNode } from './audioEngineNodes';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
@@ -58,10 +58,12 @@ export function initTrackChannelsAudioNodes(
     }
 
     channels[t.id].disconnect();
+    const isVocalTrack = inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro' || inst.id === 'toada';
+    const masterTarget = (isVocalTrack && masterVocalInputNode) ? masterVocalInputNode : masterVolumeNode;
     if (targetBusNode) {
       channels[t.id].connect(targetBusNode);
-    } else if (masterVolumeNode) {
-      channels[t.id].connect(masterVolumeNode);
+    } else if (masterTarget) {
+      channels[t.id].connect(masterTarget);
     }
 
     if (reverbSends[t.id]) channels[t.id].connect(reverbSends[t.id]);

@@ -2,6 +2,8 @@ import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrackAcousticsSlice } from './trackAcousticsSliceTypes';
 import { setMasterMonoCheck } from '../../audio/effects/masterMonoHandler';
+import { applySpeakerProfile, getStoredSpeakerProfile } from '../../audio/effects/speakerProfileFilter';
+import { DEFAULT_STUDIO_MASTER_BUS_CONFIG } from '../../audio/effects/studioFxPresets';
 import {
   handleTrackMeasureVolChangeState,
   handleTrackMeasureVolTransitionChangeState,
@@ -29,16 +31,25 @@ import {
   setMasterFxVolumeState,
   setMasterFxParamState,
   toggleMasterEffectActiveState,
-  setMasterEffectsActiveState
+  setMasterEffectsActiveState,
+  applyStudioFxPresetState
 } from '../helpers/trackEqMasterFxHelper';
 
 export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], TrackAcousticsSlice> = (set, get) => ({
   masterFX: {
-    reverb: { returnVolume: 70, time: 30, isMuted: false },
-    distortion: { returnVolume: 0, drive: 20, isMuted: false }
+    reverb: {
+      returnVolume: 70, time: 30, isMuted: false,
+      spaceType: 'wood_studio', preDelayMs: 12, lowCutHz: 140, dampHz: 7500, stereoWidth: 100, presetId: 'wood_studio',
+    },
+    distortion: {
+      returnVolume: 0, drive: 20, isMuted: false,
+      character: 'soft_tube', preHpfHz: 180, toneHz: 6500, presetId: 'soft_warmth',
+    },
+    masterBus: { ...DEFAULT_STUDIO_MASTER_BUS_CONFIG },
   },
   masterEffectsActive: { compressor: true, reverb: true, disto: true },
   isMasterMono: false,
+  speakerProfile: getStoredSpeakerProfile(),
 
   toggleMasterMono: () => {
     const next = !get().isMasterMono;
@@ -49,6 +60,16 @@ export const createTrackAcousticsSlice: StateCreator<SequencerStore, [], [], Tra
     setMasterMonoCheck(val);
     set({ isMasterMono: val });
   },
+  setSpeakerProfile: (profileId) => {
+    applySpeakerProfile(profileId);
+    set({ speakerProfile: profileId });
+  },
+  updateMasterReverbConfig: (patch) => set(s => ({ masterFX: { ...s.masterFX, reverb: { ...s.masterFX.reverb, ...patch } } })),
+  updateMasterDistortionConfig: (patch) => set(s => ({ masterFX: { ...s.masterFX, distortion: { ...s.masterFX.distortion, ...patch } } })),
+  updateMasterBusConfig: (patch) => set(s => ({
+    masterFX: { ...s.masterFX, masterBus: { ...DEFAULT_STUDIO_MASTER_BUS_CONFIG, ...(s.masterFX.masterBus || {}), ...patch } },
+  })),
+  applyStudioFxPreset: (module, presetId) => set(s => ({ masterFX: applyStudioFxPresetState(s.masterFX, module, presetId) })),
 
   handleTrackVolumeChange: (id, val) => set(s => ({ tracks: handleTrackVolumeChangeState(s.tracks, id, val) })),
   handleTrackMeasureVolChange: (trackId, mIdx, val) => {

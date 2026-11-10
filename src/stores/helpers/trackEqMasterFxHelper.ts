@@ -1,14 +1,23 @@
 import { TrackGroup, MasterFX } from '../../types';
 import { MasterEffectsActiveState } from '../slices/trackAcousticsSliceTypes';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
+import {
+  DEFAULT_STUDIO_MASTER_BUS_CONFIG, STUDIO_COMPRESSOR_PRESETS,
+  STUDIO_REVERB_PRESETS, STUDIO_SATURATION_PRESETS, type StudioMasterBusConfig,
+} from '../../audio/effects/studioFxPresets';
+
+const DEFAULT_EQ_BANDS = {
+  low: { f: 100, g: 0 },
+  mid: { f: 1000, g: 0, q: 'wide' as const },
+  high: { f: 8000, g: 0 },
+};
 
 export const handleTrackVolumeChangeState = (tracks: TrackGroup[], id: number, val: number): TrackGroup[] =>
   tracks.map(t => {
     if (t.id !== id) return t;
     const isAutoActive = hasActiveTrackAutomation(t, 'volume');
     return {
-      ...t,
-      volumeVal: val,
+      ...t, volumeVal: val,
       measureVols: isAutoActive ? t.measureVols : undefined,
       measureVolTransitions: isAutoActive ? t.measureVolTransitions : undefined,
     };
@@ -19,8 +28,7 @@ export const handleTrackReverbChangeState = (tracks: TrackGroup[], id: number, v
     if (t.id !== id) return t;
     const isAutoActive = hasActiveTrackAutomation(t, 'reverb');
     return {
-      ...t,
-      reverbVal: val,
+      ...t, reverbVal: val,
       measureReverbSends: isAutoActive ? t.measureReverbSends : undefined,
       measureReverbTransitions: isAutoActive ? t.measureReverbTransitions : undefined,
     };
@@ -31,9 +39,7 @@ export const handleTrackPanChangeState = (tracks: TrackGroup[], id: number, val:
     if (t.id !== id) return t;
     const isAutoActive = hasActiveTrackAutomation(t, 'pan');
     return {
-      ...t,
-      pan: val,
-      panVal: val,
+      ...t, pan: val, panVal: val,
       measurePans: isAutoActive ? t.measurePans : undefined,
       measurePanTransitions: isAutoActive ? t.measurePanTransitions : undefined,
     };
@@ -64,63 +70,54 @@ export const handleTrackLowCutToggleState = (tracks: TrackGroup[], id: number): 
   tracks.map(t => (t.id === id ? { ...t, lowCut: !t.lowCut } : t));
 
 export const handleTrackEQChangeState = (
-  tracks: TrackGroup[],
-  id: number,
-  bands: Partial<TrackGroup['eqBands']>
+  tracks: TrackGroup[], id: number, bands: Partial<TrackGroup['eqBands']>
 ): TrackGroup[] =>
   tracks.map(t => {
     if (t.id !== id || !bands) return t;
-    const currentBands = t.eqBands || {
-      low: { f: 100, g: 0 },
-      mid: { f: 1000, g: 0, q: 'wide' as const },
-      high: { f: 8000, g: 0 },
-    };
+    const cur = t.eqBands || DEFAULT_EQ_BANDS;
     return {
       ...t,
       eqBands: {
-        low: { ...currentBands.low, ...(bands.low || {}) },
-        mid: { ...currentBands.mid, ...(bands.mid || {}) },
-        high: { ...currentBands.high, ...(bands.high || {}) },
+        low: { ...cur.low, ...(bands.low || {}) },
+        mid: { ...cur.mid, ...(bands.mid || {}) },
+        high: { ...cur.high, ...(bands.high || {}) },
       },
     };
   });
 
 export const handleTrackEQResetState = (tracks: TrackGroup[], id: number): TrackGroup[] =>
-  tracks.map(t =>
-    t.id === id
-      ? {
-          ...t,
-          lowCut: false,
-          eqBands: {
-            low: { f: 100, g: 0 },
-            mid: { f: 1000, g: 0, q: 'wide' as const },
-            high: { f: 8000, g: 0 },
-          },
-        }
-      : t
-  );
+  tracks.map(t => (t.id === id ? { ...t, lowCut: false, eqBands: { ...DEFAULT_EQ_BANDS } } : t));
 
 export const setMasterFxVolumeState = (masterFX: MasterFX, fxType: 'reverb' | 'distortion', volume: number): MasterFX => ({
-  ...masterFX,
-  [fxType]: { ...masterFX[fxType], returnVolume: volume },
+  ...masterFX, [fxType]: { ...masterFX[fxType], returnVolume: volume },
 });
 
 export const setMasterFxParamState = (
-  masterFX: MasterFX,
-  fxType: 'reverb' | 'distortion',
-  param: 'time' | 'drive',
-  value: number
+  masterFX: MasterFX, fxType: 'reverb' | 'distortion', param: 'time' | 'drive', value: number
 ): MasterFX => ({
-  ...masterFX,
-  [fxType]: { ...masterFX[fxType], [param]: value },
+  ...masterFX, [fxType]: { ...masterFX[fxType], [param]: value },
 });
 
 export const toggleMasterEffectActiveState = (
-  current: MasterEffectsActiveState,
-  effect: 'compressor' | 'reverb' | 'disto'
+  current: MasterEffectsActiveState, effect: 'compressor' | 'reverb' | 'disto'
 ): MasterEffectsActiveState => ({ ...current, [effect]: !current[effect] });
 
 export const setMasterEffectsActiveState = (
-  current: MasterEffectsActiveState,
-  active: Partial<MasterEffectsActiveState>
+  current: MasterEffectsActiveState, active: Partial<MasterEffectsActiveState>
 ): MasterEffectsActiveState => ({ ...current, ...active });
+
+export const applyStudioFxPresetState = (
+  masterFX: MasterFX, module: 'reverb' | 'saturation' | 'compressor', presetId: string
+): MasterFX => {
+  if (module === 'reverb' && STUDIO_REVERB_PRESETS[presetId]) {
+    return { ...masterFX, reverb: { ...masterFX.reverb, ...STUDIO_REVERB_PRESETS[presetId].params, presetId } };
+  }
+  if (module === 'saturation' && STUDIO_SATURATION_PRESETS[presetId]) {
+    return { ...masterFX, distortion: { ...masterFX.distortion, ...STUDIO_SATURATION_PRESETS[presetId].params, presetId } };
+  }
+  if (module === 'compressor' && STUDIO_COMPRESSOR_PRESETS[presetId]) {
+    const curBus: StudioMasterBusConfig = { ...DEFAULT_STUDIO_MASTER_BUS_CONFIG, ...(masterFX.masterBus || {}) };
+    return { ...masterFX, masterBus: { ...curBus, ...STUDIO_COMPRESSOR_PRESETS[presetId].params, presetId } };
+  }
+  return masterFX;
+};

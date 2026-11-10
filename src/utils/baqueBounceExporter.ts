@@ -15,6 +15,7 @@ import { buildFlatSongSchedule } from '../workers/compiler/flatScheduleBuilder';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../hooks/audio-sync/percussionSwingHelper';
 import { audioBufferToWav } from './audio-buffer/audioBufferWavConverter';
 import { buildOfflineTrackGraph, scheduleOfflineStrokeHit } from './baqueBounceTrackGraph';
+import { processOfflineStereoArraysThroughMasterBus } from '../audio/worklet/master-bus/masterBusProcessor';
 import {
   formatBaqueBounceFilename,
   computeBaqueCycleTiming,
@@ -106,6 +107,19 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
   }
 
   const rendered = await offlineCtx.startRendering();
+  if (rendered.numberOfChannels >= 2) {
+    const compActive = (state.masterEffectsActive?.compressor ?? true) && !state.ecoConfig?.disableFx;
+    processOfflineStereoArraysThroughMasterBus(
+      rendered.getChannelData(0),
+      rendered.getChannelData(1),
+      timing.sampleRate,
+      {
+        ...(state.masterFX?.masterBus || {}),
+        compressorEnabled: compActive,
+        ecoBypassAesthetic: Boolean(state.ecoConfig?.disableFx),
+      }
+    );
+  }
   const rhythmName = state.metadata?.ritmo || state.metadata?.toada || 'baque';
   return { wavBlob: audioBufferToWav(rendered), filename: formatBaqueBounceFilename(rhythmName, timing.bpm), exactTotalSamples: rendered.length, totalDurationSec: timing.totalDurationSec, sampleRate: timing.sampleRate };
 }

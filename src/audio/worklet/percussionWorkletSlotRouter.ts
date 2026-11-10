@@ -29,7 +29,7 @@ export function unwrapNativeAudioNode(target: unknown): AudioNode | null {
     if (hasWinNode ? curr instanceof window.AudioNode : (typeof curr.connect === 'function' && !curr._nativeAudioNode && !curr._gainNode && !curr.input)) {
       return curr as AudioNode;
     }
-    curr = curr._nativeAudioNode || curr._nativeGainNode || curr._nativeAudioDestinationNode || curr._nativeNode
+    curr = curr._nativeAudioNode || curr._nativeGainNode || curr._nativeBiquadFilterNode || curr._nativeAudioDestinationNode || curr._nativeNode
       || curr._gainNode || (curr.input && curr.input !== curr ? curr.input : null) || (curr.output && curr.output !== curr ? curr.output : null);
   }
   return null;
@@ -44,11 +44,9 @@ export class PercussionWorkletSlotRouter {
   private sacKeepAlive: ConstantSourceNode | null = null;
 
   public get routedSlotCount(): number {
-    let c = 0;
-    for (let s = 1; s < MAX_WORKLET_OUTPUTS; s++) if (this.slotConnected[s] === 1) c++;
+    let c = 0; for (let s = 1; s < MAX_WORKLET_OUTPUTS; s++) if (this.slotConnected[s] === 1) c++;
     return c;
   }
-
   private getDefaultDestination(audioContext: AudioContext | null): unknown {
     try { const Tone = getTone(); if (Tone?.getDestination) return Tone.getDestination(); } catch (_) {}
     return audioContext ? audioContext.destination : null;

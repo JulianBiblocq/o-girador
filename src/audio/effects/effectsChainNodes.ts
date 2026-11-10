@@ -1,17 +1,24 @@
 import * as Tone from 'tone';
+import type { MasterBusWorkletManager } from '../worklet/master-bus/MasterBusWorkletManager';
 
 export let masterVolumeNode: Tone.Gain | null = null;
 export function setMasterVolumeNode(node: Tone.Gain | null) { masterVolumeNode = node; }
 
+export let masterVocalInputNode: Tone.Gain | null = null;
+export function setMasterVocalInputNode(node: Tone.Gain | null) { masterVocalInputNode = node; }
+
+export let masterBusWorkletManager: MasterBusWorkletManager | null = null;
+export function setMasterBusWorkletManager(mgr: MasterBusWorkletManager | null) { masterBusWorkletManager = mgr; }
+
 export interface MasterEQNodeInterface {
-  low: Tone.Param<'decibels'> | Tone.Signal<'decibels'>;
-  mid: Tone.Param<'decibels'> | Tone.Signal<'decibels'>;
-  high: Tone.Param<'decibels'> | Tone.Signal<'decibels'>;
-  lowFilter: Tone.BiquadFilter;
-  midFilter: Tone.BiquadFilter;
-  highFilter: Tone.BiquadFilter;
-  input: Tone.BiquadFilter;
-  output: Tone.BiquadFilter;
+  low: any;
+  mid: any;
+  high: any;
+  lowFilter?: any;
+  midFilter?: any;
+  highFilter?: any;
+  input?: any;
+  output?: any;
 }
 
 export let masterEQNode: MasterEQNodeInterface | null = null;

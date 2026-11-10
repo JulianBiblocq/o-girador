@@ -5,9 +5,11 @@
 import * as Tone from 'tone';
 import { percentToDb } from './audioParamsCache';
 import { safeRampDb, safeRampTo } from '../../utils/audio/safeAudioParamRamp';
-import { reverbSends, distortionSends, masterDistortionVolumeNode } from './audioEngineNodes';
+import { reverbSends, distortionSends, masterDistortionVolumeNode, distortionNode } from './audioEngineNodes';
 import { syncTrackInsertChain, syncBusInsertChain } from '../../audio/effectsChain';
 import { applyVocalHaasEco } from '../../audio/vocal/vocalHaasModule';
+import { resolveSaturationOversample } from '../../audio/effects/studioSaturationChain';
+import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
 
 function rampSendGain(send: any, percent: number): void {
   const gainParam = send?.gain;
@@ -35,6 +37,11 @@ export function applyFxSendsEco(disableFx: boolean, tracks: any[]): void {
 
 /** Retour Distorsion Master : coupe en Palier 2, restaure la valeur du store sinon. */
 export function applyMasterDistortionEco(disableFx: boolean, state: any): void {
+  if (distortionNode) {
+    try { distortionNode.oversample = resolveSaturationOversample(Boolean(state.isEcoMode) || disableFx); } catch (_) {}
+  }
+  const busCfg = state.masterFX?.masterBus;
+  syncToadaVocalSlapback(busCfg?.toadaSlapbackMode ?? 'off', busCfg?.toadaSlapbackWet ?? 0, disableFx);
   if (!masterDistortionVolumeNode) return;
   const fxActive = state.masterEffectsActive || { compressor: true, reverb: true, disto: true };
   const dist = state.masterFX?.distortion;

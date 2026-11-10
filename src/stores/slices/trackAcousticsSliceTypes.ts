@@ -1,4 +1,5 @@
 import { TrackGroup, MasterFX } from '../../types';
+import type { SpeakerProfileId, StudioMasterBusConfig } from '../../audio/effects/studioFxPresets';
 
 export interface MasterEffectsActiveState {
   compressor: boolean;
@@ -10,8 +11,14 @@ export interface TrackAcousticsSlice {
   masterFX: MasterFX;
   masterEffectsActive: MasterEffectsActiveState;
   isMasterMono: boolean;
+  speakerProfile: SpeakerProfileId;
   toggleMasterMono: () => void;
   setMasterMono: (val: boolean) => void;
+  setSpeakerProfile: (profileId: SpeakerProfileId) => void;
+  updateMasterReverbConfig: (patch: Partial<MasterFX['reverb']>) => void;
+  updateMasterDistortionConfig: (patch: Partial<MasterFX['distortion']>) => void;
+  updateMasterBusConfig: (patch: Partial<StudioMasterBusConfig>) => void;
+  applyStudioFxPreset: (module: 'reverb' | 'saturation' | 'compressor', presetId: string) => void;
 
   handleTrackVolumeChange: (id: number, val: number) => void;
   handleTrackMeasureVolChange: (trackId: number, mIdx: number, val: number) => void;

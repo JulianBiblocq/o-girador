@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useCallback } from 'react';
 import * as Tone from 'tone';
 import { DragNumberBox } from '../DragNumberBox';
@@ -54,7 +53,7 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
 
   const handleReverbTimeDrag = React.useCallback((val: number) => {
     if (reverbNode) {
-      const decay = 0.5 + 7.5 * (val / 100);
+      const decay = 0.4 + 3.6 * (Math.max(0, Math.min(100, val)) / 100);
       if (reverbNode.decay !== decay) {
         try { reverbNode.decay = decay; } catch (_) {}
       }
@@ -63,15 +62,15 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
 
   return (
     <div className="flex-1 flex flex-col border-r border-[var(--cordel-border)]/20 relative z-10 py-0.5 overflow-hidden">
-      <div 
-        ref={reverbBgRef} 
+      <div
+        ref={reverbBgRef}
         className="absolute inset-0 bg-[var(--reverb-color)] pointer-events-none transition-none"
         style={{ opacity: calcReverbOpacity(returnVolume) * 0.15 }}
       />
 
       <div className="pb-0.5 flex justify-between items-center h-[22px] border-b border-[var(--cordel-border)]/20 relative z-10 px-1.5">
-        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden border border-[#2a5c8a]">
-          <div 
+        <div className="relative flex items-center justify-center px-1.5 py-0.5 rounded-xs overflow-hidden border border-[var(--reverb-color)]">
+          <div
             ref={reverbBadgeRef}
             className="absolute inset-0 bg-[var(--reverb-color)] pointer-events-none transition-none"
             style={{ opacity: calcReverbOpacity(returnVolume) }}
@@ -93,19 +92,20 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
           }}
           className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none relative z-20 ${
             isReverbActive
-              ? 'bg-[#2a5c8a] text-[#f4ecd8] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
-              : 'bg-[#ded3be] text-[#1a1a1a]/40 border border-[#1a1a1a]/30 shadow-none'
+              ? 'bg-[var(--reverb-color)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] hover:brightness-110 active:translate-x-[0.5px] active:translate-y-[0.5px]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/40 border border-[var(--cordel-border)]/30 shadow-none'
           }`}
-          title={isReverbActive ? "Réverbe Master active (cliquer pour contourner / bypass)" : "Réverbe Master bypassée (cliquer pour activer)"}
-        >
-          
-        </button>
+          title={isReverbActive ? 'Réverbe Master active (cliquer pour contourner / bypass)' : 'Réverbe Master bypassée (cliquer pour activer)'}
+        />
       </div>
 
-      <div data-testid="master-reverb-settings" className={`px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10 transition-opacity duration-150 ${
-        isReverbActive ? '' : 'opacity-40 grayscale pointer-events-none'
-      }`}>
-        <DragNumberBox 
+      <div
+        data-testid="master-reverb-settings"
+        className={`px-1 py-0.5 flex flex-col gap-1 items-center mt-0.5 relative z-10 transition-opacity duration-150 ${
+          isReverbActive ? '' : 'opacity-40 grayscale pointer-events-none'
+        }`}
+      >
+        <DragNumberBox
           label={t('reverbTime')}
           value={reverbTime}
           defaultValue={50}
@@ -114,7 +114,7 @@ export const MasterReverbSection: React.FC<MasterReverbSectionProps> = ({
           fillColor="var(--reverb-color)"
           className="w-20"
         />
-        <DragNumberBox 
+        <DragNumberBox
           label={t('reverbVol')}
           value={returnVolume}
           defaultValue={0}

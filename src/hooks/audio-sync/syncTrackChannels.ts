@@ -16,7 +16,7 @@ import {
   resolveImmediateBusId,
 } from '../../audio/effectsChain';
 import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
-import { busInputs } from './audioEngineNodes';
+import { busInputs, masterVocalInputNode } from './audioEngineNodes';
 import { AudioEngine } from '../../AudioEngine';
 
 export interface SyncTrackChannelsParams {
@@ -52,18 +52,12 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
 
     if (!channels[t.id]) {
       channels[t.id] = new Tone.Channel({ volume: 0 });
-      try {
-        channels[t.id].channelCount = 2;
-        channels[t.id].channelCountMode = "explicit";
-      } catch (_) {}
+      try { channels[t.id].channelCount = 2; channels[t.id].channelCountMode = "explicit"; } catch (_) {}
       meters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
       channels[t.id].connect(meters[t.id]);
     }
     ensureAuxSendNodes(t.id, percentToDb(disableFx ? 0 : reverb), percentToDb(disableFx ? 0 : distortion));
-    if (t.isLinkMaster) {
-      ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
-    }
-
+    if (t.isLinkMaster) ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
     if (!trackInputs[t.id]) {
       trackInputs[t.id] = new Tone.Gain(1.0);
       syncTrackInsertChain(t.id, t);
@@ -119,10 +113,12 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const busKey = targetBusId !== null ? String(targetBusId) : null;
     if (lastAppliedBussesRef.current[t.id] !== busKey || !channels[t.id]) {
       channels[t.id].disconnect();
+      const isVocalTrack = inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro' || inst.id === 'toada';
+      const masterTarget = (isVocalTrack && masterVocalInputNode) ? masterVocalInputNode : masterVolumeNode;
       if (targetBusNode) {
         channels[t.id].connect(targetBusNode);
-      } else if (masterVolumeNode) {
-        channels[t.id].connect(masterVolumeNode);
+      } else if (masterTarget) {
+        channels[t.id].connect(masterTarget);
       }
 
       if (reverbSends[t.id]) channels[t.id].connect(reverbSends[t.id]);

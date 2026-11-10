@@ -1,10 +1,11 @@
 import * as Tone from 'tone';
 import { Track } from '../../types';
+import { instrumentsConfig } from '../../data';
 import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
-import { busInputs } from './audioEngineNodes';
+import { busInputs, masterVocalInputNode } from './audioEngineNodes';
 import {
   syncBusInsertChain,
   ensureAuxSendNodes,
@@ -105,12 +106,15 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const busKey = currentBusId !== null ? String(currentBusId) : null;
     if (lastAppliedBussesRef.current[t.id] !== busKey) {
       busChannels[t.id].disconnect();
+      const inst = instrumentsConfig[t.instrumentIdx];
+      const isVocalBus = inst?.id === 'toada' || inst?.type === 'voice' || (t.customName || '').trim().toLowerCase() === 'toada';
+      const masterTarget = (isVocalBus && masterVocalInputNode) ? masterVocalInputNode : masterVolumeNode;
 
       const parentBusInput = currentBusId !== null ? (busInputs[currentBusId] || busChannels[currentBusId] || null) : null;
       if (parentBusInput) {
         busChannels[t.id].connect(parentBusInput);
-      } else if (masterVolumeNode) {
-        busChannels[t.id].connect(masterVolumeNode);
+      } else if (masterTarget) {
+        busChannels[t.id].connect(masterTarget);
       }
 
       if (reverbSends[t.id]) busChannels[t.id].connect(reverbSends[t.id]);

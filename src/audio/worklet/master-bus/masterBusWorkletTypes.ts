@@ -13,6 +13,8 @@ export interface MasterBusDspParams {
   attackMs: number; releaseMs: number; kneeDb: number; makeupDb: number; compMixPct: number;
   softClipEnabled: boolean; softClipDriveDb: number; ceilingDb: number;
   ecoBypassAesthetic: boolean;
+  sumSidechainToMix?: boolean;
+  masterGainLin?: number;
 }
 
 export const DEFAULT_MASTER_BUS_DSP_PARAMS: MasterBusDspParams = {
@@ -23,6 +25,8 @@ export const DEFAULT_MASTER_BUS_DSP_PARAMS: MasterBusDspParams = {
   attackMs: 15, releaseMs: 150, kneeDb: 6, makeupDb: 0, compMixPct: 100,
   softClipEnabled: true, softClipDriveDb: 1.2, ceilingDb: -0.3,
   ecoBypassAesthetic: false,
+  sumSidechainToMix: true,
+  masterGainLin: 1,
 };
 
 export interface MasterBusTelemetrySnapshot {

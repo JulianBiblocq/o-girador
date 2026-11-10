@@ -4,7 +4,7 @@
  */
 
 import { useSequencerStore, isToadaBus } from '../../stores/useSequencerStore';
-import { channels, busChannels, trackInputs, masterVolumeNode } from '../effectsChain';
+import { channels, busChannels, trackInputs, masterVolumeNode, masterVocalInputNode } from '../effectsChain';
 import { instrumentsConfig } from '../../data';
 
 export function resolveVocalOutputNode(trackId?: string | number, isCoroTrack?: boolean): any {
@@ -30,5 +30,5 @@ export function resolveVocalOutputNode(trackId?: string | number, isCoroTrack?: 
   }
 
   if (toadaBusNode) return toadaBusNode;
-  return masterVolumeNode;
+  return masterVocalInputNode || masterVolumeNode;
 }

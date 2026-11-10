@@ -11,6 +11,20 @@ import { MasterBusDspState } from './masterBusWorkletTypes';
 const TWO_PI = 2 * Math.PI;
 const LOG10_20 = 20 / Math.LN10;
 
+function sumSidechainStemInPlace(
+  bufL: Float32Array, bufR: Float32Array,
+  scInL: Float32Array | null, scInR: Float32Array | null,
+  numFrames: number, gainLin: number, enabled: boolean
+): void {
+  if (!enabled || (!scInL && !scInR)) return;
+  for (let i = 0; i < numFrames; i++) {
+    const vL = (scInL ? scInL[i] : 0) * gainLin;
+    const vR = (scInR ? scInR[i] : (scInL ? scInL[i] : 0)) * gainLin;
+    bufL[i] += vL;
+    bufR[i] += vR;
+  }
+}
+
 export function processMasterStage2DuckingAndGlue(
   s: MasterBusDspState,
   bufL: Float32Array,
@@ -20,9 +34,12 @@ export function processMasterStage2DuckingAndGlue(
   numFrames: number
 ): void {
   const p = s.params;
+  const g = p.masterGainLin ?? 1;
+  const sumSc = p.sumSidechainToMix !== false;
   if (p.ecoBypassAesthetic) {
     s.currentDuckDb = 0;
     s.currentGrDb = 0;
+    sumSidechainStemInPlace(bufL, bufR, scInL, scInR, numFrames, g, sumSc);
     return;
   }
   const sr = s.sampleRate;
@@ -36,8 +53,8 @@ export function processMasterStage2DuckingAndGlue(
     let scEnv = s.duckScEnv, maxDuck = 0;
 
     for (let i = 0; i < numFrames; i++) {
-      const vL = scInL ? scInL[i] : 0;
-      const vR = scInR ? scInR[i] : vL;
+      const vL = (scInL ? scInL[i] : 0) * g;
+      const vR = (scInR ? scInR[i] : vL / (g || 1)) * g;
       const vAbs = Math.max(Math.abs(vL), Math.abs(vR));
       scEnv += (vAbs > scEnv ? scAtt : scRel) * (vAbs - scEnv);
 
@@ -68,6 +85,7 @@ export function processMasterStage2DuckingAndGlue(
   const mix = Math.max(0, Math.min(1, p.compMixPct / 100));
   if (!p.compressorEnabled || p.ratio <= 1.001 || mix <= 1e-4) {
     s.currentGrDb = 0;
+    sumSidechainStemInPlace(bufL, bufR, scInL, scInR, numFrames, g, sumSc);
     return;
   }
 
@@ -117,4 +135,5 @@ export function processMasterStage2DuckingAndGlue(
 
   s.scHpfX1 = x1; s.scHpfX2 = x2; s.scHpfY1 = y1; s.scHpfY2 = y2;
   s.compEnvDb = envDb; s.currentGrDb = maxGr;
+  sumSidechainStemInPlace(bufL, bufR, scInL, scInR, numFrames, g, sumSc);
 }

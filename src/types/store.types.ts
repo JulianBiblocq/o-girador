@@ -1,5 +1,10 @@
 
 import type { Pattern } from './pattern.types';
+import type {
+  ReverbSpaceType,
+  TubeSaturationCharacter,
+  StudioMasterBusConfig,
+} from '../audio/effects/studioFxPresets';
 
 export * from './pattern.types';
 export * from './section.types';
@@ -61,12 +66,23 @@ export interface MasterFX {
     returnVolume: number;
     time: number;
     isMuted: boolean;
+    spaceType?: ReverbSpaceType;
+    preDelayMs?: number;
+    lowCutHz?: number;
+    dampHz?: number;
+    stereoWidth?: number;
+    presetId?: string;
   };
   distortion: {
     returnVolume: number;
     drive: number;
     isMuted: boolean;
+    character?: TubeSaturationCharacter;
+    preHpfHz?: number;
+    toneHz?: number;
+    presetId?: string;
   };
+  masterBus?: Partial<StudioMasterBusConfig>;
 }
 
 export interface VocalStateBuffers {

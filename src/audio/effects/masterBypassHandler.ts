@@ -1,13 +1,14 @@
-import { masterCompressorNode } from './effectsChainNodes';
-
 /**
- * Compresseur Master : JAMAIS de `rampTo()` sur `threshold` / `ratio`. Tone.js traite un Param
- * en decibels par rampe exponentielle et substitue 1e-7 a 0, hors de la plage native [-100, 0].
- * On utilise `cancelScheduledValues` + `setTargetAtTime` (tau 15 ms) avec bornage strict.
+ * masterBypassHandler.ts
+ * Pilotage sans clic du Compresseur Bus Glue & de la chaîne `MasterBusWorkletManager` (< 90 lignes).
  */
+import { masterBusWorkletManager, masterCompressorNode } from './effectsChainNodes';
+import type { MasterBusDspParams } from '../worklet/master-bus/masterBusWorkletTypes';
+
 const TIME_CONSTANT = 0.015;
 let lastCompSettings = { threshold: -6, ratio: 2 };
 let isCurrentlyBypassed = false;
+let isEcoBypassAesthetic = false;
 let lastAppliedThreshold: number | null = null;
 let lastAppliedRatio: number | null = null;
 
@@ -30,38 +31,54 @@ function setParamSmooth(param: any, value: number, label: string): void {
 }
 
 function applyTargets(force = false): void {
-  if (!masterCompressorNode) return;
-  const threshold = isCurrentlyBypassed ? 0 : clampThreshold(lastCompSettings.threshold);
-  const ratio = isCurrentlyBypassed ? 1 : clampRatio(lastCompSettings.ratio);
-  if (force || threshold !== lastAppliedThreshold) {
-    setParamSmooth(masterCompressorNode.threshold, threshold, 'threshold');
-    lastAppliedThreshold = threshold;
+  const threshold = clampThreshold(lastCompSettings.threshold);
+  const ratio = clampRatio(lastCompSettings.ratio);
+
+  if (masterBusWorkletManager) {
+    masterBusWorkletManager.updateParams({
+      compressorEnabled: !isCurrentlyBypassed,
+      ecoBypassAesthetic: isEcoBypassAesthetic,
+      thresholdDb: Math.max(-40, threshold),
+      ratio: Math.min(10, ratio),
+    });
   }
-  if (force || ratio !== lastAppliedRatio) {
-    setParamSmooth(masterCompressorNode.ratio, ratio, 'ratio');
-    lastAppliedRatio = ratio;
+
+  if (!masterCompressorNode) return;
+  const effThreshold = isCurrentlyBypassed ? 0 : threshold;
+  const effRatio = isCurrentlyBypassed ? 1 : ratio;
+  if (force || effThreshold !== lastAppliedThreshold) {
+    setParamSmooth(masterCompressorNode.threshold, effThreshold, 'threshold');
+    lastAppliedThreshold = effThreshold;
+  }
+  if (force || effRatio !== lastAppliedRatio) {
+    setParamSmooth(masterCompressorNode.ratio, effRatio, 'ratio');
+    lastAppliedRatio = effRatio;
   }
 }
 
-/** Point d'entree unique du bypass (piloté par useMasterEffectsSync). Idempotent. */
 export function syncMasterCompressorBypass(
   isBypassed: boolean,
-  currentComp?: { threshold: number; ratio: number }
-) {
+  currentComp?: { threshold: number; ratio: number },
+  ecoBypassAesthetic = false
+): void {
   if (currentComp && Number.isFinite(currentComp.threshold) && Number.isFinite(currentComp.ratio)) {
     lastCompSettings = { threshold: currentComp.threshold, ratio: currentComp.ratio };
   }
   isCurrentlyBypassed = isBypassed;
+  isEcoBypassAesthetic = ecoBypassAesthetic;
   applyTargets();
 }
 
-/** Glisser des potards Threshold / Ratio : memorise le reglage, applique seulement hors bypass. */
+export function syncMasterBusWorkletParams(patch: Partial<MasterBusDspParams>): void {
+  if (!masterBusWorkletManager) return;
+  masterBusWorkletManager.updateParams(patch);
+}
+
 export function previewMasterCompressorSetting(key: 'threshold' | 'ratio', value: number): void {
   lastCompSettings = { ...lastCompSettings, [key]: value };
   if (!isCurrentlyBypassed) applyTargets();
 }
 
-/** A appeler apres (re)creation du noeud natif : invalide le cache et reapplique les cibles. */
 export function resetMasterCompressorCache(): void {
   lastAppliedThreshold = null;
   lastAppliedRatio = null;

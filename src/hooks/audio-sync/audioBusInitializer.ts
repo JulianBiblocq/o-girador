@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
-import { busInputs, busChannels, busMeters, reverbSends, distortionSends, masterVolumeNode } from './audioEngineNodes';
+import { instrumentsConfig } from '../../data';
+import { busInputs, busChannels, busMeters, reverbSends, distortionSends, masterVolumeNode, masterVocalInputNode } from './audioEngineNodes';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
@@ -49,12 +50,15 @@ export function initBusesAudioNodes(
     ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
 
     const currentBusId = resolveImmediateBusId(t, tracks);
+    const inst = instrumentsConfig[t.instrumentIdx];
+    const isVocalBus = inst?.id === 'toada' || inst?.type === 'voice' || (t.customName || '').trim().toLowerCase() === 'toada';
+    const masterTarget = (isVocalBus && masterVocalInputNode) ? masterVocalInputNode : masterVolumeNode;
     busChannels[t.id].disconnect();
     const parentBusInput = currentBusId !== null ? (busInputs[currentBusId] || busChannels[currentBusId] || null) : null;
     if (parentBusInput) {
       busChannels[t.id].connect(parentBusInput);
-    } else if (masterVolumeNode) {
-      busChannels[t.id].connect(masterVolumeNode);
+    } else if (masterTarget) {
+      busChannels[t.id].connect(masterTarget);
     }
 
     if (reverbSends[t.id]) busChannels[t.id].connect(reverbSends[t.id]);

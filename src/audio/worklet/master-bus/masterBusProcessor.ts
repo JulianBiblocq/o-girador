@@ -32,10 +32,11 @@ export function processMasterBusDspBlock(
   in1L: Float32Array | null, in1R: Float32Array | null,
   outL: Float32Array, outR: Float32Array, numFrames: number
 ): void {
+  const g = state.params.masterGainLin ?? 1;
   for (let i = 0; i < numFrames; i++) {
-    const l = in0L ? in0L[i] : 0;
+    const l = (in0L ? in0L[i] : 0) * g;
     outL[i] = l;
-    outR[i] = in0R ? in0R[i] : l;
+    outR[i] = (in0R ? in0R[i] * g : l);
   }
 
   processMasterStage1CrossoverAndShaper(state, outL, outR, numFrames);

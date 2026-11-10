@@ -5,6 +5,10 @@ import { syncBusChannels } from './syncBusChannels';
 import { syncTrackChannels } from './syncTrackChannels';
 import { percentToDb } from './audioParamsCache';
 import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
+import { mapReverbTimeKnobToDecaySec, updateStudioReverbNode } from '../../audio/effects/studioReverbImpulse';
+import { updateStudioSaturationNode } from '../../audio/effects/studioSaturationChain';
+import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
+import { syncMasterBusWorkletParams } from '../../audio/effectsChain';
 import {
   masterReverbVolumeNode, reverbNode, masterDistortionVolumeNode,
   distortionNode, masterVolumeNode, channels,
@@ -23,12 +27,16 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
 
   useEffect(() => {
     const unsub = useSequencerStore.subscribe((state, prevState) => {
-      if (state.masterFX !== prevState.masterFX || state.masterEffectsActive !== prevState.masterEffectsActive) {
+      const fxChanged =
+        state.masterFX !== prevState.masterFX ||
+        state.masterEffectsActive !== prevState.masterEffectsActive ||
+        state.isEcoMode !== prevState.isEcoMode ||
+        state.ecoConfig !== prevState.ecoConfig;
+
+      if (fxChanged) {
         const masterFX = state.masterFX;
         const fxActive = state.masterEffectsActive || { compressor: true, reverb: true, disto: true };
         const disableFx = Boolean(state.ecoConfig?.disableFx);
-        // Bypass Master par GAIN uniquement (graphe stable, 0 disconnect/connect en lecture) :
-        // retour coupe si effet desactive/mute OU Palier 2 Eco. Compresseur : useMasterEffectsSync.
 
         if (masterReverbVolumeNode) {
           const revBypassed = disableFx || !fxActive.reverb || masterFX.reverb.isMuted;
@@ -37,8 +45,14 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         }
 
         if (reverbNode) {
-          const decay = 0.5 + 7.5 * (masterFX.reverb.time / 100);
-          if (reverbNode.decay !== decay) reverbNode.decay = decay;
+          updateStudioReverbNode(reverbNode, {
+            decaySec: mapReverbTimeKnobToDecaySec(masterFX.reverb.time),
+            spaceType: masterFX.reverb.spaceType,
+            preDelayMs: masterFX.reverb.preDelayMs,
+            lowCutHz: masterFX.reverb.lowCutHz,
+            dampHz: masterFX.reverb.dampHz,
+            stereoWidth: masterFX.reverb.stereoWidth,
+          });
           if (typeof (reverbNode as any).wet?.rampTo === 'function') {
             (reverbNode as any).wet.rampTo(fxActive.reverb && !masterFX.reverb.isMuted ? 1 : 0, 0.02);
           }
@@ -51,11 +65,27 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         }
 
         if (distortionNode) {
-          const distVal = masterFX.distortion.drive / 100;
-          if (distortionNode.distortion !== distVal) distortionNode.distortion = distVal;
+          updateStudioSaturationNode(
+            distortionNode,
+            {
+              drivePct: masterFX.distortion.drive,
+              character: masterFX.distortion.character,
+              preHpfHz: masterFX.distortion.preHpfHz,
+              toneHz: masterFX.distortion.toneHz,
+            },
+            state.isEcoMode
+          );
           if (typeof distortionNode.wet?.rampTo === 'function') {
             distortionNode.wet.rampTo(fxActive.disto && !masterFX.distortion.isMuted ? 1 : 0, 0.02);
           }
+        }
+
+        const busCfg = masterFX.masterBus;
+        if (busCfg) {
+          syncMasterBusWorkletParams(busCfg);
+          syncToadaVocalSlapback(busCfg.toadaSlapbackMode ?? 'off', busCfg.toadaSlapbackWet ?? 0, disableFx);
+        } else {
+          syncToadaVocalSlapback('off', 0, disableFx);
         }
       }
 
@@ -68,9 +98,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
           lastAppliedTracksParamsRef.current = {};
           lastAppliedBussesRef.current = {};
           if (masterVolumeNode?.gain) {
-            try {
-              masterVolumeNode.gain.cancelScheduledValues(Tone.now());
-            } catch (_) {}
+            try { masterVolumeNode.gain.cancelScheduledValues(Tone.now()); } catch (_) {}
           }
         }
         const tracks = state.tracks;
