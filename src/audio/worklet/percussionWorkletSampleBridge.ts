@@ -1,5 +1,5 @@
 /**
- * O Girador - Pont PCM Main Thread ↔ AudioWorklet (`MAX_WORKLET_SAMPLES = 2048`) (< 120 lignes)
+ * O Girador - Pont PCM Main Thread <-> AudioWorklet (`MAX_WORKLET_SAMPLES = 2048`) (< 120 lignes)
  * - File d'attente asynchrone : les `AudioBuffer` enregistrés avant `addModule` sont
  *   automatiquement transmis dès `attachPort(port)`.
  * - Clonage `new Float32Array(audioBuffer.getChannelData(c))` avant transfert :

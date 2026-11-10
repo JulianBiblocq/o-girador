@@ -2,7 +2,8 @@ import React from 'react';
 import { DragNumberBox } from '../DragNumberBox';
 import { MixerKnob } from '../MixerKnob';
 import { XiloEQ, XiloCompressor } from '../XiloIcons';
-import { masterEQNode, masterCompressorNode, syncMasterCompressorBypass } from '../../audio/effectsChain';
+import { masterEQNode, previewMasterCompressorSetting } from '../../audio/effectsChain';
+import { safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { MixerMasterEffects } from '../MixerMasterEffects';
 import type { MasterEqCompressorSectionProps } from './masterEffectsTypes';
@@ -38,7 +39,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
             size={40}
             color="var(--eq-low-color)"
             onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
-            onAudioDrag={(val) => { if (masterEQNode?.low) masterEQNode.low.rampTo(val, 0.02); }}
+            onAudioDrag={(val) => { if (masterEQNode?.low) safeRampGainDb(masterEQNode.low, val, 0.02); }}
           />
           <MixerKnob
             label={t('eqMid')}
@@ -52,7 +53,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
             size={40}
             color="var(--eq-mid-color)"
             onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
-            onAudioDrag={(val) => { if (masterEQNode?.mid) masterEQNode.mid.rampTo(val, 0.02); }}
+            onAudioDrag={(val) => { if (masterEQNode?.mid) safeRampGainDb(masterEQNode.mid, val, 0.02); }}
           />
           <MixerKnob
             label={t('eqHigh')}
@@ -66,7 +67,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
             size={40}
             color="var(--eq-high-color)"
             onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
-            onAudioDrag={(val) => { if (masterEQNode?.high) masterEQNode.high.rampTo(val, 0.02); }}
+            onAudioDrag={(val) => { if (masterEQNode?.high) safeRampGainDb(masterEQNode.high, val, 0.02); }}
           />
         </div>
       </div>
@@ -84,9 +85,8 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
               data-testid="master-power-compressor"
               onClick={(e) => {
                 e.stopPropagation();
-                const nextActive = !isCompressorActive;
+                // Bypass audio applique par useMasterEffectsSync (source unique, idempotente).
                 toggleMasterEffectActive('compressor');
-                syncMasterCompressorBypass(!nextActive, masterCompressor);
               }}
               className={`w-5 h-5 rounded-xs flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
                 isCompressorActive
@@ -105,7 +105,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
             value={masterCompressor.threshold}
             defaultValue={-3}
             onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
-            onAudioDrag={(val) => { try { if (masterCompressorNode?.threshold) masterCompressorNode.threshold.rampTo(val, 0.02); } catch (_) {} }}
+            onAudioDrag={(val) => previewMasterCompressorSetting('threshold', val)}
             fillColor="var(--comp-color, #d4af37)"
             min={-60}
             max={0}
@@ -117,7 +117,7 @@ export const MasterEqCompressorSection: React.FC<MasterEqCompressorSectionProps>
             value={masterCompressor.ratio}
             defaultValue={2}
             onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
-            onAudioDrag={(val) => { try { if (masterCompressorNode?.ratio) masterCompressorNode.ratio.rampTo(val, 0.02); } catch (_) {} }}
+            onAudioDrag={(val) => previewMasterCompressorSetting('ratio', val)}
             fillColor="var(--comp-color, #d4af37)"
             min={1}
             max={12}

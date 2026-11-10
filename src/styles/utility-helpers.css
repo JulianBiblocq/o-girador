@@ -92,6 +92,42 @@
   background-size: 36px 18px;
 }
 
+/* ============================================================================
+   MODE ECO - PALIER 1 (body.eco-mode) : affichage allege, son 100 % intact.
+   Coupe uniquement les effets GPU decoratifs. Les surfaces --cordel-bg, les images
+   statiques (atelier de la Roda) et les grilles Canvas restent intactes et lisibles.
+   ============================================================================ */
+body.eco-mode *,
+body.eco-mode *::before,
+body.eco-mode *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+body.eco-mode #center-afficheur,
+body.eco-mode #header-title-text,
+body.eco-mode .lino-distressed {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+body.eco-mode .wallpaper-surface-bg,
+body.eco-mode .wallpaper-mixer-bg {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  opacity: 0 !important;
+}
+
+body.eco-mode .cordel-booklet,
+body.eco-mode .lp-alfaia-svg {
+  animation: none !important;
+}
+
+body.eco-mode [data-karaoke-token],
+body.eco-mode .lyric-word.highlight {
+  box-shadow: none !important;
+}
+
 
 
 

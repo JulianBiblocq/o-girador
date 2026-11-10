@@ -2,7 +2,7 @@ import { StateCreator } from 'zustand';
 import * as Tone from 'tone';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
-import { detectEcoMode } from '../helpers/ecoModeDetector';
+import { detectEcoMode, detectStrictAudioEco, buildEcoConfig, persistEcoState } from '../helpers/ecoModeDetector';
 import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
 import { computeTransposedTroupeKey, syncCloudToadaTransposition } from '../../services/cloudToadas';
 import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrewarmer';
@@ -11,6 +11,7 @@ import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORA
 
 export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => {
   const initialMobileMode = getInitialMobileViewMode();
+  const initialEco = detectEcoMode();
   const initialSweepMode =
     typeof window !== 'undefined' && localStorage.getItem('o_girador_roda_sweep_mode') === 'fullMeasure'
       ? 'fullMeasure'
@@ -21,8 +22,8 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
     isLeftHanded: false,
     lang: (typeof window !== 'undefined' && (localStorage.getItem('o_girador_lang') as Language)) || 'pt',
-    isEcoMode: detectEcoMode(),
-    ecoConfig: { disableFx: false, disableEq: false, disableAnimations: detectEcoMode() },
+    isEcoMode: initialEco,
+    ecoConfig: buildEcoConfig(initialEco, detectStrictAudioEco(initialEco)),
     rodaSweepMode: initialSweepMode,
     editingTrackId: null,
     selectedPatternId: null,
@@ -60,19 +61,17 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     toggleEcoMode: () =>
       set((state) => {
         const next = !state.isEcoMode;
-        localStorage.setItem('o-girador-eco-mode', String(next));
-        return { isEcoMode: next, ecoConfig: { disableFx: false, disableEq: false, disableAnimations: next } };
+        persistEcoState(next, false);
+        return { isEcoMode: next, ecoConfig: buildEcoConfig(next, false) };
+      }),
+    toggleStrictAudioEco: () =>
+      set((state) => {
+        const nextStrict = !(state.isEcoMode && Boolean(state.ecoConfig?.disableFx) && Boolean(state.ecoConfig?.disableEq));
+        const nextEco = state.isEcoMode || nextStrict;
+        persistEcoState(nextEco, nextStrict);
+        return { isEcoMode: nextEco, ecoConfig: buildEcoConfig(nextEco, nextStrict) };
       }),
     toggleTracksCollapsed: () => set((state) => ({ isTracksCollapsed: !state.isTracksCollapsed })),
-    toggleEcoOption: (key) =>
-      set((state) => {
-        const nextConfig = { ...state.ecoConfig, [key]: !state.ecoConfig[key] };
-        const allTrue = nextConfig.disableFx && nextConfig.disableEq && nextConfig.disableAnimations;
-        const allFalse = !nextConfig.disableFx && !nextConfig.disableEq && !nextConfig.disableAnimations;
-        const nextEcoMode = allTrue ? true : allFalse ? false : state.isEcoMode;
-        localStorage.setItem('o-girador-eco-mode', String(nextEcoMode));
-        return { ecoConfig: nextConfig, isEcoMode: nextEcoMode };
-      }),
     setEditingTrackId: (id) => set({ editingTrackId: id }),
     closeDetailEditor: () => set({ editingTrackId: null }),
     setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) =>

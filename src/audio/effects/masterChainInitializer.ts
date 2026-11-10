@@ -3,6 +3,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as nodes from './effectsChainNodes';
 import { initMasterMonoNodes } from './masterMonoHandler';
 import { createStudioConvolverReverb } from './studioReverbImpulse';
+import { resetMasterCompressorCache } from './masterBypassHandler';
 import { safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
 
 export function initMasterEffectsChain(
@@ -39,7 +40,7 @@ export function initMasterEffectsChain(
 
   const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
   const isCompActive = useSequencerStore.getState().masterEffectsActive?.compressor ?? true;
-  const isCompBypassed = !isCompActive;
+  const isCompBypassed = !isCompActive || disableFx;
 
   const comp = new Tone.Compressor({
     threshold: isCompBypassed ? 0 : -6,
@@ -49,6 +50,7 @@ export function initMasterEffectsChain(
     knee: 6,
   });
   nodes.setMasterCompressorNode(comp);
+  resetMasterCompressorCache();
 
   const vol = new Tone.Gain(1.0);
   try {

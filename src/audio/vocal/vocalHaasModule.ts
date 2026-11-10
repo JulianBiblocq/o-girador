@@ -1,13 +1,17 @@
 /**
  * O Girador - Vocal Haas Effect Stereo Widener Module for Coro
  * Architecture Mid/Side (M/S) avec annulation de phase parfaite en mono.
+ * Bypass doux Palier 2 Eco : les gains Side rampent a 0 (signal Mid intact), 0 recablage.
  */
 
 import * as Tone from 'tone';
 import { masterVolumeNode } from '../effectsChain';
-import { ActiveVocal } from './vocalTypes';
+import { ActiveVocal, activeVocals } from './vocalTypes';
 
-export function createHaasModule(mainGain: Tone.Gain, resolvedOutput: any): ActiveVocal['haasNodes'] {
+const HAAS_SIDE_GAIN = 0.38;
+const HAAS_RAMP_TAU = 0.008; // ~25 ms pour atteindre la cible (3 tau)
+
+export function createHaasModule(mainGain: Tone.Gain, resolvedOutput: any, isSideMuted = false): ActiveVocal['haasNodes'] {
   const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
 
   const haasInput = rawCtx.createGain();
@@ -23,10 +27,10 @@ export function createHaasModule(mainGain: Tone.Gain, resolvedOutput: any): Acti
 
   // Side Left (+0.38) et Side Right (-0.38 en opposition de phase)
   const sideGainLeft = rawCtx.createGain();
-  sideGainLeft.gain.value = 0.38;
+  sideGainLeft.gain.value = isSideMuted ? 0 : HAAS_SIDE_GAIN;
 
   const sideGainRight = rawCtx.createGain();
-  sideGainRight.gain.value = -0.38;
+  sideGainRight.gain.value = isSideMuted ? 0 : -HAAS_SIDE_GAIN;
 
   const merger = rawCtx.createChannelMerger(2);
 
@@ -56,6 +60,21 @@ export function createHaasModule(mainGain: Tone.Gain, resolvedOutput: any): Acti
     sideGainRight,
     merger,
   };
+}
+
+/** Rampe douce (setTargetAtTime) des gains Side de tous les modules Haas actifs. */
+export function applyVocalHaasEco(isSideMuted: boolean): void {
+  activeVocals.forEach((entry) => {
+    const n = entry.haasNodes;
+    if (!n) return;
+    try {
+      const now = n.sideGainLeft.context.currentTime;
+      n.sideGainLeft.gain.setTargetAtTime(isSideMuted ? 0 : HAAS_SIDE_GAIN, now, HAAS_RAMP_TAU);
+      n.sideGainRight.gain.setTargetAtTime(isSideMuted ? 0 : -HAAS_SIDE_GAIN, now, HAAS_RAMP_TAU);
+    } catch (err) {
+      console.error('[VocalHaas] Eco side-gain ramp failed:', err);
+    }
+  });
 }
 
 export function disposeHaasNodes(nodes?: ActiveVocal['haasNodes']): void {

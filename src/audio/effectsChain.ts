@@ -14,7 +14,7 @@ export {
   disposeTrackNodes,
   disposeAllTrackNodes,
 } from './effects/trackDisposeHandler';
-export { syncMasterCompressorBypass } from './effects/masterBypassHandler';
+export { syncMasterCompressorBypass, previewMasterCompressorSetting, resetMasterCompressorCache } from './effects/masterBypassHandler';
 export {
   initMasterMonoNodes,
   setMasterMonoCheck,

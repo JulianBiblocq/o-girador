@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { meters, busMeters } from '../hooks/useAudioSync';
-import { useSequencerStore } from '../stores/useSequencerStore';
 import { readMeterDb, computeNextMeterScale } from './controls/vuMeterMath';
 import { subscribeVuMeter } from './controls/vuMeterTicker';
 
@@ -58,15 +57,10 @@ export const VUMeter: React.FC<VUMeterProps> = ({
       }
     };
 
-    const unsubscribeTicker = subscribeVuMeter(updateMeter);
-
-    const unsubscribeStore = useSequencerStore.subscribe((state) => {
-      if (state.isEcoMode) resetGauge();
-    });
+    const unsubscribeTicker = subscribeVuMeter(updateMeter, resetGauge);
 
     return () => {
       unsubscribeTicker();
-      unsubscribeStore();
       resetGauge();
     };
   }, [trackId, busId, orientation, isActive, isPlaying]);

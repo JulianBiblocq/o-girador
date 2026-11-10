@@ -1,5 +1,5 @@
 /**
- * O Girador - Routeur Multi-Sorties AudioWorklet (`0..23`) ↔ Canaux Natifs (< 140 lignes)
+ * O Girador - Routeur Multi-Sorties AudioWorklet (`0..23`) <-> Canaux Natifs (< 140 lignes)
  */
 
 import { getTone } from '../../ToneLoader';

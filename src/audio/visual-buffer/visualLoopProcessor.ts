@@ -1,5 +1,4 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import { tickSubscribers, syncAudioEngine } from './visualTickSubscribers';
 import {
   tickQueue,
@@ -16,16 +15,17 @@ import {
   flushVisualBuffers,
 } from './visualTickRingBuffer';
 
-let lastDispatchedBeatStep = -1;
-let lastDispatchedMeasure = -1;
 let rafId: number | null = null;
 let audioContextRef: AudioContext | null = null;
 let hitTriggersPoolRef: { current: { push: (trackId: number, stepIdx: number, strokeCode: number) => void } } | null = null;
 
+/**
+ * Boucle visuelle unique : distribue 100 % des ticks echus (zero decimation, quel que soit
+ * le palier Eco) afin que Roda, Playhead Timeline et karaoke restent synchronises a 60 FPS.
+ */
 function processVisualLoop(): void {
   if (!audioContextRef) return;
   const currentTime = audioContextRef.currentTime;
-  const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
 
   let currentTickRead = tickReadIdx;
   while (currentTickRead !== tickWriteIdx) {
@@ -46,30 +46,14 @@ function processVisualLoop(): void {
       st.clearQueuedMeasure(st.queuedMeasureSeq);
     }
 
-    let shouldDispatch = true;
-    if (isUltraEco && evt.step >= 0) {
-      const isBeatBoundary = evt.visualStep16 % 4 === 0;
-      const isNewBeatStep = evt.visualStep16 !== lastDispatchedBeatStep || evt.measure !== lastDispatchedMeasure;
-      shouldDispatch = isBeatBoundary && isNewBeatStep;
-      if (shouldDispatch) {
-        lastDispatchedBeatStep = evt.visualStep16;
-        lastDispatchedMeasure = evt.measure;
+    setLastAudibleTick(evt);
+    tickSubscribers.forEach((cb) => {
+      try {
+        cb(evt);
+      } catch (err) {
+        console.error('Error in tick subscriber callback:', err);
       }
-    } else if (evt.step < 0) {
-      lastDispatchedBeatStep = -1;
-      lastDispatchedMeasure = -1;
-    }
-
-    if (shouldDispatch) {
-      setLastAudibleTick(evt);
-      tickSubscribers.forEach((cb) => {
-        try {
-          cb(evt);
-        } catch (err) {
-          console.error('Error in tick subscriber callback:', err);
-        }
-      });
-    }
+    });
 
     currentTickRead = (currentTickRead + 1) % TICK_QUEUE_SIZE;
   }

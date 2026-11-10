@@ -21,11 +21,7 @@ input[type="range"]:not(.vertical-fader) {
   animation: roda-shake 0.3s ease-in-out;
 }
 
-/* --- ECO MODE OVERRIDES --- */
-body.eco-mode #center-afficheur {
-  filter: none !important;
-  box-shadow: none !important;
-}
+/* --- ECO MODE : regles globales centralisees dans utility-helpers.css (body.eco-mode) --- */
 
 /* --- iOS Safari Auto-Zoom Prevention --- */
 /* FIX (Audit P2): Prevent iOS Safari from zooming in on input focus

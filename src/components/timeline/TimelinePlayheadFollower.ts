@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { getLastAudibleTick } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import { getAudioTime } from '../circle-sequencer/circleAudioTime';
 import { livePlayheadZoomState } from '../../utils/timeline/timelineZoomUtils';
 
@@ -102,7 +101,7 @@ export function usePlayheadFollower({
         if (livePlayheadZoomState.lastScrollX >= 0) { layout.current.lastScrollX = livePlayheadZoomState.lastScrollX; livePlayheadZoomState.lastScrollX = -1; }
         const nowAudio = getAudioTime();
         let progress = a.ratio;
-        if (!usePerformanceStore.getState().disablePlayheadRAF && a.measureDuration > 0 && a.measureStartTime > 0 && (nowAudio - a.time) >= -0.05 && (nowAudio - a.time) <= 0.25) {
+        if (a.measureDuration > 0 && a.measureStartTime > 0 && (nowAudio - a.time) >= -0.05 && (nowAudio - a.time) <= 0.25) {
           progress = Math.max(0, Math.min(1, (nowAudio - a.measureStartTime) / a.measureDuration));
         }
         const scale = getLiveScale();

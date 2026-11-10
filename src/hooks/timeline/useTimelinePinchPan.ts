@@ -24,7 +24,6 @@ export function useTimelinePinchPan({
   const zoomDomCacheRef = useRef<{ clientW: number; scrollLeft: number; bgEl: HTMLElement | null; phEl: HTMLElement | null }>({ clientW: 0, scrollLeft: 0, bgEl: null, phEl: null });
   const geomRef = useRef({ baseMeasureW: measureWidth, totalContentW, leftPositions, widths, isPlaying, headerWidth, totalMeasures });
   geomRef.current = { baseMeasureW: measureWidth, totalContentW, leftPositions, widths, isPlaying, headerWidth, totalMeasures };
-
   const isPanningActive = toolMode === 'hand' || isSpacePressed;
   const isPanningDragging = useRef(false), panPointerId = useRef<number | null>(null);
   const panStartX = useRef(0), panStartY = useRef(0), panStartScrollLeft = useRef(0), panStartScrollTop = useRef(0);
@@ -33,15 +32,12 @@ export function useTimelinePinchPan({
     if (pendingScrollLeft.current !== null && scrollRef.current) { scrollRef.current.scrollLeft = Math.max(0, pendingScrollLeft.current); pendingScrollLeft.current = null; }
     if (zoomRafRef.current === null && zoomCommitTimerRef.current === null) setTimelineZoomingDomFlag(containerRef.current, scrollRef.current, false);
   }, [measureWidth, gridRef, scrollRef, containerRef]);
-  useEffect(() => {
-    if (zoomRafRef.current === null && zoomCommitTimerRef.current === null) { currentVisualWidthRef.current = measureWidth; targetMeasureWidthRef.current = measureWidth; }
-  }, [measureWidth]);
+  useEffect(() => { if (zoomRafRef.current === null && zoomCommitTimerRef.current === null) { currentVisualWidthRef.current = measureWidth; targetMeasureWidthRef.current = measureWidth; } }, [measureWidth]);
   useEffect(() => () => {
     if (zoomRafRef.current !== null) cancelAnimationFrame(zoomRafRef.current);
     if (zoomCommitTimerRef.current !== null) clearTimeout(zoomCommitTimerRef.current);
     livePlayheadZoomState.isZooming = false;
   }, []);
-
   const scheduleSmoothZoomTo = useCallback((nextTargetW: number) => {
     targetMeasureWidthRef.current = nextTargetW;
     if (!livePlayheadZoomState.isZooming && scrollRef.current) {
@@ -54,7 +50,6 @@ export function useTimelinePinchPan({
     setTimelineZoomingDomFlag(containerRef.current, scrollRef.current, true);
     if (zoomCommitTimerRef.current !== null) { clearTimeout(zoomCommitTimerRef.current); zoomCommitTimerRef.current = null; }
     if (zoomRafRef.current !== null) return;
-
     const stepZoomFrame = () => {
       const cEl = containerRef.current, sEl = scrollRef.current;
       if (!cEl || !sEl) { zoomRafRef.current = null; setTimelineZoomingDomFlag(cEl, sEl, false); return; }
@@ -71,7 +66,6 @@ export function useTimelinePinchPan({
       });
       currentVisualWidthRef.current = res ? res.targetW : nextW;
       if (res) { pendingScrollLeft.current = res.newScrollLeft; dc.scrollLeft = res.newScrollLeft; }
-
       if (Math.abs(targetMeasureWidthRef.current - currentVisualWidthRef.current) > 0.1) {
         zoomRafRef.current = requestAnimationFrame(stepZoomFrame);
       } else {
@@ -139,6 +133,5 @@ export function useTimelinePinchPan({
     isPanningDragging.current = false; panPointerId.current = null;
     e.currentTarget.releasePointerCapture?.(e.pointerId); e.currentTarget.classList.remove('panning-dragging'); e.stopPropagation();
   };
-
   return { pendingScrollLeft, measureWidthRef: currentVisualWidthRef, handleZoom, isPanningActive, handleViewportPointerDown, handleViewportPointerMove, handleViewportPointerUp };
 }

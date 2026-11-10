@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { usePerformanceStore } from '../../stores/usePerformanceStore';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
 import { drawAlfaiaBackground } from './drawAlfaiaBackground';
@@ -51,15 +50,15 @@ export function useCirclePlayheadRaf(
     let isBgCached = false, lastTimeSig = '', lastTicks = -1, lastThemeDark: boolean | undefined = undefined;
     let ripples: Ripple[] = [];
     const haloState = createMetronomeHaloState();
-    let lastDrawTime = performance.now();
 
     const drawLoop = () => {
       if (!visibleRef.current) { loopRunningRef.current = false; animIdRef.current = null; return; }
       if (isDetailEditorOpen()) { animIdRef.current = requestAnimationFrame(drawLoop); return; }
 
-      const time = performance.now();
       const seqState = useSequencerStore.getState();
-      const isEco = seqState.ecoConfig?.disableAnimations ?? seqState.isEcoMode;
+      // Palier 1 Eco : coupe uniquement les effets secondaires (ripples, ombres, halos, vagues),
+      // jamais la cadence 60 FPS ni l'interpolation de l'aiguille.
+      const isEco = Boolean(seqState.isEcoMode);
       const isMobileDevice = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
       const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
       const effectiveDpr = isMobileDevice ? 1 : Math.min(dpr, 2);
@@ -70,9 +69,6 @@ export function useCirclePlayheadRaf(
         bgCanvas.width = targetPx; bgCanvas.height = targetPx;
         isBgCached = false;
       }
-
-      if (isEco && time - lastDrawTime < 33) { animIdRef.current = requestAnimationFrame(drawLoop); return; }
-      lastDrawTime = time;
 
       const scaleFactor = canvas.width / 1200;
       const { tracks, rawTracks: localRawTracks, rodaTrackOrder: localRodaOrder, isPlaying: localPlaying, timeSig: localTimeSig, hitTriggersRef } = stateRef.current;
@@ -108,7 +104,7 @@ export function useCirclePlayheadRaf(
 
       ctx.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
-      const stickAngle = computeStickAngle(live, isCurrentlyPlaying, getAudioTime(), isEco, usePerformanceStore.getState().disablePlayheadRAF, frozenStickAngleRef);
+      const stickAngle = computeStickAngle(live, isCurrentlyPlaying, getAudioTime(), frozenStickAngleRef);
       const dynamicScale = activeVisibleTracks.length <= 2 ? 1.95 : (activeVisibleTracks.length > 0 ? 1 + ((10 - Math.min(activeVisibleTracks.length, 10)) * 0.08) : 1);
 
       drawAndUpdateRipples(ctx, ripples);

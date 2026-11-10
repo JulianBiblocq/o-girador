@@ -12,15 +12,11 @@ export interface MeasureVariationSnapshot {
   patternIdByTrackId: Record<number, number | null>; variedTrackIds: Set<number>; variationNotes: number[];
 }
 
-let prevSnapshot: MeasureVariationSnapshot | null = null;
-let currentSnapshot: MeasureVariationSnapshot | null = null;
-let nextSnapshot: MeasureVariationSnapshot | null = null;
+let prevSnapshot: MeasureVariationSnapshot | null = null, currentSnapshot: MeasureVariationSnapshot | null = null, nextSnapshot: MeasureVariationSnapshot | null = null;
 const snapshotsByMeasure = new Map<number, MeasureVariationSnapshot>();
 const snapshotsBySeqId = new Map<number, MeasureVariationSnapshot>();
-let lastPlayedPatternIdByTrack: Record<number, number | null> = {};
-let lastHorizonPatternIdByTrack: Record<number, number | null> = {};
-let currentVariationNotes: number[] = [];
-let currentVariedTrackIds = new Set<number>();
+let lastPlayedPatternIdByTrack: Record<number, number | null> = {}, lastHorizonPatternIdByTrack: Record<number, number | null> = {};
+let currentVariationNotes: number[] = [], currentVariedTrackIds = new Set<number>();
 let visualCurrMeasureIdx: number | null = null, visualCurrStepsByTrackId: Record<number, StepArray> | null = null;
 let visualPrevMeasureIdx: number | null = null, visualPrevStepsByTrackId: Record<number, StepArray> | null = null;
 let lastVisualRatio = 0;
@@ -56,9 +52,7 @@ function rollMeasureVariations(
   return { seqId, measureIdx, stepsByTrackId, variedPatternsByTrackId, patternIdByTrackId, variedTrackIds, variationNotes };
 }
 
-function pruneOldSeqSnapshots(minKeepSeqId: number): void {
-  for (const k of snapshotsBySeqId.keys()) { if (k < minKeepSeqId) snapshotsBySeqId.delete(k); }
-}
+function pruneOldSeqSnapshots(minKeepSeqId: number): void { for (const k of snapshotsBySeqId.keys()) { if (k < minKeepSeqId) snapshotsBySeqId.delete(k); } }
 
 export function getOrRollMeasureVariationForHorizon(params: {
   seqId: number; measureIdx: number; measureStartTick: number; timeSig: string;

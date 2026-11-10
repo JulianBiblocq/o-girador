@@ -33,8 +33,10 @@ export interface ProjectSettingsSlice {
   setRodaSweepMode: (mode: 'sweep6h' | 'fullMeasure') => void;
   toggleRodaSweepMode: () => void;
   handleExtractLyrics: () => void;
+  /** Palier 1 : bascule l'affichage allege. La desactivation restaure 100 % de l'audio et du visuel. */
   toggleEcoMode: () => void;
-  toggleEcoOption: (key: keyof EcoConfig) => void;
+  /** Palier 2 : bascule groupee `disableFx` + `disableEq` (active le Palier 1 si necessaire). */
+  toggleStrictAudioEco: () => void;
   setEditingTrackId: (id: number | null) => void;
   closeDetailEditor: () => void;
   setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
