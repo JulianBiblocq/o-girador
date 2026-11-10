@@ -16,6 +16,7 @@ import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../h
 import { audioBufferToWav } from './audio-buffer/audioBufferWavConverter';
 import { buildOfflineTrackGraph, scheduleOfflineStrokeHit } from './baqueBounceTrackGraph';
 import { processOfflineStereoArraysThroughMasterBus } from '../audio/worklet/master-bus/masterBusProcessor';
+import { calibrateBounceLoudnessInPlace } from './bounceLoudnessCalibrator';
 import {
   formatBaqueBounceFilename,
   computeBaqueCycleTiming,
@@ -108,18 +109,15 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
 
   const rendered = await offlineCtx.startRendering();
   if (rendered.numberOfChannels >= 2) {
+    const chL = rendered.getChannelData(0), chR = rendered.getChannelData(1);
     const compActive = (state.masterEffectsActive?.compressor ?? true) && !state.ecoConfig?.disableFx;
-    processOfflineStereoArraysThroughMasterBus(
-      rendered.getChannelData(0),
-      rendered.getChannelData(1),
-      timing.sampleRate,
-      {
-        ...(state.masterFX?.masterBus || {}),
-        compressorEnabled: compActive,
-        ecoBypassAesthetic: Boolean(state.ecoConfig?.disableFx),
-        monoCheck: Boolean(state.isMasterMono),
-      }
-    );
+    processOfflineStereoArraysThroughMasterBus(chL, chR, timing.sampleRate, {
+      ...(state.masterFX?.masterBus || {}),
+      compressorEnabled: compActive,
+      ecoBypassAesthetic: Boolean(state.ecoConfig?.disableFx),
+      monoCheck: Boolean(state.isMasterMono),
+    });
+    calibrateBounceLoudnessInPlace(chL, chR, timing.sampleRate);
   }
   const rhythmName = state.metadata?.ritmo || state.metadata?.toada || 'baque';
   return { wavBlob: audioBufferToWav(rendered), filename: formatBaqueBounceFilename(rhythmName, timing.bpm), exactTotalSamples: rendered.length, totalDurationSec: timing.totalDurationSec, sampleRate: timing.sampleRate };

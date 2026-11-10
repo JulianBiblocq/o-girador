@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { masterBusWorkletManager, masterLeftMeterNode, masterRightMeterNode } from '../../audio/effectsChain';
 import { subscribeVuMeter } from '../controls/vuMeterTicker';
 import {
-  linearToDbFloor, createPeakHoldState, advancePeakBallistics,
+  linearToDbFloor, readMeterRmsAndPeakDb, createPeakHoldState, advanceDualMeterBallistics, applyVuLedDomState,
 } from '../controls/vuMeterMath';
 
 interface UseMasterVuMeterProps {
@@ -13,6 +13,8 @@ interface UseMasterVuMeterProps {
 export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps) {
   const vuMeterLeftRef = useRef<HTMLDivElement>(null);
   const vuMeterRightRef = useRef<HTMLDivElement>(null);
+  const rmsVeilLeftRef = useRef<HTMLDivElement>(null);
+  const rmsVeilRightRef = useRef<HTMLDivElement>(null);
   const peakLeftRef = useRef<HTMLDivElement>(null);
   const peakRightRef = useRef<HTMLDivElement>(null);
   const clipLeftRef = useRef<HTMLDivElement>(null);
@@ -20,8 +22,6 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
   const grMeterRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
 
-  const lastMasterLeftRef = useRef<number>(0);
-  const lastMasterRightRef = useRef<number>(0);
   const lastGrScaleRef = useRef<number>(0);
   const maxSessionPeakDbRef = useRef<number>(-Infinity);
   const peakHoldLeftRef = useRef(createPeakHoldState());
@@ -40,25 +40,27 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
 
   const clearMasterClipLeds = useCallback(() => {
     peakHoldLeftRef.current.clipUntilMs = 0;
+    peakHoldLeftRef.current.warnUntilMs = 0;
     peakHoldRightRef.current.clipUntilMs = 0;
-    if (clipLeftRef.current) clipLeftRef.current.style.opacity = '0.2';
-    if (clipRightRef.current) clipRightRef.current.style.opacity = '0.2';
+    peakHoldRightRef.current.warnUntilMs = 0;
+    applyVuLedDomState(clipLeftRef.current, 'off');
+    applyVuLedDomState(clipRightRef.current, 'off');
     resetPeakBadgeDom();
   }, [resetPeakBadgeDom]);
 
   useEffect(() => {
     const resetMasterMeters = () => {
-      lastMasterLeftRef.current = 0;
-      lastMasterRightRef.current = 0;
       lastGrScaleRef.current = 0;
       peakHoldLeftRef.current = createPeakHoldState();
       peakHoldRightRef.current = createPeakHoldState();
+      if (rmsVeilLeftRef.current) rmsVeilLeftRef.current.style.transform = 'scaleY(1)';
+      if (rmsVeilRightRef.current) rmsVeilRightRef.current.style.transform = 'scaleY(1)';
       if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(1)';
       if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(1)';
       if (peakLeftRef.current) { peakLeftRef.current.style.opacity = '0'; peakLeftRef.current.style.transform = 'translate3d(0, 100%, 0)'; }
       if (peakRightRef.current) { peakRightRef.current.style.opacity = '0'; peakRightRef.current.style.transform = 'translate3d(0, 100%, 0)'; }
-      if (clipLeftRef.current) clipLeftRef.current.style.opacity = '0.2';
-      if (clipRightRef.current) clipRightRef.current.style.opacity = '0.2';
+      applyVuLedDomState(clipLeftRef.current, 'off');
+      applyVuLedDomState(clipRightRef.current, 'off');
       if (grMeterRef.current) grMeterRef.current.style.transform = 'scaleY(0)';
       resetPeakBadgeDom();
     };
@@ -72,19 +74,19 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
       if (!workletMgr && (!liveLeftMeter || !liveRightMeter)) { resetMasterMeters(); return; }
 
       try {
-        let peakLeftDb = -60, peakRightDb = -60, grDb = 0;
+        let rmsLeftDb = -60, rmsRightDb = -60, peakLeftDb = -60, peakRightDb = -60, grDb = 0;
         if (workletMgr) {
           const tel = workletMgr.latestTelemetry;
+          rmsLeftDb = linearToDbFloor(tel.rmsL);
+          rmsRightDb = linearToDbFloor(tel.rmsR);
           peakLeftDb = linearToDbFloor(tel.peakL);
           peakRightDb = linearToDbFloor(tel.peakR);
           grDb = Number.isFinite(tel.grDb) ? tel.grDb : 0;
         } else if (liveLeftMeter && liveRightMeter) {
-          const rawLeft = liveLeftMeter.getValue();
-          const rawRight = liveRightMeter.getValue();
-          const leftDb = Array.isArray(rawLeft) ? Math.max(...rawLeft) : rawLeft;
-          const rightDb = Array.isArray(rawRight) ? Math.max(...rawRight) : rawRight;
-          peakLeftDb = Number.isFinite(leftDb) ? Math.max(-60, Math.min(6, leftDb)) : -60;
-          peakRightDb = Number.isFinite(rightDb) ? Math.max(-60, Math.min(6, rightDb)) : -60;
+          const mL = readMeterRmsAndPeakDb(liveLeftMeter);
+          const mR = readMeterRmsAndPeakDb(liveRightMeter);
+          rmsLeftDb = mL.rmsDb; peakLeftDb = mL.peakDb;
+          rmsRightDb = mR.rmsDb; peakRightDb = mR.peakDb;
         }
 
         const maxPeakDb = Math.max(peakLeftDb, peakRightDb);
@@ -101,17 +103,17 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
         }
 
         const nowMs = performance.now();
-        const holdL = advancePeakBallistics(peakHoldLeftRef.current, peakLeftDb, peakLeftDb >= -0.1, nowMs);
-        const holdR = advancePeakBallistics(peakHoldRightRef.current, peakRightDb, peakRightDb >= -0.1, nowMs);
-        lastMasterLeftRef.current = holdL.barNorm;
-        lastMasterRightRef.current = holdR.barNorm;
+        const holdL = advanceDualMeterBallistics(peakHoldLeftRef.current, rmsLeftDb, peakLeftDb, peakLeftDb >= -0.1, nowMs, 0);
+        const holdR = advanceDualMeterBallistics(peakHoldRightRef.current, rmsRightDb, peakRightDb, peakRightDb >= -0.1, nowMs, 0);
 
-        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - holdL.barNorm))})`;
-        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - holdR.barNorm))})`;
-        if (peakLeftRef.current) { peakLeftRef.current.style.opacity = holdL.holdNorm > 0.02 ? '0.95' : '0'; peakLeftRef.current.style.transform = `translate3d(0, ${(1 - holdL.holdNorm) * 100}%, 0)`; }
-        if (peakRightRef.current) { peakRightRef.current.style.opacity = holdR.holdNorm > 0.02 ? '0.95' : '0'; peakRightRef.current.style.transform = `translate3d(0, ${(1 - holdR.holdNorm) * 100}%, 0)`; }
-        if (clipLeftRef.current) clipLeftRef.current.style.opacity = holdL.isClipHeld ? '1' : '0.2';
-        if (clipRightRef.current) clipRightRef.current.style.opacity = holdR.isClipHeld ? '1' : '0.2';
+        if (rmsVeilLeftRef.current) rmsVeilLeftRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - holdL.rmsBarNorm))})`;
+        if (rmsVeilRightRef.current) rmsVeilRightRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - holdR.rmsBarNorm))})`;
+        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - holdL.effectivePeakNorm))})`;
+        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = `scaleY(${Math.max(0, Math.min(1, 1 - holdR.effectivePeakNorm))})`;
+        if (peakLeftRef.current) { peakLeftRef.current.style.opacity = holdL.holdNorm > 0.02 ? '0.98' : '0'; peakLeftRef.current.style.transform = `translate3d(0, ${(1 - holdL.holdNorm) * 100}%, 0)`; }
+        if (peakRightRef.current) { peakRightRef.current.style.opacity = holdR.holdNorm > 0.02 ? '0.98' : '0'; peakRightRef.current.style.transform = `translate3d(0, ${(1 - holdR.holdNorm) * 100}%, 0)`; }
+        applyVuLedDomState(clipLeftRef.current, holdL.ledState);
+        applyVuLedDomState(clipRightRef.current, holdR.ledState);
 
         const targetGr = Math.max(0, Math.min(1, Math.abs(grDb) / 12));
         const nextGr = targetGr > lastGrScaleRef.current ? targetGr : lastGrScaleRef.current * 0.88 + targetGr * 0.12;
@@ -125,7 +127,7 @@ export function useMasterVuMeter({ isPlaying, isActive }: UseMasterVuMeterProps)
   }, [isPlaying, isActive, resetPeakBadgeDom]);
 
   return {
-    vuMeterLeftRef, vuMeterRightRef, peakLeftRef, peakRightRef,
-    clipLeftRef, clipRightRef, grMeterRef, dbTextRef, clearMasterClipLeds,
+    vuMeterLeftRef, vuMeterRightRef, rmsVeilLeftRef, rmsVeilRightRef,
+    peakLeftRef, peakRightRef, clipLeftRef, clipRightRef, grMeterRef, dbTextRef, clearMasterClipLeds,
   };
 }

@@ -7,8 +7,16 @@ export function setMasterVolumeNode(node: Tone.Gain | null) { masterVolumeNode =
 export let masterVocalInputNode: Tone.Gain | null = null;
 export function setMasterVocalInputNode(node: Tone.Gain | null) { masterVocalInputNode = node; }
 
-export let masterBusWorkletManager: MasterBusWorkletManager | null = null;
-export function setMasterBusWorkletManager(mgr: MasterBusWorkletManager | null) { masterBusWorkletManager = mgr; }
+const hmrStore: Record<string, any> =
+  typeof globalThis !== 'undefined'
+    ? ((globalThis as any).__OGIRADOR_AUDIO_NODES__ ||= {})
+    : {};
+
+export let masterBusWorkletManager: MasterBusWorkletManager | null = hmrStore.masterBusWorkletManager ?? null;
+export function setMasterBusWorkletManager(mgr: MasterBusWorkletManager | null) {
+  masterBusWorkletManager = mgr;
+  hmrStore.masterBusWorkletManager = mgr;
+}
 
 export interface MasterEQNodeInterface {
   low: any;
@@ -62,22 +70,22 @@ export function setDistortionBusReceive(node: Tone.Channel | null) { distortionB
 export let metroChannel: Tone.Channel | null = null;
 export function setMetroChannel(node: Tone.Channel | null) { metroChannel = node; }
 
-export const channels: { [trackId: string | number]: Tone.Channel } = {};
-export const meters: { [trackId: string | number]: any } = {};
-export const reverbSends: { [trackId: string | number]: any } = {};
-export const distortionSends: { [trackId: string | number]: any } = {};
-export const trackInputs: { [trackId: string | number]: Tone.Gain } = {};
-export const busInputs: { [busId: string | number]: Tone.Gain } = {};
-export const lowCutNodes: { [trackId: string | number]: Tone.Filter } = {};
-export const slaveSubCutNodes: { [trackId: string | number]: Tone.Filter } = {};
-export const eqNodes: { 
+export const channels: { [trackId: string | number]: Tone.Channel } = (hmrStore.channels ||= {});
+export const meters: { [trackId: string | number]: any } = (hmrStore.meters ||= {});
+export const reverbSends: { [trackId: string | number]: any } = (hmrStore.reverbSends ||= {});
+export const distortionSends: { [trackId: string | number]: any } = (hmrStore.distortionSends ||= {});
+export const trackInputs: { [trackId: string | number]: Tone.Gain } = (hmrStore.trackInputs ||= {});
+export const busInputs: { [busId: string | number]: Tone.Gain } = (hmrStore.busInputs ||= {});
+export const lowCutNodes: { [trackId: string | number]: Tone.Filter } = (hmrStore.lowCutNodes ||= {});
+export const slaveSubCutNodes: { [trackId: string | number]: Tone.Filter } = (hmrStore.slaveSubCutNodes ||= {});
+export const eqNodes: {
   [trackId: string | number]: {
     low: Tone.Filter;
     mid: Tone.Filter;
     high: Tone.Filter;
   }
-} = {};
-export const busChannels: { [busId: string | number]: Tone.Channel } = {};
-export const busMeters: { [busId: string | number]: any } = {};
-export const busReverbSendVca: { [busId: string | number]: Tone.Gain } = {};
-export const busDistoSendVca: { [busId: string | number]: Tone.Gain } = {};
+} = (hmrStore.eqNodes ||= {});
+export const busChannels: { [busId: string | number]: Tone.Channel } = (hmrStore.busChannels ||= {});
+export const busMeters: { [busId: string | number]: any } = (hmrStore.busMeters ||= {});
+export const busReverbSendVca: { [busId: string | number]: Tone.Gain } = (hmrStore.busReverbSendVca ||= {});
+export const busDistoSendVca: { [busId: string | number]: Tone.Gain } = (hmrStore.busDistoSendVca ||= {});

@@ -59,7 +59,8 @@ export const ChannelStripFaderSection: React.FC<ChannelStripFaderSectionProps> =
               isPlaying={isPlaying && isActive}
               isActive={isActive}
               orientation="vertical"
-              className="w-2 h-full bg-[var(--cordel-bg)] cordel-border-sm"
+              meterGainOffsetDb={track.isBusFolder || track.isLinkFolder ? 0 : 6.0}
+              className="h-full"
             />
           </div>
         </div>

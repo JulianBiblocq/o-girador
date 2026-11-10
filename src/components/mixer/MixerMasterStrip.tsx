@@ -54,7 +54,7 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
   useMasterThemeTokens(masterContainerRef);
 
   const {
-    vuMeterLeftRef, vuMeterRightRef, peakLeftRef, peakRightRef,
+    vuMeterLeftRef, vuMeterRightRef, rmsVeilLeftRef, rmsVeilRightRef, peakLeftRef, peakRightRef,
     clipLeftRef, clipRightRef, grMeterRef, dbTextRef, clearMasterClipLeds,
   } = useMasterVuMeter({ isPlaying, isActive });
 
@@ -69,6 +69,7 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
           lang={lang} isMasterMono={isMasterMono} onToggleMono={toggleMasterMono}
           onExpand={() => setIsMasterCollapsed(false)}
           vuMeterLeftRef={vuMeterLeftRef} vuMeterRightRef={vuMeterRightRef}
+          rmsVeilLeftRef={rmsVeilLeftRef} rmsVeilRightRef={rmsVeilRightRef}
           peakLeftRef={peakLeftRef} peakRightRef={peakRightRef}
           clipLeftRef={clipLeftRef} clipRightRef={clipRightRef} onClearClip={clearMasterClipLeds}
         />
@@ -115,6 +116,7 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
                 </div>
                 <MasterStereoMeter
                   lang={lang} dbTextRef={dbTextRef} vuMeterLeftRef={vuMeterLeftRef} vuMeterRightRef={vuMeterRightRef}
+                  rmsVeilLeftRef={rmsVeilLeftRef} rmsVeilRightRef={rmsVeilRightRef}
                   peakLeftRef={peakLeftRef} peakRightRef={peakRightRef} clipLeftRef={clipLeftRef} clipRightRef={clipRightRef} onClearClip={clearMasterClipLeds}
                 />
               </div>

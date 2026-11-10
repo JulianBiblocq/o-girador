@@ -6,6 +6,8 @@ interface MasterStereoMeterProps {
   dbTextRef: React.RefObject<HTMLDivElement | null>;
   vuMeterLeftRef: React.RefObject<HTMLDivElement | null>;
   vuMeterRightRef: React.RefObject<HTMLDivElement | null>;
+  rmsVeilLeftRef?: React.RefObject<HTMLDivElement | null>;
+  rmsVeilRightRef?: React.RefObject<HTMLDivElement | null>;
   peakLeftRef?: React.RefObject<HTMLDivElement | null>;
   peakRightRef?: React.RefObject<HTMLDivElement | null>;
   clipLeftRef?: React.RefObject<HTMLDivElement | null>;
@@ -18,6 +20,8 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
   dbTextRef,
   vuMeterLeftRef,
   vuMeterRightRef,
+  rmsVeilLeftRef,
+  rmsVeilRightRef,
   peakLeftRef,
   peakRightRef,
   clipLeftRef,
@@ -41,17 +45,22 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
       </div>
 
       <div className="flex gap-1.5 h-full flex-grow items-stretch py-0.5">
-        {/* Canal Gauche (L) */}
-        <div className="w-4 h-full bg-[var(--vu-track-bg)] border border-[var(--cordel-border)] relative overflow-hidden rounded-[1px] flex flex-col">
+        {/* Canal Gauche (L) : Voyant O détaché + mb-1 + Colonne H */}
+        <div className="w-4 h-full flex flex-col items-center">
           <div
             ref={clipLeftRef}
             onClick={onClearClip}
             title={peakTooltip}
-            className="w-full h-[4px] shrink-0 border-b border-[var(--cordel-border)]/40 cursor-pointer z-20"
-            style={{ backgroundColor: 'var(--vu-level-clip)', opacity: 0.2 }}
+            className="w-full h-[8px] mb-1 shrink-0 rounded-[1.5px] border border-[var(--cordel-border-strong)] cursor-pointer z-20 transition-colors"
+            style={{ backgroundColor: 'var(--vu-led-off-bg)', opacity: 0.85 }}
           />
-          <div className="relative flex-1 w-full overflow-hidden bg-[var(--vu-track-bg)]">
+          <div className="relative flex-1 w-full min-h-0 overflow-hidden rounded-[1px] border border-[var(--cordel-border)] bg-[var(--vu-track-bg)]">
             <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ background: STUDIO_VU_GRADIENT_VERTICAL }} />
+            <div
+              ref={rmsVeilLeftRef}
+              className="absolute inset-0 bg-[var(--vu-track-bg)] opacity-[0.42] w-full h-full pointer-events-none will-change-transform"
+              style={{ transformOrigin: 'top', transform: 'scaleY(1)', transition: 'none' }}
+            />
             <div
               ref={vuMeterLeftRef}
               className="absolute inset-0 bg-[var(--vu-track-bg)] w-full h-full pointer-events-none will-change-transform"
@@ -62,13 +71,13 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
               className="absolute inset-0 w-full h-full pointer-events-none will-change-transform z-10"
               style={{ opacity: 0, transform: 'translate3d(0, 100%, 0)' }}
             >
-              <div className="w-full h-[2px] bg-[var(--cordel-parchment-bg)] shadow-[0_0_2px_rgba(0,0,0,0.9)]" />
+              <div className="w-full h-[2.5px] bg-[var(--vu-peak-tick-color)] shadow-[0_0_2px_rgba(0,0,0,0.9)]" />
             </div>
           </div>
         </div>
 
-        {/* Repères dBFS positionnés aux hauteurs exactes de dbToStudioMeterNorm(db) */}
-        <div className="relative w-5 mt-[4px] flex-1 text-[9px] font-mono font-bold text-[var(--cordel-text)]/80 leading-none select-none">
+        {/* Repères dBFS positionnés aux hauteurs exactes de la colonne H */}
+        <div className="relative w-5 mt-[12px] flex-1 text-[9px] font-mono font-bold text-[var(--cordel-text)]/80 leading-none select-none">
           {STUDIO_METER_TICKS.map((tick) => (
             <span
               key={tick.db}
@@ -83,17 +92,22 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
           ))}
         </div>
 
-        {/* Canal Droit (R) */}
-        <div className="w-4 h-full bg-[var(--vu-track-bg)] border border-[var(--cordel-border)] relative overflow-hidden rounded-[1px] flex flex-col">
+        {/* Canal Droit (R) : Voyant O détaché + mb-1 + Colonne H */}
+        <div className="w-4 h-full flex flex-col items-center">
           <div
             ref={clipRightRef}
             onClick={onClearClip}
             title={peakTooltip}
-            className="w-full h-[4px] shrink-0 border-b border-[var(--cordel-border)]/40 cursor-pointer z-20"
-            style={{ backgroundColor: 'var(--vu-level-clip)', opacity: 0.2 }}
+            className="w-full h-[8px] mb-1 shrink-0 rounded-[1.5px] border border-[var(--cordel-border-strong)] cursor-pointer z-20 transition-colors"
+            style={{ backgroundColor: 'var(--vu-led-off-bg)', opacity: 0.85 }}
           />
-          <div className="relative flex-1 w-full overflow-hidden bg-[var(--vu-track-bg)]">
+          <div className="relative flex-1 w-full min-h-0 overflow-hidden rounded-[1px] border border-[var(--cordel-border)] bg-[var(--vu-track-bg)]">
             <div className="absolute inset-0 w-full h-full pointer-events-none" style={{ background: STUDIO_VU_GRADIENT_VERTICAL }} />
+            <div
+              ref={rmsVeilRightRef}
+              className="absolute inset-0 bg-[var(--vu-track-bg)] opacity-[0.42] w-full h-full pointer-events-none will-change-transform"
+              style={{ transformOrigin: 'top', transform: 'scaleY(1)', transition: 'none' }}
+            />
             <div
               ref={vuMeterRightRef}
               className="absolute inset-0 bg-[var(--vu-track-bg)] w-full h-full pointer-events-none will-change-transform"
@@ -104,7 +118,7 @@ export const MasterStereoMeter: React.FC<MasterStereoMeterProps> = ({
               className="absolute inset-0 w-full h-full pointer-events-none will-change-transform z-10"
               style={{ opacity: 0, transform: 'translate3d(0, 100%, 0)' }}
             >
-              <div className="w-full h-[2px] bg-[var(--cordel-parchment-bg)] shadow-[0_0_2px_rgba(0,0,0,0.9)]" />
+              <div className="w-full h-[2.5px] bg-[var(--vu-peak-tick-color)] shadow-[0_0_2px_rgba(0,0,0,0.9)]" />
             </div>
           </div>
         </div>
