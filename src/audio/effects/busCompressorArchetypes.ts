@@ -36,8 +36,8 @@ interface ArchetypeTrackLike {
   id: number | string;
   instrumentIdx?: number;
   customName?: string;
-  busId?: string;
-  linkedToTrackId?: string;
+  busId?: string | number;
+  linkedToTrackId?: string | number;
   isBusFolder?: boolean;
   isLinkFolder?: boolean;
 }
