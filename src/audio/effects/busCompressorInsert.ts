@@ -111,6 +111,15 @@ export function hasBusCompressorInsert(busId: string | number): boolean {
   return inserts.has(String(busId));
 }
 
+/** Prévisualisation audio directe d'un geste (tirette COMP) : 0 re-render, 0 resynchronisation du graphe. */
+export function previewBusCompressorParams(busId: string | number, patch: Partial<BusCompressorDspParams>): void {
+  const entry = inserts.get(String(busId));
+  if (!entry || entry.status !== 'active') return;
+  entry.params = { ...entry.params, ...patch };
+  entry.paramsKey = keyOf(entry.params);
+  getBusCompManager().postParams(busId, entry.params);
+}
+
 /** Libère les Worklets des Bus supprimés (zéro CPU orphelin). */
 export function pruneOrphanBusCompressors(liveBusIds: ReadonlySet<string>): void {
   Array.from(inserts.keys()).forEach((k) => { if (!liveBusIds.has(k)) disposeBusCompressorInsert(k); });

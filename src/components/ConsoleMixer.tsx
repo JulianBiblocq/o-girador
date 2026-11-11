@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { i18n } from '../data';
@@ -9,6 +9,7 @@ import { useMixerDnd } from './mixer/useMixerDnd';
 import { MixerTracksContainer } from './mixer/MixerTracksContainer';
 import { MixerMasterStrip } from './mixer/MixerMasterStrip';
 import { StudioRackModuleId } from './mixer/masterEffectsTypes';
+import { useBusDynamicsUiStore } from '../stores/busDynamicsUiStore';
 
 const StudioRackModal = React.lazy(() =>
   import('./mixer/studio-rack/StudioRackModal').then(m => ({ default: m.StudioRackModal }))
@@ -50,6 +51,11 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
   const [studioRackModule, setStudioRackModule] = useState<StudioRackModuleId | null>(null);
+  // Mission 3.C : `BusDynamicsModal` (React.lazy) sera monté sur cet identifiant de Bus.
+  const activeBusDynamicsTrackId = useBusDynamicsUiStore(state => state.activeBusDynamicsTrackId);
+  useEffect(() => {
+    useBusDynamicsUiStore.getState().setStudioPanelsEnabled(!isMobile && !isPracticeMode);
+  }, [isMobile, isPracticeMode]);
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const dnd = useMixerDnd({
@@ -68,6 +74,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     <div
       className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 relative ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
       style={{ display: isActive ? 'flex' : 'none' }}
+      data-active-bus-dynamics={activeBusDynamicsTrackId ?? undefined}
     >
       {/* Calque de fond vectoriel trompe-l'œil Maracatu */}
       <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-mixer-bg" aria-hidden="true" />
