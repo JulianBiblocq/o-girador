@@ -1,8 +1,7 @@
 /**
- * O Girador - Noyau DSP Temps-Réel AudioWorklet (Bloc de 128 frames, 0 GC) (< 135 lignes)
- * - Interpolation linéaire de phase avec compensation `(sampleBufferRate / contextSampleRate)`.
- * - Enveloppe progressive Hold+Decay par récurrence multiplicative (`expMul`).
- * - Choke intra-bloc au sample près (`0..127`) et support natif Mono (`ch1 === null`) / Stéréo.
+ * O Girador - Noyau DSP Temps-Réel AudioWorklet (Bloc de 128 frames, 0 GC) (< 140 lignes)
+ * - Enveloppe progressive Hold+Decay + Physique de peau SOA (Choke 22/25 ms & Ducking -3.5 dB / 35 ms).
+ * - Support natif Mono (`ch1 === null`) / Stéréo au sample près.
  */
 
 import {
@@ -26,6 +25,7 @@ export function processWorkletDspBlock(
   const blockFrames = (firstOut && firstOut[0]) ? firstOut[0].length : 128;
   const blockEndFrame = currentFrame + blockFrames;
   const lateThresholdFrame = currentFrame - (contextSampleRate > 0 ? contextSampleRate : 48000) * 0.120;
+  const phys = pool.skinPhysics;
 
   while (queue.activeCount > 0) {
     const sIdx = queue.peekEarliestStorageIdx();
@@ -39,9 +39,8 @@ export function processWorkletDspBlock(
 
     const startInBlock = evtFrame <= currentFrame ? 0 : Math.min(blockFrames - 1, Math.floor(evtFrame - currentFrame));
     const trackId = queue.trackId[sIdx];
-    if ((queue.flags[sIdx] & 1) === 1) {
-      pool.triggerChokeForTrack(trackId, evtFrame, startInBlock, contextSampleRate);
-    }
+    const flags = queue.flags[sIdx];
+    pool.applyEventPhysics(trackId, flags, evtFrame, startInBlock, contextSampleRate);
 
     const sampleId = queue.sampleId[sIdx];
     const sample = samples[sampleId];
@@ -50,7 +49,7 @@ export function processWorkletDspBlock(
         evtFrame, startInBlock, trackId, slot, sampleId, sample,
         queue.velocity[sIdx], queue.strokeBaseGain[sIdx], queue.stepDecayNorm[sIdx],
         queue.eventPitchNuance[sIdx], slotPitchRatio[slot] || 1.0,
-        slotDecayNorm[slot] || 1.0, contextSampleRate
+        slotDecayNorm[slot] || 1.0, contextSampleRate, flags
       );
     }
   }
@@ -86,8 +85,10 @@ export function processWorkletDspBlock(
     const relEndFrames = pool.voiceRelEndFrames[v], endFrames = pool.voiceEndFrames[v];
     const isFull = pool.voiceIsFullBuffer[v], peakGain = pool.voicePeakGain[v];
     const linStep1 = pool.voiceLinStep1[v], expMul = pool.voiceExpMul[v], linStep2 = pool.voiceLinStep2[v];
-    const chokeStart = pool.voiceChokeStartInBlock[v];
+    const chokeStart = pool.voiceChokeStartInBlock[v], duckStart = phys.duckStartInBlock[v];
     let chokeLeft = pool.voiceChokeFramesLeft[v], chokeDelta = pool.voiceChokeDelta[v];
+    let duck = phys.duckGain[v], duckLeft = phys.duckFramesLeft[v];
+    const duckDelta = phys.duckDelta[v];
 
     for (let i = startFrame; i < blockFrames; i++) {
       if (readPos >= maxSampleIdx || elapsed >= endFrames) {
@@ -97,9 +98,7 @@ export function processWorkletDspBlock(
         if (chokeDelta === 0) chokeDelta = -gain / Math.max(1, chokeLeft);
         gain += chokeDelta;
         chokeLeft--;
-        if (chokeLeft <= 0 || gain <= 0.00001) {
-          state = VOICE_STATE_FREE; gain = 0; break;
-        }
+        if (chokeLeft <= 0 || gain <= 0.00001) { state = VOICE_STATE_FREE; gain = 0; break; }
       } else {
         if (elapsed < holdFrames) gain = peakGain;
         else if (isFull === 1) gain += linStep2;
@@ -107,28 +106,24 @@ export function processWorkletDspBlock(
         else if (elapsed < relEndFrames) gain *= expMul;
         else gain += linStep2;
         if (gain < 0) gain = 0;
+        if (duckLeft > 0 && i >= duckStart) { duck += duckDelta; duckLeft--; }
       }
 
+      const effGain = gain * duck;
       const idx = readPos | 0;
       const frac = readPos - idx;
       const s0 = ch0[idx] + frac * (ch0[idx + 1] - ch0[idx]);
-      outL[i] += s0 * gain;
+      outL[i] += s0 * effGain;
+      if (ch1 !== null) outR[i] += (ch1[idx] + frac * (ch1[idx + 1] - ch1[idx])) * effGain;
+      else if (outR !== outL) outR[i] += s0 * effGain;
 
-      if (ch1 !== null) {
-        outR[i] += (ch1[idx] + frac * (ch1[idx + 1] - ch1[idx])) * gain;
-      } else if (outR !== outL) {
-        outR[i] += s0 * gain;
-      }
       readPos += pitchStep;
       elapsed++;
     }
 
-    pool.voiceState[v] = state;
-    pool.voiceReadPos[v] = readPos;
-    pool.voiceCurrentGain[v] = gain;
-    pool.voiceElapsedFrames[v] = elapsed;
-    pool.voiceChokeStartInBlock[v] = 0;
-    pool.voiceChokeFramesLeft[v] = chokeLeft;
-    pool.voiceChokeDelta[v] = chokeDelta;
+    pool.voiceState[v] = state; pool.voiceReadPos[v] = readPos;
+    pool.voiceCurrentGain[v] = gain; pool.voiceElapsedFrames[v] = elapsed;
+    pool.voiceChokeStartInBlock[v] = 0; pool.voiceChokeFramesLeft[v] = chokeLeft; pool.voiceChokeDelta[v] = chokeDelta;
+    phys.duckGain[v] = duck; phys.duckStartInBlock[v] = 0; phys.duckFramesLeft[v] = duckLeft;
   }
 }

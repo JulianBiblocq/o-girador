@@ -1,5 +1,5 @@
 /**
- * O Girador - Pool SOA 128 Voix Pré-alloué pour AudioWorklet (0 GC) (< 140 lignes)
+ * O Girador - Pool SOA 128 Voix Pré-alloué pour AudioWorklet (0 GC) (< 130 lignes)
  */
 
 import {
@@ -8,6 +8,9 @@ import {
 import {
   WorkletVoiceEnvelopeParams, computeWorkletPeakGain, computeWorkletEffectiveDecay, fillWorkletVoiceEnvelope,
 } from './workletEnvelopeMath';
+import {
+  FLAG_ABAFADO_FALLBACK_80MS, FLAG_STUDIO_CALIBRATED, VOICE_CLASS_MASK, VOICE_CLASS_SHIFT, WorkletSkinPhysicsSoa,
+} from './workletSkinPhysics';
 
 export class WorkletVoicePoolSoa {
   public readonly voiceState = new Uint8Array(MAX_WORKLET_VOICES);
@@ -34,6 +37,7 @@ export class WorkletVoicePoolSoa {
   public readonly voiceChokeStartInBlock = new Uint8Array(MAX_WORKLET_VOICES);
   public readonly voiceChokeFramesLeft = new Int32Array(MAX_WORKLET_VOICES);
   public readonly voiceChokeDelta = new Float32Array(MAX_WORKLET_VOICES);
+  public readonly skinPhysics = new WorkletSkinPhysicsSoa();
 
   private allocCursor = 0;
   private readonly envScratch: WorkletVoiceEnvelopeParams = {
@@ -51,7 +55,7 @@ export class WorkletVoicePoolSoa {
     }
     let bestReleaseIdx = -1, bestReleaseGain = Infinity, lowestGainIdx = 0, lowestGain = Infinity;
     for (let i = 0; i < MAX_WORKLET_VOICES; i++) {
-      const g = this.voiceCurrentGain[i];
+      const g = this.voiceCurrentGain[i] * this.skinPhysics.duckGain[i];
       if (g < lowestGain) { lowestGain = g; lowestGainIdx = i; }
       if ((this.voiceState[i] === VOICE_STATE_CHOKING || this.voiceElapsedFrames[i] >= this.voiceMidRelFrames[i]) && g < bestReleaseGain) {
         bestReleaseGain = g; bestReleaseIdx = i;
@@ -66,9 +70,11 @@ export class WorkletVoicePoolSoa {
     triggerFrame: number, startInBlock: number, trackId: number, slot: number,
     sampleId: number, sample: WorkletSampleEntry, velocity: number, strokeBaseGain: number,
     stepDecayNorm: number, eventPitchNuance: number, trackPitchRatio: number,
-    trackDecayNorm: number, contextSampleRate: number
+    trackDecayNorm: number, contextSampleRate: number, flags = 0
   ): void {
-    const peakGain = computeWorkletPeakGain(velocity, strokeBaseGain);
+    const isCalibrated = (flags & FLAG_STUDIO_CALIBRATED) !== 0;
+    const isFallback80ms = (flags & FLAG_ABAFADO_FALLBACK_80MS) !== 0;
+    const peakGain = computeWorkletPeakGain(velocity, strokeBaseGain, isCalibrated, false);
     if (peakGain <= 0.0001 || sample.length < 2) return;
 
     const v = this.allocateVoiceSlot();
@@ -76,7 +82,7 @@ export class WorkletVoicePoolSoa {
     const effectivePitch = Math.max(0.1, eventPitchNuance * (trackPitchRatio > 0 ? trackPitchRatio : 1.0));
     const realWorldDurationSec = sample.length / (safeSampleRate * effectivePitch);
     const effectiveDecay = computeWorkletEffectiveDecay(stepDecayNorm, trackDecayNorm);
-    fillWorkletVoiceEnvelope(realWorldDurationSec, effectiveDecay, peakGain, contextSampleRate, this.envScratch);
+    fillWorkletVoiceEnvelope(realWorldDurationSec, effectiveDecay, peakGain, contextSampleRate, this.envScratch, isFallback80ms);
 
     this.voiceState[v] = VOICE_STATE_ACTIVE;
     this.voiceTrackId[v] = trackId;
@@ -102,19 +108,15 @@ export class WorkletVoicePoolSoa {
     this.voiceChokeStartInBlock[v] = 0;
     this.voiceChokeFramesLeft[v] = 0;
     this.voiceChokeDelta[v] = 0;
+    this.skinPhysics.initVoice(v, (flags >>> VOICE_CLASS_SHIFT) & VOICE_CLASS_MASK);
   }
 
-  public triggerChokeForTrack(trackId: number, chokeTriggerFrame: number, chokeStartInBlock: number, contextSampleRate: number): void {
-    if (trackId < 0) return;
-    const chokeFrames = Math.max(1, Math.ceil(0.008 * (contextSampleRate > 0 ? contextSampleRate : 48000)));
-    for (let v = 0; v < MAX_WORKLET_VOICES; v++) {
-      if (this.voiceState[v] === VOICE_STATE_ACTIVE && this.voiceTrackId[v] === trackId && this.voiceStartFrame[v] < chokeTriggerFrame) {
-        this.voiceState[v] = VOICE_STATE_CHOKING;
-        this.voiceChokeStartInBlock[v] = chokeStartInBlock;
-        this.voiceChokeFramesLeft[v] = chokeFrames;
-        this.voiceChokeDelta[v] = 0;
-      }
-    }
+  public applyEventPhysics(trackId: number, flags: number, evtFrame: number, startInBlock: number, contextSampleRate: number): void {
+    this.skinPhysics.applyTrigger(
+      trackId, flags, evtFrame, startInBlock, contextSampleRate,
+      this.voiceState, this.voiceTrackId, this.voiceStartFrame,
+      this.voiceChokeStartInBlock, this.voiceChokeFramesLeft, this.voiceChokeDelta
+    );
   }
 
   public fadeOutVoices(contextSampleRate: number, fadeSec = 0.005, filterTrackId?: number): void {

@@ -1,13 +1,14 @@
 /**
- * O Girador - Audio Engine Low-Level Stroke Execution (< 85 lignes)
+ * O Girador - Audio Engine Low-Level Stroke Execution (< 115 lignes)
  * - Lecture phase-continue 100 % naturelle des tambours (`playbackRate = 2^(st/12)`).
- * - Micro-dispersion temporelle d'unisson réservée aux fûts esclaves liés (`isLinkedSlave`).
- * - Combinaison multiplicative sans double division (`effectiveDecayNorm`) de `stepDecay` et `trackDecay`.
+ * - Fallback intelligent `A -> pool e (80 ms)` si un sample `A` n'est pas chargé.
+ * - Physique de peau isolée par piste (`trackId` ou `instrumentId` en preview clavier).
  */
 
 import { getTone } from '../../ToneLoader';
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { TrackGroup } from '../../types';
+import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import { EngineTuning } from './engineTuning';
 import { EngineStrokePlayback } from './engineStrokePlayback';
 import type { NotePlayerDeps } from './enginePlayerTypes';
@@ -15,7 +16,7 @@ import type { NotePlayerDeps } from './enginePlayerTypes';
 export function computeEffectiveDecayNorm(
   rawStepDecay: number | undefined,
   rawTrackDecay: number | undefined,
-  isPreviewOverride: boolean = false
+  isPreviewOverride = false
 ): number {
   const s = rawStepDecay ?? 1;
   const stepDecayNorm = s > 1 ? s / 100 : s;
@@ -42,6 +43,8 @@ export class EngineExecuteStroke {
     track: TrackGroup | null,
     requestedSymbol?: string
   ): void {
+    const effectiveSymbol = requestedSymbol || stroke.symbol;
+
     if (stroke.isBarulho && isLiveHold && deps.playbackCtx.barulho.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = deps.playbackCtx.barulho.activeBarulhoGains.get(instrumentId);
       if (activeGain) {
@@ -58,31 +61,43 @@ export class EngineExecuteStroke {
       deps.playbackCtx.barulho.stopBarulho(instrumentId, time);
     }
 
-    const filePath = deps.roundRobin.selectFile(instrumentId, stroke, time, trackId);
-    const bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+    let resolvedStroke = stroke;
+    let forceShort80ms = false;
+    let filePath = deps.roundRobin.selectFile(instrumentId, resolvedStroke, time, trackId);
+    let bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+
+    if ((!bufferEntry || !bufferEntry.loaded) && ALFAIA_INSTRUMENTS.has(instrumentId) && (effectiveSymbol === 'A' || effectiveSymbol === 'a')) {
+      const fallbackE = config.strokes.find((s) => s.symbol === 'e');
+      if (fallbackE) {
+        resolvedStroke = fallbackE;
+        forceShort80ms = true;
+        filePath = deps.roundRobin.selectFile(instrumentId, resolvedStroke, time, trackId);
+        bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+      }
+    }
     if (!bufferEntry || !bufferEntry.loaded) return;
 
     const microDelaySec = EngineTuning.calculateUnisonMicroDelaySec(track, instrumentId);
     const effectiveTime = time + microDelaySec;
+    const voiceGuardKey = trackId !== null ? trackId : instrumentId;
 
-    // Étouffement (choke) strictement isolé par piste (trackId)
-    deps.voiceGuard.chokeTrackVoice(trackId, requestedSymbol || stroke.symbol, effectiveTime);
+    deps.voiceGuard.chokeTrackVoice(voiceGuardKey, effectiveSymbol, effectiveTime, instrumentId);
 
     const rawBuffer = bufferEntry.get() as AudioBuffer;
-    const isLeftHandRufada = (requestedSymbol || stroke.symbol) === 'r';
+    const isLeftHandRufada = effectiveSymbol === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
     const pitchNuance = isLeftHandRufada ? 0.985 : 1.0;
     const microDetune = EngineTuning.calculateMicroDetuneMultiplier(instrumentId, trackId);
-    const baseRate = stroke.isBarulho
+    const baseRate = resolvedStroke.isBarulho
       ? 1.0
       : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
     const calculatedPitch = baseRate * pitchNuance * microDetune;
-
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
 
     EngineStrokePlayback.play(
-      deps.playbackCtx, trackId, instrumentId, stroke,
-      rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold
+      deps.playbackCtx, trackId, instrumentId, resolvedStroke,
+      rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold,
+      { isStudioCalibrated: Boolean(config.calibratedStudioBank), forceShort80ms, strokeSymbol: effectiveSymbol }
     );
 
     if (instrumentId === 'apito') {

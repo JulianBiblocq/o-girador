@@ -4,6 +4,7 @@
  */
 
 import { MAX_WORKLET_EVENTS, WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
+import { WORKLET_SEQ_MASK, WORKLET_SEQ_SHIFT } from './workletSkinPhysics';
 
 export class WorkletEventQueue {
   public readonly triggerFrame = new Float64Array(MAX_WORKLET_EVENTS);
@@ -96,12 +97,13 @@ export class WorkletEventQueue {
 
   public purgeFromFrame(fromFrame: number, measureSeqId?: number): void {
     let writeIdx = 0;
+    const maskedSeq = measureSeqId !== undefined ? (measureSeqId & WORKLET_SEQ_MASK) : undefined;
     for (let r = 0; r < this.activeCount; r++) {
       const sIdx = this.sortedOrder[r];
-      const evtSeqId = this.flags[sIdx] >>> 1;
+      const evtSeqId = this.flags[sIdx] >>> WORKLET_SEQ_SHIFT;
       const shouldDrop =
         this.triggerFrame[sIdx] >= fromFrame &&
-        (measureSeqId === undefined || evtSeqId === measureSeqId);
+        (maskedSeq === undefined || evtSeqId === maskedSeq);
       if (shouldDrop) {
         this.freePool[this.freeTop++] = sIdx;
       } else {

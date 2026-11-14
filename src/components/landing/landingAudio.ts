@@ -24,9 +24,10 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     name: 'Alfaia',
     Icon: AlfaiaCordelIcon,
     strokes: [
-      { symbol: 'D', labelFr: 'Main forte', labelPt: 'Toque forte', file: '/Mixdown/Alfaia meiao F 1.ogg' },
-      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau Igaraçu', file: '/Mixdown/Alfaia meiao I 1.ogg' },
-      { symbol: 'd', labelFr: 'Coup faible', labelPt: 'Toque fraco', file: '/Mixdown/Alfaia meiao faible 1.ogg' },
+      { symbol: 'D', labelFr: 'Main forte', labelPt: 'Toque forte', file: '/Mixdown/Alfaia marcante D 1.ogg' },
+      { symbol: 'A', labelFr: 'Étouffé gauche (Abafado)', labelPt: 'Abafado esquerda', file: '/Mixdown/Alfaia marcante A 1.ogg' },
+      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau Igaraçu', file: '/Mixdown/Alfaia marcante I 1.ogg' },
+      { symbol: 'd', labelFr: 'Coup faible', labelPt: 'Toque fraco', file: '/Mixdown/Alfaia marcante d_min 1.ogg' },
     ],
   },
   {

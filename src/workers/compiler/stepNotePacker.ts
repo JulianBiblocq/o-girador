@@ -3,6 +3,9 @@ export function normalizeStrokeKey(inst: any, state: any): string | null {
   let targetKey: string | null = typeof state === 'string' ? state : String(state);
   if (!targetKey) return null;
 
+  if (['marcante', 'meiao', 'repique'].includes(inst.id) && targetKey === 'a') {
+    targetKey = 'A';
+  }
   if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(inst.id)) {
     if (targetKey === 't' || targetKey === 'T') targetKey = 'B';
     else if (targetKey === 'C') targetKey = 'c';

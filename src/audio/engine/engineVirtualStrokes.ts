@@ -1,14 +1,16 @@
 /**
- * O Girador - Audio Engine Virtual Stroke Normalization & Resolution
+ * O Girador - Audio Engine Virtual Stroke Normalization & Fallback Resolution (< 85 lignes)
  */
-
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
-import { HUMANIZED_INSTRUMENTS_SET } from './engineTypes';
+import { ALFAIA_INSTRUMENTS, HUMANIZED_INSTRUMENTS_SET } from './engineTypes';
 
 export class EngineVirtualStrokes {
   public static normalizeSymbol(instrumentId: string, strokeSymbol: string): string {
     let normSymbol = strokeSymbol;
 
+    if (ALFAIA_INSTRUMENTS.has(instrumentId) && normSymbol === 'a') {
+      return 'A';
+    }
     if (normSymbol === 'f') normSymbol = 'F';
     else if (normSymbol === 'v') normSymbol = 'V';
     else if (normSymbol === 'r' && instrumentId !== 'caixa' && instrumentId !== 'tarol') normSymbol = 'R';
@@ -35,9 +37,7 @@ export class EngineVirtualStrokes {
       for (const stroke of config.strokes) {
         map.set(stroke.symbol, stroke);
         const upper = stroke.symbol.toUpperCase();
-        if (!map.has(upper)) {
-          map.set(upper, stroke);
-        }
+        if (!map.has(upper)) map.set(upper, stroke);
       }
       strokesMaps.set(config.id, map);
     }
@@ -58,5 +58,26 @@ export class EngineVirtualStrokes {
       stroke = strokesMap.get(normSymbol.toUpperCase());
     }
     return stroke && stroke.files.length > 0 ? stroke : null;
+  }
+
+  /** Résout un coup et applique le fallback intelligent `A -> pool e (80 ms)` si le sample `A` est absent. */
+  public static resolveStrokeWithAbafadoFallback(
+    strokesMaps: Map<string, Map<string, StrokeMapping>>,
+    instrumentId: string,
+    strokeSymbol: string,
+    hasUsableFiles?: (stroke: StrokeMapping) => boolean
+  ): { stroke: StrokeMapping | null; forceShort80ms: boolean } {
+    const norm = this.normalizeSymbol(instrumentId, strokeSymbol);
+    const primary = this.resolveStroke(strokesMaps, instrumentId, norm);
+    const primaryOk = Boolean(primary && (!hasUsableFiles || hasUsableFiles(primary)));
+    if (primaryOk) return { stroke: primary, forceShort80ms: false };
+
+    if (ALFAIA_INSTRUMENTS.has(instrumentId) && norm === 'A') {
+      const fallbackE = this.resolveStroke(strokesMaps, instrumentId, 'e');
+      if (fallbackE && (!hasUsableFiles || hasUsableFiles(fallbackE))) {
+        return { stroke: fallbackE, forceShort80ms: true };
+      }
+    }
+    return { stroke: primary, forceShort80ms: false };
   }
 }

@@ -12,6 +12,8 @@ export interface ActiveVoice {
   velocity: number;
   isFullBuffer: boolean;
   instrumentId: string;
+  strokeSymbol?: string;
+  isDucked?: boolean;
 }
 
 export interface PooledGainNode extends GainNode {

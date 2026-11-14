@@ -1,15 +1,17 @@
 /**
  * O Girador - Empaquetage des Événements de Mesure vers AudioWorklet (< 140 lignes)
- * - Convertit la grille compilée + variations en tuples `Float64Array` (stride 8).
- * - Preuve de couverture `(seqId, trackId)`, anti-flam `minRebuildFrame` et parité d'accordage.
+ * - Convertit la grille compilée + variations en tuples `Float64Array` (stride 9).
+ * - Physique de peau Alfaia SOA (Choke 22/25 ms, Ducking -3.5 dB / 35 ms), calibration Studio 1.0 & fallback A -> e (80 ms).
  */
 
 import { instrumentsConfig } from '../../../data';
 import { InstrumentAudioConfig, StrokeMapping } from '../../../data/audioConfig';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
 import { GlobalSwing, Track } from '../../../types';
+import { ALFAIA_INSTRUMENTS } from '../../engine/engineTypes';
 import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
+import { packWorkletEventFlags, resolveAlfaiaPhysicsSpec } from '../processor/workletSkinPhysics';
 import { MeasureTimingTable } from './percussionHorizonTiming';
 
 export interface HorizonPackerEngineDeps {
@@ -48,37 +50,29 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
   const processNoteTuple = (absTick: number, packedData: number, velocity: number, microPct: number, skipSet?: Set<number>) => {
     const tickInMeasure = absTick - measureStartTick;
     if (tickInMeasure < 0 || tickInMeasure >= timing.maxTicks) return;
-    const trackIdx = (packedData >> 22) & 0x3FF;
-    const liveTrack = tracks[trackIdx];
+    const liveTrack = tracks[(packedData >> 22) & 0x3FF];
     if (!liveTrack || (skipSet && skipSet.has(liveTrack.id)) || !coveredTrackIds.has(liveTrack.id)) return;
     const inst = instrumentsConfig[liveTrack.instrumentIdx];
     if (!inst) return;
 
     const circleStepIdx = (packedData >> 16) & 0x3F;
-    const strokeCharCode = (packedData >> 9) & 0x7F;
+    const strokeSymbol = String.fromCharCode((packedData >> 9) & 0x7F);
     const decayPct = (packedData >> 2) & 0x7F;
     const isTuplet = ((packedData >> 1) & 1) === 1;
-    const strokeSymbol = String.fromCharCode(strokeCharCode);
-    const stroke = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, inst.id, strokeSymbol);
+    let stroke = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, inst.id, strokeSymbol);
     if (!stroke) return;
 
-    const tickDurSec = timing.instantTickDurSec[tickInMeasure];
-    const stepDurationSec = tickDurSec * 6;
+    const tickDurSec = timing.instantTickDurSec[tickInMeasure], stepDurationSec = tickDurSec * 6;
     const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, timing.measureIdx, soloPatternPlayId);
     const swingJitter = (((((seqId * 31 + tickInMeasure) * 17 + liveTrack.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
-    const swingSec = computePercussionNoteSwing({
-      activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode: globalSwing.mode, globalSwing, stepDurationSec,
-    });
+    const swingSec = computePercussionNoteSwing({ activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode: globalSwing.mode, globalSwing, stepDurationSec });
     const stepCount = activePattern ? activePattern.steps : 16;
     const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / stepCount)) * 0.5;
-    const unisonSec = engineDeps.getTrackUnisonDelaySec(liveTrack.id);
-    const rawFrame = Math.round((timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure] + swingSec + microSec + unisonSec) * sampleRate);
+    const rawFrame = Math.round((timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure] + swingSec + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id)) * sampleRate);
 
     const noteUid = ((tickInMeasure & 0xFF) << 22) | (packedData >>> 9);
     const oldFrame = previousEmittedNoteFrames?.get(noteUid);
-    if (minRebuildFrame > 0 && oldFrame !== undefined && oldFrame < minRebuildFrame) {
-      emittedNoteFrames.set(noteUid, oldFrame); return;
-    }
+    if (minRebuildFrame > 0 && oldFrame !== undefined && oldFrame < minRebuildFrame) { emittedNoteFrames.set(noteUid, oldFrame); return; }
     let triggerFrame = rawFrame;
     if (minRebuildFrame > 0) {
       if (rawFrame >= currentFrame && rawFrame < minRebuildFrame) triggerFrame = minRebuildFrame;
@@ -86,35 +80,37 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     } else if (rawFrame < currentFrame - Math.round(0.015 * sampleRate)) return;
     else if (rawFrame < currentFrame) triggerFrame = currentFrame;
 
-    const filePath = engineDeps.selectRoundRobinFile(inst.id, stroke, triggerFrame / sampleRate, liveTrack.id);
-    const sampleId = engineDeps.getSampleId(filePath);
+    const isAlfaia = ALFAIA_INSTRUMENTS.has(inst.id);
+    const trigTimeSec = triggerFrame / sampleRate;
+    let filePath = engineDeps.selectRoundRobinFile(inst.id, stroke, trigTimeSec, liveTrack.id);
+    let sampleId = engineDeps.getSampleId(filePath);
+    let isFallback80ms = false;
+    if (sampleId < 0 && isAlfaia && (strokeSymbol === 'A' || strokeSymbol === 'a')) {
+      const fbE = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, inst.id, 'e');
+      if (fbE) { stroke = fbE; isFallback80ms = true; filePath = engineDeps.selectRoundRobinFile(inst.id, fbE, trigTimeSec, liveTrack.id); sampleId = engineDeps.getSampleId(filePath); }
+    }
     if (sampleId < 0) { uncoveredTrackIds.add(liveTrack.id); return; }
 
     emittedNoteFrames.set(noteUid, triggerFrame);
     const isLeftRufada = strokeSymbol === 'r';
     const finalVelocity = isLeftRufada ? velocity * 0.88 : velocity;
-    const strokeBaseGain = (stroke as any).baseGain ?? 1.0;
+    const strokeBaseGain = stroke.baseGain ?? 1.0;
     const trackPitch = engineDeps.getTrackPitchRatio(liveTrack.id) || 1.0;
     const pitchNuance = stroke.isBarulho ? (1.0 / trackPitch) : (isLeftRufada ? 0.985 : 1.0);
     const wasBarulho = activeBarulhoTracks.has(liveTrack.id);
-    if (stroke.isBarulho) activeBarulhoTracks.add(liveTrack.id);
-    else if (wasBarulho) activeBarulhoTracks.delete(liveTrack.id);
-    const isChoke = strokeSymbol === 'p' || strokeSymbol === 'P' || stroke.symbol === 'p' || stroke.symbol === 'P' || (!stroke.isBarulho && wasBarulho);
-    const flags = ((seqId & 0x7FFFFFFF) << 1) | (isChoke ? 1 : 0);
+    if (stroke.isBarulho) activeBarulhoTracks.add(liveTrack.id); else if (wasBarulho) activeBarulhoTracks.delete(liveTrack.id);
 
-    stagedEvents.push(
-      triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id),
-      sampleId, finalVelocity, strokeBaseGain, decayPct / 100, pitchNuance, flags
-    );
+    const { chokeMode, voiceClass } = resolveAlfaiaPhysicsSpec(isAlfaia, strokeSymbol, Boolean(stroke.isBarulho), wasBarulho);
+    const isCalibrated = Boolean(engineDeps.configMap.get(inst.id)?.calibratedStudioBank);
+    const flags = packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms);
+
+    stagedEvents.push(triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id), sampleId, finalVelocity, strokeBaseGain, decayPct / 100, pitchNuance, flags);
   };
 
   const endTick = measureStartTick + timing.maxTicks;
   if (flatCompiledSchedule && flatCompiledSchedule.length > 0) {
     let lo = 0, hi = (flatCompiledSchedule.length >>> 2) - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (flatCompiledSchedule[mid << 2] < measureStartTick) lo = mid + 1; else hi = mid;
-    }
+    while (lo < hi) { const mid = (lo + hi) >>> 1; if (flatCompiledSchedule[mid << 2] < measureStartTick) lo = mid + 1; else hi = mid; }
     for (let ptr = lo << 2; ptr < flatCompiledSchedule.length; ptr += 4) {
       const absTick = flatCompiledSchedule[ptr];
       if (absTick >= endTick) break;
@@ -130,9 +126,7 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     uncoveredTrackIds.forEach((id) => coveredTrackIds.delete(id));
     const filtered: number[] = [];
     for (let i = 0; i < stagedEvents.length; i += WORKLET_EVENT_STRIDE) {
-      if (!uncoveredTrackIds.has(stagedEvents[i + 1])) {
-        for (let k = 0; k < WORKLET_EVENT_STRIDE; k++) filtered.push(stagedEvents[i + k]);
-      }
+      if (!uncoveredTrackIds.has(stagedEvents[i + 1])) { for (let k = 0; k < WORKLET_EVENT_STRIDE; k++) filtered.push(stagedEvents[i + k]); }
     }
     return { eventsData: new Float64Array(filtered), eventCount: filtered.length / WORKLET_EVENT_STRIDE, coveredTrackIds, emittedNoteFrames };
   }

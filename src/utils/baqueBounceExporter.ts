@@ -9,6 +9,8 @@ import { getEffectiveMuteState, useSequencerStore } from '../stores/useSequencer
 import { useTransportStore } from '../stores/useTransportStore';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { EngineTuning } from '../audio/engine/engineTuning';
+import { EngineRoundRobin } from '../audio/engine/engineRoundRobin';
+import { ALFAIA_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { resolveSampleFetchPath, fetchSampleWithRetry } from '../audio/engine/sampleFetchUtils';
 import { getCachedPcmSample, reconstructAudioBuffer } from '../audio/audioSampleCache';
 import { buildFlatSongSchedule } from '../workers/compiler/flatScheduleBuilder';
@@ -82,17 +84,15 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
   const graph = buildOfflineTrackGraph(offlineCtx, state.tracks, baqueTracks, timing, startM, stemPlan);
   const strokesMaps = EngineVirtualStrokes.buildStrokesMaps(instrumentAudioConfigs);
   const configMap = new Map(instrumentAudioConfigs.map((c) => [c.id, c]));
-  const sampleCache = new Map<string, AudioBuffer>();
+  const sampleCache = new Map<string, AudioBuffer>(), offlineRR = new EngineRoundRobin();
 
   for (let i = 0; i < schedule.length / 4; i++) {
     const absTick = schedule[i * 4], packed = schedule[i * 4 + 1], stepVol = schedule[i * 4 + 2], microPct = schedule[i * 4 + 3];
     const track = baqueTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
     if (!track || !inst) continue;
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
-    const stroke = EngineVirtualStrokes.resolveStroke(strokesMaps, inst.id, strokeSymbol);
+    let stroke = EngineVirtualStrokes.resolveStroke(strokesMaps, inst.id, strokeSymbol);
     if (!stroke || !stroke.files.length) continue;
-    const buf = await decodeSampleForOffline(offlineCtx, stroke.files[i % stroke.files.length], sampleCache);
-    if (!buf) continue;
 
     const mIdx = resolveMeasureIndexAtTick(absTick, timing);
     const mTicks = timing.measureTicks[mIdx] || 96, mDurSec = timing.measureDurationsSec[mIdx] || 2;
@@ -103,11 +103,22 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     const stepCount = activePattern ? activePattern.steps : 16;
     const microSec = (microPct / 100) * (tick96nSec * (mTicks / stepCount)) * 0.5;
     const unisonSec = EngineTuning.calculateUnisonMicroDelaySec(track as any, inst.id);
-    const pitch = EngineTuning.calculatePitch(inst.id, configMap.get(inst.id)!, track as any) * EngineTuning.calculateMicroDetuneMultiplier(inst.id, track.id);
+    const instCfg = configMap.get(inst.id)!;
+    const pitch = stroke.isBarulho ? 1.0 : EngineTuning.calculatePitch(inst.id, instCfg, track as any);
     const stepDecayNorm = ((packed >>> 2) & 0x7F) / 100;
     const triggerSec = tickToTimeSec(absTick, timing) + swingSec + microSec + unisonSec;
 
-    scheduleOfflineStrokeHit(offlineCtx, graph, track, inst.id, strokeSymbol, buf, pitch, triggerSec, stepVol, stepDecayNorm, timing.totalDurationSec);
+    let buf = await decodeSampleForOffline(offlineCtx, offlineRR.selectFile(inst.id, stroke, triggerSec, track.id), sampleCache);
+    let forceShort80ms = false;
+    if (!buf && ALFAIA_INSTRUMENTS.has(inst.id) && (strokeSymbol === 'A' || strokeSymbol === 'a')) {
+      const fbE = EngineVirtualStrokes.resolveStroke(strokesMaps, inst.id, 'e');
+      if (fbE) { stroke = fbE; forceShort80ms = true; buf = await decodeSampleForOffline(offlineCtx, offlineRR.selectFile(inst.id, fbE, triggerSec, track.id), sampleCache); }
+    }
+    if (!buf) continue;
+
+    scheduleOfflineStrokeHit(offlineCtx, graph, track, inst.id, strokeSymbol, buf, pitch, triggerSec, stepVol, stepDecayNorm, timing.totalDurationSec, {
+      isStudioCalibrated: Boolean(instCfg?.calibratedStudioBank), forceShort80ms, strokeBaseGain: stroke.baseGain ?? 1.0,
+    });
   }
 
   const rendered = collapseBounceStemsToStereo(offlineCtx, await offlineCtx.startRendering(), stemPlan, state.tracks, {
