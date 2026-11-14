@@ -69,7 +69,6 @@ export function useFaderTouchDrag({
         const touch = e.changedTouches[0] || e.touches[0];
         if (touch) {
           const val = calculateValueFromPointer(touch.clientY);
-          updateAudioNode(val);
           onChange(val);
         }
         clearRailRect();

@@ -1,7 +1,6 @@
 import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks } from '../../stores/useSequencerStore';
-import { channels, busChannels, masterVolumeNode } from '../../audio/effectsChain';
-import { faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
 import { debouncedSaveVolume } from './midiDebounce';
+import { applyRealtimeMasterFader, applyRealtimeTrackOrBusFader } from '../audio-sync/realtimeFaderAudioUpdater';
 
 export function handleMidiPitchBendFaders(
   status: number,
@@ -22,11 +21,7 @@ export function handleMidiPitchBendFaders(
     if (!targetTrack) return true;
     const targetTrackId = targetTrack.id;
 
-    const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
-    if (channelNode && channelNode.volume) {
-      const db = faderPositionToDb(volumeVal);
-      channelNode.volume.rampTo(Number.isFinite(db) ? db : -100, 0.02);
-    }
+    applyRealtimeTrackOrBusFader(targetTrackId, volumeVal, 0.018);
 
     window.dispatchEvent(new CustomEvent('midi-fader-move', {
       detail: { targetId: targetTrackId, val: volumeVal }
@@ -35,10 +30,7 @@ export function handleMidiPitchBendFaders(
     debouncedSaveVolume(targetTrackId, volumeVal, audio);
     return true;
   } else if (channel === 8) {
-    if (masterVolumeNode && masterVolumeNode.gain) {
-      const gain = faderPositionToGain(volumeVal);
-      masterVolumeNode.gain.rampTo(gain, 0.02);
-    }
+    applyRealtimeMasterFader(volumeVal, 0.018);
 
     window.dispatchEvent(new CustomEvent('midi-fader-move', {
       detail: { targetId: 'master', val: volumeVal }

@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { rampNativeLinearGain } from './channelFaderLinearRamp';
 
 export function safeRampTo(
   param: any,
@@ -8,9 +9,17 @@ export function safeRampTo(
   maxVal = 20000
 ): void {
   if (!param) return;
-  const raw = (typeof targetValue !== 'number' || !Number.isFinite(targetValue))
-    ? (minVal <= 0 && 0 <= maxVal ? 0 : minVal)
-    : targetValue;
+
+  let raw: number;
+  if (typeof targetValue !== 'number' || Number.isNaN(targetValue)) {
+    raw = minVal <= 0 && 0 <= maxVal ? 0 : minVal;
+  } else if (targetValue === -Infinity) {
+    raw = minVal;
+  } else if (targetValue === Infinity) {
+    raw = maxVal;
+  } else {
+    raw = targetValue;
+  }
   const clamped = Math.max(minVal, Math.min(maxVal, raw));
 
   let isRunning = false;
@@ -31,7 +40,7 @@ export function safeRampTo(
         param.cancelScheduledValues?.(0);
         param.value = clamped;
         return;
-      } catch (_) {}
+      } catch (__) {}
     }
   }
 
@@ -40,7 +49,15 @@ export function safeRampTo(
   } catch (_) {}
 }
 
-export function safeRampDb(param: any, db: number, durationSec = 0.02): void {
+export function safeRampDb(param: any, db: number, durationSec = 0.018): void {
+  if (!param) return;
+  if (param.units === 'decibels' && param._param) {
+    const lin = typeof db !== 'number' || Number.isNaN(db) || db === -Infinity || db <= -99.5
+      ? 0
+      : Math.pow(10, Math.max(-100, Math.min(12, db === Infinity ? 12 : db)) / 20);
+    rampNativeLinearGain(param, lin, durationSec);
+    return;
+  }
   safeRampTo(param, db, durationSec, -100, 12);
 }
 

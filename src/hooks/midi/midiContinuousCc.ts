@@ -1,8 +1,9 @@
 import { useSequencerStore, selectTracksMeta, getDisplayedMixerTracks } from '../../stores/useSequencerStore';
-import { channels, busChannels, masterVolumeNode } from '../../audio/effectsChain';
-import { faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
+import { channels, busChannels } from '../../audio/effectsChain';
 import { debouncedSaveVolume, debouncedSavePan } from './midiDebounce';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
+import { safeRampPan } from '../../utils/audio/safeAudioParamRamp';
+import { applyRealtimeMasterFader, applyRealtimeTrackOrBusFader } from '../audio-sync/realtimeFaderAudioUpdater';
 
 let lastCcBankActionTime = 0;
 
@@ -26,7 +27,7 @@ export function handleMidiContinuousCc(
     return true;
   }
 
-  // A. Faders de volume (CC 73 à 80 pour tranches 1 à 8, CC 81/82/83/85 ou CC 7 canal 8 pour Master)
+  // A. Faders de volume (CC 73 a 80 pour tranches 1 a 8, CC 81/82/83/85 ou CC 7 canal 8 pour Master)
   let faderIdx: number | 'master' | null = null;
   if (note >= 73 && note <= 80) {
     faderIdx = note - 73;
@@ -50,11 +51,7 @@ export function handleMidiContinuousCc(
       if (!targetTrack) return true;
       const targetTrackId = targetTrack.id;
 
-      const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
-      if (channelNode && channelNode.volume) {
-        const db = faderPositionToDb(volumeVal);
-        channelNode.volume.rampTo(Number.isFinite(db) ? db : -100, 0.02);
-      }
+      applyRealtimeTrackOrBusFader(targetTrackId, volumeVal, 0.018);
 
       window.dispatchEvent(new CustomEvent('midi-fader-move', {
         detail: { targetId: targetTrackId, val: volumeVal }
@@ -63,10 +60,7 @@ export function handleMidiContinuousCc(
       debouncedSaveVolume(targetTrackId, volumeVal, audio);
       return true;
     } else if (faderIdx === 'master') {
-      if (masterVolumeNode && masterVolumeNode.gain) {
-        const gain = faderPositionToGain(volumeVal);
-        masterVolumeNode.gain.rampTo(gain, 0.02);
-      }
+      applyRealtimeMasterFader(volumeVal, 0.018);
 
       window.dispatchEvent(new CustomEvent('midi-fader-move', {
         detail: { targetId: 'master', val: volumeVal }
@@ -77,7 +71,7 @@ export function handleMidiContinuousCc(
     }
   }
 
-  // B. Potentiomètres (Knobs) 1 à 8 (CC 16 à 23) -> Panoramique
+  // B. Potentiometres (Knobs) 1 a 8 (CC 16 a 23) -> Panoramique
   if (note >= 16 && note <= 23) {
     const knobIdx = note - 16;
     const tracksMeta = selectTracksMeta(useSequencerStore.getState());
@@ -98,14 +92,13 @@ export function handleMidiContinuousCc(
       newPan = Math.round((velocity / 127) * 200 - 100);
     }
 
-    const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(newPan);
+    const { acousticPan } = applyMonoCompatiblePan(newPan);
     const channelNode = channels[targetTrackId] || busChannels[targetTrackId];
-    if (channelNode) {
-      if (channelNode.pan) channelNode.pan.rampTo(acousticPan, 0.02);
-      if (channelNode.volume && currentTrack && !currentTrack.isBusFolder) {
-        const baseDb = faderPositionToDb(currentTrack.volumeVal ?? 75);
-        if (baseDb > -90) channelNode.volume.rampTo(baseDb + panCompensationDb, 0.02);
-      }
+    if (channelNode?.pan) {
+      safeRampPan(channelNode.pan, acousticPan, 0.018);
+    }
+    if (currentTrack && !currentTrack.isBusFolder) {
+      applyRealtimeTrackOrBusFader(targetTrackId, currentTrack.volumeVal ?? 75, 0.018);
     }
 
     window.dispatchEvent(new CustomEvent('midi-pan-move', {

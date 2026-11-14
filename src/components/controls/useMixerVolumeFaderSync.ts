@@ -62,7 +62,6 @@ export function useMixerVolumeFaderSync({
     const unityPos = defaultValue !== undefined ? defaultValue : UNITY_GAIN_FADER_POSITION;
     setFaderThumbPercent(visualThumbRef.current, unityPos);
     if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(unityPos);
-    updateAudioNode(unityPos);
     onChange(unityPos);
   };
 
@@ -92,7 +91,6 @@ export function useMixerVolumeFaderSync({
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
     const val = calculateValueFromPointer(e.clientY);
     clearRailRect();
-    updateAudioNode(val);
     onChange(val);
   };
 
@@ -106,7 +104,6 @@ export function useMixerVolumeFaderSync({
       const activeVal = sanitizeFaderPosition(value ?? defaultValue ?? UNITY_GAIN_FADER_POSITION);
       setFaderThumbPercent(visualThumbRef.current, activeVal);
       if (valueTextRef.current) valueTextRef.current.textContent = faderPositionToDbString(activeVal);
-      updateAudioNode(activeVal);
     }
   }, [value, defaultValue, trackId, isEditing]);
 

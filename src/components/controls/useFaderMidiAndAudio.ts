@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
-import { channels, busChannels } from '../../hooks/useAudioSync';
-import { faderPositionToDb, faderPositionToDbString, setFaderThumbPercent } from '../../utils/audioMath';
-import { safeRampDb } from '../../utils/audio/safeAudioParamRamp';
-import { rampBusSendVcaFromFaderDrag } from '../../audio/effectsChain';
+import { faderPositionToDbString, setFaderThumbPercent } from '../../utils/audioMath';
+import { applyRealtimeMasterFader, applyRealtimeTrackOrBusFader } from '../../hooks/audio-sync/realtimeFaderAudioUpdater';
 
 interface UseFaderMidiAndAudioProps {
   trackId?: number;
@@ -24,13 +22,12 @@ export function useFaderMidiAndAudio({
       onAudioDrag(val);
       return;
     }
+    if (isMaster) {
+      applyRealtimeMasterFader(val, 0.018);
+      return;
+    }
     if (trackId !== undefined) {
-      const channelNode = channels[trackId] || (busChannels ? busChannels[trackId] : undefined);
-      if (channelNode && channelNode.volume) {
-        const db = faderPositionToDb(val);
-        safeRampDb(channelNode.volume, db, 0.02);
-      }
-      rampBusSendVcaFromFaderDrag(trackId, val, 0.02);
+      applyRealtimeTrackOrBusFader(trackId, val, 0.018);
     }
   };
 
