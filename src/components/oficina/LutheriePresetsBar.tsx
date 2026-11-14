@@ -44,8 +44,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
   };
 
   return (
-    <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3 flex flex-col gap-2.5 shadow-[3px_3px_0px_var(--cordel-text)] select-none">
-      {/* Ligne 1 : Accords Prédéfinis (Usine) */}
+    <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3 flex flex-col gap-2.5 shadow-[3px_3px_0px_var(--cordel-shadow-color)] select-none">
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <span className="font-cactus font-bold uppercase text-[10px] md:text-xs text-[var(--cordel-text)] shrink-0">
           {isFr ? 'Accords Prédéfinis :' : 'Acordes Predefinidos :'}
@@ -56,8 +55,10 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
             return (
               <button
                 key={preset.id} type="button" onClick={() => onApplyPreset(preset)}
-                className={`px-2.5 py-1 border-2 border-[var(--cordel-text)] flex flex-col items-start text-left cursor-pointer transition-colors shadow-[2px_2px_0px_var(--cordel-text)] ${
-                  isActive ? 'bg-[#8b2a1a] !text-[#f4ecd8] font-bold' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8]'
+                className={`px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] flex flex-col items-start text-left cursor-pointer transition-colors shadow-[2px_2px_0px_var(--cordel-shadow-color)] ${
+                  isActive
+                    ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] font-bold'
+                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'
                 }`}
               >
                 <span className="font-cactus font-bold uppercase text-[10px] leading-tight">{isFr ? preset.nameFr : preset.namePt}</span>
@@ -68,7 +69,6 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
         </div>
       </div>
 
-      {/* Ligne 2 : Mes Réglages (Personnels) */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 border-t border-dashed border-[var(--cordel-border)] pt-2">
         <span className="font-cactus font-bold uppercase text-[10px] md:text-xs text-[var(--cordel-text)] shrink-0">
           {isFr ? 'Mes Réglages :' : 'Meus Ajustes :'}
@@ -79,8 +79,10 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
             return (
               <div
                 key={preset.id} onClick={() => onApplyPreset(preset)}
-                className={`px-2 py-1 border-2 border-[var(--cordel-text)] flex items-center gap-1.5 cursor-pointer transition-colors shadow-[2px_2px_0px_var(--cordel-text)] ${
-                  isActive ? 'bg-[#8b2a1a] !text-[#f4ecd8] font-bold' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8]'
+                className={`px-2 py-1 border-2 border-[var(--cordel-border-strong)] flex items-center gap-1.5 cursor-pointer transition-colors shadow-[2px_2px_0px_var(--cordel-shadow-color)] ${
+                  isActive
+                    ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] font-bold'
+                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'
                 }`}
               >
                 <span className="font-cactus font-bold uppercase text-[10px]">{preset.nameFr}</span>
@@ -92,7 +94,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
           })}
 
           {isSaving ? (
-            <div className="flex items-center gap-1 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] p-0.5">
+            <div className="flex items-center gap-1 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border-strong)] p-0.5">
               <input
                 type="text" autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => {
@@ -102,7 +104,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
                 placeholder={isFr ? 'Nom du réglage...' : 'Nome do ajuste...'}
                 className="px-1.5 py-0.5 text-[10px] font-cactus font-bold bg-transparent text-[var(--cordel-text)] outline-none w-32"
               />
-              <button type="button" onClick={handleSaveSubmit} className="px-1.5 py-0.5 bg-[#8b2a1a] !text-[#f4ecd8] font-cactus font-bold text-[10px] flex items-center gap-0.5 cursor-pointer">
+              <button type="button" onClick={handleSaveSubmit} className="px-1.5 py-0.5 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] font-cactus font-bold text-[10px] flex items-center gap-0.5 cursor-pointer">
                 <Check size={11} /><span>OK</span>
               </button>
               <button type="button" onClick={() => { setIsSaving(false); setNewName(''); }} className="p-0.5 text-[var(--cordel-text)] cursor-pointer">
@@ -112,7 +114,7 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
           ) : (
             <button
               type="button" onClick={() => setIsSaving(true)}
-              className="px-2.5 py-1 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors"
+              className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1 cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] transition-colors"
             >
               <Plus size={12} /><span>{isFr ? 'Sauver ce réglage' : 'Salvar ajuste'}</span>
             </button>
