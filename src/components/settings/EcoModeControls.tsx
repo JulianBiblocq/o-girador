@@ -24,11 +24,9 @@ const TXT = {
   },
 };
 
-/** Commandes Eco a 2 paliers (Palier 1 visuel / Palier 2 audio), bilingues FR / PT. */
 export const EcoModeControls: React.FC<EcoModeControlsProps> = ({ lang, variant = 'full' }) => {
   const isEcoMode = useSequencerStore((s) => Boolean(s.isEcoMode));
   const isStrictAudio = useSequencerStore((s) => Boolean(s.isEcoMode && s.ecoConfig?.disableFx && s.ecoConfig?.disableEq));
-  // Handlers toujours definis (jamais `undefined`) : evite le warning React "checked sans onChange".
   const onToggleEco = () => useSequencerStore.getState().toggleEcoMode?.();
   const onToggleStrict = () => useSequencerStore.getState().toggleStrictAudioEco?.();
   const t = lang === 'fr' ? TXT.fr : TXT.pt;
@@ -36,44 +34,49 @@ export const EcoModeControls: React.FC<EcoModeControlsProps> = ({ lang, variant 
 
   return (
     <div className={`flex flex-col text-[var(--cordel-text)] ${isCompact ? 'gap-1.5' : 'gap-3'}`}>
-      <label className="flex items-start gap-2 cursor-pointer select-none">
+      <label className="flex items-start gap-2.5 cursor-pointer select-none">
         <input
           type="checkbox"
           checked={Boolean(isEcoMode)}
           onChange={onToggleEco}
-          className="accent-[var(--cordel-text)] w-4 h-4 mt-0.5 cursor-pointer shrink-0"
+          className="accent-[var(--cordel-wood)] w-4 h-4 mt-0.5 cursor-pointer shrink-0"
           data-testid="eco-mode-toggle"
         />
         <span className="flex flex-col min-w-0">
           <span className="flex items-center gap-1.5 font-cactus font-bold text-xs uppercase">
-            <Leaf className="w-3.5 h-3.5 shrink-0" strokeWidth={2.25} />
+            <Leaf className="w-3.5 h-3.5 shrink-0 text-[var(--cordel-accent-readable)]" strokeWidth={2.25} />
             {t.eco}
-            <span className="px-1 border border-[var(--cordel-border)] text-[9px] leading-4 font-bold">
+            <span
+              className={`px-1.5 border text-[9px] leading-4 font-bold ${
+                isEcoMode
+                  ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)]'
+                  : 'border-[var(--cordel-border)] text-[var(--cordel-text-muted)]'
+              }`}
+            >
               {isEcoMode ? t.on : t.off}
             </span>
           </span>
-          <span className="text-[10px] font-bold opacity-80">{t.ecoSub}</span>
-          {!isCompact && <span className="text-[10px] opacity-70 leading-tight mt-0.5">{t.ecoDesc}</span>}
+          <span className="text-[10px] font-bold text-[var(--cordel-text)]">{t.ecoSub}</span>
+          {!isCompact && <span className="text-[10px] text-[var(--cordel-text-muted)] leading-tight mt-0.5">{t.ecoDesc}</span>}
         </span>
       </label>
 
-      <label className={`flex items-start gap-2 cursor-pointer select-none border-l-2 border-[var(--cordel-border)] ${isCompact ? 'pl-2 ml-1' : 'pl-3 ml-1.5'}`}>
+      <label className={`flex items-start gap-2.5 cursor-pointer select-none border-l-2 border-[var(--cordel-border)] ${isCompact ? 'pl-2 ml-1' : 'pl-3 ml-1.5'}`}>
         <input
           type="checkbox"
           checked={Boolean(isStrictAudio)}
           onChange={onToggleStrict}
-          className="accent-[var(--cordel-text)] w-4 h-4 mt-0.5 cursor-pointer shrink-0"
+          className="accent-[var(--cordel-wood)] w-4 h-4 mt-0.5 cursor-pointer shrink-0"
           data-testid="eco-strict-audio-toggle"
         />
         <span className="flex flex-col min-w-0">
           <span className="flex items-center gap-1.5 font-cactus font-bold text-[11px] uppercase leading-tight">
-            <Smartphone className="w-3.5 h-3.5 shrink-0" strokeWidth={2.25} />
+            <Smartphone className="w-3.5 h-3.5 shrink-0 text-[var(--cordel-accent-readable)]" strokeWidth={2.25} />
             {t.strict}
           </span>
-          <span className="text-[10px] opacity-70 leading-tight mt-0.5">{t.strictDesc}</span>
+          <span className="text-[10px] text-[var(--cordel-text-muted)] leading-tight mt-0.5">{t.strictDesc}</span>
         </span>
       </label>
     </div>
   );
 };
-

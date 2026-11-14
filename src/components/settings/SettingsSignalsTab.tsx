@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
+import { Check } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
-import { CloudRhythmSignal } from '../../types';
+import { CloudRhythmSignal, PresetMetadata } from '../../types';
 import { SettingsSignalThumb } from './SettingsSignalThumb';
 import { SettingsSignalsBatchBar } from './SettingsSignalsBatchBar';
 
@@ -10,11 +11,13 @@ interface SettingsSignalsTabProps {
   mestreSignals?: CloudRhythmSignal[];
 }
 
+const EMPTY_SIGNALS: NonNullable<PresetMetadata['rhythmSignals']> = [];
+
 export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
   lang,
   mestreSignals = [],
 }) => {
-  const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
+  const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals ?? EMPTY_SIGNALS);
   const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
   const toggleSignalEnabled = useSequencerSettingsStore((state) => state.toggleSignalEnabled);
   const setSignalsBatch = useSequencerSettingsStore((state) => state.setSignalsBatch);
@@ -46,7 +49,7 @@ export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
 
   return (
     <div className="flex flex-col gap-4 text-left">
-      <p className="text-[10px] opacity-75">
+      <p className="text-[11px] text-[var(--cordel-text-muted)] font-semibold">
         {lang === 'pt'
           ? 'Selecione os sinais que aparecerão no catálogo de sinais para os músicos.'
           : 'Sélectionnez les signaux qui apparaîtront dans le catalogue de signaux des musiciens.'}
@@ -62,29 +65,38 @@ export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
       )}
 
       {rhythmSignals.length === 0 ? (
-        <p className="text-[10px] italic opacity-60">
+        <p className="text-[11px] italic text-[var(--cordel-text-muted)]">
           {lang === 'fr' ? 'Aucun signal disponible dans ce projet.' : 'Nenhum sinal disponível neste projeto.'}
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-1">
           {rhythmSignals.map((sig) => {
             const isEnabled = enabledSignalIds === null || enabledSignalIds.includes(sig.id);
             return (
               <button
                 key={sig.id}
+                type="button"
                 onClick={() => toggleSignalEnabled(sig.id, allSignalIds)}
-                className={`border-2 border-black p-3 bg-white text-[#1a1a1a] flex flex-col items-center gap-2 cursor-pointer text-center relative shadow-[3px_3px_0px_#000] hover:scale-[1.02] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
-                  isEnabled ? 'bg-white border-black font-bold' : 'opacity-40 grayscale bg-gray-50 border-dashed shadow-none'
+                className={`p-3 flex flex-col items-center gap-2 cursor-pointer text-center relative active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform select-none ${
+                  isEnabled
+                    ? 'border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface)] text-[var(--cordel-text)] font-bold shadow-[3px_3px_0px_var(--cordel-shadow-color)] hover:scale-[1.01]'
+                    : 'border-2 border-dashed border-[var(--cordel-border)] bg-[var(--cordel-surface-muted)] text-[var(--cordel-text-muted)] opacity-50 grayscale shadow-none'
                 }`}
               >
-                <div className="absolute top-1.5 right-1.5 w-4 h-4 border-2 border-black bg-white flex items-center justify-center font-cactus text-[9px] font-black text-[#1a1a1a]">
-                  {isEnabled ? '✓' : ''}
+                <div
+                  className={`absolute top-1.5 right-1.5 w-4 h-4 border-2 border-[var(--cordel-border-strong)] flex items-center justify-center ${
+                    isEnabled
+                      ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+                      : 'bg-[var(--cordel-surface-elevated)] text-transparent'
+                  }`}
+                >
+                  <Check size={10} className="stroke-[3]" />
                 </div>
-                <div className="w-12 h-12 flex items-center justify-center bg-black/5 border border-black/10 rounded overflow-hidden">
+                <div className="w-12 h-12 flex items-center justify-center bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] border border-[var(--cordel-border)] rounded overflow-hidden">
                   <SettingsSignalThumb name={sig.name} image={sig.image} />
                 </div>
-                <span className="text-[9px] text-[#1a1a1a] uppercase font-bold tracking-wider truncate w-full">{sig.name}</span>
-                <span className="text-[8px] text-[#44403c] font-semibold">{sig.isCloud ? 'Cloud' : 'Local'}</span>
+                <span className="text-[10px] text-[var(--cordel-text)] uppercase font-bold tracking-wider truncate w-full">{sig.name}</span>
+                <span className="text-[9px] text-[var(--cordel-text-muted)] font-semibold">{sig.isCloud ? 'Cloud' : 'Local'}</span>
               </button>
             );
           })}

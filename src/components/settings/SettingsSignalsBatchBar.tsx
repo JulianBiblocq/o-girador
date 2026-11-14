@@ -1,8 +1,5 @@
-/**
- * Barre de sélection par lot des signaux Cloud et Locaux (< 65 lignes).
- */
-
 import React from 'react';
+import { Globe, Monitor } from 'lucide-react';
 
 interface SettingsSignalsBatchBarProps {
   lang: string;
@@ -27,35 +24,37 @@ export const SettingsSignalsBatchBar: React.FC<SettingsSignalsBatchBarProps> = (
     setSignalsBatch(localIds, enable, allSignalIds);
   };
 
-  const btnStyle = "px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white text-[#1a1a1a] hover:bg-black hover:!text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none";
-  const btnDangerStyle = "px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white text-[#1a1a1a] hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none";
+  const btnStyle =
+    'px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] cursor-pointer shadow-[1.5px_1.5px_0px_var(--cordel-shadow-color)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none transition-colors';
+  const btnDangerStyle =
+    'px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text-muted)] hover:bg-[var(--cordel-status-danger)] hover:text-[var(--cordel-on-accent)] cursor-pointer shadow-[1.5px_1.5px_0px_var(--cordel-shadow-color)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none transition-colors';
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-2 border-black p-3 bg-[#f4ecd8] text-[#1a1a1a] mb-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-2 border-[var(--cordel-border)] p-3 bg-[var(--cordel-surface)] text-[var(--cordel-text)] shadow-[2px_2px_0px_var(--cordel-shadow-color)]">
       <div className="flex flex-col gap-2">
-        <span className="font-bold text-[10px] uppercase text-[#1a1a1a] flex items-center gap-1.5">
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span className="font-bold text-[10px] uppercase text-[var(--cordel-text)] flex items-center gap-1.5">
+          <Globe size={13} className="shrink-0 text-[var(--cordel-accent-readable)]" />
           <span>{lang === 'fr' ? 'Signaux Cloud' : 'Sinais Cloud'}</span>
         </span>
         <div className="flex gap-2">
-          <button onClick={() => handleCloudBatch(true)} className={btnStyle}>
+          <button type="button" onClick={() => handleCloudBatch(true)} className={btnStyle}>
             {lang === 'fr' ? 'Tout cocher' : 'Selecionar Todos'}
           </button>
-          <button onClick={() => handleCloudBatch(false)} className={btnDangerStyle}>
+          <button type="button" onClick={() => handleCloudBatch(false)} className={btnDangerStyle}>
             {lang === 'fr' ? 'Tout décocher' : 'Desmarcar Todos'}
           </button>
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <span className="font-bold text-[10px] uppercase text-[#1a1a1a] flex items-center gap-1.5">
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span className="font-bold text-[10px] uppercase text-[var(--cordel-text)] flex items-center gap-1.5">
+          <Monitor size={13} className="shrink-0 text-[var(--cordel-accent-readable)]" />
           <span>{lang === 'fr' ? 'Signaux Locaux' : 'Sinais Locais'}</span>
         </span>
         <div className="flex gap-2">
-          <button onClick={() => handleLocalBatch(true)} className={btnStyle}>
+          <button type="button" onClick={() => handleLocalBatch(true)} className={btnStyle}>
             {lang === 'fr' ? 'Tout cocher' : 'Selecionar Todos'}
           </button>
-          <button onClick={() => handleLocalBatch(false)} className={btnDangerStyle}>
+          <button type="button" onClick={() => handleLocalBatch(false)} className={btnDangerStyle}>
             {lang === 'fr' ? 'Tout décocher' : 'Desmarcar Todos'}
           </button>
         </div>

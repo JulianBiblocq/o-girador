@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Download, Printer, FileText } from 'lucide-react';
 import { exportTablatureFile, printTablature, printLegendOnly } from '../../utils/exportTablature';
 import { SettingsPrensaMetadata } from './SettingsPrensaMetadata';
 import { SettingsPrensaPreview } from './SettingsPrensaPreview';
@@ -26,15 +27,8 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
   const [bodyFontSize, setBodyFontSize] = useState<number>(13);
   const [containerWidthPx, setContainerWidthPx] = useState<number>(786);
   const {
-    validExportTracks,
-    selectedExportTracks,
-    selectedAnnexTracks,
-    liveText,
-    setLiveText,
-    handleToggleAll,
-    refreshPreviewText,
-    handleToggleTrackExport,
-    handleToggleTrackAnnex,
+    validExportTracks, selectedExportTracks, selectedAnnexTracks, liveText, setLiveText,
+    handleToggleAll, refreshPreviewText, handleToggleTrackExport, handleToggleTrackAnnex,
   } = usePrensaGenerator(lang, letras, measureBpms, bodyFontSize, containerWidthPx);
   const isFr = lang === 'fr';
 
@@ -43,22 +37,24 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           type="button"
+          data-testid="prensa-mode-linear-btn"
           onClick={() => setActivePrensaMode('linear')}
-          className={`py-2.5 px-4 border-2 font-cactus font-bold text-xs md:text-sm uppercase tracking-wider cursor-pointer transition-all ${
+          className={`py-2.5 px-4 border-2 font-cactus font-bold text-xs md:text-sm uppercase tracking-wider cursor-pointer transition-colors ${
             activePrensaMode === 'linear'
-              ? 'bg-[#8b2a1a] !text-[#f4ecd8] border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a]'
-              : 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a] hover:bg-[#e8dec5]'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] shadow-[3px_3px_0px_var(--cordel-shadow-color)]'
+              : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:bg-[var(--cordel-surface-elevated)]'
           }`}
         >
           {isFr ? '[ Partition Linéaire (Grille) ]' : '[ Partitura Linear (Grade) ]'}
         </button>
         <button
           type="button"
+          data-testid="prensa-mode-roda-sheet-btn"
           onClick={() => setActivePrensaMode('roda-sheet')}
-          className={`py-2.5 px-4 border-2 font-cactus font-bold text-xs md:text-sm uppercase tracking-wider cursor-pointer transition-all ${
+          className={`py-2.5 px-4 border-2 font-cactus font-bold text-xs md:text-sm uppercase tracking-wider cursor-pointer transition-colors ${
             activePrensaMode === 'roda-sheet'
-              ? 'bg-[#8b2a1a] !text-[#f4ecd8] border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a]'
-              : 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a] hover:bg-[#e8dec5]'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] shadow-[3px_3px_0px_var(--cordel-shadow-color)]'
+              : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:bg-[var(--cordel-surface-elevated)]'
           }`}
         >
           {isFr ? '[ Planche de Mini-Rodas (8 à 12 / page A4) ]' : '[ Prancha de Mini-Rodas (8 a 12 / página A4) ]'}
@@ -66,62 +62,58 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
       </div>
 
       {activePrensaMode === 'roda-sheet' ? (
-        <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000] min-h-[65vh] flex flex-col">
+        <div className="border-2 border-[var(--cordel-border)] rounded-[3px_6px_4px_8px] p-4 bg-[var(--cordel-surface)] text-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-shadow-color)] min-h-[65vh] flex flex-col">
           <RodaSheetContainer lang={isFr ? 'fr' : 'pt'} />
         </div>
       ) : (
         <>
           <SettingsPrensaMetadata
-            lang={lang}
-            metadata={metadata}
-            letras={letras}
-            onMetaChange={onMetaChange}
-            onLetrasChange={onLetrasChange}
-            validExportTracks={validExportTracks}
-            selectedExportTracks={selectedExportTracks}
-            selectedAnnexTracks={selectedAnnexTracks}
-            onToggleAll={handleToggleAll}
-            onToggleTrackExport={handleToggleTrackExport}
-            onToggleTrackAnnex={handleToggleTrackAnnex}
+            lang={lang} metadata={metadata} letras={letras}
+            onMetaChange={onMetaChange} onLetrasChange={onLetrasChange}
+            validExportTracks={validExportTracks} selectedExportTracks={selectedExportTracks}
+            selectedAnnexTracks={selectedAnnexTracks} onToggleAll={handleToggleAll}
+            onToggleTrackExport={handleToggleTrackExport} onToggleTrackAnnex={handleToggleTrackAnnex}
           />
 
           <SettingsPrensaPreview
-            lang={lang}
-            metadata={metadata}
-            liveText={liveText}
-            bodyFontSize={bodyFontSize}
-            onLiveTextChange={setLiveText}
-            onFontSizeChange={setBodyFontSize}
-            onRefresh={refreshPreviewText}
-            onContainerWidthChange={setContainerWidthPx}
+            lang={lang} metadata={metadata} liveText={liveText} bodyFontSize={bodyFontSize}
+            onLiveTextChange={setLiveText} onFontSizeChange={setBodyFontSize}
+            onRefresh={refreshPreviewText} onContainerWidthChange={setContainerWidthPx}
           />
 
-          <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000] flex flex-col gap-4">
-            <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-              {isFr ? "Actions d'Impression & Exportation" : 'Ações de Impressão & Exportação'}
+          <div className="border-2 border-[var(--cordel-border)] rounded-[3px_6px_4px_8px] p-4 bg-[var(--cordel-surface)] text-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-shadow-color)] flex flex-col gap-4">
+            <h3 className="font-cactus font-bold text-sm uppercase text-[var(--cordel-text)] mb-1 flex items-center gap-2 border-b border-[var(--cordel-border)]/35 pb-1.5">
+              <Printer size={15} className="text-[var(--cordel-accent-readable)] shrink-0" />
+              <span>{isFr ? "Actions d'Impression & Exportation" : 'Ações de Impressão & Exportação'}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
+                type="button"
                 onClick={() => exportTablatureFile(liveText, selectedAnnexTracks, undefined, undefined, metadata)}
                 disabled={!liveText}
-                className="px-3 py-2 text-[10px] bg-[#eaddcf] text-[#1a1a1a] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:!text-white shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                className="px-3 py-2 text-xs bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] font-cactus font-bold uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isFr ? 'Télécharger (.txt)' : 'Baixar (.txt)'}
+                <Download size={14} className="shrink-0" />
+                <span>{isFr ? 'Télécharger (.txt)' : 'Baixar (.txt)'}</span>
               </button>
               <button
+                type="button"
                 onClick={() => printTablature(liveText, selectedAnnexTracks, undefined, undefined, metadata, undefined, undefined, undefined, bodyFontSize)}
                 disabled={!liveText}
-                className="px-3 py-2 text-[10px] bg-black !text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                className="px-3 py-2 text-xs bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isFr ? 'Imprimer (HTML)' : 'Imprimir (HTML)'}
+                <Printer size={14} className="shrink-0" />
+                <span>{isFr ? 'Imprimer (HTML)' : 'Imprimir (HTML)'}</span>
               </button>
             </div>
-            <div className="border-t border-dashed border-black/20 pt-3">
+            <div className="border-t border-dashed border-[var(--cordel-border)]/40 pt-3">
               <button
+                type="button"
                 onClick={printLegendOnly}
-                className="w-full px-3 py-2 text-[10px] bg-white text-[#1a1a1a] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
+                className="w-full px-3 py-2 text-xs bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] font-cactus font-bold uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors flex items-center justify-center gap-2"
               >
-                {isFr ? 'Imprimer la Légende' : 'Imprimir a Legenda'}
+                <FileText size={14} className="shrink-0" />
+                <span>{isFr ? 'Imprimer la Légende' : 'Imprimir a Legenda'}</span>
               </button>
             </div>
           </div>
