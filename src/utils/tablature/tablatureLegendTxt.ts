@@ -8,18 +8,17 @@ ALFAIAS / CAIXA / TAROL
    d : Mão Direita (Fraca)
    E : Mão Esquerda (Forte)
    e : Mão Esquerda (Fraca)
+   A / a : Ataque Pele e Aro Direita / Esquerda (Caixa & Tarol) • Abafado Esquerda (Alfaia)
    C : Estalo (Batida das 2 baquetas uma contra a outra)
    X : Aro / Madeira
    R / r : Rufada (Rolamento)
-   F : Flam
+   F / f : Flam
    I : Iguarassu / Bacalhau
    B : Barulho (Ruído / efeito)
 
 GONGUÊ
-   D : Grave (Forte)
-   d : Grave (Fraco)
-   E : Agudo (Forte)
-   e : Agudo (Fraco)
+   G / g : Grave (Forte / Fraco)
+   A / a : Agudo (Forte / Fraco)
    X : Borda
    B : Barulho
 
@@ -31,9 +30,9 @@ AGBÊ
    B : Barulho (Ruído / efeito)
 
 MINEIRO
-   P / p : Empurrar (Forte / Fraco)
-   T / t : Puxar (Forte / Fraco)
-   L : Lado (Batida de lado)
+   P / p ↑ : Projetar — Para frente (Forte / Fraco)
+   T / t ↓ : Trazer — Para trás (Forte / Fraco)
+   L : Lado (Batida lateral)
    B : Barulho (Ruído / efeito)
 
 --- ESTRUTURA MUSICAL E RODA ---
@@ -51,19 +50,18 @@ ALFAIAS / CAIXA / TAROL
    d : Main Droite (Faible)
    E : Main Gauche (Forte)
    e : Main Gauche (Faible)
+   A / a : Attaque Cerclage+Peau Droite / Gauche — Rimshot (Caixa & Tarol) • Étouffé Gauche Abafado (Alfaia)
    C : Éclat (Frappe des 2 baguettes l'une contre l'autre)
    X : Cerclage / Bois
    R / r : Rufada (Roulement droit/gauche)
-   F : Fla
+   F / f : Fla
    I : Iguarassu / Bacalhau
    B : Barulho (Bruit / effet)
 
 GONGUÊ
-   D : Grave (Forte)
-   d : Grave (Faible)
-   E : Aigu (Forte)
-   e : Aigu (Faible)
-   X : Borda (Bord)
+   G / g : Grave (Fort / Faible)
+   A / a : Aigu (Fort / Faible)
+   X : Corps / Flanc
    B : Barulho
 
 AGBÊ
@@ -74,9 +72,9 @@ AGBÊ
    B : Barulho (Bruit / effet)
 
 MINEIRO
-   P / p : Pousser (Forte / Faible)
-   T / t : Tirer (Forte / Faible)
-   L : Lado (Coup sur le côté)
+   P / p ↑ : Pousser — Avant (Fort / Faible)
+   T / t ↓ : Tirer — Vers soi (Fort / Faible)
+   L : Lado (Secousse latérale)
    B : Barulho (Bruit / effet)
 
 --- STRUCTURE MUSICALE & RODA ---

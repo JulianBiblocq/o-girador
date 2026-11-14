@@ -30,14 +30,14 @@ const ROLE_STROKES_MAP: Record<string, RoleStrokesConfig> = {
     special: ['D/E', 'd/I', 'e/D', 'A/D'],
   },
   cx: {
-    strong: ['D', 'E', 'R', 'F', 'X', 'C', 'B'],
-    weak: ['d', 'e', 'r'],
-    special: ['D/E', 'E/D'],
+    strong: ['D', 'E', 'A', 'R', 'F', 'X', 'C', 'B'],
+    weak: ['d', 'e', 'a', 'r', 'f'],
+    special: ['D/E', 'E/D', 'A/a'],
   },
   tr: {
-    strong: ['D', 'E', 'R', 'F', 'X', 'C', 'B'],
-    weak: ['d', 'e', 'r'],
-    special: ['D/E', 'E/D'],
+    strong: ['D', 'E', 'A', 'R', 'F', 'X', 'C', 'B'],
+    weak: ['d', 'e', 'a', 'r', 'f'],
+    special: ['D/E', 'E/D', 'A/a'],
   },
   gg: {
     strong: ['G', 'A', 'X', 'B', 'C'],

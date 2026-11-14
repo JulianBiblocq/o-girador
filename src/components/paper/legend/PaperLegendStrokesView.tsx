@@ -35,7 +35,8 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       strokes: [
         { key: 'D / d', desc: isFr ? 'Droite (Fort / faible)' : 'Direita' },
         { key: 'E / e', desc: isFr ? 'Gauche (Fort / faible)' : 'Esquerda' },
-        { key: 'R / r', desc: isFr ? 'Roulement / Rouffade' : 'Rolo / Rufo' },
+        { key: 'A / a', desc: isFr ? 'Attaque Cerclage+Peau D/G (Rimshot)' : 'Ataque Pele e Aro D/E' },
+        { key: 'R / r', desc: isFr ? 'Roulement / Rufada' : 'Rolo / Rufada' },
         { key: 'F / f', desc: 'Fla' },
         { key: 'X', desc: isFr ? 'Aro / Cerclage' : 'Aro' },
         { key: 'C', desc: 'Clic' },
@@ -68,10 +69,10 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       title: `${resolvePupitreDisplayName('mi', lang)} (Mi)`,
       subtitle: isFr ? 'Shaker tubulaire métal' : 'Ganzá metálico',
       strokes: [
-        { key: 'P / p', desc: isFr ? "Poussé (vers l'avant)" : 'Frente (Pressionado)' },
-        { key: 'T / t', desc: isFr ? 'Tiré (traverser barre t)' : 'Trás (cruzar barra t)' },
-        { key: 'L', desc: isFr ? 'Lié / Côté' : 'Lateral / Ligado' },
-        { key: 'B', desc: isFr ? 'Arrêté net / Tremer' : 'Tremer / Parado' },
+        { key: 'P / p ↑', desc: isFr ? 'Pousser (Avant)' : 'Projetar (Para frente)' },
+        { key: 'T / t ↓', desc: isFr ? 'Tirer (Vers soi)' : 'Trazer (Para trás)' },
+        { key: 'L', desc: isFr ? 'Latéral' : 'Lateral' },
+        { key: 'B', desc: isFr ? 'Barulho / Tremer' : 'Barulho / Tremer' },
       ],
     },
     {

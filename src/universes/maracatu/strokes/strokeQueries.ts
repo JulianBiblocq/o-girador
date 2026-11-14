@@ -22,7 +22,7 @@ export function isStrokeActiveByDefault(instId: string, stroke: string): boolean
     return ['D', 'E', 'd', 'e', 'A'].includes(stroke);
   }
   if (instId === 'caixa' || instId === 'tarol') {
-    return ['D', 'E', 'd', 'e', 'R', 'r', 'F', 'f'].includes(stroke);
+    return ['D', 'E', 'd', 'e', 'A', 'a', 'R', 'r', 'F', 'f'].includes(stroke);
   }
   if (instId === 'gongue') {
     return ['G', 'A', 'g', 'a'].includes(stroke);

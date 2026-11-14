@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getIsAoVivoLabOpen, setIsAoVivoLabOpen, subscribeAoVivoLabOpen } from '../../audio/animations/aoVivoConfigStorage';
 import { AoVivoMobileFamily, isMobileViewport, resolveMobileFamily, subscribeMobileOffsets } from '../../audio/animations/aoVivoMobileOffsets';
-import { CONFIG_ALFAIA_STICKS, AlfaiaLeftStickMode, resetAlfaiaSticksConfig, subscribeAlfaiaSticksConfig, updateAlfaiaSticksConfig } from '../../audio/animations/alfaiaKinematics';
+import { CONFIG_ALFAIA_STICKS, resetAlfaiaSticksConfig, subscribeAlfaiaSticksConfig, updateAlfaiaSticksConfig } from '../../audio/animations/alfaiaKinematics';
 import { CONFIG_CAIXA_STICKS, resetCaixaSticksConfig, subscribeCaixaSticksConfig, updateCaixaSticksConfig } from '../../audio/animations/caixaKinematics';
-import { CONFIG_GONGUE_STICK, GonguePosePreview, resetGongueStickConfig, subscribeGongueStickConfig, updateGongueStickConfig } from '../../audio/animations/gongueKinematics';
-import { CONFIG_TIMBAL_HANDS, TimbalPosePreview, resetTimbalHandsConfig, subscribeTimbalHandsConfig, updateTimbalHandsConfig } from '../../audio/animations/timbalKinematics';
+import { CONFIG_GONGUE_STICK, resetGongueStickConfig, subscribeGongueStickConfig, updateGongueStickConfig } from '../../audio/animations/gongueKinematics';
+import { CONFIG_TIMBAL_HANDS, resetTimbalHandsConfig, subscribeTimbalHandsConfig, updateTimbalHandsConfig } from '../../audio/animations/timbalKinematics';
 import { CONFIG_AGBE_LAB, resetAgbeLabConfig, subscribeAgbeLabConfig, updateAgbeLabConfig } from '../../audio/animations/agbeKeyframes';
 import { CONFIG_MINEIRO_LAB, resetMineiroLabConfig, subscribeMineiroLabConfig, updateMineiroLabConfig } from '../../audio/animations/mineiroKeyframes';
 import { AlfaiaLabTabId, AoVivoSticksLabSliders } from './AoVivoSticksLabSliders';
@@ -16,25 +16,13 @@ import { AoVivoMineiroLabSliders, MineiroLabTabId } from './AoVivoMineiroLabSlid
 import { AoVivoMobilePositionSliders } from './AoVivoMobilePositionSliders';
 import { AoVivoLabHeader, labBtnStyle } from './AoVivoLabHeader';
 import { applyFrozenImpactPose, clearFrozenPose, TESTER_SEQUENCES, TESTER_STROKES, TesterFamily, triggerSequenceStep, triggerSingleTestStroke } from './aoVivoStrokeTester';
-
-const detectFamily = (id: string): TesterFamily =>
-  ['caixa', 'tarol'].includes(id) ? 'caixa' : id === 'gongue' ? 'gongue' : id === 'timbal' ? 'timbal' : id === 'agbe' ? 'agbe' : id === 'mineiro' ? 'mineiro' : 'alfaia';
-
-const ALFAIA_MODES: { id: AlfaiaLeftStickMode; label: string }[] = [{ id: 'auto', label: "Auto ('I')" }, { id: 'macaneta', label: 'Maçaneta Jum.' }, { id: 'fina', label: 'Baguette Fine' }, { id: 'bacalhau', label: 'Bacalhau' }];
-const GONGUE_MODES: { id: GonguePosePreview; label: string }[] = [{ id: 'auto', label: 'Auto' }, { id: 'grave_impact', label: 'Imp. G' }, { id: 'grave_windup', label: 'Élan G' }, { id: 'aigu_impact', label: 'Imp. A' }, { id: 'aigu_windup', label: 'Élan A' }];
-const TIMBAL_MODES: { id: TimbalPosePreview; label: string }[] = [{ id: 'auto', label: 'Auto' }, { id: 'rest', label: 'Garde' }, { id: 'grave', label: 'Grave (G)' }, { id: 'slap', label: 'Slap (S)' }, { id: 'aberto', label: 'Aberto (A)' }];
-const ALFAIA_TABS: { id: AlfaiaLabTabId; label: string }[] = [{ id: 'macaneta', label: '1. Grosse' }, { id: 'fina', label: '2. Fine' }, { id: 'bacalhau', label: '3. Bacalhau' }, { id: 'transitions', label: '4. Enchaînements' }, { id: 'motion', label: '5. Pose & Course' }, { id: 'special', label: '6. Spéciaux (C/X/B)' }];
-const CAIXA_TABS: { id: CaixaLabTabId; label: string }[] = [{ id: 'stick', label: '1. Baguette' }, { id: 'rufada', label: '2. Rufada & Fla' }, { id: 'transitions', label: '3. Enchaînements' }, { id: 'motion', label: '4. Pose & Course' }, { id: 'special', label: '5. Spéciaux (C/X/B)' }];
-const GONGUE_TABS: { id: GongueLabTabId; label: string }[] = [{ id: 'hand', label: '1. Main (Poignée)' }, { id: 'grave', label: '2. Bout (Haut G)' }, { id: 'aigu', label: '3. Bout (Bas A)' }, { id: 'metal', label: '4. Vitesse & Ench.' }];
-const TIMBAL_TABS: { id: TimbalLabTabId; label: string }[] = [{ id: 'anatomy', label: '1. Anatomie' }, { id: 'grave_aberto', label: '2. Grave/Aberto' }, { id: 'slap_preso', label: '3. Slap/Preso' }, { id: 'transitions', label: '4. Enchaînements' }, { id: 'flas_physics', label: '5. Clap & Flas' }];
-const AGBE_TABS: { id: AgbeLabTabId; label: string }[] = [{ id: 'pendulum', label: '1. Balancier D/E' }, { id: 'salto_volta', label: '2. Salto & Volta' }, { id: 'kinematics', label: '3. Vitesse & Bar.' }];
-const MINEIRO_TABS: { id: MineiroLabTabId; label: string }[] = [{ id: 'push', label: '1. Poussé (P/p)' }, { id: 'pull_lado', label: '2. Tiré (T) & Lado' }, { id: 'kinematics', label: '3. Fluidité & Billes' }];
+import { AGBE_TABS, ALFAIA_MODES, ALFAIA_TABS, CAIXA_TABS, detectAoVivoLabFamily, GONGUE_MODES, GONGUE_TABS, MINEIRO_TABS, TIMBAL_MODES, TIMBAL_TABS } from './aoVivoLabTabsConfig';
 
 export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => {
   const [labVisible, setLabVisible] = useState(() => getIsAoVivoLabOpen());
   const [isOpen, setIsOpen] = useState(true);
   const [isMobilePosMode, setIsMobilePosMode] = useState(() => isMobileViewport());
-  const [labFam, setLabFam] = useState<TesterFamily>(() => detectFamily(instId));
+  const [labFam, setLabFam] = useState<TesterFamily>(() => detectAoVivoLabFamily(instId));
   const [mobFam, setMobFam] = useState<AoVivoMobileFamily>(() => resolveMobileFamily(instId));
   const [alfaiaTab, setAlfaiaTab] = useState<AlfaiaLabTabId>('macaneta');
   const [caixaTab, setCaixaTab] = useState<CaixaLabTabId>('stick');
@@ -57,7 +45,7 @@ export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => 
   }), []);
 
   useEffect(() => {
-    const f = detectFamily(instId);
+    const f = detectAoVivoLabFamily(instId);
     setLabFam(f); setMobFam(resolveMobileFamily(instId)); setTestStroke(TESTER_STROKES[f][0].id); setActiveSeqId(null); setIsLooping(false); setIsFrozen(false);
   }, [instId]);
 
@@ -90,7 +78,7 @@ export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => 
   const selectStroke = (s: string) => {
     setActiveSeqId(null); setTestStroke(s); const up = s.toUpperCase();
     if (!isMobilePosMode) {
-      if (['C', 'X', 'B'].includes(up)) {
+      if (['C', 'X', 'B'].includes(up) || (up === 'A' && labFam === 'caixa')) {
         if (labFam === 'alfaia') setAlfaiaTab('special'); else if (labFam === 'caixa') setCaixaTab('special'); else if (labFam === 'gongue') setGongueTab('metal'); else if (labFam === 'agbe') setAgbeTab('kinematics'); else if (labFam === 'mineiro') setMineiroTab('kinematics'); else setTimbalTab('flas_physics');
       } else if (s === 'I' && labFam === 'alfaia') { setAlfaiaTab('bacalhau'); updateAlfaiaSticksConfig({ leftStickMode: 'bacalhau' }); }
       else if (['R', 'F'].includes(up) && labFam === 'caixa') setCaixaTab('rufada');
@@ -124,7 +112,7 @@ export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => 
       {isOpen && (
         <div className="px-2.5 pb-2.5 pt-1 space-y-1.5">
           {isMobilePosMode ? (
-            <AoVivoMobilePositionSliders activeMobFam={mobFam} onSelectMobFam={(f) => { setMobFam(f); const tf = detectFamily(f); setLabFam(tf); setTestStroke(TESTER_STROKES[tf][0].id); if (isFrozen) setTimeout(() => applyFrozenImpactPose(tf, TESTER_STROKES[tf][0].id), 25); }} />
+            <AoVivoMobilePositionSliders activeMobFam={mobFam} onSelectMobFam={(f) => { setMobFam(f); const tf = detectAoVivoLabFamily(f); setLabFam(tf); setTestStroke(TESTER_STROKES[tf][0].id); if (isFrozen) setTimeout(() => applyFrozenImpactPose(tf, TESTER_STROKES[tf][0].id), 25); }} />
           ) : (
             <>
               {labFam === 'alfaia' && (<><div className="grid grid-cols-4 gap-1">{ALFAIA_MODES.map((m) => <button key={m.id} type="button" onClick={() => updateAlfaiaSticksConfig({ leftStickMode: m.id })} className="px-1 py-0.5 border rounded text-[9px] font-bold truncate cursor-pointer" style={labBtnStyle(CONFIG_ALFAIA_STICKS.leftStickMode === m.id)}>{m.label}</button>)}</div><div className="flex flex-wrap gap-1 pt-0.5">{ALFAIA_TABS.map((t) => <button key={t.id} type="button" onClick={() => { setAlfaiaTab(t.id); if (t.id === 'fina' || t.id === 'bacalhau') updateAlfaiaSticksConfig({ leftStickMode: t.id }); }} className="py-0.5 px-1.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(alfaiaTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoSticksLabSliders activeTab={alfaiaTab} onFocusStroke={focusSpecial} /></>)}

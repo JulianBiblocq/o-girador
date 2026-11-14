@@ -64,14 +64,14 @@ export const MARACATU_THEME: ThemePalette = {
     strong: '#581c87',
     weak: '#c084fc',
     accent: '#d946ef', muted: '#4a044e', special: '#7e7b8c',
-    overrides: { 'R': '#a855f7', 'r': '#a855f7', 'C': '#f3e8ff' }
+    overrides: { 'A': '#9d174d', 'a': '#be185d', 'R': '#a855f7', 'r': '#a855f7', 'C': '#f3e8ff' }
   },
   tarol: {
     mixerBg: '#102a3a', color: '#2563eb',
     strong: '#1e3a8a',
     weak: '#93c5fd',
     accent: '#bfdbfe', muted: '#0284c7', special: '#3a506b',
-    overrides: { 'R': '#818cf8', 'r': '#818cf8', 'C': '#dbeafe' }
+    overrides: { 'A': '#0f766e', 'a': '#0d9488', 'R': '#818cf8', 'r': '#818cf8', 'C': '#dbeafe' }
   },
   gongue: {
     mixerBg: '#1a1a1a', color: '#bdc3c7',

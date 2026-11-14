@@ -30,6 +30,7 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
             <li style="margin-bottom: 4px;"><strong>d</strong> : ${isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)'}</li>
             <li style="margin-bottom: 4px;"><strong>E</strong> : ${isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Forte)'}</li>
             <li style="margin-bottom: 4px;"><strong>e</strong> : ${isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)'}</li>
+            <li style="margin-bottom: 4px;"><strong>A / a</strong> : ${isPt ? 'Ataque Pele e Aro D/E (Caixa/Tarol) • Abafado (Alfaia)' : 'Attaque Cerclage+Peau D/G (Caixa/Tarol) • Abafado (Alfaia)'}</li>
             <li style="margin-bottom: 4px;"><strong>C</strong> : ${isPt ? 'Estalo' : 'Éclat'}</li>
             <li style="margin-bottom: 4px;"><strong>X</strong> : ${isPt ? 'Aro / Madeira' : 'Cerclage / Bois'}</li>
             <li style="margin-bottom: 4px;"><strong>R / r</strong> : ${isPt ? 'Rufada' : 'Rufada (Roulement)'}</li>
@@ -43,7 +44,7 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
           <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
             <li style="margin-bottom: 4px;"><strong>Gonguê</strong> : D/d (Grave), E/e (Agudo), X (Borda)</li>
             <li style="margin-bottom: 4px;"><strong>Agbê</strong> : D/d, E/e, S (Saut/Salto), V (Volta)</li>
-            <li style="margin-bottom: 4px;"><strong>Mineiro</strong> : P/p (Empurrar/Pousser), T/t (Tirer), L (Lado)</li>
+            <li style="margin-bottom: 4px;"><strong>Mineiro</strong> : ${isPt ? 'P/p ↑ Projetar (Para frente), T/t ↓ Trazer (Para trás), L (Lado)' : 'P/p ↑ Pousser (Avant), T/t ↓ Tirer (Vers soi), L (Latéral)'}</li>
           </ul>
         </div>
       </div>

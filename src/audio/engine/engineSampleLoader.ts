@@ -100,7 +100,8 @@ export class EngineSampleLoader {
       s.caseSensitive === false ? s.symbol.toUpperCase() === norm.toUpperCase() : s.symbol === norm
     );
     if (!stroke) return true;
-    return stroke.files.every(p => this.bufferPool.has(p));
+    const rim = stroke.compositeRimSymbol ? config.strokes.find(s => s.symbol === stroke.compositeRimSymbol) : undefined;
+    return stroke.files.every(p => this.bufferPool.has(p)) && (!rim || rim.files.every(p => this.bufferPool.has(p)));
   }
 
   public async loadStrokeSamples(
@@ -116,6 +117,8 @@ export class EngineSampleLoader {
       s.caseSensitive === false ? s.symbol.toUpperCase() === norm.toUpperCase() : s.symbol === norm
     );
     if (!stroke) return;
-    await Promise.all(stroke.files.map(p => this.loadPath(audioContext, p)));
+    const rim = stroke.compositeRimSymbol ? config.strokes.find(s => s.symbol === stroke.compositeRimSymbol) : undefined;
+    const allFiles = rim ? [...stroke.files, ...rim.files] : stroke.files;
+    await Promise.all(allFiles.map(p => this.loadPath(audioContext, p)));
   }
 }

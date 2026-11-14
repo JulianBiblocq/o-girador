@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Maracatu Instrument Stroke and Pair Getters
+ * O Girador - Maracatu Instrument Stroke and Pair Getters (< 115 lignes)
  */
 
 import { StrokeDef, StrokePair } from './strokeTypes';
@@ -40,14 +39,18 @@ export function getStrokesForInstrument(
     strokes = getVocalStrokeDefs(instId, instType, isFr);
   }
 
-  // Visual mirroring for left-handed percussions
   if (isLeftHanded && ['marcante', 'meiao', 'repique', 'alfaia', 'caixa', 'tarol'].includes(instId)) {
-    strokes = strokes.map(s => {
+    const isSnare = instId === 'caixa' || instId === 'tarol';
+    strokes = strokes.map((s) => {
       const visualSymbol = String(getVisualStrokeSymbol(s.symbol, true, instId));
       const visualShortcut = String(getVisualStrokeSymbol(s.shortcut, true, instId));
       const visualColorKey = String(getVisualStrokeSymbol(s.colorKey, true, instId));
 
       let visualLabel = s.label;
+      if (isSnare) {
+        if (visualLabel.startsWith('A — ')) visualLabel = `a — ${visualLabel.slice(4)}`;
+        else if (visualLabel.startsWith('a — ')) visualLabel = `A — ${visualLabel.slice(4)}`;
+      }
       if (visualLabel.includes('Droite')) visualLabel = visualLabel.replace('Droite', 'Gauche');
       else if (visualLabel.includes('Gauche')) visualLabel = visualLabel.replace('Gauche', 'Droite');
       if (visualLabel.includes('Direita')) visualLabel = visualLabel.replace('Direita', 'Esquerda');
@@ -57,7 +60,7 @@ export function getStrokesForInstrument(
         symbol: visualSymbol,
         label: visualLabel,
         shortcut: visualShortcut,
-        colorKey: visualColorKey
+        colorKey: visualColorKey,
       };
     });
   }

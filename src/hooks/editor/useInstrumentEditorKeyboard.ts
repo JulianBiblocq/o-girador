@@ -104,7 +104,8 @@ export function useInstrumentEditorKeyboard({
           const targetSymbol = ciStroke
             ? ciStroke.symbol
             : (isUpper ? matchingPair.strong.symbol : (matchingPair.weak ? matchingPair.weak.symbol : matchingPair.strong.symbol));
-          const isWeak = !isUpper && targetSymbol === matchingPair.weak?.symbol;
+          const isStrongBilateralLower = (inst.id === 'caixa' || inst.id === 'tarol') && targetSymbol === 'a';
+          const isWeak = !isUpper && !isStrongBilateralLower && targetSymbol === matchingPair.weak?.symbol;
           setActiveTool(targetSymbol);
           if (audioEngine && track) {
             const pVel = isCalibratedAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95);

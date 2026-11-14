@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Visual Stroke Symbol Helpers for Left-Handed Mirroring
+ * O Girador - Visual Stroke Symbol Helpers for Left-Handed Mirroring (< 40 lignes)
  */
 
 export function getVisualStrokeSymbol(
@@ -12,13 +11,17 @@ export function getVisualStrokeSymbol(
   if (Array.isArray(symbol)) {
     return [
       String(getVisualStrokeSymbol(symbol[0], isLeftHanded, instId)),
-      String(getVisualStrokeSymbol(symbol[1], isLeftHanded, instId))
+      String(getVisualStrokeSymbol(symbol[1], isLeftHanded, instId)),
     ] as [string, string];
   }
   if (typeof symbol !== 'string') return symbol;
   const targetInsts = ['marcante', 'meiao', 'repique', 'caixa', 'tarol'];
   if (!targetInsts.includes(instId)) return symbol;
 
+  if (instId === 'caixa' || instId === 'tarol') {
+    if (symbol === 'A') return 'a';
+    if (symbol === 'a') return 'A';
+  }
   if (symbol === 'D') return 'E';
   if (symbol === 'E') return 'D';
   if (symbol === 'd') return 'e';

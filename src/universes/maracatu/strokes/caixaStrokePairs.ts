@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Caixa and Tarol Stroke Pairs
+ * O Girador - Caixa and Tarol Stroke Pairs (< 95 lignes)
  */
 
 import { StrokeDef, StrokePair } from './strokeTypes';
@@ -10,17 +9,19 @@ export function getCaixaStrokePairs(
   isFr: boolean,
   isLeftHanded: boolean
 ): StrokePair[] {
-  const dStrong = allStrokes.find(s => s.symbol === 'D');
-  const dWeak = allStrokes.find(s => s.symbol === 'd');
-  const rStrong = allStrokes.find(s => s.symbol === 'R');
-  const eStrong = allStrokes.find(s => s.symbol === 'E');
-  const eWeak = allStrokes.find(s => s.symbol === 'e');
-  const rWeak = allStrokes.find(s => s.symbol === 'r');
-  const cStroke = allStrokes.find(s => s.symbol === 'C');
-  const xStroke = allStrokes.find(s => s.symbol === 'X');
-  const fStrong = allStrokes.find(s => s.symbol === 'F');
-  const fWeak = allStrokes.find(s => s.symbol === 'f');
-  const bStroke = allStrokes.find(s => s.symbol === 'B');
+  const dStrong = allStrokes.find((s) => s.symbol === 'D');
+  const dWeak = allStrokes.find((s) => s.symbol === 'd');
+  const rStrong = allStrokes.find((s) => s.symbol === 'R');
+  const eStrong = allStrokes.find((s) => s.symbol === 'E');
+  const eWeak = allStrokes.find((s) => s.symbol === 'e');
+  const rWeak = allStrokes.find((s) => s.symbol === 'r');
+  const aRight = allStrokes.find((s) => s.symbol === 'A');
+  const aLeft = allStrokes.find((s) => s.symbol === 'a');
+  const cStroke = allStrokes.find((s) => s.symbol === 'C');
+  const xStroke = allStrokes.find((s) => s.symbol === 'X');
+  const fStrong = allStrokes.find((s) => s.symbol === 'F');
+  const fWeak = allStrokes.find((s) => s.symbol === 'f');
+  const bStroke = allStrokes.find((s) => s.symbol === 'B');
 
   const pairs: StrokePair[] = [];
   if (dStrong) {
@@ -31,7 +32,7 @@ export function getCaixaStrokePairs(
       weak: dWeak,
       third: rStrong,
       strokes,
-      mainLabel: isFr ? (isLeftHanded ? 'Main Gauche' : 'Main Droite') : (isLeftHanded ? 'Mão Esquerda' : 'Mão Direita')
+      mainLabel: isFr ? (isLeftHanded ? 'Main Gauche' : 'Main Droite') : (isLeftHanded ? 'Mão Esquerda' : 'Mão Direita'),
     });
   }
   if (eStrong) {
@@ -42,7 +43,17 @@ export function getCaixaStrokePairs(
       weak: eWeak,
       third: rWeak,
       strokes,
-      mainLabel: isFr ? (isLeftHanded ? 'Main Droite' : 'Main Gauche') : (isLeftHanded ? 'Mão Direita' : 'Mão Esquerda')
+      mainLabel: isFr ? (isLeftHanded ? 'Main Droite' : 'Main Gauche') : (isLeftHanded ? 'Mão Direita' : 'Mão Esquerda'),
+    });
+  }
+  if (aRight) {
+    const strokes = [aRight, aLeft].filter(Boolean) as StrokeDef[];
+    pairs.push({
+      id: 'A',
+      strong: aRight,
+      weak: aLeft,
+      strokes,
+      mainLabel: isFr ? 'Cerclage+Peau' : 'Pele e Aro',
     });
   }
   if (cStroke) {
@@ -52,7 +63,7 @@ export function getCaixaStrokePairs(
       strong: cStroke,
       weak: xStroke,
       strokes,
-      mainLabel: isFr ? 'Clic / Cerclage' : 'Click / Aro'
+      mainLabel: isFr ? 'Clic / Cerclage' : 'Click / Aro',
     });
   }
   if (fStrong) {
@@ -62,7 +73,7 @@ export function getCaixaStrokePairs(
       strong: fStrong,
       weak: fWeak,
       strokes,
-      mainLabel: isFr ? 'Fla (Accents)' : 'Fla (Acentos)'
+      mainLabel: isFr ? 'Fla (Accents)' : 'Fla (Acentos)',
     });
   }
   if (bStroke) {
@@ -70,7 +81,7 @@ export function getCaixaStrokePairs(
       id: 'B',
       strong: bStroke,
       strokes: [bStroke],
-      mainLabel: isFr ? 'Barulho' : 'Barulho'
+      mainLabel: 'Barulho',
     });
   }
   return pairs;

@@ -1,8 +1,7 @@
 /**
- * O Girador - Audio Engine Low-Level Stroke Execution (< 115 lignes)
+ * O Girador - Audio Engine Low-Level Stroke Execution (< 130 lignes)
  * - Lecture phase-continue 100 % naturelle des tambours (`playbackRate = 2^(st/12)`).
- * - Fallback intelligent `A -> pool e (80 ms)` si un sample `A` n'est pas chargé.
- * - Physique de peau isolée par piste (`trackId` ou `instrumentId` en preview clavier).
+ * - Fallback intelligent `A -> pool e (80 ms)` Alfaia et couche composite `D/E + X` Rimshot Caixa/Tarol.
  */
 
 import { getTone } from '../../ToneLoader';
@@ -12,6 +11,7 @@ import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import { EngineTuning } from './engineTuning';
 import { EngineStrokePlayback } from './engineStrokePlayback';
 import { resolveTrackSectionTemperament } from '../groove/sectionTemperament';
+import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../worklet/horizon/workletCompositeStrokeHelper';
 import type { NotePlayerDeps } from './enginePlayerTypes';
 
 export function computeEffectiveDecayNorm(
@@ -88,18 +88,31 @@ export class EngineExecuteStroke {
     const rawBuffer = bufferEntry.get() as AudioBuffer;
     const isLeftHandRufada = effectiveSymbol === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
-    const pitchNuance = isLeftHandRufada ? 0.985 : 1.0;
+    const pitchNuance = isLeftHandRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
     const baseRate = resolvedStroke.isBarulho
       ? 1.0
       : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
     const calculatedPitch = baseRate * pitchNuance;
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
+    const isStudioCalibrated = Boolean(config.calibratedStudioBank);
 
     EngineStrokePlayback.play(
       deps.playbackCtx, trackId, instrumentId, resolvedStroke,
       rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold,
-      { isStudioCalibrated: Boolean(config.calibratedStudioBank), forceShort80ms, strokeSymbol: effectiveSymbol }
+      { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol }
     );
+
+    if (resolvedStroke.compositeRimSymbol) {
+      const rimStroke = config.strokes.find((s) => s.symbol === resolvedStroke.compositeRimSymbol);
+      const rimEntry = rimStroke ? deps.sampleLoader.bufferPool.get(deps.roundRobin.selectFile(instrumentId, rimStroke, time, trackId)) : undefined;
+      if (rimStroke && rimEntry?.loaded) {
+        EngineStrokePlayback.play(
+          deps.playbackCtx, trackId, instrumentId, rimStroke,
+          rimEntry.get() as AudioBuffer, baseRate, effectiveTime, finalVelocity * COMPOSITE_RIM_LAYER_VELOCITY_SCALE,
+          effectiveDecayNorm, false, { isStudioCalibrated, strokeSymbol: rimStroke.symbol }
+        );
+      }
+    }
 
     if (instrumentId === 'apito') {
       const Tone = getTone();

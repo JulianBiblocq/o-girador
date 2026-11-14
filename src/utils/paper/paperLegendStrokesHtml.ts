@@ -41,7 +41,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Caixa & Tarol (Cx, Tr)</td>
-            <td style="padding: 4px 6px;"><strong>D/d</strong> (Droite), <strong>E/e</strong> (Gauche), <strong>R/r</strong> (Roulement / Rouffade), <strong>F/f</strong> (Fla), <strong>X</strong> (Aro / Cerclage), <strong>C</strong> (Clic)</td>
+            <td style="padding: 4px 6px;"><strong>D/d</strong> (${isFr ? 'Droite' : 'Direita'}), <strong>E/e</strong> (${isFr ? 'Gauche' : 'Esquerda'}), <strong>A/a</strong> (${isFr ? 'Attaque Cerclage+Peau D/G (Rimshot)' : 'Ataque Pele e Aro D/E'}), <strong>R/r</strong> (${isFr ? 'Roulement / Rufada' : 'Rolo / Rufada'}), <strong>F/f</strong> (Fla), <strong>X</strong> (Aro), <strong>C</strong> (Clic), <strong>B</strong> (Barulho)</td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Gonguê (Gg)</td>
@@ -53,7 +53,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Mineiro (Mi)</td>
-            <td style="padding: 4px 6px;"><strong>P/p</strong> (Poussé / Frente), <strong>T/t</strong> (Tiré / Trás), <strong>L</strong> (Lié / Côté / Lateral), <strong>B</strong> (Arrêté sec sur roulement / Tremer)</td>
+            <td style="padding: 4px 6px;"><strong>P/p ↑</strong> (${isFr ? 'Pousser (Avant)' : 'Projetar (Para frente)'}), <strong>T/t ↓</strong> (${isFr ? 'Tirer (Vers soi)' : 'Trazer (Para trás)'}), <strong>L</strong> (${isFr ? 'Latéral' : 'Lateral'}), <strong>B</strong> (Barulho)</td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Timbal (Tb)</td>

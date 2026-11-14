@@ -65,9 +65,9 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     name: 'Mineiro',
     Icon: MineiroCordelIcon,
     strokes: [
-      { symbol: 'P', labelFr: 'Pousser fort', labelPt: 'Ida forte', file: '/Mixdown/Mineiro F P 1.ogg' },
-      { symbol: 'T', labelFr: 'Tirer fort', labelPt: 'Volta forte', file: '/Mixdown/Mineiro F T 1.ogg' },
-      { symbol: 'p', labelFr: 'Secousse faible', labelPt: 'Toque fraco', file: '/Mixdown/Mineiro f 1.ogg' },
+      { symbol: 'P', labelFr: 'P ↑ — Pousser (Avant)', labelPt: 'P ↑ — Projetar (Para frente)', file: '/Mixdown/Mineiro F P 1.ogg' },
+      { symbol: 'T', labelFr: 'T ↓ — Tirer (Vers soi)', labelPt: 'T ↓ — Trazer (Para trás)', file: '/Mixdown/Mineiro F T 1.ogg' },
+      { symbol: 'p', labelFr: 'p ↑ — Pousser faible', labelPt: 'p ↑ — Projetar fraco', file: '/Mixdown/Mineiro f 1.ogg' },
     ],
   },
   {

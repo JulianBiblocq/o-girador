@@ -83,7 +83,7 @@ export function applyFrozenImpactPose(fam: TesterFamily, stroke: string): void {
       if (tip) { const b = CONFIG_ALFAIA_STICKS.bacalhau, sign = !isLeftHanded ? 1 : -1; tip.style.transform = hitSec && secFam === 'bacalhau' ? `rotateZ(${sign * b.impactBendDeg}deg) skewX(${-sign * +(b.impactBendDeg * 0.65).toFixed(1)}deg) scaleX(${b.impactSquashX})` : 'rotateZ(0deg) skewX(0deg) scaleX(1)'; }
     }
   } else if (fam === 'caixa') {
-    const cf = resolveCaixaActiveFamily(instId), hitDom = ['D', 'C', 'X', 'B'].includes(sUp) || stroke === 'R' || stroke === 'F', hitSec = ['E', 'C', 'X', 'B'].includes(sUp) || stroke === 'r' || stroke === 'f';
+    const cf = resolveCaixaActiveFamily(instId), hitDom = ['D', 'C', 'X', 'B'].includes(sUp) || stroke === 'A' || stroke === 'R' || stroke === 'F', hitSec = ['E', 'C', 'X', 'B'].includes(sUp) || stroke === 'a' || stroke === 'r' || stroke === 'f';
     if (domEl) domEl.style.transform = hitDom ? getCaixaImpactPoseTransform(stroke, isLeftHanded, cf) : getCaixaStickRestTransform(isLeftHanded, cf);
     if (secEl) secEl.style.transform = hitSec ? getCaixaImpactPoseTransform(stroke, !isLeftHanded, cf) : getCaixaStickRestTransform(!isLeftHanded, cf);
   } else if (fam === 'gongue') {

@@ -31,6 +31,8 @@ export function isDarkText(instId?: string, strokeVal?: string, bgColor?: string
   if (instId === 'apito' && ['w', 'W'].includes(strokeVal)) return true;
   if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
   if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
+  if (instId === 'caixa' && (strokeVal === 'A' || strokeVal === 'a')) return false;
+  if (instId === 'tarol' && (strokeVal === 'A' || strokeVal === 'a')) return false;
   if (instId === 'caixa' && ['r', 'R', 'd', 'e', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'timbal' && ['s', 'S', 'd', 'D', 'c', 'C', 'i', 'I'].includes(strokeVal)) return true;
   if (instId === 'mineiro' && ['t', 'p', 'L'].includes(strokeVal)) return true;

@@ -1,5 +1,6 @@
 /**
- * O Girador - Audio Engine Virtual Stroke Normalization & Fallback Resolution (< 85 lignes)
+ * O Girador - Audio Engine Virtual Stroke Normalization & Fallback Resolution (< 90 lignes)
+ * - Résout en priorité toute entrée explicite `strokesMap.get(strokeSymbol)` (ex: `f`/`v` virtuels à `0.82`, `a` Caixa/Tarol).
  */
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { ALFAIA_INSTRUMENTS, HUMANIZED_INSTRUMENTS_SET } from './engineTypes';
@@ -52,6 +53,9 @@ export class EngineVirtualStrokes {
     const strokesMap = strokesMaps.get(instrumentId);
     if (!strokesMap) return null;
 
+    const direct = strokesMap.get(strokeSymbol);
+    if (direct && direct.files.length > 0) return direct;
+
     const normSymbol = this.normalizeSymbol(instrumentId, strokeSymbol);
     let stroke = strokesMap.get(normSymbol);
     if (!stroke || stroke.files.length === 0) {
@@ -67,11 +71,11 @@ export class EngineVirtualStrokes {
     strokeSymbol: string,
     hasUsableFiles?: (stroke: StrokeMapping) => boolean
   ): { stroke: StrokeMapping | null; forceShort80ms: boolean } {
-    const norm = this.normalizeSymbol(instrumentId, strokeSymbol);
-    const primary = this.resolveStroke(strokesMaps, instrumentId, norm);
+    const primary = this.resolveStroke(strokesMaps, instrumentId, strokeSymbol);
     const primaryOk = Boolean(primary && (!hasUsableFiles || hasUsableFiles(primary)));
     if (primaryOk) return { stroke: primary, forceShort80ms: false };
 
+    const norm = this.normalizeSymbol(instrumentId, strokeSymbol);
     if (ALFAIA_INSTRUMENTS.has(instrumentId) && norm === 'A') {
       const fallbackE = this.resolveStroke(strokesMaps, instrumentId, 'e');
       if (fallbackE && (!hasUsableFiles || hasUsableFiles(fallbackE))) {

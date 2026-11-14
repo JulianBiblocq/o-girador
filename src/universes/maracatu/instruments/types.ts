@@ -3,12 +3,13 @@
  */
 
 export interface StrokeMapping {
-  symbol: string;         // Unique note symbol matching sequencer values (e.g. 'D', 'A', 'd')
-  keys: string[];         // Keyboard keys that trigger this stroke
-  files: string[];        // File paths for round-robin sample selection
-  caseSensitive: boolean; // Whether keys are case sensitive
-  isBarulho?: boolean;    // If true, plays as a loop on keydown and stops on keyup
-  baseGain?: number;      // Optional nominal gain trim (defaults to 1.0)
+  symbol: string;              // Unique note symbol matching sequencer values (e.g. 'D', 'A', 'd')
+  keys: string[];              // Keyboard keys that trigger this stroke
+  files: string[];             // File paths for round-robin sample selection
+  caseSensitive: boolean;      // Whether keys are case sensitive
+  isBarulho?: boolean;         // If true, plays as a loop on keydown and stops on keyup
+  baseGain?: number;           // Optional nominal gain trim (defaults to 1.0)
+  compositeRimSymbol?: string; // Optional simultaneous rim layer symbol (e.g. 'X' for Caixa/Tarol A/a fallback)
 }
 
 export interface InstrumentAudioConfig {

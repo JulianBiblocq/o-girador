@@ -1,5 +1,5 @@
 /**
- * workletStrokeEventStager.ts — Résolution de sample, Barulho et empaquetage de tuple SOA pour une frappe (< 80 lignes).
+ * workletStrokeEventStager.ts — Résolution de sample, Barulho et empaquetage de tuple SOA pour une frappe (< 115 lignes).
  */
 
 import {
@@ -13,6 +13,7 @@ import {
   packWorkletEventFlags, resolveBarulhoOpForSymbol, resolveTrackPhysicsSpec,
 } from '../processor/workletSkinPhysics';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
+import { stageCompositeRimLayerIfAny } from './workletCompositeStrokeHelper';
 
 export interface StageStrokeEventArgs {
   seqId: number;
@@ -84,11 +85,25 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
     finalVel = spec.targetVelocity;
   }
 
-  const pitchNuance = stroke.isBarulho ? (1.0 / (engineDeps.getTrackPitchRatio(trackId) || 1.0)) : (strokeSymbol === 'r' ? 0.985 : 1.0);
+  const headNuance = strokeSymbol === 'r' ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
+  const pitchNuance = stroke.isBarulho ? (1.0 / (engineDeps.getTrackPitchRatio(trackId) || 1.0)) : headNuance;
   const { chokeMode, voiceClass } = resolveTrackPhysicsSpec(instId, strokeSymbol, barOp !== BARULHO_OP_NONE);
+
+  const prevLen = stagedEvents.length;
   stagedEvents.push(
     triggerFrame, trackId, slot, sampleId, finalVel, stroke.baseGain ?? 1.0,
     metaOrDecay, pitchNuance, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms, barOp)
   );
+
+  if (stroke.compositeRimSymbol) {
+    const rimRes = stageCompositeRimLayerIfAny({
+      seqId, trackId, slot, instId, primaryStroke: stroke, triggerFrame, trigTimeSec,
+      finalVel, metaOrDecay, isCalibrated, engineDeps, stagedEvents,
+    });
+    if (rimRes === 'uncovered') {
+      stagedEvents.length = prevLen;
+      return 'uncovered';
+    }
+  }
   return 'ok';
 }
