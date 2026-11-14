@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { masterVolumeNode, masterEQNode, masterBusWorkletManager } from './audioEngineNodes';
 import { syncMasterBusWorkletParams, syncMasterCompressorBypass, setMasterMonoCheck, setMasterMonoWorkletActive } from '../../audio/effectsChain';
 import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
 import { safeRampGainDb, safeRampTo } from '../../utils/audio/safeAudioParamRamp';
+import { masterDbToLinearGain, rampNativeLinearGain } from '../../utils/audio/channelFaderLinearRamp';
 
 interface UseMasterEffectsSyncProps {
   masterVol: number;
@@ -28,15 +28,8 @@ export function useMasterEffectsSync({
         return;
       }
 
-      const safeDb = typeof masterVol === 'number' && Number.isFinite(masterVol)
-        ? Math.max(-100, Math.min(12, masterVol))
-        : 0;
-      const baseGain = safeDb <= -60 ? 0 : Tone.dbToGain(safeDb);
-      if (typeof masterVolumeNode.gain.rampTo === 'function') {
-        masterVolumeNode.gain.rampTo(baseGain, 0.02);
-      } else {
-        masterVolumeNode.gain.setValueAtTime(baseGain, Tone.context.currentTime);
-      }
+      const baseGain = masterDbToLinearGain(masterVol);
+      rampNativeLinearGain(masterVolumeNode.gain, baseGain, 0.018);
     }
   }, [masterVol]);
 

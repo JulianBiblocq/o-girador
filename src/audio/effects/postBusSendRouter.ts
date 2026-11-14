@@ -6,7 +6,7 @@ import * as Tone from 'tone';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveMuteState, isToadaBus, isToadaChild, useSequencerStore } from '../../stores/useSequencerStore';
 import { faderPositionToGain } from '../../utils/audioMath';
-import { safeRampDb, safeRampTo } from '../../utils/audio/safeAudioParamRamp';
+import { applyAuxSendLinear, rampNativeLinearGain } from '../../utils/audio/channelFaderLinearRamp';
 import { percentToDb } from '../../hooks/audio-sync/audioParamsCache';
 import {
   reverbSends, distortionSends, reverbBusReceive, distortionBusReceive, busReverbSendVca, busDistoSendVca,
@@ -81,10 +81,10 @@ export function computeEffectiveAuxSendLinearGain(
 }
 
 export function ensureAuxSendNodes(trackId: string | number, revDb: number, distDb: number): void {
-  const safeRev = Number.isFinite(revDb) ? Math.max(-100, Math.min(12, revDb)) : -100;
-  const safeDist = Number.isFinite(distDb) ? Math.max(-100, Math.min(12, distDb)) : -100;
-  if (!reverbSends[trackId]) reverbSends[trackId] = new Tone.Gain(safeRev, 'decibels');
-  if (!distortionSends[trackId]) distortionSends[trackId] = new Tone.Gain(safeDist, 'decibels');
+  const revLin = !Number.isFinite(revDb) || revDb <= -99.5 ? 0 : Math.pow(10, Math.min(12, revDb) / 20);
+  const distLin = !Number.isFinite(distDb) || distDb <= -99.5 ? 0 : Math.pow(10, Math.min(12, distDb) / 20);
+  if (!reverbSends[trackId]) reverbSends[trackId] = new Tone.Gain(revLin);
+  if (!distortionSends[trackId]) distortionSends[trackId] = new Tone.Gain(distLin);
 }
 
 export function ensureBusSendVcaNodes(busId: string | number, initialLinearGain = 1.0): void {
@@ -113,13 +113,13 @@ export function wireAuxSendsToParentOrReceive(trackId: string | number, parentBu
   if (distSend) { try { distSend.disconnect(); if (distTarget) distSend.connect(distTarget); } catch (_) {} }
 }
 
-export function syncBusSendVcaGain(busId: string | number, linearGain: number, rampSec = 0.02): void {
-  const target = Number.isFinite(linearGain) && linearGain > 0.00001 ? Math.min(4, linearGain) : 0;
-  if (busReverbSendVca[busId]?.gain) safeRampTo(busReverbSendVca[busId].gain, target, rampSec, 0, 4);
-  if (busDistoSendVca[busId]?.gain) safeRampTo(busDistoSendVca[busId].gain, target, rampSec, 0, 4);
+export function syncBusSendVcaGain(busId: string | number, linearGain: number, rampSec = 0.018): void {
+  const target = Number.isFinite(linearGain) && linearGain > 1e-6 ? Math.min(4, linearGain) : 0;
+  if (busReverbSendVca[busId]?.gain) rampNativeLinearGain(busReverbSendVca[busId].gain, target, rampSec);
+  if (busDistoSendVca[busId]?.gain) rampNativeLinearGain(busDistoSendVca[busId].gain, target, rampSec);
 }
 
-export function rampBusSendVcaFromFaderDrag(trackId: string | number, faderPos: number, rampSec = 0.02): void {
+export function rampBusSendVcaFromFaderDrag(trackId: string | number, faderPos: number, rampSec = 0.018): void {
   if (!busReverbSendVca[trackId] && !busDistoSendVca[trackId]) return;
   const tracks = useSequencerStore.getState().tracks;
   const isMuted = getEffectiveMuteState(tracks, trackId);
@@ -128,9 +128,5 @@ export function rampBusSendVcaFromFaderDrag(trackId: string | number, faderPos: 
 
 export function previewTrackAuxSendDrag(sendNode: any, val: number, disableFxOverride?: boolean): void {
   const disableFx = disableFxOverride ?? Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
-  const rawDb = disableFx || val <= 0 ? -100 : percentToDb(val);
-  const targetDb = Number.isFinite(rawDb) ? Math.max(-100, Math.min(12, rawDb)) : -100;
-  if (!sendNode?.gain) return;
-  if (sendNode.gain.units === 'decibels') safeRampDb(sendNode.gain, targetDb, 0.02);
-  else safeRampTo(sendNode.gain, targetDb <= -99 ? 0 : Math.pow(10, targetDb / 20), 0.02, 0, 4);
+  applyAuxSendLinear(sendNode, val, disableFx, 0.018);
 }

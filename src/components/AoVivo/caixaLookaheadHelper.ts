@@ -1,3 +1,7 @@
+/**
+ * caixaLookaheadHelper.ts — Dispatch prédictif WAAPI des baguettes Caixa/Tarol (< 95 lignes).
+ * - Anime `A` (Rimshot main dominante) et `a` (Rimshot main secondaire) avec onde de peau + rebond franc.
+ */
 import React from 'react';
 import {
   CaixaNextStrokeKind,
@@ -10,65 +14,19 @@ import {
   resolveCaixaActiveFamily,
 } from '../../audio/animations/caixaKinematics';
 import { KEYFRAMES_SKIN_BARULHO, KEYFRAMES_SKIN_WAVE } from '../../audio/animations/alfaiaKinematics';
+import { findCaixaSameHandLookahead } from './caixaSameHandLookahead';
 
-function isCaixaStrokeForHand(token: string, isDominantHand: boolean): boolean {
-  const s = (token || '').trim();
-  if (!s || s === '-' || s === '.' || s === '0') return false;
-  const up = s.toUpperCase();
-  if (['C', 'X', 'B', 'F', '~'].includes(up)) return true;
-  if (s === 'R') return isDominantHand;
-  if (s === 'r') return !isDominantHand;
-  return isDominantHand ? up === 'D' || up === 'S' : up === 'E' || up === 'V';
-}
-
-function classifyCaixaNextKind(token: string): CaixaNextStrokeKind {
-  if (token === 'R' || token === 'r' || token === 'B' || token === 'b' || token === '~') return 'rufada';
-  if (['D', 'E', 'F', 'f', 'C', 'X', 'S', 'V'].includes(token)) return 'strong';
-  return 'weak';
-}
-
-function extractTokens(raw: any): string[] {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw.map((x) => String(x || '').trim());
-  if (typeof raw === 'object' && Array.isArray(raw.sim)) return raw.sim.map((x: any) => String(x || '').trim());
-  return [String(raw).trim()];
-}
-
-export function findCaixaSameHandLookahead(
-  activePlayingSteps: any[] | undefined,
-  currentStep: number,
-  stepDurationMs: number,
-  isDominantHand: boolean,
-  isSubStep: boolean = false
-): { nextKind: CaixaNextStrokeKind; msUntilNext: number } {
-  if (!activePlayingSteps || activePlayingSteps.length === 0) {
-    return { nextKind: 'idle', msUntilNext: Math.round(stepDurationMs * 2) };
-  }
-  const len = activePlayingSteps.length;
-  if (!isSubStep && Array.isArray(activePlayingSteps[currentStep]) && activePlayingSteps[currentStep].length > 1) {
-    const subTok = String(activePlayingSteps[currentStep][1] || '').trim();
-    if (isCaixaStrokeForHand(subTok, isDominantHand)) {
-      return { nextKind: classifyCaixaNextKind(subTok), msUntilNext: Math.max(65, Math.round(stepDurationMs * 0.5)) };
-    }
-  }
-  for (let offset = 1; offset <= Math.min(len, 4); offset++) {
-    const raw = activePlayingSteps[(currentStep + offset) % len];
-    const list = extractTokens(raw);
-    for (let i = 0; i < list.length; i++) {
-      const token = list[i];
-      if (isCaixaStrokeForHand(token, isDominantHand)) {
-        const stepMult = offset + (i > 0 && Array.isArray(raw) ? 0.5 : 0);
-        return { nextKind: classifyCaixaNextKind(token), msUntilNext: Math.max(85, Math.round(stepMult * stepDurationMs)) };
-      }
-    }
-  }
-  return { nextKind: 'idle', msUntilNext: Math.max(170, Math.round(stepDurationMs * 2)) };
-}
+export { findCaixaSameHandLookahead };
 
 function animateCaixaStick(
-  stickEl: SVGSVGElement | null, animRef: React.MutableRefObject<Animation | null>,
-  stroke: string, isLeftSide: boolean, family: CaixaStickFamily,
-  nextKind: CaixaNextStrokeKind, durationMs: number, flaRole: 'none' | 'main' | 'grace' = 'none'
+  stickEl: SVGSVGElement | null,
+  animRef: React.MutableRefObject<Animation | null>,
+  stroke: string,
+  isLeftSide: boolean,
+  family: CaixaStickFamily,
+  nextKind: CaixaNextStrokeKind,
+  durationMs: number,
+  flaRole: 'none' | 'main' | 'grace' = 'none'
 ) {
   if (!stickEl) return;
   const effectiveDuration = Math.max(80, Math.round(durationMs / CONFIG_CAIXA_STICKS.speedMultiplier));
@@ -80,7 +38,11 @@ function animateCaixaStick(
   const shadowEl = stickEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
   if (shadowEl) {
     shadowEl.getAnimations().forEach((a) => a.cancel());
-    shadowEl.animate(generateCaixaShadowKeyframes(stroke, isLeftSide, nextKind), { duration: effectiveDuration, iterations: 1, fill: 'forwards' });
+    shadowEl.animate(generateCaixaShadowKeyframes(stroke, isLeftSide, nextKind), {
+      duration: effectiveDuration,
+      iterations: 1,
+      fill: 'forwards',
+    });
   }
 }
 
@@ -112,12 +74,16 @@ export function dispatchCaixaPredictiveStroke(
     animateCaixaStick(domEl, domRef, 'R', isLeftHanded, family, domLook.nextKind, Math.max(stepDurationMs, domLook.msUntilNext));
   } else if (norm === 'r') {
     animateCaixaStick(secEl, secRef, 'r', !isLeftHanded, family, secLook.nextKind, Math.max(stepDurationMs, secLook.msUntilNext));
+  } else if (norm === 'A') {
+    animateCaixaStick(domEl, domRef, 'A', isLeftHanded, family, domLook.nextKind, domLook.msUntilNext);
+  } else if (norm === 'a') {
+    animateCaixaStick(secEl, secRef, 'a', !isLeftHanded, family, secLook.nextKind, secLook.msUntilNext);
   } else {
     if (isBarulho || ['C', 'X', 'D', 'S'].includes(sUp)) animateCaixaStick(domEl, domRef, isBarulho ? 'B' : norm, isLeftHanded, family, domLook.nextKind, domLook.msUntilNext);
     if (isBarulho || ['C', 'X', 'E', 'V'].includes(sUp)) animateCaixaStick(secEl, secRef, isBarulho ? 'B' : norm, !isLeftHanded, family, secLook.nextKind, secLook.msUntilNext);
   }
 
-  if (haloEl && (['D', 'E', 'F', 'R', 'B', 'X'].includes(sUp) || isBarulho)) {
+  if (haloEl && (['D', 'E', 'A', 'F', 'R', 'B', 'X'].includes(sUp) || isBarulho)) {
     haloEl.style.left = `${geometry.targetX}px`;
     haloEl.style.top = `${geometry.targetY}px`;
     haloEl.getAnimations().forEach((a) => a.cancel());

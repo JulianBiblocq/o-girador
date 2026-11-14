@@ -1,4 +1,5 @@
 import { TrackGroup } from '../../types';
+import { instrumentsConfig } from '../../data';
 import { updateStepSculptValue } from './sequencerStateTypes';
 import { syncVariationAcrossLinkedFamily } from '../../stores/helpers/patternStepLinkedTracksSync';
 
@@ -88,14 +89,18 @@ export function createVariationStepSculptHandlers(ctx: VariationStepSculptContex
   ) => {
     pushUndoState();
     setTracks((prev: TrackGroup[]) =>
-      syncVariationAcrossLinkedFamily(prev, trackId, patternId, variationId, (v) => {
+      syncVariationAcrossLinkedFamily(prev, trackId, patternId, variationId, (v, _isSrc, t) => {
+        const instId = instrumentsConfig[t.instrumentIdx]?.id;
+        const isAlfaia = Boolean(instId && ['marcante', 'meiao', 'repique', 'alfaia'].includes(instId));
+        const norm = (s: string | number): string | number => (isAlfaia && String(s).trim() === 'a' ? 'A' : s);
         const nextSteps = [...v.steps];
         if (Array.isArray(stepIdx)) {
           stepIdx.forEach((idx: number, i: number) => {
-            nextSteps[idx] = Array.isArray(val) ? val[i] : val;
+            const cur = Array.isArray(val) ? val[i] : val;
+            nextSteps[idx] = Array.isArray(cur) ? [String(norm(cur[0])), String(norm(cur[1]))] : norm(cur as string | number);
           });
         } else {
-          nextSteps[stepIdx] = Array.isArray(val) ? [String(val[0]), String(val[1])] : (val as string | number);
+          nextSteps[stepIdx] = Array.isArray(val) ? [String(norm(val[0])), String(norm(val[1]))] : norm(val as string | number);
         }
         return { ...v, steps: nextSteps };
       })

@@ -24,6 +24,7 @@ CODES PUPITRES RECONNUS : [ ${knownCodesStr} ].
 RÈGLES D'IDENTIFICATION MANUSCRITE :
 1. Marge gauche : "Al" manuscrit ressemble souvent à "Ae" (le "l" cursif ressemble à un "e") -> toujours normaliser en rôle "al".
 2. Pupitre "Ab" (Agbê) : contient couramment les lettres T, P, D, E, S, V, B. Ne jamais omettre la ligne "Ab" ni ses lettres T et P.
+2b. Pupitres "Cx" / "Tr" (Caixa / Tarol) : contiennent D, d, E, e, A (Rimshot Droite), a (Rimshot Gauche), R, r, F, f, X, C, B. Ne jamais reclasser une ligne "Cx"/"Tr" en "Gg" à cause de A ou a.
 3. Extraire TOUTES les lignes écrites dans la marge gauche (Al, Cx, Gg, Ab, Mi, Tb, Tr, Mc, Me, Rp, Ap...).
 4. ZÉRO "1" : INTERDICTION FORMELLE DE REMPLACER LES LETTRES PAR DES "1". Conserver fidèlement les lettres manuscrites exactes (ex: D, d, E, e, G, g, A, a, T, t, P, p, I, i, R, F, X, B, C).
 5. Silences / cases vides : "." ou "-" ou espace vide -> renvoyer "0".

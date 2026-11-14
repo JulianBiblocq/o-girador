@@ -24,9 +24,16 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
       useSequencerSettingsStore.getState().setStrokeForcedState(`${trackId}:${newState}`, true);
     }
 
-    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
+    setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p, _isSrc, t) => {
+      const inst = instrumentsConfig[t.instrumentIdx];
+      const isAlfaia = Boolean(inst && ['marcante', 'meiao', 'repique', 'alfaia'].includes(inst.id));
+      const normAlfaia = (s: string | number | [string, string]): string | number | [string, string] => {
+        if (!isAlfaia) return s;
+        if (Array.isArray(s)) return [s[0] === 'a' ? 'A' : s[0], s[1] === 'a' ? 'A' : s[1]];
+        return s === 'a' ? 'A' : s;
+      };
       const arrSteps = [...p.activeSteps];
-      arrSteps[stepIdx] = newState;
+      arrSteps[stepIdx] = normAlfaia(newState);
       const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
       const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
       const arrVols = [...(p.volumes || Array(p.steps).fill(70))];
@@ -47,11 +54,14 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
     pushUndoState();
     setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p, isSource, t) => {
       const inst = instrumentsConfig[t.instrumentIdx];
+      const isAlfaia = Boolean(inst && ['marcante', 'meiao', 'repique', 'alfaia'].includes(inst.id));
       const parseVal = (v: string | number): string | number => {
         if (!v || v === 0 || v === '0') return 0;
         const strV = String(v);
         const cleanChar = strV.slice(-1);
         if (strV === '0') return 0;
+        if (cleanChar === '/' || cleanChar === '.' || cleanChar === 'B' || cleanChar === 'b') return cleanChar;
+        if (isAlfaia && (strV.trim() === 'a' || cleanChar === 'a')) return 'A';
         if (inst && inst.colors[strV] !== undefined && strV !== 'text') return strV;
         if (cleanChar && cleanChar.trim() !== '') {
           if (inst?.type === 'gongue') return cleanChar === '1' || cleanChar === '2' ? cleanChar : '1';

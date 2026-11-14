@@ -5,6 +5,7 @@ import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStor
 import { instrumentsConfig } from '../../data';
 import { ActiveInstrumentData } from '../../AudioEngine';
 import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
+import { attachCompiledTrackIds } from '../../workers/compiler/compiledTrackIdResolver';
 import { getActiveStrokesForTrack } from './strokeNormalization';
 import { getAudioEngine } from './audioEngineNodes';
 
@@ -30,6 +31,9 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
       }
       if (e.data.action === 'compileSong') {
         setIsCompiling(false);
+        if (Array.isArray(e.data.compiledTrackIds)) {
+          attachCompiledTrackIds(e.data.data, e.data.compiledTrackIds);
+        }
         flatCompiledScheduleRef.current = e.data.data;
         rebuildWorkletHorizonFromNow('edit');
       }

@@ -1,7 +1,5 @@
 
 import { useRef, useEffect, useMemo } from 'react';
-import { isSequencerVisibleTrack, useSequencerStore } from '../../stores/useSequencerStore';
-import { instrumentsConfig } from '../../data';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
@@ -15,6 +13,7 @@ import { useRodaMeasureNavigationState } from './useRodaMeasureNavigationState';
 import { useApitoShake } from './useApitoShake';
 import { useOverlayRefs } from './useOverlayRefs';
 import { useCircleSequencerStoreData } from './useCircleSequencerStoreData';
+import { resolveVisibleRodaTracks } from './resolveVisibleRodaTracks';
 import { CircleSequencerProps, LivePlaybackState } from './circleSequencerTypes';
 
 const EMPTY_LIST: any[] = [];
@@ -29,22 +28,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const isLeftHanded = props.isLeftHanded ?? sequencer.isLeftHanded;
   const tracksFromStore = useTracksWithCustomEquality(isActive);
   const rawTracks = props.tracks ?? tracksFromStore;
-  let tracks = rawTracks.filter(t => isSequencerVisibleTrack(t, rawTracks));
-  if (props.visibleTrackIds && props.visibleTrackIds.length > 0) {
-    const allowed = new Set(props.visibleTrackIds.map(String));
-    tracks = tracks.filter(t => allowed.has(String(t.id)));
-  } else if (props.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768)) {
-    const storeState = useSequencerStore.getState();
-    const targetId = storeState.focusTrackId ?? storeState.editingTrackId;
-    const primaryTrack = (targetId !== null && targetId !== undefined ? tracks.find(t => t.id === targetId) : undefined)
-      || tracks.find(t => instrumentsConfig[t.instrumentIdx]?.type !== 'voice')
-      || tracks[0];
-    const allowedIds = new Set<string>();
-    if (primaryTrack) allowedIds.add(String(primaryTrack.id));
-    const refId = props.secondaryFocusTrackId ?? props.referenceTrackId;
-    if (refId !== undefined && refId !== null) allowedIds.add(String(refId));
-    tracks = tracks.filter(t => allowedIds.has(String(t.id)));
-  }
+  const tracks = resolveVisibleRodaTracks(rawTracks, props);
 
   const totalMeasures = props.totalMeasures ?? storeData.totalMeasures;
   const songSections = props.songSections ?? (storeData.songSections ?? EMPTY_LIST);

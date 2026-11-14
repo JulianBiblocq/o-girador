@@ -100,6 +100,7 @@ export class PercussionWorkletManager {
     if (Number.isFinite(numId)) this.purgeTrack(numId);
     const slot = this.slotRouter.releaseTrackSlot(trackId);
     if (slot > 0) this.trackSync.invalidateSlot(slot);
+    this.trackSync.releaseTrack(trackId);
   }
 
   public pushPackedEvents(eventsData: Float64Array, eventCount: number): void {

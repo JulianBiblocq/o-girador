@@ -43,7 +43,7 @@ const PRIMARY_DICTIONARY_ITEMS: DictItem[] = [
   },
   {
     id: 'base_mineiro',
-    name: 'Mineiro Base (Pousser/Tirer)',
+    name: 'Mineiro Base (P ↑ Pousser / Projetar)',
     family: 'bases_paradas',
     patterns: { mi: ['D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e'] },
   },

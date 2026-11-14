@@ -114,6 +114,10 @@ export class PercussionWorkletSlotRouter {
   public releaseTrackSlot(trackId: number | string): number {
     const slot = this.trackToSlot.get(Number(trackId));
     if (slot === undefined) return -1;
+    const prevTarget = this.slotTargetChannel[slot];
+    if (this.sacKeepAlive && prevTarget) {
+      try { getTone()?.disconnect?.(this.sacKeepAlive, prevTarget as any); } catch (_) {}
+    }
     try { this.slotBridgeGains[slot]?.disconnect(); } catch (_) {}
     this.slotOwnerTrackId[slot] = -1; this.slotConnected[slot] = 0; this.slotTargetChannel[slot] = null;
     this.trackToSlot.delete(Number(trackId));
@@ -132,7 +136,6 @@ export class PercussionWorkletSlotRouter {
       if (this.slotBridgeGains[s]) { try { this.slotBridgeGains[s]!.disconnect(); } catch (_) {} this.slotBridgeGains[s] = null; }
     }
   }
-
   public dispose(): void {
     this.detachBridgeGains();
     if (this.sacKeepAlive) { try { this.sacKeepAlive.stop(); this.sacKeepAlive.disconnect(); } catch (_) {} this.sacKeepAlive = null; }

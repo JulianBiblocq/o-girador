@@ -3,16 +3,20 @@ import { MixerKnob } from '../../MixerKnob';
 import { MixerSlantedDivider } from '../../MixerSlantedDivider';
 import { eqNodes, resetInsertEqImmediate } from '../../../audio/effectsChain';
 import { safeRampFreq, safeRampGainDb } from '../../../utils/audio/safeAudioParamRamp';
-import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus } from '../../../stores/useSequencerStore';
 import { TrackGroup } from '../../../types';
+import { BusCompHeaderControl } from './BusCompHeaderControl';
+import { PolarityInvertButton } from './PolarityInvertButton';
 
 interface ChannelStripEQProps {
   track: TrackGroup;
   lang: string;
+  isPlaying?: boolean;
 }
 
-export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang }) => {
+export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang, isPlaying = false }) => {
   const trackId = track.id;
+  const isGroupBus = Boolean(track.isBusFolder || track.isLinkFolder || isToadaBus(track));
   const lowCut = track.lowCut ?? false;
   const eq = track.eqBands ?? {
     low: { f: 100, g: 0 },
@@ -42,10 +46,11 @@ export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang }) =
   return (
     <div className="w-full flex flex-col shrink-0">
       <div className="w-full flex flex-col gap-1 shrink px-0.5">
-        <div className="flex justify-end w-full">
+        <div className="flex items-center justify-end gap-[2px] w-full h-5">
+          {isGroupBus && <BusCompHeaderControl trackId={trackId} lang={lang} isPlaying={isPlaying} />}
           <button
             onClick={handleEQReset}
-            className={`w-5 h-5 flex items-center justify-center cordel-border-sm transition-colors rounded-sm cursor-pointer ${
+            className={`w-5 h-5 shrink-0 flex items-center justify-center cordel-border-sm transition-colors rounded-sm cursor-pointer ${
               isEQModified ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/30 border-[var(--cordel-border)]/20 cursor-default opacity-55'
             }`}
             title={lang === 'fr' ? "Réinitialiser l'égaliseur" : 'Redefinir equalizador'}
@@ -82,11 +87,14 @@ export const ChannelStripEQ: React.FC<ChannelStripEQProps> = ({ track, lang }) =
 
         <MixerSlantedDivider />
 
-        <div className="flex justify-between w-full items-center">
-          <button onClick={handleLowCutToggle} className={`w-6 h-6 cordel-border-sm flex items-center justify-center p-0.5 rounded-sm cursor-pointer ${lowCut ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`} title="Low Cut 80Hz">
-            <svg width="16" height="12" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-95 pointer-events-none"><path d="M 2 14 L 10 3 L 22 3" /></svg>
-          </button>
-          <span className="text-[6.5px] font-black opacity-35 uppercase tracking-widest pr-2 select-none">80Hz</span>
+        <div className="flex items-center gap-1 w-full h-6">
+          <div className="flex-1 min-w-0 h-full flex items-center justify-between">
+            <button onClick={handleLowCutToggle} className={`w-6 h-6 shrink-0 cordel-border-sm flex items-center justify-center p-0.5 rounded-sm cursor-pointer ${lowCut ? 'bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`} title="Low Cut 80Hz">
+              <svg width="16" height="12" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-95 pointer-events-none"><path d="M 2 14 L 10 3 L 22 3" /></svg>
+            </button>
+            <span className="text-[6.5px] font-black opacity-35 uppercase tracking-widest pr-1 select-none truncate">80Hz</span>
+          </div>
+          <PolarityInvertButton trackId={trackId} lang={lang} />
         </div>
       </div>
     </div>

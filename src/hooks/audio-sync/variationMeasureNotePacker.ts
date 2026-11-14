@@ -7,6 +7,7 @@ import {
   computeStepMicrotiming,
   packNoteData,
 } from '../../workers/compiler/stepNotePacker';
+import { attachCompiledTrackIds, extractCompiledTrackIds } from '../../workers/compiler/compiledTrackIdResolver';
 
 export function buildMeasureVariationNotes(params: {
   tracks: Track[];
@@ -77,7 +78,7 @@ export function buildMeasureVariationNotes(params: {
         const targetKey = normalizeStrokeKey(inst, statesToProcess[strokeIndex]);
         if (!targetKey) continue;
 
-        const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, Math.random);
+        const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, Math.random, step);
         const stepDecayMultiplier = computeStepDecay(effectiveDecays?.[actualStep], strokeIndex);
         const microtimingPct = computeStepMicrotiming(effectiveMicrotimings?.[actualStep], strokeIndex);
 
@@ -99,6 +100,7 @@ export function buildMeasureVariationNotes(params: {
     }
   });
 
+  attachCompiledTrackIds(notesList, extractCompiledTrackIds(tracks));
   return notesList;
 }
 

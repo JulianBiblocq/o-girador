@@ -90,13 +90,13 @@ export function useAoVivoAnimationEngine(
       clearSubStepTimers();
 
       const rawVal = activePlayingSteps?.[targetStep];
-      if (!rawVal || rawVal === '-' || rawVal === '.' || rawVal === '0' || rawVal === 0) return;
+      if (!rawVal || rawVal === '-' || rawVal === '.' || rawVal === '/' || rawVal === '0' || rawVal === 0) return;
 
       const currentBpm = state.measureBpms?.[measure] || state.bpm || 100;
       const stepDurationMs = Math.max(40, (getMeasureDurationSec(currentSig, currentBpm) * 1000) / stepsPerMeasure);
 
       const triggerStroke = (stroke: string, isSubStep: boolean) => {
-        if (!inst || !stroke || stroke === '0' || stroke === '-') return;
+        if (!inst || !stroke || stroke === '0' || stroke === '-' || stroke === '.' || stroke === '/') return;
         const isVibrate = stroke === '~';
         if (isAlfaia) {
           dispatchAlfaiaPredictiveStroke(activeTrack, stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current);

@@ -4,16 +4,13 @@ import { useAudio } from '../contexts/AudioContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { GlobalSwingModal } from './GlobalSwingModal';
-import { Cloud } from 'lucide-react';
-import { getActiveCloudPresetId } from '../utils/cloudPresetState';
 import { CordelContextMenu } from './ui/CordelContextMenu';
 import { HeaderBrand } from './header/HeaderBrand';
 import { UndoIcon, RedoIcon } from './header/HeaderIcons';
-import { HeaderMobileMenu } from './header/HeaderMobileMenu';
+import { HeaderMobileBar } from './header/HeaderMobileBar';
 import { HeaderDesktopMenu } from './header/HeaderDesktopMenu';
 import { HeaderViewSwitcher } from './header/HeaderViewSwitcher';
 import { HeaderAuxiliaryControls } from './header/HeaderAuxiliaryControls';
-import { HeaderMobileQuickActions } from './header/HeaderMobileQuickActions';
 import { useHeaderTabMenu } from './header/useHeaderTabMenu';
 import { useHeaderProject } from './header/useHeaderProject';
 import { HeaderProps } from './header/headerTypes';
@@ -71,46 +68,23 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
 
   if (props.isMobile) {
     return (
-      <div id="top-bar" className="w-full h-[56px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex items-center justify-between px-2.5 sm:px-4 z-[250] relative select-none shrink-0">
-        <HeaderMobileMenu
-          {...sharedProjectProps}
-          isDarkMode={props.isDarkMode}
-          onToggleDarkMode={props.onToggleDarkMode}
-          onLangToggle={onLangToggle}
-          showInstallButton={props.showInstallButton}
-          onInstallClick={props.onInstallClick}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          mobileTab={props.mobileTab}
-          onMobileTabToggle={props.onMobileTabToggle}
-          activeRightPanel={props.activeRightPanel}
-        />
-        <div className="min-w-0 flex-1 overflow-hidden mx-1 sm:mx-2 flex items-center justify-start">
-          <button
-            type="button"
-            onClick={props.onCloudSave}
-            className="flex items-center gap-1.5 px-2 py-1 bg-[var(--cordel-surface)] border border-[var(--cordel-border)] font-cactus font-bold text-[11px] max-w-full text-[var(--cordel-text)] shadow-xs hover:border-[#8b2a1a] cursor-pointer min-w-0"
-            title={Boolean(getActiveCloudPresetId()) ? (lang === 'fr' ? 'Mettre à jour le morceau' : 'Atualizar música') : (lang === 'fr' ? 'Sauvegarder le morceau' : 'Salvar música')}
-          >
-            <Cloud size={13} className={Boolean(getActiveCloudPresetId()) ? "text-[#15803d] shrink-0" : "text-[#8b2a1a] shrink-0"} />
-            <span className="truncate">{metadata?.toada || preset || (lang === 'fr' ? 'Nouveau morceau' : 'Nova música')}</span>
-          </button>
-        </div>
-        <HeaderBrand version={props.version} isMobile />
-        <HeaderMobileQuickActions
-          lang={lang}
-          viewMode={props.viewMode}
-          mobileTab={props.mobileTab || 'roda'}
-          onViewModeToggle={props.onViewModeToggle}
-          onMobileTabToggle={props.onMobileTabToggle}
-          isEditorOpen={isEditorOpen}
-        />
-        {isSwingModalOpen && (
-          <GlobalSwingModal globalSwing={globalSwing} setGlobalSwing={setGlobalSwing} onClose={() => setIsSwingModalOpen(false)} lang={lang} />
-        )}
-      </div>
+      <HeaderMobileBar
+        props={props}
+        sharedProjectProps={sharedProjectProps}
+        onLangToggle={onLangToggle}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        isEditorOpen={isEditorOpen}
+        metadata={metadata}
+        preset={preset}
+        lang={lang}
+        isSwingModalOpen={isSwingModalOpen}
+        setIsSwingModalOpen={setIsSwingModalOpen}
+        globalSwing={globalSwing}
+        setGlobalSwing={setGlobalSwing}
+      />
     );
   }
 

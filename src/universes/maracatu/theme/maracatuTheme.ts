@@ -28,6 +28,9 @@ export const STROKE_INTENSITY_MAP: Record<string, IntensityLevel> = {
   'I': 'accent',
   'C': 'muted',
   'B': 'muted',
+  'b': 'weak',
+  '/': 'muted',
+  '.': 'muted',
   'F': 'accent',
   'f': 'accent',
   'R': 'accent',
@@ -44,31 +47,31 @@ export const MARACATU_THEME: ThemePalette = {
   marcante: {
     mixerBg: '#3a1010', color: '#8a2b2b',
     strong: '#8a2b2b', weak: '#fca5a5', accent: '#ff8da1', muted: '#4c1c1c', special: '#8c7b7b',
-    overrides: { 'C': '#fee2e2' }
+    overrides: { 'C': '#fee2e2', 'A': '#6b3026', 'a': '#6b3026' }
   },
   meiao: {
     mixerBg: '#3a2010', color: '#ab5318',
     strong: '#ab5318', weak: '#fdba74', accent: '#ffb74d', muted: '#4c2c16', special: '#9c8476',
-    overrides: { 'C': '#ffedd5' }
+    overrides: { 'C': '#ffedd5', 'A': '#7d4420', 'a': '#7d4420' }
   },
   repique: {
     mixerBg: '#3a3010', color: '#c9a724',
     strong: '#c9a724', weak: '#fef08a', accent: '#fff59d', muted: '#4d441c', special: '#9c9984',
-    overrides: { 'C': '#fef9c3' }
+    overrides: { 'C': '#fef9c3', 'A': '#8a7422', 'a': '#8a7422' }
   },
   caixa: {
     mixerBg: '#2a103a', color: '#7a3187',
     strong: '#581c87',
     weak: '#c084fc',
     accent: '#d946ef', muted: '#4a044e', special: '#7e7b8c',
-    overrides: { 'R': '#a855f7', 'r': '#a855f7', 'C': '#f3e8ff' }
+    overrides: { 'A': '#9d174d', 'a': '#be185d', 'R': '#a855f7', 'r': '#a855f7', 'C': '#f3e8ff' }
   },
   tarol: {
     mixerBg: '#102a3a', color: '#2563eb',
     strong: '#1e3a8a',
     weak: '#93c5fd',
     accent: '#bfdbfe', muted: '#0284c7', special: '#3a506b',
-    overrides: { 'R': '#818cf8', 'r': '#818cf8', 'C': '#dbeafe' }
+    overrides: { 'A': '#0f766e', 'a': '#0d9488', 'R': '#818cf8', 'r': '#818cf8', 'C': '#dbeafe' }
   },
   gongue: {
     mixerBg: '#1a1a1a', color: '#bdc3c7',

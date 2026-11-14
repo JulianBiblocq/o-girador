@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Step Value Progression Helper
+ * O Girador - Step Value Progression Helper (< 105 lignes)
  */
 
 export function getNextStepValue(
@@ -9,7 +8,7 @@ export function getNextStepValue(
   currentVal: string | number
 ): string | number {
   const norm = typeof currentVal === 'string' ? currentVal.trim() : currentVal;
-  
+
   if (instId === 'mineiro') {
     if (norm === 0 || norm === '0' || !norm) return 'p';
     if (norm === 'p') return 'P';
@@ -64,7 +63,9 @@ export function getNextStepValue(
     if (norm === 'e') return 'E';
     if (norm === 'E') return 'C';
     if (norm === 'C') return 'X';
-    if (norm === 'X') return 'f';
+    if (norm === 'X') return 'a';
+    if (norm === 'a') return 'A';
+    if (norm === 'A') return 'f';
     if (norm === 'f') return 'F';
     if (norm === 'F') return 'R';
     if (norm === 'R') return 'r';
@@ -76,7 +77,8 @@ export function getNextStepValue(
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
     if (norm === 'e') return 'E';
-    if (norm === 'E') return 'C';
+    if (norm === 'E') return 'A';
+    if (norm === 'A') return 'C';
     if (norm === 'C') return 'X';
     if (norm === 'X') return 'I';
     if (norm === 'I') return 'B';
@@ -87,7 +89,6 @@ export function getNextStepValue(
     if (norm === 'W') return 'w';
     return 0;
   }
-  // default
   if (norm === 0 || norm === '0' || !norm) return 'd';
   if (norm === 'd') return 'D';
   if (norm === 'D') return 'e';

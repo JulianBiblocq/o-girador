@@ -1,8 +1,14 @@
 /**
  * baqueBounceTiming.ts
  * Calcul pur à l'échantillon près (N * measureDurationSec * sampleRate)
- * et formatage <nom_rythme>_<bpm>bpm.wav pour l'export Baque vers Cantador (< 75 lignes).
+ * et résolution de déclenchement avec Tempérament de Section & Balanço esclave en parité Live (< 115 lignes).
  */
+
+import {
+  NEUTRAL_SECTION_TEMPERAMENT, resolveTrackSectionTemperament, type SectionTrackTemperament,
+} from '../audio/groove/sectionTemperament';
+import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../hooks/audio-sync/percussionSwingHelper';
+import type { GlobalSwing } from '../types';
 
 export interface BaqueCycleTimingParams {
   totalMeasures: number;
@@ -68,3 +74,36 @@ export function tickToTimeSec(absTick: number, timing: BaqueCycleTimingResult): 
   return timing.totalDurationSec;
 }
 
+export function resolveMeasureIndexAtTick(absTick: number, timing: BaqueCycleTimingResult): number {
+  let rem = Math.max(0, absTick);
+  for (let m = 0; m < timing.totalMeasures; m++) {
+    const mTicks = timing.measureTicks[m] || 96;
+    if (rem < mTicks || m === timing.totalMeasures - 1) return m;
+    rem -= mTicks;
+  }
+  return 0;
+}
+
+export function resolveBounceNoteTrigger(
+  absTick: number, packed: number, microPct: number, track: any, allTracks: any[],
+  _instId: string, timing: BaqueCycleTimingResult, globalSwing: GlobalSwing,
+  temperamentMap?: ReadonlyMap<number, SectionTrackTemperament>
+): { mIdx: number; circleStepIdx: number; triggerSec: number } {
+  const mIdx = resolveMeasureIndexAtTick(absTick, timing);
+  const mTicks = timing.measureTicks[mIdx] || 96, tick96nSec = (timing.measureDurationsSec[mIdx] || 2) / mTicks;
+  const activePattern = resolveActivePatternForMeasure(track, allTracks, mIdx, null);
+  const circleStepIdx = (packed >>> 16) & 0x3F, isTuplet = ((packed >>> 1) & 1) === 1;
+  const temp = temperamentMap
+    ? (temperamentMap.get(Number(track.id)) ?? NEUTRAL_SECTION_TEMPERAMENT)
+    : resolveTrackSectionTemperament(track, allTracks);
+  const swingSec = computePercussionNoteSwing({
+    activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter: 0,
+    globalMode: globalSwing.mode, globalSwing, stepDurationSec: tick96nSec * 6,
+    balancoAdherence: temp.balancoAdherence,
+  });
+  const microSec = (microPct / 100) * (tick96nSec * (mTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
+  return {
+    mIdx, circleStepIdx,
+    triggerSec: tickToTimeSec(absTick, timing) + swingSec + microSec + temp.attackSpreadSec,
+  };
+}

@@ -12,6 +12,8 @@ export interface ActiveVoice {
   velocity: number;
   isFullBuffer: boolean;
   instrumentId: string;
+  strokeSymbol?: string;
+  isDucked?: boolean;
 }
 
 export interface PooledGainNode extends GainNode {
@@ -45,5 +47,4 @@ export interface PlaybackContext {
 export const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 export const TUNEABLE_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal']);
 export const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);
-export const POOL_SIZE_PER_TRACK = 32;
-export const MAX_POOL_SIZE = 40;
+export const POOL_SIZE_PER_TRACK = 6;

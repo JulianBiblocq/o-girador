@@ -1,6 +1,6 @@
 import { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import { drawTrackRing } from './drawTrackRings';
 import { resolveBeatsFromTimeSig, computeStepAngles } from './circleGeometry';
 import { isRodaDrawableTrack } from './sortTracksByRodaOrder';
@@ -104,7 +104,10 @@ export function renderTrackStepLayer(
 
     const effectiveStepCount = stepAngles.length;
     const currentStep = localStep >= 0 ? Math.floor((localStep / localTicks) * effectiveStepCount) : -1;
+    const isMutedByConsole = stateVal.soloPatternPlayId == null && getEffectiveMuteState(localRawTracks, track.id);
 
+    ctx.save();
+    if (isMutedByConsole) ctx.globalAlpha = 0.26;
     if (isVoiceOrToada) {
       drawToadaTrack(
         ctx, track, currentInst, isToada, localRawTracks, activePattern as any, activePlayingSteps,
@@ -120,5 +123,6 @@ export function renderTrackStepLayer(
         isPlaying, playheadRatio, stateVal.soloPatternPlayId ?? null, totalRings
       );
     }
+    ctx.restore();
   });
 }

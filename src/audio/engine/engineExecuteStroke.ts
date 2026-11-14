@@ -1,21 +1,23 @@
 /**
- * O Girador - Audio Engine Low-Level Stroke Execution (< 85 lignes)
+ * O Girador - Audio Engine Low-Level Stroke Execution (< 130 lignes)
  * - Lecture phase-continue 100 % naturelle des tambours (`playbackRate = 2^(st/12)`).
- * - Micro-dispersion temporelle d'unisson réservée aux fûts esclaves liés (`isLinkedSlave`).
- * - Combinaison multiplicative sans double division (`effectiveDecayNorm`) de `stepDecay` et `trackDecay`.
+ * - Fallback intelligent `A -> pool e (80 ms)` Alfaia et couche composite `D/E + X` Rimshot Caixa/Tarol.
  */
 
 import { getTone } from '../../ToneLoader';
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { TrackGroup } from '../../types';
+import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import { EngineTuning } from './engineTuning';
 import { EngineStrokePlayback } from './engineStrokePlayback';
+import { resolveTrackSectionTemperament } from '../groove/sectionTemperament';
+import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../worklet/horizon/workletCompositeStrokeHelper';
 import type { NotePlayerDeps } from './enginePlayerTypes';
 
 export function computeEffectiveDecayNorm(
   rawStepDecay: number | undefined,
   rawTrackDecay: number | undefined,
-  isPreviewOverride: boolean = false
+  isPreviewOverride = false
 ): number {
   const s = rawStepDecay ?? 1;
   const stepDecayNorm = s > 1 ? s / 100 : s;
@@ -42,6 +44,8 @@ export class EngineExecuteStroke {
     track: TrackGroup | null,
     requestedSymbol?: string
   ): void {
+    const effectiveSymbol = requestedSymbol || stroke.symbol;
+
     if (stroke.isBarulho && isLiveHold && deps.playbackCtx.barulho.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = deps.playbackCtx.barulho.activeBarulhoGains.get(instrumentId);
       if (activeGain) {
@@ -58,32 +62,57 @@ export class EngineExecuteStroke {
       deps.playbackCtx.barulho.stopBarulho(instrumentId, time);
     }
 
-    const filePath = deps.roundRobin.selectFile(instrumentId, stroke, time, trackId);
-    const bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+    let resolvedStroke = stroke;
+    let forceShort80ms = false;
+    let filePath = deps.roundRobin.selectFile(instrumentId, resolvedStroke, time, trackId);
+    let bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+
+    if ((!bufferEntry || !bufferEntry.loaded) && ALFAIA_INSTRUMENTS.has(instrumentId) && (effectiveSymbol === 'A' || effectiveSymbol === 'a')) {
+      const fallbackE = config.strokes.find((s) => s.symbol === 'e');
+      if (fallbackE) {
+        resolvedStroke = fallbackE;
+        forceShort80ms = true;
+        filePath = deps.roundRobin.selectFile(instrumentId, resolvedStroke, time, trackId);
+        bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+      }
+    }
     if (!bufferEntry || !bufferEntry.loaded) return;
 
-    const microDelaySec = EngineTuning.calculateUnisonMicroDelaySec(track, instrumentId);
+    const allTracks = deps.trackLookupMap.size > 0 ? Array.from(deps.trackLookupMap.values()) : undefined;
+    const microDelaySec = overrideTuning !== undefined ? 0 : resolveTrackSectionTemperament(track, allTracks).attackSpreadSec;
     const effectiveTime = time + microDelaySec;
+    const voiceGuardKey = trackId !== null ? trackId : instrumentId;
 
-    // Étouffement (choke) strictement isolé par piste (trackId)
-    deps.voiceGuard.chokeTrackVoice(trackId, requestedSymbol || stroke.symbol, effectiveTime);
+    deps.voiceGuard.chokeTrackVoice(voiceGuardKey, effectiveSymbol, effectiveTime, instrumentId);
 
     const rawBuffer = bufferEntry.get() as AudioBuffer;
-    const isLeftHandRufada = (requestedSymbol || stroke.symbol) === 'r';
+    const isLeftHandRufada = effectiveSymbol === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
-    const pitchNuance = isLeftHandRufada ? 0.985 : 1.0;
-    const microDetune = EngineTuning.calculateMicroDetuneMultiplier(instrumentId, trackId);
-    const baseRate = stroke.isBarulho
+    const pitchNuance = isLeftHandRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
+    const baseRate = resolvedStroke.isBarulho
       ? 1.0
       : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
-    const calculatedPitch = baseRate * pitchNuance * microDetune;
-
+    const calculatedPitch = baseRate * pitchNuance;
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
+    const isStudioCalibrated = Boolean(config.calibratedStudioBank);
 
     EngineStrokePlayback.play(
-      deps.playbackCtx, trackId, instrumentId, stroke,
-      rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold
+      deps.playbackCtx, trackId, instrumentId, resolvedStroke,
+      rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold,
+      { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol }
     );
+
+    if (resolvedStroke.compositeRimSymbol) {
+      const rimStroke = config.strokes.find((s) => s.symbol === resolvedStroke.compositeRimSymbol);
+      const rimEntry = rimStroke ? deps.sampleLoader.bufferPool.get(deps.roundRobin.selectFile(instrumentId, rimStroke, time, trackId)) : undefined;
+      if (rimStroke && rimEntry?.loaded) {
+        EngineStrokePlayback.play(
+          deps.playbackCtx, trackId, instrumentId, rimStroke,
+          rimEntry.get() as AudioBuffer, baseRate, effectiveTime, finalVelocity * COMPOSITE_RIM_LAYER_VELOCITY_SCALE,
+          effectiveDecayNorm, false, { isStudioCalibrated, strokeSymbol: rimStroke.symbol }
+        );
+      }
+    }
 
     if (instrumentId === 'apito') {
       const Tone = getTone();

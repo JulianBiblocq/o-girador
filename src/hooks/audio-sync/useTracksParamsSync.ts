@@ -3,12 +3,14 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { syncBusChannels } from './syncBusChannels';
 import { syncTrackChannels } from './syncTrackChannels';
+import { pruneOrphanAudioNodes } from './orphanAudioNodePruner';
 import { percentToDb } from './audioParamsCache';
 import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 import { mapReverbTimeKnobToDecaySec, updateStudioReverbNode } from '../../audio/effects/studioReverbImpulse';
 import { updateStudioSaturationNode } from '../../audio/effects/studioSaturationChain';
 import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
 import { syncMasterBusWorkletParams } from '../../audio/effectsChain';
+import { syncAllBusCompressorsEco } from '../../audio/effects/busDynamicsSync';
 import {
   masterReverbVolumeNode, reverbNode, masterDistortionVolumeNode,
   distortionNode, masterVolumeNode, masterEQNode, channels,
@@ -30,7 +32,6 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
       const fxChanged =
         state.masterFX !== prevState.masterFX ||
         state.masterEffectsActive !== prevState.masterEffectsActive ||
-        state.isEcoMode !== prevState.isEcoMode ||
         state.ecoConfig !== prevState.ecoConfig;
 
       if (fxChanged) {
@@ -73,7 +74,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
               preHpfHz: masterFX.distortion.preHpfHz,
               toneHz: masterFX.distortion.toneHz,
             },
-            state.isEcoMode
+            disableFx
           );
           if (typeof distortionNode.wet?.rampTo === 'function') {
             distortionNode.wet.rampTo(fxActive.disto && !masterFX.distortion.isMuted ? 1 : 0, 0.02);
@@ -81,6 +82,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         }
 
         const busCfg = masterFX.masterBus;
+        syncAllBusCompressorsEco(state.tracks, disableFx);
         if (busCfg) {
           syncMasterBusWorkletParams(busCfg);
           syncToadaVocalSlapback(busCfg.toadaSlapbackMode ?? 'off', busCfg.toadaSlapbackWet ?? 0, disableFx);
@@ -108,6 +110,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
           }
         }
         const tracks = state.tracks;
+        pruneOrphanAudioNodes(tracks, lastAppliedTracksParamsRef, lastAppliedBussesRef);
         syncBusChannels({
           tracks, isEcoMode: state.isEcoMode, busChannels, busMeters,
           reverbSends, distortionSends, lastAppliedTracksParamsRef,

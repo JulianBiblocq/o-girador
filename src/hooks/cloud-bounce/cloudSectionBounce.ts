@@ -7,7 +7,7 @@ import { SavedSectionData } from '../../types';
 import { CLOUD_SECTIONS_COLLECTION } from '../../cloudSections';
 import { instrumentsConfig } from '../../data';
 import { instrumentAudioConfigs } from '../../data/audioConfig';
-import { getEffectiveVolume } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, getEffectiveVolume } from '../../stores/useSequencerStore';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { encoderWav } from '../../utils/encodeurWav';
 import { normalizeAudioBuffer } from '../../utils/audioBufferUtils';
@@ -46,15 +46,22 @@ export async function renderAndUploadSectionBounce(
 
     const trackPlayers = new Map<number, Map<string, Tone.Player>>();
 
+    const hasAnySolo = sectionData.tracks.some((tr) => tr.isSolo);
+
     for (let t = 0; t < sectionData.tracks.length; t++) {
       const track = sectionData.tracks[t];
-      if (track.isMute) continue;
+      if ((track as any).isBusFolder || (track as any).isLinkFolder) continue;
+      const isTrackMuted = track.id !== undefined
+        ? getEffectiveMuteState(sectionData.tracks, track.id)
+        : Boolean(track.isMute || (hasAnySolo && !track.isSolo));
+      if (isTrackMuted) continue;
       const instrumentConf = instrumentsConfig[track.instrumentIdx];
       if (!instrumentConf) continue;
       const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
       if (!audioConfig) continue;
 
       const effectiveVol = track.id !== undefined ? getEffectiveVolume(sectionData.tracks, track.id) : (track.volumeVal ?? 75);
+      if (effectiveVol <= 3) continue;
       const channelDb = faderPositionToDb(effectiveVol);
       const channel = new Tone.Channel({
         volume: Number.isFinite(channelDb) ? channelDb : -100,

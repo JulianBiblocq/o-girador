@@ -1,16 +1,20 @@
 /**
- * O Girador - Audio Engine Round-Robin Selection with Shared-Pool 25ms Anti-Collision (< 95 lignes)
+ * O Girador - Audio Engine Shuffle-Bag Round-Robin + Exclusion Mutuelle Inter-Pistes +-30 ms (< 90 lignes)
  */
-
 import { StrokeMapping } from '../../data/audioConfig';
+import { createShuffleBagState, drawFromShuffleBag, ShuffleBagState } from './shuffleBagHelper';
 
 interface PoolTrigger {
   time: number;
   fileIdx: number;
+  trackKey: string;
 }
 
+const INTER_TRACK_EXCLUSION_SEC = 0.030;
+const TRIGGER_HISTORY_HORIZON_SEC = 0.120;
+
 export class EngineRoundRobin {
-  public lastPlayedIndices = new Map<string, number>();
+  public bagStates = new Map<string, ShuffleBagState>();
   public recentPoolTriggers = new Map<string, PoolTrigger[]>();
 
   public static getSamplePoolKey(instrumentId: string, stroke: StrokeMapping): string {
@@ -29,60 +33,33 @@ export class EngineRoundRobin {
     const samplePoolKey = EngineRoundRobin.getSamplePoolKey(instrumentId, stroke);
     const trackKey = `${trackId ?? instrumentId}__${samplePoolKey}`;
 
-    // 1. Nettoyage de l'historique glissant du pool partagé (> 100 ms)
     let triggers = this.recentPoolTriggers.get(samplePoolKey);
     if (!triggers) {
       triggers = [];
       this.recentPoolTriggers.set(samplePoolKey, triggers);
-    } else {
-      triggers = triggers.filter((e) => Math.abs(time - e.time) <= 0.100);
+    } else if (triggers.length > 32) {
+      triggers = triggers.filter((e) => Math.abs(time - e.time) <= TRIGGER_HISTORY_HORIZON_SEC);
       this.recentPoolTriggers.set(samplePoolKey, triggers);
     }
 
-    // 2. Indices utilisés dans la fenêtre glissante anti-collision de +- 25 ms
-    const usedIndices = new Set<number>();
+    const forbiddenIndices = new Set<number>();
     for (let i = 0; i < triggers.length; i++) {
-      if (Math.abs(time - triggers[i].time) <= 0.025) {
-        usedIndices.add(triggers[i].fileIdx);
+      const tr = triggers[i];
+      if (tr.trackKey !== trackKey && Math.abs(time - tr.time) <= INTER_TRACK_EXCLUSION_SEC) {
+        forbiddenIndices.add(tr.fileIdx);
       }
     }
 
-    // 3. Mémoire isolée par trackId du dernier index joué sur ce pool (anti-mitraillette)
-    const lastIdx = this.lastPlayedIndices.has(trackKey) ? this.lastPlayedIndices.get(trackKey)! : -1;
-
-    // 4. Sélection des candidats
-    // Priorité 1 : ni collision +- 25 ms sur la banque partagée, ni répétition du dernier coup de la piste
-    const candidates: number[] = [];
-    for (let i = 0; i < numFiles; i++) {
-      if (!usedIndices.has(i) && i !== lastIdx) candidates.push(i);
+    let bagState = this.bagStates.get(trackKey);
+    if (!bagState) {
+      bagState = createShuffleBagState();
+      this.bagStates.set(trackKey, bagState);
     }
 
-    // Priorité 2 : privilégier l'anti-collision temporelle +- 25 ms
-    if (candidates.length === 0) {
-      for (let i = 0; i < numFiles; i++) {
-        if (!usedIndices.has(i)) candidates.push(i);
-      }
-    }
+    const chosenIdx = drawFromShuffleBag(bagState, numFiles, forbiddenIndices);
+    triggers.push({ time, fileIdx: chosenIdx, trackKey });
 
-    // Priorité 3 : exclure le dernier coup de la piste
-    if (candidates.length === 0) {
-      for (let i = 0; i < numFiles; i++) {
-        if (i !== lastIdx) candidates.push(i);
-      }
-    }
-
-    // Priorité 4 : tous les fichiers disponibles
-    if (candidates.length === 0) {
-      for (let i = 0; i < numFiles; i++) candidates.push(i);
-    }
-
-    const chosenIdx = candidates[Math.floor(Math.random() * candidates.length)];
-
-    // 5. Mémorisation
-    triggers.push({ time, fileIdx: chosenIdx });
-    this.lastPlayedIndices.set(trackKey, chosenIdx);
-
-    if (this.lastPlayedIndices.size > 2000) this.lastPlayedIndices.clear();
+    if (this.bagStates.size > 2000) this.bagStates.clear();
     if (this.recentPoolTriggers.size > 500) this.recentPoolTriggers.clear();
 
     return stroke.files[chosenIdx];
@@ -97,7 +74,7 @@ export class EngineRoundRobin {
   }
 
   public clear(): void {
-    this.lastPlayedIndices.clear();
+    this.bagStates.clear();
     this.recentPoolTriggers.clear();
   }
 }

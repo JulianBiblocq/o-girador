@@ -1,19 +1,22 @@
 /**
  * baqueBounceTrackGraph.ts
  * Graphe hors-ligne (OfflineAudioContext) par piste pour le Bounce Baque :
- * Coupe-bas Butterworth (Q = 0.7071), EQ 3 bandes, Pan mono-compatible, Bus/Link et Choke (< 135 lignes).
+ * Coupe-bas Butterworth, EQ 3 bandes, Pan, Bus/Link, Polarité Ø, Stems Bus, Calibration Studio 1.0 & Physique de peau (< 130 lignes).
  */
 import { getEffectiveVolume, useSequencerStore } from '../stores/useSequencerStore';
 import { CONSOLE_HEADROOM_GAIN, faderPositionToDb, faderPositionToGain } from './audioMath';
 import { applyMonoCompatiblePan } from './audio/monoCompatiblePan';
 import { BUTTERWORTH_Q, resolveLowCutTargetHz } from '../audio/effects/insertEqTargets';
 import { computeEffectiveDecayNorm } from '../audio/engine/engineExecuteStroke';
-import { computeProgressiveDecayEnvelope } from '../audio/engine/engineStrokePlayback';
-import { computeAnalyticalVoiceGainAtTime } from '../audio/engine/engineVoiceGuard';
+import { computeEnginePeakGain, computeProgressiveDecayEnvelope } from '../audio/engine/engineStrokePlayback';
+import { applyWebAudioTrackSkinPhysics } from '../audio/engine/alfaiaTrackVoicePhysics';
 import { isAutomationBypassed } from './automationBypassHelper';
 import { hasActiveTrackAutomation } from './automationDetectHelper';
 import type { ActiveVoice } from '../audio/engine/engineTypes';
 import type { BaqueCycleTimingResult } from './baqueBounceTiming';
+import {
+  EMPTY_BOUNCE_STEM_PLAN, createOfflineStemInputs, resolveOfflineTrackRouting, type BounceBusStemPlan,
+} from './baqueBounceBusStems';
 
 export interface OfflineTrackGraph {
   trackInputs: Map<number, GainNode>;
@@ -29,15 +32,18 @@ function computeTrackLinearGain(allTracks: any[], track: any, posOverride?: numb
 }
 
 export function buildOfflineTrackGraph(
-  ctx: OfflineAudioContext, allTracks: any[], baqueTracks: any[], timing: BaqueCycleTimingResult, startMeasureIdx: number
+  ctx: OfflineAudioContext, allTracks: any[], baqueTracks: any[], timing: BaqueCycleTimingResult, startMeasureIdx: number,
+  stemPlan: BounceBusStemPlan = EMPTY_BOUNCE_STEM_PLAN
 ): OfflineTrackGraph {
   const state = useSequencerStore.getState();
   const disableEq = Boolean(state.ecoConfig?.disableEq), globalBypass = state.globalAutomationBypass;
   const trackInputs = new Map<number, GainNode>(), activeVoicesByTrack = new Map<number, ActiveVoice[]>();
+  const stems = createOfflineStemInputs(ctx, stemPlan);
 
   for (const track of baqueTracks) {
+    const route = resolveOfflineTrackRouting(track, allTracks, stemPlan);
     const input = ctx.createGain();
-    input.gain.value = CONSOLE_HEADROOM_GAIN;
+    input.gain.value = CONSOLE_HEADROOM_GAIN * route.sign;
     const lowCut = ctx.createBiquadFilter();
     lowCut.type = 'highpass'; lowCut.Q.value = BUTTERWORTH_Q; lowCut.frequency.value = resolveLowCutTargetHz(track, disableEq);
 
@@ -56,7 +62,7 @@ export function buildOfflineTrackGraph(
     panner.pan.value = applyMonoCompatiblePan(basePan).acousticPan;
 
     const fader = ctx.createGain();
-    fader.gain.value = computeTrackLinearGain(allTracks, track);
+    fader.gain.value = computeTrackLinearGain(allTracks, track) * route.stemScale;
 
     if (!isAutomationBypassed(track, 'volume', globalBypass) && hasActiveTrackAutomation(track, 'volume') && track.measureVols?.length) {
       const parentScale = (track.volumeVal ?? 75) > 0
@@ -64,7 +70,7 @@ export function buildOfflineTrackGraph(
         : 1;
       for (let m = 0; m < timing.totalMeasures; m++) {
         const pos = track.measureVols[startMeasureIdx + m] ?? (track.volumeVal ?? 75);
-        fader.gain.setValueAtTime(computeTrackLinearGain(allTracks, track, pos) * parentScale, timing.measureStartsSec[m]);
+        fader.gain.setValueAtTime(computeTrackLinearGain(allTracks, track, pos) * parentScale * route.stemScale, timing.measureStartsSec[m]);
       }
     }
     if (!isAutomationBypassed(track, 'pan', globalBypass) && hasActiveTrackAutomation(track, 'pan') && track.measurePans?.length) {
@@ -75,7 +81,7 @@ export function buildOfflineTrackGraph(
     }
 
     input.connect(lowCut); lowCut.connect(eqLow); eqLow.connect(eqMid); eqMid.connect(eqHigh);
-    eqHigh.connect(panner); panner.connect(fader); fader.connect(ctx.destination);
+    eqHigh.connect(panner); panner.connect(fader); fader.connect(stems[route.stemIndex] ?? ctx.destination);
     trackInputs.set(track.id, input); activeVoicesByTrack.set(track.id, []);
   }
   return { trackInputs, activeVoicesByTrack };
@@ -83,31 +89,25 @@ export function buildOfflineTrackGraph(
 
 export function scheduleOfflineStrokeHit(
   ctx: OfflineAudioContext, graph: OfflineTrackGraph, track: any, instId: string, strokeSymbol: string,
-  buffer: AudioBuffer, pitchRate: number, triggerTimeSec: number, velocity: number, stepDecayNorm: number, maxEndSec: number
+  buffer: AudioBuffer, pitchRate: number, triggerTimeSec: number, velocity: number, stepDecayNorm: number, maxEndSec: number,
+  opts: { isStudioCalibrated?: boolean; forceShort80ms?: boolean; strokeBaseGain?: number } = {}
 ): void {
   const trackInput = graph.trackInputs.get(track.id);
   if (!trackInput || triggerTimeSec >= maxEndSec - 0.001) return;
   const time = Math.max(0, triggerTimeSec), voices = graph.activeVoicesByTrack.get(track.id) || [];
 
-  if (strokeSymbol === 'p' || strokeSymbol === 'P') {
-    for (const v of voices) {
-      if (v.gainNode && v.time < time && time < v.expectedEnd) {
-        const gAt = computeAnalyticalVoiceGainAtTime(v, time);
-        v.gainNode.gain.cancelScheduledValues(time); v.gainNode.gain.setValueAtTime(gAt, time);
-        v.gainNode.gain.linearRampToValueAtTime(0.0001, time + 0.008); v.gainNode.gain.setValueAtTime(0, time + 0.009);
-        v.expectedEnd = time + 0.010; try { v.source.stop(time + 0.010); } catch (_) {}
-      }
-    }
-  }
+  applyWebAudioTrackSkinPhysics(voices, instId, strokeSymbol, time);
 
   const isLeftHandRufada = strokeSymbol === 'r';
-  const normVel = (velocity > 3.0 ? velocity / 100 : velocity) * (isLeftHandRufada ? 0.88 : 1.0);
-  const peakGain = Math.pow(Math.max(0, Math.min(2.0, normVel * 1.142857)), 1.8);
+  const adjVel = (velocity > 3.0 ? velocity / 100 : velocity) * (isLeftHandRufada ? 0.88 : 1.0);
+  const peakGain = computeEnginePeakGain(adjVel, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
   if (peakGain <= 0.0001) return;
 
   const effectiveRate = Math.max(0.25, pitchRate * (isLeftHandRufada ? 0.985 : 1.0));
   const realWorldDur = buffer.duration / effectiveRate;
-  const env = computeProgressiveDecayEnvelope(realWorldDur, computeEffectiveDecayNorm(stepDecayNorm, track.trackDecay, false));
+  const env = computeProgressiveDecayEnvelope(
+    realWorldDur, computeEffectiveDecayNorm(stepDecayNorm, track.trackDecay, false), Boolean(opts.forceShort80ms)
+  );
   const holdEnd = time + env.holdSec, releaseEnd = env.isFullBuffer ? time + realWorldDur : holdEnd + env.releaseSec;
   const expectedEnd = Math.min(maxEndSec, env.isFullBuffer ? releaseEnd : releaseEnd + 0.01);
 
@@ -123,5 +123,8 @@ export function scheduleOfflineStrokeHit(
   }
   gainNode.gain.linearRampToValueAtTime(0, expectedEnd);
   src.start(time); src.stop(expectedEnd);
-  voices.push({ source: src, gainNode, time, holdEnd, releaseEnd, expectedEnd, velocity: peakGain, isFullBuffer: env.isFullBuffer, instrumentId: instId });
+  voices.push({
+    source: src, gainNode, time, holdEnd, releaseEnd, expectedEnd,
+    velocity: peakGain, isFullBuffer: env.isFullBuffer, instrumentId: instId, strokeSymbol, isDucked: false,
+  });
 }

@@ -1,15 +1,19 @@
 /**
  * Programmation des rampes d'automation audio Web Audio / Tone.js (< 130 lignes).
  */
-import * as Tone from 'tone';
 import { TrackGroup } from '../../types';
-import { channels, busChannels, busInputs, reverbSends, busReverbSendVca, busDistoSendVca } from './audioEngineNodes';
-import { faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
+import { channels, busChannels, reverbSends, busReverbSendVca, busDistoSendVca } from './audioEngineNodes';
+import { faderPositionToGain } from '../../utils/audioMath';
 import { useSequencerStore, getEffectiveMuteState } from '../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { isAutomationBypassed } from '../../utils/automationBypassHelper';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { scheduleMasterVolumeRamp } from './audioSyncMasterRamp';
+import {
+  computeAuxSendLinearGain,
+  computeChannelEffectiveLinearGain,
+  resolveUnderlyingLinearAudioParam,
+} from '../../utils/audio/channelFaderLinearRamp';
 
 interface ScheduleAutomationProps {
   tracks: TrackGroup[];
@@ -65,28 +69,24 @@ export function scheduleMeasureAutomationRamps({
         const rawTarget = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : defaultVol;
         const rawPrev = t.measureVols[prevMeasureIdx] !== undefined ? t.measureVols[prevMeasureIdx] : defaultVol;
         const trans = t.measureVolTransitions?.[currentMeasureIdx] || 'immediate';
-
-        const targetBusId = t.busId || (t.linkedToTrackId ? t.linkedToTrackId : null);
-        const isConnectedToBus = Boolean(targetBusId && (busInputs[targetBusId] || busChannels[targetBusId]));
-        void isConnectedToBus;
+        const isMuted = getEffectiveMuteState(tracks, t.id);
 
         const activePanVal = (!isAutomationBypassed(t, 'pan', globalBypass) && hasActiveTrackAutomation(t, 'pan') && t.measurePans?.[currentMeasureIdx] !== undefined)
           ? t.measurePans[currentMeasureIdx]
           : (t.panVal ?? t.pan ?? 0);
         const { panCompensationDb } = isGroupBus ? { panCompensationDb: 0 } : applyMonoCompatiblePan(activePanVal);
 
-        const toTrackDb = (pos: number): number => {
-          const rawDb = faderPositionToDb(pos);
-          const safeDb = Number.isFinite(rawDb) ? Math.max(-100, Math.min(12, rawDb)) : -100;
-          return safeDb > -90 ? Math.min(12, safeDb + panCompensationDb) : safeDb;
-        };
+        const linearVolParam = resolveUnderlyingLinearAudioParam(channel.volume) || channel.volume;
+        const startVolLin = computeChannelEffectiveLinearGain(rawPrev, panCompensationDb, isMuted);
+        const endVolLin = computeChannelEffectiveLinearGain(rawTarget, panCompensationDb, isMuted);
+        applyParamTransition(linearVolParam, startVolLin, endVolLin, trans, time, measureDurationSec);
 
-        applyParamTransition(channel.volume, toTrackDb(rawPrev), toTrackDb(rawTarget), trans, time, measureDurationSec);
-        const isMuted = getEffectiveMuteState(tracks, t.id);
         const prevLin = isMuted ? 0 : faderPositionToGain(rawPrev);
         const targetLin = isMuted ? 0 : faderPositionToGain(rawTarget);
-        if (busReverbSendVca[t.id]?.gain) applyParamTransition(busReverbSendVca[t.id].gain, prevLin, targetLin, trans, time, measureDurationSec);
-        if (busDistoSendVca[t.id]?.gain) applyParamTransition(busDistoSendVca[t.id].gain, prevLin, targetLin, trans, time, measureDurationSec);
+        const revVca = resolveUnderlyingLinearAudioParam(busReverbSendVca[t.id]?.gain);
+        const distVca = resolveUnderlyingLinearAudioParam(busDistoSendVca[t.id]?.gain);
+        if (revVca) applyParamTransition(revVca, prevLin, targetLin, trans, time, measureDurationSec);
+        if (distVca) applyParamTransition(distVca, prevLin, targetLin, trans, time, measureDurationSec);
       } catch (_) {}
     }
 
@@ -111,9 +111,16 @@ export function scheduleMeasureAutomationRamps({
         const rawTarget = t.measureReverbSends[currentMeasureIdx] !== undefined ? t.measureReverbSends[currentMeasureIdx] : dRev;
         const rawPrev = t.measureReverbSends[prevMeasureIdx] !== undefined ? t.measureReverbSends[prevMeasureIdx] : dRev;
         const trans = t.measureReverbTransitions?.[currentMeasureIdx] || 'immediate';
-        const isDb = send.gain.units === 'decibels';
-        const toVal = (r: number) => isDb ? (r <= 0 ? -100 : Tone.gainToDb(Math.max(0.0001, r / 100))) : Math.max(0, Math.min(1, r / 100));
-        applyParamTransition(send.gain, toVal(rawPrev), toVal(rawTarget), trans, time, measureDurationSec);
+        const disabled = Boolean(state.ecoConfig?.disableFx) || getEffectiveMuteState(tracks, t.id);
+        const linearSendParam = resolveUnderlyingLinearAudioParam(send.gain) || send.gain;
+        applyParamTransition(
+          linearSendParam,
+          computeAuxSendLinearGain(rawPrev, disabled),
+          computeAuxSendLinearGain(rawTarget, disabled),
+          trans,
+          time,
+          measureDurationSec
+        );
       } catch (_) {}
     }
   });

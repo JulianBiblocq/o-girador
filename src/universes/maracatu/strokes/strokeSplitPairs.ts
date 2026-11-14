@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Split Pairs and Complementary Stroke Helpers
+ * O Girador - Split Pairs and Complementary Stroke Helpers (< 105 lignes)
  */
 
 export function getDefaultSplitPair(instId: string, instType = ''): [string, string] {
@@ -26,12 +25,15 @@ export function getComplementaryStroke(
   symbol: string,
   instId: string,
   instType = '',
-  isLeftHanded = false
+  _isLeftHanded = false
 ): string {
   const norm = (symbol || '').trim();
 
-  // Alfaias / Caixas / Tarols / Agbê
   if (['marcante', 'meiao', 'repique', 'alfaia', 'caixa', 'tarol', 'agbe'].includes(instId)) {
+    if (instId === 'caixa' || instId === 'tarol') {
+      if (norm === 'A') return 'a';
+      if (norm === 'a') return 'A';
+    }
     if (norm === 'D') return 'E';
     if (norm === 'd') return 'e';
     if (norm === 'E') return 'D';
@@ -48,7 +50,6 @@ export function getComplementaryStroke(
     return 'E';
   }
 
-  // Timbal
   if (instId === 'timbal') {
     if (norm === 'A') return 'a';
     if (norm === 'a') return 'A';
@@ -67,7 +68,6 @@ export function getComplementaryStroke(
     return 'a';
   }
 
-  // Mineiro
   if (instId === 'mineiro') {
     if (norm === 'P') return 'T';
     if (norm === 'T') return 'P';
@@ -77,7 +77,6 @@ export function getComplementaryStroke(
     return 'T';
   }
 
-  // Gonguê
   if (instId === 'gongue' || instType === 'gongue') {
     if (norm === 'G') return 'A';
     if (norm === 'A') return 'G';
@@ -87,14 +86,12 @@ export function getComplementaryStroke(
     return 'A';
   }
 
-  // Apito
   if (instId === 'apito') {
     if (norm === 'W') return 'w';
     if (norm === 'w') return 'W';
     return 'w';
   }
 
-  // Fallback universel
   if (norm === norm.toUpperCase()) return norm.toLowerCase();
   return norm.toUpperCase();
 }

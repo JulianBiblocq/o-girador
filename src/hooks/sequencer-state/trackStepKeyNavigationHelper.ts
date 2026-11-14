@@ -24,7 +24,7 @@ export function handleTrackStepKeyDownHelper(
     prevEl.focus();
     prevEl.select();
   } else if (
-    ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C', 'w', 'W'].includes(key) &&
+    ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C', 'w', 'W', 'b', 'B', '/', '.'].includes(key) &&
     indexInGrid < inputs.length - 1
   ) {
     setTimeout(() => {

@@ -4,6 +4,7 @@ import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStor
 
 export function getNormalizedStroke(instId: string, rawStroke: string): string {
   const targetKey = rawStroke.trim();
+  if (['marcante', 'meiao', 'repique'].includes(instId) && targetKey === 'a') return 'A';
   if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instId)) {
     if (targetKey === 't' || targetKey === 'T') return 'B';
     if (targetKey === 'C') return 'c';

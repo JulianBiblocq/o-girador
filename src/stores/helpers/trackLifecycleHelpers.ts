@@ -3,6 +3,7 @@ import { instrumentsConfig } from '../../data';
 import { sanitizeRodaTrackOrder, applyRadii } from './trackRodaGeometryHelpers';
 import { selectTracksMeta } from './trackMetaCache';
 import { getDisplayedMixerTracks } from './mixerOrderingHelpers';
+import { toggleTrackMuteStudioPro, toggleTrackSoloStudioPro } from './trackSoloProHelpers';
 
 export const handleTrackDeleteState = (
   state: {
@@ -126,10 +127,10 @@ export const duplicateTrackState = (
 };
 
 export const handleTrackMuteToggleState = (tracks: TrackGroup[], id: number): TrackGroup[] =>
-  tracks.map((t) => t.id === id ? { ...t, isMute: !t.isMute } : t);
+  toggleTrackMuteStudioPro(tracks, id);
 
 export const handleTrackSoloToggleState = (tracks: TrackGroup[], id: number): TrackGroup[] =>
-  tracks.map((t) => t.id === id ? { ...t, isSolo: !t.isSolo } : t);
+  toggleTrackSoloStudioPro(tracks, id);
 
 export const handleTrackHideToggleState = (tracks: TrackGroup[], id: number): TrackGroup[] =>
   tracks.map((t) => t.id === id ? { ...t, isHidden: !t.isHidden } : t);

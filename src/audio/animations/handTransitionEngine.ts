@@ -1,4 +1,5 @@
 export type HandStrokeEnergy = 'strong' | 'weak' | 'special' | 'rest';
+export type HandPosture = 'high_armed' | 'low_tucked' | 'pressed_skin' | 'rest';
 
 export interface HandTransitionConfig {
   stayLowAfterStrongY: number;
@@ -19,7 +20,7 @@ export const DEFAULT_HAND_TRANSITIONS: HandTransitionConfig = {
 };
 
 interface HandMemoryEntry {
-  posture: 'high_armed' | 'low_tucked' | 'rest';
+  posture: HandPosture;
   transform: string | null;
 }
 
@@ -39,7 +40,7 @@ export function getHandMemory(isLeftSide: boolean): HandMemoryEntry {
 
 export function setHandMemory(
   isLeftSide: boolean,
-  posture: 'high_armed' | 'low_tucked' | 'rest',
+  posture: HandPosture,
   transform: string
 ): void {
   const key = isLeftSide ? 'left' : 'right';
@@ -83,20 +84,24 @@ export function resolveStickStartAndEndTransforms(
   tr: HandTransitionConfig,
   isCurrentStrong: boolean,
   nextKind: 'strong' | 'weak' | 'rufada' | 'idle'
-): { startTransform: string; endTransform: string; rebEasing: string } {
+): { startTransform: string; endTransform: string; rebEasing: string; wasPressedOnSkin: boolean; pressedTransform: string | null } {
   const mem = getHandMemory(isLeftSide);
+  const wasPressedOnSkin = mem.posture === 'pressed_skin' && Boolean(mem.transform);
+  const pressedTransform = wasPressedOnSkin ? mem.transform : null;
   const highTr = buildArmedHighTransform(isLeftSide, profScale, restOffsetY, tr);
   const lowTr = buildTuckedLowTransform(isLeftSide, profScale, tr);
 
   let startTransform: string;
-  if (mem.transform && ((isCurrentStrong && mem.posture === 'high_armed') || (!isCurrentStrong && mem.posture === 'low_tucked'))) {
+  if (wasPressedOnSkin && mem.transform) {
+    startTransform = mem.transform;
+  } else if (mem.transform && ((isCurrentStrong && mem.posture === 'high_armed') || (!isCurrentStrong && mem.posture === 'low_tucked'))) {
     startTransform = mem.transform;
   } else {
     startTransform = isCurrentStrong ? highTr : lowTr;
   }
 
   let endTransform: string;
-  let endPosture: 'high_armed' | 'low_tucked' | 'rest';
+  let endPosture: HandPosture;
   if (nextKind === 'weak' || nextKind === 'rufada') {
     endTransform = lowTr;
     endPosture = 'low_tucked';
@@ -113,6 +118,7 @@ export function resolveStickStartAndEndTransforms(
     startTransform,
     endTransform,
     rebEasing: getTransitionRiseEasing(tr.transitionRiseCurve),
+    wasPressedOnSkin,
+    pressedTransform,
   };
 }
-

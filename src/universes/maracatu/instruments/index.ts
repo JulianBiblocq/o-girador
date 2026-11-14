@@ -1,9 +1,10 @@
 /**
- * 
- * O Girador - Maracatu Instruments Audio Module Barrel
+ * O Girador - Maracatu Instruments Audio Module Barrel (< 30 lignes)
  */
 
 export * from './types';
+export * from './studioStrokeFactory';
+export * from './studioBankRegistry';
 export * from './alfaiaConfig';
 export * from './caixaOnlyConfig';
 export * from './tarolOnlyConfig';

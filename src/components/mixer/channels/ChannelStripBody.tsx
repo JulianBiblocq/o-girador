@@ -44,7 +44,7 @@ export const ChannelStripBody: React.FC<ChannelStripBodyProps> = ({
 }) => {
   return (
     <div className="flex-1 flex flex-col p-1.5 gap-1.5 justify-start items-center w-full min-h-0 overflow-hidden">
-      <ChannelStripEQ track={track} lang={lang} />
+      <ChannelStripEQ track={track} lang={lang} isPlaying={isPlaying} />
       <ChannelStripFxPan
         track={track}
         isRevActive={isRevActive}

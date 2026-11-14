@@ -24,9 +24,10 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     name: 'Alfaia',
     Icon: AlfaiaCordelIcon,
     strokes: [
-      { symbol: 'D', labelFr: 'Main forte', labelPt: 'Toque forte', file: '/Mixdown/Alfaia meiao F 1.ogg' },
-      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau Igaraçu', file: '/Mixdown/Alfaia meiao I 1.ogg' },
-      { symbol: 'd', labelFr: 'Coup faible', labelPt: 'Toque fraco', file: '/Mixdown/Alfaia meiao faible 1.ogg' },
+      { symbol: 'D', labelFr: 'Main forte', labelPt: 'Toque forte', file: '/Mixdown/Alfaia marcante D 1.ogg' },
+      { symbol: 'A', labelFr: 'Étouffé gauche (Abafado)', labelPt: 'Abafado esquerda', file: '/Mixdown/Alfaia marcante A 1.ogg' },
+      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau Igaraçu', file: '/Mixdown/Alfaia marcante I 1.ogg' },
+      { symbol: 'd', labelFr: 'Coup faible', labelPt: 'Toque fraco', file: '/Mixdown/Alfaia marcante d_min 1.ogg' },
     ],
   },
   {
@@ -64,9 +65,9 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     name: 'Mineiro',
     Icon: MineiroCordelIcon,
     strokes: [
-      { symbol: 'P', labelFr: 'Pousser fort', labelPt: 'Ida forte', file: '/Mixdown/Mineiro F P 1.ogg' },
-      { symbol: 'T', labelFr: 'Tirer fort', labelPt: 'Volta forte', file: '/Mixdown/Mineiro F T 1.ogg' },
-      { symbol: 'p', labelFr: 'Secousse faible', labelPt: 'Toque fraco', file: '/Mixdown/Mineiro f 1.ogg' },
+      { symbol: 'P', labelFr: 'P ↑ — Pousser (Avant)', labelPt: 'P ↑ — Projetar (Para frente)', file: '/Mixdown/Mineiro F P 1.ogg' },
+      { symbol: 'T', labelFr: 'T ↓ — Tirer (Vers soi)', labelPt: 'T ↓ — Trazer (Para trás)', file: '/Mixdown/Mineiro F T 1.ogg' },
+      { symbol: 'p', labelFr: 'p ↑ — Pousser faible', labelPt: 'p ↑ — Projetar fraco', file: '/Mixdown/Mineiro f 1.ogg' },
     ],
   },
   {

@@ -95,9 +95,10 @@ export function handleVariationStepKeyDown(params: {
     return;
   }
 
-  const char = e.key;
-  if (char.length === 1 && char.match(/^[a-zA-Z0-9]$/) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  const rawChar = e.key;
+  if (rawChar.length === 1 && rawChar.match(/^[a-zA-Z0-9/.]$/) && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault();
+    const char = (['marcante', 'meiao', 'repique', 'alfaia'].includes(inst?.id) && rawChar === 'a') ? 'A' : rawChar;
     onVariationStepValueChange?.(ptnId, variationId, stepIdx, char);
     if (audioEngine) {
       try {

@@ -2,9 +2,14 @@ import { InstrumentAudioConfig, StrokeMapping } from '../data/audioConfig';
 
 /**
  * Maps left-handed / right-handed symmetrical key stroke switches.
+ * - `A <-> a` swap is strictly scoped to `caixa` and `tarol` (never Alfaia or Timbal).
  */
 export function applyHandedness(key: string, config: InstrumentAudioConfig, isLeftHanded: boolean): string {
   if (!config.leftHandedSupport || !isLeftHanded) return key;
+  if (config.id === 'caixa' || config.id === 'tarol') {
+    if (key === 'A') return 'a';
+    if (key === 'a') return 'A';
+  }
   const map: Record<string, string> = {
     D: 'E',
     E: 'D',

@@ -2,7 +2,6 @@ import * as Tone from 'tone';
 import { Track } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
-import { faderPositionToDb } from '../../utils/audioMath';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
@@ -17,7 +16,9 @@ import {
   computeBusLinearVcaGain,
   resolveImmediateBusId,
 } from '../../audio/effectsChain';
-import { safeRampDb, safeRampPan } from '../../utils/audio/safeAudioParamRamp';
+import { safeRampPan } from '../../utils/audio/safeAudioParamRamp';
+import { applyAuxSendLinear, applyChannelVolumeLinear, computeChannelEffectiveLinearGain } from '../../utils/audio/channelFaderLinearRamp';
+import { pruneBusDynamics, syncBusDynamics } from '../../audio/effects/busDynamicsSync';
 
 export interface SyncBusChannelsParams {
   tracks: Track[];
@@ -61,15 +62,14 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const currentBusId = resolveImmediateBusId(t, tracks);
     const isConnectedToParentBus = Boolean(currentBusId !== null && (busInputs[currentBusId] || busChannels[currentBusId]));
     const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
-    const db = faderPositionToDb(effectiveVol);
-    const safeDb = Number.isFinite(db) ? db : -100;
     const { acousticPan } = applyMonoCompatiblePan(t.panVal ?? t.pan);
     const reverb = t.fxSends?.reverb ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
     const muteState = getEffectiveMuteState(tracks, t.id);
+    const effectiveLin = computeChannelEffectiveLinearGain(effectiveVol, 0, muteState);
 
     ensureAuxSendNodes(t.id, percentToDb(disableFx ? 0 : reverb), percentToDb(disableFx ? 0 : distortion));
-    ensureBusSendVcaNodes(t.id, computeBusLinearVcaGain(t, tracks));
+    ensureBusSendVcaNodes(t.id, muteState ? 0 : computeBusLinearVcaGain(t, tracks));
 
     const lowCut = t.lowCut ?? false;
     const eqLowG = t.eqBands?.low?.g ?? 0;
@@ -81,20 +81,15 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
     const eqHighF = t.eqBands?.high?.f ?? 8000;
 
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
-    const busChannelHash = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
+    const busChannelHash = `bus_${effectiveLin.toFixed(6)}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
     const busEqHash = `eq_bus_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== busChannelHash) {
-      safeRampDb(busChannels[t.id].volume, safeDb, 0.02);
+      applyChannelVolumeLinear(busChannels[t.id], effectiveVol, 0, muteState, 0.018);
       safeRampPan(busChannels[t.id].pan, acousticPan, 0.02);
-      busChannels[t.id].mute = muteState;
-      syncBusSendVcaGain(t.id, computeBusLinearVcaGain(t, tracks), 0.02);
-
-      const targetRevDb = percentToDb(disableFx ? 0 : reverb);
-      const targetDistDb = percentToDb(disableFx ? 0 : distortion);
-      if (reverbSends[t.id]) safeRampDb(reverbSends[t.id].gain, targetRevDb, 0.02);
-      if (distortionSends[t.id]) safeRampDb(distortionSends[t.id].gain, targetDistDb, 0.02);
-
+      syncBusSendVcaGain(t.id, muteState ? 0 : computeBusLinearVcaGain(t, tracks), 0.018);
+      applyAuxSendLinear(reverbSends[t.id], reverb, disableFx || muteState, 0.018);
+      applyAuxSendLinear(distortionSends[t.id], distortion, disableFx || muteState, 0.018);
       lastAppliedTracksParamsRef.current[t.id] = busChannelHash;
     }
 
@@ -103,6 +98,7 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       syncBusInsertChain(t.id, t);
       lastAppliedTracksParamsRef.current[busEqKey] = busEqHash;
     }
+    syncBusDynamics(t, disableFx);
 
     const busKey = currentBusId !== null ? String(currentBusId) : null;
     if (lastAppliedBussesRef.current[t.id] !== busKey) {
@@ -127,4 +123,5 @@ export function syncBusChannels(p: SyncBusChannelsParams): void {
       lastAppliedBussesRef.current[t.id] = busKey;
     }
   });
+  pruneBusDynamics(tracks);
 }

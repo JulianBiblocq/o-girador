@@ -1,5 +1,5 @@
 /**
- * Vue 1 : Tableau lisible des frappes et pupitres en gros caractères (< 115 lignes).
+ * Vue 1 : Tableau lisible des frappes et pupitres en gros caractères (< 125 lignes).
  */
 import React from 'react';
 import { resolvePupitreDisplayName } from '../../../utils/paper/paperNomenclatureHelper';
@@ -20,6 +20,7 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       strokes: [
         { key: 'D / d', desc: isFr ? 'Droite (Fort / faible)' : 'Direita (Forte / fraco)' },
         { key: 'E / e', desc: isFr ? 'Gauche (Fort / faible)' : 'Esquerda (Forte / fraco)' },
+        { key: 'A / a', desc: isFr ? 'A — Étouffé Gauche (Abafado)' : 'A — Abafado Esquerda (Seco)' },
         { key: 'I / i', desc: isFr ? 'Bacalhau (avec 2 barres I)' : 'Bacalhau (com 2 traços I)' },
         { key: 'B', desc: 'Barulho' },
         { key: 'C', desc: isFr ? 'Clac entre baguettes' : 'Clac baquetas' },
@@ -34,7 +35,8 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       strokes: [
         { key: 'D / d', desc: isFr ? 'Droite (Fort / faible)' : 'Direita' },
         { key: 'E / e', desc: isFr ? 'Gauche (Fort / faible)' : 'Esquerda' },
-        { key: 'R / r', desc: isFr ? 'Roulement / Rouffade' : 'Rolo / Rufo' },
+        { key: 'A / a', desc: isFr ? 'Attaque Cerclage+Peau D/G (Rimshot)' : 'Ataque Pele e Aro D/E' },
+        { key: 'R / r', desc: isFr ? 'Roulement / Rufada' : 'Rolo / Rufada' },
         { key: 'F / f', desc: 'Fla' },
         { key: 'X', desc: isFr ? 'Aro / Cerclage' : 'Aro' },
         { key: 'C', desc: 'Clic' },
@@ -67,10 +69,10 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       title: `${resolvePupitreDisplayName('mi', lang)} (Mi)`,
       subtitle: isFr ? 'Shaker tubulaire métal' : 'Ganzá metálico',
       strokes: [
-        { key: 'P / p', desc: isFr ? 'Poussé (vers l\'avant)' : 'Frente (Pressionado)' },
-        { key: 'T / t', desc: isFr ? 'Tiré (traverser barre t)' : 'Trás (cruzar barra t)' },
-        { key: 'L', desc: isFr ? 'Lié / Côté' : 'Lateral / Ligado' },
-        { key: 'B', desc: isFr ? 'Arrêté net / Tremer' : 'Tremer / Parado' },
+        { key: 'P / p ↑', desc: isFr ? 'Pousser (Avant)' : 'Projetar (Para frente)' },
+        { key: 'T / t ↓', desc: isFr ? 'Tirer (Vers soi)' : 'Trazer (Para trás)' },
+        { key: 'L', desc: isFr ? 'Latéral' : 'Lateral' },
+        { key: 'B', desc: isFr ? 'Barulho / Tremer' : 'Barulho / Tremer' },
       ],
     },
     {
@@ -101,13 +103,13 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
   ];
 
   return (
-    <div className="flex flex-col gap-3 p-3 text-[#1a1a1a]">
-      <div className="p-2.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-center text-xs tracking-wide shadow-[2px_2px_0px_#000]">
+    <div className="flex flex-col gap-3 p-3 text-[var(--cordel-ink-dark)]">
+      <div className="p-2.5 bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] font-cactus font-bold text-center text-xs tracking-wide shadow-[2px_2px_0px_var(--cordel-ink-dark)]">
         {isFr ? 'MAJUSCULE = Coup Fort │ minuscule = Coup Faible (Sauf Timbal : MAJ = Droite │ min = Gauche)' : 'MAIÚSCULA = Toque Forte │ minúscula = Toque Fraco (Exceto Timbal: MAI = Direita │ min = Esquerda)'}
       </div>
-      <div className="p-2 bg-[#faf6eb] border border-[#8b2a1a]/40 text-[10px] text-[#1a1a1a]/85 italic text-center">
+      <div className="p-2 bg-[var(--cordel-parchment-surface)] border border-[var(--cordel-wood)]/40 text-[10px] text-[var(--cordel-ink-dark)]/85 italic text-center">
         {isFr
-          ? 'Les abréviations d\'instruments dans la colonne de 14mm (Al, Cx, Gg...) sont au choix de l\'utilisateur et personnalisables dans l\'Atelier Papier ou La Presse.'
+          ? "Les abréviations d'instruments dans la colonne de 14mm (Al, Cx, Gg...) sont au choix de l'utilisateur et personnalisables dans l'Atelier Papier ou La Presse."
           : 'As abreviações de instrumentos na coluna de 14mm (Al, Cx, Gg...) são de livre escolha do usuário e personalizáveis na Oficina Papel ou Na Imprensa.'}
       </div>
 

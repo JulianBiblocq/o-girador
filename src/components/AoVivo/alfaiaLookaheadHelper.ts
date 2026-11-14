@@ -5,9 +5,11 @@ import {
   AlfaiaSecondaryStickFamily,
   generateAlfaiaPredictiveKeyframes,
   generateAlfaiaShadowKeyframes,
+  generateBacalhauAbafadoTipKeyframes,
   generateBacalhauTipKeyframes,
   getAlfaiaShadowRestTransform,
   getAlfaiaStickRestTransform,
+  getHandMemory,
   KEYFRAMES_SKIN_BARULHO,
   KEYFRAMES_SKIN_WAVE,
 } from '../../audio/animations/alfaiaKinematics';
@@ -15,10 +17,10 @@ import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 
 function isStrokeForHand(token: string, isDominantHand: boolean): boolean {
   const s = (token || '').trim();
-  if (!s || s === '-' || s === '.' || s === '0') return false;
+  if (!s || s === '-' || s === '.' || s === '/' || s === '0') return false;
   const up = s.toUpperCase();
   if (['C', 'X', 'B', 'T', 'R', 'F', '~'].includes(up)) return true;
-  return isDominantHand ? up === 'D' || up === 'S' : up === 'E' || up === 'I' || up === 'V';
+  return isDominantHand ? up === 'D' || up === 'S' : up === 'E' || up === 'A' || up === 'I' || up === 'V';
 }
 
 function extractTokens(raw: any): string[] {
@@ -42,7 +44,8 @@ export function findSameHandLookahead(
   if (!isSubStep && Array.isArray(activePlayingSteps[currentStep]) && activePlayingSteps[currentStep].length > 1) {
     const subTok = String(activePlayingSteps[currentStep][1] || '').trim();
     if (isStrokeForHand(subTok, isDominantHand)) {
-      return { nextKind: subTok === subTok.toUpperCase() ? 'strong' : 'weak', msUntilNext: Math.max(70, Math.round(stepDurationMs * 0.5)) };
+      const isSubStrong = subTok === subTok.toUpperCase() && subTok.toUpperCase() !== 'A';
+      return { nextKind: isSubStrong ? 'strong' : 'weak', msUntilNext: Math.max(70, Math.round(stepDurationMs * 0.5)) };
     }
   }
   for (let offset = 1; offset <= Math.min(len, 4); offset++) {
@@ -71,22 +74,26 @@ function animateStickWithShadow(
   isBarulho: boolean
 ) {
   if (!stickEl) return;
+  const sUp = stroke.toUpperCase();
   const rate = CONFIG_ALFAIA_STICKS.speedMultiplier;
   const effectiveDuration = isBarulho ? Math.round(90 / rate) : Math.max(85, Math.round(durationMs / rate));
   const iterations = isBarulho ? Math.max(2, Math.min(8, Math.round(CONFIG_ALFAIA_STICKS.barulhoBounces))) : 1;
+  const wasPressed = getHandMemory(isLeftSide).posture === 'pressed_skin';
+
   animRef.current?.cancel();
   animRef.current = stickEl.animate(generateAlfaiaPredictiveKeyframes(stroke, isLeftSide, family, nextKind, effectiveDuration), {
     duration: effectiveDuration, iterations, fill: 'forwards',
   });
   const tipEl = stickEl.querySelector('[data-bacalhau-tip]') as SVGGElement | null;
-  if (tipEl && family === 'bacalhau' && !isBarulho && !['C', 'X'].includes(stroke.toUpperCase())) {
+  if (tipEl && family === 'bacalhau' && !isBarulho && !['C', 'X'].includes(sUp)) {
     tipEl.getAnimations().forEach((a) => a.cancel());
-    tipEl.animate(generateBacalhauTipKeyframes(isLeftSide, effectiveDuration), { duration: effectiveDuration, iterations: 1, fill: 'forwards' });
+    const tipFrames = sUp === 'A' ? generateBacalhauAbafadoTipKeyframes(isLeftSide) : generateBacalhauTipKeyframes(isLeftSide, effectiveDuration);
+    tipEl.animate(tipFrames, { duration: effectiveDuration, iterations: 1, fill: 'forwards' });
   }
   const shadowEl = stickEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
   if (shadowEl) {
     shadowEl.getAnimations().forEach((a) => a.cancel());
-    shadowEl.animate(generateAlfaiaShadowKeyframes(stroke, isLeftSide, nextKind), { duration: effectiveDuration, iterations, fill: 'forwards' });
+    shadowEl.animate(generateAlfaiaShadowKeyframes(stroke, isLeftSide, nextKind, wasPressed), { duration: effectiveDuration, iterations, fill: 'forwards' });
   }
 }
 
@@ -98,24 +105,18 @@ export function dispatchAlfaiaPredictiveStroke(
   geometry: { targetX: number; targetY: number }
 ) {
   const secFamily = resolveAlfaiaSecondaryFamily(activeTrack);
-  const norm = (stroke || '').trim();
-  const sUp = norm.toUpperCase();
+  const norm = (stroke || '').trim(), sUp = norm.toUpperCase();
   const isBarulho = isVibrate || sUp === 'B' || sUp === 'T' || sUp === 'R';
   const isDual = isBarulho || ['C', 'X', 'F'].includes(sUp);
   const domLook = findSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, true, isSubStep);
   const secLook = findSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, false, isSubStep);
 
   if (isDual || sUp === 'D' || sUp === 'S') {
-    const domEl = isLeftHanded ? leftStickEl : rightStickEl;
-    const domRef = isLeftHanded ? leftAnimRef : rightAnimRef;
-    animateStickWithShadow(domEl, domRef, isBarulho ? 'B' : norm, isLeftHanded, 'macaneta', domLook.nextKind, domLook.msUntilNext, isBarulho);
+    animateStickWithShadow(isLeftHanded ? leftStickEl : rightStickEl, isLeftHanded ? leftAnimRef : rightAnimRef, isBarulho ? 'B' : norm, isLeftHanded, 'macaneta', domLook.nextKind, domLook.msUntilNext, isBarulho);
   }
-  if (isDual || sUp === 'E' || sUp === 'I' || sUp === 'V') {
-    const secEl = isLeftHanded ? rightStickEl : leftStickEl;
-    const secRef = isLeftHanded ? rightAnimRef : leftAnimRef;
-    animateStickWithShadow(secEl, secRef, isBarulho ? 'B' : norm, !isLeftHanded, secFamily, secLook.nextKind, secLook.msUntilNext, isBarulho);
+  if (isDual || sUp === 'E' || sUp === 'A' || sUp === 'I' || sUp === 'V') {
+    animateStickWithShadow(isLeftHanded ? rightStickEl : leftStickEl, isLeftHanded ? rightAnimRef : leftAnimRef, isBarulho ? 'B' : norm, !isLeftHanded, secFamily, secLook.nextKind, secLook.msUntilNext, isBarulho);
   }
-
   if (haloEl && (['D', 'E', 'I', 'B', 'S', 'V'].includes(sUp) || isBarulho)) {
     haloEl.style.left = `${geometry.targetX}px`;
     haloEl.style.top = `${geometry.targetY}px`;

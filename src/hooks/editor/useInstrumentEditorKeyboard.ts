@@ -72,8 +72,11 @@ export function useInstrumentEditorKeyboard({
         if (nextTool && String(nextTool) !== activeTool) {
           const toolStr = String(nextTool);
           setActiveTool(toolStr);
+          const isCalibratedAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
           if (toolStr !== '0' && audioEngine && track) {
-            try { audioEngine.playNote(track.id, toolStr, Tone.now(), dir === 'down' ? 0.6 : 0.95, dir === 'down' ? 0.8 : 1.0); } catch (_) {}
+            const pVel = isCalibratedAlfaia ? 0.7 : (dir === 'down' ? 0.6 : 0.95);
+            const pDec = isCalibratedAlfaia ? 1.0 : (dir === 'down' ? 0.8 : 1.0);
+            try { audioEngine.playNote(track.id, toolStr, Tone.now(), pVel, pDec); } catch (_) {}
           }
         }
         return;
@@ -93,29 +96,23 @@ export function useInstrumentEditorKeyboard({
           p.strong.symbol.toLowerCase() === char.toLowerCase() || p.strokes.some((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase())
         ));
 
+        const isCalibratedAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
         if (matchingPair) {
           e.preventDefault();
-          const isWeak = !isUpper && Boolean(matchingPair.weak);
-          const targetSymbol = isUpper ? matchingPair.strong.symbol : (matchingPair.weak ? matchingPair.weak.symbol : matchingPair.strong.symbol);
+          const exactStroke = matchingPair.strokes.find((s) => s.symbol === char || s.shortcut === char);
+          const ciStroke = exactStroke ?? matchingPair.strokes.find((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase());
+          const targetSymbol = ciStroke
+            ? ciStroke.symbol
+            : (isUpper ? matchingPair.strong.symbol : (matchingPair.weak ? matchingPair.weak.symbol : matchingPair.strong.symbol));
+          const isStrongBilateralLower = (inst.id === 'caixa' || inst.id === 'tarol') && targetSymbol === 'a';
+          const isWeak = !isUpper && !isStrongBilateralLower && targetSymbol === matchingPair.weak?.symbol;
           setActiveTool(targetSymbol);
           if (audioEngine && track) {
-            try { audioEngine.playNote(track.id, targetSymbol, Tone.now(), isWeak ? 0.6 : 0.95, isWeak ? 0.8 : 1.0); } catch (_) {}
+            const pVel = isCalibratedAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95);
+            const pDec = isCalibratedAlfaia ? 1.0 : (isWeak ? 0.8 : 1.0);
+            try { audioEngine.playNote(track.id, targetSymbol, Tone.now(), pVel, pDec); } catch (_) {}
           }
           return;
-        }
-
-        const upperChar = char.toUpperCase();
-        if (['B', 'C', 'X'].includes(upperChar)) {
-          const allSymbols = pairs.flatMap((p) => p.strokes.map((s) => s.symbol));
-          if (allSymbols.includes(upperChar) || allSymbols.includes(char.toLowerCase())) {
-            e.preventDefault();
-            const symbolToSelect = (isUpper || !allSymbols.includes(char.toLowerCase())) ? upperChar : char.toLowerCase();
-            setActiveTool(symbolToSelect);
-            if (audioEngine && track) {
-              try { audioEngine.playNote(track.id, symbolToSelect, Tone.now(), isUpper ? 0.95 : 0.6, isUpper ? 1.0 : 0.8); } catch (_) {}
-            }
-            return;
-          }
         }
       }
 

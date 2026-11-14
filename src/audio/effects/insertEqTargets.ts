@@ -1,16 +1,11 @@
 import * as Tone from 'tone';
 import { safeRampFreq, safeRampGainDb } from '../../utils/audio/safeAudioParamRamp';
 import { lowCutNodes, eqNodes } from './effectsChainNodes';
+import { BUTTERWORTH_Q, SUBSONIC_BUS_HPF_HZ, resolveLowCutTargetHz } from './lowCutTarget';
 
-export const BUTTERWORTH_Q = Math.SQRT1_2;
-export const SUBSONIC_BUS_HPF_HZ = 30;
+export { BUTTERWORTH_Q, SUBSONIC_BUS_HPF_HZ, resolveLowCutTargetHz };
 
 export interface InsertEqNodes { low: Tone.Filter; mid: Tone.Filter; high: Tone.Filter }
-
-export function resolveLowCutTargetHz(track: any, isNeutral = false): number {
-  if (!isNeutral && track?.lowCut) return 80;
-  return (track?.isBusFolder || track?.isLinkFolder) ? SUBSONIC_BUS_HPF_HZ : 20;
-}
 
 export function createLowCutFilter(track: any, isNeutral = false): Tone.Filter {
   const filter = new Tone.Filter(resolveLowCutTargetHz(track, isNeutral), 'highpass');

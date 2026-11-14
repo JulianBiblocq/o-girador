@@ -27,10 +27,18 @@ const WORKLET_SPECS: WorkletBundleSpec[] = [
     fileName: 'master-bus-worklet.iife.js',
     cachedCode: null,
   },
+  {
+    virtualId: 'virtual:bus-compressor-worklet-code',
+    resolvedId: '\0virtual:bus-compressor-worklet-code',
+    entryRelPath: 'src/audio/worklet/bus-compressor/busCompressorProcessor.ts',
+    globalName: 'BusCompressorWorklet',
+    fileName: 'bus-compressor-worklet.iife.js',
+    cachedCode: null,
+  },
 ];
 
 /**
- * Compile `percussionEngineProcessor.ts` et `masterBusProcessor.ts` en bundles IIFE
+ * Compile `percussionEngineProcessor.ts`, `masterBusProcessor.ts` et `busCompressorProcessor.ts` en bundles IIFE
  * 100 % autonomes (zéro `import`/`export`), chargés via `Blob` URL en Dev comme en Prod (< 90 lignes).
  */
 export function percussionWorkletPlugin(): Plugin {

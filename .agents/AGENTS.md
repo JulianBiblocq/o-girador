@@ -1,89 +1,46 @@
-# Custom Rules
+# Directives d'Agent — Sequenciador (`o-girador-sequenciador`)
 
-## Explicit Validation Request
-L'utilisateur a demandé que les plans d'implémentation nécessitent toujours une validation explicite de sa part, même s'il a activé une politique de validation automatique (Auto-Approval) globale dans le système Antigravity.
-Par conséquent :
-- Lorsque tu présentes un plan d'implémentation (via l'artefact `implementation_plan.md`), NE TE CONTENTE PAS du feu vert automatique du système.
-- Ajoute explicitement dans ta réponse textuelle : "Veuillez me confirmer par un message écrit que vous validez ce plan avant que je ne commence."
-- Refuse d'exécuter le plan tant que l'utilisateur n'a pas répondu "ok", "vas-y", ou tout autre message confirmant son accord, MÊME SI l'événement "auto-approved" est déclenché.
+## 0. RÈGLE STRICTE DE NOMMAGE DES APPLICATIONS O GIRADOR
+Utiliser exclusivement l'orthographe brésilienne pure (zéro apostrophe, zéro accent français parasite sur `Sequenciador`, zéro majuscule interne avant `-or`, zéro francisation `ch`, cédille obligatoire sur **Dançador**) :
+- **O Girador** | **Orquestrador** | **Organizador** | **Sequenciador** | **Cantador** | **Dançador** | **Mostrador** | **Afinador** *(en conception, réservé sous `enabled: false` — aucun lien actif dans les menus utilisateurs)*
 
-## Frontend Performance & DOM Optimization Rules (4 Commandements Absolus)
+## 1. Validation Explicite Obligatoire
+Lorsque tu présentes un plan d'implémentation (via `implementation_plan.md`), demande toujours une confirmation écrite explicite de l'utilisateur avant d'exécuter le plan, même si l'auto-approbation est active.
 
-**Rôle** : Ingénieur Staff Frontend, expert absolu en Performance Web, React 19, Zustand et Web Audio API. L'objectif est de concevoir des applications musicales temps-réel avec un framerate strict de 60 FPS sur tablette, sans jamais bloquer le Main Thread JavaScript ni désynchroniser l'horloge audio.
-
-### Les 4 Commandements Absolus (Red Lines) :
-
-1. **Zero Render Thrashing** : Interdiction d'utiliser `useState` ou des mutations Zustand pour des animations liées à des événements haute fréquence (ex : ticks audio ou `requestAnimationFrame`). Utiliser exclusivement des `useRef` et la mutation directe du DOM (Vanilla JS) en dehors du cycle React.
-2. **Zero Layout Thrashing** : Traquer impitoyablement les lectures synchrones du DOM (`offsetHeight`, `getBoundingClientRect`, etc.) combinées à des mutations dans la même trame.
-3. **Priorité GPU (WAAPI)** : Bannir les transitions CSS modifiant la géométrie (`width`, `height`, top, left, etc.). Utiliser uniquement l'API native Web Animations (`element.animate()`) avec `transform` et `opacity`.
-4. **Zustand "ID-Only"** : Un composant parent affichant une liste ne doit récupérer QUE les IDs via `useShallow`. Il ne passe aucun callback de mutation en props. Chaque composant enfant récupère ses propres données et actions depuis le store via son ID.
-
-Si du code est généré ou modifié, ces règles doivent être strictement respectées avec une brève justification de l'impact des choix sur le CPU (Reflow/Paint) et le Thread audio.
-
-## 5. Déploiement (Pense-bête)
-
-**Rappel Important** : N'oublie pas de TOUJOURS faire un build et déployer sur Firebase Hosting (via la commande `npm run deploy`) après avoir commité et pushé des modifications liées au séquenceur.
+## 2. Frontend Performance & DOM Optimization Rules (4 Commandements Absolus)
+**Rôle** : Ingénieur Staff Frontend, expert en Performance Web, React 19, Zustand et Web Audio API (60 FPS constants sur tablette sans jamais désynchroniser l'horloge audio) :
+1. **Zero Render Thrashing** : Interdiction de `useState` ou mutations Zustand pour les ticks audio ou `requestAnimationFrame`. Utiliser exclusivement `useRef` et la mutation directe du DOM hors React.
+2. **Zero Layout Thrashing** : Proscrire toute lecture géométrique synchrone (`offsetHeight`, `getBoundingClientRect`) combinée à des mutations dans la même trame.
+3. **Priorité GPU (WAAPI)** : Bannir les transitions CSS géométriques (`width`, `height`, `top`, `left`). Utiliser uniquement `element.animate()` ou `transform` / `opacity`.
+4. **Zustand "ID-Only"** : Un parent de liste ne s'abonne qu'aux IDs via `useShallow`. Chaque enfant récupère ses données et actions via son propre ID.
 
 ---
 ### 🛡️ Gouvernance Centralisée des Règles Firebase & Sécurité (Strict)
-- **Autorité unique :** Les règles d'accès (`firestore.rules` et `storage.rules`) sont exclusivement pilotées, modifiées et déployées par le projet maître (**Orchestrad'Or** / backend commun).
-- **Interdiction formelle dans cette application :** 
-  * Ne jamais créer, modifier ou valider de fichier local `firestore.rules` ou `storage.rules`.
-  * Ne jamais exécuter de commande de déploiement de règles (`firebase deploy --only firestore:rules` ou `storage` formellement proscrits).
-- **Développement client :** Les requêtes Firestore et Storage doivent impérativement s'adapter aux modèles de permissions et collections existants sans exiger d'altération des règles de sécurité depuis ce dépôt.
+- **Autorité unique :** Les règles `firestore.rules` et `storage.rules` sont exclusivement pilotées et déployées par **Orquestrador** (`o-girador-orquestrador`).
+- **Interdiction formelle dans ce dépôt :** ne jamais créer, modifier ou déployer de règles Firebase locales (`npm run deploy` cible exclusivement `hosting:sequenceur`).
 
 ---
-## 6. Règles Architecturales Permanentes
+## 3. Règles Architecturales Permanentes
 
-### A. Règle Anti-Monolithe & Cohésion Modulaire (Standards DAW Pro)
-- **Seuil de 30 lignes** : Toute nouvelle fonctionnalité, enrichissement de logique ou retouche dépassant 30 lignes de code (logique, hooks ou JSX) doit faire l'objet d'une extraction immédiate hors des composants existants déjà denses (ex: `TimelineSequencer.tsx`, `useSequencerStore.ts`, `DawTrackRow.tsx`, etc.).
-- **Découpage systématique** : Extraire obligatoirement vers des sous-composants spécialisés (dans un sous-dossier de composant ou `src/components/...`), des custom hooks (`src/hooks/...`) ou des modules utilitaires purs (`src/utils/...`). Interdiction d'empiler du code monolithique dans les fichiers conteneurs.
-- **Cible standard :** ~150 lignes pour tout nouveau fichier créé.
-- **Tolérance de sécurité (jusqu'à 180–200 lignes) :** Si un module existant cohérent atteint entre 150 et 200 lignes suite à une correction ou une retouche chirurgicale, **il est interdit de le découper artificiellement** si cette scission fragmente la logique métier ou risque d'introduire des régressions. La stabilité fonctionnelle prime sur le compteur de lignes.
-- **Amincissement Progressif au Fil de l'Eau (« Règle du Boy-Scout » — Zéro Grand Nettoyage Brutal) :**
-  1. **Interdiction des découpages massifs hors-sujet :** Ne jamais découper « à froid » des dizaines de fichiers qui ne font pas partie de la mission en cours.
-  2. **Extraction systématique lors d'une intervention sur un gros fichier :** Chaque fois qu'une mission amène l'agent à toucher un fichier existant dépassant **150 à 180 lignes**, l'agent a l'obligation de profiter de ce passage pour en **extraire proprement au moins une brique logique autonome** (fonctions de calcul pur vers `src/utils/`, sous-composant feuille ou hook spécialisé `< 120 lignes`) afin de faire diminuer la taille du fichier étape par étape, sans casser ses références ni ses fermetures.
-  3. **Signalement lors des Audits (6.F) :** À chaque audit préalable, l'agent indique le nombre de lignes actuel des fichiers qu'il va modifier et précise quelle sous-partie il propose d'extraire au passage si l'un de ces fichiers dépasse 150 lignes.
+### A. Plafond Strict `< 145 Lignes` & Cohésion Modulaire (Standards DAW Pro)
+- **Plafond strict `< 145 lignes` réelles** (`content.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length < 145`, soit 144 lignes max) pour tout fichier dans `src/` (et Mode Cliquet `newLines <= oldLines` sur tout éventuel fichier legacy `>= 145` lignes).
+- **Seuil d'extraction de 30 lignes** : toute nouvelle logique dépassant 30 lignes est extraite vers un sous-composant (`src/components/...`), custom hook (`src/hooks/...`) ou module utilitaire pur (`src/utils/...`).
 
-### B. Découplage Graphique Multi-Univers (Design Tokens Sémantiques)
-- **Bannir les styles en dur** : Interdiction formelle d'écrire des valeurs de couleur ou styles hardcodés (ex: `#f4ecd8`, `#1a1a1a`, `#8b2a1a`, etc.) dans les attributs `style={{ ... }}` ou les classes utilitaires statiques.
-- **Usage des jetons sémantiques** : Utiliser exclusivement les variables CSS et jetons sémantiques (`var(--cordel-bg)`, `var(--cordel-text)`, `var(--cordel-border)`, `themeTokens.css`, etc.) afin de garantir la cohérence graphique et le basculement instantané entre les différents univers visuels de l'application (Cordel, Dark mode, thèmes dynamiques).
+### B. Découplage Graphique Multi-Univers & Lexique Métier
+- **Zéro couleur en dur** : utiliser exclusivement les variables CSS sémantiques (`var(--cordel-bg)`, `var(--cordel-text)`, `var(--cordel-border)`, `theme-tokens.css`).
+- **Zéro emoji Unicode coloré** : uniquement des composants SVG vectoriels monochromes (`stroke="currentColor"` / `fill="currentColor"`, esthétique Xilogravura).
+- **Lexique** : Interdiction absolue du mot `Bateria` dans l'univers Maracatu (`Batuque` / `Baque`) et interdiction du mot `IA` dans l'interface utilisateur.
 
-### C. Commandements Web Audio & Standards Studio DAW Pro (Zéro Rustine)
-- **Zero Render Thrashing** : Proscription totale de `useState` et des mutations de store réactives pour les événements audio haute fréquence (ticks, curseur de lecture, RAF). Recourir exclusivement à des `useRef`, des écouteurs d'événements directs ou la manipulation DOM découplée (Vanilla JS).
-- **Sélecteurs Zustand "ID-Only"** : Les composants conteneurs ne s'abonnent qu'aux listes d'IDs (`useShallow(state => state.trackIds)`). Chaque sous-composant enfant récupère ses données et actions atomiquement via son propre ID pour éliminer les cascades de re-render.
-- **Gestion du Graphe & Nettoyage des Nœuds Tone.js / Web Audio** : Tout nœud audio Tone.js ou Web Audio créé dynamiquement doit être explicitement déconnecté et détruit (`node.disconnect()`, `node.dispose()`) au démontage du composant ou lors du changement de preset afin de garantir l'absence absolue de fuite mémoire et de maintenir 60 FPS constants.
-- **Graphe Audio Stable en Lecture** : Interdiction formelle de tout recâblage dynamique (`disconnect`/`connect`) à la volée pendant la lecture audio pour simuler un bypass d'EQ ou d'effet. Les filtres Biquad et processeurs d'effet restent connectés en série en permanence, avec un gain unitaire (`0 dB` ou neutre) au repos pour éliminer tout transitoire ou clic.
-- **Lissage des Paramètres (Zero Click)** : Toute variation de volume, pan ou fréquence/gain d'EQ en temps réel doit impérativement utiliser un lissage progressif (`rampTo` / `setTargetAtTime` sur 10 à 30 ms). Les rampes d'automation de mesure ne doivent être planifiées qu'une seule fois par changement de mesure (`stepIdx === 0`), jamais à chaque tick audio.
-- **Intégrité Polyphonique & Gain Staging** : Interdiction de supprimer arbitrairement des notes ou frappes programmées (aucun saut de pas ou plafond artificiel de hits simultanés). Les *choke groups* (étouffement par coup fermé/flam) doivent être strictement isolés par `trackId` sans jamais affecter les autres pistes (ex: Alfaias n'étouffent jamais Caixas ou Gonguê).
-- **Vérité Géométrique UI** : Pour les calques graphiques superposés (ex: mode *Ao Vivo* sur la Roda), proscrire tout décalage en pixels codé en dur (ex: `bottom: -350px`). Utiliser `ResizeObserver` (découplé hors de la boucle RAF afin de respecter le Commandement 2 *Zero Layout Thrashing*) pour caler dynamiquement les scènes sur les coordonnées réelles et le bounding rect du `<canvas>`.
+### C. Standards Studio DAW Pro (Audio & Mémoire)
+- Déconnexion et destruction explicite (`.disconnect()`, `.dispose()`) de tout nœud Web Audio / Tone.js créé dynamiquement.
+- Graphe audio stable en lecture (aucun recâblage `disconnect`/`connect` à la volée ; lissage sans clic via `rampTo` / `setTargetAtTime` sur 10–30 ms ; *choke groups* isolés par `trackId`).
+- Vérité géométrique des calques *Ao Vivo* via `ResizeObserver` découplé hors RAF.
 
-### D. Vérification Locale Obligatoire Avant Toute Validation
-- **Contrôle systématique avant validation** : Avant de déclarer une tâche achevée ou de solliciter la validation, l'agent doit impérativement exécuter et valider localement :
-  1. `cmd /c "npx tsc --noEmit"` : 0 erreur TypeScript.
-  2. `cmd /c "npm run build"` : compilation Vite de production réussie.
-### E. Interdiction Absolue des Emojis Système & Icônes Hors-Charte Cordel
-- **Zéro emoji Unicode coloré** : Ne jamais introduire d'emoji Unicode coloré (`📚`, `🎶`, `☁️`, `🎼`, `📜`, `📁`, `🎯`, `⚡`, `✋`, `🥁`, `🎤`, `⚠️`, etc.) ni dans les composants `.tsx`, ni dans les fichiers de traduction (`data.ts`, `mobileTranslationsFr.ts`, `mobileTranslationsPt.ts`, etc.).
-- **Composants vectoriels SVG monochromes** : Toute icône doit être un composant vectoriel SVG monochrome (`stroke="currentColor"` ou `fill="currentColor"`, esthétique gravure sur bois / Xilogravura, zéro dégradé moderne).
-- **Nettoyage systématique** : À chaque fois qu'un fichier est touché, retirer systématiquement tout emoji système résiduel qui s'y trouverait.
-
-### F. Protocole d'Audit Systématique : Performance, Qualité Audio, Pérennité du Code & Veille des Mises à jour
-À chaque mission d'audit demandée par l'utilisateur, l'agent doit systématiquement inspecter le périmètre touché ainsi que l'état général du dépôt pour inclure un volet de propositions proactives sur 4 axes :
-1. **Performance & Étanchéité Mémoire (4 Commandements) :** Traquer tout re-render inutile (sélecteurs Zustand non atomiques), tout `Layout Thrashing` (`getBoundingClientRect` synchrone en boucle), toute fuite d'écouteurs (`addEventListener` / `subscribeToTick`) ou de nœuds audio non détruits (`.disconnect()`, `.dispose()`).
-2. **Qualité Audio & Standards Studio DAW Pro :** Vérifier dans les fichiers audités l'absence de recâblage dynamique en lecture, le lissage des paramètres (`safeRampTo` / `setTargetAtTime` sans clic ni zipper noise), le respect du Gain Staging, du Round-Robin / anti-phase et de la précision de l'horloge (`lookahead`).
-3. **Pérennité, Propreté & Zéro Code Mort :** Signaler les fonctions/fichiers orphelins (`knip`), les dépendances circulaires (`madge`), les pièges "Falsy Zero" (`||` au lieu de `??` sur des valeurs numériques pouvant valoir `0`), et les styles/couleurs encore codés en dur. Indiquer systématiquement le nombre de lignes actuel des fichiers ciblés par la mission et préciser quelle brique autonome sera extraite au passage (« Règle du Boy-Scout ») si l'un de ces fichiers dépasse 150 lignes.
-4. **Veille Proactive des Mises à jour (`npm outdated`) :** Vérifier régulièrement l'état des dépendances npm pour éviter toute accumulation bloquante de dette de mise à jour, en classant toujours les paquets en :
-   - **Catégorie A (Patchs & Mineures sûres)** : applicables au fil de l'eau sans rupture.
-   - **Catégorie B (Majeures à risque)** : signalées pour information mais isolées.
+### D. Vérification Locale Obligatoire Avant Validation
+1. `cmd /c "npx tsc --noEmit"` : 0 erreur TypeScript.
+2. `cmd /c "npm run build"` : compilation Vite de production réussie.
 
 ---
-
 ## RÈGLE STRICTE DES PORTS LOCAUX (ÉCOSYSTÈME O GIRADOR)
-- Cet agent doit respecter la cartographie des ports :
-  * Orquestrad'Or : 5170
-  * Séquenciad'Or : 5174
-  * Organizad'Or : 5175
-  * Dançad'Or : 5176
-- Interdiction de modifier le port local sans instruction explicite.
-- `strictPort: true` est obligatoire : si le port est occupé, tuer les processus résiduels au lieu de changer de port.
-- Les tests E2E et les liens de navigation locale doivent pointer rigoureusement vers ces ports dédiés.
+- **Orquestrador** : `5170` | **Sequenciador** : `5174` | **Organizador** / **Mostrador** : `5175` | **Dançador** : `5176` | **Cantador** : `5177` | **Afinador** *(réservé, inactif)* : `5178`
+- Interdiction de modifier le port local sans instruction explicite (`strictPort: true` obligatoire).

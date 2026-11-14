@@ -1,5 +1,5 @@
 import React from 'react';
-import { CONFIG_ALFAIA_STICKS, getAlfaiaImpactPoseTransform, getAlfaiaStickRestTransform } from '../../audio/animations/alfaiaKinematics';
+import { CONFIG_ALFAIA_STICKS, getAlfaiaImpactPoseTransform, getAlfaiaShadowRestTransform, getAlfaiaStickRestTransform } from '../../audio/animations/alfaiaKinematics';
 import { getCaixaImpactPoseTransform, getCaixaStickRestTransform, resolveCaixaActiveFamily } from '../../audio/animations/caixaKinematics';
 import { buildGonguePoseForStroke, resetGonguePostureMemory, stopGongueTwoNodeAnimation } from '../../audio/animations/gongueKinematics';
 import { CONFIG_AGBE_LAB, getAgbeImpactPoseTransform, resetAgbePostureMemory } from '../../audio/animations/agbeKeyframes';
@@ -16,26 +16,9 @@ import { dispatchAgbe, dispatchGongue, dispatchMineiro, resetAgbeAndMineiroRest,
 import { updateGongueStickGeometry } from './GongueStickSvg';
 import { dispatchTimbalPredictiveStroke, resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 import { applyTimbalSlapBiomechanics } from './TimbalHandSvgs';
+import { TESTER_SEQUENCES, TESTER_STROKES, type TesterFamily } from './aoVivoTesterCatalog';
 
-export type TesterFamily = 'alfaia' | 'caixa' | 'gongue' | 'timbal' | 'agbe' | 'mineiro';
-
-export const TESTER_STROKES: Record<TesterFamily, { id: string; lbl: string }[]> = {
-  alfaia: [{ id: 'D', lbl: 'D' }, { id: 'd', lbl: 'd' }, { id: 'E', lbl: 'E' }, { id: 'e', lbl: 'e' }, { id: 'I', lbl: 'I (Bac)' }, { id: 'C', lbl: 'C' }, { id: 'X', lbl: 'X' }, { id: 'B', lbl: 'B' }],
-  caixa: [{ id: 'D', lbl: 'D' }, { id: 'd', lbl: 'd' }, { id: 'E', lbl: 'E' }, { id: 'e', lbl: 'e' }, { id: 'R', lbl: 'R' }, { id: 'r', lbl: 'r' }, { id: 'F', lbl: 'F' }, { id: 'f', lbl: 'f' }, { id: 'C', lbl: 'C' }, { id: 'X', lbl: 'X' }, { id: 'B', lbl: 'B' }],
-  gongue: [{ id: 'G', lbl: 'G' }, { id: 'g', lbl: 'g' }, { id: 'A', lbl: 'A' }, { id: 'a', lbl: 'a' }, { id: 'X', lbl: 'X (Flanc)' }, { id: 'B', lbl: 'B (Bar)' }],
-  timbal: [{ id: 'G', lbl: 'G' }, { id: 'g', lbl: 'g' }, { id: 'S', lbl: 'S' }, { id: 's', lbl: 's' }, { id: 'A', lbl: 'A' }, { id: 'a', lbl: 'a' }, { id: 'P', lbl: 'P' }, { id: 'D', lbl: 'D' }, { id: 'F', lbl: 'F' }, { id: 'V', lbl: 'V' }, { id: 'C', lbl: 'C' }, { id: 'B', lbl: 'B' }],
-  agbe: [{ id: 'D', lbl: 'D' }, { id: 'd', lbl: 'd' }, { id: 'E', lbl: 'E' }, { id: 'e', lbl: 'e' }, { id: 'S', lbl: 'S (Salto)' }, { id: 'V', lbl: 'V (Volta)' }, { id: 'B', lbl: 'B' }],
-  mineiro: [{ id: 'P', lbl: 'P' }, { id: 'p', lbl: 'p' }, { id: 'T', lbl: 'T' }, { id: 't', lbl: 't' }, { id: 'L', lbl: 'L (Lado)' }, { id: 'B', lbl: 'B' }],
-};
-
-export const TESTER_SEQUENCES: Record<TesterFamily, { id: string; lbl: string; steps: string[] }[]> = {
-  alfaia: [{ id: 'seq_Dd', lbl: 'D·d', steps: ['D', 'd'] }, { id: 'seq_DddD', lbl: 'D·d·d·D', steps: ['D', 'd', 'd', 'D'] }, { id: 'seq_DedE', lbl: 'D·e·d·E', steps: ['D', 'e', 'd', 'E'] }],
-  caixa: [{ id: 'seq_Dd', lbl: 'D·d', steps: ['D', 'd'] }, { id: 'seq_DddD', lbl: 'D·d·d·D', steps: ['D', 'd', 'd', 'D'] }, { id: 'seq_DedE', lbl: 'D·e·d·E', steps: ['D', 'e', 'd', 'E'] }],
-  gongue: [{ id: 'seq_GgAa', lbl: 'G·g·A·a', steps: ['G', 'g', 'A', 'a'] }, { id: 'seq_GA', lbl: 'G·A', steps: ['G', 'A'] }],
-  timbal: [{ id: 'seq_GSA', lbl: 'G·S·A', steps: ['G', 'S', 'A'] }, { id: 'seq_SdS', lbl: 'S·d·S', steps: ['S', 'D', 'S'] }],
-  agbe: [{ id: 'seq_DeEd', lbl: 'D·e·E·d', steps: ['D', 'e', 'E', 'd'] }, { id: 'seq_DSE', lbl: 'D·S·E', steps: ['D', 'S', 'E'] }, { id: 'seq_SV', lbl: 'S·V', steps: ['S', 'V'] }],
-  mineiro: [{ id: 'seq_PpTt', lbl: 'P·p·T·t', steps: ['P', 'p', 'T', 't'] }, { id: 'seq_PTL', lbl: 'P·T·L', steps: ['P', 'T', 'L'] }],
-};
+export { TESTER_SEQUENCES, TESTER_STROKES, type TesterFamily };
 
 interface TesterRefs {
   instId: string; activeTrack: any; isLeftHanded: boolean;
@@ -90,15 +73,17 @@ export function applyFrozenImpactPose(fam: TesterFamily, stroke: string): void {
 
   if (fam === 'alfaia') {
     const secFam = stroke === 'I' ? 'bacalhau' : resolveAlfaiaSecondaryFamily(activeTrack);
-    const hitDom = ['D', 'C', 'X', 'B'].includes(sUp), hitSec = ['E', 'I', 'C', 'X', 'B'].includes(sUp);
+    const hitDom = ['D', 'C', 'X', 'B'].includes(sUp), hitSec = ['E', 'A', 'I', 'C', 'X', 'B'].includes(sUp);
     if (domEl) domEl.style.transform = hitDom ? getAlfaiaImpactPoseTransform(stroke, isLeftHanded, 'macaneta') : getAlfaiaStickRestTransform(isLeftHanded, 'macaneta');
     if (secEl) {
       secEl.style.transform = hitSec ? getAlfaiaImpactPoseTransform(stroke, !isLeftHanded, secFam) : getAlfaiaStickRestTransform(!isLeftHanded, secFam);
+      const sh = secEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
+      if (sh) sh.style.transform = sUp === 'A' ? 'translate(0px, 0px) scale(1)' : getAlfaiaShadowRestTransform(!isLeftHanded);
       const tip = secEl.querySelector('[data-bacalhau-tip]') as SVGGElement | null;
       if (tip) { const b = CONFIG_ALFAIA_STICKS.bacalhau, sign = !isLeftHanded ? 1 : -1; tip.style.transform = hitSec && secFam === 'bacalhau' ? `rotateZ(${sign * b.impactBendDeg}deg) skewX(${-sign * +(b.impactBendDeg * 0.65).toFixed(1)}deg) scaleX(${b.impactSquashX})` : 'rotateZ(0deg) skewX(0deg) scaleX(1)'; }
     }
   } else if (fam === 'caixa') {
-    const cf = resolveCaixaActiveFamily(instId), hitDom = ['D', 'C', 'X', 'B'].includes(sUp) || stroke === 'R' || stroke === 'F', hitSec = ['E', 'C', 'X', 'B'].includes(sUp) || stroke === 'r' || stroke === 'f';
+    const cf = resolveCaixaActiveFamily(instId), hitDom = ['D', 'C', 'X', 'B'].includes(sUp) || stroke === 'A' || stroke === 'R' || stroke === 'F', hitSec = ['E', 'C', 'X', 'B'].includes(sUp) || stroke === 'a' || stroke === 'r' || stroke === 'f';
     if (domEl) domEl.style.transform = hitDom ? getCaixaImpactPoseTransform(stroke, isLeftHanded, cf) : getCaixaStickRestTransform(isLeftHanded, cf);
     if (secEl) secEl.style.transform = hitSec ? getCaixaImpactPoseTransform(stroke, !isLeftHanded, cf) : getCaixaStickRestTransform(!isLeftHanded, cf);
   } else if (fam === 'gongue') {
@@ -131,7 +116,6 @@ export function clearFrozenPose(fam: TesterFamily): void {
 
 export function openAoVivoLabWithActiveTrack(preferredTrackId?: number | string | null): void {
   const st = useSequencerStore.getState();
-  // Le Mode Eco n'est jamais desactive de force : l'overlay Ao Vivo s'affiche quand le Lab est ouvert.
   if (st.activeAoVivoTrackId === null) {
     const fallbackId = preferredTrackId ?? st.focusTrackId ?? st.tracks?.[0]?.id ?? 1;
     st.setActiveAoVivoTrackId(fallbackId as number);

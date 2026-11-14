@@ -34,13 +34,13 @@ export function buildDefaultBatuqueTracks(mode: StudioMasterAmbianceId): Workspa
       id: 1792863601158, instrumentIdx: 1, customName: 'Meião (alfaia)', isBusFolder: false, isLinkFolder: false, isLinkMaster: false,
       busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 65, pan: isStage ? -55 : -42, panVal: isStage ? -55 : -42,
       eqBands: { low: { f: 140, g: 5 }, mid: { f: 2150, g: 6, q: 'wide' }, high: { f: 8000, g: -5 } },
-      lowCut: true, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
+      lowCut: false, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },
     {
       id: 1792863601159, instrumentIdx: 2, customName: 'Repique (alfaia)', isBusFolder: false, isLinkFolder: false, isLinkMaster: false,
       busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 69, pan: isStage ? 50 : 38, panVal: isStage ? 50 : 38,
       eqBands: { low: { f: 185, g: 3 }, mid: { f: 2150, g: 5, q: 'wide' }, high: { f: 8000, g: -4 } },
-      lowCut: true, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
+      lowCut: false, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },
     {
       id: 1792863601196, instrumentIdx: 5, customName: 'Gonguê',

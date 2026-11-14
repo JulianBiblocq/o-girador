@@ -1,16 +1,21 @@
-# Directives d'Agent & Règles Cursor — Séquenciad'Or
+# Directives d'Agent & Règles Cursor — Sequenciador
+
+## 0. RÈGLE STRICTE DE NOMMAGE DES APPLICATIONS O GIRADOR
+Orthographe brésilienne pure obligatoire (zéro apostrophe, zéro accent sur `Sequenciador`, zéro majuscule interne avant `-or`, zéro `ch`, cédille obligatoire sur **Dançador**) :
+**O Girador** | **Orquestrador** | **Organizador** | **Sequenciador** | **Cantador** | **Dançador** | **Mostrador** | **Afinador** *(en conception, `enabled: false`)*
 
 ## RÈGLE STRICTE DES PORTS LOCAUX (ÉCOSYSTÈME O GIRADOR)
 - Cet agent doit respecter la cartographie des ports :
-  * Orquestrad'Or : 5170
-  * Séquenciad'Or : 5174
-  * Organizad'Or : 5175
-  * Dançad'Or : 5176
-- Interdiction de modifier le port local sans instruction explicite.
-- `strictPort: true` est obligatoire : si le port est occupé, tuer les processus résiduels au lieu de changer de port.
-- Les tests E2E et les liens de navigation locale doivent pointer rigoureusement vers ces ports dédiés.
+  * **Orquestrador** : `5170`
+  * **Sequenciador** : `5174`
+  * **Organizador** / **Mostrador** : `5175`
+  * **Dançador** : `5176`
+  * **Cantador** : `5177`
+  * **Afinador** *(réservé, inactif)* : `5178`
+- Interdiction de modifier le port local sans instruction explicite (`strictPort: true` obligatoire).
 
 ---
-### 🛡️ Gouvernance Centralisée des Règles Firebase & Sécurité (Strict)
-- Les règles d'accès (`firestore.rules` et `storage.rules`) sont exclusivement pilotées, modifiées et déployées par le projet maître (**Orchestrad'Or** / backend commun).
-- Interdiction formelle de créer, modifier ou déployer des règles Firebase depuis ce dépôt.
+### 🛡️ Gouvernance SSOT Firebase, Plafond `< 145 Lignes` & Lexique
+- Les règles d'accès (`firestore.rules` et `storage.rules`) sont exclusivement pilotées et déployées par **Orquestrador** (`o-girador-orquestrador`). Interdiction formelle de créer ou déployer des règles depuis ce dépôt.
+- **Plafond strict `< 145 lignes` réelles dans `src/`** (144 lignes max).
+- Interdiction de `Bateria` en contexte Maracatu (`Batuque` / `Baque`), de `IA` dans l'UI et des emojis Unicode colorés.

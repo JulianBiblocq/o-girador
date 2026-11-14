@@ -9,32 +9,21 @@ import { useMixerDnd } from './mixer/useMixerDnd';
 import { MixerTracksContainer } from './mixer/MixerTracksContainer';
 import { MixerMasterStrip } from './mixer/MixerMasterStrip';
 import { StudioRackModuleId } from './mixer/masterEffectsTypes';
-
-const StudioRackModal = React.lazy(() =>
-  import('./mixer/studio-rack/StudioRackModal').then(m => ({ default: m.StudioRackModal }))
-);
+import { MixerLazyModalsHost } from './mixer/MixerLazyModalsHost';
 
 interface ConsoleMixerProps {
   isMobile: boolean;
   isActive?: boolean;
   onStepTouchStart?: (
-    e: React.MouseEvent | React.TouchEvent,
-    patternId: number,
-    stepIdx: number,
-    instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void
+    e: React.MouseEvent | React.TouchEvent, patternId: number, stepIdx: number,
+    instId: string, currentVal: string | number, onSelect: (val: string) => void
   ) => void;
   editingTrackId: number | null;
   setEditingTrackId: (id: number | null) => void;
 }
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
-  isMobile,
-  isActive = true,
-  onStepTouchStart,
-  editingTrackId: _editingTrackId,
-  setEditingTrackId,
+  isMobile, isActive = true, onStepTouchStart, editingTrackId: _editingTrackId, setEditingTrackId,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -106,26 +95,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         />
       </div>
 
-      {!isMobile && !isPracticeMode && studioRackModule !== null && (
-        <React.Suspense fallback={null}>
-          <StudioRackModal
-            initialTab={studioRackModule}
-            lang={lang}
-            isPlaying={isPlaying}
-            masterEQ={masterEQ}
-            onMasterEQChange={setMasterEQ}
-            masterCompressor={masterCompressor}
-            onMasterCompressorChange={setMasterCompressor}
-            onClose={() => setStudioRackModule(null)}
-          />
-        </React.Suspense>
-      )}
-
-      <SaveWorkspaceTemplateModal
-        isOpen={isSaveTemplateModalOpen}
-        onClose={() => setIsSaveTemplateModalOpen(false)}
-        lang={lang}
+      <MixerLazyModalsHost
+        isMobile={isMobile} isPracticeMode={isPracticeMode} lang={lang} isPlaying={isPlaying}
+        studioRackModule={studioRackModule} onCloseStudioRack={() => setStudioRackModule(null)}
+        masterEQ={masterEQ} onMasterEQChange={setMasterEQ}
+        masterCompressor={masterCompressor} onMasterCompressorChange={setMasterCompressor}
       />
+
+      <SaveWorkspaceTemplateModal isOpen={isSaveTemplateModalOpen} onClose={() => setIsSaveTemplateModalOpen(false)} lang={lang} />
     </div>
   );
 };

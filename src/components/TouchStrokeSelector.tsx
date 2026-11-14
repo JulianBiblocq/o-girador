@@ -67,11 +67,11 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = React.mem
       }}
     >
       {isTooHigh && (
-        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-[#1a1a1a]" style={{ marginBottom: '-2px', transform: `translateX(${arrowOffset}px)` }} />
+        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-[var(--cordel-ink-dark)]" style={{ marginBottom: '-2px', transform: `translateX(${arrowOffset}px)` }} />
       )}
-      <div id="touch-stroke-selector-bubble" className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none items-center" style={{ width: `${bubbleWidth}px` }}>
-        <span className="text-[10px] font-bold border-b border-[#1a1a1a]/25 pb-1 mb-1 text-center text-[#1a1a1a] uppercase tracking-wider font-cactus w-full">
-          {hoveredStroke ? getStrokeDescription(selector.instId, inst.type, String(getVisualStrokeSymbol(hoveredStroke, isLeftHanded, inst.id)), lang) : (lang === 'fr' ? 'Glissez ou touchez un coup' : 'Arraste ou toque num golpe')}
+      <div id="touch-stroke-selector-bubble" className="flex flex-col gap-1.5 p-2 bg-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] shadow-[4px_4px_0_var(--cordel-ink-dark)] pointer-events-auto select-none rounded-none items-center" style={{ width: `${bubbleWidth}px` }}>
+        <span className="text-[10px] font-bold border-b border-[var(--cordel-ink-dark)]/25 pb-1 mb-1 text-center text-[var(--cordel-ink-dark)] uppercase tracking-wider font-cactus w-full">
+          {hoveredStroke ? getStrokeDescription(selector.instId, inst.type, String(getVisualStrokeSymbol(hoveredStroke, isLeftHanded, inst.id)), lang, isLeftHanded) : (lang === 'fr' ? 'Glissez ou touchez un coup' : 'Arraste ou toque num golpe')}
         </span>
         <TouchStrokeChoices
           selector={selector} inst={inst} isLeftHanded={isLeftHanded} choicesToShow={choicesToShow}
@@ -81,7 +81,7 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = React.mem
         />
       </div>
       {!isTooHigh && (
-        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#1a1a1a]" style={{ marginTop: '-2px', transform: `translateX(${arrowOffset}px)` }} />
+        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[var(--cordel-ink-dark)]" style={{ marginTop: '-2px', transform: `translateX(${arrowOffset}px)` }} />
       )}
     </div>
   );

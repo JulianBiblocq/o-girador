@@ -4,7 +4,6 @@ import { instrumentsConfig } from '../../data';
 import { busInputs, busChannels, busMeters, reverbSends, distortionSends, masterVolumeNode, masterVocalInputNode } from './audioEngineNodes';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
-import { faderPositionToDb } from '../../utils/audioMath';
 import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import {
@@ -17,6 +16,8 @@ import {
   computeBusLinearVcaGain,
   resolveImmediateBusId,
 } from '../../audio/effectsChain';
+import { syncBusDynamics } from '../../audio/effects/busDynamicsSync';
+import { applyAuxSendLinear, applyChannelVolumeLinear, computeChannelEffectiveLinearGain } from '../../utils/audio/channelFaderLinearRamp';
 
 export function initBusesAudioNodes(
   tracks: TrackGroup[],
@@ -44,6 +45,7 @@ export function initBusesAudioNodes(
       busInputs[t.id] = new Tone.Gain(1.0);
     }
     syncBusInsertChain(t.id, t);
+    syncBusDynamics(t, disableFx, true);
 
     const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
     const distortion = t.fxSends?.distortion ?? 0;
@@ -72,25 +74,17 @@ export function initBusesAudioNodes(
 
     const isConnectedToParentBus = Boolean(currentBusId !== null && (busInputs[currentBusId] || busChannels[currentBusId]));
     const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
-    const db = faderPositionToDb(effectiveVol);
-    const safeDb = Number.isFinite(db) ? db : -100;
     const { acousticPan } = applyMonoCompatiblePan(t.panVal ?? t.pan);
     const muteState = getEffectiveMuteState(tracks, t.id);
+    const effectiveLin = computeChannelEffectiveLinearGain(effectiveVol, 0, muteState);
 
-    busChannels[t.id].volume.value = safeDb;
+    applyChannelVolumeLinear(busChannels[t.id], effectiveVol, 0, muteState, 0, true);
     busChannels[t.id].pan.value = acousticPan;
-    busChannels[t.id].mute = muteState;
-    syncBusSendVcaGain(t.id, computeBusLinearVcaGain(t, tracks), 0.01);
+    syncBusSendVcaGain(t.id, muteState ? 0 : computeBusLinearVcaGain(t, tracks), 0.01);
+    applyAuxSendLinear(reverbSends[t.id], reverb, disableFx || muteState, 0, true);
+    applyAuxSendLinear(distortionSends[t.id], distortion, disableFx || muteState, 0, true);
 
-    const lowCut = t.lowCut ?? false;
-    const eqLowG = t.eqBands?.low?.g ?? 0;
-    const eqLowF = t.eqBands?.low?.f ?? 100;
-    const eqMidG = t.eqBands?.mid?.g ?? 0;
-    const eqMidF = t.eqBands?.mid?.f ?? 1000;
-    const eqMidQ = t.eqBands?.mid?.q ?? 'wide';
-    const eqHighG = t.eqBands?.high?.g ?? 0;
-    const eqHighF = t.eqBands?.high?.f ?? 8000;
-
-    lastAppliedTracksParamsRef.current[t.id] = `bus_${safeDb}_${acousticPan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+    const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
+    lastAppliedTracksParamsRef.current[t.id] = `bus_${effectiveLin.toFixed(6)}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
   });
 }

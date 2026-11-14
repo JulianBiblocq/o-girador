@@ -33,13 +33,13 @@ export const AoVivoMineiroLabSliders: React.FC<{ activeTab: MineiroLabTabId; onF
     return (
       <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-1.5">
-          <S label="Poussé P — Y" val={`${c.pushStrongY}px`} min={-140} max={0} step={2} v={c.pushStrongY} cb={(n) => upd({ pushStrongY: n }, 'P')} />
-          <S label="Poussé P — Z" val={c.pushStrongScaleZ.toFixed(2)} min={0.65} max={1.15} step={0.01} v={c.pushStrongScaleZ} cb={(n) => upd({ pushStrongScaleZ: n }, 'P')} />
-          <S label="Poussé P — °" val={`${c.pushStrongTiltDeg.toFixed(1)}°`} min={-15} max={15} step={0.5} v={c.pushStrongTiltDeg} cb={(n) => upd({ pushStrongTiltDeg: n }, 'P')} />
+          <S label="P ↑ Pousser — Y" val={`${c.pushStrongY}px`} min={-140} max={0} step={2} v={c.pushStrongY} cb={(n) => upd({ pushStrongY: n }, 'P')} />
+          <S label="P ↑ Pousser — Z" val={c.pushStrongScaleZ.toFixed(2)} min={0.65} max={1.15} step={0.01} v={c.pushStrongScaleZ} cb={(n) => upd({ pushStrongScaleZ: n }, 'P')} />
+          <S label="P ↑ Pousser — °" val={`${c.pushStrongTiltDeg.toFixed(1)}°`} min={-15} max={15} step={0.5} v={c.pushStrongTiltDeg} cb={(n) => upd({ pushStrongTiltDeg: n }, 'P')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <S label="Poussé Faible p — Y" val={`${c.pushWeakY}px`} min={-80} max={0} step={2} v={c.pushWeakY} cb={(n) => upd({ pushWeakY: n }, 'p')} />
-          <S label="Poussé Faible p — Z" val={c.pushWeakScaleZ.toFixed(2)} min={0.8} max={1.1} step={0.01} v={c.pushWeakScaleZ} cb={(n) => upd({ pushWeakScaleZ: n }, 'p')} />
+          <S label="p ↑ Faible — Y" val={`${c.pushWeakY}px`} min={-80} max={0} step={2} v={c.pushWeakY} cb={(n) => upd({ pushWeakY: n }, 'p')} />
+          <S label="p ↑ Faible — Z" val={c.pushWeakScaleZ.toFixed(2)} min={0.8} max={1.1} step={0.01} v={c.pushWeakScaleZ} cb={(n) => upd({ pushWeakScaleZ: n }, 'p')} />
         </div>
       </div>
     );
@@ -49,13 +49,13 @@ export const AoVivoMineiroLabSliders: React.FC<{ activeTab: MineiroLabTabId; onF
     return (
       <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-1.5">
-          <S label="Tiré T — Y" val={`${c.pullStrongY}px`} min={0} max={140} step={2} v={c.pullStrongY} cb={(n) => upd({ pullStrongY: n }, 'T')} />
-          <S label="Tiré T — Z" val={c.pullStrongScaleZ.toFixed(2)} min={0.9} max={1.45} step={0.01} v={c.pullStrongScaleZ} cb={(n) => upd({ pullStrongScaleZ: n }, 'T')} />
-          <S label="Tiré T — °" val={`${c.pullStrongTiltDeg.toFixed(1)}°`} min={-15} max={15} step={0.5} v={c.pullStrongTiltDeg} cb={(n) => upd({ pullStrongTiltDeg: n }, 'T')} />
+          <S label="T ↓ Tirer — Y" val={`${c.pullStrongY}px`} min={0} max={140} step={2} v={c.pullStrongY} cb={(n) => upd({ pullStrongY: n }, 'T')} />
+          <S label="T ↓ Tirer — Z" val={c.pullStrongScaleZ.toFixed(2)} min={0.9} max={1.45} step={0.01} v={c.pullStrongScaleZ} cb={(n) => upd({ pullStrongScaleZ: n }, 'T')} />
+          <S label="T ↓ Tirer — °" val={`${c.pullStrongTiltDeg.toFixed(1)}°`} min={-15} max={15} step={0.5} v={c.pullStrongTiltDeg} cb={(n) => upd({ pullStrongTiltDeg: n }, 'T')} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <S label="Tiré Faible t — Y" val={`${c.pullWeakY}px`} min={0} max={80} step={2} v={c.pullWeakY} cb={(n) => upd({ pullWeakY: n }, 't')} />
-          <S label="Tiré Faible t — Z" val={c.pullWeakScaleZ.toFixed(2)} min={0.95} max={1.2} step={0.01} v={c.pullWeakScaleZ} cb={(n) => upd({ pullWeakScaleZ: n }, 't')} />
+          <S label="t ↓ Faible — Y" val={`${c.pullWeakY}px`} min={0} max={80} step={2} v={c.pullWeakY} cb={(n) => upd({ pullWeakY: n }, 't')} />
+          <S label="t ↓ Faible — Z" val={c.pullWeakScaleZ.toFixed(2)} min={0.95} max={1.2} step={0.01} v={c.pullWeakScaleZ} cb={(n) => upd({ pullWeakScaleZ: n }, 't')} />
         </div>
         <div className="grid grid-cols-3 gap-1.5">
           <S label="Lado L — Latéral X" val={`${c.ladoOffsetX}px`} min={-160} max={160} step={2} v={c.ladoOffsetX} cb={(n) => upd({ ladoOffsetX: n }, 'L')} />

@@ -48,6 +48,7 @@
   --reverb-color: #2a5c8a; --disto-color: #c25e1a;
   --fx-reverb-accent: #2a5c8a; --fx-disto-accent: #c25e1a; --fx-comp-accent: #d4af37;
   --fx-comp-knob: #d4af37; --fx-active-text: #f4ecd8; --fx-comp-active-text: #1a1a1a;
+  --polarity-active-bg: var(--fx-comp-accent); --polarity-active-text: var(--fx-comp-active-text); --bus-gr-bar: #f2a516;
   --wallpaper-opacity: 0.16; --wallpaper-mixer-opacity: 0.16;
 }
 
@@ -104,5 +105,6 @@
   --reverb-color: #2a5c8a; --disto-color: #c25e1a;
   --fx-reverb-accent: #2a5c8a; --fx-disto-accent: #c25e1a; --fx-comp-accent: #6b4208;
   --fx-comp-knob: #d4af37; --fx-active-text: #f4ecd8; --fx-comp-active-text: #f4ecd8;
+  --polarity-active-bg: var(--fx-comp-accent); --polarity-active-text: var(--fx-comp-active-text); --bus-gr-bar: #e0891a;
   --wallpaper-opacity: 0.12; --wallpaper-mixer-opacity: 0.12;
 }

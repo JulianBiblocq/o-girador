@@ -24,6 +24,11 @@ export function getCaixaImpactPoseTransform(stroke: string, isLeftSide: boolean,
   const sc = (v: number) => +(v * prof.scale).toFixed(3), sUp = stroke.toUpperCase();
   if (sUp === 'C') return `translate(${c.crossClickCenterX + inSign * c.crossClickConvergeX}px, ${c.crossClickY + mobY}px) rotateZ(${inSign * c.crossClickAngleDeg}deg) scale(${sc(c.crossClickScaleZ)}) skewX(0deg)`;
   if (sUp === 'X') return `translate(${inSign * c.rimshotOffsetX}px, ${c.rimshotImpactY + mobY}px) rotateZ(${inSign * c.rimshotAngleDeg}deg) scale(${sc(c.rimshotScaleZ)}) skewX(0deg)`;
+  if (sUp === 'A') {
+    const rimSkinY = Math.round(c.impactReachY * 0.55 + c.rimshotImpactY * 0.45) + mobY;
+    const rimSkinX = Math.round(inSign * (c.impactConvergeX * 0.5 + c.rimshotOffsetX * 0.5));
+    return `translate(${rimSkinX}px, ${rimSkinY}px) rotateZ(${inSign * 5.5}deg) scale(${sc(c.rimshotScaleZ)}) skewX(${-inSign * +(prof.flexibility * 1.8).toFixed(1)}deg)`;
+  }
   if (sUp === 'B' || stroke === '~') return `translate(${inSign * c.impactConvergeX}px, ${c.barulhoImpactY + mobY}px) rotateZ(${inSign * 3.5}deg) scale(${sc(c.rufadaPressScaleZ)}) skewX(0deg)`;
   if (sUp === 'R') return `translate(${inSign * c.impactConvergeX}px, ${c.impactReachY + mobY}px) rotateZ(${inSign * 4}deg) scale(${sc(c.rufadaPressScaleZ)}) skewX(${-inSign * +(prof.flexibility * 1.6).toFixed(1)}deg)`;
   const isWeak = stroke === 'd' || stroke === 'e';
@@ -42,7 +47,7 @@ export function generateCaixaPredictiveKeyframes(
   const sc = (v: number) => +(v * prof.scale).toFixed(3);
   const atkOff = Math.min(0.42, Math.max(0.05, c.attackSpeed)), convX = inSign * c.impactConvergeX;
   const restTr = getCaixaStickRestTransform(isLeftSide, family);
-  const isStrong = stroke === 'D' || stroke === 'E' || sUp === 'F' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X';
+  const isStrong = stroke === 'D' || stroke === 'E' || sUp === 'A' || sUp === 'F' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X';
   const { startTransform, endTransform, rebEasing } = resolveStickStartAndEndTransforms(isLeftSide, prof.scale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind);
 
   if (stroke === '~' || sUp === 'B' || sUp === 'R') {
@@ -63,10 +68,10 @@ export function generateCaixaPredictiveKeyframes(
     return frames;
   }
 
-  if (sUp === 'C' || sUp === 'X') {
+  if (sUp === 'C' || sUp === 'X' || sUp === 'A') {
     return [
       { transform: startTransform, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
-      { transform: getCaixaImpactPoseTransform(sUp, isLeftSide, family), offset: atkOff, easing: rebEasing },
+      { transform: getCaixaImpactPoseTransform(stroke, isLeftSide, family), offset: atkOff, easing: rebEasing },
       { transform: endTransform, offset: 1 },
     ];
   }

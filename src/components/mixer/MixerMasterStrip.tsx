@@ -3,7 +3,7 @@ import { Sliders, ChevronRight } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { masterVolumeNode } from '../../hooks/useAudioSync';
 import { dbToFaderPosition, faderPositionToDb, faderPositionToGain } from '../../utils/audioMath';
-import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
+import { rampNativeLinearGain } from '../../utils/audio/channelFaderLinearRamp';
 import { anyTrackHasRealAuto } from '../../utils/automationDetectHelper';
 import { isMasterVolumeBypassedHelper } from '../../utils/automationBypassHelper';
 import { MixerMasterEffects } from '../MixerMasterEffects';
@@ -108,7 +108,7 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
                 <div className="h-full flex-1 min-h-0 flex justify-center">
                   <MixerVolumeFader
                     isMaster={true} value={dbToFaderPosition(masterVol)}
-                    onAudioDrag={(pos) => { if (masterVolumeNode?.gain) safeRampTo(masterVolumeNode.gain, faderPositionToGain(pos), 0.02, 0, 2); }}
+                    onAudioDrag={(pos) => { if (masterVolumeNode?.gain) rampNativeLinearGain(masterVolumeNode.gain, faderPositionToGain(pos), 0.018); }}
                     onChange={(pos) => onMasterVolChange(faderPositionToDb(pos))}
                     faderHandleRef={masterFaderHandleRef} valueTextRefProp={masterFaderTextRef} travelRangeRef={masterTravelRangeRef}
                     hasVolAuto={hasMasterVolAuto} isVolActive={isMasterVolActive} onToggleVolBypass={toggleMasterVolumeBypass}

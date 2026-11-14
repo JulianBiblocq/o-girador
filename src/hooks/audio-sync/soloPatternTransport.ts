@@ -9,6 +9,9 @@ import { getAudioEngine } from './audioEngineNodes';
 import { buildFlatSongSchedule } from '../../workers/compiler/flatScheduleBuilder';
 import { instrumentsConfig } from '../../data';
 import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
+import { openSoloPreviewChannelGain, restoreStoreChannelGains } from './realtimeFaderAudioUpdater';
+import { syncBusSendVcaGain } from '../../audio/effectsChain';
+import { faderPositionToGain } from '../../utils/audioMath';
 
 export interface SoloTransportContext {
   tracksRef: { current: Track[] };
@@ -36,10 +39,6 @@ export interface SoloTransportContext {
   measureTimeSigsRef?: { current: Record<number, string> };
 }
 
-const unmuteChannel = (ch?: Tone.Channel) => {
-  if (ch) { ch.mute = false; if (ch.volume.value < -60) ch.volume.value = 0; }
-};
-
 export async function handleStartSoloPattern(patternId: number, variationId: string | undefined, ctx: SoloTransportContext): Promise<void> {
   if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
   cancelAudioContextAutoSuspend();
@@ -56,26 +55,24 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   const targetMeasure = firstAssignedMeasure >= 0 ? firstAssignedMeasure : 0;
   const toadaTrack = currentTracks.find(t => isToadaBus(t));
   const toadaId = toadaTrack ? toadaTrack.id : null;
-  const trackId = soloTrack ? soloTrack.id : null;
 
-  if (trackId !== null && soloTrack) {
+  if (soloTrack) {
     const busId = (soloTrack.isBusFolder || soloTrack.isLinkFolder) ? soloTrack.id : (soloTrack.busId || soloTrack.linkedToTrackId);
-    const familyGroupKey = (soloTrack.isBusFolder || soloTrack.isLinkFolder) ? String(soloTrack.id) : String(soloTrack.linkedToTrackId || soloTrack.id);
+    const familyKey = (soloTrack.isBusFolder || soloTrack.isLinkFolder) ? String(soloTrack.id) : String(soloTrack.linkedToTrackId || soloTrack.id);
     const familyTracks = currentTracks.filter(s =>
       s.id !== soloTrack.id && !s.isBusFolder && !s.isLinkFolder &&
-      (String(s.linkedToTrackId) === familyGroupKey || String(s.busId) === familyGroupKey)
+      (String(s.linkedToTrackId) === familyKey || String(s.busId) === familyKey)
     );
-    const targetChannelIds = soloTrack.isBusFolder ? familyTracks.map(s => s.id) : [soloTrack.id, ...familyTracks.map(s => s.id)];
+    const targetIds = soloTrack.isBusFolder ? familyTracks.map(s => s.id) : [soloTrack.id, ...familyTracks.map(s => s.id)];
+    ctx.savedSoloMuteStateRef.current = { active: true };
 
-    ctx.savedSoloMuteStateRef.current = {
-      channelStates: targetChannelIds.map(id => ({ id, mute: ctx.channels[id]?.mute, vol: ctx.channels[id]?.volume.value })),
-      busId: busId ?? undefined, busMuted: busId ? ctx.busChannels[busId]?.mute : undefined,
-      toadaId: toadaId ?? undefined, toadaMuted: toadaId ? ctx.busChannels[toadaId]?.mute : undefined,
-    };
-
-    targetChannelIds.forEach(id => unmuteChannel(ctx.channels[id]));
-    if (busId) unmuteChannel(ctx.busChannels[busId]);
-    if (toadaId) unmuteChannel(ctx.busChannels[toadaId]);
+    targetIds.forEach(id => openSoloPreviewChannelGain(ctx.channels[id], currentTracks.find(t => t.id === id), currentTracks, false));
+    if (busId) {
+      const busTrack = currentTracks.find(t => String(t.id) === String(busId));
+      openSoloPreviewChannelGain(ctx.busChannels[busId], busTrack, currentTracks, true);
+      syncBusSendVcaGain(busId, faderPositionToGain((busTrack?.volumeVal ?? 75) <= 3 ? 75 : (busTrack?.volumeVal ?? 75)), 0.015);
+    }
+    if (toadaId) openSoloPreviewChannelGain(ctx.busChannels[toadaId], toadaTrack, currentTracks, true);
   }
 
   if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = patternId;
@@ -106,8 +103,7 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   try {
     if (Tone.loaded) await Tone.loaded();
     await new Promise(resolve => setTimeout(resolve, 80));
-  } catch (_) {
-  } finally {
+  } catch (_) {} finally {
     ctx.setIsLoading(false);
   }
 
@@ -119,14 +115,9 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
 }
 
 export function handleStopSoloPattern(ctx: SoloTransportContext): void {
+  const tracks = ctx.tracksRef.current;
   if (ctx.savedSoloMuteStateRef.current) {
-    const { channelStates, busId, busMuted, toadaId, toadaMuted } = ctx.savedSoloMuteStateRef.current;
-    channelStates?.forEach(({ id, mute, vol }: any) => {
-      const ch = ctx.channels[id];
-      if (ch) { if (mute !== undefined) ch.mute = mute; if (vol !== undefined) ch.volume.value = vol; }
-    });
-    if (busId !== undefined && ctx.busChannels[busId] && busMuted !== undefined) ctx.busChannels[busId].mute = busMuted;
-    if (toadaId !== undefined && ctx.busChannels[toadaId] && toadaMuted !== undefined) ctx.busChannels[toadaId].mute = toadaMuted;
+    restoreStoreChannelGains(tracks, ctx.channels, ctx.busChannels);
     ctx.savedSoloMuteStateRef.current = null;
   }
   ctx.lastAppliedTracksParamsRef.current = {};
@@ -134,6 +125,6 @@ export function handleStopSoloPattern(ctx: SoloTransportContext): void {
   if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = null;
   if (ctx.soloPatternVariationIdRef) ctx.soloPatternVariationIdRef.current = null;
   ctx.soloLoopCycleRef.current = 0;
-  (ctx.audioEngine || getAudioEngine())?.syncTracksToWorklet(ctx.tracksRef.current);
+  (ctx.audioEngine || getAudioEngine())?.syncTracksToWorklet(tracks);
   if (ctx.isPlayingRef.current) ctx.handleStop();
 }

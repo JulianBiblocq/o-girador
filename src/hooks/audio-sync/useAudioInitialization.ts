@@ -95,7 +95,7 @@ export function useAudioInitialization(p: AudioInitProps): void {
         setInputManager(inputMgr);
 
         tracksRef.current.forEach((t) => {
-          if (!t.isBusFolder) {
+          if (!t.isBusFolder && !t.isLinkFolder) {
             const inst = instrumentsConfig[t.instrumentIdx];
             if (inst) {
               if (!trackInputs[t.id]) {
