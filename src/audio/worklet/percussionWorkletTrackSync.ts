@@ -118,6 +118,14 @@ export class PercussionWorkletTrackSync {
     return this.trackInstrumentId.get(Number(trackId)) ?? '';
   }
 
+  public releaseTrack(trackId: number | string): void {
+    const numId = Number(trackId);
+    this.trackUnisonDelaySec.delete(numId);
+    this.trackBalancoAdherence.delete(numId);
+    this.trackPitchRatio.delete(numId);
+    this.trackInstrumentId.delete(numId);
+  }
+
   public dispose(): void {
     this.resetDiffCache();
     this.trackUnisonDelaySec.clear();

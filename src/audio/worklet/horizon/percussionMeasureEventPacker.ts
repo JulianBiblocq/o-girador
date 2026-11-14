@@ -10,6 +10,7 @@ import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
 import { MeasureTimingTable } from './percussionHorizonTiming';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
 import { stageMeasureStrokeEvent } from './workletStrokeEventStager';
+import { resolveTrackFromPackedData } from '../../../workers/compiler/compiledTrackIdResolver';
 
 export type { HorizonPackerEngineDeps };
 
@@ -35,10 +36,10 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     if (t && inst && !t.isBusFolder && !t.isLinkFolder && engineDeps.isTrackRoutedToWorklet(t.id, inst.id)) coveredTrackIds.add(t.id);
   }
 
-  const processNoteTuple = (absTick: number, packedData: number, velocity: number, microPct: number, skipSet?: Set<number>) => {
+  const processNoteTuple = (absTick: number, packedData: number, velocity: number, microPct: number, sourceSchedule: object | null, skipSet?: Set<number>) => {
     const tickInMeasure = absTick - measureStartTick;
     if (tickInMeasure < 0 || tickInMeasure >= timing.maxTicks) return;
-    const liveTrack = tracks[(packedData >> 22) & 0x3FF];
+    const liveTrack = resolveTrackFromPackedData(packedData, tracks, sourceSchedule);
     if (!liveTrack || (skipSet && skipSet.has(liveTrack.id)) || !coveredTrackIds.has(liveTrack.id)) return;
     const inst = instrumentsConfig[liveTrack.instrumentIdx];
     if (!inst) return;
@@ -82,11 +83,11 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     while (lo < hi) { const mid = (lo + hi) >>> 1; if (flatCompiledSchedule[mid << 2] < measureStartTick) lo = mid + 1; else hi = mid; }
     for (let ptr = lo << 2; ptr < flatCompiledSchedule.length; ptr += 4) {
       if (flatCompiledSchedule[ptr] >= endTick) break;
-      if (flatCompiledSchedule[ptr] >= measureStartTick) processNoteTuple(flatCompiledSchedule[ptr], flatCompiledSchedule[ptr + 1], flatCompiledSchedule[ptr + 2], flatCompiledSchedule[ptr + 3], variedTrackIds);
+      if (flatCompiledSchedule[ptr] >= measureStartTick) processNoteTuple(flatCompiledSchedule[ptr], flatCompiledSchedule[ptr + 1], flatCompiledSchedule[ptr + 2], flatCompiledSchedule[ptr + 3], flatCompiledSchedule, variedTrackIds);
     }
   }
   for (let vPtr = 0; vPtr < variationNotes.length; vPtr += 4) {
-    if (variationNotes[vPtr] >= measureStartTick && variationNotes[vPtr] < endTick) processNoteTuple(variationNotes[vPtr], variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3]);
+    if (variationNotes[vPtr] >= measureStartTick && variationNotes[vPtr] < endTick) processNoteTuple(variationNotes[vPtr], variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3], variationNotes as any);
   }
 
   if (uncoveredTrackIds.size > 0) {

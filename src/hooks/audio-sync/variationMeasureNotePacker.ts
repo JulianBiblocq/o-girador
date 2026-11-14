@@ -7,6 +7,7 @@ import {
   computeStepMicrotiming,
   packNoteData,
 } from '../../workers/compiler/stepNotePacker';
+import { attachCompiledTrackIds, extractCompiledTrackIds } from '../../workers/compiler/compiledTrackIdResolver';
 
 export function buildMeasureVariationNotes(params: {
   tracks: Track[];
@@ -99,6 +100,7 @@ export function buildMeasureVariationNotes(params: {
     }
   });
 
+  attachCompiledTrackIds(notesList, extractCompiledTrackIds(tracks));
   return notesList;
 }
 

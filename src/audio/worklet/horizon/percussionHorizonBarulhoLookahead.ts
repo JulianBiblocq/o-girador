@@ -9,6 +9,7 @@ import { GlobalSwing, Track } from '../../../types';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { ProjectedHorizonMeasure } from './percussionHorizonProjection';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
+import { resolveTrackFromPackedData } from '../../../workers/compiler/compiledTrackIdResolver';
 
 export interface MeasureVariationSnapshotLike {
   variedTrackIds: Set<number>;
@@ -33,10 +34,10 @@ export function buildHorizonBarulhoLookaheadPoints(
     const { timing, measureStartTick } = pm;
     const endTick = measureStartTick + timing.maxTicks;
 
-    const pushTuple = (absTick: number, packedData: number, velocity: number, microPct: number, skipSet?: Set<number>) => {
+    const pushTuple = (absTick: number, packedData: number, velocity: number, microPct: number, sourceSchedule: object | null, skipSet?: Set<number>) => {
       const tickInMeasure = absTick - measureStartTick;
       if (tickInMeasure < 0 || tickInMeasure >= timing.maxTicks) return;
-      const track = tracks[(packedData >> 22) & 0x3FF];
+      const track = resolveTrackFromPackedData(packedData, tracks, sourceSchedule);
       if (!track || track.isBusFolder || track.isLinkFolder || (skipSet && skipSet.has(track.id))) return;
       const inst = instrumentsConfig[track.instrumentIdx];
       if (!inst || inst.type === 'voice') return;
@@ -75,7 +76,7 @@ export function buildHorizonBarulhoLookaheadPoints(
         const absTick = flatCompiledSchedule[ptr];
         if (absTick >= endTick) break;
         if (absTick >= measureStartTick) {
-          pushTuple(absTick, flatCompiledSchedule[ptr + 1], flatCompiledSchedule[ptr + 2], flatCompiledSchedule[ptr + 3], snap.variedTrackIds);
+          pushTuple(absTick, flatCompiledSchedule[ptr + 1], flatCompiledSchedule[ptr + 2], flatCompiledSchedule[ptr + 3], flatCompiledSchedule, snap.variedTrackIds);
         }
       }
     }
@@ -84,7 +85,7 @@ export function buildHorizonBarulhoLookaheadPoints(
     for (let vPtr = 0; vPtr < vNotes.length; vPtr += 4) {
       const absTick = vNotes[vPtr];
       if (absTick >= measureStartTick && absTick < endTick) {
-        pushTuple(absTick, vNotes[vPtr + 1], vNotes[vPtr + 2], vNotes[vPtr + 3]);
+        pushTuple(absTick, vNotes[vPtr + 1], vNotes[vPtr + 2], vNotes[vPtr + 3], vNotes as any);
       }
     }
   }

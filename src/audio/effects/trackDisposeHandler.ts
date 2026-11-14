@@ -1,6 +1,10 @@
 import {
   channels,
   meters,
+  busChannels,
+  busMeters,
+  busCompTaps,
+  busCompFallbacks,
   reverbSends,
   distortionSends,
   trackInputs,
@@ -11,98 +15,65 @@ import {
   busDistoSendVca,
 } from './effectsChainNodes';
 import { disposeBusCompressorInsert } from './busCompressorInsert';
+import { clearWiredTrackInsert } from './trackInsertChain';
+import { clearWiredBusInsert } from './busInsertChain';
 
-let onTrackDisposeCallback: ((trackId: number) => void) | null = null;
+let onTrackDisposeCallback: ((trackId: number | string) => void) | null = null;
 
-export function setOnTrackDisposeCallback(cb: (trackId: number) => void) {
+export function setOnTrackDisposeCallback(cb: (trackId: number | string) => void) {
   onTrackDisposeCallback = cb;
 }
 
-export function disposeTrackNodes(trackId: number) {
+function safeDisconnectAndDispose(dict: Record<string | number, any>, key: number | string): void {
+  const node = dict[key];
+  if (!node) return;
+  try { node.disconnect?.(); } catch (_) {}
+  try { node.dispose?.(); } catch (_) {}
+  delete dict[key];
+}
+
+export function disposeTrackNodes(trackId: number | string) {
   try {
-    if (onTrackDisposeCallback) {
-      onTrackDisposeCallback(trackId);
-    }
+    onTrackDisposeCallback?.(trackId);
   } catch (_) {}
 
-  try {
-    if (reverbSends[trackId]) {
-      try { reverbSends[trackId].dispose(); } catch (_) {}
-      delete reverbSends[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (distortionSends[trackId]) {
-      try { distortionSends[trackId].disconnect(); distortionSends[trackId].dispose(); } catch (_) {}
-      delete distortionSends[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (busReverbSendVca[trackId]) {
-      try { busReverbSendVca[trackId].disconnect(); busReverbSendVca[trackId].dispose(); } catch (_) {}
-      delete busReverbSendVca[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (busDistoSendVca[trackId]) {
-      try { busDistoSendVca[trackId].disconnect(); busDistoSendVca[trackId].dispose(); } catch (_) {}
-      delete busDistoSendVca[trackId];
-    }
-  } catch (_) {}
-
+  clearWiredTrackInsert(trackId);
+  clearWiredBusInsert(trackId);
   try { disposeBusCompressorInsert(trackId); } catch (_) {}
 
-  try {
-    if (lowCutNodes[trackId]) {
-      try { lowCutNodes[trackId].disconnect(); lowCutNodes[trackId].dispose(); } catch (_) {}
-      delete lowCutNodes[trackId];
-    }
-  } catch (_) {}
+  safeDisconnectAndDispose(reverbSends, trackId);
+  safeDisconnectAndDispose(distortionSends, trackId);
+  safeDisconnectAndDispose(busReverbSendVca, trackId);
+  safeDisconnectAndDispose(busDistoSendVca, trackId);
+  safeDisconnectAndDispose(busCompTaps, trackId);
+  safeDisconnectAndDispose(busCompFallbacks, trackId);
+  safeDisconnectAndDispose(lowCutNodes, trackId);
 
-  try {
-    if (eqNodes[trackId]) {
-      try {
-        eqNodes[trackId].low.disconnect(); eqNodes[trackId].low.dispose();
-        eqNodes[trackId].mid.disconnect(); eqNodes[trackId].mid.dispose();
-        eqNodes[trackId].high.disconnect(); eqNodes[trackId].high.dispose();
-      } catch (_) {}
-      delete eqNodes[trackId];
-    }
-  } catch (_) {}
+  const eq = eqNodes[trackId];
+  if (eq) {
+    try { eq.low.disconnect(); eq.low.dispose(); } catch (_) {}
+    try { eq.mid.disconnect(); eq.mid.dispose(); } catch (_) {}
+    try { eq.high.disconnect(); eq.high.dispose(); } catch (_) {}
+    delete eqNodes[trackId];
+  }
 
-  try {
-    if (trackInputs[trackId]) {
-      try { trackInputs[trackId].disconnect(); trackInputs[trackId].dispose(); } catch (_) {}
-      delete trackInputs[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (busInputs[trackId]) {
-      try { busInputs[trackId].disconnect(); busInputs[trackId].dispose(); } catch (_) {}
-      delete busInputs[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (meters[trackId]) {
-      try { meters[trackId].disconnect(); (meters[trackId] as any).dispose?.(); } catch (_) {}
-      delete meters[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (channels[trackId]) {
-      try { channels[trackId].disconnect(); channels[trackId].dispose(); } catch (_) {}
-      delete channels[trackId];
-    }
-  } catch (_) {}
+  safeDisconnectAndDispose(trackInputs, trackId);
+  safeDisconnectAndDispose(busInputs, trackId);
+  safeDisconnectAndDispose(meters, trackId);
+  safeDisconnectAndDispose(busMeters, trackId);
+  safeDisconnectAndDispose(channels, trackId);
+  safeDisconnectAndDispose(busChannels, trackId);
 }
 
 export function disposeAllTrackNodes() {
-  const activeIds = Object.keys(channels).map(Number);
-  activeIds.forEach((id) => disposeTrackNodes(id));
+  const seen = new Set<string>();
+  const dicts = [channels, busChannels, trackInputs, busInputs];
+  for (const dict of dicts) {
+    for (const rawKey of Object.keys(dict)) {
+      if (seen.has(rawKey)) continue;
+      seen.add(rawKey);
+      const numKey = Number(rawKey);
+      disposeTrackNodes(Number.isFinite(numKey) && String(numKey) === rawKey ? numKey : rawKey);
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import { nextRandom } from './compilerRandom';
 import { buildMeasureStepGrid } from './measureStepGridHelper';
 import { resolveActivePattern, resolvePatternVariation } from './patternResolver';
+import { attachCompiledTrackIds, extractCompiledTrackIds } from './compiledTrackIdResolver';
 import {
   normalizeStrokeKey,
   computeStepVolume,
@@ -117,5 +118,6 @@ export function buildFlatSongSchedule(
     flatArray[i * 4 + 2] = notesList[origIdx * 4 + 2];
     flatArray[i * 4 + 3] = notesList[origIdx * 4 + 3];
   }
+  attachCompiledTrackIds(flatArray, extractCompiledTrackIds(tracks));
   return flatArray;
 }

@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { syncBusChannels } from './syncBusChannels';
 import { syncTrackChannels } from './syncTrackChannels';
+import { pruneOrphanAudioNodes } from './orphanAudioNodePruner';
 import { percentToDb } from './audioParamsCache';
 import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 import { mapReverbTimeKnobToDecaySec, updateStudioReverbNode } from '../../audio/effects/studioReverbImpulse';
@@ -109,6 +110,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
           }
         }
         const tracks = state.tracks;
+        pruneOrphanAudioNodes(tracks, lastAppliedTracksParamsRef, lastAppliedBussesRef);
         syncBusChannels({
           tracks, isEcoMode: state.isEcoMode, busChannels, busMeters,
           reverbSends, distortionSends, lastAppliedTracksParamsRef,

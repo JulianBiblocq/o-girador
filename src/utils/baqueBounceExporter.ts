@@ -12,6 +12,7 @@ import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { EngineRoundRobin } from '../audio/engine/engineRoundRobin';
 import { computeSectionTemperamentMap } from '../audio/groove/sectionTemperament';
 import { buildFlatSongSchedule } from '../workers/compiler/flatScheduleBuilder';
+import { resolveTrackFromPackedData } from '../workers/compiler/compiledTrackIdResolver';
 import { audioBufferToWav } from './audio-buffer/audioBufferWavConverter';
 import { OfflineBarulhoPhraseTracker } from './baqueBounceBarulhoRenderer';
 import { buildOfflineTrackGraph } from './baqueBounceTrackGraph';
@@ -67,7 +68,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
 
   const lookaheadPts: BarulhoLookaheadPoint[] = [];
   for (let i = 0; i < schedule.length / 4; i++) {
-    const packed = schedule[i * 4 + 1], track = slicedAllTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+    const packed = schedule[i * 4 + 1], track = resolveTrackFromPackedData(packed, slicedAllTracks, schedule), inst = track ? instrumentsConfig[track.instrumentIdx] : null;
     if (!track || !inst || !baqueTrackIdSet.has(track.id)) continue;
     const { triggerSec } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
     lookaheadPts.push({ trackId: track.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
@@ -76,7 +77,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
 
   for (let i = 0; i < schedule.length / 4; i++) {
     const absTick = schedule[i * 4], packed = schedule[i * 4 + 1], stepVol = schedule[i * 4 + 2], microPct = schedule[i * 4 + 3];
-    const track = slicedAllTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+    const track = resolveTrackFromPackedData(packed, slicedAllTracks, schedule), inst = track ? instrumentsConfig[track.instrumentIdx] : null;
     if (!track || !inst || !baqueTrackIdSet.has(track.id)) continue;
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
     const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);

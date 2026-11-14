@@ -7,6 +7,7 @@ import { AudioEngine } from '../../AudioEngine';
 import { isTrackCoveredInWorkletHorizon } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from './percussionSwingHelper';
 import { getLiveVariationAudioOverride } from './liveVariationLookaheadEngine';
+import { resolveTrackFromPackedData } from '../../workers/compiler/compiledTrackIdResolver';
 
 export interface PercussionSchedulerParams {
   time: number; stepIdx: number; currentTicks: number; currentMeasureIdx: number;
@@ -20,11 +21,10 @@ export interface PercussionSchedulerParams {
 
 function triggerPackedNote(
   packedData: number, velocity: number, microtimingPct: number,
-  p: PercussionSchedulerParams, skipTrackIds?: Set<number>
+  p: PercussionSchedulerParams, sourceSchedule: object | null, skipTrackIds?: Set<number>
 ): void {
   const { time, currentTicks, currentMeasureIdx, tick96nSec, swingJitter, globalMode, stepDurationSec, isDocHidden, tracks, soloPatternPlayId, globalSwing, familyMuteSet, audioEngine } = p;
-  const trackIdx = (packedData >> 22) & 0x3FF;
-  const liveTrack = tracks[trackIdx];
+  const liveTrack = resolveTrackFromPackedData(packedData, tracks, sourceSchedule);
   if (!liveTrack || (skipTrackIds && skipTrackIds.has(liveTrack.id))) return;
 
   const inst = instrumentsConfig[liveTrack.instrumentIdx];
@@ -108,7 +108,7 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
     const noteTick = flatArray[ptr];
     if (noteTick > currentAbsoluteTick) break;
     if (noteTick === currentAbsoluteTick) {
-      triggerPackedNote(flatArray[ptr + 1], flatArray[ptr + 2], flatArray[ptr + 3], p, variedTrackIds);
+      triggerPackedNote(flatArray[ptr + 1], flatArray[ptr + 2], flatArray[ptr + 3], p, flatArray, variedTrackIds);
     }
     ptr += 4;
   }
@@ -116,7 +116,7 @@ export function schedulePercussionNotes(p: PercussionSchedulerParams): void {
 
   for (let vPtr = 0; vPtr < variationNotes.length; vPtr += 4) {
     if (variationNotes[vPtr] === currentAbsoluteTick) {
-      triggerPackedNote(variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3], p);
+      triggerPackedNote(variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3], p, variationNotes as any);
     }
   }
 }
