@@ -1,7 +1,3 @@
-/**
- * Barre de décalage groupé (nudge) et pré-écoute du Balanço (< 55 lignes).
- */
-
 import React from 'react';
 import { Zap, Play, Square } from 'lucide-react';
 import { Language } from '../../types';
@@ -20,10 +16,10 @@ export const BalancoCustomNudgeBar: React.FC<Props> = ({
   onTogglePreview,
 }) => {
   return (
-    <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/10 flex-wrap">
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-[10px] uppercase text-[#1a1a1a] flex items-center gap-1">
-          <Zap size={11} className="text-[#8b2a1a]" />
+    <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cordel-border)] flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="font-bold text-[10px] uppercase text-[var(--cordel-text)] flex items-center gap-1">
+          <Zap size={11} className="text-[var(--cordel-accent-readable)] shrink-0" />
           <span>{lang === 'fr' ? 'Nudge Groupé :' : 'Nudge em Bloco :'}</span>
         </span>
         <div className="flex gap-1">
@@ -32,7 +28,7 @@ export const BalancoCustomNudgeBar: React.FC<Props> = ({
               key={delta}
               type="button"
               onClick={() => onNudgeGroup(delta)}
-              className="px-2 py-0.5 bg-white border border-black text-[10px] font-bold text-[#1a1a1a] hover:bg-black hover:text-white transition-colors cursor-pointer shadow-[1px_1px_0px_#000]"
+              className="px-2 py-0.5 bg-[var(--cordel-card-btn-bg)] border border-[var(--cordel-card-btn-border)] text-[10px] font-bold text-[var(--cordel-card-btn-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] transition-colors cursor-pointer shadow-[1px_1px_0px_var(--cordel-shadow-color)]"
             >
               {delta > 0 ? `+${delta}%` : `${delta}%`}
             </button>
@@ -43,14 +39,18 @@ export const BalancoCustomNudgeBar: React.FC<Props> = ({
       <button
         type="button"
         onClick={onTogglePreview}
-        className={`px-2.5 py-1 text-xs font-bold border border-black cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5 transition-all ${
+        className={`px-2.5 py-1 text-xs font-bold border cursor-pointer shadow-[1.5px_1.5px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5 transition-colors ${
           isPreviewPlaying
-            ? 'bg-[#8b2a1a] text-[#f4ecd8] animate-pulse ring-1 ring-[#8b2a1a]'
-            : 'bg-white text-[#1a1a1a] hover:bg-black hover:text-white'
+            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] animate-pulse'
+            : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-card-btn-border)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'
         }`}
       >
         {isPreviewPlaying ? <Square size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" />}
-        <span>{lang === 'fr' ? (isPreviewPlaying ? 'Arrêter' : 'Tester le groove') : isPreviewPlaying ? 'Parar' : 'Testar o groove'}</span>
+        <span>
+          {lang === 'fr'
+            ? isPreviewPlaying ? 'Arrêter' : 'Tester le groove'
+            : isPreviewPlaying ? 'Parar' : 'Testar o groove'}
+        </span>
       </button>
     </div>
   );

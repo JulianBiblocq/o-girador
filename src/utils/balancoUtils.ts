@@ -58,18 +58,23 @@ export function computeStepBalancoPercent({
   const patternPresetId = pattern?.balancoPresetId;
   const trackPresetId = track?.balancoPresetId;
 
-  // Si le mode global est personnalisé sans surcharge de preset sur la piste ou le motif
-  if (globalSwing?.mode === 'custom' && !patternPresetId && !trackPresetId) {
-    const customOffsets = globalSwing.customOffsets || [0, 8, -29, -58];
-    const offsetPct = customOffsets[posInGroup % customOffsets.length] || 0;
+  // Si aucune surcharge locale n'est définie sur la piste ou le motif, utiliser les offsets globaux actifs
+  if (
+    !patternPresetId &&
+    !trackPresetId &&
+    (globalSwing?.mode === 'custom' ||
+      (globalSwing?.mode === 'maracatu' && Array.isArray(globalSwing.customOffsets) && globalSwing.customOffsets.length >= 4))
+  ) {
+    const customOffsets = globalSwing.customOffsets ?? [0, 8, -29, -58];
+    const offsetPct = customOffsets[posInGroup % customOffsets.length] ?? 0;
     return offsetPct * effectiveIntensity;
   }
 
-  // Résolution via useBalancoStore
+  // Résolution via useBalancoStore (surcharge Piste / Motif ou repli Maracatu usine)
   const effectivePresetId = patternPresetId || trackPresetId || (globalSwing?.mode === 'maracatu' ? 'maracatu-trad' : undefined);
   const resolvedPreset = useBalancoStore.getState().resolvePreset(effectivePresetId);
-  const offsets = resolvedPreset?.offsets || [0, 8, -29, -58];
-  const offsetPct = offsets[posInGroup % offsets.length] || 0;
+  const offsets = resolvedPreset?.offsets ?? [0, 8, -29, -58];
+  const offsetPct = offsets[posInGroup % offsets.length] ?? 0;
 
   return offsetPct * effectiveIntensity;
 }

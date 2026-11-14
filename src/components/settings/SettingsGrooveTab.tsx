@@ -1,105 +1,132 @@
-import React from 'react';
-import * as Tone from 'tone';
-import { BalancoEditorPanel } from '../balanco/BalancoEditorPanel';
+import React, { useEffect, useMemo, useState } from 'react';
+import { instrumentsConfig } from '../../data';
+import { useBalancoStore } from '../../stores/useBalancoStore';
+import { OficinaFocusTarget, OficinaGrooveTier, useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
-import { metroChannel } from '../../audio/effectsChain';
-import { GlobalSwing, Language } from '../../types';
+import { Language } from '../../types';
+import { Balanco16StepTimeline } from '../balanco/Balanco16StepTimeline';
+import { BalancoEditorPanel } from '../balanco/BalancoEditorPanel';
+import { GrooveEffectiveSource, OficinaGrooveScopeBar } from '../balanco/OficinaGrooveScopeBar';
 
 interface SettingsGrooveTabProps {
   lang: Language;
 }
 
-export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) => {
-  const globalSwing = useTransportStore((state) => state.globalSwing);
-  const setGlobalSwing = useTransportStore((state) => state.setGlobalSwing);
-  const isMetroOn = useTransportStore((state) => state.isMetroOn);
-  const setIsMetroOn = useTransportStore((state) => state.setIsMetroOn);
-  const metroVolume = useTransportStore((state) => state.metroVolume);
-  const setMetroVolume = useTransportStore((state) => state.setMetroVolume);
-  const metroSound = useTransportStore((state) => state.metroSound);
-  const setMetroSound = useTransportStore((state) => state.setMetroSound);
+const resolveFocusTier = (focus: OficinaFocusTarget | null): OficinaGrooveTier => {
+  if (focus?.grooveTier) return focus.grooveTier;
+  if (focus?.patternId !== undefined && focus?.patternId !== null) return 'pattern';
+  if (focus?.trackId !== undefined && focus?.trackId !== null) return 'track';
+  return 'global';
+};
 
-  const handleMetroVolumeChange = (val: number) => {
-    setMetroVolume(val);
-    if (metroChannel && metroChannel.volume) {
-      const gain = Math.max(0.00001, val / 100);
-      const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
-      metroChannel.volume.value = db;
-    }
-  };
+export const SettingsGrooveTab: React.FC<SettingsGrooveTabProps> = ({ lang }) => {
+  const isFr = lang === 'fr';
+  const globalSwing = useTransportStore((s) => s.globalSwing);
+  const setGlobalSwing = useTransportStore((s) => s.setGlobalSwing);
+  const tracks = useSequencerStore((s) => s.tracks);
+  const bpm = useSequencerStore((s) => s.bpm);
+  const handleTrackBalancoChange = useSequencerStore((s) => s.handleTrackBalancoChange);
+  const handlePatternBalancoChange = useSequencerStore((s) => s.handlePatternBalancoChange);
+  const openInstrumentDetailAt = useSequencerStore((s) => s.openInstrumentDetailAt);
+  const presets = useBalancoStore((s) => s.presets);
+  const oficinaFocus = useSequencerSettingsStore((s) => s.oficinaFocus);
+  const setIsSettingsOpen = useSequencerSettingsStore((s) => s.setIsSettingsOpen);
+
+  const [tier, setTier] = useState<OficinaGrooveTier>(() => resolveFocusTier(oficinaFocus));
+  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(() =>
+    oficinaFocus?.trackId !== undefined && oficinaFocus?.trackId !== null ? Number(oficinaFocus.trackId) : null
+  );
+  const [selectedPatternId, setSelectedPatternId] = useState<number | null>(() =>
+    oficinaFocus?.patternId !== undefined && oficinaFocus?.patternId !== null ? Number(oficinaFocus.patternId) : null
+  );
+
+  useEffect(() => {
+    if (!oficinaFocus) return;
+    setTier(resolveFocusTier(oficinaFocus));
+    if (oficinaFocus.trackId !== undefined && oficinaFocus.trackId !== null) setSelectedTrackId(Number(oficinaFocus.trackId));
+    if (oficinaFocus.patternId !== undefined && oficinaFocus.patternId !== null) setSelectedPatternId(Number(oficinaFocus.patternId));
+  }, [oficinaFocus]);
+
+  const eligibleTracks = useMemo(
+    () => tracks.filter((t) => !t.isBusFolder && (!t.isLinkFolder || t.id === selectedTrackId) && Array.isArray(t.patterns) && t.patterns.length > 0),
+    [tracks, selectedTrackId]
+  );
+  const activeTrack = useMemo(
+    () => (selectedTrackId !== null ? eligibleTracks.find((t) => t.id === selectedTrackId) : undefined) ?? eligibleTracks[0] ?? null,
+    [eligibleTracks, selectedTrackId]
+  );
+  const activePattern = useMemo(() => {
+    if (!activeTrack) return null;
+    const explicit = selectedPatternId !== null ? activeTrack.patterns.find((p) => p.id === selectedPatternId) : undefined;
+    return explicit ?? activeTrack.patterns.find((p) => p.id === activeTrack.selectedPatternId) ?? activeTrack.patterns[0] ?? null;
+  }, [activeTrack, selectedPatternId]);
+
+  const trackOptions = useMemo(
+    () => eligibleTracks.map((t, idx) => ({ id: t.id, label: t.customName?.trim() || `${instrumentsConfig[t.instrumentIdx]?.name ?? 'Pupitre'} #${idx + 1}` })),
+    [eligibleTracks]
+  );
+  const patternOptions = useMemo(
+    () => (activeTrack ? activeTrack.patterns.map((p) => ({ id: p.id, label: p.name || `Motif ${p.id}` })) : []),
+    [activeTrack]
+  );
+
+  const trackPresetId = activeTrack?.balancoPresetId || undefined;
+  const trackAmount = activeTrack ? (activeTrack.balancoAmount ?? activeTrack.swingIntensity ?? 100) : 100;
+  const patternPresetId = activePattern?.balancoPresetId || undefined;
+  const patternAmount = activePattern ? (activePattern.balancoAmount ?? activePattern.swingIntensity ?? 100) : 100;
+  const presetLabel = (id?: string) => presets.find((p) => p.id === id)?.name ?? 'Balanço Global';
+
+  let effectiveSource: GrooveEffectiveSource = 'global-root';
+  let canResetInheritance = false;
+  let effectiveSummary = globalSwing.mode === 'off' ? 'Neutre (0%)' : `${globalSwing.mode === 'custom' ? (isFr ? 'Atelier' : 'Ateliê') : 'Balanço'} • ${globalSwing.swingIntensity ?? 100}%`;
+  if (tier === 'track' && activeTrack) {
+    canResetInheritance = Boolean(trackPresetId) || trackAmount !== 100;
+    effectiveSource = canResetInheritance ? 'local-override' : 'inherited-global';
+    effectiveSummary = `${trackPresetId ? presetLabel(trackPresetId) : 'Preset Global'} • ${trackAmount}%`;
+  } else if (tier === 'pattern' && activeTrack && activePattern) {
+    canResetInheritance = Boolean(patternPresetId) || patternAmount !== 100;
+    effectiveSource = canResetInheritance ? 'local-override' : Boolean(trackPresetId) || trackAmount !== 100 ? 'inherited-track' : 'inherited-global';
+    effectiveSummary = `${presetLabel(patternPresetId ?? trackPresetId)} • ${patternAmount}% (${isFr ? 'Piste' : 'Faixa'} ${trackAmount}%)`;
+  }
+
+  const scopeTrackLabel = trackOptions.find((o) => o.id === activeTrack?.id)?.label ?? '';
+  const scopeTitle = tier === 'global' ? (isFr ? 'Morceau Global' : 'Música Global') : tier === 'track' ? scopeTrackLabel : `${scopeTrackLabel} • ${activePattern?.name ?? ''}`;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* 1. BLOC GROOVE (BALANÇO COMPLET INLINE) */}
-      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
-        <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
-        </h3>
+    <div className="flex flex-col gap-4 text-[var(--cordel-text)]">
+      <OficinaGrooveScopeBar
+        lang={lang} tier={tier} onTierChange={setTier} trackOptions={trackOptions}
+        selectedTrackId={activeTrack?.id ?? null} onTrackChange={(id) => { setSelectedTrackId(id); setSelectedPatternId(null); }}
+        patternOptions={patternOptions} selectedPatternId={activePattern?.id ?? null} onPatternChange={setSelectedPatternId}
+        effectiveSource={effectiveSource} effectiveSummary={effectiveSummary} canResetInheritance={canResetInheritance}
+        onResetInheritance={() => {
+          if (tier === 'track' && activeTrack) handleTrackBalancoChange(activeTrack.id, '', 100);
+          else if (tier === 'pattern' && activeTrack && activePattern) handlePatternBalancoChange(activeTrack.id, activePattern.id, undefined, 100);
+        }}
+        onOpenInEditor={() => {
+          if (!activeTrack) return;
+          setIsSettingsOpen(false);
+          openInstrumentDetailAt({ trackId: activeTrack.id, patternId: tier === 'pattern' && activePattern ? activePattern.id : (activeTrack.selectedPatternId ?? activeTrack.patterns[0]?.id ?? null) });
+        }}
+      />
+      <Balanco16StepTimeline lang={lang} bpm={bpm} globalSwing={globalSwing} track={tier === 'global' ? null : activeTrack} pattern={tier === 'pattern' ? activePattern : null} scopeTitle={scopeTitle} />
+      <div className="p-4 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] rounded-sm shadow-[3px_3px_0px_var(--cordel-shadow-color)]">
         <BalancoEditorPanel
-          globalSwing={globalSwing}
-          setGlobalSwing={setGlobalSwing}
-          lang={lang}
-          compact={true}
+          globalSwing={globalSwing} setGlobalSwing={setGlobalSwing} lang={lang} compact={true}
+          overrideScope={tier === 'global' ? undefined : {
+            tier, presetId: tier === 'track' ? trackPresetId : patternPresetId, amount: tier === 'track' ? trackAmount : patternAmount,
+            onPresetChange: (val) => {
+              if (tier === 'track' && activeTrack) handleTrackBalancoChange(activeTrack.id, val, trackAmount);
+              else if (tier === 'pattern' && activeTrack && activePattern) handlePatternBalancoChange(activeTrack.id, activePattern.id, val || undefined, patternAmount);
+            },
+            onAmountChange: (val) => {
+              if (tier === 'track' && activeTrack) handleTrackBalancoChange(activeTrack.id, activeTrack.balancoPresetId ?? '', val);
+              else if (tier === 'pattern' && activeTrack && activePattern) handlePatternBalancoChange(activeTrack.id, activePattern.id, activePattern.balancoPresetId, val);
+            },
+            onSwitchToGlobal: () => setTier('global'),
+          }}
         />
-      </div>
-
-      {/* 2. BLOC MÉTRONOME */}
-      <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white text-[#1a1a1a] shadow-[3px_3px_0px_#000]">
-        <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-          {lang === 'fr' ? 'Métronome' : 'Metrônomo'}
-        </h3>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-3">
-            {/* Gauche : Activer Clic */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsMetroOn(!isMetroOn)}
-                className={`px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-                  isMetroOn
-                    ? 'bg-black !text-white'
-                    : 'bg-white text-[#1a1a1a] hover:bg-black/5'
-                }`}
-              >
-                {isMetroOn ? 'On' : 'Off'}
-              </button>
-              <span className="text-[10px] font-bold text-[#1a1a1a]">
-                {lang === 'pt' ? 'Ativar Clique' : 'Activer le Clic'}
-              </span>
-            </div>
-
-            {/* Droite : Choix du son */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]">
-                {lang === 'pt' ? 'Som :' : 'Son :'}
-              </span>
-              <select
-                value={metroSound}
-                onChange={(e) => setMetroSound(e.target.value as any)}
-                className="bg-[#f4ecd8] text-[#1a1a1a] border-2 border-black p-1.5 font-cactus font-bold text-xs uppercase outline-none cursor-pointer focus:bg-[#fbf8f0] min-w-[100px]"
-              >
-                <option value="synth">Synth</option>
-                <option value="clave">Clave</option>
-                <option value="cowbell">Cowbell</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Volume */}
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a]">
-              <span>Volume :</span>
-              <span>{metroVolume}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={metroVolume}
-              onChange={(e) => handleMetroVolumeChange(parseInt(e.target.value, 10))}
-              className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
-            />
-          </div>
-        </div>
       </div>
     </div>
   );
