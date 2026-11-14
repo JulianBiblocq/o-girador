@@ -26,6 +26,14 @@ export function normalizeAgbeStep(s: string): string {
   return s;
 }
 
+export function normalizeAlfaiaStep(s: string): string {
+  if (s === 'a') return 'A';
+  if (s.includes('/') || s.includes('|')) {
+    return s.replace(/\ba\b/g, 'A');
+  }
+  return s;
+}
+
 function normalizeStepValue(step: PaperStepValue, normalizer: (c: string) => string): PaperStepValue {
   if (typeof step === 'string') return normalizer(step);
   if (Array.isArray(step)) return step.map((sub) => (typeof sub === 'string' ? normalizer(sub) : sub)) as [string, string];
@@ -79,6 +87,8 @@ export function disambiguateRoleAndSteps(
     normalizedSteps = rawSteps.map((st) => normalizeStepValue(st, normalizeGongueStep));
   } else if (finalRole === 'ab') {
     normalizedSteps = rawSteps.map((st) => normalizeStepValue(st, normalizeAgbeStep));
+  } else if (['al', 'mc', 'me', 'rp'].includes(finalRole)) {
+    normalizedSteps = rawSteps.map((st) => normalizeStepValue(st, normalizeAlfaiaStep));
   }
 
   return { role: finalRole, steps: normalizedSteps, wasReclassified };

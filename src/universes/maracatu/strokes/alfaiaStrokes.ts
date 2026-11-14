@@ -1,5 +1,4 @@
 /**
- * 
  * O Girador - Alfaia Stroke Definitions & Pairs (Marcante, Meião, Repique)
  */
 
@@ -11,49 +10,55 @@ export function getAlfaiaStrokeDefs(isFr: boolean): StrokeDef[] {
       symbol: 'D',
       label: isFr ? 'Main Droite Fort' : 'Mão Direita Forte',
       shortcut: 'D',
-      colorKey: 'D'
+      colorKey: 'D',
     },
     {
       symbol: 'd',
       label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca',
       shortcut: 'd',
-      colorKey: 'd'
+      colorKey: 'd',
     },
     {
       symbol: 'E',
       label: isFr ? 'Main Gauche Fort' : 'Mão Esquerda Forte',
       shortcut: 'E',
-      colorKey: 'E'
+      colorKey: 'E',
     },
     {
       symbol: 'e',
       label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca',
       shortcut: 'e',
-      colorKey: 'e'
+      colorKey: 'e',
+    },
+    {
+      symbol: 'A',
+      label: isFr ? 'A — Étouffé Gauche (Abafado)' : 'A — Abafado Esquerda (Seco)',
+      shortcut: 'A',
+      colorKey: 'A',
     },
     {
       symbol: 'C',
       label: isFr ? 'Clic baguettes' : 'Click',
       shortcut: 'C',
-      colorKey: 'C'
+      colorKey: 'C',
     },
     {
       symbol: 'X',
       label: isFr ? 'Cerclage (Aro)' : 'Toque no aro',
       shortcut: 'X',
-      colorKey: 'X'
+      colorKey: 'X',
     },
     {
       symbol: 'I',
       label: isFr ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)',
       shortcut: 'I',
-      colorKey: 'I'
+      colorKey: 'I',
     },
     {
       symbol: 'B',
       label: isFr ? 'Barulho (Grondement)' : 'Barulho (Vibração)',
       shortcut: 'B',
-      colorKey: 'B'
+      colorKey: 'B',
     },
   ];
 }
@@ -63,14 +68,15 @@ export function getAlfaiaStrokePairs(
   isFr: boolean,
   isLeftHanded: boolean
 ): StrokePair[] {
-  const dStrong = allStrokes.find(s => s.symbol === 'D');
-  const dWeak = allStrokes.find(s => s.symbol === 'd');
-  const eStrong = allStrokes.find(s => s.symbol === 'E');
-  const eWeak = allStrokes.find(s => s.symbol === 'e');
-  const iStroke = allStrokes.find(s => s.symbol === 'I');
-  const cStroke = allStrokes.find(s => s.symbol === 'C');
-  const xStroke = allStrokes.find(s => s.symbol === 'X');
-  const bStroke = allStrokes.find(s => s.symbol === 'B');
+  const dStrong = allStrokes.find((s) => s.symbol === 'D');
+  const dWeak = allStrokes.find((s) => s.symbol === 'd');
+  const eStrong = allStrokes.find((s) => s.symbol === 'E');
+  const eWeak = allStrokes.find((s) => s.symbol === 'e');
+  const aStroke = allStrokes.find((s) => s.symbol === 'A');
+  const iStroke = allStrokes.find((s) => s.symbol === 'I');
+  const cStroke = allStrokes.find((s) => s.symbol === 'C');
+  const xStroke = allStrokes.find((s) => s.symbol === 'X');
+  const bStroke = allStrokes.find((s) => s.symbol === 'B');
 
   const pairs: StrokePair[] = [];
   if (dStrong) {
@@ -80,18 +86,18 @@ export function getAlfaiaStrokePairs(
       strong: dStrong,
       weak: dWeak,
       strokes,
-      mainLabel: isFr ? (isLeftHanded ? 'Main Gauche' : 'Main Droite') : (isLeftHanded ? 'Mão Esquerda' : 'Mão Direita')
+      mainLabel: isFr ? (isLeftHanded ? 'Main Gauche' : 'Main Droite') : (isLeftHanded ? 'Mão Esquerda' : 'Mão Direita'),
     });
   }
   if (eStrong) {
-    const strokes = [eStrong, eWeak, iStroke].filter(Boolean) as StrokeDef[];
+    const strokes = [eStrong, eWeak, aStroke, iStroke].filter(Boolean) as StrokeDef[];
     pairs.push({
       id: 'E',
       strong: eStrong,
       weak: eWeak,
-      third: iStroke,
+      third: aStroke,
       strokes,
-      mainLabel: isFr ? (isLeftHanded ? 'Main Droite' : 'Main Gauche') : (isLeftHanded ? 'Mão Direita' : 'Mão Esquerda')
+      mainLabel: isFr ? (isLeftHanded ? 'Main Droite' : 'Main Gauche') : (isLeftHanded ? 'Mão Direita' : 'Mão Esquerda'),
     });
   }
   if (cStroke) {
@@ -101,7 +107,7 @@ export function getAlfaiaStrokePairs(
       strong: cStroke,
       weak: xStroke,
       strokes,
-      mainLabel: isFr ? 'Clic / Cerclage' : 'Click / Aro'
+      mainLabel: isFr ? 'Clic / Cerclage' : 'Click / Aro',
     });
   }
   if (bStroke) {
@@ -109,7 +115,7 @@ export function getAlfaiaStrokePairs(
       id: 'B',
       strong: bStroke,
       strokes: [bStroke],
-      mainLabel: isFr ? 'Barulho' : 'Barulho'
+      mainLabel: 'Barulho',
     });
   }
   return pairs;

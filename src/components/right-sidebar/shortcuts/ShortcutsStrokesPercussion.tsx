@@ -43,6 +43,9 @@ export const ShortcutsStrokesPercussion: React.FC<ShortcutsStrokesPercussionProp
                 <div className="flex items-center gap-2">{renderBadge(['marcante', 'meiao', 'repique'], ['d'], 'd / e')}<span>{t('strokeWeakGroup')}</span></div>
               </>
             )}
+            {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['A', 'a']) && (
+              <div className="flex items-center gap-2">{renderBadge(['marcante', 'meiao', 'repique'], ['A'], 'A / a')}<span>{t('legendAlfaiaAbafado')}</span></div>
+            )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['X', 'x']) && (
               <div className="flex items-center gap-2">{renderBadge(['marcante', 'meiao', 'repique'], ['X'], 'X / x')}<span>{t('legendAlfaiaCerclage')}</span></div>
             )}

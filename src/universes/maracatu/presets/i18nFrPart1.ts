@@ -32,6 +32,7 @@ export const i18nFrPart1 = {
   legendAlfaiaBarulho: "Grondement (Barulho)",
   legendAlfaiaCerclage: "Coup sur le cerclage",
   legendAlfaiaIguarassu: "Bacalhau (Coup sur le bois / Iguarassu)",
+  legendAlfaiaAbafado: "A — Étouffé Gauche (Abafado)",
   timbalLegend: "Timbal",
   legendTimbalBaixo: "Basse (Grave au centre)",
   legendTimbalAberto: "Ouvert (Bord de peau)",

@@ -1,5 +1,4 @@
 /**
- * 
  * O Girador - Stroke Verification & Query Helpers
  */
 
@@ -14,13 +13,13 @@ export function getExoticStrokes(
 ): StrokeDef[] {
   const pairs = getStrokePairs(instId, instType, lang, isLeftHanded);
   return pairs
-    .filter(p => !p.weak)
-    .map(p => p.strong);
+    .filter((p) => !p.weak)
+    .map((p) => p.strong);
 }
 
 export function isStrokeActiveByDefault(instId: string, stroke: string): boolean {
   if (['marcante', 'meiao', 'repique', 'alfaia'].includes(instId)) {
-    return ['D', 'E', 'd', 'e'].includes(stroke);
+    return ['D', 'E', 'd', 'e', 'A'].includes(stroke);
   }
   if (instId === 'caixa' || instId === 'tarol') {
     return ['D', 'E', 'd', 'e', 'R', 'r', 'F', 'f'].includes(stroke);
@@ -52,5 +51,5 @@ export function strokeExistsForInstrument(
 ): boolean {
   if (!symbol || symbol === '0') return true;
   const strokes = getStrokesForInstrument(instId, instType, lang, isLeftHanded);
-  return strokes.some(s => s.symbol === symbol);
+  return strokes.some((s) => s.symbol === symbol);
 }

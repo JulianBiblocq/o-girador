@@ -10,24 +10,24 @@ export interface RoleStrokesConfig {
 
 const ROLE_STROKES_MAP: Record<string, RoleStrokesConfig> = {
   al: {
-    strong: ['D', 'E', 'I', 'C', 'B', 'X', 'F'],
+    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
     weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D'],
+    special: ['D/E', 'd/I', 'e/D', 'A/D'],
   },
   mc: {
-    strong: ['D', 'E', 'I', 'C', 'B', 'X', 'F'],
+    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
     weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D'],
+    special: ['D/E', 'd/I', 'e/D', 'A/D'],
   },
   me: {
-    strong: ['D', 'E', 'I', 'C', 'B', 'X', 'F'],
+    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
     weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D'],
+    special: ['D/E', 'd/I', 'e/D', 'A/D'],
   },
   rp: {
-    strong: ['D', 'E', 'I', 'C', 'B', 'X', 'F'],
+    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
     weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D'],
+    special: ['D/E', 'd/I', 'e/D', 'A/D'],
   },
   cx: {
     strong: ['D', 'E', 'R', 'F', 'X', 'C', 'B'],

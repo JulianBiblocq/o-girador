@@ -32,6 +32,7 @@ export const i18nPtPart1 = {
   legendAlfaiaBarulho: "Barulho",
   legendAlfaiaCerclage: "Toque no aro",
   legendAlfaiaIguarassu: "Bacalhau (iguarassu)",
+  legendAlfaiaAbafado: "A — Abafado Esquerda (Seco)",
   timbalLegend: "Timbal",
   legendTimbalBaixo: "Baixo (Grave no centro)",
   legendTimbalAberto: "Aberto (Borda da pele)",

@@ -44,17 +44,17 @@ export const MARACATU_THEME: ThemePalette = {
   marcante: {
     mixerBg: '#3a1010', color: '#8a2b2b',
     strong: '#8a2b2b', weak: '#fca5a5', accent: '#ff8da1', muted: '#4c1c1c', special: '#8c7b7b',
-    overrides: { 'C': '#fee2e2' }
+    overrides: { 'C': '#fee2e2', 'A': '#6b3026', 'a': '#6b3026' }
   },
   meiao: {
     mixerBg: '#3a2010', color: '#ab5318',
     strong: '#ab5318', weak: '#fdba74', accent: '#ffb74d', muted: '#4c2c16', special: '#9c8476',
-    overrides: { 'C': '#ffedd5' }
+    overrides: { 'C': '#ffedd5', 'A': '#7d4420', 'a': '#7d4420' }
   },
   repique: {
     mixerBg: '#3a3010', color: '#c9a724',
     strong: '#c9a724', weak: '#fef08a', accent: '#fff59d', muted: '#4d441c', special: '#9c9984',
-    overrides: { 'C': '#fef9c3' }
+    overrides: { 'C': '#fef9c3', 'A': '#8a7422', 'a': '#8a7422' }
   },
   caixa: {
     mixerBg: '#2a103a', color: '#7a3187',

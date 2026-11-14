@@ -37,7 +37,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
         <tbody>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Alfaias (Al, Mc, Me, Rp)</td>
-            <td style="padding: 4px 6px;"><strong>D/d</strong> (Droite/Dir), <strong>E/e</strong> (Gauche/Esq), <strong>I/i</strong> (Bacalhau double barre <span style="font-family: monospace; font-weight: bold;">I</span>), <strong>B</strong> (Barulho), <strong>C</strong> (Baguettes/Clac), <strong>X</strong> (Aro/Cerclage). <em style="color: #8b2a1a;">(Aucun Fla sur Alfaia)</em></td>
+            <td style="padding: 4px 6px;"><strong>D/d</strong> (Droite/Dir), <strong>E/e</strong> (Gauche/Esq), <strong>A/a</strong> (${isFr ? 'Étouffé Gauche / Abafado' : 'Abafado Esquerda / Seco'}), <strong>I/i</strong> (Bacalhau double barre <span style="font-family: monospace; font-weight: bold;">I</span>), <strong>B</strong> (Barulho), <strong>C</strong> (Baguettes/Clac), <strong>X</strong> (Aro/Cerclage). <em style="color: #8b2a1a;">(Aucun Fla sur Alfaia)</em></td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Caixa & Tarol (Cx, Tr)</td>

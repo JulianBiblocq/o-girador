@@ -99,10 +99,12 @@ export function useInstrumentEditorKeyboard({
         const isCalibratedAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
         if (matchingPair) {
           e.preventDefault();
-          const isWeak = !isUpper && Boolean(matchingPair.weak);
-          const targetSymbol = (isCalibratedAlfaia && char.toLowerCase() === 'a')
-            ? 'A'
+          const exactStroke = matchingPair.strokes.find((s) => s.symbol === char || s.shortcut === char);
+          const ciStroke = exactStroke ?? matchingPair.strokes.find((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase());
+          const targetSymbol = ciStroke
+            ? ciStroke.symbol
             : (isUpper ? matchingPair.strong.symbol : (matchingPair.weak ? matchingPair.weak.symbol : matchingPair.strong.symbol));
+          const isWeak = !isUpper && targetSymbol === matchingPair.weak?.symbol;
           setActiveTool(targetSymbol);
           if (audioEngine && track) {
             const pVel = isCalibratedAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95);
@@ -110,22 +112,6 @@ export function useInstrumentEditorKeyboard({
             try { audioEngine.playNote(track.id, targetSymbol, Tone.now(), pVel, pDec); } catch (_) {}
           }
           return;
-        }
-
-        const upperChar = char.toUpperCase();
-        if (['A', 'B', 'C', 'I', 'X'].includes(upperChar)) {
-          const allSymbols = pairs.flatMap((p) => p.strokes.map((s) => s.symbol));
-          if (allSymbols.includes(upperChar) || allSymbols.includes(char.toLowerCase())) {
-            e.preventDefault();
-            const symbolToSelect = (isUpper || !allSymbols.includes(char.toLowerCase())) ? upperChar : char.toLowerCase();
-            setActiveTool(symbolToSelect);
-            if (audioEngine && track) {
-              const pVel = isCalibratedAlfaia ? 0.7 : (isUpper ? 0.95 : 0.6);
-              const pDec = isCalibratedAlfaia ? 1.0 : (isUpper ? 1.0 : 0.8);
-              try { audioEngine.playNote(track.id, symbolToSelect, Tone.now(), pVel, pDec); } catch (_) {}
-            }
-            return;
-          }
         }
       }
 

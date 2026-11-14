@@ -1,7 +1,13 @@
 
 import { Language } from '../../types';
 
-export const getStrokeDescription = (instId: string, instType: string, stroke: string, lang: Language): string => {
+export const getStrokeDescription = (
+  instId: string,
+  instType: string,
+  stroke: string,
+  lang: Language,
+  isLeftHanded = false
+): string => {
   const isPt = lang === 'pt';
   if (stroke === '0') return isPt ? 'Silêncio' : 'Silence';
 
@@ -41,12 +47,17 @@ export const getStrokeDescription = (instId: string, instType: string, stroke: s
     }
   }
 
-  if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
+  if (instId === 'marcante' || instId === 'meiao' || instId === 'repique' || instId === 'alfaia') {
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
       case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
       case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
+      case 'A':
+      case 'a':
+        return isPt
+          ? (isLeftHanded ? 'A — Abafado Direita (Seco)' : 'A — Abafado Esquerda (Seco)')
+          : (isLeftHanded ? 'A — Étouffé Droite (Abafado)' : 'A — Étouffé Gauche (Abafado)');
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'C': return isPt ? 'Click' : 'Click';
       case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Bois gauche / Iguarassu)';
