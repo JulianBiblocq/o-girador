@@ -1,6 +1,6 @@
 /**
- * O Girador - Synchronisation Différentielle des Pistes vers AudioWorklet (< 125 lignes)
- * - SSOT Accordage (`EngineTuning`) et Mute (`getEffectiveMuteState` sans dépendance à `track.volume`).
+ * O Girador - Synchronisation Différentielle des Pistes vers AudioWorklet (< 130 lignes)
+ * - SSOT Accordage (`EngineTuning`), Tempérament de Section (`sectionTemperament`) et Mute (`getEffectiveMuteState`).
  * - Filtrage différentiel strict par slot (`Math.abs(delta) > 1e-5`) : 0 spam IPC à 60 Hz.
  */
 
@@ -10,6 +10,7 @@ import { getEffectiveMuteState, getTrackFamilyIds, useSequencerStore } from '../
 import { useTransportStore } from '../../stores/useTransportStore';
 import { TrackGroup } from '../../types';
 import { EngineTuning } from '../engine/engineTuning';
+import { computeSectionTemperamentMap, NEUTRAL_SECTION_TEMPERAMENT } from '../groove/sectionTemperament';
 import { MAX_WORKLET_OUTPUTS, UpdateTrackSlotMessage } from './percussionWorkletTypes';
 import { WorkletMessagePortLike } from './percussionWorkletSampleBridge';
 import { PercussionWorkletSlotRouter } from './percussionWorkletSlotRouter';
@@ -20,6 +21,7 @@ export class PercussionWorkletTrackSync {
   private readonly lastPitchRatio = new Float32Array(MAX_WORKLET_OUTPUTS).fill(-1);
   private readonly lastDecayNorm = new Float32Array(MAX_WORKLET_OUTPUTS).fill(-1);
   private readonly trackUnisonDelaySec = new Map<number, number>();
+  private readonly trackBalancoAdherence = new Map<number, number>();
   private readonly trackPitchRatio = new Map<number, number>();
   private readonly trackInstrumentId = new Map<number, string>();
 
@@ -51,6 +53,7 @@ export class PercussionWorkletTrackSync {
     const tjFamilySet = tjActive && seqState.tocarJuntoMuteScope === 'family' && seqState.tocarJuntoTrackId !== null
       ? new Set(getTrackFamilyIds(seqState.tocarJuntoTrackId, tracks))
       : null;
+    const temperamentMap = computeSectionTemperamentMap(tracks);
 
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i];
@@ -62,10 +65,9 @@ export class PercussionWorkletTrackSync {
       const inst = instrumentsConfig[track.instrumentIdx];
       const instrumentId = inst ? inst.id : '';
       this.trackInstrumentId.set(trackId, instrumentId);
-      this.trackUnisonDelaySec.set(
-        trackId,
-        EngineTuning.calculateUnisonMicroDelaySec(track, instrumentId)
-      );
+      const temp = temperamentMap.get(trackId) ?? NEUTRAL_SECTION_TEMPERAMENT;
+      this.trackUnisonDelaySec.set(trackId, temp.attackSpreadSec);
+      this.trackBalancoAdherence.set(trackId, temp.balancoAdherence);
 
       const config = instrumentId ? configMap.get(instrumentId) : undefined;
       const pitchRatio = config ? EngineTuning.calculatePitch(instrumentId, config, track) : 1.0;
@@ -94,23 +96,18 @@ export class PercussionWorkletTrackSync {
         this.lastPitchRatio[slot] = pitchRatio;
         this.lastDecayNorm[slot] = decayNorm;
 
-        const msg: UpdateTrackSlotMessage = {
-          type: 'UPDATE_TRACK_SLOT',
-          slot,
-          trackId,
-          isMuted,
-          pitchRatio,
-          decayNorm,
-        };
-        try {
-          port.postMessage(msg);
-        } catch (_) {}
+        const msg: UpdateTrackSlotMessage = { type: 'UPDATE_TRACK_SLOT', slot, trackId, isMuted, pitchRatio, decayNorm };
+        try { port.postMessage(msg); } catch (_) {}
       }
     }
   }
 
   public getTrackUnisonDelaySec(trackId: number | string): number {
     return this.trackUnisonDelaySec.get(Number(trackId)) ?? 0;
+  }
+
+  public getTrackBalancoAdherence(trackId: number | string): number {
+    return this.trackBalancoAdherence.get(Number(trackId)) ?? 1.0;
   }
 
   public getTrackPitchRatio(trackId: number | string): number {
@@ -124,6 +121,7 @@ export class PercussionWorkletTrackSync {
   public dispose(): void {
     this.resetDiffCache();
     this.trackUnisonDelaySec.clear();
+    this.trackBalancoAdherence.clear();
     this.trackPitchRatio.clear();
     this.trackInstrumentId.clear();
   }

@@ -11,6 +11,7 @@ import { TrackGroup } from '../../types';
 import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import { EngineTuning } from './engineTuning';
 import { EngineStrokePlayback } from './engineStrokePlayback';
+import { resolveTrackSectionTemperament } from '../groove/sectionTemperament';
 import type { NotePlayerDeps } from './enginePlayerTypes';
 
 export function computeEffectiveDecayNorm(
@@ -77,7 +78,8 @@ export class EngineExecuteStroke {
     }
     if (!bufferEntry || !bufferEntry.loaded) return;
 
-    const microDelaySec = EngineTuning.calculateUnisonMicroDelaySec(track, instrumentId);
+    const allTracks = deps.trackLookupMap.size > 0 ? Array.from(deps.trackLookupMap.values()) : undefined;
+    const microDelaySec = overrideTuning !== undefined ? 0 : resolveTrackSectionTemperament(track, allTracks).attackSpreadSec;
     const effectiveTime = time + microDelaySec;
     const voiceGuardKey = trackId !== null ? trackId : instrumentId;
 

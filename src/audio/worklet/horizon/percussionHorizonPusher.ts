@@ -1,37 +1,16 @@
 /**
- * O Girador - Planificateur d'Horizon AudioWorklet (Fenêtre Glissante 3 Mesures, < 142 lignes)
- * - Pousse `[M, M+1, M+2]` dans `PercussionWorkletManager` avec lookahead Barulho multi-mesures.
+ * O Girador - Planificateur d'Horizon AudioWorklet (Fenêtre Glissante 3 Mesures, < 120 lignes)
+ * - Pousse `[M, M+1, M+2]` dans `PercussionWorkletManager` avec lookahead Barulho multi-mesures (incluant `swingSec`).
  */
 
 import { getOrRollMeasureVariationForHorizon, invalidateFutureVariationSnapshots } from '../../../hooks/audio-sync/liveVariationLookaheadEngine';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
-import { GlobalSwing, Track } from '../../../types';
 import { buildHorizonBarulhoLookaheadPoints } from './percussionHorizonBarulhoLookahead';
-import { HorizonPackerEngineDeps, packMeasureHorizonEvents } from './percussionMeasureEventPacker';
+import { packMeasureHorizonEvents } from './percussionMeasureEventPacker';
 import { projectHorizonMeasures } from './percussionHorizonProjection';
+import { HorizonEngineLike, HorizonPusherContext } from './percussionHorizonTypes';
 
-export interface HorizonEngineLike extends HorizonPackerEngineDeps {
-  readonly workletReady: boolean;
-  getIsPlaying(): boolean; getCurrentTime(): number; getSampleRate(): number;
-  syncTracksToWorklet(tracks: Track[]): void;
-  pushWorkletEvents(eventsData: Float64Array, eventCount: number): void;
-  purgeWorkletFromFrame(fromFrame: number, measureSeqId?: number): void;
-  purgeRoundRobinFromTime(fromTimeSec: number): void;
-}
-
-export interface HorizonPusherContext {
-  tracksRef: { current: Track[] }; totalMeasuresRef: { current: number };
-  measureTimeSigsRef: { current: Record<number, string> }; measureBpmsRef: { current: number[] };
-  globalSwingRef: { current: GlobalSwing }; flatCompiledScheduleRef: { current: Float64Array | null };
-  soloPatternPlayIdRef: { current: number | null }; soloPatternVariationIdRef: { current: string | null };
-  pendingMeasureRef?: { current: number | null }; isLoopRegionActiveRef: { current: boolean };
-  loopStartRef: { current: number | null }; loopEndRef: { current: number | null };
-  isLoopExitRequestedRef?: { current: boolean }; isLoopingRef: { current: boolean };
-  loopModeRef?: { current: number | 'infinite' }; currentLoopIterationRef?: { current: number };
-  speedTrainerCurrentBpmRef?: { current: number }; activeVariationsRef?: { current: Record<number, any> };
-  engine: HorizonEngineLike | null;
-  measureBpmTransitions?: Record<number, string>; defaultBpm?: number;
-}
+export type { HorizonEngineLike, HorizonPusherContext };
 
 interface PushedMeasureEntry {
   seqId: number; measureIdx: number; startTimeSec: number; endTimeSec: number;
@@ -88,7 +67,8 @@ function projectAndPushHorizon(ctx: HorizonPusherContext, minRebuildFrame: numbe
     tracks, soloPatternPlayId: ctx.soloPatternPlayIdRef.current, soloPatternVariationId: ctx.soloPatternVariationIdRef.current,
   }));
   const lookaheadPoints = buildHorizonBarulhoLookaheadPoints(
-    projected, snaps, tracks, ctx.flatCompiledScheduleRef.current, (id) => engine.getTrackUnisonDelaySec(id)
+    projected, snaps, tracks, ctx.flatCompiledScheduleRef.current, engine,
+    ctx.soloPatternPlayIdRef.current, ctx.globalSwingRef.current
   );
 
   for (let i = 0; i < projected.length; i++) {

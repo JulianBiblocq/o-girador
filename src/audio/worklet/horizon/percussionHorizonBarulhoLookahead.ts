@@ -1,12 +1,14 @@
 /**
  * percussionHorizonBarulhoLookahead.ts — Extraction chronologique multi-mesures `[M, M+1, M+2]`
- * des points d'intérêt Barulho/frappes par piste pour calcul exact des rampes `b -> b` et `/ -> .` (< 90 lignes).
+ * des points d'intérêt Barulho/frappes par piste (avec `swingSec` exact du pas cible) (< 95 lignes).
  */
 
 import { instrumentsConfig } from '../../../data';
-import { Track } from '../../../types';
+import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
+import { GlobalSwing, Track } from '../../../types';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { ProjectedHorizonMeasure } from './percussionHorizonProjection';
+import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
 
 export interface MeasureVariationSnapshotLike {
   variedTrackIds: Set<number>;
@@ -18,9 +20,12 @@ export function buildHorizonBarulhoLookaheadPoints(
   snaps: readonly MeasureVariationSnapshotLike[],
   tracks: readonly Track[],
   flatCompiledSchedule: Float64Array | null,
-  getTrackUnisonDelaySec: (trackId: number) => number
+  engineDeps: Pick<HorizonPackerEngineDeps, 'getTrackUnisonDelaySec' | 'getTrackBalancoAdherence'>,
+  soloPatternPlayId: number | null,
+  globalSwing: GlobalSwing
 ): BarulhoLookaheadPoint[] {
   const points: BarulhoLookaheadPoint[] = [];
+  const mutTracks = tracks as Track[];
 
   for (let m = 0; m < projected.length; m++) {
     const pm = projected[m];
@@ -36,14 +41,25 @@ export function buildHorizonBarulhoLookaheadPoints(
       const inst = instrumentsConfig[track.instrumentIdx];
       if (!inst || inst.type === 'voice') return;
 
+      const circleStepIdx = (packedData >> 16) & 0x3F;
       const symbol = String.fromCharCode((packedData >> 9) & 0x7F);
+      const isTuplet = ((packedData >> 1) & 1) === 1;
       const tickDurSec = timing.instantTickDurSec[tickInMeasure];
-      const microSec = (microPct / 100) * (tickDurSec * 6) * 0.5;
+      const stepDurationSec = tickDurSec * 6;
+      const activePattern = resolveActivePatternForMeasure(track, mutTracks, timing.measureIdx, soloPatternPlayId);
+      const swingJitter = (((((pm.seqId * 31 + tickInMeasure) * 17 + track.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
+      const swingSec = computePercussionNoteSwing({
+        activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter,
+        globalMode: globalSwing.mode, globalSwing, stepDurationSec,
+        balancoAdherence: engineDeps.getTrackBalancoAdherence(track.id),
+      });
+      const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
       const timeSec =
         timing.startTimeSec +
         timing.tickOffsetsSec[tickInMeasure] +
         microSec +
-        getTrackUnisonDelaySec(track.id);
+        engineDeps.getTrackUnisonDelaySec(track.id) +
+        swingSec;
 
       points.push({ trackId: track.id, timeSec, symbol, velocity });
     };

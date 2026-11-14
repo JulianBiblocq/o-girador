@@ -1,7 +1,7 @@
 /**
  * baqueBounceExporter.ts
  * Export hors-ligne (OfflineAudioContext) en 1 clic d'un cycle du Baque (sans Puxador/Coro)
- * calé à l'échantillon 0 sur M1•T1 avec parité complète console + Barulho continu sans couture (< 138 lignes).
+ * calé à l'échantillon 0 sur M1•T1 avec parité complète console, Tempérament de Section & Barulho continu (< 136 lignes).
  */
 import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
@@ -12,6 +12,7 @@ import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { EngineTuning } from '../audio/engine/engineTuning';
 import { EngineRoundRobin } from '../audio/engine/engineRoundRobin';
 import { ALFAIA_INSTRUMENTS } from '../audio/engine/engineTypes';
+import { computeSectionTemperamentMap } from '../audio/groove/sectionTemperament';
 import { resolveSampleFetchPath, fetchSampleWithRetry } from '../audio/engine/sampleFetchUtils';
 import { getCachedPcmSample, reconstructAudioBuffer } from '../audio/audioSampleCache';
 import { buildFlatSongSchedule } from '../workers/compiler/flatScheduleBuilder';
@@ -53,18 +54,23 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
   const slicedSigs = Array.from({ length: cycleMeasures }, (_, i) => state.measureTimeSigs?.[startM + i] || state.timeSig || '4/4');
   const slicedBpms = Array.from({ length: cycleMeasures }, (_, i) => state.measureBpms?.[startM + i] || state.bpm || 88);
   const timing = computeBaqueCycleTiming({ totalMeasures: cycleMeasures, bpm: state.bpm || 88, measureBpms: slicedBpms, measureTimeSigs: slicedSigs, timeSig: state.timeSig || '4/4', sampleRate: options.sampleRate || 44100 });
+  const temperamentMap = computeSectionTemperamentMap(state.tracks);
 
-  const baqueTracks = state.tracks
-    .filter((t) => {
-      if (t.isBusFolder || t.isLinkFolder) return false;
-      const inst = instrumentsConfig[t.instrumentIdx];
-      return Boolean(inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro' && !getEffectiveMuteState(state.tracks, t.id));
-    })
-    .map((t) => ({
-      ...t, patterns: t.patterns.map((p) => ({ ...p, measureAssignments: Array.from({ length: cycleMeasures }, (_, i) => Boolean(p.measureAssignments?.[startM + i])) })),
-    }));
+  const slicedAllTracks = state.tracks.map((t) => ({
+    ...t,
+    patternOverrides: t.patternOverrides
+      ? Object.fromEntries(Array.from({ length: cycleMeasures }, (_, i) => [i, t.patternOverrides![startM + i]]).filter(([, v]) => v !== undefined))
+      : undefined,
+    patterns: t.patterns.map((p) => ({ ...p, measureAssignments: Array.from({ length: cycleMeasures }, (_, i) => Boolean(p.measureAssignments?.[startM + i])) })),
+  }));
+  const baqueTracks = slicedAllTracks.filter((t) => {
+    if (t.isBusFolder || t.isLinkFolder) return false;
+    const inst = instrumentsConfig[t.instrumentIdx];
+    return Boolean(inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro' && !getEffectiveMuteState(state.tracks, t.id));
+  });
 
-  const schedule = buildFlatSongSchedule(baqueTracks, cycleMeasures, slicedSigs, instrumentsConfig, null, null, false);
+  const schedule = buildFlatSongSchedule(slicedAllTracks, cycleMeasures, slicedSigs, instrumentsConfig, null, null, false);
+  const baqueTrackIdSet = new Set(baqueTracks.map((t) => t.id));
   const OfflineCtx = (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext) as typeof OfflineAudioContext;
   const stemPlan = planBounceBusStems(state.tracks, baqueTracks, Boolean(state.ecoConfig?.disableFx));
   const offlineCtx = new OfflineCtx(stemPlan.totalChannels, timing.exactTotalSamples, timing.sampleRate);
@@ -75,19 +81,19 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
 
   const lookaheadPts: BarulhoLookaheadPoint[] = [];
   for (let i = 0; i < schedule.length / 4; i++) {
-    const packed = schedule[i * 4 + 1], track = baqueTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
-    if (!track || !inst) continue;
-    const { triggerSec } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], track, baqueTracks as any, inst.id, timing, globalSwing);
+    const packed = schedule[i * 4 + 1], track = slicedAllTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+    if (!track || !inst || !baqueTrackIdSet.has(track.id)) continue;
+    const { triggerSec } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
     lookaheadPts.push({ trackId: track.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
   }
   const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timing.totalDurationSec);
 
   for (let i = 0; i < schedule.length / 4; i++) {
     const absTick = schedule[i * 4], packed = schedule[i * 4 + 1], stepVol = schedule[i * 4 + 2], microPct = schedule[i * 4 + 3];
-    const track = baqueTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
-    if (!track || !inst) continue;
+    const track = slicedAllTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+    if (!track || !inst || !baqueTrackIdSet.has(track.id)) continue;
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
-    const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, track, baqueTracks as any, inst.id, timing, globalSwing);
+    const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
 
     if (strokeSymbol === '/' || strokeSymbol === '.') {
       barulhoTracker.applyControlSymbol(track.id, strokeSymbol, triggerSec, timing.totalDurationSec);

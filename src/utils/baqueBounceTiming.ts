@@ -1,10 +1,12 @@
 /**
  * baqueBounceTiming.ts
  * Calcul pur à l'échantillon près (N * measureDurationSec * sampleRate)
- * et formatage <nom_rythme>_<bpm>bpm.wav pour l'export Baque vers Cantador (< 75 lignes).
+ * et résolution de déclenchement avec Tempérament de Section & Balanço esclave en parité Live (< 115 lignes).
  */
 
-import { EngineTuning } from '../audio/engine/engineTuning';
+import {
+  NEUTRAL_SECTION_TEMPERAMENT, resolveTrackSectionTemperament, type SectionTrackTemperament,
+} from '../audio/groove/sectionTemperament';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../hooks/audio-sync/percussionSwingHelper';
 import type { GlobalSwing } from '../types';
 
@@ -84,20 +86,24 @@ export function resolveMeasureIndexAtTick(absTick: number, timing: BaqueCycleTim
 
 export function resolveBounceNoteTrigger(
   absTick: number, packed: number, microPct: number, track: any, allTracks: any[],
-  instId: string, timing: BaqueCycleTimingResult, globalSwing: GlobalSwing
+  _instId: string, timing: BaqueCycleTimingResult, globalSwing: GlobalSwing,
+  temperamentMap?: ReadonlyMap<number, SectionTrackTemperament>
 ): { mIdx: number; circleStepIdx: number; triggerSec: number } {
   const mIdx = resolveMeasureIndexAtTick(absTick, timing);
   const mTicks = timing.measureTicks[mIdx] || 96, tick96nSec = (timing.measureDurationsSec[mIdx] || 2) / mTicks;
   const activePattern = resolveActivePatternForMeasure(track, allTracks, mIdx, null);
   const circleStepIdx = (packed >>> 16) & 0x3F, isTuplet = ((packed >>> 1) & 1) === 1;
+  const temp = temperamentMap
+    ? (temperamentMap.get(Number(track.id)) ?? NEUTRAL_SECTION_TEMPERAMENT)
+    : resolveTrackSectionTemperament(track, allTracks);
   const swingSec = computePercussionNoteSwing({
     activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter: 0,
     globalMode: globalSwing.mode, globalSwing, stepDurationSec: tick96nSec * 6,
+    balancoAdherence: temp.balancoAdherence,
   });
   const microSec = (microPct / 100) * (tick96nSec * (mTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
   return {
     mIdx, circleStepIdx,
-    triggerSec: tickToTimeSec(absTick, timing) + swingSec + microSec + EngineTuning.calculateUnisonMicroDelaySec(track, instId),
+    triggerSec: tickToTimeSec(absTick, timing) + swingSec + microSec + temp.attackSpreadSec,
   };
 }
-
