@@ -3,7 +3,7 @@
  * Zéro allocation d'objets JS sur le chemin critique (`PUSH_EVENTS` par `Float64Array` plat).
  */
 
-export const MAX_WORKLET_OUTPUTS = 24;
+export const MAX_WORKLET_OUTPUTS = 32;
 export const MAX_WORKLET_VOICES = 128;
 export const MAX_WORKLET_EVENTS = 4096;
 export const MAX_WORKLET_SAMPLES = 2048;
@@ -12,7 +12,7 @@ export const MAX_WORKLET_SAMPLES = 2048;
  * Stride fixe de 9 nombres (`Float64Array`) par événement dans `PUSH_EVENTS` :
  * [0] triggerFrame      : Indice d'échantillon absolu (`Math.round(triggerTimeSec * sampleRate)`)
  * [1] trackId           : Identifiant numérique de la piste (`-1` pour preview sans piste)
- * [2] slot              : Index de sortie stéréo du Worklet (`0..23`)
+ * [2] slot              : Index de sortie stéréo du Worklet (`0..31`)
  * [3] sampleId          : Identifiant du sample dans la banque PCM (`0..2047`)
  * [4] velocity          : Vélocité brute (`0..2.0` ou `0..200`)
  * [5] strokeBaseGain    : Gain de base du coup issu d'`audioConfig` (défaut `1.0`)

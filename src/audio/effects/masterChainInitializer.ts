@@ -131,7 +131,7 @@ export function initMasterEffectsChain(
   const revBus = new Tone.Channel(); revBus.receive('reverb'); nodes.setReverbBusReceive(revBus);
   const rev = createStudioConvolverReverb(); rev.connect(revVol); revBus.connect(rev); nodes.setReverbNode(rev);
 
-  const dist = createStudioSaturationChain(isEco);
+  const dist = createStudioSaturationChain(disableFx);
   const distVol = new Tone.Gain(0.0).connect(vol);
   dist.connect(distVol); nodes.setDistortionNode(dist); nodes.setMasterDistortionVolumeNode(distVol);
   const distBus = new Tone.Channel(); distBus.receive('distortion'); distBus.connect(dist); nodes.setDistortionBusReceive(distBus);

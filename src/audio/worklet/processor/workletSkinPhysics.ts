@@ -1,10 +1,9 @@
 /**
- * workletSkinPhysics.ts — Physique de peau SOA Zéro-GC pour AudioWorklet (< 115 lignes).
+ * workletSkinPhysics.ts — Physique acoustique SOA Zéro-GC pour AudioWorklet (< 130 lignes).
  * Isolé strictement par `trackId` :
- * - `A` (Abafado) : choke de toute résonance de peau en cours (`D, E, d, e, B`) en 25 ms.
- * - `D` / `E` (Coup fort) : choke de l'ancienne queue de peau en 22 ms.
- * - `d` / `e` (Ghost note) : ducking doux -3.5 dB / 35 ms sur `D/E` + choke anti-clic 18 ms sur Barulho actif.
- * - Toute autre frappe (`X, C, I`, autres fûts) : choke anti-clic 18 ms uniquement sur Barulho actif.
+ * - Alfaia : `A/a` (25 ms), `D/E` (22 ms), `d/e` (ducking -3.5 dB / 35 ms sur `D/E` + choke 18 ms Barulho).
+ * - Gonguê (`X`, `G/g/A/a`) & Timbal (`P/p`, `S/s`, `V/v`, `G/g/A/a/F/f`) : choke 20 ms sur `VOICE_CLASS_OPEN_RESONANT` + Barulho.
+ * - Toute autre frappe (dont Mineiro `P/p`, Timbal `D/d`/`C/c`) : choke 18 ms uniquement sur Barulho actif.
  */
 import { MAX_WORKLET_VOICES, VOICE_STATE_ACTIVE, VOICE_STATE_CHOKING } from '../percussionWorkletTypes';
 import {
@@ -15,9 +14,11 @@ import {
   CHOKE_BARULHO_RELEASE_18MS,
   CHOKE_MODE_MASK,
   CHOKE_NONE,
+  CHOKE_RESONANT_20MS,
   VOICE_CLASS_ALFAIA_STRONG,
   VOICE_CLASS_GENERIC,
   VOICE_CLASS_MASK,
+  VOICE_CLASS_OPEN_RESONANT,
 } from './workletEventFlags';
 
 export * from './workletEventFlags';
@@ -70,6 +71,23 @@ export class WorkletSkinPhysicsSoa {
           voiceState[v] = VOICE_STATE_CHOKING;
           voiceChokeStartInBlock[v] = startInBlock;
           voiceChokeFramesLeft[v] = barulhoChokeFrames;
+          voiceChokeDelta[v] = 0;
+        }
+      }
+      return;
+    }
+
+    if (mode === CHOKE_RESONANT_20MS) {
+      const choke20Frames = Math.max(1, Math.ceil(0.020 * sr));
+      for (let v = 0; v < MAX_WORKLET_VOICES; v++) {
+        if (
+          voiceState[v] === VOICE_STATE_ACTIVE && voiceTrackId[v] === trackId &&
+          voiceStartFrame[v] < evtFrame && (this.voiceClass[v] === VOICE_CLASS_OPEN_RESONANT || barulhoMode[v] !== 0)
+        ) {
+          barulhoMode[v] = 0;
+          voiceState[v] = VOICE_STATE_CHOKING;
+          voiceChokeStartInBlock[v] = startInBlock;
+          voiceChokeFramesLeft[v] = choke20Frames;
           voiceChokeDelta[v] = 0;
         }
       }

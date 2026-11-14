@@ -16,7 +16,7 @@ import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
 import {
   BARULHO_OP_ATTACK_B, BARULHO_OP_NONE, BARULHO_OP_SOFT_B,
-  packWorkletEventFlags, resolveAlfaiaPhysicsSpec, resolveBarulhoOpForSymbol,
+  packWorkletEventFlags, resolveBarulhoOpForSymbol, resolveTrackPhysicsSpec,
 } from '../processor/workletSkinPhysics';
 import { MeasureTimingTable } from './percussionHorizonTiming';
 
@@ -83,7 +83,7 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
       const barOp = resolveBarulhoOpForSymbol(strokeSymbol, false);
       const ptIdx = strokeSymbol === '/' ? findBarulhoLookaheadIndex(lookaheadPoints, liveTrack.id, baseTimeSec, '/') : -1;
       const rampSec = strokeSymbol === '/' ? (ptIdx >= 0 && lookaheadPoints ? resolveSlashFadeOutRampSec(lookaheadPoints, ptIdx) : 0.450) : DEFAULT_BARULHO_DOT_STOP_SEC;
-      const { chokeMode, voiceClass } = resolveAlfaiaPhysicsSpec(isAlfaia, strokeSymbol, true);
+      const { chokeMode, voiceClass } = resolveTrackPhysicsSpec(inst.id, strokeSymbol, true);
       emittedNoteFrames.set(noteUid, triggerFrame);
       stagedEvents.push(triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id), 0, 0, 1.0, rampSec, 1.0, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, false, barOp));
       return;
@@ -111,7 +111,7 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     }
 
     const pitchNuance = stroke.isBarulho ? (1.0 / (engineDeps.getTrackPitchRatio(liveTrack.id) || 1.0)) : (strokeSymbol === 'r' ? 0.985 : 1.0);
-    const { chokeMode, voiceClass } = resolveAlfaiaPhysicsSpec(isAlfaia, strokeSymbol, barOp !== BARULHO_OP_NONE);
+    const { chokeMode, voiceClass } = resolveTrackPhysicsSpec(inst.id, strokeSymbol, barOp !== BARULHO_OP_NONE);
     stagedEvents.push(triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id), sampleId, finalVel, stroke.baseGain ?? 1.0, metaOrDecay, pitchNuance, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms, barOp));
   };
 

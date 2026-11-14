@@ -1,14 +1,18 @@
 /**
- * alfaiaTrackVoicePhysics.ts — Physique de peau Web Audio (Live & Bounce Offline) isolée par piste (< 138 lignes).
+ * alfaiaTrackVoicePhysics.ts — Physique acoustique Web Audio (Live & Bounce Offline) isolée par piste (< 130 lignes).
  * Parité stricte avec `workletSkinPhysics.ts` :
- * - Toute frappe franche hors `B`/`b` coupe un Barulho actif en 18–25 ms anti-clic.
- * - `A` / `a` : choke des résonances de peau Alfaia en 25 ms. `D` / `E` : 22 ms.
- * - `d` / `e` après `D`/`E` : ducking doux -3.5 dB sur 35 ms. `P` / `p` (Timbal) : 8 ms.
+ * - Alfaia : `A/a` (25 ms), `D/E` (22 ms), `d/e` (ducking -3.5 dB / 35 ms sur `D/E`).
+ * - Gonguê (`X`, `G/g/A/a`) & Timbal (`P/p/S/s/V/v/G/g/A/a/F/f`) : choke 20 ms sur voix résonantes ouvertes (+ Barulho).
+ * - Mineiro `P/p`, Timbal `D/d`/`C/c` et autres instruments : immunité totale hors Barulho (18 ms).
  */
 import { ALFAIA_GHOST_DUCK_GAIN } from '../worklet/processor/workletSkinPhysics';
 import { ActiveVoice, ALFAIA_INSTRUMENTS } from './engineTypes';
 
 const ALFAIA_WOOD_STROKES = new Set(['C', 'c', 'I', 'i', 'X', 'x']);
+const GONGUE_OPEN_STROKES = new Set(['G', 'g', 'A', 'a']);
+const GONGUE_CHOKE_TRIGGERS = new Set(['X', 'x', 'G', 'g', 'A', 'a']);
+const TIMBAL_OPEN_STROKES = new Set(['G', 'g', 'A', 'a', 'F', 'f']);
+const TIMBAL_CHOKE_TRIGGERS = new Set(['P', 'p', 'S', 's', 'V', 'v', 'G', 'g', 'A', 'a', 'F', 'f']);
 
 export function computeAnalyticalVoiceGainAtTime(v: ActiveVoice, t: number): number {
   const peak = Math.max(0.0001, v.velocity);
@@ -58,11 +62,14 @@ export function applyWebAudioTrackSkinPhysics(
 ): void {
   if (!voices || voices.length === 0) return;
   const isAlfaia = ALFAIA_INSTRUMENTS.has(instrumentId);
+  const isResonantChoke =
+    (instrumentId === 'gongue' && GONGUE_CHOKE_TRIGGERS.has(strokeSymbol)) ||
+    (instrumentId === 'timbal' && TIMBAL_CHOKE_TRIGGERS.has(strokeSymbol));
 
   if (strokeSymbol !== 'B' && strokeSymbol !== 'b' && strokeSymbol !== '/' && strokeSymbol !== '.') {
     const barChokeSec = isAlfaia
       ? (strokeSymbol === 'A' || strokeSymbol === 'a' ? 0.025 : (strokeSymbol === 'D' || strokeSymbol === 'E' ? 0.022 : 0.018))
-      : (strokeSymbol === 'p' || strokeSymbol === 'P' ? 0.008 : 0.018);
+      : (isResonantChoke ? 0.020 : 0.018);
     for (let i = 0; i < voices.length; i++) {
       const v = voices[i];
       if (v && v.gainNode && (v.strokeSymbol === 'B' || v.strokeSymbol === 'b') && v.time < time && time < v.expectedEnd) {
@@ -106,9 +113,12 @@ export function applyWebAudioTrackSkinPhysics(
     return;
   }
 
-  if (strokeSymbol !== 'p' && strokeSymbol !== 'P') return;
+  if (!isResonantChoke) return;
+  const openSet = instrumentId === 'gongue' ? GONGUE_OPEN_STROKES : TIMBAL_OPEN_STROKES;
   for (let i = 0; i < voices.length; i++) {
     const v = voices[i];
-    if (v && v.gainNode && v.time < time && time < v.expectedEnd) chokeVoiceIn(v, time, 0.008);
+    if (v && v.gainNode && v.strokeSymbol && openSet.has(v.strokeSymbol) && v.time < time && time < v.expectedEnd) {
+      chokeVoiceIn(v, time, 0.020);
+    }
   }
 }

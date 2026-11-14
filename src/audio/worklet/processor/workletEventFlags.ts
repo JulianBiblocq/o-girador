@@ -1,5 +1,5 @@
 /**
- * workletEventFlags.ts — Constantes de bits & empaquetage `flags` pour l'AudioWorklet Percussion (< 105 lignes).
+ * workletEventFlags.ts — Constantes de bits & empaquetage `flags` pour l'AudioWorklet Percussion (< 130 lignes).
  * Partagé entre le Main Thread (`percussionMeasureEventPacker`) et le scope AudioWorklet (`workletEventQueue`, `workletVoicePoolSoa`).
  */
 
@@ -9,11 +9,13 @@ export const CHOKE_ALFAIA_STRONG_22MS = 2;
 export const CHOKE_ALFAIA_ABAFADO_25MS = 3;
 export const CHOKE_ALFAIA_GHOST_DUCK_35MS = 4;
 export const CHOKE_BARULHO_RELEASE_18MS = 5;
+export const CHOKE_RESONANT_20MS = 6;
 export const CHOKE_MODE_MASK = 0x7;
 
 export const VOICE_CLASS_GENERIC = 0;
 export const VOICE_CLASS_ALFAIA_STRONG = 1;
 export const VOICE_CLASS_ALFAIA_SKIN = 2;
+export const VOICE_CLASS_OPEN_RESONANT = 3;
 export const VOICE_CLASS_SHIFT = 3;
 export const VOICE_CLASS_MASK = 0x3;
 
@@ -34,10 +36,10 @@ export const WORKLET_SEQ_MASK = 0x3FFFFF;
 /** Facteur linéaire exact correspondant à -3.5 dB : 10^(-3.5 / 20) */
 export const ALFAIA_GHOST_DUCK_GAIN = 0.6683439;
 
-/**
- * Calcule un offset d'entrée déterministe dans `[bodyStartFrame, loopWrapFrame - xfadeFrames)`
- * pour `b` minuscule à froid afin que 2 pistes du même fût ne soient jamais corrélées en phase.
- */
+const GONGUE_OPEN_SET = new Set(['G', 'g', 'A', 'a']);
+const TIMBAL_OPEN_SET = new Set(['G', 'g', 'A', 'a', 'F', 'f']);
+const TIMBAL_DRY_CHOKE_SET = new Set(['P', 'p', 'S', 's', 'V', 'v']);
+
 export function computeBarulhoSoftEntryFrame(
   trackId: number,
   bodyStartFrame: number,
@@ -58,11 +60,12 @@ export function resolveBarulhoOpForSymbol(symbol: string, isBarulhoStroke: boole
   return BARULHO_OP_NONE;
 }
 
-export function resolveAlfaiaPhysicsSpec(
-  isAlfaia: boolean,
+export function resolveTrackPhysicsSpec(
+  instrumentId: string,
   symbol: string,
   isBarulhoOp: boolean
 ): { chokeMode: number; voiceClass: number } {
+  const isAlfaia = instrumentId === 'marcante' || instrumentId === 'meiao' || instrumentId === 'repique';
   if (isBarulhoOp) {
     return { chokeMode: CHOKE_NONE, voiceClass: isAlfaia ? VOICE_CLASS_ALFAIA_SKIN : VOICE_CLASS_GENERIC };
   }
@@ -78,8 +81,23 @@ export function resolveAlfaiaPhysicsSpec(
     }
     return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
-  if (symbol === 'p' || symbol === 'P') {
-    return { chokeMode: CHOKE_FAST_8MS, voiceClass: VOICE_CLASS_GENERIC };
+  if (instrumentId === 'gongue') {
+    if (GONGUE_OPEN_SET.has(symbol)) {
+      return { chokeMode: CHOKE_RESONANT_20MS, voiceClass: VOICE_CLASS_OPEN_RESONANT };
+    }
+    if (symbol === 'X' || symbol === 'x') {
+      return { chokeMode: CHOKE_RESONANT_20MS, voiceClass: VOICE_CLASS_GENERIC };
+    }
+    return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
+  }
+  if (instrumentId === 'timbal') {
+    if (TIMBAL_OPEN_SET.has(symbol)) {
+      return { chokeMode: CHOKE_RESONANT_20MS, voiceClass: VOICE_CLASS_OPEN_RESONANT };
+    }
+    if (TIMBAL_DRY_CHOKE_SET.has(symbol)) {
+      return { chokeMode: CHOKE_RESONANT_20MS, voiceClass: VOICE_CLASS_GENERIC };
+    }
+    return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
   return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
 }

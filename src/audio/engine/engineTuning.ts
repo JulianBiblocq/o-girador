@@ -46,13 +46,6 @@ export class EngineTuning {
     return totalSt === 0 ? 1.0 : Math.pow(2, totalSt / 12);
   }
 
-  public static calculateMicroDetuneMultiplier(
-    _instrumentId?: string,
-    _trackId?: number | string | null
-  ): number {
-    return 1.0;
-  }
-
   public static calculateUnisonMicroDelaySec(
     track?: TrackGroup | null,
     instrumentId?: string

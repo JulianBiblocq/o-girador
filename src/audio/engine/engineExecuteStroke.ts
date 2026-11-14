@@ -87,11 +87,10 @@ export class EngineExecuteStroke {
     const isLeftHandRufada = effectiveSymbol === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
     const pitchNuance = isLeftHandRufada ? 0.985 : 1.0;
-    const microDetune = EngineTuning.calculateMicroDetuneMultiplier(instrumentId, trackId);
     const baseRate = resolvedStroke.isBarulho
       ? 1.0
       : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
-    const calculatedPitch = baseRate * pitchNuance * microDetune;
+    const calculatedPitch = baseRate * pitchNuance;
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
 
     EngineStrokePlayback.play(

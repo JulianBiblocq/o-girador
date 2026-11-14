@@ -31,7 +31,6 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
       const fxChanged =
         state.masterFX !== prevState.masterFX ||
         state.masterEffectsActive !== prevState.masterEffectsActive ||
-        state.isEcoMode !== prevState.isEcoMode ||
         state.ecoConfig !== prevState.ecoConfig;
 
       if (fxChanged) {
@@ -74,7 +73,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
               preHpfHz: masterFX.distortion.preHpfHz,
               toneHz: masterFX.distortion.toneHz,
             },
-            state.isEcoMode
+            disableFx
           );
           if (typeof distortionNode.wet?.rampTo === 'function') {
             distortionNode.wet.rampTo(fxActive.disto && !masterFX.distortion.isMuted ? 1 : 0, 0.02);

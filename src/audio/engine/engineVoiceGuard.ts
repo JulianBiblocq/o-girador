@@ -7,6 +7,8 @@ import { applyWebAudioTrackSkinPhysics, computeAnalyticalVoiceGainAtTime } from 
 
 export { computeAnalyticalVoiceGainAtTime };
 
+const VOICE_GUARD_POOL_SIZE = 64;
+
 export class EngineVoiceGuard {
   public gainNodeMappingPool: GainNodeMapping[] = [];
   public gainNodeMappingPoolIndex = 0;
@@ -15,7 +17,7 @@ export class EngineVoiceGuard {
   public trackVoices = new Map<string, ActiveVoice[]>();
 
   constructor() {
-    for (let i = 0; i < 512; i++) {
+    for (let i = 0; i < VOICE_GUARD_POOL_SIZE; i++) {
       this.gainNodeMappingPool.push({ instrumentId: '', gainNode: null, expectedEnd: 0 });
       this.activeVoicePool.push({
         source: null as any, gainNode: null as any, time: 0, holdEnd: 0, releaseEnd: 0,
@@ -26,7 +28,7 @@ export class EngineVoiceGuard {
 
   public getGainNodeMapping(instrumentId: string, gainNode: GainNode, expectedEnd: number): GainNodeMapping {
     const obj = this.gainNodeMappingPool[this.gainNodeMappingPoolIndex];
-    this.gainNodeMappingPoolIndex = (this.gainNodeMappingPoolIndex + 1) % 512;
+    this.gainNodeMappingPoolIndex = (this.gainNodeMappingPoolIndex + 1) % VOICE_GUARD_POOL_SIZE;
     obj.instrumentId = instrumentId;
     obj.gainNode = gainNode;
     obj.expectedEnd = expectedEnd;
@@ -46,7 +48,7 @@ export class EngineVoiceGuard {
     strokeSymbol = ''
   ): ActiveVoice {
     const obj = this.activeVoicePool[this.activeVoicePoolIndex];
-    this.activeVoicePoolIndex = (this.activeVoicePoolIndex + 1) % 512;
+    this.activeVoicePoolIndex = (this.activeVoicePoolIndex + 1) % VOICE_GUARD_POOL_SIZE;
     obj.source = source;
     obj.gainNode = gainNode;
     obj.time = time;

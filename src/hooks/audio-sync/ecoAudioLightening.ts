@@ -38,7 +38,7 @@ export function applyFxSendsEco(disableFx: boolean, tracks: any[]): void {
 /** Retour Distorsion Master : coupe en Palier 2, restaure la valeur du store sinon. */
 export function applyMasterDistortionEco(disableFx: boolean, state: any): void {
   if (distortionNode) {
-    try { distortionNode.oversample = resolveSaturationOversample(Boolean(state.isEcoMode) || disableFx); } catch (_) {}
+    try { distortionNode.oversample = resolveSaturationOversample(disableFx); } catch (_) {}
   }
   const busCfg = state.masterFX?.masterBus;
   syncToadaVocalSlapback(busCfg?.toadaSlapbackMode ?? 'off', busCfg?.toadaSlapbackWet ?? 0, disableFx);
@@ -62,7 +62,7 @@ export function applyHaasEco(disableFx: boolean): void {
 export function applyEqEco(tracks: any[]): void {
   tracks.forEach((t) => {
     try {
-      if (t.isBusFolder) syncBusInsertChain(t.id, t);
+      if (t.isBusFolder || t.isLinkFolder) syncBusInsertChain(t.id, t);
       else syncTrackInsertChain(t.id, t);
     } catch (err) {
       console.error(`[EcoAudio] EQ sync failed on track ${t.id}:`, err);

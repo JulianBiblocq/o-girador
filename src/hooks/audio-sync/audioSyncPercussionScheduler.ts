@@ -1,8 +1,7 @@
 import * as Tone from 'tone';
 import { Track, GlobalSwing } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { getTrackFamilyIds, getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
-import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
+import { getTrackFamilyIds, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { AudioEngine } from '../../AudioEngine';
 import { isTrackCoveredInWorkletHorizon } from '../../audio/worklet/horizon/percussionHorizonPusher';
@@ -23,7 +22,7 @@ function triggerPackedNote(
   packedData: number, velocity: number, microtimingPct: number,
   p: PercussionSchedulerParams, skipTrackIds?: Set<number>
 ): void {
-  const { time, currentTicks, currentMeasureIdx, tick96nSec, swingJitter, globalMode, stepDurationSec, isDocHidden, tracks, soloPatternPlayId, globalSwing, familyMuteSet, audioEngine, busChannels } = p;
+  const { time, currentTicks, currentMeasureIdx, tick96nSec, swingJitter, globalMode, stepDurationSec, isDocHidden, tracks, soloPatternPlayId, globalSwing, familyMuteSet, audioEngine } = p;
   const trackIdx = (packedData >> 22) & 0x3FF;
   const liveTrack = tracks[trackIdx];
   if (!liveTrack || (skipTrackIds && skipTrackIds.has(liveTrack.id))) return;
@@ -36,10 +35,8 @@ function triggerPackedNote(
   const decayPct = (packedData >> 2) & 0x7F;
   const isTuplet = ((packedData >> 1) & 1) === 1;
 
-  const isConnectedToBus = Boolean(liveTrack.busId && busChannels[liveTrack.busId]);
-  const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 75) : getEffectiveVolume(tracks, liveTrack.id);
   const isMuted = soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, liveTrack.id);
-  if (isMuted || (soloPatternPlayId === null && trackVolPct <= 3 && !hasActiveTrackAutomation(liveTrack, 'volume'))) return;
+  if (isMuted) return;
 
   const strokeSymbol = String.fromCharCode(strokeCharCode);
   const decayMultiplier = decayPct / 100;

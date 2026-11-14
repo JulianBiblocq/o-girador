@@ -68,9 +68,7 @@ export class PercussionWorkletTrackSync {
       );
 
       const config = instrumentId ? configMap.get(instrumentId) : undefined;
-      const basePitch = config ? EngineTuning.calculatePitch(instrumentId, config, track) : 1.0;
-      const detune = instrumentId ? EngineTuning.calculateMicroDetuneMultiplier(instrumentId, trackId) : 1.0;
-      const pitchRatio = basePitch * detune;
+      const pitchRatio = config ? EngineTuning.calculatePitch(instrumentId, config, track) : 1.0;
       this.trackPitchRatio.set(trackId, pitchRatio);
 
       const slot = slotRouter.getTrackSlot(trackId);

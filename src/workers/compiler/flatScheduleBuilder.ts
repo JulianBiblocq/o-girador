@@ -1,4 +1,5 @@
 import { nextRandom } from './compilerRandom';
+import { buildMeasureStepGrid } from './measureStepGridHelper';
 import { resolveActivePattern, resolvePatternVariation } from './patternResolver';
 import {
   normalizeStrokeKey,
@@ -31,7 +32,7 @@ export function buildFlatSongSchedule(
     const maxTicks = beats * (96 / beatUnit);
 
     tracks.forEach((track: any, trackIdx: number) => {
-      if (track.isBusFolder) return;
+      if ((track.isBusFolder || track.isLinkFolder) && !track.isLinkMaster) return;
       const inst = instConfig[track.instrumentIdx];
       if (!inst || inst.type === 'voice') return;
 
@@ -41,8 +42,7 @@ export function buildFlatSongSchedule(
         return;
       }
 
-      const isEnteringPatternBlock = lastPatternIdByTrack.get(track.id) !== activePattern.id;
-      const currentPlayCount = isEnteringPatternBlock ? 0 : 1;
+      const currentPlayCount = lastPatternIdByTrack.get(track.id) !== activePattern.id ? 0 : 1;
       lastPatternIdByTrack.set(track.id, activePattern.id);
 
       let stepsToPlay = activePattern.activeSteps;
@@ -66,31 +66,9 @@ export function buildFlatSongSchedule(
         if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
       }
 
-      const ticksPerBeat = maxTicks / beats;
-      const resArray = activePattern.beatResolutions || Array(beats).fill(4);
-      let stepTickAccum = 0;
-      const stepTickMap: number[] = [];
-      const stepIsTupletMap: boolean[] = [];
-
-      for (let b = 0; b < beats; b++) {
-        const res = resArray[b] || 4;
-        const ticksPerStep = ticksPerBeat / res;
-        for (let r = 0; r < res; r++) {
-          stepTickMap.push(Math.round(stepTickAccum + r * ticksPerStep));
-          stepIsTupletMap.push(res === 3 || res === 6);
-        }
-        stepTickAccum += ticksPerBeat;
-      }
-
-      const effectiveStepCount = stepTickMap.length;
-      const stepsPerMeasure = beats * 4;
-      const patternSpan = Math.max(1, Math.round((activePattern.steps || stepsPerMeasure) / stepsPerMeasure));
-      let stepOffset = 0;
-      if (patternSpan > 1) {
-        let startM = measureIdx;
-        while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) startM--;
-        stepOffset = ((measureIdx - startM) % patternSpan) * stepsPerMeasure;
-      }
+      const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset } = buildMeasureStepGrid(
+        beats, maxTicks, activePattern, measureIdx
+      );
 
       for (let step = 0; step < effectiveStepCount; step++) {
         const actualStep = stepOffset + step;
@@ -98,7 +76,9 @@ export function buildFlatSongSchedule(
         if (!rawState || rawState === 0 || rawState === '0') continue;
 
         const tickIdx = stepTickMap[step];
-        const stepDurationTicks = (step < effectiveStepCount - 1) ? (stepTickMap[step + 1] - stepTickMap[step]) : (maxTicks - stepTickMap[step]);
+        const stepDurationTicks = (step < effectiveStepCount - 1)
+          ? (stepTickMap[step + 1] - stepTickMap[step])
+          : (maxTicks - stepTickMap[step]);
         const statesToProcess = Array.isArray(rawState) ? rawState : [rawState];
 
         for (let strokeIndex = 0; strokeIndex < statesToProcess.length; strokeIndex++) {
@@ -108,7 +88,6 @@ export function buildFlatSongSchedule(
           const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, nextRandom, step);
           const stepDecayMultiplier = computeStepDecay(effectiveDecays?.[actualStep], strokeIndex);
           const microtimingPct = computeStepMicrotiming(effectiveMicrotimings?.[actualStep], strokeIndex);
-
           const isTuplet = stepIsTupletMap[step] || false;
           const subTickOffset = statesToProcess.length > 1
             ? Math.round((stepDurationTicks / statesToProcess.length) * strokeIndex) : 0;
