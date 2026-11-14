@@ -1,5 +1,5 @@
 /**
- * alfaiaBankBuilder.ts — Constructeur des banques multi-samples Studio dédiées par fût d'Alfaia (< 80 lignes).
+ * alfaiaBankBuilder.ts — Constructeur des banques multi-samples Studio dédiées par fût d'Alfaia (< 85 lignes).
  * Nomenclature 100 % insensible à la casse (Windows NTFS & Linux ext4) : D, E, d_min, e_min, A, X, C, I, B.
  */
 import { StrokeMapping } from './types';
@@ -62,9 +62,16 @@ export function buildDedicatedAlfaiaStrokes(role: AlfaiaStudioRole, dStrongCount
     },
     {
       symbol: 'B',
-      keys: ['B', 'b'],
+      keys: ['B'],
       files: [`Mixdown/Alfaia ${role} B.ogg`],
-      caseSensitive: false,
+      caseSensitive: true,
+      isBarulho: true,
+    },
+    {
+      symbol: 'b',
+      keys: ['b'],
+      files: [`Mixdown/Alfaia ${role} B.ogg`],
+      caseSensitive: true,
       isBarulho: true,
     },
   ];

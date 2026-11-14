@@ -52,6 +52,11 @@ export class EngineNotePlayer {
     const config = deps.configMap.get(instrumentId);
     if (!config) return;
 
+    if (strokeSymbol === '/' || strokeSymbol === '.') {
+      deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, safeTime, strokeSymbol === '/' ? 0.450 : 0.035);
+      return;
+    }
+
     const stroke = EngineVirtualStrokes.resolveStroke(deps.strokesMaps, instrumentId, strokeSymbol);
     if (!stroke) return;
 
@@ -82,6 +87,11 @@ export class EngineNotePlayer {
 
     deps.sampleLoader.loadInstrumentSamples(deps.playbackCtx.audioContext, deps.configMap, instrumentId).catch(console.error);
     const config = deps.configMap.get(instrumentId);
+    if (strokeSymbol === '/' || strokeSymbol === '.') {
+      const tNow = time !== undefined ? time : (Tone?.now() || deps.playbackCtx.audioContext.currentTime);
+      deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, tNow, strokeSymbol === '/' ? 0.450 : 0.035);
+      return;
+    }
     const stroke = config ? EngineVirtualStrokes.resolveStroke(deps.strokesMaps, instrumentId, strokeSymbol) : null;
     if (!config || !stroke) return;
 

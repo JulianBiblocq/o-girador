@@ -17,7 +17,7 @@ import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 
 function isStrokeForHand(token: string, isDominantHand: boolean): boolean {
   const s = (token || '').trim();
-  if (!s || s === '-' || s === '.' || s === '0') return false;
+  if (!s || s === '-' || s === '.' || s === '/' || s === '0') return false;
   const up = s.toUpperCase();
   if (['C', 'X', 'B', 'T', 'R', 'F', '~'].includes(up)) return true;
   return isDominantHand ? up === 'D' || up === 'S' : up === 'E' || up === 'A' || up === 'I' || up === 'V';

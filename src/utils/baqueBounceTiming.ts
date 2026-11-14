@@ -4,6 +4,10 @@
  * et formatage <nom_rythme>_<bpm>bpm.wav pour l'export Baque vers Cantador (< 75 lignes).
  */
 
+import { EngineTuning } from '../audio/engine/engineTuning';
+import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../hooks/audio-sync/percussionSwingHelper';
+import type { GlobalSwing } from '../types';
+
 export interface BaqueCycleTimingParams {
   totalMeasures: number;
   bpm: number;
@@ -66,5 +70,34 @@ export function tickToTimeSec(absTick: number, timing: BaqueCycleTimingResult): 
     rem -= mTicks;
   }
   return timing.totalDurationSec;
+}
+
+export function resolveMeasureIndexAtTick(absTick: number, timing: BaqueCycleTimingResult): number {
+  let rem = Math.max(0, absTick);
+  for (let m = 0; m < timing.totalMeasures; m++) {
+    const mTicks = timing.measureTicks[m] || 96;
+    if (rem < mTicks || m === timing.totalMeasures - 1) return m;
+    rem -= mTicks;
+  }
+  return 0;
+}
+
+export function resolveBounceNoteTrigger(
+  absTick: number, packed: number, microPct: number, track: any, allTracks: any[],
+  instId: string, timing: BaqueCycleTimingResult, globalSwing: GlobalSwing
+): { mIdx: number; circleStepIdx: number; triggerSec: number } {
+  const mIdx = resolveMeasureIndexAtTick(absTick, timing);
+  const mTicks = timing.measureTicks[mIdx] || 96, tick96nSec = (timing.measureDurationsSec[mIdx] || 2) / mTicks;
+  const activePattern = resolveActivePatternForMeasure(track, allTracks, mIdx, null);
+  const circleStepIdx = (packed >>> 16) & 0x3F, isTuplet = ((packed >>> 1) & 1) === 1;
+  const swingSec = computePercussionNoteSwing({
+    activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter: 0,
+    globalMode: globalSwing.mode, globalSwing, stepDurationSec: tick96nSec * 6,
+  });
+  const microSec = (microPct / 100) * (tick96nSec * (mTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
+  return {
+    mIdx, circleStepIdx,
+    triggerSec: tickToTimeSec(absTick, timing) + swingSec + microSec + EngineTuning.calculateUnisonMicroDelaySec(track, instId),
+  };
 }
 

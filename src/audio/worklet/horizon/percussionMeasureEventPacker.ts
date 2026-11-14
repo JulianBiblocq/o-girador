@@ -1,36 +1,39 @@
 /**
  * O Girador - Empaquetage des Événements de Mesure vers AudioWorklet (< 140 lignes)
  * - Convertit la grille compilée + variations en tuples `Float64Array` (stride 9).
- * - Physique de peau Alfaia SOA (Choke 22/25 ms, Ducking -3.5 dB / 35 ms), calibration Studio 1.0 & fallback A -> e (80 ms).
+ * - Supporte Barulho continu (`B`, `b`, `/`, `.`) avec coordonnées `(measureIdx, stepIdx)` et rampes multi-pas.
  */
-
 import { instrumentsConfig } from '../../../data';
 import { InstrumentAudioConfig, StrokeMapping } from '../../../data/audioConfig';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
 import { GlobalSwing, Track } from '../../../types';
+import {
+  BarulhoLookaheadPoint, DEFAULT_BARULHO_DOT_STOP_SEC, findBarulhoLookaheadIndex,
+  packBarulhoOriginCoord, resolveSlashFadeOutRampSec, resolveSoftBarulhoRampSpec,
+} from '../../barulho/barulhoRampPlanner';
 import { ALFAIA_INSTRUMENTS } from '../../engine/engineTypes';
 import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
-import { packWorkletEventFlags, resolveAlfaiaPhysicsSpec } from '../processor/workletSkinPhysics';
+import {
+  BARULHO_OP_ATTACK_B, BARULHO_OP_NONE, BARULHO_OP_SOFT_B,
+  packWorkletEventFlags, resolveAlfaiaPhysicsSpec, resolveBarulhoOpForSymbol,
+} from '../processor/workletSkinPhysics';
 import { MeasureTimingTable } from './percussionHorizonTiming';
 
 export interface HorizonPackerEngineDeps {
   isTrackRoutedToWorklet(trackId: number | string, instrumentId: string): boolean;
-  getTrackSlot(trackId: number | string): number;
-  getTrackUnisonDelaySec(trackId: number | string): number;
-  getTrackPitchRatio(trackId: number | string): number;
+  getTrackSlot(trackId: number | string): number; getTrackUnisonDelaySec(trackId: number | string): number;
+  getTrackPitchRatio(trackId: number | string): number; getSampleId(filePath: string): number;
   selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string;
-  getSampleId(filePath: string): number;
   strokesMaps: Map<string, Map<string, StrokeMapping>>; configMap: Map<string, InstrumentAudioConfig>;
 }
 
 export interface PackMeasureEventsParams {
   seqId: number; timing: MeasureTimingTable; measureStartTick: number; tracks: Track[];
-  soloPatternPlayId: number | null; globalSwing: GlobalSwing;
-  flatCompiledSchedule: Float64Array | null; variedTrackIds: Set<number>;
-  variationNotes: ArrayLike<number>; engineDeps: HorizonPackerEngineDeps;
+  soloPatternPlayId: number | null; globalSwing: GlobalSwing; flatCompiledSchedule: Float64Array | null;
+  variedTrackIds: Set<number>; variationNotes: ArrayLike<number>; engineDeps: HorizonPackerEngineDeps;
   sampleRate: number; currentFrame: number; minRebuildFrame: number;
-  previousEmittedNoteFrames?: Map<number, number>; activeBarulhoTracks: Set<number>;
+  previousEmittedNoteFrames?: Map<number, number>; lookaheadPoints?: readonly BarulhoLookaheadPoint[];
 }
 
 export interface PackedMeasureHorizonResult {
@@ -38,7 +41,7 @@ export interface PackedMeasureHorizonResult {
 }
 
 export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeasureHorizonResult {
-  const { seqId, timing, measureStartTick, tracks, soloPatternPlayId, globalSwing, flatCompiledSchedule, variedTrackIds, variationNotes, engineDeps, sampleRate, currentFrame, minRebuildFrame, previousEmittedNoteFrames, activeBarulhoTracks } = p;
+  const { seqId, timing, measureStartTick, tracks, soloPatternPlayId, globalSwing, flatCompiledSchedule, variedTrackIds, variationNotes, engineDeps, sampleRate, currentFrame, minRebuildFrame, previousEmittedNoteFrames, lookaheadPoints } = p;
   const coveredTrackIds = new Set<number>(), uncoveredTrackIds = new Set<number>();
   const emittedNoteFrames = new Map<number, number>(), stagedEvents: number[] = [];
 
@@ -55,20 +58,15 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     const inst = instrumentsConfig[liveTrack.instrumentIdx];
     if (!inst) return;
 
-    const circleStepIdx = (packedData >> 16) & 0x3F;
-    const strokeSymbol = String.fromCharCode((packedData >> 9) & 0x7F);
-    const decayPct = (packedData >> 2) & 0x7F;
-    const isTuplet = ((packedData >> 1) & 1) === 1;
-    let stroke = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, inst.id, strokeSymbol);
-    if (!stroke) return;
-
+    const circleStepIdx = (packedData >> 16) & 0x3F, strokeSymbol = String.fromCharCode((packedData >> 9) & 0x7F);
+    const decayPct = (packedData >> 2) & 0x7F, isTuplet = ((packedData >> 1) & 1) === 1, isSecondStroke = (packedData & 1) === 1;
     const tickDurSec = timing.instantTickDurSec[tickInMeasure], stepDurationSec = tickDurSec * 6;
     const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, timing.measureIdx, soloPatternPlayId);
     const swingJitter = (((((seqId * 31 + tickInMeasure) * 17 + liveTrack.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
     const swingSec = computePercussionNoteSwing({ activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode: globalSwing.mode, globalSwing, stepDurationSec });
-    const stepCount = activePattern ? activePattern.steps : 16;
-    const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / stepCount)) * 0.5;
-    const rawFrame = Math.round((timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure] + swingSec + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id)) * sampleRate);
+    const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
+    const baseTimeSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure] + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id);
+    const rawFrame = Math.round((baseTimeSec + swingSec) * sampleRate);
 
     const noteUid = ((tickInMeasure & 0xFF) << 22) | (packedData >>> 9);
     const oldFrame = previousEmittedNoteFrames?.get(noteUid);
@@ -80,11 +78,22 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     } else if (rawFrame < currentFrame - Math.round(0.015 * sampleRate)) return;
     else if (rawFrame < currentFrame) triggerFrame = currentFrame;
 
-    const isAlfaia = ALFAIA_INSTRUMENTS.has(inst.id);
+    const isAlfaia = ALFAIA_INSTRUMENTS.has(inst.id), isCalibrated = Boolean(engineDeps.configMap.get(inst.id)?.calibratedStudioBank);
+    if (strokeSymbol === '/' || strokeSymbol === '.') {
+      const barOp = resolveBarulhoOpForSymbol(strokeSymbol, false);
+      const ptIdx = strokeSymbol === '/' ? findBarulhoLookaheadIndex(lookaheadPoints, liveTrack.id, baseTimeSec, '/') : -1;
+      const rampSec = strokeSymbol === '/' ? (ptIdx >= 0 && lookaheadPoints ? resolveSlashFadeOutRampSec(lookaheadPoints, ptIdx) : 0.450) : DEFAULT_BARULHO_DOT_STOP_SEC;
+      const { chokeMode, voiceClass } = resolveAlfaiaPhysicsSpec(isAlfaia, strokeSymbol, true);
+      emittedNoteFrames.set(noteUid, triggerFrame);
+      stagedEvents.push(triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id), 0, 0, 1.0, rampSec, 1.0, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, false, barOp));
+      return;
+    }
+
+    let stroke = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, inst.id, strokeSymbol);
+    if (!stroke) return;
     const trigTimeSec = triggerFrame / sampleRate;
     let filePath = engineDeps.selectRoundRobinFile(inst.id, stroke, trigTimeSec, liveTrack.id);
-    let sampleId = engineDeps.getSampleId(filePath);
-    let isFallback80ms = false;
+    let sampleId = engineDeps.getSampleId(filePath), isFallback80ms = false;
     if (sampleId < 0 && isAlfaia && (strokeSymbol === 'A' || strokeSymbol === 'a')) {
       const fbE = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, inst.id, 'e');
       if (fbE) { stroke = fbE; isFallback80ms = true; filePath = engineDeps.selectRoundRobinFile(inst.id, fbE, trigTimeSec, liveTrack.id); sampleId = engineDeps.getSampleId(filePath); }
@@ -92,19 +101,18 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     if (sampleId < 0) { uncoveredTrackIds.add(liveTrack.id); return; }
 
     emittedNoteFrames.set(noteUid, triggerFrame);
-    const isLeftRufada = strokeSymbol === 'r';
-    const finalVelocity = isLeftRufada ? velocity * 0.88 : velocity;
-    const strokeBaseGain = stroke.baseGain ?? 1.0;
-    const trackPitch = engineDeps.getTrackPitchRatio(liveTrack.id) || 1.0;
-    const pitchNuance = stroke.isBarulho ? (1.0 / trackPitch) : (isLeftRufada ? 0.985 : 1.0);
-    const wasBarulho = activeBarulhoTracks.has(liveTrack.id);
-    if (stroke.isBarulho) activeBarulhoTracks.add(liveTrack.id); else if (wasBarulho) activeBarulhoTracks.delete(liveTrack.id);
+    const barOp = resolveBarulhoOpForSymbol(strokeSymbol, Boolean(stroke.isBarulho));
+    let finalVel = strokeSymbol === 'r' ? velocity * 0.88 : velocity, metaOrDecay = decayPct / 100;
+    if (barOp === BARULHO_OP_ATTACK_B) metaOrDecay = packBarulhoOriginCoord(timing.measureIdx, circleStepIdx, isSecondStroke);
+    else if (barOp === BARULHO_OP_SOFT_B) {
+      const ptIdx = findBarulhoLookaheadIndex(lookaheadPoints, liveTrack.id, baseTimeSec, 'b');
+      const spec = ptIdx >= 0 && lookaheadPoints ? resolveSoftBarulhoRampSpec(lookaheadPoints, ptIdx) : { rampSec: 0.140, targetVelocity: finalVel };
+      metaOrDecay = spec.rampSec; finalVel = spec.targetVelocity;
+    }
 
-    const { chokeMode, voiceClass } = resolveAlfaiaPhysicsSpec(isAlfaia, strokeSymbol, Boolean(stroke.isBarulho), wasBarulho);
-    const isCalibrated = Boolean(engineDeps.configMap.get(inst.id)?.calibratedStudioBank);
-    const flags = packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms);
-
-    stagedEvents.push(triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id), sampleId, finalVelocity, strokeBaseGain, decayPct / 100, pitchNuance, flags);
+    const pitchNuance = stroke.isBarulho ? (1.0 / (engineDeps.getTrackPitchRatio(liveTrack.id) || 1.0)) : (strokeSymbol === 'r' ? 0.985 : 1.0);
+    const { chokeMode, voiceClass } = resolveAlfaiaPhysicsSpec(isAlfaia, strokeSymbol, barOp !== BARULHO_OP_NONE);
+    stagedEvents.push(triggerFrame, liveTrack.id, engineDeps.getTrackSlot(liveTrack.id), sampleId, finalVel, stroke.baseGain ?? 1.0, metaOrDecay, pitchNuance, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms, barOp));
   };
 
   const endTick = measureStartTick + timing.maxTicks;
@@ -112,14 +120,12 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     let lo = 0, hi = (flatCompiledSchedule.length >>> 2) - 1;
     while (lo < hi) { const mid = (lo + hi) >>> 1; if (flatCompiledSchedule[mid << 2] < measureStartTick) lo = mid + 1; else hi = mid; }
     for (let ptr = lo << 2; ptr < flatCompiledSchedule.length; ptr += 4) {
-      const absTick = flatCompiledSchedule[ptr];
-      if (absTick >= endTick) break;
-      if (absTick >= measureStartTick) processNoteTuple(absTick, flatCompiledSchedule[ptr + 1], flatCompiledSchedule[ptr + 2], flatCompiledSchedule[ptr + 3], variedTrackIds);
+      if (flatCompiledSchedule[ptr] >= endTick) break;
+      if (flatCompiledSchedule[ptr] >= measureStartTick) processNoteTuple(flatCompiledSchedule[ptr], flatCompiledSchedule[ptr + 1], flatCompiledSchedule[ptr + 2], flatCompiledSchedule[ptr + 3], variedTrackIds);
     }
   }
   for (let vPtr = 0; vPtr < variationNotes.length; vPtr += 4) {
-    const absTick = variationNotes[vPtr];
-    if (absTick >= measureStartTick && absTick < endTick) processNoteTuple(absTick, variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3]);
+    if (variationNotes[vPtr] >= measureStartTick && variationNotes[vPtr] < endTick) processNoteTuple(variationNotes[vPtr], variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3]);
   }
 
   if (uncoveredTrackIds.size > 0) {

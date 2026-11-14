@@ -60,6 +60,7 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
         const strV = String(v);
         const cleanChar = strV.slice(-1);
         if (strV === '0') return 0;
+        if (cleanChar === '/' || cleanChar === '.' || cleanChar === 'B' || cleanChar === 'b') return cleanChar;
         if (isAlfaia && (strV.trim() === 'a' || cleanChar === 'a')) return 'A';
         if (inst && inst.colors[strV] !== undefined && strV !== 'text') return strV;
         if (cleanChar && cleanChar.trim() !== '') {

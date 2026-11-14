@@ -1,5 +1,5 @@
 /**
- * workletEventFlags.ts — Constantes de bits & empaquetage `flags` pour l'AudioWorklet Percussion (< 75 lignes).
+ * workletEventFlags.ts — Constantes de bits & empaquetage `flags` pour l'AudioWorklet Percussion (< 105 lignes).
  * Partagé entre le Main Thread (`percussionMeasureEventPacker`) et le scope AudioWorklet (`workletEventQueue`, `workletVoicePoolSoa`).
  */
 
@@ -8,6 +8,7 @@ export const CHOKE_FAST_8MS = 1;
 export const CHOKE_ALFAIA_STRONG_22MS = 2;
 export const CHOKE_ALFAIA_ABAFADO_25MS = 3;
 export const CHOKE_ALFAIA_GHOST_DUCK_35MS = 4;
+export const CHOKE_BARULHO_RELEASE_18MS = 5;
 export const CHOKE_MODE_MASK = 0x7;
 
 export const VOICE_CLASS_GENERIC = 0;
@@ -18,18 +19,53 @@ export const VOICE_CLASS_MASK = 0x3;
 
 export const FLAG_STUDIO_CALIBRATED = 1 << 5;
 export const FLAG_ABAFADO_FALLBACK_80MS = 1 << 6;
-export const WORKLET_SEQ_SHIFT = 7;
-export const WORKLET_SEQ_MASK = 0x1FFFFFF;
+
+export const BARULHO_OP_NONE = 0;
+export const BARULHO_OP_ATTACK_B = 1;
+export const BARULHO_OP_SOFT_B = 2;
+export const BARULHO_OP_FADEOUT_SLASH = 3;
+export const BARULHO_OP_STOP_DOT = 4;
+export const BARULHO_OP_SHIFT = 7;
+export const BARULHO_OP_MASK = 0x7;
+
+export const WORKLET_SEQ_SHIFT = 10;
+export const WORKLET_SEQ_MASK = 0x3FFFFF;
 
 /** Facteur linéaire exact correspondant à -3.5 dB : 10^(-3.5 / 20) */
 export const ALFAIA_GHOST_DUCK_GAIN = 0.6683439;
 
+/**
+ * Calcule un offset d'entrée déterministe dans `[bodyStartFrame, loopWrapFrame - xfadeFrames)`
+ * pour `b` minuscule à froid afin que 2 pistes du même fût ne soient jamais corrélées en phase.
+ */
+export function computeBarulhoSoftEntryFrame(
+  trackId: number,
+  bodyStartFrame: number,
+  loopResumeFrame: number,
+  loopWrapFrame: number
+): number {
+  if (loopWrapFrame <= bodyStartFrame || bodyStartFrame <= 0) return Math.max(0, bodyStartFrame);
+  const xfade = Math.max(0, loopResumeFrame - bodyStartFrame);
+  const safeSpan = Math.max(1, loopWrapFrame - xfade - bodyStartFrame);
+  const hash = ((((Math.max(0, trackId | 0) + 1) * 2654435761) >>> 0) % 997) / 997;
+  return bodyStartFrame + Math.floor(hash * safeSpan * 0.65);
+}
+
+export function resolveBarulhoOpForSymbol(symbol: string, isBarulhoStroke: boolean): number {
+  if (symbol === '/') return BARULHO_OP_FADEOUT_SLASH;
+  if (symbol === '.') return BARULHO_OP_STOP_DOT;
+  if (isBarulhoStroke) return symbol === 'b' ? BARULHO_OP_SOFT_B : BARULHO_OP_ATTACK_B;
+  return BARULHO_OP_NONE;
+}
+
 export function resolveAlfaiaPhysicsSpec(
   isAlfaia: boolean,
   symbol: string,
-  isBarulho: boolean,
-  wasBarulho: boolean
+  isBarulhoOp: boolean
 ): { chokeMode: number; voiceClass: number } {
+  if (isBarulhoOp) {
+    return { chokeMode: CHOKE_NONE, voiceClass: isAlfaia ? VOICE_CLASS_ALFAIA_SKIN : VOICE_CLASS_GENERIC };
+  }
   if (isAlfaia) {
     if (symbol === 'A' || symbol === 'a') {
       return { chokeMode: CHOKE_ALFAIA_ABAFADO_25MS, voiceClass: VOICE_CLASS_ALFAIA_SKIN };
@@ -38,16 +74,14 @@ export function resolveAlfaiaPhysicsSpec(
       return { chokeMode: CHOKE_ALFAIA_STRONG_22MS, voiceClass: VOICE_CLASS_ALFAIA_STRONG };
     }
     if (symbol === 'd' || symbol === 'e') {
-      return {
-        chokeMode: wasBarulho ? CHOKE_FAST_8MS : CHOKE_ALFAIA_GHOST_DUCK_35MS,
-        voiceClass: VOICE_CLASS_ALFAIA_SKIN,
-      };
+      return { chokeMode: CHOKE_ALFAIA_GHOST_DUCK_35MS, voiceClass: VOICE_CLASS_ALFAIA_SKIN };
     }
-    if (isBarulho) return { chokeMode: CHOKE_NONE, voiceClass: VOICE_CLASS_ALFAIA_SKIN };
-    return { chokeMode: wasBarulho ? CHOKE_FAST_8MS : CHOKE_NONE, voiceClass: VOICE_CLASS_GENERIC };
+    return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
-  const isLegacyChoke = symbol === 'p' || symbol === 'P' || (!isBarulho && wasBarulho);
-  return { chokeMode: isLegacyChoke ? CHOKE_FAST_8MS : CHOKE_NONE, voiceClass: VOICE_CLASS_GENERIC };
+  if (symbol === 'p' || symbol === 'P') {
+    return { chokeMode: CHOKE_FAST_8MS, voiceClass: VOICE_CLASS_GENERIC };
+  }
+  return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
 }
 
 export function packWorkletEventFlags(
@@ -55,12 +89,14 @@ export function packWorkletEventFlags(
   chokeMode: number,
   voiceClass: number,
   isStudioCalibrated: boolean,
-  isAbafadoFallback80ms: boolean
+  isAbafadoFallback80ms: boolean,
+  barulhoOp = BARULHO_OP_NONE
 ): number {
   const low =
     (chokeMode & CHOKE_MODE_MASK) |
     ((voiceClass & VOICE_CLASS_MASK) << VOICE_CLASS_SHIFT) |
     (isStudioCalibrated ? FLAG_STUDIO_CALIBRATED : 0) |
-    (isAbafadoFallback80ms ? FLAG_ABAFADO_FALLBACK_80MS : 0);
+    (isAbafadoFallback80ms ? FLAG_ABAFADO_FALLBACK_80MS : 0) |
+    ((barulhoOp & BARULHO_OP_MASK) << BARULHO_OP_SHIFT);
   return (((seqId & WORKLET_SEQ_MASK) << WORKLET_SEQ_SHIFT) | low) >>> 0;
 }

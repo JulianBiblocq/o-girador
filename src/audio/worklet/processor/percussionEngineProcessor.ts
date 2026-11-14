@@ -67,6 +67,9 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
             ch1: msg.ch1,
             sampleRate: msg.sampleRate > 0 ? msg.sampleRate : sampleRate,
             length: msg.ch0.length,
+            bodyStartFrame: msg.bodyStartFrame ?? 0,
+            loopResumeFrame: msg.loopResumeFrame ?? 0,
+            loopWrapFrame: msg.loopWrapFrame ?? 0,
           };
         }
         break;

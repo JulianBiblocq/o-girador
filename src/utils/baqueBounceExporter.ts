@@ -1,12 +1,13 @@
 /**
  * baqueBounceExporter.ts
  * Export hors-ligne (OfflineAudioContext) en 1 clic d'un cycle du Baque (sans Puxador/Coro)
- * calé à l'échantillon 0 sur M1•T1 avec parité complète console (Bus/Link, Pan, EQ, Decay, Choke, Swing, Polarité Ø, Compression de Bus) (< 130 lignes).
+ * calé à l'échantillon 0 sur M1•T1 avec parité complète console + Barulho continu sans couture (< 138 lignes).
  */
 import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
 import { getEffectiveMuteState, useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
+import { BarulhoLookaheadPoint, packBarulhoOriginCoord } from '../audio/barulho/barulhoRampPlanner';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { EngineTuning } from '../audio/engine/engineTuning';
 import { EngineRoundRobin } from '../audio/engine/engineRoundRobin';
@@ -14,19 +15,16 @@ import { ALFAIA_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { resolveSampleFetchPath, fetchSampleWithRetry } from '../audio/engine/sampleFetchUtils';
 import { getCachedPcmSample, reconstructAudioBuffer } from '../audio/audioSampleCache';
 import { buildFlatSongSchedule } from '../workers/compiler/flatScheduleBuilder';
-import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../hooks/audio-sync/percussionSwingHelper';
 import { audioBufferToWav } from './audio-buffer/audioBufferWavConverter';
+import { OfflineBarulhoPhraseTracker } from './baqueBounceBarulhoRenderer';
 import { buildOfflineTrackGraph, scheduleOfflineStrokeHit } from './baqueBounceTrackGraph';
 import { processOfflineStereoArraysThroughMasterBus } from '../audio/worklet/master-bus/masterBusProcessor';
 import { calibrateBounceLoudnessInPlace } from './bounceLoudnessCalibrator';
 import { planBounceBusStems } from './baqueBounceBusStems';
 import { collapseBounceStemsToStereo } from './baqueBounceBusDynamics';
 import {
-  formatBaqueBounceFilename,
-  computeBaqueCycleTiming,
-  tickToTimeSec,
-  type BaqueCycleTimingParams,
-  type BaqueCycleTimingResult,
+  formatBaqueBounceFilename, computeBaqueCycleTiming, tickToTimeSec, resolveBounceNoteTrigger,
+  type BaqueCycleTimingParams, type BaqueCycleTimingResult,
 } from './baqueBounceTiming';
 
 export { formatBaqueBounceFilename, computeBaqueCycleTiming, tickToTimeSec, type BaqueCycleTimingParams, type BaqueCycleTimingResult };
@@ -46,19 +44,8 @@ async function decodeSampleForOffline(ctx: BaseAudioContext, path: string, cache
   } catch { return null; }
 }
 
-function resolveMeasureIndexAtTick(absTick: number, timing: BaqueCycleTimingResult): number {
-  let rem = Math.max(0, absTick);
-  for (let m = 0; m < timing.totalMeasures; m++) {
-    const mTicks = timing.measureTicks[m] || 96;
-    if (rem < mTicks || m === timing.totalMeasures - 1) return m;
-    rem -= mTicks;
-  }
-  return 0;
-}
-
 export async function renderBaqueCycleOffline(options: { sampleRate?: number } = {}): Promise<BaqueBounceRenderResult> {
-  const state = useSequencerStore.getState();
-  const globalSwing = useTransportStore.getState().globalSwing;
+  const state = useSequencerStore.getState(), globalSwing = useTransportStore.getState().globalSwing;
   const startM = (state.isLoopRegionActive && state.loopStartMeasure != null) ? Math.max(0, state.loopStartMeasure) : 0;
   const endM = (state.isLoopRegionActive && state.loopEndMeasure != null && state.loopEndMeasure >= startM)
     ? Math.min((state.totalMeasures || 1) - 1, state.loopEndMeasure) : Math.max(0, (state.totalMeasures || 1) - 1);
@@ -86,28 +73,29 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
   const configMap = new Map(instrumentAudioConfigs.map((c) => [c.id, c]));
   const sampleCache = new Map<string, AudioBuffer>(), offlineRR = new EngineRoundRobin();
 
+  const lookaheadPts: BarulhoLookaheadPoint[] = [];
+  for (let i = 0; i < schedule.length / 4; i++) {
+    const packed = schedule[i * 4 + 1], track = baqueTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+    if (!track || !inst) continue;
+    const { triggerSec } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], track, baqueTracks as any, inst.id, timing, globalSwing);
+    lookaheadPts.push({ trackId: track.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
+  }
+  const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timing.totalDurationSec);
+
   for (let i = 0; i < schedule.length / 4; i++) {
     const absTick = schedule[i * 4], packed = schedule[i * 4 + 1], stepVol = schedule[i * 4 + 2], microPct = schedule[i * 4 + 3];
     const track = baqueTracks[(packed >>> 22) & 0x3FF], inst = track ? instrumentsConfig[track.instrumentIdx] : null;
     if (!track || !inst) continue;
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
+    const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, track, baqueTracks as any, inst.id, timing, globalSwing);
+
+    if (strokeSymbol === '/' || strokeSymbol === '.') {
+      barulhoTracker.applyControlSymbol(track.id, strokeSymbol, triggerSec, timing.totalDurationSec);
+      continue;
+    }
     let stroke = EngineVirtualStrokes.resolveStroke(strokesMaps, inst.id, strokeSymbol);
     if (!stroke || !stroke.files.length) continue;
-
-    const mIdx = resolveMeasureIndexAtTick(absTick, timing);
-    const mTicks = timing.measureTicks[mIdx] || 96, mDurSec = timing.measureDurationsSec[mIdx] || 2;
-    const tick96nSec = mDurSec / mTicks, stepDurationSec = tick96nSec * 6;
-    const activePattern = resolveActivePatternForMeasure(track as any, baqueTracks as any, mIdx, null);
-    const circleStepIdx = (packed >>> 16) & 0x3F, isTuplet = ((packed >>> 1) & 1) === 1;
-    const swingSec = computePercussionNoteSwing({ activePattern, liveTrack: track as any, circleStepIdx, isTuplet, swingJitter: 0, globalMode: globalSwing.mode, globalSwing, stepDurationSec });
-    const stepCount = activePattern ? activePattern.steps : 16;
-    const microSec = (microPct / 100) * (tick96nSec * (mTicks / stepCount)) * 0.5;
-    const unisonSec = EngineTuning.calculateUnisonMicroDelaySec(track as any, inst.id);
-    const instCfg = configMap.get(inst.id)!;
-    const pitch = stroke.isBarulho ? 1.0 : EngineTuning.calculatePitch(inst.id, instCfg, track as any);
-    const stepDecayNorm = ((packed >>> 2) & 0x7F) / 100;
-    const triggerSec = tickToTimeSec(absTick, timing) + swingSec + microSec + unisonSec;
-
+    const instCfg = configMap.get(inst.id)!, isCalibrated = Boolean(instCfg?.calibratedStudioBank);
     let buf = await decodeSampleForOffline(offlineCtx, offlineRR.selectFile(inst.id, stroke, triggerSec, track.id), sampleCache);
     let forceShort80ms = false;
     if (!buf && ALFAIA_INSTRUMENTS.has(inst.id) && (strokeSymbol === 'A' || strokeSymbol === 'a')) {
@@ -116,22 +104,27 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     }
     if (!buf) continue;
 
-    scheduleOfflineStrokeHit(offlineCtx, graph, track, inst.id, strokeSymbol, buf, pitch, triggerSec, stepVol, stepDecayNorm, timing.totalDurationSec, {
-      isStudioCalibrated: Boolean(instCfg?.calibratedStudioBank), forceShort80ms, strokeBaseGain: stroke.baseGain ?? 1.0,
+    if (stroke.isBarulho) {
+      const coord = packBarulhoOriginCoord(mIdx, circleStepIdx, (packed & 1) === 1);
+      barulhoTracker.spawnOrUpdateBarulho(offlineCtx, graph, track.id, strokeSymbol === 'b' ? 'b' : 'B', buf, triggerSec, stepVol, coord, timing.totalDurationSec, { isStudioCalibrated: isCalibrated, strokeBaseGain: stroke.baseGain ?? 1.0 });
+      continue;
+    }
+    barulhoTracker.chokeOnFrankStroke(track.id, inst.id, strokeSymbol, triggerSec, timing.totalDurationSec);
+    const pitch = EngineTuning.calculatePitch(inst.id, instCfg, track as any);
+    scheduleOfflineStrokeHit(offlineCtx, graph, track, inst.id, strokeSymbol, buf, pitch, triggerSec, stepVol, ((packed >>> 2) & 0x7F) / 100, timing.totalDurationSec, {
+      isStudioCalibrated: isCalibrated, forceShort80ms, strokeBaseGain: stroke.baseGain ?? 1.0,
     });
   }
+  barulhoTracker.finalizeAll(timing.totalDurationSec);
 
   const rendered = collapseBounceStemsToStereo(offlineCtx, await offlineCtx.startRendering(), stemPlan, state.tracks, {
     disableEq: Boolean(state.ecoConfig?.disableEq), disableFx: Boolean(state.ecoConfig?.disableFx),
   });
   if (rendered.numberOfChannels >= 2) {
     const chL = rendered.getChannelData(0), chR = rendered.getChannelData(1);
-    const compActive = (state.masterEffectsActive?.compressor ?? true) && !state.ecoConfig?.disableFx;
     processOfflineStereoArraysThroughMasterBus(chL, chR, timing.sampleRate, {
-      ...(state.masterFX?.masterBus || {}),
-      compressorEnabled: compActive,
-      ecoBypassAesthetic: Boolean(state.ecoConfig?.disableFx),
-      monoCheck: Boolean(state.isMasterMono),
+      ...(state.masterFX?.masterBus || {}), compressorEnabled: (state.masterEffectsActive?.compressor ?? true) && !state.ecoConfig?.disableFx,
+      ecoBypassAesthetic: Boolean(state.ecoConfig?.disableFx), monoCheck: Boolean(state.isMasterMono),
     });
     calibrateBounceLoudnessInPlace(chL, chR, timing.sampleRate);
   }

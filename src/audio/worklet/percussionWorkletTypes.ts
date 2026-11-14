@@ -31,6 +31,9 @@ export interface WorkletSampleEntry {
   ch1: Float32Array | null;
   sampleRate: number;
   length: number;
+  bodyStartFrame: number;
+  loopResumeFrame: number;
+  loopWrapFrame: number;
 }
 
 export interface LoadSampleMessage {
@@ -39,6 +42,9 @@ export interface LoadSampleMessage {
   ch0: Float32Array;
   ch1: Float32Array | null;
   sampleRate: number;
+  bodyStartFrame?: number;
+  loopResumeFrame?: number;
+  loopWrapFrame?: number;
 }
 
 export interface PushEventsMessage {

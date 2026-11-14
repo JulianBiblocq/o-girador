@@ -19,7 +19,7 @@ export const parseStepValue = (raw: any): PaperStepValue => {
   if (Array.isArray(raw)) {
     return raw.length >= 2 ? [String(raw[0]).trim(), String(raw[1]).trim()] : (raw[0] ?? 0);
   }
-  if (s.includes('/') || (s.includes('|') && s !== '||' && s !== '|')) {
+  if ((s.includes('/') && s !== '/') || (s.includes('|') && s !== '||' && s !== '|')) {
     const parts = s.includes('/') ? s.split('/') : s.split('|');
     return [parts[0].trim() || '0', parts[1].trim() || '0'];
   }

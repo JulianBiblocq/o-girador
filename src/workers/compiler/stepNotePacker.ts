@@ -1,7 +1,7 @@
 export function normalizeStrokeKey(inst: any, state: any): string | null {
-  if (!state || state === 0 || state === '0') return null;
-  let targetKey: string | null = typeof state === 'string' ? state : String(state);
-  if (!targetKey) return null;
+  if (!state || state === 0 || state === '0' || state === '-') return null;
+  let targetKey: string | null = typeof state === 'string' ? state.trim() : String(state).trim();
+  if (!targetKey || targetKey === '0' || targetKey === '-') return null;
 
   if (['marcante', 'meiao', 'repique'].includes(inst.id) && targetKey === 'a') {
     targetKey = 'A';

@@ -50,13 +50,14 @@ export class EngineStrokePlayback {
     (gainNode as PooledGainNode)._activeSource = source;
     source.connect(gainNode);
 
+    const effectiveSymbol = opts.strokeSymbol || stroke.symbol;
     if (stroke.isBarulho) {
-      playBarulhoStroke(ctx, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, decayMultiplier, isLiveHold);
+      playBarulhoStroke(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, isLiveHold, effectiveSymbol);
     } else {
       this.playOneShot(
         ctx, trackId, source, gainNode, instrumentId, buffer,
         calculatedPitch, time, gainMultiplier, decayMultiplier,
-        Boolean(opts.forceShort80ms), opts.strokeSymbol || stroke.symbol
+        Boolean(opts.forceShort80ms), effectiveSymbol
       );
     }
   }
