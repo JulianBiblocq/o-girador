@@ -37,7 +37,7 @@ export const VocalTimbreSelector: React.FC<VocalTimbreSelectorProps> = ({
         <span className="text-[11px] font-bold font-cactus uppercase text-[var(--cordel-ink-dark)] tracking-wider truncate">
           {isFr ? "Timbre d'écoute" : 'Timbre da Voz'}
         </span>
-        <span className="text-[10px] font-cactus font-bold text-[var(--cordel-wood)] uppercase">
+        <span className="text-[10px] font-cactus font-bold text-[var(--cordel-accent-readable)] uppercase">
           {isFr ? activePresetConfig.nameFr.split(' ')[0] : activePresetConfig.namePt.split(' ')[0]}
         </span>
       </div>
@@ -67,5 +67,3 @@ export const VocalTimbreSelector: React.FC<VocalTimbreSelectorProps> = ({
     </div>
   );
 };
-
-export default VocalTimbreSelector;

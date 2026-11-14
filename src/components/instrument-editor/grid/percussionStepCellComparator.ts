@@ -2,7 +2,7 @@
 import { PercussionStepCellProps } from './percussionCellTypes';
 import { StepSculptValue } from '../../../types';
 
-export const isParamEqual = (
+const isParamEqual = (
   a: StepSculptValue | number[] | undefined,
   b: StepSculptValue | number[] | undefined
 ): boolean => {

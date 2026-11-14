@@ -1,14 +1,45 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import { PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Pattern } from '../../types';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useAudioStore } from '../../stores/useAudioStore';
+import { instrumentsConfig } from '../../data';
+import { Pattern, Track } from '../../types';
 
-export function useInstrumentDetailEditorController(onClose: () => void) {
-  const [isClosing, setIsClosing] = useState(false);
-  const handleClose = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => { onClose(); }, 120);
-  }, [onClose]);
+export function resolveDeepLinkPatternId(rawId: number | string | null | undefined, patterns: Pattern[]): number | undefined {
+  if (rawId === undefined || rawId === null) return undefined;
+  const match = patterns.find((p) => p.id === rawId || String(p.id) === String(rawId));
+  if (match) return match.id;
+  const asNum = typeof rawId === 'number' ? rawId : Number(rawId);
+  return Number.isFinite(asNum) ? asNum : undefined;
+}
+
+export function resolveActiveVocalChild(
+  track: Track | undefined, isToada: boolean, familyTracks: Track[],
+  deepLinkPatternId: number | string | null | undefined, currentMeasure: number
+): Track | undefined {
+  if (!track || !isToada) return undefined;
+  const pux = familyTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+  const coro = familyTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+  const { selectedVocalPatternId: gId, selectedVocalTrackId: gTrackId } = useAudioStore.getState();
+  const hasDlPtn = deepLinkPatternId !== undefined && deepLinkPatternId !== null;
+  const targetPtnId = hasDlPtn ? deepLinkPatternId : gId;
+  if (!hasDlPtn && gTrackId !== null && gTrackId !== undefined) {
+    if (pux && String(pux.id) === String(gTrackId)) return pux;
+    if (coro && String(coro.id) === String(gTrackId)) return coro;
+  }
+  if (targetPtnId !== null && targetPtnId !== undefined) {
+    const puxHas = Boolean(pux?.patterns?.some((p) => String(p.id) === String(targetPtnId)));
+    const coroHas = Boolean(coro?.patterns?.some((p) => String(p.id) === String(targetPtnId)));
+    if (puxHas && coroHas) return coro?.patterns?.find((p) => String(p.id) === String(targetPtnId) && p.measureAssignments?.[currentMeasure]) ? coro : pux;
+    if (puxHas) return pux;
+    if (coroHas) return coro;
+  }
+  return coro?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ? coro : pux;
+}
+
+export function useInstrumentDetailEditorController(onClose: () => void, isMobile = false) {
+  const isClosing = false;
+  const handleClose = useCallback(() => { onClose(); }, [onClose]);
 
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -40,7 +71,11 @@ export function useInstrumentDetailEditorController(onClose: () => void) {
   const handleCloseAddPicker = useCallback(() => { setIsAddPickerOpen(false); }, []);
 
   const [patternCardContextMenu, setPatternCardContextMenu] = useState<{ pattern: Pattern; x: number; y: number } | null>(null);
-  const [isInspectorMobileOpen, setIsInspectorMobileOpen] = useState(false);
+  const [isInspectorMobileOpen, setIsInspectorMobileOpen] = useState<boolean>(() => {
+    const deepLink = useSequencerStore.getState().editorDeepLink;
+    if (!deepLink?.expandTuning) return false;
+    return isMobile || (typeof window !== 'undefined' && window.innerWidth < 1024);
+  });
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
 
@@ -54,13 +89,9 @@ export function useInstrumentDetailEditorController(onClose: () => void) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   return {
-    isClosing, handleClose, handleMouseDown, handleMouseUp,
-    contextMenuPos, handleOpenContextMenu, handleCloseContextMenu,
-    isAddPickerOpen, addPickerAnchorRect, addBtnRef,
-    handleToggleAddPicker, handleCloseAddPicker,
-    patternCardContextMenu, setPatternCardContextMenu,
-    isInspectorMobileOpen, setIsInspectorMobileOpen,
-    editingPatternId, setEditingPatternId, editName, setEditName,
-    sensors, patternDOMRefs, badgeDOMRefs, containerRef,
+    isClosing, handleClose, handleMouseDown, handleMouseUp, contextMenuPos, handleOpenContextMenu, handleCloseContextMenu,
+    isAddPickerOpen, addPickerAnchorRect, addBtnRef, handleToggleAddPicker, handleCloseAddPicker,
+    patternCardContextMenu, setPatternCardContextMenu, isInspectorMobileOpen, setIsInspectorMobileOpen,
+    editingPatternId, setEditingPatternId, editName, setEditName, sensors, patternDOMRefs, badgeDOMRefs, containerRef,
   };
 }

@@ -9,12 +9,12 @@ export function useVocalInspectorActions(
   firstPatternId: number | undefined
 ) {
   const onOpenAlignment = useCallback(async () => {
-    const pId = selectedPatternId || firstPatternId;
-    if (!pId) return;
+    const pId = selectedPatternId ?? firstPatternId;
+    if (pId === undefined || pId === null) return;
     const store = useAudioStore.getState();
     const canonicalKey = `${effectiveEditTrackId}_${pId}`;
-    let buffer = store.vocalBuffers[canonicalKey] || store.vocalBuffers[pId];
-    let blob = store.vocalBlobs[canonicalKey] || store.vocalBlobs[pId];
+    let buffer = store.vocalBuffers[canonicalKey] ?? store.vocalBuffers[pId];
+    let blob = store.vocalBlobs[canonicalKey] ?? store.vocalBlobs[pId];
 
     if (!buffer || !blob) {
       const dbBlob = (await getVocalRecording(canonicalKey)) || (await getVocalRecording(pId));
@@ -44,8 +44,8 @@ export function useVocalInspectorActions(
   const onImportAudio = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const pId = selectedPatternId || firstPatternId;
-    if (!pId) return;
+    const pId = selectedPatternId ?? firstPatternId;
+    if (pId === undefined || pId === null) return;
     try {
       const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
       const arrayBuffer = await file.arrayBuffer();

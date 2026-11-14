@@ -26,9 +26,9 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
   showPreviewButton = true,
   collapsible = false,
 }) => {
-  const isControlled = trackId === undefined;
+  const isControlled = trackId === undefined || trackId === null;
   const track = useSequencerStore((state) =>
-    trackId !== undefined ? state.tracks.find((t) => t.id === trackId) : undefined
+    trackId !== undefined && trackId !== null ? state.tracks.find((t) => t.id === trackId) : undefined
   );
   const setTrackTuning = useSequencerStore((state) => state.setTrackTuning);
   const lang = useSequencerStore((state) => state.lang);
@@ -45,7 +45,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
   if (!isControlled && !track) return null;
   if (!canTune && effectiveInstrumentId) return null;
 
-  const currentTuning = isControlled ? propTuning || 0 : track?.tuning || 0;
+  const currentTuning = isControlled ? (propTuning ?? 0) : (track?.tuning ?? 0);
   const { localTuning, svgRef, handlePointerDown, handlePointerMove, handlePointerUp } = useDrumTuning({
     currentTuning, isControlled, trackId, setTrackTuning, onChange, onPreview,
   });
@@ -56,14 +56,14 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
   const displayTitle = title || (lang === 'fr' ? (isControlled ? 'Accorder' : 'Accorder le tambour') : (isControlled ? 'Afinar' : 'Afinar o tambor'));
 
   const content = (
-    <div className="flex flex-col items-center justify-center bg-[var(--cordel-bg)] border-[2px] sm:border-[3px] border-[var(--cordel-text)] p-2 gap-1.5 relative w-full select-none shadow-[3px_3px_0_rgba(0,0,0,1)]">
+    <div className="flex flex-col items-center justify-center bg-[var(--cordel-bg)] border-[2px] sm:border-[3px] border-[var(--cordel-text)] p-2 gap-1.5 relative w-full select-none shadow-[3px_3px_0_var(--cordel-shadow-color)]">
       <div className="flex justify-between w-full items-end leading-none border-b border-dashed border-[var(--cordel-border)] pb-1.5">
         <span className="text-[11px] font-bold font-cactus uppercase text-[var(--cordel-text)] tracking-wider truncate mr-1">
           {displayTitle}
         </span>
         <span
           className={`text-[15px] font-bold font-cactus shrink-0 ${
-            isPitchUp ? 'text-[var(--cordel-wood)]' : isPitchDown ? 'text-[#555]' : 'text-[var(--cordel-text)]'
+            isPitchUp ? 'text-[var(--cordel-accent-readable)]' : isPitchDown ? 'text-[var(--cordel-text-muted)]' : 'text-[var(--cordel-text)]'
           }`}
         >
           {localTuning > 0 ? `+${localTuning}` : localTuning}
@@ -85,14 +85,14 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
             e.stopPropagation();
             onPreview();
           }}
-          className="w-full py-1 bg-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:scale-95 transition-all cursor-pointer font-cactus font-bold uppercase text-[9px] flex items-center justify-center gap-1 mt-0.5"
+          className="w-full py-1 bg-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] hover:shadow-none hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:scale-95 transition-all cursor-pointer font-cactus font-bold uppercase text-[9px] flex items-center justify-center gap-1 mt-0.5"
         >
           <Volume2 size={12} />
           <span>{lang === 'fr' ? 'Écouter' : 'Ouvir'}</span>
         </button>
       )}
 
-      <p className="text-[9px] font-bold text-[#666] leading-tight text-center">
+      <p className="text-[9px] font-bold text-[var(--cordel-text-muted)] leading-tight text-center">
         {lang === 'fr' ? "Glisser l'anneau" : "Deslizar o anel"}
       </p>
     </div>
