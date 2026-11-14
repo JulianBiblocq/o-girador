@@ -1,7 +1,7 @@
 /**
  * O-Girador - IndexedDB Raw PCM Cache for Decoded Audio Samples
  * Versioned via SAMPLE_CACHE_VERSION (`v${SAMPLE_CACHE_VERSION}_${path}_${sampleRate}`)
- * with automatic purge of stale versions on startup (< 135 lignes).
+ * with automatic purge of stale IndexedDB & SW CacheStorage audio entries on startup (< 135 lignes).
  */
 
 export interface CachedPcmSample {
@@ -15,10 +15,11 @@ export interface CachedPcmSample {
   timestamp: number;
 }
 
-export const SAMPLE_CACHE_VERSION = 3;
+export const SAMPLE_CACHE_VERSION = 4;
 const DB_NAME = 'OGirador_AudioCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio_sample_cache';
+const SW_CACHE_VER_STORAGE_KEY = 'ogirador_audio_sample_cache_v';
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 let stalePurgeTriggered = false;
@@ -26,6 +27,13 @@ let stalePurgeTriggered = false;
 function purgeStaleCacheEntries(db: IDBDatabase): void {
   if (stalePurgeTriggered) return;
   stalePurgeTriggered = true;
+  try {
+    const verStr = String(SAMPLE_CACHE_VERSION);
+    if (typeof window !== 'undefined' && window.localStorage?.getItem(SW_CACHE_VER_STORAGE_KEY) !== verStr) {
+      window.localStorage?.setItem(SW_CACHE_VER_STORAGE_KEY, verStr);
+      window.caches?.delete('audio-samples-cache').catch(() => {});
+    }
+  } catch (_) {}
   try {
     const prefix = `v${SAMPLE_CACHE_VERSION}_`;
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -94,7 +102,7 @@ export async function saveCachedPcmSample(path: string, audioBuffer: AudioBuffer
     const entry: CachedPcmSample = {
       id: getSampleCacheKey(path, audioBuffer.sampleRate),
       path, sampleRate: audioBuffer.sampleRate, numberOfChannels,
-      length: audioBuffer.length, duration: audioBuffer.duration, channels, timestamp: Date.now()
+      length: audioBuffer.length, duration: audioBuffer.duration, channels, timestamp: Date.now(),
     };
     return new Promise((resolve) => {
       try {
