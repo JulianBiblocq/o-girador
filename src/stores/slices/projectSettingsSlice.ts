@@ -1,11 +1,9 @@
 import { StateCreator } from 'zustand';
-import * as Tone from 'tone';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { ProjectSettingsSlice } from './projectSettingsSliceTypes';
 import { detectEcoMode, detectStrictAudioEco, buildEcoConfig, persistEcoState } from '../helpers/ecoModeDetector';
-import { transposePatternNotesState, extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
-import { computeTransposedTroupeKey, syncCloudToadaTransposition } from '../../services/cloudToadas';
-import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrewarmer';
+import { extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
+import { applyVocalTransposeStepsState, applyTransposePatternNotesState } from '../helpers/projectVocalTransposeHelper';
 import { Language } from '../../types';
 import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORAGE_KEY } from '../../utils/viewModeResolver';
 
@@ -31,6 +29,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     selectedStepIsPreRoll: false,
     selectedSubIndex: null,
     selectedStepRange: null,
+    editorDeepLink: null,
     vocalTransposeSteps: 0,
     isTracksCollapsed: true,
     isPreviewMode: false,
@@ -73,41 +72,28 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
       }),
     toggleTracksCollapsed: () => set((state) => ({ isTracksCollapsed: !state.isTracksCollapsed })),
     setEditingTrackId: (id) => set({ editingTrackId: id }),
-    closeDetailEditor: () => set({ editingTrackId: null }),
+    openInstrumentDetailAt: (payload) =>
+      set({
+        editingTrackId: payload.trackId,
+        selectedPatternId: typeof payload.patternId === 'number' ? payload.patternId : null,
+        selectedStepIdx: payload.stepIdx !== undefined ? payload.stepIdx : null,
+        selectedStepIsPreRoll: Boolean(payload.isPreRoll),
+        selectedSubIndex: payload.subIndex ?? null,
+        selectedStepRange: null,
+        editorDeepLink: payload,
+      }),
+    consumeEditorDeepLink: () => set({ editorDeepLink: null }),
+    closeDetailEditor: () => set({ editingTrackId: null, editorDeepLink: null }),
     setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) =>
       set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: subIndex, selectedStepRange: null }),
     setSelectedStepIndex: (idx, isPreRoll = false) =>
       set({ selectedStepIdx: idx, selectedStepIsPreRoll: isPreRoll, selectedSubIndex: null, selectedStepRange: null }),
     setSelectedStepRange: (range) => set({ selectedStepRange: range }),
-    setVocalTransposeSteps: (steps) => {
-      const nextSteps = Math.max(-12, Math.min(12, steps));
-      const meta = get().metadata;
-      const troupeKey = meta?.sungKey ? computeTransposedTroupeKey(meta.sungKey, nextSteps) : meta?.troupeKey;
-      set({ vocalTransposeSteps: nextSteps, metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta });
-      prewarmProjectVocalDspBuffers(undefined, nextSteps);
-      if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
-    },
-    incrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.min(12, (get().vocalTransposeSteps || 0) + 1)),
-    decrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.max(-12, (get().vocalTransposeSteps || 0) - 1)),
-    transposePatternNotes: (trackId, patternId, semitones) => {
-      if (!semitones) return;
-      const state = get();
-      state.pushUndoState();
-      try {
-        if (typeof window !== 'undefined' && Tone.context && Tone.context.state !== 'running') Tone.start().catch(() => {});
-      } catch (_) {}
-      const { tracks: newTracks, noteToPreview } = transposePatternNotesState(state.tracks, trackId, patternId, semitones);
-      const nextSteps = Math.max(-12, Math.min(12, (state.vocalTransposeSteps || 0) + semitones));
-      const meta = state.metadata;
-      const troupeKey = meta?.sungKey ? computeTransposedTroupeKey(meta.sungKey, nextSteps) : meta?.troupeKey;
-      set({
-        tracks: newTracks, tracksVersion: (state.tracksVersion || 0) + 1, vocalTransposeSteps: nextSteps,
-        metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta,
-      });
-      prewarmProjectVocalDspBuffers(undefined, nextSteps);
-      if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
-      if (noteToPreview && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
-    },
+    setVocalTransposeSteps: (steps) => applyVocalTransposeStepsState(steps, set, get),
+    incrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.min(12, (get().vocalTransposeSteps ?? 0) + 1)),
+    decrementVocalTransposeSteps: () => get().setVocalTransposeSteps(Math.max(-12, (get().vocalTransposeSteps ?? 0) - 1)),
+    transposePatternNotes: (trackId, patternId, semitones) =>
+      applyTransposePatternNotesState(trackId, patternId, semitones, set, get),
     handleExtractLyrics: () => set({ letras: extractLyricsFromTracks(get().tracks) }),
     setIsPreviewMode: (val) => set({ isPreviewMode: val }),
     setHasFullPlaybackAccess: (val) => set({ hasFullPlaybackAccess: val }),

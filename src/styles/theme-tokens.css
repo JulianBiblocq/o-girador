@@ -18,6 +18,11 @@
   --cordel-wood: #8b2a1a;
   --cordel-gold: #d4af37;
   --cordel-accent: #b94a2c;
+  --cordel-on-accent: #f4ecd8;
+  --cordel-accent-readable: #e87a5d;
+  --cordel-surface-elevated: #28231f; --cordel-surface-muted: #181512;
+  --cordel-paper-surface: #f4ecd8; --cordel-paper-ink: #1a1a1a;
+  --cordel-status-success: #2f9e66; --cordel-status-danger: #c94a38;
   --cordel-parchment-bg: #f4ecd8;
   --cordel-parchment-panel: #ece4d0;
   --cordel-parchment-surface: #efe7d3;
@@ -79,6 +84,11 @@
   --cordel-wood: #8b2a1a;
   --cordel-gold: #d4af37;
   --cordel-accent: #b94a2c;
+  --cordel-on-accent: #f4ecd8;
+  --cordel-accent-readable: #8b2a1a;
+  --cordel-surface-elevated: #f8f2e4; --cordel-surface-muted: #e4d8be;
+  --cordel-paper-surface: #f4ecd8; --cordel-paper-ink: #1a1a1a;
+  --cordel-status-success: #1f7a4c; --cordel-status-danger: #a82819;
   --cordel-parchment-bg: #f4ecd8;
   --cordel-parchment-panel: #ece4d0;
   --cordel-parchment-surface: #efe7d3;
