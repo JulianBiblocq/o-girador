@@ -47,16 +47,10 @@ export class EngineTuning {
   }
 
   public static calculateMicroDetuneMultiplier(
-    instrumentId: string,
-    trackId?: number | string | null
+    _instrumentId?: string,
+    _trackId?: number | string | null
   ): number {
-    if (ZERO_DISPERSION_INSTRUMENTS.has(instrumentId) || !TUNEABLE_INSTRUMENTS.has(instrumentId) || trackId === null || trackId === undefined) {
-      return 1.0;
-    }
-    const h = hashTrackId(trackId);
-    const norm = ((h % 1000) / 999) * 2 - 1; // [-1, +1]
-    const cents = norm * 2.5; // [-2.5, +2.5] cents
-    return Math.pow(2, cents / 1200);
+    return 1.0;
   }
 
   public static calculateUnisonMicroDelaySec(

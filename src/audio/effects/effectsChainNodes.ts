@@ -77,7 +77,6 @@ export const distortionSends: { [trackId: string | number]: any } = (hmrStore.di
 export const trackInputs: { [trackId: string | number]: Tone.Gain } = (hmrStore.trackInputs ||= {});
 export const busInputs: { [busId: string | number]: Tone.Gain } = (hmrStore.busInputs ||= {});
 export const lowCutNodes: { [trackId: string | number]: Tone.Filter } = (hmrStore.lowCutNodes ||= {});
-export const slaveSubCutNodes: { [trackId: string | number]: Tone.Filter } = (hmrStore.slaveSubCutNodes ||= {});
 export const eqNodes: {
   [trackId: string | number]: {
     low: Tone.Filter;

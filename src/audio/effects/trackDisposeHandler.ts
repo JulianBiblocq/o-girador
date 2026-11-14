@@ -6,7 +6,6 @@ import {
   trackInputs,
   busInputs,
   lowCutNodes,
-  slaveSubCutNodes,
   eqNodes,
   busReverbSendVca,
   busDistoSendVca,
@@ -60,13 +59,6 @@ export function disposeTrackNodes(trackId: number) {
     if (lowCutNodes[trackId]) {
       try { lowCutNodes[trackId].disconnect(); lowCutNodes[trackId].dispose(); } catch (_) {}
       delete lowCutNodes[trackId];
-    }
-  } catch (_) {}
-
-  try {
-    if (slaveSubCutNodes[trackId]) {
-      try { slaveSubCutNodes[trackId].disconnect(); slaveSubCutNodes[trackId].dispose(); } catch (_) {}
-      delete slaveSubCutNodes[trackId];
     }
   } catch (_) {}
 

@@ -1,21 +1,17 @@
 /**
- * baqueBounceBusStems.ts — Plan de stems multi-canaux du Bounce pour les Bus compressés & Polarité Ø (< 130 lignes).
- * Les pistes d'un Bus compressé sont rendues Pré-Fader-Bus sur une paire de canaux dédiée de l'OfflineAudioContext,
- * puis compressées hors-ligne par le noyau DSP partagé avec le Worklet (cf. baqueBounceBusDynamics).
+ * baqueBounceBusStems.ts — Plan de stems multi-canaux du Bounce pour les Bus/Groupes & Polarité Ø (< 130 lignes).
+ * Les pistes routées dans un Bus sont rendues Pré-Insert-Bus sur une paire de canaux dédiée de l'OfflineAudioContext,
+ * puis traitées hors-ligne par la chaîne d'insert exacte du Bus (Ø -> LowCut -> EQ -> BusCompressor -> Fader & Pan).
  */
 import { faderPositionToGain } from './audioMath';
 import { multiplyPolarity, type PolaritySign } from './audio/polarityGain';
-import type { BusCompressorSettings } from '../audio/effects/busCompressorTypes';
+import type { BusInsertTrackLike } from './baqueBounceBusInsertDsp';
 
-export interface StemTrackLike {
+export interface StemTrackLike extends BusInsertTrackLike {
   id: number | string;
   busId?: string;
   linkedToTrackId?: string;
-  isBusFolder?: boolean;
-  isLinkFolder?: boolean;
-  phaseInverted?: boolean;
   volumeVal?: number;
-  busCompressor?: BusCompressorSettings;
 }
 
 export interface BounceBusStemPlan {
@@ -47,16 +43,15 @@ export function getAncestorChain<T extends StemTrackLike>(track: T, allTracks: T
   return chain;
 }
 
-const isCompressedGroup = (t: StemTrackLike) => Boolean((t.isBusFolder || t.isLinkFolder) && t.busCompressor?.enabled);
+const isBusGroup = (t: StemTrackLike) => Boolean(t.isBusFolder || t.isLinkFolder);
 const faderGain = (t: StemTrackLike) => faderPositionToGain(t.volumeVal ?? 75);
 
-export function planBounceBusStems(allTracks: StemTrackLike[], baqueTracks: StemTrackLike[], disableFx: boolean): BounceBusStemPlan {
-  if (disableFx) return EMPTY_BOUNCE_STEM_PLAN;
+export function planBounceBusStems(allTracks: StemTrackLike[], baqueTracks: StemTrackLike[], _disableFx = false): BounceBusStemPlan {
   const depthById = new Map<string, number>();
   for (const track of baqueTracks) {
     for (const bus of getAncestorChain(track, allTracks)) {
       const id = String(bus.id);
-      if (isCompressedGroup(bus) && !depthById.has(id)) depthById.set(id, getAncestorChain(bus, allTracks).length);
+      if (isBusGroup(bus) && !depthById.has(id)) depthById.set(id, getAncestorChain(bus, allTracks).length);
     }
   }
   if (depthById.size === 0) return EMPTY_BOUNCE_STEM_PLAN;
@@ -70,9 +65,9 @@ export function planBounceBusStems(allTracks: StemTrackLike[], baqueTracks: Stem
 
 export interface OfflineTrackRouting {
   stemIndex: number;
-  /** Signe de polarité appliqué sur l'entrée de la piste (piste x bus intermédiaires non compressés). */
+  /** Signe de polarité appliqué sur l'entrée de la piste (piste x bus intermédiaires hors stem). */
   sign: PolaritySign;
-  /** Retire les faders du Bus compressé et de ses ancêtres (ré-appliqués post-compression). */
+  /** Retire les faders du Bus stemmé et de ses ancêtres (ré-appliqués au repli du stem). */
   stemScale: number;
 }
 
@@ -90,7 +85,7 @@ export function resolveOfflineTrackRouting(track: StemTrackLike, allTracks: Stem
 
 export interface BusStemReturn { gain: number; sign: PolaritySign; targetStem: number }
 
-/** Retour post-compression d'un Bus : son fader (+ intermédiaires) jusqu'au prochain Bus compressé ou la somme. */
+/** Retour post-insert d'un Bus : son fader (+ ancêtres hors stem, polarité Ø du Bus déjà appliquée en tête d'insert). */
 export function resolveBusStemReturn(busId: string, allTracks: StemTrackLike[], plan: BounceBusStemPlan): BusStemReturn {
   const bus = allTracks.find((t) => String(t.id) === busId);
   if (!bus) return { gain: 0, sign: 1, targetStem: 0 };
@@ -101,7 +96,7 @@ export function resolveBusStemReturn(busId: string, allTracks: StemTrackLike[], 
     if (idx !== undefined) { targetStem = idx; break; }
     segment.push(anc);
   }
-  return { gain: segment.reduce((g, b) => g * faderGain(b), 1), sign: multiplyPolarity(...segment), targetStem };
+  return { gain: segment.reduce((g, b) => g * faderGain(b), 1), sign: multiplyPolarity(...segment.slice(1)), targetStem };
 }
 
 /** Une entrée stéréo par stem, aiguillée vers sa paire de canaux discrets (0 = destination directe sans stems). */

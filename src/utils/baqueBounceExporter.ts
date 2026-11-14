@@ -110,7 +110,9 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     scheduleOfflineStrokeHit(offlineCtx, graph, track, inst.id, strokeSymbol, buf, pitch, triggerSec, stepVol, stepDecayNorm, timing.totalDurationSec);
   }
 
-  const rendered = collapseBounceStemsToStereo(offlineCtx, await offlineCtx.startRendering(), stemPlan, state.tracks);
+  const rendered = collapseBounceStemsToStereo(offlineCtx, await offlineCtx.startRendering(), stemPlan, state.tracks, {
+    disableEq: Boolean(state.ecoConfig?.disableEq), disableFx: Boolean(state.ecoConfig?.disableFx),
+  });
   if (rendered.numberOfChannels >= 2) {
     const chL = rendered.getChannelData(0), chR = rendered.getChannelData(1);
     const compActive = (state.masterEffectsActive?.compressor ?? true) && !state.ecoConfig?.disableFx;

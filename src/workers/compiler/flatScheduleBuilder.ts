@@ -105,7 +105,7 @@ export function buildFlatSongSchedule(
           const targetKey = normalizeStrokeKey(inst, statesToProcess[strokeIndex]);
           if (!targetKey) continue;
 
-          const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, nextRandom);
+          const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, nextRandom, step);
           const stepDecayMultiplier = computeStepDecay(effectiveDecays?.[actualStep], strokeIndex);
           const microtimingPct = computeStepMicrotiming(effectiveMicrotimings?.[actualStep], strokeIndex);
 

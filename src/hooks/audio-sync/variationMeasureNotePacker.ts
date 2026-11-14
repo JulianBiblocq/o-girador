@@ -77,7 +77,7 @@ export function buildMeasureVariationNotes(params: {
         const targetKey = normalizeStrokeKey(inst, statesToProcess[strokeIndex]);
         if (!targetKey) continue;
 
-        const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, Math.random);
+        const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, Math.random, step);
         const stepDecayMultiplier = computeStepDecay(effectiveDecays?.[actualStep], strokeIndex);
         const microtimingPct = computeStepMicrotiming(effectiveMicrotimings?.[actualStep], strokeIndex);
 
