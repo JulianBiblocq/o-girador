@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
+import { resolveCordelDialogCopy, useCordelDialogCaptureKey } from './cordelDialogHelpers';
 
 interface CustomDialogPortalProps {
   customDialog: any;
@@ -12,53 +13,12 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
   setCustomDialog,
   lang,
 }) => {
-  useEffect(() => {
-    if (!customDialog) return;
-    const handleCaptureKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopImmediatePropagation();
-        e.stopPropagation();
-        e.preventDefault();
-        setCustomDialog(null);
-        customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
-      } else if (e.key === 'Enter' && customDialog.type !== 'prompt') {
-        e.stopImmediatePropagation();
-        e.stopPropagation();
-        e.preventDefault();
-        setCustomDialog(null);
-        customDialog.onResolve(true);
-      }
-    };
-    window.addEventListener('keydown', handleCaptureKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleCaptureKeyDown, { capture: true });
-  }, [customDialog, setCustomDialog]);
+  useCordelDialogCaptureKey(customDialog, setCustomDialog);
 
   if (!customDialog || typeof document === 'undefined') return null;
 
-  const isAlert = customDialog.type === 'alert';
-  const isPrompt = customDialog.type === 'prompt';
-  const isDestructive = customDialog.isDestructive ?? (
-    Boolean(customDialog.confirmLabel && /suppr|excluir|delete/i.test(customDialog.confirmLabel)) ||
-    /supprimer|excluir|écraser|substituir/i.test(customDialog.message)
-  );
-
-  const titleText = isAlert
-    ? (lang === 'pt' ? 'AVISO' : 'INFORMATION')
-    : customDialog.type === 'confirm'
-    ? (lang === 'pt' ? 'CONFIRMAÇÃO' : 'CONFIRMATION')
-    : (lang === 'pt' ? 'ENTRADA' : 'SAISIE');
-
-  const confirmText = customDialog.confirmLabel
-    ? customDialog.confirmLabel.toUpperCase()
-    : isAlert
-    ? (lang === 'pt' ? 'FECHAR' : 'FERMER')
-    : isDestructive
-    ? (lang === 'pt' ? 'EXCLUIR' : 'SUPPRIMER')
-    : (lang === 'pt' ? 'CONFIRMAR' : 'VALIDER');
-
-  const cancelText = customDialog.cancelLabel
-    ? customDialog.cancelLabel.toUpperCase()
-    : (lang === 'pt' ? 'CANCELAR' : 'ANNULER');
+  const { isAlert, isPrompt, isDestructive, titleText, confirmText, cancelText } =
+    resolveCordelDialogCopy(customDialog, lang);
 
   return createPortal(
     <div
@@ -72,11 +32,11 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
       }}
     >
       <div
-        className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[6px_6px_0px_#1a1a1a] rounded-none p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text z-[100050]"
+        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[6px_6px_0px_var(--cordel-border)] rounded-none p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text z-[100050]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="font-cactus font-bold text-sm md:text-base uppercase tracking-wider border-b-2 border-[#1a1a1a] pb-2 select-none flex items-center gap-2 text-[#1a1a1a]">
-          <svg className="w-5 h-5 shrink-0 text-[#8b2a1a]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className="font-cactus font-bold text-sm md:text-base uppercase tracking-wider border-b-2 border-[var(--cordel-border)] pb-2 select-none flex items-center gap-2 text-[var(--cordel-text)]">
+          <svg className="w-5 h-5 shrink-0 text-[var(--cordel-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -84,7 +44,7 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
           <span>{titleText}</span>
         </div>
 
-        <p className="text-xs font-cactus font-bold leading-relaxed whitespace-pre-wrap text-[#1a1a1a]">
+        <p className="text-xs font-cactus font-bold leading-relaxed whitespace-pre-wrap text-[var(--cordel-text)]">
           {customDialog.message}
         </p>
 
@@ -94,7 +54,7 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
             type="text"
             autoFocus
             autoComplete="off"
-            className="w-full bg-white text-[#1a1a1a] border-2 border-[#1a1a1a] p-2 text-xs font-cactus font-bold outline-none shadow-[2px_2px_0px_#1a1a1a]"
+            className="w-full bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-2 text-xs font-cactus font-bold outline-none shadow-[2px_2px_0px_var(--cordel-border)]"
             defaultValue={customDialog.defaultValue}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -115,9 +75,9 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
                 setCustomDialog(null);
                 customDialog.onResolve(isPrompt ? null : false);
               }}
-              className="px-3.5 py-1.5 text-xs font-cactus font-extrabold uppercase bg-[#f4ecd8] hover:bg-[#e6dec8] !text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px]"
+              className="px-3.5 py-1.5 text-xs font-cactus font-extrabold uppercase bg-[var(--cordel-bg)] hover:bg-[var(--cordel-surface)] !text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px]"
             >
-              ✕ {cancelText}
+              {cancelText}
             </button>
           )}
           <button
@@ -132,13 +92,13 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
                 customDialog.onResolve(true);
               }
             }}
-            className={`px-4 py-1.5 text-xs font-cactus font-extrabold uppercase border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px] ${
+            className={`px-4 py-1.5 text-xs font-cactus font-extrabold uppercase border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px] ${
               isDestructive
-                ? 'bg-[#8b2a1a] hover:bg-[#a63421] !text-[#f4ecd8]'
-                : 'bg-[#1a1a1a] hover:bg-[#333333] !text-[#f4ecd8]'
+                ? 'bg-[var(--cordel-accent)] !text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-text)] !text-[var(--cordel-bg)]'
             }`}
           >
-            ✓ {confirmText}
+            {confirmText}
           </button>
         </div>
       </div>

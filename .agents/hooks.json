@@ -1,0 +1,30 @@
+{
+  "ogirador-write-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "write_file|edit_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./hooks/pre_write_guard.mjs\" --agy-hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "ogirador-command-ssot-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./hooks/pre_command_ssot_guard.mjs\" --agy-hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

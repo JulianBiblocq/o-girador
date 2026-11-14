@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+node ".agents/hooks/check_governance.mjs" --staged

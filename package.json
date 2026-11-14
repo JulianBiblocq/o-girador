@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "check:governance": "node .agents/hooks/check_governance.mjs",
     "deploy": "vite build && firebase deploy --only hosting:sequenceur",
     "deploy-test": "cross-env DEPLOY_ENV=test vite build && npx gh-pages -d dist -e test --add",
     "test:e2e": "playwright test",
