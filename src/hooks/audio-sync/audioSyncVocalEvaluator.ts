@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { Track, Pattern, GlobalSwing } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { getEffectiveMuteState } from '../../stores/useSequencerStore';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { resolveVocalPhraseInfo } from '../../utils/vocalPhraseBlock';
 import { evaluateIncomingAnacrusis } from './audioSyncVocalAnacrusis';
@@ -53,7 +54,7 @@ export function evaluateVocalTracks(p: VocalEvaluatorParams): void {
     const isSolo = soloPatternPlayId !== null;
     const canPlay = isSolo
       ? patterns.some(pat => String(pat.id) === String(soloPatternPlayId))
-      : (tracks.some(t => t.isSolo) ? track.isSolo : !track.isMute);
+      : !getEffectiveMuteState(tracks, track.id);
 
     if (!canPlay) {
       if (!mutedVoiceTracks.has(track.id)) {

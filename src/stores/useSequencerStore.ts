@@ -44,6 +44,8 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
 // RÉEXPORTATIONS TRANSPARENTES
 // ---------------------------------------------------------
 export * from './helpers/trackVisibilityHelpers';
+export * from './helpers/trackHierarchyParentResolver';
+export * from './helpers/trackSoloProHelpers';
 export * from './helpers/trackRodaGeometryHelpers';
 export * from './helpers/trackMetaCache';
 export * from './helpers/trackMixerSelectors';

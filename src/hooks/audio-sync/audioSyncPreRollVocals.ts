@@ -1,7 +1,8 @@
 import * as Tone from 'tone';
 import { Track } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { getEffectiveVolume } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, getEffectiveVolume } from '../../stores/useSequencerStore';
+import { resolveImmediateBusId } from '../../audio/effectsChain';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
 import { isPhraseBlockStart } from '../../utils/vocalPhraseBlock';
 import { isVocalSamplePattern, isSamplePlaybackAllowed, getVocalBufferForPattern } from './vocalSampleHelpers';
@@ -46,7 +47,7 @@ export function schedulePreRollVocals(p: PreRollVocalsParams): void {
     const isSolo = soloPatternPlayId !== null;
     const canPlay = isSolo
       ? String(activePattern.id) === String(soloPatternPlayId)
-      : (startTracks.some(t => t.isSolo) ? track.isSolo : !track.isMute);
+      : !getEffectiveMuteState(startTracks, track.id);
     if (!canPlay) continue;
 
     const vocalBuf = getVocalBufferForPattern(track.id, activePattern);
@@ -60,7 +61,8 @@ export function schedulePreRollVocals(p: PreRollVocalsParams): void {
 
     const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
     const isCoroTrack = inst.id === 'coro';
-    const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
+    const parentBusId = resolveImmediateBusId(track, startTracks);
+    const isConnectedToBus = Boolean(parentBusId !== null && busChannels[parentBusId]);
     const vocalVol = isConnectedToBus ? (track.volumeVal ?? 75) : getEffectiveVolume(startTracks, track.id);
 
     const preRollKey = `${track.id}_m${targetM}`;

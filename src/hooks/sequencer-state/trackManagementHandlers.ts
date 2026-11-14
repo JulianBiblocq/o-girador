@@ -1,6 +1,6 @@
-import { TrackGroup, TimeSignature, SongMarker } from '../../types';
+import { TrackGroup } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { applyRadii } from './sequencerStateTypes';
+import { toggleTrackMuteStudioPro, toggleTrackSoloStudioPro } from '../../stores/helpers/trackSoloProHelpers';
 import { resetActiveCloudPresetId } from '../../utils/cloudPresetState';
 import type { TrackManagementContext } from './trackManagementTypes';
 
@@ -16,11 +16,11 @@ export function createTrackManagementHandlers(ctx: TrackManagementContext) {
   };
 
   const handleTrackMuteToggle = (id: number) => {
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => (t.id === id ? { ...t, isMute: !t.isMute } : t)));
+    setTracks((prev: TrackGroup[]) => toggleTrackMuteStudioPro(prev, id));
   };
 
   const handleTrackSoloToggle = (id: number) => {
-    setTracks((prev: TrackGroup[]) => prev.map((t: TrackGroup) => (t.id === id ? { ...t, isSolo: !t.isSolo } : t)));
+    setTracks((prev: TrackGroup[]) => toggleTrackSoloStudioPro(prev, id));
   };
 
   const handleTrackHideToggle = (id: number) => {

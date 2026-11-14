@@ -2,6 +2,7 @@
  * Résolveur universel des familles d'instruments pour le Mode Danse (< 120 lignes).
  */
 import { instrumentsConfig } from '../data';
+import { reconcileAncestorsSoloBottomUp } from '../stores/helpers/trackSoloProHelpers';
 
 const FAMILY_INSTRUMENTS: Record<string, string[]> = {
   alfaias: ['alfaia', 'marcante', 'meiao', 'repique'],
@@ -78,13 +79,23 @@ export function getFamilyVolume(tracks: any[] = [], familyId: string): number {
 }
 
 export function applyFamilyMute(tracks: any[] = [], familyId: string, isMute: boolean): any[] {
-  const famTrackIds = new Set(getFamilyTracks(tracks, familyId).map((t) => t.id));
-  return tracks.map((t) => (famTrackIds.has(t.id) ? { ...t, isMute } : t));
+  const famTracks = getFamilyTracks(tracks, familyId);
+  const famTrackIds = new Set(famTracks.map((t) => t.id));
+  let updated = tracks.map((t) =>
+    famTrackIds.has(t.id) ? (isMute ? { ...t, isMute: true, isSolo: false } : { ...t, isMute: false }) : t
+  );
+  famTracks.forEach((t) => { updated = reconcileAncestorsSoloBottomUp(updated, t.id); });
+  return updated;
 }
 
 export function applyFamilySolo(tracks: any[] = [], familyId: string, isSolo: boolean): any[] {
-  const famTrackIds = new Set(getFamilyTracks(tracks, familyId).filter((t) => !t.isBusFolder).map((t) => t.id));
-  return tracks.map((t) => (famTrackIds.has(t.id) ? { ...t, isSolo } : t));
+  const famTracks = getFamilyTracks(tracks, familyId);
+  const famTrackIds = new Set(famTracks.map((t) => t.id));
+  let updated = tracks.map((t) =>
+    famTrackIds.has(t.id) ? (isSolo ? { ...t, isSolo: true, isMute: false } : { ...t, isSolo: false }) : t
+  );
+  famTracks.forEach((t) => { updated = reconcileAncestorsSoloBottomUp(updated, t.id); });
+  return updated;
 }
 
 export function applyFamilyVolume(
