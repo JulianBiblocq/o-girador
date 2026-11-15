@@ -1,6 +1,7 @@
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getUpperTagName, isInputElementLike } from '../../utils/crossRealmDom';
 import { Pattern } from '../../types';
 
 interface UseGridNotesClipboardParams {
@@ -15,6 +16,9 @@ export function useGridNotesClipboard(params: UseGridNotesClipboardParams) {
   const { pattern, trackId, selectedPatternId, instrument, currentWindow } = params;
 
   useEffect(() => {
+    const targetWin: Window = currentWindow || window;
+    const targetDoc = targetWin.document || document;
+
     const handleNotesClipboardGlobalKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
       if (!isCtrlOrCmd) return;
@@ -22,22 +26,23 @@ export function useGridNotesClipboard(params: UseGridNotesClipboardParams) {
       if (!['c', 'x', 'v'].includes(key)) return;
 
       const state = useSequencerStore.getState();
-      const isTimelineContext = Boolean(state.activeTimelineCell) || (state.selectedTimelineCells && state.selectedTimelineCells.length > 0) || Boolean(document.activeElement?.closest('#timeline-scroll-container, .timeline-scroll-grid, [data-timeline-grid]'));
+      const activeEl = targetDoc.activeElement as HTMLElement | null;
+      const isTimelineContext = Boolean(state.activeTimelineCell) || (state.selectedTimelineCells && state.selectedTimelineCells.length > 0) || Boolean(activeEl?.closest?.('#timeline-scroll-container, .timeline-scroll-grid, [data-timeline-grid]'));
       if (isTimelineContext) return;
 
-      const activeEl = document.activeElement as HTMLElement | null;
       const isVoiceInput = Boolean(activeEl && (activeEl.classList.contains('v-syl') || activeEl.classList.contains('v-note') || Boolean(activeEl.closest?.('.voice-step-cell, [data-step-type="voice"]'))));
       const isVoiceTrack = instrument?.type === 'voice' || String(trackId) === 'puxador' || String(trackId) === 'coro' || String(trackId) === 'toada';
       const hasActiveVoiceContext = isVoiceInput || state.selectedStepRange !== null || (isVoiceTrack && state.selectedStepIdx !== null);
       if (!hasActiveVoiceContext) return;
 
-      if (activeEl instanceof HTMLInputElement) {
+      if (isInputElementLike(activeEl)) {
         const selStart = activeEl.selectionStart;
         const selEnd = activeEl.selectionEnd;
         if (selStart !== null && selEnd !== null && selStart !== selEnd) return;
       }
 
-      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && !activeEl.closest('[data-track-id]') && !activeEl.closest('[data-step-index]') && !activeEl.classList.contains('step-input-cell')) return;
+      const tag = getUpperTagName(activeEl);
+      if (activeEl && (tag === 'INPUT' || tag === 'TEXTAREA') && !activeEl.closest?.('[data-track-id]') && !activeEl.closest?.('[data-step-index]') && !activeEl.classList.contains('step-input-cell')) return;
 
       const currentPtnId = pattern?.id;
       const domPatternIdAttr = activeEl?.closest?.('[data-pattern-id]')?.getAttribute('data-pattern-id') || activeEl?.closest?.('[data-pattern-card]')?.getAttribute('data-pattern-card');
@@ -97,7 +102,6 @@ export function useGridNotesClipboard(params: UseGridNotesClipboardParams) {
       }
     };
 
-    const targetWin = currentWindow || window;
     targetWin.addEventListener('keydown', handleNotesClipboardGlobalKeyDown, { capture: true });
     return () => targetWin.removeEventListener('keydown', handleNotesClipboardGlobalKeyDown, { capture: true });
   }, [pattern?.id, pattern?.preRollActiveSteps?.length, selectedPatternId, trackId, instrument?.type, currentWindow]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot, useWindow } from '../../contexts/WindowContext';
 import { CordelOptions } from '../../utils/cordelEffect';
 import { usePhotoBoothAudio } from './photobooth/usePhotoBoothAudio';
 import { usePhotoBoothCamera } from './photobooth/usePhotoBoothCamera';
@@ -78,24 +79,25 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     else if (activeTab === 'gallery') stopCamera();
   }, [isOpen, activeTab, phase, startCamera, stopCamera]);
 
+  const hostWin = useWindow(), portalRoot = usePortalRoot();
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !isBatchOpen) { e.preventDefault(); e.stopImmediatePropagation(); onClose(); return; }
       if (e.code === 'Space' && activeTab === 'capture' && phase === 'idle') {
-        const tag = (document.activeElement?.tagName || '').toUpperCase();
+        const tag = (hostWin.document.activeElement?.tagName || '').toUpperCase();
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         e.preventDefault(); handleTriggerCapture();
       }
     };
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [isOpen, isBatchOpen, activeTab, phase, handleTriggerCapture, onClose]);
+    hostWin.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => hostWin.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [isOpen, isBatchOpen, activeTab, phase, handleTriggerCapture, onClose, hostWin]);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100030] flex items-center justify-center p-3 select-none" onClick={onClose}>
+    <div data-photobooth-capture={activeTab === 'capture' && phase === 'idle' ? 'true' : undefined} className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[100030] flex items-center justify-center p-3 select-none" onClick={onClose}>
       <div className="bg-[var(--cordel-paper-surface)] border-[3px] border-[var(--cordel-paper-ink)] p-4 max-w-2xl w-full max-h-[92vh] overflow-y-auto rounded-sm shadow-[8px_8px_0px_var(--cordel-shadow-color)] flex flex-col gap-3 text-[var(--cordel-paper-ink)]" onClick={(e) => e.stopPropagation()}>
         <PhotoBoothHeader activeTab={activeTab} onChangeTab={setActiveTab} onClose={onClose} lang={lang} />
         {activeTab === 'gallery' ? (
@@ -133,6 +135,6 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
         </Suspense>
       )}
     </div>,
-    document.body
+    portalRoot
   );
 };

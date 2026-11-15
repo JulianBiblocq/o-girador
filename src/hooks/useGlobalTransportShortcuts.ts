@@ -1,5 +1,6 @@
 
 import { useEffect, useRef } from 'react';
+import { isEditableTarget } from '../utils/crossRealmDom';
 
 /**
  * useGlobalTransportShortcuts
@@ -28,26 +29,12 @@ export function useGlobalTransportShortcuts(togglePlay: () => void) {
       // 2. Touches modificatrices : ne pas interférer avec d'éventuels raccourcis système ou DAW
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 
-      // 3. Double barrière de saisie de texte (target ET document.activeElement)
+      // 3. Double barrière de saisie de texte sans `instanceof` (target ET document.activeElement)
       const target = e.target as HTMLElement | null;
       const activeEl = document.activeElement as HTMLElement | null;
 
-      const isTargetInput = Boolean(
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        target?.isContentEditable ||
-        target?.closest?.('input, textarea, select, [contenteditable="true"]')
-      );
-
-      const isFocusedInput = Boolean(
-        activeEl instanceof HTMLInputElement ||
-        activeEl instanceof HTMLTextAreaElement ||
-        activeEl instanceof HTMLSelectElement ||
-        activeEl?.id === 'letras-textarea' ||
-        activeEl?.isContentEditable ||
-        activeEl?.closest?.('input, textarea, select, [contenteditable="true"]')
-      );
+      const isTargetInput = isEditableTarget(target);
+      const isFocusedInput = isEditableTarget(activeEl) || activeEl?.id === 'letras-textarea';
 
       // Si l'utilisateur est en train de taper du texte, laisser passer l'espace normalement
       if (isTargetInput || isFocusedInput) {

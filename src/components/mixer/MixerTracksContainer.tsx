@@ -1,6 +1,8 @@
 import React, { useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { usePortalRoot } from '../../contexts/WindowContext';
 import { TrackMeta } from '../../stores/useSequencerStore';
 import { MixerAddChannel } from '../MixerAddChannel';
 import { MixerWagonGhost } from '../MixerWagonGhost';
@@ -20,31 +22,18 @@ interface MixerTracksContainerProps {
   handlePastePattern: (trackId: number, patternId: number) => void;
   onOpenDetailEditor: (trackId: number) => void;
   onStepTouchStart?: (
-    e: React.MouseEvent | React.TouchEvent,
-    patternId: number,
-    stepIdx: number,
-    instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void
+    e: React.MouseEvent | React.TouchEvent, patternId: number, stepIdx: number,
+    instId: string, currentVal: string | number, onSelect: (val: string) => void
   ) => void;
   dnd: any;
 }
 
 export const MixerTracksContainer: React.FC<MixerTracksContainerProps> = ({
-  displayedTracks,
-  displayedTrackIds,
-  allOrderedTracks,
-  tracksMeta,
-  mixerBankOffset,
-  isActive,
-  lang,
-  copiedPattern,
-  handleCopyPattern,
-  handlePastePattern,
-  onOpenDetailEditor,
-  onStepTouchStart,
-  dnd,
+  displayedTracks, displayedTrackIds, allOrderedTracks, tracksMeta, mixerBankOffset,
+  isActive, lang, copiedPattern, handleCopyPattern, handlePastePattern,
+  onOpenDetailEditor, onStepTouchStart, dnd,
 }) => {
+  const portalRoot = usePortalRoot();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,7 +44,7 @@ export const MixerTracksContainer: React.FC<MixerTracksContainerProps> = ({
         let target = e.target as HTMLElement | null;
         while (target && target !== el) {
           if (target.scrollHeight > target.clientHeight) {
-            const overflowY = window.getComputedStyle(target).overflowY;
+            const overflowY = (target.ownerDocument?.defaultView || window).getComputedStyle(target).overflowY;
             if (overflowY === 'auto' || overflowY === 'scroll') return;
           }
           target = target.parentElement;
@@ -131,9 +120,12 @@ export const MixerTracksContainer: React.FC<MixerTracksContainerProps> = ({
             );
           })}
         </SortableContext>
-        <DragOverlay dropAnimation={null}>
-          {dnd.activeDragWagonTracks && dnd.activeDragWagonTracks.length > 0 ? <MixerWagonGhost tracks={dnd.activeDragWagonTracks} lang={lang} /> : null}
-        </DragOverlay>
+        {portalRoot && createPortal(
+          <DragOverlay dropAnimation={null}>
+            {dnd.activeDragWagonTracks && dnd.activeDragWagonTracks.length > 0 ? <MixerWagonGhost tracks={dnd.activeDragWagonTracks} lang={lang} /> : null}
+          </DragOverlay>,
+          portalRoot
+        )}
       </DndContext>
       <MixerAddChannel isActive={isActive} />
     </div>

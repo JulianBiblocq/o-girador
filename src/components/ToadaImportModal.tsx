@@ -3,9 +3,10 @@
  * Modale Cordel pour choisir la mesure de départ lors de l'import d'une Toada.
  * Respect strict de l'architecture anti-monolithe (< 150 lignes).
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Music, ArrowRight, Download, X } from 'lucide-react';
+import { usePortalRoot, useWindow } from '../contexts/WindowContext';
 
 interface ToadaImportModalProps {
   isOpen: boolean;
@@ -26,7 +27,16 @@ export const ToadaImportModal: React.FC<ToadaImportModalProps> = ({
   onClose,
   lang = 'fr',
 }) => {
+  const hostWin = useWindow();
+  const portalRoot = usePortalRoot();
   const [startMeasure, setStartMeasure] = useState<number>(1);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    hostWin.addEventListener('keydown', onKey);
+    return () => hostWin.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose, hostWin]);
 
   if (!isOpen) return null;
 
@@ -124,6 +134,6 @@ export const ToadaImportModal: React.FC<ToadaImportModalProps> = ({
         </div>
       </div>
     </div>,
-    document.body
+    portalRoot
   );
 };

@@ -1,7 +1,9 @@
 
 import { useEffect, useRef } from 'react';
+import { useWindow } from '../../contexts/WindowContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
+import { isEditableTarget } from '../../utils/crossRealmDom';
 import { subscribeToTick, unsubscribeFromTick } from '../useAudioSync';
 
 export interface UseInstrumentEditorRecordingParams {
@@ -9,6 +11,7 @@ export interface UseInstrumentEditorRecordingParams {
 }
 
 export function useInstrumentEditorRecording({ trackId }: UseInstrumentEditorRecordingParams) {
+  const hostWin = useWindow();
   const armedPatternId = useSequencerStore((state) => state.armedPatternId);
   const toggleArmPattern = useSequencerStore((state) => state.toggleArmPattern);
   const disarmAllPatterns = useSequencerStore((state) => state.disarmAllPatterns);
@@ -25,8 +28,7 @@ export function useInstrumentEditorRecording({ trackId }: UseInstrumentEditorRec
   // Raccourci Clavier 'R' pour basculer l'enregistrement MIDI
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
+      if (isEditableTarget(e.target) || isEditableTarget(hostWin.document.activeElement)) return;
       if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const t = useSequencerStore.getState().tracks.find((tr) => tr.id === trackId);
         const c = t ? instrumentsConfig[t.instrumentIdx] : null;
@@ -37,28 +39,27 @@ export function useInstrumentEditorRecording({ trackId }: UseInstrumentEditorRec
         }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePatternRecording, trackId]);
+    hostWin.addEventListener('keydown', handleKeyDown);
+    return () => hostWin.removeEventListener('keydown', handleKeyDown);
+  }, [hostWin, togglePatternRecording, trackId]);
 
   // Mode Live Erase (Effacement direct via Backspace et Delete maintenus)
   const isLiveErasingRef = useRef(false);
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
+      if (isEditableTarget(e.target) || isEditableTarget(hostWin.document.activeElement)) return;
       if (e.key === 'Backspace' || e.key === 'Delete') isLiveErasingRef.current = true;
     };
     const onUp = (e: KeyboardEvent) => {
       if (e.key === 'Backspace' || e.key === 'Delete') isLiveErasingRef.current = false;
     };
-    window.addEventListener('keydown', onDown);
-    window.addEventListener('keyup', onUp);
+    hostWin.addEventListener('keydown', onDown);
+    hostWin.addEventListener('keyup', onUp);
     return () => {
-      window.removeEventListener('keydown', onDown);
-      window.removeEventListener('keyup', onUp);
+      hostWin.removeEventListener('keydown', onDown);
+      hostWin.removeEventListener('keyup', onUp);
     };
-  }, []);
+  }, [hostWin]);
 
   // Mode Live Erase : effacement direct pendant la lecture si Backspace ou Delete est maintenu
   useEffect(() => {
@@ -77,7 +78,8 @@ export function useInstrumentEditorRecording({ trackId }: UseInstrumentEditorRec
             updatePatternStep(armedTrackId, aPtnId, currentStep, 0);
 
             // Flash visuel d'effacement direct via WAAPI (sans re-render React)
-            const cellEl = document.querySelector<HTMLElement>(
+            const hostDoc = hostWin?.document || document;
+            const cellEl = hostDoc.querySelector<HTMLElement>(
               `[data-pattern-id="${aPtnId}"][data-step-index="${currentStep}"]`
             );
             if (cellEl) {
@@ -95,7 +97,7 @@ export function useInstrumentEditorRecording({ trackId }: UseInstrumentEditorRec
     return () => {
       unsubscribeFromTick(handleTick);
     };
-  }, []);
+  }, [hostWin]);
 
   return {
     armedPatternId,

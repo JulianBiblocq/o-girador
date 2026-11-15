@@ -1,9 +1,11 @@
 
+import { isElementLike, isInputElementLike, isTextAreaElementLike } from '../../utils/crossRealmDom';
+
 export function isActualTextEntry(el: HTMLElement | null): boolean {
-  if (!el) return false;
+  if (!isElementLike(el)) return false;
   if (el.isContentEditable) return true;
-  if (el instanceof HTMLTextAreaElement) return true;
-  if (el instanceof HTMLInputElement) {
+  if (isTextAreaElementLike(el)) return true;
+  if (isInputElementLike(el)) {
     const type = (el.type || 'text').toLowerCase();
     const textTypes = ['text', 'search', 'password', 'email', 'number', 'tel', 'url'];
     return textTypes.includes(type) && !el.readOnly && !el.disabled;

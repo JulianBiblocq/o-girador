@@ -1,6 +1,6 @@
-
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot, useWindow } from '../../contexts/WindowContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { canTransferPatterns, getInstrumentFamily } from '../../utils/instrumentCompatibility';
@@ -17,29 +17,32 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
   trackId, x, y, onClose,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const lang = useSequencerStore(state => state.lang);
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId || String(t.id) === String(trackId)));
-  const clipboard = useSequencerStore(state => state.instrumentPatternsClipboard);
+  const hostWin = useWindow();
+  const portalRoot = usePortalRoot();
+  const lang = useSequencerStore((state) => state.lang);
+  const track = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId || String(t.id) === String(trackId)));
+  const clipboard = useSequencerStore((state) => state.instrumentPatternsClipboard);
 
   useEffect(() => {
+    const doc = hostWin.document;
     const handleMouseDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();
+      if (menuRef.current && e.target && !menuRef.current.contains(e.target as Node)) onClose();
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     const handleWheel = () => onClose();
 
-    document.addEventListener('mousedown', handleMouseDown, true);
-    document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('wheel', handleWheel, { passive: true });
+    doc.addEventListener('mousedown', handleMouseDown, true);
+    doc.addEventListener('keydown', handleKeyDown);
+    hostWin.addEventListener('wheel', handleWheel, { passive: true });
 
     return () => {
-      document.removeEventListener('mousedown', handleMouseDown, true);
-      document.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('wheel', handleWheel);
+      doc.removeEventListener('mousedown', handleMouseDown, true);
+      doc.removeEventListener('keydown', handleKeyDown);
+      hostWin.removeEventListener('wheel', handleWheel);
     };
-  }, [onClose]);
+  }, [onClose, hostWin]);
 
   if (!track) return null;
 
@@ -50,8 +53,8 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
 
   const menuWidth = 240;
   const menuHeight = 180;
-  const adjustedX = Math.max(8, Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 800) - menuWidth - 12));
-  const adjustedY = Math.max(8, Math.min(y, (typeof window !== 'undefined' ? window.innerHeight : 600) - menuHeight - 12));
+  const adjustedX = Math.max(8, Math.min(x, (hostWin?.innerWidth || 800) - menuWidth - 12));
+  const adjustedY = Math.max(8, Math.min(y, (hostWin?.innerHeight || 600) - menuHeight - 12));
   const patternCount = track.patterns?.length || 0;
 
   return createPortal(
@@ -59,14 +62,14 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
       ref={menuRef}
       role="menu"
       aria-label="Menu contextuel instrument"
-      className="fixed z-[99999] bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm py-1.5 w-[240px] select-none text-xs font-bold text-[#1a1a1a]"
+      className="fixed z-[99999] bg-[var(--cordel-parchment-panel)] border-2 border-[var(--cordel-ink-dark)] shadow-[3px_3px_0px_var(--cordel-ink-dark)] rounded-sm py-1.5 w-[240px] select-none text-xs font-bold text-[var(--cordel-ink-dark)]"
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
-      <div className="px-3 py-1 text-[11px] font-cactus tracking-wide uppercase text-[#8b2a1a] border-b border-[#1a1a1a]/15 flex items-center justify-between">
+      <div className="px-3 py-1 text-[11px] font-cactus tracking-wide uppercase text-[var(--cordel-accent-readable)] border-b border-[var(--cordel-ink-dark)]/15 flex items-center justify-between">
         <span className="truncate">{instName}</span>
-        <span className="text-[10px] text-[#1a1a1a]/60 lowercase font-mono">
+        <span className="text-[10px] text-[var(--cordel-ink-dark)]/60 lowercase font-mono">
           {patternCount} {lang === 'fr' ? (patternCount > 1 ? 'motifs' : 'motif') : (patternCount > 1 ? 'padrões' : 'padrão')}
         </span>
       </div>
@@ -76,6 +79,6 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
         isCompatible={isCompatible} targetFamily={targetFamily} onClose={onClose}
       />
     </div>,
-    document.body
+    portalRoot
   );
 };

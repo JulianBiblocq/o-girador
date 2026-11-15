@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Scan } from 'lucide-react';
+import { usePortalRoot } from '../../contexts/WindowContext';
 
 interface Props {
   isOpen: boolean;
@@ -13,14 +14,15 @@ interface Props {
 }
 
 export const PaperScanProgressOverlay: React.FC<Props> = ({ isOpen, lang, onComplete }) => {
+  const portalRoot = usePortalRoot();
   const [mounted, setMounted] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(10);
   const wasOpenRef = useRef<boolean>(false);
   const isFr = lang === 'fr';
 
   useEffect(() => {
-    let interval: any = null;
-    let timer: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     if (isOpen) {
       wasOpenRef.current = true;
@@ -48,34 +50,31 @@ export const PaperScanProgressOverlay: React.FC<Props> = ({ isOpen, lang, onComp
     };
   }, [isOpen, onComplete]);
 
-  if (!mounted) return null;
-
-  const modalRoot = (typeof document !== 'undefined' && document.getElementById('modal-root')) || (typeof document !== 'undefined' ? document.body : null);
-  if (!modalRoot) return null;
+  if (!mounted || !portalRoot) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100035] bg-black/75 backdrop-blur-[2px] flex items-center justify-center p-6 select-none font-sans">
-      <div className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_#000] p-6 max-w-sm w-full flex flex-col items-center gap-3">
-        <Scan size={36} className="text-[#9a3412] animate-pulse" />
+      <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border-strong)] shadow-[8px_8px_0px_var(--cordel-shadow-color)] p-6 max-w-sm w-full flex flex-col items-center gap-3">
+        <Scan size={36} className="text-[var(--cordel-accent)] animate-pulse" />
         <div className="flex flex-col items-center gap-0.5 text-center">
-          <h3 className="font-cactus font-bold text-lg uppercase tracking-wider text-[#9a3412]">
+          <h3 className="font-cactus font-bold text-lg uppercase tracking-wider text-[var(--cordel-accent)]">
             {isFr ? 'Scan en cours...' : 'Escaneamento em curso...'}
           </h3>
-          <p className="text-xs text-[#1a1a1a]/80 font-medium">
+          <p className="text-xs text-[var(--cordel-text)] opacity-80 font-medium">
             {isFr ? 'Lecture et découpage des mesures...' : 'Leitura e recorte dos compassos...'}
           </p>
         </div>
-        <div className="w-full h-3.5 bg-[#1a1a1a] border border-[#c8963e] rounded-sm overflow-hidden p-0.5 mt-1">
+        <div className="w-full h-3.5 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] rounded-none overflow-hidden p-0.5 mt-1">
           <div
-            className="h-full bg-gradient-to-r from-[#9a3412] to-[#d99b26] transition-all duration-200 rounded-xs"
-            style={{ width: `${progress}%` }}
+            className="h-full bg-[var(--cordel-accent)] origin-left transition-transform duration-200"
+            style={{ transform: `scaleX(${Math.max(0, Math.min(100, progress)) / 100})` }}
           />
         </div>
-        <span className="font-mono text-xs font-bold text-[#1a1a1a]">
+        <span className="font-mono text-xs font-bold text-[var(--cordel-text)]">
           {Math.round(progress)}%
         </span>
       </div>
     </div>,
-    modalRoot
+    portalRoot
   );
 };

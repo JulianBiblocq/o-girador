@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus } from 'lucide-react';
+import { usePortalRoot, useWindow } from '../contexts/WindowContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { AddChannelModal } from './AddChannelModal';
 
@@ -12,10 +13,17 @@ interface MixerAddChannelProps {
 export const MixerAddChannel: React.FC<MixerAddChannelProps> = ({ isActive = true }) => {
   const lang = useSequencerStore(state => state.lang);
   const [modalOpen, setModalOpen] = useState(false);
+  const hostWin = useWindow();
+  const modalRoot = usePortalRoot();
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModalOpen(false); };
+    hostWin.addEventListener('keydown', onKey);
+    return () => hostWin.removeEventListener('keydown', onKey);
+  }, [modalOpen, hostWin]);
 
   if (!isActive) return null;
-
-  const modalRoot = document.getElementById('modal-root') || document.body;
 
   return (
     <div

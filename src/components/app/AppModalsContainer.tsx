@@ -1,5 +1,6 @@
 
 import React, { Suspense } from 'react';
+import { WindowContext } from '../../contexts/WindowContext';
 import { TouchStrokeSelector } from '../TouchStrokeSelector';
 import { GlobalModalsLayout } from '../GlobalModalsLayout';
 import { AppModalsOverlayModals } from './AppModalsOverlayModals';
@@ -72,12 +73,14 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   return (
     <>
       {touchSelector && (
-        <TouchStrokeSelector
-          selector={touchSelector}
-          hoveredStroke={hoveredStroke}
-          setHoveredStroke={setHoveredStroke}
-          onClose={() => { setTouchSelector(null); setHoveredStroke(null); }}
-        />
+        <WindowContext.Provider value={touchSelector.targetWindow || window}>
+          <TouchStrokeSelector
+            selector={touchSelector}
+            hoveredStroke={hoveredStroke}
+            setHoveredStroke={setHoveredStroke}
+            onClose={() => { setTouchSelector(null); setHoveredStroke(null); }}
+          />
+        </WindowContext.Provider>
       )}
 
       <div className={`fixed bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-3 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[11px] font-bold border-2 border-[var(--cordel-border)] shadow-[2px_2px_0_var(--cordel-border)] transition-all duration-300 pointer-events-none ${isSavedIndicatorVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>

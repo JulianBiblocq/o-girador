@@ -4,8 +4,11 @@
  * chaque abonne recoit UNE SEULE fois son callback de remise a zero (aucune jauge figee en plein pic).
  */
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
 
 export function isDetailEditorOpen(): boolean {
+  const ws = useDesktopWorkspaceStore.getState();
+  if (ws.isSatelliteOpen && ws.satelliteMode === 'editor') return false;
   return useSequencerStore.getState().editingTrackId !== null;
 }
 
@@ -20,7 +23,8 @@ function tick() {
   }
 
   const state = useSequencerStore.getState();
-  const isSuspended = state.editingTrackId !== null || state.isEcoMode;
+  const isSatelliteOpen = useDesktopWorkspaceStore.getState().isSatelliteOpen;
+  const isSuspended = state.isEcoMode || (state.editingTrackId !== null && !isSatelliteOpen);
 
   if (isSuspended && !wasSuspended) {
     subscribers.forEach((onSuspend) => {

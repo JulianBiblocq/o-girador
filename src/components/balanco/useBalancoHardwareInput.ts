@@ -1,15 +1,19 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useWindow } from '../../contexts/WindowContext';
+import { isEditableTarget } from '../../utils/crossRealmDom';
 
 export function useBalancoHardwareInput(
   isOpen: boolean,
   padRef: React.RefObject<HTMLButtonElement | null>,
   registerHit: () => void
 ) {
+  const hostWin = useWindow();
+
   const triggerPadAnimation = () => {
     if (padRef.current) {
       padRef.current.style.transform = 'scale(0.95)';
-      padRef.current.style.backgroundColor = '#8b2a1a';
-      padRef.current.style.color = '#f4ecd8';
+      padRef.current.style.backgroundColor = 'var(--cordel-accent)';
+      padRef.current.style.color = 'var(--cordel-on-accent)';
       setTimeout(() => {
         if (padRef.current) {
           padRef.current.style.transform = '';
@@ -27,11 +31,10 @@ export function useBalancoHardwareInput(
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !hostWin?.addEventListener) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      const tag = document.activeElement?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      if (isEditableTarget(e.target) || isEditableTarget(hostWin.document.activeElement)) return;
       if (['KeyF', 'KeyJ', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         e.preventDefault();
         e.stopPropagation();
@@ -39,9 +42,9 @@ export function useBalancoHardwareInput(
         registerHit();
       }
     };
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [isOpen, registerHit]);
+    hostWin.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => hostWin.removeEventListener('keydown', handleKeyDown, { capture: true });
+  }, [isOpen, registerHit, hostWin]);
 
   return { handlePointerHit };
 }

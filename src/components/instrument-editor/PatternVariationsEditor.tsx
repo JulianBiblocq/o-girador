@@ -6,19 +6,21 @@ import { usePatternVariationsWheel } from './variations/usePatternVariationsWhee
 import { VariationCard } from './variations/VariationCard';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { useAudio } from '../../contexts/AudioContext';
-import { getAlternatingStroke, getNextNuanceState } from '../../utils/instrumentStrokes';
+import { useWindow } from '../../contexts/WindowContext';
+import { getAlternatingStroke } from '../../utils/instrumentStrokes';
 
 export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (props) => {
   const { trackId, lang, ptn, inst, activeTool, isAlternating, isLeftHanded, onAddPatternVariation } = props;
   const { handleTogglePlay } = useAudio();
+  const hostWin = useWindow();
   const variationsContainerRef = useRef<HTMLDivElement>(null);
   const isMouseDownRef = useRef(false);
 
   useEffect(() => {
     const onMouseUp = () => { isMouseDownRef.current = false; };
-    window.addEventListener('mouseup', onMouseUp);
-    return () => window.removeEventListener('mouseup', onMouseUp);
-  }, []);
+    hostWin.addEventListener('mouseup', onMouseUp);
+    return () => hostWin.removeEventListener('mouseup', onMouseUp);
+  }, [hostWin]);
 
   usePatternVariationsWheel({
     variationsContainerRef, ptn, inst, selectedPatternId: props.selectedPatternId,
@@ -81,7 +83,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   if (inst.type === 'voice' || inst.id === 'apito') return null;
 
   return (
-    <div ref={variationsContainerRef} className="flex flex-col gap-3 mt-2 mb-2 pl-2 sm:pl-3 border-l-[3px] border-dashed border-[#1a1a1a]/20">
+    <div ref={variationsContainerRef} className="flex flex-col gap-3 mt-2 mb-2 pl-2 sm:pl-3 border-l-[3px] border-dashed border-[var(--cordel-border)]">
       {(ptn.variations || []).map((variation) => (
         <VariationCard
           key={variation.id} variation={variation} {...props}
@@ -91,7 +93,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
       ))}
       <button
         onClick={() => onAddPatternVariation?.(ptn.id)}
-        className="text-xs font-bold text-[#1a1a1a] bg-transparent border-2 border-dashed border-[#1a1a1a]/40 px-3 py-1.5 self-start hover:border-[#1a1a1a] hover:bg-[#1a1a1a]/5 transition-colors"
+        className="text-xs font-bold text-[var(--cordel-text)] bg-transparent border-2 border-dashed border-[var(--cordel-border)] px-3 py-1.5 self-start hover:border-[var(--cordel-border-strong)] hover:bg-[var(--cordel-surface)] transition-colors cursor-pointer"
       >
         + {lang === 'fr' ? 'Ajouter une variation probabiliste' : 'Adicionar variação probabilística'}
       </button>

@@ -32,14 +32,15 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
   const setTocarJuntoMuteScope = useSequencerStore((s) => s.setTocarJuntoMuteScope);
 
   useEffect(() => {
+    const doc = panelRef.current?.ownerDocument || document;
     const handleDown = (e: MouseEvent | TouchEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      if (panelRef.current && e.target && !panelRef.current.contains(e.target as Node)) onClose();
     };
-    document.addEventListener('mousedown', handleDown);
-    document.addEventListener('touchstart', handleDown);
+    doc.addEventListener('mousedown', handleDown);
+    doc.addEventListener('touchstart', handleDown);
     return () => {
-      document.removeEventListener('mousedown', handleDown);
-      document.removeEventListener('touchstart', handleDown);
+      doc.removeEventListener('mousedown', handleDown);
+      doc.removeEventListener('touchstart', handleDown);
     };
   }, [onClose]);
 

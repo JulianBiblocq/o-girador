@@ -1,6 +1,7 @@
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import * as Tone from 'tone';
+import { useWindow } from '../../contexts/WindowContext';
 import { audioEngine } from '../useAudioSync';
 import { getWheelNuanceState } from '../../utils/instrumentStrokes';
 import { getSculptNumber } from '../../components/instrument-editor/grid/gridConstants';
@@ -26,6 +27,8 @@ export function useGridArrowNuanceShortcuts(params: UseGridArrowNuanceShortcutsP
     selectedVariationId, instrument, lang, isLeftHanded,
     handleVariationStepValueChange, handleTrackStepValueChange
   } = params;
+
+  const hostWin = useWindow();
 
   useEffect(() => {
     if (selectedStepIdx === null || pattern?.id !== selectedPatternId || selectedVariationId !== null) return;
@@ -73,7 +76,7 @@ export function useGridArrowNuanceShortcuts(params: UseGridArrowNuanceShortcutsP
       }
     };
 
-    window.addEventListener('keydown', handleGridVerticalArrows, { capture: true });
-    return () => window.removeEventListener('keydown', handleGridVerticalArrows, { capture: true });
-  }, [selectedStepIdx, selectedSubIndex, pattern?.id, pattern?.activeSteps, pattern?.volumes, pattern?.decays, selectedVariationId, instrument?.id, instrument?.type, lang, isLeftHanded, trackId, selectedPatternId, handleVariationStepValueChange, handleTrackStepValueChange]);
+    hostWin.addEventListener('keydown', handleGridVerticalArrows, { capture: true });
+    return () => hostWin.removeEventListener('keydown', handleGridVerticalArrows, { capture: true });
+  }, [hostWin, selectedStepIdx, selectedSubIndex, pattern?.id, pattern?.activeSteps, pattern?.volumes, pattern?.decays, selectedVariationId, instrument?.id, instrument?.type, lang, isLeftHanded, trackId, selectedPatternId, handleVariationStepValueChange, handleTrackStepValueChange]);
 }

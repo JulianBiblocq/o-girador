@@ -75,15 +75,16 @@ export function useFaderTouchDrag({
       }
     };
 
+    const win = el.ownerDocument?.defaultView || window;
     el.addEventListener('touchstart', handleTouchStart, { passive: false });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd, { passive: false });
-    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    win.addEventListener('touchmove', handleTouchMove, { passive: false });
+    win.addEventListener('touchend', handleTouchEnd, { passive: false });
+    win.addEventListener('touchcancel', handleTouchEnd, { passive: false });
     return () => {
       el.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-      window.removeEventListener('touchcancel', handleTouchEnd);
+      win.removeEventListener('touchmove', handleTouchMove);
+      win.removeEventListener('touchend', handleTouchEnd);
+      win.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [calculateValueFromPointer, cacheRailRect, clearRailRect, resetToUnity, onChange, updateAudioNode, visualThumbRef, valueTextRef, railRef]);
 }

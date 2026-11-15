@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RotateCw, Check, Maximize2, X, Crop } from 'lucide-react';
+import { usePortalRoot } from '../../contexts/WindowContext';
 import { preprocessPaperImage } from '../../utils/paper/paperImagePreprocessor';
 import { useCropInteraction, HandleType } from '../../hooks/paper/useCropInteraction';
 
@@ -19,6 +20,7 @@ interface Props {
 export const PaperScanCropModal: React.FC<Props> = ({
   isOpen, imageSrc, title, onConfirm, onCancel, lang,
 }) => {
+  const portalRoot = usePortalRoot();
   const [rotation, setRotation] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const { crop, containerRef, onPointerDown, onPointerMove, onPointerUp } = useCropInteraction();
@@ -39,8 +41,7 @@ export const PaperScanCropModal: React.FC<Props> = ({
   };
 
   const corners: HandleType[] = ['nw', 'ne', 'se', 'sw'];
-  const modalRoot = typeof document !== 'undefined' ? document.getElementById('modal-root') || document.body : null;
-  if (!modalRoot) return null;
+  if (!portalRoot) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[100030] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 select-none">
@@ -128,6 +129,6 @@ export const PaperScanCropModal: React.FC<Props> = ({
         </div>
       </div>
     </div>,
-    modalRoot
+    portalRoot
   );
 };

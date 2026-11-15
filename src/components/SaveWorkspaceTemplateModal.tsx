@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, SlidersHorizontal } from 'lucide-react';
+import { usePortalRoot, useWindow } from '../contexts/WindowContext';
 import { Language } from '../types';
 import { XiloScroll } from './XiloIcons';
 import { useWorkspaceTemplateStore } from '../stores/useWorkspaceTemplateStore';
@@ -22,6 +23,9 @@ export const SaveWorkspaceTemplateModal: React.FC<SaveWorkspaceTemplateModalProp
   const [activeTab, setActiveTab] = useState<'load' | 'save'>('load');
   const isPt = lang === 'pt';
 
+  const hostWin = useWindow();
+  const modalRoot = usePortalRoot();
+
   useEffect(() => {
     if (isOpen) setActiveTab(templates.length > 0 ? 'load' : 'save');
   }, [isOpen, templates.length]);
@@ -34,13 +38,12 @@ export const SaveWorkspaceTemplateModal: React.FC<SaveWorkspaceTemplateModalProp
         onClose();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
+    hostWin.addEventListener('keydown', onKeyDown);
+    return () => hostWin.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose, hostWin]);
 
   if (!isOpen) return null;
 
-  const modalRoot = document.getElementById('modal-root') || document.body;
   const title = activeTab === 'load'
     ? (isPt ? 'Carregar um gabarito do batuque' : 'Charger un gabarit du batuque')
     : (isPt ? 'Memorizar o gabarito do batuque' : 'Mémoriser le gabarit du batuque');

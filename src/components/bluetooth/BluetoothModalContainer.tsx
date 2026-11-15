@@ -1,9 +1,10 @@
 /**
  * Boîte modale Cordel en portail pour les outils de synchronisation Bluetooth (< 100 lignes).
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { getActiveHostWindow } from '../../contexts/WindowContext';
 import { useBluetoothLatencyStore } from '../../utils/bluetoothLatencyStore';
 import { btTranslations } from '../../utils/bluetoothTranslations';
 import { BluetoothOnboardingCard } from './BluetoothOnboardingCard';
@@ -20,10 +21,11 @@ export const BluetoothModalContainer: React.FC<Props> = ({ lang }) => {
   const activeModalTab = useBluetoothLatencyStore((s) => s.activeModalTab);
   const openModal = useBluetoothLatencyStore((s) => s.openModal);
   const closeModal = useBluetoothLatencyStore((s) => s.closeModal);
+  const hostWin = useMemo(() => getActiveHostWindow(), [isModalOpen]);
   const t = btTranslations[lang];
 
   useEffect(() => {
-    if (!isModalOpen) return;
+    if (!isModalOpen || !hostWin?.addEventListener) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -31,11 +33,16 @@ export const BluetoothModalContainer: React.FC<Props> = ({ lang }) => {
         closeModal();
       }
     };
-    window.addEventListener('keydown', onKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
-  }, [isModalOpen, closeModal]);
+    hostWin.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => hostWin.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isModalOpen, closeModal, hostWin]);
 
-  if (!isModalOpen || typeof document === 'undefined') return null;
+  const portalTarget =
+    hostWin?.document?.getElementById('satellite-modal-root') ||
+    hostWin?.document?.getElementById('modal-root') ||
+    hostWin?.document?.body;
+
+  if (!isModalOpen || !portalTarget) return null;
 
   const title =
     activeModalTab === 'onboarding'
@@ -85,6 +92,6 @@ export const BluetoothModalContainer: React.FC<Props> = ({ lang }) => {
         </div>
       </div>
     </div>,
-    document.body
+    portalTarget
   );
 };

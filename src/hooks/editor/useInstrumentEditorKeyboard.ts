@@ -1,6 +1,9 @@
 
 import { useEffect } from 'react';
 import * as Tone from 'tone';
+import { useWindow } from '../../contexts/WindowContext';
+import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
+import { isEditableTarget } from '../../utils/crossRealmDom';
 import { getStrokePairs, getWheelNuanceState } from '../../utils/instrumentStrokes';
 import { audioEngine } from '../useAudioSync';
 
@@ -27,24 +30,25 @@ export function useInstrumentEditorKeyboard({
   selectedStepIdx, activeTool, setActiveTool, handleClose, onKeyDown,
   puxTrack, coroTrack, isCoroActive, handleSwitchVocalTrack,
 }: UseInstrumentEditorKeyboardParams) {
+  const hostWin = useWindow();
+
   useEffect(() => {
+    const hostDoc = hostWin?.document || document;
     const onKey = (e: KeyboardEvent) => {
       if (isSettingsOpen || e.defaultPrevented) return;
-      const activeEl = document.activeElement as HTMLElement | null;
+      const activeEl = hostDoc.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
-
-      const isTextEntry = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA' ||
-        Boolean(activeEl?.isContentEditable) || target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement || Boolean(target?.isContentEditable) ||
-        Boolean(activeEl?.classList?.contains('v-syl')) || Boolean(target?.classList?.contains('v-syl'));
+      const isTextEntry = isEditableTarget(activeEl) || isEditableTarget(target);
 
       if (isTextEntry) {
-        if (e.key === 'Escape') { e.preventDefault(); activeEl?.blur(); target?.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); activeEl?.blur?.(); target?.blur?.(); }
         return;
       }
 
       if (e.key === 'Escape') {
-        if (document.querySelector('[data-testid="custom-dialog-backdrop"]')) return;
+        if (hostDoc.querySelector('[data-testid="custom-dialog-backdrop"]')) return;
+        const ws = useDesktopWorkspaceStore.getState();
+        if (ws.isSatelliteOpen && ws.satelliteMode === 'editor') return;
         e.preventDefault(); handleClose(); return;
       }
 
@@ -119,7 +123,7 @@ export function useInstrumentEditorKeyboard({
       if (onKeyDown) onKeyDown(e);
     };
 
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack, setActiveTool]);
+    hostDoc.addEventListener('keydown', onKey);
+    return () => hostDoc.removeEventListener('keydown', onKey);
+  }, [hostWin, handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack, setActiveTool]);
 }

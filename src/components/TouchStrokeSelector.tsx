@@ -1,12 +1,13 @@
 
 import React, { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { instrumentsConfig, getVisualStrokeSymbol } from '../data';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { getActiveStrokesForTrack } from '../hooks/useAudioSync';
-import { useWindow } from '../contexts/WindowContext';
+import { usePortalRoot, useWindow } from '../contexts/WindowContext';
 import { TouchSelectorState, TouchStrokeSelectorProps } from './touch-stroke/touchStrokeTypes';
 import { getStrokeDescription } from './touch-stroke/getStrokeDescription';
 import { useTouchStrokeGestures } from './touch-stroke/useTouchStrokeGestures';
@@ -49,7 +50,8 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = React.mem
     isSticky, setIsSticky, stickyTimeRef, currentWindow, onClose,
   });
 
-  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
+  const portalRoot = usePortalRoot();
+  const screenWidth = currentWindow?.innerWidth || 360;
   const bubbleWidth = Math.min(270, screenWidth - 24);
   const idealX = (selector.x * 0.6) + (screenWidth * 0.4);
   const leftPos = Math.max(bubbleWidth / 2 + 12, Math.min(screenWidth - bubbleWidth / 2 - 12, idealX));
@@ -57,9 +59,9 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = React.mem
   const arrowOffset = Math.max(-maxArrowOffset, Math.min(maxArrowOffset, selector.x - leftPos));
   const isTooHigh = selector.y - 165 < 0;
 
-  return (
+  return createPortal(
     <div
-      className="fixed z-50 flex flex-col items-center pointer-events-none"
+      className="fixed z-[100025] flex flex-col items-center pointer-events-none"
       style={{
         left: `${leftPos}px`,
         top: `${selector.y}px`,
@@ -83,7 +85,8 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = React.mem
       {!isTooHigh && (
         <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[var(--cordel-ink-dark)]" style={{ marginTop: '-2px', transform: `translateX(${arrowOffset}px)` }} />
       )}
-    </div>
+    </div>,
+    portalRoot
   );
 });
 
