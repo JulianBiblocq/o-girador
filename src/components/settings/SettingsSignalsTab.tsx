@@ -5,10 +5,12 @@ import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStor
 import { CloudRhythmSignal, PresetMetadata } from '../../types';
 import { SettingsSignalThumb } from './SettingsSignalThumb';
 import { SettingsSignalsBatchBar } from './SettingsSignalsBatchBar';
+import { SettingsSignalsPhotoLabBanner } from './SettingsSignalsPhotoLabBanner';
 
 interface SettingsSignalsTabProps {
   lang: string;
   mestreSignals?: CloudRhythmSignal[];
+  refreshMestreSignals?: () => void | Promise<void>;
 }
 
 const EMPTY_SIGNALS: NonNullable<PresetMetadata['rhythmSignals']> = [];
@@ -16,6 +18,7 @@ const EMPTY_SIGNALS: NonNullable<PresetMetadata['rhythmSignals']> = [];
 export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
   lang,
   mestreSignals = [],
+  refreshMestreSignals,
 }) => {
   const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals ?? EMPTY_SIGNALS);
   const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
@@ -49,6 +52,10 @@ export const SettingsSignalsTab: React.FC<SettingsSignalsTabProps> = ({
 
   return (
     <div className="flex flex-col gap-4 text-left">
+      <SettingsSignalsPhotoLabBanner
+        lang={lang === 'pt' ? 'pt' : 'fr'}
+        refreshMestreSignals={refreshMestreSignals}
+      />
       <p className="text-[11px] text-[var(--cordel-text-muted)] font-semibold">
         {lang === 'pt'
           ? 'Selecione os sinais que aparecerão no catálogo de sinais para os músicos.'

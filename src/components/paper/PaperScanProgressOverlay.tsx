@@ -1,6 +1,6 @@
 /**
  * Overlay plein écran centré avec barre de progression Cordel pour le scan (< 90 lignes).
- * Zéro mention de Gemini, Vision, IA ou AI. Rendu en portail z-[9999].
+ * Vocabulaire artisanal de lecture optique du manuscrit. Rendu en portail z-[100035].
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -54,7 +54,7 @@ export const PaperScanProgressOverlay: React.FC<Props> = ({ isOpen, lang, onComp
   if (!modalRoot) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-[2px] flex items-center justify-center p-6 select-none font-sans">
+    <div className="fixed inset-0 z-[100035] bg-black/75 backdrop-blur-[2px] flex items-center justify-center p-6 select-none font-sans">
       <div className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_#000] p-6 max-w-sm w-full flex flex-col items-center gap-3">
         <Scan size={36} className="text-[#9a3412] animate-pulse" />
         <div className="flex flex-col items-center gap-0.5 text-center">

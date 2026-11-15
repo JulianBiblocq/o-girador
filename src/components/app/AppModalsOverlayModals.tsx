@@ -34,6 +34,7 @@ export interface AppModalsOverlayModalsProps {
   wallpaperProps: any;
   paperWorkshopProps: any;
   mestreSignals: any[];
+  refreshMestreSignals?: () => void | Promise<void>;
   changeViewMode: (mode: any) => void;
 }
 
@@ -43,6 +44,7 @@ export const AppModalsOverlayModals: React.FC<AppModalsOverlayModalsProps> = Rea
   wallpaperProps,
   paperWorkshopProps,
   mestreSignals,
+  refreshMestreSignals,
   changeViewMode,
 }) => {
   const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
@@ -53,7 +55,7 @@ export const AppModalsOverlayModals: React.FC<AppModalsOverlayModalsProps> = Rea
   return (
     <Suspense fallback={null}>
       {isWizardOpen && <WizardOverlay onClose={() => setWizardOpen(false)} lang={lang as any} />}
-      {isSettingsOpen && <SettingsPage mestreSignals={mestreSignals} />}
+      {isSettingsOpen && <SettingsPage mestreSignals={mestreSignals} refreshMestreSignals={refreshMestreSignals} />}
       {isProfileModalOpen && (
         <UserProfilePreferencesModal
           isDarkMode={Boolean(theme?.isDarkMode ?? wallpaperProps?.isDarkMode)}

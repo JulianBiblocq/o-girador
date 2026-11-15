@@ -35,6 +35,7 @@ interface AppModalsContainerProps {
   wallpaperProps: any;
   paperWorkshopProps: any;
   mestreSignals: any[];
+  refreshMestreSignals?: () => void | Promise<void>;
   audio: any;
   sequencer: any;
   changeViewMode: (mode: any) => void;
@@ -54,6 +55,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   wallpaperProps,
   paperWorkshopProps,
   mestreSignals,
+  refreshMestreSignals,
   audio,
   sequencer,
   changeViewMode,
@@ -111,6 +113,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
         wallpaperProps={wallpaperProps}
         paperWorkshopProps={paperWorkshopProps}
         mestreSignals={mestreSignals}
+        refreshMestreSignals={refreshMestreSignals}
         changeViewMode={changeViewMode}
       />
     </>

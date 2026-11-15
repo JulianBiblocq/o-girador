@@ -74,6 +74,15 @@ const IconPrensaPartition: React.FC<OficinaIconProps> = ({ className = 'w-4 h-4'
   </svg>
 );
 
+const IconAtelierPapierScan: React.FC<OficinaIconProps> = ({ className = 'w-4 h-4' }) => (
+  <svg viewBox="0 0 24 24" className={`${className} fill-none stroke-current stroke-[2]`} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 7V4h3M17 4h3v3M4 17v3h3M17 20h3v-3" />
+    <rect x="7" y="6" width="10" height="12" rx="1" />
+    <line x1="9" y1="10" x2="15" y2="10" />
+    <line x1="9" y1="14" x2="13" y2="14" />
+  </svg>
+);
+
 const IconAudioHeadphones: React.FC<OficinaIconProps> = ({ className = 'w-4 h-4' }) => (
   <svg viewBox="0 0 24 24" className={`${className} fill-none stroke-current stroke-[2]`} strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
@@ -115,6 +124,7 @@ export const OficinaSectionIcon: React.FC<{ sectionId: string; className?: strin
     case 'midi': return <IconMidiController className={className} />;
     case 'sinais': return <IconMestreSignals className={className} />;
     case 'prensa': return <IconPrensaPartition className={className} />;
+    case 'papier': return <IconAtelierPapierScan className={className} />;
     case 'performance': return <XiloLightning size={16} className={`shrink-0 ${className}`} />;
     case 'audio': return <IconAudioHeadphones className={className} />;
     case 'ajuda': return <IconAideLivret className={className} />;

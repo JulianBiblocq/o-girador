@@ -39,6 +39,7 @@ export function getOficinaDomains(
       shortLabel: isPt ? 'Edição & Palco' : 'Édition & Scène',
       items: [
         { id: 'prensa', title: isPt ? 'A Prensa' : 'La Presse' },
+        { id: 'papier', title: isPt ? 'Atelier Papel & Scan' : 'Atelier Papier & Scan' },
         { id: 'sinais', title: isPt ? 'Sinais do Mestre' : 'Signaux du Mestre' },
         { id: 'gabarits', title: isPt ? 'Meus Modelos' : 'Mes Gabarits' },
       ],

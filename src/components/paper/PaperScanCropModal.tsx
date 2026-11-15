@@ -43,7 +43,7 @@ export const PaperScanCropModal: React.FC<Props> = ({
   if (!modalRoot) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 select-none">
+    <div className="fixed inset-0 z-[100030] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 select-none">
       <div className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[6px_6px_0px_#000] w-full max-w-2xl flex flex-col max-h-[95vh] overflow-hidden font-sans">
         {/* EN-TÊTE MODALE */}
         <div className="flex items-center justify-between px-3 py-2 bg-[#1a1a1a] text-[#f4ecd8] border-b-2 border-black">

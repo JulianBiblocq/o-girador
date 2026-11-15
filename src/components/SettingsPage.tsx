@@ -17,6 +17,7 @@ import { SettingsDesktopLayoutsTab } from './settings/SettingsDesktopLayoutsTab'
 import { MidiManagerPanel } from './MidiManagerPanel';
 import { SettingsSignalsTab } from './settings/SettingsSignalsTab';
 import { SettingsPrensaTab } from './settings/SettingsPrensaTab';
+import { PaperWorkshopContent } from './paper/PaperWorkshopContent';
 import { SettingsEcoTab } from './settings/SettingsEcoTab';
 import { SettingsAudioTab } from './settings/SettingsAudioTab';
 import { SettingsHelpTab } from './settings/SettingsHelpTab';
@@ -24,11 +25,12 @@ import { openAoVivoLabWithActiveTrack } from './AoVivo/aoVivoStrokeTester';
 
 interface SettingsPageProps {
   mestreSignals?: CloudRhythmSignal[];
+  refreshMestreSignals?: () => void | Promise<void>;
 }
 
 const DEFAULT_METADATA = { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] };
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [], refreshMestreSignals }) => {
   const isSettingsOpen = useSequencerSettingsStore((s) => s.isSettingsOpen);
   const setIsSettingsOpen = useSequencerSettingsStore((s) => s.setIsSettingsOpen);
   const activeSection = useSequencerSettingsStore((s) => s.activeSection);
@@ -52,6 +54,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     if (!isSettingsOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (document.querySelector('.z-\\[100030\\], .z-\\[100035\\], .z-\\[100040\\], .z-\\[100045\\], .z-\\[100050\\]')) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       e.preventDefault();
@@ -110,7 +113,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                   onLetrasChange={(v) => sequencer?.setLetras?.(v)} measureBpms={sequencer?.measureBpms}
                 />
               )}
-              {resolvedSection === 'sinais' && <SettingsSignalsTab lang={lang} mestreSignals={mestreSignals} />}
+              {resolvedSection === 'papier' && <PaperWorkshopContent embedded onClose={handleClose} />}
+              {resolvedSection === 'sinais' && <SettingsSignalsTab lang={lang} mestreSignals={mestreSignals} refreshMestreSignals={refreshMestreSignals} />}
               {resolvedSection === 'gabarits' && <SettingsTemplatesTab lang={lang} confirmAsync={sequencer?.confirmAsync} onClose={handleClose} />}
               {resolvedSection === 'audio' && <SettingsAudioTab lang={lang} alertAsync={sequencer?.alertAsync} />}
               {resolvedSection === 'midi' && <MidiManagerPanel />}

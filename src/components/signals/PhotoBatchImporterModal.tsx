@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Upload, X, Check, Loader2, Image as ImageIcon } from 'lucide-react';
 import { CordelOptions, defaultCordelOptions } from '../../utils/cordelEffect';
 import { BatchItem, GroupedSignalItem, readFileAsBase64, processBatchItems, groupBatchIntoSignals } from '../../utils/signals/batchPhotoProcessor';
@@ -20,7 +21,16 @@ export const PhotoBatchImporterModal: React.FC<PhotoBatchImporterModalProps> = (
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [processedSignals, setProcessedSignals] = useState<GroupedSignalItem[]>([]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onClose(); }
+    };
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isOpen, onClose]);
+
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -49,8 +59,8 @@ export const PhotoBatchImporterModal: React.FC<PhotoBatchImporterModalProps> = (
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-sans text-xs">
+  return createPortal(
+    <div className="fixed inset-0 z-[100040] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-sans text-xs" onClick={(e) => e.stopPropagation()}>
       <div className="bg-[var(--cordel-bg,#f4ecd8)] text-[#1a1a1a] border-2 border-[var(--cordel-border,#1a1a1a)] shadow-[6px_6px_0px_#000] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="bg-[#1a1a1a] text-[#f4ecd8] px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 font-cactus font-bold text-sm tracking-wide">
@@ -125,7 +135,8 @@ export const PhotoBatchImporterModal: React.FC<PhotoBatchImporterModalProps> = (
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

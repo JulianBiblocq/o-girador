@@ -5,6 +5,7 @@ export type OficinaSectionId =
   | 'groove'
   | 'kit'
   | 'prensa'
+  | 'papier'
   | 'sinais'
   | 'gabarits'
   | 'audio'
