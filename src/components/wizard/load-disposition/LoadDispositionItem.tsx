@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Zap, Trash2 } from 'lucide-react';
 import { DispositionPreset } from '../../../types/disposition.types';
@@ -30,17 +29,17 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
   const summary = formatDispositionSummary(preset.instruments, lang);
 
   return (
-    <div className="bg-[#fdfaf3] border-2 border-[#1a1a1a] p-3 shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] transition-all flex flex-col gap-2">
+    <div className="bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)] flex flex-col gap-2">
       <div className="flex justify-between items-start gap-2">
         <div>
-          <h4 className="text-sm md:text-base font-bold text-[#1a1a1a] uppercase leading-tight">
+          <h4 className="text-sm md:text-base font-bold text-[var(--cordel-text)] uppercase leading-tight">
             {preset.name}
           </h4>
-          <div className="flex items-center gap-2 text-[10px] text-[#1a1a1a]/60 mt-0.5">
+          <div className="flex items-center gap-2 text-[10px] text-[var(--cordel-text-muted)] mt-0.5 font-sans">
             {dateStr && <span>{dateStr}</span>}
             {preset.authorName && <span>• {preset.authorName}</span>}
-            {preset.visibility === 'public' && <span className="text-[#8b2a1a] font-bold">• Public</span>}
-            {preset.visibility === 'mestre_group' && <span className="text-[#2e5339] font-bold">• Groupe</span>}
+            {preset.visibility === 'public' && <span className="text-[var(--cordel-accent-readable)] font-bold">• Public</span>}
+            {preset.visibility === 'mestre_group' && <span className="text-[var(--cordel-status-success)] font-bold">• {lang === 'fr' ? 'Groupe' : 'Grupo'}</span>}
           </div>
         </div>
 
@@ -48,7 +47,7 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
           <button
             type="button"
             onClick={() => onLoad(preset)}
-            className="px-3 py-1 bg-[#2e5339] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer font-bold uppercase text-[11px] flex items-center gap-1"
+            className="px-3 py-1 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors cursor-pointer font-bold uppercase text-[11px] flex items-center gap-1"
           >
             <Zap size={12} />
             {lang === 'fr' ? 'Charger' : 'Carregar'}
@@ -58,12 +57,9 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
             <button
               type="button"
               disabled={isDeleting}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(preset);
-              }}
+              onClick={(e) => { e.stopPropagation(); onDelete(preset); }}
               title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-              className="w-7 h-7 flex items-center justify-center bg-[#8b2a1a]/10 hover:bg-[#8b2a1a] text-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-95 transition-all cursor-pointer text-xs disabled:opacity-50"
+              className="w-7 h-7 flex items-center justify-center bg-[var(--cordel-surface-elevated)] hover:bg-[var(--cordel-status-danger)] text-[var(--cordel-accent-readable)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] transition-colors cursor-pointer text-xs disabled:opacity-50"
             >
               {isDeleting ? '...' : <Trash2 size={13} />}
             </button>
@@ -71,11 +67,11 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
         </div>
       </div>
 
-      <div className="text-[11px] text-[#1a1a1a]/80 bg-[#ece4d0]/60 p-2 border border-[#1a1a1a]/40 leading-snug">
-        <span className="font-bold text-[#8b2a1a]">{lang === 'fr' ? 'Disposition :' : 'Disposição :'}</span>{' '}
+      <div className="text-[11px] text-[var(--cordel-text)] bg-[var(--cordel-surface-elevated)] p-2 border border-[var(--cordel-border)] leading-snug font-sans">
+        <span className="font-bold text-[var(--cordel-accent-readable)]">{lang === 'fr' ? 'Disposition :' : 'Disposição :'}</span>{' '}
         {summary}
         {preset.hasToada && (
-          <span className="ml-2 inline-block text-[10px] text-[#2e5339] font-bold">
+          <span className="ml-2 inline-block text-[10px] text-[var(--cordel-status-success)] font-bold">
             [+ {lang === 'fr' ? 'Chant / Toada' : 'Canto / Toada'}]
           </span>
         )}

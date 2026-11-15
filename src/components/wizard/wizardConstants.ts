@@ -1,16 +1,29 @@
+import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
+
 export { t } from './wizardTranslations';
 
-export const AVAILABLE_INSTRUMENTS = [
-  { id: 'marcante', name: 'Marcante (alfaia)', iconImg: 'icones/alfaia.svg', color: '#8a2b2b', label: 'Marcante' },
-  { id: 'meiao', name: 'Meião (alfaia)', iconImg: 'icones/alfaia.svg', color: '#ab5318', label: 'Meião' },
-  { id: 'repique', name: 'Repique (alfaia)', iconImg: 'icones/alfaia.svg', color: '#c9a724', label: 'Repique' },
-  { id: 'caixa', name: 'Caixa', iconImg: 'icones/caixa.svg', color: '#7a3187', label: 'Caixa' },
-  { id: 'tarol', name: 'Tarol', iconImg: 'icones/caixa.svg', color: '#2563eb', label: 'Tarol' },
-  { id: 'gongue', name: 'Gonguê', iconImg: 'icones/gongue.svg', color: '#bdc3c7', label: 'Gonguê' },
-  { id: 'agbe', name: 'Agbê', iconImg: 'icones/agbe.svg', color: '#22c55e', label: 'Agbê' },
-  { id: 'mineiro', name: 'Mineiro', iconImg: 'icones/mineiro.svg', color: '#588157', label: 'Mineiro' },
-  { id: 'timbal', name: 'Timbal', iconImg: 'icones/timbal.svg', color: '#d97706', label: 'Timbal' },
-];
+const WIZARD_ROLE_IDS = [
+  'marcante',
+  'meiao',
+  'repique',
+  'caixa',
+  'tarol',
+  'gongue',
+  'agbe',
+  'mineiro',
+  'timbal',
+] as const;
+
+export const AVAILABLE_INSTRUMENTS = WIZARD_ROLE_IDS.map((roleId) => {
+  const found = instrumentsConfig.find((c) => c.id === roleId);
+  return {
+    id: roleId,
+    name: found?.name || roleId,
+    iconImg: found?.iconImg ? `${ASSETS_BASE_URL}${found.iconImg}` : `icones/${roleId}.svg`,
+    color: found?.color || 'var(--cordel-border-strong)',
+    label: found?.name ? found.name.replace(/\s*\(.*\)/, '') : roleId,
+  };
+});
 
 export const LIMITS: Record<string, number> = {
   marcante: 3,

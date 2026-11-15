@@ -1,6 +1,6 @@
-
 import { useMemo } from 'react';
 import { DispositionPreset } from '../../../types/disposition.types';
+import { isLegacySamambaiaGroup } from '../../../utils/tenantGroupHelpers';
 
 export type TabType = 'mine' | 'group' | 'public';
 
@@ -25,15 +25,11 @@ export function useFilteredDispositions({
         return d.ownerId === userUid || d.ownerId === 'local' || d.authorId === userUid;
       }
       if (activeTab === 'group') {
-        const docGroupId = d.groupId ? String(d.groupId).toLowerCase() : '';
+        const docGroupId = d.groupId ? String(d.groupId).trim().toLowerCase() : '';
         const matchVisibility = d.visibility === 'mestre_group';
         const matchGroup = Boolean(groupId && docGroupId && docGroupId === groupId);
-        const isSamambaiaItem = isSamambaiaMember && (
-          docGroupId.includes('samambaia') ||
-          d.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-          d.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'
-        );
-        return (groupId ? matchGroup : matchVisibility) || isSamambaiaItem;
+        const matchLegacySamambaia = isSamambaiaMember && isLegacySamambaiaGroup(docGroupId);
+        return (groupId ? matchGroup : matchVisibility) || matchLegacySamambaia;
       }
       if (activeTab === 'public') {
         return d.visibility === 'public' || d.visibility === 'admin_global';
