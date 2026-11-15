@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Waves, SlidersHorizontal, ChevronRight } from 'lucide-react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';
+import { useDesktopWorkspaceStore } from '../../../stores/useDesktopWorkspaceStore';
 import { BalancoPresetItem } from './inspectorTypes';
 
 export interface PatternInspectorBalancoControlProps {
@@ -24,7 +25,9 @@ export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoCon
       trackId, trackLabel: instrumentName, patternId: pId, patternLabel: patternLabel || activePattern?.name,
       stepIdx: st.selectedStepIdx, isPreRoll: st.selectedStepIsPreRoll, subIndex: st.selectedSubIndex, activeTool: activeTool ?? null,
     };
-    st.closeDetailEditor();
+    if (!useDesktopWorkspaceStore.getState().isSatelliteOpen) {
+      st.closeDetailEditor();
+    }
     useSequencerSettingsStore.getState().openOficinaSection('groove', {
       focus: { grooveTier: 'pattern', trackId, patternId: pId }, returnContext,
     });

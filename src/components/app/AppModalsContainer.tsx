@@ -4,6 +4,7 @@ import { WindowContext } from '../../contexts/WindowContext';
 import { TouchStrokeSelector } from '../TouchStrokeSelector';
 import { GlobalModalsLayout } from '../GlobalModalsLayout';
 import { AppModalsOverlayModals } from './AppModalsOverlayModals';
+import { StudioSatelliteWindow } from '../satellite/StudioSatelliteWindow';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
@@ -48,23 +49,9 @@ interface AppModalsContainerProps {
 }
 
 export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
-  touchSelector,
-  hoveredStroke,
-  setTouchSelector,
-  setHoveredStroke,
-  isSavedIndicatorVisible,
-  lang,
-  theme,
-  modalLayoutProps,
-  saveModalProps,
-  visitorAuthProps,
-  wallpaperProps,
-  paperWorkshopProps,
-  mestreSignals,
-  refreshMestreSignals,
-  audio,
-  sequencer,
-  changeViewMode,
+  touchSelector, hoveredStroke, setTouchSelector, setHoveredStroke, isSavedIndicatorVisible,
+  lang, theme, modalLayoutProps, saveModalProps, visitorAuthProps, wallpaperProps,
+  paperWorkshopProps, mestreSignals, refreshMestreSignals, audio, sequencer, changeViewMode,
 }) => {
   const isIntroModalOpen = useWizardStore((state) => state.isIntroModalOpen);
   const setIntroModalOpen = useWizardStore((state) => state.setIntroModalOpen);
@@ -121,13 +108,15 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
       </Suspense>
 
       <AppModalsOverlayModals
-        lang={lang}
-        theme={theme}
-        wallpaperProps={wallpaperProps}
-        paperWorkshopProps={paperWorkshopProps}
+        lang={lang} theme={theme} wallpaperProps={wallpaperProps} paperWorkshopProps={paperWorkshopProps}
+        mestreSignals={mestreSignals} refreshMestreSignals={refreshMestreSignals} changeViewMode={changeViewMode}
+      />
+
+      <StudioSatelliteWindow
+        isMobile={Boolean(modalLayoutProps?.isMobile)}
         mestreSignals={mestreSignals}
         refreshMestreSignals={refreshMestreSignals}
-        changeViewMode={changeViewMode}
+        handleStepTouchStart={modalLayoutProps?.handleStepTouchStart}
       />
     </>
   );

@@ -39,6 +39,7 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     onClose: ctrl.handleClose, isClosing: ctrl.isClosing, lang,
     selectedPatternId: editorState.selectedPatternId, activePatternId: activePattern?.id ?? displayedPatterns[0]?.id,
     activeTool: editorState.activeTool, onOpenInspectorMobile: () => ctrl.setIsInspectorMobileOpen(true),
+    hideCloseButton: Boolean(props.isSatelliteEmbedded),
   };
 
   const patternListProps = {

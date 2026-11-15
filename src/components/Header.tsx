@@ -26,7 +26,7 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
   const metadata = useSequencerStore((s) => s.metadata);
   const storeEditingTrackId = useSequencerStore((s) => s.editingTrackId);
   const isSatelliteEditor = useDesktopWorkspaceStore((s) => s.isSatelliteOpen && s.satelliteMode === 'editor');
-  const isEditorOpen = storeEditingTrackId !== null || isSatelliteEditor;
+  const isEditorOpen = storeEditingTrackId !== null && !isSatelliteEditor;
 
   const { tabContextMenu, setTabContextMenu, createTabTouchHandlers, getTabMenuItems } =
     useHeaderTabMenu(lang);

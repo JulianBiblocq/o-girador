@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { Waves, SlidersHorizontal } from 'lucide-react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';
+import { useDesktopWorkspaceStore } from '../../../stores/useDesktopWorkspaceStore';
 
 export interface HeaderBalancoControlProps {
   targetBalancoTrack: any;
@@ -45,7 +46,9 @@ export const HeaderBalancoControl: React.FC<HeaderBalancoControlProps> = React.m
       subIndex: st.selectedSubIndex,
       activeTool: activeTool ?? null,
     };
-    st.closeDetailEditor();
+    if (!useDesktopWorkspaceStore.getState().isSatelliteOpen) {
+      st.closeDetailEditor();
+    }
     useSequencerSettingsStore.getState().openOficinaSection('groove', {
       focus: { grooveTier: 'track', trackId: effectiveEditTrackId, patternId: resolvedPatternId },
       returnContext,

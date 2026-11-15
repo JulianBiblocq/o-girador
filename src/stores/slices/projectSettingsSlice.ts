@@ -7,6 +7,8 @@ import { applyVocalTransposeStepsState, applyTransposePatternNotesState } from '
 import { Language } from '../../types';
 import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORAGE_KEY } from '../../utils/viewModeResolver';
 import { getStoredLeftHanded, setStoredLeftHanded } from '../../utils/userPreferencesStorage';
+import { useDesktopWorkspaceStore } from '../useDesktopWorkspaceStore';
+import { detachedWindowManager } from '../../utils/detachedWindowManager';
 
 export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => {
   const initialMobileMode = getInitialMobileViewMode();
@@ -76,7 +78,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
       }),
     toggleTracksCollapsed: () => set((state) => ({ isTracksCollapsed: !state.isTracksCollapsed })),
     setEditingTrackId: (id) => set({ editingTrackId: id }),
-    openInstrumentDetailAt: (payload) =>
+    openInstrumentDetailAt: (payload) => {
       set({
         editingTrackId: payload.trackId,
         selectedPatternId: typeof payload.patternId === 'number' ? payload.patternId : null,
@@ -85,7 +87,13 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
         selectedSubIndex: payload.subIndex ?? null,
         selectedStepRange: null,
         editorDeepLink: payload,
-      }),
+      });
+      const ws = useDesktopWorkspaceStore.getState();
+      if (ws.isSatelliteOpen) {
+        ws.setSatelliteState({ satelliteMode: 'editor' });
+        detachedWindowManager.focusWindow('satellite');
+      }
+    },
     consumeEditorDeepLink: () => set({ editorDeepLink: null }),
     closeDetailEditor: () => set({ editingTrackId: null, editorDeepLink: null }),
     setSelectedStepIdx: (idx, isPreRoll = false, subIndex = null) =>

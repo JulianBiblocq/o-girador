@@ -3,6 +3,7 @@ import { LayoutGrid, Plus } from 'lucide-react';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
 import { applyDesktopWorkspaceLayout, saveCurrentDesktopWorkspaceLayout } from '../../utils/satelliteLayoutActions';
 import { SettingsDesktopLayoutCard } from './SettingsDesktopLayoutCard';
+import { SettingsDesktopModeCards } from './SettingsDesktopModeCards';
 
 interface SettingsDesktopLayoutsTabProps {
   lang: string;
@@ -28,13 +29,14 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
     setNewLayoutName('');
   };
 
+  const notifyBanner = (msg: string) => {
+    setAppliedLayoutNotification(msg);
+    setTimeout(() => setAppliedLayoutNotification(null), 3500);
+  };
+
   const handleApplyLayout = (id: string, name: string) => {
-    const success = applyDesktopWorkspaceLayout(id);
-    if (success) {
-      setAppliedLayoutNotification(
-        lang === 'pt' ? `Espaço de trabalho "${name}" aplicado com sucesso!` : `Espace de travail "${name}" appliqué avec succès !`
-      );
-      setTimeout(() => setAppliedLayoutNotification(null), 3500);
+    if (applyDesktopWorkspaceLayout(id)) {
+      notifyBanner(lang === 'pt' ? `Espaço de trabalho "${name}" aplicado com sucesso!` : `Espace de travail "${name}" appliqué avec succès !`);
     }
   };
 
@@ -73,6 +75,8 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
           {appliedLayoutNotification}
         </div>
       )}
+
+      <SettingsDesktopModeCards lang={lang} onNotify={notifyBanner} />
 
       {isSavingLayoutModalOpen && (
         <div className="border-2 border-[var(--cordel-border)] bg-[var(--cordel-surface)] text-[var(--cordel-text)] p-3.5 shadow-[3px_3px_0px_var(--cordel-shadow-color)] flex flex-col gap-2 rounded-[2px_4px_3px_5px]">

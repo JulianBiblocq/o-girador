@@ -61,6 +61,7 @@ export function openSatellite(mode?: SatelliteMode, overrideBounds?: DesktopWind
   }
 
   ws.setSatelliteState({ isSatelliteOpen: true, satelliteMode: targetMode });
+  ws.setPreferredScreenMode('dual');
   applySatelliteModeEffects(targetMode);
   return true;
 }
@@ -84,6 +85,9 @@ export function dockSatellite(options?: { reanchorToScreen1?: boolean }): void {
 
   detachedWindowManager.closeWindow('satellite');
   ws.setSatelliteState({ isSatelliteOpen: false });
+  if (!detachedWindowManager.isMainWindowUnloading()) {
+    ws.setPreferredScreenMode('single');
+  }
 
   if (options?.reanchorToScreen1) {
     if (prevMode === 'mixer') requestMainBridgeView('console');
@@ -93,9 +97,11 @@ export function dockSatellite(options?: { reanchorToScreen1?: boolean }): void {
 }
 
 export function handleSatelliteClosedByOS(): void {
+  if (detachedWindowManager.isMainWindowUnloading()) return;
   const ws = useDesktopWorkspaceStore.getState();
   const prevMode = ws.satelliteMode;
   ws.setSatelliteState({ isSatelliteOpen: false });
+  ws.setPreferredScreenMode('single');
   if (prevMode === 'editor') useSequencerStore.getState().closeDetailEditor();
   else if (prevMode === 'oficina') useSequencerSettingsStore.getState().setIsSettingsOpen(false);
 }

@@ -3,6 +3,7 @@ import { Download } from 'lucide-react';
 import { XiloSun, XiloMoon, XiloFanion } from '../XiloIcons';
 import { MiniTelemetryBadge } from '../TelemetryBadge';
 import { GoogleLoginButton } from '../GoogleLoginButton';
+import { HeaderDualScreenControl } from './HeaderDualScreenControl';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
@@ -71,6 +72,8 @@ export const HeaderAuxiliaryControls: React.FC<HeaderAuxiliaryControlsProps> = (
       >
         {lang === 'pt' ? 'FR' : 'BR'}
       </button>
+
+      {!isPracticeMode && <HeaderDualScreenControl lang={lang} />}
 
       {!isPracticeMode && (
         <button

@@ -14,7 +14,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps & { ac
     addBtnRef, isAddPickerOpen, onToggleAddPicker, targetBalancoTrack, effectiveEditTrackId,
     balancoPresets, handleTrackBalancoChange, isPatternRecording, togglePatternRecording,
     isMute, isSolo, onMuteToggle, onSoloToggle, onClose, isClosing, lang,
-    selectedPatternId, activePatternId, onToggleSoloLoop, isSoloLoopPlaying, activeTool,
+    selectedPatternId, activePatternId, onToggleSoloLoop, isSoloLoopPlaying, activeTool, hideCloseButton,
   } = props;
 
   const headerBg = getInstrumentPrimaryStrongColor(inst, targetBalancoTrack);
@@ -114,9 +114,11 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps & { ac
         )}
         <button type="button" onClick={() => onMuteToggle?.()} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isMute && !isSolo ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`} title="Mute">M</button>
         <button type="button" onClick={() => onSoloToggle?.()} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-gold)] hover:text-[var(--cordel-ink-dark)]'}`} title="Solo">S</button>
-        <button type="button" onClick={() => onClose?.()} disabled={isClosing} className="w-9 h-9 shrink-0 flex items-center justify-center bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] cordel-border-sm cordel-button font-bold text-sm hover:bg-[var(--cordel-wood)] cursor-pointer transition-colors ml-1 border border-[var(--cordel-on-accent)]" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
-          {isClosing ? '...' : <X className="w-5 h-5 text-[var(--cordel-on-accent)] stroke-[2.5]" />}
-        </button>
+        {!hideCloseButton && (
+          <button type="button" onClick={() => onClose?.()} disabled={isClosing} className="w-9 h-9 shrink-0 flex items-center justify-center bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] cordel-border-sm cordel-button font-bold text-sm hover:bg-[var(--cordel-wood)] cursor-pointer transition-colors ml-1 border border-[var(--cordel-on-accent)]" title={lang === 'fr' ? 'Fermer' : 'Fechar'}>
+            {isClosing ? '...' : <X className="w-5 h-5 text-[var(--cordel-on-accent)] stroke-[2.5]" />}
+          </button>
+        )}
       </div>
     </div>
   );

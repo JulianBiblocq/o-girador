@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot } from '../contexts/WindowContext';
 import { PaperVigilanceBanner } from './paper/PaperVigilanceBanner';
 import { InstrumentEditorHeader } from './instrument-editor/header/InstrumentEditorHeader';
 import { EditorPatternListColumn } from './instrument-editor/patterns/EditorPatternListColumn';
@@ -14,6 +15,7 @@ export interface InstrumentDetailEditorProps {
   onClose: () => void;
   isMobile: boolean;
   isDetached?: boolean;
+  isSatelliteEmbedded?: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -26,6 +28,7 @@ export interface InstrumentDetailEditorProps {
 }
 
 const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (props) => {
+  const portalRoot = usePortalRoot();
   const model = useInstrumentDetailEditorModel(props);
   if (!model.track) return null;
 
@@ -81,7 +84,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     >
       {wrapperContent}
     </div>,
-    document.body
+    portalRoot
   );
 };
 
@@ -89,6 +92,7 @@ export const InstrumentDetailEditor = React.memo(InstrumentDetailEditorComponent
   return (
     prevProps.trackId === nextProps.trackId &&
     prevProps.isMobile === nextProps.isMobile &&
-    prevProps.isDetached === nextProps.isDetached
+    prevProps.isDetached === nextProps.isDetached &&
+    prevProps.isSatelliteEmbedded === nextProps.isSatelliteEmbedded
   );
 });

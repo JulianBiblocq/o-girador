@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sliders, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';
+import { useDesktopWorkspaceStore } from '../../../stores/useDesktopWorkspaceStore';
 import { instrumentsConfig } from '../../../data';
 import { getDrumPitchNoteInfo } from '../../../utils/audio/drumPitchToNote';
 import { PercussionTuningControl } from '../../PercussionTuningControl';
@@ -40,7 +41,9 @@ export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposePr
       trackId, trackLabel: trackLabel || tr?.customName, patternId: patternId ?? null, patternLabel,
       stepIdx: st.selectedStepIdx, isPreRoll: st.selectedStepIsPreRoll, subIndex: st.selectedSubIndex, activeTool: activeTool ?? null,
     };
-    st.closeDetailEditor();
+    if (!useDesktopWorkspaceStore.getState().isSatelliteOpen) {
+      st.closeDetailEditor();
+    }
     useSequencerSettingsStore.getState().openOficinaSection('lutherie', {
       focus: { trackId, instrumentId: targetInstId }, returnContext,
     });

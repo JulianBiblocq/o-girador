@@ -7,6 +7,7 @@ export function useInstrumentDetailEditorModel(props: {
   onClose: () => void;
   isMobile: boolean;
   isDetached?: boolean;
+  isSatelliteEmbedded?: boolean;
   onStepTouchStart?: (e: any, pId: number, sIdx: number, instId: string, val: any, onSel: any) => void;
   setEditingTrackId: (id: number | null) => void;
 }) {

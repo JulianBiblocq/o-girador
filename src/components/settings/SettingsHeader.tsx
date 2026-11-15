@@ -7,12 +7,14 @@ interface SettingsHeaderProps {
   lang: string;
   onSetLang: (lang: 'fr' | 'pt') => void;
   onClose: () => void;
+  hideCloseButton?: boolean;
 }
 
 export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
   lang,
   onSetLang,
   onClose,
+  hideCloseButton = false,
 }) => {
   const returnEditorContext = useSequencerSettingsStore((s) => s.returnEditorContext);
   const clearReturnEditorContext = useSequencerSettingsStore((s) => s.clearReturnEditorContext);
@@ -98,16 +100,18 @@ export const SettingsHeader: React.FC<SettingsHeaderProps> = ({
           </button>
         </div>
 
-        <button
-          type="button"
-          data-testid="oficina-close-btn"
-          onClick={onClose}
-          className="bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] border-2 border-[var(--cordel-border-strong)] px-2.5 py-1.5 flex items-center justify-center font-cactus font-black cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors"
-          title={lang === 'fr' ? 'Fermer' : 'Fechar'}
-          aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
-        >
-          <X size={18} className="stroke-[2.5] shrink-0" />
-        </button>
+        {!hideCloseButton && (
+          <button
+            type="button"
+            data-testid="oficina-close-btn"
+            onClick={onClose}
+            className="bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] border-2 border-[var(--cordel-border-strong)] px-2.5 py-1.5 flex items-center justify-center font-cactus font-black cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors"
+            title={lang === 'fr' ? 'Fermer' : 'Fechar'}
+            aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
+          >
+            <X size={18} className="stroke-[2.5] shrink-0" />
+          </button>
+        )}
       </div>
     </div>
   );

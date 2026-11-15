@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { useDesktopWorkspaceStore } from './useDesktopWorkspaceStore';
+import { detachedWindowManager } from '../utils/detachedWindowManager';
 
 export type OficinaSectionId =
   | 'lutherie'
@@ -76,7 +78,14 @@ export const useSequencerSettingsStore = create<SettingsState>((set) => ({
       returnEditorContext: isSettingsOpen ? state.returnEditorContext : null,
       oficinaFocus: isSettingsOpen ? state.oficinaFocus : null,
     })),
-  toggleSettings: () =>
+  toggleSettings: () => {
+    const ws = useDesktopWorkspaceStore.getState();
+    if (ws.isSatelliteOpen) {
+      set({ isSettingsOpen: false });
+      ws.setSatelliteState({ satelliteMode: 'oficina' });
+      detachedWindowManager.focusWindow('satellite');
+      return;
+    }
     set((state) => {
       const next = !state.isSettingsOpen;
       return {
@@ -84,16 +93,24 @@ export const useSequencerSettingsStore = create<SettingsState>((set) => ({
         returnEditorContext: next ? state.returnEditorContext : null,
         oficinaFocus: next ? state.oficinaFocus : null,
       };
-    }),
+    });
+  },
   setActiveSection: (activeSection) => set({ activeSection }),
   setOficinaFocus: (oficinaFocus) => set({ oficinaFocus }),
-  openOficinaSection: (section, options) =>
-    set({
-      isSettingsOpen: true,
+  openOficinaSection: (section, options) => {
+    const ws = useDesktopWorkspaceStore.getState();
+    const nextState = {
+      isSettingsOpen: !ws.isSatelliteOpen,
       activeSection: section,
       oficinaFocus: options?.focus ?? null,
       returnEditorContext: options?.returnContext !== undefined ? options.returnContext : null,
-    }),
+    };
+    set(nextState);
+    if (ws.isSatelliteOpen) {
+      ws.setSatelliteState({ satelliteMode: 'oficina' });
+      detachedWindowManager.focusWindow('satellite');
+    }
+  },
   clearReturnEditorContext: () => set({ returnEditorContext: null }),
   setStrokeDefault: (key, values) =>
     set((state) => ({
