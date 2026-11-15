@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { roundSemitonesTenth } from '../../utils/audio/drumFundamentalRegistry';
 
 interface UseDrumTuningProps {
   currentTuning: number;
@@ -17,14 +18,14 @@ export function useDrumTuning({
   onChange,
   onPreview,
 }: UseDrumTuningProps) {
-  const [localTuning, setLocalTuning] = useState(currentTuning);
+  const [localTuning, setLocalTuning] = useState(() => roundSemitonesTenth(currentTuning));
   const [isDragging, setIsDragging] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!isDragging) {
-      setLocalTuning(currentTuning);
+      setLocalTuning(roundSemitonesTenth(currentTuning));
     }
   }, [currentTuning, isDragging]);
 
@@ -33,12 +34,11 @@ export function useDrumTuning({
     const rect = svgRef.current.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const ratio = y / rect.height;
-    const mappedY = ratio * 180; // viewBox height is 180
+    const mappedY = ratio * 180;
 
-    // R_y goes from 40 to 140
-    let newTuning = ((140 - mappedY) / 100) * 12 - 6;
-    newTuning = Math.round(newTuning);
-    newTuning = Math.max(-6, Math.min(6, newTuning));
+    // R_y goes from 40 (+6 st) to 140 (-6 st) with 0.1 st precision
+    const rawTuning = ((140 - mappedY) / 100) * 12 - 6;
+    const newTuning = roundSemitonesTenth(Math.max(-6, Math.min(6, rawTuning)));
 
     setLocalTuning(newTuning);
     if (isControlled && onChange) {
@@ -72,7 +72,7 @@ export function useDrumTuning({
     setIsDragging(false);
 
     if (!isControlled && trackId !== undefined) {
-      if (localTuning !== currentTuning) {
+      if (Math.abs(localTuning - currentTuning) > 0.001) {
         setTrackTuning(trackId, localTuning);
       }
     } else if (onChange) {

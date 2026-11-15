@@ -1,46 +1,21 @@
 /**
- * lutheriePresetsStorage.ts — 4 Accords Prédéfinis d'Usine & Sauvegarde Personnelle
- * Local-First (`localStorage` + synchronisation Cloud Firestore sur `users/{uid}`) (< 125 lignes).
+ * lutheriePresetsStorage.ts — Presets d'Usine Dynamiques & Sauvegarde Personnelle
+ * Local-First (`localStorage` + synchronisation Cloud Firestore sur `users/{uid}`) (< 115 lignes).
  */
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  buildFactoryLutheriePresets,
+  LUTHERIE_DRUM_ROLES,
+  LutherieDrumRole,
+  LutheriePreset,
+} from './lutherieFactoryPresets';
 
-export const LUTHERIE_DRUM_ROLES = ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'] as const;
-export type LutherieDrumRole = (typeof LUTHERIE_DRUM_ROLES)[number];
-
-export interface LutheriePreset {
-  id: string;
-  nameFr: string;
-  namePt: string;
-  subtitle?: string;
-  isFactory?: boolean;
-  tunings: Record<LutherieDrumRole, number>;
-  decays: Record<LutherieDrumRole, number>;
-}
+export { LUTHERIE_DRUM_ROLES, buildFactoryLutheriePresets };
+export type { LutherieDrumRole, LutheriePreset };
 
 export const LUTHERIE_STORAGE_KEY = 'ogirador_custom_lutherie_presets_v1';
 
-export const FACTORY_LUTHERIE_PRESETS: LutheriePreset[] = [
-  {
-    id: 'trad_minor', nameFr: 'Traditionnel', namePt: 'Tradicional', subtitle: 'Si1 • Ré2 • Fa#2', isFactory: true,
-    tunings: { marcante: 0, meiao: 0, repique: 0, caixa: 0, tarol: 0, timbal: 0 },
-    decays: { marcante: 95, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100 },
-  },
-  {
-    id: 'fifth_drone', nameFr: 'Quinte & Octave', namePt: 'Quinta & Oitava', subtitle: 'La1 • Mi2 • La2', isFactory: true,
-    tunings: { marcante: -2, meiao: 2, repique: 3, caixa: -1, tarol: 0, timbal: -2 },
-    decays: { marcante: 85, meiao: 90, repique: 100, caixa: 90, tarol: 95, timbal: 95 },
-  },
-  {
-    id: 'major_open', nameFr: 'Trio Majeur', namePt: 'Trio Maior', subtitle: 'Do2 • Mi2 • Sol2', isFactory: true,
-    tunings: { marcante: 1, meiao: 2, repique: 1, caixa: 1, tarol: 1, timbal: 1 },
-    decays: { marcante: 90, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100 },
-  },
-  {
-    id: 'fast_tight', nameFr: 'Baque Sec & Rapide', namePt: 'Baque Seco & Rápido', subtitle: 'Peaux mates', isFactory: true,
-    tunings: { marcante: 0, meiao: 2, repique: 2, caixa: 1.5, tarol: 2, timbal: 1 },
-    decays: { marcante: 68, meiao: 74, repique: 82, caixa: 75, tarol: 75, timbal: 80 },
-  },
-];
+export const FACTORY_LUTHERIE_PRESETS: LutheriePreset[] = buildFactoryLutheriePresets();
 
 function writeLocalPresets(presets: LutheriePreset[]): void {
   try {
@@ -119,9 +94,13 @@ export async function syncCustomLutheriePresetsFromCloud(): Promise<LutheriePres
 }
 
 export function isLutheriePresetMatching(
-  preset: LutheriePreset, tunings: Record<LutherieDrumRole, number>, decays: Record<LutherieDrumRole, number>
+  preset: LutheriePreset,
+  tunings: Record<LutherieDrumRole, number>,
+  decays: Record<LutherieDrumRole, number>
 ): boolean {
   return LUTHERIE_DRUM_ROLES.every(
-    (r) => Math.abs((preset.tunings[r] ?? 0) - (tunings[r] ?? 0)) < 0.05 && Math.round(preset.decays[r] ?? 100) === Math.round(decays[r] ?? 100)
+    (r) =>
+      Math.abs((preset.tunings[r] ?? 0) - (tunings[r] ?? 0)) <= 0.05 &&
+      Math.round(preset.decays[r] ?? 100) === Math.round(decays[r] ?? 100)
   );
 }

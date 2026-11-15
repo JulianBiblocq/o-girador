@@ -1,5 +1,5 @@
 /**
- * BaqueLutherieBench.tsx — Banc d'accordage par famille, notes musicales (Hz), résonance (Decay)
+ * BaqueLutherieBench.tsx — Banc d'accordage par famille, notes musicales (Hz/Cents), résonance (Decay)
  * et passerelles multi-pistes pour A Oficina et L'Assistant du Mestre (< 130 lignes).
  */
 import React from 'react';
@@ -16,10 +16,11 @@ export interface BaqueLutherieBenchProps {
 
 const DRUM_LABELS: Record<string, string> = {
   marcante: 'Alfaia Marcante', meiao: 'Alfaia Meião', repique: 'Alfaia Repique',
-  caixa: 'Caixa de Guerra', tarol: 'Tarol', timbal: 'Timbal',
+  caixa: 'Caixa de Guerra', tarol: 'Tarol', timbal: 'Timbal', gongue: 'Gonguê',
 };
 const ALFAIA_IDS: LutherieDrumRole[] = ['marcante', 'meiao', 'repique'];
 const CAIXA_IDS: LutherieDrumRole[] = ['caixa', 'tarol'];
+const TIMBRE_SOLO_IDS: LutherieDrumRole[] = ['timbal', 'gongue'];
 
 export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(({ lang, mode = 'sequencer' }) => {
   const isWizard = mode === 'wizard';
@@ -33,7 +34,7 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
 
   const visibleAlfaias = effectiveScope === 'active' ? ALFAIA_IDS.filter((id) => drumsByRole[id].isPresent) : ALFAIA_IDS;
   const visibleCaixas = effectiveScope === 'active' ? CAIXA_IDS.filter((id) => drumsByRole[id].isPresent) : CAIXA_IDS;
-  const showTimbal = effectiveScope === 'all' || drumsByRole.timbal.isPresent;
+  const visibleSolos = effectiveScope === 'active' ? TIMBRE_SOLO_IDS.filter((id) => drumsByRole[id].isPresent) : TIMBRE_SOLO_IDS;
 
   const renderCard = (id: LutherieDrumRole) => {
     const st = drumsByRole[id];
@@ -61,7 +62,7 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
               {isFr ? `Batuque actif (${presentRolesCount})` : `Batuque ativo (${presentRolesCount})`}
             </button>
             <button type="button" data-testid="lutherie-filter-all" onClick={() => setFilterScope('all')} className={`px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] cursor-pointer transition-colors ${effectiveScope === 'all' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`}>
-              {isFr ? `Tous les ${LUTHERIE_DRUM_ROLES.length} tambours` : `Todos os ${LUTHERIE_DRUM_ROLES.length} tambores`}
+              {isFr ? `Tous les instruments (${LUTHERIE_DRUM_ROLES.length})` : `Todos os instrumentos (${LUTHERIE_DRUM_ROLES.length})`}
             </button>
           </div>
         </div>
@@ -77,7 +78,7 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
                 {isFr ? '1. Trio des Alfaias (Sous-Graves & Corps)' : '1. Trio de Alfaias (Subgraves & Corpo)'}
               </h4>
               <p className="text-[10px] text-[var(--cordel-text-muted)]">
-                {isFr ? 'Accordage et tenue de peau indépendants par rôle (Marcante, Meião, Repique).' : 'Afinação e ressonância independentes por função (Marcante, Meião, Repique).'}
+                {isFr ? 'Accordage 0.1 st et tenue de peau indépendants par rôle (Marcante, Meião, Repique).' : 'Afinação 0.1 st e ressonância independentes por função (Marcante, Meião, Repique).'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -93,10 +94,10 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
         </div>
       )}
 
-      {(visibleCaixas.length > 0 || showTimbal) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {(visibleCaixas.length > 0 || visibleSolos.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {visibleCaixas.length > 0 && (
-            <div className={`${showTimbal ? 'lg:col-span-2' : 'lg:col-span-3'} bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]`}>
+            <div className={`${visibleSolos.length > 0 ? '' : 'lg:col-span-2'} bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--cordel-border)] pb-2">
                 <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-accent-readable)]">2. Caixas de Guerra & Tarol</h4>
                 <button type="button" onClick={previewCaixasChord} className="px-2.5 py-1.5 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] transition-colors">
@@ -107,12 +108,12 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
             </div>
           )}
 
-          {showTimbal && (
-            <div className={`${visibleCaixas.length > 0 ? '' : 'lg:col-span-3'} bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]`}>
+          {visibleSolos.length > 0 && (
+            <div className={`${visibleCaixas.length > 0 ? '' : 'lg:col-span-2'} bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]`}>
               <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-accent-readable)] border-b border-[var(--cordel-border)] pb-2">
-                {isFr ? '3. Timbal (Tonique & Slap)' : '3. Timbal (Tônica & Slap)'}
+                {isFr ? '3. Timbal & Gonguê (Tonique & Cloche)' : '3. Timbal & Gonguê (Tônica & Campana)'}
               </h4>
-              {renderCard('timbal')}
+              <div className={`grid grid-cols-1 ${visibleSolos.length > 1 ? 'sm:grid-cols-2' : ''} gap-3`}>{visibleSolos.map(renderCard)}</div>
             </div>
           )}
         </div>

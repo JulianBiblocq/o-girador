@@ -46,7 +46,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const isTunableDrum = useMemo(() => {
     const id = instrument?.id?.toLowerCase() || '';
     const type = instrument?.type?.toLowerCase() || '';
-    return ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'].includes(id) || type === 'alfaia' || type === 'caixa';
+    return ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'].includes(id) || type === 'alfaia' || type === 'caixa';
   }, [instrument?.id, instrument?.type]);
 
   const handleTranspose = useCallback((semitones: number) => {
@@ -70,7 +70,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const handlePreviewDrum = useCallback(() => {
     if (!audioEngine) return;
     const instId = instrument.id;
-    const strokeSymbol = instId === 'timbal' ? 'A' : 'D';
+    const strokeSymbol = instId === 'timbal' ? 'A' : instId === 'gongue' ? 'G' : 'D';
     audioEngine.playPreview(instId, strokeSymbol, track?.tuning ?? 0, 1.0, undefined, 1.0, track?.id ?? trackId);
   }, [instrument.id, track?.tuning, track?.id, trackId]);
 

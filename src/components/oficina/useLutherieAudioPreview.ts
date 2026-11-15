@@ -70,12 +70,12 @@ export function useLutherieAudioPreview(getDrumState: (instrumentId: string) => 
   }, [triggerDrumHit]);
 
   const previewFullBaqueChord = useCallback(() => {
-    const allRoles = ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'];
+    const allRoles = ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'];
     const activeRoles = allRoles.filter((r) => getDrumState(r).isPresent);
     const rolesToPlay = activeRoles.length > 0 ? activeRoles : allRoles;
 
     rolesToPlay.forEach((role, idx) => {
-      const stroke = role === 'timbal' ? 'A' : 'D';
+      const stroke = role === 'timbal' ? 'A' : role === 'gongue' ? 'G' : 'D';
       const offset = idx * 0.004;
       triggerDrumHit(role, stroke, 0.85, offset);
       triggerDrumHit(role, stroke, 0.92, 0.44 + offset);

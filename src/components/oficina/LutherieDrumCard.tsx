@@ -1,10 +1,11 @@
 /**
- * LutherieDrumCard.tsx — Carte individuelle d'accordage (Pitch + Note/Hz), résonance (Decay)
+ * LutherieDrumCard.tsx — Carte individuelle d'accordage 0.1 st (Note FR/PT + Hz + Cents), résonance (Decay)
  * et passerelles directes par piste vers l'Éditeur de Motif (< 132 lignes).
  */
 import React from 'react';
 import { Volume2, RotateCcw } from 'lucide-react';
 import { TrackGroup } from '../../types';
+import { roundSemitonesTenth } from '../../utils/audio/drumFundamentalRegistry';
 import { getDrumPitchNoteInfo } from '../../utils/audio/drumPitchToNote';
 import { LutherieTrackLinksRow } from './LutherieTrackLinksRow';
 
@@ -30,12 +31,19 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
 }) => {
   const isFr = lang === 'fr';
   const isTimbal = instrumentId === 'timbal';
-  const defaultStroke = isTimbal ? 'A' : 'D';
-  const safeTuning = tuning ?? 0;
+  const isGongue = instrumentId === 'gongue';
+  const defaultStroke = isTimbal ? 'A' : isGongue ? 'G' : 'D';
+  const safeTuning = roundSemitonesTenth(tuning ?? 0);
   const safeDecay = decayPct ?? 100;
   const noteInfo = getDrumPitchNoteInfo(instrumentId, safeTuning, lang);
   const trackCount = tracks?.length ?? 0;
   const trackBadge = trackCount === 1 ? (isFr ? '1 piste' : '1 faixa') : (isFr ? `${trackCount} pistes` : `${trackCount} faixas`);
+
+  const previewButtons: Array<[string, string, boolean]> = isTimbal
+    ? [['A', isFr ? 'Frappe A (Aberto)' : 'Toque A (Aberto)', true], ['S', isFr ? 'Frappe S (Slap)' : 'Toque S (Slap)', false]]
+    : isGongue
+    ? [['G', isFr ? 'Frappe G (Grave)' : 'Toque G (Grave)', true], ['A', isFr ? 'Frappe A (Aigu)' : 'Toque A (Agudo)', false]]
+    : [['D', isFr ? 'Frappe D' : 'Toque D', true]];
 
   return (
     <div
@@ -80,13 +88,13 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
           </div>
         </div>
         <input
-          type="range" min={-6} max={6} step={0.5} value={safeTuning}
-          onChange={(e) => onChangeTuning(Number(e.target.value))}
+          type="range" min={-6} max={6} step={0.1} value={safeTuning}
+          onChange={(e) => onChangeTuning(roundSemitonesTenth(Number(e.target.value)))}
           onPointerUp={() => onPreviewStroke(defaultStroke)} onKeyUp={() => onPreviewStroke(defaultStroke)}
           className="w-full accent-[var(--cordel-accent)] cursor-pointer h-1.5"
         />
         <div className="flex justify-between text-[9px] font-mono text-[var(--cordel-text-muted)]">
-          <span>-6 st</span><span>0 st</span><span>+6 st</span>
+          <span>-6 st</span><span>0 st (pas 0.1)</span><span>+6 st</span>
         </div>
       </div>
 
@@ -108,20 +116,18 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
       </div>
 
       <div className="flex items-center gap-1.5 pt-1 mt-auto">
-        {isTimbal ? (
-          <>
-            <button type="button" onClick={() => onPreviewStroke('A')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
-              <Volume2 size={12} /><span>{isFr ? 'Frappe A (Aberto)' : 'Toque A (Aberto)'}</span>
-            </button>
-            <button type="button" onClick={() => onPreviewStroke('S')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-surface)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)] border border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
-              <Volume2 size={12} /><span>{isFr ? 'Frappe S (Slap)' : 'Toque S (Slap)'}</span>
-            </button>
-          </>
-        ) : (
-          <button type="button" onClick={() => onPreviewStroke('D')} className="w-full py-1.5 px-2 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
-            <Volume2 size={12} /><span>{isFr ? 'Frappe D' : 'Toque D'}</span>
+        {previewButtons.map(([sym, lbl, isPrimary]) => (
+          <button
+            key={sym} type="button" onClick={() => onPreviewStroke(sym)}
+            className={`flex-1 py-1.5 px-2 border border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+              isPrimary
+                ? 'bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)]'
+                : 'bg-[var(--cordel-surface)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)]'
+            }`}
+          >
+            <Volume2 size={12} /><span>{lbl}</span>
           </button>
-        )}
+        ))}
       </div>
 
       {showSessionBridges && tracks && tracks.length > 0 && (
