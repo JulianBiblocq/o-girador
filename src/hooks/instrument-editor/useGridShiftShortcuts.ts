@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useWindow } from '../../contexts/WindowContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { getUpperTagName } from '../../utils/crossRealmDom';
 
 interface UseGridShiftShortcutsParams {
@@ -14,8 +15,12 @@ export function useGridShiftShortcuts({ trackId, patternId }: UseGridShiftShortc
   useEffect(() => {
     const hostDoc = hostWin?.document || document;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!e.altKey) return;
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (useSequencerSettingsStore.getState().isSettingsOpen) return;
+      if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+      const store = useSequencerStore.getState();
+      if (store.selectedPatternId !== null && store.selectedPatternId !== undefined && store.selectedPatternId !== patternId) {
+        return;
+      }
 
       const activeEl = hostDoc.activeElement as HTMLElement | null;
       const tag = getUpperTagName(activeEl);
@@ -26,7 +31,7 @@ export function useGridShiftShortcuts({ trackId, patternId }: UseGridShiftShortc
       e.preventDefault();
       e.stopPropagation();
       const direction: -1 | 1 = e.key === 'ArrowLeft' ? -1 : 1;
-      useSequencerStore.getState().shiftPatternSteps(trackId, patternId, direction);
+      store.shiftPatternSteps(trackId, patternId, direction);
     };
 
     hostWin.addEventListener('keydown', handleKeyDown);

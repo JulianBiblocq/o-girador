@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { VoicePianoDock } from '../../VoicePianoDock';
 import { StrokeWritingDock } from '../StrokeWritingDock';
@@ -21,6 +20,16 @@ export interface EditorBottomDockBarProps {
   isAlternating: boolean;
   onToggleAlternating: () => void;
   onOpenBottomSheet: () => void;
+  isMultiSelectActive?: boolean;
+  selectionCount?: number;
+  canPasteRange?: boolean;
+  onToggleMultiSelect?: () => void;
+  onExitMultiSelect?: () => void;
+  onDuplicateRange?: () => void;
+  onCopyRange?: () => void;
+  onCutRange?: () => void;
+  onPasteRange?: () => void;
+  onClearRange?: () => void;
 }
 
 export const EditorBottomDockBar: React.FC<EditorBottomDockBarProps> = React.memo((props) => {
@@ -29,6 +38,9 @@ export const EditorBottomDockBar: React.FC<EditorBottomDockBarProps> = React.mem
     setSelectedStepIdx, selectedStepIsPreRoll, setSelectedStepIsPreRoll,
     lang, patternSteps, inst, isLeftHanded, activeTool, handleDockSelectTool,
     isAlternating, onToggleAlternating, onOpenBottomSheet,
+    isMultiSelectActive, selectionCount, canPasteRange,
+    onToggleMultiSelect, onExitMultiSelect,
+    onDuplicateRange, onCopyRange, onCutRange, onPasteRange, onClearRange,
   } = props;
 
   return (
@@ -55,6 +67,16 @@ export const EditorBottomDockBar: React.FC<EditorBottomDockBarProps> = React.mem
           isAlternating={isAlternating}
           onToggleAlternating={onToggleAlternating}
           onOpenBottomSheet={onOpenBottomSheet}
+          isMultiSelectActive={isMultiSelectActive}
+          selectionCount={selectionCount}
+          canPasteRange={canPasteRange}
+          onToggleMultiSelect={onToggleMultiSelect}
+          onExitMultiSelect={onExitMultiSelect}
+          onDuplicateRange={onDuplicateRange}
+          onCopyRange={onCopyRange}
+          onCutRange={onCutRange}
+          onPasteRange={onPasteRange}
+          onClearRange={onClearRange}
         />
       )}
     </div>

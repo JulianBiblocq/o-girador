@@ -116,7 +116,7 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
     else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
 
     setSelectedStepIdx(idx);
-    setSelectedStepIndices([idx]);
+    setSelectedStepIndices([]);
 
     const noteToPreview = Array.isArray(finalVal) ? (subIndex !== undefined ? finalVal[subIndex] : finalVal[0]) : finalVal;
     if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '' && noteToPreview !== undefined) {

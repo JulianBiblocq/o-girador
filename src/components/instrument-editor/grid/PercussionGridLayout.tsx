@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Pattern } from '../../../types';
 import { computePercussionGridGroups } from './percussionGridHelpers';
@@ -16,14 +15,14 @@ export interface PercussionGridLayoutProps {
   activeTool?: string;
   isMultiSelectActive: boolean;
   swingOffsets: Record<number, number>;
-  activeVigilanceFocus: { patternId?: number; stepIndex?: number; trackId?: number } | null;
+  activeVigilanceFocus: { id?: string; patternId?: number; stepIndex?: number; trackId?: number } | null;
   handlePatternBeatResolutionChange: (patternId: number, groupIdx: number, resolution: number) => void;
   handleGridTouchMove: (e: React.TouchEvent) => void;
   handleGridTouchEnd: (e: React.TouchEvent) => void;
   handleCellTouchMove?: (e: React.TouchEvent) => void;
   handleCellTouchEnd: (e: React.TouchEvent<any>, i: number, val: any, subIndex?: 0 | 1) => void;
   handleCellMouseDown: (e: React.MouseEvent<any>, i: number, val: any, subIndex?: 0 | 1) => void;
-  handleCellMouseEnter: (i: number) => void;
+  handleCellMouseEnter: (i: number, e?: React.MouseEvent, subIndex?: 0 | 1) => void;
   handleCellTouchStart: (e: React.TouchEvent<any>, i: number, val: any, subIndex?: 0 | 1) => void;
   handleCellContextMenu: (e: React.MouseEvent<any>, i: number, val: any, subIndex?: 0 | 1) => void;
   handleCellChange: (e: React.ChangeEvent<HTMLInputElement>, i: number, val: any, subIndex?: 0 | 1) => void;
@@ -54,7 +53,7 @@ export const PercussionGridLayout: React.FC<PercussionGridLayoutProps> = ({
             <select
               value={group.length}
               onChange={(e) => handlePatternBeatResolutionChange(pattern.id, groupIdx, parseInt(e.target.value, 10))}
-              className="text-[10px] bg-[#ece4d0] border border-[#1a1a1a]/20 rounded-sm outline-none px-1 py-0.5 font-bold cursor-pointer hover:bg-[#ece4d0]/80 transition-colors"
+              className="text-[10px] bg-[var(--cordel-parchment-panel)] text-[var(--cordel-paper-ink)] border border-[var(--cordel-ink-dark)]/20 rounded-sm outline-none px-1 py-0.5 font-bold cursor-pointer"
             >
               <option value="3">3 (Triolet)</option>
               <option value="4">4 (D.Croches)</option>
@@ -64,42 +63,30 @@ export const PercussionGridLayout: React.FC<PercussionGridLayoutProps> = ({
           </div>
         )}
         <div
-          className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative w-full min-w-0 ${
+          onContextMenu={(e) => e.preventDefault()}
+          className={`p-1.5 bg-[var(--cordel-parchment-panel)]/40 border border-[var(--cordel-ink-dark)]/10 rounded-sm relative w-full min-w-0 ${
             isSextuplet
               ? 'h-[72px]'
               : isTriplet
-              ? 'grid grid-cols-3 gap-1'
-              : isOcto
-              ? 'grid grid-cols-8 gap-0.5'
-              : 'grid grid-cols-4 gap-1'
+                ? 'grid grid-cols-3 gap-1'
+                : isOcto
+                  ? 'grid grid-cols-8 gap-0.5'
+                  : 'grid grid-cols-4 gap-1'
           }`}
         >
           {group.map((i, indexInGroup) => (
             <PercussionStepWrapper
-              key={i}
-              i={i}
-              indexInGroup={indexInGroup}
-              isTriplet={isTriplet}
-              isSextuplet={isSextuplet}
-              isOcto={isOcto}
-              pattern={pattern}
-              trackId={trackId}
-              instrument={instrument}
-              swingOffsets={swingOffsets}
-              activeVigilanceFocus={activeVigilanceFocus}
-              selectedStepIndices={selectedStepIndices}
-              selectedStepIdx={selectedStepIdx}
-              selectedSubIndex={selectedSubIndex}
-              activeTool={activeTool}
+              key={i} i={i} indexInGroup={indexInGroup}
+              isTriplet={isTriplet} isSextuplet={isSextuplet} isOcto={isOcto}
+              pattern={pattern} trackId={trackId} instrument={instrument}
+              swingOffsets={swingOffsets} activeVigilanceFocus={activeVigilanceFocus}
+              selectedStepIndices={selectedStepIndices} selectedStepIdx={selectedStepIdx}
+              selectedSubIndex={selectedSubIndex} activeTool={activeTool}
               isMultiSelectActive={isMultiSelectActive}
-              onMouseDown={handleCellMouseDown}
-              onMouseEnter={handleCellMouseEnter}
-              onTouchStart={handleCellTouchStart}
-              onTouchMove={handleCellTouchMove}
-              onTouchEnd={handleCellTouchEnd}
-              onContextMenu={handleCellContextMenu}
-              onChange={handleCellChange}
-              onKeyDown={handleCellKeyDown}
+              onMouseDown={handleCellMouseDown} onMouseEnter={handleCellMouseEnter}
+              onTouchStart={handleCellTouchStart} onTouchMove={handleCellTouchMove}
+              onTouchEnd={handleCellTouchEnd} onContextMenu={handleCellContextMenu}
+              onChange={handleCellChange} onKeyDown={handleCellKeyDown}
               onSelectForSculpt={handleSelectStepForSculpt}
             />
           ))}
@@ -112,6 +99,7 @@ export const PercussionGridLayout: React.FC<PercussionGridLayoutProps> = ({
     <div
       className="step-boxes flex flex-wrap gap-2 lg:gap-3 w-full"
       id={`detail-steps-${trackId}-${pattern.id}`}
+      onContextMenu={(e) => e.preventDefault()}
       onTouchMove={handleGridTouchMove}
       onTouchEnd={handleGridTouchEnd}
     >

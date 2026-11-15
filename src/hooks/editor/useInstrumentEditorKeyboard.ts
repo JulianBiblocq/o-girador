@@ -1,8 +1,10 @@
-
 import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useWindow } from '../../contexts/WindowContext';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
+import { useMidiStore } from '../../stores/useMidiStore';
 import { isEditableTarget } from '../../utils/crossRealmDom';
 import { getStrokePairs, getWheelNuanceState } from '../../utils/instrumentStrokes';
 import { audioEngine } from '../useAudioSync';
@@ -15,6 +17,9 @@ export interface UseInstrumentEditorKeyboardParams {
   lang: string;
   isLeftHanded: boolean;
   selectedStepIdx: number | null;
+  selectedStepIndices?: number[];
+  isMultiSelectActive?: boolean;
+  onClearStepSelection?: () => void;
   activeTool: string;
   setActiveTool: (tool: string) => void;
   handleClose: () => void;
@@ -27,7 +32,8 @@ export interface UseInstrumentEditorKeyboardParams {
 
 export function useInstrumentEditorKeyboard({
   isSettingsOpen, isVocalContext, track, inst, lang, isLeftHanded,
-  selectedStepIdx, activeTool, setActiveTool, handleClose, onKeyDown,
+  selectedStepIdx, selectedStepIndices = [], isMultiSelectActive = false,
+  onClearStepSelection, activeTool, setActiveTool, handleClose, onKeyDown,
   puxTrack, coroTrack, isCoroActive, handleSwitchVocalTrack,
 }: UseInstrumentEditorKeyboardParams) {
   const hostWin = useWindow();
@@ -35,10 +41,11 @@ export function useInstrumentEditorKeyboard({
   useEffect(() => {
     const hostDoc = hostWin?.document || document;
     const onKey = (e: KeyboardEvent) => {
-      if (isSettingsOpen || e.defaultPrevented) return;
+      if (isSettingsOpen || useSequencerSettingsStore.getState().isSettingsOpen || e.defaultPrevented) return;
       const activeEl = hostDoc.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
-      const isTextEntry = isEditableTarget(activeEl) || isEditableTarget(target);
+      const isPercCell = Boolean(activeEl?.classList?.contains('step-input-cell') || target?.classList?.contains('step-input-cell'));
+      const isTextEntry = !isPercCell && (isEditableTarget(activeEl) || isEditableTarget(target));
 
       if (isTextEntry) {
         if (e.key === 'Escape') { e.preventDefault(); activeEl?.blur?.(); target?.blur?.(); }
@@ -47,6 +54,20 @@ export function useInstrumentEditorKeyboard({
 
       if (e.key === 'Escape') {
         if (hostDoc.querySelector('[data-testid="custom-dialog-backdrop"]')) return;
+        const midi = useMidiStore.getState();
+        if (midi.waitingForMidiStroke) {
+          e.preventDefault();
+          midi.setWaitingForMidiStroke(null);
+          midi.setMidiLearnActive(false);
+          return;
+        }
+        const hasRange = Boolean(useSequencerStore.getState().selectedStepRange);
+        if (isMultiSelectActive || selectedStepIndices.length > 0 || selectedStepIdx !== null || hasRange) {
+          e.preventDefault();
+          if (isPercCell) activeEl?.blur?.();
+          onClearStepSelection?.();
+          return;
+        }
         const ws = useDesktopWorkspaceStore.getState();
         if (ws.isSatelliteOpen && ws.satelliteMode === 'editor') return;
         e.preventDefault(); handleClose(); return;
@@ -58,14 +79,9 @@ export function useInstrumentEditorKeyboard({
         return;
       }
 
-      const isCell = Boolean(activeEl?.closest?.('.step-boxes') || activeEl?.closest?.('.step-input-cell') || target?.closest?.('.step-boxes') || target?.closest?.('.step-input-cell'));
-      if (isCell || selectedStepIdx !== null) {
-        if (onKeyDown) onKeyDown(e);
-        return;
-      }
-
-      if (isVocalContext || (track as any)?.type === 'voice' || inst?.type === 'voice') {
-        if (onKeyDown) onKeyDown(e);
+      const isCell = Boolean(activeEl?.closest?.('.step-boxes') || isPercCell || target?.closest?.('.step-boxes'));
+      if (isCell || selectedStepIdx !== null || isVocalContext || (track as any)?.type === 'voice' || inst?.type === 'voice') {
+        onKeyDown?.(e);
         return;
       }
 
@@ -76,11 +92,9 @@ export function useInstrumentEditorKeyboard({
         if (nextTool && String(nextTool) !== activeTool) {
           const toolStr = String(nextTool);
           setActiveTool(toolStr);
-          const isCalibratedAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
+          const isAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
           if (toolStr !== '0' && audioEngine && track) {
-            const pVel = isCalibratedAlfaia ? 0.7 : (dir === 'down' ? 0.6 : 0.95);
-            const pDec = isCalibratedAlfaia ? 1.0 : (dir === 'down' ? 0.8 : 1.0);
-            try { audioEngine.playNote(track.id, toolStr, Tone.now(), pVel, pDec); } catch (_) {}
+            try { audioEngine.playNote(track.id, toolStr, Tone.now(), isAlfaia ? 0.7 : (dir === 'down' ? 0.6 : 0.95), isAlfaia ? 1.0 : (dir === 'down' ? 0.8 : 1.0)); } catch (_) {}
           }
         }
         return;
@@ -92,38 +106,29 @@ export function useInstrumentEditorKeyboard({
 
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
         const pairs = getStrokePairs(inst.id, inst.type, lang, isLeftHanded);
-        const char = e.key;
-        const isUpper = char === char.toUpperCase() && char !== char.toLowerCase();
-
-        const matchingPair = pairs.find((p) => (
+        const char = e.key, isUpper = char === char.toUpperCase() && char !== char.toLowerCase();
+        const pair = pairs.find((p) => (
           p.id.toLowerCase() === char.toLowerCase() || p.strong.shortcut.toLowerCase() === char.toLowerCase() ||
           p.strong.symbol.toLowerCase() === char.toLowerCase() || p.strokes.some((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase())
         ));
-
-        const isCalibratedAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
-        if (matchingPair) {
+        if (pair) {
           e.preventDefault();
-          const exactStroke = matchingPair.strokes.find((s) => s.symbol === char || s.shortcut === char);
-          const ciStroke = exactStroke ?? matchingPair.strokes.find((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase());
-          const targetSymbol = ciStroke
-            ? ciStroke.symbol
-            : (isUpper ? matchingPair.strong.symbol : (matchingPair.weak ? matchingPair.weak.symbol : matchingPair.strong.symbol));
-          const isStrongBilateralLower = (inst.id === 'caixa' || inst.id === 'tarol') && targetSymbol === 'a';
-          const isWeak = !isUpper && !isStrongBilateralLower && targetSymbol === matchingPair.weak?.symbol;
-          setActiveTool(targetSymbol);
+          const exact = pair.strokes.find((s) => s.symbol === char || s.shortcut === char);
+          const ci = exact ?? pair.strokes.find((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase());
+          const sym = ci ? ci.symbol : (isUpper ? pair.strong.symbol : (pair.weak ? pair.weak.symbol : pair.strong.symbol));
+          const isAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
+          const isWeak = !isUpper && !((inst.id === 'caixa' || inst.id === 'tarol') && sym === 'a') && sym === pair.weak?.symbol;
+          setActiveTool(sym);
           if (audioEngine && track) {
-            const pVel = isCalibratedAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95);
-            const pDec = isCalibratedAlfaia ? 1.0 : (isWeak ? 0.8 : 1.0);
-            try { audioEngine.playNote(track.id, targetSymbol, Tone.now(), pVel, pDec); } catch (_) {}
+            try { audioEngine.playNote(track.id, sym, Tone.now(), isAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95), isAlfaia ? 1.0 : (isWeak ? 0.8 : 1.0)); } catch (_) {}
           }
           return;
         }
       }
-
-      if (onKeyDown) onKeyDown(e);
+      onKeyDown?.(e);
     };
 
     hostDoc.addEventListener('keydown', onKey);
     return () => hostDoc.removeEventListener('keydown', onKey);
-  }, [hostWin, handleClose, onKeyDown, selectedStepIdx, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack, setActiveTool]);
+  }, [hostWin, handleClose, onKeyDown, selectedStepIdx, selectedStepIndices, isMultiSelectActive, onClearStepSelection, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack, setActiveTool]);
 }

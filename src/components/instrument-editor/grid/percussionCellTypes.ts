@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { StepSculptValue } from '../../../types';
 
@@ -29,7 +28,7 @@ export interface PercussionStepCellProps {
   patternId: number;
 
   onMouseDown: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
-  onMouseEnter: (index: number, e?: React.MouseEvent) => void;
+  onMouseEnter: (index: number, e?: React.MouseEvent, subIndex?: 0 | 1) => void;
   onTouchStart: (e: React.TouchEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onTouchMove?: (e: React.TouchEvent<any>) => void;
   onTouchEnd?: (e: React.TouchEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;

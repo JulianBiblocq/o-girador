@@ -1,6 +1,45 @@
-
 import React from 'react';
 import { Pattern } from '../../../types';
+import { cleanVoiceSyllableForDisplay, isKaraokeHiddenToken } from '../../../utils/musicTheory';
+
+interface PreviewSyl {
+  text: string;
+  key: string;
+  stepKeys: string[];
+}
+
+function buildPreviewWords(activeArr: any[], lyricsArr: string[], totalSteps: number, prefix: string): PreviewSyl[][] {
+  const words: PreviewSyl[][] = [];
+  let curWord: PreviewSyl[] = [];
+  for (let idx = 0; idx < totalSteps; idx++) {
+    const active = activeArr[idx] !== undefined && activeArr[idx] !== null && activeArr[idx] !== 0 && activeArr[idx] !== '0';
+    const syl = lyricsArr[idx] || '';
+    if (!active || !syl) continue;
+    const trimmed = syl.trim();
+    const stepKey = `${prefix}${idx}`;
+    const isHold = trimmed === '───' || trimmed === '_' || trimmed === '—' || trimmed === '~' || trimmed === '-';
+    if (isHold) {
+      if (curWord.length > 0) {
+        curWord[curWord.length - 1].stepKeys.push(stepKey);
+        if (syl.endsWith(' ') || idx === totalSteps - 1) { words.push([...curWord]); curWord = []; }
+      } else if (words.length > 0) {
+        const lastW = words[words.length - 1];
+        lastW[lastW.length - 1].stepKeys.push(stepKey);
+      }
+      continue;
+    }
+    if (isKaraokeHiddenToken(trimmed)) continue;
+    const clean = cleanVoiceSyllableForDisplay(syl);
+    if (!clean) continue;
+    curWord.push({ text: clean, key: stepKey, stepKeys: [stepKey] });
+    if (syl.endsWith(' ') || idx === totalSteps - 1) {
+      words.push([...curWord]);
+      curWord = [];
+    }
+  }
+  if (curWord.length > 0) words.push(curWord);
+  return words;
+}
 
 interface VoiceKaraokePreviewProps {
   pattern: Pattern;
@@ -8,40 +47,8 @@ interface VoiceKaraokePreviewProps {
 }
 
 export const VoiceKaraokePreview: React.FC<VoiceKaraokePreviewProps> = ({ pattern, lang }) => {
-  const preRollWords: Array<Array<{ text: string; key: string }>> = [];
-  let curPreWord: Array<{ text: string; key: string }> = [];
-  const preRollActive = pattern?.preRollActiveSteps || [];
-  const preRollLyrics = pattern?.preRollLyrics || [];
-
-  for (let idx = 0; idx < 16; idx++) {
-    const active = preRollActive[idx] !== undefined && preRollActive[idx] !== null && preRollActive[idx] !== 0 && preRollActive[idx] !== '0';
-    const syl = preRollLyrics[idx] || '';
-    if (active && syl) {
-      curPreWord.push({ text: syl, key: `pre-${idx}` });
-      if (syl.endsWith(' ') || idx === 15) {
-        preRollWords.push([...curPreWord]);
-        curPreWord = [];
-      }
-    }
-  }
-  if (curPreWord.length > 0) preRollWords.push(curPreWord);
-
-  const mainWords: Array<Array<{ text: string; key: string }>> = [];
-  let currentWord: Array<{ text: string; key: string }> = [];
-  const totalSteps = pattern?.steps ?? 16;
-  for (let idx = 0; idx < totalSteps; idx++) {
-    const active = pattern?.activeSteps?.[idx] !== undefined && pattern?.activeSteps?.[idx] !== null && pattern?.activeSteps?.[idx] !== 0 && pattern?.activeSteps?.[idx] !== '0';
-    const syl = pattern?.lyrics?.[idx] || '';
-    if (active && syl) {
-      currentWord.push({ text: syl, key: `${idx}` });
-      if (syl.endsWith(' ') || idx === totalSteps - 1) {
-        mainWords.push([...currentWord]);
-        currentWord = [];
-      }
-    }
-  }
-  if (currentWord.length > 0) mainWords.push(currentWord);
-
+  const preRollWords = buildPreviewWords(pattern?.preRollActiveSteps || [], pattern?.preRollLyrics || [], 16, 'pre-');
+  const mainWords = buildPreviewWords(pattern?.activeSteps || [], pattern?.lyrics || [], pattern?.steps ?? 16, '');
   const hasAnyLyrics = preRollWords.length > 0 || mainWords.length > 0;
 
   return (
@@ -71,11 +78,11 @@ export const VoiceKaraokePreview: React.FC<VoiceKaraokePreviewProps> = ({ patter
                 {preRollWords.map((word, wIdx) => (
                   <span
                     key={`pre-w-${wIdx}`}
-                    data-word-steps={JSON.stringify(word.map(item => item.key))}
+                    data-word-steps={JSON.stringify(word.flatMap((item) => item.stepKeys))}
                     className="opacity-85 transition-colors duration-150 inline-flex"
                   >
                     {word.map((item, sIdx) => (
-                      <span key={`pre-s-${sIdx}`} data-syl-index={item.key}>
+                      <span key={`pre-s-${sIdx}`} data-syl-index={item.key} data-syl-steps={JSON.stringify(item.stepKeys)}>
                         {item.text}
                       </span>
                     ))}
@@ -86,11 +93,11 @@ export const VoiceKaraokePreview: React.FC<VoiceKaraokePreviewProps> = ({ patter
             {mainWords.map((word, wIdx) => (
               <span
                 key={`main-w-${wIdx}`}
-                data-word-steps={JSON.stringify(word.map(item => item.key))}
+                data-word-steps={JSON.stringify(word.flatMap((item) => item.stepKeys))}
                 className="opacity-85 transition-colors duration-150 inline-flex"
               >
                 {word.map((item, sIdx) => (
-                  <span key={`main-s-${sIdx}`} data-syl-index={item.key}>
+                  <span key={`main-s-${sIdx}`} data-syl-index={item.key} data-syl-steps={JSON.stringify(item.stepKeys)}>
                     {item.text}
                   </span>
                 ))}

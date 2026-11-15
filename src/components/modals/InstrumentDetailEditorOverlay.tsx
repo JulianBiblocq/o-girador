@@ -20,7 +20,8 @@ interface InstrumentDetailEditorOverlayProps {
     currentVal: string | number | [string, string],
     onSelect: (val: string | [string, string], merge?: boolean) => void,
     trackId: number,
-    isSplit?: boolean
+    isSplit?: boolean,
+    subIndex?: 0 | 1
   ) => void;
   setEditingTrackId: (id: number | null) => void;
 }
@@ -46,8 +47,8 @@ export const InstrumentDetailEditorOverlay: React.FC<InstrumentDetailEditorOverl
         onClose={onClose}
         isMobile={isMobile}
         isDetached={false}
-        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) =>
-          handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, editingTrackId)
+        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, _tId, isSplit, subIndex) =>
+          handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, editingTrackId, isSplit, subIndex)
         }
         setEditingTrackId={setEditingTrackId}
       />

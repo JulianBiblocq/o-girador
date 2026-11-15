@@ -89,7 +89,7 @@ export function useGridWheelNuances(params: UseGridWheelNuancesParams) {
         }
 
         setSelectedStepIdx(idx);
-        setSelectedStepIndices([idx]);
+        setSelectedStepIndices([]);
         if (subIdxAttr !== null) {
           setSelectedSubIndex(parseInt(subIdxAttr, 10) as 0 | 1);
         } else {

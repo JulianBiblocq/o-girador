@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Pattern, Track } from '../../types';
 import { useGridSwingOffsets } from './useGridSwingOffsets';
@@ -24,17 +23,18 @@ interface UseGridPercussionHooksParams {
   selectedPatternId: number;
   selectedVariationId: string | null;
   selectedStepIdx: number | null;
+  selectedStepIndices: number[];
   isMultiSelectActive: boolean;
   focusCell: (stepIdx: number, subIndex?: 0 | 1 | null) => void;
   handleStepTouchStartMulti: (e: any, idx: number) => void;
   handleStepMouseDownMulti: (e: any, idx: number, force?: boolean) => void;
   handleStepMouseEnterMulti: (idx: number) => void;
   onStepTouchStart?: (e: any, pId: number, sIdx: number, instId: string, val: any, onSel: any, tId: number, isSplit?: boolean, sub?: 0 | 1) => void;
-  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any) => void;
-  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any) => void;
+  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any, opts?: { skipUndo?: boolean }) => void;
+  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any, lyrics?: any, notes?: any, opts?: { skipUndo?: boolean }) => void;
   handleTrackStepKeyDown: (tId: number, pId: number, idx: number, key: string, val: string, el: any) => void;
   setSelectedStepIdx: (idx: number) => void;
-  setSelectedStepIndices: (indices: number[]) => void;
+  setSelectedStepIndices: React.Dispatch<React.SetStateAction<number[]>>;
   setSelectedSubIndex: (sub: 0 | 1 | null) => void;
   setSelectedPatternId: (pId: number) => void;
   setSelectedVariationId: (vId: string | null) => void;
@@ -51,28 +51,29 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange,
     setSelectedStepIdx: params.setSelectedStepIdx, setSelectedStepIndices: params.setSelectedStepIndices,
-    setSelectedSubIndex: params.setSelectedSubIndex
+    setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
-  const { handleClearStep } = useGridClearStep({
+  const { handleClearStep, handleCellContextMenu } = useGridClearStep({
     trackId: params.trackId, pattern: params.pattern, selectedVariationId: params.selectedVariationId,
     selectedStepIdx: params.selectedStepIdx, handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedSubIndex: params.setSelectedSubIndex,
     setSelectedStepIdx: params.setSelectedStepIdx, setSelectedStepIsPreRoll: params.setSelectedStepIsPreRoll,
-    setVoiceStepContextMenu: params.setContextMenu
+    setVoiceStepContextMenu: params.setContextMenu,
   });
 
   const { handleCellMouseDown, handleCellMouseEnter } = useGridPointerInteractions({
     trackId: params.trackId, pattern: params.pattern, instrument: params.instrument,
     activeTool: params.activeTool, isAlternating: params.isAlternating, lang: params.lang,
-    isLeftHanded: params.isLeftHanded, selectedVariationId: params.selectedVariationId,
-    isMultiSelectActive: params.isMultiSelectActive, handleScissorsClick, handleClearStep,
-    handleStepMouseDownMulti: params.handleStepMouseDownMulti, handleStepMouseEnterMulti: params.handleStepMouseEnterMulti,
+    isLeftHanded: params.isLeftHanded, selectedPatternId: params.selectedPatternId,
+    selectedVariationId: params.selectedVariationId, selectedStepIdx: params.selectedStepIdx,
+    selectedStepIndices: params.selectedStepIndices, isMultiSelectActive: params.isMultiSelectActive,
+    handleScissorsClick, handleStepMouseDownMulti: params.handleStepMouseDownMulti,
+    handleStepMouseEnterMulti: params.handleStepMouseEnterMulti,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: params.setSelectedStepIdx,
     setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex,
     setSelectedPatternId: params.setSelectedPatternId, setSelectedVariationId: params.setSelectedVariationId,
-    setIsMultiSelectActive: params.setIsMultiSelectActive
   });
 
   const { handleCellTouchStart, handleCellTouchMove, handleCellTouchEnd } = useGridTouchInteractions({
@@ -83,7 +84,7 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
     handleStepTouchStartMulti: params.handleStepTouchStartMulti, onStepTouchStart: params.onStepTouchStart,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: params.setSelectedStepIdx,
-    setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex
+    setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
   useGridWheelNuances({
@@ -92,14 +93,11 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
     instrument: params.instrument, lang: params.lang, isLeftHanded: params.isLeftHanded,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: params.setSelectedStepIdx,
-    setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex
+    setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
   useGridPercussionTick({
-    gridRef: params.gridRef,
-    trackId: params.trackId,
-    pattern: params.pattern,
-    instrumentType: params.instrument.type
+    gridRef: params.gridRef, trackId: params.trackId, pattern: params.pattern, instrumentType: params.instrument.type,
   });
 
   const handleCellKeyDown = useGridCellKeyboardNav({
@@ -109,14 +107,14 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange,
     handleTrackStepKeyDown: params.handleTrackStepKeyDown, setSelectedStepIdx: params.setSelectedStepIdx,
-    setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex
+    setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
   return {
-    swingOffsets, handleClearStep,
+    swingOffsets, handleClearStep, handleCellContextMenu,
     handleVoiceStepClear: (tId: number, pId: number, idx: number, isPre?: boolean) => clearVoiceMainStep(tId, pId, idx, isPre),
     handleVoicePreRollStepClear: (tId: number, pId: number, idx: number) => clearVoicePreRollStep(tId, pId, idx),
     handleCellMouseDown, handleCellMouseEnter, handleCellTouchStart, handleCellTouchMove,
-    handleCellTouchEnd, handleCellKeyDown
+    handleCellTouchEnd, handleCellKeyDown,
   };
 }

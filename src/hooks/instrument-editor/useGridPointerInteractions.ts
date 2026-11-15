@@ -1,8 +1,7 @@
-
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { getNextNuanceState, getAlternatingStroke } from '../../utils/instrumentStrokes';
-import { playGridStepPreview } from './playGridStepPreview';
+import { useWindow } from '../../contexts/WindowContext';
+import { useGridPaintAndEraseGesture } from './useGridPaintAndEraseGesture';
 import { Pattern } from '../../types';
 
 interface UseGridPointerInteractionsParams {
@@ -13,116 +12,113 @@ interface UseGridPointerInteractionsParams {
   isAlternating: boolean;
   lang: string;
   isLeftHanded: boolean;
+  selectedPatternId: number;
   selectedVariationId: string | null;
+  selectedStepIdx: number | null;
+  selectedStepIndices: number[];
   isMultiSelectActive: boolean;
   handleScissorsClick: (idx: number, val?: any) => void;
-  handleClearStep: (idx: number, subIndex?: 0 | 1) => void;
   handleStepMouseDownMulti: (e: any, idx: number, force?: boolean) => void;
   handleStepMouseEnterMulti: (idx: number) => void;
-  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any) => void;
-  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any) => void;
+  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any, opts?: { skipUndo?: boolean }) => void;
+  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any, lyrics?: any, notes?: any, opts?: { skipUndo?: boolean }) => void;
   setSelectedStepIdx: (idx: number) => void;
-  setSelectedStepIndices: (indices: number[]) => void;
+  setSelectedStepIndices: React.Dispatch<React.SetStateAction<number[]>>;
   setSelectedSubIndex: (sub: 0 | 1 | null) => void;
   setSelectedPatternId: (pId: number) => void;
   setSelectedVariationId: (vId: string | null) => void;
-  setIsMultiSelectActive: (active: boolean) => void;
 }
 
 export function useGridPointerInteractions(params: UseGridPointerInteractionsParams) {
   const {
     trackId, pattern, instrument, activeTool, isAlternating, lang, isLeftHanded,
-    selectedVariationId, isMultiSelectActive, handleScissorsClick, handleClearStep,
-    handleStepMouseDownMulti, handleStepMouseEnterMulti,
+    selectedPatternId, selectedVariationId, selectedStepIdx, selectedStepIndices,
+    isMultiSelectActive, handleScissorsClick, handleStepMouseDownMulti, handleStepMouseEnterMulti,
     handleVariationStepValueChange, handleTrackStepValueChange,
     setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex,
-    setSelectedPatternId, setSelectedVariationId, setIsMultiSelectActive
+    setSelectedPatternId, setSelectedVariationId,
   } = params;
 
-  const isMouseDownRef = useRef(false);
-  const paintValueRef = useRef<string | number>(0);
+  const hostWin = useWindow();
+  const ctrlDragAnchorRef = useRef<number | null>(null);
   const activeToolRef = useRef(activeTool);
   activeToolRef.current = activeTool;
-  const isAlternatingRef = useRef(isAlternating);
-  isAlternatingRef.current = isAlternating;
 
-  const handleCellMouseDown = React.useCallback((e: React.MouseEvent<any>, idx: number, value: any, subIndex?: 0 | 1) => {
-    if (activeToolRef.current === 'scissors') {
-      e.preventDefault(); e.stopPropagation(); if (e.button !== 0) return;
+  useEffect(() => {
+    const clearDrag = () => { ctrlDragAnchorRef.current = null; };
+    hostWin.addEventListener('mouseup', clearDrag);
+    hostWin.addEventListener('blur', clearDrag);
+    return () => {
+      hostWin.removeEventListener('mouseup', clearDrag);
+      hostWin.removeEventListener('blur', clearDrag);
+    };
+  }, [hostWin]);
+
+  const onCommitStep = useCallback((idx: number, finalVal: any, varId: string | null, opts?: { skipUndo?: boolean }) => {
+    if (varId) handleVariationStepValueChange(trackId, pattern.id, varId, idx, finalVal, opts);
+    else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal, undefined, undefined, opts);
+  }, [trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
+
+  const onSelectCell = useCallback((idx: number, sub: 0 | 1 | null, varId: string | null) => {
+    setSelectedPatternId(pattern.id); setSelectedVariationId(varId);
+    setSelectedStepIdx(idx); setSelectedStepIndices([]); setSelectedSubIndex(sub);
+    useSequencerStore.setState({ selectedStepIdx: idx, selectedSubIndex: sub, selectedStepIsPreRoll: false });
+  }, [pattern.id, setSelectedPatternId, setSelectedVariationId, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
+
+  const gesture = useGridPaintAndEraseGesture({
+    trackId, patternId: pattern.id, instrument, activeTool, isAlternating, lang, isLeftHanded, onCommitStep, onSelectCell,
+  });
+
+  const handleCellMouseDown = useCallback((e: React.MouseEvent<any>, idx: number, value: any, subIndex?: 0 | 1) => {
+    e.stopPropagation();
+    if (e.button === 2) {
+      e.preventDefault(); setSelectedPatternId(pattern.id); setSelectedVariationId(null);
+      gesture.beginErase(idx, subIndex, null); return;
+    }
+    if (e.button !== 0) return;
+
+    if (activeToolRef.current === 'scissors' && !isMultiSelectActive && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault(); setSelectedPatternId(pattern.id); setSelectedVariationId(null);
       handleScissorsClick(idx, value); return;
     }
-    e.stopPropagation(); if (e.button !== 0) return;
+
+    const isSameGrid = selectedPatternId === pattern.id && selectedVariationId === null;
     setSelectedPatternId(pattern.id); setSelectedVariationId(null);
+    useSequencerStore.getState().setSelectedStepRange(null);
 
     if (e.shiftKey) {
       e.preventDefault();
-      e.stopPropagation();
-      const state = useSequencerStore.getState();
-      const currentStart = state.selectedStepRange?.start ?? ((state.selectedStepIdx !== null && state.selectedStepIdx !== undefined)
-        ? { isPreRoll: false, step: state.selectedStepIdx }
-        : { isPreRoll: false, step: idx });
-      useSequencerStore.getState().setSelectedStepRange({
-        start: currentStart,
-        end: { isPreRoll: false, step: idx },
-        patternId: pattern.id,
-        trackId
-      });
+      const anchor = isSameGrid && selectedStepIdx !== null ? selectedStepIdx : idx;
+      const lo = Math.min(anchor, idx), hi = Math.max(anchor, idx);
+      const range = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+      setSelectedStepIndices(e.ctrlKey || e.metaKey ? Array.from(new Set([...(isSameGrid ? selectedStepIndices : []), ...range])) : range);
+      if (!isSameGrid || selectedStepIdx === null) setSelectedStepIdx(idx);
       return;
     }
 
     if (e.ctrlKey || e.metaKey) {
-      if (!isMultiSelectActive) setIsMultiSelectActive(true);
-      handleStepMouseDownMulti(e, idx, true);
+      e.preventDefault(); ctrlDragAnchorRef.current = idx;
+      const base = isSameGrid
+        ? (selectedStepIndices.length > 0 ? selectedStepIndices : (selectedStepIdx !== null && selectedStepIdx !== idx ? [selectedStepIdx] : []))
+        : [];
+      setSelectedStepIndices(base.includes(idx) ? base.filter((x) => x !== idx) : [...base, idx]);
+      setSelectedStepIdx(idx); return;
+    }
+
+    if (isMultiSelectActive) { handleStepMouseDownMulti(e, idx, true); return; }
+    gesture.beginPaintOrToggle(idx, subIndex, null);
+  }, [pattern.id, selectedPatternId, selectedVariationId, selectedStepIdx, selectedStepIndices, isMultiSelectActive, handleScissorsClick, handleStepMouseDownMulti, setSelectedPatternId, setSelectedVariationId, setSelectedStepIndices, setSelectedStepIdx, gesture]);
+
+  const handleCellMouseEnter = useCallback((idx: number, e?: React.MouseEvent, subIndex?: 0 | 1) => {
+    if (ctrlDragAnchorRef.current !== null && e && (e.buttons & 1) === 1) {
+      const lo = Math.min(ctrlDragAnchorRef.current, idx), hi = Math.max(ctrlDragAnchorRef.current, idx);
+      const range = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+      setSelectedStepIndices((prev) => Array.from(new Set([...prev, ...range])));
       return;
     }
+    if (isMultiSelectActive && e && (e.buttons & 1) === 1) { handleStepMouseEnterMulti(idx); return; }
+    gesture.continueGestureOnEnter(idx, e, subIndex, null);
+  }, [isMultiSelectActive, handleStepMouseEnterMulti, setSelectedStepIndices, gesture]);
 
-    useSequencerStore.getState().setSelectedStepRange(null);
-
-    if (isMultiSelectActive) {
-      setIsMultiSelectActive(false); setSelectedStepIndices([idx]); setSelectedStepIdx(idx); setSelectedSubIndex(subIndex ?? null); return;
-    }
-
-    setSelectedStepIdx(idx); setSelectedStepIndices([idx]); setSelectedSubIndex(subIndex ?? null);
-    useSequencerStore.setState({ selectedStepIdx: idx, selectedSubIndex: subIndex ?? null, selectedStepIsPreRoll: false });
-
-    isMouseDownRef.current = true;
-    const tool = activeToolRef.current;
-    let strokeToApply: string | number;
-    if (!tool || tool === '0' || tool === '') {
-      strokeToApply = 0;
-    } else {
-      const curSub = (subIndex !== undefined && Array.isArray(value)) ? value[subIndex] : (Array.isArray(value) ? value[0] : value);
-      const normCur = String(curSub ?? '0').trim();
-      const isAlternationEligible = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
-      if (isAlternationEligible) {
-        strokeToApply = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
-      } else if (normCur === tool) {
-        strokeToApply = 0;
-      } else {
-        strokeToApply = tool;
-      }
-    }
-
-    paintValueRef.current = strokeToApply === '0' ? 0 : strokeToApply;
-    let finalVal: string | number | [string, string] = strokeToApply === '0' ? 0 : strokeToApply;
-    if (Array.isArray(value)) {
-      const arr = [...value] as [string, string]; const targetSub = subIndex ?? 0;
-      arr[targetSub] = String(strokeToApply); finalVal = arr; setSelectedSubIndex(targetSub);
-    } else setSelectedSubIndex(null);
-
-    if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-    else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
-
-    const noteToPreview = Array.isArray(finalVal) ? (subIndex !== undefined ? finalVal[subIndex] : finalVal[0]) : finalVal;
-    playGridStepPreview(trackId, pattern, noteToPreview, idx, subIndex);
-  }, [handleScissorsClick, pattern, isMultiSelectActive, handleStepMouseDownMulti, setSelectedPatternId, setSelectedVariationId, setIsMultiSelectActive, setSelectedStepIndices, setSelectedStepIdx, setSelectedSubIndex, instrument, lang, isLeftHanded, selectedVariationId, handleVariationStepValueChange, trackId, handleTrackStepValueChange]);
-
-  const handleCellMouseEnter = React.useCallback((idx: number, e?: React.MouseEvent) => {
-    if (e && e.buttons === 2) { handleClearStep(idx); return; }
-    if (activeToolRef.current === 'scissors') return;
-    if (isMultiSelectActive) { handleStepMouseEnterMulti(idx); }
-    // Drag-to-paint désactivé : pose au clic uniquement
-  }, [handleClearStep, isMultiSelectActive, handleStepMouseEnterMulti]);
-
-  return { isMouseDownRef, handleCellMouseDown, handleCellMouseEnter };
+  return { isMouseDownRef: gesture.pointerModeRef, handleCellMouseDown, handleCellMouseEnter };
 }

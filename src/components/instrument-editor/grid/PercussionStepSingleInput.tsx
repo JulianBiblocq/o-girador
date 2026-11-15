@@ -1,8 +1,14 @@
-
 import React from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { isStepInRange } from '../../../hooks/instrument-editor/gridStepRangeHelper';
 import { SCISSORS_CURSOR } from './gridConstants';
+import {
+  STEP_EMPTY_SELECTED_BG,
+  STEP_PASSIVE_CURSOR_SHADOW,
+  STEP_SELECTION_BOX_SHADOW,
+  STEP_TUPLET_SELECTION_FILTER,
+  StepSelectionCornerBadge,
+} from './StepSelectionVisuals';
 
 interface PercussionStepSingleInputProps {
   i: number;
@@ -20,7 +26,7 @@ interface PercussionStepSingleInputProps {
   isOcto: boolean;
   indexInGroup: number;
   onMouseDown: (e: React.MouseEvent<any>, index: number, value: any) => void;
-  onMouseEnter: (index: number, e?: React.MouseEvent) => void;
+  onMouseEnter: (index: number, e?: React.MouseEvent, subIndex?: 0 | 1) => void;
   onTouchStart: (e: React.TouchEvent<any>, index: number, value: any) => void;
   onTouchMove?: (e: React.TouchEvent<any>) => void;
   onTouchEnd?: (e: React.TouchEvent<any>, index: number, value: any) => void;
@@ -36,64 +42,83 @@ export const PercussionStepSingleInput: React.FC<PercussionStepSingleInputProps>
     isFocused, isMultiSelected, isMultiSelectActive,
     isSextuplet, isTriplet, isOcto, indexInGroup,
     onMouseDown, onMouseEnter, onTouchStart, onTouchMove, onTouchEnd,
-    onContextMenu, onChange, onKeyDown, onSelectForSculpt
+    onContextMenu, onChange, onKeyDown,
   } = props;
-  const lang = useSequencerStore(state => state.lang);
-  const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
-  const isInRange = isStepInRange(selectedStepRange, false, i, 0);
+  const lang = useSequencerStore((state) => state.lang);
+  const selectedStepRange = useSequencerStore((state) => state.selectedStepRange);
+  const isInRange = isStepInRange(selectedStepRange, false, i, 0, patternId);
+  const isExplicitSelected = isMultiSelected || isInRange;
+  const isPassiveCursor = isFocused && !isExplicitSelected;
   const isEmpty = val === 0 || val === '0' || !val;
+  const isTuplet = isSextuplet || isTriplet;
+  const isUpwardTuplet = isTriplet || (isSextuplet && indexInGroup % 2 === 0);
 
-  const borderClass = isMultiSelected
-    ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-    : isFocused
-      ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-      : isInRange
-        ? '!border-2 !border-amber-500/90 bg-amber-500/25 shadow-[0_0_8px_rgba(245,158,11,0.6)] rounded-none m-[1px]'
-        : isEmpty
-          ? 'bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.3)] rounded-none m-[1px]'
-          : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]';
+  const borderClass = isExplicitSelected
+    ? 'border !border-[var(--cordel-accent)]'
+    : isPassiveCursor
+      ? 'border !border-[var(--cordel-wood)]'
+      : isEmpty
+        ? 'border border-[var(--cordel-ink-dark)]/30 shadow-[1px_1px_0px_var(--cordel-shadow-color)]'
+        : 'border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)]';
 
   return (
-    <input
-      type="text"
-      value={isEmpty ? '' : val}
-      readOnly={isMultiSelectActive || activeTool === 'scissors'}
-      tabIndex={activeTool === 'scissors' ? -1 : undefined}
-      onMouseDown={(e) => onMouseDown(e, i, val)}
-      onFocus={() => onSelectForSculpt?.(i)}
-      onClick={() => onSelectForSculpt?.(i)}
-      onMouseEnter={(e) => onMouseEnter(i, e)}
-      onTouchStart={(e) => onTouchStart(e, i, val)}
-      onTouchMove={onTouchMove}
-      onTouchEnd={(e) => onTouchEnd?.(e, i, val)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onContextMenu?.(e, i, val);
-      }}
-      onChange={(e) => onChange(e, i, val)}
-      onKeyDown={(e) => onKeyDown(e, i, val)}
-      className={`step-input-cell text-center font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 ${
-        !isEmpty ? 'xilo-wood-stamp' : ''
-      } ${
-        isOcto ? 'text-[9px]' : 'text-sm'
-      } ${borderClass}`}
+    <div
+      className={`relative flex items-center justify-center m-[1px] transition-transform duration-150 ${
+        isExplicitSelected ? '-translate-y-[2px] z-20' : isPassiveCursor ? 'z-20' : 'z-10'
+      }`}
       style={{
-        ...colorStyle,
         width: 'calc(100% - 2px)',
-        maxWidth: isSextuplet || isTriplet || isOcto ? undefined : '44px',
-        height: isSextuplet || isTriplet ? '48px' : '38px',
+        maxWidth: isTuplet || isOcto ? undefined : '44px',
+        height: isTuplet ? '48px' : '38px',
         transform: `translateX(${shiftPx}px)`,
-        cursor: activeTool === 'scissors' ? SCISSORS_CURSOR : undefined,
-        clipPath: isSextuplet 
-          ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
-          : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
-        borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-        borderRadius: isSextuplet || isTriplet ? '0' : undefined
+        filter: isExplicitSelected && isTuplet ? STEP_TUPLET_SELECTION_FILTER : undefined,
       }}
-      data-track-id={trackId}
-      data-pattern-id={patternId}
-      data-step-index={i}
-      title={activeTool === 'scissors' ? (lang === 'fr' ? '/ Scinder le pas en doubles croches' : '/ Dividir o passo em semicolcheias') : undefined}
-    />
+    >
+      <input
+        type="text"
+        value={isEmpty ? '' : val}
+        readOnly={isMultiSelectActive || activeTool === 'scissors'}
+        tabIndex={activeTool === 'scissors' ? -1 : undefined}
+        onMouseDown={(e) => onMouseDown(e, i, val)}
+        onClick={(e) => e.stopPropagation()}
+        onMouseEnter={(e) => onMouseEnter(i, e)}
+        onTouchStart={(e) => onTouchStart(e, i, val)}
+        onTouchMove={onTouchMove}
+        onTouchEnd={(e) => onTouchEnd?.(e, i, val)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu?.(e, i, val);
+        }}
+        onChange={(e) => onChange(e, i, val)}
+        onKeyDown={(e) => onKeyDown(e, i, val)}
+        className={`step-input-cell w-full h-full m-0 text-center font-bold outline-none p-0 box-border rounded-none ${
+          isEmpty ? 'bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)]' : 'xilo-wood-stamp'
+        } ${isOcto ? 'text-[9px]' : 'text-sm'} ${borderClass}`}
+        style={{
+          ...colorStyle,
+          backgroundColor: isEmpty
+            ? (isExplicitSelected ? STEP_EMPTY_SELECTED_BG : undefined)
+            : colorStyle.backgroundColor,
+          boxShadow: isExplicitSelected
+            ? STEP_SELECTION_BOX_SHADOW
+            : isPassiveCursor
+              ? STEP_PASSIVE_CURSOR_SHADOW
+              : undefined,
+          cursor: activeTool === 'scissors' ? SCISSORS_CURSOR : 'pointer',
+          touchAction: isMultiSelectActive ? 'none' : undefined,
+          clipPath: isSextuplet
+            ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+            : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+          borderStyle: isTuplet ? 'none' : undefined,
+          borderRadius: isTuplet ? '0' : undefined,
+        }}
+        data-track-id={trackId}
+        data-pattern-id={patternId}
+        data-step-index={i}
+        title={activeTool === 'scissors' ? (lang === 'fr' ? '/ Scinder le pas en doubles croches' : '/ Dividir o passo em semicolcheias') : undefined}
+      />
+      {isExplicitSelected && <StepSelectionCornerBadge isUpwardTriangle={isUpwardTuplet} />}
+    </div>
   );
 };
