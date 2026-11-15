@@ -6,13 +6,11 @@ import React from 'react';
 import { Volume2, Layers, Filter } from 'lucide-react';
 import { LUTHERIE_DRUM_ROLES, LutherieDrumRole } from '../../utils/audio/lutheriePresetsStorage';
 import { LutheriePresetsBar } from './LutheriePresetsBar';
+import { LutherieGongueAlignBar } from './LutherieGongueAlignBar';
 import { LutherieDrumCard } from './LutherieDrumCard';
 import { useBaqueLutherieState } from './useBaqueLutherieState';
 
-export interface BaqueLutherieBenchProps {
-  lang?: string;
-  mode?: 'sequencer' | 'modal' | 'wizard';
-}
+export interface BaqueLutherieBenchProps { lang?: string; mode?: 'sequencer' | 'modal' | 'wizard'; }
 
 const DRUM_LABELS: Record<string, string> = {
   marcante: 'Alfaia Marcante', meiao: 'Alfaia Meião', repique: 'Alfaia Repique',
@@ -27,7 +25,7 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
   const {
     effectiveLang, drumsByRole, currentTunings, currentDecays, presentRolesCount,
     focusedInstId, effectiveScope, setFilterScope,
-    handleTuningChange, handleDecayChange, handleApplyPreset,
+    handleTuningChange, handleDecayChange, handleApplyPreset, handleApplyTuningsMap,
     previewSingleStroke, previewAlfaiasArpeggio, previewAlfaiasChord, previewCaixasChord, previewFullBaqueChord,
   } = useBaqueLutherieState(lang, isWizard);
   const isFr = effectiveLang === 'fr';
@@ -69,6 +67,7 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
       )}
 
       <LutheriePresetsBar lang={effectiveLang} currentTunings={currentTunings} currentDecays={currentDecays} onApplyPreset={handleApplyPreset} />
+      <LutherieGongueAlignBar lang={effectiveLang} currentTunings={currentTunings} onApplyTunings={handleApplyTuningsMap} />
 
       {visibleAlfaias.length > 0 && (
         <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]">
