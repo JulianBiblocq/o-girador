@@ -5,12 +5,14 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
   buildFactoryLutheriePresets,
+  DEFAULT_SIGNATURE_TUNINGS,
+  getDefaultSignatureTuning,
   LUTHERIE_DRUM_ROLES,
   LutherieDrumRole,
   LutheriePreset,
 } from './lutherieFactoryPresets';
 
-export { LUTHERIE_DRUM_ROLES, buildFactoryLutheriePresets };
+export { LUTHERIE_DRUM_ROLES, DEFAULT_SIGNATURE_TUNINGS, getDefaultSignatureTuning, buildFactoryLutheriePresets };
 export type { LutherieDrumRole, LutheriePreset };
 
 export const LUTHERIE_STORAGE_KEY = 'ogirador_custom_lutherie_presets_v1';

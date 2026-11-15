@@ -1,6 +1,6 @@
 /**
- * lutherieFactoryPresets.ts — Génération dynamique des 6 Presets d'Usine du Banc de Lutherie (< 120 lignes).
- * - Alfaias Studio calibrées au dixième de demi-ton (`0.1 st`) vers de vraies cibles harmoniques.
+ * lutherieFactoryPresets.ts — Accordage Signature par défaut (Do Majeur + Gonguê Sol4)
+ * & Génération dynamique des 5 Presets d'Usine du Banc de Lutherie (< 135 lignes).
  * - Tant que `STUDIO_BANK_ENABLED` vaut `false` sur `caixa`/`tarol`/`timbal`, leur offset d'usine reste à `0 st`.
  * - Dès passage en Studio, `caixa`/`tarol` sont bornés à `[-2.0, +2.0 st]` et `timbal` à `[-5.0, +5.0 st]`.
  */
@@ -30,6 +30,24 @@ export interface LutheriePreset {
   decays: Record<LutherieDrumRole, number>;
 }
 
+/** Accordage universel à froid : Do Majeur (Do2 • Mi2 • Sol2) + Gonguê Sol4 (392 Hz, 2 octaves au-dessus du Repique). */
+export const DEFAULT_SIGNATURE_TUNINGS: Record<LutherieDrumRole, number> = {
+  marcante: -1.5,
+  meiao: 0.3,
+  repique: 0.3,
+  caixa: 0,
+  tarol: 0,
+  timbal: 0,
+  gongue: -1.0,
+};
+
+export function getDefaultSignatureTuning(instrumentId?: string | null): number {
+  if (!instrumentId) return 0;
+  return instrumentId in DEFAULT_SIGNATURE_TUNINGS
+    ? DEFAULT_SIGNATURE_TUNINGS[instrumentId as LutherieDrumRole]
+    : 0;
+}
+
 interface HarmonicTargetSpec {
   marcanteMidi: number;
   meiaoMidi: number;
@@ -37,6 +55,7 @@ interface HarmonicTargetSpec {
   snareRootMidi: number;
   snareFifthMidi: number;
   timbalMidi: number;
+  gongueMidi: number;
 }
 
 function buildHarmonicTunings(
@@ -55,82 +74,42 @@ function buildHarmonicTunings(
     caixa: optionalStudioTuning('caixa', targets.snareRootMidi),
     tarol: optionalStudioTuning('tarol', targets.snareFifthMidi),
     timbal: optionalStudioTuning('timbal', targets.timbalMidi),
-    gongue: 0,
+    gongue: computeTuningForTargetMidi('gongue', targets.gongueMidi, -6, 6, undefined, studioFlagsOverride),
   };
 }
+
+const FULL_DECAYS: Record<LutherieDrumRole, number> = {
+  marcante: 100, meiao: 100, repique: 100, caixa: 100, tarol: 100, timbal: 100, gongue: 100,
+};
 
 export function buildFactoryLutheriePresets(
   studioFlagsOverride?: Partial<Record<PendingStudioInstrumentId, boolean>>
 ): LutheriePreset[] {
   return [
     {
-      id: 'studio_natural',
-      nameFr: 'Studio Naturel',
-      namePt: 'Estúdio Natural',
-      subtitle: 'Peaux brutes (0 st)',
-      isFactory: true,
-      tunings: { marcante: 0, meiao: 0, repique: 0, caixa: 0, tarol: 0, timbal: 0, gongue: 0 },
-      decays: { marcante: 100, meiao: 100, repique: 100, caixa: 95, tarol: 95, timbal: 100, gongue: 100 },
+      id: 'major_triad', nameFr: 'Do Majeur — Base', namePt: 'Dó Maior — Base', subtitle: 'Do2 • Mi2 • Sol2 + Sol4', isFactory: true,
+      tunings: buildHarmonicTunings({ marcanteMidi: 36, meiaoMidi: 40, repiqueMidi: 43, snareRootMidi: 52, snareFifthMidi: 55, timbalMidi: 55, gongueMidi: 67 }, studioFlagsOverride),
+      decays: { ...FULL_DECAYS },
     },
     {
-      id: 'gongue_minor',
-      nameFr: 'Accord Gonguê Do#m',
-      namePt: 'Acorde Gonguê Dó#m',
-      subtitle: 'Do#2 • Mi2 • Sol#2',
-      isFactory: true,
-      tunings: buildHarmonicTunings(
-        { marcanteMidi: 37, meiaoMidi: 40, repiqueMidi: 44, snareRootMidi: 52, snareFifthMidi: 56, timbalMidi: 56 },
-        studioFlagsOverride
-      ),
-      decays: { marcante: 95, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100, gongue: 100 },
-    },
-    {
-      id: 'major_triad',
-      nameFr: 'Accord Majeur',
-      namePt: 'Acorde Maior',
-      subtitle: 'Do2 • Mi2 • Sol2',
-      isFactory: true,
-      tunings: buildHarmonicTunings(
-        { marcanteMidi: 36, meiaoMidi: 40, repiqueMidi: 43, snareRootMidi: 52, snareFifthMidi: 55, timbalMidi: 55 },
-        studioFlagsOverride
-      ),
+      id: 'minor_triad', nameFr: 'Ré Mineur', namePt: 'Ré Menor', subtitle: 'Ré2 • Fa2 • La2 + La4', isFactory: true,
+      tunings: buildHarmonicTunings({ marcanteMidi: 38, meiaoMidi: 41, repiqueMidi: 45, snareRootMidi: 50, snareFifthMidi: 57, timbalMidi: 57, gongueMidi: 69 }, studioFlagsOverride),
       decays: { marcante: 92, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100, gongue: 100 },
     },
     {
-      id: 'minor_triad',
-      nameFr: 'Accord Mineur',
-      namePt: 'Acorde Menor',
-      subtitle: 'Ré2 • Fa2 • La2',
-      isFactory: true,
-      tunings: buildHarmonicTunings(
-        { marcanteMidi: 38, meiaoMidi: 41, repiqueMidi: 45, snareRootMidi: 50, snareFifthMidi: 57, timbalMidi: 57 },
-        studioFlagsOverride
-      ),
-      decays: { marcante: 92, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100, gongue: 100 },
-    },
-    {
-      id: 'fifth_octave',
-      nameFr: 'Quinte & Octave',
-      namePt: 'Quinta & Oitava',
-      subtitle: 'La1 • Mi2 • La2',
-      isFactory: true,
-      tunings: buildHarmonicTunings(
-        { marcanteMidi: 33, meiaoMidi: 40, repiqueMidi: 45, snareRootMidi: 52, snareFifthMidi: 57, timbalMidi: 57 },
-        studioFlagsOverride
-      ),
+      id: 'fifth_octave', nameFr: 'Quinte & Octave', namePt: 'Quinta & Oitava', subtitle: 'La1 • Mi2 • La2 + La4', isFactory: true,
+      tunings: buildHarmonicTunings({ marcanteMidi: 33, meiaoMidi: 40, repiqueMidi: 45, snareRootMidi: 52, snareFifthMidi: 57, timbalMidi: 57, gongueMidi: 69 }, studioFlagsOverride),
       decays: { marcante: 88, meiao: 92, repique: 100, caixa: 92, tarol: 95, timbal: 95, gongue: 100 },
     },
     {
-      id: 'fast_tight',
-      nameFr: 'Baque Sec & Tendu',
-      namePt: 'Baque Seco & Tenso',
-      subtitle: 'Ré2 • Fa#2 • La2',
-      isFactory: true,
-      tunings: buildHarmonicTunings(
-        { marcanteMidi: 38, meiaoMidi: 42, repiqueMidi: 45, snareRootMidi: 50, snareFifthMidi: 57, timbalMidi: 57 },
-        studioFlagsOverride
-      ),
+      id: 'fast_tight', nameFr: 'Baque Sec & Tendu', namePt: 'Baque Seco & Tenso', subtitle: 'Ré2 • Fa#2 • La2 + La4', isFactory: true,
+      tunings: buildHarmonicTunings({ marcanteMidi: 38, meiaoMidi: 42, repiqueMidi: 45, snareRootMidi: 50, snareFifthMidi: 57, timbalMidi: 57, gongueMidi: 69 }, studioFlagsOverride),
       decays: { marcante: 68, meiao: 74, repique: 82, caixa: 75, tarol: 75, timbal: 80, gongue: 90 },
+    },
+    {
+      id: 'studio_natural', nameFr: 'Brut Studio (Origine)', namePt: 'Estúdio Bruto', subtitle: '0 st • Sol#4', isFactory: true,
+      tunings: { marcante: 0, meiao: 0, repique: 0, caixa: 0, tarol: 0, timbal: 0, gongue: 0 },
+      decays: { ...FULL_DECAYS },
     },
   ];
 }

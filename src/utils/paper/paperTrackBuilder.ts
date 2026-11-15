@@ -17,39 +17,21 @@ export interface PaperInjectOptions {
 }
 
 import { detectActivePaperRoles } from './paperTrackRolesDetector';
+import { getDefaultSignatureTuning } from '../audio/lutherieFactoryPresets';
 export { detectActivePaperRoles } from './paperTrackRolesDetector';
 
 function makeTrack(id: number, instIdx: number, customName: string, opts: Partial<TrackGroup> = {}): TrackGroup {
-  const vol = opts.volumeVal ?? 75;
-  const pan = opts.panVal ?? 0;
-  const rev = opts.reverbVal ?? 0;
+  const vol = opts.volumeVal ?? 75, pan = opts.panVal ?? 0, rev = opts.reverbVal ?? 0;
+  const defaultTuning = opts.isBusFolder ? undefined : getDefaultSignatureTuning(instrumentsConfig[instIdx]?.id);
   return {
-    id,
-    instrumentIdx: instIdx,
-    patterns: [],
-    isMute: false,
-    isSolo: false,
-    isHidden: false,
-    volumeVal: vol,
-    selectedPatternId: 0,
-    customName,
-    reverbVal: rev,
-    panVal: pan,
-    pan,
-    fxSends: { reverb: rev, distortion: 0 },
-    measureVols: undefined,
-    measureVolTransitions: undefined,
-    measurePans: undefined,
-    measurePanTransitions: undefined,
-    measureReverbSends: undefined,
-    measureReverbTransitions: undefined,
-    patternOverrides: {},
-    automationBypass: { volume: false, pan: false, reverb: false },
+    id, instrumentIdx: instIdx, patterns: [], isMute: false, isSolo: false, isHidden: false,
+    volumeVal: vol, selectedPatternId: 0, customName, reverbVal: rev, panVal: pan, pan,
+    tuning: defaultTuning, fxSends: { reverb: rev, distortion: 0 },
+    measureVols: undefined, measureVolTransitions: undefined, measurePans: undefined,
+    measurePanTransitions: undefined, measureReverbSends: undefined, measureReverbTransitions: undefined,
+    patternOverrides: {}, automationBypass: { volume: false, pan: false, reverb: false },
     ...opts,
-    automation: undefined,
-    volumeAutomation: undefined,
-    panAutomation: undefined,
-    isAutomated: false,
+    automation: undefined, volumeAutomation: undefined, panAutomation: undefined, isAutomated: false,
   } as TrackGroup;
 }
 

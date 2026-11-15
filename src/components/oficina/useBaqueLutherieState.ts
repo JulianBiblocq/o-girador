@@ -1,6 +1,6 @@
 /**
  * useBaqueLutherieState.ts — Sélecteurs atomiques Zustand, dérivation multi-pistes par tambour
- * et handlers d'accordage/decay pour BaqueLutherieBench (< 105 lignes).
+ * et handlers d'accordage/decay pour BaqueLutherieBench (< 130 lignes).
  */
 import { useCallback, useMemo, useState } from 'react';
 import { TrackGroup } from '../../types';
@@ -8,12 +8,20 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { instrumentsConfig } from '../../data';
-import { LUTHERIE_DRUM_ROLES, LutherieDrumRole, LutheriePreset } from '../../utils/audio/lutheriePresetsStorage';
+import {
+  DEFAULT_SIGNATURE_TUNINGS,
+  LUTHERIE_DRUM_ROLES,
+  LutherieDrumRole,
+  LutheriePreset,
+} from '../../utils/audio/lutheriePresetsStorage';
 import { useLutherieAudioPreview, DrumLutherieState } from './useLutherieAudioPreview';
 
 export type DrumRoleBenchEntry = DrumLutherieState & { tracks: TrackGroup[] };
 
 const EMPTY_TRACKS: TrackGroup[] = [];
+const INITIAL_FALLBACK_DECAYS: Record<LutherieDrumRole, number> = {
+  marcante: 100, meiao: 100, repique: 100, caixa: 100, tarol: 100, timbal: 100, gongue: 100,
+};
 
 export function useBaqueLutherieState(langProp: string | undefined, isWizard: boolean) {
   const storeLang = useSequencerStore((s) => s.lang);
@@ -31,6 +39,8 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
   const setInstrumentDecay = useWizardStore((s) => s.setInstrumentDecay);
 
   const [filterScope, setFilterScope] = useState<'active' | 'all'>('active');
+  const [fallbackTunings, setFallbackTunings] = useState<Record<LutherieDrumRole, number>>(() => ({ ...DEFAULT_SIGNATURE_TUNINGS }));
+  const [fallbackDecays, setFallbackDecays] = useState<Record<LutherieDrumRole, number>>(() => ({ ...INITIAL_FALLBACK_DECAYS }));
 
   const { drumsByRole, currentTunings, currentDecays, presentRolesCount, focusedInstId } = useMemo(() => {
     const byRole = {} as Record<LutherieDrumRole, DrumRoleBenchEntry>;
@@ -45,7 +55,7 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
     LUTHERIE_DRUM_ROLES.forEach((role) => {
       if (isWizard) {
         const isPresent = placedInstruments.some((p) => p.instrumentType === role);
-        const tuning = instrumentTunings[role] ?? 0;
+        const tuning = instrumentTunings[role] ?? DEFAULT_SIGNATURE_TUNINGS[role];
         const decayPct = instrumentDecays[role] ?? 100;
         if (isPresent) presentCount++;
         byRole[role] = { tuning, decayPct, trackId: null, isPresent, tracks: EMPTY_TRACKS };
@@ -57,8 +67,8 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
         const isPresent = matching.length > 0;
         if (isPresent) presentCount++;
         byRole[role] = {
-          tuning: primary?.tuning ?? 0,
-          decayPct: primary?.trackDecay ?? 100,
+          tuning: primary ? (primary.tuning ?? 0) : (fallbackTunings[role] ?? DEFAULT_SIGNATURE_TUNINGS[role]),
+          decayPct: primary ? (primary.trackDecay ?? 100) : (fallbackDecays[role] ?? 100),
           trackId: primary ? primary.id : null,
           isPresent,
           tracks: matching,
@@ -69,7 +79,7 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
     });
 
     return { drumsByRole: byRole, currentTunings: tMap, currentDecays: dMap, presentRolesCount: presentCount, focusedInstId: resolvedFocusInst };
-  }, [isWizard, placedInstruments, instrumentTunings, instrumentDecays, tracks, oficinaFocus]);
+  }, [isWizard, placedInstruments, instrumentTunings, instrumentDecays, tracks, oficinaFocus, fallbackTunings, fallbackDecays]);
 
   const getDrumState = useCallback((id: string): DrumLutherieState => (
     drumsByRole[id as LutherieDrumRole] ?? { tuning: 0, decayPct: 100, trackId: null, isPresent: false }
@@ -77,6 +87,7 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
 
   const handleTuningChange = useCallback((instrumentId: string, semitones: number) => {
     if (isWizard) return setInstrumentTuning(instrumentId, semitones);
+    setFallbackTunings((prev) => ({ ...prev, [instrumentId]: semitones }));
     useSequencerStore.getState().tracks.forEach((t) => {
       if (!t.isBusFolder && !t.isLinkFolder && instrumentsConfig[t.instrumentIdx]?.id === instrumentId) setTrackTuning(t.id, semitones);
     });
@@ -84,6 +95,7 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
 
   const handleDecayChange = useCallback((instrumentId: string, decayPct: number) => {
     if (isWizard) return setInstrumentDecay(instrumentId, decayPct);
+    setFallbackDecays((prev) => ({ ...prev, [instrumentId]: decayPct }));
     useSequencerStore.getState().tracks.forEach((t) => {
       if (!t.isBusFolder && !t.isLinkFolder && instrumentsConfig[t.instrumentIdx]?.id === instrumentId) setTrackDecay(t.id, decayPct);
     });
@@ -96,8 +108,15 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
       handleTuningChange(role, preset.tunings[role] ?? 0);
       handleDecayChange(role, preset.decays[role] ?? 100);
     });
-    audioPreviews.previewAlfaiasChord(preset);
+    audioPreviews.previewAlfaiasChord(preset, true);
   }, [handleTuningChange, handleDecayChange, audioPreviews]);
+
+  const handleApplyTuningsMap = useCallback((tunings: Record<LutherieDrumRole, number>) => {
+    LUTHERIE_DRUM_ROLES.forEach((role) => {
+      handleTuningChange(role, tunings[role] ?? 0);
+    });
+    audioPreviews.previewAlfaiasChord({ tunings }, true);
+  }, [handleTuningChange, audioPreviews]);
 
   const effectiveScope: 'active' | 'all' =
     isWizard || presentRolesCount === 0 || Boolean(focusedInstId && !drumsByRole[focusedInstId as LutherieDrumRole]?.isPresent)
@@ -107,6 +126,6 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
   return {
     effectiveLang, drumsByRole, currentTunings, currentDecays, presentRolesCount,
     focusedInstId, effectiveScope, setFilterScope,
-    handleTuningChange, handleDecayChange, handleApplyPreset, ...audioPreviews,
+    handleTuningChange, handleDecayChange, handleApplyPreset, handleApplyTuningsMap, ...audioPreviews,
   };
 }

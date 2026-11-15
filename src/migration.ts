@@ -60,6 +60,7 @@ export function migrateCirclesToTracks(circles: Circle[], totalMeasures: number)
       reverbVal: 0,
       panVal: 0,
       pan: 0,
+      tuning: typeof (groupCircles[0] as any).tuning === 'number' ? (groupCircles[0] as any).tuning : undefined,
       fxSends: { reverb: 0, distortion: 0 }
     };
     tracks.push(track);

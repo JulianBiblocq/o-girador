@@ -5,6 +5,7 @@ import { useTransportStore } from '../../stores/useTransportStore';
 import { instrumentsConfig } from '../../data';
 import { TrackGroup, Language, RhythmSignal } from '../../types';
 import { dbToFaderPosition } from '../../utils/audioMath';
+import { getDefaultSignatureTuning } from '../../utils/audio/lutherieFactoryPresets';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { getBasePatternForInstrument } from './wizardRhythmPatterns';
 import { createToadaBusAndTracks, createSementesBusTrack, createCaixasBusTrack } from './wizardBusHelpers';
@@ -72,7 +73,7 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
         }],
         isMute: false, isSolo: false, isHidden: false, volumeVal, selectedPatternId: trackId + 10000,
         reverbVal: calculatedReverb, panVal: panPct, pan: panPct, swingIntensity: intensity, balancoPresetId: selectedBalancoId,
-        tuning: instrumentTunings[inst.instrumentType] || 0,
+        tuning: instrumentTunings[inst.instrumentType] ?? getDefaultSignatureTuning(inst.instrumentType),
         trackDecay: instrumentDecays[inst.instrumentType] ?? 100,
         fxSends: { reverb: calculatedReverb, distortion: 0 },
       });

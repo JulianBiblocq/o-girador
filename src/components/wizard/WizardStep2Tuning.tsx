@@ -1,5 +1,6 @@
 import React from 'react';
 import { useWizardStore } from '../../stores/useWizardStore';
+import { LUTHERIE_DRUM_ROLES } from '../../utils/audio/lutherieFactoryPresets';
 import { BaqueLutherieBench } from '../oficina/BaqueLutherieBench';
 import { t } from './wizardConstants';
 import { Language } from '../../types';
@@ -18,7 +19,7 @@ export const WizardStep2Tuning: React.FC<WizardStep2TuningProps> = ({ wizardLang
   );
 
   const hasTuneableDrums = placedInstruments.some((i) =>
-    ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'].includes(i.instrumentType)
+    (LUTHERIE_DRUM_ROLES as readonly string[]).includes(i.instrumentType)
   );
 
   return (

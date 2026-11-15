@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_SIGNATURE_TUNINGS } from '../utils/audio/lutherieFactoryPresets';
 import {
   PlacedInstrument,
   SwingIntensities,
@@ -38,7 +39,7 @@ export const useWizardStore = create<WizardState>((set) => ({
   },
   bpm: 100,
   timeSig: '4/4',
-  instrumentTunings: {},
+  instrumentTunings: { ...DEFAULT_SIGNATURE_TUNINGS },
   instrumentDecays: {},
   selectedBalancoId: 'maracatu-trad',
 
@@ -104,6 +105,6 @@ export const useWizardStore = create<WizardState>((set) => ({
     swingIntensities: { alfaias: 100, caixas: 100, sementes: 100, gongue: 100, timbal: 100 },
     selectedSignIds: [],
     songInfo: { rodaName: '', toadaName: '', nacaoName: '', composer: '', mainRythm: '', youtubeUrl: '' },
-    bpm: 100, timeSig: '4/4', instrumentTunings: {}, instrumentDecays: {}, selectedBalancoId: 'maracatu-trad',
+    bpm: 100, timeSig: '4/4', instrumentTunings: { ...DEFAULT_SIGNATURE_TUNINGS }, instrumentDecays: {}, selectedBalancoId: 'maracatu-trad',
   }),
 }));
