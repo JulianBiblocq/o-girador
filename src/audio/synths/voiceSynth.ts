@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import type { VoiceMelismaGlide } from '../../utils/musicTheory';
 import { masterVolumeNode } from '../effectsChain';
 import { activeNativeOscillators } from './nativeOscillatorRegistry';
 
@@ -7,7 +8,8 @@ export const playNativeVoiceSynth = (
   time: number,
   duration: number,
   volume: number,
-  channelNode: any
+  channelNode: any,
+  melismaGlides?: VoiceMelismaGlide[]
 ) => {
   const rawCtx = Tone.getContext().rawContext as AudioContext;
   const osc = rawCtx.createOscillator();
@@ -24,6 +26,17 @@ export const playNativeVoiceSynth = (
 
   osc.type = 'triangle';
   osc.frequency.setValueAtTime(freq, time);
+  if (melismaGlides && melismaGlides.length > 0) {
+    let curFreq = freq;
+    for (const g of melismaGlides) {
+      if (!(g.freq > 0) || g.offsetSec <= 0 || g.offsetSec >= duration) continue;
+      const t0 = time + g.offsetSec;
+      const ramp = Math.min(0.022, Math.max(0.005, (duration - g.offsetSec) * 0.35));
+      osc.frequency.setValueAtTime(curFreq, t0);
+      osc.frequency.exponentialRampToValueAtTime(g.freq, t0 + ramp);
+      curFreq = g.freq;
+    }
+  }
 
   const attack = 0.05;
   voiceGain.gain.setValueAtTime(0.0001, time);

@@ -4,8 +4,10 @@
 
 import { getTone } from '../../ToneLoader';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import type { VoiceMelismaGlide } from '../../utils/musicTheory';
 import { sanitizeVoiceDuration, sanitizeVoiceTime, VOICE_FALLBACK_DURATION_SEC } from '../voiceNoteGuard';
 import { EngineVoiceSynthManager } from './engineVoiceSynth';
+import { EngineLegatoVoice } from './engineLegatoVoice';
 
 export class EngineVoiceAttack {
   public static trigger(
@@ -15,14 +17,15 @@ export class EngineVoiceAttack {
     duration: number | string,
     time?: number,
     velocity: number = 0.7,
-    targetTrackId?: string | number
+    targetTrackId?: string | number,
+    melismaGlides?: VoiceMelismaGlide[]
   ): void {
     try {
       if (typeof window !== 'undefined') {
         const win = window as any;
-        win.__LAST_VOICE_ATTACK__ = { pitch, duration, time, velocity, targetTrackId, timestamp: Date.now() };
+        win.__LAST_VOICE_ATTACK__ = { pitch, duration, time, velocity, targetTrackId, melismaGlides, timestamp: Date.now() };
         win.__VOICE_ATTACK_HISTORY__ = win.__VOICE_ATTACK_HISTORY__ || [];
-        win.__VOICE_ATTACK_HISTORY__.push({ pitch, duration, time, velocity, targetTrackId });
+        win.__VOICE_ATTACK_HISTORY__.push({ pitch, duration, time, velocity, targetTrackId, melismaGlides });
       }
 
       const Tone = getTone();
@@ -38,9 +41,6 @@ export class EngineVoiceAttack {
         ? targetTrackId
         : (useSequencerStore.getState().editingTrackId ?? 'default');
 
-      const synth = voiceSynthManager.getOrCreateVoiceSynth(effectiveTrackId);
-      if (!synth) return;
-
       const note = typeof pitch === 'number' && pitch <= 127
         ? Tone.Frequency(pitch, 'midi').toNote()
         : pitch;
@@ -52,6 +52,15 @@ export class EngineVoiceAttack {
       if (dur === VOICE_FALLBACK_DURATION_SEC && rawDur !== VOICE_FALLBACK_DURATION_SEC) {
         console.warn('AudioEngine.triggerVoiceAttackRelease: durée invalide, repli sûr appliqué', rawDur);
       }
+
+      if (melismaGlides && melismaGlides.length > 0) {
+        if (EngineLegatoVoice.triggerLegatoPhrase(voiceSynthManager, effectiveTrackId, String(note), dur, triggerTime, vel, melismaGlides)) {
+          return;
+        }
+      }
+
+      const synth = voiceSynthManager.getOrCreateVoiceSynth(effectiveTrackId);
+      if (!synth) return;
 
       const overlapKey = `${String(effectiveTrackId)}|${String(note)}`;
       if (voiceSynthManager.voiceOverlap.registerAndCheck(overlapKey, triggerTime, dur)) {

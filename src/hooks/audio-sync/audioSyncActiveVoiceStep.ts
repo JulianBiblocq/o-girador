@@ -4,9 +4,15 @@ import { getEffectiveVolume, useSequencerStore } from '../../stores/useSequencer
 import { faderPositionToGain } from '../../utils/audioMath';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { getBalancoOffsetSec } from '../../utils/balancoUtils';
-import { isVoiceHoldNote, isVoiceStepProlongation } from '../../utils/musicTheory';
+import {
+  isVoiceHoldNote,
+  isVoiceStepProlongation,
+  isVoiceMelismaStep,
+  resolveEffectiveVoicePitch,
+} from '../../utils/musicTheory';
 import { capVoiceNoteSteps } from '../../utils/voiceNoteDuration';
 import { noteToFrequency, getVoiceNoteStepsFromDecay } from './vocalSampleHelpers';
+import { scanVoiceLegatoChain } from './voiceLegatoChainScanner';
 import { playNativeVoiceSynth } from '../../audio/nativeSynths';
 import { audioEngine } from './audioEngineNodes';
 
@@ -70,31 +76,21 @@ export function playActiveVoiceStep(p: ActiveVoiceStepParams): void {
     ? effectivePattern.activeSteps[cellIdx - 1]
     : (preRollTotal > 0 ? effectivePattern.preRollActiveSteps?.[lastPreRollIdx] : 0);
   const prevIsActive = prevActiveState !== undefined && prevActiveState !== null && prevActiveState !== 0 && prevActiveState !== '0';
-  const prevRawNote = cellIdx > 0
-    ? effectivePattern.notes?.[cellIdx - 1]
-    : (preRollTotal > 0 ? (effectivePattern.preRollNotes?.[lastPreRollIdx] || '') : '');
-  const prevNoteVal = typeof prevRawNote === 'string' ? prevRawNote.trim() : '';
+  const prevPreRollNote = preRollTotal > 0 ? String(effectivePattern.preRollNotes?.[lastPreRollIdx] || '').trim() : '';
+  const prevEffectivePitch = cellIdx > 0
+    ? resolveEffectiveVoicePitch(effectivePattern.notes, effectivePattern.activeSteps, cellIdx - 1)
+    : prevPreRollNote;
 
-  const isProlongation = isVoiceStepProlongation(true, prevIsActive, noteVal, prevNoteVal, curSyl);
+  const isProlongation = isVoiceStepProlongation(true, prevIsActive, noteVal, prevEffectivePitch, curSyl);
+  const isMelisma = Boolean(prevEffectivePitch) && isVoiceMelismaStep(true, cellIdx > 0 && prevIsActive, noteVal, prevEffectivePitch, curSyl);
   const isPitchIgnored = Boolean(effectivePattern.ignoreMelodyPitch || useSequencerStore.getState().metadata?.ignoreMelodyPitch);
   const allowSynthPlayback = !isPitchIgnored && (currentVocalMode === 'synth' || currentVocalMode === 'both' || !hasVocalSample);
 
-  if (allowSynthPlayback && trackVolPct > 3 && !isProlongation && noteVal && !isVoiceHoldNote(noteVal)) {
-    let spanSteps = 1;
+  if (allowSynthPlayback && trackVolPct > 3 && !isProlongation && !isMelisma && noteVal && !isVoiceHoldNote(noteVal)) {
     const stepCount = effectivePattern.steps;
-    let nextIdx = cellIdx + 1;
-    while (nextIdx < stepCount) {
-      const nextState = effectivePattern.activeSteps[nextIdx];
-      const nextIsActive = nextState !== undefined && nextState !== null && nextState !== 0 && nextState !== '0';
-      const nextRawNote = effectivePattern.notes?.[nextIdx];
-      const nextNoteVal = typeof nextRawNote === 'string' ? nextRawNote.trim() : '';
-      const nextSyl = lyrics[nextIdx];
-      if (isVoiceStepProlongation(nextIsActive, true, nextNoteVal, noteVal, nextSyl)) {
-        spanSteps++;
-        nextIdx++;
-      } else break;
-    }
-
+    const { spanSteps, melismaGlides } = scanVoiceLegatoChain(
+      effectivePattern.activeSteps, effectivePattern.notes, lyrics, cellIdx, stepCount, noteVal, singleStepSec
+    );
     const decayVal = effectivePattern.decays?.[cellIdx] ?? 10;
     const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
     const numDecaySteps = getVoiceNoteStepsFromDecay(decayNum);
@@ -104,10 +100,10 @@ export function playActiveVoiceStep(p: ActiveVoiceStepParams): void {
     const velocity = Math.max(0.2, Math.min(1.0, trackVolLinear));
 
     if (audioEngine) {
-      audioEngine.triggerVoiceAttackRelease(noteVal, durationSec, triggerTime, velocity, track.id);
+      audioEngine.triggerVoiceAttackRelease(noteVal, durationSec, triggerTime, velocity, track.id, melismaGlides);
     } else {
       const noteFreq = noteToFrequency(noteVal);
-      playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id]);
+      playNativeVoiceSynth(noteFreq, triggerTime, durationSec, trackVolLinear, channels[track.id], melismaGlides);
     }
   }
 

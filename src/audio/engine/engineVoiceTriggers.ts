@@ -4,6 +4,7 @@
 
 import { getTone } from '../../ToneLoader';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import type { VoiceMelismaGlide } from '../../utils/musicTheory';
 import { EngineVoiceSynthManager } from './engineVoiceSynth';
 import { EngineVoiceAttack } from './engineVoiceAttack';
 
@@ -49,9 +50,10 @@ export class EngineVoiceTriggers {
     duration: number | string,
     time?: number,
     velocity: number = 0.7,
-    targetTrackId?: string | number
+    targetTrackId?: string | number,
+    melismaGlides?: VoiceMelismaGlide[]
   ): void {
-    EngineVoiceAttack.trigger(audioContext, voiceSynthManager, pitch, duration, time, velocity, targetTrackId);
+    EngineVoiceAttack.trigger(audioContext, voiceSynthManager, pitch, duration, time, velocity, targetTrackId, melismaGlides);
   }
 
   public static releaseVoicePitch(

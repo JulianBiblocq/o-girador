@@ -9,6 +9,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { uploadPendingVocalRecordings } from './vocalRecordingsUploader';
 import { findExistingPresetId } from './existingPresetMatcher';
 import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
+import { VOCAL_GRAMMAR_VERSION } from '../../utils/vocalGrammarV2';
 
 export async function savePresetToCloud(
   name: string,
@@ -57,6 +58,7 @@ export async function savePresetToCloud(
   }
 
   const presetToSave = JSON.parse(JSON.stringify(presetData));
+  presetToSave.metadata = { ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION };
   const updatedMap = await uploadPendingVocalRecordings(presetToSave);
 
   if (updatedMap.size > 0) {

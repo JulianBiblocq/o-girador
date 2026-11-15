@@ -1,6 +1,20 @@
 
 export type StepSculptValue = number | [number, number];
 
+export interface SequencerVocalStepData {
+  stepIndex: number;
+  active: boolean;
+  note: string;
+  midiNumber: number | null;
+  syllable?: string;
+  syllableAttack?: boolean;
+  isTie?: boolean;
+  isMelisma?: boolean;
+  velocity?: number;
+  decay?: number;
+  microtiming?: number;
+}
+
 export interface PatternVariation {
   id: string;
   name: string;

@@ -125,13 +125,14 @@ export class EngineVoiceSynthManager {
 
   public releaseVoicesForTrack(trackId: string | number): void {
     const key = String(trackId);
-    const synth = this.voiceSynths.get(key);
-    if (!synth) return;
-    try { synth.releaseAll(); } catch (_) {}
-    try { synth.disconnect(); } catch (_) {}
-    try { synth.dispose(); } catch (_) {}
-    this.voiceSynths.delete(key);
-    if (this.voiceSynth === synth) this.voiceSynth = null;
+    for (const k of [key, `legato:${key}`]) {
+      const s = this.voiceSynths.get(k);
+      if (!s) continue;
+      try { if (typeof s.releaseAll === 'function') s.releaseAll(); else s.triggerRelease?.(); } catch (_) {}
+      try { s.disconnect(); s.dispose(); } catch (_) {}
+      this.voiceSynths.delete(k);
+      if (this.voiceSynth === s) this.voiceSynth = null;
+    }
     this.voiceOverlap.clearTrack(key);
   }
 }

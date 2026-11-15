@@ -54,6 +54,7 @@ export interface PresetMetadata {
   sungScaleMode?: string;
   packTranspositionSemitones?: number;
   transpositionSemitones?: number;
+  vocalGrammarVersion?: number;
 }
 
 export interface Circle {

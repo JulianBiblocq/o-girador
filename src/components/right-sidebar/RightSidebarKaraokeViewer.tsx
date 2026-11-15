@@ -1,33 +1,49 @@
-
 import React from 'react';
 import { Language, TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { cleanVoiceSyllableForDisplay, isKaraokeHiddenToken } from '../../utils/musicTheory';
 
-type Token = { trackId: number; patternId: number; stepIdx: number; displayText: string; hasSpace: boolean; color: string; instIdx: number; role: 'puxador' | 'coro'; isBreak?: boolean };
+type Token = { trackId: number; patternId: number; stepIdx: number; endStepIdx: number; displayText: string; hasSpace: boolean; color: string; instIdx: number; role: 'puxador' | 'coro'; isBreak?: boolean };
 
 function extractRoleTokens(track: TrackGroup | undefined, role: 'puxador' | 'coro'): Token[][] {
   if (!track) return [];
   const allTokens: Token[] = [];
+  const color = role === 'puxador' ? '#c25e38' : '#1e40af';
 
-  track.patterns.forEach((ptn: any) => {
+  const scanSeq = (ptnId: number, activeArr: any[] | undefined, lyricsArr: string[] | undefined, count: number, offset: number): boolean => {
+    if (!activeArr || !lyricsArr) return false;
     let added = false;
-    if (ptn.preRollActiveSteps && ptn.preRollLyrics) {
-      for (let i = 0; i < 16; i++) {
-        const state = ptn.preRollActiveSteps[i];
-        const lyric = ptn.preRollLyrics[i];
-        if (!state || state === 0 || !lyric || lyric.trim() === '' || lyric.trim() === '-') continue;
-        allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: i - 16, displayText: lyric.replace(/-$/, '').trim(), hasSpace: lyric.endsWith(' ') || lyric.endsWith('  '), color: role === 'puxador' ? '#c25e38' : '#1e40af', instIdx: track.instrumentIdx, role });
-        added = true;
+    let lastTok: Token | null = null;
+    for (let i = 0; i < count; i++) {
+      const state = activeArr[i];
+      const lyric = lyricsArr[i];
+      if (!state || state === 0 || state === '0' || !lyric) continue;
+      const trimmed = lyric.trim();
+      const stepIdx = offset + i;
+      const isHold = trimmed === '───' || trimmed === '_' || trimmed === '—' || trimmed === '~' || trimmed === '-';
+      if (isHold) {
+        if (lastTok) {
+          lastTok.endStepIdx = stepIdx;
+          if (lyric.endsWith(' ')) lastTok.hasSpace = true;
+        }
+        continue;
       }
-    }
-    for (let i = 0; i < ptn.steps; i++) {
-      const state = ptn.activeSteps[i];
-      const lyric = ptn.lyrics[i];
-      if (!state || state === 0 || !lyric || lyric.trim() === '' || lyric.trim() === '-') continue;
-      allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: i, displayText: lyric.replace(/-$/, '').trim(), hasSpace: lyric.endsWith(' ') || lyric.endsWith('  '), color: role === 'puxador' ? '#c25e38' : '#1e40af', instIdx: track.instrumentIdx, role });
+      if (isKaraokeHiddenToken(trimmed)) continue;
+      const displayText = cleanVoiceSyllableForDisplay(lyric);
+      if (!displayText) continue;
+      lastTok = { trackId: track.id, patternId: ptnId, stepIdx, endStepIdx: stepIdx, displayText, hasSpace: lyric.endsWith(' '), color, instIdx: track.instrumentIdx, role };
+      allTokens.push(lastTok);
       added = true;
     }
-    if (added) allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: -1, displayText: '', hasSpace: false, color: '', instIdx: track.instrumentIdx, role, isBreak: true });
+    return added;
+  };
+
+  track.patterns.forEach((ptn: any) => {
+    const preAdded = scanSeq(ptn.id, ptn.preRollActiveSteps, ptn.preRollLyrics, 16, -16);
+    const mainAdded = scanSeq(ptn.id, ptn.activeSteps, ptn.lyrics, ptn.steps, 0);
+    if (preAdded || mainAdded) {
+      allTokens.push({ trackId: track.id, patternId: ptn.id, stepIdx: -1, endStepIdx: -1, displayText: '', hasSpace: false, color: '', instIdx: track.instrumentIdx, role, isBreak: true });
+    }
   });
 
   const words: Token[][] = [];
@@ -69,7 +85,7 @@ export const RightSidebarKaraokeViewer: React.FC<{ tracks: TrackGroup[]; lang: L
           {words.map((w, wIdx) => w[0].isBreak ? <div key={`b-${role}-${wIdx}`} className="w-full h-1" /> : (
             <span key={`w-${role}-${wIdx}`} className="inline">
               {w.map((tok, i) => (
-                <span key={`${tok.trackId}-${tok.patternId}-${tok.stepIdx}-${i}`} data-karaoke-token="true" data-role={tok.role} data-inst-idx={tok.instIdx} data-pattern-id={tok.patternId} data-step-idx={tok.stepIdx} className="transition-all duration-75 font-bold rounded-xs px-0.5 inline-block" style={{ backgroundColor: 'transparent', color: 'var(--cordel-text)', marginRight: tok.hasSpace ? '5px' : '0px' }}>
+                <span key={`${tok.trackId}-${tok.patternId}-${tok.stepIdx}-${i}`} data-karaoke-token="true" data-role={tok.role} data-inst-idx={tok.instIdx} data-pattern-id={tok.patternId} data-step-idx={tok.stepIdx} data-end-step-idx={tok.endStepIdx} className="transition-all duration-75 font-bold rounded-xs px-0.5 inline-block" style={{ backgroundColor: 'transparent', color: 'var(--cordel-text)', marginRight: tok.hasSpace ? '5px' : '0px' }}>
                   {tok.displayText}
                 </span>
               ))}

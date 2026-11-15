@@ -1,24 +1,27 @@
 import { useAudioStore } from '../../stores/useAudioStore';
+import { sanitizePitchHz } from '../../utils/pitchHzContract';
 
-export const noteToFrequency = (noteStr: string): number => {
+export const noteToFrequency = (noteStr: string, referencePitchHz?: unknown): number => {
+  const refHz = sanitizePitchHz(referencePitchHz);
+  const defaultC4 = refHz * Math.pow(2, -9 / 12);
   const noteMap: { [key: string]: number } = {
     'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5,
     'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
   };
   
   const match = noteStr.match(/^([A-G][#b]?)(-?\d+)$/);
-  if (!match) return 261.63; // Default to C4 if invalid
+  if (!match) return defaultC4;
   
   const pitch = match[1];
   const octave = parseInt(match[2], 10);
   
   const semitoneIndex = noteMap[pitch];
-  if (semitoneIndex === undefined) return 261.63;
+  if (semitoneIndex === undefined) return defaultC4;
   
   const semitonesFromC4 = semitoneIndex + (octave - 4) * 12;
   const semitonesFromA4 = semitonesFromC4 - 9;
   
-  return 440 * Math.pow(2, semitonesFromA4 / 12);
+  return refHz * Math.pow(2, semitonesFromA4 / 12);
 };
 
 export const getVoiceNoteStepsFromDecay = (decay: number): number => {

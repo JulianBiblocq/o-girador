@@ -20,16 +20,16 @@ export async function recordPresetLive(
   }
 
   const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-  if (rawCtx?.state !== 'running') { try { await rawCtx.resume(); } catch (_) {} }
-  if (Tone.context?.state !== 'running') { try { await Tone.context.resume(); } catch (_) {} }
-  if (Tone.start) { try { await Tone.start(); } catch (_) {} }
-  if (audioEngine) { try { await audioEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(useSequencerStore.getState().tracks)); } catch (_) {} }
-  if (Tone.loaded) { try { await Tone.loaded(); } catch (_) {} }
+  if (rawCtx?.state !== 'running') { try { await rawCtx.resume(); } catch (_) { } }
+  if (Tone.context?.state !== 'running') { try { await Tone.context.resume(); } catch (_) { } }
+  if (Tone.start) { try { await Tone.start(); } catch (_) { } }
+  if (audioEngine) { try { await audioEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(useSequencerStore.getState().tracks)); } catch (_) { } }
+  if (Tone.loaded) { try { await Tone.loaded(); } catch (_) { } }
 
   try {
     Tone.Transport.position = 0;
     Tone.Transport.seconds = 0;
-  } catch (_) {}
+  } catch (_) { }
 
   const recorder = new Tone.Recorder();
   Tone.getDestination().connect(recorder);
@@ -54,8 +54,8 @@ export async function recordPresetLive(
     const label = elapsedSec >= dureeTotaleSec
       ? (lang === 'pt' ? `Finalizando ressonância... (${currentPct}%)` : `Fin de résonance du mix... (${currentPct}%)`)
       : (lang === 'pt'
-          ? `Gravando mix ao vivo... Compasso ${curMeasure + 1}/${expandedMeasures.length} (${currentPct}%)`
-          : `Enregistrement du mix en direct... Mesure ${curMeasure + 1}/${expandedMeasures.length} (${currentPct}%)`);
+        ? `Gravando mix ao vivo... Compasso ${curMeasure + 1}/${expandedMeasures.length} (${currentPct}%)`
+        : `Enregistrement du mix en direct... Mesure ${curMeasure + 1}/${expandedMeasures.length} (${currentPct}%)`);
     onProgress(currentPct, label);
   }, 100);
 
@@ -83,9 +83,9 @@ export async function recordPresetLive(
   }
   clearInterval(progressInterval);
 
-  try { Tone.getDestination().disconnect(recorder); } catch (_) {}
+  try { Tone.getDestination().disconnect(recorder); } catch (_) { }
   const audioBlob = await recorder.stop();
-  try { recorder.dispose(); } catch (_) {}
+  try { recorder.dispose(); } catch (_) { }
 
   return audioBlob;
 }

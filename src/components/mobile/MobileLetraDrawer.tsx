@@ -1,10 +1,25 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { X, BookOpen, Info } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { subscribeToTick, unsubscribeFromTick } from '../../audio/visualTickBuffer';
 import { instrumentsConfig } from '../../data';
+import { cleanVoiceSyllableForDisplay } from '../../utils/musicTheory';
 import { MobileSongInfoTab } from './MobileSongInfoTab';
+
+function stitchPatternLyrics(lyrics?: string[], activeSteps?: any[]): string {
+  if (!lyrics) return '';
+  let out = '';
+  for (let i = 0; i < lyrics.length; i++) {
+    if (activeSteps && (!activeSteps[i] || activeSteps[i] === '0')) continue;
+    const raw = lyrics[i];
+    if (!raw) continue;
+    const hasSpace = raw.endsWith(' ');
+    const syl = cleanVoiceSyllableForDisplay(raw);
+    if (syl) out += syl + (hasSpace ? ' ' : '');
+    else if (hasSpace && out && !out.endsWith(' ')) out += ' ';
+  }
+  return out.trim();
+}
 
 interface Props {
   onClose: () => void;
@@ -18,9 +33,7 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt', initi
   const lastMeasureRef = useRef<number>(-1);
 
   useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
+    if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
 
   const tracks = useSequencerStore((s) => s.tracks);
@@ -35,13 +48,8 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt', initi
       const rows = containerRef.current?.querySelectorAll<HTMLElement>('[data-measure-row]');
       rows?.forEach((row) => {
         const m = parseInt(row.getAttribute('data-measure-row') || '-1', 10);
-        if (m === curM) {
-          row.style.borderLeftColor = '#b94a2c';
-          row.style.backgroundColor = '#b94a2c22';
-        } else {
-          row.style.borderLeftColor = 'transparent';
-          row.style.backgroundColor = 'transparent';
-        }
+        row.style.borderLeftColor = m === curM ? '#b94a2c' : 'transparent';
+        row.style.backgroundColor = m === curM ? '#b94a2c22' : 'transparent';
       });
     };
     subscribeToTick(handleTick);
@@ -55,8 +63,8 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt', initi
   for (let m = 0; m < totalMeasures; m++) {
     const pPat = puxTrack?.patterns?.find((p) => p.measureAssignments?.[m]);
     const cPat = coroTrack?.patterns?.find((p) => p.measureAssignments?.[m]);
-    const pText = pPat?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
-    const cText = cPat?.lyrics?.filter((l) => l && l.trim() && l.trim() !== '-').join(' ') || '';
+    const pText = stitchPatternLyrics(pPat?.lyrics, pPat?.activeSteps);
+    const cText = stitchPatternLyrics(cPat?.lyrics, cPat?.activeSteps);
     if (pText || cText) measureRows.push({ measure: m, pux: pText, coro: cText });
   }
 

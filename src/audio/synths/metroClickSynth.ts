@@ -1,8 +1,10 @@
 import * as Tone from 'tone';
 import { metroChannel } from '../effectsChain';
 import { activeNativeOscillators } from './nativeOscillatorRegistry';
+import { sanitizePitchHz } from '../../utils/pitchHzContract';
 
-export const playNativeMetroClick = (time: number, isAccent: boolean, soundType: string, volume: number) => {
+export const playNativeMetroClick = (time: number, isAccent: boolean, soundType: string, volume: number, referencePitchHz?: unknown) => {
+  const basePitchHz = sanitizePitchHz(referencePitchHz);
   const rawCtx = Tone.getContext().rawContext as AudioContext;
   const osc = rawCtx.createOscillator();
   const clickGain = rawCtx.createGain();
@@ -16,7 +18,7 @@ export const playNativeMetroClick = (time: number, isAccent: boolean, soundType:
     clickGain.connect(rawCtx.destination);
   }
 
-  const freq = isAccent ? 880 : 440;
+  const freq = isAccent ? basePitchHz * 2 : basePitchHz;
   const volumeMultiplier = isAccent ? 1.0 : 0.6;
   const finalVol = volume * volumeMultiplier;
 
@@ -33,7 +35,7 @@ export const playNativeMetroClick = (time: number, isAccent: boolean, soundType:
     osc.stop(time + 0.09);
   } else if (soundType === 'cowbell') {
     osc.type = 'triangle';
-    osc.frequency.value = isAccent ? 587.33 : 440;
+    osc.frequency.value = isAccent ? basePitchHz * Math.pow(2, 5 / 12) : basePitchHz;
     clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
     osc.start(time);
     osc.stop(time + 0.07);
