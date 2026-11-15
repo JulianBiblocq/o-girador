@@ -98,6 +98,11 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
             onClearSong={() => { setIntroModalOpen(false); sequencer.handleClear(); }}
             onStartWizard={() => { setIntroModalOpen(false); setWizardOpen(true); }}
             onSelectTemplate={(template) => { setIntroModalOpen(false); useSequencerStore.getState().handleCreateFromTemplate(template, audio); }}
+            onOpenPaperScanner={() => {
+              setIntroModalOpen(false);
+              paperWorkshopProps.setPaperWorkshopInitialTab?.('scanner');
+              paperWorkshopProps.setIsPaperWorkshopOpen?.(true);
+            }}
             lang={lang as any}
           />
         )}

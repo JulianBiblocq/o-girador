@@ -36,9 +36,7 @@ export const ProfileMusicPreferencesTab: React.FC<ProfileMusicPreferencesTabProp
     const store = useSequencerStore.getState();
     store.setPreferredInstrumentName(nextEffective, userProfile);
     store.syncFocusWithTracks(store.tracks, userProfile);
-    if (userProfile) {
-      void updateUserProfileField('preferredInstrument', choice === 'auto' ? null : choice);
-    }
+    if (userProfile) void updateUserProfileField('preferredInstrument', choice === 'auto' ? null : choice);
   };
 
   const activeEffective = getEffectiveWorkingInstrument(userProfile);
@@ -47,11 +45,7 @@ export const ProfileMusicPreferencesTab: React.FC<ProfileMusicPreferencesTabProp
     <div className="flex flex-col gap-3.5 text-left">
       <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--cordel-text-muted)]">
         <Cloud size={12} className="shrink-0 text-[var(--cordel-accent-readable)]" />
-        <span>
-          {isPt
-            ? 'Sincronizado com sua conta + salvo neste aparelho'
-            : 'Synchronisé avec votre compte + mémorisé sur cet appareil'}
-        </span>
+        <span>{isPt ? 'Sincronizado com sua conta + salvo neste aparelho' : 'Synchronisé avec votre compte + mémorisé sur cet appareil'}</span>
       </div>
 
       {/* Latéralité */}
@@ -61,28 +55,26 @@ export const ProfileMusicPreferencesTab: React.FC<ProfileMusicPreferencesTabProp
           <span>{isPt ? 'Lateralidade das Baquetas (Ao Vivo)' : 'Latéralité des Baguettes (Ao Vivo)'}</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => handleSelectHandedness(false)}
-            className={`py-2 px-3 border-2 font-cactus font-bold text-xs uppercase cursor-pointer transition-colors ${
-              !isLeftHanded
-                ? 'border-[var(--cordel-border-strong)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0_var(--cordel-shadow-color)]'
-                : 'border-[var(--cordel-border)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:border-[var(--cordel-accent-readable)]'
-            }`}
-          >
-            {isPt ? 'Destro (Padrão)' : 'Droitier (Standard)'}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectHandedness(true)}
-            className={`py-2 px-3 border-2 font-cactus font-bold text-xs uppercase cursor-pointer transition-colors ${
-              isLeftHanded
-                ? 'border-[var(--cordel-border-strong)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0_var(--cordel-shadow-color)]'
-                : 'border-[var(--cordel-border)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:border-[var(--cordel-accent-readable)]'
-            }`}
-          >
-            {isPt ? 'Canhoto (Invertido)' : 'Gaucher (Inversé)'}
-          </button>
+          {[
+            { left: false, label: isPt ? 'Destro' : 'Droitier' },
+            { left: true, label: isPt ? 'Canhoto' : 'Gaucher' },
+          ].map((opt) => {
+            const active = isLeftHanded === opt.left;
+            return (
+              <button
+                key={String(opt.left)}
+                type="button"
+                onClick={() => handleSelectHandedness(opt.left)}
+                className={`py-2 px-3 border-2 font-cactus font-bold text-xs uppercase cursor-pointer transition-colors ${
+                  active
+                    ? 'border-[var(--cordel-border-strong)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0_var(--cordel-shadow-color)]'
+                    : 'border-[var(--cordel-border)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:border-[var(--cordel-accent-readable)]'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -100,9 +92,7 @@ export const ProfileMusicPreferencesTab: React.FC<ProfileMusicPreferencesTabProp
           )}
         </div>
         <p className="text-[11px] text-[var(--cordel-text-muted)] leading-snug">
-          {isPt
-            ? 'Define o naipe pré-selecionado no Modo Focus e no Tocar Junto ao abrir cada música.'
-            : 'Définit le pupitre ciblé par défaut dans le Mode Focus et Tocar Junto à chaque morceau.'}
+          {isPt ? 'Define o naipe pré-selecionado no Modo Focus e no Tocar Junto ao abrir cada música.' : 'Définit le pupitre ciblé par défaut dans le Mode Focus et Tocar Junto à chaque morceau.'}
         </p>
 
         <button
