@@ -35,4 +35,7 @@ export interface InstrumentEditorHeaderProps {
   isSoloLoopPlaying?: boolean;
   onOpenInspectorMobile?: () => void;
   hideCloseButton?: boolean;
+  isMaximized?: boolean;
+  onToggleMaximized?: () => void;
+  showMaximizeButton?: boolean;
 }

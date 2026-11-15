@@ -60,6 +60,9 @@ export const HeaderBalancoControl: React.FC<HeaderBalancoControlProps> = React.m
   const currentAmount = targetBalancoTrack.balancoAmount !== undefined
     ? targetBalancoTrack.balancoAmount
     : (targetBalancoTrack.swingIntensity !== undefined ? targetBalancoTrack.swingIntensity : 100);
+  const bridgeTitle = isFr
+    ? 'Ajuster le Balanço de cette piste dans A Oficina'
+    : 'Ajustar o Balanço desta faixa em A Oficina';
 
   return (
     <div className="flex items-center gap-2 bg-[var(--cordel-parchment-bg)] px-2.5 py-1 rounded border-[2px] border-[var(--cordel-ink-dark)] text-xs font-bold select-none text-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_0px_var(--cordel-ink-dark)] shrink-0 flex-shrink-0">
@@ -76,6 +79,7 @@ export const HeaderBalancoControl: React.FC<HeaderBalancoControlProps> = React.m
         }}
         className="bg-[var(--cordel-surface-elevated)] border border-[var(--cordel-ink-dark)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] outline-none cursor-pointer max-w-[125px] truncate"
         title={isFr ? "Preset de Balanço par défaut de l'instrument" : 'Preset de Balanço padrão do instrumento'}
+        aria-label={isFr ? "Preset de Balanço par défaut de l'instrument" : 'Preset de Balanço padrão do instrumento'}
       >
         {balancoPresets.map((p) => (
           <option key={p.id} value={p.id}>
@@ -93,7 +97,8 @@ export const HeaderBalancoControl: React.FC<HeaderBalancoControlProps> = React.m
           handleTrackBalancoChange(effectiveEditTrackId, targetBalancoTrack.balancoPresetId || 'maracatu-trad', Number(e.target.value));
         }}
         className="w-16 sm:w-20 h-2 bg-[var(--cordel-ink-dark)]/20 rounded-full appearance-none cursor-pointer outline-none accent-[var(--cordel-wood)]"
-        title={isFr ? "Dosage du balanço pour l'instrument" : 'Dosagem do balanço para o instrumento'}
+        title={isFr ? "Dosage du Balanço pour l'instrument" : 'Dosagem do Balanço para o instrumento'}
+        aria-label={isFr ? "Dosage du Balanço pour l'instrument" : 'Dosagem do Balanço para o instrumento'}
       />
       <span data-testid="track-balanco-amount-label" className="w-8 text-right font-cactus text-sm tabular-nums">
         {currentAmount}%
@@ -103,10 +108,11 @@ export const HeaderBalancoControl: React.FC<HeaderBalancoControlProps> = React.m
         data-testid="editor-open-oficina-track-groove"
         onClick={handleOpenOficinaTrackGroove}
         className="h-6 px-1.5 flex items-center gap-1 rounded-sm bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] hover:brightness-110 active:scale-95 transition-all cursor-pointer text-[10px] font-cactus font-bold uppercase tracking-wide shrink-0"
-        title={isFr ? 'Ajuster le Balanço de cette piste dans A Oficina' : 'Ajustar o Balanço desta faixa em A Oficina'}
+        title={bridgeTitle}
+        aria-label={bridgeTitle}
       >
         <SlidersHorizontal size={11} />
-        <span className="hidden xl:inline">{isFr ? 'Groove' : 'Groove'}</span>
+        <span className="hidden xl:inline">BALANÇO</span>
       </button>
     </div>
   );

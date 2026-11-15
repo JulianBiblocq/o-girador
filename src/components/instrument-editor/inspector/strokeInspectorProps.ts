@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BalancoPresetItem } from './inspectorTypes';
 
@@ -14,6 +13,8 @@ export interface StrokeInspectorPanelProps {
   lang: string;
   isLeftHanded: boolean;
   activeTool: string;
+  onSelectTool?: (tool: string) => void;
+  isExpandedLayout?: boolean;
   patternId?: number;
   onCloseMobileDrawer?: () => void;
   isMobileDrawer?: boolean;

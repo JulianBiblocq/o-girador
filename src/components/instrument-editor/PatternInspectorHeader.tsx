@@ -11,7 +11,7 @@ export type { PatternInspectorHeaderProps };
 export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps & { activeTool?: string }> = React.memo((props) => {
   const {
     patterns = [], currentPatternId, trackId, lang, canPaste, balancoPresets = [],
-    isVoice = false, instrumentName, activeTool, onSelectPattern, onAddPattern,
+    isVoice = false, isExpandedLayout = false, instrumentName, activeTool, onSelectPattern, onAddPattern,
     onCopyPattern, onPastePattern, onSavePattern, onLoadPattern, onDeletePattern, onBalancoChange,
   } = props;
 
@@ -97,7 +97,7 @@ export const PatternInspectorHeader: React.FC<PatternInspectorHeaderProps & { ac
       {activePattern && (
         <PatternInspectorBalancoControl
           activePattern={activePattern} trackId={trackId} isFr={isFr} isVoice={isVoice}
-          balancoPresets={balancoPresets} currentBalancoAmount={currentBalancoAmount}
+          defaultExpanded={isExpandedLayout} balancoPresets={balancoPresets} currentBalancoAmount={currentBalancoAmount}
           instrumentName={instrumentName} patternLabel={activePatternLabel} activeTool={activeTool}
           onBalancoChange={handleBalancoChangeWrapped}
         />

@@ -6,6 +6,7 @@ import { getStrokePairs } from '../../utils/instrumentStrokes';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { X } from 'lucide-react';
 import { PatternInspectorHeader } from './PatternInspectorHeader';
+import { EditorQuickMixBar } from './inspector/EditorQuickMixBar';
 import { useStrokeInspectorStats } from './inspector/useStrokeInspectorStats';
 import { StrokeToolInspector } from './inspector/StrokeToolInspector';
 import { VocalClipInspectorSection } from './inspector/VocalClipInspectorSection';
@@ -16,10 +17,11 @@ export type { StrokeInspectorPanelProps };
 
 export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.memo((props) => {
   const {
-    trackId, instrument, lang, isLeftHanded, activeTool, patternId, onCloseMobileDrawer,
-    isMobileDrawer = false, patterns, canPaste = false, balancoPresets = [], onSelectPattern,
-    onAddPattern, onCopyPattern, onPastePattern, onSavePattern, onLoadPattern, onDeletePattern,
-    onBalancoChange, isVoice: isVoiceProp, hasVocalRecording = false, onOpenAlignment, onImportAudio,
+    trackId, instrument, lang, isLeftHanded, activeTool, onSelectTool, isExpandedLayout = false,
+    patternId, onCloseMobileDrawer, isMobileDrawer = false, patterns, canPaste = false,
+    balancoPresets = [], onSelectPattern, onAddPattern, onCopyPattern, onPastePattern,
+    onSavePattern, onLoadPattern, onDeletePattern, onBalancoChange,
+    isVoice: isVoiceProp, hasVocalRecording = false, onOpenAlignment, onImportAudio,
   } = props;
 
   const isFr = lang === 'fr';
@@ -91,10 +93,13 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
         </div>
       )}
 
+      <EditorQuickMixBar trackId={trackId} isFr={isFr} />
+
       <PatternInspectorHeader
         trackId={trackId} instrumentName={instrumentLabel} activeTool={activeTool}
         patterns={effectivePatterns} currentPatternId={resolvedPatternId}
-        canPaste={canPaste} lang={lang} balancoPresets={balancoPresets} isVoice={isVoice}
+        canPaste={canPaste} lang={lang} balancoPresets={balancoPresets}
+        isVoice={isVoice} isExpandedLayout={isExpandedLayout}
         onSelectPattern={onSelectPattern} onAddPattern={onAddPattern} onCopyPattern={onCopyPattern}
         onPastePattern={onPastePattern} onSavePattern={onSavePattern} onLoadPattern={onLoadPattern}
         onDeletePattern={onDeletePattern} onBalancoChange={onBalancoChange}
@@ -105,15 +110,17 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
       ) : (
         <StrokeToolInspector
           isEraser={isEraser} isScissors={isScissors} isFr={isFr} activeTool={activeTool}
-          currentPair={currentPair} instrument={instrument} trackId={trackId} isVoice={isVoice}
+          currentPair={currentPair} allPairs={pairs} isExpandedLayout={isExpandedLayout} onSelectTool={onSelectTool}
+          instrument={instrument} trackId={trackId} trackLabel={instrumentLabel}
+          patternId={resolvedPatternId} patternLabel={activePatternLabel} isVoice={isVoice}
           getStrokeStats={getStrokeStats} playThrottledPreview={playThrottledPreview}
           applyMacroVolumeDelta={applyMacroVolumeDelta} applyMacroDecayDelta={applyMacroDecayDelta}
         />
       )}
 
       <InspectorTuningAndTranspose
-        isVoice={isVoice} isTunableDrum={isTunableDrum} pitchOffset={pitchOffset}
-        vocalTransposeSteps={vocalTransposeSteps} lang={lang} trackId={trackId}
+        isVoice={isVoice} isTunableDrum={isTunableDrum} isExpandedLayout={isExpandedLayout}
+        pitchOffset={pitchOffset} vocalTransposeSteps={vocalTransposeSteps} lang={lang} trackId={trackId}
         instrumentId={instrument.id} trackLabel={instrumentLabel}
         patternId={resolvedPatternId} patternLabel={activePatternLabel} activeTool={activeTool}
         onTranspose={handleTranspose} onPreviewDrum={handlePreviewDrum}

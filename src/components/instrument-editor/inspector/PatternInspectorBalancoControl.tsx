@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Waves, SlidersHorizontal, ChevronRight } from 'lucide-react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';
@@ -7,16 +7,20 @@ import { BalancoPresetItem } from './inspectorTypes';
 
 export interface PatternInspectorBalancoControlProps {
   activePattern: any; trackId: number; isFr: boolean; isVoice: boolean;
-  balancoPresets?: BalancoPresetItem[]; currentBalancoAmount: number;
+  defaultExpanded?: boolean; balancoPresets?: BalancoPresetItem[]; currentBalancoAmount: number;
   instrumentName?: string; patternLabel?: string; activeTool?: string;
   onBalancoChange?: (trackId: number, patternId: number, presetId: string | undefined, amount: number) => void;
 }
 
 export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoControlProps> = React.memo(({
-  activePattern, trackId, isFr, isVoice, balancoPresets = [], currentBalancoAmount,
+  activePattern, trackId, isFr, isVoice, defaultExpanded = false, balancoPresets = [], currentBalancoAmount,
   instrumentName, patternLabel, activeTool, onBalancoChange,
 }) => {
-  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [isVoiceOpen, setIsVoiceOpen] = useState<boolean>(() => Boolean(defaultExpanded));
+
+  useEffect(() => {
+    if (defaultExpanded) setIsVoiceOpen(true);
+  }, [defaultExpanded]);
 
   const handleOpenOficinaPatternGroove = useCallback(() => {
     const st = useSequencerStore.getState();
@@ -33,14 +37,18 @@ export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoCon
     });
   }, [trackId, instrumentName, activePattern?.id, activePattern?.name, patternLabel, activeTool]);
 
+  const bridgeTitle = isFr
+    ? 'Ajuster le Balanço de ce motif dans A Oficina'
+    : 'Ajustar o Balanço deste padrão em A Oficina';
+
   const bridgeButton = (
     <button
       type="button" data-testid="editor-open-oficina-pattern-groove" onClick={handleOpenOficinaPatternGroove}
       className="h-5 px-1.5 flex items-center gap-1 rounded-sm bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] hover:brightness-110 active:scale-95 transition-all cursor-pointer text-[9px] font-cactus font-bold uppercase tracking-wide shrink-0"
-      title={isFr ? 'Ajuster le Balanço de ce motif dans A Oficina' : 'Ajustar o Balanço deste padrão em A Oficina'}
+      title={bridgeTitle} aria-label={bridgeTitle}
     >
       <SlidersHorizontal size={10} />
-      <span>Groove</span>
+      <span>BALANÇO</span>
     </button>
   );
 
@@ -51,7 +59,8 @@ export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoCon
         onChange={(e) => onBalancoChange?.(trackId, activePattern.id, e.target.value || undefined, currentBalancoAmount)}
         style={{ colorScheme: 'light' }}
         className="flex-1 min-w-0 bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border border-[var(--cordel-ink-dark)] px-1 py-0.5 text-[10px] font-bold rounded shadow-[1px_1px_0px_var(--cordel-ink-dark)] outline-none cursor-pointer truncate"
-        title={isFr ? 'Héritage du preset de balanço' : 'Herança do preset de balanço'}
+        title={isFr ? 'Héritage du preset de Balanço' : 'Herança do preset de Balanço'}
+        aria-label={isFr ? 'Héritage du preset de Balanço' : 'Herança do preset de Balanço'}
       >
         <option value="">{isFr ? "Hériter de l'instrument" : 'Herdar do instrumento'}</option>
         {balancoPresets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -60,7 +69,8 @@ export const PatternInspectorBalancoControl: React.FC<PatternInspectorBalancoCon
         type="range" min="0" max="100" value={currentBalancoAmount}
         onChange={(e) => onBalancoChange?.(trackId, activePattern.id, activePattern.balancoPresetId, parseInt(e.target.value, 10))}
         className="w-16 h-1.5 bg-[var(--cordel-ink-dark)]/20 rounded-full appearance-none cursor-pointer outline-none accent-[var(--cordel-wood)] shrink-0"
-        title={isFr ? 'Dosage local du balanço pour ce motif' : 'Dosagem local do balanço para este padrão'}
+        title={isFr ? 'Dosage local du Balanço pour ce motif' : 'Dosagem local do Balanço para este padrão'}
+        aria-label={isFr ? 'Dosage local du Balanço pour ce motif' : 'Dosagem local do Balanço para este padrão'}
       />
     </div>
   );

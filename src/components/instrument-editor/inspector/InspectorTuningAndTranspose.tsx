@@ -4,34 +4,53 @@ import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../../stores/useSequencerSettingsStore';
 import { useDesktopWorkspaceStore } from '../../../stores/useDesktopWorkspaceStore';
 import { instrumentsConfig } from '../../../data';
+import { sanitizePitchHz } from '../../../utils/pitchHzContract';
 import { getDrumPitchNoteInfo } from '../../../utils/audio/drumPitchToNote';
+import { useLutherieAudioPreview } from '../../oficina/useLutherieAudioPreview';
 import { PercussionTuningControl } from '../../PercussionTuningControl';
 import { VocalTimbreSelector } from '../VocalTimbreSelector';
 
 interface InspectorTuningAndTransposeProps {
-  isVoice: boolean; isTunableDrum: boolean; pitchOffset: number; vocalTransposeSteps: number;
+  isVoice: boolean; isTunableDrum: boolean; isExpandedLayout?: boolean;
+  pitchOffset: number; vocalTransposeSteps: number;
   lang: string; trackId: number; instrumentId?: string; trackLabel?: string;
   patternId?: number; patternLabel?: string; activeTool?: string;
   onTranspose: (semitones: number) => void; onPreviewDrum: () => void;
 }
 
 export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposeProps> = React.memo(({
-  isVoice, isTunableDrum, pitchOffset, vocalTransposeSteps, lang, trackId,
+  isVoice, isTunableDrum, isExpandedLayout = false, pitchOffset, vocalTransposeSteps, lang, trackId,
   instrumentId, trackLabel, patternId, patternLabel, activeTool, onTranspose, onPreviewDrum,
 }) => {
   const isFr = lang === 'fr';
   const trackInstrumentIdx = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId)?.instrumentIdx);
   const trackDecay = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId)?.trackDecay ?? 100);
   const setTrackDecay = useSequencerStore((state) => state.setTrackDecay);
+  const referencePitchHz = useSequencerStore((state) => sanitizePitchHz((state.metadata as any)?.referencePitchHz));
   const expandTuning = useSequencerStore((state) => Boolean(state.editorDeepLink?.expandTuning));
-  const [isTuningOpen, setIsTuningOpen] = useState<boolean>(() => Boolean(useSequencerStore.getState().editorDeepLink?.expandTuning));
+  const [isTuningOpen, setIsTuningOpen] = useState<boolean>(() => Boolean(useSequencerStore.getState().editorDeepLink?.expandTuning || isExpandedLayout));
 
   useEffect(() => {
-    if (expandTuning) setIsTuningOpen(true);
-  }, [expandTuning]);
+    if (expandTuning || isExpandedLayout) setIsTuningOpen(true);
+  }, [expandTuning, isExpandedLayout]);
 
   const resolvedInstId = instrumentId || (trackInstrumentIdx !== undefined ? instrumentsConfig[trackInstrumentIdx]?.id : '') || 'meiao';
-  const noteInfo = getDrumPitchNoteInfo(resolvedInstId, pitchOffset, lang);
+  const noteInfo = getDrumPitchNoteInfo(resolvedInstId, pitchOffset, lang, referencePitchHz);
+
+  const getDrumState = useCallback((roleId: string) => {
+    const tr = useSequencerStore.getState().tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === roleId);
+    return { tuning: tr?.tuning ?? 0, decayPct: tr?.trackDecay ?? 100, trackId: tr?.id ?? null, isPresent: Boolean(tr) };
+  }, []);
+  const { previewAlfaiasChord, previewCaixasChord, previewFullBaqueChord } = useLutherieAudioPreview(getDrumState);
+
+  const isAlfaia = ['marcante', 'meiao', 'repique'].includes(resolvedInstId);
+  const isCaixa = ['caixa', 'tarol'].includes(resolvedInstId);
+  const handlePreviewSection = useCallback(() => {
+    if (isAlfaia) previewAlfaiasChord(undefined, false);
+    else if (isCaixa) previewCaixasChord();
+    else previewFullBaqueChord();
+  }, [isAlfaia, isCaixa, previewAlfaiasChord, previewCaixasChord, previewFullBaqueChord]);
+  const sectionLabel = isAlfaia ? (isFr ? 'Alfaias' : 'Alfaias') : isCaixa ? (isFr ? 'Caixas' : 'Caixas') : (isFr ? 'Baque' : 'Baque');
 
   const handleOpenLutherie = useCallback(() => {
     const st = useSequencerStore.getState();
@@ -41,16 +60,11 @@ export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposePr
       trackId, trackLabel: trackLabel || tr?.customName, patternId: patternId ?? null, patternLabel,
       stepIdx: st.selectedStepIdx, isPreRoll: st.selectedStepIsPreRoll, subIndex: st.selectedSubIndex, activeTool: activeTool ?? null,
     };
-    if (!useDesktopWorkspaceStore.getState().isSatelliteOpen) {
-      st.closeDetailEditor();
-    }
-    useSequencerSettingsStore.getState().openOficinaSection('lutherie', {
-      focus: { trackId, instrumentId: targetInstId }, returnContext,
-    });
+    if (!useDesktopWorkspaceStore.getState().isSatelliteOpen) st.closeDetailEditor();
+    useSequencerSettingsStore.getState().openOficinaSection('lutherie', { focus: { trackId, instrumentId: targetInstId }, returnContext });
   }, [trackId, instrumentId, trackLabel, patternId, patternLabel, activeTool]);
 
   if (!isVoice && !isTunableDrum) return null;
-
   const btnCls = 'h-7 flex items-center justify-center bg-[var(--cordel-parchment-bg)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] font-cactus font-bold text-xs rounded transition-colors cursor-pointer';
 
   return (
@@ -58,16 +72,12 @@ export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposePr
       {isVoice ? (
         <>
           <div className="bg-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_var(--cordel-ink-dark)] p-2 rounded-sm select-none">
-            <div className="text-xs font-cactus font-bold uppercase tracking-wider text-[var(--cordel-ink-dark)] mb-1.5">
-              {isFr ? 'Transposition' : 'Transposição'}
-            </div>
+            <div className="text-xs font-cactus font-bold uppercase tracking-wider text-[var(--cordel-ink-dark)] mb-1.5">{isFr ? 'Transposition' : 'Transposição'}</div>
             <div className="flex items-center justify-between gap-1.5">
               <button type="button" onClick={() => onTranspose(-7)} className={`flex-1 ${btnCls}`} title={isFr ? 'Transposer de -7 demi-tons' : 'Transpor -7 semitons'}>-7</button>
               <button type="button" onClick={() => onTranspose(-1)} className={`w-7 ${btnCls}`} title={isFr ? 'Transposer de -1 demi-ton' : 'Transpor -1 semitom'}>-</button>
-              <span className="w-8 text-center font-cactus font-black text-sm text-[var(--cordel-accent-readable)] tabular-nums">
-                {vocalTransposeSteps > 0 ? `+${vocalTransposeSteps}` : vocalTransposeSteps}
-              </span>
-              <button type="button" onClick={() => onTranspose(1)} className={`w-7 ${btnCls}`} title={isFr ? 'Transposer de +1 demi-ton' : 'Transpor -1 semitom'}>+</button>
+              <span className="w-8 text-center font-cactus font-black text-sm text-[var(--cordel-accent-readable)] tabular-nums">{vocalTransposeSteps > 0 ? `+${vocalTransposeSteps}` : vocalTransposeSteps}</span>
+              <button type="button" onClick={() => onTranspose(1)} className={`w-7 ${btnCls}`} title={isFr ? 'Transposer de +1 demi-ton' : 'Transpor +1 semitom'}>+</button>
               <button type="button" onClick={() => onTranspose(7)} className={`flex-1 ${btnCls}`} title={isFr ? 'Transposer de +7 demi-tons' : 'Transpor +7 semitons'}>+7</button>
             </div>
           </div>
@@ -85,7 +95,7 @@ export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposePr
                 <span className="truncate">{resolvedInstId === 'gongue' ? (isFr ? 'Accordage Cloche' : 'Afinação Campana') : (isFr ? 'Accordage & Peau' : 'Afinação & Pele')}</span>
               </span>
               <span className="flex items-center gap-1 font-mono text-[10px] text-[var(--cordel-accent-readable)] font-bold shrink-0 ml-1">
-                <span>{noteInfo.noteWithCents} ({noteInfo.semitonesLabel}) · {trackDecay}%</span>
+                <span>{noteInfo.noteWithCents} · {noteInfo.formattedHz} ({noteInfo.semitonesLabel})</span>
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isTuningOpen ? 'rotate-180' : ''}`} />
               </span>
             </button>
@@ -100,7 +110,10 @@ export const InspectorTuningAndTranspose: React.FC<InspectorTuningAndTransposePr
           </div>
           {isTuningOpen && (
             <div className="flex flex-col gap-2">
-              <PercussionTuningControl trackId={trackId} instrumentId={resolvedInstId} onPreview={onPreviewDrum} showPreviewButton={true} />
+              <PercussionTuningControl
+                trackId={trackId} instrumentId={resolvedInstId} onPreview={onPreviewDrum}
+                onPreviewSection={handlePreviewSection} sectionPreviewLabel={sectionLabel} showPreviewButton={true}
+              />
               <div className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] p-2 flex flex-col gap-1 select-none">
                 <div className="flex items-center justify-between text-[10px] font-cactus font-bold uppercase text-[var(--cordel-text)]">
                   <span>{isFr ? 'Résonance / Decay global' : 'Ressonância / Decay global'}</span>

@@ -68,7 +68,7 @@ export function useDrumTuning({
     e.stopPropagation();
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch (_) { }
     setIsDragging(false);
 
     if (!isControlled && trackId !== undefined) {
