@@ -42,7 +42,7 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
         <div style="width: 45%; margin-bottom: 15px;">
           <h3 style="font-size: 16px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Gonguê, Agbê, Mineiro</h3>
           <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
-            <li style="margin-bottom: 4px;"><strong>Gonguê</strong> : D/d (Grave), E/e (Agudo), X (Borda)</li>
+            <li style="margin-bottom: 4px;"><strong>Gonguê</strong> : G/g (Grave), A/a (${isPt ? 'Agudo' : 'Aigu'}), B (Barulho)</li>
             <li style="margin-bottom: 4px;"><strong>Agbê</strong> : D/d, E/e, S (Saut/Salto), V (Volta)</li>
             <li style="margin-bottom: 4px;"><strong>Mineiro</strong> : ${isPt ? 'P/p ↑ Projetar (Para frente), T/t ↓ Trazer (Para trás), L (Lado)' : 'P/p ↑ Pousser (Avant), T/t ↓ Tirer (Vers soi), L (Latéral)'}</li>
           </ul>

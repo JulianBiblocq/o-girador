@@ -108,10 +108,6 @@ export const AoVivoGongueLabSliders: React.FC<{ activeTab: GongueLabTabId }> = (
         <LabSlider label="Armé haut (→G/A)" displayVal={`${Math.round(cfg.liftHighBeforeStrongMult * 100)}%`} min={0.8} max={2.0} step={0.05} value={cfg.liftHighBeforeStrongMult} onChange={(v) => updateGongueStickConfig({ liftHighBeforeStrongMult: v })} />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <LabSlider label="Flanc (X) — Déport X" displayVal={`${cfg.flancOffsetX}px`} min={-160} max={200} step={2} value={cfg.flancOffsetX} onChange={(v) => updateGongueStickConfig({ flancOffsetX: v })} />
-        <LabSlider label="Flanc (X) — Déport Y" displayVal={`${cfg.flancOffsetY}px`} min={-260} max={220} step={2} value={cfg.flancOffsetY} onChange={(v) => updateGongueStickConfig({ flancOffsetY: v })} />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
         <LabSlider label="Écrasement métal" displayVal={`${cfg.metalCrushMs}ms`} min={0} max={200} step={4} value={cfg.metalCrushMs} onChange={(v) => updateGongueStickConfig({ metalCrushMs: v })} />
         <LabSlider label="Rebond métal" displayVal={`${Math.round(cfg.reboundRatio * 100)}%`} min={0} max={0.6} step={0.02} value={cfg.reboundRatio} onChange={(v) => updateGongueStickConfig({ reboundRatio: v })} />
       </div>

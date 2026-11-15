@@ -49,7 +49,6 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       strokes: [
         { key: 'G / g', desc: isFr ? 'Grave / Ouvert' : 'Grave / Aberto' },
         { key: 'A / a', desc: isFr ? 'Aigu / Cloche' : 'Agudo / Sino' },
-        { key: 'X', desc: isFr ? 'Corps / Étouffé' : 'Borda / Abafado' },
         { key: 'B', desc: 'Barulho' },
       ],
     },

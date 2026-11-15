@@ -45,7 +45,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Gonguê (Gg)</td>
-            <td style="padding: 4px 6px;"><strong>G/g</strong> (Grave / Aberto), <strong>A/a</strong> (Aigu / Agudo), <strong>X</strong> (Corps / Étouffé / Borda), <strong>B</strong> (Barulho)</td>
+            <td style="padding: 4px 6px;"><strong>G/g</strong> (Grave / Aberto), <strong>A/a</strong> (Aigu / Agudo), <strong>B</strong> (Barulho)</td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Agbê / Abê (Ab)</td>

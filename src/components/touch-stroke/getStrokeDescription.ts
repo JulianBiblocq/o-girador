@@ -73,13 +73,12 @@ export const getStrokeDescription = (
     }
   }
 
-  if (instType === 'gongue') {
+  if (instType === 'gongue' || instId === 'gongue') {
     switch (stroke) {
       case 'G': return isPt ? 'Grave Forte' : 'Grave Fort';
       case 'g': return isPt ? 'Grave Fraco' : 'Grave Faible';
       case 'A': return isPt ? 'Agudo Forte' : 'Aigu Fort';
       case 'a': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
-      case 'X': return isPt ? 'Corpo do sino' : 'Corps / Flanc';
       case 'B':
       case 'b': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;

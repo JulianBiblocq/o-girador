@@ -96,7 +96,6 @@ export const ShortcutsStrokesPercussion: React.FC<ShortcutsStrokesPercussionProp
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['gongue'], ['G', 'g']) && <div className="flex items-center gap-2">{renderBadge(['gongue'], ['G'], 'G / g')}<span>{t('gongueGrave')}</span></div>}
             {isStrokeActiveForInstruments(['gongue'], ['A', 'a']) && <div className="flex items-center gap-2">{renderBadge(['gongue'], ['A'], 'A / a')}<span>{t('gongueAigu')}</span></div>}
-            {isStrokeActiveForInstruments(['gongue'], ['X', 'x']) && <div className="flex items-center gap-2">{renderBadge(['gongue'], ['X'], 'X / x')}<span>{t('legendGongueBord')}</span></div>}
             {isStrokeActiveForInstruments(['gongue'], ['B', 'b']) && <div className="flex items-center gap-2">{renderBadge(['gongue'], ['B'], 'B / b')}<span>{t('gongueBarulho')}</span></div>}
           </div>
         </details>

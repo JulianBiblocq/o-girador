@@ -1,7 +1,7 @@
 // @ts-ignore
 import { describe, it, expect } from 'vitest';
 import { instrumentsConfig } from '../../data';
-import { getStrokesForInstrument } from '../../universes/maracatu/strokes';
+import { getStrokePairs, getStrokesForInstrument } from '../../universes/maracatu/strokes';
 import { resolveStrokePedagogy } from '../strokePedagogyCatalog';
 
 describe('strokePedagogyCatalog — alignement SSOT complet FR / PT-BR', () => {
@@ -16,9 +16,6 @@ describe('strokePedagogyCatalog — alignement SSOT complet FR / PT-BR', () => {
           expect(strokes.length).toBeGreaterThan(0);
 
           for (const strokeDef of strokes) {
-            // Gonguê n'utilise pas X en Maracatu (retiré définitivement au Volet D)
-            if (inst.id === 'gongue' && strokeDef.symbol === 'X') continue;
-
             const entry = resolveStrokePedagogy(
               inst.id,
               inst.type,
@@ -38,7 +35,11 @@ describe('strokePedagogyCatalog — alignement SSOT complet FR / PT-BR', () => {
     }
   }
 
-  it("rejette tout symbole inexistant sur Gonguê (aucun X ni M dans le catalogue)", () => {
+  it("n'expose que G/g, A/a et B sur Gonguê (aucun X ni M dans les frappes, le Dock ou le catalogue)", () => {
+    const gongueDefs = getStrokesForInstrument('gongue', 'gongue', 'fr', false).map((s) => s.symbol);
+    const gonguePairIds = getStrokePairs('gongue', 'gongue', 'fr', false).map((p) => p.id);
+    expect(gongueDefs).toEqual(['G', 'g', 'A', 'a', 'B']);
+    expect(gonguePairIds).toEqual(['G', 'A', 'B']);
     expect(resolveStrokePedagogy('gongue', 'gongue', 'X', 'fr', false)).toBeNull();
     expect(resolveStrokePedagogy('gongue', 'gongue', 'M', 'pt', false)).toBeNull();
   });

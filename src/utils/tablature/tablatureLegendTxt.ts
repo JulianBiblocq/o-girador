@@ -19,7 +19,6 @@ ALFAIAS / CAIXA / TAROL
 GONGUÊ
    G / g : Grave (Forte / Fraco)
    A / a : Agudo (Forte / Fraco)
-   X : Borda
    B : Barulho
 
 AGBÊ
@@ -61,7 +60,6 @@ ALFAIAS / CAIXA / TAROL
 GONGUÊ
    G / g : Grave (Fort / Faible)
    A / a : Aigu (Fort / Faible)
-   X : Corps / Flanc
    B : Barulho
 
 AGBÊ
