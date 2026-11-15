@@ -1,4 +1,3 @@
-
 import React, { Suspense } from 'react';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
@@ -24,9 +23,14 @@ const BlankAndScanWorkshopModal = lazyWithRetry(
   () => import('../paper/BlankAndScanWorkshopModal').then((m) => ({ default: m.BlankAndScanWorkshopModal })),
   'BlankAndScanWorkshopModal'
 );
+const UserProfilePreferencesModal = lazyWithRetry(
+  () => import('../profile/UserProfilePreferencesModal').then((m) => ({ default: m.UserProfilePreferencesModal })),
+  'UserProfilePreferencesModal'
+);
 
 export interface AppModalsOverlayModalsProps {
   lang: string;
+  theme?: { isDarkMode: boolean; toggleDarkMode: () => void };
   wallpaperProps: any;
   paperWorkshopProps: any;
   mestreSignals: any[];
@@ -35,12 +39,14 @@ export interface AppModalsOverlayModalsProps {
 
 export const AppModalsOverlayModals: React.FC<AppModalsOverlayModalsProps> = React.memo(({
   lang,
+  theme,
   wallpaperProps,
   paperWorkshopProps,
   mestreSignals,
   changeViewMode,
 }) => {
   const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
+  const isProfileModalOpen = useSequencerSettingsStore((state) => state.isProfileModalOpen);
   const isWizardOpen = useWizardStore((state) => state.isWizardOpen);
   const setWizardOpen = useWizardStore((state) => state.setWizardOpen);
 
@@ -48,6 +54,12 @@ export const AppModalsOverlayModals: React.FC<AppModalsOverlayModalsProps> = Rea
     <Suspense fallback={null}>
       {isWizardOpen && <WizardOverlay onClose={() => setWizardOpen(false)} lang={lang as any} />}
       {isSettingsOpen && <SettingsPage mestreSignals={mestreSignals} />}
+      {isProfileModalOpen && (
+        <UserProfilePreferencesModal
+          isDarkMode={Boolean(theme?.isDarkMode ?? wallpaperProps?.isDarkMode)}
+          onToggleDarkMode={theme?.toggleDarkMode ?? wallpaperProps?.toggleDarkMode}
+        />
+      )}
       <SpeedTrainerModal changeViewMode={changeViewMode} />
 
       <WallpaperShowcaseModal

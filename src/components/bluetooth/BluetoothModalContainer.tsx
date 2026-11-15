@@ -1,85 +1,90 @@
 /**
- * Boîte modale Cordel pour les outils de synchronisation Bluetooth (< 130 lignes).
+ * Boîte modale Cordel en portail pour les outils de synchronisation Bluetooth (< 100 lignes).
  */
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { useBluetoothLatencyStore } from '../../utils/bluetoothLatencyStore';
 import { btTranslations } from '../../utils/bluetoothTranslations';
 import { BluetoothOnboardingCard } from './BluetoothOnboardingCard';
 import { BluetoothProfileSelector } from './BluetoothProfileSelector';
 import { BluetoothPingCalibration } from './BluetoothPingCalibration';
 import { BluetoothVisualCalibration } from './BluetoothVisualCalibration';
-import { X } from 'lucide-react';
 
 interface Props {
   lang: 'fr' | 'pt';
 }
 
 export const BluetoothModalContainer: React.FC<Props> = ({ lang }) => {
-  const { isModalOpen, activeModalTab, openModal, closeModal } = useBluetoothLatencyStore();
+  const isModalOpen = useBluetoothLatencyStore((s) => s.isModalOpen);
+  const activeModalTab = useBluetoothLatencyStore((s) => s.activeModalTab);
+  const openModal = useBluetoothLatencyStore((s) => s.openModal);
+  const closeModal = useBluetoothLatencyStore((s) => s.closeModal);
   const t = btTranslations[lang];
 
-  if (!isModalOpen) return null;
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isModalOpen, closeModal]);
 
-  const getTitle = () => {
-    if (activeModalTab === 'onboarding') return t.onboardingTitle;
-    if (activeModalTab === 'ping') return t.pingTitle;
-    if (activeModalTab === 'visual') return t.visualTitle;
-    return t.quickAdjustTitle;
-  };
+  if (!isModalOpen || typeof document === 'undefined') return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs select-none">
+  const title =
+    activeModalTab === 'onboarding'
+      ? t.onboardingTitle
+      : activeModalTab === 'ping'
+        ? t.pingTitle
+        : activeModalTab === 'visual'
+          ? t.visualTitle
+          : t.quickAdjustTitle;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100045] flex items-center justify-center p-3 bg-black/65 backdrop-blur-xs select-none"
+      onClick={closeModal}
+    >
       <div
-        className="w-full max-w-sm border-2 border-black bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[4px_4px_0_#000] p-4 flex flex-col gap-3 rounded-none relative"
+        className="w-full max-w-sm border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[5px_5px_0_var(--cordel-shadow-color)] p-4 flex flex-col gap-3 rounded-none relative"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b-2 border-[var(--cordel-border)] pb-2">
           <h3 className="font-cactus font-bold text-sm tracking-wide uppercase truncate pr-2">
-            {getTitle()}
+            {title}
           </h3>
           <button
             type="button"
             onClick={closeModal}
-            className="w-7 h-7 flex items-center justify-center border border-[var(--cordel-border)] bg-[var(--cordel-surface)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] cursor-pointer"
+            aria-label={t.btnCancel}
+            className="w-7 h-7 flex items-center justify-center border border-[var(--cordel-border)] bg-[var(--cordel-surface)] hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)] cursor-pointer transition-colors"
           >
             <X size={15} />
           </button>
         </div>
 
-        {/* Corps de la modale */}
         <div>
           {activeModalTab === 'onboarding' && (
-            <BluetoothOnboardingCard
-              lang={lang}
-              onLaunchTool={(tool) => openModal(tool)}
-              onDone={closeModal}
-            />
+            <BluetoothOnboardingCard lang={lang} onLaunchTool={(tool) => openModal(tool)} onDone={closeModal} />
           )}
-
           {activeModalTab === 'selector' && (
-            <BluetoothProfileSelector
-              lang={lang}
-              onSelectTab={(tab) => openModal(tab)}
-              onClose={closeModal}
-            />
+            <BluetoothProfileSelector lang={lang} onSelectTab={(tab) => openModal(tab)} onClose={closeModal} />
           )}
-
           {activeModalTab === 'ping' && (
-            <BluetoothPingCalibration
-              lang={lang}
-              onDone={() => openModal('selector')}
-            />
+            <BluetoothPingCalibration lang={lang} onDone={() => openModal('selector')} />
           )}
-
           {activeModalTab === 'visual' && (
-            <BluetoothVisualCalibration
-              lang={lang}
-              onDone={() => openModal('selector')}
-            />
+            <BluetoothVisualCalibration lang={lang} onDone={() => openModal('selector')} />
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

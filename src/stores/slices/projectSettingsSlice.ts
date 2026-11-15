@@ -6,6 +6,7 @@ import { extractLyricsFromTracks } from '../helpers/patternTransposeHelper';
 import { applyVocalTransposeStepsState, applyTransposePatternNotesState } from '../helpers/projectVocalTransposeHelper';
 import { Language } from '../../types';
 import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORAGE_KEY } from '../../utils/viewModeResolver';
+import { getStoredLeftHanded, setStoredLeftHanded } from '../../utils/userPreferencesStorage';
 
 export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => {
   const initialMobileMode = getInitialMobileViewMode();
@@ -18,7 +19,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
   return {
     letras: '',
     metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
-    isLeftHanded: false,
+    isLeftHanded: getStoredLeftHanded(),
     lang: (typeof window !== 'undefined' && (localStorage.getItem('o_girador_lang') as Language)) || 'pt',
     isEcoMode: initialEco,
     ecoConfig: buildEcoConfig(initialEco, detectStrictAudioEco(initialEco)),
@@ -42,7 +43,10 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
 
     setLetras: (letras) => set({ letras }),
     setMetadata: (metadata) => set({ metadata }),
-    setIsLeftHanded: (val) => set({ isLeftHanded: val }),
+    setIsLeftHanded: (val) => {
+      setStoredLeftHanded(val);
+      set({ isLeftHanded: val });
+    },
     setLang: (lang) => {
       if (typeof window !== 'undefined') localStorage.setItem('o_girador_lang', lang);
       set({ lang });

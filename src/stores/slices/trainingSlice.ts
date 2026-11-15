@@ -2,7 +2,16 @@ import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrainingSlice, TrackGroup } from '../../types';
 import { resolveDefaultFocusTrackId } from '../../utils/focusTrackSelector';
+import { getStoredWorkingInstrument } from '../../utils/userPreferencesStorage';
 import { applyFocusTracksVisibility, restoreUnfocusedTracksVisibility } from '../helpers/focusVisibilityHelpers';
+
+let lastSyncedSongKey = '';
+let lastSyncedProfileKey = '';
+
+const readInitialPreferred = (): string | null => {
+  const s = getStoredWorkingInstrument();
+  return s !== 'auto' ? s : null;
+};
 
 export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingSlice> = (set, get) => ({
   tocarJuntoActive: false,
@@ -14,122 +23,102 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
   isFocusActive: false,
   focusTrackId: null,
   referenceTrackId: null,
-  preferredInstrumentName: null,
+  preferredInstrumentName: readInitialPreferred(),
+  hasManualFocusSelection: false,
 
-  setTocarJuntoMuteScope: (scope: 'track' | 'family') => {
-    set({ tocarJuntoMuteScope: scope });
-  },
-
-  setTocarJuntoIsMuted: (isMuted: boolean) => {
-    set((state) => ({
+  setTocarJuntoMuteScope: (scope) => set({ tocarJuntoMuteScope: scope }),
+  setTocarJuntoIsMuted: (isMuted) =>
+    set((s) => ({
       tocarJuntoIsMuted: isMuted,
       tocarJuntoActive: isMuted,
-      tocarJuntoTrackId: isMuted ? (state.tocarJuntoTrackId ?? state.focusTrackId) : state.tocarJuntoTrackId,
+      tocarJuntoTrackId: isMuted ? (s.tocarJuntoTrackId ?? s.focusTrackId) : s.tocarJuntoTrackId,
+    })),
+
+  setTocarJuntoTrack: (trackId, baseOnly) => {
+    if (trackId === null) { set({ tocarJuntoActive: false, tocarJuntoTrackId: null }); return; }
+    set((s) => ({
+      tocarJuntoActive: true, tocarJuntoTrackId: trackId,
+      isolateBaseOnly: baseOnly !== undefined ? baseOnly : s.isolateBaseOnly,
+      activeAoVivoTrackId: trackId, tracksVersion: s.tracksVersion + 1,
     }));
   },
 
-  setTocarJuntoTrack: (trackId: number | null, baseOnly?: boolean) => {
-    if (trackId === null) {
-      set({ tocarJuntoActive: false, tocarJuntoTrackId: null });
-      return;
-    }
-    set((state) => ({
-      tocarJuntoActive: true,
-      tocarJuntoTrackId: trackId,
-      isolateBaseOnly: baseOnly !== undefined ? baseOnly : state.isolateBaseOnly,
-      activeAoVivoTrackId: trackId,
-      tracksVersion: state.tracksVersion + 1,
-    }));
-  },
+  setIsolateBaseOnly: (baseOnly) => set((s) => ({ isolateBaseOnly: baseOnly, tracksVersion: s.tracksVersion + 1 })),
+  resetFirstPassRegistry: () => { if (Object.keys(get().firstPassRegistry).length > 0) set({ firstPassRegistry: {} }); },
+  markFirstPassConsumed: (key) => { if (!get().firstPassRegistry[key]) set((s) => ({ firstPassRegistry: { ...s.firstPassRegistry, [key]: true } })); },
 
-  setIsolateBaseOnly: (baseOnly: boolean) => {
-    set((state) => ({ isolateBaseOnly: baseOnly, tracksVersion: state.tracksVersion + 1 }));
-  },
-
-  resetFirstPassRegistry: () => {
-    if (Object.keys(get().firstPassRegistry).length > 0) set({ firstPassRegistry: {} });
-  },
-
-  markFirstPassConsumed: (key: string) => {
-    if (get().firstPassRegistry[key]) return;
-    set((state) => ({ firstPassRegistry: { ...state.firstPassRegistry, [key]: true } }));
-  },
-
-  setFocusTrackId: (trackId: number | null, preferredName?: string) => {
-    set((state) => {
-      const nextRefId = state.referenceTrackId === trackId ? null : state.referenceTrackId;
+  setFocusTrackId: (trackId, preferredName, isManual = false) =>
+    set((s) => {
+      const nextRefId = s.referenceTrackId === trackId ? null : s.referenceTrackId;
       const updates: Record<string, any> = {
-        focusTrackId: trackId,
-        referenceTrackId: nextRefId,
-        tocarJuntoTrackId: trackId,
+        focusTrackId: trackId, referenceTrackId: nextRefId, tocarJuntoTrackId: trackId, hasManualFocusSelection: isManual,
       };
       if (preferredName !== undefined) updates.preferredInstrumentName = preferredName;
-      if (state.isFocusActive && trackId !== null) {
-        updates.tracks = applyFocusTracksVisibility(state.tracks, trackId, nextRefId, state.rodaTrackOrder);
+      if (s.isFocusActive && trackId !== null) {
+        updates.tracks = applyFocusTracksVisibility(s.tracks, trackId, nextRefId, s.rodaTrackOrder);
         updates.activeAoVivoTrackId = trackId;
-        updates.tracksVersion = state.tracksVersion + 1;
+        updates.tracksVersion = s.tracksVersion + 1;
       }
       return updates;
-    });
+    }),
+
+  setPreferredInstrumentName: (name, userProfile) => {
+    const clean = name && name !== 'auto' ? name : null;
+    set({ preferredInstrumentName: clean, hasManualFocusSelection: false });
+    const s = get();
+    const resolved = resolveDefaultFocusTrackId(s.tracks, userProfile, clean);
+    if (resolved !== null) s.setFocusTrackId(resolved, clean ?? undefined, false);
   },
 
-  setReferenceTrackId: (refTrackId: number | null) => {
-    set((state) => {
-      const cleanRef = refTrackId !== null && refTrackId === state.focusTrackId ? null : refTrackId;
-      if (!state.isFocusActive || state.focusTrackId === null) {
-        return { referenceTrackId: cleanRef };
-      }
+  setReferenceTrackId: (refTrackId) =>
+    set((s) => {
+      const cleanRef = refTrackId !== null && refTrackId === s.focusTrackId ? null : refTrackId;
+      if (!s.isFocusActive || s.focusTrackId === null) return { referenceTrackId: cleanRef };
       return {
         referenceTrackId: cleanRef,
-        tracks: applyFocusTracksVisibility(state.tracks, state.focusTrackId, cleanRef, state.rodaTrackOrder),
-        tracksVersion: state.tracksVersion + 1,
+        tracks: applyFocusTracksVisibility(s.tracks, s.focusTrackId, cleanRef, s.rodaTrackOrder),
+        tracksVersion: s.tracksVersion + 1,
       };
-    });
-  },
+    }),
 
-  toggleFocusMode: (explicitTrackId?: number) => {
-    const state = get();
-    const targetId = explicitTrackId ?? state.focusTrackId ?? resolveDefaultFocusTrackId(state.tracks);
+  toggleFocusMode: (explicitTrackId) => {
+    const s = get();
+    const targetId = explicitTrackId ?? s.focusTrackId ?? resolveDefaultFocusTrackId(s.tracks, null, s.preferredInstrumentName);
     if (targetId === null) return;
-
-    if (state.isFocusActive) {
-      set((prev) => ({
-        isFocusActive: false,
-        referenceTrackId: null,
-        tracks: restoreUnfocusedTracksVisibility(prev.tracks, prev.rodaTrackOrder),
-        activeAoVivoTrackId: null,
-        tracksVersion: prev.tracksVersion + 1,
+    if (s.isFocusActive) {
+      set((p) => ({
+        isFocusActive: false, referenceTrackId: null, activeAoVivoTrackId: null,
+        tracks: restoreUnfocusedTracksVisibility(p.tracks, p.rodaTrackOrder), tracksVersion: p.tracksVersion + 1,
       }));
     } else {
-      set((prev) => ({
-        isFocusActive: true,
-        focusTrackId: targetId,
-        referenceTrackId: null,
-        tocarJuntoTrackId: targetId,
-        tracks: applyFocusTracksVisibility(prev.tracks, targetId, null, prev.rodaTrackOrder),
-        activeAoVivoTrackId: targetId,
-        tracksVersion: prev.tracksVersion + 1,
+      set((p) => ({
+        isFocusActive: true, focusTrackId: targetId, referenceTrackId: null, tocarJuntoTrackId: targetId,
+        activeAoVivoTrackId: targetId, tracks: applyFocusTracksVisibility(p.tracks, targetId, null, p.rodaTrackOrder),
+        tracksVersion: p.tracksVersion + 1,
       }));
     }
   },
 
   syncFocusWithTracks: (tracks: TrackGroup[], userProfile?: any) => {
     if (!tracks || tracks.length === 0) return;
-    const state = get();
-    const currentId = state.focusTrackId;
-    const exists = currentId !== null && tracks.some((t) => t.id === currentId);
-    const refExists = state.referenceTrackId !== null && tracks.some((t) => t.id === state.referenceTrackId);
-    const validRefId = refExists && state.referenceTrackId !== currentId ? state.referenceTrackId : null;
+    const s = get();
+    const songKey = `${s.metadata?.toada || ''}|${tracks.map((t) => `${t.id}:${t.instrumentIdx}`).join(',')}`;
+    const profileKey = `${userProfile?.uid || ''}|${userProfile?.instrument || ''}|${userProfile?.preferredInstrument || ''}|${s.preferredInstrumentName || ''}`;
+    const songChanged = songKey !== lastSyncedSongKey, profileChanged = profileKey !== lastSyncedProfileKey;
+    lastSyncedSongKey = songKey; lastSyncedProfileKey = profileKey;
 
-    if (!exists) {
-      const resolved = resolveDefaultFocusTrackId(tracks, userProfile, state.preferredInstrumentName);
-      if (resolved !== null) state.setFocusTrackId(resolved);
+    const currentId = s.focusTrackId;
+    const exists = currentId !== null && tracks.some((t) => t.id === currentId);
+    if (!exists || songChanged || (profileChanged && !s.hasManualFocusSelection)) {
+      const resolved = resolveDefaultFocusTrackId(tracks, userProfile, s.preferredInstrumentName);
+      if (resolved !== null) s.setFocusTrackId(resolved, undefined, false);
       return;
     }
-    if (state.isFocusActive && currentId !== null) {
-      const nextTracks = applyFocusTracksVisibility(tracks, currentId, validRefId, state.rodaTrackOrder);
-      if (validRefId !== state.referenceTrackId || nextTracks.some((t, i) => t.isHidden !== tracks[i]?.isHidden)) {
-        set((prev) => ({ referenceTrackId: validRefId, tracks: nextTracks, tracksVersion: prev.tracksVersion + 1 }));
+    const validRefId = s.referenceTrackId !== null && s.referenceTrackId !== currentId && tracks.some((t) => t.id === s.referenceTrackId) ? s.referenceTrackId : null;
+    if (s.isFocusActive && currentId !== null) {
+      const nextTracks = applyFocusTracksVisibility(tracks, currentId, validRefId, s.rodaTrackOrder);
+      if (validRefId !== s.referenceTrackId || nextTracks.some((t, i) => t.isHidden !== tracks[i]?.isHidden)) {
+        set((p) => ({ referenceTrackId: validRefId, tracks: nextTracks, tracksVersion: p.tracksVersion + 1 }));
       }
     }
   },

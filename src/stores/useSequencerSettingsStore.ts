@@ -36,6 +36,7 @@ export interface OficinaReturnEditorContext {
 
 interface SettingsState {
   isSettingsOpen: boolean;
+  isProfileModalOpen: boolean;
   activeSection: OficinaSectionId;
   oficinaFocus: OficinaFocusTarget | null;
   returnEditorContext: OficinaReturnEditorContext | null;
@@ -43,6 +44,7 @@ interface SettingsState {
   enabledSignalIds: string[] | null;
   forcedStrokes: Record<string, boolean>;
   setIsSettingsOpen: (isSettingsOpen: boolean) => void;
+  setIsProfileModalOpen: (open: boolean) => void;
   toggleSettings: () => void;
   setActiveSection: (section: OficinaSectionId) => void;
   setOficinaFocus: (focus: OficinaFocusTarget | null) => void;
@@ -59,12 +61,14 @@ interface SettingsState {
 
 export const useSequencerSettingsStore = create<SettingsState>((set) => ({
   isSettingsOpen: false,
+  isProfileModalOpen: false,
   activeSection: 'lutherie',
   oficinaFocus: null,
   returnEditorContext: null,
   strokeDefaults: {},
   enabledSignalIds: null,
   forcedStrokes: {},
+  setIsProfileModalOpen: (isProfileModalOpen) => set({ isProfileModalOpen }),
   setIsSettingsOpen: (isSettingsOpen) =>
     set((state) => ({
       isSettingsOpen,

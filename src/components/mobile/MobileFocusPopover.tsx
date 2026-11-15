@@ -29,8 +29,7 @@ export const MobileFocusPopover: React.FC<Props> = ({
   const hasFamily = focusTrackId !== null && getTrackFamilyIds(focusTrackId, tracks).length > 1;
 
   const handleSelectTrack = (t: TrackGroup) => {
-    const inst = instrumentsConfig[t.instrumentIdx];
-    setFocusTrackId(t.id, inst?.name);
+    setFocusTrackId(t.id, undefined, true);
     setActiveAoVivoTrackId(t.id);
     if (!useSequencerStore.getState().isFocusActive) useSequencerStore.setState({ isFocusActive: true });
     if (referenceTrackId === t.id) onSelectReferenceTrackId(null);

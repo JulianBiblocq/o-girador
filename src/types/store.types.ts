@@ -87,6 +87,7 @@ export interface TrainingState {
   focusTrackId: number | null;
   referenceTrackId: number | null;
   preferredInstrumentName: string | null;
+  hasManualFocusSelection: boolean;
 }
 
 export interface TrainingSlice extends TrainingState {
@@ -96,7 +97,8 @@ export interface TrainingSlice extends TrainingState {
   setIsolateBaseOnly: (baseOnly: boolean) => void;
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;
-  setFocusTrackId: (trackId: number | null, preferredName?: string) => void;
+  setFocusTrackId: (trackId: number | null, preferredName?: string, isManual?: boolean) => void;
+  setPreferredInstrumentName: (name: string | null, userProfile?: any) => void;
   setReferenceTrackId: (trackId: number | null) => void;
   toggleFocusMode: (explicitTrackId?: number) => void;
   syncFocusWithTracks: (tracks: TrackGroup[], userProfile?: any) => void;

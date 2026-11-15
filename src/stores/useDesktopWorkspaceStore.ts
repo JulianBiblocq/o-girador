@@ -4,10 +4,20 @@ import { DesktopWorkspaceLayout, DetachedPanelKey } from '../types/desktopWorksp
 import { detachedWindowManager } from '../utils/detachedWindowManager';
 import { useSequencerStore } from './useSequencerStore';
 import { loadStoredLayouts, persistLayouts } from './helpers/desktopWorkspaceStorage';
+import { PREFERRED_SCREEN_MODE_STORAGE_KEY } from '../utils/userPreferencesStorage';
+
+const loadPreferredScreenMode = (): 'single' | 'dual' => {
+  if (typeof window === 'undefined') return 'single';
+  try {
+    return localStorage.getItem(PREFERRED_SCREEN_MODE_STORAGE_KEY) === 'dual' ? 'dual' : 'single';
+  } catch { return 'single'; }
+};
 
 export interface DesktopWorkspaceStore {
   layouts: DesktopWorkspaceLayout[];
   activeLayoutId: string | null;
+  preferredScreenMode: 'single' | 'dual';
+  setPreferredScreenMode: (mode: 'single' | 'dual') => void;
   saveCurrentLayout: (name: string) => DesktopWorkspaceLayout;
   applyLayout: (layoutId: string) => boolean;
   deleteLayout: (layoutId: string) => void;
@@ -18,6 +28,14 @@ export interface DesktopWorkspaceStore {
 export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get) => ({
   layouts: loadStoredLayouts(),
   activeLayoutId: null,
+  preferredScreenMode: loadPreferredScreenMode(),
+
+  setPreferredScreenMode: (mode) => {
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(PREFERRED_SCREEN_MODE_STORAGE_KEY, mode); } catch {}
+    }
+    set({ preferredScreenMode: mode });
+  },
 
   getActiveLayout: () => {
     const { layouts, activeLayoutId } = get();

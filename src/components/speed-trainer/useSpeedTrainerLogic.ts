@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
 import { useAudio } from '../../contexts/AudioContext';
@@ -23,6 +23,7 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
   const activeTrainingSession = useSequencerStore((state) => state.activeTrainingSession);
 
   const storeTracks = useSequencerStore((state) => state.tracks);
+  const focusTrackId = useSequencerStore((state) => state.focusTrackId);
   const tocarJuntoActive = useSequencerStore((state) => state.tocarJuntoActive);
   const tocarJuntoTrackId = useSequencerStore((state) => state.tocarJuntoTrackId);
   const tocarJuntoMuteScope = useSequencerStore((state) => state.tocarJuntoMuteScope);
@@ -52,6 +53,12 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
   const familyLabel = useMemo(() => resolveFamilyLabel(selectedTrackId, storeTracks), [selectedTrackId, storeTracks]);
   const playableTracks = useMemo(() => filterPlayableTrainerTracks(storeTracks), [storeTracks]);
   const sortedMarkers = useMemo(() => [...songMarkers].sort((a, b) => a.measure - b.measure), [songMarkers]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const target = tocarJuntoTrackId ?? focusTrackId ?? playableTracks[0]?.id ?? null;
+    if (target !== null) setSelectedTrackId(target);
+  }, [isOpen, tocarJuntoTrackId, focusTrackId, playableTracks]);
 
   const [markerMode, setMarkerMode] = useState<'single' | 'range'>('single');
   const [selectedSectionMarkerId, setSelectedSectionMarkerId] = useState<string>('');

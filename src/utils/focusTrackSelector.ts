@@ -1,7 +1,7 @@
-
 import { TrackGroup } from '../types';
 import { instrumentsConfig } from '../data';
 import { UserProfile } from '../contexts/auth/authTypes';
+import { getEffectiveWorkingInstrument } from './userPreferencesStorage';
 
 export function getEligibleReferenceTracks(
   tracks: TrackGroup[],
@@ -30,36 +30,38 @@ export function resolveDefaultFocusTrackId(
   const playable = getPlayableFocusTracks(tracks);
   if (playable.length === 0) return tracks[0]?.id ?? null;
 
-  const rawInstrument = (preferredInstrumentName || userProfile?.instrument || '').trim().toLowerCase();
+  const effectivePref = preferredInstrumentName || getEffectiveWorkingInstrument(userProfile) || '';
+  const rawInstrument = effectivePref.trim().toLowerCase();
   const rawRole = (userProfile?.role || '').trim().toLowerCase();
 
-  const findByName = (keyword: string) =>
+  const findByKeyword = (keyword: string) =>
     playable.find((t) => {
       const inst = instrumentsConfig[t.instrumentIdx];
-      const name = (t.customName || inst?.name || inst?.id || '').toLowerCase();
-      return name.includes(keyword);
+      const id = (inst?.id || '').toLowerCase();
+      const name = (t.customName || inst?.name || id).toLowerCase();
+      return id === keyword || name.includes(keyword);
     });
 
   const knownKeywords = [
     'marcante', 'meião', 'meiao', 'repique', 'caixa', 'tarol',
-    'gonguê', 'gongue', 'agbê', 'agbe', 'mineiro', 'timbal'
+    'gonguê', 'gongue', 'agbê', 'agbe', 'mineiro', 'timbal',
   ];
 
   for (const kw of knownKeywords) {
     if (rawInstrument.includes(kw)) {
       const normalized = kw.replace('meiao', 'meião').replace('gongue', 'gonguê').replace('agbe', 'agbê');
-      const match = findByName(normalized) || findByName(kw);
+      const match = findByKeyword(normalized) || findByKeyword(kw);
       if (match) return match.id;
     }
   }
 
   if (rawInstrument.includes('caisse') || rawInstrument.includes('snare') || rawInstrument.includes('caixa')) {
-    const match = findByName('caixa') || findByName('tarol');
+    const match = findByKeyword('caixa') || findByKeyword('tarol');
     if (match) return match.id;
   }
 
   if (rawInstrument.includes('alfaia') || rawInstrument.includes('bombarda') || rawRole === 'mestre' || !userProfile) {
-    const marcante = findByName('marcante');
+    const marcante = findByKeyword('marcante');
     if (marcante) return marcante.id;
   }
 

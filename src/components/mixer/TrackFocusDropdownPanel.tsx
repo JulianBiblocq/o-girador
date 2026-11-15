@@ -73,7 +73,7 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setFocusTrackId(t.id, inst?.name)}
+                onClick={() => setFocusTrackId(t.id, undefined, true)}
                 className={`xilo-wood-stamp flex items-center gap-1.5 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${
                   isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'
                 }`}

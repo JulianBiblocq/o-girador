@@ -27,6 +27,7 @@ interface AppModalsContainerProps {
   setHoveredStroke: (val: string | null) => void;
   isSavedIndicatorVisible: boolean;
   lang: string;
+  theme?: { isDarkMode: boolean; toggleDarkMode: () => void };
   exportProps: any;
   modalLayoutProps: any;
   saveModalProps: any;
@@ -46,6 +47,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   setHoveredStroke,
   isSavedIndicatorVisible,
   lang,
+  theme,
   modalLayoutProps,
   saveModalProps,
   visitorAuthProps,
@@ -105,6 +107,7 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
 
       <AppModalsOverlayModals
         lang={lang}
+        theme={theme}
         wallpaperProps={wallpaperProps}
         paperWorkshopProps={paperWorkshopProps}
         mestreSignals={mestreSignals}

@@ -5,6 +5,7 @@ import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { ViewMode } from '../useViewRouter';
 import { resolveTrackForRole } from './resolveTrackForRole';
+import { resolveDefaultFocusTrackId } from '../../utils/focusTrackSelector';
 
 interface ArmTrainingParams {
   pendingTrainingProgram: TrainingProgram | null;
@@ -80,13 +81,15 @@ export function executeArmTrainingSession({
       targetTrack = resolveTrackForRole(currentTracks, pendingRole);
     }
     if (!targetTrack) {
+      const preferredId = resolveDefaultFocusTrackId(currentTracks, undefined, store.preferredInstrumentName);
       targetTrack =
+        (preferredId !== null ? currentTracks.find((t) => t.id === preferredId) : undefined) ||
         currentTracks.find((t) => !t.isBusFolder && instrumentsConfig[t.instrumentIdx]?.type !== 'voice') ||
         currentTracks[0];
     }
     if (targetTrack) {
       store.setIsPracticeMode(true);
-      store.setFocusTrackId(targetTrack.id);
+      store.setFocusTrackId(targetTrack.id, undefined, Boolean(pendingRole));
       if (!store.isFocusActive) {
         store.toggleFocusMode(targetTrack.id);
       }
