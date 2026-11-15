@@ -1,7 +1,3 @@
-/**
- * Types pour le contenu du menu déroulant projet (< 40 lignes).
- */
-
 export interface HeaderProjectDropdownContentProps {
   lang: 'pt' | 'fr';
   preset: string;
@@ -23,4 +19,5 @@ export interface HeaderProjectDropdownContentProps {
   onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
   onCloudSave?: () => void;
   onCloseMenu: () => void;
+  isMobileMenu?: boolean;
 }

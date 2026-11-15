@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { useTransportStore } from '../stores/useTransportStore';
-import { GlobalSwingModal } from './GlobalSwingModal';
 import { CordelContextMenu } from './ui/CordelContextMenu';
 import { HeaderBrand } from './header/HeaderBrand';
 import { UndoIcon, RedoIcon } from './header/HeaderIcons';
@@ -20,7 +18,6 @@ export type { HeaderProps };
 const HeaderComponent: React.FC<HeaderProps> = (props) => {
   const { lang, setLang, handleUndo, handleRedo } = useSequencer();
   const { activePresetName: preset, handlePresetSelect } = useAudio();
-  const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
 
   const canUndo = useSequencerStore((s) => s.tracksHistory.length > 0);
   const canRedo = useSequencerStore((s) => s.tracksRedoHistory.length > 0);
@@ -29,9 +26,6 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
   const storeEditingTrackId = useSequencerStore((s) => s.editingTrackId);
   const isInstrumentEditorDetached = useSequencerStore((s) => s.isInstrumentEditorDetached);
   const isEditorOpen = storeEditingTrackId !== null && !isInstrumentEditorDetached;
-
-  const globalSwing = useTransportStore((s) => s.globalSwing);
-  const setGlobalSwing = useTransportStore((s) => s.setGlobalSwing);
 
   const { tabContextMenu, setTabContextMenu, createTabTouchHandlers, getTabMenuItems } =
     useHeaderTabMenu(lang, props.onToggleDetachInstrumentEditor);
@@ -59,7 +53,6 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
     onExportTablature: props.onExportTablature,
     onOpenPaperWorkshop: props.onOpenPaperWorkshop,
     onCloudSave: props.onCloudSave,
-    onOpenSwingModal: () => setIsSwingModalOpen(true),
     onToggleRightPanel: props.onToggleRightPanel,
     onViewModeToggle: props.onViewModeToggle,
     onOpenWallpaperModal: props.onOpenWallpaperModal,
@@ -80,10 +73,6 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
         metadata={metadata}
         preset={preset}
         lang={lang}
-        isSwingModalOpen={isSwingModalOpen}
-        setIsSwingModalOpen={setIsSwingModalOpen}
-        globalSwing={globalSwing}
-        setGlobalSwing={setGlobalSwing}
       />
     );
   }
@@ -94,21 +83,27 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
         <HeaderBrand version={props.version} />
         <HeaderDesktopMenu {...sharedProjectProps} />
         {!isPracticeMode && (
-          <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_rgba(0,0,0,1)] ml-1.5 shrink-0">
-            <button type="button" onClick={handleUndo} disabled={!canUndo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[#1a1a1a] transition-colors" title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}>
+          <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_var(--cordel-shadow-color)] ml-1.5 shrink-0">
+            <button type="button" onClick={handleUndo} disabled={!canUndo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[var(--cordel-border)] transition-colors" title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}>
               <UndoIcon className="w-4 h-4" />
             </button>
-            <button type="button" onClick={handleRedo} disabled={!canRedo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[#1a1a1a] transition-colors" title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}>
+            <button type="button" onClick={handleRedo} disabled={!canRedo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[var(--cordel-border)] transition-colors" title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}>
               <RedoIcon className="w-4 h-4" />
             </button>
           </div>
         )}
       </div>
       <HeaderViewSwitcher lang={lang} viewMode={props.viewMode} onViewModeToggle={props.onViewModeToggle} isEditorOpen={isEditorOpen} createTabTouchHandlers={createTabTouchHandlers} onOpenInstrumentEditor={props.onOpenInstrumentEditor} />
-      <HeaderAuxiliaryControls lang={lang} isDarkMode={props.isDarkMode} onToggleDarkMode={props.onToggleDarkMode} onLangToggle={onLangToggle} showInstallButton={props.showInstallButton} onInstallClick={props.onInstallClick} onOpenWallpaperModal={props.onOpenWallpaperModal} />
-      {isSwingModalOpen && (
-        <GlobalSwingModal globalSwing={globalSwing} setGlobalSwing={setGlobalSwing} onClose={() => setIsSwingModalOpen(false)} lang={lang} />
-      )}
+      <HeaderAuxiliaryControls
+        lang={lang}
+        isDarkMode={props.isDarkMode}
+        onToggleDarkMode={props.onToggleDarkMode}
+        onLangToggle={onLangToggle}
+        showInstallButton={props.showInstallButton}
+        onInstallClick={props.onInstallClick}
+        onOpenWallpaperModal={props.onOpenWallpaperModal}
+        onAdminClick={props.onAdminClick}
+      />
       {tabContextMenu && (
         <CordelContextMenu x={tabContextMenu.x} y={tabContextMenu.y} title={tabContextMenu.title} items={getTabMenuItems()} onClose={() => setTabContextMenu(null)} />
       )}

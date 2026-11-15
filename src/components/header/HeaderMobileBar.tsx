@@ -1,12 +1,10 @@
 import React from 'react';
 import { Cloud } from 'lucide-react';
-import { GlobalSwingModal } from '../GlobalSwingModal';
 import { getActiveCloudPresetId } from '../../utils/cloudPresetState';
 import { HeaderBrand } from './HeaderBrand';
 import { HeaderMobileMenu } from './HeaderMobileMenu';
 import { HeaderMobileQuickActions } from './HeaderMobileQuickActions';
 import { HeaderProps } from './headerTypes';
-import type { GlobalSwing } from '../../types';
 
 interface HeaderMobileBarProps {
   props: HeaderProps;
@@ -20,19 +18,11 @@ interface HeaderMobileBarProps {
   metadata: any;
   preset: string;
   lang: 'fr' | 'pt';
-  isSwingModalOpen: boolean;
-  setIsSwingModalOpen: (open: boolean) => void;
-  globalSwing: GlobalSwing;
-  setGlobalSwing: (val: GlobalSwing) => void;
 }
 
-/**
- * Barre d'en-tête compacte dédiée à l'affichage mobile.
- */
 export const HeaderMobileBar: React.FC<HeaderMobileBarProps> = ({
   props, sharedProjectProps, onLangToggle, handleUndo, handleRedo,
   canUndo, canRedo, isEditorOpen, metadata, preset, lang,
-  isSwingModalOpen, setIsSwingModalOpen, globalSwing, setGlobalSwing,
 }) => {
   const hasCloudId = Boolean(getActiveCloudPresetId());
   const saveTitle = hasCloudId
@@ -60,10 +50,10 @@ export const HeaderMobileBar: React.FC<HeaderMobileBarProps> = ({
         <button
           type="button"
           onClick={props.onCloudSave}
-          className="flex items-center gap-1.5 px-2 py-1 bg-[var(--cordel-surface)] border border-[var(--cordel-border)] font-cactus font-bold text-[11px] max-w-full text-[var(--cordel-text)] shadow-xs hover:border-[var(--cordel-accent)] cursor-pointer min-w-0"
+          className="flex items-center gap-1.5 px-2 py-1 bg-[var(--cordel-surface)] border border-[var(--cordel-border)] font-cactus font-bold text-[11px] max-w-full text-[var(--cordel-text)] shadow-xs hover:border-[var(--cordel-accent-readable)] cursor-pointer min-w-0"
           title={saveTitle}
         >
-          <Cloud size={13} className={hasCloudId ? 'text-[var(--cordel-success)] shrink-0' : 'text-[var(--cordel-accent)] shrink-0'} />
+          <Cloud size={13} className={hasCloudId ? 'text-[var(--cordel-status-success)] shrink-0' : 'text-[var(--cordel-accent-readable)] shrink-0'} />
           <span className="truncate">{metadata?.toada || preset || (lang === 'fr' ? 'Nouveau morceau' : 'Nova música')}</span>
         </button>
       </div>
@@ -76,9 +66,6 @@ export const HeaderMobileBar: React.FC<HeaderMobileBarProps> = ({
         onMobileTabToggle={props.onMobileTabToggle}
         isEditorOpen={isEditorOpen}
       />
-      {isSwingModalOpen && (
-        <GlobalSwingModal globalSwing={globalSwing} setGlobalSwing={setGlobalSwing} onClose={() => setIsSwingModalOpen(false)} lang={lang} />
-      )}
     </div>
   );
 };
