@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Camera } from 'lucide-react';
 import { PhotoBoothReviewTimeline } from './PhotoBoothReviewTimeline';
 import { PhotoBoothControlsSidebar } from './PhotoBoothControlsSidebar';
 
@@ -21,26 +21,13 @@ interface PhotoBoothReviewSectionProps {
   onResetLocalOverride: () => void;
   onSignalNameChange: (name: string) => void;
   onSaveSignal: () => void;
+  onBackToNewCapture?: () => void;
 }
 
 export const PhotoBoothReviewSection: React.FC<PhotoBoothReviewSectionProps> = ({
-  frames,
-  selectedFrameIndex,
-  bpm,
-  lang,
-  overrideMode,
-  frameOverrides,
-  activeInspectorOptions,
-  isReprocessing,
-  signalName,
-  editingSignalId,
-  onSelectFrame,
-  onBpmChange,
-  setOverrideMode,
-  onUpdateOption,
-  onResetLocalOverride,
-  onSignalNameChange,
-  onSaveSignal,
+  frames, selectedFrameIndex, bpm, lang, overrideMode, frameOverrides, activeInspectorOptions,
+  isReprocessing, signalName, editingSignalId, onSelectFrame, onBpmChange, setOverrideMode,
+  onUpdateOption, onResetLocalOverride, onSignalNameChange, onSaveSignal, onBackToNewCapture,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [activePlayheadIndex, setActivePlayheadIndex] = useState(0);
@@ -58,7 +45,7 @@ export const PhotoBoothReviewSection: React.FC<PhotoBoothReviewSectionProps> = (
   }, [isPlaying, bpm, frames.length]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[var(--cordel-text)]">
       <PhotoBoothReviewTimeline
         frames={frames}
         selectedFrameIndex={selectedFrameIndex}
@@ -87,24 +74,32 @@ export const PhotoBoothReviewSection: React.FC<PhotoBoothReviewSectionProps> = (
           value={signalName}
           onChange={(e) => onSignalNameChange(e.target.value)}
           placeholder={lang === 'fr' ? 'Nom du geste...' : 'Nome do gesto...'}
-          className="bg-white border border-black px-2 py-1 text-xs font-bold"
+          className="bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border-strong)] px-2.5 py-1.5 text-xs font-bold"
         />
-        <button
-          type="button"
-          onClick={onSaveSignal}
-          className="py-2 bg-[#1b4332] text-white font-cactus font-bold text-sm border border-black shadow-[2px_2px_0px_#000] cursor-pointer flex items-center justify-center gap-1.5"
-        >
-          <Save size={14} />
-          <span>
-            {editingSignalId
-              ? lang === 'fr'
-                ? 'Mettre à jour le signal'
-                : 'Atualizar sinal'
-              : lang === 'fr'
-              ? 'Enregistrer le signal'
-              : 'Salvar o sinal'}
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onBackToNewCapture && (
+            <button
+              type="button"
+              onClick={onBackToNewCapture}
+              className="px-3 py-2 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] font-cactus font-bold text-xs uppercase border-2 border-[var(--cordel-border-strong)] cursor-pointer flex items-center gap-1.5 transition-colors"
+            >
+              <Camera size={13} />
+              <span>{lang === 'fr' ? 'Reprendre' : 'Recapturar'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onSaveSignal}
+            className="flex-1 py-2 bg-[var(--cordel-status-success)] hover:opacity-90 text-[var(--cordel-on-accent)] font-cactus font-bold text-sm border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer flex items-center justify-center gap-1.5 transition-opacity"
+          >
+            <Save size={14} />
+            <span>
+              {editingSignalId
+                ? (lang === 'fr' ? 'Mettre à jour le signal' : 'Atualizar sinal')
+                : (lang === 'fr' ? 'Enregistrer le signal' : 'Salvar o sinal')}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

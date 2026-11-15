@@ -27,7 +27,7 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
       <div className="border-2 border-[var(--cordel-border)] rounded-[3px_6px_4px_8px] p-4 bg-[var(--cordel-surface)] text-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-shadow-color)] flex flex-col gap-3">
         <h3 className="font-cactus font-bold text-sm uppercase text-[var(--cordel-text)] flex items-center gap-2 border-b border-[var(--cordel-border)]/35 pb-1.5">
           <BookOpen size={15} className="text-[var(--cordel-accent-readable)] shrink-0" />
-          <span>{lang === 'fr' ? "Mode d'Emploi de l'Atelier" : 'Manual da Oficina'}</span>
+          <span>{lang === 'fr' ? "MANUEL COMPLET DE L'APPLICATION" : 'MANUAL COMPLETO DO APLICATIVO'}</span>
         </h3>
         <p className="text-[11px] text-[var(--cordel-text-muted)] font-semibold">
           {lang === 'fr'
@@ -40,7 +40,7 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
           onClick={() => window.open('/tutorial.html', '_blank')}
           className="w-full px-4 py-2.5 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold text-xs uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors text-center"
         >
-          {lang === 'fr' ? "Ouvrir le Mode d'Emploi" : 'Abrir o Manual'}
+          {lang === 'fr' ? 'OUVRIR LE MANUEL COMPLET' : 'ABRIR O MANUAL COMPLETO'}
         </button>
       </div>
 

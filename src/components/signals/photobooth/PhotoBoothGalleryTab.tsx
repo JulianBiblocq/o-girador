@@ -1,11 +1,11 @@
 import React from 'react';
 import { FolderOpen } from 'lucide-react';
 import { MobileMestreSignalGallery } from '../../mobile/editor/MobileMestreSignalGallery';
-import { CloudRhythmSignal } from '../../../types';
+import { GallerySignalItem } from '../../mobile/editor/MobileMestreSignalCard';
 import { CordelOptions } from '../../../utils/cordelEffect';
 
 interface Props {
-  onPickSignal: (sig: CloudRhythmSignal) => void;
+  onPickSignal: (sig: GallerySignalItem) => void;
   onCopyStyle: (opts: Partial<CordelOptions>) => void;
   onOpenBatch: () => void;
   selectedSignalId: string | null;
@@ -20,18 +20,18 @@ export const PhotoBoothGalleryTab: React.FC<Props> = ({
   lang,
 }) => {
   return (
-    <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
-      <div className="flex justify-between items-center">
-        <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a]">
-          {lang === 'fr' ? 'Signes enregistrés' : 'Sinais salvos'}
+    <div className="flex flex-col gap-2.5 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="flex flex-wrap justify-between items-center gap-2 p-2 bg-[var(--cordel-surface)] border border-[var(--cordel-border)]">
+        <span className="font-cactus font-bold text-xs uppercase text-[var(--cordel-accent-readable)]">
+          {lang === 'fr' ? 'Signes enregistrés (Locaux & Cloud)' : 'Sinais salvos (Locais & Cloud)'}
         </span>
         <button
           type="button"
           onClick={onOpenBatch}
-          className="px-2 py-1 bg-white border border-black font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer hover:bg-black hover:text-white"
+          className="px-2.5 py-1 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold text-[11px] uppercase flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0_var(--cordel-shadow-color)] transition-colors"
         >
-          <FolderOpen size={12} />
-          <span>{lang === 'fr' ? 'Importer un lot' : 'Importar lote'}</span>
+          <FolderOpen size={13} />
+          <span>{lang === 'fr' ? 'Importer par lot' : 'Importar em lote'}</span>
         </button>
       </div>
       <MobileMestreSignalGallery

@@ -4,7 +4,6 @@ import { CordelOptions } from '../../../utils/cordelEffect';
 import { MobileSignalLightAccordion } from '../../mobile/editor/MobileSignalLightAccordion';
 import { MobileSignalFramingAccordion } from '../../mobile/editor/MobileSignalFramingAccordion';
 import { PhotoLabPresetsBar } from '../../mobile/editor/PhotoLabPresetsBar';
-import { tMobile } from '../../../i18n/mobileTranslations';
 
 interface PhotoBoothControlsSidebarProps {
   overrideMode: 'global' | 'local';
@@ -32,28 +31,28 @@ export const PhotoBoothControlsSidebar: React.FC<PhotoBoothControlsSidebarProps>
   const [openSection, setOpenSection] = useState<'light' | 'framing' | null>('light');
 
   return (
-    <div className="flex flex-col gap-2 bg-[#eaddcf]/50 p-2.5 border border-black/15 rounded-sm text-xs">
-      {/* En-tête */}
-      <div className="flex items-center justify-between border-b border-black/15 pb-1">
-        <span className="font-cactus font-bold uppercase text-xs flex items-center gap-1.5 text-[#8b2a1a]">
+    <div className="flex flex-col gap-2 bg-[var(--cordel-surface)] text-[var(--cordel-text)] p-2.5 border border-[var(--cordel-border)] rounded-sm text-xs">
+      <div className="flex items-center justify-between border-b border-[var(--cordel-border)]/35 pb-1">
+        <span className="font-cactus font-bold uppercase text-xs flex items-center gap-1.5 text-[var(--cordel-accent-readable)]">
           <Sliders size={13} />
           <span>{lang === 'fr' ? 'Réglages Gravure' : 'Ajustes Gravura'}</span>
         </span>
         {isReprocessing && (
-          <span className="text-[10px] text-[#8b2a1a] font-bold flex items-center gap-1 animate-pulse">
+          <span className="text-[10px] text-[var(--cordel-accent-readable)] font-bold flex items-center gap-1 animate-pulse">
             <Loader2 size={11} className="animate-spin" />
             <span>...</span>
           </span>
         )}
       </div>
 
-      {/* Bascule Global / Trame locale */}
       <div className="flex gap-1">
         <button
           type="button"
           onClick={() => setOverrideMode('global')}
-          className={`flex-1 py-1 font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 ${
-            overrideMode === 'global' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white text-black hover:bg-black/5'
+          className={`flex-1 py-1 font-cactus font-bold text-[10px] uppercase border border-[var(--cordel-border-strong)] cursor-pointer shadow-[1px_1px_0px_var(--cordel-shadow-color)] flex items-center justify-center gap-1 transition-colors ${
+            overrideMode === 'global'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+              : 'bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:border-[var(--cordel-accent-readable)]'
           }`}
         >
           <Globe size={11} />
@@ -62,8 +61,10 @@ export const PhotoBoothControlsSidebar: React.FC<PhotoBoothControlsSidebarProps>
         <button
           type="button"
           onClick={() => setOverrideMode('local')}
-          className={`flex-1 py-1 font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 ${
-            overrideMode === 'local' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-white text-black hover:bg-black/5'
+          className={`flex-1 py-1 font-cactus font-bold text-[10px] uppercase border border-[var(--cordel-border-strong)] cursor-pointer shadow-[1px_1px_0px_var(--cordel-shadow-color)] flex items-center justify-center gap-1 transition-colors ${
+            overrideMode === 'local'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+              : 'bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:border-[var(--cordel-accent-readable)]'
           }`}
         >
           <Target size={11} />
@@ -75,14 +76,13 @@ export const PhotoBoothControlsSidebar: React.FC<PhotoBoothControlsSidebarProps>
         <button
           type="button"
           onClick={onResetLocalOverride}
-          className="w-full py-0.5 bg-white border border-black text-[9px] font-bold hover:bg-[#8b2a1a] hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1"
+          className="w-full py-0.5 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border border-[var(--cordel-border-strong)] text-[9px] font-bold hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] transition-colors cursor-pointer flex items-center justify-center gap-1"
         >
           <RotateCcw size={10} />
           <span>{lang === 'fr' ? 'Réaligner sur les réglages globaux' : 'Reverter para global'}</span>
         </button>
       )}
 
-      {/* Accordéons complets haute qualité */}
       <div className="flex flex-col gap-1.5">
         <PhotoLabPresetsBar
           currentOptions={options}
@@ -107,4 +107,3 @@ export const PhotoBoothControlsSidebar: React.FC<PhotoBoothControlsSidebarProps>
     </div>
   );
 };
-

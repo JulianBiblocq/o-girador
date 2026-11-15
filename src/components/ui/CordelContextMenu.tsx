@@ -56,7 +56,7 @@ export const CordelContextMenu: React.FC<CordelContextMenuProps> = ({
       ref={menuRef}
       role="menu"
       aria-label={title || (lang === 'fr' ? 'Menu contextuel Cordel' : 'Menu contextual Cordel')}
-      className="fixed z-[999999] bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0px_var(--cordel-shadow-color)] rounded-sm py-1.5 select-none text-xs font-bold text-[var(--cordel-text)] animate-in fade-in zoom-in-95 duration-100"
+      className="fixed z-[999999] bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0px_var(--cordel-shadow-color)] rounded-sm py-1.5 select-none text-xs font-bold text-[var(--cordel-text)] animate-in fade-in zoom-in-95 duration-100"
       style={{ left: `${adjustedX}px`, top: `${adjustedY}px`, minWidth: `${menuWidth}px` }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}

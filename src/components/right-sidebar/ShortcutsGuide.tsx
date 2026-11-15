@@ -67,18 +67,26 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
 
   return (
     <div className="flex flex-col gap-y-2 pr-1 flex-grow overflow-hidden min-h-0">
-      <div className="flex items-center gap-1.5 p-1 bg-[#ece4d0] cordel-border-sm shrink-0 select-none">
+      <div className="flex items-center gap-1.5 p-1 bg-[var(--cordel-surface-elevated)] border-2 border-[var(--cordel-border)] shrink-0 select-none">
         <button
           type="button"
           onClick={() => setActiveTab('strokes')}
-          className={`flex-1 py-1.5 px-2 rounded-xs font-cactus font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${activeTab === 'strokes' ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]' : 'bg-transparent text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
+          className={`flex-1 py-1.5 px-2 rounded-xs font-cactus font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${
+            activeTab === 'strokes'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[1px_1px_0px_var(--cordel-shadow-color)]'
+              : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-surface)]'
+          }`}
         >
           {t('legendTabStrokes')}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('shortcuts')}
-          className={`flex-1 py-1.5 px-2 rounded-xs font-cactus font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${activeTab === 'shortcuts' ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]' : 'bg-transparent text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
+          className={`flex-1 py-1.5 px-2 rounded-xs font-cactus font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${
+            activeTab === 'shortcuts'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[1px_1px_0px_var(--cordel-shadow-color)]'
+              : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-surface)]'
+          }`}
         >
           {t('legendTabShortcuts')}
         </button>

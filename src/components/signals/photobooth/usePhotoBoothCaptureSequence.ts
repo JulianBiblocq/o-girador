@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 
 export function usePhotoBoothCaptureSequence(
   bpm: number,
@@ -31,17 +31,17 @@ export function usePhotoBoothCaptureSequence(
     return id;
   };
 
-  const clearAllTimers = () => {
+  const clearAllTimers = useCallback(() => {
     activeTimersRef.current.forEach((id) => {
       clearTimeout(id);
       clearInterval(id);
     });
     activeTimersRef.current.clear();
-  };
+  }, []);
 
   useEffect(() => {
     return () => clearAllTimers();
-  }, []);
+  }, [clearAllTimers]);
 
   const runBeatCountdown = (stepIndex: number) => {
     setPhase('beat_countdown');

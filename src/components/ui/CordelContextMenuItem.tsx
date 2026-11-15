@@ -21,7 +21,7 @@ export const CordelContextMenuItem: React.FC<CordelContextMenuItemProps> = ({
   onClose,
 }) => {
   if (item.isSeparator) {
-    return <div key={`sep-${index}`} className="my-1 border-t border-[#1a1a1a]/15" />;
+    return <div key={`sep-${index}`} className="my-1 border-t border-[var(--cordel-border)]/35" />;
   }
 
   const itemId = item.id || `item-${index}`;
@@ -32,7 +32,7 @@ export const CordelContextMenuItem: React.FC<CordelContextMenuItemProps> = ({
     return (
       <div
         key={itemId}
-        className="px-3 py-1.5 text-[11px] text-[#1a1a1a]/40 italic flex items-center justify-between cursor-not-allowed bg-transparent"
+        className="px-3 py-1.5 text-[11px] text-[var(--cordel-text-muted)]/55 italic flex items-center justify-between cursor-not-allowed bg-transparent"
         title={item.disabledReason}
       >
         <div className="flex items-center gap-2 truncate">
@@ -40,7 +40,7 @@ export const CordelContextMenuItem: React.FC<CordelContextMenuItemProps> = ({
           <span className="truncate">{item.label}</span>
         </div>
         {item.disabledReason && (
-          <span className="text-[9px] text-[#8b2a1a]/60 ml-2 font-mono">({item.disabledReason})</span>
+          <span className="text-[9px] text-[var(--cordel-accent-readable)]/75 ml-2 font-mono">({item.disabledReason})</span>
         )}
       </div>
     );
@@ -67,10 +67,10 @@ export const CordelContextMenuItem: React.FC<CordelContextMenuItemProps> = ({
         }}
         className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 transition-colors cursor-pointer ${
           item.isDestructive
-            ? 'hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#8b2a1a]'
+            ? 'text-[var(--cordel-status-danger)] hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)]'
             : isSubMenuOpen
-            ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-            : 'hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#1a1a1a]'
+            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+            : 'text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'
         }`}
       >
         <div className="flex items-center gap-2 truncate">

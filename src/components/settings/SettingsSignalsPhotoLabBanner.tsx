@@ -36,7 +36,7 @@ export const SettingsSignalsPhotoLabBanner: React.FC<SettingsSignalsPhotoLabBann
     setIsSaving(true);
     try {
       if (signalData.id) {
-        await refreshMestreSignals?.();
+        if (!signalData.isLocalSignal) await refreshMestreSignals?.();
         notifyToast(isPt ? 'Sinal atualizado!' : 'Signal mis à jour !', 'success');
         return;
       }
@@ -104,7 +104,7 @@ export const SettingsSignalsPhotoLabBanner: React.FC<SettingsSignalsPhotoLabBann
       <MusicalPhotoBoothModal
         isOpen={isLabOpen}
         onClose={() => setIsLabOpen(false)}
-        onSave={(sig) => { void handleSaveFromLab(sig); }}
+        onSave={(sig) => handleSaveFromLab(sig)}
         initialBpm={bpm}
         initialTab={labTab}
         lang={lang}
