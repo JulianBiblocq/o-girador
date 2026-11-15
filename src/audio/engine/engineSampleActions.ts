@@ -1,5 +1,5 @@
 /**
- * O Girador - Audio Engine Sample Loader Actions & Facade
+ * O Girador - Audio Engine Sample Loader Actions & Facade (< 65 lignes)
  */
 
 import { InstrumentAudioConfig } from '../../data/audioConfig';
@@ -51,8 +51,12 @@ export class EngineSampleActions {
     activeInstruments: ActiveInstrumentData[]
   ): Promise<void> {
     return EngineMemorySync.syncActiveInstrumentsMemory(
-      audioContext, configMap, loader.bufferPool,
-      (ctx, p) => loader.loadPath(ctx, p), activeInstruments
+      audioContext,
+      configMap,
+      loader.bufferPool,
+      (ctx, p) => loader.loadPath(ctx, p),
+      activeInstruments,
+      (evicted) => loader.onSamplesEvicted?.(evicted)
     );
   }
 }

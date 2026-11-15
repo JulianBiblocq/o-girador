@@ -44,14 +44,13 @@ export function useTouchStrokeGestures({
     };
 
     const handleRelease = () => {
-      if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
-        const isLoaded = hoveredStrokeRef.current === '0' || (audioEngine && audioEngine.isStrokeLoaded(inst.id, hoveredStrokeRef.current));
-        if (isLoaded) {
-          selector.onSelect(hoveredStrokeRef.current);
-          onClose();
-        } else {
-          setIsSticky(true);
+      const targetVal = hoveredStrokeRef.current;
+      if (targetVal !== null && targetVal !== String(selector.currentVal)) {
+        if (targetVal !== '0' && audioEngine && !audioEngine.isStrokeLoaded(inst.id, targetVal)) {
+          void audioEngine.loadStrokeSamples(inst.id, targetVal).catch(() => {});
         }
+        selector.onSelect(targetVal);
+        onClose();
       } else {
         setIsSticky(true);
       }

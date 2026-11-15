@@ -1,7 +1,6 @@
 import React from 'react';
 import type { InstrumentConfig } from '../../types';
 import { isDarkText, getVisualStrokeSymbol } from '../../data';
-import { audioEngine } from '../../hooks/useAudioSync';
 
 interface StepEditorStrokeGridProps {
   choicesToShow: (string | number)[];
@@ -23,7 +22,6 @@ export const StepEditorStrokeGrid: React.FC<StepEditorStrokeGridProps> = ({
   isSplitMode,
   liveCurrentVal,
   editingHalf,
-  loadingStroke,
   inst,
   isLeftHanded,
   allowedStrokesCount,
@@ -39,65 +37,54 @@ export const StepEditorStrokeGrid: React.FC<StepEditorStrokeGridProps> = ({
   return (
     <div className="grid grid-cols-3 gap-1">
       {choicesToShow.map((stroke) => {
-        let isSelected = false;
-        if (isSplitMode) {
-          const currentHalfVal = Array.isArray(liveCurrentVal) ? liveCurrentVal[editingHalf] : liveCurrentVal;
-          isSelected = String(currentHalfVal) === String(stroke);
-        } else {
-          isSelected = String(liveCurrentVal) === String(stroke);
-        }
-        const isLoaded = inst && audioEngine ? audioEngine.isStrokeLoaded(inst.id, String(stroke)) : true;
-        const isStrokeLoading = loadingStroke === String(stroke);
+        const currentHalfVal = isSplitMode && Array.isArray(liveCurrentVal) ? liveCurrentVal[editingHalf] : liveCurrentVal;
+        const isSelected = String(currentHalfVal) === String(stroke);
 
         let bgColor = 'transparent';
-        let textColor = '#000';
-
+        let textColor = 'var(--cordel-text)';
         if (inst) {
           const visualStroke = getVisualStrokeSymbol(stroke, isLeftHanded, inst.id);
-          bgColor = inst.colors[visualStroke as string] || '#111';
-          textColor = inst.colors.text || '#fff';
+          bgColor = inst.colors[visualStroke as string] || 'var(--cordel-ink-dark)';
+          textColor = inst.colors.text || 'var(--cordel-on-accent)';
           if (isDarkText(inst.id, String(visualStroke))) {
-            textColor = '#1a1a1a';
+            textColor = 'var(--cordel-ink-dark)';
           }
         }
 
         return (
           <button
             key={stroke}
+            type="button"
             onClick={() => onSelectStroke(stroke)}
             className={`h-8 font-black text-xs border flex items-center justify-center cursor-pointer transition-all ${
               isSelected
-                ? 'border-2 border-black scale-105 shadow-[1px_1px_2px_rgba(0,0,0,0.3)]'
-                : 'border-black/50 opacity-80 hover:opacity-100'
-            } ${!isLoaded ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''}`}
+                ? 'border-2 border-[var(--cordel-border-strong)] scale-105 shadow-[1px_1px_0px_var(--cordel-shadow-color)]'
+                : 'border-[var(--cordel-border)] opacity-85 hover:opacity-100'
+            }`}
             style={{ backgroundColor: bgColor, color: textColor }}
           >
-            {isStrokeLoading ? (
-              <span className="animate-spin text-[10px]"></span>
-            ) : inst ? (
-              getVisualStrokeSymbol(stroke, isLeftHanded, inst.id)
-            ) : (
-              stroke
-            )}
+            {inst ? getVisualStrokeSymbol(stroke, isLeftHanded, inst.id) : stroke}
           </button>
         );
       })}
 
       {allowedStrokesCount > choicesToShow.length && !isExpanded && (
         <button
+          type="button"
           onClick={onExpand}
-          className="col-span-3 h-8 font-cactus font-black text-xs border-2 border-black bg-[#f4ecd8] text-black shadow-[2px_2px_0px_#000] hover:bg-black hover:text-[#f4ecd8] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer flex items-center justify-center select-none"
+          className="col-span-3 h-8 font-cactus font-black text-xs border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] transition-all cursor-pointer flex items-center justify-center select-none"
         >
           + {lang === 'fr' ? 'Déplier' : 'Desdobrar'}
         </button>
       )}
 
       <button
+        type="button"
         onClick={() => onSelectStroke(0)}
-        className={`col-span-3 h-8 font-black text-[10px] border border-black uppercase flex items-center justify-center cursor-pointer transition-colors ${
+        className={`col-span-3 h-8 font-black text-[10px] border border-[var(--cordel-border-strong)] uppercase flex items-center justify-center cursor-pointer transition-colors ${
           isSilenceSelected
-            ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-            : 'bg-transparent text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
+            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+            : 'bg-transparent text-[var(--cordel-accent-readable)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'
         }`}
         title={lang === 'fr' ? 'Vider la case (Silence)' : 'Limpar o passo (Pausa)'}
       >

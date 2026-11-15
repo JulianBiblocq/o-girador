@@ -1,5 +1,7 @@
 import * as Tone from 'tone';
 import { audioEngine } from '../useAudioSync';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 import { PresetTimingCalculation } from './cloudPresetTimingCalculator';
 
 export async function recordPresetLive(
@@ -21,7 +23,7 @@ export async function recordPresetLive(
   if (rawCtx?.state !== 'running') { try { await rawCtx.resume(); } catch (_) {} }
   if (Tone.context?.state !== 'running') { try { await Tone.context.resume(); } catch (_) {} }
   if (Tone.start) { try { await Tone.start(); } catch (_) {} }
-  if (audioEngine && audioEngine.bufferPool.size === 0) { try { await audioEngine.loadAllSamples(); } catch (_) {} }
+  if (audioEngine) { try { await audioEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(useSequencerStore.getState().tracks)); } catch (_) {} }
   if (Tone.loaded) { try { await Tone.loaded(); } catch (_) {} }
 
   try {

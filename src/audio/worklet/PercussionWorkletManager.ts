@@ -29,6 +29,7 @@ export class PercussionWorkletManager {
   public get isReady(): boolean { return this._isReady && this.workletNode !== null; }
   public hasWorkletSlot(trackId: number | string): boolean { return this.slotRouter.hasWorkletSlot(trackId); }
   public registerSampleBuffer(path: string, audioBuffer: AudioBuffer): number { return this.sampleBridge.registerSampleBuffer(path, audioBuffer); }
+  public unregisterSampleBuffers(paths: Iterable<string>): number[] { return this.sampleBridge.unregisterSampleBuffers(paths); }
   public syncTracks(tracks: TrackGroup[]): void { this.trackSync.syncTracks(this.workletNode?.port ?? null, tracks, this.slotRouter, this.configMap); }
 
   public init(
