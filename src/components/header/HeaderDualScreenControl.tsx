@@ -98,8 +98,12 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
         <Columns2 size={15} className="shrink-0" />
         <span className="hidden 2xl:inline">
           {isSatelliteOpen
-            ? (satelliteMode === 'mixer' ? '2 · Mix' : satelliteMode === 'editor' ? '2 · Édit' : '2 · Oficina')
-            : '2 Écrans'}
+            ? (satelliteMode === 'mixer'
+                ? '2 · Mix'
+                : satelliteMode === 'editor'
+                  ? (isPt ? '2 · Ediç.' : '2 · Édit')
+                  : '2 · Oficina')
+            : (isPt ? '2 TELAS' : '2 ÉCRANS')}
         </span>
       </button>
 

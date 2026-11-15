@@ -43,25 +43,25 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
           </a>
         </div>
 
-        <nav aria-label={isFr ? "Écosystème O-Girador" : "Ecossistema O-Girador"} className="flex items-center justify-center gap-3 sm:gap-4 md:gap-5">
+        <nav aria-label={isFr ? "Écosystème O Girador" : "Ecossistema O Girador"} className="flex items-center justify-center gap-3 sm:gap-4 md:gap-5">
           <a
             href={getEcosystemUrl('orquestrador')}
             onClick={onLaunchOrquestrador}
             target="_blank"
             rel="noopener noreferrer"
-            title={isFr ? "Orquestrad'Or — Hub" : "Orquestrad'Or — Hub central"}
+            title={isFr ? "Orquestrador — Hub" : "Orquestrador — Hub central"}
             className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] flex items-center justify-center hover:scale-105 cursor-pointer"
           >
-            <img src="/ecosystem/orquestrador.png" alt="O Orquestrad'Or" className="w-full h-full object-cover block select-none pointer-events-none" />
+            <img src="/ecosystem/orquestrador.png" alt="Orquestrador" className="w-full h-full object-cover block select-none pointer-events-none" />
           </a>
 
           <button
             type="button"
             onClick={onCurrentAppClick}
-            title={isFr ? "Séquenciad'Or (Actuel)" : "Séquenciad'Or (Atual)"}
+            title={isFr ? "Sequenciador (Actuel)" : "Sequenciador (Atual)"}
             className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#8b2a1a] ring-2 ring-[#8b2a1a] bg-[#f4ecd8] flex items-center justify-center cursor-default"
           >
-            <img src="/ecosystem/sequenciador.png" alt="O Séquenciad'Or" className="w-full h-full object-cover block select-none pointer-events-none" />
+            <img src="/ecosystem/sequenciador.png" alt="Sequenciador" className="w-full h-full object-cover block select-none pointer-events-none" />
           </button>
 
           <a
@@ -69,10 +69,10 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
             onClick={onLaunchOrganizador}
             target="_blank"
             rel="noopener noreferrer"
-            title={isFr ? "Organizad'Or — Gestion d'association" : "Organizad'Or — Gestão do grupo"}
+            title={isFr ? "Organizador — Gestion d'association" : "Organizador — Gestão do grupo"}
             className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] flex items-center justify-center hover:scale-105 cursor-pointer"
           >
-            <img src="/ecosystem/organizador.png" alt="O Organizad'Or" className="w-full h-full object-cover block select-none pointer-events-none" />
+            <img src="/ecosystem/organizador.png" alt="Organizador" className="w-full h-full object-cover block select-none pointer-events-none" />
           </a>
 
           <a
@@ -80,10 +80,10 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
             onClick={onLaunchDancador}
             target="_blank"
             rel="noopener noreferrer"
-            title={isFr ? "Dançad'Or — Chorégraphie" : "Dançad'Or — Coreografia"}
+            title={isFr ? "Dançador — Chorégraphie" : "Dançador — Coreografia"}
             className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] flex items-center justify-center hover:scale-105 cursor-pointer"
           >
-            <img src="/ecosystem/dancador.png" alt="O Dançador" className="w-full h-full object-cover block select-none pointer-events-none" />
+            <img src="/ecosystem/dancador.png" alt="Dançador" className="w-full h-full object-cover block select-none pointer-events-none" />
           </a>
 
           <a
@@ -91,10 +91,10 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({
             onClick={onLaunchMostrador}
             target="_blank"
             rel="noopener noreferrer"
-            title={isFr ? "Mostrad'Or — Carte & Vitrine" : "Mostrad'Or — Mapa & Vitrine"}
+            title={isFr ? "Mostrador — Carte & Vitrine" : "Mostrador — Mapa & Vitrine"}
             className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-[#1a1a1a] shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] flex items-center justify-center hover:scale-105 cursor-pointer"
           >
-            <img src="/ecosystem/mostrador.png" alt="O Mostrad'Or" className="w-full h-full object-cover block select-none pointer-events-none" />
+            <img src="/ecosystem/mostrador.png" alt="Mostrador" className="w-full h-full object-cover block select-none pointer-events-none" />
           </a>
         </nav>
 

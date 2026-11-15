@@ -78,7 +78,9 @@ export const WizardInstrumentsRack: React.FC<WizardInstrumentsRackProps> = ({
                     {displayLabel}
                   </span>
                   <span className="hidden md:inline text-[8px] text-[var(--cordel-text-muted)] leading-none mt-0.5">
-                    {inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique' ? 'Alfaia' : 'Percussion'}
+                    {inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique'
+                      ? 'Alfaia'
+                      : wizardLang === 'pt' ? 'Percussão' : 'Percussion'}
                   </span>
                 </div>
               </div>

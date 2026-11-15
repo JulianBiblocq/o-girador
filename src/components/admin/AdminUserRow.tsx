@@ -8,6 +8,7 @@ interface AdminUserRowProps {
   mestres: UserProfile[];
   groupLabel: string;
   colorScheme: 'light' | 'dark';
+  lang: 'pt' | 'fr';
   onRoleChange: (uid: string, newRole: UserRole) => void;
   onMestreChange: (uid: string, newMestreId: string) => void;
   onMaxElevesChange: (uid: string, maxEleves: number) => void;
@@ -20,12 +21,15 @@ export const AdminUserRow: React.FC<AdminUserRowProps> = ({
   mestres,
   groupLabel,
   colorScheme,
+  lang,
   onRoleChange,
   onMestreChange,
   onMaxElevesChange,
 }) => {
-  const resolvedName = resolveAdminUserName(user);
-  const dateStr = formatAdminDate(user.createdAt ?? user.dateInscription);
+  const isPt = lang === 'pt';
+  const fallbackName = isPt ? 'Usuário' : 'Utilisateur';
+  const resolvedName = resolveAdminUserName(user, fallbackName);
+  const dateStr = formatAdminDate(user.createdAt ?? user.dateInscription, isPt ? 'pt-BR' : 'fr-FR');
   const selectBaseCls =
     'px-2.5 py-1.5 border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] [color-scheme:light] dark:[color-scheme:dark] cursor-pointer text-xs font-bold focus:outline-none focus:border-[var(--cordel-accent-readable)]';
 
@@ -61,9 +65,9 @@ export const AdminUserRow: React.FC<AdminUserRowProps> = ({
               : ''
           }`}
         >
-          <option value="visiteur" className={OPTION_CLS}>Visiteur</option>
-          <option value="eleve" className={OPTION_CLS}>Élève</option>
-          <option value="membre" className={OPTION_CLS}>Membre</option>
+          <option value="visiteur" className={OPTION_CLS}>{isPt ? 'Visitante' : 'Visiteur'}</option>
+          <option value="eleve" className={OPTION_CLS}>{isPt ? 'Aluno' : 'Élève'}</option>
+          <option value="membre" className={OPTION_CLS}>{isPt ? 'Membro' : 'Membre'}</option>
           <option value="mestre" className={OPTION_CLS}>Mestre</option>
           <option value="admin" className={OPTION_CLS}>Admin</option>
         </select>
@@ -84,12 +88,14 @@ export const AdminUserRow: React.FC<AdminUserRowProps> = ({
               style={{ colorScheme }}
               onChange={(e) => onMestreChange(user.uid, e.target.value)}
               className={selectBaseCls}
-              title="Mestre attitré"
+              title={isPt ? 'Mestre titular' : 'Mestre attitré'}
             >
-              <option value="none" className={OPTION_CLS}>-- Mestre : Aucun --</option>
+              <option value="none" className={OPTION_CLS}>
+                {isPt ? '-- Mestre: Nenhum --' : '-- Mestre : Aucun --'}
+              </option>
               {mestres.map((m) => (
                 <option key={m.uid} value={m.uid} className={OPTION_CLS}>
-                  {resolveAdminUserName(m)}
+                  {resolveAdminUserName(m, fallbackName)}
                 </option>
               ))}
             </select>
@@ -97,14 +103,14 @@ export const AdminUserRow: React.FC<AdminUserRowProps> = ({
 
           {user.role === 'mestre' && (
             <label className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--cordel-text-muted)]">
-              <span>Max Élèves :</span>
+              <span>{isPt ? 'Máx. Alunos:' : 'Max Élèves :'}</span>
               <input
                 type="number"
                 min="0"
                 value={user.maxEleves || 0}
                 onChange={(e) => onMaxElevesChange(user.uid, parseInt(e.target.value, 10) || 0)}
                 className="w-16 px-2 py-1 border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] text-xs font-bold focus:outline-none focus:border-[var(--cordel-accent-readable)]"
-                title="0 = illimité"
+                title={isPt ? '0 = ilimitado' : '0 = illimité'}
               />
             </label>
           )}

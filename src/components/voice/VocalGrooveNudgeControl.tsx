@@ -54,19 +54,19 @@ export const VocalGrooveNudgeControl: React.FC<VocalGrooveNudgeControlProps> = (
     : `0 ms (${lang === 'fr' ? 'Neutre' : 'Neutro'})`;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[#ece4d0]/30 border border-[#1a1a1a]/15 rounded select-none text-[11px]">
+    <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-[var(--cordel-parchment-surface)]/30 border border-[var(--cordel-ink-dark)]/15 rounded select-none text-[11px]">
       <div className="flex items-center gap-2">
-        <span className="font-bold text-[#8b2a1a] flex items-center gap-1">
-          <Clock size={12} className="text-[#8b2a1a]" />
-          <span>{lang === 'fr' ? 'Calage Groove :' : 'Ajuste Groove :'}</span>
+        <span className="font-bold text-[var(--cordel-accent-readable)] flex items-center gap-1">
+          <Clock size={12} className="text-[var(--cordel-accent-readable)]" />
+          <span>{lang === 'fr' ? 'Calage Balanço :' : 'Ajuste Balanço :'}</span>
         </span>
-        <span className="font-mono font-bold text-[#1a1a1a] bg-[#f4ecd8] px-2 py-0.5 rounded border border-[#1a1a1a]/20 shadow-inner">
+        <span className="font-mono font-bold text-[var(--cordel-ink-dark)] bg-[var(--cordel-parchment-bg)] px-2 py-0.5 rounded border border-[var(--cordel-ink-dark)]/20 shadow-inner">
           {statusText}
         </span>
       </div>
 
       <div className="flex items-center gap-1.5 flex-1 min-w-[140px] max-w-xs">
-        <span className="text-[9px] text-[#777] font-mono">-200ms</span>
+        <span className="text-[9px] text-[var(--cordel-text-muted)] font-mono">-200ms</span>
         <input
           type="range"
           min={-200}
@@ -74,10 +74,11 @@ export const VocalGrooveNudgeControl: React.FC<VocalGrooveNudgeControlProps> = (
           step={1}
           value={nudgeMs}
           onChange={(e) => updateNudge(Number(e.target.value))}
-          className="flex-1 accent-[#8b2a1a] cursor-pointer h-1.5 bg-[#1a1a1a]/15 rounded"
-          title={`${lang === 'fr' ? 'Décalage fin' : 'Ajuste fino'} (${nudgeMs} ms)`}
+          className="flex-1 accent-[var(--cordel-wood)] cursor-pointer h-1.5 bg-[var(--cordel-ink-dark)]/15 rounded"
+          title={`${lang === 'fr' ? 'Décalage fin du Balanço' : 'Ajuste fino do Balanço'} (${nudgeMs} ms)`}
+          aria-label={`${lang === 'fr' ? 'Décalage fin du Balanço' : 'Ajuste fino do Balanço'} (${nudgeMs} ms)`}
         />
-        <span className="text-[9px] text-[#777] font-mono">+200ms</span>
+        <span className="text-[9px] text-[var(--cordel-text-muted)] font-mono">+200ms</span>
       </div>
 
       <div className="flex items-center gap-1">
@@ -86,7 +87,7 @@ export const VocalGrooveNudgeControl: React.FC<VocalGrooveNudgeControlProps> = (
             key={`nudge-btn-${delta}`}
             type="button"
             onClick={() => (delta === 0 ? updateNudge(0) : updateNudge(nudgeMs + delta))}
-            className="px-1.5 py-0.5 text-[9px] font-bold font-mono bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a]/25 rounded transition-colors cursor-pointer"
+            className="px-1.5 py-0.5 text-[9px] font-bold font-mono bg-[var(--cordel-parchment-bg)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] text-[var(--cordel-ink-dark)] border border-[var(--cordel-ink-dark)]/25 rounded transition-colors cursor-pointer"
           >
             {delta === 0 ? '0ms' : delta > 0 ? `+${delta}ms` : `${delta}ms`}
           </button>

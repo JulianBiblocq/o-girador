@@ -90,10 +90,10 @@ export function resolveOverlaySignalAndMarker(
           mirrorHorizontal: localSig.mirrorHorizontal,
         };
       } else if (sigId.includes('pictures/') || sigId.includes('Pictures/')) {
-        const isSam = sigId.includes('logo-samambaia');
+        const isLuanda = sigId.includes('sign-luanda') || sigId.includes('logo-samambaia');
         activeSig = {
-          name: isSam ? 'Signe Luanda' : 'Signe Trovão',
-          image: sigId.startsWith('/') ? sigId : `/${sigId.replace('pictures/', 'Pictures/')}`,
+          name: isLuanda ? 'Signe Luanda' : 'Signe Trovão',
+          image: isLuanda ? '/Pictures/sign-luanda.png' : (sigId.startsWith('/') ? sigId : `/${sigId.replace('pictures/', 'Pictures/')}`),
         };
       }
     }

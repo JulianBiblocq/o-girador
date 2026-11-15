@@ -17,3 +17,4 @@ o-girador-icones*
 scripts/export_icons.js
 codebase-*.txt
 .firebase/
+*.tsbuildinfo

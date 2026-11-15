@@ -3,22 +3,32 @@ import { collection, getDocs, getDoc, doc, updateDoc, query, limit } from 'fireb
 import { db } from '../../firebase/config';
 import { UserProfile, UserRole } from '../../contexts/AuthContext';
 import {
-  AdminRawUserDoc,
-  extractAdminGroupId,
-  normalizeAdminRole,
-  parseAdminTimestampMs,
-  resolveAdminGroupLabel,
-  resolveAdminUserName,
+  AdminRawUserDoc, extractAdminGroupId, normalizeAdminRole,
+  parseAdminTimestampMs, resolveAdminGroupLabel, resolveAdminUserName,
 } from './adminUserHelpers';
 
 export type AdminUserRecord = UserProfile & AdminRawUserDoc;
+
+export interface UseAdminUsersResult {
+  users: AdminUserRecord[];
+  loading: boolean;
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  filteredUsers: AdminUserRecord[];
+  mestres: AdminUserRecord[];
+  groupNamesById: Record<string, string>;
+  colorScheme: 'light' | 'dark';
+  handleRoleChange: (uid: string, newRole: UserRole) => Promise<void>;
+  handleMestreChange: (uid: string, newMestreId: string) => Promise<void>;
+  handleMaxElevesChange: (uid: string, maxEleves: number) => Promise<void>;
+}
 
 function readDocumentColorScheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'dark';
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
 
-export const useAdminUsers = () => {
+export const useAdminUsers = (): UseAdminUsersResult => {
   const [users, setUsers] = useState<AdminUserRecord[]>([]);
   const [groupNamesById, setGroupNamesById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -96,9 +106,7 @@ export const useAdminUsers = () => {
     try {
       await updateDoc(doc(db, 'users', uid), { role: newRole, dbRole: newRole });
       setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, role: newRole, dbRole: newRole } : u)));
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du rôle:', error);
-    }
+    } catch (error) { console.error('Erreur lors de la mise à jour du rôle:', error); }
   };
 
   const handleMestreChange = async (uid: string, newMestreId: string) => {
@@ -106,18 +114,14 @@ export const useAdminUsers = () => {
       const mestreIdVal = newMestreId === 'none' ? null : newMestreId;
       await updateDoc(doc(db, 'users', uid), { mestreId: mestreIdVal });
       setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, mestreId: mestreIdVal } : u)));
-    } catch (error) {
-      console.error("Erreur lors de l'association au Mestre:", error);
-    }
+    } catch (error) { console.error("Erreur lors de l'association au Mestre:", error); }
   };
 
   const handleMaxElevesChange = async (uid: string, maxEleves: number) => {
     try {
       await updateDoc(doc(db, 'users', uid), { maxEleves });
       setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, maxEleves } : u)));
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour de la limite d'élèves:", error);
-    }
+    } catch (error) { console.error("Erreur lors de la mise à jour de la limite d'élèves:", error); }
   };
 
   const mestres = useMemo(() => users.filter((u) => u.role === 'mestre'), [users]);

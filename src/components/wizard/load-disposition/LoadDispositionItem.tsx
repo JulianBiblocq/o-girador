@@ -22,9 +22,9 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
 }) => {
   const dateStr = preset.createdAt
     ? new Date(preset.createdAt).toLocaleDateString(
-        lang === 'fr' ? 'fr-FR' : 'pt-BR',
-        { day: 'numeric', month: 'short', year: 'numeric' }
-      )
+      lang === 'fr' ? 'fr-FR' : 'pt-BR',
+      { day: 'numeric', month: 'short', year: 'numeric' }
+    )
     : '';
   const summary = formatDispositionSummary(preset.instruments, lang);
 

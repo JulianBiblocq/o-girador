@@ -17,8 +17,8 @@ export interface AdminRawUserDoc extends Partial<UserProfile> {
   updatedAt?: unknown;
 }
 
-export function resolveAdminUserName(user: AdminRawUserDoc | null | undefined): string {
-  if (!user) return 'Utilisateur';
+export function resolveAdminUserName(user: AdminRawUserDoc | null | undefined, fallback = 'Utilisateur'): string {
+  if (!user) return fallback;
   const direct = user.displayName?.trim();
   if (direct) return direct;
 
@@ -34,7 +34,7 @@ export function resolveAdminUserName(user: AdminRawUserDoc | null | undefined): 
   const emailPrefix = user.email?.split('@')[0]?.trim();
   if (emailPrefix) return emailPrefix;
 
-  return 'Utilisateur';
+  return fallback;
 }
 
 export function parseAdminTimestampMs(raw: unknown): number {

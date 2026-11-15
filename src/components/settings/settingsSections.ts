@@ -25,11 +25,11 @@ export function getOficinaDomains(
   return [
     {
       id: 'son-groove',
-      label: isPt ? 'SOM & GROOVE' : 'SON & GROOVE',
-      shortLabel: isPt ? 'Som & Groove' : 'Son & Groove',
+      label: isPt ? 'SOM & BALANÇO' : 'SON & BALANÇO',
+      shortLabel: isPt ? 'Som & Balanço' : 'Son & Balanço',
       items: [
         { id: 'lutherie', title: isPt ? 'Lutheria & Peles' : 'Lutherie & Peaux' },
-        { id: 'groove', title: 'Balanço & Groove' },
+        { id: 'groove', title: 'Balanço' },
         { id: 'kit', title: isPt ? 'Kit & Metrônomo' : 'Kit & Métronome' },
       ],
     },

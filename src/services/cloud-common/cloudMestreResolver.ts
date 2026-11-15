@@ -4,27 +4,19 @@
 
 import { db } from '../../firebase/config';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
 export function isSamambaiaGroupHelper(
   userUid: string,
   groupId?: string | null,
   mestreId?: string | null,
-  canWriteSequenciador?: boolean
+  _canWriteSequenciador?: boolean
 ): boolean {
   const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-  const isOtherGroup = Boolean(
-    normalizedUserGroupId &&
-    !normalizedUserGroupId.includes('samambaia') &&
-    !normalizedUserGroupId.includes('sammbia')
-  );
-  if (isOtherGroup) return false;
-
-  const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-  return isJulian ||
-    normalizedUserGroupId.includes('samambaia') ||
-    normalizedUserGroupId.includes('sammbia') ||
-    mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    Boolean(canWriteSequenciador);
+  if (normalizedUserGroupId) {
+    return isLegacySamambaiaGroup(normalizedUserGroupId);
+  }
+  return userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
 }
 
 export async function resolveCloudGroupMestreId(

@@ -1,6 +1,6 @@
 /**
- * Constantes d'architecture et URLs officielles de l'écosystème O-Girador.
- * Domaines de production OVH & mapping des ports de développement local.
+ * Constantes d'architecture et URLs officielles de l'écosystème O Girador.
+ * Domaines de production & mapping strict des ports de développement local (5170..5178).
  */
 
 export const ECOSYSTEM_DOMAINS = Object.freeze({
@@ -8,9 +8,11 @@ export const ECOSYSTEM_DOMAINS = Object.freeze({
   orquestrador: 'https://www.o-girador.com',
   sequenciador: 'https://sequenciador.o-girador.com',
   organizador: 'https://organizador.o-girador.com',
-  dancador: 'https://dancador.o-girador.com',
   mostrador: 'https://mostrador.o-girador.com',
-  vocalLab: 'https://o-girador-vocal-lab.web.app',
+  dancador: 'https://dancador.o-girador.com',
+  cantador: 'https://cantador.o-girador.com',
+  vocalLab: 'https://cantador.o-girador.com',
+  afinador: 'https://afinador.o-girador.com',
 } as const);
 
 export type EcosystemAppKey = keyof typeof ECOSYSTEM_DOMAINS;
@@ -20,17 +22,32 @@ export const LOCAL_DEV_PORTS: Record<EcosystemAppKey, number> = Object.freeze({
   orquestrador: 5170,
   sequenciador: 5174,
   organizador: 5175,
+  mostrador: 5175,
   dancador: 5176,
-  mostrador: 5170,
+  cantador: 5177,
   vocalLab: 5177,
+  afinador: 5178,
 });
+
+export const ECOSYSTEM_APPS_REGISTRY = Object.freeze({
+  orquestrador: { enabled: true, localPort: 5170, prodUrl: ECOSYSTEM_DOMAINS.orquestrador },
+  sequenciador: { enabled: true, localPort: 5174, prodUrl: ECOSYSTEM_DOMAINS.sequenciador },
+  organizador: { enabled: true, localPort: 5175, prodUrl: ECOSYSTEM_DOMAINS.organizador },
+  mostrador: { enabled: true, localPort: 5175, prodUrl: ECOSYSTEM_DOMAINS.mostrador },
+  dancador: { enabled: true, localPort: 5176, prodUrl: ECOSYSTEM_DOMAINS.dancador },
+  cantador: { enabled: true, localPort: 5177, prodUrl: ECOSYSTEM_DOMAINS.cantador },
+  afinador: { enabled: false, comingSoon: true, localPort: 5178, prodUrl: ECOSYSTEM_DOMAINS.afinador },
+} as const);
 
 export const ECOSYSTEM_LOCAL_URLS = {
   ORQUESTRADOR: 'http://localhost:5170',
   SEQUENCIADOR: 'http://localhost:5174',
   ORGANIZADOR: 'http://localhost:5175',
+  MOSTRADOR: 'http://localhost:5175',
   DANCADOR: 'http://localhost:5176',
+  CANTADOR: 'http://localhost:5177',
   VOCAL_LAB: 'http://localhost:5177',
+  AFINADOR: 'http://localhost:5178',
 } as const;
 
 export function isLocalEnvironment(): boolean {

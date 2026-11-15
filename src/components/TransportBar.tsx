@@ -70,7 +70,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
     }
     if (list.length === 0) {
       list.push(
-        { id: 'pictures/logo-samambaia.png', name: lang === 'fr' ? 'Signe Luanda' : 'Sinal Luanda', image: '/Pictures/logo-samambaia.png' },
+        { id: 'pictures/sign-luanda.png', name: lang === 'fr' ? 'Signe Luanda' : 'Sinal Luanda', image: '/Pictures/sign-luanda.png' },
         { id: 'pictures/atelier.png', name: lang === 'fr' ? 'Signe Trovão' : 'Sinal Trovão', image: '/Pictures/atelier.png' }
       );
     }

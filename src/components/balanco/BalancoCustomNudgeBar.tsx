@@ -48,8 +48,8 @@ export const BalancoCustomNudgeBar: React.FC<Props> = ({
         {isPreviewPlaying ? <Square size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" />}
         <span>
           {lang === 'fr'
-            ? isPreviewPlaying ? 'Arrêter' : 'Tester le groove'
-            : isPreviewPlaying ? 'Parar' : 'Testar o groove'}
+            ? isPreviewPlaying ? 'Arrêter' : 'Tester le Balanço'
+            : isPreviewPlaying ? 'Parar' : 'Testar o Balanço'}
         </span>
       </button>
     </div>

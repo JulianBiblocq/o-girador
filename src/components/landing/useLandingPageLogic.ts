@@ -42,7 +42,7 @@ export const useLandingPageLogic = (
   const handleLaunchOrquestrador = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const url = getEcosystemUrl('orquestrador');
-    if (currentUser) launchCrossApp(url, { appKey: 'orquestrador', appLabel: "l'Orquestrad'Or" });
+    if (currentUser) launchCrossApp(url, { appKey: 'orquestrador', appLabel: 'Orquestrador' });
     else window.open(url, '_blank', 'noopener,noreferrer');
   }, [currentUser]);
 
@@ -54,13 +54,13 @@ export const useLandingPageLogic = (
   const handleLaunchOrganizador = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     if (!currentUser) window.open('https://organizador.o-girador.com/demo', '_blank', 'noopener,noreferrer');
-    else launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: "l'Organizad'Or" });
+    else launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: 'Organizador' });
   }, [currentUser]);
 
   const handleLaunchDancador = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const url = getEcosystemUrl('dancador');
-    if (currentUser) launchCrossApp(url, { appKey: 'dancador', appLabel: "le Dançad'Or" });
+    if (currentUser) launchCrossApp(url, { appKey: 'dancador', appLabel: 'Dançador' });
     else window.open(url, '_blank', 'noopener,noreferrer');
   }, [currentUser]);
 
@@ -68,7 +68,7 @@ export const useLandingPageLogic = (
     e.preventDefault();
     const rawGroupId = userProfile?.groupId?.trim()?.toLowerCase();
     if (!currentUser || !rawGroupId) window.open('https://organizador.o-girador.com/demo?app=mostrador', '_blank', 'noopener,noreferrer');
-    else launchCrossApp(`https://mostrador.o-girador.com/${encodeURIComponent(rawGroupId)}`, { appKey: 'mostrador', appLabel: "le Mostrad'Or" });
+    else launchCrossApp(`https://mostrador.o-girador.com/${encodeURIComponent(rawGroupId)}`, { appKey: 'mostrador', appLabel: 'Mostrador' });
   }, [currentUser, userProfile?.groupId]);
 
   useEffect(() => {
