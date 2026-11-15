@@ -41,13 +41,16 @@ export function useAoVivoAnimationEngine(
   };
 
   useEffect(() => {
-    if (isPreRolling) {
+    const resetAllToRest = () => {
       clearSubStepTimers();
       lastVuStepRef.current = -1;
       leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
       gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
       resetAoVivoRestPosition(inst?.id, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
-    }
+    };
+    if (isPreRolling) resetAllToRest();
+    window.addEventListener('o-girador-playback-stopped', resetAllToRest);
+    return () => window.removeEventListener('o-girador-playback-stopped', resetAllToRest);
   }, [isPreRolling, inst, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack]);
 
   useEffect(() => {

@@ -10,6 +10,7 @@ import { MineiroPole } from '../../audio/animations/configMineiro';
 import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
 import { getTimbalHandRestTransform, getTimbalImpactPoseTransform } from '../../audio/animations/timbalKinematics';
 import { dispatchAlfaiaPredictiveStroke, resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
+import { isMufflingStickRef, resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
 import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 import { dispatchCaixaPredictiveStroke, resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
 import { dispatchAgbe, dispatchGongue, dispatchMineiro, resetAgbeAndMineiroRest, resetGongueStickAndShadow } from './aoVivoOtherDispatchers';
@@ -60,7 +61,8 @@ export function triggerSequenceStep(fam: TesterFamily, steps: string[], stepIdx:
 }
 
 export function triggerSingleTestStroke(fam: TesterFamily, stroke: string): void {
-  resetHandPostureMemory(); resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory();
+  if (!(fam === 'alfaia' && isMufflingStickRef.current)) resetHandPostureMemory();
+  resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory();
   triggerSequenceStep(fam, [stroke, '0'], 0, 260);
 }
 
@@ -104,7 +106,7 @@ export function applyFrozenImpactPose(fam: TesterFamily, stroke: string): void {
 
 export function clearFrozenPose(fam: TesterFamily): void {
   if (!currentRefs) return;
-  resetHandPostureMemory(); resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory();
+  resetHandPostureMemory(); resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory(); resetAlfaiaMuffleState();
   const { instId, activeTrack, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, agbeWholeRef, mineiroStickRef } = currentRefs;
   [leftStickRef.current, rightStickRef.current, gongueStickRef.current, agbeWholeRef.current, mineiroStickRef.current].forEach(cancelStickAnims);
   if (fam === 'alfaia') resetAlfaiaSticksAndShadows(activeTrack, isLeftHanded, leftStickRef.current, rightStickRef.current);

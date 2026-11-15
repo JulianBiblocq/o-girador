@@ -4,10 +4,11 @@ import {
   updateCaixaProfile,
   updateCaixaSticksConfig,
 } from '../../audio/animations/caixaKinematics';
+import { AoVivoCaixaRimshotSliders } from './AoVivoCaixaRimshotSliders';
 import { AoVivoSpecialStrokesSliders } from './AoVivoSpecialStrokesSliders';
 import { AoVivoTransitionSliders } from './AoVivoTransitionSliders';
 
-export type CaixaLabTabId = 'stick' | 'rufada' | 'transitions' | 'motion' | 'special';
+export type CaixaLabTabId = 'stick' | 'rimshot' | 'rufada' | 'transitions' | 'motion' | 'special';
 
 interface LabSliderProps {
   label: string;
@@ -33,8 +34,13 @@ const LabSlider: React.FC<LabSliderProps> = ({ label, displayVal, min, max, step
   </label>
 );
 
-export const AoVivoCaixaLabSliders: React.FC<{ activeTab: CaixaLabTabId; onFocusStroke?: (s: string) => void }> = ({ activeTab, onFocusStroke }) => {
+export const AoVivoCaixaLabSliders: React.FC<{
+  activeTab: CaixaLabTabId;
+  activeTestStroke?: string;
+  onFocusStroke?: (s: string) => void;
+}> = ({ activeTab, activeTestStroke, onFocusStroke }) => {
   const cfg = CONFIG_CAIXA_STICKS;
+  if (activeTab === 'rimshot') return <AoVivoCaixaRimshotSliders activeTestStroke={activeTestStroke} onFocusStroke={onFocusStroke} />;
   if (activeTab === 'special') return <AoVivoSpecialStrokesSliders family="caixa" onFocusStroke={onFocusStroke} />;
   if (activeTab === 'transitions') return <AoVivoTransitionSliders family="caixa" />;
 

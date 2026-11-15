@@ -7,7 +7,7 @@ export const TESTER_STROKES: Record<TesterFamily, { id: string; lbl: string }[]>
   alfaia: [
     { id: 'D', lbl: 'D' }, { id: 'd', lbl: 'd' },
     { id: 'E', lbl: 'E' }, { id: 'e', lbl: 'e' },
-    { id: 'A', lbl: 'A (Abaf)' }, { id: 'I', lbl: 'I (Bac)' },
+    { id: 'A', lbl: 'A (Abaf)' }, { id: 'a', lbl: 'a (Abaf)' }, { id: 'I', lbl: 'I (Bac)' },
     { id: 'C', lbl: 'C' }, { id: 'X', lbl: 'X' }, { id: 'B', lbl: 'B' },
   ],
   caixa: [
@@ -25,6 +25,7 @@ export const TESTER_STROKES: Record<TesterFamily, { id: string; lbl: string }[]>
 export const TESTER_SEQUENCES: Record<TesterFamily, { id: string; lbl: string; steps: string[] }[]> = {
   alfaia: [
     { id: 'seq_Dd', lbl: 'D·d', steps: ['D', 'd'] },
+    { id: 'seq_DAD', lbl: 'D·A·D', steps: ['D', 'A', 'D'] },
     { id: 'seq_DAeD', lbl: 'D·A·e·D', steps: ['D', 'A', 'e', 'D'] },
     { id: 'seq_DddD', lbl: 'D·d·d·D', steps: ['D', 'd', 'd', 'D'] },
     { id: 'seq_DedE', lbl: 'D·e·d·E', steps: ['D', 'e', 'd', 'E'] },

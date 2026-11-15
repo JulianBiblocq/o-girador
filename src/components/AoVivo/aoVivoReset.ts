@@ -2,6 +2,7 @@ import { CONFIG_MINEIRO } from '../../audio/animationGenerators';
 import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
 import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematics';
 import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
+import { resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
 import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
 import { resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 import { resetGongueStickAndShadow, resetAgbeAndMineiroRest } from './aoVivoOtherDispatchers';
@@ -100,6 +101,7 @@ export function resetAoVivoRestPosition(
   if (!instId) return;
   resetHandPostureMemory();
   resetGonguePostureMemory();
+  resetAlfaiaMuffleState();
 
   if (['marcante', 'meiao', 'repique'].includes(instId)) {
     resetAlfaiaSticksAndShadows(activeTrack, isLeftHanded, leftStickRef.current, rightStickRef.current);

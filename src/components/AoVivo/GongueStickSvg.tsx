@@ -58,8 +58,10 @@ export function updateGongueStickGeometry(svgEl: SVGSVGElement | null, st: Gongu
   const t1x = +(tx + nx * rT).toFixed(1), t1y = +(ty + ny * rT).toFixed(1);
   const t2x = +(tx - nx * rT).toFixed(1), t2y = +(ty - ny * rT).toFixed(1);
 
+  const bodyD = `M ${b1x} ${b1y} L ${t1x} ${t1y} L ${t2x} ${t2y} L ${b2x} ${b2y} Z`;
+  svgEl.querySelector('[data-gongue-halo]')?.setAttribute('d', bodyD);
   const bodyEl = svgEl.querySelector('[data-gongue-body]');
-  bodyEl?.setAttribute('d', `M ${b1x} ${b1y} L ${t1x} ${t1y} L ${t2x} ${t2y} L ${b2x} ${b2y} Z`);
+  bodyEl?.setAttribute('d', bodyD);
 
   const sSign = ny >= 0 ? 1 : -1;
   const sbX = +(bx + nx * rB * sSign * 0.18).toFixed(1), sbY = +(by + ny * rB * sSign * 0.18).toFixed(1);
@@ -109,6 +111,7 @@ export const GongueStickOverlay: React.FC<{
     <div ref={gongueWrapperRef} className="absolute pointer-events-none z-10 overflow-visible" style={{ width: '500px', height: '500px', overflow: 'visible' }}>
       <svg ref={gongueStickRef} viewBox="0 0 500 500" className="w-full h-full overflow-visible" style={{ overflow: 'visible' }}>
         <path data-stick-shadow fill="var(--cordel-stick-ink)" style={{ filter: 'blur(3.5px)' }} />
+        <path data-gongue-halo fill="none" stroke="var(--cordel-stick-halo-outline)" strokeWidth="6.6" strokeLinejoin="round" />
         <path data-gongue-body fill="var(--cordel-stick-nylon)" stroke="var(--cordel-stick-ink)" strokeWidth="4" strokeLinejoin="miter" />
         <path data-gongue-shade fill="var(--cordel-stick-nylon-shade)" />
         <path data-gongue-face fill="var(--cordel-stick-nylon-shade)" stroke="var(--cordel-stick-ink)" strokeWidth="3" strokeLinejoin="miter" />

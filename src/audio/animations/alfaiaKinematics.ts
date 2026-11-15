@@ -60,10 +60,10 @@ export const KEYFRAMES_SKIN_BARULHO: Keyframe[] = [
 
 export function generateAlfaiaPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, familyOrIsMac: AlfaiaSecondaryStickFamily | boolean,
-  nextKind: AlfaiaNextStrokeKind, durationMs: number = 220
+  nextKind: AlfaiaNextStrokeKind, durationMs: number = 220, autoLiftBeforeOtherHand = false
 ): Keyframe[] {
   const fam = normFam(familyOrIsMac), sUp = stroke.toUpperCase();
-  if (sUp === 'A') return generateAlfaiaAbafadoStickKeyframes(isLeftSide, fam);
+  if (sUp === 'A') return generateAlfaiaAbafadoStickKeyframes(isLeftSide, fam, autoLiftBeforeOtherHand);
   const inSign = isLeftSide ? 1 : -1, profScale = getProfileScale(fam), flex = getProfileFlexibility(fam);
   const c = CONFIG_ALFAIA_STICKS, mobY = getEffectiveMobileOffset('alfaia').reachDeltaY;
   const sc = (v: number) => +(v * profScale).toFixed(3);
@@ -118,9 +118,9 @@ export function generateBacalhauTipKeyframes(isLeftSide: boolean, durationMs: nu
   ];
 }
 
-export function generateAlfaiaShadowKeyframes(stroke: string, isLeftSide: boolean, nextKind: AlfaiaNextStrokeKind, wasPressedOnSkin = false): Keyframe[] {
+export function generateAlfaiaShadowKeyframes(stroke: string, isLeftSide: boolean, nextKind: AlfaiaNextStrokeKind, wasPressedOnSkin = false, autoLiftBeforeOtherHand = false): Keyframe[] {
   const sUp = stroke.toUpperCase();
-  if (sUp === 'A') return generateAlfaiaAbafadoShadowKeyframes(isLeftSide, wasPressedOnSkin);
+  if (sUp === 'A') return generateAlfaiaAbafadoShadowKeyframes(isLeftSide, wasPressedOnSkin, autoLiftBeforeOtherHand);
   const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity, attackSpeed } = CONFIG_ALFAIA_STICKS;
   const atkOff = Math.min(0.45, Math.max(0.06, attackSpeed)), effAtk = wasPressedOnSkin ? Math.min(0.5, +(atkOff + 0.08).toFixed(2)) : atkOff;
   const airY = -Math.round(shadowDepthPx * 1.5), airOp = +(shadowOpacity * 0.45).toFixed(2);

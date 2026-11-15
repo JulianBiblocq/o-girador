@@ -31,6 +31,7 @@
   --cordel-stick-olive: #c4512d; --cordel-stick-tarol-olive: #d4653b;
   --cordel-stick-bacalhau: #f7f3e9; --cordel-stick-nylon: #f8f6f0;
   --cordel-stick-nylon-shade: #e2ded3; --cordel-stick-ink: #1a1a1a;
+  --cordel-stick-halo-outline: rgba(215, 208, 198, 0.55);
   --vu-level-nominal: #3b8c82;
   --vu-track-bg: #141210;
   --vu-led-off-bg: #2d2622;
@@ -97,6 +98,7 @@
   --cordel-stick-olive: #c4512d; --cordel-stick-tarol-olive: #d4653b;
   --cordel-stick-bacalhau: #f7f3e9; --cordel-stick-nylon: #f8f6f0;
   --cordel-stick-nylon-shade: #e2ded3; --cordel-stick-ink: #1a1a1a;
+  --cordel-stick-halo-outline: transparent;
   --vu-level-nominal: #3b8c82;
   --vu-track-bg: #221e1b;
   --vu-led-off-bg: #3b332e;
