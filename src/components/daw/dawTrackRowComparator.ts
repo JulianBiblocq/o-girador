@@ -29,7 +29,7 @@ export function areDawTrackRowPropsEqual(prev: DawTrackRowProps, next: DawTrackR
   // 3. Contrôle des callbacks et refs critiques
   if (
     prev.sequencer !== next.sequencer ||
-    prev.handleStepClick !== next.handleStepClick ||
+    prev.onSelectPedagogyTarget !== next.onSelectPedagogyTarget ||
     prev.registerStepRef !== next.registerStepRef ||
     prev.trackResolutionsRef !== next.trackResolutionsRef
   ) {

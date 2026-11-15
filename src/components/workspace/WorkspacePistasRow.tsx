@@ -1,12 +1,12 @@
-
 import React, { useMemo } from 'react';
 import { TrackGroup } from '../../types';
-import { isToadaBus, isToadaChild } from '../../stores/useSequencerStore';
+import { isToadaBus } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { instrumentsConfig } from '../../data';
 import { DawStepGrid } from '../daw/DawStepGrid';
 import { resolveDawPattern, computeBeatGroups } from '../daw/dawStepMath';
 import { isSlaveTrack } from '../../utils/trackMasterResolver';
+import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
 interface WorkspacePistasRowProps {
   track: TrackGroup;
@@ -15,7 +15,7 @@ interface WorkspacePistasRowProps {
   defaultBeats: number;
   isLeftHanded: boolean;
   sequencer: any;
-  handleStepClick: (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => void;
+  onSelectPedagogyTarget: (target: StrokeInfoPopoverTarget | null) => void;
   registerStepRef: (trackId: number | string, stepIdx: number, el: HTMLButtonElement | null) => void;
   trackResolutionsRef: React.MutableRefObject<Record<string, { beats: number; resArray: number[]; totalSteps: number }>>;
 }
@@ -27,7 +27,7 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
   defaultBeats,
   isLeftHanded,
   sequencer,
-  handleStepClick,
+  onSelectPedagogyTarget,
   registerStepRef,
   trackResolutionsRef,
 }) => {
@@ -36,19 +36,21 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
 
   const activeChildTrack = useMemo(() => {
     if (!isToada) return null;
-    const pux = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+    const pux = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coro = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
     const globalSelectedId = useAudioStore.getState().selectedVocalPatternId;
     if (globalSelectedId) {
-      if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
-      if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
+      if (pux && pux.patterns.some((p) => p.id === globalSelectedId)) return pux;
+      if (coro && coro.patterns.some((p) => p.id === globalSelectedId)) return coro;
     }
-    return coro?.patterns?.find(p => p.measureAssignments?.[currentMeasure]) ? coro :
-           pux?.patterns?.find(p => p.measureAssignments?.[currentMeasure]) ? pux : (coro || pux || null);
+    return coro?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ? coro :
+      pux?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ? pux : (coro || pux || null);
   }, [isToada, tracks, currentMeasure]);
 
   const effectiveTrack = isToada ? (activeChildTrack || track) : track;
-  const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : (isToada ? instrumentsConfig.find(i => i.id === 'puxador' || i.type === 'voice') : null);
+  const inst = effectiveTrack
+    ? instrumentsConfig[effectiveTrack.instrumentIdx]
+    : (isToada ? instrumentsConfig.find((i) => i.id === 'puxador' || i.type === 'voice') : null);
 
   const { activePattern, masterActivePattern, isGhostStep } = resolveDawPattern({
     track, tracks, currentMeasure, effectiveTrack, isLinkedSlave,
@@ -68,7 +70,10 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
   if (!inst) return <div className="w-full h-[52px] min-h-[52px] max-h-[52px] shrink-0" />;
 
   return (
-    <div className="flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] px-1.5 py-0.5 relative overflow-hidden bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] shrink-0 select-none opacity-100">
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+      className="flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] border-2 border-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_var(--cordel-ink-dark)] px-1.5 py-0.5 relative overflow-hidden bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] shrink-0 select-none opacity-100"
+    >
       <DawStepGrid
         beatGroups={beatGroups}
         track={track}
@@ -81,7 +86,7 @@ export const WorkspacePistasRow: React.FC<WorkspacePistasRowProps> = ({
         tracks={tracks}
         currentMeasure={currentMeasure}
         sequencer={sequencer}
-        handleStepClick={handleStepClick}
+        onSelectPedagogyTarget={onSelectPedagogyTarget}
         registerStepRef={registerStepRef}
       />
     </div>

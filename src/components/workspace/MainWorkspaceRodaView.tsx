@@ -27,7 +27,7 @@ interface MainWorkspaceRodaViewProps {
 export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
   viewMode, renderedView, isFadingIn, isMobile, mobileTab,
   filteredMestreSignals, refreshMestreSignals, hideGlobalSignals,
-  onToggleHideGlobalSignals, onStepTouchStart, activeRightPanel, onToggleRightPanel,
+  onToggleHideGlobalSignals, onStepTouchStart: _onStepTouchStart, activeRightPanel, onToggleRightPanel,
 }) => {
   const sequencer = useSequencer(), lang = useSequencerStore((s) => s.lang);
   const setEditingTrackId = useSequencerStore((s) => s.setEditingTrackId);
@@ -88,10 +88,10 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
           )}
           <div className="flex-1 min-h-0 w-full relative overflow-hidden">
             <ErrorBoundary fallback={renderFallback('Roda', 'Roda')}>
-              <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} onStepTouchStart={onStepTouchStart} isActive={viewMode === 'roda' && !isPistasOpen} />
+              <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} isActive={viewMode === 'roda' && !isPistasOpen} />
             </ErrorBoundary>
             {!isMobile && isRodaWorkspaceActive && (
-              <WorkspacePistasOverlay tracks={pistasProps.visibleTracks} isPistasOpen={isPistasOpen} currentMeasure={pistasProps.currentMeasure} defaultBeats={pistasProps.defaultBeats} isLeftHanded={pistasProps.isLeftHanded} sequencer={sequencer} handleStepClick={(_e, id) => { if (!useSequencerStore.getState().isPracticeMode) setEditingTrackId(id); }} registerStepRef={pistasProps.registerStepRef} trackResolutionsRef={pistasProps.trackResolutionsRef} scrollRef={pistasProps.pistasScrollRef} onScroll={pistasProps.handlePistasScroll} />
+              <WorkspacePistasOverlay tracks={pistasProps.visibleTracks} isPistasOpen={isPistasOpen} currentMeasure={pistasProps.currentMeasure} defaultBeats={pistasProps.defaultBeats} isLeftHanded={pistasProps.isLeftHanded} sequencer={sequencer} registerStepRef={pistasProps.registerStepRef} trackResolutionsRef={pistasProps.trackResolutionsRef} scrollRef={pistasProps.pistasScrollRef} onScroll={pistasProps.handlePistasScroll} />
             )}
           </div>
         </div>
