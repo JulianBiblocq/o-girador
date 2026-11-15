@@ -1,28 +1,64 @@
-/**
- * Création et liaison d'architecture standard pour le Bus Alfaias (< 75 lignes).
- */
-
 import { TrackGroup, Language } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { allocWizardId, clonePatternsForLinkFolder } from './wizardPatternBuilder';
+import { linkSameRoleDuplicates } from './wizardBusHelpers';
 
 const ALFAIA_IDS = ['marcante', 'meiao', 'repique'];
 
-export function createAlfaiasBusAndLinking(
-  tracks: TrackGroup[],
-  firstMarcanteId: string | number | undefined,
+export function buildAlfaiasGroup(
+  alfaiaTracks: TrackGroup[],
+  mode: 'bloc' | 'distinct',
   lang: Language
 ): TrackGroup[] {
-  const alfaiaTracks = tracks.filter((t) => {
-    const instId = instrumentsConfig[t.instrumentIdx]?.id;
-    return ALFAIA_IDS.includes(instId);
-  });
+  if (alfaiaTracks.length === 0) return [];
 
-  if (alfaiaTracks.length === 0) return tracks;
+  const busId = allocWizardId();
+  const customName = lang === 'pt' ? 'Seção Alfaias' : 'Section Alfaias';
+  const masterTrack =
+    alfaiaTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'marcante') || alfaiaTracks[0];
 
-  const busId = Date.now() + 15000;
-  const busTrack: TrackGroup = {
+  if (mode === 'bloc') {
+    const busPatterns = clonePatternsForLinkFolder(masterTrack.patterns);
+    const busTrack: TrackGroup = {
+      id: busId,
+      instrumentIdx: masterTrack.instrumentIdx,
+      patterns: busPatterns,
+      isMute: false,
+      isSolo: false,
+      isHidden: false,
+      volumeVal: 75,
+      selectedPatternId: busPatterns[0]?.id || 0,
+      isBusFolder: true,
+      isLinkFolder: true,
+      isFolded: false,
+      isSequencerFolded: true,
+      customName,
+      reverbVal: 0,
+      panVal: 0,
+      pan: 0,
+      fxSends: { reverb: 0, distortion: 0 },
+    };
+
+    const children = alfaiaTracks.map((tr) => {
+      const isMaster = tr.id === masterTrack.id;
+      return {
+        ...tr,
+        busId: String(busId),
+        linkedToTrackId: String(busId),
+        isLinkMaster: isMaster,
+        isHidden: !isMaster,
+        patternOverrides: isMaster ? tr.patternOverrides : {},
+      };
+    });
+
+    const masterChild = children.find((c) => c.isLinkMaster)!;
+    const slaveChildren = children.filter((c) => !c.isLinkMaster);
+    return [busTrack, masterChild, ...slaveChildren];
+  }
+
+  const pureBus: TrackGroup = {
     id: busId,
-    instrumentIdx: 0,
+    instrumentIdx: masterTrack.instrumentIdx,
     patterns: [],
     isMute: false,
     isSolo: false,
@@ -33,42 +69,22 @@ export function createAlfaiasBusAndLinking(
     isLinkFolder: false,
     isFolded: false,
     isSequencerFolded: false,
-    customName: lang === 'pt' ? 'Seção Alfaias' : 'Section Alfaias',
+    customName,
     reverbVal: 0,
     panVal: 0,
     pan: 0,
     fxSends: { reverb: 0, distortion: 0 },
   };
 
-  const masterTrack = alfaiaTracks.find((t) => String(t.id) === String(firstMarcanteId)) || alfaiaTracks[0];
+  const distinctChildren = alfaiaTracks.map((tr) => ({
+    ...tr,
+    busId: String(busId),
+    linkedToTrackId: undefined,
+    isLinkMaster: false,
+    isHidden: false,
+  }));
 
-  tracks.forEach((t) => {
-    const instId = instrumentsConfig[t.instrumentIdx]?.id;
-    if (ALFAIA_IDS.includes(instId)) {
-      t.busId = String(busId);
-      t.linkedToTrackId = String(busId);
-      if (t.id === masterTrack.id) {
-        t.isLinkMaster = true;
-        t.isHidden = false;
-      } else {
-        t.isLinkMaster = false;
-        t.isHidden = false;
-        t.patternOverrides = {};
-      }
-    }
-  });
+  ALFAIA_IDS.forEach((roleId) => linkSameRoleDuplicates(distinctChildren, roleId));
 
-  const firstAlfaiaIdx = tracks.findIndex((t) => {
-    const instId = instrumentsConfig[t.instrumentIdx]?.id;
-    return ALFAIA_IDS.includes(instId);
-  });
-
-  const result = [...tracks];
-  if (firstAlfaiaIdx !== -1) {
-    result.splice(firstAlfaiaIdx, 0, busTrack);
-  } else {
-    result.unshift(busTrack);
-  }
-
-  return result;
+  return [pureBus, ...distinctChildren];
 }

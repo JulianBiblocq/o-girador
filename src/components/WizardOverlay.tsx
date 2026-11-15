@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { Language, RhythmSignal } from '../types';
 import { useWizardStore } from '../stores/useWizardStore';
+import { useBalancoStore } from '../stores/useBalancoStore';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { t } from './wizard/wizardConstants';
+import { WizardHeaderStepper } from './wizard/WizardHeaderStepper';
 import { WizardStep1Spatial } from './wizard/WizardStep1Spatial';
+import { WizardStep2SoundAndGroove } from './wizard/WizardStep2SoundAndGroove';
 import { WizardStep2Identity } from './wizard/WizardStep2Identity';
 import { useWizardGeneration } from './wizard/useWizardGeneration';
+import { useWizardLivePreview } from './wizard/audio/useWizardLivePreview';
 import { stopAllWizardSpatialNodes } from './wizard/audio/wizardSpatialPreview';
 
 interface WizardOverlayProps {
@@ -28,43 +32,53 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({ onClose, lang }) =
   const initFromUserProfile = useWizardStore((s) => s.initFromUserProfile);
 
   const sequencer = useSequencer();
+  const livePreview = useWizardLivePreview(sequencer);
   const [localToast, setLocalToast] = useState<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
   const [customSignalsMap, setCustomSignalsMap] = useState<Record<string, RhythmSignal>>({});
 
-  useEffect(() => {
-    if (wizardLang !== lang) toggleWizardLang();
-  }, [lang]);
+  useEffect(() => { if (wizardLang !== lang) toggleWizardLang(); }, [lang]);
 
   useEffect(() => {
     initFromUserProfile({ groupName: userProfile?.groupName, displayName: userProfile?.displayName });
-  }, [userProfile?.groupName, userProfile?.displayName, initFromUserProfile]);
+    if (userProfile?.uid) {
+      void useBalancoStore.getState().syncCloudPresets(
+        userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId, userProfile.canWriteSequenciador
+      );
+    }
+  }, [userProfile?.uid, userProfile?.groupName, userProfile?.displayName, initFromUserProfile]);
 
   useEffect(() => () => { stopAllWizardSpatialNodes(); }, []);
 
-  const showLocalToast = (message: string) => {
+  const showLocalToast = (msg: string) => {
     if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-    setLocalToast(message);
+    setLocalToast(msg);
     toastTimeoutRef.current = window.setTimeout(() => { setLocalToast(null); toastTimeoutRef.current = null; }, 3500);
   };
 
   const handleSafeClose = () => {
+    livePreview.stopPreview();
     stopAllWizardSpatialNodes();
     onClose();
   };
 
+  const handleSelectStep = (targetStep: number) => {
+    if (targetStep === 1) livePreview.stopPreview();
+    setStep(targetStep);
+  };
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (document.querySelector('[data-wizard-submodal="true"]')) return;
-      if (document.querySelector('.z-\\[100030\\], .z-\\[100040\\], .z-\\[100050\\]')) return;
+      if (document.querySelector('[data-wizard-submodal="true"], .z-\\[100030\\], .z-\\[100040\\], .z-\\[100050\\]')) return;
       handleSafeClose();
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
   const { generateRodaFromWizard } = useWizardGeneration(wizardLang, customSignalsMap, sequencer);
+  const handleGenerate = () => { livePreview.stopPreview(); void generateRodaFromWizard(); };
   const modalRoot = document.getElementById('modal-root') || document.body;
 
   return createPortal(
@@ -79,40 +93,22 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({ onClose, lang }) =
       )}
 
       <div className="fixed inset-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] z-[100020] flex flex-col p-3 md:p-6 select-none font-sans overflow-hidden">
-        <div className="flex flex-wrap justify-between items-center gap-2 border-b-2 border-[var(--cordel-border-strong)] pb-2.5 mb-3 flex-shrink-0">
-          <h2 className="font-cactus text-xl md:text-2xl font-bold text-[var(--cordel-text)] uppercase tracking-wider leading-none">
-            {t[wizardLang].title}
-          </h2>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={toggleWizardLang} className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:border-[var(--cordel-accent-readable)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer font-cactus font-bold uppercase text-[10px] md:text-xs">
-              {wizardLang === 'fr' ? 'BR' : 'FR'}
-            </button>
-            <button type="button" onClick={handleSafeClose} className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:bg-[var(--cordel-status-danger)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1 transition-colors">
-              <X size={14} />
-              <span>{t[wizardLang].annuler}</span>
-            </button>
-          </div>
-        </div>
+        <WizardHeaderStepper
+          wizardLang={wizardLang}
+          step={step}
+          canAdvance={placedInstruments.length > 0 || hasToada}
+          onSelectStep={handleSelectStep}
+          onBlockedAdvance={() => showLocalToast(t[wizardLang].poseAuMoinsUn)}
+          onToggleLang={toggleWizardLang}
+          onClose={handleSafeClose}
+        />
 
         {step === 1 ? (
-          <WizardStep1Spatial
-            wizardLang={wizardLang}
-            placedInstruments={placedInstruments}
-            hasToada={hasToada}
-            onToggleToada={toggleToada}
-            onToggleLang={toggleWizardLang}
-            onClose={handleSafeClose}
-            onNext={() => setStep(2)}
-            showToast={showLocalToast}
-          />
+          <WizardStep1Spatial wizardLang={wizardLang} placedInstruments={placedInstruments} hasToada={hasToada} onToggleToada={toggleToada} onToggleLang={toggleWizardLang} onClose={handleSafeClose} onNext={() => handleSelectStep(2)} showToast={showLocalToast} />
+        ) : step === 2 ? (
+          <WizardStep2SoundAndGroove wizardLang={wizardLang} preview={livePreview} onBack={() => handleSelectStep(1)} onNext={() => handleSelectStep(3)} />
         ) : (
-          <WizardStep2Identity
-            wizardLang={wizardLang}
-            onBack={() => setStep(1)}
-            onToggleLang={toggleWizardLang}
-            onGenerate={generateRodaFromWizard}
-            onSaveCustomSignal={(sig) => setCustomSignalsMap((prev) => ({ ...prev, [sig.id]: sig }))}
-          />
+          <WizardStep2Identity wizardLang={wizardLang} preview={livePreview} customSignalsMap={customSignalsMap} onBack={() => handleSelectStep(2)} onGenerate={handleGenerate} onSaveCustomSignal={(sig) => setCustomSignalsMap((prev) => ({ ...prev, [sig.id]: sig }))} />
         )}
       </div>
     </>,

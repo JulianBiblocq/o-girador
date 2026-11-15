@@ -1,115 +1,49 @@
 import React from 'react';
-import { useWizardStore } from '../../stores/useWizardStore';
+import { useWizardStore, SongInfo } from '../../stores/useWizardStore';
 import { Language } from '../../types';
 import { t } from './wizardConstants';
 
 interface WizardStep2SongInfoProps {
   wizardLang: Language;
-  onGenerate: () => void;
 }
 
-export const WizardStep2SongInfo: React.FC<WizardStep2SongInfoProps> = ({
-  wizardLang,
-  onGenerate,
-}) => {
+export const WizardStep2SongInfo: React.FC<WizardStep2SongInfoProps> = ({ wizardLang }) => {
   const songInfo = useWizardStore((state) => state.songInfo);
   const updateSongInfo = useWizardStore((state) => state.updateSongInfo);
 
+  const fields: { key: keyof SongInfo; label: string; type?: string; placeholder?: string; span2?: boolean }[] = [
+    { key: 'toadaName', label: t[wizardLang].toadaLabel, span2: true },
+    { key: 'nacaoName', label: t[wizardLang].nacaoLabel },
+    { key: 'composer', label: t[wizardLang].compositeurLabel },
+    { key: 'mainRythm', label: t[wizardLang].ritmoLabel },
+    { key: 'youtubeUrl', label: t[wizardLang].youtubeLabel, type: 'url', placeholder: 'https://...' },
+  ];
+
   return (
-    <div className="bg-[#f4ecd8] border-3 border-[#1a1a1a] p-4 md:p-5 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col gap-4 rounded-sm">
-      <h3 className="font-cactus text-lg md:text-xl font-bold text-[#8b2a1a] uppercase tracking-wider border-b border-[#1a1a1a]/20 pb-1">
-        {t[wizardLang].identiteMorceau}
-      </h3>
-      <span className="text-[11px] md:text-xs text-[#1a1a1a] font-cactus font-bold uppercase -mt-2">
-        {t[wizardLang].espritMorceau}
-      </span>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
-            {t[wizardLang].rodaLabel}
-          </label>
-          <input
-            type="text"
-            value={songInfo.rodaName}
-            onChange={(e) => updateSongInfo('rodaName', e.target.value)}
-            placeholder={t[wizardLang].placeholderSaisir}
-            className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2 font-sans text-xs text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] rounded-sm"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
-            {t[wizardLang].toadaLabel}
-          </label>
-          <input
-            type="text"
-            value={songInfo.toadaName}
-            onChange={(e) => updateSongInfo('toadaName', e.target.value)}
-            placeholder={t[wizardLang].placeholderSaisir}
-            className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2 font-sans text-xs text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] rounded-sm"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
-            {t[wizardLang].nacaoLabel}
-          </label>
-          <input
-            type="text"
-            value={songInfo.nacaoName}
-            onChange={(e) => updateSongInfo('nacaoName', e.target.value)}
-            placeholder={t[wizardLang].placeholderSaisir}
-            className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2 font-sans text-xs text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] rounded-sm"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
-            {t[wizardLang].compositeurLabel}
-          </label>
-          <input
-            type="text"
-            value={songInfo.composer}
-            onChange={(e) => updateSongInfo('composer', e.target.value)}
-            placeholder={t[wizardLang].placeholderSaisir}
-            className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2 font-sans text-xs text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] rounded-sm"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
-            {t[wizardLang].ritmoLabel}
-          </label>
-          <input
-            type="text"
-            value={songInfo.mainRythm}
-            onChange={(e) => updateSongInfo('mainRythm', e.target.value)}
-            placeholder={t[wizardLang].placeholderSaisir}
-            className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2 font-sans text-xs text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] rounded-sm"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
-            {t[wizardLang].youtubeLabel}
-          </label>
-          <input
-            type="url"
-            value={songInfo.youtubeUrl}
-            onChange={(e) => updateSongInfo('youtubeUrl', e.target.value)}
-            placeholder="https://..."
-            className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2 font-sans text-xs text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] rounded-sm"
-          />
-        </div>
+    <div className="bg-[var(--cordel-surface)] border-3 border-[var(--cordel-border-strong)] p-4 md:p-5 shadow-[4px_4px_0px_var(--cordel-shadow-color)] flex flex-col gap-3.5 rounded-sm">
+      <div className="border-b border-[var(--cordel-border)] pb-1">
+        <h3 className="font-cactus text-base md:text-lg font-bold text-[var(--cordel-accent-readable)] uppercase tracking-wider">
+          {t[wizardLang].identiteMorceau}
+        </h3>
+        <p className="text-[10px] md:text-xs text-[var(--cordel-text-muted)]">{t[wizardLang].espritMorceau}</p>
       </div>
 
-      <button
-        onClick={onGenerate}
-        className="w-full mt-4 py-4 bg-[#8b2a1a] text-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[6px_6px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[3px] hover:translate-y-[3px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-base md:text-lg tracking-wider"
-      >
-        {t[wizardLang].faireSonner}
-      </button>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {fields.map((f) => (
+          <div key={f.key} className={`flex flex-col gap-1 ${f.span2 ? 'md:col-span-2' : ''}`}>
+            <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[var(--cordel-text-muted)]">
+              {f.label}
+            </label>
+            <input
+              type={f.type || 'text'}
+              value={songInfo[f.key]}
+              onChange={(e) => updateSongInfo(f.key, e.target.value)}
+              placeholder={f.placeholder || t[wizardLang].placeholderSaisir}
+              className="w-full bg-[var(--cordel-surface-elevated)] border-2 border-[var(--cordel-border-strong)] p-2 font-sans text-xs text-[var(--cordel-text)] placeholder:text-[var(--cordel-text-muted)]/60 focus:outline-none focus:border-[var(--cordel-accent-readable)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] rounded-sm"
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
