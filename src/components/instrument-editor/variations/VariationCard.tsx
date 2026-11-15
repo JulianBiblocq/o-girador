@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { VariationCardHeader } from './VariationCardHeader';
 import { VariationGridPreview, VariationGridPreviewProps } from './VariationGridPreview';
@@ -23,7 +22,11 @@ export const VariationCard: React.FC<VariationCardProps> = React.memo((props) =>
   } = props;
 
   return (
-    <div key={variation.id} className="flex flex-col gap-1.5 p-2 bg-[#ece4d0]/60 cordel-border-sm border-dashed">
+    <div
+      key={variation.id}
+      onContextMenu={(e) => e.preventDefault()}
+      className="flex flex-col gap-1.5 p-2 bg-[var(--cordel-parchment-panel)]/60 cordel-border-sm border-dashed"
+    >
       <VariationCardHeader
         variation={variation} ptnId={ptn.id} lang={lang}
         soloPatternPlayId={soloPatternPlayId} soloPatternVariationId={soloPatternVariationId}

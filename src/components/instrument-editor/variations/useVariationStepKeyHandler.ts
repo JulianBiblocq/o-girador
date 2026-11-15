@@ -46,7 +46,7 @@ export function handleVariationStepKeyDown(params: {
       prevEl.focus();
       prevEl.select();
       setSelectedStepIdx(stepIdx - 1);
-      setSelectedStepIndices([stepIdx - 1]);
+      setSelectedStepIndices([]);
     }
     return;
   }
@@ -78,7 +78,7 @@ export function handleVariationStepKeyDown(params: {
       nextEl.focus();
       nextEl.select();
       setSelectedStepIdx(stepIdx + 1);
-      setSelectedStepIndices([stepIdx + 1]);
+      setSelectedStepIndices([]);
     }
     return;
   }
@@ -90,7 +90,7 @@ export function handleVariationStepKeyDown(params: {
       prevEl.focus();
       prevEl.select();
       setSelectedStepIdx(stepIdx - 1);
-      setSelectedStepIndices([stepIdx - 1]);
+      setSelectedStepIndices([]);
     }
     return;
   }
@@ -114,7 +114,7 @@ export function handleVariationStepKeyDown(params: {
       nextEl.focus();
       nextEl.select();
       setSelectedStepIdx(stepIdx + 1);
-      setSelectedStepIndices([stepIdx + 1]);
+      setSelectedStepIndices([]);
     }
   }
 }

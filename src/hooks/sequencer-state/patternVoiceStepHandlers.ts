@@ -1,6 +1,7 @@
 import { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { cleanVoiceSyllableForDisplay } from '../../utils/musicTheory';
 
 export interface PatternVoiceStepContext {
   pushUndoState: () => void;
@@ -28,8 +29,13 @@ export function createPatternVoiceStepHandlers(ctx: PatternVoiceStepContext) {
           const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
           const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
           const arrDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
-          arrLyrics[stepIdx] = val;
-          if (val !== '') {
+          const trimmed = val.trim();
+          if (trimmed === '0' || trimmed === '𝄽') {
+            copySteps[stepIdx] = 0;
+            arrLyrics[stepIdx] = '';
+            arrNotes[stepIdx] = '';
+          } else if (val !== '') {
+            arrLyrics[stepIdx] = val;
             if (copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0') {
               const instId = instrumentsConfig[t.instrumentIdx]?.id;
               copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
@@ -37,6 +43,7 @@ export function createPatternVoiceStepHandlers(ctx: PatternVoiceStepContext) {
             }
             if (arrDecays[stepIdx] === 100 || !arrDecays[stepIdx]) arrDecays[stepIdx] = 10;
           } else {
+            arrLyrics[stepIdx] = '';
             if (!arrNotes[stepIdx] || arrNotes[stepIdx].trim() === '') copySteps[stepIdx] = 0;
           }
           return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes, decays: arrDecays };
@@ -57,19 +64,22 @@ export function createPatternVoiceStepHandlers(ctx: PatternVoiceStepContext) {
         patterns: t.patterns.map((p: Pattern) => {
           if (p.id !== patternId && String(p.id) !== String(patternId)) return p;
           const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+          const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
           const copySteps = [...p.activeSteps];
-          arrNotes[stepIdx] = val;
-          if (!val || val.trim() === '' || val === '0') {
+          const trimmed = (val || '').trim();
+          if (!trimmed || trimmed === '0' || trimmed === '𝄽') {
             arrNotes[stepIdx] = '';
+            if (trimmed === '0' || trimmed === '𝄽') arrLyrics[stepIdx] = '';
             copySteps[stepIdx] = 0;
           } else {
+            arrNotes[stepIdx] = val;
             const instId = instrumentsConfig[t.instrumentIdx]?.id;
             const vocalRole = (instId === 'coro' || String(t.id) === 'coro') ? 'C' : 'P';
             if (!copySteps[stepIdx] || copySteps[stepIdx] === 0 || copySteps[stepIdx] === '0' || copySteps[stepIdx] === (vocalRole === 'P' ? 'C' : 'P')) {
               copySteps[stepIdx] = vocalRole;
             }
           }
-          return { ...p, activeSteps: copySteps, notes: arrNotes };
+          return { ...p, activeSteps: copySteps, notes: arrNotes, lyrics: arrLyrics };
         })
       };
     }));
@@ -105,14 +115,15 @@ export function createPatternVoiceStepHandlers(ctx: PatternVoiceStepContext) {
       t.patterns.forEach((p: Pattern) => {
         let trackStr = '';
         for (let i = 0; i < p.steps; i++) {
-          if (p.activeSteps[i] !== 0 && p.lyrics?.[i]) {
+          if (p.activeSteps[i] !== 0 && p.activeSteps[i] !== '0' && p.lyrics?.[i]) {
             const rawLyric = p.lyrics[i];
             const hasSpace = rawLyric.endsWith(' ');
-            const syl = rawLyric.replace(/-$/, '').trim();
+            const syl = cleanVoiceSyllableForDisplay(rawLyric);
             if (syl) trackStr += syl + (hasSpace ? ' ' : '');
+            else if (hasSpace && trackStr && !trackStr.endsWith(' ')) trackStr += ' ';
           }
         }
-        if (trackStr) htmlArr.push(trackStr.trim());
+        if (trackStr.trim()) htmlArr.push(trackStr.trim());
       });
     });
     setLetras(htmlArr.join('\n\n'));

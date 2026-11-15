@@ -85,9 +85,10 @@ export function createVariationStepSculptHandlers(ctx: VariationStepSculptContex
     patternId: number,
     variationId: string,
     stepIdx: number | number[],
-    val: string | number | string[] | [string, string]
+    val: string | number | string[] | [string, string],
+    options?: { skipUndo?: boolean }
   ) => {
-    pushUndoState();
+    if (!options?.skipUndo) pushUndoState();
     setTracks((prev: TrackGroup[]) =>
       syncVariationAcrossLinkedFamily(prev, trackId, patternId, variationId, (v, _isSrc, t) => {
         const instId = instrumentsConfig[t.instrumentIdx]?.id;
