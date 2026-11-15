@@ -2,6 +2,7 @@ import React from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useDesktopWorkspaceStore } from '../stores/useDesktopWorkspaceStore';
 import { CordelContextMenu } from './ui/CordelContextMenu';
 import { HeaderBrand } from './header/HeaderBrand';
 import { UndoIcon, RedoIcon } from './header/HeaderIcons';
@@ -24,11 +25,11 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
   const isPracticeMode = useSequencerStore((s) => s.isPracticeMode);
   const metadata = useSequencerStore((s) => s.metadata);
   const storeEditingTrackId = useSequencerStore((s) => s.editingTrackId);
-  const isInstrumentEditorDetached = useSequencerStore((s) => s.isInstrumentEditorDetached);
-  const isEditorOpen = storeEditingTrackId !== null && !isInstrumentEditorDetached;
+  const isSatelliteEditor = useDesktopWorkspaceStore((s) => s.isSatelliteOpen && s.satelliteMode === 'editor');
+  const isEditorOpen = storeEditingTrackId !== null || isSatelliteEditor;
 
   const { tabContextMenu, setTabContextMenu, createTabTouchHandlers, getTabMenuItems } =
-    useHeaderTabMenu(lang, props.onToggleDetachInstrumentEditor);
+    useHeaderTabMenu(lang);
 
   const project = useHeaderProject(props.cloudPresets, preset);
   const onLangToggle = () => setLang(lang === 'pt' ? 'fr' : 'pt');

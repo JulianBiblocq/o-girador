@@ -33,7 +33,9 @@ export const PaperWorkshopContent: React.FC<PaperWorkshopContentProps> = ({
   );
 
   useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
+    if (!initialTab) return;
+    setActiveTab(initialTab);
+    if (initialTab === 'scanner') setWorkshopMode('batuque');
   }, [initialTab]);
 
   const tabs: Array<{ id: PaperTabType; key: PaperWorkshopI18nKey; icon: React.FC<any>; lock: boolean }> = [

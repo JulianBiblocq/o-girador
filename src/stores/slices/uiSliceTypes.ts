@@ -1,24 +1,6 @@
 import { TimelineClipboard } from '../helpers/timelineClipboardTypes';
 
 export interface UISlice {
-  isLinearDawDetached: boolean;
-  isCircleSequencerDetached: boolean;
-  isConsoleDetached: boolean;
-  isTimelineDetached: boolean;
-  isInstrumentEditorDetached: boolean;
-  toggleLinearDawDetached: () => void;
-  toggleCircleSequencerDetached: () => void;
-  toggleConsoleDetached: () => void;
-  toggleTimelineDetached: () => void;
-  toggleInstrumentEditorDetached: () => void;
-  setDetachedPanelsState: (panels: {
-    mixer?: boolean;
-    roda?: boolean;
-    detailEditor?: boolean;
-    linearDaw?: boolean;
-    timeline?: boolean;
-  }) => void;
-
   timelineContextMenu: {
     x: number;
     y: number;

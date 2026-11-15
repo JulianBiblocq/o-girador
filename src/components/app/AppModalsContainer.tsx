@@ -33,7 +33,12 @@ interface AppModalsContainerProps {
   saveModalProps: any;
   visitorAuthProps: any;
   wallpaperProps: any;
-  paperWorkshopProps: any;
+  paperWorkshopProps: {
+    isPaperWorkshopOpen: boolean;
+    setIsPaperWorkshopOpen: (open: boolean) => void;
+    paperWorkshopInitialTab: 'sheets' | 'scanner' | 'reserve';
+    setPaperWorkshopInitialTab: (tab: 'sheets' | 'scanner' | 'reserve') => void;
+  };
   mestreSignals: any[];
   refreshMestreSignals?: () => void | Promise<void>;
   audio: any;

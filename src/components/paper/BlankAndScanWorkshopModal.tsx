@@ -48,7 +48,7 @@ export const BlankAndScanWorkshopModal: React.FC<BlankAndScanWorkshopModalProps>
         className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border-strong)] shadow-[8px_8px_0px_var(--cordel-shadow-color)] w-full max-w-4xl max-h-[92vh] flex flex-col relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <PaperWorkshopContent onClose={onClose} initialTab={initialTab} />
+        <PaperWorkshopContent key={initialTab} onClose={onClose} initialTab={initialTab} />
       </div>
     </div>,
     modalRoot

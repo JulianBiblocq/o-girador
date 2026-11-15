@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutGrid, Plus } from 'lucide-react';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
+import { applyDesktopWorkspaceLayout, saveCurrentDesktopWorkspaceLayout } from '../../utils/satelliteLayoutActions';
 import { SettingsDesktopLayoutCard } from './SettingsDesktopLayoutCard';
 
 interface SettingsDesktopLayoutsTabProps {
@@ -10,8 +11,6 @@ interface SettingsDesktopLayoutsTabProps {
 export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps> = ({ lang }) => {
   const desktopLayouts = useDesktopWorkspaceStore((state) => state.layouts);
   const activeDesktopLayoutId = useDesktopWorkspaceStore((state) => state.activeLayoutId);
-  const saveCurrentDesktopLayout = useDesktopWorkspaceStore((state) => state.saveCurrentLayout);
-  const applyDesktopLayout = useDesktopWorkspaceStore((state) => state.applyLayout);
   const deleteDesktopLayout = useDesktopWorkspaceStore((state) => state.deleteLayout);
   const renameDesktopLayout = useDesktopWorkspaceStore((state) => state.renameLayout);
 
@@ -24,13 +23,13 @@ export const SettingsDesktopLayoutsTab: React.FC<SettingsDesktopLayoutsTabProps>
 
   const handleSaveNewLayout = () => {
     if (!newLayoutName.trim()) return;
-    saveCurrentDesktopLayout(newLayoutName.trim());
+    saveCurrentDesktopWorkspaceLayout(newLayoutName.trim());
     setIsSavingLayoutModalOpen(false);
     setNewLayoutName('');
   };
 
   const handleApplyLayout = (id: string, name: string) => {
-    const success = applyDesktopLayout(id);
+    const success = applyDesktopWorkspaceLayout(id);
     if (success) {
       setAppliedLayoutNotification(
         lang === 'pt' ? `Espaço de trabalho "${name}" aplicado com sucesso!` : `Espace de travail "${name}" appliqué avec succès !`

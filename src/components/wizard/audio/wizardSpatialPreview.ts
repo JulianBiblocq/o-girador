@@ -9,7 +9,7 @@ import { useAudioStore } from '../../../stores/useAudioStore';
 import { useWizardStore, PlacedInstrument } from '../../../stores/useWizardStore';
 import { getDefaultSignatureTuning } from '../../../utils/audio/lutherieFactoryPresets';
 import { WIZard_DEFAULT_PREVIEW_STROKE } from '../wizardSpatialMixMath';
-import { pushArpeggioTimer, stopAllWizardSpatialNodes, triggerSpatialBufferLayer } from './wizardSpatialVoiceNode';
+import { stopAllWizardSpatialNodes, triggerSpatialBufferLayer } from './wizardSpatialVoiceNode';
 
 export { stopAllWizardSpatialNodes };
 
@@ -86,10 +86,5 @@ export function playWizardSpatialHit(instType: string, x: number, y: number, vel
 export function playWizardFormationArpeggio(instruments: PlacedInstrument[]): void {
   if (!instruments.length) return;
   stopAllWizardSpatialNodes();
-  unlockAndWarmWizardAudio();
-  void preloadWizardInstruments(instruments.map((i) => i.instrumentType)).then(() => {
-    instruments.slice(0, 14).forEach((inst, idx) => {
-      pushArpeggioTimer(window.setTimeout(() => playWizardSpatialHit(inst.instrumentType, inst.x, inst.y, 0.82), idx * 42));
-    });
-  });
+  void preloadWizardInstruments(instruments.map((i) => i.instrumentType));
 }

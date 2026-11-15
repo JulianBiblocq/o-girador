@@ -1,128 +1,109 @@
-
+/**
+ * useDesktopWorkspaceStore.ts — Store feuille pur de l'espace Multi-Écrans Studio (< 120 lignes).
+ * Aucun import de `useSequencerStore` ni `useSequencerSettingsStore` (DAG 100 % sans cycle).
+ */
 import { create } from 'zustand';
-import { DesktopWorkspaceLayout, DetachedPanelKey } from '../types/desktopWorkspace.types';
-import { detachedWindowManager } from '../utils/detachedWindowManager';
-import { useSequencerStore } from './useSequencerStore';
-import { loadStoredLayouts, persistLayouts } from './helpers/desktopWorkspaceStorage';
+import {
+  BridgeViewMode,
+  DesktopWindowBounds,
+  DesktopWorkspaceLayout,
+  SatelliteMode,
+} from '../types/desktopWorkspace.types';
+import {
+  loadStoredLayouts,
+  loadStoredSatelliteBounds,
+  loadStoredSatelliteMode,
+  persistLayouts,
+  persistSatelliteBounds,
+  persistSatelliteMode,
+} from './helpers/desktopWorkspaceStorage';
 import { PREFERRED_SCREEN_MODE_STORAGE_KEY } from '../utils/userPreferencesStorage';
 
 const loadPreferredScreenMode = (): 'single' | 'dual' => {
   if (typeof window === 'undefined') return 'single';
   try {
     return localStorage.getItem(PREFERRED_SCREEN_MODE_STORAGE_KEY) === 'dual' ? 'dual' : 'single';
-  } catch { return 'single'; }
+  } catch {
+    return 'single';
+  }
 };
 
 export interface DesktopWorkspaceStore {
+  isSatelliteOpen: boolean;
+  satelliteMode: SatelliteMode;
+  satelliteBounds: DesktopWindowBounds | null;
+  lastBridgeViewMode: BridgeViewMode;
+  preferredScreenMode: 'single' | 'dual';
+  hasDismissedDualPrompt: boolean;
   layouts: DesktopWorkspaceLayout[];
   activeLayoutId: string | null;
-  preferredScreenMode: 'single' | 'dual';
+
+  setSatelliteState: (patch: { isSatelliteOpen?: boolean; satelliteMode?: SatelliteMode }) => void;
+  setSatelliteBounds: (bounds: DesktopWindowBounds | null) => void;
+  setLastBridgeViewMode: (mode: BridgeViewMode) => void;
   setPreferredScreenMode: (mode: 'single' | 'dual') => void;
-  saveCurrentLayout: (name: string) => DesktopWorkspaceLayout;
-  applyLayout: (layoutId: string) => boolean;
+  dismissDualPrompt: () => void;
+  addLayoutSnapshot: (layout: DesktopWorkspaceLayout) => void;
+  setActiveLayoutId: (id: string | null) => void;
   deleteLayout: (layoutId: string) => void;
   renameLayout: (layoutId: string, newName: string) => void;
-  getActiveLayout: () => DesktopWorkspaceLayout | undefined;
 }
 
 export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get) => ({
+  isSatelliteOpen: false,
+  satelliteMode: loadStoredSatelliteMode(),
+  satelliteBounds: loadStoredSatelliteBounds(),
+  lastBridgeViewMode: 'roda',
+  preferredScreenMode: loadPreferredScreenMode(),
+  hasDismissedDualPrompt: false,
   layouts: loadStoredLayouts(),
   activeLayoutId: null,
-  preferredScreenMode: loadPreferredScreenMode(),
+
+  setSatelliteState: (patch) => {
+    if (patch.satelliteMode) persistSatelliteMode(patch.satelliteMode);
+    set((state) => ({
+      isSatelliteOpen: patch.isSatelliteOpen ?? state.isSatelliteOpen,
+      satelliteMode: patch.satelliteMode ?? state.satelliteMode,
+    }));
+  },
+
+  setSatelliteBounds: (bounds) => {
+    persistSatelliteBounds(bounds);
+    set({ satelliteBounds: bounds });
+  },
+
+  setLastBridgeViewMode: (mode) => set({ lastBridgeViewMode: mode }),
 
   setPreferredScreenMode: (mode) => {
     if (typeof window !== 'undefined') {
       try { localStorage.setItem(PREFERRED_SCREEN_MODE_STORAGE_KEY, mode); } catch {}
     }
-    set({ preferredScreenMode: mode });
+    set({ preferredScreenMode: mode, hasDismissedDualPrompt: false });
   },
 
-  getActiveLayout: () => {
-    const { layouts, activeLayoutId } = get();
-    return layouts.find(l => l.id === activeLayoutId);
-  },
+  dismissDualPrompt: () => set({ hasDismissedDualPrompt: true }),
 
-  saveCurrentLayout: (name: string) => {
-    const seq = useSequencerStore.getState();
-    const isConsoleDetached = Boolean(seq.isConsoleDetached) && detachedWindowManager.isPanelOpen('mixer');
-    const isCircleSequencerDetached = Boolean(seq.isCircleSequencerDetached) && detachedWindowManager.isPanelOpen('roda');
-    const isInstrumentEditorDetached = Boolean(seq.isInstrumentEditorDetached) && detachedWindowManager.isPanelOpen('detailEditor');
-
-    const mixerBounds = isConsoleDetached ? detachedWindowManager.getBounds('mixer') : undefined;
-    const rodaBounds = isCircleSequencerDetached ? detachedWindowManager.getBounds('roda') : undefined;
-    const detailBounds = isInstrumentEditorDetached ? detachedWindowManager.getBounds('detailEditor') : undefined;
-
-    const newLayout: DesktopWorkspaceLayout = {
-      id: 'layout_' + Date.now(),
-      name: name.trim() || `Espace ${get().layouts.length + 1}`,
-      createdAt: Date.now(),
-      detachedPanels: {
-        mixer: {
-          detached: false,
-          bounds: mixerBounds,
-        },
-        roda: {
-          detached: false,
-          bounds: rodaBounds,
-        },
-        detailEditor: {
-          detached: false,
-          bounds: detailBounds,
-        },
-      },
-      uiState: {
-        isTracksCollapsed: seq.isTracksCollapsed,
-      },
-    };
-
-    const nextLayouts = [newLayout, ...get().layouts];
+  addLayoutSnapshot: (layout) => {
+    const nextLayouts = [layout, ...get().layouts];
     persistLayouts(nextLayouts);
-
-    set({
-      layouts: nextLayouts,
-      activeLayoutId: newLayout.id,
-    });
-
-    return newLayout;
+    set({ layouts: nextLayouts, activeLayoutId: layout.id });
   },
 
-  applyLayout: (layoutId: string) => {
-    const layout = get().layouts.find(l => l.id === layoutId);
-    if (!layout) return false;
+  setActiveLayoutId: (id) => set({ activeLayoutId: id }),
 
-    const { uiState } = layout;
-
-    // Mode multi-fenetres neutralise : tous les panneaux restent ancres dans la fenetre principale
-    useSequencerStore.getState().setDetachedPanelsState({
-      mixer: false,
-      roda: false,
-      detailEditor: false,
-      linearDaw: false,
-      timeline: false,
-    });
-
-    // 4. État UI
-    if (uiState?.isTracksCollapsed !== undefined) {
-      useSequencerStore.setState({ isTracksCollapsed: uiState.isTracksCollapsed });
-    }
-
-    set({ activeLayoutId: layoutId });
-    return true;
-  },
-
-  deleteLayout: (layoutId: string) => {
-    const nextLayouts = get().layouts.filter(l => l.id !== layoutId);
+  deleteLayout: (layoutId) => {
+    const nextLayouts = get().layouts.filter((l) => l.id !== layoutId);
     persistLayouts(nextLayouts);
-    set(state => ({
+    set((s) => ({
       layouts: nextLayouts,
-      activeLayoutId: state.activeLayoutId === layoutId ? null : state.activeLayoutId,
+      activeLayoutId: s.activeLayoutId === layoutId ? null : s.activeLayoutId,
     }));
   },
 
-  renameLayout: (layoutId: string, newName: string) => {
+  renameLayout: (layoutId, newName) => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    const nextLayouts = get().layouts.map(l => (l.id === layoutId ? { ...l, name: trimmed } : l));
+    const nextLayouts = get().layouts.map((l) => (l.id === layoutId ? { ...l, name: trimmed } : l));
     persistLayouts(nextLayouts);
     set({ layouts: nextLayouts });
   },

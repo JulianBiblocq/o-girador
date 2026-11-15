@@ -4,7 +4,7 @@ import { useWizardStore } from '../../stores/useWizardStore';
 import { Language } from '../../types';
 import { t } from './wizardConstants';
 import { WIZARD_EXPRESS_FORMATIONS, buildPlacedFromFormation, WizardExpressFormation } from './wizardFormations';
-import { playWizardFormationArpeggio, stopAllWizardSpatialNodes } from './audio/wizardSpatialPreview';
+import { preloadWizardInstruments, stopAllWizardSpatialNodes } from './audio/wizardSpatialPreview';
 
 interface WizardExpressFormationsBarProps {
   wizardLang: Language;
@@ -22,8 +22,9 @@ export const WizardExpressFormationsBar: React.FC<WizardExpressFormationsBarProp
 
   const handleApplyFormation = (formation: WizardExpressFormation) => {
     const placed = buildPlacedFromFormation(formation);
+    stopAllWizardSpatialNodes();
     setPlacedInstruments(placed);
-    playWizardFormationArpeggio(placed);
+    void preloadWizardInstruments(placed.map((i) => i.instrumentType));
     const label = isPt ? formation.labelPt : formation.labelFr;
     showToast(isPt ? `${label} posicionado no Palco !` : `${label} déployé sur La Place !`);
   };

@@ -19,7 +19,6 @@ export interface HeaderProps {
   onAdminClick?: () => void;
   onCloudSave?: () => void;
   onOpenInstrumentEditor?: () => void;
-  onToggleDetachInstrumentEditor?: () => void;
   editingTrackId?: number | null;
   onOpenWallpaperModal?: () => void;
   onOpenPaperWorkshop?: (tab?: 'sheets' | 'scanner' | 'reserve') => void;
