@@ -13,7 +13,7 @@ export function getAlfaiaStrokeDefs(isFr: boolean): StrokeDef[] {
     { symbol: 'A', label: isFr ? 'A — Étouffé Gauche (Abafado)' : 'A — Abafado Esquerda (Seco)', shortcut: 'A', colorKey: 'A' },
     { symbol: 'C', label: isFr ? 'Clic baguettes' : 'Click', shortcut: 'C', colorKey: 'C' },
     { symbol: 'X', label: isFr ? 'Cerclage (Aro)' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
-    { symbol: 'I', label: isFr ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)', shortcut: 'I', colorKey: 'I' },
+    { symbol: 'I', label: isFr ? 'Bacalhau (Igarassu)' : 'Bacalhau (Igarassu)', shortcut: 'I', colorKey: 'I' },
     { symbol: 'B', label: isFr ? 'B — Barulho (Appel + Tenue)' : 'B — Barulho (Chamada + Sustentação)', shortcut: 'B', colorKey: 'B' },
     { symbol: 'b', label: isFr ? 'b — Barulho doux (Fade-In sans appel)' : 'b — Barulho suave (Fade-In sem chamada)', shortcut: 'b', colorKey: 'b' },
     { symbol: '/', label: isFr ? '/ — Extinction Barulho (Fade-Out)' : '/ — Extinção Barulho (Fade-Out)', shortcut: '/', colorKey: '/' },

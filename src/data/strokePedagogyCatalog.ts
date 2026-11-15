@@ -11,11 +11,28 @@ export interface ResolvedStrokePedagogy extends PedagogyEntryText {
   visualSymbol: string;
 }
 
+const HAND_SWAP_MAP: Record<string, string> = {
+  Droite: 'Gauche',
+  Gauche: 'Droite',
+  droite: 'gauche',
+  gauche: 'droite',
+  Direita: 'Esquerda',
+  Esquerda: 'Direita',
+  direita: 'esquerda',
+  esquerda: 'direita',
+};
+
+const HAND_SWAP_RE = /(?<![\p{L}\p{N}_])(Droite|Gauche|droite|gauche|Direita|Esquerda|direita|esquerda)(?![\p{L}\p{N}_])/gu;
+
+export function swapDirectionalHands(text: string, isLeftHanded: boolean): string {
+  if (!isLeftHanded || !text) return text;
+  return text.replace(HAND_SWAP_RE, (match) => HAND_SWAP_MAP[match] ?? match);
+}
+
 /**
- * Résout la fiche pédagogique bilingue (FR / PT-BR) d'une frappe selon l'instrument
- * et le mode gaucher (`isLeftHanded`).
- * - Si `isVisualSymbol === true`, `rawSymbol` est déjà inversé visuellement (ex. sortie de `getStrokesForInstrument`).
- * - Sinon, `rawSymbol` est le symbole sémantique stocké dans `pattern.activeSteps`.
+ * Résout la fiche pédagogique officielle (FR / PT-BR) d'une frappe selon l'instrument
+ * et le mode gaucher (`isLeftHanded`), en inversant `Droite <-> Gauche` (`Direita <-> Esquerda`)
+ * à la fois dans le titre et dans le corps du texte explicatif.
  */
 export function resolveStrokePedagogy(
   instId: string,
@@ -38,25 +55,16 @@ export function resolveStrokePedagogy(
     ? sym
     : String(getVisualStrokeSymbol(sym, isLeftHanded, normInstId));
 
-  const drumHit = resolveDrumStrokePedagogy(normInstId, semanticStroke, isLeftHanded, lang);
-  if (drumHit) {
-    return {
-      semanticStroke,
-      visualSymbol,
-      title: drumHit.title,
-      description: drumHit.description,
-    };
-  }
+  const rawEntry =
+    resolveDrumStrokePedagogy(normInstId, semanticStroke, lang) ??
+    resolveMetalShakerVocalPedagogy(normInstId, normInstType, semanticStroke, lang);
 
-  const otherHit = resolveMetalShakerVocalPedagogy(normInstId, normInstType, semanticStroke, lang);
-  if (otherHit) {
-    return {
-      semanticStroke,
-      visualSymbol,
-      title: otherHit.title,
-      description: otherHit.description,
-    };
-  }
+  if (!rawEntry) return null;
 
-  return null;
+  return {
+    semanticStroke,
+    visualSymbol,
+    title: swapDirectionalHands(rawEntry.title, isLeftHanded),
+    description: swapDirectionalHands(rawEntry.description, isLeftHanded),
+  };
 }

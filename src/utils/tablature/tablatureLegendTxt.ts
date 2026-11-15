@@ -13,20 +13,20 @@ ALFAIAS / CAIXA / TAROL
    X : Aro / Madeira
    R / r : Rufada (Rolamento)
    F / f : Flam
-   I : Iguarassu / Bacalhau
+   I : Bacalhau (Igarassu)
    B : Barulho (Ruído / efeito)
 
 GONGUÊ
-   G / g : Grave (Forte / Fraco)
-   A / a : Agudo (Forte / Fraco)
-   B : Barulho
+   G / g : Grave — Topo da campana (Forte / Fraco)
+   A / a : Agudo — Base da campana (Forte / Fraco)
+   B : Barulho (Rulo contínuo)
 
 AGBÊ
-   D / d : Direita (Forte / Fraca)
-   E / e : Esquerda (Forte / Fraca)
-   S : Salto / Lançamento
-   V : Volta
-   B : Barulho (Ruído / efeito)
+   D / d : Direita — Retorno lateral (Forte / Fraco)
+   E / e : Esquerda — Batida de palma (Forte / Fraco)
+   S : Salto (Impulso alto)
+   V : Volta (Retorno baixo)
+   B : Barulho (Agitação contínua)
 
 MINEIRO
    P / p ↑ : Projetar — Para frente (Forte / Fraco)
@@ -54,20 +54,20 @@ ALFAIAS / CAIXA / TAROL
    X : Cerclage / Bois
    R / r : Rufada (Roulement droit/gauche)
    F / f : Fla
-   I : Iguarassu / Bacalhau
+   I : Bacalhau (Igarassu)
    B : Barulho (Bruit / effet)
 
 GONGUÊ
-   G / g : Grave (Fort / Faible)
-   A / a : Aigu (Fort / Faible)
-   B : Barulho
+   G / g : Grave — Haut de la cloche (Fort / Faible)
+   A / a : Aigu — Base de la cloche (Fort / Faible)
+   B : Barulho (Roulement continu)
 
 AGBÊ
-   D / d : Droite (Forte / Faible)
-   E / e : Gauche (Forte / Faible)
-   S : Salto / Lançamento (Lancer / Saut)
-   V : Volta (Retour)
-   B : Barulho (Bruit / effet)
+   D / d : Droite — Retour latéral (Fort / Faible)
+   E / e : Gauche — Frappe paume (Fort / Faible)
+   S : Salto (Lancer haut)
+   V : Volta (Retour bas)
+   B : Barulho (Secouement continu)
 
 MINEIRO
    P / p ↑ : Pousser — Avant (Fort / Faible)

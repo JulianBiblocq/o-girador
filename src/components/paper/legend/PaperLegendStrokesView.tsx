@@ -45,11 +45,11 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
     {
       code: 'gg',
       title: `${resolvePupitreDisplayName('gg', lang)} (Gg)`,
-      subtitle: isFr ? 'Cloche en fer battu' : 'Campana de ferro',
+      subtitle: isFr ? 'Cloche unique en fer forgé' : 'Campana única de ferro forjado',
       strokes: [
-        { key: 'G / g', desc: isFr ? 'Grave / Ouvert' : 'Grave / Aberto' },
-        { key: 'A / a', desc: isFr ? 'Aigu / Cloche' : 'Agudo / Sino' },
-        { key: 'B', desc: 'Barulho' },
+        { key: 'G / g', desc: isFr ? 'Grave (Haut de la cloche)' : 'Grave (Topo da campana)' },
+        { key: 'A / a', desc: isFr ? 'Aigu (Base de la cloche)' : 'Agudo (Base da campana)' },
+        { key: 'B', desc: isFr ? 'Barulho (Roulement continu)' : 'Barulho (Rulo contínuo)' },
       ],
     },
     {
@@ -57,10 +57,11 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
       title: `${resolvePupitreDisplayName('ab', lang)} (Ab)`,
       subtitle: isFr ? 'Calebasse à graines' : 'Xequerê / Agbê',
       strokes: [
-        { key: 'D / d', desc: isFr ? 'Base droite' : 'Base direita' },
-        { key: 'E / e', desc: isFr ? 'Base gauche' : 'Base esquerda' },
-        { key: 'S', desc: isFr ? 'Secousse / Salto' : 'Salto / Chacoalhado' },
-        { key: 'V', desc: isFr ? 'Frappé / Volta' : 'Batida / Volta' },
+        { key: 'D / d', desc: isFr ? 'Droite (Retour latéral)' : 'Direita (Retorno lateral)' },
+        { key: 'E / e', desc: isFr ? 'Gauche (Frappe paume)' : 'Esquerda (Batida de palma)' },
+        { key: 'S', desc: isFr ? 'Salto (Lancer haut)' : 'Salto (Impulso alto)' },
+        { key: 'V', desc: isFr ? 'Volta (Retour bas)' : 'Volta (Retorno baixo)' },
+        { key: 'B', desc: isFr ? 'Barulho (Secouement continu)' : 'Barulho (Agitação contínua)' },
       ],
     },
     {

@@ -45,11 +45,11 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Gonguê (Gg)</td>
-            <td style="padding: 4px 6px;"><strong>G/g</strong> (Grave / Aberto), <strong>A/a</strong> (Aigu / Agudo), <strong>B</strong> (Barulho)</td>
+            <td style="padding: 4px 6px;"><strong>G/g</strong> (${isFr ? 'Grave — Haut de la cloche' : 'Grave — Topo da campana'}), <strong>A/a</strong> (${isFr ? 'Aigu — Base de la cloche' : 'Agudo — Base da campana'}), <strong>B</strong> (Barulho)</td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a;">Agbê / Abê (Ab)</td>
-            <td style="padding: 4px 6px;"><strong>D/d</strong> (Base droite), <strong>E/e</strong> (Base gauche), <strong>S</strong> (Secousse / Salto), <strong>V</strong> (Frappé / Volta), <strong>B</strong> (Barulho)</td>
+            <td style="padding: 4px 6px;"><strong>D/d</strong> (${isFr ? 'Droite — Retour filet' : 'Direita — Retorno'}), <strong>E/e</strong> (${isFr ? 'Gauche — Frappe paume' : 'Esquerda — Palma'}), <strong>S</strong> (Salto), <strong>V</strong> (Volta), <strong>B</strong> (Barulho)</td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 11pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Mineiro (Mi)</td>

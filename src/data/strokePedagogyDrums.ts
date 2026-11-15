@@ -10,31 +10,29 @@ const pair = (isFr: boolean, fr: [string, string], pt: [string, string]): Pedago
   description: isFr ? fr[1] : pt[1],
 });
 
+/**
+ * Textes explicatifs officiels des peaux (droitier de référence ; l'inversion `Droite <-> Gauche` /
+ * `Direita <-> Esquerda` sur titre + description est appliquée par `resolveStrokePedagogy`).
+ */
 export function resolveDrumStrokePedagogy(
   instId: string,
   semanticStroke: string,
-  isLeftHanded: boolean,
   lang: Language
 ): PedagogyEntryText | null {
   const isFr = lang === 'fr';
-  const domHand = isFr ? (isLeftHanded ? 'Main Gauche' : 'Main Droite') : (isLeftHanded ? 'Mão Esquerda' : 'Mão Direita');
-  const secHand = isFr ? (isLeftHanded ? 'Main Droite' : 'Main Gauche') : (isLeftHanded ? 'Mão Direita' : 'Mão Esquerda');
 
   if (['marcante', 'meiao', 'repique', 'alfaia'].includes(instId)) {
-    const stickFr = instId === 'repique' ? 'la batte fine' : 'la maçaneta lourde';
-    const stickPt = instId === 'repique' ? 'a baqueta fina' : 'a maçaneta pesada';
     switch (semanticStroke) {
-      case 'D': return pair(isFr, [`Maçaneta Forte (${domHand})`, `Frappe pleine au centre de la peau avec ${stickFr}, projetant le grave fondamental du baque.`], [`Maçaneta Forte (${domHand})`, `Golpe cheio no centro da pele com ${stickPt}, projetando o grave fundamental do baque.`]);
-      case 'd': return pair(isFr, [`Maçaneta Douce (${domHand})`, `Frappe retenue au centre avec ${stickFr} pour préparer un appel ou nuancer la pulsation.`], [`Maçaneta Fraca (${domHand})`, `Golpe contido no centro com ${stickPt} para preparar uma chamada ou suavizar a pulsação.`]);
-      case 'E': return pair(isFr, [`Bacalhau Fort (${secHand})`, 'Frappe vive de la baguette fine sur la peau assurant la réponse rythmique et le repique.'], [`Bacalhau Forte (${secHand})`, 'Golpe vivo do bacalhau na pele sustentando a resposta rítmica e o repique.']);
-      case 'e': return pair(isFr, [`Bacalhau Doux (${secHand})`, 'Touche légère du bacalhau remplissant la subdivision sans alourdir le grave.'], [`Bacalhau Fraco (${secHand})`, 'Toque leve do bacalhau preenchendo a subdivisão sem pesar sobre o grave.']);
-      case 'A':
-      case 'a': return pair(isFr, [`Abafado — Étouffé (${secHand})`, 'Baguette secondaire plaquée contre la peau pour couper net la résonance précédente avant de se décoller à la frappe suivante.'], [`Abafado Seco (${secHand})`, 'Baqueta secundária apoiada contra a pele para estancar a ressonância anterior antes de desencostar no toque seguinte.']);
-      case 'I': return pair(isFr, ["Bacalhau d'Igarassu", 'Coup de bacalhau fouetté et incisif typique de la frappe traditionnelle sèche.'], ['Bacalhau de Igarassu', 'Golpe estalado e incisivo de bacalhau característico do sotaque tradicional seco.']);
-      case 'C': return pair(isFr, ['Clic de Baguettes', "Entrechoquement sec de la maçaneta et du bacalhau en l'air au-dessus du fût."], ['Click de Baquetas', 'Toque seco entre a maçaneta e o bacalhau no ar acima do tambor.']);
-      case 'X': return pair(isFr, ['Cerclage (Aro)', "Frappe boisée et sèche directement sur l'arceau supérieur de l'alfaia."], ['Toque no Aro', 'Golpe amadeirado e seco diretamente no aro superior da alfaia.']);
-      case 'B': return pair(isFr, ['Barulho (Appel + Tenue)', "Roulement continu puissant remplissant l'espace sonore lors des appels et coupures."], ['Barulho (Chamada + Sustentação)', 'Rulo contínuo e cheio preenchendo o espaço sonoro nas chamadas e convenções.']);
-      case 'b': return pair(isFr, ['Barulho Doux (Fade-In)', 'Entrée progressive du roulement continu sans attaque initiale marquée.'], ['Barulho Suave (Fade-In)', 'Entrada progressiva do rulo contínuo sem ataque inicial acentuado.']);
+      case 'D': return pair(isFr, ['Main droite (Coup fort)', 'Frappe pleine de la grosse mailloche (maçaneta) au centre de la peau pour déployer toute la fondamentale grave du tambour.'], ['Mão direita (Golpe forte)', 'Pancada cheia da maçaneta no centro da pele para abrir todo o grave fundamental do tambor.']);
+      case 'd': return pair(isFr, ['Main droite (Coup faible)', 'Coup léger joué près de la peau sans remonter haut, qui entretient le rebond tout en laissant résonner le grave.'], ['Mão direita (Golpe fraco)', 'Toque leve perto da pele sem subir muito a mão, mantendo o balanço enquanto o grave continua soando.']);
+      case 'E': return pair(isFr, ['Main gauche (Coup fort)', 'Frappe accentuée de la baguette gauche au centre de la peau.'], ['Mão esquerda (Golpe forte)', 'Toque acentuado da baqueta esquerda no centro da pele.']);
+      case 'e': return pair(isFr, ['Main gauche (Coup faible)', "Frappe légère de la baguette gauche qui met déjà la peau en vibration, souvent juste avant d'appuyer et d'ouvrir le coup fort de la main droite."], ['Mão esquerda (Golpe fraco)', 'Toque leve da baqueta esquerda que já coloca a pele em vibração, preparando a chegada do golpe forte da mão direita.']);
+      case 'A': case 'a': return pair(isFr, ['Étouffé (Abafado)', 'Baguette gauche plaquée contre la peau pour couper net la résonance du coup précédent, avant de se décoller juste avant la frappe suivante.'], ['Abafado', 'Baqueta esquerda apoiada na pele para cortar a ressonância do golpe anterior, desencostando logo antes da batida seguinte.']);
+      case 'I': return pair(isFr, ['Bacalhau (Igarassu)', "Frappe fouettée jouée avec une baguette fine et souple (bacalhau) en main gauche, signature du jeu d'Igarassu."], ['Bacalhau (Igarassu)', 'Toque estalado tocado com a vareta fina e flexível (bacalhau) na mão esquerda, assinatura do baque de Igarassu.']);
+      case 'C': return pair(isFr, ['Clic de baguettes', "Choc sec des deux baguettes entrechoquées en l'air au-dessus du fût, sans toucher la peau."], ['Clique de baquetas', 'Estalo seco das duas baquetas batidas no ar acima do tambor, sem tocar a pele.']);
+      case 'X': return pair(isFr, ['Cerclage (Aro)', "Coup sec du bois de la baguette directement sur l'arceau en bois du tambour."], ['Aro', 'Toque seco da madeira da baqueta diretamente no aro de madeira da alfaia.']);
+      case 'B': return pair(isFr, ['Barulho (Grondement)', 'Roulement continu alterné des deux baguettes faisant gronder et vibrer longuement la peau du fût.'], ['Barulho (Vibração)', 'Rulo contínuo alternado das duas baquetas fazendo a pele vibrar profundamente.']);
+      case 'b': return pair(isFr, ['Barulho doux (Fade-In)', 'Entrée progressive du roulement continu des deux baguettes sans attaque initiale marquée.'], ['Barulho suave (Fade-In)', 'Entrada progressiva do rulo contínuo das duas baquetas sem ataque inicial acentuado.']);
       case '/': return pair(isFr, ['Extinction Barulho (Fade-Out)', "Décroissance contrôlée du roulement continu jusqu'à l'extinction."], ['Extinção do Barulho (Fade-Out)', 'Decaimento controlado do rulo contínuo até silenciar.']);
       case '.': return pair(isFr, ['Fin du Barulho', 'Arrêt franc et immédiat du roulement continu pour libérer le silence.'], ['Fim do Barulho', 'Corte imediato do rulo contínuo abrindo espaço para o silêncio.']);
       default: return null;
@@ -42,37 +40,38 @@ export function resolveDrumStrokePedagogy(
   }
 
   if (instId === 'caixa' || instId === 'tarol') {
+    const isUpper = semanticStroke === semanticStroke.toUpperCase();
+    const handFr = isUpper ? 'Main droite' : 'Main gauche';
+    const handPt = isUpper ? 'Mão direita' : 'Mão esquerda';
+    const sideFr = isUpper ? 'Droite' : 'Gauche';
+    const sidePt = isUpper ? 'Direita' : 'Esquerda';
     switch (semanticStroke) {
-      case 'D': return pair(isFr, [`Frappe Forte (${domHand})`, 'Coup franc au centre de la peau faisant claquer pleinement le timbre métallique (esteira).'], [`Toque Forte (${domHand})`, 'Golpe firme no centro da pele acionando com brilho toda a esteira.']);
-      case 'd': return pair(isFr, [`Ghost Note (${domHand})`, 'Rebond rasant à faible hauteur entretenant le tapis continu de doubles-croches.'], [`Ghost Note (${domHand})`, 'Toque baixo e leve sustentando a malha contínua de semicolcheias.']);
-      case 'E': return pair(isFr, [`Frappe Forte (${secHand})`, 'Accent plein au centre de la peau équilibrant le dialogue des deux mains.'], [`Toque Forte (${secHand})`, 'Acento cheio no centro da pele equilibrando a alternância das mãos.']);
-      case 'e': return pair(isFr, [`Ghost Note (${secHand})`, "Note fantôme souple nourrissant le grain serré de l'accompagnement."], [`Ghost Note (${secHand})`, 'Nota fantasma macia alimentando o preenchimento contínuo da levada.']);
-      case 'A': return pair(isFr, [`Rimshot (${domHand} — Peau & Cerclage)`, "Coup puissant frappé simultanément près du bord de la peau avec l'olive et sur le cerclage avec le col de la baguette."], [`Rimshot (${domHand} — Ataque Pele e Aro)`, 'Golpe potente tocado simultaneamente perto da borda da pele com a ponta e no aro com o pescoço da baqueta.']);
-      case 'a': return pair(isFr, [`Rimshot (${secHand} — Peau & Cerclage)`, "Coup tranchant frappé simultanément près du bord de la peau avec l'olive et sur le cerclage avec le col de la baguette."], [`Rimshot (${secHand} — Ataque Pele e Aro)`, 'Golpe cortante tocado simultaneamente perto da borda da pele com a ponta e no aro com o pescoço da baqueta.']);
-      case 'R': return pair(isFr, [`Rufada (${domHand})`, 'Roulé pressé court écrasant le rebond pour faire chanter densément le timbre.'], [`Rufada (${domHand})`, 'Rulo curto pressionado fazendo a esteira vibrar com densidade.']);
-      case 'r': return pair(isFr, [`Rufada (${secHand})`, 'Roulé pressé court amorcé par la main secondaire pour lier deux accents.'], [`Rufada (${secHand})`, 'Rulo curto pressionado iniciado pela mão secundária ligando os acentos.']);
-      case 'F': return pair(isFr, [`Fla (${domHand})`, "Appoggiature serrée à deux baguettes élargissant l'attaque principale."], [`Fla (${domHand})`, 'Apogiatura curta de duas baquetas encorpando o ataque principal.']);
-      case 'f': return pair(isFr, [`Fla (${secHand})`, 'Appoggiature serrée à deux baguettes conclue sur la main secondaire.'], [`Fla (${secHand})`, 'Apogiatura curta de duas baquetas resolvendo na mão secundária.']);
-      case 'C': return pair(isFr, ['Clic de Baguettes', "Choc sec des deux baguettes entrechoquées en l'air pour marquer le décompte ou une pause."], ['Click de Baquetas', 'Estalo seco das duas baquetas batidas no ar marcando contagem ou breque.']);
-      case 'X': return pair(isFr, ['Cerclage (Aro)', 'Clic métallique sec du fût de la baguette posé sur le cerclage sans frapper la peau.'], ['Toque no Aro', 'Estalo metálico seco do corpo da baqueta no aro sem atacar a pele.']);
-      case 'B':
-      case 'b': return pair(isFr, ['Barulho (Roulement Continu)', 'Roulement soutenu des deux mains faisant gronder la caisse en continu.'], ['Barulho (Rulo Contínuo)', 'Rulo sustentado das duas mãos mantendo a vibração contínua da caixa.']);
+      case 'D': case 'E': return pair(isFr, [`${handFr} (Coup fort)`, 'Frappe franche au centre de la peau mettant pleinement en vibration le timbre métallique.'], [`${handPt} (Golpe forte)`, 'Toque firme no centro da pele colocando a esteira metálica em plena vibração.']);
+      case 'd': case 'e': return pair(isFr, [`${handFr} (Coup faible)`, 'Frappe légère qui tisse le tapis continu (malha) en doubles-croches entre les accents.'], [`${handPt} (Golpe fraco)`, 'Toque leve que tece a malha contínua de semicolcheias entre os acentos.']);
+      case 'R': case 'r': return pair(isFr, [`Rufada (Roulement court — ${sideFr})`, 'Roulé pressé très serré au centre de la peau qui densifie le grain du timbre sur un pas.'], [`Rufada (Rulo curto — ${sidePt})`, 'Rulo pressionado bem fechado no centro da pele que adensa a esteira em um passo.']);
+      case 'F': case 'f': return pair(isFr, [`Fla (${sideFr})`, "Double attaque très rapprochée où une petite note précède d'un éclair le coup principal de l'autre main pour élargir l'impact."], [`Fla (${sidePt})`, 'Ataque duplo bem próximo em que uma nota curta antecede o golpe principal da outra mão para encorpar o impacto.']);
+      case 'A': case 'a': return pair(isFr, [`Rimshot / Pele e Aro (${sideFr})`, "Coup surpuissant frappé près du bord en percutant simultanément la peau avec l'olive et le cerclage avec le col de la baguette."], [`Ataque Pele e Aro / Rimshot (${sidePt})`, 'Golpe potente perto da borda atingindo simultaneamente a pele com a ponta e o aro com o pescoço da baqueta.']);
+      case 'C': return pair(isFr, ['Clic de baguettes', "Choc sec des deux baguettes entrechoquées en l'air."], ['Clique de baquetas', 'Estalo seco das duas baquetas batidas no ar.']);
+      case 'X': return pair(isFr, ['Cerclage (Aro)', 'Coup sec frappé uniquement sur le cerclage, sans toucher la peau.'], ['Aro', 'Toque seco batido apenas no aro, sem tocar a pele.']);
+      case 'B': case 'b': return pair(isFr, ['Barulho (Roulement continu)', "Roulement tenu faisant vibrer le timbre sur toute la durée de l'appel."], ['Barulho (Rulo contínuo)', 'Rulo sustentado fazendo vibrar a esteira durante toda a chamada.']);
       default: return null;
     }
   }
 
   if (instId === 'timbal') {
-    const hand = semanticStroke === semanticStroke.toUpperCase() ? domHand : secHand;
+    const isRight = semanticStroke === semanticStroke.toUpperCase();
+    const sideFr = isRight ? 'Droite' : 'Gauche';
+    const sidePt = isRight ? 'Direita' : 'Esquerda';
     switch (semanticStroke) {
-      case 'G': case 'g': return pair(isFr, [`Basse (${hand})`, 'Paume souple rebondissant vers le centre de la peau pour libérer le grave rond du fût.'], [`Baixo (${hand})`, 'Palma solta no centro da pele extraindo o grave redondo e profundo do timbal.']);
-      case 'A': case 'a': return pair(isFr, [`Ton Ouvert (${hand})`, 'Doigts joints frappant au bord de la peau pour un médium clair et chantant.'], [`Aberto (${hand})`, 'Dedos unidos na borda da pele produzindo o médio aberto e projetado.']);
-      case 'S': case 's': return pair(isFr, [`Slap Claqué (${hand})`, 'Fouetté vif des doigts relâchés près du rebord produisant un harmonique aigu explosif.'], [`Slap Estalado (${hand})`, 'Chicoteio rápido dos dedos na borda gerando o agudo estalado característico.']);
-      case 'D': case 'd': return pair(isFr, [`Toucher Fantôme (${hand})`, 'Effleurement léger du bout des doigts articulant la subdivision interne.'], [`Dedilhado (${hand})`, 'Toque leve da ponta dos dedos preenchendo a subdivisão interna.']);
-      case 'P': case 'p': return pair(isFr, [`Pressé Étouffé (${hand})`, 'Frappe mate où la main reste appuyée sur la peau pour bloquer les harmoniques.'], [`Preso Abafado (${hand})`, 'Toque seco mantendo a mão apoiada na pele para conter os harmônicos.']);
-      case 'F': case 'f': return pair(isFr, [`Fla Ouvert (${hand})`, 'Double attaque rapprochée des deux mains en ton ouvert chantant.'], [`Fla Aberto (${hand})`, 'Ataque duplo aproximado das duas mãos em som aberto.']);
-      case 'V': case 'v': return pair(isFr, [`Fla Claqué (${hand})`, 'Double attaque explosive des deux mains terminée en slap aigu.'], [`Fla Slap (${hand})`, 'Ataque duplo explosivo das duas mãos resolvendo em slap agudo.']);
-      case 'C': return pair(isFr, ['Clap de Mains', "Claquement sec des paumes l'une contre l'autre pour ponctuer une coupure."], ['Clap de Mãos', 'Palma seca entre as mãos pontuando convenções e breques.']);
-      case 'B': case 'b': return pair(isFr, ['Barulho (Roulement)', 'Roulement rapide alterné des deux mains sur la peau du timbal.'], ['Barulho (Rulo)', 'Rulo rápido alternado das duas mãos sobre a pele do timbal.']);
+      case 'G': case 'g': return pair(isFr, [`Grave / Basse (${sideFr} ${semanticStroke})`, 'Frappe paume pleine et doigts joints vers le centre de la peau, main aussitôt relevée pour libérer la basse ronde.'], [`Grave (${sidePt} ${semanticStroke})`, 'Golpe de palma cheia e dedos unidos rumo ao centro da pele, soltando logo a mão para abrir o grave redondo.']);
+      case 'A': case 'a': return pair(isFr, [`Ton ouvert / Aberto (${sideFr} ${semanticStroke})`, "Frappe franche des doigts joints sur le bord de la peau laissant chanter l'harmonique claire du fût."], [`Aberto (${sidePt} ${semanticStroke})`, 'Toque firme dos dedos unidos na borda da pele deixando cantar o harmônico aberto do timbal.']);
+      case 'S': case 's': return pair(isFr, [`Claqué / Slap (${sideFr} ${semanticStroke})`, "Fouetté explosif des doigts légèrement ouverts entre le bord et le centre avec retrait réflexe pour faire claquer l'aigu."], [`Slap / Estalo (${sidePt} ${semanticStroke})`, 'Chicoteada explosiva dos dedos levemente abertos entre a borda e o centro para estalar o agudo.']);
+      case 'D': case 'd': return pair(isFr, [`Doigts / Fantôme (${sideFr} ${semanticStroke})`, 'Toucher léger du bout des doigts (ponta de dedos) au ras de la peau pour garnir le groove.'], [`Ponta de dedos / Fantasma (${sidePt} ${semanticStroke})`, 'Toque leve da ponta dos dedos rente à pele para preencher a levada.']);
+      case 'P': case 'p': return pair(isFr, [`Pressé / Fermé (${sideFr} ${semanticStroke})`, 'Frappe mate où la main reste appuyée sur la peau pour étouffer net la résonance ouverte.'], [`Preso / Fechado (${sidePt} ${semanticStroke})`, 'Toque seco em que a mão permanece apoiada na pele para abafar a ressonância.']);
+      case 'F': case 'f': return pair(isFr, [`Fla ouvert (${sideFr} ${semanticStroke})`, 'Appoggiature rapide des deux mains débouchant sur un ton ouvert Aberto.'], [`Fla aberto (${sidePt} ${semanticStroke})`, 'Apogiatura rápida das duas mãos desembocando num toque Aberto.']);
+      case 'V': case 'v': return pair(isFr, [`Fla claqué (${sideFr} ${semanticStroke})`, 'Appoggiature rapide des deux mains débouchant sur un Slap tranchant.'], [`Fla slap (${sidePt} ${semanticStroke})`, 'Apogiatura rápida das duas mãos desembocando num Slap cortante.']);
+      case 'C': return pair(isFr, ['Clap', 'Claquement sec des mains.'], ['Palma (Clap)', 'Palma seca das mãos.']);
+      case 'B': case 'b': return pair(isFr, ['Barulho (Roulement continu)', 'Roulement rapide alterné des deux mains faisant gronder la peau en continu.'], ['Barulho (Rulo contínuo)', 'Rulo rápido alternado das duas mãos fazendo vibrar a pele continuamente.']);
       default: return null;
     }
   }

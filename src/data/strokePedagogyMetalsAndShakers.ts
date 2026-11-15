@@ -12,50 +12,47 @@ export function resolveMetalShakerVocalPedagogy(
   if (instId === 'gongue' || instType === 'gongue') {
     switch (semanticStroke) {
       case 'G': return isFr
-        ? { title: 'Cloche Grave Forte', description: 'Frappe franche du bâton de bois sur la grande campane inférieure, pilier de la clave.' }
-        : { title: 'Campana Grave Forte', description: 'Golpe firme da baqueta de madeira na campana maior inferior, base da linha guia.' };
+        ? { title: 'Grave fort (Haut de la cloche)', description: 'Frappe franche avec la large baguette en nylon (ou en bois) en haut de la cloche, près de la bouche (ouverture), produisant la note grave pleine avec très peu de rebond.' }
+        : { title: 'Grave forte (Topo da campana)', description: 'Toque firme com a baqueta larga de nylon (ou madeira) no alto da campana, perto da boca, produzindo a nota grave cheia com pouquíssimo rebote.' };
       case 'g': return isFr
-        ? { title: 'Cloche Grave Douce', description: 'Frappe retenue sur la grande campane soulignant la pulsation sans couvrir le chant.' }
-        : { title: 'Campana Grave Fraca', description: 'Toque suave na campana maior mantendo o pulso sem encobrir a toada.' };
+        ? { title: 'Grave faible (Haut de la cloche)', description: 'Frappe retenue en haut près de la bouche de la cloche pour poser la note grave en nuance.' }
+        : { title: 'Grave fraco (Topo da campana)', description: 'Toque contido no alto, perto da boca da campana, para apoiar a nota grave com dinâmica suave.' };
       case 'A': return isFr
-        ? { title: 'Cloche Aiguë Forte', description: 'Frappe brillante et projetée sur la petite campane supérieure pour faire percer la syncope.' }
-        : { title: 'Campana Aguda Forte', description: 'Golpe brilhante e projetado na campana menor superior destacando a síncope.' };
+        ? { title: 'Aigu fort (Base de la cloche)', description: 'Frappe franche en bas vers la base (le col) de la cloche, là où le métal plus épais et rigide produit la note aiguë.' }
+        : { title: 'Agudo forte (Base da campana)', description: 'Toque firme embaixo, perto da base da campana, onde o ferro mais espesso e rígido produz a nota aguda.' };
       case 'a': return isFr
-        ? { title: 'Cloche Aiguë Douce', description: 'Touche légère sur la petite campane articulant délicatement le contretemps.' }
-        : { title: 'Campana Aguda Fraca', description: 'Toque leve na campana menor articulando com delicadeza o contratempo.' };
+        ? { title: 'Aigu faible (Base de la cloche)', description: 'Frappe légère vers la base de la cloche pour articuler la phrase.' }
+        : { title: 'Agudo fraco (Base da campana)', description: 'Toque leve perto da base da campana para articular a frase rítmica.' };
       case 'B':
       case 'b': return isFr
-        ? { title: 'Barulho (Trémolo sur Cloche)', description: 'Battement rapide et continu de la baguette faisant vibrer intensément le fer.' }
-        : { title: 'Barulho (Vibração Contínua)', description: 'Batimento rápido e contínuo da baqueta fazendo o ferro vibrar intensamente.' };
+        ? { title: 'Barulho (Roulement continu)', description: 'Battement rapide et continu de la baguette faisant résonner le fer de la cloche.' }
+        : { title: 'Barulho (Rulo contínuo)', description: 'Batimento rápido e contínuo da baqueta fazendo vibrar o ferro da campana.' };
       default: return null;
     }
   }
 
   if (instId === 'agbe') {
+    const isStrong = semanticStroke === semanticStroke.toUpperCase();
     switch (semanticStroke) {
-      case 'D': return isFr
-        ? { title: 'Projection Main Droite Forte', description: 'Balancier énergique projetant le filet de perles contre la paroi de la calebasse côté droit.' }
-        : { title: 'Projeção Direita Forte', description: 'Balanço firme projetando a malha de contas contra o cabaço no lado direito.' };
+      case 'D':
       case 'd': return isFr
-        ? { title: 'Projection Main Droite Douce', description: 'Oscillation souple côté droit entretenant le bruissement régulier des perles.' }
-        : { title: 'Projeção Direita Fraca', description: 'Oscilação leve para a direita mantendo o chiado regular das contas.' };
-      case 'E': return isFr
-        ? { title: 'Projection Main Gauche Forte', description: 'Retour marqué du balancier plaquant franchement le filet contre la main directrice.' }
-        : { title: 'Projeção Esquerda Forte', description: 'Retorno firme do balanço chocando a malha contra o lado esquerdo.' };
+        ? { title: `Droite (${isStrong ? 'Fort' : 'Faible'})`, description: 'Retour latéral où la main droite ramène la calebasse vers la droite, faisant glisser et claquer le filet de perles sur le flanc opposé (ample sur D, court sur d).' }
+        : { title: `Direita (${isStrong ? 'Forte' : 'Fraco'})`, description: 'Movimento de retorno em que a mão direita traz a cabaça para a direita, fazendo a malha de contas deslizar e estalar no flanco oposto (amplo em D, curto em d).' };
+      case 'E':
       case 'e': return isFr
-        ? { title: 'Projection Main Gauche Douce', description: 'Retour léger du filet accompagnant la respiration interne du baque.' }
-        : { title: 'Projeção Esquerda Fraca', description: 'Retorno suave da malha acompanhando o balanço interno do baque.' };
+        ? { title: `Gauche (${isStrong ? 'Fort' : 'Faible'})`, description: 'La calebasse, tenue par le col dans la main droite, va vers la gauche et la main gauche la frappe de la paume en faisant claquer le filet de perles (franc sur E, léger sur e).' }
+        : { title: `Esquerda (${isStrong ? 'Forte' : 'Fraco'})`, description: 'A cabaça, segurada pelo pescoço na mão direita, vai para a esquerda e a mão esquerda bate nela com a palma, fazendo estalar a malha de contas (firme em E, leve em e).' };
       case 'S': return isFr
-        ? { title: 'Salto (Lancer Vertical)', description: "Impulsion projetant l'agbê vers le haut pour un accent aérien suivi de la retombée des perles." }
-        : { title: 'Salto (Impulso Vertical)', description: 'Impulso lançando o agbê para o alto gerando acento brilhante na queda das contas.' };
+        ? { title: 'Salto (Lancer haut)', description: 'Projection vive vers le haut qui soulève la calebasse et met le filet en suspension avant sa retombée.' }
+        : { title: 'Salto (Impulso alto)', description: 'Projeção viva para cima que ergue a cabaça e suspende a malha antes da queda.' };
       case 'V':
       case 'v': return isFr
-        ? { title: 'Volta (Rotation)', description: 'Mouvement circulaire faisant glisser longuement la résille autour du corps de la calebasse.' }
-        : { title: 'Volta (Giro)', description: 'Movimento circular fazendo a malha deslizar ao redor do corpo do cabaço.' };
+        ? { title: 'Volta (Retour bas)', description: 'Chute contrôlée et impact franc vers le bas lorsque la calebasse retombe dans les mains.' }
+        : { title: 'Volta (Retorno baixo)', description: 'Descida controlada e impacto firme para baixo quando a cabaça retorna às mãos.' };
       case 'B':
       case 'b': return isFr
-        ? { title: 'Barulho (Secoué Continu)', description: "Agitation continue faisant crépiter l'ensemble des perles lors des appels." }
-        : { title: 'Barulho (Agitação Contínua)', description: 'Agitação contínua fazendo toda a malha de contas vibrar nas chamadas.' };
+        ? { title: 'Barulho (Secouement continu)', description: 'Agitation rapide sur place faisant crépiter toutes les perles en continu.' }
+        : { title: 'Barulho (Agitação contínua)', description: 'Agitação rápida no lugar fazendo todas as contas crepitarem continuamente.' };
       default: return null;
     }
   }
@@ -63,24 +60,24 @@ export function resolveMetalShakerVocalPedagogy(
   if (instId === 'mineiro') {
     switch (semanticStroke) {
       case 'P': return isFr
-        ? { title: "Projetar — Pousser Fort (Avant)", description: 'Projection franche du cylindre vers l’avant plaquant net les billes contre la paroi frontale.' }
-        : { title: 'Projetar Forte (Para Frente)', description: 'Projeção firme do cilindro à frente chocando as esferas na parede frontal.' };
+        ? { title: 'Poussé fort (Projetar)', description: "Projection sèche et bloquée vers l'avant qui plaque les graines/billes d'un coup net contre la paroi frontale." }
+        : { title: 'Projetar forte (Para frente)', description: 'Projeção seca e travada para a frente que lança as contas de uma só vez contra a parede frontal.' };
       case 'p': return isFr
-        ? { title: 'Projetar — Pousser Doux (Avant)', description: 'Avancée courte et contrôlée assurant le ciselé léger de la subdivision.' }
-        : { title: 'Projetar Fraco (Para Frente)', description: 'Avanço curto e controlado mantendo o corte leve da subdivisão.' };
+        ? { title: 'Poussé faible', description: "Léger rebond vers l'avant entretenant le débit avec un minimum de mouvement des mains." }
+        : { title: 'Projetar fraco', description: 'Leve rebote para a frente mantendo a subdivisão com movimento mínimo das mãos.' };
       case 'T': return isFr
-        ? { title: 'Trazer — Tirer Fort (Vers soi)', description: 'Rappel sec du cylindre vers le buste faisant claquer les billes sur la paroi arrière.' }
-        : { title: 'Trazer Forte (Para Trás)', description: 'Puxada firme do cilindro para trás estalando as esferas na parede traseira.' };
+        ? { title: 'Tiré fort (Trazer)', description: 'Rappel franc du cylindre vers soi faisant claquer les billes en contretemps.' }
+        : { title: 'Trazer forte (Para trás)', description: 'Puxada firme do cilindro em direção ao corpo fazendo estalar as contas no contratempo.' };
       case 't': return isFr
-        ? { title: 'Trazer — Tirer Doux (Vers soi)', description: 'Retour souple vers soi refermant le cycle continu du mineiro.' }
-        : { title: 'Trazer Fraco (Para Trás)', description: 'Retorno suave para trás completando o movimento contínuo do mineiro.' };
+        ? { title: 'Tiré faible', description: 'Petit retour intermédiaire des billes vers soi avant de repartir sur le temps suivant.' }
+        : { title: 'Trazer fraco', description: 'Pequeno retorno intermediário das contas em direção ao corpo antes do tempo seguinte.' };
       case 'L': return isFr
-        ? { title: 'Lado — Accent Latéral', description: "Secousse transversale vive cassant l'axe avant-arrière pour souligner une figure." }
-        : { title: 'Lado — Acento Lateral', description: 'Corte transversal vivo quebrando o eixo frente-trás para destacar uma figura.' };
+        ? { title: 'Latéral (Lado)', description: "Bascule diagonale et coup sur le côté (une main avançant pendant que l'autre revient vers soi) pour marquer un balanço particulier." }
+        : { title: 'Lado (Lateral)', description: 'Inclinação diagonal e batida lateral (uma mão avançando enquanto a outra recua) para marcar um balanço especial.' };
       case 'B':
       case 'b': return isFr
-        ? { title: 'Barulho (Trémolo Métallique)', description: 'Va-et-vient serré et continu produisant un souffle métallique dense.' }
-        : { title: 'Barulho (Trêmulo Contínuo)', description: 'Agitação rápida e contínua gerando um tapete metálico denso.' };
+        ? { title: 'Barulho (Secouement continu)', description: 'Va-et-vient serré à haute fréquence produisant un bruissement continu.' }
+        : { title: 'Barulho (Agitação contínua)', description: 'Vaivém curto e rápido produzindo um chiado contínuo.' };
       default: return null;
     }
   }
@@ -88,11 +85,11 @@ export function resolveMetalShakerVocalPedagogy(
   if (instId === 'apito') {
     switch (semanticStroke) {
       case 'W': return isFr
-        ? { title: 'Sifflet Long (Apito Longo)', description: "Coup de sifflet tenu du Mestre lançant l'appel, l'entrée d'une section ou l'arrêt du Batuque." }
-        : { title: 'Apito Longo', description: 'Sopro sustentado do Mestre comandando chamada, virada de seção ou parada do Batuque.' };
+        ? { title: 'Sifflet fort/long (W)', description: "Signal d'appel du Mestre pour commander les entrées, viradas et paradas." }
+        : { title: 'Apito forte/longo (W)', description: 'Sinal do Mestre para comandar entradas, viradas e paradas.' };
       case 'w': return isFr
-        ? { title: 'Sifflet Court (Apito Curto)', description: 'Coup de sifflet bref et cadencé scandant la pulsation avant une convention.' }
-        : { title: 'Apito Curto', description: 'Sopro curto e ritmado marcando a pulsação antes de uma convenção.' };
+        ? { title: 'Sifflet court/léger (w)', description: "Signal d'appel du Mestre pour commander les entrées, viradas et paradas." }
+        : { title: 'Apito curto/leve (w)', description: 'Sinal do Mestre para comandar entradas, viradas e paradas.' };
       default: return null;
     }
   }
@@ -100,17 +97,17 @@ export function resolveMetalShakerVocalPedagogy(
   if (['puxador', 'coro', 'toada'].includes(instId) || instType === 'voice') {
     switch (semanticStroke) {
       case 'P': return isFr
-        ? { title: 'Chant Solo (Puxador)', description: 'Voix soliste entonnant l’appel mélodique et poétique de la Toada.' }
-        : { title: 'Canto Solo (Puxador)', description: 'Voz solista puxando a linha melódica e os versos de chamada da Toada.' };
+        ? { title: 'Puxador (P)', description: "Voix soliste d'appel (P), réponse collective du chœur (C) et prolongation mélodique liée sur la même syllabe (_)." }
+        : { title: 'Puxador (P)', description: 'Voz solista de chamada (P), resposta coletiva do coro (C) e prolongamento melódico ligado na mesma sílaba (_).' };
       case 'C': return isFr
-        ? { title: 'Chœur (Coro)', description: 'Réponse collective chantée à pleine voix par le cortège et le Batuque.' }
-        : { title: 'Coro Coletivo', description: 'Resposta coletiva entoada em conjunto pelo cortejo e pelo Batuque.' };
+        ? { title: 'Coro (C)', description: "Réponse collective du chœur (C), en dialogue avec la voix soliste d'appel (P) et la tenue liée sur la même syllabe (_)." }
+        : { title: 'Coro (C)', description: 'Resposta coletiva do coro (C), em diálogo com a voz solista de chamada (P) e o prolongamento ligado na mesma sílaba (_).' };
       case '_': return isFr
-        ? { title: 'Mélisme / Tenue Legato', description: 'Prolongation ou glissement de hauteur sur la même voyelle sans ré-attaquer de syllabe.' }
-        : { title: 'Melisma / Sustentação Legato', description: 'Prolongamento ou mudança de nota na mesma vogal sem novo ataque silábico.' };
+        ? { title: 'Tenue (_)', description: 'Prolongation mélodique liée sur la même syllabe (_), sans ré-attaque vocale.' }
+        : { title: 'Sustentação (_)', description: 'Prolongamento melódico ligado na mesma sílaba (_), sem novo ataque vocal.' };
       case '0': return isFr
-        ? { title: 'Silence Vocal Explicite', description: 'Respiration ou soupir volontaire interrompant proprement la tenue vocale.' }
-        : { title: 'Silêncio Vocal Explícito', description: 'Pausa ou respiração intencional encerrando a sustentação da nota.' };
+        ? { title: 'Silence vocal (0)', description: 'Respiration ou coupure volontaire interrompant proprement la tenue vocale.' }
+        : { title: 'Silêncio vocal (0)', description: 'Pausa ou respiração intencional encerrando a sustentação vocal.' };
       default: return null;
     }
   }

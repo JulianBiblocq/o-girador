@@ -31,7 +31,7 @@ const PRIMARY_DICTIONARY_ITEMS: DictItem[] = [
   },
   {
     id: 'base_gongue',
-    name: 'Gonguê Base (Aberto / Fechado)',
+    name: 'Gonguê Base (Grave / Agudo)',
     family: 'bases_paradas',
     patterns: { gg: ['G', 0, 'A', 0, 'G', 0, 'A', 0, 'G', 'A', 0, 'A', 'G', 0, 'A', 0] },
   },

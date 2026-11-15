@@ -35,15 +35,15 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
             <li style="margin-bottom: 4px;"><strong>X</strong> : ${isPt ? 'Aro / Madeira' : 'Cerclage / Bois'}</li>
             <li style="margin-bottom: 4px;"><strong>R / r</strong> : ${isPt ? 'Rufada' : 'Rufada (Roulement)'}</li>
             <li style="margin-bottom: 4px;"><strong>F</strong> : ${isPt ? 'Flam' : 'Fla'}</li>
-            <li style="margin-bottom: 4px;"><strong>I</strong> : Bacalhau</li>
+            <li style="margin-bottom: 4px;"><strong>I</strong> : Bacalhau (Igarassu)</li>
             <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
           </ul>
         </div>
         <div style="width: 45%; margin-bottom: 15px;">
           <h3 style="font-size: 16px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Gonguê, Agbê, Mineiro</h3>
           <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
-            <li style="margin-bottom: 4px;"><strong>Gonguê</strong> : G/g (Grave), A/a (${isPt ? 'Agudo' : 'Aigu'}), B (Barulho)</li>
-            <li style="margin-bottom: 4px;"><strong>Agbê</strong> : D/d, E/e, S (Saut/Salto), V (Volta)</li>
+            <li style="margin-bottom: 4px;"><strong>Gonguê</strong> : ${isPt ? 'G/g (Grave — Topo da campana), A/a (Agudo — Base da campana), B (Barulho)' : 'G/g (Grave — Haut de la cloche), A/a (Aigu — Base de la cloche), B (Barulho)'}</li>
+            <li style="margin-bottom: 4px;"><strong>Agbê</strong> : ${isPt ? 'D/d (Direita — Retorno), E/e (Esquerda — Palma), S (Salto), V (Volta), B (Barulho)' : 'D/d (Droite — Retour), E/e (Gauche — Paume), S (Salto), V (Volta), B (Barulho)'}</li>
             <li style="margin-bottom: 4px;"><strong>Mineiro</strong> : ${isPt ? 'P/p ↑ Projetar (Para frente), T/t ↓ Trazer (Para trás), L (Lado)' : 'P/p ↑ Pousser (Avant), T/t ↓ Tirer (Vers soi), L (Latéral)'}</li>
           </ul>
         </div>
