@@ -27,10 +27,10 @@ export const GuideHeaderBar: React.FC<GuideHeaderBarProps> = ({
       </div>
       <div className="min-w-0">
         <h2 className="font-cactus font-bold text-base sm:text-xl uppercase tracking-wider text-[var(--cordel-text)] truncate">
-          O Girador — {isFr ? 'Manuel par Fiches-Actions' : 'Manual por Fichas de Ação'}
+          O Girador — {isFr ? "Mode d'Emploi Complet" : 'Manual Completo de Uso'}
         </h2>
         <p className="text-[11px] text-[var(--cordel-text-muted)] truncate">
-          {isFr ? 'Sequenciador · 5 Pôles pratiques & studio' : 'Sequenciador · 5 Polos de prática e estúdio'}
+          {isFr ? 'Sequenciador · Panorama Général & 5 Pôles (20 Fiches)' : 'Sequenciador · Panorama Geral & 5 Polos (20 Fichas)'}
         </p>
       </div>
     </div>

@@ -12,14 +12,21 @@ interface GuideStoreState {
   setSearchQuery: (q: string) => void;
 }
 
-function checkInitialGuideUrl(): { open: boolean; cardId: string | null } {
-  if (typeof window === 'undefined') return { open: false, cardId: null };
+function inferPoleFromCardId(cardId: string | null): GuidePoleId {
+  if (!cardId) return 'panorama';
+  const m = /^p([1-5])-/i.exec(cardId.trim());
+  return m ? (`pole-${m[1]}` as GuidePoleId) : 'panorama';
+}
+
+function checkInitialGuideUrl(): { open: boolean; poleId: GuidePoleId; cardId: string | null } {
+  if (typeof window === 'undefined') return { open: false, poleId: 'panorama', cardId: null };
   try {
     const g = new URLSearchParams(window.location.search).get('guide');
-    if (!g) return { open: false, cardId: null };
-    return { open: true, cardId: g !== '1' && g !== 'true' ? g : null };
+    if (!g) return { open: false, poleId: 'panorama', cardId: null };
+    const cardId = g !== '1' && g !== 'true' && g !== 'panorama' ? g : null;
+    return { open: true, poleId: inferPoleFromCardId(cardId), cardId };
   } catch {
-    return { open: false, cardId: null };
+    return { open: false, poleId: 'panorama', cardId: null };
   }
 }
 
@@ -27,14 +34,14 @@ const init = checkInitialGuideUrl();
 
 export const useGuideStore = create<GuideStoreState>((set) => ({
   isOpen: init.open,
-  activePoleId: 'pole-1',
+  activePoleId: init.poleId,
   highlightedCardId: init.cardId,
   searchQuery: '',
 
   openGuide: (poleId, cardId = null) =>
-    set((s) => ({
+    set(() => ({
       isOpen: true,
-      activePoleId: poleId ?? s.activePoleId,
+      activePoleId: poleId ?? (cardId ? inferPoleFromCardId(cardId) : 'panorama'),
       highlightedCardId: cardId,
     })),
 

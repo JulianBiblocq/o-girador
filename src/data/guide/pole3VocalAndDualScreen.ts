@@ -1,0 +1,56 @@
+import { GuideActionCard } from './guideTypes';
+
+export const POLE_3_VOCAL_AND_DUAL_CARDS: GuideActionCard[] = [
+  {
+    id: 'p3-3',
+    poleId: 'pole-3',
+    level: 'studio',
+    shortcut: 'P / C / _ / / / 0',
+    titleFr: 'Écrire la Toada (Grammaire v2), l’Anacrouse & relier Cantador',
+    titlePt: 'Escrever a Toada (Gramática v2), a Anacruse & conectar o Cantador',
+    goalFr: 'Poser le dialogue Puxador / Coro, les mélismes liés, les levées vocales et le karaoké.',
+    goalPt: 'Programar o diálogo Puxador / Coro, os melismas ligados, as levadas em anacruse e o karaokê.',
+    contextFr: 'Dans le chant traditionnel, le Puxador lance souvent la Toada en levée (anacrouse) quelques temps avant l’entrée tonitruante du Batuque. Sequenciador partage la Grammaire Vocale Unifiée v2 avec Cantador et Organizador.',
+    contextPt: 'No canto tradicional, o Puxador costuma puxar a Toada em anacruse antes da entrada forte do Batuque. O Sequenciador compartilha a Gramática Vocal Unificada v2 com o Cantador e o Organizador.',
+    stepsFr: [
+      'Ouvrez le Bus Toada dans l’Éditeur Détail et choisissez le rôle vocal : Puxador (P, voix soliste d’appel) ou Coro (C, réponse collective du groupe).',
+      'Saisissez les syllabes et les hauteurs au clavier piano en appliquant la grammaire v2 : [ _ ] prolonge ou module la voyelle sans ré-attaque (mélisme legato), [ / ] soude une durée à cheval sur deux temps, et [ 0 ] pose un silence vocal explicite.',
+      'Activez la zone Pre-Roll (anacrouse) à gauche de la mesure 1 lorsque le chant démarre à découvert avant le premier temps des tambours.',
+      'Cliquez sur Importer depuis Cantador pour récupérer les paroles syllabées, l’ambitus et les prises vocales du groupe, puis suivez le karaoké synchronisé dans l’onglet Toada du panneau droit.',
+    ],
+    stepsPt: [
+      'Abra o Bus Toada no Editor Detalhado e escolha o papel vocal: Puxador (P, chamada solista) ou Coro (C, resposta coletiva do grupo).',
+      'Insira sílabas e notas pelo piano aplicando a gramática v2: [ _ ] prolonga ou move a nota na mesma vogal sem novo ataque (melisma), [ / ] solda durações entre tempos e [ 0 ] marca um silêncio vocal explícito.',
+      'Ative a faixa de Pré-Roll (anacruse) à esquerda do compasso 1 quando a voz entra antes do primeiro tempo do Batuque.',
+      'Use Importar do Cantador para trazer letras silabadas, tessitura e vozes gravadas do grupo, acompanhando o karaokê sincronizado na aba Toada do painel direito.',
+    ],
+    tipFr: 'En Toada, la touche [0] n’efface pas l’ancre de syllabe : elle insère proprement une respiration (silence vocal explicite) qui coupe la tenue précédente.',
+    tipPt: 'Na Toada, a tecla [0] não apaga a âncora da sílaba: ela insere uma respiração limpa (silêncio vocal explícito) encerrando a nota sustentada.',
+  },
+  {
+    id: 'p3-4',
+    poleId: 'pole-3',
+    level: 'studio',
+    shortcut: '2 ÉCRANS',
+    titleFr: 'Déployer le Poste Studio Multi-Écrans (Fenêtre Satellite)',
+    titlePt: 'Expandir a Estação Multi-Telas (Janela Satélite Estúdio)',
+    goalFr: 'Afficher simultanément la Roda ou la Timeline sur l’Écran 1 et le Mixeur ou l’Éditeur sur l’Écran 2.',
+    goalPt: 'Exibir simultaneamente a Roda ou a Linha do Tempo na Tela 1 e o Mixador ou Editor na Tela 2.',
+    contextFr: 'En séance d’arrangement ou de projection en salle de répétition, séparer la vue d’ensemble du conducteur et l’outil de retouche fine supprime tout aller-retour d’onglets.',
+    contextPt: 'Em sessões de arranjo ou projeção em sala de ensaio, separar a visão global do condutor e a ferramenta de edição fina elimina trocas constantes de abas.',
+    stepsFr: [
+      'Cliquez sur le bouton [ 2 ÉCRANS ] dans la barre supérieure et choisissez la surface à détacher : Mixage, Édition ou A Oficina.',
+      'Glissez la Fenêtre Satellite ouverte vers votre second moniteur (y compris un écran disposé au-dessus à coordonnée verticale négative) : sa géométrie est mémorisée.',
+      'Depuis l’en-tête de la Fenêtre Satellite, basculez librement entre Mixeur, Éditeur Détail et A Oficina sans quitter votre Roda ou votre Timeline sur l’Écran 1.',
+      'Cliquez sur Ré-ancrer (ou refermez la fenêtre Satellite) pour rassembler instantanément tout l’espace de travail sur un seul écran.',
+    ],
+    stepsPt: [
+      'Clique no botão [ 2 TELAS ] na barra superior e escolha a superfície a destacar: Mixagem, Edição ou A Oficina.',
+      'Arraste a Janela Satélite para o segundo monitor (inclusive monitores posicionados acima com coordenada Y negativa): a posição fica memorizada.',
+      'Pelo topo da Janela Satélite, alterne livremente entre Mixador, Editor Detalhado e A Oficina mantendo a Roda ou a Linha do Tempo fixa na Tela 1.',
+      'Clique em Reancorar (ou feche a janela Satélite) para reunir todo o estúdio novamente em uma única tela.',
+    ],
+    tipFr: 'Vous pouvez enregistrer vos agencements favoris à 1 ou 2 moniteurs dans A Oficina [O] > Système > Espaces Bureau.',
+    tipPt: 'Você pode salvar suas disposições favoritas de 1 ou 2 monitores em A Oficina [O] > Sistema > Espaços Desktop.',
+  },
+];

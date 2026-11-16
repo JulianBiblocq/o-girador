@@ -13,17 +13,19 @@ export const GuideActionCardView: React.FC<GuideActionCardViewProps> = ({
   isFr,
   isHighlighted = false,
 }) => {
-  const [imgState, setImgState] = useState<'loading' | 'ready' | 'missing'>('loading');
+  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
-    setImgState('loading');
-  }, [card.screenshotWebp]);
+    setImgFailed(false);
+  }, [card.imageSrc]);
 
   const title = isFr ? card.titleFr : card.titlePt;
   const goal = isFr ? card.goalFr : card.goalPt;
+  const context = isFr ? card.contextFr : card.contextPt;
   const steps = isFr ? card.stepsFr : card.stepsPt;
   const tip = isFr ? card.tipFr : card.tipPt;
   const levelLabel = card.level === 'practice' ? (isFr ? 'Pratique' : 'Prática') : (isFr ? 'Studio' : 'Estúdio');
+  const showImage = Boolean(card.imageSrc && card.imageSrc.trim()) && !imgFailed;
 
   return (
     <article
@@ -49,45 +51,35 @@ export const GuideActionCardView: React.FC<GuideActionCardViewProps> = ({
           )}
         </div>
 
-        <div className="relative aspect-video w-full bg-[var(--cordel-surface-muted)] border-b-2 border-[var(--cordel-border)] overflow-hidden flex items-center justify-center">
-          {imgState !== 'missing' && (
+        {showImage && (
+          <div className="relative aspect-video w-full bg-[var(--cordel-surface-muted)] border-b-2 border-[var(--cordel-border)] overflow-hidden">
             <img
-              src={card.screenshotWebp}
+              src={card.imageSrc}
               alt={title}
               loading="lazy"
-              onLoad={() => setImgState('ready')}
-              onError={() => setImgState('missing')}
-              className={`w-full h-full object-cover transition-opacity duration-200 ${imgState === 'ready' ? 'opacity-100' : 'opacity-0 absolute inset-0'}`}
+              onError={() => setImgFailed(true)}
+              className="w-full h-full object-cover block"
             />
-          )}
-          {imgState !== 'ready' && (
-            <div className="flex flex-col items-center justify-center gap-2 p-4 text-center text-[var(--cordel-text-muted)] select-none">
-              <svg viewBox="0 0 120 68" className="w-28 h-16 stroke-current fill-none opacity-65" strokeWidth="1.6">
-                <rect x="3" y="3" width="114" height="62" rx="2" strokeDasharray="4 3" />
-                <circle cx="38" cy="34" r="20" />
-                <circle cx="38" cy="34" r="11" strokeDasharray="2 2" />
-                <circle cx="38" cy="34" r="3" fill="currentColor" />
-                <line x1="68" y1="20" x2="106" y2="20" />
-                <line x1="68" y1="34" x2="102" y2="34" />
-                <line x1="68" y1="48" x2="96" y2="48" />
-              </svg>
-              <span className="font-mono text-[10px] uppercase tracking-wider opacity-75">
-                {card.screenshotWebp.replace('/guide/', '')}
-              </span>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="p-4 flex flex-col gap-2.5">
+        <div className="p-4 flex flex-col gap-3">
           <h3 className="font-cactus font-bold text-sm sm:text-base text-[var(--cordel-text)] leading-snug">
             {title}
           </h3>
-          <p className="text-xs font-semibold text-[var(--cordel-accent-readable)] leading-snug">
-            {goal}
-          </p>
-          <ol className="flex flex-col gap-1.5 mt-0.5">
+
+          <div className="p-2.5 bg-[var(--cordel-bg)] border border-[var(--cordel-border)] border-l-[3px] border-l-[var(--cordel-accent)] flex flex-col gap-1">
+            <p className="text-xs font-bold text-[var(--cordel-accent-readable)] leading-snug">
+              {goal}
+            </p>
+            <p className="text-[11.5px] text-[var(--cordel-text-muted)] leading-relaxed">
+              {context}
+            </p>
+          </div>
+
+          <ol className="flex flex-col gap-2 mt-0.5">
             {steps.map((st, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-xs text-[var(--cordel-text)] leading-relaxed">
+              <li key={idx} className="flex items-start gap-2.5 text-xs text-[var(--cordel-text)] leading-relaxed">
                 <span className="w-5 h-5 shrink-0 mt-0.5 flex items-center justify-center font-mono font-bold text-[10px] bg-[var(--cordel-bg)] border border-[var(--cordel-border-strong)] text-[var(--cordel-accent-readable)]">
                   {idx + 1}
                 </span>
@@ -100,7 +92,12 @@ export const GuideActionCardView: React.FC<GuideActionCardViewProps> = ({
 
       <div className="mx-4 mb-4 p-2.5 bg-[var(--cordel-bg)] border-l-4 border-l-[var(--cordel-wood)] border border-[var(--cordel-border)] flex items-start gap-2">
         <Lightbulb size={14} className="shrink-0 mt-0.5 text-[var(--cordel-accent-readable)]" />
-        <p className="text-[11px] text-[var(--cordel-text-muted)] leading-snug">{tip}</p>
+        <p className="text-[11px] text-[var(--cordel-text-muted)] leading-snug">
+          <strong className="font-cactus uppercase text-[10px] text-[var(--cordel-accent-readable)] mr-1">
+            {isFr ? 'Conseil du Mestre :' : 'Conselho do Mestre :'}
+          </strong>
+          {tip}
+        </p>
       </div>
     </article>
   );
