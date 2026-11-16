@@ -61,6 +61,7 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
         >
           <canvas
             ref={canvasRef}
+            data-tour-id="roda-canvas"
             width={1200}
             height={1200}
             onContextMenu={(e) => {

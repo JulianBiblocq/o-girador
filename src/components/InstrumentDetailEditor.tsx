@@ -53,6 +53,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const wrapperContent = (
     <div
       data-testid="instrument-detail-editor-modal"
+      data-tour-id="editor-modal"
       data-theme="light"
       data-maximized={model.isMaximized ? 'true' : 'false'}
       data-expanded-layout={model.isExpandedLayout ? 'true' : 'false'}

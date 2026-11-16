@@ -85,10 +85,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 
   return (
     <>
-      <div id="right-sidebar-panel" style={{ display: visible ? 'flex' : 'none' }} className={`${drawerClass} bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full text-[var(--cordel-text)]`}>
+      <div id="right-sidebar-panel" data-tour-id="right-sidebar" style={{ display: visible ? 'flex' : 'none' }} className={`${drawerClass} bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full text-[var(--cordel-text)]`}>
         <div className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg" style={{ transform: 'translateZ(0)' }} />
         {isDrawer && onCloseDrawer && (
-          <button type="button" onClick={onCloseDrawer} aria-label="Fermer" className="absolute top-2.5 right-2.5 z-20 w-6 h-6 border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[#b94a2c] hover:text-[#f4ecd8] flex items-center justify-center cursor-pointer shadow-[1px_1px_0_#000]">
+          <button type="button" onClick={onCloseDrawer} aria-label="Fermer" className="absolute top-2.5 right-2.5 z-20 w-6 h-6 border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)] flex items-center justify-center cursor-pointer shadow-[1px_1px_0_var(--cordel-shadow-color)]">
             <X size={13} />
           </button>
         )}

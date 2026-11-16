@@ -50,7 +50,7 @@ export const EditorAcousticDrawers: React.FC<EditorAcousticDrawersProps> = React
 
   return (
     <>
-      <div className={`hidden lg:flex shrink-0 ${desktopWidthCls} h-full flex-col overflow-y-auto overflow-x-hidden border-l-[3px] border-[var(--cordel-ink-dark)] bg-[var(--cordel-parchment-surface)] relative z-10 box-border`}>
+      <div data-tour-id="editor-inspector" className={`hidden lg:flex shrink-0 ${desktopWidthCls} h-full flex-col overflow-y-auto overflow-x-hidden border-l-[3px] border-[var(--cordel-ink-dark)] bg-[var(--cordel-parchment-surface)] relative z-10 box-border`}>
         <StrokeInspectorPanel {...panelProps} />
       </div>
 

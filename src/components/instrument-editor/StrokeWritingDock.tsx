@@ -86,6 +86,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
     <div
       ref={dockRef}
       data-stroke-dock="true"
+      data-tour-id="editor-stroke-dock"
       className="@container w-full bg-[var(--cordel-parchment-surface)] border-t-[3px] border-[var(--cordel-ink-dark)] px-2.5 sm:px-3 py-2 shrink-0 flex items-center justify-between gap-2 shadow-[0_-2px_6px_var(--cordel-shadow-color)] z-30 select-none"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">

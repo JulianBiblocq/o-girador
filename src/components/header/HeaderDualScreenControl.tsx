@@ -84,6 +84,7 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
       <button
         type="button"
         data-testid="header-dual-screen-btn"
+        data-tour-id="header-dual-screen"
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           setMenuAnchor({ x: rect.left, y: rect.bottom + 6 });

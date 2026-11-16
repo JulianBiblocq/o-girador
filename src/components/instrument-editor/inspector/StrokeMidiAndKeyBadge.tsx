@@ -93,6 +93,7 @@ export const StrokeMidiAndKeyBadge: React.FC<StrokeMidiAndKeyBadgeProps> = React
         <button
           type="button"
           data-testid={`midi-learn-btn-${symbol}`}
+          data-tour-id="editor-midi-learn-btn"
           onClick={handleToggleLearn}
           className={`h-5 px-1.5 inline-flex items-center gap-0.5 rounded-sm border border-[var(--cordel-ink-dark)] font-cactus font-bold uppercase tracking-wide cursor-pointer transition-opacity ${
             isWaiting

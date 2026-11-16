@@ -1,7 +1,8 @@
 import React from 'react';
-import { HelpCircle, Video, BookOpen, MessageSquare, Share2, ScrollText } from 'lucide-react';
+import { HelpCircle, Compass, BookOpen, MessageSquare, Share2, ScrollText } from 'lucide-react';
 import { XiloFanion } from '../XiloIcons';
 import { useSequencer } from '../../contexts/SequencerContext';
+import { useTourStore } from '../../stores/useTourStore';
 import { i18n } from '../../data';
 
 interface HeaderHelpSectionProps {
@@ -53,16 +54,18 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
       <div className="grid grid-cols-2 gap-1.5 mt-0.5">
         <button
           type="button"
+          data-tour-id="header-help-tuto"
           onClick={() => {
-            window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank');
             onCloseMenu();
+            useTourStore.getState().startTour();
           }}
           className="px-2 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold font-cactus hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
         >
-          <Video className="w-3.5 h-3.5 shrink-0" /> Tuto
+          <Compass className="w-3.5 h-3.5 shrink-0" /> Tuto
         </button>
         <button
           type="button"
+          data-tour-id="header-help-guide"
           onClick={() => { window.open('/tutorial.html', '_blank'); onCloseMenu(); }}
           className="px-2 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold font-cactus hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
         >
@@ -84,6 +87,7 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
         </button>
         <button
           type="button"
+          data-tour-id="header-help-about"
           onClick={() => { onViewModeToggle('landing'); onCloseMenu(); }}
           className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer col-span-2 transition-colors"
         >

@@ -25,7 +25,7 @@ export const OficinaSidebarNav: React.FC<OficinaSidebarNavProps> = ({
         className="hidden md:flex md:flex-col md:w-60 lg:w-64 shrink-0 border-r-[2px] border-[var(--cordel-border)] bg-[var(--cordel-surface)] overflow-y-auto custom-scrollbar p-3 gap-4 select-none"
       >
         {domains.map((dom) => (
-          <div key={dom.id} className="flex flex-col gap-1">
+          <div key={dom.id} data-tour-id={`oficina-domain-${dom.id}`} className="flex flex-col gap-1">
             <div className="text-[10px] font-cactus font-black tracking-widest uppercase text-[var(--cordel-accent-readable)] px-2 pb-1 border-b border-[var(--cordel-border)]/40">
               {dom.label}
             </div>
@@ -68,6 +68,7 @@ export const OficinaSidebarNav: React.FC<OficinaSidebarNavProps> = ({
                 key={dom.id}
                 type="button"
                 data-testid={`oficina-domain-tab-${dom.id}`}
+                data-tour-id={`oficina-domain-${dom.id}`}
                 onClick={() => {
                   if (!isDomActive && firstTab) onSelectSection(firstTab.id);
                 }}

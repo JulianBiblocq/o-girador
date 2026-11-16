@@ -56,14 +56,14 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
     : Boolean(isAllPatternsPasteable);
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0 bg-transparent text-[#1a1a1a] relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div ref={containerRef} data-tour-id="editor-step-grid" className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0 bg-transparent text-[var(--cordel-ink-dark)] relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
       {isSlave && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#d4af37]/20 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] text-xs font-bold text-[#1a1a1a] shrink-0 rounded-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[var(--cordel-gold)]/20 border-2 border-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_var(--cordel-ink-dark)] text-xs font-bold text-[var(--cordel-ink-dark)] shrink-0 rounded-xs">
           <span className="truncate">{lang === 'fr' ? 'Piste liée (esclave). Motifs synchronisés avec la piste maître.' : 'Faixa vinculada (escrava). Padrões sincronizados.'}</span>
           <button
             type="button"
             onClick={handleSwitchToMaster}
-            className="px-2.5 py-1 bg-[#f4ecd8] hover:bg-[#e2d5b8] text-[#1a1a1a] font-cactus font-bold text-xs uppercase border-2 border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] flex items-center gap-1.5 cursor-pointer ml-auto shrink-0 transition-colors"
+            className="px-2.5 py-1 bg-[var(--cordel-parchment-bg)] hover:bg-[var(--cordel-parchment-surface)] text-[var(--cordel-ink-dark)] font-cactus font-bold text-xs uppercase border-2 border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] flex items-center gap-1.5 cursor-pointer ml-auto shrink-0 transition-colors"
           >
             <Pencil size={12} className="shrink-0" />
             <span>{lang === 'fr' ? 'Éditer sur la piste Maître' : 'Editar na faixa Mestre'}</span>
@@ -86,20 +86,20 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
 
         {!isSlave && (
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <button onClick={() => onAddPattern?.()} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
+            <button onClick={() => onAddPattern?.()} className="self-start bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)] transition-colors">
               + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
             </button>
             {canPaste && (
-              <button onClick={() => onPasteAsNewPattern?.()} className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
+              <button onClick={() => onPasteAsNewPattern?.()} className="self-start bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)] transition-colors">
                 {lang === 'fr' ? 'Coller comme nouveau motif' : 'Colar como novo padrão'}
               </button>
             )}
             <div className="ml-auto flex items-center gap-2">
-              <button onClick={() => copyAllTrackPatterns?.(effectiveTrack.id, inst.name)} className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors" title={lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}>
+              <button onClick={() => copyAllTrackPatterns?.(effectiveTrack.id, inst.name)} className="bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)] transition-colors" title={lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}>
                 {lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}
               </button>
               {canPasteAll && (
-                <button onClick={() => pasteAllTrackPatterns?.(effectiveEditTrackId)} className="bg-[#d4af37] text-[#1a1a1a] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors">
+                <button onClick={() => pasteAllTrackPatterns?.(effectiveEditTrackId)} className="bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)] transition-colors">
                   {lang === 'fr' ? `Remplacer par "${instrumentPatternsClipboard?.instrumentName}"` : `Substituir`}
                 </button>
               )}

@@ -78,6 +78,7 @@ export const HeaderAuxiliaryControls: React.FC<HeaderAuxiliaryControlsProps> = (
       {!isPracticeMode && (
         <button
           type="button"
+          data-tour-id="header-oficina-btn"
           className="flex items-center gap-2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-button px-3 h-[34px] cursor-pointer hover:bg-[var(--cordel-surface)] transition-colors select-none shrink-0"
           onClick={toggleSettings}
           title={lang === 'pt' ? 'A Oficina (Configurações) [O]' : 'A Oficina (Paramètres) [O]'}

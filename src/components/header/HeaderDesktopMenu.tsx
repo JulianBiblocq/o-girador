@@ -51,6 +51,7 @@ export const HeaderDesktopMenu: React.FC<HeaderDesktopMenuProps> = (props) => {
     <div className="relative ml-2" ref={projectDropRef}>
       <button
         type="button"
+        data-tour-id="header-menu-btn"
         onClick={() => setProjectDropOpen(!projectDropOpen)}
         className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] cordel-button px-3 py-1.5 font-bold font-cactus uppercase cursor-pointer flex items-center gap-1.5"
       >

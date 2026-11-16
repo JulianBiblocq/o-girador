@@ -49,7 +49,7 @@ export const TransportBpmControl: React.FC<TransportBpmControlProps> = ({ bpm, s
   useEffect(() => stopBpmChange, [stopBpmChange]);
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2 bg-[var(--cordel-bg)] px-1.5 sm:px-2 h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] shrink-0">
+    <div data-tour-id="transport-bpm" className="flex items-center gap-1 sm:gap-2 bg-[var(--cordel-bg)] px-1.5 sm:px-2 h-8 rounded-none border-2 border-[var(--cordel-border-strong)] shadow-[1px_1px_0px_var(--cordel-shadow-color)] shrink-0">
       <Gauge className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--cordel-text)] shrink-0" />
       <span ref={bpmSpanRef} className="font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-text)] tabular-nums select-none">{bpm}</span>
       <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[var(--cordel-text)]/70 uppercase select-none max-[380px]:hidden">BPM</span>
@@ -59,7 +59,7 @@ export const TransportBpmControl: React.FC<TransportBpmControlProps> = ({ bpm, s
           onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
           onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
           onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
-          className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[#1a1a1a] dark:border-black/60 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-none active:scale-95 transition-all select-none"
+          className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border-strong)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-none active:scale-95 transition-all select-none"
           title={lang === 'fr' ? 'Diminuer la vitesse' : 'Diminuir a velocidade'}
           style={{ padding: 0, touchAction: 'none' }}
         >
@@ -70,7 +70,7 @@ export const TransportBpmControl: React.FC<TransportBpmControlProps> = ({ bpm, s
           onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
           onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
           onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
-          className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[#1a1a1a] dark:border-black/60 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-none active:scale-95 transition-all select-none"
+          className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border-strong)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-none active:scale-95 transition-all select-none"
           title={lang === 'fr' ? 'Augmenter la vitesse' : 'Aumentar a velocidade'}
           style={{ padding: 0, touchAction: 'none' }}
         >

@@ -29,6 +29,7 @@ export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
     <div className="flex items-center gap-2" ref={mobileMenuRef}>
       <button
         type="button"
+        data-tour-id="header-menu-btn"
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         className="w-9 h-9 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center font-bold text-lg cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-shadow-color)] shrink-0"
       >

@@ -89,6 +89,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [], 
   const oficinaPanel = (
     <div
       data-testid={embedded ? 'oficina-embedded' : 'oficina-modal'}
+      data-tour-id="oficina-modal"
       className={embedded ? 'w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] flex flex-col overflow-hidden' : 'w-full md:w-[94vw] max-w-6xl h-[90vh] md:h-[86vh] border-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[6px_6px_0px_var(--cordel-shadow-color)] flex flex-col overflow-hidden'}
     >
       <SettingsHeader lang={lang} onSetLang={(l) => sequencer?.setLang?.(l)} onClose={handleClose} hideCloseButton={embedded} />

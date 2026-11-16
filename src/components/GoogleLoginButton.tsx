@@ -63,6 +63,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       <div className={`relative ${className}`} ref={dropdownRef}>
         <button
           type="button"
+          data-tour-id="header-profile-btn"
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="cursor-pointer flex justify-center items-center rounded-full hover:opacity-85 transition-opacity"
           title={userProfile.displayName || (isPt ? 'Perfil' : 'Profil')}
@@ -89,6 +90,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         type="button"
+        data-tour-id="header-profile-btn"
         onClick={() => (showVisitorMenu ? setDropdownOpen((o) => !o) : void signInWithGoogle())}
         className={`bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button ${btnDim} cursor-pointer flex justify-center items-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shadow-xs`}
         title={showVisitorMenu ? (isPt ? 'Perfil & Conexão' : 'Profil & Connexion') : (isPt ? 'Conectar com o Google' : 'Se connecter avec Google')}

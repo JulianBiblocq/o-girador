@@ -46,6 +46,7 @@ export const WorkspacePistasOverlay: React.FC<WorkspacePistasOverlayProps> = ({
 
   return (
     <div
+      data-tour-id="pistas-grid"
       style={overlayStyle}
       onContextMenu={(e) => e.preventDefault()}
       className="absolute inset-0 z-30 bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden shadow-[-4px_0_12px_rgba(0,0,0,0.15)] flex flex-col"

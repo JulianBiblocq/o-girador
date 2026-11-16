@@ -58,10 +58,11 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
       <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
         <button
           data-testid="transport-play-btn"
+          data-tour-id="transport-play-btn"
           onClick={handleTogglePlay}
           disabled={isLoading}
           className={`w-10 h-10 sm:w-14 sm:h-14 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
-            isLoading ? 'bg-gray-400 text-gray-700 cursor-wait' : isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
+            isLoading ? 'bg-[var(--cordel-surface-muted)] text-[var(--cordel-text-muted)] cursor-wait' : isPlaying ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
           }`}
           title={isLoading ? (lang === 'pt' ? 'Carregando sons...' : 'Chargement des sons...') : isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
         >
@@ -83,9 +84,10 @@ export const TransportPlaybackButtons: React.FC<TransportPlaybackButtonsProps> =
       {!isPracticeMode && (
         <div className="flex items-center gap-2 relative shrink-0">
           <button
+            data-tour-id="transport-wav-export"
             onClick={handleAudioRecordingToggle}
             className={`w-8 h-8 sm:w-10 sm:h-10 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
-              isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
+              isRecording ? 'bg-[var(--cordel-status-danger)] text-[var(--cordel-on-accent)] animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-status-danger)]/15 hover:text-[var(--cordel-status-danger)]'
             }`}
             title={lang === 'fr' ? "Exporter l'audio en WAV" : lang === 'pt' ? "Exportar áudio em WAV" : "Export Audio to WAV"}
           >

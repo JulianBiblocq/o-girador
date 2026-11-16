@@ -28,6 +28,7 @@ export const HeaderTabButton: React.FC<HeaderTabButtonProps> = ({
     >
       <button
         type="button"
+        data-tour-id={`header-tab-${tabKey}`}
         onClick={onClick}
         className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
           isActive

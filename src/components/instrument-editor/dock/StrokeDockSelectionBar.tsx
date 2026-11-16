@@ -47,7 +47,7 @@ export const StrokeDockSelectionBar: React.FC<StrokeDockSelectionBarProps> = Rea
     return (
       <div className="flex items-center pl-2 border-l-2 border-[var(--cordel-ink-dark)]/20 shrink-0">
         <button
-          type="button" data-testid="dock-toggle-multiselect-btn" onClick={onToggleMultiSelect}
+          type="button" data-testid="dock-toggle-multiselect-btn" data-tour-id="editor-range-select-btn" onClick={onToggleMultiSelect}
           className={`${BTN_BASE} ${BTN_ENABLED}`}
           title={isFr ? 'Sélection de plage de pas [Shift / Ctrl + Clic]' : 'Seleção de trecho de passos [Shift / Ctrl + Clique]'}
         >
@@ -68,7 +68,7 @@ export const StrokeDockSelectionBar: React.FC<StrokeDockSelectionBarProps> = Rea
   return (
     <div data-testid="stroke-dock-selection-bar" className="flex items-center gap-1.5 pl-2 border-l-2 border-[var(--cordel-wood)] shrink-0">
       <button
-        type="button" data-testid="dock-toggle-multiselect-btn" onClick={onExitSelection}
+        type="button" data-testid="dock-toggle-multiselect-btn" data-tour-id="editor-range-select-btn" onClick={onExitSelection}
         className={`${BTN_BASE} ${BTN_ACTIVE}`}
         title={isFr ? 'Quitter le mode sélection [Échap]' : 'Sair do modo seleção [Esc]'}
       >

@@ -60,9 +60,7 @@ export const StrokeInfoPopover: React.FC<StrokeInfoPopoverProps> = ({ target, on
 
   return createPortal(
     <div
-      ref={popoverRef}
-      role="dialog"
-      aria-label={target.instrumentName}
+      ref={popoverRef} data-tour-id="pedagogy-popover" role="dialog" aria-label={target.instrumentName}
       onContextMenu={(e) => e.preventDefault()}
       style={{ transform: `translate3d(${Math.round(clampedLeft)}px, ${Math.round(clampedTop)}px, 0)`, width: `${estWidth}px` }}
       className="fixed left-0 top-0 z-[1200] bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0_var(--cordel-shadow-color)] p-3 select-none"
@@ -74,12 +72,7 @@ export const StrokeInfoPopover: React.FC<StrokeInfoPopoverProps> = ({ target, on
             {isFr ? `Mes. ${target.measureIdx + 1} • Pas ${target.stepIdx + 1}` : `Comp. ${target.measureIdx + 1} • Passo ${target.stepIdx + 1}`}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-6 h-6 flex items-center justify-center border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer shrink-0"
-          title={isFr ? 'Fermer (Échap)' : 'Fechar (Esc)'}
-        >
+        <button type="button" onClick={onClose} className="w-6 h-6 flex items-center justify-center border border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer shrink-0" title={isFr ? 'Fermer (Échap)' : 'Fechar (Esc)'}>
           <X size={13} />
         </button>
       </div>

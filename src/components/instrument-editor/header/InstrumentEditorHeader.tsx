@@ -104,7 +104,7 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps & { ac
         <button type="button" onClick={() => onSoloToggle?.()} className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-gold)] hover:text-[var(--cordel-ink-dark)]'}`} title="Solo">S</button>
         {showMaximizeButton && onToggleMaximized && (
           <button
-            type="button" data-testid="editor-toggle-fullscreen" onClick={onToggleMaximized}
+            type="button" data-testid="editor-toggle-fullscreen" data-tour-id="editor-fullscreen-btn" onClick={onToggleMaximized}
             className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center shrink-0 flex-shrink-0 ${isMaximized ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`}
             title={lang === 'fr' ? (isMaximized ? 'Quitter le plein écran' : 'Plein écran') : (isMaximized ? 'Sair da tela cheia' : 'Tela cheia')}
           >
