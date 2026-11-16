@@ -3,7 +3,7 @@ import { CONFIG_ALFAIA_STICKS, getAlfaiaImpactPoseTransform, getAlfaiaShadowRest
 import { getCaixaImpactPoseTransform, getCaixaStickRestTransform, resolveCaixaActiveFamily } from '../../audio/animations/caixaKinematics';
 import { buildGonguePoseForStroke, resetGonguePostureMemory, stopGongueTwoNodeAnimation } from '../../audio/animations/gongueKinematics';
 import { CONFIG_AGBE_LAB, getAgbeImpactPoseTransform, resetAgbePostureMemory } from '../../audio/animations/agbeKeyframes';
-import { setIsAoVivoLabOpen } from '../../audio/animations/aoVivoConfigStorage';
+import { AoVivoLabPreviewFamily, setAoVivoLabPreviewFamily, setIsAoVivoLabOpen } from '../../audio/animations/aoVivoConfigStorage';
 import { getMineiroImpactPoseTransform, resetMineiroPostureMemory } from '../../audio/animations/mineiroKeyframes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { MineiroPole } from '../../audio/animations/configMineiro';
@@ -15,6 +15,7 @@ import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 import { dispatchCaixaPredictiveStroke, resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
 import { dispatchAgbe, dispatchGongue, dispatchMineiro, resetAgbeAndMineiroRest, resetGongueStickAndShadow } from './aoVivoOtherDispatchers';
 import { updateGongueStickGeometry } from './GongueStickSvg';
+import { findTrackForAoVivoFamily, resolveTrackAoVivoFamily } from './resolveAoVivoFamily';
 import { dispatchTimbalPredictiveStroke, resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 import { applyTimbalSlapBiomechanics } from './TimbalHandSvgs';
 import { TESTER_SEQUENCES, TESTER_STROKES, type TesterFamily } from './aoVivoTesterCatalog';
@@ -30,16 +31,11 @@ interface TesterRefs {
 }
 
 let currentRefs: TesterRefs | null = null;
-const dummyLeftAnim = { current: null as Animation | null };
-const dummyRightAnim = { current: null as Animation | null };
-const dummyGongueAnim = { current: null as Animation | null };
-const dummyAgbeAnim = { current: null as Animation | null };
-const dummyMineiroAnim = { current: null as Animation | null };
-const dummyMineiroPole = { current: 'backWeak' as MineiroPole };
+const dummyLeftAnim = { current: null as Animation | null }, dummyRightAnim = { current: null as Animation | null };
+const dummyGongueAnim = { current: null as Animation | null }, dummyAgbeAnim = { current: null as Animation | null };
+const dummyMineiroAnim = { current: null as Animation | null }, dummyMineiroPole = { current: 'backWeak' as MineiroPole };
 
-export function registerAoVivoTesterRefs(refs: TesterRefs): void {
-  currentRefs = refs;
-}
+export function registerAoVivoTesterRefs(refs: TesterRefs): void { currentRefs = refs; }
 
 function cancelStickAnims(el: Element | null): void {
   if (!el) return;
@@ -53,7 +49,7 @@ export function triggerSequenceStep(fam: TesterFamily, steps: string[], stepIdx:
   const { instId, activeTrack, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, agbeWholeRef, mineiroStickRef, haloRef, geometryRef } = currentRefs;
   const lEl = leftStickRef.current, rEl = rightStickRef.current, gEl = gongueStickRef.current, agEl = agbeWholeRef.current, mEl = mineiroStickRef.current, hEl = haloRef.current;
   if (fam === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
-  else if (fam === 'caixa') dispatchCaixaPredictiveStroke(instId, stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
+  else if (fam === 'caixa') dispatchCaixaPredictiveStroke(instId === 'tarol' ? 'tarol' : 'caixa', stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
   else if (fam === 'gongue') dispatchGongue(stroke, false, false, isLeftHanded, steps, idx, stepMs, gEl, dummyGongueAnim);
   else if (fam === 'agbe') dispatchAgbe(stroke, false, agEl, dummyAgbeAnim, nextTok);
   else if (fam === 'mineiro') dispatchMineiro(stroke, false, mEl, dummyMineiroPole, dummyMineiroAnim, isLeftHanded);
@@ -110,17 +106,29 @@ export function clearFrozenPose(fam: TesterFamily): void {
   const { instId, activeTrack, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, agbeWholeRef, mineiroStickRef } = currentRefs;
   [leftStickRef.current, rightStickRef.current, gongueStickRef.current, agbeWholeRef.current, mineiroStickRef.current].forEach(cancelStickAnims);
   if (fam === 'alfaia') resetAlfaiaSticksAndShadows(activeTrack, isLeftHanded, leftStickRef.current, rightStickRef.current);
-  else if (fam === 'caixa') resetCaixaSticksAndShadows(instId, leftStickRef.current, rightStickRef.current);
+  else if (fam === 'caixa') resetCaixaSticksAndShadows(instId === 'tarol' ? 'tarol' : 'caixa', leftStickRef.current, rightStickRef.current);
   else if (fam === 'gongue') resetGongueStickAndShadow(isLeftHanded, gongueStickRef.current);
   else if (fam === 'agbe' || fam === 'mineiro') resetAgbeAndMineiroRest(agbeWholeRef.current, mineiroStickRef.current);
   else resetTimbalHandsAndShadows(leftStickRef.current, rightStickRef.current);
 }
 
+export function selectAoVivoLabInstrument(fam: AoVivoLabPreviewFamily): void {
+  const st = useSequencerStore.getState();
+  const match = findTrackForAoVivoFamily(st.tracks || [], fam);
+  if (match) {
+    st.setActiveAoVivoTrackId(match.id);
+    if (st.isFocusActive && st.setFocusTrackId) st.setFocusTrackId(match.id);
+  }
+  setAoVivoLabPreviewFamily(fam);
+}
+
 export function openAoVivoLabWithActiveTrack(preferredTrackId?: number | string | null): void {
   const st = useSequencerStore.getState();
+  setAoVivoLabPreviewFamily(null);
   if (st.activeAoVivoTrackId === null) {
-    const fallbackId = preferredTrackId ?? st.focusTrackId ?? st.tracks?.[0]?.id ?? 1;
-    st.setActiveAoVivoTrackId(fallbackId as number);
+    const firstPerc = (st.tracks || []).find((t: any) => !t.isBusFolder && !t.isLinkFolder && resolveTrackAoVivoFamily(t, st.tracks).family !== null);
+    const fallbackId = preferredTrackId ?? st.focusTrackId ?? firstPerc?.id ?? st.tracks?.[0]?.id ?? null;
+    if (fallbackId !== null && fallbackId !== undefined) st.setActiveAoVivoTrackId(Number(fallbackId));
   }
   setIsAoVivoLabOpen(true);
 }

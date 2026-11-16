@@ -9,6 +9,7 @@ import { getInitialMobileViewMode, persistMobileViewMode, MOBILE_VIEW_MODE_STORA
 import { getStoredLeftHanded, setStoredLeftHanded } from '../../utils/userPreferencesStorage';
 import { useDesktopWorkspaceStore } from '../useDesktopWorkspaceStore';
 import { detachedWindowManager } from '../../utils/detachedWindowManager';
+import { syncAoVivoOnTrackSwitch } from '../../components/AoVivo/resolveAoVivoFamily';
 
 export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => {
   const initialMobileMode = getInitialMobileViewMode();
@@ -77,9 +78,10 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
         return { isEcoMode: nextEco, ecoConfig: buildEcoConfig(nextEco, nextStrict) };
       }),
     toggleTracksCollapsed: () => set((state) => ({ isTracksCollapsed: !state.isTracksCollapsed })),
-    setEditingTrackId: (id) => set({ editingTrackId: id }),
+    setEditingTrackId: (id) => set((s) => ({ editingTrackId: id, ...syncAoVivoOnTrackSwitch(id, s) })),
     openInstrumentDetailAt: (payload) => {
-      set({
+      set((s) => ({
+        ...syncAoVivoOnTrackSwitch(payload.trackId, s),
         editingTrackId: payload.trackId,
         selectedPatternId: typeof payload.patternId === 'number' ? payload.patternId : null,
         selectedStepIdx: payload.stepIdx !== undefined ? payload.stepIdx : null,
@@ -87,7 +89,7 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
         selectedSubIndex: payload.subIndex ?? null,
         selectedStepRange: null,
         editorDeepLink: payload,
-      });
+      }));
       const ws = useDesktopWorkspaceStore.getState();
       if (ws.isSatelliteOpen) {
         ws.setSatelliteState({ satelliteMode: 'editor' });

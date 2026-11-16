@@ -1,4 +1,3 @@
-import { CONFIG_MINEIRO } from '../../audio/animationGenerators';
 import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
 import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematics';
 import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
@@ -6,6 +5,7 @@ import { resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
 import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
 import { resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 import { resetGongueStickAndShadow, resetAgbeAndMineiroRest } from './aoVivoOtherDispatchers';
+import { normalizeAoVivoFamily } from './resolveAoVivoFamily';
 import { resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export function resolveAoVivoPatternAndSteps(
@@ -14,10 +14,10 @@ export function resolveAoVivoPatternAndSteps(
   measure: number,
   soloPlayId: number | null,
   varMap: Record<number, any> | undefined,
-  isAlfaia: boolean
+  isCombineGroup: boolean
 ): { pattern: any | null; activePlayingSteps: any[] } {
   if (!activeTrack) return { pattern: null, activePlayingSteps: [] };
-  const targetBusId = activeTrack.busId || activeTrack.linkedToTrackId || activeTrack.id;
+  const targetBusId = activeTrack.busId ?? activeTrack.linkedToTrackId ?? activeTrack.id;
   const parent = allTracks.find((t: any) => String(t.id) === String(targetBusId) && t.id !== activeTrack.id);
   const master = resolveMasterTrack(activeTrack.id, allTracks);
   const groupTracks = allTracks.filter(
@@ -65,7 +65,7 @@ export function resolveAoVivoPatternAndSteps(
     pattern.activeSteps ||
     [];
 
-  if (!isAlfaia) return { pattern, activePlayingSteps: baseSteps };
+  if (!isCombineGroup) return { pattern, activePlayingSteps: baseSteps };
 
   const combined = baseSteps.slice();
   for (const c of groupTracks) {
@@ -89,7 +89,7 @@ export function resolveAoVivoPatternAndSteps(
 }
 
 export function resetAoVivoRestPosition(
-  instId: string | undefined,
+  instIdOrFam: string | undefined,
   isLeftHanded: boolean,
   leftStickRef: React.RefObject<SVGSVGElement | null>,
   rightStickRef: React.RefObject<SVGSVGElement | null>,
@@ -98,20 +98,21 @@ export function resetAoVivoRestPosition(
   agbeWholeRef: React.RefObject<SVGGElement | null>,
   activeTrack?: any
 ) {
-  if (!instId) return;
+  const fam = normalizeAoVivoFamily(instIdOrFam);
+  if (!fam) return;
   resetHandPostureMemory();
   resetGonguePostureMemory();
   resetAlfaiaMuffleState();
 
-  if (['marcante', 'meiao', 'repique'].includes(instId)) {
+  if (fam === 'alfaia') {
     resetAlfaiaSticksAndShadows(activeTrack, isLeftHanded, leftStickRef.current, rightStickRef.current);
-  } else if (['caixa', 'tarol'].includes(instId)) {
-    resetCaixaSticksAndShadows(instId, leftStickRef.current, rightStickRef.current);
-  } else if (instId === 'timbal') {
+  } else if (fam === 'caixa' || fam === 'tarol') {
+    resetCaixaSticksAndShadows(fam, leftStickRef.current, rightStickRef.current);
+  } else if (fam === 'timbal') {
     resetTimbalHandsAndShadows(leftStickRef.current, rightStickRef.current);
-  } else if (instId === 'gongue') {
+  } else if (fam === 'gongue') {
     resetGongueStickAndShadow(isLeftHanded, gongueStickRef.current);
-  } else if (instId === 'mineiro' || instId === 'agbe') {
+  } else if (fam === 'mineiro' || fam === 'agbe') {
     resetAgbeAndMineiroRest(agbeWholeRef.current, mineiroStickRef.current);
   }
 }

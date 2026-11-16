@@ -10,7 +10,7 @@ export const AoVivoOverlay: React.FC = () => {
 
   // Palier 1 Eco : l'animation decorative Ao Vivo est coupee (Zero Cost basis), sauf si
   // l'utilisateur ouvre explicitement le Lab Ao Vivo (le Mode Eco n'est jamais force a Off).
-  if ((isEco && !isLabOpen) || activeAoVivoTrackId === null) {
+  if ((isEco && !isLabOpen) || (activeAoVivoTrackId === null && !isLabOpen)) {
     return null;
   }
 

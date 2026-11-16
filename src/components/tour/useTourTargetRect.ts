@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TourStepDef } from '../../data/tour/tourTypes';
+import { useTourStore } from '../../stores/useTourStore';
 
 export interface SpotlightRect {
   x: number;
@@ -35,7 +36,8 @@ export function useTourTargetRect(step: TourStepDef | undefined, isOpen: boolean
       return;
     }
 
-    step.prepare?.();
+    const tourSt = useTourStore.getState();
+    step.prepare?.({ markEditorOpened: tourSt.markEditorOpenedByTour, markOficinaOpened: tourSt.markOficinaOpenedByTour });
 
     let observedEl: HTMLElement | null = null;
     let ro: ResizeObserver | null = null;

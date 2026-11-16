@@ -64,6 +64,7 @@ export async function saveSectionToCloud(
     visibility: visibility || defaultVis,
     mestreId: effectiveMestreId,
     groupId: effectiveGroupId || null,
+    alfaiaEquipment: sectionData.alfaiaEquipment ?? null,
     updatedAt: Date.now()
   };
 

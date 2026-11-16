@@ -1,5 +1,7 @@
 import React from 'react';
 import { Sliders, Copy, Check, RotateCcw, ChevronUp, ChevronDown, Repeat, Snowflake, Smartphone, X } from 'lucide-react';
+import { AoVivoMobileFamily } from '../../audio/animations/aoVivoMobileOffsets';
+import { LAB_INSTRUMENT_BUTTONS } from './aoVivoLabTabsConfig';
 import { TESTER_SEQUENCES, TESTER_STROKES, TesterFamily } from './aoVivoStrokeTester';
 
 export const labBtnStyle = (active: boolean, useWood = false) => ({
@@ -17,8 +19,9 @@ interface AoVivoLabHeaderProps {
   onReset: () => void;
   onCopy: () => void;
   copied: boolean;
+  activeInstFam: AoVivoMobileFamily;
   labFam: TesterFamily;
-  onSelectFam: (fam: TesterFamily) => void;
+  onSelectInstFam: (fam: AoVivoMobileFamily) => void;
   isLooping: boolean;
   onToggleLoop: () => void;
   isFrozen: boolean;
@@ -33,7 +36,7 @@ interface AoVivoLabHeaderProps {
 
 export const AoVivoLabHeader: React.FC<AoVivoLabHeaderProps> = ({
   isOpen, onToggleOpen, onCloseLab, isMobilePosMode, onToggleMobilePosMode,
-  onReset, onCopy, copied, labFam, onSelectFam,
+  onReset, onCopy, copied, activeInstFam, labFam, onSelectInstFam,
   isLooping, onToggleLoop, isFrozen, onToggleFrozen, speedMultiplier, onSetSpeed,
   testStroke, activeSeqId, onSelectStroke, onSelectSequence,
 }) => (
@@ -63,9 +66,9 @@ export const AoVivoLabHeader: React.FC<AoVivoLabHeaderProps> = ({
     {isOpen && (
       <div className="px-2.5 pt-1 space-y-1 border-t" style={{ borderColor: 'var(--cordel-border)' }}>
         {!isMobilePosMode && (
-          <div className="grid grid-cols-6 gap-1">
-            {([['alfaia', 'Alfaia'], ['caixa', 'Caixa'], ['gongue', 'Gonguê'], ['timbal', 'Timbal'], ['agbe', 'Agbê'], ['mineiro', 'Mineiro']] as const).map(([id, lbl]) => (
-              <button key={id} type="button" onClick={() => onSelectFam(id)} className="py-0.5 px-1 border rounded text-[9px] font-bold cursor-pointer truncate" style={labBtnStyle(labFam === id)}>{lbl}</button>
+          <div className="grid grid-cols-7 gap-0.5">
+            {LAB_INSTRUMENT_BUTTONS.map((f) => (
+              <button key={f.id} type="button" onClick={() => onSelectInstFam(f.id)} className="py-0.5 px-0.5 border rounded text-[8.5px] font-bold cursor-pointer truncate" style={labBtnStyle(activeInstFam === f.id)}>{f.label}</button>
             ))}
           </div>
         )}
@@ -87,4 +90,3 @@ export const AoVivoLabHeader: React.FC<AoVivoLabHeaderProps> = ({
     )}
   </>
 );
-

@@ -10,6 +10,7 @@ import { uploadPendingVocalRecordings } from './vocalRecordingsUploader';
 import { findExistingPresetId } from './existingPresetMatcher';
 import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
 import { VOCAL_GRAMMAR_VERSION } from '../../utils/vocalGrammarV2';
+import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
 
 export async function savePresetToCloud(
   name: string,
@@ -58,7 +59,8 @@ export async function savePresetToCloud(
   }
 
   const presetToSave = JSON.parse(JSON.stringify(presetData));
-  presetToSave.metadata = { ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION };
+  const alfaiaEquipment = resolvePresetAlfaiaEquipment(presetToSave) ?? null;
+  presetToSave.metadata = { ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION, alfaiaEquipment };
   const updatedMap = await uploadPendingVocalRecordings(presetToSave);
 
   if (updatedMap.size > 0) {
@@ -100,6 +102,7 @@ export async function savePresetToCloud(
     visibility: visibility || defaultVis,
     targetUserId: targetUserId || null,
     mestreId: effectiveMestreId,
+    alfaiaEquipment,
     updatedAt: Date.now(),
   };
   if (effectiveGroupId) docData.groupId = effectiveGroupId;

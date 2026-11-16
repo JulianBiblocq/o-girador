@@ -1,5 +1,10 @@
 export type TourTrackId = 'practice' | 'studio';
 
+export interface TourPrepareCallbacks {
+  markEditorOpened: () => void;
+  markOficinaOpened: () => void;
+}
+
 export interface TourStepDef {
   id: string;
   targetTourId: string;
@@ -10,5 +15,5 @@ export interface TourStepDef {
   titlePt: string;
   bodyFr: string;
   bodyPt: string;
-  prepare?: () => void;
+  prepare?: (cb?: TourPrepareCallbacks) => void;
 }

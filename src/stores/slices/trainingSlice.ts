@@ -4,6 +4,7 @@ import { TrainingSlice, TrackGroup } from '../../types';
 import { resolveDefaultFocusTrackId } from '../../utils/focusTrackSelector';
 import { getStoredWorkingInstrument } from '../../utils/userPreferencesStorage';
 import { applyFocusTracksVisibility, restoreUnfocusedTracksVisibility } from '../helpers/focusVisibilityHelpers';
+import { syncAoVivoOnTrackSwitch } from '../../components/AoVivo/resolveAoVivoFamily';
 
 let lastSyncedSongKey = '';
 let lastSyncedProfileKey = '';
@@ -58,6 +59,8 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
         updates.tracks = applyFocusTracksVisibility(s.tracks, trackId, nextRefId, s.rodaTrackOrder);
         updates.activeAoVivoTrackId = trackId;
         updates.tracksVersion = s.tracksVersion + 1;
+      } else if (trackId !== null && s.activeAoVivoTrackId !== null) {
+        Object.assign(updates, syncAoVivoOnTrackSwitch(trackId, s));
       }
       return updates;
     }),
@@ -117,8 +120,9 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
     const validRefId = s.referenceTrackId !== null && s.referenceTrackId !== currentId && tracks.some((t) => t.id === s.referenceTrackId) ? s.referenceTrackId : null;
     if (s.isFocusActive && currentId !== null) {
       const nextTracks = applyFocusTracksVisibility(tracks, currentId, validRefId, s.rodaTrackOrder);
-      if (validRefId !== s.referenceTrackId || nextTracks.some((t, i) => t.isHidden !== tracks[i]?.isHidden)) {
-        set((p) => ({ referenceTrackId: validRefId, tracks: nextTracks, tracksVersion: p.tracksVersion + 1 }));
+      const aoVivoPatch = s.activeAoVivoTrackId !== null && s.activeAoVivoTrackId !== currentId ? syncAoVivoOnTrackSwitch(currentId, { activeAoVivoTrackId: s.activeAoVivoTrackId, tracks }) : {};
+      if (validRefId !== s.referenceTrackId || Object.keys(aoVivoPatch).length > 0 || nextTracks.some((t, i) => t.isHidden !== tracks[i]?.isHidden)) {
+        set((p) => ({ ...aoVivoPatch, referenceTrackId: validRefId, tracks: nextTracks, tracksVersion: p.tracksVersion + 1 }));
       }
     }
   },

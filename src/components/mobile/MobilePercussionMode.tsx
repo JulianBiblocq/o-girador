@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveBpm } from '../../utils/bpmUtils';
+import { resolveTrackAoVivoFamily } from '../AoVivo/resolveAoVivoFamily';
 import { MobileTopHeader } from './MobileTopHeader';
 import { MobilePercControls } from './MobilePercControls';
 import { MobilePercCenterBar } from './MobilePercCenterBar';
@@ -63,9 +64,13 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
     }
   }, [referenceTrackId, focusTrackId]);
 
+  const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
+  const firstPerc = tracks.find((t) => !t.isBusFolder && !t.isLinkFolder && resolveTrackAoVivoFamily(t, tracks).family !== null);
+  const effectiveFocusTrackId = focusTrackId ?? firstPerc?.id ?? tracks[0]?.id ?? null;
+
   const handleToggleAoVivo = () => {
     if (activeAoVivoTrackId !== null) setActiveAoVivoTrackId(null);
-    else if (focusTrackId !== null) setActiveAoVivoTrackId(focusTrackId);
+    else if (effectiveFocusTrackId !== null) setActiveAoVivoTrackId(effectiveFocusTrackId);
   };
 
   const handleToggleRestMuted = () => {
@@ -81,9 +86,6 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       })
     );
   };
-
-  const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
-  const effectiveFocusTrackId = focusTrackId ?? tracks[0]?.id ?? null;
   const visibleTrackIds = [
     effectiveFocusTrackId,
     ...(referenceTrackId && referenceTrackId !== effectiveFocusTrackId ? [referenceTrackId] : []),

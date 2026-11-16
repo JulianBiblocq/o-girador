@@ -4,12 +4,12 @@ import { getEffectiveMobileOffset, subscribeMobileOffsets } from '../../audio/an
 import { CONFIG_CAIXA_STICKS, subscribeCaixaSticksConfig } from '../../audio/animations/caixaKinematics';
 import { subscribeGongueStickConfig } from '../../audio/animations/gongueKinematics';
 import { CONFIG_TIMBAL_HANDS, subscribeTimbalHandsConfig } from '../../audio/animations/timbalKinematics';
-import { instrumentsConfig } from '../../data';
+import { AoVivoResolvedFamily } from './resolveAoVivoFamily';
 
 export function useAoVivoGeometry(
-  activeAoVivoTrackId: string | number,
+  activeAoVivoTrackId: string | number | null,
   isLeftHanded: boolean,
-  activeTrack: any,
+  family: AoVivoResolvedFamily | null,
   leftWrapperRef: React.RefObject<HTMLDivElement | null>,
   rightWrapperRef: React.RefObject<HTMLDivElement | null>,
   mineiroWrapperRef: React.RefObject<HTMLDivElement | null>,
@@ -35,12 +35,11 @@ export function useAoVivoGeometry(
       const rodaDiameter = canvas ? canvas.clientWidth : Math.min(width, height) * 0.85;
       const scale = Math.min(1, Math.max(0.4, rodaDiameter / 520));
 
-      if (!activeTrack) return;
-      const instId = activeTrack.instrumentIdx !== undefined ? instrumentsConfig[activeTrack.instrumentIdx]?.id : null;
-      const isTimbal = instId === 'timbal';
-      const isDrum = instId === 'caixa' || instId === 'tarol';
-      const isAlfaia = instId === 'marcante' || instId === 'meiao' || instId === 'repique';
-      const mob = getEffectiveMobileOffset(instId);
+      if (!family) return;
+      const isTimbal = family === 'timbal';
+      const isDrum = family === 'caixa' || family === 'tarol';
+      const isAlfaia = family === 'alfaia';
+      const mob = getEffectiveMobileOffset(family);
 
       const applyStickWrapper = (el: HTMLDivElement | null, isLeft: boolean) => {
         if (!el) return;
@@ -104,7 +103,7 @@ export function useAoVivoGeometry(
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateGeometry);
     };
-  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, leftWrapperRef, rightWrapperRef, mineiroWrapperRef, agbeWrapperRef, voiceWrapperRef, flashRef, gongueWrapperRef]);
+  }, [activeAoVivoTrackId, isLeftHanded, family, leftWrapperRef, rightWrapperRef, mineiroWrapperRef, agbeWrapperRef, voiceWrapperRef, flashRef, gongueWrapperRef]);
 
   return { geometryRef };
 }

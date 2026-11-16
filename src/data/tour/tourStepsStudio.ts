@@ -1,8 +1,7 @@
-import { TourStepDef } from './tourTypes';
+import { TourPrepareCallbacks, TourStepDef } from './tourTypes';
 import { useSequencerStore, isToadaChild } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
-import { useTourStore } from '../../stores/useTourStore';
 
 function resetToCleanStudioRoda() {
   const settings = useSequencerSettingsStore.getState();
@@ -17,19 +16,19 @@ function resetToCleanStudioRoda() {
   useSequencerStore.setState({ isTracksCollapsed: true });
 }
 
-function ensureEditorOpenForTour() {
+function ensureEditorOpenForTour(cb?: TourPrepareCallbacks) {
   useSequencerSettingsStore.getState().setIsSettingsOpen(false);
   const seq = useSequencerStore.getState();
   if (seq.editingTrackId === null) {
     const first = seq.tracks.find((tr) => !tr.isHidden && !isToadaChild(tr, seq.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || seq.tracks[0];
     if (first) {
       seq.setEditingTrackId(first.id);
-      useTourStore.getState().markEditorOpenedByTour();
+      cb?.markEditorOpened();
     }
   }
 }
 
-function ensureOficinaOpenForTour() {
+function ensureOficinaOpenForTour(cb?: TourPrepareCallbacks) {
   const seq = useSequencerStore.getState();
   if (seq.editingTrackId !== null && !useDesktopWorkspaceStore.getState().isSatelliteOpen) {
     seq.closeDetailEditor();
@@ -38,7 +37,7 @@ function ensureOficinaOpenForTour() {
   if (!settings.isSettingsOpen) {
     settings.setActiveSection('lutherie');
     settings.setIsSettingsOpen(true);
-    useTourStore.getState().markOficinaOpenedByTour();
+    cb?.markOficinaOpened();
   }
 }
 

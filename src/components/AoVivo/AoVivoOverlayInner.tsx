@@ -1,26 +1,29 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef, useSyncExternalStore } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../../contexts/SequencerContext';
-import { instrumentsConfig } from '../../data';
+import {
+  getAoVivoLabPreviewFamily,
+  getIsAoVivoLabOpen,
+  subscribeAoVivoLabOpen,
+  subscribeAoVivoLabPreview,
+} from '../../audio/animations/aoVivoConfigStorage';
 import { useAoVivoGeometry } from './useAoVivoGeometry';
 import { useAoVivoAnimationEngine } from './useAoVivoAnimationEngine';
 import { AoVivoInstrumentRenderers } from './AoVivoInstrumentRenderers';
 import { AoVivoSticksLabBar } from './AoVivoSticksLabBar';
 import { registerAoVivoTesterRefs } from './aoVivoStrokeTester';
+import { resolveActiveAoVivoContext } from './resolveAoVivoFamily';
 
-export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = ({ activeAoVivoTrackId }) => {
+export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number | null }> = ({ activeAoVivoTrackId }) => {
   const { isLeftHanded } = useSequencer();
   const allTracks = useSequencerStore((state) => state.tracks);
-  const tracks = React.useMemo(
-    () => allTracks.filter((t) => t.id === Number(activeAoVivoTrackId) || String(t.id) === String(activeAoVivoTrackId)),
-    [allTracks, activeAoVivoTrackId]
-  );
+  const isLabOpen = useSyncExternalStore(subscribeAoVivoLabOpen, getIsAoVivoLabOpen);
+  const labPreviewFamily = useSyncExternalStore(subscribeAoVivoLabPreview, getAoVivoLabPreviewFamily);
 
-  const activeTrack = tracks.find(
-    (t) => t.id === Number(activeAoVivoTrackId) || String(t.id) === String(activeAoVivoTrackId)
+  const { resolvedTrack, family, instId, isSyntheticPreview } = useMemo(
+    () => resolveActiveAoVivoContext(activeAoVivoTrackId, allTracks, isLabOpen ? labPreviewFamily : null),
+    [activeAoVivoTrackId, allTracks, isLabOpen, labPreviewFamily]
   );
-  const inst = activeTrack ? instrumentsConfig[activeTrack.instrumentIdx] : undefined;
 
   const leftWrapperRef = useRef<HTMLDivElement>(null);
   const rightWrapperRef = useRef<HTMLDivElement>(null);
@@ -39,7 +42,7 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
   const { geometryRef } = useAoVivoGeometry(
     activeAoVivoTrackId,
     isLeftHanded,
-    activeTrack,
+    family,
     leftWrapperRef,
     rightWrapperRef,
     mineiroWrapperRef,
@@ -52,8 +55,9 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
   useAoVivoAnimationEngine(
     activeAoVivoTrackId,
     isLeftHanded,
-    activeTrack,
-    inst,
+    resolvedTrack,
+    family,
+    isSyntheticPreview,
     geometryRef,
     leftStickRef,
     rightStickRef,
@@ -64,10 +68,17 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
     voiceWrapperRef
   );
 
-  if (!activeTrack || !inst) return null;
+  if (!family || !instId) {
+    return isLabOpen ? (
+      <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none">
+        <AoVivoSticksLabBar instId="alfaia" />
+      </div>
+    ) : null;
+  }
+
   registerAoVivoTesterRefs({
-    instId: inst.id,
-    activeTrack,
+    instId,
+    activeTrack: resolvedTrack,
     isLeftHanded,
     leftStickRef,
     rightStickRef,
@@ -88,8 +99,9 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
         <div className="w-[120px] h-[120px] sm:w-[200px] sm:h-[200px] rounded-full blur-xl" style={{ backgroundColor: 'var(--cordel-accent)' }} />
       </div>
       <AoVivoInstrumentRenderers
-        instId={inst.id}
-        activeTrack={activeTrack}
+        family={family}
+        instId={instId}
+        activeTrack={resolvedTrack}
         isLeftHanded={isLeftHanded}
         haloRef={haloRef}
         leftWrapperRef={leftWrapperRef}
@@ -103,7 +115,7 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
         gongueWrapperRef={gongueWrapperRef}
         gongueStickRef={gongueStickRef}
       />
-      <AoVivoSticksLabBar instId={inst.id} />
+      <AoVivoSticksLabBar instId={instId} />
     </div>
   );
 };
