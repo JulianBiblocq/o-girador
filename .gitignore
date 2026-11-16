@@ -18,3 +18,4 @@ scripts/export_icons.js
 codebase-*.txt
 .firebase/
 *.tsbuildinfo
+output/
