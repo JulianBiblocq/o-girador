@@ -1,19 +1,17 @@
 /**
- * useDesktopWorkspaceStore.ts — Store feuille pur de l'espace Multi-Écrans Studio (< 120 lignes).
+ * useDesktopWorkspaceStore.ts — Store feuille pur de l'espace Multi-Écrans Studio (< 80 lignes).
  * Aucun import de `useSequencerStore` ni `useSequencerSettingsStore` (DAG 100 % sans cycle).
  */
 import { create } from 'zustand';
 import {
   BridgeViewMode,
   DesktopWindowBounds,
-  DesktopWorkspaceLayout,
   SatelliteMode,
 } from '../types/desktopWorkspace.types';
 import {
-  loadStoredLayouts,
   loadStoredSatelliteBounds,
   loadStoredSatelliteMode,
-  persistLayouts,
+  parseSignedSatelliteBounds,
   persistSatelliteBounds,
   persistSatelliteMode,
 } from './helpers/desktopWorkspaceStorage';
@@ -35,29 +33,21 @@ export interface DesktopWorkspaceStore {
   lastBridgeViewMode: BridgeViewMode;
   preferredScreenMode: 'single' | 'dual';
   hasDismissedDualPrompt: boolean;
-  layouts: DesktopWorkspaceLayout[];
-  activeLayoutId: string | null;
 
   setSatelliteState: (patch: { isSatelliteOpen?: boolean; satelliteMode?: SatelliteMode }) => void;
   setSatelliteBounds: (bounds: DesktopWindowBounds | null) => void;
   setLastBridgeViewMode: (mode: BridgeViewMode) => void;
   setPreferredScreenMode: (mode: 'single' | 'dual') => void;
   dismissDualPrompt: () => void;
-  addLayoutSnapshot: (layout: DesktopWorkspaceLayout) => void;
-  setActiveLayoutId: (id: string | null) => void;
-  deleteLayout: (layoutId: string) => void;
-  renameLayout: (layoutId: string, newName: string) => void;
 }
 
-export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get) => ({
+export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set) => ({
   isSatelliteOpen: false,
   satelliteMode: loadStoredSatelliteMode(),
   satelliteBounds: loadStoredSatelliteBounds(),
   lastBridgeViewMode: 'roda',
   preferredScreenMode: loadPreferredScreenMode(),
   hasDismissedDualPrompt: false,
-  layouts: loadStoredLayouts(),
-  activeLayoutId: null,
 
   setSatelliteState: (patch) => {
     if (patch.satelliteMode) persistSatelliteMode(patch.satelliteMode);
@@ -68,8 +58,10 @@ export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get)
   },
 
   setSatelliteBounds: (bounds) => {
-    persistSatelliteBounds(bounds);
-    set({ satelliteBounds: bounds });
+    const clean = bounds ? parseSignedSatelliteBounds(bounds) : null;
+    if (bounds && !clean) return;
+    persistSatelliteBounds(clean);
+    set({ satelliteBounds: clean });
   },
 
   setLastBridgeViewMode: (mode) => set({ lastBridgeViewMode: mode }),
@@ -82,29 +74,4 @@ export const useDesktopWorkspaceStore = create<DesktopWorkspaceStore>((set, get)
   },
 
   dismissDualPrompt: () => set({ hasDismissedDualPrompt: true }),
-
-  addLayoutSnapshot: (layout) => {
-    const nextLayouts = [layout, ...get().layouts];
-    persistLayouts(nextLayouts);
-    set({ layouts: nextLayouts, activeLayoutId: layout.id });
-  },
-
-  setActiveLayoutId: (id) => set({ activeLayoutId: id }),
-
-  deleteLayout: (layoutId) => {
-    const nextLayouts = get().layouts.filter((l) => l.id !== layoutId);
-    persistLayouts(nextLayouts);
-    set((s) => ({
-      layouts: nextLayouts,
-      activeLayoutId: s.activeLayoutId === layoutId ? null : s.activeLayoutId,
-    }));
-  },
-
-  renameLayout: (layoutId, newName) => {
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-    const nextLayouts = get().layouts.map((l) => (l.id === layoutId ? { ...l, name: trimmed } : l));
-    persistLayouts(nextLayouts);
-    set({ layouts: nextLayouts });
-  },
 }));

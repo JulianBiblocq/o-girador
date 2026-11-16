@@ -10,16 +10,3 @@ export interface DesktopWindowBounds {
   width: number;
   height: number;
 }
-
-export interface DesktopWorkspaceLayout {
-  id: string;
-  name: string;
-  createdAt: number;
-  satelliteOpen: boolean;
-  satelliteMode: SatelliteMode;
-  satelliteBounds?: DesktopWindowBounds;
-  bridgeViewMode?: BridgeViewMode;
-  uiState?: {
-    isTracksCollapsed?: boolean;
-  };
-}

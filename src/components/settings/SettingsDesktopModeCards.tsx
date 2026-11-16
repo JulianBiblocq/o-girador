@@ -1,17 +1,12 @@
 /**
- * SettingsDesktopModeCards.tsx — 3 Modes Studio Clés en Main & Coordonnées du 2e Écran (< 125 lignes).
+ * SettingsDesktopModeCards.tsx — 3 Modes Studio Clés en Main & Barre Écran 2 (< 95 lignes).
  */
 import React from 'react';
-import { Sliders, Edit3, Wrench, ArrowDownLeft, Crosshair, RotateCcw } from 'lucide-react';
+import { Sliders, Edit3, Wrench } from 'lucide-react';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
 import { SatelliteMode } from '../../types/desktopWorkspace.types';
-import { detachedWindowManager } from '../../utils/detachedWindowManager';
-import {
-  captureCurrentSatelliteBounds,
-  dockSatellite,
-  openSatellite,
-  switchSatelliteMode,
-} from '../../utils/satelliteCoordinator';
+import { openSatellite, switchSatelliteMode } from '../../utils/satelliteCoordinator';
+import { SettingsSatelliteBoundsBar } from './SettingsSatelliteBoundsBar';
 
 interface SettingsDesktopModeCardsProps {
   lang: string;
@@ -21,8 +16,6 @@ interface SettingsDesktopModeCardsProps {
 export const SettingsDesktopModeCards: React.FC<SettingsDesktopModeCardsProps> = ({ lang, onNotify }) => {
   const isSatelliteOpen = useDesktopWorkspaceStore((s) => s.isSatelliteOpen);
   const satelliteMode = useDesktopWorkspaceStore((s) => s.satelliteMode);
-  const satelliteBounds = useDesktopWorkspaceStore((s) => s.satelliteBounds);
-  const setSatelliteBounds = useDesktopWorkspaceStore((s) => s.setSatelliteBounds);
   const isPt = lang === 'pt';
 
   const modes: Array<{ id: SatelliteMode; title: string; desc: string; Icon: React.FC<{ size?: number; className?: string }> }> = [
@@ -40,7 +33,7 @@ export const SettingsDesktopModeCards: React.FC<SettingsDesktopModeCardsProps> =
     },
     {
       id: 'oficina',
-      title: 'Mode A Oficina',
+      title: isPt ? 'Modo A Oficina' : 'Mode A Oficina',
       desc: isPt ? 'Tela 1 : Roda Ao Vivo · Tela 2 : Lutheria, Balanço & Sinais' : 'Écran 1 : Roda Ao Vivo · Écran 2 : Lutherie, Balanço & Signaux',
       Icon: Wrench,
     },
@@ -50,15 +43,6 @@ export const SettingsDesktopModeCards: React.FC<SettingsDesktopModeCardsProps> =
     if (isSatelliteOpen) switchSatelliteMode(mode);
     else openSatellite(mode);
   };
-
-  const handleCaptureBounds = () => {
-    const captured = captureCurrentSatelliteBounds();
-    if (captured) {
-      onNotify?.(isPt ? 'Posição da Tela 2 memorizada!' : "Position de l'Écran 2 mémorisée !");
-    }
-  };
-
-  const isLivePopupOpen = isSatelliteOpen && detachedWindowManager.isPanelOpen('satellite');
 
   return (
     <div className="flex flex-col gap-4">
@@ -101,39 +85,7 @@ export const SettingsDesktopModeCards: React.FC<SettingsDesktopModeCardsProps> =
         })}
       </div>
 
-      <div className="border-2 border-[var(--cordel-border)] bg-[var(--cordel-surface)] p-3 flex flex-wrap items-center justify-between gap-2.5 shadow-[2px_2px_0px_var(--cordel-shadow-color)]">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-cactus font-bold uppercase text-[var(--cordel-text)]">
-            {isPt ? 'Posição da Tela 2 :' : "Position de l'Écran 2 :"}
-          </span>
-          <span className="font-mono text-[11px] px-2 py-0.5 border border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-            {satelliteBounds
-              ? `X=${satelliteBounds.x}, Y=${satelliteBounds.y} (${satelliteBounds.width}×${satelliteBounds.height})`
-              : (isPt ? 'Automática (2º monitor)' : 'Automatique (2e moniteur)')}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {isLivePopupOpen && (
-            <button type="button" onClick={handleCaptureBounds} className="px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer">
-              <Crosshair size={12} />
-              <span>{isPt ? 'Memorizar posição atual' : 'Mémoriser la position actuelle'}</span>
-            </button>
-          )}
-          {satelliteBounds && (
-            <button type="button" onClick={() => setSatelliteBounds(null)} className="px-2.5 py-1 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer">
-              <RotateCcw size={12} />
-              <span>{isPt ? 'Redefinir' : 'Réinitialiser'}</span>
-            </button>
-          )}
-          {isSatelliteOpen && (
-            <button type="button" onClick={() => dockSatellite({ reanchorToScreen1: true })} className="px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] font-cactus font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer">
-              <ArrowDownLeft size={12} />
-              <span>{isPt ? 'Reancorar em 1 tela' : 'Ré-ancrer sur 1 écran'}</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <SettingsSatelliteBoundsBar lang={lang} onNotify={onNotify} />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 /**
- * satelliteCoordinator.ts — Orchestrateur Studio Multi-Écrans (Écran 1 Fixe + Satellite Écran 2) (< 115 lignes).
+ * satelliteCoordinator.ts — Orchestrateur Studio Multi-Écrans (Écran 1 Fixe + Satellite Écran 2) (< 120 lignes).
  */
 import { DesktopWindowBounds, SatelliteMode } from '../types/desktopWorkspace.types';
 import { useDesktopWorkspaceStore } from '../stores/useDesktopWorkspaceStore';
@@ -80,9 +80,8 @@ export function switchSatelliteMode(mode: SatelliteMode): void {
 export function dockSatellite(options?: { reanchorToScreen1?: boolean }): void {
   const ws = useDesktopWorkspaceStore.getState();
   const prevMode = ws.satelliteMode;
-  const liveBounds = detachedWindowManager.getBounds('satellite');
-  if (liveBounds) ws.setSatelliteBounds(liveBounds);
 
+  // Protection stricte : fermer ou ré-ancrer ne doit jamais écraser satelliteBounds
   detachedWindowManager.closeWindow('satellite');
   ws.setSatelliteState({ isSatelliteOpen: false });
   if (!detachedWindowManager.isMainWindowUnloading()) {
@@ -110,5 +109,11 @@ export function captureCurrentSatelliteBounds(): DesktopWindowBounds | null {
   const live = detachedWindowManager.getBounds('satellite');
   if (!live) return null;
   useDesktopWorkspaceStore.getState().setSatelliteBounds(live);
+  try {
+    const getScreenDetails = (window as unknown as { getScreenDetails?: () => Promise<unknown> }).getScreenDetails;
+    if ((live.x < 0 || live.y < 0) && typeof getScreenDetails === 'function') {
+      void getScreenDetails.call(window).catch(() => {});
+    }
+  } catch {}
   return live;
 }

@@ -1,11 +1,12 @@
 /**
- * WindowPortal.tsx — Portail React blindé pour l'unique Fenêtre Satellite Studio (< 130 lignes).
- * Supporte coordonnées négatives, `<base href>`, sync CSS/Thème vivante et protection de `studio_dual`.
+ * WindowPortal.tsx — Portail React blindé pour l'unique Fenêtre Satellite Studio (< 95 lignes).
+ * Supporte coordonnées négatives, `<base href>`, sync CSS/Thème vivante et protection à la fermeture.
  */
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { DesktopWindowBounds } from '../types/desktopWorkspace.types';
 import { detachedWindowManager } from '../utils/detachedWindowManager';
+import { attachSatelliteWindowWatcher } from '../utils/satelliteWindowWatcher';
 import { syncPopupStylesAndTheme } from '../utils/syncPopupStylesAndTheme';
 import { WindowContext } from '../contexts/WindowContext';
 
@@ -53,62 +54,20 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
     if (!rootEl) {
       rootEl = doc.createElement('div');
       rootEl.id = 'satellite-root';
-      rootEl.style.width = '100%';
-      rootEl.style.height = '100%';
-      rootEl.style.display = 'flex';
-      rootEl.style.flexDirection = 'column';
-      rootEl.style.overflow = 'hidden';
+      rootEl.style.cssText = 'width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;';
       doc.body.appendChild(rootEl);
     }
-
-    let modalRootEl = doc.getElementById('satellite-modal-root');
-    if (!modalRootEl) {
-      modalRootEl = doc.createElement('div');
+    if (!doc.getElementById('satellite-modal-root')) {
+      const modalRootEl = doc.createElement('div');
       modalRootEl.id = 'satellite-modal-root';
       doc.body.appendChild(modalRootEl);
     }
 
     setMountState({ popupWin: popup, rootEl });
-
-    let closedHandled = false;
-    const captureBoundsSafe = () => {
-      const b = detachedWindowManager.getBounds('satellite');
-      if (b) callbacksRef.current.onBoundsCaptured?.(b);
-    };
-
-    const handlePopupClosed = () => {
-      if (closedHandled) return;
-      closedHandled = true;
-      captureBoundsSafe();
-      detachedWindowManager.unregister('satellite');
-      if (!detachedWindowManager.isMainWindowUnloading()) {
-        callbacksRef.current.onClosedByOS();
-      }
-    };
-
-    const handleMainUnloading = () => {
-      detachedWindowManager.setMainWindowUnloading(true);
-      captureBoundsSafe();
-      detachedWindowManager.closeWindow('satellite');
-    };
-
-    popup.addEventListener('pagehide', handlePopupClosed);
-    popup.addEventListener('unload', handlePopupClosed);
-    window.addEventListener('pagehide', handleMainUnloading);
-    window.addEventListener('beforeunload', handleMainUnloading);
-
-    const pollId = window.setInterval(() => {
-      if (popup.closed) handlePopupClosed();
-      else captureBoundsSafe();
-    }, 800);
+    const cleanupWatcher = attachSatelliteWindowWatcher(popup, () => callbacksRef.current);
 
     return () => {
-      closedHandled = true;
-      window.clearInterval(pollId);
-      popup.removeEventListener('pagehide', handlePopupClosed);
-      popup.removeEventListener('unload', handlePopupClosed);
-      window.removeEventListener('pagehide', handleMainUnloading);
-      window.removeEventListener('beforeunload', handleMainUnloading);
+      cleanupWatcher();
       cleanupSync();
     };
   }, []);
