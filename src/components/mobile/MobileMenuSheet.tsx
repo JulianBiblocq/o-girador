@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { X, Sliders, Moon, Sun, Monitor, Printer, SlidersHorizontal } from 'lucide-react';
+import { X, Sliders, Moon, Sun, Monitor, Printer, SlidersHorizontal, BookOpen, Compass } from 'lucide-react';
 import { MobileViewModeSelector } from './MobileViewModeSelector';
 import { MobilePartitionPreviewModal } from './MobilePartitionPreviewModal';
+import { MobilePocketLegendModal } from './MobilePocketLegendModal';
 import { RodaSweepModeToggle } from '../roda/RodaSweepModeToggle';
 import { openAoVivoLabWithActiveTrack } from '../AoVivo/aoVivoStrokeTester';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { useGuideStore } from '../../stores/useGuideStore';
 import { tMobile } from '../../i18n/mobileTranslations';
 
 interface Props {
@@ -32,13 +34,14 @@ export const MobileMenuSheet: React.FC<Props> = ({
   const lang = storeLang || propLang || 'pt';
   const setStoreLang = useSequencerStore((s) => s.setLang);
   const [isPartitionModalOpen, setIsPartitionModalOpen] = useState(false);
+  const [isPocketLegendOpen, setIsPocketLegendOpen] = useState(false);
 
   if (!isOpen) return null;
   const setLang = (l: 'fr' | 'pt') => setStoreLang(l);
 
   return (
     <>
-      <div onClick={(e) => e.target === e.currentTarget && onClose()} className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs select-none">
+      <div onClick={(e) => e.target === e.currentTarget && onClose()} className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-[var(--cordel-ink-dark)]/75 backdrop-blur-xs select-none">
         <div className="w-full max-w-sm max-h-[88dvh] flex flex-col bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0px_var(--cordel-border)] overflow-hidden text-[var(--cordel-text)]">
           <div className="p-2.5 border-b-2 border-[var(--cordel-border)] flex items-center justify-between bg-[var(--cordel-surface)] shrink-0">
             <span className="font-cactus font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]">{tMobile(lang, 'toolsMenu')}</span>
@@ -96,6 +99,15 @@ export const MobileMenuSheet: React.FC<Props> = ({
 
               <RodaSweepModeToggle fullWidth />
 
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setIsPocketLegendOpen(true)} className="p-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-[10.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer">
+                  <BookOpen size={13} /> <span>{lang === 'pt' ? 'Legenda' : 'Légende'}</span>
+                </button>
+                <button type="button" onClick={() => { onClose(); useGuideStore.getState().openGuide(); }} className="p-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-[10.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer">
+                  <Compass size={13} /> <span>{lang === 'pt' ? 'Manual' : "Mode d'Emploi"}</span>
+                </button>
+              </div>
+
               <button type="button" onClick={() => setIsPartitionModalOpen(true)} className="p-2 bg-[var(--cordel-card-btn-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-card-btn-text)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer">
                 <Printer size={14} /> {tMobile(lang, 'printScores')}
               </button>
@@ -112,6 +124,7 @@ export const MobileMenuSheet: React.FC<Props> = ({
         </div>
       </div>
       <MobilePartitionPreviewModal isOpen={isPartitionModalOpen} onClose={() => setIsPartitionModalOpen(false)} primaryTrackId={primaryTrackId} referenceTrackId={referenceTrackId} lang={lang} />
+      <MobilePocketLegendModal isOpen={isPocketLegendOpen} onClose={() => setIsPocketLegendOpen(false)} lang={lang} />
     </>
   );
 };
