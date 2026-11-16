@@ -97,5 +97,9 @@ export default defineConfig(({ command }) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
-  };
+    test: {
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
+      passWithNoTests: true,
+    },
+  } as any;
 });
