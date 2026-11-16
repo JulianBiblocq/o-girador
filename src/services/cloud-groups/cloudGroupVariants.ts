@@ -36,3 +36,20 @@ export async function getDefaultGroupPresetId(groupId: string): Promise<string |
 
   return null;
 }
+
+export async function resolveGroupLogoFromCloud(groupId?: string | null): Promise<string | null> {
+  if (!groupId) return null;
+  const variants = getGroupIdVariants(groupId);
+  for (const col of ['associations', 'groups'] as const) {
+    for (const id of variants) {
+      try {
+        const snap = await getDoc(doc(db, col, id));
+        if (!snap.exists()) continue;
+        const d = snap.data();
+        const candidate = d?.logoUrl || d?.logo || d?.groupLogoUrl || d?.branding?.logoUrl || d?.iconUrl;
+        if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate.trim();
+      } catch (_) {}
+    }
+  }
+  return null;
+}

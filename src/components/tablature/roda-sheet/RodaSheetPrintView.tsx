@@ -98,8 +98,8 @@ export const RodaSheetPrintView: React.FC<RodaSheetPrintViewProps> = ({
             </div>
           )}
 
-          <div className="mt-2 pt-1 border-t border-[#d6d3d1] flex justify-between items-center text-[9px] font-mono text-[#57534e]">
-            <span>O Girador — Séquenciad&apos;Or</span>
+          <div className="mt-2 pt-1 border-t border-[var(--cordel-paper-ink)]/20 flex justify-between items-center text-[9px] font-mono text-[var(--cordel-paper-ink)]/70">
+            <span>O Girador — Sequenciador</span>
             <span>{isFr ? 'Tampons Éco-Encre (Fond blanc • Coup fort = trait épais)' : 'Carimbos Eco-Tinta (Fundo branco • Toque forte = traço grosso)'}</span>
           </div>
         </div>

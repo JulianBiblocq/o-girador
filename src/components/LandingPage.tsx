@@ -18,12 +18,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onEnter,
   lang,
   onLanguageChange,
+  isManualOpen = false,
 }) => {
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const {
-    isToneReady, isUnlocking, currentLang, currentUser, isFr, handleLanguageSelect,
-    handleLaunchOrquestrador, handleCurrentAppClick, handleLaunchOrganizador,
-    handleLaunchDancador, handleLaunchMostrador, handleEnterRoda, handleInstrumentTap
+    isToneReady, isUnlocking, currentLang, currentUser, isFr, organizadorGroupLogo,
+    handleLanguageSelect, handleLaunchOrquestrador, handleCurrentAppClick,
+    handleLaunchOrganizador, handleLaunchCantador, handleLaunchDancador,
+    handleLaunchMostrador, handleEnterRoda, handleInstrumentTap,
   } = useLandingPageLogic(onEnter, lang, onLanguageChange);
 
   useEffect(() => {
@@ -45,10 +47,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <main id="landing-page" className="min-h-screen bg-[#f4ecd8] text-[#1a1a1a] flex flex-col justify-between relative selection:bg-[#8b2a1a] selection:text-[#f4ecd8]">
+    <main
+      id="landing-page"
+      className="min-h-screen p-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] flex flex-col justify-between relative selection:bg-[var(--cordel-wood)] selection:text-[var(--cordel-on-accent)]"
+    >
       <div className="fixed inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-damas-mask" aria-hidden="true" />
 
-      <LandingHeader currentLang={currentLang} />
+      <LandingHeader currentLang={currentLang} isManualOpen={isManualOpen} onReturnToApp={handleEnterRoda} />
 
       <LandingHeroSection
         isFr={isFr}
@@ -66,10 +71,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       <LandingFooter
         isFr={isFr}
+        organizadorGroupLogo={organizadorGroupLogo}
         onLanguageSelect={handleLanguageSelect}
         onLaunchOrquestrador={handleLaunchOrquestrador}
         onCurrentAppClick={handleCurrentAppClick}
         onLaunchOrganizador={handleLaunchOrganizador}
+        onLaunchCantador={handleLaunchCantador}
         onLaunchDancador={handleLaunchDancador}
         onLaunchMostrador={handleLaunchMostrador}
         onOpenLegal={() => setIsLegalOpen(true)}

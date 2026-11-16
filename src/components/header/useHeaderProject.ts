@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { subscribeToGroupDefaultPreset, setDefaultGroupPreset } from '../../cloudGroups';
+import { resolveGroupLogoFromCloud } from '../../services/cloud-groups/cloudGroupVariants';
 import { togglePresetDraftStatus } from '../../cloudPresetsStorage';
 import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
@@ -18,10 +19,16 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
   const isOtherDistinctGroup = Boolean(rawGroupId && !isSamambaia);
 
   const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : rawGroupId) || '';
+  const [cloudGroupLogo, setCloudGroupLogo] = useState<string | null>(null);
 
-  const groupLogo = isSamambaia
-    ? (userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png')
-    : (userProfile?.groupLogoUrl || '/o-girador-logo.svg');
+  useEffect(() => {
+    let cancelled = false;
+    if (!rawGroupId || userProfile?.groupLogoUrl) { setCloudGroupLogo(null); return; }
+    resolveGroupLogoFromCloud(rawGroupId).then((url) => { if (!cancelled) setCloudGroupLogo(url); });
+    return () => { cancelled = true; };
+  }, [rawGroupId, userProfile?.groupLogoUrl]);
+
+  const groupLogo = userProfile?.groupLogoUrl || cloudGroupLogo || (isSamambaia ? '/Pictures/logo-samambaia.png' : '/o-girador-logo.webp');
 
   const isPublicPreset = (p: { visibility?: string }) =>
     p.visibility === 'admin_global' || p.visibility === 'public';

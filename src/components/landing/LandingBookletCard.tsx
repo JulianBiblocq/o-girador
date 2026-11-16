@@ -22,7 +22,7 @@ export const LandingBookletCard: React.FC<LandingBookletCardProps> = ({
         <div className="absolute -top-[14px] left-1/2 -translate-x-1/2 z-20 pointer-events-none">
           <ClothespinSvg />
         </div>
-        <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
+        <div className="flex-1 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border-strong)] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
           {id === 1 && <LandingBookletOral isFr={isFr} />}
           {id === 2 && <LandingBookletSequenciador isFr={isFr} />}
           {id === 3 && <LandingBookletOrganizador isFr={isFr} />}

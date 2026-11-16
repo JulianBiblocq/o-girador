@@ -59,7 +59,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   const visiblePublic = canEdit ? publicCloudPresets : publicCloudPresets.filter((p) => p.isDraft !== true);
 
   return (
-    <div className={`flex flex-col gap-2 w-full ${className}`}>
+    <div data-tour-id="header-preset-selector" className={`flex flex-col gap-2 w-full ${className}`}>
       <PresetAccordionHeader lang={lang} currentSongTitle={currentSongTitle} />
       <div className="flex flex-col gap-1.5 w-full">
         {showGroupCatalogue && (
@@ -69,7 +69,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
             onToggle={() => setIsGroupOpen((prev) => !prev)}
             title={groupTitle}
             count={visiblePrivate.length}
-            logo={groupLogo || '/o-girador-logo.svg'}
+            logo={groupLogo || '/o-girador-logo.webp'}
             items={visiblePrivate}
             itemIcon=""
             emptyMsg={lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)'}
@@ -93,7 +93,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           onToggle={() => setIsPublicOpen((prev) => !prev)}
           title={publicTitle}
           count={visiblePublic.length}
-          icon={<Cloud size={13} className="shrink-0 text-[#d99b26]" />}
+          icon={<Cloud size={13} className="shrink-0 text-[var(--cordel-gold)]" />}
           items={visiblePublic}
           itemIcon={<Cloud size={11} className="shrink-0 opacity-70" />}
           emptyMsg={lang === 'pt' ? '(Nenhum ritmo público)' : '(Aucun morceau public)'}
