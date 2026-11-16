@@ -8,7 +8,7 @@ export type BlankSheetType = 'grid32' | 'isolated' | 'sections' | 'sequence' | '
 
 export type GridMode = '4/4' | '2/4' | '3/4' | '12/8' | 'free_portrait' | 'free_landscape';
 
-export type PupitreCode = 'al' | 'cx' | 'gg' | 'ab' | 'mi' | 'tb' | 'td' | 'mc' | 'me' | 'rp' | 'tr';
+export type PupitreCode = 'al' | 'cx' | 'gg' | 'ab' | 'mi' | 'tb' | 'ap' | 'td' | 'mc' | 'me' | 'rp' | 'tr';
 
 export interface PupitreInfo {
   code: PupitreCode;

@@ -1,5 +1,6 @@
 /**
- * Spécification complète des frappes disponibles par pupitre pour le popover (< 90 lignes).
+ * Spécification SSOT des frappes par pupitre pour les popovers Papier & Mobile (< 90 lignes).
+ * Alignée à 100 % sur src/universes/maracatu/strokes/.
  */
 
 export interface RoleStrokesConfig {
@@ -8,76 +9,65 @@ export interface RoleStrokesConfig {
   special: string[];
 }
 
+const ALFAIA_STROKES: RoleStrokesConfig = {
+  strong: ['D', 'E', 'A', 'I', 'C', 'X', 'B'],
+  weak: ['d', 'e', 'a'],
+  special: ['D/E', 'd/I', 'e/D', 'A/D'],
+};
+
+const CAIXA_STROKES: RoleStrokesConfig = {
+  strong: ['D', 'E', 'A', 'R', 'F', 'C', 'X', 'B'],
+  weak: ['d', 'e', 'a', 'r', 'f'],
+  special: ['D/E', 'E/D', 'A/a'],
+};
+
 const ROLE_STROKES_MAP: Record<string, RoleStrokesConfig> = {
-  al: {
-    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
-    weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D', 'A/D'],
-  },
-  mc: {
-    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
-    weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D', 'A/D'],
-  },
-  me: {
-    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
-    weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D', 'A/D'],
-  },
-  rp: {
-    strong: ['D', 'E', 'A', 'I', 'C', 'B', 'X', 'F'],
-    weak: ['d', 'e', 'i'],
-    special: ['D/E', 'd/I', 'e/D', 'A/D'],
-  },
-  cx: {
-    strong: ['D', 'E', 'A', 'R', 'F', 'X', 'C', 'B'],
-    weak: ['d', 'e', 'a', 'r', 'f'],
-    special: ['D/E', 'E/D', 'A/a'],
-  },
-  tr: {
-    strong: ['D', 'E', 'A', 'R', 'F', 'X', 'C', 'B'],
-    weak: ['d', 'e', 'a', 'r', 'f'],
-    special: ['D/E', 'E/D', 'A/a'],
-  },
+  al: ALFAIA_STROKES,
+  mc: ALFAIA_STROKES,
+  me: ALFAIA_STROKES,
+  rp: ALFAIA_STROKES,
+  cx: CAIXA_STROKES,
+  tr: CAIXA_STROKES,
   gg: {
     strong: ['G', 'A', 'B'],
     weak: ['g', 'a'],
-    special: [],
+    special: ['G/A', 'g/a'],
   },
   ab: {
-    strong: ['D', 'E', 'S', 'V', 'B', 'X', 'C'],
-    weak: ['d', 'e', 's', 'v'],
-    special: [],
+    strong: ['E', 'D', 'S', 'V', 'B'],
+    weak: ['e', 'd'],
+    special: ['E/d', 'D/e'],
   },
   mi: {
-    strong: ['P', 'T', 'L', 'B', 'X', 'C'],
+    strong: ['P', 'T', 'L', 'B'],
     weak: ['p', 't'],
-    special: [],
+    special: ['P/t', 'T/p'],
   },
   tb: {
-    strong: ['G', 'A', 'S', 'D', 'P', 'F', 'V', 'C', 'B', 'X'],
-    weak: ['g', 'a', 's', 'd', 'p'],
-    special: [],
+    strong: ['G', 'A', 'S', 'D', 'P', 'F', 'V', 'C', 'B'],
+    weak: ['g', 'a', 's', 'd', 'p', 'f', 'v'],
+    special: ['A/a', 'S/s'],
   },
   ap: {
-    strong: ['W', 'A', 'S', 'X'],
+    strong: ['W'],
     weak: ['w'],
-    special: [],
+    special: ['W/w'],
   },
 };
 
 const DEFAULT_CONFIG: RoleStrokesConfig = {
-  strong: ['D', 'E', 'C', 'B', 'X', 'I', 'R', 'F'],
-  weak: ['d', 'e', 'i', 'r'],
+  strong: ['D', 'E', 'A', 'I', 'R', 'F', 'C', 'X', 'B'],
+  weak: ['d', 'e', 'a', 'r', 'f'],
   special: ['D/E', 'd/I'],
 };
 
 export function getStrokesForRole(roleKey: string): RoleStrokesConfig {
-  const norm = (roleKey || '').toLowerCase();
+  const norm = (roleKey || '').toLowerCase().replace(/[0-9]+$/, '');
   return ROLE_STROKES_MAP[norm] || DEFAULT_CONFIG;
 }
 
 export const ALL_STROKE_LETTERS: string[] = [
-  'D', 'd', 'E', 'e', 'C', 'B', 'X', 'I', 'i', 'F', 'R', 'r',
-  'G', 'g', 'A', 'a', 'S', 's', 'V', 'v', 'P', 'p', 'T', 't', 'L', 'W', 'w',
+  'D', 'd', 'E', 'e', 'A', 'a', 'I', 'C', 'X', 'B',
+  'R', 'r', 'F', 'f', 'G', 'g', 'S', 's', 'V', 'v',
+  'P', 'p', 'T', 't', 'L', 'W', 'w',
 ];

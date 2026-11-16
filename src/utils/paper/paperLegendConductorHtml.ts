@@ -22,7 +22,7 @@ export const renderLegendConductorHTML = (lang: 'fr' | 'pt'): string => {
           <div style="padding-left: 6px; color: #555; font-size: 8.5pt;">1er tour joue Trovão, 2e tour saute à Fim Martelo.</div>
           <div style="margin-top: 2px;"><strong>• Coda (⊕) & Renvois (D.C. / D.S.) :</strong></div>
           <div style="padding-left: 6px; color: #333; font-size: 8.5pt;">
-            - <strong>D.C.</strong> = Da Capo │ <strong>D.S.</strong> = Dal Segno (𝄋).<br/>
+            - <strong>D.C.</strong> = Da Capo │ <strong>D.S.</strong> = Dal Segno (Segno).<br/>
             - <strong>To Coda ⊕</strong> = Au 2e passage, saute au bloc <strong>⊕ Coda</strong>.
           </div>
         </div>
