@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Portuguese Translations Part 2 (Speed Trainer & Shortcuts)
+ * O Girador - Portuguese Translations Part 2 (Speed Trainer & Shortcuts SSOT)
  */
 
 export const i18nPtPart2 = {
@@ -81,22 +80,22 @@ export const i18nPtPart2 = {
   speedTrainerLoopsIntervalPlural: "a cada 2 voltas",
   legendTabStrokes: "Timbres e Sons",
   legendTabShortcuts: "Atalhos",
-  shortcutsTransportTitle: "Transporte & Navegação",
-  shortcutsEditTitle: "Edição & Partitura",
+  shortcutsTransportTitle: "Transporte, Estúdio & 2 Telas",
+  shortcutsEditTitle: "Editor Detalhado do Instrumento",
   shortcutSpaceDesc: "Reproduzir / Pausar",
   shortcutEnterDesc: "Voltar ao início (Compasso 1)",
   shortcutTabDesc: "Alternar Roda / Linha do tempo",
   shortcutOficinaDesc: "Abrir / Fechar A Oficina",
   shortcutLoopDesc: "Ativar / desativar loop",
   shortcutMeasureNavDesc: "Voltar / Avançar um compasso inteiro",
-  shortcutWeakStrokesDesc: "Selecionar ferramenta de golpe fraco",
-  shortcutStrongStrokesDesc: "Selecionar ferramenta de golpe forte",
-  shortcutNuanceWheelDesc: "Ajustar a nuance (Forte / Fraco)",
-  shortcutEraserDesc: "Borracha (silêncio / pausa)",
-  shortcutSplitStepDesc: "Dividir o passo em dois (semicolcheia / rá)",
-  shortcutDuplicateMeasureDesc: "Duplicar o padrão para o próximo compasso",
+  shortcutWeakStrokesDesc: "Ferramenta golpe fraco (ou mão esq. Timbal)",
+  shortcutStrongStrokesDesc: "Ferramenta golpe forte (ou mão dir. Timbal)",
+  shortcutNuanceWheelDesc: "Alternar nuance / variante do par",
+  shortcutEraserDesc: "Limpar passo (percussão) • Silêncio vocal 0 (Toada)",
+  shortcutSplitStepDesc: "Tesoura : dividir o passo em [a, b] (Rá)",
+  shortcutDuplicateMeasureDesc: "Duplicar em seguida (trecho ou compasso)",
   shortcutUndoRedoDesc: "Desfazer / Refazer",
-  shortcutSpecialToolsDesc: "Barulho, Clique de baqueta, Borda / Corpo",
+  shortcutSpecialToolsDesc: "Barulho, Clique de baquetas, Aro",
   tocarJunto: "Tocar Junto",
   modoTreino: "Modo Treino",
   treinarNesteNaipe: "Treinar neste naipe (Tocar Junto)",

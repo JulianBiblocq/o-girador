@@ -97,7 +97,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 
           {subTab === 'legendes' && (
             <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
-              <React.Suspense fallback={null}><div className="xilo-feedback-container flex flex-col gap-2"><ShortcutsGuide lang={lang} t={t} /></div></React.Suspense>
+              <React.Suspense fallback={null}><div className="xilo-feedback-container flex flex-col gap-2"><ShortcutsGuide lang={lang} t={t} isLeftHanded={Boolean(sequencer.isLeftHanded)} /></div></React.Suspense>
             </div>
           )}
 

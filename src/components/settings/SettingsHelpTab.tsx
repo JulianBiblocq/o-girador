@@ -33,8 +33,8 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
         </h3>
         <p className="text-[11px] text-[var(--cordel-text-muted)] font-semibold">
           {lang === 'fr'
-            ? "Accédez au guide illustré complet pour apprendre à utiliser les fonctions de la Roda, de la Timeline, de la synthèse vocale et de l'exportation."
-            : 'Acesse o guia ilustrado completo para aprender a usar os recursos da Roda, Linha do tempo, sintetizador de voz e exportação.'}
+            ? "Accédez au mode d'emploi théorique et pratique complet : Panorama Général de l'écosystème O Girador et 20 fiches-actions couvrant la Roda, l'Éditeur, la Timeline, la Toada, le Mixage et l'Impression."
+            : 'Acesse o manual teórico e prático completo: Panorama Geral do ecossistema O Girador e 20 fichas de ação cobrindo Roda, Editor, Linha do Tempo, Toada, Mixagem e Impressão.'}
         </p>
 
         <button
@@ -67,7 +67,7 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
               </div>
             }
           >
-            <ShortcutsGuide lang={lang} t={t} activeStrokesByInstrument={activeStrokesByInstrument} />
+            <ShortcutsGuide lang={lang} t={t} activeStrokesByInstrument={activeStrokesByInstrument} isLeftHanded={isLeftHanded} />
           </React.Suspense>
         </div>
       </div>
