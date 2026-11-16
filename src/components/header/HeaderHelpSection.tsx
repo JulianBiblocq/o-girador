@@ -3,6 +3,7 @@ import { HelpCircle, Compass, BookOpen, MessageSquare, Share2, ScrollText } from
 import { XiloFanion } from '../XiloIcons';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useTourStore } from '../../stores/useTourStore';
+import { useGuideStore } from '../../stores/useGuideStore';
 import { i18n } from '../../data';
 
 interface HeaderHelpSectionProps {
@@ -66,7 +67,10 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
         <button
           type="button"
           data-tour-id="header-help-guide"
-          onClick={() => { window.open('/tutorial.html', '_blank'); onCloseMenu(); }}
+          onClick={() => {
+            onCloseMenu();
+            useGuideStore.getState().openGuide();
+          }}
           className="px-2 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold font-cactus hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
         >
           <BookOpen className="w-3.5 h-3.5 shrink-0" /> Guide

@@ -2,6 +2,8 @@ import React from 'react';
 import { BookOpen, Keyboard } from 'lucide-react';
 import { Language } from '../../types';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
+import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { useGuideStore } from '../../stores/useGuideStore';
 import { useActiveStrokesByInstrument } from './useActiveStrokesByInstrument';
 
 const ShortcutsGuide = lazyWithRetry(
@@ -37,7 +39,10 @@ export const SettingsHelpTab: React.FC<SettingsHelpTabProps> = ({
 
         <button
           type="button"
-          onClick={() => window.open('/tutorial.html', '_blank')}
+          onClick={() => {
+            useSequencerSettingsStore.getState().setIsSettingsOpen(false);
+            useGuideStore.getState().openGuide();
+          }}
           className="w-full px-4 py-2.5 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold text-xs uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors text-center"
         >
           {lang === 'fr' ? 'OUVRIR LE MANUEL COMPLET' : 'ABRIR O MANUAL COMPLETO'}
