@@ -83,7 +83,11 @@ export async function executeApplyPreset(
   const { loadedLoopMode, isLoopRegionActive, loadedIsLooping, loopStartMeasure, loopEndMeasure } = restorePresetLoopState(p, sequencer);
   const loadedSections = (p.songSections && Array.isArray(p.songSections)) ? JSON.parse(JSON.stringify(p.songSections)) : [];
   const rawMarkers = p.songMarkers || p.markers;
-  const loadedMarkers = (rawMarkers && Array.isArray(rawMarkers)) ? JSON.parse(JSON.stringify(rawMarkers)) : [];
+  const loadedMarkers = (rawMarkers && Array.isArray(rawMarkers))
+    ? JSON.parse(JSON.stringify(rawMarkers)).map((mk: any, idx: number) =>
+        mk && typeof mk === 'object' && !mk.id ? { ...mk, id: `mk-${Date.now()}-${idx}` } : mk
+      )
+    : [];
   const loadedSignals = (p.measureSignals && Array.isArray(p.measureSignals)) ? JSON.parse(JSON.stringify(p.measureSignals)) : Array(loadedMeasures).fill(null);
   const loadedMestreSignals = (p.mestreSignals && Array.isArray(p.mestreSignals)) ? JSON.parse(JSON.stringify(p.mestreSignals)) : [];
 

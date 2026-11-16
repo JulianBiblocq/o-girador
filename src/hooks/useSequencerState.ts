@@ -121,6 +121,10 @@ export function useSequencerState() {
     ...getSequencerStoreDelegates(), ...refs, ...history, ...trackMgmt, ...trackSculpt,
     ...varStepSculpt, ...measureSection, ...loops, ...measureInsertDelete, ...voiceSteps,
     ...voicePreRoll, ...patternSteps, ...clipboard,
+    handleDeleteSongMarker: (idOrMarker: any, fallbackIdx?: number) => {
+      useSequencerStore.getState().handleDeleteSongMarker(idOrMarker, fallbackIdx);
+      refs.songMarkersRef.current = useSequencerStore.getState().songMarkers;
+    },
     handleAddTrack: handleAddTrack,
     handleAddTrackInstrument: handleAddTrack,
   };

@@ -10,7 +10,7 @@ export interface UseTimelineMarkerInteractionsOptions {
   headerWidth: number;
   snapMode: 'measure' | 'beat' | 'none';
   setSnapGuideX: (x: number | null) => void;
-  onUpdateMarker: (id: string, name: string, measure: number, color?: string) => void;
+  onUpdateMarker: (id: string, name: string, measure: number, color?: string, fallbackIdx?: number) => void;
   toolMode?: 'cursor' | 'hand';
   isSpacePressed?: boolean;
 }
@@ -21,6 +21,7 @@ export function useTimelineMarkerInteractions({
 }: UseTimelineMarkerInteractionsOptions) {
   const [markerModalOpen, setMarkerModalOpen] = useState(false);
   const [editingMarker, setEditingMarker] = useState<SongMarker | null>(null);
+  const [editingMarkerIdx, setEditingMarkerIdx] = useState<number | undefined>(undefined);
   const [defaultMarkerMeasure, setDefaultMarkerMeasure] = useState(1);
   const dragAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -31,24 +32,28 @@ export function useTimelineMarkerInteractions({
     const clickX = e.clientX - e.currentTarget.getBoundingClientRect().left;
     const mIdx = Math.max(0, Math.min(totalMeasures - 1, findMeasureIndexAtX(clickX, measureLeftPositions, measureWidths)));
     setEditingMarker(null);
+    setEditingMarkerIdx(undefined);
     setDefaultMarkerMeasure(mIdx + 1);
     setMarkerModalOpen(true);
   };
 
-  const handleMarkerPointerDown = (e: React.PointerEvent<HTMLDivElement>, marker: SongMarker) => {
+  const handleMarkerPointerDown = (e: React.PointerEvent<HTMLDivElement>, marker: SongMarker, markerIdx?: number) => {
+    if ((e.target as HTMLElement).closest('[data-marker-delete]')) return;
     if (toolMode === 'hand' || isSpacePressed || e.button !== 0) return;
     const el = e.currentTarget;
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
     el.setAttribute('data-has-moved', 'false');
-    const startX = e.clientX, startMeasure = marker.measure;
+    const startX = e.clientX;
+    const startLeft = measureLeftPositions[marker.measure] ?? (marker.measure * measureWidth);
 
     const onMove = (moveEv: PointerEvent) => {
       const dx = moveEv.clientX - startX;
       if (Math.abs(dx) > 3) el.setAttribute('data-has-moved', 'true');
-      const propStart = startMeasure + (dx / measureWidth);
-      const snapped = snapMode === 'measure' ? Math.round(propStart) : snapMode === 'beat' ? Math.round(propStart * 4) / 4 : propStart;
-      const finalStart = Math.max(0, Math.min(totalMeasures - 1, snapped));
-      const curLeft = finalStart * measureWidth;
+      const rawLeft = Math.max(0, startLeft + dx);
+      const nearestM = Math.max(0, Math.min(totalMeasures - 1, findMeasureIndexAtX(rawLeft, measureLeftPositions, measureWidths)));
+      const curLeft = snapMode === 'measure'
+        ? (measureLeftPositions[nearestM] ?? nearestM * measureWidth)
+        : rawLeft;
       el.style.left = `${curLeft}px`;
       setSnapGuideX(snapMode !== 'none' ? headerWidth + curLeft : null);
     };
@@ -57,12 +62,15 @@ export function useTimelineMarkerInteractions({
       try { el.releasePointerCapture(e.pointerId); } catch (_) {}
       dragAbortControllerRef.current?.abort();
       setSnapGuideX(null);
-      const finLeft = parseFloat(el.style.left) || (marker.measure * measureWidth);
-      const finStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(finLeft / measureWidth)));
-      if (finStart !== marker.measure) {
-        onUpdateMarker(marker.id, marker.name, finStart, marker.color);
+      const moved = el.getAttribute('data-has-moved') === 'true';
+      const finLeft = parseFloat(el.style.left);
+      const finStart = Number.isFinite(finLeft)
+        ? Math.max(0, Math.min(totalMeasures - 1, findMeasureIndexAtX(finLeft + 2, measureLeftPositions, measureWidths)))
+        : marker.measure;
+      if (moved && finStart !== marker.measure) {
+        onUpdateMarker(marker.id, marker.name, finStart, marker.color, markerIdx);
       } else {
-        el.style.left = `${marker.measure * measureWidth}px`;
+        el.style.left = `${startLeft}px`;
       }
     };
 
@@ -77,6 +85,7 @@ export function useTimelineMarkerInteractions({
   return {
     markerModalOpen, setMarkerModalOpen,
     editingMarker, setEditingMarker,
+    editingMarkerIdx, setEditingMarkerIdx,
     defaultMarkerMeasure, setDefaultMarkerMeasure,
     handleMarkerRulerDblClick, handleMarkerPointerDown,
   };

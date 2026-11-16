@@ -76,12 +76,12 @@ export const createStructureSlice: StateCreator<SequencerStore, [], [], Structur
     get().pushUndoState();
     set((state) => ({ songMarkers: createSongMarkerState(state.songMarkers, name, measure, color) }));
   },
-  handleUpdateSongMarker: (id, name, measure, color) => {
+  handleUpdateSongMarker: (id, name, measure, color, fallbackIdx) => {
     get().pushUndoState();
-    set((state) => ({ songMarkers: updateSongMarkerState(state.songMarkers, id, name, measure, color) }));
+    set((state) => ({ songMarkers: updateSongMarkerState(state.songMarkers, id, name, measure, color, fallbackIdx) }));
   },
-  handleDeleteSongMarker: (id) => {
+  handleDeleteSongMarker: (idOrMarker, fallbackIdx) => {
     get().pushUndoState();
-    set((state) => ({ songMarkers: deleteSongMarkerState(state.songMarkers, id) }));
+    set((state) => ({ songMarkers: deleteSongMarkerState(state.songMarkers, idOrMarker, fallbackIdx) }));
   },
 });
