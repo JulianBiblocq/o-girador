@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Check } from 'lucide-react';
 import { CordelMenuItem } from './cordelContextMenuTypes';
 import { CordelContextSubMenu } from './CordelContextSubMenu';
 
@@ -77,6 +78,9 @@ export const CordelContextMenuItem: React.FC<CordelContextMenuItemProps> = ({
           {item.icon && <span className="text-sm shrink-0">{item.icon}</span>}
           <span className="truncate">{item.label}</span>
         </div>
+        {item.isActive && !hasSubItems && (
+          <Check size={13} className="shrink-0 ml-2 stroke-[2.75]" />
+        )}
         {hasSubItems && (
           <span className="text-[10px] shrink-0 font-bold ml-2">
             {shouldOpenSubMenuLeft ? '◄' : '►'}

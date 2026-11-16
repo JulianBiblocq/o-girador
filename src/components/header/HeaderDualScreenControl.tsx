@@ -1,10 +1,23 @@
 /**
- * HeaderDualScreenControl.tsx — Bouton d'accès rapide Multi-Écrans + Badge de reprise `studio_dual` (< 120 lignes).
+ * HeaderDualScreenControl.tsx — Bouton unique évolutif à 3 états « 2 Écrans / 2 Telas » (< 120 lignes).
+ * 1) Repos : contour sobre [ ◫ 2 ÉCRANS ▾ ] -> menu des modes.
+ * 2) Amorce `dual` : accentué [ ◫ 2 ÉCRANS ↗ ] -> clic gauche ouvre en 1 clic, clic droit ouvre le menu.
+ * 3) Connecté : bois + pastille active [ ● ◫ 2 ÉCRANS ▾ ] -> bascule de mode, premier plan ou ré-ancrage.
  */
 import React, { useState } from 'react';
-import { Columns2, Sliders, Edit3, Wrench, ArrowDownLeft, ArrowUpRight, X } from 'lucide-react';
+import {
+  Columns2,
+  Sliders,
+  Edit3,
+  Wrench,
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  ExternalLink,
+} from 'lucide-react';
 import { CordelContextMenu, CordelMenuItem } from '../ui/CordelContextMenu';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
+import { detachedWindowManager } from '../../utils/detachedWindowManager';
 import { dockSatellite, openSatellite, switchSatelliteMode } from '../../utils/satelliteCoordinator';
 
 interface HeaderDualScreenControlProps {
@@ -15,12 +28,15 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
   const isSatelliteOpen = useDesktopWorkspaceStore((s) => s.isSatelliteOpen);
   const satelliteMode = useDesktopWorkspaceStore((s) => s.satelliteMode);
   const preferredScreenMode = useDesktopWorkspaceStore((s) => s.preferredScreenMode);
-  const hasDismissedDualPrompt = useDesktopWorkspaceStore((s) => s.hasDismissedDualPrompt);
-  const dismissDualPrompt = useDesktopWorkspaceStore((s) => s.dismissDualPrompt);
 
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const isPt = lang === 'pt';
-  const showStartupPrompt = preferredScreenMode === 'dual' && !isSatelliteOpen && !hasDismissedDualPrompt;
+  const isDualPrimed = !isSatelliteOpen && preferredScreenMode === 'dual';
+
+  const openMenuAtButton = (btn: HTMLElement) => {
+    const rect = btn.getBoundingClientRect();
+    setMenuAnchor({ x: rect.left, y: rect.bottom + 6 });
+  };
 
   const activateMode = (mode: 'mixer' | 'editor' | 'oficina') => {
     if (isSatelliteOpen) switchSatelliteMode(mode);
@@ -31,21 +47,29 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
     {
       label: isPt ? 'Mixagem na 2ª tela' : 'Mixage sur 2e écran',
       icon: <Sliders size={14} />,
+      isActive: isSatelliteOpen && satelliteMode === 'mixer',
       onClick: () => activateMode('mixer'),
     },
     {
       label: isPt ? 'Edição na 2ª tela' : 'Édition sur 2e écran',
       icon: <Edit3 size={14} />,
+      isActive: isSatelliteOpen && satelliteMode === 'editor',
       onClick: () => activateMode('editor'),
     },
     {
       label: isPt ? 'A Oficina na 2ª tela' : 'A Oficina sur 2e écran',
       icon: <Wrench size={14} />,
+      isActive: isSatelliteOpen && satelliteMode === 'oficina',
       onClick: () => activateMode('oficina'),
     },
     ...(isSatelliteOpen
       ? [
           { isSeparator: true },
+          {
+            label: isPt ? 'Trazer a Tela 2 para frente' : "Afficher l'Écran 2 au premier plan",
+            icon: <ExternalLink size={14} />,
+            onClick: () => detachedWindowManager.focusWindow('satellite'),
+          },
           {
             label: isPt ? 'Reancorar em 1 tela' : 'Ré-ancrer sur 1 écran',
             icon: <ArrowDownLeft size={14} />,
@@ -55,57 +79,49 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
       : []),
   ];
 
-  return (
-    <div className="hidden lg:flex items-center gap-1.5 shrink-0">
-      {showStartupPrompt && (
-        <div className="inline-flex items-stretch border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0_var(--cordel-shadow-color)] h-[34px]">
-          <button
-            type="button"
-            data-testid="header-reopen-dual-screen-btn"
-            onClick={() => openSatellite()}
-            className="px-2.5 flex items-center gap-1 font-cactus font-bold text-[11px] uppercase tracking-wide hover:bg-[var(--cordel-accent)] cursor-pointer transition-colors"
-            title={isPt ? 'Reabrir sua janela Studio na Tela 2' : "Rouvrir votre fenêtre Studio sur l'Écran 2"}
-          >
-            <span>{isPt ? 'Abrir Tela 2' : "Ouvrir l'Écran 2"}</span>
-            <ArrowUpRight size={13} className="shrink-0" />
-          </button>
-          <button
-            type="button"
-            onClick={dismissDualPrompt}
-            className="px-1.5 border-l border-[var(--cordel-on-accent)]/35 hover:bg-[var(--cordel-accent)] flex items-center justify-center cursor-pointer transition-colors"
-            title={isPt ? 'Ocultar lembrete' : 'Masquer ce rappel'}
-            aria-label={isPt ? 'Ocultar lembrete' : 'Masquer ce rappel'}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
+  const buttonStateClass = isSatelliteOpen
+    ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] hover:bg-[var(--cordel-accent)]'
+    : isDualPrimed
+      ? 'bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] hover:bg-[var(--cordel-wood)]'
+      : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:bg-[var(--cordel-surface)]';
 
+  const tooltip = isSatelliteOpen
+    ? (isPt ? 'Tela 2 ativa — clique para mudar de modo ou reancorar' : 'Écran 2 actif — cliquez pour changer de mode ou ré-ancrer')
+    : isDualPrimed
+      ? (isPt ? 'Abrir a Tela 2 em 1 clique (clique direito : escolher o modo)' : "Ouvrir l'Écran 2 en 1 clic (clic droit : choisir le mode)")
+      : (isPt ? 'Modo Studio Multi-Telas (Tela 2)' : 'Mode Studio Multi-Écrans (Écran 2)');
+
+  return (
+    <div className="hidden lg:flex items-center shrink-0">
       <button
         type="button"
         data-testid="header-dual-screen-btn"
         data-tour-id="header-dual-screen"
         onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          setMenuAnchor({ x: rect.left, y: rect.bottom + 6 });
+          if (isDualPrimed) openSatellite(satelliteMode);
+          else openMenuAtButton(e.currentTarget);
         }}
-        className={`h-[34px] px-2.5 border-2 cordel-button flex items-center gap-1.5 font-cactus font-bold text-xs uppercase cursor-pointer shrink-0 transition-colors ${
-          isSatelliteOpen
-            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)]'
-            : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:bg-[var(--cordel-surface)]'
-        }`}
-        title={isPt ? 'Modo Studio Multi-Telas (Tela 2)' : 'Mode Studio Multi-Écrans (Écran 2)'}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openMenuAtButton(e.currentTarget);
+        }}
+        className={`h-[34px] px-2 xl:px-2.5 border-2 cordel-button flex items-center gap-1.5 font-cactus font-bold text-[11px] xl:text-xs uppercase cursor-pointer shrink-0 whitespace-nowrap transition-colors ${buttonStateClass}`}
+        title={tooltip}
       >
-        <Columns2 size={15} className="shrink-0" />
-        <span className="hidden 2xl:inline">
-          {isSatelliteOpen
-            ? (satelliteMode === 'mixer'
-                ? '2 · Mix'
-                : satelliteMode === 'editor'
-                  ? (isPt ? '2 · Ediç.' : '2 · Édit')
-                  : '2 · Oficina')
-            : (isPt ? '2 TELAS' : '2 ÉCRANS')}
-        </span>
+        {isSatelliteOpen && (
+          <span
+            aria-hidden="true"
+            className="w-2 h-2 rounded-full bg-[var(--cordel-status-success)] border border-[var(--cordel-on-accent)]/75 shrink-0"
+          />
+        )}
+        <Columns2 size={14} className="shrink-0" />
+        <span>{isPt ? '2 TELAS' : '2 ÉCRANS'}</span>
+        {isDualPrimed ? (
+          <ArrowUpRight size={13} className="shrink-0" />
+        ) : (
+          <ChevronDown size={12} className="shrink-0 opacity-85" />
+        )}
       </button>
 
       {menuAnchor && (

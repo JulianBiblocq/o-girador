@@ -53,7 +53,7 @@ export const HeaderViewSwitcher: React.FC<HeaderViewSwitcherProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-center gap-4">
+    <div className="flex items-center justify-center flex-nowrap shrink-0 gap-1.5 xl:gap-2.5 2xl:gap-4">
       <HeaderTabButton
         tabKey="roda" label="RODA" icon={<XiloRoda size={14} className="shrink-0" />}
         isActive={pendingTab ? pendingTab === 'roda' : (!isEditorOpen && viewMode === 'roda' && isTracksCollapsed)}

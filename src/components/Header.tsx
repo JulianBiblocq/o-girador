@@ -79,16 +79,16 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
   }
 
   return (
-    <div id="top-bar" className="w-full min-h-[70px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-5 py-2.5 gap-2 z-[250] relative select-none shrink-0">
-      <div className="flex-1 flex items-center gap-3">
+    <div id="top-bar" className="w-full min-h-[68px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex flex-wrap lg:flex-nowrap items-center justify-between px-3 xl:px-5 py-2 gap-1.5 xl:gap-2.5 z-[250] relative select-none shrink-0">
+      <div className="flex xl:flex-1 min-w-0 items-center flex-nowrap gap-1.5 xl:gap-2.5 shrink-0">
         <HeaderBrand version={props.version} />
         <HeaderDesktopMenu {...sharedProjectProps} />
         {!isPracticeMode && (
-          <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_var(--cordel-shadow-color)] ml-1.5 shrink-0">
-            <button type="button" onClick={handleUndo} disabled={!canUndo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[var(--cordel-border)] transition-colors" title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}>
+          <div className="inline-flex items-center rounded-none shadow-[2px_2px_0px_var(--cordel-shadow-color)] ml-0.5 xl:ml-1.5 shrink-0">
+            <button type="button" onClick={handleUndo} disabled={!canUndo} className="w-7 xl:w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-r border-[var(--cordel-border)] transition-colors" title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}>
               <UndoIcon className="w-4 h-4" />
             </button>
-            <button type="button" onClick={handleRedo} disabled={!canRedo} className="w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[var(--cordel-border)] transition-colors" title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}>
+            <button type="button" onClick={handleRedo} disabled={!canRedo} className="w-7 xl:w-8 h-8 flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-2 border-l-0 border-[var(--cordel-border)] transition-colors" title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}>
               <RedoIcon className="w-4 h-4" />
             </button>
           </div>

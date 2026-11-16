@@ -8,6 +8,7 @@ export interface CordelMenuItem {
   onClick?: () => void;
   disabled?: boolean;
   disabledReason?: string;
+  isActive?: boolean;
   isDestructive?: boolean;
   isSeparator?: boolean;
   subItems?: CordelMenuItem[];
