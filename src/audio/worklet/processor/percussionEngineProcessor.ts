@@ -1,5 +1,5 @@
 /**
- * O Girador - Processeur AudioWorklet Multi-Sorties de Percussions (< 120 lignes)
+ * O Girador - Processeur AudioWorklet Multi-Sorties de Percussions (< 140 lignes)
  * Typage strict `AudioWorkletGlobalScope` sans `any`, piloté par `currentFrame` et `sampleRate`.
  */
 
@@ -74,6 +74,17 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
         }
         break;
       }
+      case 'UNLOAD_SAMPLES': {
+        if (Array.isArray(msg.sampleIds)) {
+          for (let i = 0; i < msg.sampleIds.length; i++) {
+            const id = msg.sampleIds[i];
+            if (id >= 0 && id < MAX_WORKLET_SAMPLES) {
+              this.samples[id] = undefined;
+            }
+          }
+        }
+        break;
+      }
       case 'PUSH_EVENTS': {
         if (msg.eventsData && msg.eventCount > 0) {
           this.queue.pushPackedEvents(msg.eventsData, msg.eventCount);
@@ -112,15 +123,8 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
     _parameters: Record<string, Float32Array>
   ): boolean {
     processWorkletDspBlock(
-      outputs,
-      currentFrame,
-      sampleRate,
-      this.queue,
-      this.pool,
-      this.samples,
-      this.slotMuted,
-      this.slotPitchRatio,
-      this.slotDecayNorm
+      outputs, currentFrame, sampleRate, this.queue, this.pool,
+      this.samples, this.slotMuted, this.slotPitchRatio, this.slotDecayNorm
     );
     return true;
   }
@@ -129,4 +133,3 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
 if (typeof registerProcessor === 'function') {
   registerProcessor('percussion-engine-processor', PercussionEngineProcessor);
 }
-

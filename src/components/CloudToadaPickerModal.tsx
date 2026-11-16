@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Cloud, Search, Music, X, Loader2, ArrowRight } from 'lucide-react';
+import { usePortalRoot, useWindow } from '../contexts/WindowContext';
 import { fetchCloudToadas, fetchCloudToadaById, type CloudToadaSummary } from '../services/cloudToadas';
 
 interface CloudToadaPickerModalProps {
@@ -20,10 +21,19 @@ export const CloudToadaPickerModal: React.FC<CloudToadaPickerModalProps> = ({
   onClose,
   lang = 'fr',
 }) => {
+  const hostWin = useWindow();
+  const portalRoot = usePortalRoot();
   const [toadas, setToadas] = useState<CloudToadaSummary[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    hostWin.addEventListener('keydown', onKey);
+    return () => hostWin.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose, hostWin]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -126,6 +136,6 @@ export const CloudToadaPickerModal: React.FC<CloudToadaPickerModalProps> = ({
         </div>
       </div>
     </div>,
-    document.body
+    portalRoot
   );
 };

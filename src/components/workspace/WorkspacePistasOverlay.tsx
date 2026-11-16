@@ -1,8 +1,9 @@
-
 import React from 'react';
 import { ASSETS_BASE_URL } from '../../data';
 import { TrackGroup } from '../../types';
 import { WorkspacePistasRow } from './WorkspacePistasRow';
+import { StrokeInfoPopover } from '../pedagogy/StrokeInfoPopover';
+import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
 interface WorkspacePistasOverlayProps {
   tracks: TrackGroup[];
@@ -11,7 +12,8 @@ interface WorkspacePistasOverlayProps {
   defaultBeats: number;
   isLeftHanded: boolean;
   sequencer: any;
-  handleStepClick: (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => void;
+  pedagogyTarget: StrokeInfoPopoverTarget | null;
+  onPedagogicalStepClick: (target: StrokeInfoPopoverTarget | null) => void;
   registerStepRef: (trackId: number | string, stepIdx: number, el: HTMLButtonElement | null) => void;
   trackResolutionsRef: React.MutableRefObject<Record<string, { beats: number; resArray: number[]; totalSteps: number }>>;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
@@ -25,7 +27,8 @@ export const WorkspacePistasOverlay: React.FC<WorkspacePistasOverlayProps> = ({
   defaultBeats,
   isLeftHanded,
   sequencer,
-  handleStepClick,
+  pedagogyTarget,
+  onPedagogicalStepClick,
   registerStepRef,
   trackResolutionsRef,
   scrollRef,
@@ -43,15 +46,14 @@ export const WorkspacePistasOverlay: React.FC<WorkspacePistasOverlayProps> = ({
 
   return (
     <div
+      data-tour-id="pistas-grid"
       style={overlayStyle}
+      onContextMenu={(e) => e.preventDefault()}
       className="absolute inset-0 z-30 bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden shadow-[-4px_0_12px_rgba(0,0,0,0.15)] flex flex-col"
     >
-      {/* Texture subtile d'arrière-plan opaque en harmonie avec le thème */}
       <div
         className="absolute inset-0 pointer-events-none bg-cover bg-center bg-no-repeat select-none z-0 invert mix-blend-multiply opacity-15 dark:invert-0 dark:opacity-20 dark:mix-blend-normal"
-        style={{
-          backgroundImage: `url(${ASSETS_BASE_URL}Pictures/atelier.png)`,
-        }}
+        style={{ backgroundImage: `url(${ASSETS_BASE_URL}Pictures/atelier.png)` }}
         aria-hidden="true"
       />
 
@@ -69,12 +71,13 @@ export const WorkspacePistasOverlay: React.FC<WorkspacePistasOverlayProps> = ({
             defaultBeats={defaultBeats}
             isLeftHanded={isLeftHanded}
             sequencer={sequencer}
-            handleStepClick={handleStepClick}
+            onSelectPedagogyTarget={onPedagogicalStepClick}
             registerStepRef={registerStepRef}
             trackResolutionsRef={trackResolutionsRef}
           />
         ))}
       </div>
+      <StrokeInfoPopover target={pedagogyTarget} onClose={() => onPedagogicalStepClick(null)} />
     </div>
   );
 };

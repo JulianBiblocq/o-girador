@@ -1,13 +1,11 @@
-/**
- * Types d'interface pour le hook de clavier de grille de motif (< 30 lignes).
- */
-
 export interface UsePatternGridKeyboardParams {
   isMultiSelectActive: boolean;
+  selectedPatternId: number;
   selectedStepIdx: number | null;
+  selectedStepIndices: number[];
   selectedSubIndex: 0 | 1 | null;
   selectedStepIsPreRoll?: boolean;
-  pattern: { id: number; steps?: number; activeSteps?: any[] } | null | undefined;
+  pattern: { id: number; steps?: number; activeSteps?: any[]; variations?: any[] } | null | undefined;
   trackId: number;
   isVoice: boolean;
   selectedVariationId?: string | null;

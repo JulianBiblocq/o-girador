@@ -5,6 +5,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { CURRENT_AUDIO_SCALE_VERSION, faderPositionToDb } from '../../utils/audioMath';
 import { CURRENT_LUTHERIE_VERSION } from './acousticNormalizer';
 import { DEFAULT_STUDIO_MASTER_BUS_CONFIG } from '../../audio/effects/studioFxPresets';
+import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
 
 export function buildCurrentPresetData(
   sequencer: any,
@@ -48,6 +49,7 @@ export function buildCurrentPresetData(
     rhythmSignals: Array.isArray(rawMeta.rhythmSignals) ? rawMeta.rhythmSignals : [],
     vocalPreset: activeVocalPreset,
     preRollSettings: currentPreRoll,
+    alfaiaEquipment: resolvePresetAlfaiaEquipment({ tracks: tracksCopy }),
   };
 
   const effectiveSwing = audioSync?.globalSwing || transportState.globalSwing || { mode: 'maracatu', customOffsets: [0, 8, -29, -58] };

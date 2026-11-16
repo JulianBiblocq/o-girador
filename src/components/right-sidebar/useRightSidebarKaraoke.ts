@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -104,9 +103,10 @@ export function useRightSidebarKaraoke(
       roleTokens.forEach(el => {
         const patternId = Number(el.dataset.patternId);
         const stepIdx = Number(el.dataset.stepIdx);
+        const endStepIdx = el.dataset.endStepIdx !== undefined ? Number(el.dataset.endStepIdx) : stepIdx;
         if (targetPatternId !== undefined && patternId !== targetPatternId) return;
 
-        if (stepIdx === currentStep) {
+        if (currentStep >= stepIdx && currentStep <= endStepIdx) {
           el.classList.add('scale-110');
           el.style.backgroundColor = roleHighlightBg;
           el.style.color = '#ffffff';

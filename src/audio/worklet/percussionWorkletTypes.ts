@@ -47,6 +47,11 @@ export interface LoadSampleMessage {
   loopWrapFrame?: number;
 }
 
+export interface UnloadSamplesMessage {
+  type: 'UNLOAD_SAMPLES';
+  sampleIds: number[];
+}
+
 export interface PushEventsMessage {
   type: 'PUSH_EVENTS';
   eventsData: Float64Array;
@@ -79,10 +84,9 @@ export interface PurgeTrackMessage {
 
 export type PercussionWorkletInboundMessage =
   | LoadSampleMessage
+  | UnloadSamplesMessage
   | PushEventsMessage
   | UpdateTrackSlotMessage
   | PurgeAllMessage
   | PurgeFromFrameMessage
   | PurgeTrackMessage;
-
-

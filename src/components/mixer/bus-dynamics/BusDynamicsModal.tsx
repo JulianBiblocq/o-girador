@@ -5,6 +5,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
+import { usePortalRoot, useWindow } from '../../../contexts/WindowContext';
+import { getUpperTagName } from '../../../utils/crossRealmDom';
 import { instrumentsConfig } from '../../../data';
 import { detectBusArchetypeForGroup } from '../../../audio/effects/busCompressorArchetypes';
 import type { BusCompressorPresetArchetypeId } from '../../../audio/effects/busCompressorTypes';
@@ -58,15 +60,18 @@ export const BusDynamicsModal: React.FC<BusDynamicsModalProps> = ({
     if (!isValidBus || isMobile || isPracticeMode) closeBusDynamics();
   }, [isValidBus, isMobile, isPracticeMode, closeBusDynamics]);
 
+  const hostWin = useWindow();
+  const portalRoot = usePortalRoot();
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const tag = getUpperTagName(e.target);
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'Escape') closeBusDynamics();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [closeBusDynamics]);
+    hostWin.addEventListener('keydown', onKeyDown);
+    return () => hostWin.removeEventListener('keydown', onKeyDown);
+  }, [closeBusDynamics, hostWin]);
 
   const orderedTracks = useMemo(() => getAllOrderedMixerTracks(tracksMeta), [tracksMeta]);
 
@@ -131,6 +136,6 @@ export const BusDynamicsModal: React.FC<BusDynamicsModalProps> = ({
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
+  return typeof document !== 'undefined' ? createPortal(modalNode, portalRoot) : modalNode;
 };
 

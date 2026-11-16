@@ -82,7 +82,7 @@ export function usePatternVariationsWheel(params: {
         params.setSelectedPatternId(currentPtn.id);
         params.setSelectedVariationId(varId);
         params.setSelectedStepIdx(stepIdx);
-        params.setSelectedStepIndices([stepIdx]);
+        params.setSelectedStepIndices([]);
         if (!Array.isArray(currentVal)) params.setSelectedSubIndex?.(null);
 
         if (nextVal !== 0 && nextVal !== '0' && audioEngine) {

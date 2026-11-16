@@ -4,6 +4,7 @@ import { doc, getDoc, updateDoc, collection, query, where, getDocs, DocumentRefe
 import { db } from '../../firebase/config';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { UserProfile, checkIsAdmin } from './authTypes';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
 export async function resolveUserProfileAndGroup(
   user: User,
@@ -34,10 +35,9 @@ export async function resolveUserProfileAndGroup(
   profile.isLeftHanded = isLeftHanded;
 
   const extractedGroupId = (profile.groupId || rawData.group || rawData.associationId || rawData.groupName || '').trim().toLowerCase();
-  const isOtherDistinctGroup = extractedGroupId && !extractedGroupId.includes('samambaia') && !extractedGroupId.includes('sammbia');
-  const isSamambaiaOrEditor = !isOtherDistinctGroup || profile.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || extractedGroupId.includes('samambaia') || Boolean(profile.canWriteSequenciador);
+  const isSamambaia = isLegacySamambaiaGroup(extractedGroupId) || user.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
 
-  if (isSamambaiaOrEditor) {
+  if (isSamambaia) {
     profile.mestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
     profile.groupName = 'Samambaia';
     profile.groupId = rawData.groupId || 'Samambaia';

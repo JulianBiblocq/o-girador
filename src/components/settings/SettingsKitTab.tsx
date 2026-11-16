@@ -1,122 +1,128 @@
+/**
+ * SettingsKitTab.tsx — Onglet « Kit & Métronome » (Métronome Studio linéaire + Montage du Kit / Macros
+ * et passerelles directes vers l'Éditeur de Motif) (< 136 lignes).
+ */
 import React, { useState } from 'react';
 import * as Tone from 'tone';
+import { SlidersHorizontal } from 'lucide-react';
+import { TrackGroup } from '../../types';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { instrumentsConfig } from '../../data';
-import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { getStrokesForInstrument } from '../../utils/instrumentStrokes';
+import { resolveActivePatternIdForTrack } from '../oficina/LutherieTrackLinksRow';
 import { useSettingsKitMacros } from './useSettingsKitMacros';
 import { SettingsKitMacroEditor } from './SettingsKitMacroEditor';
+import { SettingsMetronomeBar } from './SettingsMetronomeBar';
 
-interface SettingsKitTabProps {
+export interface SettingsKitTabProps {
   lang: string;
-  isLeftHanded: boolean;
+  isLeftHanded?: boolean;
 }
 
 export const SettingsKitTab: React.FC<SettingsKitTabProps> = ({ lang, isLeftHanded }) => {
+  const isFr = lang === 'fr';
+  const storeLeftHanded = useSequencerStore((s) => s.isLeftHanded);
+  const effectiveLeftHanded = isLeftHanded ?? storeLeftHanded;
+  const getInstrumentLabel = useInstrumentLabel();
+
   const [selectedMacro, setSelectedMacro] = useState<{ trackId: number; stroke: string } | null>(null);
   const {
-    activeTracks,
-    forcedStrokes,
-    setStrokeForcedState,
-    getActiveStrokesForTrack,
-    getStrokeAverages,
-    applyMacroVolumeDelta,
-    applyMacroDecayDelta,
+    activeTracks, forcedStrokes, setStrokeForcedState,
+    getActiveStrokesForTrack, getStrokeAverages, applyMacroVolumeDelta, applyMacroDecayDelta,
   } = useSettingsKitMacros();
 
+  const handleOpenTrackEditor = (track: TrackGroup) => {
+    const currentMeasure = useSequencerStore.getState().currentMeasure ?? 0;
+    const patternId = resolveActivePatternIdForTrack(track, currentMeasure);
+    useSequencerSettingsStore.getState().setIsSettingsOpen(false);
+    useSequencerStore.getState().openInstrumentDetailAt({ trackId: track.id, patternId });
+  };
+
   return (
-    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white text-[#1a1a1a] shadow-[3.5px_3.5px_0px_#000]">
-      <h3 className="font-cactus font-bold text-sm uppercase text-[#1a1a1a] mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-        {lang === 'fr' ? 'Montage du Kit (Macros)' : 'Montagem do Kit (Macros)'}
-      </h3>
-      <p className="text-[10px] text-[#44403c] font-semibold mb-4">
-        {lang === 'pt'
-          ? 'Clique em uma batida para ajustar proporcionalmente seu volume e ressonância. Batidas tracejadas/foscas ainda não estão em uso, mas você pode definir seus valores padrão.'
-          : 'Cliquez sur une frappe pour régler son volume et sa résonance globale. Les frappes grisées/pointillées ne sont pas utilisées, mais vous pouvez définir leurs valeurs par défaut.'}
-      </p>
+    <div className="flex flex-col gap-4 text-[var(--cordel-text)]">
+      <SettingsMetronomeBar lang={lang} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {activeTracks.length === 0 ? (
-          <p className="text-[10px] italic text-[#44403c]">
-            {lang === 'fr' ? 'Aucun instrument actif dans cette session.' : 'Nenhum instrumento ativo nesta sessão.'}
-          </p>
-        ) : (
-          activeTracks.map((track) => {
-            const inst = instrumentsConfig[track.instrumentIdx];
-            const activeStrokes = getActiveStrokesForTrack(track);
-            const allStrokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
+      <div className="border-2 border-[var(--cordel-border-strong)] p-4 bg-[var(--cordel-surface)] text-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-shadow-color)]">
+        <h3 className="font-cactus font-bold text-xs md:text-sm uppercase text-[var(--cordel-accent-readable)] mb-1.5 border-b border-[var(--cordel-border)] pb-1.5">
+          {isFr ? 'Montage du Kit (Macros de Frappes)' : 'Montagem do Kit (Macros de Batidas)'}
+        </h3>
+        <p className="text-[10px] text-[var(--cordel-text-muted)] font-semibold mb-4">
+          {lang === 'pt'
+            ? 'Clique em uma batida para ajustar proporcionalmente seu volume e ressonância. Batidas tracejadas ainda não estão em uso, mas você pode definir seus valores padrão.'
+            : 'Cliquez sur une frappe pour régler son volume et sa résonance globale. Les frappes pointillées ne sont pas encore utilisées, mais vous pouvez définir leurs valeurs par défaut.'}
+        </p>
 
-            return (
-              <div key={track.id} className="border border-black/10 p-3 bg-black/[0.02] flex flex-col gap-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a]">
-                    {track.customName || useNomenclatureStore.getState().getInstrumentLabel(inst.id) || inst.name}
-                  </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {activeTracks.length === 0 ? (
+            <p className="text-[10px] italic text-[var(--cordel-text-muted)]">
+              {isFr ? 'Aucun instrument actif dans cette session.' : 'Nenhum instrumento ativo nesta sessão.'}
+            </p>
+          ) : (
+            activeTracks.map((track) => {
+              const inst = instrumentsConfig[track.instrumentIdx];
+              const activeStrokes = getActiveStrokesForTrack(track);
+              const allStrokes = getStrokesForInstrument(inst.id, inst.type, lang, effectiveLeftHanded);
+              const trackName = track.customName || getInstrumentLabel(inst.id) || inst.name;
+              const isTrackMacroOpen = selectedMacro !== null && selectedMacro.trackId === track.id;
+
+              return (
+                <div key={track.id} className="border-2 border-[var(--cordel-border)] p-3 bg-[var(--cordel-bg)] flex flex-col gap-2.5 shadow-[2px_2px_0px_var(--cordel-shadow-color)]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-[var(--cordel-border)] pb-1.5">
+                    <span className="font-cactus font-bold text-xs uppercase text-[var(--cordel-accent-readable)] truncate">{trackName}</span>
+                    <button type="button" data-testid={`kit-open-editor-${track.id}`} onClick={() => handleOpenTrackEditor(track)} className="px-2 py-1 bg-[var(--cordel-surface)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)] border border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[9px] flex items-center gap-1 cursor-pointer transition-colors">
+                      <SlidersHorizontal size={11} />
+                      <span>{isFr ? 'Éditer motifs' : 'Editar padrões'}</span>
+                    </button>
+                  </div>
+
                   <div className="flex flex-wrap gap-1.5">
                     {allStrokes.map((strokeDef) => {
                       const stroke = strokeDef.symbol;
-                      const strokeColor = inst.colors[stroke] || '#666';
-                      const strokeTextColor = inst.colors.text || '#f4ecd8';
                       const isUsed = activeStrokes.includes(stroke);
                       const forced = forcedStrokes[`${track.id}:${stroke}`];
                       const isActive = forced !== undefined ? forced : isUsed;
-                      const isSelected = selectedMacro?.trackId === track.id && selectedMacro?.stroke === stroke;
-
+                      const isSelected = isTrackMacroOpen && selectedMacro.stroke === stroke;
                       return (
                         <button
-                          key={stroke}
+                          key={stroke} type="button" data-midi-target={`${inst.id}-${stroke}`} title={`${stroke} : ${strokeDef.label}`}
                           onClick={() => {
                             setSelectedMacro(isSelected ? null : { trackId: track.id, stroke });
                             if (audioEngine) audioEngine.playNote(track.id, stroke, Tone.now(), 1.0, 1.0);
                           }}
-                          data-midi-target={`${inst.id}-${stroke}`}
-                          className={`w-7 h-7 font-mono font-bold text-xs normal-case flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:scale-105 active:scale-95 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all transition-transform duration-100 select-none ${
-                            !isActive ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''
-                          }`}
-                          style={{
-                            backgroundColor: strokeColor,
-                            color: strokeTextColor,
-                            outline: isSelected ? '3px solid #000' : 'none',
-                            outlineOffset: isSelected ? '1px' : '0px',
-                          }}
-                          title={`${stroke} : ${strokeDef.label}`}
+                          className={`w-7 h-7 font-mono font-bold text-xs normal-case flex items-center justify-center border-2 border-[var(--cordel-border-strong)] shadow-[1.5px_1.5px_0px_var(--cordel-shadow-color)] cursor-pointer hover:scale-105 active:scale-95 transition-transform duration-100 select-none ${!isActive ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''}`}
+                          style={{ backgroundColor: inst.colors[stroke] || 'var(--cordel-surface-elevated)', color: inst.colors.text || 'var(--cordel-on-accent)', outline: isSelected ? '2px solid var(--cordel-gold)' : 'none', outlineOffset: isSelected ? '1px' : '0px' }}
                         >
                           {stroke}
                         </button>
                       );
                     })}
                   </div>
+
+                  {isTrackMacroOpen && (() => {
+                    const stroke = selectedMacro.stroke;
+                    const isUsed = activeStrokes.includes(stroke);
+                    const { avgVolume, avgDecay } = getStrokeAverages(track, stroke);
+                    const currentForced = forcedStrokes[`${track.id}:${stroke}`];
+                    const isStrokeCurrentlyActive = currentForced !== undefined ? currentForced : isUsed;
+                    return (
+                      <SettingsKitMacroEditor
+                        track={track} stroke={stroke} isVoice={inst?.type === 'voice'} isUsed={isUsed}
+                        isStrokeCurrentlyActive={isStrokeCurrentlyActive} avgVolume={avgVolume} avgDecay={avgDecay} lang={lang}
+                        onToggleForcedState={() => setStrokeForcedState(`${track.id}:${stroke}`, !isStrokeCurrentlyActive)}
+                        onClose={() => setSelectedMacro(null)}
+                        onVolumeChange={(val, delta) => applyMacroVolumeDelta(track.id, stroke, delta, val)}
+                        onDecayChange={(val, delta) => applyMacroDecayDelta(track.id, stroke, delta, val)}
+                      />
+                    );
+                  })()}
                 </div>
-
-                {selectedMacro && selectedMacro.trackId === track.id && (() => {
-                  const stroke = selectedMacro.stroke;
-                  const isUsed = activeStrokes.includes(stroke);
-                  const { avgVolume, avgDecay } = getStrokeAverages(track, stroke);
-                  const isVoice = inst?.type === 'voice';
-                  const currentForced = forcedStrokes[`${track.id}:${stroke}`];
-                  const isStrokeCurrentlyActive = currentForced !== undefined ? currentForced : isUsed;
-
-                  return (
-                    <SettingsKitMacroEditor
-                      track={track}
-                      stroke={stroke}
-                      isVoice={isVoice}
-                      isUsed={isUsed}
-                      isStrokeCurrentlyActive={isStrokeCurrentlyActive}
-                      avgVolume={avgVolume}
-                      avgDecay={avgDecay}
-                      lang={lang}
-                      onToggleForcedState={() => setStrokeForcedState(`${track.id}:${stroke}`, !isStrokeCurrentlyActive)}
-                      onClose={() => setSelectedMacro(null)}
-                      onVolumeChange={(val, delta) => applyMacroVolumeDelta(track.id, stroke, delta, val)}
-                      onDecayChange={(val, delta) => applyMacroDecayDelta(track.id, stroke, delta, val)}
-                    />
-                  );
-                })()}
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

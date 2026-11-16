@@ -15,7 +15,7 @@ import { AgbeLabTabId, AoVivoAgbeLabSliders } from './AoVivoAgbeLabSliders';
 import { AoVivoMineiroLabSliders, MineiroLabTabId } from './AoVivoMineiroLabSliders';
 import { AoVivoMobilePositionSliders } from './AoVivoMobilePositionSliders';
 import { AoVivoLabHeader, labBtnStyle } from './AoVivoLabHeader';
-import { applyFrozenImpactPose, clearFrozenPose, TESTER_SEQUENCES, TESTER_STROKES, TesterFamily, triggerSequenceStep, triggerSingleTestStroke } from './aoVivoStrokeTester';
+import { applyFrozenImpactPose, clearFrozenPose, selectAoVivoLabInstrument, TESTER_SEQUENCES, TESTER_STROKES, TesterFamily, triggerSequenceStep, triggerSingleTestStroke } from './aoVivoStrokeTester';
 import { AGBE_TABS, ALFAIA_MODES, ALFAIA_TABS, CAIXA_TABS, detectAoVivoLabFamily, GONGUE_MODES, GONGUE_TABS, MINEIRO_TABS, TIMBAL_MODES, TIMBAL_TABS } from './aoVivoLabTabsConfig';
 
 export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => {
@@ -75,10 +75,18 @@ export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => 
   const handleReset = () => { setIsFrozen(false); setIsLooping(false); setActiveSeqId(null); if (labFam === 'alfaia') resetAlfaiaSticksConfig(); else if (labFam === 'caixa') resetCaixaSticksConfig(); else if (labFam === 'gongue') resetGongueStickConfig(); else if (labFam === 'agbe') resetAgbeLabConfig(); else if (labFam === 'mineiro') resetMineiroLabConfig(); else resetTimbalHandsConfig(); clearFrozenPose(labFam); };
   const setSpeed = (spd: 1 | 0.5) => (labFam === 'alfaia' ? updateAlfaiaSticksConfig({ speedMultiplier: spd }) : labFam === 'caixa' ? updateCaixaSticksConfig({ speedMultiplier: spd }) : labFam === 'gongue' ? updateGongueStickConfig({ speedMultiplier: spd }) : labFam === 'agbe' ? updateAgbeLabConfig({ speedMultiplier: spd }) : labFam === 'mineiro' ? updateMineiroLabConfig({ speedMultiplier: spd }) : updateTimbalHandsConfig({ speedMultiplier: spd }));
 
+  const handleSwitchInstrument = (fam: AoVivoMobileFamily) => {
+    const tf = detectAoVivoLabFamily(fam), firstStroke = TESTER_STROKES[tf][0].id;
+    selectAoVivoLabInstrument(fam);
+    setMobFam(fam); setLabFam(tf); setTestStroke(firstStroke); setActiveSeqId(null); setIsLooping(false);
+    if (isFrozen) setTimeout(() => applyFrozenImpactPose(tf, firstStroke), 25); else setTimeout(() => clearFrozenPose(tf), 25);
+  };
+
   const selectStroke = (s: string) => {
     setActiveSeqId(null); setTestStroke(s); const up = s.toUpperCase();
     if (!isMobilePosMode) {
-      if (['C', 'X', 'B'].includes(up) || (up === 'A' && labFam === 'caixa')) {
+      if (up === 'A' && labFam === 'caixa') setCaixaTab('rimshot');
+      else if (['C', 'X', 'B'].includes(up)) {
         if (labFam === 'alfaia') setAlfaiaTab('special'); else if (labFam === 'caixa') setCaixaTab('special'); else if (labFam === 'gongue') setGongueTab('metal'); else if (labFam === 'agbe') setAgbeTab('kinematics'); else if (labFam === 'mineiro') setMineiroTab('kinematics'); else setTimbalTab('flas_physics');
       } else if (s === 'I' && labFam === 'alfaia') { setAlfaiaTab('bacalhau'); updateAlfaiaSticksConfig({ leftStickMode: 'bacalhau' }); }
       else if (['R', 'F'].includes(up) && labFam === 'caixa') setCaixaTab('rufada');
@@ -103,8 +111,8 @@ export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => 
         isOpen={isOpen} onToggleOpen={() => setIsOpen((v) => !v)}
         onCloseLab={() => { setIsLooping(false); setIsFrozen(false); clearFrozenPose(labFam); setIsAoVivoLabOpen(false); }}
         isMobilePosMode={isMobilePosMode} onToggleMobilePosMode={() => setIsMobilePosMode((v) => !v)}
-        onReset={handleReset} onCopy={handleCopy} copied={copied} labFam={labFam}
-        onSelectFam={(id) => { setLabFam(id); setMobFam(id); setTestStroke(TESTER_STROKES[id][0].id); setActiveSeqId(null); setIsLooping(false); setIsFrozen(false); clearFrozenPose(id); }}
+        onReset={handleReset} onCopy={handleCopy} copied={copied} activeInstFam={mobFam} labFam={labFam}
+        onSelectInstFam={handleSwitchInstrument}
         isLooping={isLooping} onToggleLoop={() => { const nxt = !isLooping; setIsLooping(nxt); if (nxt) setIsFrozen(false); }}
         isFrozen={isFrozen} onToggleFrozen={() => { const nxt = !isFrozen; setIsFrozen(nxt); setIsLooping(false); setActiveSeqId(null); if (nxt) applyFrozenImpactPose(labFam, testStroke); else clearFrozenPose(labFam); }}
         speedMultiplier={activeCfg.speedMultiplier} onSetSpeed={setSpeed} testStroke={testStroke} activeSeqId={activeSeqId} onSelectStroke={selectStroke} onSelectSequence={selectSequence}
@@ -112,11 +120,11 @@ export const AoVivoSticksLabBar: React.FC<{ instId: string }> = ({ instId }) => 
       {isOpen && (
         <div className="px-2.5 pb-2.5 pt-1 space-y-1.5">
           {isMobilePosMode ? (
-            <AoVivoMobilePositionSliders activeMobFam={mobFam} onSelectMobFam={(f) => { setMobFam(f); const tf = detectAoVivoLabFamily(f); setLabFam(tf); setTestStroke(TESTER_STROKES[tf][0].id); if (isFrozen) setTimeout(() => applyFrozenImpactPose(tf, TESTER_STROKES[tf][0].id), 25); }} />
+            <AoVivoMobilePositionSliders activeMobFam={mobFam} onSelectMobFam={handleSwitchInstrument} />
           ) : (
             <>
               {labFam === 'alfaia' && (<><div className="grid grid-cols-4 gap-1">{ALFAIA_MODES.map((m) => <button key={m.id} type="button" onClick={() => updateAlfaiaSticksConfig({ leftStickMode: m.id })} className="px-1 py-0.5 border rounded text-[9px] font-bold truncate cursor-pointer" style={labBtnStyle(CONFIG_ALFAIA_STICKS.leftStickMode === m.id)}>{m.label}</button>)}</div><div className="flex flex-wrap gap-1 pt-0.5">{ALFAIA_TABS.map((t) => <button key={t.id} type="button" onClick={() => { setAlfaiaTab(t.id); if (t.id === 'fina' || t.id === 'bacalhau') updateAlfaiaSticksConfig({ leftStickMode: t.id }); }} className="py-0.5 px-1.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(alfaiaTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoSticksLabSliders activeTab={alfaiaTab} onFocusStroke={focusSpecial} /></>)}
-              {labFam === 'caixa' && (<><div className="flex flex-wrap gap-1 pt-0.5">{CAIXA_TABS.map((t) => <button key={t.id} type="button" onClick={() => setCaixaTab(t.id)} className="py-0.5 px-1.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(caixaTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoCaixaLabSliders activeTab={caixaTab} onFocusStroke={focusSpecial} /></>)}
+              {labFam === 'caixa' && (<><div className="flex flex-wrap gap-1 pt-0.5">{CAIXA_TABS.map((t) => <button key={t.id} type="button" onClick={() => setCaixaTab(t.id)} className="py-0.5 px-1.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(caixaTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoCaixaLabSliders activeTab={caixaTab} activeTestStroke={testStroke} onFocusStroke={focusSpecial} /></>)}
               {labFam === 'gongue' && (<><div className="flex flex-wrap gap-1">{GONGUE_MODES.map((m) => <button key={m.id} type="button" onClick={() => { setIsFrozen(false); updateGongueStickConfig({ posePreview: m.id }); }} className="px-1.5 py-0.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(CONFIG_GONGUE_STICK.posePreview === m.id)}>{m.label}</button>)}</div><div className="grid grid-cols-2 gap-1 pt-0.5">{GONGUE_TABS.map((t) => <button key={t.id} type="button" onClick={() => setGongueTab(t.id)} className="py-0.5 px-1 border rounded text-[9px] font-bold truncate cursor-pointer" style={labBtnStyle(gongueTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoGongueLabSliders activeTab={gongueTab} /></>)}
               {labFam === 'timbal' && (<><div className="flex flex-wrap gap-1">{TIMBAL_MODES.map((m) => <button key={m.id} type="button" onClick={() => { setIsFrozen(false); updateTimbalHandsConfig({ posePreview: m.id }); }} className="px-1.5 py-0.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(CONFIG_TIMBAL_HANDS.posePreview === m.id)}>{m.label}</button>)}</div><div className="flex flex-wrap gap-1 pt-0.5">{TIMBAL_TABS.map((t) => <button key={t.id} type="button" onClick={() => setTimbalTab(t.id)} className="py-0.5 px-1.5 border rounded text-[9px] font-bold cursor-pointer" style={labBtnStyle(timbalTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoTimbalLabSliders activeTab={timbalTab} onFocusStroke={focusSpecial} /></>)}
               {labFam === 'agbe' && (<><div className="grid grid-cols-3 gap-1 pt-0.5">{AGBE_TABS.map((t) => <button key={t.id} type="button" onClick={() => setAgbeTab(t.id)} className="py-0.5 px-1 border rounded text-[9px] font-bold truncate cursor-pointer" style={labBtnStyle(agbeTab === t.id, true)}>[ {t.label} ]</button>)}</div><AoVivoAgbeLabSliders activeTab={agbeTab} onFocusStroke={focusSpecial} /></>)}

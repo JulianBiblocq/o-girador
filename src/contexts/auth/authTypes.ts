@@ -20,6 +20,7 @@ export interface UserProfile {
   mestreMessage?: string;
   signatureUrl?: string;
   instrument?: string;
+  preferredInstrument?: string | null;
   customSwingOffsets?: [number, number, number, number];
   customSwingIntensity?: number;
   hasDancaAccess?: boolean;

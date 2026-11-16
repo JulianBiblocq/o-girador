@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { CloudPreset } from '../../types';
 import { normalizePresetName } from '../../services/cloud-presets/presetCache';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
 export { normalizePresetName };
 
@@ -13,16 +14,10 @@ interface UseCloudPresetsProps {
   canWriteSequenciador?: boolean;
 }
 
-export function useCloudPresets({ userUid, userRole, mestreId, groupId, groupName, canWriteSequenciador }: UseCloudPresetsProps) {
-  const isOtherDistinctGroup = Boolean(
-    groupId &&
-    !groupId.toLowerCase().includes('samambaia') &&
-    !groupId.toLowerCase().includes('sammbia')
-  );
+export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWriteSequenciador }: UseCloudPresetsProps) {
+  const isSamambaia = isLegacySamambaiaGroup(groupId) || userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
 
-  const isSamambaia = !isOtherDistinctGroup;
-
-  const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId || null);
+  const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId?.trim() || null);
   const effectiveMestreId = isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null);
   const effectiveRole = isSamambaia && (userRole === 'visiteur' || !userRole) ? 'membre' : userRole;
 

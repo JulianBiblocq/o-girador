@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 export type CameraTimerSec = 0 | 3 | 5;
 
@@ -96,12 +96,15 @@ export function useCameraTimerCountdown() {
     [timerSec, cancelCountdown]
   );
 
-  return {
-    timerSec,
-    setTimerSec,
-    isCountingDown,
-    countdownNumber,
-    startCountdown,
-    cancelCountdown,
-  };
+  return useMemo(
+    () => ({
+      timerSec,
+      setTimerSec,
+      isCountingDown,
+      countdownNumber,
+      startCountdown,
+      cancelCountdown,
+    }),
+    [timerSec, setTimerSec, isCountingDown, countdownNumber, startCountdown, cancelCountdown]
+  );
 }

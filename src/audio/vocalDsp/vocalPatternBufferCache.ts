@@ -1,17 +1,13 @@
 /**
- * vocalPatternBufferCache.ts — Cache mémoire & orchestration Web Worker (`vocalDsp.worker.ts`) (< 140 lignes).
+ * vocalPatternBufferCache.ts — Cache mémoire & orchestration Web Worker (`vocalDsp.worker.ts`) (< 136 lignes).
  */
 import { synthesizeTimePitchHybridTdPsola } from './formantPreservingTimePitchEngine';
 import type { VocalDspWorkerRequest, VocalDspWorkerResponse } from '../../workers/vocalDsp.worker';
 
-export interface ScaledPatternTiming {
-  alpha: number; scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number; when: number;
-}
-
+export interface ScaledPatternTiming { alpha: number; scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number; when: number; }
 export interface VocalPatternDspCacheEntry {
   cacheKey: string; audioBuffer: AudioBuffer; alpha: number; recordedBpm: number; liveBpm: number;
-  transpositionSemitones: number; deltaSemitones: number;
-  scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number;
+  transpositionSemitones: number; deltaSemitones: number; scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number;
 }
 
 const dspBufferCache = new Map<string, VocalPatternDspCacheEntry>();
@@ -22,12 +18,12 @@ const workerResolvers = new Map<string, (res: VocalDspWorkerResponse) => void>()
 export const clearVocalPatternDspCache = (): void => { dspBufferCache.clear(); pendingWorkerPromises.clear(); };
 
 export function buildVocalDspCacheKey(patternIdOrComposite: string | number, currentBpm: number, vocalTransposeSteps: number, trackId?: string | number): string {
-  const baseKey = trackId !== undefined && !String(patternIdOrComposite).includes('_') ? `${trackId}_${patternIdOrComposite}` : String(patternIdOrComposite);
-  return `${baseKey}__dsp_${Math.round(Number(currentBpm || 88))}_${Math.round(Number(vocalTransposeSteps || 0))}`;
+  const baseKey = trackId !== undefined && trackId !== null && !String(patternIdOrComposite).includes('_') ? `${trackId}_${patternIdOrComposite}` : String(patternIdOrComposite);
+  return `${baseKey}__dsp_${Math.round(Number(currentBpm || 88))}_${Math.round(Number(vocalTransposeSteps ?? 0))}`;
 }
 
 export function getCachedVocalPatternDspEntry(patternIdOrComposite: string | number, currentBpm: number, vocalTransposeSteps: number, trackId?: string | number): VocalPatternDspCacheEntry | undefined {
-  return dspBufferCache.get(buildVocalDspCacheKey(patternIdOrComposite, currentBpm, vocalTransposeSteps, trackId)) ||
+  return dspBufferCache.get(buildVocalDspCacheKey(patternIdOrComposite, currentBpm, vocalTransposeSteps, trackId)) ??
     dspBufferCache.get(buildVocalDspCacheKey(patternIdOrComposite, currentBpm, vocalTransposeSteps));
 }
 export const getCachedVocalPatternDsp = getCachedVocalPatternDspEntry;
@@ -83,7 +79,7 @@ export function getOrComputeVocalPatternDspSync(
   const cacheKey = buildVocalDspCacheKey(patternKey, currentBpm, vocalTransposeSteps);
   if (dspBufferCache.has(cacheKey)) return dspBufferCache.get(cacheKey)!;
   const scaled = computeScaledPatternTiming({ ...timingMeta, recordedBpm }, currentBpm, 0, sourceBuffer.duration);
-  const deltaSemitones = Math.round(Number(vocalTransposeSteps || 0) - Number(packTranspositionSemitones || 0));
+  const deltaSemitones = Math.round(Number(vocalTransposeSteps ?? 0) - Number(packTranspositionSemitones ?? 0));
   const isIdentity = Math.round(currentBpm) === Math.round(recordedBpm) && deltaSemitones === 0;
   const outBuffer = isIdentity ? sourceBuffer : createAudioBufferFromChannels(
     Array.from({ length: sourceBuffer.numberOfChannels }, (_, c) =>
@@ -111,7 +107,7 @@ export async function requestVocalPatternDspAsync(
   if (dspBufferCache.has(cacheKey)) { const hit = dspBufferCache.get(cacheKey)!; onReady?.(hit); return hit; }
   if (pendingWorkerPromises.has(cacheKey)) return pendingWorkerPromises.get(cacheKey)!;
   const scaled = computeScaledPatternTiming({ ...timingMeta, recordedBpm }, currentBpm, 0, sourceBuffer.duration);
-  const deltaSemitones = Math.round(Number(vocalTransposeSteps || 0) - Number(packTranspositionSemitones || 0));
+  const deltaSemitones = Math.round(Number(vocalTransposeSteps ?? 0) - Number(packTranspositionSemitones ?? 0));
   const worker = getDspWorker();
   if ((Math.round(currentBpm) === Math.round(recordedBpm) && deltaSemitones === 0) || !worker) {
     const syncEntry = getOrComputeVocalPatternDspSync(patternKey, sourceBuffer, recordedBpm, currentBpm, vocalTransposeSteps, packTranspositionSemitones, timingMeta);

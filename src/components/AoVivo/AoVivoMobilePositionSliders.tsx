@@ -7,18 +7,8 @@ import {
   resetMobileOffsets,
   updateMobileOffset,
 } from '../../audio/animations/aoVivoMobileOffsets';
-import { instrumentsConfig } from '../../data';
-import { useSequencerStore } from '../../stores/useSequencerStore';
-
-const MOBILE_FAMILIES: { id: AoVivoMobileFamily; label: string }[] = [
-  { id: 'alfaia', label: 'Alfaia' },
-  { id: 'caixa', label: 'Caixa' },
-  { id: 'tarol', label: 'Tarol' },
-  { id: 'gongue', label: 'Gonguê' },
-  { id: 'timbal', label: 'Timbal' },
-  { id: 'agbe', label: 'Agbê' },
-  { id: 'mineiro', label: 'Mineiro' },
-];
+import { LAB_INSTRUMENT_BUTTONS } from './aoVivoLabTabsConfig';
+import { selectAoVivoLabInstrument } from './aoVivoStrokeTester';
 
 const S: React.FC<{
   label: string; val: string; min: number; max: number; step: number; v: number; cb: (n: number) => void;
@@ -44,17 +34,8 @@ export const AoVivoMobilePositionSliders: React.FC<{
   const cfg = MOBILE_OFFSETS[activeMobFam];
 
   const handleSelectInstrument = (fam: AoVivoMobileFamily) => {
+    selectAoVivoLabInstrument(fam);
     onSelectMobFam(fam);
-    const st = useSequencerStore.getState();
-    const match = (st.tracks || []).find((t: any) => {
-      const id = instrumentsConfig[t.instrumentIdx]?.id;
-      if (fam === 'alfaia') return id === 'marcante' || id === 'meiao' || id === 'repique';
-      return id === fam;
-    });
-    if (match) {
-      st.setActiveAoVivoTrackId(match.id);
-      if (st.setFocusTrackId) st.setFocusTrackId(match.id);
-    }
   };
 
   const upd = (patch: Partial<InstrumentMobileOffset>) => updateMobileOffset(activeMobFam, patch);
@@ -68,7 +49,7 @@ export const AoVivoMobilePositionSliders: React.FC<{
   return (
     <div className="space-y-1.5 pt-0.5 pr-0.5">
       <div className="grid grid-cols-7 gap-0.5">
-        {MOBILE_FAMILIES.map((f) => (
+        {LAB_INSTRUMENT_BUTTONS.map((f) => (
           <button
             key={f.id} type="button" onClick={() => handleSelectInstrument(f.id)}
             className="py-0.5 px-0.5 border rounded text-[8.5px] font-bold truncate cursor-pointer"
@@ -111,4 +92,3 @@ export const AoVivoMobilePositionSliders: React.FC<{
     </div>
   );
 };
-

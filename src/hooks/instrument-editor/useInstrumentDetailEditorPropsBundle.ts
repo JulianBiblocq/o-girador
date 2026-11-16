@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useVocalInspectorActions } from './useVocalInspectorActions';
+import { useEditorBottomDockRangeProps } from './useEditorBottomDockRangeProps';
 
 export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
   const {
@@ -10,50 +11,42 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     tracksMeta, visibleTrackIds, trackDisplayName, getPatternUsage, isPatternRecording,
     togglePatternRecording, balancoPresets, handleTrackBalancoChange, handlePatternBalancoChange,
     sequencer, userProfile, genererEtUploaderCloudBounce, isBouncingCloud, currentBpm,
-    currentTimeSig, clipboard, ctrl, patternOps, cloud, editorState, cardProps,
+    currentTimeSig, clipboard, ctrl, patternOps, cloud, editorState, cardProps, clearStepSelection,
   } = core;
   const { trackId, setEditingTrackId } = props;
 
-  const activePatternId = editorState.selectedPatternId || displayedPatterns[0]?.id;
-  const activePattern = useMemo(
-    () => displayedPatterns.find((p: any) => p.id === activePatternId) || displayedPatterns[0],
-    [displayedPatterns, activePatternId]
-  );
+  const hasSelectedInList = editorState.selectedPatternId !== null && editorState.selectedPatternId !== undefined &&
+    displayedPatterns.some((p: any) => p.id === editorState.selectedPatternId);
+  const activePatternId = hasSelectedInList ? editorState.selectedPatternId : (editorState.selectedPatternId ?? displayedPatterns[0]?.id);
+  const activePattern = useMemo(() => displayedPatterns.find((p: any) => p.id === activePatternId) ?? displayedPatterns[0], [displayedPatterns, activePatternId]);
 
-  const hasVocalRecording = useAudioStore(
-    useCallback(
-      (s) => {
-        if (!activePatternId) return false;
-        const canonicalKey = `${effectiveEditTrackId}_${activePatternId}`;
-        return Boolean(
-          s.vocalBuffers[canonicalKey] ||
-          s.vocalBlobs[canonicalKey] ||
-          s.vocalBuffers[activePatternId] ||
-          s.vocalBlobs[activePatternId] ||
-          activePattern?.hasVocalAudio ||
-          activePattern?.vocalClip
-        );
-      },
-      [effectiveEditTrackId, activePatternId, activePattern]
-    )
-  );
+  const hasVocalRecording = useAudioStore(useCallback((s) => {
+    if (activePatternId === undefined || activePatternId === null) return false;
+    const key = `${effectiveEditTrackId}_${activePatternId}`;
+    return Boolean(s.vocalBuffers[key] || s.vocalBlobs[key] || s.vocalBuffers[activePatternId] || s.vocalBlobs[activePatternId] || activePattern?.hasVocalAudio || activePattern?.vocalClip);
+  }, [effectiveEditTrackId, activePatternId, activePattern]));
 
-  const { onOpenAlignment, onImportAudio } = useVocalInspectorActions(
-    effectiveEditTrackId, editorState.selectedPatternId, displayedPatterns[0]?.id
-  );
+  const { onOpenAlignment, onImportAudio } = useVocalInspectorActions(effectiveEditTrackId, editorState.selectedPatternId, displayedPatterns[0]?.id);
+  const dockRangeProps = useEditorBottomDockRangeProps({
+    effectiveEditTrackId, activePatternId: activePatternId ?? 0, editorState,
+    canPasteRange: Boolean(clipboard.canPasteRange), clearStepSelection,
+  });
 
   const headerProps = {
     inst, trackDisplayName, isVocalContext, puxTrack, coroTrack, isCoroActive,
     onSwitchVocalTrack: editorState.handleSwitchVocalTrack, visibleTrackIds,
-    activeTrackId: trackId, onSelectTrack: setEditingTrackId, onContextMenu: ctrl.handleOpenContextMenu,
+    activeTrackId: effectiveEditTrackId, onSelectTrack: setEditingTrackId, onContextMenu: ctrl.handleOpenContextMenu,
     addBtnRef: ctrl.addBtnRef, isAddPickerOpen: ctrl.isAddPickerOpen, onToggleAddPicker: ctrl.handleToggleAddPicker,
     targetBalancoTrack, effectiveEditTrackId, balancoPresets, handleTrackBalancoChange,
     isPatternRecording, togglePatternRecording, isMute: track?.isMute ?? false, isSolo: track?.isSolo ?? false,
     onMuteToggle: useCallback(() => sequencer.handleTrackMuteToggle(trackId), [trackId, sequencer]),
     onSoloToggle: useCallback(() => sequencer.handleTrackSoloToggle(trackId), [trackId, sequencer]),
     onClose: ctrl.handleClose, isClosing: ctrl.isClosing, lang,
-    selectedPatternId: editorState.selectedPatternId, activePatternId: displayedPatterns[0]?.id,
-    onOpenInspectorMobile: () => ctrl.setIsInspectorMobileOpen(true),
+    selectedPatternId: editorState.selectedPatternId, activePatternId: activePattern?.id ?? displayedPatterns[0]?.id,
+    activeTool: editorState.activeTool, onOpenInspectorMobile: () => ctrl.setIsInspectorMobileOpen(true),
+    hideCloseButton: Boolean(props.isSatelliteEmbedded),
+    isMaximized: ctrl.isMaximized, onToggleMaximized: ctrl.toggleMaximized,
+    showMaximizeButton: !core.isMobile && !core.isDetached,
   };
 
   const patternListProps = {
@@ -74,10 +67,10 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
 
   const acousticDrawersProps = {
     trackId: effectiveEditTrackId, inst, lang, isLeftHanded, activeTool: editorState.activeTool,
+    onSelectTool: editorState.setActiveTool, isExpandedLayout: ctrl.isExpandedLayout,
     patternId: activePatternId, patterns: displayedPatterns,
     canPaste: clipboard.canPaste, balancoPresets, onSelectPattern: (pId: number) => editorState.setSelectedPatternId(pId),
-    onAddPattern: patternOps.onAddPattern,
-    onCopyPattern: () => sequencer.handleCopyPattern(activePattern),
+    onAddPattern: patternOps.onAddPattern, onCopyPattern: () => sequencer.handleCopyPattern(activePattern),
     onPastePattern: () => sequencer.handlePastePattern(effectiveEditTrackId, activePatternId),
     onSavePattern: () => {
       cloud.setSaveModalPatternId(activePatternId);
@@ -86,18 +79,19 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     },
     onLoadPattern: () => cloud.setLoadModalPatternId(activePatternId),
     onDeletePattern: patternOps.onDeletePattern, onBalancoChange: handlePatternBalancoChange,
-    isVoice: isVocalContext, hasVocalRecording,
-    onOpenAlignment, onImportAudio,
+    isVoice: isVocalContext, hasVocalRecording, onOpenAlignment, onImportAudio,
     isInspectorMobileOpen: ctrl.isInspectorMobileOpen, setIsInspectorMobileOpen: ctrl.setIsInspectorMobileOpen,
   };
 
   const bottomDockProps = {
-    isVocalContext, effectiveEditTrackId, patternId: activePatternId || 0,
+    isVocalContext, effectiveEditTrackId, patternId: activePatternId ?? 0,
     selectedStepIdx: editorState.selectedStepIdx, setSelectedStepIdx: editorState.setSelectedStepIdx,
     selectedStepIsPreRoll: editorState.selectedStepIsPreRoll, setSelectedStepIsPreRoll: editorState.setSelectedStepIsPreRoll,
-    lang, patternSteps: displayedPatterns[0]?.steps || 16, inst, isLeftHanded, activeTool: editorState.activeTool,
-    handleDockSelectTool: (tool: string) => editorState.setActiveTool(tool), isAlternating: editorState.isAlternating,
-    onToggleAlternating: () => editorState.setIsAlternating((p: boolean) => !p), onOpenBottomSheet: () => ctrl.setIsInspectorMobileOpen(true),
+    lang, patternSteps: activePattern?.steps ?? displayedPatterns[0]?.steps ?? 16, inst, isLeftHanded, activeTool: editorState.activeTool,
+    isAlternating: editorState.isAlternating,
+    onToggleAlternating: () => editorState.setIsAlternating((p: boolean) => !p),
+    onOpenBottomSheet: () => ctrl.setIsInspectorMobileOpen(true),
+    ...dockRangeProps,
   };
 
   const modalsAndMenusProps = {
@@ -113,26 +107,22 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
       lang, savePatternName: cloud.savePatternName, setSavePatternName: cloud.setSavePatternName,
       savePatternFolder: cloud.savePatternFolder, setSavePatternFolder: cloud.setSavePatternFolder,
       existingFolders: cloud.existingFolders, savePatternVisibility: cloud.savePatternVisibility,
-      setSavePatternVisibility: cloud.setSavePatternVisibility, userProfile,
-      isGroupMemberOrEditor: false, autoGeneratePatternAudio: cloud.autoGeneratePatternAudio,
-      setAutoGeneratePatternAudio: cloud.setAutoGeneratePatternAudio, isSavingPattern: cloud.isSavingPattern,
-      isBouncingCloud, handleSavePatternToLibrary: cloud.handleSavePatternToLibrary,
+      setSavePatternVisibility: cloud.setSavePatternVisibility, userProfile, isGroupMemberOrEditor: false,
+      autoGeneratePatternAudio: cloud.autoGeneratePatternAudio, setAutoGeneratePatternAudio: cloud.setAutoGeneratePatternAudio,
+      isSavingPattern: cloud.isSavingPattern, isBouncingCloud, handleSavePatternToLibrary: cloud.handleSavePatternToLibrary,
     },
     toastMessage: cloud.toastMessage, contextMenuPos: ctrl.contextMenuPos,
     handleCloseContextMenu: ctrl.handleCloseContextMenu, isAddPickerOpen: ctrl.isAddPickerOpen,
     addPickerAnchorRect: ctrl.addPickerAnchorRect,
     handleAddInstrumentFromRibbon: (idx: number) => {
-      const currentM = useSequencerStore.getState().currentMeasure || 0;
+      const currentM = useSequencerStore.getState().currentMeasure ?? 0;
       const addFn = sequencer.handleAddTrackInstrument || sequencer.handleAddTrack;
       const newTrackId = addFn ? addFn(idx, currentM) : undefined;
       if (newTrackId !== undefined && newTrackId !== null) setEditingTrackId(newTrackId);
       ctrl.handleCloseAddPicker();
     },
-    handleCloseAddPicker: ctrl.handleCloseAddPicker,
-    patternCardContextMenu: ctrl.patternCardContextMenu,
-    getPatternCardMenuItems: editorState.getPatternCardMenuItems,
-    setPatternCardContextMenu: ctrl.setPatternCardContextMenu,
-    lang,
+    handleCloseAddPicker: ctrl.handleCloseAddPicker, patternCardContextMenu: ctrl.patternCardContextMenu,
+    getPatternCardMenuItems: editorState.getPatternCardMenuItems, setPatternCardContextMenu: ctrl.setPatternCardContextMenu, lang,
   };
 
   return { headerProps, patternListProps, acousticDrawersProps, bottomDockProps, modalsAndMenusProps };

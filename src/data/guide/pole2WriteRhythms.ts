@@ -1,0 +1,66 @@
+import { GuidePoleDef } from './guideTypes';
+import { POLE_2_SCULPT_CARDS } from './pole2SculptAndVariations';
+
+export const POLE_2_WRITE_RHYTHMS: GuidePoleDef = {
+  id: 'pole-2',
+  num: '02',
+  titleFr: 'Écrire ses Rythmes',
+  titlePt: 'Escrever seus Ritmos',
+  subtitleFr: 'Composer dans l’Éditeur Détail : peinture glissée, gomme en 1 Undo, plages de pas, dynamique et variations.',
+  subtitlePt: 'Compor no Editor Detalhado: pintura arrastada, borracha em 1 Undo, seleção de trechos, dinâmica e variações.',
+  cards: [
+    {
+      id: 'p2-1',
+      poleId: 'pole-2',
+      level: 'studio',
+      shortcut: 'Clic G/D · Molette · Plein Écran',
+      titleFr: 'Peindre, gommer en 1 Undo, scinder au Ciseau & Plein Écran',
+      titlePt: 'Pintar, apagar em 1 Undo, dividir com Tesoura & Tela Cheia',
+      goalFr: 'Saisir les frappes officielles de chaque instrument avec une ergonomie Studio rapide et précise.',
+      goalPt: 'Escrever os toques oficiais de cada instrumento com rapidez e precisão de estúdio.',
+      contextFr: 'Toute l’écriture percussive est concentrée dans l’Éditeur Détail afin d’offrir une surface dédiée où chaque instrument expose uniquement ses vraies articulations acoustiques (sans lettre parasite).',
+      contextPt: 'Toda a escrita percussiva concentra-se no Editor Detalhado, oferecendo uma bancada dedicada onde cada instrumento exibe apenas suas articulações acústicas reais.',
+      stepsFr: [
+        'Passez en Mode Studio (via MENU), cliquez sur l’onglet [ ÉDITEUR ] ou sur le badge d’une piste, puis cliquez sur l’icône [ Plein Écran ] en haut à droite pour déployer tout l’espace de travail.',
+        'Sélectionnez un outil de frappe dans le Dock inférieur (ou tapez sa lettre clavier : d/e/g/a/p/t en faible, Shift+Lettre en fort ; au Timbal, MAJ = Droite et min = Gauche), puis maintenez le clic gauche glissé pour peindre plusieurs pas.',
+        'Maintenez le clic droit glissé pour gommer toute une série de pas d’un seul geste (enregistré comme 1 seul Undo Ctrl+Z), ou faites tourner la molette / [↑][↓] sur un pas pour basculer sa nuance.',
+        'Activez l’outil Ciseau du Dock (ou Alt + Clic sur une case) pour scinder un pas en double coup successif [a, b] (Ra, ex. D/E ou d/I).',
+      ],
+      stepsPt: [
+        'Ative o Modo Estúdio (pelo MENU), abra a aba [ EDITOR ] ou clique no selo de uma faixa, e clique em [ Tela Cheia ] no canto superior direito para ampliar a grade.',
+        'Escolha um toque no Dock inferior (ou digite sua letra: d/e/g/a/p/t para fraco, Shift+Letra para forte; no Timbal, MAI = Direita e min = Esquerda) e arraste com o botão esquerdo para pintar vários passos.',
+        'Arraste com o botão direito para apagar vários passos num único gesto (registrado como 1 só Undo Ctrl+Z), ou gire a roda do mouse / [↑][↓] sobre um passo para alternar a nuance.',
+        'Use a ferramenta Tesoura no Dock (ou Alt + Clique numa célula) para dividir um passo em toque duplo sucessivo [a, b] (Rá, ex. D/E ou d/I).',
+      ],
+      tipFr: 'Sur grand écran en mode Plein Écran, l’inspecteur déploie côte à côte toutes les paires de frappes de l’instrument (ex. Abafado A/a et Bacalhau I sur Alfaia, ou Rimshot A/a sur Caixa).',
+      tipPt: 'Em monitores amplos no modo Tela Cheia, o inspetor exibe lado a lado todos os pares do instrumento (como Abafado A/a e Bacalhau I na Alfaia, ou Pele e Aro A/a na Caixa).',
+    },
+    {
+      id: 'p2-2',
+      poleId: 'pole-2',
+      level: 'studio',
+      shortcut: 'Ctrl+C / X / V / D',
+      titleFr: 'Sélectionner une plage de pas, Copier/Coller & Dupliquer à la suite',
+      titlePt: 'Selecionar trecho de passos, Copiar/Colar & Duplicar em seguida',
+      goalFr: 'Manipuler des cellules rythmiques entières en préservant leurs silences internes et leurs accents.',
+      goalPt: 'Manipular células rítmicas completas preservando suas pausas internas e acentuações.',
+      contextFr: 'Construire un motif de 16 ou 32 pas repose souvent sur la répétition ou le décalage d’une cellule de 4 ou 8 pas (comme la malha de Caixa ou le balancement P/t du Mineiro).',
+      contextPt: 'Construir um padrão de 16 ou 32 passos muitas vezes parte da repetição ou deslocamento de uma célula de 4 ou 8 passos (como a malha da Caixa ou o vaivém P/t do Mineiro).',
+      stepsFr: [
+        'Activez le bouton [ Sélect. ] dans le Dock inférieur, ou maintenez directement Ctrl/Cmd + Clic glissé (ou Shift + Clic) sur la grille de pas ; Ctrl+A sélectionne toute la mesure.',
+        'Utilisez [ Ctrl+C ] pour copier ou [ Ctrl+X ] pour couper la plage encadrée (les pas doubles [a, b], vélocités et micro-timings sont embarqués).',
+        'Cliquez sur le pas d’ancrage souhaité (dans le même motif ou un autre) et appuyez sur [ Ctrl+V ] pour coller en respectant les écarts relatifs.',
+        'Appuyez sur [ Ctrl+D ] (ou cliquez sur [ + Dupliquer ] dans la barre de sélection) pour répéter immédiatement la plage juste après elle-même.',
+      ],
+      stepsPt: [
+        'Ative o botão [ Selec. ] no Dock inferior, ou use diretamente Ctrl/Cmd + arrasto (ou Shift + Clique) sobre a grade; Ctrl+A seleciona o compasso inteiro.',
+        'Use [ Ctrl+C ] para copiar ou [ Ctrl+X ] para recortar o trecho demarcado (incluindo passos divididos [a, b], volumes e micro-timings).',
+        'Clique no passo de destino (no mesmo padrão ou em outro) e pressione [ Ctrl+V ] para colar respeitando os intervalos relativos.',
+        'Pressione [ Ctrl+D ] (ou clique em [ + Duplicar ] na barra de seleção) para repetir imediatamente a célula logo em seguida.',
+      ],
+      tipFr: 'Dès que vous recliquez sur un pinceau de frappe dans le Dock inférieur, la barre de sélection se referme d’elle-même pour vous redonner le crayon.',
+      tipPt: 'Assim que você clica novamente num pincel de toque no Dock inferior, a barra de seleção fecha sozinha devolvendo o modo de pintura.',
+    },
+    ...POLE_2_SCULPT_CARDS,
+  ],
+};

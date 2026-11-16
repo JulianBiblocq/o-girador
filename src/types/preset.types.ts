@@ -1,5 +1,5 @@
 
-import type { TimeSignature } from './common.types';
+import type { TimeSignature, AlfaiaEquipmentMetadata } from './common.types';
 import type { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';
 import type { CordelOptions } from '../utils/cordelEffect';
 import type { GlobalAutomationBypass } from '../utils/automationBypassHelper';
@@ -54,6 +54,8 @@ export interface PresetMetadata {
   sungScaleMode?: string;
   packTranspositionSemitones?: number;
   transpositionSemitones?: number;
+  vocalGrammarVersion?: number;
+  alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
 }
 
 export interface Circle {

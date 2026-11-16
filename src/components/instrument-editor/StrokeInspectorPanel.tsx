@@ -1,4 +1,3 @@
-
 import React, { useMemo, useRef, useCallback } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -7,6 +6,7 @@ import { getStrokePairs } from '../../utils/instrumentStrokes';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { X } from 'lucide-react';
 import { PatternInspectorHeader } from './PatternInspectorHeader';
+import { EditorQuickMixBar } from './inspector/EditorQuickMixBar';
 import { useStrokeInspectorStats } from './inspector/useStrokeInspectorStats';
 import { StrokeToolInspector } from './inspector/StrokeToolInspector';
 import { VocalClipInspectorSection } from './inspector/VocalClipInspectorSection';
@@ -17,10 +17,11 @@ export type { StrokeInspectorPanelProps };
 
 export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.memo((props) => {
   const {
-    trackId, instrument, lang, isLeftHanded, activeTool, patternId, onCloseMobileDrawer,
-    isMobileDrawer = false, patterns, canPaste = false, balancoPresets = [], onSelectPattern,
-    onAddPattern, onCopyPattern, onPastePattern, onSavePattern, onLoadPattern, onDeletePattern,
-    onBalancoChange, isVoice: isVoiceProp, hasVocalRecording = false, onOpenAlignment, onImportAudio,
+    trackId, instrument, lang, isLeftHanded, activeTool, onSelectTool, isExpandedLayout = false,
+    patternId, onCloseMobileDrawer, isMobileDrawer = false, patterns, canPaste = false,
+    balancoPresets = [], onSelectPattern, onAddPattern, onCopyPattern, onPastePattern,
+    onSavePattern, onLoadPattern, onDeletePattern, onBalancoChange,
+    isVoice: isVoiceProp, hasVocalRecording = false, onOpenAlignment, onImportAudio,
   } = props;
 
   const isFr = lang === 'fr';
@@ -29,22 +30,31 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const isVoice = isVoiceProp ?? (instrument?.type === 'voice' || instrument?.id === 'puxador' || instrument?.id === 'coro');
   const getInstrumentLabel = useInstrumentLabel();
 
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
-  const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps);
-  const effectivePatterns = patterns || track?.patterns || [];
-  const pitchOffset = track?.tuning || 0;
+  const track = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId));
+  const vocalTransposeSteps = useSequencerStore((state) => state.vocalTransposeSteps);
+  const effectivePatterns = patterns ?? track?.patterns ?? [];
+  const pitchOffset = track?.tuning ?? 0;
+  const resolvedPatternId = patternId ?? track?.selectedPatternId ?? effectivePatterns[0]?.id;
+  const instrumentLabel = track?.customName || getInstrumentLabel({ id: instrument.id, customName: instrument.name });
+
+  const activePatternLabel = useMemo(() => {
+    if (resolvedPatternId === undefined || resolvedPatternId === null) return undefined;
+    const idx = effectivePatterns.findIndex((p: any) => p.id === resolvedPatternId);
+    if (idx < 0) return undefined;
+    const ptn = effectivePatterns[idx];
+    return ptn?.name || `${isFr ? 'Motif' : 'Padrão'} ${idx + 1}`;
+  }, [effectivePatterns, resolvedPatternId, isFr]);
 
   const isTunableDrum = useMemo(() => {
     const id = instrument?.id?.toLowerCase() || '';
     const type = instrument?.type?.toLowerCase() || '';
-    return ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'].includes(id) || type === 'alfaia' || type === 'caixa';
+    return ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'].includes(id) || type === 'alfaia' || type === 'caixa';
   }, [instrument?.id, instrument?.type]);
 
   const handleTranspose = useCallback((semitones: number) => {
-    const currentPatternId = patternId || track?.selectedPatternId || track?.patterns?.[0]?.id;
-    if (!currentPatternId) return;
-    useSequencerStore.getState().transposePatternNotes(trackId, currentPatternId, semitones);
-  }, [patternId, track?.selectedPatternId, track?.patterns, trackId]);
+    if (resolvedPatternId === undefined || resolvedPatternId === null) return;
+    useSequencerStore.getState().transposePatternNotes(trackId, resolvedPatternId, semitones);
+  }, [resolvedPatternId, trackId]);
 
   const lastPreviewTimeRef = useRef<number>(0);
   const playThrottledPreview = useCallback((symbol: string, volumePct: number, decayPct: number) => {
@@ -62,12 +72,12 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const handlePreviewDrum = useCallback(() => {
     if (!audioEngine) return;
     const instId = instrument.id;
-    const strokeSymbol = instId === 'timbal' ? 'A' : 'D';
-    audioEngine.playPreview(instId, strokeSymbol, track?.tuning || 0, 1.0, undefined, 1.0, track?.id ?? trackId);
-  }, [audioEngine, instrument.id, track?.tuning, track?.id, trackId]);
+    const strokeSymbol = instId === 'timbal' ? 'A' : instId === 'gongue' ? 'G' : 'D';
+    audioEngine.playPreview(instId, strokeSymbol, track?.tuning ?? 0, 1.0, undefined, 1.0, track?.id ?? trackId);
+  }, [instrument.id, track?.tuning, track?.id, trackId]);
 
   const pairs = useMemo(() => getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded), [instrument.id, instrument.type, lang, isLeftHanded]);
-  const currentPair = useMemo(() => pairs.find(p => p.id === activeTool || p.strong.symbol === activeTool || p.strokes.some(s => s.symbol === activeTool)), [pairs, activeTool]);
+  const currentPair = useMemo(() => pairs.find((p) => p.id === activeTool || p.strong.symbol === activeTool || p.strokes.some((s) => s.symbol === activeTool)), [pairs, activeTool]);
   const { getStrokeStats, applyMacroVolumeDelta, applyMacroDecayDelta } = useStrokeInspectorStats(trackId, isVoice);
 
   return (
@@ -77,16 +87,19 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
           <span className="font-cactus font-bold text-xs uppercase text-[var(--cordel-ink-dark)]">
             {isFr ? "Inspecteur de l'instrument" : 'Inspetor do instrumento'}
           </span>
-          <button type="button" onClick={onCloseMobileDrawer} className="p-1 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] rounded text-[var(--cordel-ink-dark)] transition-colors">
+          <button type="button" onClick={onCloseMobileDrawer} className="p-1 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] rounded text-[var(--cordel-ink-dark)] transition-colors">
             <X size={16} />
           </button>
         </div>
       )}
 
+      <EditorQuickMixBar trackId={trackId} isFr={isFr} />
+
       <PatternInspectorHeader
-        trackId={trackId} instrumentName={getInstrumentLabel({ id: instrument.id, customName: instrument.name })}
-        patterns={effectivePatterns} currentPatternId={patternId || track?.selectedPatternId || track?.patterns?.[0]?.id}
-        canPaste={canPaste} lang={lang} balancoPresets={balancoPresets} isVoice={isVoice}
+        trackId={trackId} instrumentName={instrumentLabel} activeTool={activeTool}
+        patterns={effectivePatterns} currentPatternId={resolvedPatternId}
+        canPaste={canPaste} lang={lang} balancoPresets={balancoPresets}
+        isVoice={isVoice} isExpandedLayout={isExpandedLayout}
         onSelectPattern={onSelectPattern} onAddPattern={onAddPattern} onCopyPattern={onCopyPattern}
         onPastePattern={onPastePattern} onSavePattern={onSavePattern} onLoadPattern={onLoadPattern}
         onDeletePattern={onDeletePattern} onBalancoChange={onBalancoChange}
@@ -97,15 +110,19 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
       ) : (
         <StrokeToolInspector
           isEraser={isEraser} isScissors={isScissors} isFr={isFr} activeTool={activeTool}
-          currentPair={currentPair} instrument={instrument} trackId={trackId} isVoice={isVoice}
+          currentPair={currentPair} allPairs={pairs} isExpandedLayout={isExpandedLayout} onSelectTool={onSelectTool}
+          instrument={instrument} trackId={trackId} trackLabel={instrumentLabel}
+          patternId={resolvedPatternId} patternLabel={activePatternLabel} isVoice={isVoice}
           getStrokeStats={getStrokeStats} playThrottledPreview={playThrottledPreview}
           applyMacroVolumeDelta={applyMacroVolumeDelta} applyMacroDecayDelta={applyMacroDecayDelta}
         />
       )}
 
       <InspectorTuningAndTranspose
-        isVoice={isVoice} isTunableDrum={isTunableDrum} pitchOffset={pitchOffset}
-        vocalTransposeSteps={vocalTransposeSteps} lang={lang} trackId={trackId}
+        isVoice={isVoice} isTunableDrum={isTunableDrum} isExpandedLayout={isExpandedLayout}
+        pitchOffset={pitchOffset} vocalTransposeSteps={vocalTransposeSteps} lang={lang} trackId={trackId}
+        instrumentId={instrument.id} trackLabel={instrumentLabel}
+        patternId={resolvedPatternId} patternLabel={activePatternLabel} activeTool={activeTool}
         onTranspose={handleTranspose} onPreviewDrum={handlePreviewDrum}
       />
     </div>

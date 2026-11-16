@@ -17,22 +17,17 @@ import { VocalTimingCalculator } from './vocalTimingCalculator';
 
 export class VocalSequencerPlayer {
   public static async playPreview(
-    patternId: number,
-    time: number,
-    onStop?: () => void,
-    trackId?: string | number,
-    loadRecordingFn?: (id: number) => Promise<Blob | null>
+    patternId: number, time: number, onStop?: () => void, trackId?: string | number, loadRecordingFn?: (id: number) => Promise<Blob | null>
   ): Promise<void> {
-    const store = useAudioStore.getState();
-    const sequencerStore = useSequencerStore.getState();
-    const voiceTrack = trackId
+    const store = useAudioStore.getState(), sequencerStore = useSequencerStore.getState();
+    const voiceTrack = trackId !== undefined && trackId !== null
       ? sequencerStore.tracks.find((t) => String(t.id) === String(trackId))
       : sequencerStore.tracks.find((t) => t.patterns.some((p) => Number(p.id) === Number(patternId)));
 
     const canonicalKey = voiceTrack ? `${voiceTrack.id}_${patternId}` : String(patternId);
-    let audioBuffer = store.vocalBuffers[canonicalKey] || store.vocalBuffers[patternId];
+    let audioBuffer = store.vocalBuffers[canonicalKey] ?? store.vocalBuffers[patternId];
     if (!audioBuffer) {
-      const blob = store.vocalBlobs[canonicalKey] || store.vocalBlobs[patternId] || (loadRecordingFn ? await loadRecordingFn(patternId) : null);
+      const blob = store.vocalBlobs[canonicalKey] ?? store.vocalBlobs[patternId] ?? (loadRecordingFn ? await loadRecordingFn(patternId) : null);
       if (!blob) return;
       try {
         const arrayBuffer = await blob.arrayBuffer();
@@ -51,7 +46,7 @@ export class VocalSequencerPlayer {
       ? VocalTimingCalculator.calculateTiming({ clip: ptnRef.vocalClip, ptnRef, voiceTrack, effectiveBpm: anchorBpm, measureStartTime: time, sequencerStore })
       : { triggerOffsetSec: 0, nudgeMs: 0, balancoOffset: 0, triggerTime: time, actualStartTime: time };
     const previewTime = time - timing.triggerOffsetSec - (timing.nudgeMs / 1000);
-    this.scheduleVoicePlayback(voiceTrack?.id ?? 0, patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
+    this.scheduleVoicePlayback(voiceTrack ? voiceTrack.id : (trackId ?? 0), patternId, previewTime, anchorBpm, outputNode, trackVolPct, isCoro, onStop);
   }
 
   public static scheduleVoicePlayback(

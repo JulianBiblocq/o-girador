@@ -1,0 +1,66 @@
+import { GuidePoleDef } from './guideTypes';
+import { POLE_5_SIGNALS_AND_CLOUD_CARDS } from './pole5SignalsAndCloud';
+
+export const POLE_5_CREATE_SCAN_EXPORT: GuidePoleDef = {
+  id: 'pole-5',
+  num: '05',
+  titleFr: 'Créer, Scanner & Exporter',
+  titlePt: 'Criar, Digitalizar & Exportar',
+  subtitleFr: 'Imprimer partitions et Mini-Rodas A4 Éco-Encre, scanner des feuilles manuscrites, graver les signaux et publier sur le Cloud.',
+  subtitlePt: 'Imprimir partituras e Mini-Rodas A4 Eco-Tinta, digitalizar folhas à mão, gravar sinais e publicar na Nuvem.',
+  cards: [
+    {
+      id: 'p5-1',
+      poleId: 'pole-5',
+      level: 'studio',
+      shortcut: 'Tablature · O > La Presse',
+      titleFr: 'Imprimer Tablatures Linéaires & Planches de Mini-Rodas A4 Éco-Encre',
+      titlePt: 'Imprimir Tablaturas Lineares & Pranchas de Mini-Rodas A4 Eco-Tinta',
+      goalFr: 'Générer des supports papier A4 nets, complets et économes en encre pour tout le groupe.',
+      goalPt: 'Gerar folhas A4 nítidas, completas e econômicas em tinta para todo o grupo.',
+      contextFr: 'Certains élèves mémorisent mieux sur une tablature horizontale continue, d’autres sur des roues visuelles. La Presse réunit les deux formats avec une légende officielle sans contradiction.',
+      contextPt: 'Alguns alunos memorizam melhor numa tablatura horizontal contínua, outros em rodas visuais. A Prensa reúne ambos os formatos com legenda oficial unificada.',
+      stepsFr: [
+        'Ouvrez MENU > Tablature / Partition ou A Oficina [O] > Édition & Scène > La Presse (et sur mobile, Menu Outils > Imprimer les partitions).',
+        'En mode Partition Linéaire, filtrez tout le conducteur ou votre pupitre seul : la mise en page adapte le nombre de mesures par ligne et joint la légende complète des 8 pupitres.',
+        'Basculez sur Planche de Mini-Rodas A4 pour imprimer 8 ou 12 roues par feuille sur fond blanc éco-encre, avec opacité différentielle Maître/Esclave fidèle.',
+        'Choisissez le mode Condensé automatique (factorisation M.X–Y ×N avec distinction des rentrées 1ª VEZ) ou composez votre sélection sur mesure dans le Panier de mesures.',
+      ],
+      stepsPt: [
+        'Abra MENU > Tablatura / Partitura ou A Oficina [O] > Edição & Palco > A Prensa (e no celular, Menu > Imprimir partituras).',
+        'No modo Partitura Linear, escolha o condutor completo ou apenas seu naipe: a diagramação ajusta os compassos por linha e anexa a legenda oficial dos 8 naipes.',
+        'Alterne para Prancha de Mini-Rodas A4 para imprimir 8 ou 12 rodas por folha em fundo branco eco-tinta, preservando a opacidade diferencial Mestre/Escravo.',
+        'Use o modo Condensado automático (agrupamento M.X–Y ×N destacando entradas 1ª VEZ) ou monte sua folha personalizada na Cesta de compassos.',
+      ],
+      tipFr: 'Imprimez également la Légende Complète A4 depuis l’Atelier Papier pour l’afficher sur le mur du local de répétition.',
+      tipPt: 'Imprima também a Legenda Completa A4 pela Oficina Papel para fixar no mural do espaço de ensaio.',
+    },
+    {
+      id: 'p5-2',
+      poleId: 'pole-5',
+      level: 'studio',
+      shortcut: 'O > Atelier Papier',
+      titleFr: 'Imprimer une Feuille Vierge & Scanner une Partition Manuscrite',
+      titlePt: 'Imprimir Folha em Branco & Digitalizar Partitura Manuscrita',
+      goalFr: 'Écrire un arrangement au stylo sur le terrain puis le convertir en morceau jouable par détection optique.',
+      goalPt: 'Anotar um arranjo à caneta no ensaio e convertê-lo em música tocável por detecção óptica.',
+      contextFr: 'En répétition de rue, noter une idée sur papier quadrillé est souvent immédiat. Les gabarits calibrés à repères optiques relient directement le carnet du Mestre au moteur de Sequenciador.',
+      contextPt: 'No ensaio de rua, anotar uma ideia no papel quadriculado é imediato. Os modelos calibrados com marcas ópticas ligam o caderno do Mestre direto ao Sequenciador.',
+      stepsFr: [
+        'Dans A Oficina [O] > Édition & Scène > Atelier Papier & Scan, choisissez Partition Batuque (Grille 32×25 paysage ou fiches A/B/C/D) ou Atelier Papier du Chant (Toada), puis imprimez en A4.',
+        'Notez vos frappes en respectant les 5 Règles d’Or de la Légende Papier : barres de temps | franches, double barre horizontale sur le I (Bacalhau), barre croisée du t (Mineiro), slash D/E pour les pas scindés et double barre finale ||.',
+        'Photographiez la feuille (depuis l’onglet Scanner sur PC ou Scan & Imports sur mobile), ajustez le recadrage aux 4 carrés optiques et lancez l’assistant de transcription.',
+        'Vérifiez les éventuels points de vigilance signalés d’un clic dans le popover du pupitre, sauvegardez votre brouillon de scan sur le Cloud ou injectez directement dans le séquenceur.',
+      ],
+      stepsPt: [
+        'Em A Oficina [O] > Edição & Palco > Atelier Papel & Scan, escolha Partitura Batuque (Grade 32×25 paisagem ou folhas A/B/C/D) ou Atelier Papel do Canto (Toada) e imprima em A4.',
+        'Escreva os toques seguindo as 5 Regras de Ouro: barras de tempo | longas, dois traços horizontais no I (Bacalhau), corte nítido no t (Mineiro), barra inclinada D/E nos duplos e barra dupla final ||.',
+        'Fotografe a página (na aba Scanner no PC ou Scan & Importações no celular), alinhe o recorte nas 4 marcas ópticas e acione o assistente de transcrição.',
+        'Revise eventuais pontos de atenção clicando no popover do naipe, salve o rascunho na Nuvem ou injete diretamente no sequenciador.',
+      ],
+      tipFr: 'Sur une sous-ligne de variation (↳), laissez les carreaux inchangés vides pour hériter du Maître, et tracez un tiret (-) uniquement là où vous voulez forcer un vrai silence.',
+      tipPt: 'Numa sublinha de variação (↳), deixe em branco as casas que repetem o Mestre e use o traço (-) apenas onde quiser forçar um silêncio real.',
+    },
+    ...POLE_5_SIGNALS_AND_CLOUD_CARDS,
+  ],
+};

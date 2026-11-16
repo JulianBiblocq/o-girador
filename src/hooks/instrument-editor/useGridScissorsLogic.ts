@@ -66,7 +66,7 @@ export function useGridScissorsLogic({
     }
 
     setSelectedStepIdx(idx);
-    setSelectedStepIndices([idx]);
+    setSelectedStepIndices([]);
 
     if (selectedVariationId) {
       handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);

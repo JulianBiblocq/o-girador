@@ -20,18 +20,6 @@ export interface CircleSequencerProps {
   maxTicks?: number;
   timeSig?: TimeSignature;
   onTogglePlay?: () => void;
-  onStepChange?: (trackId: number, patternId: number, stepIdx: number, newState: string | number | [string, string], lyric?: string, note?: string) => void;
-  onStepTouchStart?: (
-    e: React.MouseEvent | React.TouchEvent,
-    patternId: number,
-    stepIdx: number,
-    instId: string,
-    currentVal: string | number | [string, string],
-    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
-    trackId: number,
-    isSplit?: boolean
-  ) => void;
-  langPromptVoiceText?: string;
   isMetroOn?: boolean;
   activeCircleIdByInst?: { [instIdx: number]: number | null };
   totalMeasures?: number;

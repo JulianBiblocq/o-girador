@@ -1,15 +1,15 @@
-
 import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Pattern } from '../../types';
+import { readFreshStepState, computeErasedStepResult } from './gridStepMutationHelpers';
 
 interface UseGridClearStepParams {
   trackId: number;
   pattern: Pattern;
   selectedVariationId: string | null;
   selectedStepIdx: number | null;
-  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any) => void;
-  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any) => void;
+  handleVariationStepValueChange: (tId: number, pId: number, vId: string, idx: any, val: any, opts?: { skipUndo?: boolean }) => void;
+  handleTrackStepValueChange: (tId: number, pId: number, idx: any, val: any, lyrics?: any, notes?: any, opts?: { skipUndo?: boolean }) => void;
   setSelectedSubIndex: (sub: 0 | 1 | null) => void;
   setSelectedStepIdx: (idx: number) => void;
   setSelectedStepIsPreRoll?: (isPre: boolean) => void;
@@ -26,69 +26,41 @@ export function useGridClearStep({
   setSelectedSubIndex,
   setSelectedStepIdx,
   setSelectedStepIsPreRoll,
-  setVoiceStepContextMenu
+  setVoiceStepContextMenu,
 }: UseGridClearStepParams) {
-  const handleClearStep = React.useCallback((idx: number, subIndex?: 0 | 1) => {
-    const rawVal = pattern?.activeSteps?.[idx];
-    if (rawVal === 0 || rawVal === '0' || rawVal === '' || rawVal === null || rawVal === undefined) {
-      return;
+  const handleClearStep = React.useCallback((idx: number, subIndex?: 0 | 1, variationIdOverride?: string | null) => {
+    const targetVarId = variationIdOverride !== undefined ? variationIdOverride : selectedVariationId;
+    const { rawVal } = readFreshStepState(trackId, pattern.id, targetVarId, idx);
+    const res = computeErasedStepResult(rawVal, subIndex);
+    if (!res.changed) return;
+
+    setSelectedSubIndex(res.nextSub);
+    if (targetVarId) {
+      handleVariationStepValueChange(trackId, pattern.id, targetVarId, idx, res.finalVal as any);
+    } else {
+      handleTrackStepValueChange(trackId, pattern.id, idx, res.finalVal as any);
     }
 
-    let finalVal: string | number | [string, string] = 0;
-    if (Array.isArray(rawVal)) {
-      if (subIndex !== undefined) {
-        const arr: [string, string] = [...rawVal] as [string, string];
-        arr[subIndex] = '0';
-        if ((arr[0] === '0' || !arr[0]) && (arr[1] === '0' || !arr[1])) {
-          finalVal = 0;
-          setSelectedSubIndex(null);
-        } else {
-          finalVal = arr;
-          setSelectedSubIndex(subIndex);
-        }
-      } else {
-        finalVal = 0;
-        setSelectedSubIndex(null);
-      }
-    } else {
-      finalVal = 0;
+    if (selectedStepIdx === idx && res.finalVal === 0) {
       setSelectedSubIndex(null);
     }
+  }, [trackId, pattern.id, selectedVariationId, selectedStepIdx, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedSubIndex]);
 
-    if (selectedVariationId) {
-      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-    } else {
-      handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
-    }
-
-    if (selectedStepIdx === idx && finalVal === 0) {
-      setSelectedSubIndex(null);
-    }
-  }, [pattern?.activeSteps, pattern?.id, selectedVariationId, selectedStepIdx, trackId, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedSubIndex]);
-
-  const handleCellContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number, _value: any, subIndex?: 0 | 1) => {
+  const handleCellContextMenu = React.useCallback((e: React.MouseEvent<any>, _idx: number, _value: any, _subIndex?: 0 | 1) => {
     e.preventDefault();
-    handleClearStep(idx, subIndex);
-  }, [handleClearStep]);
+    e.stopPropagation();
+  }, []);
 
   const handleVoiceContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number, isPreRoll?: boolean) => {
     e.preventDefault();
     e.stopPropagation();
     const state = useSequencerStore.getState();
     if (!state.selectedStepRange) {
-      useSequencerStore.setState({
-        selectedStepIdx: idx,
-        selectedStepIsPreRoll: Boolean(isPreRoll)
-      });
+      useSequencerStore.setState({ selectedStepIdx: idx, selectedStepIsPreRoll: Boolean(isPreRoll) });
       setSelectedStepIdx(idx);
       if (setSelectedStepIsPreRoll) setSelectedStepIsPreRoll(Boolean(isPreRoll));
     }
-    setVoiceStepContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      stepIdx: idx,
-      isPreRoll: Boolean(isPreRoll)
-    });
+    setVoiceStepContextMenu({ x: e.clientX, y: e.clientY, stepIdx: idx, isPreRoll: Boolean(isPreRoll) });
   }, [setSelectedStepIdx, setSelectedStepIsPreRoll, setVoiceStepContextMenu]);
 
   return { handleClearStep, handleCellContextMenu, handleVoiceContextMenu };

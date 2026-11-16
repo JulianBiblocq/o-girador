@@ -1,6 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getUpperTagName, isInputElementLike } from '../../utils/crossRealmDom';
 import { duplicateVocalStep, duplicatePercussionStep } from './duplicateStepHelpers';
 import { Pattern } from '../../types';
 
@@ -59,26 +60,29 @@ export function useGridDuplicateShortcut(params: UseGridDuplicateShortcutParams)
   useEffect(() => {
     if (selectedStepIdx === null || pattern?.id !== selectedPatternId) return;
 
+    const targetWin: Window = currentWindow || window;
+    const targetDoc = targetWin.document || document;
+
     const handleDuplicateKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'd') return;
       const seqState = useSequencerStore.getState();
-      const isTimelineContext = Boolean(seqState.activeTimelineCell) || (seqState.selectedTimelineCells && seqState.selectedTimelineCells.length > 0) || Boolean(document.activeElement?.closest('#timeline-scroll-container, .timeline-scroll-grid, [data-timeline-grid]'));
+      const activeEl = targetDoc.activeElement as HTMLElement | null;
+      const isTimelineContext = Boolean(seqState.activeTimelineCell) || (seqState.selectedTimelineCells && seqState.selectedTimelineCells.length > 0) || Boolean(activeEl?.closest?.('#timeline-scroll-container, .timeline-scroll-grid, [data-timeline-grid]'));
       if (isTimelineContext) return;
 
-      const activeEl = document.activeElement as HTMLElement | null;
-      if (activeEl instanceof HTMLInputElement && activeEl.classList.contains('v-syl')) {
+      if (isInputElementLike(activeEl) && activeEl.classList.contains('v-syl')) {
         const selStart = activeEl.selectionStart;
         const selEnd = activeEl.selectionEnd;
         const valLen = activeEl.value.length;
         if (!(selStart === 0 && selEnd === valLen && valLen > 0)) return;
       }
-      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && !activeEl.closest('[data-track-id]') && !activeEl.closest('[data-step-index]')) return;
+      const tag = getUpperTagName(activeEl);
+      if (activeEl && (tag === 'INPUT' || tag === 'TEXTAREA') && !activeEl.closest?.('[data-track-id]') && !activeEl.closest?.('[data-step-index]')) return;
 
       e.preventDefault(); e.stopPropagation(); (e as any).stopImmediatePropagation?.();
       handleDuplicateStep();
     };
 
-    const targetWin = currentWindow || window;
     targetWin.addEventListener('keydown', handleDuplicateKeyDown, { capture: true });
     return () => targetWin.removeEventListener('keydown', handleDuplicateKeyDown, { capture: true });
   }, [selectedStepIdx, pattern?.id, selectedPatternId, currentWindow, handleDuplicateStep]);

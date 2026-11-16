@@ -5,30 +5,46 @@ interface BalancoIntensitySliderProps {
   swingIntensity: number | undefined;
   lang: Language;
   onChange: (val: number) => void;
+  label?: string;
+  hint?: string;
+  sliderTestId?: string;
 }
 
 export const BalancoIntensitySlider: React.FC<BalancoIntensitySliderProps> = ({
-  swingIntensity = 100,
+  swingIntensity,
   lang,
   onChange,
+  label,
+  hint,
+  sliderTestId,
 }) => {
+  const safeIntensity = swingIntensity ?? 100;
+  const resolvedLabel = label ?? (lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :');
+
   return (
-    <div className="flex flex-col gap-1.5 bg-[#eaddcf]/30 p-3 border border-black/15 rounded-sm">
-      <div className="flex justify-between items-center">
-        <span className="font-bold text-[10px] uppercase flex items-center gap-1 text-[#1a1a1a]">
-          {lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :'}
+    <div className="flex flex-col gap-1.5 bg-[var(--cordel-surface)] p-3 border border-[var(--cordel-border)] rounded-sm">
+      <div className="flex justify-between items-center gap-2">
+        <span className="font-bold text-[10px] uppercase flex items-center gap-1 text-[var(--cordel-text)]">
+          {resolvedLabel}
         </span>
-        <span className="font-bold text-[#8b2a1a] text-xs">{swingIntensity}%</span>
+        <span className="font-mono font-bold text-[var(--cordel-accent-readable)] text-xs">
+          {safeIntensity}%
+        </span>
       </div>
       <input
+        data-testid={sliderTestId}
         type="range"
         min="0"
         max="100"
-        value={swingIntensity}
+        value={safeIntensity}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
-        className="w-full h-2 bg-black/15 rounded-full appearance-none cursor-pointer outline-none"
-        style={{ accentColor: '#8b2a1a' }}
+        className="w-full h-2 bg-[var(--cordel-surface-muted)] rounded-full appearance-none cursor-pointer outline-none accent-[var(--cordel-wood)]"
       />
+      {hint && (
+        <span className="text-[10px] text-[var(--cordel-text-muted)] leading-tight">
+          {hint}
+        </span>
+      )}
     </div>
   );
 };

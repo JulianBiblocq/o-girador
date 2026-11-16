@@ -1,16 +1,25 @@
 import { TrackGroup, Language } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { audioEngine } from '../../hooks/useAudioSync';
+import { allocWizardId } from './wizardPatternBuilder';
 
-export function createToadaBusAndTracks(wizardLang: Language): TrackGroup[] {
+export function createToadaBusAndTracks(
+  wizardLang: Language,
+  totalMeasures = 1,
+  stepsPerMeasure = 16
+): TrackGroup[] {
   const toadaIdx = instrumentsConfig.findIndex((c) => c.id === 'toada');
   const puxInstIdx = instrumentsConfig.findIndex((c) => c.id === 'puxador');
   const coroInstIdx = instrumentsConfig.findIndex((c) => c.id === 'coro');
   if (toadaIdx === -1) return [];
 
-  const toadaBusId = Date.now() + 80000;
-  const puxTrackId = toadaBusId + 1;
-  const coroTrackId = toadaBusId + 2;
+  const toadaBusId = allocWizardId();
+  const puxTrackId = allocWizardId();
+  const coroTrackId = allocWizardId();
+  const puxPtnId = allocWizardId();
+  const coroPtnId = allocWizardId();
+  const safeBars = Math.max(1, totalMeasures);
+  const safeSteps = Math.max(8, stepsPerMeasure);
 
   const toadaBusTrack: TrackGroup = {
     id: toadaBusId,
@@ -37,23 +46,23 @@ export function createToadaBusAndTracks(wizardLang: Language): TrackGroup[] {
     busId: String(toadaBusId),
     patterns: [
       {
-        id: toadaBusId + 10,
+        id: puxPtnId,
         name: wizardLang === 'fr' ? 'Solo 1' : 'Solista 1',
-        steps: 16,
-        activeSteps: Array(16).fill(0),
-        lyrics: Array(16).fill(''),
-        notes: Array(16).fill(''),
-        measureAssignments: [true, false, false, false, false, false, false, false],
-        volumes: Array(16).fill(80),
-        decays: Array(16).fill(10),
-        microtimings: Array(16).fill(0),
+        steps: safeSteps,
+        activeSteps: Array(safeSteps).fill(0),
+        lyrics: Array(safeSteps).fill(''),
+        notes: Array(safeSteps).fill(''),
+        measureAssignments: Array(safeBars).fill(true),
+        volumes: Array(safeSteps).fill(80),
+        decays: Array(safeSteps).fill(10),
+        microtimings: Array(safeSteps).fill(0),
       },
     ],
     isMute: false,
     isSolo: false,
     isHidden: false,
     volumeVal: 75,
-    selectedPatternId: toadaBusId + 10,
+    selectedPatternId: puxPtnId,
     reverbVal: 0,
     panVal: 0,
     pan: 0,
@@ -66,23 +75,23 @@ export function createToadaBusAndTracks(wizardLang: Language): TrackGroup[] {
     busId: String(toadaBusId),
     patterns: [
       {
-        id: toadaBusId + 20,
+        id: coroPtnId,
         name: wizardLang === 'fr' ? 'Chœur 1' : 'Coro 1',
-        steps: 16,
-        activeSteps: Array(16).fill(0),
-        lyrics: Array(16).fill(''),
-        notes: Array(16).fill(''),
-        measureAssignments: Array(8).fill(false),
-        volumes: Array(16).fill(80),
-        decays: Array(16).fill(10),
-        microtimings: Array(16).fill(0),
+        steps: safeSteps,
+        activeSteps: Array(safeSteps).fill(0),
+        lyrics: Array(safeSteps).fill(''),
+        notes: Array(safeSteps).fill(''),
+        measureAssignments: Array(safeBars).fill(false),
+        volumes: Array(safeSteps).fill(80),
+        decays: Array(safeSteps).fill(10),
+        microtimings: Array(safeSteps).fill(0),
       },
     ],
     isMute: false,
     isSolo: false,
     isHidden: false,
     volumeVal: 75,
-    selectedPatternId: toadaBusId + 20,
+    selectedPatternId: coroPtnId,
     reverbVal: 0,
     panVal: 0,
     pan: 0,
@@ -90,8 +99,8 @@ export function createToadaBusAndTracks(wizardLang: Language): TrackGroup[] {
   };
 
   if (audioEngine) {
-    audioEngine.loadInstrumentSamples('puxador').catch(console.error);
-    audioEngine.loadInstrumentSamples('coro').catch(console.error);
+    audioEngine.loadInstrumentSamples('puxador').catch(() => {});
+    audioEngine.loadInstrumentSamples('coro').catch(() => {});
   }
 
   return [toadaBusTrack, puxTrack, coroTrack];

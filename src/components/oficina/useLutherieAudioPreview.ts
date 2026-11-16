@@ -1,17 +1,22 @@
 /**
  * useLutherieAudioPreview.ts — Pré-écoutes unitaires, arpèges et accords par famille
- * pour le Banc de Lutherie du Baque (A Oficina & Assistant du Mestre) (< 95 lignes).
+ * pour le Banc de Lutherie du Baque (A Oficina & Assistant du Mestre) (< 105 lignes).
  */
 import { useCallback } from 'react';
 import * as Tone from 'tone';
 import { audioEngine } from '../../hooks/useAudioSync';
-import { LutheriePreset, LutherieDrumRole } from '../../utils/audio/lutheriePresetsStorage';
+import { LutherieDrumRole } from '../../utils/audio/lutheriePresetsStorage';
 
 export interface DrumLutherieState {
   tuning: number;
   decayPct: number;
   trackId: number | null;
   isPresent: boolean;
+}
+
+export interface LutheriePreviewOverride {
+  tunings: Partial<Record<LutherieDrumRole, number>>;
+  decays?: Partial<Record<LutherieDrumRole, number>>;
 }
 
 export function useLutherieAudioPreview(getDrumState: (instrumentId: string) => DrumLutherieState) {
@@ -21,13 +26,13 @@ export function useLutherieAudioPreview(getDrumState: (instrumentId: string) => 
       strokeSymbol: string,
       velocity: number = 1.0,
       timeOffsetSec: number = 0,
-      overridePreset?: LutheriePreset
+      override?: LutheriePreviewOverride
     ) => {
       if (!audioEngine) return;
       const st = getDrumState(instrumentId);
       const role = instrumentId as LutherieDrumRole;
-      const tuning = overridePreset ? (overridePreset.tunings[role] ?? st.tuning) : st.tuning;
-      const decayPct = overridePreset ? (overridePreset.decays[role] ?? st.decayPct) : st.decayPct;
+      const tuning = override && override.tunings[role] !== undefined ? override.tunings[role]! : st.tuning;
+      const decayPct = override?.decays && override.decays[role] !== undefined ? override.decays[role]! : st.decayPct;
       const decayMultiplier = Math.max(0.15, Math.min(1.0, (decayPct ?? 100) / 100));
       const baseTime = Tone.now() || audioEngine.getCurrentTime();
       const targetTime = timeOffsetSec > 0 ? baseTime + timeOffsetSec : undefined;
@@ -50,10 +55,13 @@ export function useLutherieAudioPreview(getDrumState: (instrumentId: string) => 
   }, [triggerDrumHit]);
 
   const previewAlfaiasChord = useCallback(
-    (overridePreset?: LutheriePreset) => {
+    (override?: LutheriePreviewOverride, includeGongue: boolean = false) => {
       ['marcante', 'meiao', 'repique'].forEach((role, idx) => {
-        triggerDrumHit(role, 'D', 0.85, idx * 0.004, overridePreset);
+        triggerDrumHit(role, 'D', 0.85, idx * 0.004, override);
       });
+      if (includeGongue) {
+        triggerDrumHit('gongue', 'G', 0.72, 0.014, override);
+      }
     },
     [triggerDrumHit]
   );
@@ -70,12 +78,12 @@ export function useLutherieAudioPreview(getDrumState: (instrumentId: string) => 
   }, [triggerDrumHit]);
 
   const previewFullBaqueChord = useCallback(() => {
-    const allRoles = ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'];
+    const allRoles = ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'];
     const activeRoles = allRoles.filter((r) => getDrumState(r).isPresent);
     const rolesToPlay = activeRoles.length > 0 ? activeRoles : allRoles;
 
     rolesToPlay.forEach((role, idx) => {
-      const stroke = role === 'timbal' ? 'A' : 'D';
+      const stroke = role === 'timbal' ? 'A' : role === 'gongue' ? 'G' : 'D';
       const offset = idx * 0.004;
       triggerDrumHit(role, stroke, 0.85, offset);
       triggerDrumHit(role, stroke, 0.92, 0.44 + offset);

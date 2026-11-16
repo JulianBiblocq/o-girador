@@ -4,7 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { subscribeToGroupDefaultPreset, setDefaultGroupPreset } from '../../cloudGroups';
+import { resolveGroupLogoFromCloud } from '../../services/cloud-groups/cloudGroupVariants';
 import { togglePresetDraftStatus } from '../../cloudPresetsStorage';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
 export function useHeaderProject(cloudPresets: any[] = [], activePresetName: string) {
   const sequencer = useSequencer();
@@ -13,21 +15,20 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
   const queryClient = useQueryClient();
 
   const rawGroupId = (userProfile?.groupId || '').trim();
-  const isSamambaia = Boolean(
-    rawGroupId.toLowerCase().includes('samambaia') ||
-    rawGroupId.toLowerCase().includes('sammbia')
-  );
+  const isSamambaia = isLegacySamambaiaGroup(rawGroupId);
   const isOtherDistinctGroup = Boolean(rawGroupId && !isSamambaia);
 
-  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || (rawGroupId || 'Samambaia');
+  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : rawGroupId) || '';
+  const [cloudGroupLogo, setCloudGroupLogo] = useState<string | null>(null);
 
-  // Résolution dynamique du logo de groupe :
-  // - Pour Samambaia : son logo dédié ou logo configuré
-  // - Pour un autre groupe : son logo configuré ou le blason neutre vectoriel O Girador
-  // - Visiteur sans groupe : logo Samambaia par défaut (rétrocompatibilité)
-  const groupLogo = isOtherDistinctGroup
-    ? (userProfile?.groupLogoUrl || '/o-girador-logo.svg')
-    : (userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png');
+  useEffect(() => {
+    let cancelled = false;
+    if (!rawGroupId || userProfile?.groupLogoUrl) { setCloudGroupLogo(null); return; }
+    resolveGroupLogoFromCloud(rawGroupId).then((url) => { if (!cancelled) setCloudGroupLogo(url); });
+    return () => { cancelled = true; };
+  }, [rawGroupId, userProfile?.groupLogoUrl]);
+
+  const groupLogo = userProfile?.groupLogoUrl || cloudGroupLogo || (isSamambaia ? '/Pictures/logo-samambaia.png' : '/o-girador-logo.webp');
 
   const isPublicPreset = (p: { visibility?: string }) =>
     p.visibility === 'admin_global' || p.visibility === 'public';
@@ -62,8 +63,7 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
   const isMestre = Boolean(
     userProfile?.role === 'mestre' ||
     (userProfile as any)?.dbRole === 'mestre' ||
-    userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    currentUser?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'
+    (isSamambaia && (userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || currentUser?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'))
   );
   const isEditor = Boolean(isAdmin || isMestre || userProfile?.canWriteSequenciador);
 

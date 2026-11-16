@@ -7,8 +7,10 @@ import { AlfaiaSticksOverlay } from './AlfaiaSticksOverlay';
 import { CaixaSticksOverlay } from './CaixaStickSvgs';
 import { GongueStickOverlay } from './GongueStickSvg';
 import { TimbalHandsOverlay } from './TimbalHandSvgs';
+import { AoVivoResolvedFamily } from './resolveAoVivoFamily';
 
 interface AoVivoInstrumentRenderersProps {
+  family: AoVivoResolvedFamily | null;
   instId: string;
   activeTrack?: any;
   isLeftHanded: boolean;
@@ -27,16 +29,14 @@ interface AoVivoInstrumentRenderersProps {
 
 export const AoVivoInstrumentRenderers: React.FC<AoVivoInstrumentRenderersProps> = (props) => {
   const {
-    instId, activeTrack, isLeftHanded, haloRef,
+    family, instId, activeTrack, isLeftHanded, haloRef,
     leftWrapperRef, rightWrapperRef, leftStickRef, rightStickRef,
     mineiroWrapperRef, mineiroStickRef, agbeWrapperRef, agbeWholeRef,
     gongueWrapperRef, gongueStickRef,
   } = props;
 
-  switch (instId) {
-    case 'marcante':
-    case 'meiao':
-    case 'repique':
+  switch (family) {
+    case 'alfaia':
       return (
         <AlfaiaSticksOverlay
           activeTrack={activeTrack}
@@ -53,7 +53,7 @@ export const AoVivoInstrumentRenderers: React.FC<AoVivoInstrumentRenderersProps>
     case 'tarol':
       return (
         <CaixaSticksOverlay
-          instId={instId}
+          instId={family === 'tarol' ? 'tarol' : instId}
           haloRef={haloRef}
           leftWrapperRef={leftWrapperRef}
           rightWrapperRef={rightWrapperRef}

@@ -1,0 +1,66 @@
+import { GuidePoleDef } from './guideTypes';
+import { POLE_3_VOCAL_AND_DUAL_CARDS } from './pole3VocalAndDualScreen';
+
+export const POLE_3_ARRANGE_SING: GuidePoleDef = {
+  id: 'pole-3',
+  num: '03',
+  titleFr: 'Arranger & Chanter',
+  titlePt: 'Arranjar & Cantar',
+  subtitleFr: 'Bâtir le conducteur multipiste dans la Timeline DAW, sculpter signatures et tempos, chanter la Toada et travailler sur 2 écrans.',
+  subtitlePt: 'Construir o arranjo na Linha do Tempo DAW, moldar compassos e andamentos, cantar a Toada e trabalhar em 2 telas.',
+  cards: [
+    {
+      id: 'p3-1',
+      poleId: 'pole-3',
+      level: 'studio',
+      shortcut: 'Tab · Ctrl+D · L',
+      titleFr: 'Assembler le conducteur multipiste dans la Timeline DAW',
+      titlePt: 'Montar o condutor multifaixa na Linha do Tempo DAW',
+      goalFr: 'Enchaîner introductions, bases, appels, breques et viradas mesure par mesure avec clarté visuelle.',
+      goalPt: 'Encadear introduções, bases, chamadas, breques e viradas compasso a compasso com clareza visual.',
+      contextFr: 'Là où la Roda montre l’intérieur d’une mesure à la loupe circulaire, la Timeline offre la vue panoramique horizontale de toute l’œuvre sur 3 niveaux de zoom continus.',
+      contextPt: 'Enquanto a Roda revela o interior de um compasso em 360°, a Linha do Tempo oferece a visão panorâmica horizontal de toda a música em 3 níveis de zoom.',
+      stepsFr: [
+        'Appuyez sur [Tab] (ou cliquez sur l’onglet [ SÉQUENCEUR ]) pour basculer entre la Roda et la Timeline multipiste ; utilisez Ctrl + Molette pour zoomer ou dézoomer.',
+        'Double-cliquez sur une cellule de mesure pour assigner ou créer un motif sur cette piste, ou tirez la poignée droite d’un bloc pour l’étirer sur plusieurs mesures.',
+        'Sélectionnez un bloc ou un rectangle multi-pistes puis appuyez sur [Ctrl+D] pour le dupliquer à la suite, ou utilisez [Ctrl+C / Ctrl+X / Ctrl+V] et [Suppr].',
+        'Posez des marqueurs de sections nommés (ex. Intro, Baque Virado, Parada, Convenção) sur la règle supérieure et encadrez une zone de boucle avec [L].',
+      ],
+      stepsPt: [
+        'Pressione [Tab] (ou clique na aba [ SEQUENCIADOR ]) para alternar entre a Roda e a Linha do Tempo multifaixa; use Ctrl + Roda do mouse para ajustar o zoom.',
+        'Dê um duplo clique numa célula de compasso para escolher ou criar um padrão, ou arraste a borda direita de um bloco para estendê-lo por vários compassos.',
+        'Selecione um bloco ou retângulo multifaixa e pressione [Ctrl+D] para duplicar em seguida, ou use [Ctrl+C / Ctrl+X / Ctrl+V] e [Delete].',
+        'Adicione marcadores nomeados de seção (ex. Intro, Baque Virado, Parada, Convenção) na régua superior e ative uma região de loop com [L].',
+      ],
+      tipFr: 'Chaque fois qu’un motif recommence après un autre motif différent, sa variation 1ª VEZ se déclenche automatiquement sur la 1re mesure de ce nouveau bloc contigu.',
+      tipPt: 'Sempre que um padrão recomeça após outro padrão diferente, sua variação 1ª VEZ dispara automaticamente no 1º compasso desse novo bloco contínuo.',
+    },
+    {
+      id: 'p3-2',
+      poleId: 'pole-3',
+      level: 'studio',
+      shortcut: '4/4 · 2/4 · 12/8 · BPM',
+      titleFr: 'Signatures libres par mesure & Rampes de Tempo / Automation',
+      titlePt: 'Fórmulas livres por compasso & Rampas de Tempo / Automação',
+      goalFr: 'Écrire des cassures métriques (relances en 2/4, passages ternaires 12/8), accélérations et crescendos.',
+      goalPt: 'Escrever quebras métricas (retomadas em 2/4, trechos em 12/8), acelerações de cortejo e crescendos.',
+      contextFr: 'Une convenção ou une relance coupe fréquemment un 4/4 par une mesure courte en 2/4 ou une montée progressive de BPM ; le moteur audio recalcule les subdivisions sans jamais perdre la pulsation.',
+      contextPt: 'Uma convenção ou retomada frequentemente corta um 4/4 com um compasso curto em 2/4 ou uma subida progressiva de BPM; o motor recalcula tudo sem perder o pulso.',
+      stepsFr: [
+        'Cliquez sur l’indicateur de métrique d’une mesure dans la règle supérieure de la Timeline pour choisir 4/4, 2/4, 3/4, 6/8 ou 12/8 (ainsi que triolets ou sextolets par temps dans l’Éditeur).',
+        'Cliquez sur la valeur de BPM d’une mesure pour fixer un changement brusque ou tracer une rampe d’accélération / ralentissement linéaire ou en courbe douce.',
+        'Cliquez sur l’icône de courbe d’une piste ou d’un Bus de pupitre pour déplier sa piste d’automation de volume.',
+        'Ajoutez et glissez vos points d’automation pour sculpter une montée de Caixas en Barulho ou un fondu de sortie.',
+      ],
+      stepsPt: [
+        'Clique na fórmula de compasso na régua superior da Linha do Tempo para definir 4/4, 2/4, 3/4, 6/8 ou 12/8 (além de tercinas ou sextinas por tempo no Editor).',
+        'Clique no BPM de um compasso para aplicar mudança imediata ou desenhar uma rampa linear ou suave de aceleração / desaceleração.',
+        'Clique no ícone de curva numa faixa ou Canal de Bus para abrir sua linha de automação de volume.',
+        'Crie e arraste pontos de automação para desenhar crescendos de Caixas em Barulho ou fades de encerramento.',
+      ],
+      tipFr: 'Lors d’un passage d’une mesure 4/4 à une mesure 2/4, la Roda adapte d’elle-même ses quartiers angulaires et son balayage anticipé M+1.',
+      tipPt: 'Na passagem de um compasso 4/4 para 2/4, a Roda adapta automaticamente seus setores angulares e a antecipação M+1.',
+    },
+    ...POLE_3_VOCAL_AND_DUAL_CARDS,
+  ],
+};

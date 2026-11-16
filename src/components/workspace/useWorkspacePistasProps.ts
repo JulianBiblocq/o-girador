@@ -1,9 +1,9 @@
-
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useLiveMeasure } from '../../hooks/useLiveMeasure';
 import { useDawVisibleTracks } from '../daw/useDawVisibleTracks';
 import { useDawPlayhead } from '../daw/useDawPlayhead';
+import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
 const getBeatsFromTimeSig = (sig: string): number => {
   if (sig === '3/4') return 3;
@@ -14,15 +14,16 @@ const getBeatsFromTimeSig = (sig: string): number => {
 
 export function useWorkspacePistasProps(isActive: boolean) {
   const currentMeasure = useLiveMeasure(isActive);
-  const timeSig = useSequencerStore(state => state.timeSig);
-  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
-  const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
+  const timeSig = useSequencerStore((state) => state.timeSig);
+  const measureTimeSigs = useSequencerStore((state) => state.measureTimeSigs);
+  const isLeftHanded = useSequencerStore((state) => state.isLeftHanded);
+  const [pedagogyTarget, setPedagogyTarget] = useState<StrokeInfoPopoverTarget | null>(null);
 
   const activeTimeSig = (measureTimeSigs && measureTimeSigs[currentMeasure]) || timeSig;
   const defaultBeats = getBeatsFromTimeSig(activeTimeSig);
 
   const { visibleTracks } = useDawVisibleTracks();
-  const visibleTrackIds = visibleTracks.map(t => t.id).join('-');
+  const visibleTrackIds = visibleTracks.map((t) => t.id).join('-');
   const { registerStepRef, trackResolutionsRef } = useDawPlayhead(isActive, visibleTrackIds);
 
   const trackScrollRef = useRef<HTMLDivElement | null>(null);
@@ -40,13 +41,19 @@ export function useWorkspacePistasProps(isActive: boolean) {
     }
   }, []);
 
-  const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
+  const isTracksCollapsed = useSequencerStore((state) => state.isTracksCollapsed);
 
   useEffect(() => {
-    if (!isTracksCollapsed && trackScrollRef.current && pistasScrollRef.current) {
+    if (isTracksCollapsed || !isActive) {
+      setPedagogyTarget(null);
+    } else if (trackScrollRef.current && pistasScrollRef.current) {
       pistasScrollRef.current.scrollTop = trackScrollRef.current.scrollTop;
     }
-  }, [isTracksCollapsed]);
+  }, [isTracksCollapsed, isActive]);
+
+  const onPedagogicalStepClick = useCallback((target: StrokeInfoPopoverTarget | null) => {
+    setPedagogyTarget(target);
+  }, []);
 
   return {
     currentMeasure,
@@ -59,5 +66,7 @@ export function useWorkspacePistasProps(isActive: boolean) {
     pistasScrollRef,
     handleTrackScroll,
     handlePistasScroll,
+    pedagogyTarget,
+    onPedagogicalStepClick,
   };
 }

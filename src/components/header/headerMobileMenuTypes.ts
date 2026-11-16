@@ -1,7 +1,3 @@
-/**
- * Types d'interface pour le menu mobile d'en-tête (< 50 lignes).
- */
-
 export interface HeaderMobileMenuProps {
   lang: 'pt' | 'fr';
   isDarkMode: boolean;
@@ -10,7 +6,6 @@ export interface HeaderMobileMenuProps {
   showInstallButton?: boolean;
   onInstallClick?: () => void;
   onAdminClick?: () => void;
-  onOpenSwingModal: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;

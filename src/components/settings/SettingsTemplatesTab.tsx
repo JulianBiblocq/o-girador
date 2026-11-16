@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { XiloScroll } from '../XiloIcons';
 import { useWorkspaceTemplateStore } from '../../stores/useWorkspaceTemplateStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -57,13 +58,13 @@ export const SettingsTemplatesTab: React.FC<SettingsTemplatesTabProps> = ({
 
   return (
     <div className="flex flex-col gap-5 text-left">
-      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-black/10 pb-2">
+      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-[var(--cordel-border)]/35 pb-2.5">
         <div>
-          <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
-            <XiloScroll size={16} className="shrink-0" />
+          <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-2 text-[var(--cordel-text)]">
+            <XiloScroll size={16} className="shrink-0 text-[var(--cordel-accent-readable)]" />
             <span>{lang === 'pt' ? 'Modelos de Batuque Pessoais' : 'Gabarits de Batuque Personnels'}</span>
           </h3>
-          <p className="text-[10px] opacity-75 mt-0.5">
+          <p className="text-[11px] text-[var(--cordel-text-muted)] mt-0.5">
             {lang === 'pt'
               ? 'Seus gabaritos são estritamente privados (salvos localmente e sincronizados na sua conta).'
               : 'Vos gabarits sont strictement privés (enregistrés localement et synchronisés sur votre compte).'}
@@ -71,33 +72,33 @@ export const SettingsTemplatesTab: React.FC<SettingsTemplatesTabProps> = ({
         </div>
         {userProfile && (
           <button
+            type="button"
             onClick={() => syncWorkspaceTemplates(userProfile.uid)}
             disabled={isSyncingTemplates}
-            className="px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white text-[#1a1a1a] hover:bg-black hover:!text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5"
+            className="px-3 py-1.5 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] cursor-pointer shadow-[1.5px_1.5px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5 transition-colors disabled:opacity-60"
           >
+            <RefreshCw size={12} className={isSyncingTemplates ? 'animate-spin shrink-0' : 'shrink-0'} />
             <span>{isSyncingTemplates ? (lang === 'pt' ? 'Sincronizando...' : 'Synchronisation...') : (lang === 'pt' ? 'Sincronizar' : 'Synchroniser')}</span>
           </button>
         )}
       </div>
 
       {workspaceTemplates.length === 0 ? (
-        <div className="p-6 border-2 border-dashed border-[#1a1a1a]/40 bg-[#f4ecd8] text-[#1a1a1a] text-center flex flex-col items-center justify-center gap-2 rounded">
-          <span className="font-cactus font-bold text-sm uppercase text-[#1a1a1a]">
+        <div className="p-6 border-2 border-dashed border-[var(--cordel-border)] bg-[var(--cordel-surface)] text-[var(--cordel-text)] text-center flex flex-col items-center justify-center gap-2 rounded">
+          <span className="font-cactus font-bold text-sm uppercase text-[var(--cordel-text)]">
             {lang === 'pt' ? 'Nenhum modelo salvo' : 'Aucun gabarit enregistré'}
           </span>
-          <p className="text-[11px] text-[#44403c] font-semibold max-w-sm">
+          <p className="text-[11px] text-[var(--cordel-text-muted)] font-semibold max-w-sm">
             {lang === 'pt'
               ? 'Para criar um modelo, configure as pistas desejadas e clique em "Memorizar modelo" na régua Master.'
               : 'Pour créer un gabarit, configurez vos pistes et cliquez sur "Mémoriser gabarit" sur la tranche Master.'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
           {workspaceTemplates.map((tpl) => (
             <SettingsTemplateCard
-              key={tpl.id}
-              tpl={tpl}
-              lang={lang}
+              key={tpl.id} tpl={tpl} lang={lang}
               isEditing={editingTemplateId === tpl.id}
               editingName={editingTemplateId === tpl.id ? editingTemplateName : tpl.name}
               isConfirmingDelete={confirmDeleteId === tpl.id}

@@ -1,17 +1,22 @@
-
 import React, { useRef } from 'react';
 import * as Tone from 'tone';
 import { Volume2, Clock } from 'lucide-react';
 import { audioEngine } from '../../../hooks/useAudioSync';
 import { isDarkText } from '../../../data';
 import { applyCordelInkedPatina } from '../../../utils/colorHelpers';
+import { StrokeMidiAndKeyBadge } from './StrokeMidiAndKeyBadge';
 
 export interface StrokeColumnSlidersProps {
   symbol: string;
+  shortcut?: string;
   label: string;
   isWeak: boolean;
   instrument: any;
   trackId: number;
+  trackLabel?: string;
+  patternId?: number;
+  patternLabel?: string;
+  activeTool?: string;
   isVoice: boolean;
   isFr: boolean;
   stats: { avgVolume: number; avgDecay: number };
@@ -22,20 +27,20 @@ export interface StrokeColumnSlidersProps {
 
 export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.memo((props) => {
   const {
-    symbol, label, isWeak, instrument, trackId, isVoice, isFr, stats,
-    playThrottledPreview, applyMacroVolumeDelta, applyMacroDecayDelta,
+    symbol, shortcut, label, isWeak, instrument, trackId, trackLabel, patternId, patternLabel,
+    activeTool, isVoice, isFr, stats, playThrottledPreview, applyMacroVolumeDelta, applyMacroDecayDelta,
   } = props;
 
   const bgCol = applyCordelInkedPatina(instrument.colors?.[symbol] || '#666');
-  const txtCol = isDarkText(instrument?.id, symbol, bgCol) ? '#1a1a1a' : '#f4ecd8';
+  const txtCol = isDarkText(instrument?.id, symbol, bgCol) ? 'var(--cordel-ink-dark)' : 'var(--cordel-on-accent)';
   const volLabelRef = useRef<HTMLSpanElement>(null);
   const decayLabelRef = useRef<HTMLSpanElement>(null);
   const currentVolRef = useRef<number>(stats.avgVolume);
   const currentDecayRef = useRef<number>(stats.avgDecay);
 
   return (
-    <div className="flex-1 min-w-0 bg-[#f4ecd8] cordel-border-sm p-2.5 flex flex-col gap-2 shadow-sm w-full box-border">
-      <div className="flex items-center gap-1.5 border-b border-[#1a1a1a]/15 pb-1 w-full min-w-0">
+    <div className="flex-1 min-w-0 bg-[var(--cordel-parchment-bg)] cordel-border-sm p-2.5 flex flex-col gap-2 shadow-sm w-full box-border">
+      <div className="flex items-center gap-1.5 border-b border-[var(--cordel-ink-dark)]/15 pb-1 w-full min-w-0">
         <div
           onClick={() => {
             if (audioEngine) {
@@ -44,24 +49,24 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
               } catch (_) {}
             }
           }}
-          className="xilo-wood-stamp w-6 h-6 rounded-none flex items-center justify-center font-bold text-xs cursor-pointer active:scale-95 transition-transform shrink-0 border border-[#1a1a1a]/40"
+          className="xilo-wood-stamp w-6 h-6 rounded-none flex items-center justify-center font-bold text-xs cursor-pointer active:scale-95 transition-transform shrink-0 border border-[var(--cordel-ink-dark)]/40"
           style={{ backgroundColor: bgCol, color: txtCol }}
           title={isFr ? 'Cliquer pour écouter la frappe' : 'Clique para ouvir o toque'}
         >
           {symbol}
         </div>
         <div className="flex flex-col min-w-0 flex-1">
-          <span className="font-cactus font-bold text-[11px] text-[#1a1a1a] truncate">{label}</span>
-          <span className="text-[9px] text-[#666] font-mono leading-tight truncate">
+          <span className="font-cactus font-bold text-[11px] text-[var(--cordel-ink-dark)] truncate">{label}</span>
+          <span className="text-[9px] text-[var(--cordel-text-muted)] font-mono leading-tight truncate">
             {isWeak ? (isFr ? 'Déclinaison' : 'Variação') : (isFr ? 'Coup Fort' : 'Toque Forte')} [{symbol}]
           </span>
         </div>
       </div>
 
       <div className="flex flex-col gap-1 w-full min-w-0">
-        <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a] w-full min-w-0">
-          <span className="flex items-center gap-1 text-[9px] text-[#666] truncate"><Volume2 size={12} className="text-green-700 shrink-0" />Volume :</span>
-          <span ref={volLabelRef} className="font-mono text-green-800 shrink-0 ml-1">{stats.avgVolume}%</span>
+        <div className="flex justify-between items-center text-[10px] font-bold text-[var(--cordel-ink-dark)] w-full min-w-0">
+          <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate"><Volume2 size={12} className="text-[var(--cordel-accent-readable)] shrink-0" />Volume :</span>
+          <span ref={volLabelRef} className="font-mono text-[var(--cordel-ink-dark)] shrink-0 ml-1">{stats.avgVolume}%</span>
         </div>
         <input
           type="range" min="0" max="100" defaultValue={stats.avgVolume}
@@ -76,16 +81,16 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
             applyMacroVolumeDelta(symbol, val - stats.avgVolume, val);
             playThrottledPreview(symbol, val, currentDecayRef.current);
           }}
-          className="w-full accent-green-700 cursor-pointer h-1.5 bg-[#1a1a1a]/10"
+          className="w-full accent-[var(--cordel-wood)] cursor-pointer h-1.5 bg-[var(--cordel-ink-dark)]/10"
         />
       </div>
 
       <div className="flex flex-col gap-1 w-full min-w-0">
-        <div className="flex justify-between items-center text-[10px] font-bold text-[#1a1a1a] w-full min-w-0">
-          <span className="flex items-center gap-1 text-[9px] text-[#666] truncate">
-            <Clock size={12} className="text-amber-600 shrink-0" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
+        <div className="flex justify-between items-center text-[10px] font-bold text-[var(--cordel-ink-dark)] w-full min-w-0">
+          <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate">
+            <Clock size={12} className="text-[var(--cordel-accent-readable)] shrink-0" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
           </span>
-          <span ref={decayLabelRef} className="font-mono text-amber-800 shrink-0 ml-1">{stats.avgDecay}%</span>
+          <span ref={decayLabelRef} className="font-mono text-[var(--cordel-ink-dark)] shrink-0 ml-1">{stats.avgDecay}%</span>
         </div>
         <input
           type="range" min="10" max="100" defaultValue={stats.avgDecay}
@@ -100,9 +105,16 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
             applyMacroDecayDelta(symbol, val - stats.avgDecay, val);
             playThrottledPreview(symbol, currentVolRef.current, val);
           }}
-          className="w-full accent-amber-600 cursor-pointer h-1.5 bg-[#1a1a1a]/10"
+          className="w-full accent-[var(--cordel-wood)] cursor-pointer h-1.5 bg-[var(--cordel-ink-dark)]/10"
         />
       </div>
+
+      {!isVoice && (
+        <StrokeMidiAndKeyBadge
+          trackId={trackId} instrumentId={instrument?.id || ''} symbol={symbol} shortcut={shortcut}
+          isFr={isFr} trackLabel={trackLabel} patternId={patternId} patternLabel={patternLabel} activeTool={activeTool}
+        />
+      )}
     </div>
   );
 });

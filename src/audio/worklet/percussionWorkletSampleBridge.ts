@@ -1,16 +1,12 @@
 /**
  * O Girador - Pont PCM Main Thread <-> AudioWorklet (`MAX_WORKLET_SAMPLES = 2048`) (< 130 lignes)
- * - File d'attente asynchrone : les `AudioBuffer` enregistrés avant `addModule` sont transmis dès `attachPort(port)`.
- * - Pour les samples Barulho (`* B.ogg`), pré-calcule le Constant-Power Crossfade (cos/sin 110 ms + point de garde)
- *   sur la copie transférée au Worklet sans muter l'`AudioBuffer` original du Main Thread.
+ * - Dédoublonnement strict : un même `samplePath` déjà présent sur le port actif n'est jamais transféré deux fois.
+ * - Libération réelle : `unregisterSampleBuffers` purge les références Main Thread ET envoie `UNLOAD_SAMPLES` au Worklet.
  */
 
-import {
-  analyzeBarulhoLoopRegion,
-  bakeBarulhoChannelPcm,
-  isBarulhoSamplePath,
-} from '../barulho/barulhoLoopRegionAnalyzer';
-import { LoadSampleMessage, MAX_WORKLET_SAMPLES } from './percussionWorkletTypes';
+import { analyzeBarulhoLoopRegion, bakeBarulhoChannelPcm, isBarulhoSamplePath } from '../barulho/barulhoLoopRegionAnalyzer';
+import { bindBufferPoolEviction } from '../engine/engineMemorySync';
+import { LoadSampleMessage, MAX_WORKLET_SAMPLES, UnloadSamplesMessage } from './percussionWorkletTypes';
 
 export interface WorkletMessagePortLike {
   postMessage(message: unknown, transfer?: Transferable[]): void;
@@ -21,14 +17,16 @@ export class PercussionWorkletSampleBridge {
   private readonly sampleIdToPath = new Map<number, string>();
   private readonly registeredBuffers = new Map<number, AudioBuffer>();
   private readonly sentToCurrentPort = new Set<number>();
+  private unbindPoolEviction: (() => void) | null = null;
   private nextSampleId = 0;
   private port: WorkletMessagePortLike | null = null;
 
-  public get loadedSampleCount(): number {
-    return this.sentToCurrentPort.size;
-  }
+  public get loadedSampleCount(): number { return this.sentToCurrentPort.size; }
 
   public syncBufferPool(bufferPool: Map<string, unknown>): void {
+    if (!this.unbindPoolEviction) {
+      this.unbindPoolEviction = bindBufferPoolEviction(bufferPool, (paths) => this.unregisterSampleBuffers(paths));
+    }
     for (const [path, entry] of bufferPool.entries()) {
       const audioBuffer = typeof (entry as any)?.get === 'function' ? (entry as any).get() : entry;
       if (audioBuffer) this.registerSampleBuffer(path, audioBuffer as AudioBuffer);
@@ -36,19 +34,17 @@ export class PercussionWorkletSampleBridge {
   }
 
   public attachPort(port: WorkletMessagePortLike | null): void {
+    if (this.port === port) return;
     this.port = port;
     this.sentToCurrentPort.clear();
     if (!port) return;
-
     for (const [sampleId, audioBuffer] of this.registeredBuffers.entries()) {
       this.postSampleToWorklet(sampleId, audioBuffer);
     }
   }
 
   public registerSampleBuffer(path: string, audioBuffer: AudioBuffer): number {
-    if (!path || !audioBuffer || typeof audioBuffer.getChannelData !== 'function') {
-      return -1;
-    }
+    if (!path || !audioBuffer || typeof audioBuffer.getChannelData !== 'function') return -1;
 
     let sampleId = this.pathToSampleId.get(path);
     if (sampleId === undefined) {
@@ -58,80 +54,66 @@ export class PercussionWorkletSampleBridge {
       this.sampleIdToPath.set(sampleId, path);
     }
 
-    const prevBuffer = this.registeredBuffers.get(sampleId);
-    if (prevBuffer !== audioBuffer) {
-      this.registeredBuffers.set(sampleId, audioBuffer);
-      this.sentToCurrentPort.delete(sampleId);
-    }
-
-    if (this.port && !this.sentToCurrentPort.has(sampleId)) {
-      this.postSampleToWorklet(sampleId, audioBuffer);
-    }
-
+    this.registeredBuffers.set(sampleId, audioBuffer);
+    if (this.sentToCurrentPort.has(sampleId)) return sampleId;
+    if (this.port) this.postSampleToWorklet(sampleId, audioBuffer);
     return sampleId;
   }
 
+  public unregisterSampleBuffers(paths: Iterable<string>): number[] {
+    const freedIds: number[] = [];
+    for (const path of paths) {
+      const sampleId = this.pathToSampleId.get(path);
+      if (sampleId === undefined) continue;
+      const hadLocal = this.registeredBuffers.delete(sampleId);
+      const hadRemote = this.sentToCurrentPort.delete(sampleId);
+      if (hadLocal || hadRemote) freedIds.push(sampleId);
+    }
+    if (freedIds.length > 0 && this.port) {
+      const msg: UnloadSamplesMessage = { type: 'UNLOAD_SAMPLES', sampleIds: freedIds };
+      try { this.port.postMessage(msg); } catch (_) {}
+    }
+    return freedIds;
+  }
+
   private postSampleToWorklet(sampleId: number, audioBuffer: AudioBuffer): void {
-    if (!this.port || audioBuffer.numberOfChannels < 1) return;
+    if (!this.port || audioBuffer.numberOfChannels < 1 || this.sentToCurrentPort.has(sampleId)) return;
 
     const sr = audioBuffer.sampleRate > 0 ? audioBuffer.sampleRate : 48000;
     const path = this.sampleIdToPath.get(sampleId) ?? '';
-    const isBarulho = isBarulhoSamplePath(path);
-
     let ch0: Float32Array;
     let ch1: Float32Array | null;
-    let bodyStartFrame = 0;
-    let loopResumeFrame = 0;
-    let loopWrapFrame = 0;
+    let bodyStartFrame = 0, loopResumeFrame = 0, loopWrapFrame = 0;
 
-    if (isBarulho) {
+    if (isBarulhoSamplePath(path)) {
       const raw0 = audioBuffer.getChannelData(0);
       const reg = analyzeBarulhoLoopRegion(raw0, sr);
       ch0 = bakeBarulhoChannelPcm(raw0, reg);
       ch1 = audioBuffer.numberOfChannels > 1 ? bakeBarulhoChannelPcm(audioBuffer.getChannelData(1), reg) : null;
-      bodyStartFrame = reg.bodyStartFrame;
-      loopResumeFrame = reg.loopResumeFrame;
-      loopWrapFrame = reg.loopWrapFrame;
+      bodyStartFrame = reg.bodyStartFrame; loopResumeFrame = reg.loopResumeFrame; loopWrapFrame = reg.loopWrapFrame;
     } else {
       ch0 = new Float32Array(audioBuffer.getChannelData(0));
       ch1 = audioBuffer.numberOfChannels > 1 ? new Float32Array(audioBuffer.getChannelData(1)) : null;
     }
 
-    const msg: LoadSampleMessage = {
-      type: 'LOAD_SAMPLE',
-      sampleId,
-      ch0,
-      ch1,
-      sampleRate: sr,
-      bodyStartFrame,
-      loopResumeFrame,
-      loopWrapFrame,
-    };
-
-    const transfers: Transferable[] = ch1 ? [ch0.buffer, ch1.buffer] : [ch0.buffer];
+    const msg: LoadSampleMessage = { type: 'LOAD_SAMPLE', sampleId, ch0, ch1, sampleRate: sr, bodyStartFrame, loopResumeFrame, loopWrapFrame };
     try {
-      this.port.postMessage(msg, transfers);
+      this.port.postMessage(msg, ch1 ? [ch0.buffer, ch1.buffer] : [ch0.buffer]);
       this.sentToCurrentPort.add(sampleId);
     } catch (err) {
       console.error('[PercussionWorkletSampleBridge] Failed to transfer PCM buffer:', err);
     }
   }
 
-  public getSampleId(path: string): number {
-    return this.pathToSampleId.get(path) ?? -1;
-  }
-
+  public getSampleId(path: string): number { return this.pathToSampleId.get(path) ?? -1; }
   public isSampleReadyInWorklet(path: string): boolean {
     const id = this.pathToSampleId.get(path);
     return id !== undefined && this.sentToCurrentPort.has(id);
   }
 
   public dispose(): void {
-    this.port = null;
-    this.sentToCurrentPort.clear();
-    this.registeredBuffers.clear();
-    this.pathToSampleId.clear();
-    this.sampleIdToPath.clear();
-    this.nextSampleId = 0;
+    this.unbindPoolEviction?.(); this.unbindPoolEviction = null; this.port = null;
+    this.sentToCurrentPort.clear(); this.registeredBuffers.clear();
+    this.pathToSampleId.clear(); this.sampleIdToPath.clear(); this.nextSampleId = 0;
   }
 }

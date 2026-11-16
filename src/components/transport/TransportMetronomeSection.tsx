@@ -66,11 +66,11 @@ export const TransportMetronomeSection: React.FC<TransportMetronomeSectionProps>
   }, [isPreRollPopupOpen]);
 
   return (
-    <div className="relative flex items-center bg-[var(--cordel-bg)] h-8 rounded-none border-2 border-[#1a1a1a] dark:border-black/60 shadow-[1px_1px_0px_#1a1a1a] shrink-0" ref={metroContainerRef}>
+    <div data-tour-id="transport-metronome" className="relative flex items-center bg-[var(--cordel-bg)] h-8 rounded-none border-2 border-[var(--cordel-border-strong)] shadow-[1px_1px_0px_var(--cordel-shadow-color)] shrink-0" ref={metroContainerRef}>
       <button
         onClick={handleToggleMain}
         className={`px-1.5 sm:px-2.5 font-cactus font-bold text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 h-full transition-colors cursor-pointer select-none rounded-none ${
-          isAnyMetroActive ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
+          isAnyMetroActive ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
         }`}
         title={t('metroBtn')}
       >
@@ -82,7 +82,7 @@ export const TransportMetronomeSection: React.FC<TransportMetronomeSectionProps>
         </svg>
         <span className="select-none hidden md:inline">{lang === 'fr' ? 'Métronome' : lang === 'pt' ? 'Metrônomo' : 'Metronome'}</span>
         {preRollSettings.enabled && (
-          <span className="px-1 py-0.2 bg-amber-600 text-white rounded-none text-[10px] font-sans font-bold leading-none shadow-xs">
+          <span className="px-1 py-0.2 bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] rounded-none text-[10px] font-sans font-bold leading-none shadow-xs">
             {preRollSettings.measuresCount}M
           </span>
         )}
@@ -90,7 +90,7 @@ export const TransportMetronomeSection: React.FC<TransportMetronomeSectionProps>
 
       <button
         onClick={(e) => { e.stopPropagation(); setIsPreRollPopupOpen(!isPreRollPopupOpen); }}
-        className={`px-1.5 h-full flex items-center justify-center border-l-2 border-[#1a1a1a] dark:border-black/60 hover:bg-[var(--cordel-text)]/10 cursor-pointer transition-colors rounded-none ${
+        className={`px-1.5 h-full flex items-center justify-center border-l-2 border-[var(--cordel-border-strong)] hover:bg-[var(--cordel-text)]/10 cursor-pointer transition-colors rounded-none ${
           isPreRollPopupOpen ? 'bg-[var(--cordel-text)]/15 text-[var(--cordel-text)]' : 'text-[var(--cordel-text)]'
         }`}
         title={lang === 'fr' ? 'Réglages du précompte' : 'Configurações de contagem'}

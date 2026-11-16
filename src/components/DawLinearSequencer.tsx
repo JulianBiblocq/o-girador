@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -13,16 +12,16 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useLiveMeasure } from '../hooks/useLiveMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
-import { useAudio } from '../contexts/AudioContext';
 import { DawTrackRow } from './DawTrackRow';
 import { useDawPlayhead } from './daw/useDawPlayhead';
 import { useDawVisibleTracks } from './daw/useDawVisibleTracks';
 import { DawRulerHeader } from './daw/DawRulerHeader';
+import { StrokeInfoPopover } from './pedagogy/StrokeInfoPopover';
+import { StrokeInfoPopoverTarget } from './pedagogy/strokeInfoTypes';
 
 interface DawLinearSequencerProps {
   isActive: boolean;
   mestreSignals?: any[];
-  onStepTouchStart?: any;
 }
 
 const getBeatsFromTimeSig = (sig: string): number => {
@@ -34,13 +33,15 @@ const getBeatsFromTimeSig = (sig: string): number => {
 
 export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive }) => {
   const sequencer = useSequencer();
-  const audio = useAudio();
-  const lang = useSequencerStore(state => state.lang);
-  const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
+  const lang = useSequencerStore((state) => state.lang);
+  const isLeftHanded = useSequencerStore((state) => state.isLeftHanded);
   const currentMeasure = useLiveMeasure(isActive);
-  const timeSig = useSequencerStore(state => state.timeSig);
-  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
-  const handleReorderRodaTracks = useSequencerStore(state => state.handleReorderRodaTracks);
+  const timeSig = useSequencerStore((state) => state.timeSig);
+  const measureTimeSigs = useSequencerStore((state) => state.measureTimeSigs);
+  const handleReorderRodaTracks = useSequencerStore((state) => state.handleReorderRodaTracks);
+  const [pedagogyTarget, setPedagogyTarget] = useState<StrokeInfoPopoverTarget | null>(null);
+
+  useEffect(() => { if (!isActive) setPedagogyTarget(null); }, [isActive]);
 
   const activeTimeSig = (measureTimeSigs && measureTimeSigs[currentMeasure]) || timeSig;
   const defaultBeats = getBeatsFromTimeSig(activeTimeSig);
@@ -64,16 +65,11 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
     }
   };
 
-  const handleStepClick = (e: React.MouseEvent, trackId: number) => {
-    e.stopPropagation();
-    useSequencerStore.getState().setEditingTrackId(trackId);
-  };
-
-
   if (!isActive) return null;
 
   return (
     <div
+      onContextMenu={(e) => e.preventDefault()}
       className="flex-grow flex flex-col justify-start bg-[var(--cordel-bg)] text-[var(--cordel-text)] select-none w-full h-full overflow-x-auto overflow-y-auto custom-scrollbar relative"
       style={{ display: isActive ? 'flex' : 'none' }}
     >
@@ -99,7 +95,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
                   lang={lang}
                   isLeftHanded={isLeftHanded}
                   sequencer={sequencer}
-                  handleStepClick={handleStepClick}
+                  onSelectPedagogyTarget={setPedagogyTarget}
                   registerStepRef={registerStepRef}
                   trackResolutionsRef={trackResolutionsRef}
                 />
@@ -108,6 +104,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({ isActive
           </SortableContext>
         </DndContext>
       </div>
+      <StrokeInfoPopover target={pedagogyTarget} onClose={() => setPedagogyTarget(null)} />
     </div>
   );
 };

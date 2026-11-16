@@ -30,10 +30,16 @@ export const defaultCordelOptions: CordelOptions = {
 };
 
 export const processCordelEffectBase64 = (base64Img: string, options: CordelOptions, outSize = 200): Promise<string> =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve) => {
+    if (!base64Img) { resolve(''); return; }
+    const isRemoteHttp = /^https?:\/\//i.test(base64Img);
     const img = new Image();
-    img.onload = () => { try { resolve(processCordelEffect(img, options, outSize)); } catch (e) { reject(e); } };
-    img.onerror = reject;
+    if (isRemoteHttp) img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try { resolve(processCordelEffect(img, options, outSize)); }
+      catch { resolve(base64Img); }
+    };
+    img.onerror = () => resolve(base64Img);
     img.src = base64Img;
   });
 

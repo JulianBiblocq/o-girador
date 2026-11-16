@@ -13,6 +13,7 @@ import { initMasterEffectsChain, trackInputs, syncTrackInsertChain, setOnTrackDi
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getAudioEngine, setAudioEngine, setInputManager, channels } from './audioEngineNodes';
 import { setupAudioWindowEvents } from './audioWindowEventsManager';
+import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 
 export interface AudioInitProps {
   tracksRef: { current: any[] };
@@ -124,7 +125,7 @@ export function useAudioInitialization(p: AudioInitProps): void {
       } catch (err) {
         console.error('[initAudio] Critical error during audio setup:', err);
       } finally {
-        if (engine) engine.loadAllSamples().catch(() => {});
+        if (engine) engine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(tracksRef.current)).catch(() => {});
         vocalEngineService.rehydrateVocalBuffers(tracksRef.current).catch((e) => {
           console.error('[initAudio] Background rehydration error:', e);
         });

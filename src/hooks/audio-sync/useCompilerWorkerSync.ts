@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
-import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
+import { useWizardStore } from '../../stores/useWizardStore';
 import { instrumentsConfig } from '../../data';
-import { ActiveInstrumentData } from '../../AudioEngine';
+import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { attachCompiledTrackIds } from '../../workers/compiler/compiledTrackIdResolver';
-import { getActiveStrokesForTrack } from './strokeNormalization';
 import { getAudioEngine } from './audioEngineNodes';
 
 export interface UseCompilerWorkerSyncProps {
@@ -16,7 +15,7 @@ export interface UseCompilerWorkerSyncProps {
 export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWorkerSyncProps) {
   const [isCompiling, setIsCompiling] = useState(false);
   const compilerWorkerRef = useRef<Worker | null>(null);
-  const lastActiveInstrumentIdsRef = useRef('');
+  const lastActiveInstrumentSigRef = useRef('');
 
   useEffect(() => {
     const worker = new Worker(
@@ -62,7 +61,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
       instConfig: instrumentsConfig,
       soloPatternPlayId: soloId,
       soloPatternVariationId: soloVarId,
-      isolateBaseOnly: !!isolateBaseOnly
+      isolateBaseOnly: !!isolateBaseOnly,
     });
   }, []);
 
@@ -80,15 +79,10 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
     const scheduleSyncInstruments = (tracks: any[]) => {
       const activeEngine = getAudioEngine();
       if (!activeEngine) return;
-      const activeInstruments = tracks.map((t: any) => {
-        const inst = instrumentsConfig[t.instrumentIdx];
-        if (!inst) return null;
-        return { id: inst.id, activeStrokes: getActiveStrokesForTrack(t, tracks) };
-      }).filter(Boolean) as ActiveInstrumentData[];
-      activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
-      const activeStr = JSON.stringify(activeInstruments);
-      if (activeStr !== lastActiveInstrumentIdsRef.current) {
-        lastActiveInstrumentIdsRef.current = activeStr;
+      const activeInstruments = extractActiveInstrumentsFromTracks(tracks);
+      const presentIdsSig = activeInstruments.map((a) => a.id).join(',');
+      if (presentIdsSig !== lastActiveInstrumentSigRef.current) {
+        lastActiveInstrumentSigRef.current = presentIdsSig;
         activeEngine.syncActiveInstrumentsMemory(activeInstruments).catch(() => {});
       }
     };
@@ -114,8 +108,8 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
       }
     });
 
-    const unsubSettings = useSequencerSettingsStore.subscribe((state, prevState) => {
-      if (state.forcedStrokes !== prevState.forcedStrokes) {
+    const unsubWizard = useWizardStore.subscribe((state, prevState) => {
+      if (state.isWizardOpen !== prevState.isWizardOpen || state.placedInstruments !== prevState.placedInstruments) {
         scheduleSyncInstruments(useSequencerStore.getState().tracks);
       }
     });
@@ -124,7 +118,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
       if (compileTimeout) clearTimeout(compileTimeout);
       unsubSeq();
       unsubTransport();
-      unsubSettings();
+      unsubWizard();
     };
   }, [compile, triggerCompile]);
 

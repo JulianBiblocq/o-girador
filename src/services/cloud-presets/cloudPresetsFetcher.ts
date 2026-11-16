@@ -4,6 +4,7 @@ import { collection, getDocs, query, limit, where } from 'firebase/firestore';
 import { CloudPreset } from '../../types';
 import { CLOUD_PRESETS_COLLECTION } from './presetCache';
 import { isPresetAuthorized } from './presetAuthorization';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
 export async function fetchCloudPresets(
   userUid: string | null,
@@ -24,12 +25,7 @@ export async function fetchCloudPresets(
       presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     } else {
       const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-      const isOtherGroup = Boolean(
-        normalizedUserGroupId &&
-        !normalizedUserGroupId.includes('samambaia') &&
-        !normalizedUserGroupId.includes('sammbia')
-      );
-      const isSamambaiaGroup = !isOtherGroup;
+      const isSamambaiaGroup = isLegacySamambaiaGroup(normalizedUserGroupId) || userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
       const myGroupMestreId = isSamambaiaGroup ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null);
 
       const queries = [

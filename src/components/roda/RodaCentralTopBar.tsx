@@ -39,13 +39,14 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({
   }, [isActive]);
 
   const borderBgClass = isPistasOpen
-    ? 'bg-[var(--cordel-bg)] border-b border-[var(--cordel-border,#1a1a1a)]/20 shadow-sm'
+    ? 'bg-[var(--cordel-bg)] border-b border-[var(--cordel-border)]/20 shadow-sm'
     : 'bg-transparent';
 
   if (isNarrow) {
     return (
       <div
         ref={containerRef}
+        data-tour-id="roda-topbar"
         className={`relative w-full px-3 flex flex-col gap-1.5 py-1 z-20 pointer-events-auto select-none transition-colors duration-300 ${borderBgClass} ${className}`}
       >
         <div className="flex items-center justify-between w-full">
@@ -55,7 +56,7 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({
           </div>
           <div className="flex items-center gap-1.5 shrink-0 z-10">
             <RodaSweepModeToggle compact />
-            <div className="h-[32px] min-h-[32px] max-h-[32px] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[1.5px_1.5px_0px_#1a1a1a] box-border px-2 flex flex-col items-center justify-center select-none shrink-0 min-w-[65px]">
+            <div className="h-[32px] min-h-[32px] max-h-[32px] rounded-none bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] border-2 border-[var(--cordel-paper-ink)] shadow-[1.5px_1.5px_0px_var(--cordel-shadow-color)] box-border px-2 flex flex-col items-center justify-center select-none shrink-0 min-w-[65px]">
               <span className="text-[7px] uppercase opacity-75 tracking-wider font-bold leading-none">{lang === 'pt' ? 'Fórmula' : 'Rythme'}</span>
               <span className="text-[11px] font-cactus font-bold leading-tight mt-0.5">{activeTimeSig}</span>
             </div>
@@ -72,6 +73,7 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({
   return (
     <div
       ref={containerRef}
+      data-tour-id="roda-topbar"
       className={`relative w-full px-3 flex items-center justify-between gap-2 z-20 pointer-events-auto select-none transition-colors duration-300 h-[52px] min-h-[52px] max-h-[52px] ${borderBgClass} ${className}`}
     >
       <div className="flex items-center gap-1.5 shrink-0 z-10">
@@ -85,7 +87,7 @@ export const RodaCentralTopBar: React.FC<RodaCentralTopBarProps> = ({
 
       <div className="flex items-center gap-1.5 shrink-0 z-10">
         <RodaSweepModeToggle />
-        <div className="h-[38px] min-h-[38px] max-h-[38px] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] box-border px-2.5 flex flex-col items-center justify-center select-none shrink-0 min-w-[75px]">
+        <div className="h-[38px] min-h-[38px] max-h-[38px] rounded-none bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] border-2 border-[var(--cordel-paper-ink)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] box-border px-2.5 flex flex-col items-center justify-center select-none shrink-0 min-w-[75px]">
           <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
             {lang === 'pt' ? 'Fórmula' : 'Rythme'}
           </span>

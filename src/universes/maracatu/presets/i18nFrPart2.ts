@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - French Translations Part 2 (Speed Trainer & Shortcuts)
+ * O Girador - French Translations Part 2 (Speed Trainer & Shortcuts SSOT)
  */
 
 export const i18nFrPart2 = {
@@ -81,22 +80,22 @@ export const i18nFrPart2 = {
   speedTrainerLoopsIntervalPlural: "tous les 2 tours",
   legendTabStrokes: "Timbres & Sons",
   legendTabShortcuts: "Raccourcis",
-  shortcutsTransportTitle: "Transport & Navigation",
-  shortcutsEditTitle: "Édition & Partition",
+  shortcutsTransportTitle: "Transport, Studio & 2 Écrans",
+  shortcutsEditTitle: "Éditeur Détail Instrument",
   shortcutSpaceDesc: "Lecture / Pause",
   shortcutEnterDesc: "Retour au début (Mesure 1)",
   shortcutTabDesc: "Bascule Roda / Timeline",
   shortcutOficinaDesc: "Ouvrir / Fermer A Oficina",
   shortcutLoopDesc: "Activer / Désactiver la boucle",
   shortcutMeasureNavDesc: "Reculer / Avancer d'une mesure entière",
-  shortcutWeakStrokesDesc: "Choisir l'outil coup faible",
-  shortcutStrongStrokesDesc: "Choisir l'outil coup fort",
-  shortcutNuanceWheelDesc: "Ajuster la nuance (Fort / Faible)",
-  shortcutEraserDesc: "Gomme (silence)",
-  shortcutSplitStepDesc: "Scinder le pas en deux (Ra / Triple croche)",
-  shortcutDuplicateMeasureDesc: "Dupliquer la mesure vers la suivante",
+  shortcutWeakStrokesDesc: "Outil coup faible (ou main gauche Timbal)",
+  shortcutStrongStrokesDesc: "Outil coup fort (ou main droite Timbal)",
+  shortcutNuanceWheelDesc: "Varier la nuance / variante de paire",
+  shortcutEraserDesc: "Vider pas (percussion) • Silence vocal 0 (Toada)",
+  shortcutSplitStepDesc: "Outil Ciseau : scinder le pas en [a, b] (Ra)",
+  shortcutDuplicateMeasureDesc: "Dupliquer à la suite (plage ou mesure)",
   shortcutUndoRedoDesc: "Annuler / Rétablir",
-  shortcutSpecialToolsDesc: "Barulho, Clic baguettes, Bord / Corps",
+  shortcutSpecialToolsDesc: "Barulho, Clic baguettes, Cerclage (Aro)",
   tocarJunto: "Jouer avec",
   modoTreino: "Mode Entraînement",
   treinarNesteNaipe: "S'entraîner sur ce pupitre (Jouer avec)",

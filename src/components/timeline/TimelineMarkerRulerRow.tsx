@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 import { SongMarker, Language } from '../../types';
 import { isLightColor } from '../../data';
 
@@ -13,10 +13,10 @@ export interface TimelineMarkerRulerRowProps {
   measureWidth: number;
   isPanningActive?: boolean;
   onMarkerRulerDblClick: (e: React.MouseEvent<HTMLDivElement>) => void;
-  onMarkerPointerDown: (e: React.PointerEvent<HTMLDivElement>, marker: SongMarker) => void;
+  onMarkerPointerDown: (e: React.PointerEvent<HTMLDivElement>, marker: SongMarker, idx: number) => void;
   onMarkerClick: (marker: SongMarker) => void;
-  onMarkerEdit: (marker: SongMarker) => void;
-  onDeleteMarker: (id: string) => void;
+  onMarkerEdit: (marker: SongMarker, idx: number) => void;
+  onDeleteMarker: (marker: SongMarker, idx: number) => void;
 }
 
 export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
@@ -25,6 +25,10 @@ export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
   onMarkerClick, onMarkerEdit, onDeleteMarker,
 }) => {
   const totalRowW = headerWidth + totalContentW + 150;
+
+  const handleDeleteMarker = (marker: SongMarker, idx: number) => {
+    onDeleteMarker(marker, idx);
+  };
 
   return (
     <div
@@ -47,45 +51,67 @@ export const TimelineMarkerRulerRow = React.memo<TimelineMarkerRulerRowProps>(({
           </div>
         )}
 
-        {songMarkers.map((marker) => {
+        {songMarkers.map((marker, idx) => {
           const posX = measureLeftPositions[marker.measure] ?? (marker.measure * measureWidth);
-          const bgColor = marker.color || '#f19066';
-          const isLight = isLightColor(bgColor);
-          const textColor = isLight ? '#1a1a1a' : '#ffffff';
+          const bgColor = marker.color || 'var(--cordel-accent)';
+          const isLight = Boolean(
+            marker.color && (isLightColor(marker.color) || marker.color.includes('parchment') || marker.color.includes('gold'))
+          );
+          const textColor = isLight ? 'var(--cordel-ink-dark)' : 'var(--cordel-on-accent)';
           const fontClass = isLight ? 'font-extrabold' : 'font-bold';
-          const borderClass = isLight ? 'border border-[#1a1a1a]/40' : 'border border-black/10';
+          const borderClass = isLight
+            ? 'border border-[var(--cordel-ink-dark)]/40'
+            : 'border border-[var(--cordel-border-strong)]/35';
 
           return (
             <div
-              key={`marker-${marker.id}`}
+              key={marker.id ? `marker-${marker.id}` : `marker-idx-${idx}-${marker.measure}`}
               data-marker="true"
-              className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] ${fontClass} flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 ${borderClass} z-20 ${
+              className={`absolute top-[2px] h-5 pl-2 pr-0.5 rounded-full text-[9px] ${fontClass} flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-105 active:cursor-grabbing transform -translate-x-1/2 ${borderClass} z-20 ${
                 isPanningActive ? 'pointer-events-none' : ''
               }`}
               style={{ left: `${posX}px`, backgroundColor: bgColor, color: textColor }}
-              onPointerDown={(e) => onMarkerPointerDown(e, marker)}
+              onPointerDown={(e) => {
+                if ((e.target as HTMLElement).closest('[data-marker-delete]')) return;
+                onMarkerPointerDown(e, marker, idx);
+              }}
+              onMouseDown={(e) => {
+                if ((e.target as HTMLElement).closest('[data-marker-delete]')) return;
+              }}
               onClick={(e) => {
+                if ((e.target as HTMLElement).closest('[data-marker-delete]')) return;
                 if ((e.currentTarget as HTMLElement).dataset.hasMoved === 'true') return;
                 e.stopPropagation();
                 onMarkerClick(marker);
               }}
               onDoubleClick={(e) => {
+                if ((e.target as HTMLElement).closest('[data-marker-delete]')) return;
                 e.stopPropagation();
-                onMarkerEdit(marker);
+                onMarkerEdit(marker, idx);
               }}
             >
               <MapPin size={9} className="shrink-0" style={{ color: textColor }} />
               <span className="whitespace-nowrap truncate max-w-[140px]" style={{ color: textColor }}>
                 {marker.name.replace(/\n/g, ' / ')}
               </span>
-              <span
-                onClick={(e) => { e.stopPropagation(); onDeleteMarker(marker.id); }}
-                className="opacity-70 hover:opacity-100 cursor-pointer ml-1 text-[11px]"
+              <button
+                type="button"
+                data-marker-delete="true"
+                onPointerDown={(e) => { e.stopPropagation(); }}
+                onMouseDown={(e) => { e.stopPropagation(); }}
+                onDoubleClick={(e) => { e.stopPropagation(); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteMarker(marker, idx);
+                }}
+                className="w-5 h-5 pointer-events-auto relative z-10 inline-flex items-center justify-center rounded-full cursor-pointer opacity-75 hover:opacity-100 hover:bg-[var(--cordel-ink-dark)]/15 transition-colors shrink-0"
                 style={{ color: textColor }}
-                title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+                title={lang === 'fr' ? 'Supprimer ce repère' : 'Excluir este marcador'}
+                aria-label={lang === 'fr' ? 'Supprimer ce repère' : 'Excluir este marcador'}
               >
-                &times;
-              </span>
+                <X size={11} className="stroke-[2.5] pointer-events-none" />
+              </button>
             </div>
           );
         })}

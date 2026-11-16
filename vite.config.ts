@@ -73,7 +73,7 @@ export default defineConfig(({ command }) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2,otf}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,webp,svg,webmanifest,json,woff2,otf}'],
           globIgnores: ['**/version.json'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           cleanupOutdatedCaches: true,
@@ -97,5 +97,9 @@ export default defineConfig(({ command }) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
-  };
+    test: {
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
+      passWithNoTests: true,
+    },
+  } as any;
 });

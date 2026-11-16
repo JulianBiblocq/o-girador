@@ -16,8 +16,8 @@ export interface StructureSlice extends TransportSlice {
   handleUpdateSectionRepeat: (id: string, count: number) => void;
   handleDeleteSongSection: (id: string) => void;
   handleCreateSongMarker: (name: string, measure: number, color?: string) => void;
-  handleUpdateSongMarker: (id: string, name: string, measure: number, color?: string) => void;
-  handleDeleteSongMarker: (id: string) => void;
+  handleUpdateSongMarker: (id: string, name: string, measure: number, color?: string, fallbackIdx?: number) => void;
+  handleDeleteSongMarker: (idOrMarker: string | SongMarker, fallbackIdx?: number) => void;
   selectedAutomationType: 'bpm' | 'volume' | 'pan' | 'reverb' | null;
   selectedAutomationTrackId: number | null;
   selectedAutomationRange: { start: number; end: number } | null;

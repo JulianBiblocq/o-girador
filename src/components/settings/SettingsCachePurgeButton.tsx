@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trash2 } from 'lucide-react';
 import { useSequencer } from '../../contexts/SequencerContext';
 
 interface SettingsCachePurgeButtonProps {
@@ -42,19 +43,21 @@ export const SettingsCachePurgeButton: React.FC<SettingsCachePurgeButtonProps> =
   };
 
   return (
-    <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-[#8b2a1a] rounded-[4px_10px_6px_12px] p-4 bg-[#fbf8f0] text-[#1a1a1a] shadow-[3px_3px_0px_#8b2a1a] flex flex-col gap-4">
-      <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-[#8b2a1a]/20 pb-1 text-[#8b2a1a]">
-        {lang === 'fr' ? "Purge de l'Atelier" : 'Limpeza da Oficina'}
+    <div className="border-2 border-[var(--cordel-border)] rounded-[4px_10px_6px_12px] p-4 bg-[var(--cordel-surface)] text-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-shadow-color)] flex flex-col gap-3">
+      <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-2 border-b border-[var(--cordel-border)]/35 pb-1.5 text-[var(--cordel-accent-readable)]">
+        <Trash2 size={15} className="shrink-0" />
+        <span>{lang === 'fr' ? "Purge de l'Atelier" : 'Limpeza da Oficina'}</span>
       </h3>
-      <p className="text-[10px] italic text-[#44403c] font-semibold">
+      <p className="text-[11px] italic text-[var(--cordel-text-muted)] font-semibold">
         {lang === 'fr'
           ? "Si le son bégaie ou que la mémoire s'étouffe, purgez l'atelier pour repartir sur une toile vierge."
           : 'Se o som engasgar ou a memória ficar cheia, limpe a oficina para começar do zero.'}
       </p>
 
       <button
+        type="button"
         onClick={handlePurgeCache}
-        className="w-full px-4 py-3 text-xs bg-[#8b2a1a] !text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:!text-white shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
+        className="w-full px-4 py-2.5 text-xs bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-status-danger)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors text-center"
       >
         {lang === 'fr' ? 'Purger le Cache Local' : 'Limpar Cache Local'}
       </button>

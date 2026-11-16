@@ -4,7 +4,7 @@
 > **Le séquenceur de rythmes de Maracatu de Baque Virado interactif dans votre navigateur.**
 
 <div align="center">
-  <img src="public/o-girador-logo.svg" alt="O Girador Logo" width="300" style="border-radius: 20px;" />
+  <img src="public/pwa-512x512.png" alt="O Girador Logo" width="300" style="border-radius: 20px;" />
 </div>
 
 ---

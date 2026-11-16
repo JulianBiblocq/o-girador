@@ -1,9 +1,15 @@
-
 import React from 'react';
 import { GLUE_CURSOR } from './gridConstants';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { isStepInRange } from '../../../hooks/instrument-editor/gridStepRangeHelper';
 import { SplitHalfZone } from './SplitHalfZone';
+import {
+  STEP_EMPTY_SELECTED_BG,
+  STEP_PASSIVE_CURSOR_SHADOW,
+  STEP_SELECTION_BOX_SHADOW,
+  STEP_TUPLET_SELECTION_FILTER,
+  StepSelectionCornerBadge,
+} from './StepSelectionVisuals';
 
 interface PercussionStepSplitVisualProps {
   i: number;
@@ -12,6 +18,7 @@ interface PercussionStepSplitVisualProps {
   patternId: number;
   isFocused: boolean;
   isMultiSelected: boolean;
+  isMultiSelectActive: boolean;
   selectedSubIndex?: 0 | 1 | null;
   activeTool?: string | number;
   shiftPx: number;
@@ -24,7 +31,7 @@ interface PercussionStepSplitVisualProps {
   isOcto: boolean;
   indexInGroup: number;
   onMouseDown: (e: React.MouseEvent<any>, index: number, value: any, subIndex: 0 | 1) => void;
-  onMouseEnter: (index: number, e?: React.MouseEvent) => void;
+  onMouseEnter: (index: number, e?: React.MouseEvent, subIndex?: 0 | 1) => void;
   onTouchStart: (e: React.TouchEvent<any>, index: number, value: any, subIndex: 0 | 1) => void;
   onTouchMove?: (e: React.TouchEvent<any>) => void;
   onTouchEnd?: (e: React.TouchEvent<any>, index: number, value: any, subIndex: 0 | 1) => void;
@@ -35,45 +42,60 @@ interface PercussionStepSplitVisualProps {
 
 export const PercussionStepSplitVisual: React.FC<PercussionStepSplitVisualProps> = (props) => {
   const {
-    i, val, trackId, patternId, isFocused, isMultiSelected, selectedSubIndex,
-    activeTool, shiftPx, splitLeftColor, splitRightColor, splitLeftText, splitRightText,
-    isSextuplet, isTriplet, isOcto, indexInGroup, onContextMenu
+    i, val, trackId, patternId, isFocused, isMultiSelected, isMultiSelectActive,
+    selectedSubIndex, activeTool, shiftPx, splitLeftColor, splitRightColor,
+    splitLeftText, splitRightText, isSextuplet, isTriplet, isOcto, indexInGroup, onContextMenu,
   } = props;
-  const lang = useSequencerStore(state => state.lang);
-  const selectedStepRange = useSequencerStore(state => state.selectedStepRange);
-  const isInRange = isStepInRange(selectedStepRange, false, i, 0);
+  const lang = useSequencerStore((state) => state.lang);
+  const selectedStepRange = useSequencerStore((state) => state.selectedStepRange);
+  const isInRange = isStepInRange(selectedStepRange, false, i, 0, patternId);
+  const isExplicitSelected = isMultiSelected || isInRange;
+  const isWholeFocused = isFocused && !isExplicitSelected && (selectedSubIndex === null || selectedSubIndex === undefined);
+  const isTuplet = isSextuplet || isTriplet;
+  const isUpwardTuplet = isTriplet || (isSextuplet && indexInGroup % 2 === 0);
 
-  const borderClass = isMultiSelected
-    ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-    : (isFocused && (selectedSubIndex === null || selectedSubIndex === undefined))
-      ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20 m-[1px] rounded-none'
-      : isInRange
-        ? '!border-2 !border-amber-500/90 bg-amber-500/25 shadow-[0_0_8px_rgba(245,158,11,0.6)] rounded-none m-[1px]'
-        : 'border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-none m-[1px]';
+  const borderClass = isExplicitSelected
+    ? '-translate-y-[2px] z-20 border !border-[var(--cordel-accent)]'
+    : isFocused
+      ? 'z-20 border !border-[var(--cordel-wood)]'
+      : 'z-10 border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)]';
+
+  const leftEmpty = !val[0] || val[0] === '0';
+  const rightEmpty = !val[1] || val[1] === '0';
+  const leftBg = leftEmpty && isExplicitSelected ? STEP_EMPTY_SELECTED_BG : (splitLeftColor || 'var(--cordel-surface-muted)');
+  const rightBg = rightEmpty && isExplicitSelected ? STEP_EMPTY_SELECTED_BG : (splitRightColor || 'var(--cordel-surface-muted)');
 
   return (
     <div
-      className={`step-input-cell xilo-wood-stamp relative flex items-center justify-center font-bold outline-none p-0 box-border z-10 transition-all duration-200 overflow-hidden ${
+      className={`step-input-cell xilo-wood-stamp relative flex items-center justify-center font-bold outline-none p-0 box-border m-[1px] rounded-none transition-transform duration-150 ${
         isOcto ? 'text-[9px]' : 'text-sm'
       } ${borderClass}`}
       style={{
         width: 'calc(100% - 2px)',
-        maxWidth: isSextuplet || isTriplet || isOcto ? undefined : '44px',
-        height: isSextuplet || isTriplet ? '48px' : '38px',
+        maxWidth: isTuplet || isOcto ? undefined : '44px',
+        height: isTuplet ? '48px' : '38px',
         transform: `translateX(${shiftPx}px)`,
-        background: `linear-gradient(135deg, ${splitLeftColor || '#666'} 48%, #1a1a1a 48%, #1a1a1a 52%, ${splitRightColor || '#666'} 52%)`,
-        clipPath: isSextuplet 
+        background: `linear-gradient(135deg, ${leftBg} 48%, var(--cordel-ink-dark) 48%, var(--cordel-ink-dark) 52%, ${rightBg} 52%)`,
+        boxShadow: isExplicitSelected
+          ? STEP_SELECTION_BOX_SHADOW
+          : isWholeFocused
+            ? STEP_PASSIVE_CURSOR_SHADOW
+            : undefined,
+        filter: isExplicitSelected && isTuplet ? STEP_TUPLET_SELECTION_FILTER : undefined,
+        clipPath: isSextuplet
           ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
           : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
-        borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-        borderRadius: isSextuplet || isTriplet ? '0' : undefined,
-        cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
+        borderStyle: isTuplet ? 'none' : undefined,
+        borderRadius: isTuplet ? '0' : undefined,
+        cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer',
+        touchAction: isMultiSelectActive ? 'none' : undefined,
       }}
       data-track-id={trackId}
       data-pattern-id={patternId}
       data-step-index={i}
       onContextMenu={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         const targetEl = e.target as HTMLElement;
         if (!targetEl.hasAttribute('data-sub-index') && !targetEl.closest('[data-sub-index]')) {
           onContextMenu?.(e, i, val);
@@ -83,31 +105,30 @@ export const PercussionStepSplitVisual: React.FC<PercussionStepSplitVisualProps>
     >
       <div className="xilo-wood-stamp absolute inset-0 pointer-events-none z-0" />
       <SplitHalfZone
-        trackId={trackId} patternId={patternId} i={i} subIndex={0}
-        textVal={val[0]} textColor={splitLeftText} activeTool={activeTool}
+        trackId={trackId} patternId={patternId} i={i} subIndex={0} fullVal={val}
+        textVal={val[0]} textColor={splitLeftText} activeTool={activeTool} isMultiSelectActive={isMultiSelectActive}
         onMouseDown={props.onMouseDown} onMouseEnter={props.onMouseEnter}
         onTouchStart={props.onTouchStart} onTouchMove={props.onTouchMove}
         onTouchEnd={props.onTouchEnd} onContextMenu={props.onContextMenu}
         onKeyDown={props.onKeyDown} onSelectForSculpt={props.onSelectForSculpt}
       />
       <SplitHalfZone
-        trackId={trackId} patternId={patternId} i={i} subIndex={1}
-        textVal={val[1]} textColor={splitRightText} activeTool={activeTool}
+        trackId={trackId} patternId={patternId} i={i} subIndex={1} fullVal={val}
+        textVal={val[1]} textColor={splitRightText} activeTool={activeTool} isMultiSelectActive={isMultiSelectActive}
         onMouseDown={props.onMouseDown} onMouseEnter={props.onMouseEnter}
         onTouchStart={props.onTouchStart} onTouchMove={props.onTouchMove}
         onTouchEnd={props.onTouchEnd} onContextMenu={props.onContextMenu}
         onKeyDown={props.onKeyDown} onSelectForSculpt={props.onSelectForSculpt}
       />
-      {isFocused && selectedSubIndex === 0 && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <polygon points="0,0 100,0 0,100" fill="rgba(244, 236, 216, 0.2)" stroke="#8b2a1a" strokeWidth="6" strokeLinejoin="miter" />
+      {!isExplicitSelected && isFocused && (selectedSubIndex === 0 || selectedSubIndex === 1) && (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-hidden" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polygon
+            points={selectedSubIndex === 0 ? '0,0 100,0 0,100' : '100,0 100,100 0,100'}
+            fill="var(--cordel-paper-surface)" fillOpacity="0.2" stroke="var(--cordel-wood)" strokeWidth="6" strokeLinejoin="miter"
+          />
         </svg>
       )}
-      {isFocused && selectedSubIndex === 1 && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <polygon points="100,0 100,100 0,100" fill="rgba(244, 236, 216, 0.2)" stroke="#8b2a1a" strokeWidth="6" strokeLinejoin="miter" />
-        </svg>
-      )}
+      {isExplicitSelected && <StepSelectionCornerBadge isUpwardTriangle={isUpwardTuplet} />}
     </div>
   );
 };

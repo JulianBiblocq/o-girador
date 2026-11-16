@@ -1,111 +1,135 @@
-
+/**
+ * detachedWindowManager.ts — Gestionnaire de l'unique Fenêtre Satellite Studio (< 135 lignes).
+ * Préserve strictement les coordonnées signées (Y = -1080 en haut, X < 0 à gauche) sous Chromium/Windows.
+ */
 import { DetachedPanelKey, DesktopWindowBounds } from '../types/desktopWorkspace.types';
+import {
+  buildSatellitePopupFeatures,
+  enforceSignedPopupBounds,
+  sanitizeSignedBounds,
+  tryAutoPlaceOnSecondaryScreen,
+} from './satelliteScreenPlacement';
+
+const SATELLITE_WINDOW_NAME = 'OGiradorStudioSatellite';
+const MINIMIZED_SENTINEL = -16000;
 
 class DetachedWindowManager {
   private windows = new Map<DetachedPanelKey, Window>();
   private pendingBounds = new Map<DetachedPanelKey, DesktopWindowBounds>();
+  private mainWindowUnloading = false;
 
-  /**
-   * Enregistre l'instance Window d'un panneau détaché lors de son ouverture
-   */
-  register(panel: DetachedPanelKey, win: Window | null | undefined): void {
-    if (!win || win.closed) return;
-    this.windows.set(panel, win);
+  setMainWindowUnloading(unloading: boolean): void {
+    this.mainWindowUnloading = unloading;
   }
 
-  /**
-   * Désenregistre un panneau détaché
-   */
+  isMainWindowUnloading(): boolean {
+    return this.mainWindowUnloading;
+  }
+
+  register(panel: DetachedPanelKey, win: Window | null | undefined): void {
+    if (win && !win.closed) {
+      this.windows.set(panel, win);
+    } else {
+      this.windows.delete(panel);
+    }
+  }
+
   unregister(panel: DetachedPanelKey): void {
     this.windows.delete(panel);
   }
 
-  /**
-   * Récupère la référence Window vivante d'un panneau
-   */
-  getWindow(panel: DetachedPanelKey): Window | null {
+  getWindow(panel: DetachedPanelKey = 'satellite'): Window | null {
     const win = this.windows.get(panel);
-    if (!win || win.closed) {
-      this.windows.delete(panel);
-      return null;
+    if (win && !win.closed) return win;
+    if (win && win.closed) this.windows.delete(panel);
+    return null;
+  }
+
+  isPanelOpen(panel: DetachedPanelKey = 'satellite'): boolean {
+    return this.getWindow(panel) !== null;
+  }
+
+  openSatellitePopup(
+    savedBounds?: DesktopWindowBounds | null,
+    onAutoPlaced?: (bounds: DesktopWindowBounds) => void
+  ): Window | null {
+    if (typeof window === 'undefined') return null;
+    this.mainWindowUnloading = false;
+    const existing = this.getWindow('satellite');
+    if (existing) {
+      if (savedBounds) enforceSignedPopupBounds(existing, savedBounds);
+      try { existing.focus(); } catch {}
+      return existing;
     }
-    return win;
-  }
 
-  /**
-   * Indique si un panneau est actuellement ouvert en fenêtre secondaire
-   */
-  isPanelOpen(panel: DetachedPanelKey): boolean {
-    return Boolean(this.getWindow(panel));
-  }
-
-  /**
-   * Capture les coordonnées et dimensions physiques d'une fenêtre détachée
-   * NOTE: Supporte impérativement les coordonnées négatives (multi-écrans à gauche/au-dessus)
-   */
-  getBounds(panel: DetachedPanelKey): DesktopWindowBounds | undefined {
-    const win = this.getWindow(panel);
-    if (!win) return undefined;
-
+    const effectiveBounds = savedBounds ?? this.pendingBounds.get('satellite') ?? null;
+    const features = buildSatellitePopupFeatures(effectiveBounds);
+    let popup: Window | null = null;
     try {
-      const screenX = typeof win.screenX === 'number' ? win.screenX : (win as any).screenLeft;
-      const screenY = typeof win.screenY === 'number' ? win.screenY : (win as any).screenTop;
-      const width = win.outerWidth || win.innerWidth || 1024;
-      const height = win.outerHeight || win.innerHeight || 768;
-
-      if (typeof screenX === 'number' && typeof screenY === 'number') {
-        return {
-          screenX: Math.round(screenX), // Coordonnées négatives préservées
-          screenY: Math.round(screenY), // Coordonnées négatives préservées
-          width: Math.round(width),
-          height: Math.round(height),
-        };
-      }
-    } catch (err) {
-      console.warn(`[DetachedWindowManager] Erreur lors de la lecture des coordonnées de ${panel}:`, err);
+      popup = window.open('', SATELLITE_WINDOW_NAME, features);
+    } catch {
+      popup = null;
     }
-    return undefined;
-  }
+    if (!popup || popup.closed) return null;
 
-  /**
-   * Stocke les dimensions et coordonnées cibles pour l'ouverture prochaine d'un panneau
-   */
-  setPendingBounds(panel: DetachedPanelKey, bounds?: DesktopWindowBounds): void {
-    if (bounds) {
-      this.pendingBounds.set(panel, bounds);
+    this.register('satellite', popup);
+    this.pendingBounds.delete('satellite');
+
+    if (effectiveBounds) {
+      enforceSignedPopupBounds(popup, effectiveBounds);
     } else {
-      this.pendingBounds.delete(panel);
+      void tryAutoPlaceOnSecondaryScreen(popup, onAutoPlaced);
+    }
+    try { popup.focus(); } catch {}
+    return popup;
+  }
+
+  getBounds(panel: DetachedPanelKey = 'satellite'): DesktopWindowBounds | undefined {
+    const win = this.getWindow(panel);
+    if (!win || win.closed) return undefined;
+    try {
+      const rawX = typeof win.screenX === 'number' ? win.screenX : win.screenLeft;
+      const rawY = typeof win.screenY === 'number' ? win.screenY : win.screenTop;
+      const rawW = win.outerWidth || win.innerWidth;
+      const rawH = win.outerHeight || win.innerHeight;
+      if (
+        !Number.isFinite(rawX) || !Number.isFinite(rawY) ||
+        !Number.isFinite(rawW) || !Number.isFinite(rawH) ||
+        rawX <= MINIMIZED_SENTINEL || rawY <= MINIMIZED_SENTINEL ||
+        rawW < 200 || rawH < 200
+      ) {
+        return undefined;
+      }
+      return {
+        x: Math.round(rawX),
+        y: Math.round(rawY),
+        width: Math.round(rawW),
+        height: Math.round(rawH),
+      };
+    } catch {
+      return undefined;
     }
   }
 
-  /**
-   * Récupère les dimensions et coordonnées mémorisées
-   */
-  getPendingBounds(panel: DetachedPanelKey): DesktopWindowBounds | undefined {
-    return this.pendingBounds.get(panel);
-  }
-
-  /**
-   * Tente de repositionner / redimensionner une fenêtre déjà ouverte
-   */
   applyBoundsToOpenWindow(panel: DetachedPanelKey, bounds: DesktopWindowBounds): boolean {
     const win = this.getWindow(panel);
-    if (!win) return false;
+    if (!win || win.closed) return false;
+    enforceSignedPopupBounds(win, sanitizeSignedBounds(bounds));
+    try { win.focus(); } catch {}
+    return true;
+  }
 
-    try {
-      if (typeof win.moveTo === 'function') {
-        win.moveTo(bounds.screenX, bounds.screenY);
-      }
-      if (typeof win.resizeTo === 'function') {
-        win.resizeTo(bounds.width, bounds.height);
-      }
-      if (typeof win.focus === 'function') {
-        win.focus();
-      }
-      return true;
-    } catch (err) {
-      console.warn(`[DetachedWindowManager] Impossible de déplacer la fenêtre ${panel}:`, err);
-      return false;
+  focusWindow(panel: DetachedPanelKey = 'satellite'): void {
+    const win = this.getWindow(panel);
+    if (!win) return;
+    try { win.focus(); } catch {}
+  }
+
+  closeWindow(panel: DetachedPanelKey = 'satellite'): void {
+    const win = this.windows.get(panel);
+    this.windows.delete(panel);
+    if (win && !win.closed) {
+      try { win.close(); } catch {}
     }
   }
 }

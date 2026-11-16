@@ -29,7 +29,7 @@ export function getDictionaryEntries(family: DictionaryFamily = 'all', searchQue
       if (Object.keys(activePatterns).length > 0) {
         items.push({
           id: 'morceau_actif',
-          name: 'Morceau Actif (Séquenciad\'Or)',
+          name: 'Morceau Actif (Sequenciador)',
           family: 'bases_paradas' as any,
           description: 'Patterns actuellement chargés dans la console',
           patterns: activePatterns

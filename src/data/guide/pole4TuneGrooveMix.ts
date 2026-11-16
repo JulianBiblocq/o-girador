@@ -1,0 +1,66 @@
+import { GuidePoleDef } from './guideTypes';
+import { POLE_4_MIX_AND_BT_CARDS } from './pole4MixAndBluetooth';
+
+export const POLE_4_TUNE_GROOVE_MIX: GuidePoleDef = {
+  id: 'pole-4',
+  num: '04',
+  titleFr: 'Accorder, Balanço & Mixer',
+  titlePt: 'Afinar, Balanço & Mixar',
+  subtitleFr: 'Régler la lutherie des peaux 48 kHz, sculpter le Balanço micro-temporel, mixer en Bus et calibrer le Bluetooth.',
+  subtitlePt: 'Ajustar a lutheria das peles em 48 kHz, moldar o Balanço microtemporal, mixar em Bus e calibrar o Bluetooth.',
+  cards: [
+    {
+      id: 'p4-1',
+      poleId: 'pole-4',
+      level: 'studio',
+      shortcut: 'O > Lutherie',
+      titleFr: 'Accorder ses tambours sur le Banc de Lutherie 48 kHz',
+      titlePt: 'Afinar os tambores na Bancada de Lutheria 48 kHz',
+      goalFr: 'Étager harmonieusement Marcante, Meião, Repique, Caixas et la cloche unique du Gonguê.',
+      goalPt: 'Escalonar com harmonia Marcante, Meião, Repique, Caixas e a campana única do Gonguê.',
+      contextFr: 'La signature sonore d’un groupe naît de l’intervalle d’accordage entre ses trois tailles d’Alfaias, du grain de timbre de ses Caixas/Tarol et de la résonance de son Gonguê en fer forgé.',
+      contextPt: 'A identidade sonora de um grupo nasce do intervalo de afinação entre seus três tamanhos de Alfaias, da tensão de esteira das Caixas/Tarol e do ferro do Gonguê.',
+      stepsFr: [
+        'Appuyez sur [O] pour ouvrir A Oficina, puis sélectionnez Son & Balanço > Lutherie & Peaux.',
+        'Réglez l’accordage fin (en demi-tons et Hz) et l’enveloppe de résonance de chaque tambour afin de séparer nettement le grave du Marcante, le corps du Meião et le chant du Repique.',
+        'Écoutez les fûts isolément ou en accord groupé, et vérifiez la cohérence avec le diapason de référence du morceau (referencePitchHz, 440 Hz par défaut).',
+        'Appliquez ou sauvegardez un profil acoustique pour retrouver instantanément la couleur de peaux de votre groupe.',
+      ],
+      stepsPt: [
+        'Pressione [O] para abrir A Oficina e selecione Som & Balanço > Lutheria & Peles.',
+        'Ajuste a afinação fina (em semitons e Hz) e a ressonância de cada tambor para separar com clareza o grave do Marcante, o centro do Meião e o agudo do Repique.',
+        'Ouça os tambores isolados ou em conjunto e confira a coerência com o diapasão de referência da música (referencePitchHz, padrão 440 Hz).',
+        'Aplique ou salve um perfil acústico para recuperar instantaneamente a assinatura de peles do seu grupo.',
+      ],
+      tipFr: 'Aligner le diapason referencePitchHz entre la lutherie du Batuque et la Toada garantit que le Gonguê et les voix chantent naturellement dans la même justesse.',
+      tipPt: 'Alinhar o referencePitchHz entre a lutheria do Batuque e a Toada garante que o Gonguê e as vozes soem naturalmente afinados.',
+    },
+    {
+      id: 'p4-2',
+      poleId: 'pole-4',
+      level: 'studio',
+      shortcut: 'O > Balanço',
+      titleFr: 'Sculpter ou capturer au pad le Balanço micro-temporel',
+      titlePt: 'Esculpir ou capturar no pad o Balanço microtemporal',
+      goalFr: 'Insuffler l’élasticité rythmique vivante propre à chaque Nação et chaque style.',
+      goalPt: 'Imprimir a elasticidade rítmica viva característica de cada Nação e estilo.',
+      contextFr: 'Un Baque joué sur une grille mathématique stricte paraît rigide : la respiration traditionnelle vient d’un léger placement micro-temporel des subdivisions intermédiaires (malha de Caixa, va-et-vient d’Agbê et de Mineiro).',
+      contextPt: 'Um Baque cravado numa grade matemática fria soa rígido: o suingue tradicional nasce do microdeslocamento orgânico das subdivisões intermediárias (malha da Caixa, Agbê e Mineiro).',
+      stepsFr: [
+        'Ouvrez A Oficina [O] > Son & Balanço > Balanço (ou utilisez le sélecteur Balanço directement depuis l’Éditeur Détail).',
+        'Parcourez les courbes de Balanço de référence ou tapez quelques mesures à la main sur le pad de capture pour extraire votre propre ressenti.',
+        'Dosez le pourcentage d’intensité globale pour asseoir le rebond sans déstabiliser le Temps 1.',
+        'Affinez si besoin un décalage ou un profil de Balanço spécifique par piste (par exemple une malha de Caixa légèrement tirée face à des Alfaias bien posées au fond du temps).',
+      ],
+      stepsPt: [
+        'Abra A Oficina [O] > Som & Balanço > Balanço (ou use o seletor de Balanço diretamente no Editor Detalhado).',
+        'Explore as curvas de Balanço de referência ou toque alguns compassos no pad de captura para extrair sua própria pulsação.',
+        'Ajuste a intensidade global em porcentagem para dar peso ao balanço sem deslocar o Tempo 1.',
+        'Refine se desejar um perfil individual por faixa (como uma malha de Caixa característica sobre Alfaias firmes no fundo do tempo).',
+      ],
+      tipFr: 'Écoutez la Caixa et le Mineiro ensemble en Solo pendant que vous dosez le Balanço : c’est là que la fusion du tapis de doubles-croches se révèle immédiatement.',
+      tipPt: 'Escute a Caixa e o Mineiro juntos em Solo enquanto ajusta o Balanço: é ali que a fusão da malha de semicolcheias aparece na hora.',
+    },
+    ...POLE_4_MIX_AND_BT_CARDS,
+  ],
+};

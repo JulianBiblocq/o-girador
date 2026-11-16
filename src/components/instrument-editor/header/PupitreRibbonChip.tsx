@@ -1,5 +1,5 @@
-
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../../data';
 import { getAlfaiaIconSizeClass } from '../../../utils/alfaiaUtils';
@@ -19,9 +19,22 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  const instrumentIdx = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId)?.instrumentIdx ?? 0);
-  const customName = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId)?.customName);
-  const isBusFolder = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId)?.isBusFolder);
+  const [instrumentIdx, customName, isBusFolder, isMute, isSolo, hasAnySolo] = useSequencerStore(
+    useShallow(
+      useCallback((state) => {
+        const tr = state.tracks.find((t) => t.id === trackId);
+        const anySolo = state.tracks.some((t) => Boolean(t.isSolo));
+        return [
+          tr?.instrumentIdx ?? 0,
+          tr?.customName ?? '',
+          Boolean(tr?.isBusFolder),
+          Boolean(tr?.isMute),
+          Boolean(tr?.isSolo),
+          anySolo,
+        ] as const;
+      }, [trackId])
+    )
+  );
 
   useEffect(() => {
     if (isActive && chipRef.current) {
@@ -34,7 +47,8 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
   const tInst = isToada && toadaConfig ? toadaConfig : instrumentsConfig[instrumentIdx];
   const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
   const titleText = isToada ? 'Toada' : (customName || tInst?.name || 'Instrument');
-  const instColor = getInstrumentPrimaryStrongColor(tInst, { id: trackId, customName });
+  const instColor = getInstrumentPrimaryStrongColor(tInst, { id: trackId, customName: customName || undefined });
+  const isSilenced = isMute || (hasAnySolo && !isSolo);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
@@ -81,13 +95,13 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
       onTouchCancel={handleTouchEnd}
       title={titleText}
       style={{
-        borderColor: instColor,
-        boxShadow: isActive ? `2px 2px 0px ${instColor}` : '1px 1px 0px rgba(0,0,0,0.5)',
+        borderColor: isSolo ? 'var(--cordel-gold)' : instColor,
+        boxShadow: isActive ? `2px 2px 0px ${instColor}` : '1px 1px 0px var(--cordel-shadow-color)',
       }}
       className={`xilo-wood-stamp shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center transition-all duration-150 relative select-none border-2 ${
         isActive
-          ? 'bg-[#fbf8f0] ring-2 ring-offset-1 ring-offset-[#1a1a1a] scale-105 z-10 cursor-default'
-          : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] opacity-85 hover:opacity-100 hover:shadow-[2px_2px_0px_#1a1a1a] hover:-translate-y-[1px] cursor-pointer'
+          ? 'bg-[var(--cordel-surface-elevated)] ring-2 ring-offset-1 ring-offset-[var(--cordel-ink-dark)] scale-105 z-10 cursor-default'
+          : `bg-[var(--cordel-parchment-bg)]/90 hover:bg-[var(--cordel-surface-elevated)] ${isSilenced ? 'opacity-55' : 'opacity-85'} hover:opacity-100 hover:-translate-y-[1px] cursor-pointer`
       }`}
     >
       {tInst?.iconImg ? (
@@ -98,7 +112,7 @@ export const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
           onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
         />
       ) : (
-        <span className="font-cactus font-bold text-xs text-[#1a1a1a] pointer-events-none">
+        <span className="font-cactus font-bold text-xs text-[var(--cordel-ink-dark)] pointer-events-none">
           {titleText.slice(0, 2).toUpperCase()}
         </span>
       )}

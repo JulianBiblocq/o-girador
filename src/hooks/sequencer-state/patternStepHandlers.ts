@@ -49,10 +49,11 @@ export function createPatternStepHandlers(ctx: PatternStepContext) {
   };
 
   const handleTrackStepValueChange = (
-    trackId: number, patternId: number, stepIdx: number | number[], val: string | number | string[] | [string, string], lyrics?: string[] | string, notes?: string[] | string
+    trackId: number, patternId: number, stepIdx: number | number[], val: string | number | string[] | [string, string],
+    lyrics?: string[] | string, notes?: string[] | string, options?: { skipUndo?: boolean }
   ) => {
-    pushUndoState();
-    setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p, isSource, t) => {
+    if (!options?.skipUndo) pushUndoState();
+    setTracks((prev: TrackGroup[]) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p, _isSource, t) => {
       const inst = instrumentsConfig[t.instrumentIdx];
       const isAlfaia = Boolean(inst && ['marcante', 'meiao', 'repique', 'alfaia'].includes(inst.id));
       const parseVal = (v: string | number): string | number => {

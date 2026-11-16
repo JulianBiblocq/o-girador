@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RotateCw, Check, Maximize2, X, Crop } from 'lucide-react';
+import { usePortalRoot } from '../../contexts/WindowContext';
 import { preprocessPaperImage } from '../../utils/paper/paperImagePreprocessor';
 import { useCropInteraction, HandleType } from '../../hooks/paper/useCropInteraction';
 
@@ -19,6 +20,7 @@ interface Props {
 export const PaperScanCropModal: React.FC<Props> = ({
   isOpen, imageSrc, title, onConfirm, onCancel, lang,
 }) => {
+  const portalRoot = usePortalRoot();
   const [rotation, setRotation] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const { crop, containerRef, onPointerDown, onPointerMove, onPointerUp } = useCropInteraction();
@@ -39,11 +41,10 @@ export const PaperScanCropModal: React.FC<Props> = ({
   };
 
   const corners: HandleType[] = ['nw', 'ne', 'se', 'sw'];
-  const modalRoot = typeof document !== 'undefined' ? document.getElementById('modal-root') || document.body : null;
-  if (!modalRoot) return null;
+  if (!portalRoot) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 select-none">
+    <div className="fixed inset-0 z-[100030] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 select-none">
       <div className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[6px_6px_0px_#000] w-full max-w-2xl flex flex-col max-h-[95vh] overflow-hidden font-sans">
         {/* EN-TÊTE MODALE */}
         <div className="flex items-center justify-between px-3 py-2 bg-[#1a1a1a] text-[#f4ecd8] border-b-2 border-black">
@@ -128,6 +129,6 @@ export const PaperScanCropModal: React.FC<Props> = ({
         </div>
       </div>
     </div>,
-    modalRoot
+    portalRoot
   );
 };

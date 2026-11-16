@@ -16,11 +16,11 @@
 }
 
 .cordel-wood-shadow {
-  box-shadow: 4px 4px 0px #1a1a1a;
+  box-shadow: 4px 4px 0px var(--cordel-shadow-color);
 }
 
 .cordel-wood-shadow-sm {
-  box-shadow: 2px 2px 0px #1a1a1a;
+  box-shadow: 2px 2px 0px var(--cordel-shadow-color);
 }
 
 .lp-alfaia-svg {
@@ -39,15 +39,15 @@
 .lp-entra-btn {
   position: relative;
   z-index: 10;
-  background: #f4ecd8;
-  border: 2px solid #1a1a1a;
+  background: var(--cordel-surface-elevated);
+  border: 2px solid var(--cordel-border-strong);
   border-radius: 50%;
   width: 65%;
   height: 65%;
   font-family: 'Cactus', sans-serif;
   font-size: clamp(0.75rem, 1.8vw, 1.4rem);
   font-weight: bold;
-  color: #1a1a1a;
+  color: var(--cordel-text);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -55,21 +55,21 @@
   text-align: center;
   line-height: 1.1;
   letter-spacing: 0.05em;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1), 2px 2px 0px #1a1a1a;
+  box-shadow: inset 0 0 10px var(--cordel-shadow-color), 2px 2px 0px var(--cordel-shadow-color);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .lp-entra-btn:hover {
-  background: #8b2a1a;
-  color: #f4ecd8;
-  border-color: #1a1a1a;
+  background: var(--cordel-wood);
+  color: var(--cordel-on-accent);
+  border-color: var(--cordel-border-strong);
   transform: scale(1.06);
-  box-shadow: 3px 3px 0px #1a1a1a;
+  box-shadow: 3px 3px 0px var(--cordel-shadow-color);
 }
 
 .lp-entra-btn:active {
   transform: scale(0.95);
-  box-shadow: 1px 1px 0px #1a1a1a;
+  box-shadow: 1px 1px 0px var(--cordel-shadow-color);
 }
 
 .automation-node-circle,

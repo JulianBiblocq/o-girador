@@ -34,9 +34,11 @@ export interface TimelineModalsContainerProps {
     isOpen: boolean;
     onClose: () => void;
     editingMarker: SongMarker | null;
+    editingMarkerIdx?: number;
     defaultMeasure: number;
     onCreateMarker: (name: string, measure: number, color: string) => void;
-    onUpdateMarker: (id: string, name: string, measure: number, color: string) => void;
+    onUpdateMarker: (id: string, name: string, measure: number, color: string, fallbackIdx?: number) => void;
+    onDeleteMarker?: (marker: SongMarker, fallbackIdx?: number) => void;
   };
   insertMeasuresPrompt: {
     isOpen: boolean;
@@ -85,11 +87,13 @@ export const TimelineModalsContainer: React.FC<TimelineModalsContainerProps> = R
         isOpen={markerModal.isOpen}
         onClose={markerModal.onClose}
         editingMarker={markerModal.editingMarker}
+        editingMarkerIdx={markerModal.editingMarkerIdx}
         defaultMeasure={markerModal.defaultMeasure}
         totalMeasures={totalMeasures}
         lang={lang}
         onCreateMarker={markerModal.onCreateMarker}
         onUpdateMarker={markerModal.onUpdateMarker}
+        onDeleteMarker={markerModal.onDeleteMarker}
       />
 
       <StepEditorPopup />

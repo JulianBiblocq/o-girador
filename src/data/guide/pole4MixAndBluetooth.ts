@@ -1,0 +1,56 @@
+import { GuideActionCard } from './guideTypes';
+
+export const POLE_4_MIX_AND_BT_CARDS: GuideActionCard[] = [
+  {
+    id: 'p4-3',
+    poleId: 'pole-4',
+    level: 'studio',
+    shortcut: 'MIXEUR · Mono',
+    titleFr: 'Mixer les Bus de Pupitres, le Master & contrôler la sommation Mono',
+    titlePt: 'Mixar Canais de Bus, Master & conferir a soma em Mono',
+    goalFr: 'Équilibrer l’assise des graves, le mordant des timbres et la compatibilité sur enceintes de rue.',
+    goalPt: 'Equilibrar o peso dos graves, a presença das esteiras e a clareza em caixas de som de rua.',
+    contextFr: 'Une répétition diffusée sur une sonorisation mono ou une enceinte portable exige un mixage sans opposition de phase et une compression cohérente par famille d’instruments.',
+    contextPt: 'Um ensaio amplificado em sistema mono ou caixa portátil exige uma mixagem sem cancelamento de fase e compressão coesa por família de instrumentos.',
+    stepsFr: [
+      'Cliquez sur l’onglet [ MIXEUR ] pour afficher toutes les tranches (identifiées par le contour coloré propre de chaque instrument, même lorsqu’il est lié à un Maître).',
+      'Ajustez fader de volume, panoramique stéréo, filtre coupe-bas, égaliseur 3 bandes (Graves, Médiums, Aigus) et départs d’effets Reverb / Saturation.',
+      'Regroupez vos familles dans des Bus pliables (ex. Bus Alfaias, Bus Caixas, Bus Sementes) équipés de leur propre compresseur dynamique d’insert.',
+      'Finalisez la couleur globale sur la tranche MASTER (EQ, Glue Compressor, Limiteur) et enclenchez le bouton [ Mono ] pour vérifier la tenue du mixage sur une seule enceinte.',
+    ],
+    stepsPt: [
+      'Clique na aba [ MIXADOR ] para visualizar todos os canais (identificados pelo contorno colorido próprio de cada instrumento, mesmo vinculado a um Mestre).',
+      'Ajuste fader de volume, pan estéreo, corte de graves, equalizador de 3 bandas (Graves, Médios, Agudos) e envios de Reverb / Saturação.',
+      'Agrupe suas famílias em Canais de Bus retráteis (ex. Bus Alfaias, Bus Caixas, Bus Sementes) equipados com compressor dinâmico próprio.',
+      'Finalize no canal MASTER (EQ, Glue Compressor, Limiter) e ative o botão [ Mono ] para conferir a firmeza da soma em caixa única.',
+    ],
+    tipFr: 'Un double-clic sur n’importe quel fader ou potentiomètre rotatif de la console le ramène immédiatement à sa position nominale neutre (0 dB / centre).',
+    tipPt: 'Um duplo clique em qualquer fader ou botão giratório da mesa restaura na hora sua posição nominal neutra (0 dB / centro).',
+  },
+  {
+    id: 'p4-4',
+    poleId: 'pole-4',
+    level: 'practice',
+    shortcut: 'O > Audio · Mode Éco',
+    titleFr: 'Calibrer une enceinte Bluetooth & préserver 60 FPS en Mode Éco',
+    titlePt: 'Calibrar caixa Bluetooth & manter 60 FPS no Modo Eco',
+    goalFr: 'Synchroniser à la milliseconde l’impact visuel des baguettes sans fil et soulager les tablettes modestes.',
+    goalPt: 'Sincronizar ao milissegundo o impacto visual em caixas sem fio e poupar energia no tablet.',
+    contextFr: 'Les enceintes Bluetooth introduisent un délai matériel de transmission (souvent 80 à 220 ms). Sequenciador garde l’horloge audio immuable et recale l’image pour que l’œil et l’oreille frappent ensemble.',
+    contextPt: 'Caixas Bluetooth adicionam um atraso físico de transmissão (geralmente 80 a 220 ms). O Sequenciador mantém o relógio de áudio intacto e alinha a imagem para olho e ouvido baterem juntos.',
+    stepsFr: [
+      'Cliquez sur le badge de sortie audio près du transport ou ouvrez A Oficina [O] > Système > Sorties Audio.',
+      'Choisissez votre profil d’écoute : Casque / Filaire (0 ms), Haut-parleur intégré ou Enceinte Bluetooth.',
+      'Utilisez l’assistant de calage visuel ou par détection acoustique pour aligner exactement le rebond des baguettes Ao Vivo et de la Roda sur le son perçu.',
+      'Sur smartphone ou tablette ancienne, ouvrez A Oficina [O] > Système > Mode Éco pour alléger les effets graphiques tout en conservant 100 % de la qualité audio 48 kHz.',
+    ],
+    stepsPt: [
+      'Clique no selo de saída de áudio perto do transporte ou abra A Oficina [O] > Sistema > Saídas de Áudio.',
+      'Selecione seu perfil de escuta: Fone com fio (0 ms), Alto-falante interno ou Caixa Bluetooth.',
+      'Use o assistente de alinhamento visual ou por pulso acústico para cravar o impacto das baquetas Ao Vivo e da Roda com o som ouvido.',
+      'Em celulares ou tablets mais antigos, abra A Oficina [O] > Sistema > Modo Eco para aliviar os efeitos gráficos mantendo 100 % da qualidade de áudio em 48 kHz.',
+    ],
+    tipFr: 'La pastille discrète sur le bouton A Oficina reflète en direct la fluidité graphique (60 FPS) de votre appareil sans jamais perturber la lecture.',
+    tipPt: 'O indicador discreto no botão A Oficina mostra em tempo real a fluidez gráfica (60 FPS) do aparelho sem interferir na reprodução.',
+  },
+];

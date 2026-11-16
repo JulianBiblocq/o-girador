@@ -1,6 +1,6 @@
 
 import type { Pattern, CatalogVisibility } from './pattern.types';
-import type { TimeSignature } from './common.types';
+import type { TimeSignature, AlfaiaEquipmentMetadata } from './common.types';
 
 export interface CatalogItem {
   file: string;
@@ -50,6 +50,7 @@ export interface SavedSectionData {
   volTransitions: ('immediate' | 'ramp' | 'bezier')[];
   signals: (string | null)[];
   tracks: SavedSectionTrack[];
+  alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
 }
 
 export interface CloudSection {
@@ -77,4 +78,5 @@ export interface CloudPreset {
   audioUrl?: string | null;
   isDraft?: boolean;
   updatedAt?: number | null;
+  alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
 }

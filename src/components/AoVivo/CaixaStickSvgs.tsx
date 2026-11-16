@@ -51,6 +51,7 @@ function renderCaixaStickContent(family: CaixaStickFamily, isShadow: boolean) {
   return (
     <>
       <g data-stick-shaft>
+        <path d={shaftPath} fill="none" stroke="var(--cordel-stick-halo-outline)" strokeWidth="6.2" strokeLinejoin="round" />
         <path d={shaftPath} fill="var(--cordel-stick-shaft)" stroke="var(--cordel-stick-ink)" strokeWidth="3.6" strokeLinejoin="round" />
         <path
           d={`M ${+(50 - shHalf * 0.6).toFixed(1)} 210 L ${+(50 + shHalf * 0.5).toFixed(1)} 220 M ${+(50 - shHalf * 0.7).toFixed(1)} 285 L ${+(50 + shHalf * 0.7).toFixed(1)} 295 M ${+(50 - shHalf * 0.8).toFixed(1)} 365 L ${+(50 + shHalf * 0.8).toFixed(1)} 375`}
@@ -58,6 +59,7 @@ function renderCaixaStickContent(family: CaixaStickFamily, isShadow: boolean) {
         />
       </g>
       <g data-stick-olive style={oliveStyle}>
+        <path d={ACORN_PATH} fill="none" stroke="var(--cordel-stick-halo-outline)" strokeWidth="6.6" strokeLinejoin="round" />
         <path d={ACORN_PATH} fill={oliveFill} stroke="var(--cordel-stick-ink)" strokeWidth="4" strokeLinejoin="round" />
         <path d="M 35 76 Q 50 64 65 76 M 32 92 Q 50 81 68 92 M 35 108 Q 50 99 65 108" fill="none" stroke="var(--cordel-stick-ink)" strokeWidth="2.3" strokeLinecap="round" />
       </g>

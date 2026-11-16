@@ -29,8 +29,7 @@ export const PhotoBoothCaptureControls: React.FC<Props> = ({
   ];
 
   return (
-    <div className="flex flex-wrap justify-between items-center gap-2 bg-[#eaddcf]/50 p-2 border border-black/15 rounded-sm">
-      {/* 1. Sélecteur de mode [ 1 | 4 | 5 ] */}
+    <div className="flex flex-wrap justify-between items-center gap-2 bg-[var(--cordel-surface)] text-[var(--cordel-text)] p-2.5 border border-[var(--cordel-border)] rounded-sm">
       <div className="flex items-center gap-1.5 text-xs font-bold">
         <span>{lang === 'fr' ? 'Mode :' : 'Modo :'}</span>
         {modes.map((m) => (
@@ -39,10 +38,10 @@ export const PhotoBoothCaptureControls: React.FC<Props> = ({
             type="button"
             disabled={isCountingDown}
             onClick={() => onSelectBeatsCount(m.count)}
-            className={`px-2 py-0.5 border border-black text-xs font-cactus font-bold cursor-pointer transition-colors ${
+            className={`px-2 py-0.5 border border-[var(--cordel-border-strong)] text-xs font-cactus font-bold cursor-pointer transition-colors ${
               beatsCount === m.count
-                ? 'bg-[#8b2a1a] text-white shadow-xs'
-                : 'bg-white text-black hover:bg-black/10'
+                ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+                : 'bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:border-[var(--cordel-accent-readable)]'
             }`}
           >
             {lang === 'fr' ? m.labelFr : m.labelPt}
@@ -50,7 +49,6 @@ export const PhotoBoothCaptureControls: React.FC<Props> = ({
         ))}
       </div>
 
-      {/* 2. Retardateur compact en mode 1 photo */}
       <div className="flex items-center gap-2">
         {beatsCount === 1 && (
           <CameraTimerSelector
@@ -60,12 +58,11 @@ export const PhotoBoothCaptureControls: React.FC<Props> = ({
           />
         )}
 
-        {/* 3. Bouton Déclencher / Démarrer */}
         <button
           type="button"
           disabled={isCountingDown}
           onClick={onTrigger}
-          className="px-4 py-1.5 bg-[#8b2a1a] hover:bg-[#6b1e11] text-white font-cactus font-bold text-sm border border-black shadow-[2px_2px_0px_#000] cursor-pointer flex items-center gap-1.5 disabled:opacity-50 transition-transform active:scale-95"
+          className="px-4 py-1.5 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] font-cactus font-bold text-sm border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer flex items-center gap-1.5 disabled:opacity-50 transition-transform active:scale-95"
           title={lang === 'fr' ? 'Déclencher (ou Barre Espace)' : 'Capturar (ou Barra de Espaço)'}
         >
           {beatsCount === 1 ? (
@@ -75,12 +72,8 @@ export const PhotoBoothCaptureControls: React.FC<Props> = ({
           )}
           <span>
             {beatsCount === 1
-              ? lang === 'fr'
-                ? 'Déclencher'
-                : 'Capturar'
-              : lang === 'fr'
-              ? 'Démarrer'
-              : 'Iniciar'}
+              ? (lang === 'fr' ? 'Déclencher' : 'Capturar')
+              : (lang === 'fr' ? 'Démarrer' : 'Iniciar')}
           </span>
         </button>
       </div>

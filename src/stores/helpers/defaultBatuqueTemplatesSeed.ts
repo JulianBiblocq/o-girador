@@ -22,5 +22,5 @@ export const DEFAULT_BATUQUE_TEMPLATES_SEED: WorkspaceTemplate[] = STUDIO_MASTER
   rodaTrackOrder: [...DEFAULT_RODA_TRACK_IDS],
   masterSettings: JSON.parse(JSON.stringify(amb.masterSettings)),
   createdAt: 1793000000000 + idx * 1000,
-  updatedAt: 1793000000000 + idx * 1000,
+  updatedAt: 1794000000000 + idx * 1000,
 }));

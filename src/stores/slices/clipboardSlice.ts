@@ -6,10 +6,9 @@ import { notifyToast } from '../../utils/toastHelper';
 import { copyAllTrackPatternsData } from '../helpers/instrumentClipboardCopyHelper';
 import { pasteAllTrackPatternsState } from '../helpers/instrumentClipboardPasteHelper';
 import {
-  handleCopyVoiceStepsAction,
-  handleCutVoiceStepsAction,
-  handlePasteVoiceStepsAction
+  handleCopyVoiceStepsAction, handleCutVoiceStepsAction, handlePasteVoiceStepsAction,
 } from '../helpers/vocalClipboardActionsHelper';
+import { createStepRangeClipboardActions } from '../helpers/stepRangeClipboardActions';
 
 export const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice> = (set, get) => ({
   copiedPattern: null,
@@ -17,6 +16,7 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
   instrumentPatternsClipboard: null,
   vocalNotesClipboard: null,
   voiceStepsClipboard: null,
+  stepRangeClipboard: null,
 
   setCopiedPattern: (pattern) => set({ copiedPattern: pattern }),
   setCopiedSection: (section) => set({ copiedSection: section }),
@@ -40,27 +40,15 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
     state.pushUndoState();
     const copied = state.copiedSection;
     const res = pasteSongSectionState(
-      state.tracks,
-      state.songSections,
-      state.totalMeasures,
-      copied,
-      destStartMeasure,
-      state.hasFullPlaybackAccess,
-      state.maxMeasuresAllowed
+      state.tracks, state.songSections, state.totalMeasures, copied, destStartMeasure,
+      state.hasFullPlaybackAccess, state.maxMeasuresAllowed
     );
-
-    if (res.error) {
-      notifyToast(res.error, 'error');
-      return;
-    }
-
+    if (res.error) { notifyToast(res.error, 'error'); return; }
     set({
-      tracks: res.tracks,
-      tracksVersion: state.tracksVersion + 1,
+      tracks: res.tracks, tracksVersion: state.tracksVersion + 1,
       ...(res.songSections ? { songSections: res.songSections } : {}),
-      ...(res.totalMeasures !== undefined ? { totalMeasures: res.totalMeasures } : {})
+      ...(res.totalMeasures !== undefined ? { totalMeasures: res.totalMeasures } : {}),
     });
-
     const end = destStartMeasure + copied.length - 1;
     get().handleCreateSongSection(copied.name, destStartMeasure, end, copied.color, copied.repeatCount, copied.level);
   },
@@ -81,12 +69,7 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
     if (!state.instrumentPatternsClipboard) return;
     state.pushUndoState();
     const res = pasteAllTrackPatternsState(
-      state.tracks,
-      state.instrumentPatternsClipboard,
-      targetTrackId,
-      modeOrApplyTimeline,
-      state.totalMeasures,
-      state.lang
+      state.tracks, state.instrumentPatternsClipboard, targetTrackId, modeOrApplyTimeline, state.totalMeasures, state.lang
     );
     if (!res) return;
     set({ tracks: res.tracks, tracksVersion: (state.tracksVersion || 0) + 1 });
@@ -96,20 +79,18 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
   },
 
   copySelectedNotesRange: (rangeOverride) => get().copyVoiceStepsRange(rangeOverride),
-
   pasteNotesOnlyStartingAt: (targetTrackId, targetPatternId, startIsPreRoll, startStepIdx) => {
     get().pasteVoiceSteps(targetTrackId, targetPatternId, startIsPreRoll, startStepIdx, true);
   },
-
   copyVoiceStepsRange: (rangeOverride, trackIdOverride, patternIdOverride) => {
     handleCopyVoiceStepsAction(get(), set, rangeOverride, trackIdOverride, patternIdOverride);
   },
-
   cutVoiceStepsRange: (rangeOverride, trackIdOverride, patternIdOverride) => {
     handleCutVoiceStepsAction(get(), set, get, rangeOverride, trackIdOverride, patternIdOverride);
   },
-
   pasteVoiceSteps: (targetTrackId, targetPatternId, startIsPreRoll, startStepIdx, notesOnly = false) => {
     handlePasteVoiceStepsAction(get(), set, targetTrackId, targetPatternId, startIsPreRoll, startStepIdx, notesOnly);
-  }
+  },
+
+  ...createStepRangeClipboardActions(set, get),
 });

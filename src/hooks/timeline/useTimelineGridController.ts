@@ -30,7 +30,7 @@ export interface UseTimelineGridControllerParams {
   onCreateSection: (name: string, start: number, end: number, color: string, repeat: number, level: number) => void;
   onUpdateSection: (id: string, name: string, start: number, end: number, color: string, level: number) => void;
   onPasteSection: (idx: number) => void;
-  onUpdateMarker: (id: string, name: string, measure: number, color?: string) => void;
+  onUpdateMarker: (id: string, name: string, measure: number, color?: string, fallbackIdx?: number) => void;
   clearTimelineSelection: () => void;
   clearAutomationSelection: () => void;
   isMultiSelectMode: boolean;

@@ -1,5 +1,7 @@
 /**
- * O Girador - Audio Engine High-Level Note & Preview Player (< 105 lignes)
+ * O Girador - Audio Engine High-Level Note & Preview Player (< 130 lignes)
+ * - Garantie pré-écoute hors-morceau (`playPreview`) : si un instrument absent de `state.tracks` n'est pas encore
+ *   en RAM (Wizard ou filtre « Tous les instruments »), charge le coup à la demande puis déclenche la frappe immédiatement.
  */
 import { getTone } from '../../ToneLoader';
 import { instrumentsConfig } from '../../data';
@@ -22,7 +24,7 @@ export class EngineNotePlayer {
     return {
       playbackCtx: { audioContext, channels, voiceGuard, barulho, scheduledHits, activeGainNodes },
       sampleLoader, roundRobin, voiceGuard, configMap, strokesMaps, trackLookupMap,
-      getSchedulingMeasure
+      getSchedulingMeasure,
     };
   }
 
@@ -78,17 +80,17 @@ export class EngineNotePlayer {
     trackId: number | string | null = null
   ): void {
     const Tone = getTone();
-    if (deps.playbackCtx.audioContext?.state !== 'running') deps.playbackCtx.audioContext.resume().catch(() => {});
+    const ctx = deps.playbackCtx.audioContext;
+    if (ctx?.state !== 'running') ctx?.resume?.().catch(() => {});
     if (Tone?.context?.state !== 'running') {
       if (typeof (Tone?.context as any)?.resume === 'function') (Tone.context as any).resume().catch(() => {});
       Tone?.start?.().catch(() => {});
     }
     if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
 
-    deps.sampleLoader.loadInstrumentSamples(deps.playbackCtx.audioContext, deps.configMap, instrumentId).catch(console.error);
     const config = deps.configMap.get(instrumentId);
     if (strokeSymbol === '/' || strokeSymbol === '.') {
-      const tNow = time !== undefined ? time : (Tone?.now() || deps.playbackCtx.audioContext.currentTime);
+      const tNow = time !== undefined ? time : (Tone?.now() || ctx.currentTime);
       deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, tNow, strokeSymbol === '/' ? 0.450 : 0.035);
       return;
     }
@@ -99,12 +101,30 @@ export class EngineNotePlayer {
       ? (deps.trackLookupMap.get(String(trackId)) || useSequencerStore.getState().tracks.find((t) => String(t.id) === String(trackId)) || null)
       : null;
     const resolvedTrackId = track ? track.id : (trackId !== null ? Number(trackId) : null);
-
     if (resolvedTrackId !== null) ensureAudiblePreview(resolvedTrackId);
 
-    const triggerTime = time !== undefined ? time : (Tone?.now() || deps.playbackCtx.audioContext.currentTime);
-    EngineExecuteStroke.execute(
-      deps, resolvedTrackId, instrumentId, config, stroke, triggerTime, velocity, decayMultiplier, pitchSemitones, false, track, strokeSymbol
-    );
+    const nowRef = Tone?.now() || ctx.currentTime;
+    const isStrokeReady = deps.sampleLoader.isStrokeLoaded(deps.configMap, instrumentId, strokeSymbol);
+
+    if (isStrokeReady) {
+      const triggerTime = time !== undefined ? time : nowRef;
+      EngineExecuteStroke.execute(
+        deps, resolvedTrackId, instrumentId, config, stroke, triggerTime, velocity, decayMultiplier, pitchSemitones, false, track, strokeSymbol
+      );
+      void deps.sampleLoader.loadInstrumentSamples(ctx, deps.configMap, instrumentId).catch(() => {});
+      return;
+    }
+
+    const relativeOffsetSec = time !== undefined ? Math.max(0, time - nowRef) : 0;
+    deps.sampleLoader
+      .loadStrokeSamples(ctx, deps.configMap, instrumentId, strokeSymbol)
+      .then(() => {
+        const afterLoadTime = (Tone?.now() || ctx.currentTime) + relativeOffsetSec;
+        EngineExecuteStroke.execute(
+          deps, resolvedTrackId, instrumentId, config, stroke, afterLoadTime, velocity, decayMultiplier, pitchSemitones, false, track, strokeSymbol
+        );
+        void deps.sampleLoader.loadInstrumentSamples(ctx, deps.configMap, instrumentId).catch(() => {});
+      })
+      .catch(console.error);
   }
 }

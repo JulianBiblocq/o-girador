@@ -1,0 +1,66 @@
+import { GuidePoleDef } from './guideTypes';
+import { POLE_1_PRACTICE_TOOLS_CARDS } from './pole1PracticeTools';
+
+export const POLE_1_LISTEN_PRACTICE: GuidePoleDef = {
+  id: 'pole-1',
+  num: '01',
+  titleFr: 'Écouter, Isoler & Répéter',
+  titlePt: 'Ouvir, Isolar & Ensaiar',
+  subtitleFr: 'Lire le Baque à 360° ou à plat en sécurité totale, analyser chaque frappe au Popover et s’entraîner en autonomie.',
+  subtitlePt: 'Ler o Baque em 360° ou em grade linear com total segurança, analisar cada golpe no Popover e ensaiar com autonomia.',
+  cards: [
+    {
+      id: 'p1-1',
+      poleId: 'pole-1',
+      level: 'practice',
+      shortcut: 'Espace · RODA',
+      titleFr: 'Explorer la Roda 360°, ses 2 balayages & le Popover pédagogique',
+      titlePt: 'Explorar a Roda 360°, suas 2 varreduras & o Popover pedagógico',
+      goalFr: 'Visualiser le cycle circulaire du Batuque et inspecter chaque geste sans jamais altérer le morceau.',
+      goalPt: 'Visualizar o ciclo circular do Batuque e inspecionar cada gesto sem risco de alterar a música.',
+      contextFr: 'Le Maracatu et les musiques de cortège s’organisent en cycles concentriques où chaque pupitre répond aux autres autour du Temps 1 (12h). La Roda est 100 % verrouillée en lecture analytique pour éviter toute fausse manipulation en répétition.',
+      contextPt: 'O Maracatu e os ritmos de cortejo giram em ciclos concêntricos em torno do Tempo 1 (12h). A Roda é 100 % protegida em leitura analítica para impedir toques acidentais durante o ensaio.',
+      stepsFr: [
+        'Appuyez sur [Espace] (ou sur le bouton Play central en bas) pour lancer ou mettre en pause la lecture ; appuyez sur [Entrée] ou [Home] pour revenir instantanément à la Mesure 1.',
+        'Choisissez votre lecture visuelle : en mode Progressif, le balai de paille (décalé de 6h derrière la baguette) révèle à l’avance les pas de la mesure suivante (M+1) ; en mode Par mesure, toute la roue bascule d’un bloc à 12h.',
+        'Pendant la lecture, cliquez sur une autre mesure ou section du ruban supérieur : la transition s’arme et s’exécute proprement au prochain passage à 12h sans coupure audio.',
+        'Cliquez sur n’importe quel pas actif de la Roda pour ouvrir le Popover pédagogique : lisez la posture exacte, écoutez le coup isolé (hors lecture) ou cliquez sur « Ouvrir dans l’Éditeur » en Mode Studio.',
+      ],
+      stepsPt: [
+        'Pressione [Espaço] (ou o botão Play central inferior) para iniciar ou pausar; pressione [Enter] ou [Home] para voltar imediatamente ao Compasso 1.',
+        'Escolha o modo visual: no modo Progressivo, a vassoura de palha (defasada em 6h atrás da baqueta) antecipa os passos do compasso seguinte (M+1); no modo Por compasso, a roda inteira vira às 12h.',
+        'Durante a reprodução, clique em outro compasso ou seção na barra superior: a transição fica armada para as próximas 12h sem corte no áudio.',
+        'Clique em qualquer passo ativo da Roda para abrir o Popover pedagógico: leia a técnica exata, ouça o golpe isolado (com áudio parado) ou salte para « Abrir no Editor » no Modo Estúdio.',
+      ],
+      tipFr: 'Le mode Progressif est idéal pour anticiper visuellement l’entrée d’une virada une demi-mesure avant le Temps 1, exactement comme au signal du Mestre.',
+      tipPt: 'O modo Progressivo é ideal para antecipar visualmente a entrada de uma virada meio compasso antes do Tempo 1, exatamente como no comando do Mestre.',
+    },
+    {
+      id: 'p1-2',
+      poleId: 'pole-1',
+      level: 'practice',
+      shortcut: 'PISTES · < / >',
+      titleFr: 'Lire l’alignement vertical dans la vue Pistes linéaire',
+      titlePt: 'Ler o alinhamento vertical na visão Pistas linear',
+      goalFr: 'Comparer d’un coup d’œil les appuis simultanés entre Gonguê, Caixas, Alfaias, Agbê, Mineiro et Toada.',
+      goalPt: 'Comparar num relance os apoios verticais entre Gonguê, Caixas, Alfaias, Agbê, Mineiro e Toada.',
+      contextFr: 'Complémentaire à la Roda circulaire, la grille linéaire met en évidence les emboîtements verticaux à la double-croche près (par exemple comment la mise en vibration gauche e de l’Alfaia précède le coup fort droit D face au Gonguê).',
+      contextPt: 'Complementar à Roda circular, a grade linear evidencia o encaixe vertical de cada semicolcheia (por exemplo, como o toque leve esquerdo e da Alfaia prepara o golpe forte D diante do Gonguê).',
+      stepsFr: [
+        'Cliquez sur l’onglet [ PISTES ] dans la barre supérieure pour déplier la partition linéaire synchronisée mesure par mesure.',
+        'Reculez ou avancez d’une mesure entière au clavier via [<] et [>] (ou [,] et [.]) pour analyser tranquillement un passage.',
+        'Repérez l’opacité différentielle sur les pupitres liés : un fond atténué (~42 %) indique un pas hérité du Maître, tandis qu’un bloc 100 % opaque signale une variation propre de l’esclave.',
+        'Cliquez sur n’importe quelle case (simple ou scindée en double coup Ra [a, b]) pour ouvrir sa fiche pédagogique détaillée.',
+      ],
+      stepsPt: [
+        'Clique na aba [ PISTAS ] na barra superior para abrir a partitura linear sincronizada compasso por compasso.',
+        'Volte ou avance um compasso inteiro pelo teclado com [<] e [>] (ou [,] e [.]) para estudar um trecho com calma.',
+        'Observe a opacidade diferencial nas faixas vinculadas: fundo suave (~42 %) indica herança do Mestre, enquanto bloco 100 % opaco destaca variação própria da escrava.',
+        'Clique em qualquer célula (simples ou dividida em toque duplo Rá [a, b]) para abrir sua ficha pedagógica completa.',
+      ],
+      tipFr: 'Comme la Roda, la vue Pistes interdit toute modification accidentelle au clic : toute écriture se fait volontairement dans l’Éditeur Détail.',
+      tipPt: 'Assim como a Roda, a visão Pistas impede qualquer edição acidental por clique: toda escrita acontece intencionalmente no Editor Detalhado.',
+    },
+    ...POLE_1_PRACTICE_TOOLS_CARDS,
+  ],
+};

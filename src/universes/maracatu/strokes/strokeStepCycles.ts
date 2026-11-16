@@ -33,8 +33,7 @@ export function getNextStepValue(
     if (norm === 'g') return 'G';
     if (norm === 'G') return 'a';
     if (norm === 'a') return 'A';
-    if (norm === 'A') return 'X';
-    if (norm === 'X') return 'B';
+    if (norm === 'A') return 'B';
     return 0;
   }
   if (instId === 'timbal') {

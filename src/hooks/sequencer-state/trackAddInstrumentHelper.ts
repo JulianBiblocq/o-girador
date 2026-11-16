@@ -2,6 +2,7 @@ import { TrackGroup, Language } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { applyRadii } from './sequencerStateTypes';
 import { AudioEngine } from '../../AudioEngine';
+import { getDefaultSignatureTuning } from '../../utils/audio/lutherieFactoryPresets';
 
 export interface AddTrackContext {
   pushUndoState: () => void;
@@ -110,6 +111,7 @@ export function handleAddTrackInstrumentHelper(
     reverbVal: 0,
     panVal: 0,
     pan: 0,
+    tuning: getDefaultSignatureTuning(inst?.id),
     fxSends: { reverb: 0, distortion: 0 }
   };
   newTrack.selectedPatternId = newTrack.patterns[0].id;

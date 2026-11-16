@@ -18,7 +18,7 @@ export interface AlfaiaBacalhauProfile {
 }
 
 export const DEFAULT_ALFAIA_STICKS_CONFIG = {
-  leftStickMode: 'fina' as AlfaiaLeftStickMode,
+  leftStickMode: 'auto' as AlfaiaLeftStickMode,
   speedMultiplier: 1 as 1 | 0.5,
   macaneta: { scale: 1.65, shaftWidth: 1.2, oliveWidth: 1.25, oliveLength: 1.05, flexibility: 0.1 } as AlfaiaMacanetaProfile,
   fina: { scale: 1.65, shaftWidth: 0.85, oliveWidth: 0.4, oliveLength: 1.4, flexibility: 0.15 } as AlfaiaMacanetaProfile,

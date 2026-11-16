@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -80,7 +79,10 @@ export function useGridVoiceTick({
           activeWordSpan = span as HTMLElement;
           const sylSpans = span.querySelectorAll('[data-syl-index]');
           sylSpans.forEach(sylSpan => {
-            if (sylSpan.getAttribute('data-syl-index') === targetKey) activeSylSpan = sylSpan as HTMLElement;
+            const sylSteps: string[] = JSON.parse(sylSpan.getAttribute('data-syl-steps') || '[]');
+            if (sylSteps.includes(targetKey) || sylSpan.getAttribute('data-syl-index') === targetKey) {
+              activeSylSpan = sylSpan as HTMLElement;
+            }
           });
         }
       });

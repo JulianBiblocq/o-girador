@@ -30,6 +30,7 @@ export interface WorkspaceTemplateTrack {
     high: { f: number; g: number };
   };
   lowCut?: boolean;
+  tuning?: number;
   reverbVal?: number;
   fxSends?: { reverb: number; distortion: number };
 }

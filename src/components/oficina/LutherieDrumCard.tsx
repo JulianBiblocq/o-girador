@@ -1,10 +1,13 @@
 /**
- * LutherieDrumCard.tsx — Carte individuelle d'accordage (Pitch + Note/Hz) et de résonance (Decay)
- * pour un tambour du Baque (< 120 lignes).
+ * LutherieDrumCard.tsx — Carte individuelle d'accordage 0.1 st (Note FR/PT + Hz + Cents), résonance (Decay)
+ * et passerelles directes par piste vers l'Éditeur de Motif (< 132 lignes).
  */
 import React from 'react';
 import { Volume2, RotateCcw } from 'lucide-react';
+import { TrackGroup } from '../../types';
+import { roundSemitonesTenth } from '../../utils/audio/drumFundamentalRegistry';
 import { getDrumPitchNoteInfo } from '../../utils/audio/drumPitchToNote';
+import { LutherieTrackLinksRow } from './LutherieTrackLinksRow';
 
 export interface LutherieDrumCardProps {
   instrumentId: string;
@@ -13,6 +16,9 @@ export interface LutherieDrumCardProps {
   tuning: number;
   decayPct: number;
   isPresent: boolean;
+  tracks?: TrackGroup[];
+  showSessionBridges?: boolean;
+  isFocused?: boolean;
   onChangeTuning: (semitones: number) => void;
   onChangeDecay: (decayPct: number) => void;
   onPreviewStroke: (strokeSymbol: string) => void;
@@ -20,34 +26,61 @@ export interface LutherieDrumCardProps {
 
 export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
   instrumentId, label, lang, tuning, decayPct, isPresent,
+  tracks, showSessionBridges = false, isFocused = false,
   onChangeTuning, onChangeDecay, onPreviewStroke,
 }) => {
   const isFr = lang === 'fr';
   const isTimbal = instrumentId === 'timbal';
-  const defaultStroke = isTimbal ? 'A' : 'D';
-  const noteInfo = getDrumPitchNoteInfo(instrumentId, tuning, lang);
+  const isGongue = instrumentId === 'gongue';
+  const defaultStroke = isTimbal ? 'A' : isGongue ? 'G' : 'D';
+  const safeTuning = roundSemitonesTenth(tuning ?? 0);
+  const safeDecay = decayPct ?? 100;
+  const noteInfo = getDrumPitchNoteInfo(instrumentId, safeTuning, lang);
+  const trackCount = tracks?.length ?? 0;
+  const trackBadge = trackCount === 1 ? (isFr ? '1 piste' : '1 faixa') : (isFr ? `${trackCount} pistes` : `${trackCount} faixas`);
+
+  const previewButtons: Array<[string, string, boolean]> = isTimbal
+    ? [['A', isFr ? 'Frappe A (Aberto)' : 'Toque A (Aberto)', true], ['S', isFr ? 'Frappe S (Slap)' : 'Toque S (Slap)', false]]
+    : isGongue
+    ? [['G', isFr ? 'Frappe G (Grave)' : 'Toque G (Grave)', true], ['A', isFr ? 'Frappe A (Aigu)' : 'Toque A (Agudo)', false]]
+    : [['D', isFr ? 'Frappe D' : 'Toque D', true]];
 
   return (
-    <div className={`bg-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] p-3 flex flex-col gap-2.5 shadow-[3px_3px_0px_var(--cordel-text)] select-none transition-opacity ${isPresent ? 'opacity-100' : 'opacity-75'}`}>
-      <div className="flex items-center justify-between gap-2 border-b border-dashed border-[var(--cordel-border)] pb-1.5">
-        <span className="font-cactus font-bold uppercase text-xs md:text-sm text-[var(--cordel-text)] truncate">{label}</span>
-        <span className="px-1.5 py-0.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-mono font-bold text-[10px] rounded-xs shrink-0">
+    <div
+      data-testid={`lutherie-drum-card-${instrumentId}`}
+      className={`bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border-strong)] p-3 flex flex-col gap-2.5 shadow-[3px_3px_0px_var(--cordel-shadow-color)] select-none transition-opacity ${isPresent ? 'opacity-100' : 'opacity-75'} ${isFocused ? 'ring-2 ring-[var(--cordel-gold)]' : ''}`}
+    >
+      <div className="flex flex-col gap-1 border-b border-dashed border-[var(--cordel-border)] pb-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-cactus font-bold uppercase text-xs md:text-sm text-[var(--cordel-text)] truncate">{label}</span>
+          {showSessionBridges && (
+            <span
+              data-testid={`lutherie-track-count-${instrumentId}`}
+              className={`px-1.5 py-0.5 font-cactus font-bold uppercase text-[9px] shrink-0 border ${
+                trackCount > 0
+                  ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)]'
+                  : 'bg-[var(--cordel-surface)] text-[var(--cordel-text-muted)] border-[var(--cordel-border)]'
+              }`}
+            >
+              {trackBadge}
+            </span>
+          )}
+        </div>
+        <span className="px-1.5 py-0.5 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-mono font-bold text-[10px] w-fit">
           {noteInfo.badgeText}
         </span>
       </div>
 
-      {/* Curseur de Pitch (-6 à +6 demi-tons) */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-cactus font-bold uppercase text-[var(--cordel-text)]">
           <span>{isFr ? 'Accordage (Pitch)' : 'Afinação (Pitch)'}</span>
           <div className="flex items-center gap-1.5">
-            <span className="font-mono font-bold text-[#8b2a1a] dark:text-[#f59e0b]">{noteInfo.semitonesLabel}</span>
-            {tuning !== 0 && (
+            <span className="font-mono font-bold text-[var(--cordel-accent-readable)]">{noteInfo.semitonesLabel}</span>
+            {safeTuning !== 0 && (
               <button
-                type="button"
-                onClick={() => { onChangeTuning(0); onPreviewStroke(defaultStroke); }}
+                type="button" onClick={() => { onChangeTuning(0); onPreviewStroke(defaultStroke); }}
                 title={isFr ? 'Réinitialiser à 0 st' : 'Redefinir para 0 st'}
-                className="p-0.5 hover:bg-[#8b2a1a] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] rounded-xs cursor-pointer transition-colors"
+                className="p-0.5 bg-[var(--cordel-surface)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)] border border-[var(--cordel-border-strong)] cursor-pointer transition-colors"
               >
                 <RotateCcw size={10} />
               </button>
@@ -55,53 +88,51 @@ export const LutherieDrumCard: React.FC<LutherieDrumCardProps> = React.memo(({
           </div>
         </div>
         <input
-          type="range" min={-6} max={6} step={0.5} value={tuning}
-          onChange={(e) => onChangeTuning(Number(e.target.value))}
-          onPointerUp={() => onPreviewStroke(defaultStroke)}
-          onKeyUp={() => onPreviewStroke(defaultStroke)}
-          className="w-full accent-[#8b2a1a] dark:accent-[#f59e0b] cursor-pointer h-1.5"
+          type="range" min={-6} max={6} step={0.1} value={safeTuning}
+          onChange={(e) => onChangeTuning(roundSemitonesTenth(Number(e.target.value)))}
+          onPointerUp={() => onPreviewStroke(defaultStroke)} onKeyUp={() => onPreviewStroke(defaultStroke)}
+          className="w-full accent-[var(--cordel-accent)] cursor-pointer h-1.5"
         />
-        <div className="flex justify-between text-[9px] font-mono text-[var(--cordel-text)]/70">
-          <span>-6 st</span><span>0 st</span><span>+6 st</span>
+        <div className="flex justify-between text-[9px] font-mono text-[var(--cordel-text-muted)]">
+          <span>-6 st</span><span>0 st (pas 0.1)</span><span>+6 st</span>
         </div>
       </div>
 
-      {/* Curseur de Résonance / Decay global (15 % à 100 %) */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-[10px] font-cactus font-bold uppercase text-[var(--cordel-text)]">
           <span>{isFr ? 'Résonance / Decay' : 'Ressonância / Decay'}</span>
-          <span className="font-mono font-bold text-[#8b2a1a] dark:text-[#f59e0b]">{decayPct}%</span>
+          <span className="font-mono font-bold text-[var(--cordel-accent-readable)]">{safeDecay}%</span>
         </div>
         <input
-          type="range" min={15} max={100} step={1} value={decayPct}
+          type="range" min={15} max={100} step={1} value={safeDecay}
           onChange={(e) => onChangeDecay(Number(e.target.value))}
-          onPointerUp={() => onPreviewStroke(defaultStroke)}
-          onKeyUp={() => onPreviewStroke(defaultStroke)}
-          className="w-full accent-[#8b2a1a] dark:accent-[#f59e0b] cursor-pointer h-1.5"
+          onPointerUp={() => onPreviewStroke(defaultStroke)} onKeyUp={() => onPreviewStroke(defaultStroke)}
+          className="w-full accent-[var(--cordel-accent)] cursor-pointer h-1.5"
         />
-        <div className="flex justify-between text-[9px] font-bold text-[var(--cordel-text)]/70">
+        <div className="flex justify-between text-[9px] font-bold text-[var(--cordel-text-muted)]">
           <span>{isFr ? 'Sec (15%)' : 'Seco (15%)'}</span>
           <span>{isFr ? 'Plein (100%)' : 'Pleno (100%)'}</span>
         </div>
       </div>
 
-      {/* Boutons d'écoute unitaire */}
       <div className="flex items-center gap-1.5 pt-1 mt-auto">
-        {isTimbal ? (
-          <>
-            <button type="button" onClick={() => onPreviewStroke('A')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
-              <Volume2 size={12} /><span>{isFr ? 'Frappe A (Aberto)' : 'Toque A (Aberto)'}</span>
-            </button>
-            <button type="button" onClick={() => onPreviewStroke('S')} className="flex-1 py-1.5 px-2 bg-[var(--cordel-surface)] hover:bg-[#8b2a1a] text-[var(--cordel-text)] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors">
-              <Volume2 size={12} /><span>{isFr ? 'Frappe S (Slap)' : 'Toque S (Slap)'}</span>
-            </button>
-          </>
-        ) : (
-          <button type="button" onClick={() => onPreviewStroke('D')} className="w-full py-1.5 px-2 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
-            <Volume2 size={12} /><span>{isFr ? 'Frappe D' : 'Toque D'}</span>
+        {previewButtons.map(([sym, lbl, isPrimary]) => (
+          <button
+            key={sym} type="button" onClick={() => onPreviewStroke(sym)}
+            className={`flex-1 py-1.5 px-2 border border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+              isPrimary
+                ? 'bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)]'
+                : 'bg-[var(--cordel-surface)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)]'
+            }`}
+          >
+            <Volume2 size={12} /><span>{lbl}</span>
           </button>
-        )}
+        ))}
       </div>
+
+      {showSessionBridges && tracks && tracks.length > 0 && (
+        <LutherieTrackLinksRow tracks={tracks} defaultLabel={label} lang={lang} />
+      )}
     </div>
   );
 });

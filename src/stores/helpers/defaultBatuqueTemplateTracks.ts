@@ -1,5 +1,6 @@
 import { WorkspaceTemplateTrack } from '../../types/workspaceTemplate.types';
 import { StudioMasterAmbianceId } from '../../audio/effects/studioMasterAmbiances';
+import { DEFAULT_SIGNATURE_TUNINGS } from '../../utils/audio/lutherieFactoryPresets';
 
 export const DEFAULT_RODA_TRACK_IDS = [
   1792863601156, 1792863601157, 1792863601158, 1792863601159,
@@ -26,25 +27,25 @@ export function buildDefaultBatuqueTracks(mode: StudioMasterAmbianceId): Workspa
     },
     {
       id: 1792863601157, instrumentIdx: 0, customName: 'Marcante (alfaia)', isBusFolder: false, isLinkFolder: false, isLinkMaster: true,
-      busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 72, pan: 0, panVal: 0,
+      busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 72, pan: 0, panVal: 0, tuning: DEFAULT_SIGNATURE_TUNINGS.marcante,
       eqBands: { low: { f: 95, g: 5 }, mid: { f: 2250, g: 4, q: 'wide' }, high: { f: 6700, g: -3 } },
       lowCut: false, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },
     {
       id: 1792863601158, instrumentIdx: 1, customName: 'Meião (alfaia)', isBusFolder: false, isLinkFolder: false, isLinkMaster: false,
-      busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 65, pan: isStage ? -55 : -42, panVal: isStage ? -55 : -42,
+      busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 65, pan: isStage ? -55 : -42, panVal: isStage ? -55 : -42, tuning: DEFAULT_SIGNATURE_TUNINGS.meiao,
       eqBands: { low: { f: 140, g: 5 }, mid: { f: 2150, g: 6, q: 'wide' }, high: { f: 8000, g: -5 } },
       lowCut: false, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },
     {
       id: 1792863601159, instrumentIdx: 2, customName: 'Repique (alfaia)', isBusFolder: false, isLinkFolder: false, isLinkMaster: false,
-      busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 69, pan: isStage ? 50 : 38, panVal: isStage ? 50 : 38,
+      busId: '1792863601156', linkedToTrackId: '1792863601156', volumeVal: 69, pan: isStage ? 50 : 38, panVal: isStage ? 50 : 38, tuning: DEFAULT_SIGNATURE_TUNINGS.repique,
       eqBands: { low: { f: 185, g: 3 }, mid: { f: 2150, g: 5, q: 'wide' }, high: { f: 8000, g: -4 } },
       lowCut: false, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },
     {
       id: 1792863601196, instrumentIdx: 5, customName: 'Gonguê',
-      volumeVal: isStreet ? 71 : 67, pan: 22, panVal: 22,
+      volumeVal: isStreet ? 71 : 67, pan: 22, panVal: 22, tuning: DEFAULT_SIGNATURE_TUNINGS.gongue,
       eqBands: { low: { f: 185, g: 2 }, mid: { f: 3800, g: isStreet ? 3 : 1, q: 'wide' }, high: { f: 7300, g: 2 } },
       lowCut: true, reverbVal: gongueRev, fxSends: { reverb: gongueRev, distortion: isStreet ? 45 : 32 },
     },

@@ -1,9 +1,12 @@
-const STORAGE_PREFIX = 'og_aovivo_cfg_v6_';
+const STORAGE_PREFIX = 'og_aovivo_cfg_v7_';
 
 export type AoVivoStorageKey = 'alfaia' | 'caixa' | 'gongue' | 'timbal' | 'agbe' | 'mineiro';
+export type AoVivoLabPreviewFamily = 'alfaia' | 'caixa' | 'tarol' | 'gongue' | 'timbal' | 'agbe' | 'mineiro';
 
 let isAoVivoLabOpen = false;
+let aoVivoLabPreviewFamily: AoVivoLabPreviewFamily | null = null;
 const labOpenListeners = new Set<() => void>();
+const labPreviewListeners = new Set<() => void>();
 
 export function getIsAoVivoLabOpen(): boolean {
   return isAoVivoLabOpen;
@@ -12,12 +15,31 @@ export function getIsAoVivoLabOpen(): boolean {
 export function setIsAoVivoLabOpen(open: boolean): void {
   if (isAoVivoLabOpen === open) return;
   isAoVivoLabOpen = open;
+  if (!open && aoVivoLabPreviewFamily !== null) {
+    aoVivoLabPreviewFamily = null;
+    labPreviewListeners.forEach((fn) => fn());
+  }
   labOpenListeners.forEach((fn) => fn());
 }
 
 export function subscribeAoVivoLabOpen(fn: () => void): () => void {
   labOpenListeners.add(fn);
   return () => labOpenListeners.delete(fn);
+}
+
+export function getAoVivoLabPreviewFamily(): AoVivoLabPreviewFamily | null {
+  return isAoVivoLabOpen ? aoVivoLabPreviewFamily : null;
+}
+
+export function setAoVivoLabPreviewFamily(fam: AoVivoLabPreviewFamily | null): void {
+  if (aoVivoLabPreviewFamily === fam) return;
+  aoVivoLabPreviewFamily = fam;
+  labPreviewListeners.forEach((fn) => fn());
+}
+
+export function subscribeAoVivoLabPreview(fn: () => void): () => void {
+  labPreviewListeners.add(fn);
+  return () => labPreviewListeners.delete(fn);
 }
 
 export function loadPersistedAoVivoConfig<T extends Record<string, any>>(

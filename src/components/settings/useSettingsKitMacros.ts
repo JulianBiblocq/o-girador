@@ -1,14 +1,21 @@
-import { useMemo } from 'react';
+/**
+ * useSettingsKitMacros.ts — Sélecteurs atomiques Zustand sécurisés et calculs
+ * de moyennes macro Volume/Decay par piste et par frappe (< 105 lignes).
+ */
+import { useCallback, useMemo } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { instrumentsConfig } from '../../data';
 import { TrackGroup } from '../../types';
 import { useSettingsKitDeltas } from './useSettingsKitDeltas';
 
+const EMPTY_FORCED_MAP: Record<string, boolean> = {};
+const EMPTY_DEFAULTS_MAP: Record<string, { volume?: number; decay?: number }> = {};
+
 export function useSettingsKitMacros() {
   const tracks = useSequencerStore((state) => state.tracks);
-  const strokeDefaults = useSequencerSettingsStore((state) => state.strokeDefaults);
-  const forcedStrokes = useSequencerSettingsStore((state) => state.forcedStrokes) || {};
+  const strokeDefaults = useSequencerSettingsStore((state) => state.strokeDefaults ?? EMPTY_DEFAULTS_MAP);
+  const forcedStrokes = useSequencerSettingsStore((state) => state.forcedStrokes ?? EMPTY_FORCED_MAP);
   const setStrokeForcedState = useSequencerSettingsStore((state) => state.setStrokeForcedState);
   const { applyMacroVolumeDelta, applyMacroDecayDelta } = useSettingsKitDeltas();
 
@@ -16,14 +23,14 @@ export function useSettingsKitMacros() {
     return tracks.filter((t) => {
       if (t.isBusFolder || t.isLinkFolder || t.instrumentIdx === undefined) return false;
       const conf = instrumentsConfig[t.instrumentIdx];
-      return conf && conf.type !== 'voice';
+      return Boolean(conf && conf.type !== 'voice');
     });
   }, [tracks]);
 
-  const getActiveStrokesForTrack = (track: TrackGroup): string[] => {
+  const getActiveStrokesForTrack = useCallback((track: TrackGroup): string[] => {
     const activeStrokes = new Set<string>();
     let patternsToScan = track.patterns;
-    if (track.linkedToTrackId && !track.isLinkFolder) {
+    if (track.linkedToTrackId !== undefined && track.linkedToTrackId !== null && track.linkedToTrackId !== '' && !track.isLinkFolder) {
       const parentBus = tracks.find((p) => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
       if (parentBus) patternsToScan = parentBus.patterns;
     }
@@ -38,16 +45,16 @@ export function useSettingsKitMacros() {
       });
     });
     return Array.from(activeStrokes).sort();
-  };
+  }, [tracks]);
 
-  const getStrokeAverages = (track: TrackGroup, stroke: string) => {
+  const getStrokeAverages = useCallback((track: TrackGroup, stroke: string) => {
     let volSum = 0, volCount = 0, decaySum = 0, decayCount = 0;
     const inst = instrumentsConfig[track.instrumentIdx];
     const defaultDecay = inst?.type === 'voice' ? 10 : 100;
 
     track.patterns.forEach((p) => {
-      const vols = p.volumes || [];
-      const decays = p.decays || [];
+      const vols = p.volumes ?? [];
+      const decays = p.decays ?? [];
       p.activeSteps.forEach((s, idx) => {
         if (s === stroke) {
           volSum += vols[idx] !== undefined ? (Array.isArray(vols[idx]) ? vols[idx][0] : vols[idx]) : 80;
@@ -57,8 +64,8 @@ export function useSettingsKitMacros() {
         }
       });
       p.variations?.forEach((v) => {
-        const vVols = v.volumes || [];
-        const vDecays = v.decays || [];
+        const vVols = v.volumes ?? [];
+        const vDecays = v.decays ?? [];
         v.steps.forEach((s, idx) => {
           if (s === stroke) {
             volSum += vVols[idx] !== undefined ? (Array.isArray(vVols[idx]) ? vVols[idx][0] : vVols[idx]) : 80;
@@ -78,7 +85,7 @@ export function useSettingsKitMacros() {
       avgVolume: defs?.volume !== undefined ? defs.volume : 80,
       avgDecay: defs?.decay !== undefined ? defs.decay : defaultDecay,
     };
-  };
+  }, [strokeDefaults]);
 
   return {
     activeTracks,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Save, FolderOpen, Sliders, X } from 'lucide-react';
-import { PlacedInstrument } from '../../stores/useWizardStore';
+import { createPortal } from 'react-dom';
+import { LogOut, Save, FolderOpen, Sliders, X, ArrowRight } from 'lucide-react';
+import { PlacedInstrument, useWizardStore } from '../../stores/useWizardStore';
 import { useDispositionStore } from '../../stores/useDispositionStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { Language } from '../../types';
@@ -8,6 +9,7 @@ import { t } from './wizardConstants';
 import { useWizardDragDrop } from './useWizardDragDrop';
 import { WizardInstrumentsRack } from './WizardInstrumentsRack';
 import { WizardStageCanvas } from './WizardStageCanvas';
+import { WizardExpressFormationsBar } from './WizardExpressFormationsBar';
 import { SaveDispositionModal } from './SaveDispositionModal';
 import { LoadDispositionModal } from './LoadDispositionModal';
 import { BaqueLutherieBench } from '../oficina/BaqueLutherieBench';
@@ -17,17 +19,19 @@ interface WizardStep1SpatialProps {
   placedInstruments: PlacedInstrument[];
   hasToada: boolean;
   onToggleToada: () => void;
+  onToggleLang: () => void;
   onClose: () => void;
   onNext: () => void;
   showToast: (msg: string) => void;
 }
 
 export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
-  wizardLang, placedInstruments, hasToada, onToggleToada, onClose, onNext, showToast,
+  wizardLang, placedInstruments, hasToada, onToggleToada, onToggleLang, onClose, onNext, showToast,
 }) => {
   const { userProfile } = useAuth();
-  const dispositions = useDispositionStore((state) => state.dispositions);
-  const syncCloudDispositions = useDispositionStore((state) => state.syncCloudDispositions);
+  const removePlacedInstrument = useWizardStore((s) => s.removePlacedInstrument);
+  const dispositions = useDispositionStore((s) => s.dispositions);
+  const syncCloudDispositions = useDispositionStore((s) => s.syncCloudDispositions);
 
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
@@ -52,67 +56,77 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
     return () => observer.disconnect();
   }, [placeRef]);
 
+  const handleContinue = () => {
+    if (placedInstruments.length === 0 && !hasToada) {
+      showToast(t[wizardLang].poseAuMoinsUn);
+      return;
+    }
+    onNext();
+  };
+
+  const modalRoot = document.getElementById('modal-root') || document.body;
+
   return (
-    <div className="fixed inset-0 bg-[var(--cordel-bg)] z-[200] flex flex-col p-4 md:p-8 select-none font-sans overflow-hidden" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
-      <div ref={ghostRef} className="pointer-events-none fixed items-center justify-center flex-col select-none" style={{ display: 'none', zIndex: 50 }} />
-      <div ref={dismissZoneRef} className="absolute top-18 left-1/2 -translate-x-1/2 border-3 border-[var(--cordel-text)] bg-[var(--cordel-surface)] px-6 py-2.5 shadow-[4px_4px_0px_var(--cordel-text)] z-30 transition-all duration-200 pointer-events-none opacity-0 select-none flex items-center gap-2 font-cactus font-bold uppercase text-xs md:text-sm" style={{ transform: 'translate(-50%, -150%)' }}>
-        <LogOut size={16} />
+    <div className="flex-1 flex flex-col min-h-0 relative select-none" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+      <div ref={ghostRef} className="pointer-events-none fixed items-center justify-center flex-col select-none" style={{ display: 'none', zIndex: 100025 }} />
+      <div ref={dismissZoneRef} className="fixed top-16 left-1/2 -translate-x-1/2 border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-status-danger)] text-[var(--cordel-on-accent)] px-5 py-2 shadow-[4px_4px_0px_var(--cordel-shadow-color)] z-[100024] transition-all duration-200 pointer-events-none opacity-0 select-none flex items-center gap-2 font-cactus font-bold uppercase text-xs" style={{ transform: 'translate(-50%, -150%)' }}>
+        <LogOut size={15} />
         <span>{t[wizardLang].congedier}</span>
       </div>
 
-      <div className="flex flex-wrap justify-between items-center gap-2 border-b-4 border-[var(--cordel-text)] pb-3 mb-4 flex-shrink-0">
-        <div>
-          <h2 className="font-cactus text-2xl md:text-4xl font-bold text-[var(--cordel-text)] uppercase tracking-wider leading-none">{t[wizardLang].title}</h2>
-          <p className="text-[var(--cordel-text)]/70 text-[10px] md:text-xs mt-1 font-cactus font-bold tracking-wide uppercase">
-            {t[wizardLang].step1Sub} ({placedInstruments.length} {wizardLang === 'fr' ? 'instrument(s)' : 'instrumento(s)'})
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 flex-shrink-0">
+        <div className="text-[11px] font-cactus font-bold uppercase text-[var(--cordel-text-muted)]">
+          {t[wizardLang].step1Sub} • <span className="text-[var(--cordel-accent-readable)]">{placedInstruments.length} {wizardLang === 'fr' ? 'instrument(s)' : 'instrumento(s)'}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setIsLutherieOpen(true)} className="px-2.5 md:px-3 py-1.5 bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-text)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer">
-            <Sliders size={14} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={() => setIsLutherieOpen(true)} className="px-2.5 py-1 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer transition-colors">
+            <Sliders size={13} />
             <span>{wizardLang === 'fr' ? 'Afinação & Lutherie' : 'Afinação & Lutheria'}</span>
           </button>
-          <button type="button" onClick={() => setIsSaveModalOpen(true)} disabled={placedInstruments.length === 0} className="px-2.5 md:px-3 py-1.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-text)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40">
-            <Save size={14} />
+          <button type="button" onClick={() => setIsSaveModalOpen(true)} disabled={placedInstruments.length === 0} className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:border-[var(--cordel-accent-readable)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors">
+            <Save size={13} />
             <span>{t[wizardLang].enregistrerDisposition}</span>
           </button>
-          <button type="button" onClick={() => setIsLoadModalOpen(true)} className="px-2.5 md:px-3 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-text)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer">
-            <FolderOpen size={14} />
+          <button type="button" onClick={() => setIsLoadModalOpen(true)} className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:border-[var(--cordel-accent-readable)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer transition-colors">
+            <FolderOpen size={13} />
             <span>{t[wizardLang].dispositionsTitle}</span>
-            <span className="px-1.5 py-0.2 bg-[var(--cordel-wood)] text-[var(--cordel-bg)] rounded-full text-[9px] font-mono font-bold leading-none">{dispositions.length}</span>
+            <span className="px-1.5 py-0.5 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] rounded-full text-[9px] font-mono font-bold leading-none">{dispositions.length}</span>
           </button>
-          <button onClick={onClose} className="px-3 py-1.5 bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] shadow-[3px_3px_0px_var(--cordel-text)] cursor-pointer font-cactus font-bold uppercase text-[10px] md:text-xs">
-            {t[wizardLang].annuler}
-          </button>
+          <button type="button" onClick={onToggleLang} className="hidden" aria-hidden="true">{wizardLang}</button>
+          <button type="button" onClick={onClose} className="hidden" aria-hidden="true">{t[wizardLang].annuler}</button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-        <WizardInstrumentsRack wizardLang={wizardLang} hasToada={hasToada} onToggleToada={onToggleToada} onPalettePointerDown={handlePalettePointerDown} />
-        <WizardStageCanvas placeRef={placeRef} placeSize={placeSize} placedInstruments={placedInstruments} wizardLang={wizardLang} onPlacedPointerDown={handlePlacedPointerDown} />
+      <WizardExpressFormationsBar wizardLang={wizardLang} placedCount={placedInstruments.length} showToast={showToast} />
+
+      <div className="flex-1 flex flex-col md:flex-row gap-3.5 min-h-0 mt-2.5">
+        <WizardInstrumentsRack wizardLang={wizardLang} hasToada={hasToada} placedInstruments={placedInstruments} onToggleToada={onToggleToada} onPalettePointerDown={handlePalettePointerDown} />
+        <WizardStageCanvas placeRef={placeRef} placeSize={placeSize} placedInstruments={placedInstruments} hasToada={hasToada} wizardLang={wizardLang} onPlacedPointerDown={handlePlacedPointerDown} onRemovePlaced={removePlacedInstrument} />
       </div>
 
-      <div className="mt-4 pt-3 border-t-2 border-[var(--cordel-text)] flex justify-between items-center flex-shrink-0">
-        <div className="text-[10px] md:text-xs text-[var(--cordel-text)]/70 font-cactus uppercase font-bold">{t[wizardLang].infoRetirer}</div>
-        <button onClick={onNext} className="px-6 py-2.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] shadow-[4px_4px_0px_var(--cordel-wood)] cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider">
-          {t[wizardLang].suivant}
+      <div className="mt-3 pt-2.5 border-t-2 border-[var(--cordel-border)] flex flex-wrap justify-between items-center gap-2 flex-shrink-0">
+        <div className="text-[10px] md:text-xs text-[var(--cordel-text-muted)] font-cactus font-bold">{t[wizardLang].infoRetirer}</div>
+        <button type="button" onClick={handleContinue} className="px-6 py-2 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[3px_3px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider flex items-center gap-2 transition-colors">
+          <span>{t[wizardLang].suivant}</span>
+          <ArrowRight size={15} />
         </button>
       </div>
 
-      {isLutherieOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsLutherieOpen(false); }}>
-          <div className="bg-[var(--cordel-bg)] border-4 border-[var(--cordel-text)] shadow-[8px_8px_0px_var(--cordel-text)] max-w-5xl w-full max-h-[85vh] overflow-y-auto p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b-2 border-[var(--cordel-text)] pb-2">
-              <h3 className="font-cactus font-bold uppercase text-base md:text-lg text-[var(--cordel-wood)]">
+      {isLutherieOpen && createPortal(
+        <div data-wizard-submodal="true" className="fixed inset-0 z-[100028] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsLutherieOpen(false); }}>
+          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border-strong)] shadow-[8px_8px_0px_var(--cordel-shadow-color)] max-w-5xl w-full max-h-[85vh] overflow-y-auto p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b-2 border-[var(--cordel-border-strong)] pb-2">
+              <h3 className="font-cactus font-bold uppercase text-base md:text-lg text-[var(--cordel-accent-readable)]">
                 {wizardLang === 'fr' ? 'Banc de Lutherie & Accordage du Baque' : 'Bancada de Lutheria & Afinação do Baque'}
               </h3>
-              <button type="button" onClick={() => setIsLutherieOpen(false)} className="p-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer">
+              <button type="button" onClick={() => setIsLutherieOpen(false)} className="p-1.5 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border border-[var(--cordel-border)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] cursor-pointer transition-colors">
                 <X size={16} />
               </button>
             </div>
             <BaqueLutherieBench lang={wizardLang} mode="wizard" />
           </div>
-        </div>
+        </div>,
+        modalRoot
       )}
 
       <SaveDispositionModal isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} lang={wizardLang} onSuccess={(p) => showToast(wizardLang === 'fr' ? `Disposition « ${p} » enregistrée !` : `Disposição « ${p} » salva!`)} />

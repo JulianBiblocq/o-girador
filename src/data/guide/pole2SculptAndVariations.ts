@@ -1,0 +1,56 @@
+import { GuideActionCard } from './guideTypes';
+
+export const POLE_2_SCULPT_CARDS: GuideActionCard[] = [
+  {
+    id: 'p2-3',
+    poleId: 'pole-2',
+    level: 'studio',
+    shortcut: '70 % · MIDI Learn · R',
+    titleFr: 'Sculpter la Dynamique (70 %), le Decay & jouer en MIDI Learn',
+    titlePt: 'Esculpir Dinâmica (70 %), Decay & mapear via MIDI Learn',
+    goalFr: 'Façonner le poids acoustique de chaque frappe et enregistrer au clavier ou pad MIDI USB.',
+    goalPt: 'Moldar o peso acústico de cada golpe e gravar com teclado ou pad MIDI USB.',
+    contextFr: 'Dans Sequenciador, la vélocité nominale d’un pas est calibrée à 70 %, préservant +3,1 dB de réserve dynamique naturelle jusqu’à 100 % pour faire ressortir les appels sans jamais saturer le bus Master.',
+    contextPt: 'No Sequenciador, a velocidade nominal de um passo é calibrada em 70 %, preservando +3,1 dB de margem dinâmica até 100 % para destacar chamadas sem saturar o Master.',
+    stepsFr: [
+      'Sélectionnez un pas (ou une plage de pas) dans l’Éditeur Détail et ouvrez l’inspecteur latéral droit.',
+      'Ajustez les curseurs Volume (autour du nominal 70 %), Decay (longueur de résonance de peau) et Micro-timing pour sculpter finement l’intention musicale.',
+      'Sous n’importe quelle frappe de l’inspecteur, cliquez sur [ Learn ] puis frappez votre pad ou touche MIDI USB : l’assignation matérielle est mémorisée instantanément.',
+      'Armez le bouton [ REC ] dans l’en-tête de l’Éditeur et lancez la lecture [Espace] pour enregistrer votre jeu en boucle quantifiée.',
+    ],
+    stepsPt: [
+      'Selecione um passo (ou trecho) no Editor Detalhado e consulte o inspetor lateral direito.',
+      'Ajuste os controles de Volume (em torno do nominal 70 %), Decay (sustentação da pele) e Micro-timing para refinar a intenção musical.',
+      'Sob qualquer toque no inspetor, clique em [ Learn ] e bata no seu pad ou tecla MIDI USB: o mapeamento físico é salvo na hora.',
+      'Ative o botão [ REC ] no topo do Editor e inicie com [Espaço] para gravar sua execução em loop quantizado.',
+    ],
+    tipFr: 'L’icône d’engrenage voisine de [ Learn ] ouvre la table globale des contrôleurs MIDI dans A Oficina tout en gardant un bouton de retour direct vers votre piste.',
+    tipPt: 'O ícone de ajustes ao lado de [ Learn ] abre o painel global de controladores MIDI em A Oficina mantendo retorno direto para sua faixa.',
+  },
+  {
+    id: 'p2-4',
+    poleId: 'pole-2',
+    level: 'studio',
+    shortcut: '1ª VEZ · % · [M]/[E]',
+    titleFr: 'Programmer Variations, Règle 1ª VEZ & Liaisons Maître/Esclave',
+    titlePt: 'Programar Variações, Regra 1ª VEZ & Vínculos Mestre/Escravo',
+    goalFr: 'Faire respirer la tourne et synchroniser les appels/réponses entre pupitres liés.',
+    goalPt: 'Dar vida orgânica à levada e sincronizar chamadas e respostas entre faixas vinculadas.',
+    contextFr: 'En situation réelle, un pupitre ne répète pas mécaniquement la même mesure : l’entrée d’un bloc possède souvent une attaque spécifique (1ª VEZ), et le Marcante entraîne Meião et Repique dans ses appels.',
+    contextPt: 'Na rua, um naipe não repete mecanicamente o mesmo compasso: a entrada de um bloco costuma ter um ataque próprio (1ª VEZ), e o Marcante puxa Meião e Repique nas chamadas.',
+    stepsFr: [
+      'Dans l’Éditeur Détail, ajoutez une ou plusieurs sous-variations au motif courant : ne modifiez que les pas qui changent par rapport à la phrase maîtresse.',
+      'Activez le badge [ 1ª VEZ ] sur une variation d’amorce : elle sera jouée prioritairement sur la 1re mesure de chaque nouveau bloc contigu de ce motif dans la Timeline.',
+      'Activez le dé et réglez les pourcentages (%) des autres sous-variations pour que le moteur les tire au sort sur les mesures suivantes du bloc.',
+      'Liez vos pistes en groupe Maître [M] / Esclave [E] (ex. Meião/Repique liés à Marcante, ou Tarol lié à Caixa) : les pas hérités s’affichent à ~42 % d’opacité et les réponses propres à 100 %.',
+    ],
+    stepsPt: [
+      'No Editor Detalhado, crie subvariações para o padrão atual alterando apenas os passos que mudam em relação à base mestra.',
+      'Ative o selo [ 1ª VEZ ] numa variação de entrada: ela tocará prioritariamente no 1º compasso de cada novo bloco contínuo desse padrão na Linha do Tempo.',
+      'Ative o dado e defina as probabilidades (%) das demais subvariações para sorteio orgânico nos compassos seguintes do bloco.',
+      'Vincule faixas em grupo Mestre [M] / Escravo [E] (ex. Meião/Repique ao Marcante, ou Tarol à Caixa): passos herdados aparecem a ~42 % e respostas próprias a 100 %.',
+    ],
+    tipFr: 'En mode d’entraînement Base pure, les tirages aléatoires (%) se mettent en veille mais l’amorce 1ª VEZ est fidèlement conservée pour travailler les vraies rentrées.',
+    tipPt: 'No modo de estudo Base pura, os sorteios (%) silenciam, mas a entrada 1ª VEZ é preservada para treinar as viradas reais de abertura.',
+  },
+];

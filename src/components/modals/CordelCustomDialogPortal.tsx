@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { getActiveHostWindow } from '../../contexts/WindowContext';
 import { resolveCordelDialogCopy, useCordelDialogCaptureKey } from './cordelDialogHelpers';
 
 interface CustomDialogPortalProps {
@@ -13,9 +14,16 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
   setCustomDialog,
   lang,
 }) => {
-  useCordelDialogCaptureKey(customDialog, setCustomDialog);
+  const isDialogOpen = Boolean(customDialog);
+  const hostWin = useMemo(() => getActiveHostWindow(), [isDialogOpen]);
+  useCordelDialogCaptureKey(customDialog, setCustomDialog, hostWin);
 
-  if (!customDialog || typeof document === 'undefined') return null;
+  const portalTarget =
+    hostWin?.document?.getElementById('satellite-modal-root') ||
+    hostWin?.document?.getElementById('modal-root') ||
+    hostWin?.document?.body;
+
+  if (!customDialog || !portalTarget) return null;
 
   const { isAlert, isPrompt, isDestructive, titleText, confirmText, cancelText } =
     resolveCordelDialogCopy(customDialog, lang);
@@ -84,7 +92,7 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
             type="button"
             autoFocus={!isPrompt}
             onClick={() => {
-              const input = document.getElementById('custom-prompt-input') as HTMLInputElement;
+              const input = hostWin.document.getElementById('custom-prompt-input') as HTMLInputElement | null;
               setCustomDialog(null);
               if (isPrompt) {
                 customDialog.onResolve(input?.value || '');
@@ -94,8 +102,8 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
             }}
             className={`px-4 py-1.5 text-xs font-cactus font-extrabold uppercase border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-border)] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px] ${
               isDestructive
-                ? 'bg-[var(--cordel-accent)] !text-[var(--cordel-bg)]'
-                : 'bg-[var(--cordel-text)] !text-[var(--cordel-bg)]'
+                ? 'bg-[var(--cordel-accent)] !text-[var(--cordel-on-accent)]'
+                : 'bg-[var(--cordel-wood)] !text-[var(--cordel-on-accent)]'
             }`}
           >
             {confirmText}
@@ -103,6 +111,6 @@ export const CordelCustomDialogPortal: React.FC<CustomDialogPortalProps> = ({
         </div>
       </div>
     </div>,
-    document.body
+    portalTarget
   );
 };

@@ -7,6 +7,7 @@ import { matchTemplateTracksWithSong, isVoiceTrack } from './workspaceTemplateMa
 import { normalizeWorkspaceTemplateLinks } from './workspaceTemplateLinkNormalizer';
 import { applyRadii } from './trackRodaGeometryHelpers';
 import { normalizeTemplateMasterFX } from './workspaceTemplateAudioSettings';
+import { getDefaultSignatureTuning } from '../../utils/audio/lutherieFactoryPresets';
 
 export function applyWorkspaceTemplateToSongState(
   state: {
@@ -49,10 +50,11 @@ export function applyWorkspaceTemplateToSongState(
     const newBusId = options.includeStructure && tplT.busId ? String(tplToSongIdMap.get(Number(tplT.busId)) ?? tplT.busId) : existing?.busId;
     const newLinkedId = options.includeStructure && tplT.linkedToTrackId ? String(tplToSongIdMap.get(Number(tplT.linkedToTrackId)) ?? tplT.linkedToTrackId) : existing?.linkedToTrackId;
 
+    const defaultTuning = tplT.isBusFolder ? undefined : (tplT.tuning ?? getDefaultSignatureTuning(instrumentsConfig[tplT.instrumentIdx]?.id));
     const baseTrack: TrackGroup = existing ? { ...existing } : {
       id: songId, instrumentIdx: tplT.instrumentIdx, customName: tplT.customName,
       patterns: isPureBus ? [] : [blankPattern], selectedPatternId: isPureBus ? 0 : newPatId,
-      isMute: false, isSolo: false, isHidden: false, volumeVal: 75,
+      isMute: false, isSolo: false, isHidden: false, volumeVal: 75, tuning: defaultTuning,
     };
 
     if (options.includeStructure) {

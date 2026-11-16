@@ -5,6 +5,7 @@ import { instrumentsConfig } from '../../data';
 import { PaperPreset } from '../../types/paperWorkshop.types';
 import { TrackGroup } from '../../types/store.types';
 import { PaperInjectOptions } from './paperTrackBuilder';
+import { getDefaultSignatureTuning } from '../audio/lutherieFactoryPresets';
 
 export const CODE_MAP: Record<string, string> = {
   marcante: 'mc', meiao: 'me', repique: 'rp', caixa: 'cx', tarol: 'tr',
@@ -64,6 +65,7 @@ export const ensureMissingTracks = (tracks: TrackGroup[], preset: PaperPreset, o
         reverbVal: 0,
         panVal: 0,
         pan: 0,
+        tuning: getDefaultSignatureTuning(cfg.id),
         fxSends: { reverb: 0, distortion: 0 },
         measureVols: undefined,
         measurePans: undefined,

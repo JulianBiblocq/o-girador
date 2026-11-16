@@ -88,7 +88,6 @@ export function buildStudioGongueStrokes(): StrokeMapping[] {
     buildDedicatedStroke('A', buildStudioFiles('Gongue', 'A', 5)),
     buildDedicatedStroke('g', buildStudioFiles('Gongue', 'g_min', 5)),
     buildDedicatedStroke('a', buildStudioFiles('Gongue', 'a_min', 5)),
-    buildDedicatedStroke('X', buildStudioFiles('Gongue', 'X', 4), ['X', 'x'], false),
     ...buildBarulhoStrokePair('Mixdown/Gongue B.ogg'),
   ];
 }

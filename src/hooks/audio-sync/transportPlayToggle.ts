@@ -10,6 +10,7 @@ import { executeTransportPause, TransportPauseContext } from './transportPause';
 import { getAudioEngine } from './audioEngineNodes';
 import { applyResumeAnchorCompensation } from './transportResumeAnchor';
 import { resolveTargetMeasureAndPreRoll } from './transportTargetMeasureResolver';
+import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 
 export interface PlayToggleContext extends TransportPauseContext {
   isStartingRef: { current: boolean }; isPlayingRef: { current: boolean };
@@ -55,8 +56,8 @@ export async function handleTogglePlay(
       ctx.lastPlayedSignalIdRef.current = null;
       activeEngine?.stopAllBarulho();
 
-      if (activeEngine && activeEngine.bufferPool.size === 0) {
-        try { await activeEngine.loadAllSamples(); } catch (_) {}
+      if (activeEngine) {
+        try { await activeEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(ctx.tracksRef.current)); } catch (_) {}
       }
 
       const pendingRehydration = vocalEngineService.getRehydratingPromise();

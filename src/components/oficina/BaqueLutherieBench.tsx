@@ -1,86 +1,46 @@
 /**
- * BaqueLutherieBench.tsx — Banc d'accordage par famille, notes musicales (Hz) et résonance (Decay)
- * pour A Oficina (mode="sequencer") et L'Assistant du Mestre (mode="wizard") (< 135 lignes).
+ * BaqueLutherieBench.tsx — Banc d'accordage par famille, notes musicales (Hz/Cents), résonance (Decay)
+ * et passerelles multi-pistes pour A Oficina et L'Assistant du Mestre (< 130 lignes).
  */
-import React, { useCallback, useMemo } from 'react';
-import { Volume2, Layers } from 'lucide-react';
-import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useWizardStore } from '../../stores/useWizardStore';
-import { instrumentsConfig } from '../../data';
-import { LUTHERIE_DRUM_ROLES, LutherieDrumRole, LutheriePreset } from '../../utils/audio/lutheriePresetsStorage';
+import React from 'react';
+import { Volume2, Layers, Filter } from 'lucide-react';
+import { LUTHERIE_DRUM_ROLES, LutherieDrumRole } from '../../utils/audio/lutheriePresetsStorage';
 import { LutheriePresetsBar } from './LutheriePresetsBar';
+import { LutherieGongueAlignBar } from './LutherieGongueAlignBar';
 import { LutherieDrumCard } from './LutherieDrumCard';
-import { useLutherieAudioPreview, DrumLutherieState } from './useLutherieAudioPreview';
+import { useBaqueLutherieState } from './useBaqueLutherieState';
 
-export interface BaqueLutherieBenchProps {
-  lang: string;
-  mode?: 'sequencer' | 'wizard';
-}
+export interface BaqueLutherieBenchProps { lang?: string; mode?: 'sequencer' | 'modal' | 'wizard'; }
 
 const DRUM_LABELS: Record<string, string> = {
   marcante: 'Alfaia Marcante', meiao: 'Alfaia Meião', repique: 'Alfaia Repique',
-  caixa: 'Caixa de Guerra', tarol: 'Tarol', timbal: 'Timbal',
+  caixa: 'Caixa de Guerra', tarol: 'Tarol', timbal: 'Timbal', gongue: 'Gonguê',
 };
+const ALFAIA_IDS: LutherieDrumRole[] = ['marcante', 'meiao', 'repique'];
+const CAIXA_IDS: LutherieDrumRole[] = ['caixa', 'tarol'];
+const TIMBRE_SOLO_IDS: LutherieDrumRole[] = ['timbal', 'gongue'];
 
 export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(({ lang, mode = 'sequencer' }) => {
-  const isFr = lang === 'fr';
-  const tracks = useSequencerStore((s) => s.tracks);
-  const setTrackTuning = useSequencerStore((s) => s.setTrackTuning);
-  const setTrackDecay = useSequencerStore((s) => s.setTrackDecay);
-  const { placedInstruments, instrumentTunings, instrumentDecays, setInstrumentTuning, setInstrumentDecay } = useWizardStore();
+  const isWizard = mode === 'wizard';
+  const {
+    effectiveLang, drumsByRole, currentTunings, currentDecays, presentRolesCount,
+    focusedInstId, effectiveScope, setFilterScope,
+    handleTuningChange, handleDecayChange, handleApplyPreset, handleApplyTuningsMap,
+    previewSingleStroke, previewAlfaiasArpeggio, previewAlfaiasChord, previewCaixasChord, previewFullBaqueChord,
+  } = useBaqueLutherieState(lang, isWizard);
+  const isFr = effectiveLang === 'fr';
 
-  const getDrumState = useCallback((instrumentId: string): DrumLutherieState => {
-    if (mode === 'wizard') {
-      return {
-        tuning: instrumentTunings[instrumentId] ?? 0, decayPct: instrumentDecays[instrumentId] ?? 100,
-        trackId: null, isPresent: placedInstruments.some((p) => p.instrumentType === instrumentId),
-      };
-    }
-    const matchingTrack = tracks.find((t) => !t.isBusFolder && !t.isLinkFolder && instrumentsConfig[t.instrumentIdx]?.id === instrumentId);
-    return {
-      tuning: matchingTrack?.tuning ?? 0, decayPct: matchingTrack?.trackDecay ?? 100,
-      trackId: matchingTrack ? matchingTrack.id : null, isPresent: Boolean(matchingTrack),
-    };
-  }, [mode, placedInstruments, instrumentTunings, instrumentDecays, tracks]);
+  const visibleAlfaias = effectiveScope === 'active' ? ALFAIA_IDS.filter((id) => drumsByRole[id].isPresent) : ALFAIA_IDS;
+  const visibleCaixas = effectiveScope === 'active' ? CAIXA_IDS.filter((id) => drumsByRole[id].isPresent) : CAIXA_IDS;
+  const visibleSolos = effectiveScope === 'active' ? TIMBRE_SOLO_IDS.filter((id) => drumsByRole[id].isPresent) : TIMBRE_SOLO_IDS;
 
-  const handleTuningChange = useCallback((instrumentId: string, semitones: number) => {
-    if (mode === 'wizard') return setInstrumentTuning(instrumentId, semitones);
-    tracks.forEach((t) => {
-      if (!t.isBusFolder && !t.isLinkFolder && instrumentsConfig[t.instrumentIdx]?.id === instrumentId) setTrackTuning(t.id, semitones);
-    });
-  }, [mode, setInstrumentTuning, tracks, setTrackTuning]);
-
-  const handleDecayChange = useCallback((instrumentId: string, decayPct: number) => {
-    if (mode === 'wizard') return setInstrumentDecay(instrumentId, decayPct);
-    tracks.forEach((t) => {
-      if (!t.isBusFolder && !t.isLinkFolder && instrumentsConfig[t.instrumentIdx]?.id === instrumentId) setTrackDecay(t.id, decayPct);
-    });
-  }, [mode, setInstrumentDecay, tracks, setTrackDecay]);
-
-  const { previewSingleStroke, previewAlfaiasArpeggio, previewAlfaiasChord, previewCaixasChord, previewFullBaqueChord } =
-    useLutherieAudioPreview(getDrumState);
-
-  const { currentTunings, currentDecays } = useMemo(() => {
-    const tMap = {} as Record<LutherieDrumRole, number>;
-    const dMap = {} as Record<LutherieDrumRole, number>;
-    LUTHERIE_DRUM_ROLES.forEach((r) => { const st = getDrumState(r); tMap[r] = st.tuning; dMap[r] = st.decayPct; });
-    return { currentTunings: tMap, currentDecays: dMap };
-  }, [getDrumState]);
-
-  const handleApplyPreset = useCallback((preset: LutheriePreset) => {
-    LUTHERIE_DRUM_ROLES.forEach((role) => {
-      handleTuningChange(role, preset.tunings[role] ?? 0);
-      handleDecayChange(role, preset.decays[role] ?? 100);
-    });
-    previewAlfaiasChord(preset);
-  }, [handleTuningChange, handleDecayChange, previewAlfaiasChord]);
-
-  const renderCard = (id: string) => {
-    const st = getDrumState(id);
+  const renderCard = (id: LutherieDrumRole) => {
+    const st = drumsByRole[id];
     return (
       <LutherieDrumCard
-        key={id} instrumentId={id} label={DRUM_LABELS[id] || id} lang={lang}
+        key={id} instrumentId={id} label={DRUM_LABELS[id] || id} lang={effectiveLang}
         tuning={st.tuning} decayPct={st.decayPct} isPresent={st.isPresent}
+        tracks={st.tracks} showSessionBridges={!isWizard} isFocused={!isWizard && focusedInstId === id}
         onChangeTuning={(v) => handleTuningChange(id, v)} onChangeDecay={(v) => handleDecayChange(id, v)}
         onPreviewStroke={(sym) => previewSingleStroke(id, sym)}
       />
@@ -89,53 +49,80 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
 
   return (
     <div className="flex flex-col gap-4 text-[var(--cordel-text)]">
-      <LutheriePresetsBar lang={lang} currentTunings={currentTunings} currentDecays={currentDecays} onApplyPreset={handleApplyPreset} />
-
-      <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-text)]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[var(--cordel-text)]/20 pb-2">
-          <div>
-            <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[#8b2a1a] dark:text-[#f59e0b]">
-              {isFr ? '1. Trio des Alfaias (Sous-Graves & Corps)' : '1. Trio de Alfaias (Subgraves & Corpo)'}
-            </h4>
-            <p className="text-[10px] text-[var(--cordel-text)]/75">
-              {isFr ? 'Accordage et tenue de peau indépendants par rôle (Marcante, Meião, Repique).' : 'Afinação e ressonância independentes por função (Marcante, Meião, Repique).'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={previewAlfaiasArpeggio} className="px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[#8b2a1a] text-[var(--cordel-text)] hover:!text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
-              <Volume2 size={13} /><span>{isFr ? 'Égrener le Trio' : 'Dedilhar o Trio'}</span>
+      {!isWizard && (
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] px-3 py-2 shadow-[2px_2px_0px_var(--cordel-shadow-color)]">
+          <span className="font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 text-[var(--cordel-text)]">
+            <Filter size={13} className="text-[var(--cordel-accent-readable)]" />
+            <span>{isFr ? 'Affichage du Banc :' : 'Exibição da Bancada :'}</span>
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button type="button" data-testid="lutherie-filter-active" disabled={presentRolesCount === 0} onClick={() => setFilterScope('active')} className={`px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] cursor-pointer transition-colors disabled:opacity-40 ${effectiveScope === 'active' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`}>
+              {isFr ? `Batuque actif (${presentRolesCount})` : `Batuque ativo (${presentRolesCount})`}
             </button>
-            <button type="button" onClick={() => previewAlfaiasChord()} className="px-2.5 py-1.5 bg-[#8b2a1a] hover:bg-[#a83220] !text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
-              <Layers size={13} /><span>{isFr ? 'Accord des 3 Alfaias' : 'Acorde das 3 Alfaias'}</span>
+            <button type="button" data-testid="lutherie-filter-all" onClick={() => setFilterScope('all')} className={`px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] cursor-pointer transition-colors ${effectiveScope === 'all' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`}>
+              {isFr ? `Tous les instruments (${LUTHERIE_DRUM_ROLES.length})` : `Todos os instrumentos (${LUTHERIE_DRUM_ROLES.length})`}
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{['marcante', 'meiao', 'repique'].map(renderCard)}</div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-text)]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[var(--cordel-text)]/20 pb-2">
-            <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[#8b2a1a] dark:text-[#f59e0b]">2. Caixas de Guerra & Tarol</h4>
-            <button type="button" onClick={previewCaixasChord} className="px-2.5 py-1.5 bg-[var(--cordel-text)] hover:bg-[#8b2a1a] text-[var(--cordel-bg)] hover:!text-[#f4ecd8] border-2 border-[var(--cordel-text)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-text)] transition-colors">
-              <Layers size={13} /><span>{isFr ? 'Accord Caixa + Tarol' : 'Acorde Caixa + Tarol'}</span>
-            </button>
+      <LutheriePresetsBar lang={effectiveLang} currentTunings={currentTunings} currentDecays={currentDecays} onApplyPreset={handleApplyPreset} />
+      <LutherieGongueAlignBar lang={effectiveLang} currentTunings={currentTunings} onApplyTunings={handleApplyTuningsMap} />
+
+      {visibleAlfaias.length > 0 && (
+        <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--cordel-border)] pb-2">
+            <div>
+              <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-accent-readable)]">
+                {isFr ? '1. Trio des Alfaias (Sous-Graves & Corps)' : '1. Trio de Alfaias (Subgraves & Corpo)'}
+              </h4>
+              <p className="text-[10px] text-[var(--cordel-text-muted)]">
+                {isFr ? 'Accordage 0.1 st et tenue de peau indépendants par rôle (Marcante, Meião, Repique).' : 'Afinação 0.1 st e ressonância independentes por função (Marcante, Meião, Repique).'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={previewAlfaiasArpeggio} className="px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-wood)] text-[var(--cordel-text)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] transition-colors">
+                <Volume2 size={13} /><span>{isFr ? 'Égrener le Trio' : 'Dedilhar o Trio'}</span>
+              </button>
+              <button type="button" onClick={() => previewAlfaiasChord()} className="px-2.5 py-1.5 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] transition-colors">
+                <Layers size={13} /><span>{isFr ? 'Accord des 3 Alfaias' : 'Acorde das 3 Alfaias'}</span>
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{['caixa', 'tarol'].map(renderCard)}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{visibleAlfaias.map(renderCard)}</div>
         </div>
+      )}
 
-        <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-text)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-text)]">
-          <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[#8b2a1a] dark:text-[#f59e0b] border-b-2 border-[var(--cordel-text)]/20 pb-2">
-            {isFr ? '3. Timbal (Tonique & Slap)' : '3. Timbal (Tônica & Slap)'}
-          </h4>
-          {renderCard('timbal')}
+      {(visibleCaixas.length > 0 || visibleSolos.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {visibleCaixas.length > 0 && (
+            <div className={`${visibleSolos.length > 0 ? '' : 'lg:col-span-2'} bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--cordel-border)] pb-2">
+                <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-accent-readable)]">2. Caixas de Guerra & Tarol</h4>
+                <button type="button" onClick={previewCaixasChord} className="px-2.5 py-1.5 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] transition-colors">
+                  <Layers size={13} /><span>{isFr ? 'Accord Caixa + Tarol' : 'Acorde Caixa + Tarol'}</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{visibleCaixas.map(renderCard)}</div>
+            </div>
+          )}
+
+          {visibleSolos.length > 0 && (
+            <div className={`${visibleCaixas.length > 0 ? '' : 'lg:col-span-2'} bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] p-3.5 flex flex-col gap-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)]`}>
+              <h4 className="font-cactus font-bold uppercase text-sm md:text-base text-[var(--cordel-accent-readable)] border-b border-[var(--cordel-border)] pb-2">
+                {isFr ? '3. Timbal & Gonguê (Tonique & Cloche)' : '3. Timbal & Gonguê (Tônica & Campana)'}
+              </h4>
+              <div className={`grid grid-cols-1 ${visibleSolos.length > 1 ? 'sm:grid-cols-2' : ''} gap-3`}>{visibleSolos.map(renderCard)}</div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      <button type="button" onClick={previewFullBaqueChord} className="w-full py-3 px-4 bg-[#8b2a1a] hover:bg-[#a83220] !text-[#f4ecd8] border-2 border-[var(--cordel-text)] shadow-[4px_4px_0px_var(--cordel-text)] font-cactus font-bold uppercase text-xs md:text-sm tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors">
+      <button type="button" onClick={previewFullBaqueChord} className="w-full py-3 px-4 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-xs md:text-sm tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors">
         <Layers size={16} /><span>{isFr ? "Écouter l'Accord Complet du Baque" : 'Ouvir o Acorde Completo do Baque'}</span>
       </button>
     </div>
   );
 });
+
 BaqueLutherieBench.displayName = 'BaqueLutherieBench';

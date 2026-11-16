@@ -18,6 +18,8 @@ interface UseStepEditorActionProps {
   setIsExpanded: (exp: boolean) => void;
 }
 
+const EMPTY_FORCED: Record<string, boolean> = {};
+
 export function useStepEditorAction({
   trackId,
   patternId,
@@ -31,14 +33,14 @@ export function useStepEditorAction({
   setIsExpanded,
 }: UseStepEditorActionProps) {
   const sequencer = useSequencer();
-  const tracks = useSequencerStore(state => state.tracks);
-  const track = tracks.find(t => t.id === trackId);
-  const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
-  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
+  const tracks = useSequencerStore((state) => state.tracks);
+  const track = tracks.find((t) => t.id === trackId);
+  const forcedStrokes = useSequencerSettingsStore((state) => state.forcedStrokes) || EMPTY_FORCED;
+  const setStrokeForcedState = useSequencerSettingsStore((state) => state.setStrokeForcedState);
   const activeStrokesForTrack = track ? getActiveStrokesForTrack(track, tracks) : [];
   const [loadingStroke, setLoadingStroke] = useState<string | null>(null);
 
-  const handleSelectStroke = async (stroke: string | number) => {
+  const handleSelectStroke = (stroke: string | number) => {
     if (trackId === null || patternId === null || stepIdx === null) return;
     if (stroke === 0 || stroke === '0') {
       if (isSplitMode) {
@@ -58,22 +60,13 @@ export function useStepEditorAction({
     }
 
     const strokeStr = String(stroke);
-    const isLoaded = inst && audioEngine ? audioEngine.isStrokeLoaded(inst.id, strokeStr) : true;
     const forced = forcedStrokes[`${trackId}:${strokeStr}`];
-    const isActive = forced !== undefined ? forced : activeStrokesForTrack.some(s => s.toLowerCase() === strokeStr.toLowerCase());
-
-    if (!isLoaded && inst && audioEngine) {
-      setLoadingStroke(strokeStr);
-      try {
-        await audioEngine.loadStrokeSamples(inst.id, strokeStr);
-        setStrokeForcedState(`${trackId}:${strokeStr}`, true);
-      } catch (err) {
-        console.error("Failed to load stroke sample:", err);
-      } finally {
-        setLoadingStroke(null);
-      }
-    } else if (!isActive) {
+    const isActive = forced !== undefined ? forced : activeStrokesForTrack.some((s) => s.toLowerCase() === strokeStr.toLowerCase());
+    if (!isActive) {
       setStrokeForcedState(`${trackId}:${strokeStr}`, true);
+    }
+    if (inst && audioEngine && !audioEngine.isStrokeLoaded(inst.id, strokeStr)) {
+      void audioEngine.loadStrokeSamples(inst.id, strokeStr).catch(() => {});
     }
 
     if (isSplitMode) {

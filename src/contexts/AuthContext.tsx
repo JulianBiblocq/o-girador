@@ -1,14 +1,14 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { User, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { auth } from '../firebase/config';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { UserProfile, UserRole, AuthContextType, checkIsAdmin, checkHasFullPlaybackAccess } from './auth/authTypes';
 import { getInitialTestProfile } from './auth/authTestProfile';
 import { useAuthSyncEffect } from './auth/useAuthSyncEffect';
 import { notifyToast } from '../utils/toastHelper';
+import { syncAccountPreferenceSilently } from '../utils/userPreferencesStorage';
 
 export type { UserRole, UserProfile } from './auth/authTypes';
 export { checkIsAdmin, checkHasFullPlaybackAccess } from './auth/authTypes';
@@ -63,24 +63,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserPreference = async (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => {
     if (!currentUser || !userProfile) return;
-    try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, { [key]: value });
-      setUserProfile({ ...userProfile, [key]: value });
-    } catch (err) {
-      console.error('Error updating user preference:', err);
-    }
+    const patch: Record<string, unknown> = key === 'isLeftHanded'
+      ? { isLeftHanded: value, lateralite: value ? 'gaucher' : 'droitier' }
+      : { [key]: value };
+    setUserProfile((prev) => (prev ? ({ ...prev, ...patch } as UserProfile) : prev));
+    await syncAccountPreferenceSilently(currentUser.uid, patch);
   };
 
   const updateUserProfileField = async (key: string, value: any) => {
     if (!currentUser || !userProfile) return;
-    try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, { [key]: value });
-      setUserProfile({ ...userProfile, [key]: value });
-    } catch (err) {
-      console.error(`Error updating user profile field ${key}:`, err);
-    }
+    setUserProfile((prev) => (prev ? ({ ...prev, [key]: value } as UserProfile) : prev));
+    await syncAccountPreferenceSilently(currentUser.uid, { [key]: value });
   };
 
   const isAdmin = checkIsAdmin(userProfile);

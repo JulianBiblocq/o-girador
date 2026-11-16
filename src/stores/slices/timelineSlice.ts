@@ -14,12 +14,6 @@ export * from '../helpers/timelineClipboardTypes';
 export * from './uiSliceTypes';
 
 export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set, get) => ({
-  isLinearDawDetached: false, isCircleSequencerDetached: false, isConsoleDetached: false, isTimelineDetached: false, isInstrumentEditorDetached: false,
-  toggleLinearDawDetached: () => {}, toggleCircleSequencerDetached: () => {}, toggleConsoleDetached: () => {}, toggleTimelineDetached: () => {}, toggleInstrumentEditorDetached: () => {},
-  setDetachedPanelsState: () => set({
-    isLinearDawDetached: false, isCircleSequencerDetached: false, isConsoleDetached: false, isTimelineDetached: false, isInstrumentEditorDetached: false,
-  }),
-
   timelineContextMenu: null,
   activeTimelineCell: null,
   selectedTimelineCells: [],

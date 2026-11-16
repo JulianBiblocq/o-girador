@@ -1,57 +1,76 @@
 /**
- * drumPitchToNote.ts — Calculateur acoustique de Note Musicale (FR/PT + notation internationale)
- * et de Fréquence Fondamentale (Hz) pour les 6 tambours accordables (< 60 lignes).
+ * drumPitchToNote.ts — Convertisseur unifié Note Musicale (FR/PT + Intl), Fréquence (Hz) et Cents (< 95 lignes).
+ * S'appuie exclusivement sur le registre SSOT `drumFundamentalRegistry.ts` et `pitchHzContract.ts`.
  */
+
+import { DEFAULT_REFERENCE_PITCH_HZ, sanitizePitchHz } from '../pitchHzContract';
+import { getDrumNaturalBaseHz, roundSemitonesTenth } from './drumFundamentalRegistry';
 
 export interface DrumPitchNoteInfo {
   noteLabel: string;
   intlNote: string;
+  cents: number;
+  centsLabel: string;
+  noteWithCents: string;
   frequencyHz: number;
   formattedHz: string;
+  semitones: number;
   semitonesLabel: string;
+  shortBadgeText: string;
   badgeText: string;
 }
-
-const DRUM_NOMINAL_BASES: Record<string, { baseMidi: number; baseHz: number }> = {
-  marcante: { baseMidi: 35, baseHz: 61.735 }, // Si1 (B1, -3 st vs Meião)
-  meiao: { baseMidi: 38, baseHz: 73.416 },    // Ré2 (D2, 0 st)
-  repique: { baseMidi: 42, baseHz: 92.499 },  // Fa#2 (F#2, +4 st vs Meião)
-  caixa: { baseMidi: 54, baseHz: 184.997 },   // Fa#3 (F#3)
-  tarol: { baseMidi: 57, baseHz: 220.0 },     // La3 (A3)
-  timbal: { baseMidi: 59, baseHz: 246.942 },  // Si3 (B3, frappe A Aberto)
-};
 
 const NOTES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
 const NOTES_PT = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
 const NOTES_INTL = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+export function formatSemitonesLabel(semitones: number): string {
+  const st = roundSemitonesTenth(semitones);
+  const numStr = Number.isInteger(st) ? String(st) : st.toFixed(1);
+  return `${st > 0 ? `+${numStr}` : numStr} st`;
+}
+
 export function getDrumPitchNoteInfo(
   instrumentId: string,
   userTuningSemitones: number = 0,
-  lang: string = 'fr'
+  lang: string = 'fr',
+  referencePitchHz: number = DEFAULT_REFERENCE_PITCH_HZ
 ): DrumPitchNoteInfo {
-  const base = DRUM_NOMINAL_BASES[instrumentId] || DRUM_NOMINAL_BASES.meiao;
-  const st = Number(userTuningSemitones) || 0;
-  const exactMidi = base.baseMidi + st;
-  const roundedMidi = Math.round(exactMidi);
-  const noteIdx = ((roundedMidi % 12) + 12) % 12;
-  const octave = Math.floor(roundedMidi / 12) - 1;
+  const baseHz = getDrumNaturalBaseHz(instrumentId);
+  const refHz = sanitizePitchHz(referencePitchHz);
+  const semitones = roundSemitonesTenth(userTuningSemitones);
+  const rawHz = baseHz * Math.pow(2, semitones / 12);
 
-  const halfSuffix = Math.abs(exactMidi - roundedMidi) >= 0.25 ? '+' : '';
+  const exactMidi = 69 + 12 * Math.log2(rawHz / refHz);
+  const nearestMidi = Math.round(exactMidi);
+  const rawCents = Math.round((exactMidi - nearestMidi) * 100);
+  const cents = Object.is(rawCents, -0) ? 0 : rawCents;
+
+  const noteIdx = ((nearestMidi % 12) + 12) % 12;
+  const octave = Math.floor(nearestMidi / 12) - 1;
   const solfege = (lang === 'pt' ? NOTES_PT : NOTES_FR)[noteIdx];
-  const noteLabel = `${solfege}${octave}${halfSuffix}`;
-  const intlNote = `${NOTES_INTL[noteIdx]}${octave}${halfSuffix}`;
 
-  const frequencyHz = Math.round(base.baseHz * Math.pow(2, st / 12) * 10) / 10;
+  const noteLabel = `${solfege}${octave}`;
+  const intlNote = `${NOTES_INTL[noteIdx]}${octave}`;
+  const centsLabel = Math.abs(cents) >= 5 ? (cents > 0 ? `+${cents}c` : `${cents}c`) : '';
+  const noteWithCents = centsLabel ? `${noteLabel} ${centsLabel}` : noteLabel;
+
+  const frequencyHz = Math.round(rawHz * 10) / 10;
   const formattedHz = Number.isInteger(frequencyHz) ? `${frequencyHz} Hz` : `${frequencyHz.toFixed(1)} Hz`;
-  const semitonesLabel = `${st > 0 ? `+${st}` : st} st`;
+  const semitonesLabel = formatSemitonesLabel(semitones);
+  const shortBadgeText = `${noteWithCents} (${intlNote}) • ${formattedHz}`;
 
   return {
     noteLabel,
     intlNote,
+    cents,
+    centsLabel,
+    noteWithCents,
     frequencyHz,
     formattedHz,
+    semitones,
     semitonesLabel,
-    badgeText: `${noteLabel} (${intlNote}) • ${formattedHz} | ${semitonesLabel}`,
+    shortBadgeText,
+    badgeText: `${shortBadgeText} | ${semitonesLabel}`,
   };
 }

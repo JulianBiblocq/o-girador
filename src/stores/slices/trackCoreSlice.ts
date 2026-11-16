@@ -16,6 +16,7 @@ import {
 } from '../helpers/trackRecordArmHelper';
 import { deployToadaCycle } from '../../utils/toadaArrangement';
 import { applyRadii } from '../helpers/trackRodaGeometryHelpers';
+import { setAoVivoLabPreviewFamily } from '../../audio/animations/aoVivoConfigStorage';
 
 export const createTrackCoreSlice: StateCreator<SequencerStore, [], [], TrackCoreSlice> = (set, get) => ({
   tracks: [],
@@ -70,7 +71,10 @@ export const createTrackCoreSlice: StateCreator<SequencerStore, [], [], TrackCor
     return { rodaTrackOrder: nextOrder, tracks: applyRadii(state.tracks, nextOrder), tracksVersion: state.tracksVersion + 1 };
   }),
 
-  setActiveAoVivoTrackId: (id) => set({ activeAoVivoTrackId: id }),
+  setActiveAoVivoTrackId: (id) => {
+    setAoVivoLabPreviewFamily(null);
+    set({ activeAoVivoTrackId: id });
+  },
   setIsLetraActive: (val) => set(state => ({ isLetraActive: typeof val === 'function' ? val(state.isLetraActive) : val })),
   toggleLetraActive: () => set(state => ({ isLetraActive: !state.isLetraActive })),
 

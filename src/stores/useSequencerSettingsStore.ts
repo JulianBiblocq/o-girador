@@ -1,16 +1,61 @@
 import { create } from 'zustand';
+import { useDesktopWorkspaceStore } from './useDesktopWorkspaceStore';
+import { detachedWindowManager } from '../utils/detachedWindowManager';
+
+export type OficinaSectionId =
+  | 'lutherie'
+  | 'groove'
+  | 'kit'
+  | 'prensa'
+  | 'papier'
+  | 'sinais'
+  | 'gabarits'
+  | 'audio'
+  | 'midi'
+  | 'desktopLayouts'
+  | 'performance'
+  | 'ajuda'
+  | 'aovivo-lab';
+
+export type OficinaGrooveTier = 'global' | 'track' | 'pattern';
+
+export interface OficinaFocusTarget {
+  trackId?: number | null;
+  patternId?: number | string | null;
+  grooveTier?: OficinaGrooveTier;
+  instrumentId?: string | null;
+}
+
+export interface OficinaReturnEditorContext {
+  trackId: number;
+  trackLabel?: string;
+  patternId?: number | string | null;
+  patternLabel?: string;
+  stepIdx?: number | null;
+  isPreRoll?: boolean;
+  subIndex?: 0 | 1 | null;
+  activeTool?: string | null;
+}
 
 interface SettingsState {
-  bpm: number;
-  balanco: number;
   isSettingsOpen: boolean;
+  isProfileModalOpen: boolean;
+  activeSection: OficinaSectionId;
+  oficinaFocus: OficinaFocusTarget | null;
+  returnEditorContext: OficinaReturnEditorContext | null;
   strokeDefaults: Record<string, { volume?: number; decay?: number }>;
   enabledSignalIds: string[] | null;
   forcedStrokes: Record<string, boolean>;
-  setBpm: (bpm: number) => void;
-  setBalanco: (balanco: number) => void;
   setIsSettingsOpen: (isSettingsOpen: boolean) => void;
+  setIsProfileModalOpen: (open: boolean) => void;
   toggleSettings: () => void;
+  setActiveSection: (section: OficinaSectionId) => void;
+  setOficinaFocus: (focus: OficinaFocusTarget | null) => void;
+  openOficinaSection: (
+    section: OficinaSectionId,
+    options?: { focus?: OficinaFocusTarget | null; returnContext?: OficinaReturnEditorContext | null }
+  ) => void;
+  clearReturnEditorContext: () => void;
   setStrokeDefault: (key: string, values: { volume?: number; decay?: number }) => void;
   toggleSignalEnabled: (id: string, allIds?: string[]) => void;
   setSignalsBatch: (ids: string[], enabled: boolean, allIds: string[]) => void;
@@ -18,52 +63,78 @@ interface SettingsState {
 }
 
 export const useSequencerSettingsStore = create<SettingsState>((set) => ({
-  bpm: 120,
-  balanco: 0,
   isSettingsOpen: false,
+  isProfileModalOpen: false,
+  activeSection: 'lutherie',
+  oficinaFocus: null,
+  returnEditorContext: null,
   strokeDefaults: {},
   enabledSignalIds: null,
   forcedStrokes: {},
-  setBpm: (bpm) => set({ bpm }),
-  setBalanco: (balanco) => set({ balanco }),
-  setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
-  toggleSettings: () => set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
-  setStrokeDefault: (key, values) => set((state) => ({
-    strokeDefaults: {
-      ...state.strokeDefaults,
-      [key]: {
-        ...(state.strokeDefaults[key] || {}),
-        ...values
-      }
+  setIsProfileModalOpen: (isProfileModalOpen) => set({ isProfileModalOpen }),
+  setIsSettingsOpen: (isSettingsOpen) =>
+    set((state) => ({
+      isSettingsOpen,
+      returnEditorContext: isSettingsOpen ? state.returnEditorContext : null,
+      oficinaFocus: isSettingsOpen ? state.oficinaFocus : null,
+    })),
+  toggleSettings: () => {
+    const ws = useDesktopWorkspaceStore.getState();
+    if (ws.isSatelliteOpen) {
+      set({ isSettingsOpen: false });
+      ws.setSatelliteState({ satelliteMode: 'oficina' });
+      detachedWindowManager.focusWindow('satellite');
+      return;
     }
-  })),
-  toggleSignalEnabled: (id: string, allIds?: string[]) => set((state) => {
-    const current = state.enabledSignalIds !== null 
-      ? state.enabledSignalIds 
-      : (allIds || []);
-    const next = current.includes(id) 
-      ? current.filter((x: string) => x !== id) 
-      : [...current, id];
-    return { enabledSignalIds: next };
-  }),
-  setSignalsBatch: (ids, enabled, allIds) => set((state) => {
-    const current = state.enabledSignalIds !== null 
-      ? state.enabledSignalIds 
-      : allIds;
-    let next: string[];
-    if (enabled) {
-      const nextSet = new Set(current);
-      ids.forEach(id => nextSet.add(id));
-      next = Array.from(nextSet);
-    } else {
-      next = current.filter(id => !ids.includes(id));
+    set((state) => {
+      const next = !state.isSettingsOpen;
+      return {
+        isSettingsOpen: next,
+        returnEditorContext: next ? state.returnEditorContext : null,
+        oficinaFocus: next ? state.oficinaFocus : null,
+      };
+    });
+  },
+  setActiveSection: (activeSection) => set({ activeSection }),
+  setOficinaFocus: (oficinaFocus) => set({ oficinaFocus }),
+  openOficinaSection: (section, options) => {
+    const ws = useDesktopWorkspaceStore.getState();
+    const nextState = {
+      isSettingsOpen: !ws.isSatelliteOpen,
+      activeSection: section,
+      oficinaFocus: options?.focus ?? null,
+      returnEditorContext: options?.returnContext !== undefined ? options.returnContext : null,
+    };
+    set(nextState);
+    if (ws.isSatelliteOpen) {
+      ws.setSatelliteState({ satelliteMode: 'oficina' });
+      detachedWindowManager.focusWindow('satellite');
     }
-    return { enabledSignalIds: next };
-  }),
-  setStrokeForcedState: (key, enabled) => set((state) => ({
-    forcedStrokes: {
-      ...state.forcedStrokes,
-      [key]: enabled
-    }
-  })),
+  },
+  clearReturnEditorContext: () => set({ returnEditorContext: null }),
+  setStrokeDefault: (key, values) =>
+    set((state) => ({
+      strokeDefaults: {
+        ...state.strokeDefaults,
+        [key]: { ...(state.strokeDefaults[key] || {}), ...values },
+      },
+    })),
+  toggleSignalEnabled: (id, allIds) =>
+    set((state) => {
+      const current = state.enabledSignalIds !== null ? state.enabledSignalIds : (allIds || []);
+      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+      return { enabledSignalIds: next };
+    }),
+  setSignalsBatch: (ids, enabled, allIds) =>
+    set((state) => {
+      const current = state.enabledSignalIds !== null ? state.enabledSignalIds : allIds;
+      const next = enabled
+        ? Array.from(new Set([...current, ...ids]))
+        : current.filter((id) => !ids.includes(id));
+      return { enabledSignalIds: next };
+    }),
+  setStrokeForcedState: (key, enabled) =>
+    set((state) => ({
+      forcedStrokes: { ...state.forcedStrokes, [key]: enabled },
+    })),
 }));

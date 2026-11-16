@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot, useWindow } from '../../../contexts/WindowContext';
+import { getUpperTagName } from '../../../utils/crossRealmDom';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { StudioRackModuleId } from '../masterEffectsTypes';
 import { StudioUserPresetItem } from '../../../audio/effects/studioFxUserPresets';
@@ -40,17 +42,20 @@ export const StudioRackModal: React.FC<StudioRackModalProps> = ({
   const updateDisto = useSequencerStore(st => st.updateMasterDistortionConfig);
   const updateBus = useSequencerStore(st => st.updateMasterBusConfig);
 
+  const hostWin = useWindow();
+  const portalRoot = usePortalRoot();
+
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const tag = getUpperTagName(e.target);
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'Escape') onClose();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+    hostWin.addEventListener('keydown', onKeyDown);
+    return () => hostWin.removeEventListener('keydown', onKeyDown);
+  }, [onClose, hostWin]);
 
   const activePresetId =
     activeTab === 'reverb' ? (masterFX.reverb.presetId ?? '')
@@ -86,5 +91,5 @@ export const StudioRackModal: React.FC<StudioRackModalProps> = ({
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+  return typeof document !== 'undefined' ? createPortal(modalContent, portalRoot) : modalContent;
 };

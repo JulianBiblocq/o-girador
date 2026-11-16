@@ -47,7 +47,7 @@ export function resolveVocalPlaybackBuffer(
   const currentBpm = Number(effectiveBpm || recordedBpm || 88);
   const packTranspositionSt = Number(ptnRef.packTranspositionSemitones ?? clip?.packTranspositionSemitones ?? 0);
   const trackTuningSt = Math.round((voiceTrack.tuning ?? 0) * 12);
-  const targetTranspositionSt = Math.round(Number(vocalTransposeSteps || 0) + trackTuningSt);
+  const targetTranspositionSt = Math.round(Number(vocalTransposeSteps ?? 0) + trackTuningSt);
   const pitchShiftSemitones = targetTranspositionSt - Math.round(packTranspositionSt);
 
   const canonicalPatternKey = `${voiceTrack.id}_${ptnRef.id}`;

@@ -3,9 +3,13 @@ import { useEffect } from 'react';
 /**
  * Intercepte Escape et Enter en phase de capture pour les boîtes de dialogue Cordel.
  */
-export function useCordelDialogCaptureKey(customDialog: any, setCustomDialog: (val: any) => void) {
+export function useCordelDialogCaptureKey(
+  customDialog: any,
+  setCustomDialog: (val: any) => void,
+  hostWin: Window = typeof window !== 'undefined' ? window : ({} as Window)
+) {
   useEffect(() => {
-    if (!customDialog) return;
+    if (!customDialog || !hostWin?.addEventListener) return;
     const handleCaptureKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopImmediatePropagation();
@@ -21,9 +25,9 @@ export function useCordelDialogCaptureKey(customDialog: any, setCustomDialog: (v
         customDialog.onResolve(true);
       }
     };
-    window.addEventListener('keydown', handleCaptureKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleCaptureKeyDown, { capture: true });
-  }, [customDialog, setCustomDialog]);
+    hostWin.addEventListener('keydown', handleCaptureKeyDown, { capture: true });
+    return () => hostWin.removeEventListener('keydown', handleCaptureKeyDown, { capture: true });
+  }, [customDialog, setCustomDialog, hostWin]);
 }
 
 /**

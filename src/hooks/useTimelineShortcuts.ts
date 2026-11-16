@@ -1,24 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
+import { isEditableTarget } from '../utils/crossRealmDom';
 import { handleTimelineClipboardKeyDown } from './timeline/useTimelineClipboardShortcuts';
 import { handleTimelineNavigationKeyDown } from './timeline/useTimelineNavigationShortcuts';
 
 interface UseTimelineShortcutsOptions {
   onToggleViewMode?: () => void;
   onCloseEditor?: () => void;
-}
-
-function isActualTextEntry(el: HTMLElement | null): boolean {
-  if (!el) return false;
-  if (el.isContentEditable) return true;
-  if (el instanceof HTMLTextAreaElement) return true;
-  if (el instanceof HTMLInputElement) {
-    const type = (el.type || 'text').toLowerCase();
-    const textTypes = ['text', 'search', 'password', 'email', 'number', 'tel', 'url'];
-    return textTypes.includes(type) && !el.readOnly && !el.disabled;
-  }
-  return false;
 }
 
 export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
@@ -35,7 +24,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
       if (e.defaultPrevented) return;
       const activeEl = document.activeElement as HTMLElement | null;
       const target = e.target as HTMLElement | null;
-      const isTextEntry = isActualTextEntry(target) || isActualTextEntry(activeEl);
+      const isTextEntry = isEditableTarget(target) || isEditableTarget(activeEl);
 
       if (isTextEntry && e.key === 'Escape') {
         e.preventDefault();

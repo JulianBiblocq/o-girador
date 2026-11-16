@@ -1,38 +1,69 @@
 /**
- * Fonctions de persistance locale pour les dispositions du bureau (< 45 lignes).
+ * desktopWorkspaceStorage.ts — Persistance locale des modes et coordonnées signées Écran 2 (< 75 lignes).
+ * Préserve intégralement les coordonnées négatives (ex: Y = -1080 en haut, X < 0 à gauche).
  */
+import { DesktopWindowBounds, SatelliteMode } from '../../types/desktopWorkspace.types';
 
-import { DesktopWorkspaceLayout } from '../../types/desktopWorkspace.types';
+const BOUNDS_STORAGE_KEY = 'girador_satellite_window_bounds';
+const MODE_STORAGE_KEY = 'girador_satellite_last_mode';
+const MINIMIZED_SENTINEL = -16000;
 
-const STORAGE_KEY = 'girador_desktop_workspace_layouts';
+function isValidMode(val: unknown): val is SatelliteMode {
+  return val === 'mixer' || val === 'editor' || val === 'oficina';
+}
 
-export function loadStoredLayouts(): DesktopWorkspaceLayout[] {
-  if (typeof window === 'undefined') return [];
+export function parseSignedSatelliteBounds(raw: unknown): DesktopWindowBounds | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const b = raw as Record<string, unknown>;
+  if (
+    typeof b.x !== 'number' || !Number.isFinite(b.x) || b.x <= MINIMIZED_SENTINEL ||
+    typeof b.y !== 'number' || !Number.isFinite(b.y) || b.y <= MINIMIZED_SENTINEL ||
+    typeof b.width !== 'number' || !Number.isFinite(b.width) || b.width < 200 ||
+    typeof b.height !== 'number' || !Number.isFinite(b.height) || b.height < 200
+  ) {
+    return null;
+  }
+  return {
+    x: Math.round(b.x),
+    y: Math.round(b.y),
+    width: Math.max(480, Math.round(b.width)),
+    height: Math.max(360, Math.round(b.height)),
+  };
+}
+
+export function loadStoredSatelliteMode(): SatelliteMode {
+  if (typeof window === 'undefined') return 'mixer';
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    // Sanctuarisation mono-fenetre : forcer detached: false sur tous les panneaux memorises
-    return parsed.map((layout: DesktopWorkspaceLayout) => ({
-      ...layout,
-      detachedPanels: {
-        mixer: { ...layout.detachedPanels?.mixer, detached: false },
-        roda: { ...layout.detachedPanels?.roda, detached: false },
-        detailEditor: { ...layout.detachedPanels?.detailEditor, detached: false },
-      }
-    }));
-  } catch (err) {
-    console.warn('[useDesktopWorkspaceStore] Erreur lors de la lecture du localStorage:', err);
-    return [];
+    const val = localStorage.getItem(MODE_STORAGE_KEY);
+    return isValidMode(val) ? val : 'mixer';
+  } catch {
+    return 'mixer';
   }
 }
 
-export function persistLayouts(layouts: DesktopWorkspaceLayout[]): void {
+export function persistSatelliteMode(mode: SatelliteMode): void {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(MODE_STORAGE_KEY, mode); } catch {}
+}
+
+export function loadStoredSatelliteBounds(): DesktopWindowBounds | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(BOUNDS_STORAGE_KEY);
+    return raw ? parseSignedSatelliteBounds(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function persistSatelliteBounds(bounds: DesktopWindowBounds | null): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(layouts));
-  } catch (err) {
-    console.warn('[useDesktopWorkspaceStore] Erreur lors de l\'enregistrement dans le localStorage:', err);
-  }
+    if (!bounds) {
+      localStorage.removeItem(BOUNDS_STORAGE_KEY);
+      return;
+    }
+    const clean = parseSignedSatelliteBounds(bounds);
+    if (clean) localStorage.setItem(BOUNDS_STORAGE_KEY, JSON.stringify(clean));
+  } catch {}
 }

@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { getStrokesForInstrument } from '../../utils/instrumentStrokes';
+import { getUpperTagName } from '../../utils/crossRealmDom';
 import { TouchSelectorState } from './touchStrokeTypes';
 import { Language } from '../../types';
 
@@ -36,7 +37,7 @@ export function useTouchStrokeGestures({
     const handleTouchMove = (e: TouchEvent) => {
       if (e.cancelable) e.preventDefault();
       const touch = e.touches[0];
-      const element = document.elementFromPoint(touch.clientX, touch.clientY);
+      const element = currentWindow.document.elementFromPoint(touch.clientX, touch.clientY);
       if (element) {
         const target = element.closest('[data-stroke-val]');
         setHoveredStroke(target ? target.getAttribute('data-stroke-val') : null);
@@ -44,14 +45,13 @@ export function useTouchStrokeGestures({
     };
 
     const handleRelease = () => {
-      if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
-        const isLoaded = hoveredStrokeRef.current === '0' || (audioEngine && audioEngine.isStrokeLoaded(inst.id, hoveredStrokeRef.current));
-        if (isLoaded) {
-          selector.onSelect(hoveredStrokeRef.current);
-          onClose();
-        } else {
-          setIsSticky(true);
+      const targetVal = hoveredStrokeRef.current;
+      if (targetVal !== null && targetVal !== String(selector.currentVal)) {
+        if (targetVal !== '0' && audioEngine && !audioEngine.isStrokeLoaded(inst.id, targetVal)) {
+          void audioEngine.loadStrokeSamples(inst.id, targetVal).catch(() => {});
         }
+        selector.onSelect(targetVal);
+        onClose();
       } else {
         setIsSticky(true);
       }
@@ -73,8 +73,8 @@ export function useTouchStrokeGestures({
     if (!isSticky || !currentWindow) return;
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       if (Date.now() - stickyTimeRef.current < 400) return;
-      const container = document.getElementById('touch-stroke-selector-bubble');
-      if (container && !container.contains(e.target as Node)) onClose();
+      const container = currentWindow.document.getElementById('touch-stroke-selector-bubble');
+      if (container && e.target && !container.contains(e.target as Node)) onClose();
     };
     currentWindow.addEventListener('mousedown', handleOutsideClick);
     currentWindow.addEventListener('touchstart', handleOutsideClick);
@@ -88,8 +88,8 @@ export function useTouchStrokeGestures({
   useEffect(() => {
     if (!currentWindow) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
+      const tag = getUpperTagName(e.target);
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       const key = e.key;
       if (key === 'Escape') { e.preventDefault(); onClose(); return; }
       if (key === '0' || key === 'Backspace' || key === 'Delete' || key === '-') {

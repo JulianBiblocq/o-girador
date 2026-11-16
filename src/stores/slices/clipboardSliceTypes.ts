@@ -1,4 +1,5 @@
 import { Pattern, SongSection } from '../../types';
+import { StepRangeClipboard } from '../helpers/stepRangeClipboardHelper';
 
 export interface InstrumentPatternsClipboard {
   sourceTrackId: number;
@@ -29,12 +30,21 @@ export interface SelectedStepRange {
   trackId?: number;
 }
 
+export interface EditorStepRangeActionParams {
+  trackId: number;
+  patternId: number;
+  variationId?: string | null;
+  selectedStepIndices: number[];
+  selectedStepIdx: number | null;
+}
+
 export interface ClipboardSlice {
   copiedPattern: Pattern | null;
   copiedSection: any | null;
   instrumentPatternsClipboard: InstrumentPatternsClipboard | null;
   vocalNotesClipboard: string[] | null;
   voiceStepsClipboard: VoiceStepsClipboard | null;
+  stepRangeClipboard: StepRangeClipboard | null;
 
   setCopiedPattern: (pattern: Pattern | null) => void;
   setCopiedSection: (section: any | null) => void;
@@ -48,4 +58,10 @@ export interface ClipboardSlice {
   copyVoiceStepsRange: (rangeOverride?: SelectedStepRange | null, trackIdOverride?: number, patternIdOverride?: number) => void;
   cutVoiceStepsRange: (rangeOverride?: SelectedStepRange | null, trackIdOverride?: number, patternIdOverride?: number) => void;
   pasteVoiceSteps: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number, notesOnly?: boolean) => void;
+
+  copyEditorStepsSelection: (params: EditorStepRangeActionParams) => boolean;
+  cutEditorStepsSelection: (params: EditorStepRangeActionParams) => number | null;
+  pasteEditorStepsClipboard: (params: EditorStepRangeActionParams) => number[] | null;
+  duplicateEditorStepsSelection: (params: EditorStepRangeActionParams) => number[] | null;
+  clearEditorStepsSelection: (params: EditorStepRangeActionParams) => boolean;
 }

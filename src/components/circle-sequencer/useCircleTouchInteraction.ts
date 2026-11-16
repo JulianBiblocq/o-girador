@@ -1,12 +1,10 @@
-
 import React from 'react';
-import { TrackGroup } from '../../types';
 import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
 import { getTone } from '../../ToneLoader';
 import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
-import { clearStepAtCanvasCoords } from './clearStepAtCoords';
-import { handleStepClickAction } from './handleStepClickAction';
-import { findStepUnderPointer } from './findStepUnderPointer';
+import { resolveRodaPedagogicalHit } from './resolveRodaPedagogicalHit';
+import { LivePlaybackState } from './circleSequencerTypes';
+import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
@@ -15,35 +13,22 @@ function safeGetTone() {
 export function useCircleTouchInteraction(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   stateRef: React.MutableRefObject<any>,
-  getLiveActivePatternId: (track: TrackGroup) => number | null,
+  livePlaybackRef: React.MutableRefObject<LivePlaybackState>,
+  activeVariationsRef: React.MutableRefObject<Record<number, any>> | undefined,
   onTogglePlay: () => void,
-  onStepChange: (trackId: number, patternId: number, stepIdx: number, newState: any, lyric?: string, note?: string) => void,
-  onStepTouchStart?: (
-    e: React.MouseEvent | React.TouchEvent,
-    patternId: number,
-    stepIdx: number,
-    instId: string,
-    currentVal: string | number | [string, string],
-    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
-    trackId: number,
-    isSplit?: boolean
-  ) => void,
-  langPromptVoiceText: string = '',
-  isLoadingAudio: boolean = false,
-  promptAsync?: (msg: string, def?: string) => Promise<string | null>
+  onSelectPedagogyTarget: (target: StrokeInfoPopoverTarget | null) => void,
+  isLoadingAudio: boolean = false
 ) {
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-
-    if (e.button === 2) {
-      clearStepAtCanvasCoords(e.clientX, e.clientY, canvasRef.current, stateRef, getLiveActivePatternId, onStepChange);
-      return;
-    }
+    if (e.button === 2) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
     const mouseX = (e.clientX - rect.left) * (1200 / rect.width);
     const mouseY = (e.clientY - rect.top) * (1200 / rect.height);
     const dx = mouseX - 600;
@@ -51,6 +36,7 @@ export function useCircleTouchInteraction(
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance < 55) {
+      onSelectPedagogyTarget(null);
       const toneInst = safeGetTone();
       if (toneInst && toneInst.context && toneInst.context.state !== 'running') {
         try { toneInst.context.resume(); } catch (_) {}
@@ -60,33 +46,31 @@ export function useCircleTouchInteraction(
       return;
     }
 
-    const isCurrentlyMobile = stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth < 768);
-    if (isCurrentlyMobile) return;
-
-    const currentTracks = stateRef.current.tracks;
-    const currentRawTracks = stateRef.current.rawTracks;
+    const currentTracks = stateRef.current.tracks || [];
+    const currentRawTracks = stateRef.current.rawTracks || currentTracks;
     const currentRodaOrder = stateRef.current.rodaTrackOrder;
     const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
 
     const activeVisibleTracksToDraw = orderActiveVisibleRodaTracks(
-      sortedCurrentTracks.filter(t => isRodaDrawableTrack(t) && isSequencerVisibleTrack(t, currentTracks)),
-      currentRawTracks || currentTracks
+      sortedCurrentTracks.filter((t) => isRodaDrawableTrack(t) && isSequencerVisibleTrack(t, currentTracks)),
+      currentRawTracks
     );
 
-    const hit = findStepUnderPointer(dx, dy, distance, activeVisibleTracksToDraw, currentTracks, getLiveActivePatternId);
-    if (hit) {
-      handleStepClickAction(
-        e, hit.ownerTrack, hit.activePattern, hit.stepIdx, hit.inst, hit.activePattern.activeSteps[hit.stepIdx],
-        langPromptVoiceText, stateRef.current.isLeftHanded || false, onStepChange, onStepTouchStart, promptAsync
-      );
-    }
+    const hitTarget = resolveRodaPedagogicalHit({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      mouseX,
+      mouseY,
+      distance,
+      visibleTracks: activeVisibleTracksToDraw,
+      allTracks: currentRawTracks,
+      livePlaybackRef,
+      activeVariationsRef,
+      stateRef,
+    });
+
+    onSelectPedagogyTarget(hitTarget);
   };
 
-  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.buttons === 2) {
-      clearStepAtCanvasCoords(e.clientX, e.clientY, canvasRef.current, stateRef, getLiveActivePatternId, onStepChange);
-    }
-  };
-
-  return { handleCanvasPointerDown, handleCanvasPointerMove };
+  return { handleCanvasPointerDown };
 }

@@ -4,10 +4,9 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
 import { audioEngine } from '../../hooks/useAudioSync';
-import { getEcosystemUrl } from '../../constants/ecosystemUrls';
-import { launchCrossApp } from '../../utils/crossAppAuth';
 import { preloadLandingSamples, getLandingAudioContext, decodedAudioBuffers } from './landingAudio';
 import { safeResumeAudioContext, scheduleAudioContextAutoSuspend } from '../../audio/audioContextSuspendManager';
+import { useLandingEcosystemNav } from './useLandingEcosystemNav';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
@@ -32,44 +31,13 @@ export const useLandingPageLogic = (
   }, [lang, currentLang]);
 
   const { currentUser, userProfile } = useAuth();
+  const ecosystemNav = useLandingEcosystemNav(currentUser, userProfile);
 
   const handleLanguageSelect = (newLang: 'fr' | 'pt') => {
     setCurrentLang(newLang);
     localStorage.setItem('o_gridador_lang', newLang);
     if (onLanguageChange) onLanguageChange(newLang);
   };
-
-  const handleLaunchOrquestrador = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const url = getEcosystemUrl('orquestrador');
-    if (currentUser) launchCrossApp(url, { appKey: 'orquestrador', appLabel: "l'Orquestrad'Or" });
-    else window.open(url, '_blank', 'noopener,noreferrer');
-  }, [currentUser]);
-
-  const handleCurrentAppClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  const handleLaunchOrganizador = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!currentUser) window.open('https://organizador.o-girador.com/demo', '_blank', 'noopener,noreferrer');
-    else launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: "l'Organizad'Or" });
-  }, [currentUser]);
-
-  const handleLaunchDancador = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const url = getEcosystemUrl('dancador');
-    if (currentUser) launchCrossApp(url, { appKey: 'dancador', appLabel: "le Dançad'Or" });
-    else window.open(url, '_blank', 'noopener,noreferrer');
-  }, [currentUser]);
-
-  const handleLaunchMostrador = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const rawGroupId = userProfile?.groupId?.trim()?.toLowerCase();
-    if (!currentUser || !rawGroupId) window.open('https://organizador.o-girador.com/demo?app=mostrador', '_blank', 'noopener,noreferrer');
-    else launchCrossApp(`https://mostrador.o-girador.com/${encodeURIComponent(rawGroupId)}`, { appKey: 'mostrador', appLabel: "le Mostrad'Or" });
-  }, [currentUser, userProfile?.groupId]);
 
   useEffect(() => {
     preloadLandingSamples();
@@ -82,9 +50,7 @@ export const useLandingPageLogic = (
     setIsUnlocking(true);
     await safeResumeAudioContext();
     const Tone = safeGetTone();
-    if (Tone && Tone.context.state !== 'running') {
-      try { await Tone.start(); } catch (_) {}
-    }
+    if (Tone && Tone.context.state !== 'running') { try { await Tone.start(); } catch (_) {} }
     useAudioStore.getState().unlockAudio();
     localStorage.setItem('ogirador_has_seen_welcome', 'true');
     useSequencerStore.getState().setMobileViewMode('complet');
@@ -106,8 +72,7 @@ export const useLandingPageLogic = (
       if (!buffer) {
         const resp = await fetch(strokeFile);
         if (resp.ok) {
-          const arrayBuffer = await resp.arrayBuffer();
-          buffer = await ctx.decodeAudioData(arrayBuffer);
+          buffer = await ctx.decodeAudioData(await resp.arrayBuffer());
           decodedAudioBuffers.set(bufferKey, buffer);
         }
       }
@@ -117,6 +82,7 @@ export const useLandingPageLogic = (
         const gainNode = ctx.createGain();
         source.connect(gainNode);
         gainNode.connect(ctx.destination);
+        source.onended = () => { try { source.disconnect(); gainNode.disconnect(); } catch (_) {} };
         source.start(0);
         scheduleAudioContextAutoSuspend(500);
       }
@@ -125,11 +91,9 @@ export const useLandingPageLogic = (
     }
   }, []);
 
-  const isFr = currentLang === 'fr';
-
   return {
-    isToneReady, isUnlocking, currentLang, currentUser, isFr, handleLanguageSelect,
-    handleLaunchOrquestrador, handleCurrentAppClick, handleLaunchOrganizador,
-    handleLaunchDancador, handleLaunchMostrador, handleEnterRoda, handleInstrumentTap
+    isToneReady, isUnlocking, currentLang, currentUser, isFr: currentLang === 'fr',
+    handleLanguageSelect, handleEnterRoda, handleInstrumentTap,
+    ...ecosystemNav,
   };
 };

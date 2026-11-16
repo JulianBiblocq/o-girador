@@ -1,14 +1,10 @@
-
-import React, { useRef } from 'react';
-import { Pattern } from '../../types';
+import React, { useRef, useCallback } from 'react';
 import type { UseGridMultiSelectInteractionsParams } from './gridMultiSelectTypes';
 
 export function useGridMultiSelectInteractions(params: UseGridMultiSelectInteractionsParams) {
   const {
-    trackId, pattern, instrumentId, isMultiSelectActive, selectedStepIdx,
-    selectedStepIndices, selectedVariationId, onStepTouchStart,
-    handleVariationStepValueChange, handleTrackStepValueChange,
-    setSelectedStepIndices, setSelectedStepIdx
+    trackId, pattern, isMultiSelectActive, selectedStepIdx,
+    selectedStepIndices, setSelectedStepIndices, setSelectedStepIdx,
   } = params;
 
   const isSelectingRef = useRef(false);
@@ -17,22 +13,19 @@ export function useGridMultiSelectInteractions(params: UseGridMultiSelectInterac
   const wasSelectedRef = useRef(false);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
-  const handleStepTouchStartMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
+  const handleStepTouchStartMulti = useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
     if (!isMultiSelectActive) return;
     isSelectingRef.current = true;
     hasDraggedRef.current = false;
     initialTouchIndexRef.current = index;
-    if ('touches' in e && e.touches.length > 0) touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    const wasSel = selectedStepIndices.includes(index);
-    wasSelectedRef.current = wasSel;
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
-      if (!wasSel) setSelectedStepIndices(prev => [...prev, index]);
-    } else {
-      setSelectedStepIndices([index]);
+    if ('touches' in e && e.touches.length > 0) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
-  }, [isMultiSelectActive, selectedStepIndices, setSelectedStepIndices]);
+    wasSelectedRef.current = selectedStepIndices.includes(index);
+    setSelectedStepIdx(index);
+  }, [isMultiSelectActive, selectedStepIndices, setSelectedStepIdx]);
 
-  const handleStepMouseDownMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number, forceActive = false) => {
+  const handleStepMouseDownMulti = useCallback((e: React.MouseEvent | React.TouchEvent, index: number, forceActive = false) => {
     if (!isMultiSelectActive && !forceActive) return;
     if ('button' in e && e.button !== 0) return;
     isSelectingRef.current = true;
@@ -41,81 +34,70 @@ export function useGridMultiSelectInteractions(params: UseGridMultiSelectInterac
     const wasSel = selectedStepIndices.includes(index);
     wasSelectedRef.current = wasSel;
 
-    if (e.shiftKey) {
-      if (selectedStepIdx !== null) {
-        const start = Math.min(selectedStepIdx, index);
-        const end = Math.max(selectedStepIdx, index);
-        const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
-        if (e.ctrlKey || e.metaKey) setSelectedStepIndices(prev => Array.from(new Set([...prev, ...rangeIndices])));
-        else setSelectedStepIndices(rangeIndices);
-      } else {
-        setSelectedStepIndices([index]);
-        setSelectedStepIdx(index);
-      }
-    } else if (e.ctrlKey || e.metaKey) {
-      if (wasSel) setSelectedStepIndices(prev => prev.filter(i => i !== index));
-      else setSelectedStepIndices(prev => [...prev, index]);
-      setSelectedStepIdx(index);
+    if (e.shiftKey && selectedStepIdx !== null) {
+      const lo = Math.min(selectedStepIdx, index), hi = Math.max(selectedStepIdx, index);
+      const range = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+      setSelectedStepIndices((prev) => Array.from(new Set([...prev, ...range])));
     } else {
-      setSelectedStepIndices([index]);
+      setSelectedStepIndices((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));
       setSelectedStepIdx(index);
     }
   }, [isMultiSelectActive, selectedStepIndices, selectedStepIdx, setSelectedStepIndices, setSelectedStepIdx]);
 
-  const handleStepMouseEnterMulti = React.useCallback((index: number) => {
+  const handleStepMouseEnterMulti = useCallback((index: number) => {
     if (!isMultiSelectActive || !isSelectingRef.current) return;
     hasDraggedRef.current = true;
-    setSelectedStepIndices(prev => (prev.includes(index) ? prev : [...prev, index]));
+    const anchor = initialTouchIndexRef.current;
+    if (anchor !== null) {
+      const lo = Math.min(anchor, index), hi = Math.max(anchor, index);
+      const range = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+      setSelectedStepIndices((prev) => Array.from(new Set([...prev, ...range])));
+    } else {
+      setSelectedStepIndices((prev) => (prev.includes(index) ? prev : [...prev, index]));
+    }
   }, [isMultiSelectActive, setSelectedStepIndices]);
 
-  const handleGridTouchMove = React.useCallback((e: React.TouchEvent) => {
-    if (!isMultiSelectActive || !isSelectingRef.current || !touchStartPos.current) return;
+  const handleGridTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isMultiSelectActive || !isSelectingRef.current || !touchStartPos.current || e.touches.length === 0) return;
     const touch = e.touches[0];
     const dx = touch.clientX - touchStartPos.current.x;
     const dy = touch.clientY - touchStartPos.current.y;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (e.cancelable) e.preventDefault();
-      if (Math.abs(dx) > 10) hasDraggedRef.current = true;
-      const element = document.elementFromPoint(touch.clientX, touch.clientY);
-      if (element) {
-        const stepInput = element.closest('[data-track-id][data-step-index]');
-        if (stepInput && stepInput.getAttribute('data-track-id') === String(trackId)) {
-          const stepIdxAttr = stepInput.getAttribute('data-step-index');
-          if (stepIdxAttr !== null) {
-            const stepIdx = parseInt(stepIdxAttr, 10);
-            setSelectedStepIndices(prev => (prev.includes(stepIdx) ? prev : [...prev, stepIdx]));
-          }
-        }
+    if (e.cancelable) e.preventDefault();
+    if (dx * dx + dy * dy > 36) hasDraggedRef.current = true;
+    const doc = (touch.target as Element)?.ownerDocument || document;
+    const element = doc.elementFromPoint(touch.clientX, touch.clientY);
+    const stepEl = element?.closest('[data-track-id][data-pattern-id][data-step-index]');
+    if (
+      stepEl &&
+      stepEl.getAttribute('data-track-id') === String(trackId) &&
+      stepEl.getAttribute('data-pattern-id') === String(pattern.id)
+    ) {
+      const stepIdx = parseInt(stepEl.getAttribute('data-step-index') || '-1', 10);
+      if (stepIdx >= 0) {
+        const anchor = initialTouchIndexRef.current ?? stepIdx;
+        const lo = Math.min(anchor, stepIdx), hi = Math.max(anchor, stepIdx);
+        const range = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+        setSelectedStepIndices((prev) => Array.from(new Set([...prev, ...range])));
       }
     }
-  }, [isMultiSelectActive, trackId, setSelectedStepIndices]);
+  }, [isMultiSelectActive, trackId, pattern.id, setSelectedStepIndices]);
 
-  const handleGridTouchEnd = React.useCallback((e: React.TouchEvent) => {
+  const handleGridTouchEnd = useCallback((_e: React.TouchEvent) => {
     if (!isMultiSelectActive || !isSelectingRef.current) return;
     isSelectingRef.current = false;
     if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
       const tappedIdx = initialTouchIndexRef.current;
-      if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
-        const stepVal = pattern?.activeSteps?.[tappedIdx];
-        if (onStepTouchStart) {
-          onStepTouchStart(e, pattern.id, tappedIdx, instrumentId, stepVal as string | number, (newVal: any, merge?: boolean) => {
-            const finalVal = merge ? String(newVal) : newVal;
-            if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, finalVal);
-            else handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, finalVal);
-            setSelectedStepIndices([]);
-          }, trackId);
-        }
-      } else {
-        setSelectedStepIndices(prev => prev.includes(tappedIdx) ? prev.filter(idx => idx !== tappedIdx) : [...prev, tappedIdx]);
-      }
+      setSelectedStepIndices((prev) =>
+        prev.includes(tappedIdx) ? prev.filter((idx) => idx !== tappedIdx) : [...prev, tappedIdx]
+      );
     }
     touchStartPos.current = null;
     initialTouchIndexRef.current = null;
-  }, [isMultiSelectActive, selectedStepIndices, pattern?.activeSteps, pattern.id, onStepTouchStart, instrumentId, selectedVariationId, handleVariationStepValueChange, trackId, handleTrackStepValueChange, setSelectedStepIndices]);
+  }, [isMultiSelectActive, setSelectedStepIndices]);
 
   return {
     isSelectingRef, hasDraggedRef, initialTouchIndexRef, wasSelectedRef,
     handleStepTouchStartMulti, handleStepMouseDownMulti, handleStepMouseEnterMulti,
-    handleGridTouchMove, handleGridTouchEnd
+    handleGridTouchMove, handleGridTouchEnd,
   };
 }

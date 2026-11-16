@@ -1,0 +1,56 @@
+import { GuideActionCard } from './guideTypes';
+
+export const POLE_1_PRACTICE_TOOLS_CARDS: GuideActionCard[] = [
+  {
+    id: 'p1-3',
+    poleId: 'pole-1',
+    level: 'practice',
+    shortcut: 'Focus · S / M',
+    titleFr: 'Isoler son instrument, Mode Gaucher & Baguettes Ao Vivo',
+    titlePt: 'Isolar seu instrumento, Modo Canhoto & Baquetas Ao Vivo',
+    goalFr: 'Mettre son pupitre en lumière auditive et visuelle, adapté à sa propre latéralité.',
+    goalPt: 'Destacar sonora e visualmente seu naipe, adaptado à sua própria lateralidade.',
+    contextFr: 'Dans un Batuque complet, l’oreille doit apprendre à ancrer sa phrase sur un repère stable (souvent le Gonguê ou le Marcante) tout en visualisant la main réelle qui attaque chaque temps.',
+    contextPt: 'Num Batuque completo, o ouvido precisa firmar sua frase sobre uma referência estável (como o Gonguê ou o Marcante) visualizando a mão exata que ataca cada tempo.',
+    stepsFr: [
+      'Cliquez sur le bouton [ Focus ] en haut de la colonne des pistes (ou utilisez Solo [S] / Mute [M]) pour choisir Mon Pupitre + un instrument de Référence tout en dosant le reste du Batuque.',
+      'Sur une carte de piste en vue Roda, cliquez sur l’icône des baguettes pour activer le calque Ao Vivo : le mouvement physique (mailloche, bacalhau, paume d’Agbê ou cloche unique du Gonguê) s’anime à 60 FPS.',
+      'Sur la piste Toada, cliquez sur l’icône microphone pour afficher ou masquer les paroles synchronisées au centre de la Roda.',
+      'Ouvrez votre Avatar en haut à droite > Mon Profil & Préférences pour basculer entre Droitier et Gaucher : lettres visuelles, animations Ao Vivo et textes pédagogiques s’inversent de concert.',
+    ],
+    stepsPt: [
+      'Clique no botão [ Focus ] no topo da coluna de faixas (ou use Solo [S] / Mudo [M]) para escolher Meu Naipe + um instrumento de Referência dosando o resto do Batuque.',
+      'Num cartão de pista na Roda, ative o ícone das baquetas para ver a camada Ao Vivo: o gesto físico real (maçaneta, bacalhau, palma do Agbê ou campana única do Gonguê) anima a 60 FPS.',
+      'Na faixa Toada, clique no ícone de microfone para exibir ou ocultar a letra sincronizada no centro da Roda.',
+      'Abra seu Avatar no canto superior direito > Meu Perfil & Preferências para alternar entre Destro e Canhoto: letras visuais, animações Ao Vivo e textos pedagógicos invertem-se juntos.',
+    ],
+    tipFr: 'Travaillez toujours votre pupitre en gardant au moins le Gonguê ou le Marcante en référence dans le Focus afin de ressentir le placement réel du contretemps.',
+    tipPt: 'Estude sempre seu naipe mantendo ao menos o Gonguê ou o Marcante como referência no Focus para sentir o encaixe real do contratempo.',
+  },
+  {
+    id: 'p1-4',
+    poleId: 'pole-1',
+    level: 'practice',
+    shortcut: 'Entraînement · L',
+    titleFr: 'Pratiquer en Tocar Junto, Speed Trainer & Défis du Mestre',
+    titlePt: 'Praticar no Tocar Junto, Speed Trainer & Desafios do Mestre',
+    goalFr: 'Jouer son instrument acoustique par-dessus le Batuque et consolider l’endurance palier par palier.',
+    goalPt: 'Tocar seu instrumento acústico junto com o Batuque e consolidar a precisão patamar por patamar.',
+    contextFr: 'Pour passer de la compréhension visuelle au geste maîtrisé en cortège, il faut pouvoir couper uniquement le son de son tambour tout en conservant le guide visuel et monter le tempo progressivement sans crispation.',
+    contextPt: 'Para passar da leitura visual ao toque firme no cortejo, é essencial silenciar apenas o som do próprio tambor mantendo o guia visual e subir o andamento sem tensão.',
+    stepsFr: [
+      'Cliquez sur [ Entraînement ] dans la barre de transport inférieure gauche pour ouvrir l’atelier de répétition.',
+      'Dans l’onglet Jouer avec (Tocar Junto), sélectionnez votre pupitre : son canal audio devient muet (seul ou toute sa famille), tandis que ses pas et ses baguettes Ao Vivo continuent de vous guider.',
+      'Choisissez entre Base pure (amorce 1ª VEZ + motif maître sans tirages aléatoires) ou Jeu libre avec variations.',
+      'Dans Vitesse & Paliers (ou Défis & Carnet), réglez la plage de mesures, le BPM de départ, le BPM cible et le pas d’accélération (+1, +2 ou +4 BPM) : à l’arrêt, le morceau retrouve automatiquement son tempo nominal.',
+    ],
+    stepsPt: [
+      'Clique em [ Treino ] na barra de transporte inferior esquerda para abrir a oficina de estudo.',
+      'Na aba Tocar Junto, escolha seu naipe: o áudio dele fica mudo (individual ou toda a família), enquanto os passos e as baquetas Ao Vivo continuam guiando você.',
+      'Escolha entre Base pura (entrada 1ª VEZ + frase mestra sem sorteios) ou Jogo livre com variações.',
+      'Em Velocidade & Patamares (ou Desafios & Caderno), defina os compassos, BPM inicial, BPM alvo e aceleração (+1, +2 ou +4 BPM): ao parar, o andamento original é restaurado automaticamente.',
+    ],
+    tipFr: 'Ciblez 2 ou 4 mesures autour d’une virada exigeante avec la boucle [L] et validez 4 tours de maintien au tempo cible avant de passer à l’enchaînement complet.',
+    tipPt: 'Isole 2 ou 4 compassos de uma virada exigente com o loop [L] e sustente 4 voltas limpas no andamento alvo antes de tocar a música inteira.',
+  },
+];

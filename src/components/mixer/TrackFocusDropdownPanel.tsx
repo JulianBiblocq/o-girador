@@ -32,14 +32,15 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
   const setTocarJuntoMuteScope = useSequencerStore((s) => s.setTocarJuntoMuteScope);
 
   useEffect(() => {
+    const doc = panelRef.current?.ownerDocument || document;
     const handleDown = (e: MouseEvent | TouchEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      if (panelRef.current && e.target && !panelRef.current.contains(e.target as Node)) onClose();
     };
-    document.addEventListener('mousedown', handleDown);
-    document.addEventListener('touchstart', handleDown);
+    doc.addEventListener('mousedown', handleDown);
+    doc.addEventListener('touchstart', handleDown);
     return () => {
-      document.removeEventListener('mousedown', handleDown);
-      document.removeEventListener('touchstart', handleDown);
+      doc.removeEventListener('mousedown', handleDown);
+      doc.removeEventListener('touchstart', handleDown);
     };
   }, [onClose]);
 
@@ -73,7 +74,7 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setFocusTrackId(t.id, inst?.name)}
+                onClick={() => setFocusTrackId(t.id, undefined, true)}
                 className={`xilo-wood-stamp flex items-center gap-1.5 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${
                   isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'
                 }`}

@@ -1,4 +1,3 @@
-
 export interface BalancoPresetItem {
   id: string;
   name: string;
@@ -19,6 +18,7 @@ export interface PatternInspectorHeaderProps {
   canPaste: boolean;
   balancoPresets?: BalancoPresetItem[];
   isVoice?: boolean;
+  isExpandedLayout?: boolean;
   instrumentName?: string;
   onSelectPattern?: (patternId: number) => void;
   onAddPattern?: () => void;

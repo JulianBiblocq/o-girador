@@ -54,7 +54,7 @@ export function useGridVoiceNavigation(params: UseGridVoiceNavigationParams) {
     if (targetCard) {
       const targetInput = targetCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement | null;
       if (targetInput) { targetInput.focus(); targetInput.select(); } else targetCard.focus?.();
-      setSelectedStepIdx(targetStepIdx); setSelectedStepIndices([targetStepIdx]);
+      setSelectedStepIdx(targetStepIdx); setSelectedStepIndices([]);
       if (setSelectedStepIsPreRoll) setSelectedStepIsPreRoll(targetIsInPreRoll);
       useSequencerStore.setState({ selectedStepIdx: targetStepIdx, selectedStepIsPreRoll: targetIsInPreRoll, selectedSubIndex: null, selectedStepRange: null });
     }
@@ -72,7 +72,7 @@ export function useGridVoiceNavigation(params: UseGridVoiceNavigationParams) {
   }, [focusVoiceStep]);
 
   const handleVoiceFocusStep = useCallback((idx: number, isPreRoll?: boolean) => {
-    setSelectedStepIdx(idx); setSelectedStepIndices([idx]); setSelectedPatternId(pattern.id);
+    setSelectedStepIdx(idx); setSelectedStepIndices([]); setSelectedPatternId(pattern.id);
     if (setSelectedStepIsPreRoll) setSelectedStepIsPreRoll(Boolean(isPreRoll));
     useAudioStore.getState().setVoiceInputMode('step');
     useSequencerStore.getState().setSelectedPatternId(pattern.id);
@@ -97,7 +97,7 @@ export function useGridVoiceNavigation(params: UseGridVoiceNavigationParams) {
       if (selectedPatternId && pattern?.id && selectedPatternId !== pattern.id) return;
       if (customEvt.detail && typeof customEvt.detail.stepIdx === 'number') {
         const nextIdx = customEvt.detail.stepIdx;
-        setSelectedStepIdx(nextIdx); setSelectedStepIndices([nextIdx]);
+        setSelectedStepIdx(nextIdx); setSelectedStepIndices([]);
         if (customEvt.detail.subIndex !== undefined) setSelectedSubIndex(customEvt.detail.subIndex);
         focusCell(nextIdx, customEvt.detail.subIndex);
       }

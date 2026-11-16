@@ -35,10 +35,10 @@ export function useBoutonExportDanse() {
       if (!hasAccess) {
         const wantToSubscribe = await confirmAsync(
           lang === 'fr'
-            ? "Pour envoyer cette musique vers l'application O Girador Dança, vous devez activer le pont entre les deux applications. Souhaitez-vous souscrire à cette option ?"
-            : "Para enviar esta música para o aplicativo O Girador Dança, você deve ativar a ponte entre os dois aplicativos. Deseja assinar esta opção?"
+            ? 'Pour envoyer cette musique vers Dançador, vous devez activer le pont entre les deux applications. Souhaitez-vous souscrire à cette option ?'
+            : 'Para enviar esta música para o Dançador, você deve ativar a ponte entre os dois aplicativos. Deseja assinar esta opção?'
         );
-        if (wantToSubscribe) launchCrossApp(getEcosystemUrl('orquestrador'), { appKey: 'orquestrador', appLabel: "l'Orquestrador" });
+        if (wantToSubscribe) launchCrossApp(getEcosystemUrl('orquestrador'), { appKey: 'orquestrador', appLabel: 'Orquestrador' });
         return;
       }
 

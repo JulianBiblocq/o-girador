@@ -35,20 +35,13 @@ const legacyGongueStrokes: StrokeMapping[] = [
     caseSensitive: true,
     baseGain: 1.0,
   },
-  {
-    symbol: 'X',
-    keys: ['X', 'x'],
-    files: ['Mixdown/Gongue C 1.ogg', 'Mixdown/Gongue C 2.ogg'],
-    caseSensitive: false,
-    baseGain: 1.0,
-  },
   ...buildBarulhoStrokePair('Mixdown/Gongue B.ogg'),
 ];
 
 export const gongueConfig: InstrumentAudioConfig = {
   id: 'gongue',
   name: 'Gonguê',
-  uiOrder: ['G', 'A', 'g', 'a', 'X', 'B'],
+  uiOrder: ['G', 'A', 'g', 'a', 'B'],
   leftHandedSupport: false,
   ...resolveStudioBankFlags('gongue'),
   strokes: STUDIO_BANK_ENABLED.gongue ? buildStudioGongueStrokes() : legacyGongueStrokes,

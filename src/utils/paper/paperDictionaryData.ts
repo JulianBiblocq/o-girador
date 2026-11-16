@@ -25,13 +25,13 @@ const PRIMARY_DICTIONARY_ITEMS: DictItem[] = [
     family: 'bases_paradas',
     patterns: { cx: ['D', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'd', 'D', 'e', 'D', 'D', 'e', 'D', 'e'] },
     variations: [
-      { varIndex: 1, pupitre: 'cx', name: 'Cx Rouffade', steps: ['D', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'R', 'D', 'e', 'D', 'D', 'e', 'D', 'e'] },
-      { varIndex: 2, pupitre: 'cx', name: 'Cx Flam', steps: ['F', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'd', 'D', 'e', 'D', 'D', 'e', 'd', 'E'] },
+      { varIndex: 1, pupitre: 'cx', name: 'Cx Rufada', steps: ['D', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'R', 'D', 'e', 'D', 'D', 'e', 'D', 'e'] },
+      { varIndex: 2, pupitre: 'cx', name: 'Cx Fla', steps: ['F', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'd', 'D', 'e', 'D', 'D', 'e', 'd', 'E'] },
     ],
   },
   {
     id: 'base_gongue',
-    name: 'Gonguê Base (Aberto / Fechado)',
+    name: 'Gonguê Base (Grave / Agudo)',
     family: 'bases_paradas',
     patterns: { gg: ['G', 0, 'A', 0, 'G', 0, 'A', 0, 'G', 'A', 0, 'A', 'G', 0, 'A', 0] },
   },
@@ -43,15 +43,15 @@ const PRIMARY_DICTIONARY_ITEMS: DictItem[] = [
   },
   {
     id: 'base_mineiro',
-    name: 'Mineiro Base (P ↑ Pousser / Projetar)',
+    name: 'Mineiro Base (P Pousser / T Tirer)',
     family: 'bases_paradas',
-    patterns: { mi: ['D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e', 'D', 'e'] },
+    patterns: { mi: ['P', 't', 'P', 't', 'P', 't', 'P', 't', 'P', 't', 'P', 'T', 'P', 't', 'P', 'T'] },
   },
   {
     id: 'base_timbal',
     name: 'Timbal Base',
     family: 'bases_paradas',
-    patterns: { tb: ['T', 0, 0, 'O', 0, 0, 'S', 0, 'T', 0, 0, 'O', 0, 0, 'S', 0] },
+    patterns: { tb: ['G', 0, 0, 'A', 0, 0, 'S', 0, 'G', 0, 0, 'A', 0, 0, 'S', 0] },
   },
   {
     id: 'parada_1',
@@ -93,7 +93,7 @@ const PRIMARY_DICTIONARY_ITEMS: DictItem[] = [
       { varIndex: 4, pupitre: 'al', name: 'Al Var 4 Barulho', steps: ['D', 'B', 0, 'B', 'D', 'B', 0, 0, 'e', 'D', 0, 0, 'e', 'D', 0, 0] },
       { varIndex: 5, pupitre: 'al', name: 'Al Var 5 Bacalhau', steps: ['D', 0, 0, 'I', 0, 'D', 0, 'I', 'e', 'D', 0, 0, 'e', 'D', 0, 0] },
       { varIndex: 1, pupitre: 'cx', name: 'Cx Var 1 Roulement', steps: ['D', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'R', 'D', 'e', 'D', 'D', 'e', 'D', 'e'] },
-      { varIndex: 2, pupitre: 'cx', name: 'Cx Var 2 Flam Final', steps: ['D', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'd', 'D', 'e', 'D', 'D', 'e', 'F', 0] },
+      { varIndex: 2, pupitre: 'cx', name: 'Cx Var 2 Fla Final', steps: ['D', 'D', 'e', 'D', 'D', 'e', 'D', 'e', 'd', 'D', 'e', 'D', 'D', 'e', 'F', 0] },
     ],
   },
   {

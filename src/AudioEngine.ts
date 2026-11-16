@@ -5,6 +5,7 @@
 import { instrumentAudioConfigs, InstrumentAudioConfig, StrokeMapping } from './data/audioConfig';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { TrackGroup } from './types';
+import type { VoiceMelismaGlide } from './utils/musicTheory';
 import { VocalPresetId } from './audio/vocalPresets';
 import { ActiveInstrumentData, GainNodeMapping } from './audio/engine/engineTypes';
 import { EngineChannels } from './audio/engine/engineChannels';
@@ -112,7 +113,7 @@ export class AudioEngine implements HorizonEngineLike {
   public playNote(trackId: number | string, stroke: string, time: number, vel: number, decay: number, isLiveHold = false): void { EngineNotePlayer.playNote(this.getNotePlayerDeps(), trackId, stroke, time, vel, decay, isLiveHold); }
   public playPreview(instId: string, stroke: string, pitch = 0, vel = 1.0, time?: number, decay = 1.0, trackId: number | string | null = null): void { EngineNotePlayer.playPreview(this.getNotePlayerDeps(), instId, stroke, pitch, vel, time, decay, trackId); }
   public triggerVoicePitch(pitch: string | number, vel = 0.7, trackId?: string | number): void { EngineVocalActions.triggerPitch(this.audioContext, this.voiceSynthManager, pitch, vel, trackId); }
-  public triggerVoiceAttackRelease(pitch: string | number, dur: number | string, time?: number, vel = 0.7, trackId?: string | number): void { EngineVocalActions.triggerAttackRelease(this.audioContext, this.voiceSynthManager, pitch, dur, time, vel, trackId); }
+  public triggerVoiceAttackRelease(pitch: string | number, dur: number | string, time?: number, vel = 0.7, trackId?: string | number, glides?: VoiceMelismaGlide[]): void { EngineVocalActions.triggerAttackRelease(this.audioContext, this.voiceSynthManager, pitch, dur, time, vel, trackId, glides); }
   public releaseVoicePitch(pitch?: string | number, trackId?: string | number): void { EngineVocalActions.releasePitch(this.voiceSynthManager, pitch, trackId); }
   public releaseAllVoices(): void { this.voiceSynthManager.releaseAllVoices(); } public releaseVoicesForTrack(trackId: string | number): void { this.voiceSynthManager.releaseVoicesForTrack(trackId); }
   public initVoiceSynth(presetId?: VocalPresetId): void { EngineVocalActions.initSynth(this.voiceSynthManager, presetId, this.channels.instrumentChannels); }

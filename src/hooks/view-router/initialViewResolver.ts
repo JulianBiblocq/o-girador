@@ -27,7 +27,12 @@ export function getInitialViewMode(): ViewMode {
     urlParams.has('presetId') ||
     urlParams.has('trainingId') ||
     urlParams.has('mode') ||
-    urlParams.has('tocarJunto');
+    urlParams.has('tocarJunto') ||
+    urlParams.has('train') ||
+    urlParams.has('role') ||
+    urlParams.has('targetTrack') ||
+    urlParams.has('guide') ||
+    urlParams.has('capture');
 
   if (hasDirectAction) {
     return 'roda';

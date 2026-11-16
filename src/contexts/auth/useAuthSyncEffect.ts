@@ -96,12 +96,11 @@ export function useAuthSyncEffect({ setCurrentUser, setUserProfile, setLoading }
           } else {
             const newProfile: UserProfile = {
               uid: user.uid, email: user.email, displayName: user.displayName,
-              photoURL: user.photoURL, role: 'membre', mestreId: 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
-              groupId: 'Samambaia', groupName: 'Samambaia', createdAt: Date.now(),
+              photoURL: user.photoURL, role: 'visiteur', createdAt: Date.now(),
             };
             await setDoc(userRef, newProfile, { merge: true });
             setUserProfile({ ...newProfile, dbRole: newProfile.role });
-            useNomenclatureStore.getState().syncGroupNomenclature('Samambaia');
+            useNomenclatureStore.getState().syncGroupNomenclature(null);
           }
           setLoading(false);
         });

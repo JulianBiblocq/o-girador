@@ -1,8 +1,6 @@
-
 import React, { useMemo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TrackGroup } from '../types';
 import { isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig } from '../data';
@@ -13,14 +11,13 @@ import { DawTrackRowHeader } from './daw/DawTrackRowHeader';
 import { DawStepGrid } from './daw/DawStepGrid';
 import { resolveDawPattern, computeBeatGroups } from './daw/dawStepMath';
 import { areDawTrackRowPropsEqual } from './daw/dawTrackRowComparator';
-
 import type { DawTrackRowProps } from './daw/dawTrackRowTypes';
-export type { DawTrackRowProps };
 
+export type { DawTrackRowProps };
 
 const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
   track, trackIdx, tracks, currentMeasure, defaultBeats, lang,
-  isLeftHanded, sequencer, handleStepClick, registerStepRef, trackResolutionsRef,
+  isLeftHanded, sequencer, onSelectPedagogyTarget, registerStepRef, trackResolutionsRef,
 }) => {
   const isLinkedSlave = !!(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
   const isChild = isLinkedSlave || isToadaChild(track, tracks);
@@ -42,19 +39,21 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
 
   const activeChildTrack = useMemo(() => {
     if (!isToada) return null;
-    const pux = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+    const pux = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coro = tracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
     const globalSelectedId = useAudioStore.getState().selectedVocalPatternId;
     if (globalSelectedId) {
-      if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
-      if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
+      if (pux && pux.patterns.some((p) => p.id === globalSelectedId)) return pux;
+      if (coro && coro.patterns.some((p) => p.id === globalSelectedId)) return coro;
     }
-    return coro?.patterns?.find(p => p.measureAssignments?.[currentMeasure]) ? coro :
-           pux?.patterns?.find(p => p.measureAssignments?.[currentMeasure]) ? pux : (coro || pux || null);
+    return coro?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ? coro :
+      pux?.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ? pux : (coro || pux || null);
   }, [isToada, tracks, currentMeasure]);
 
   const effectiveTrack = isToada ? (activeChildTrack || track) : track;
-  const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : (isToada ? instrumentsConfig.find(i => i.id === 'puxador' || i.type === 'voice') : null);
+  const inst = effectiveTrack
+    ? instrumentsConfig[effectiveTrack.instrumentIdx]
+    : (isToada ? instrumentsConfig.find((i) => i.id === 'puxador' || i.type === 'voice') : null);
 
   const { activePattern, masterActivePattern, isGhostStep } = resolveDawPattern({
     track, tracks, currentMeasure, effectiveTrack, isLinkedSlave,
@@ -78,7 +77,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] justify-start shrink-0 text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] rounded-none bg-[#f4ecd8] dark:bg-[#e2d7c0] px-2 py-0.5 relative overflow-hidden z-[1] select-none"
+      className="flex items-center w-full h-[52px] min-h-[52px] max-h-[52px] justify-start shrink-0 text-[var(--cordel-ink-dark)] border-2 border-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_var(--cordel-ink-dark)] rounded-none bg-[var(--cordel-parchment-bg)] px-2 py-0.5 relative overflow-hidden z-[1] select-none"
     >
       <TrackCardGroupIndicator visual={groupVisual} />
       <DawTrackRowHeader
@@ -106,7 +105,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
         tracks={tracks}
         currentMeasure={currentMeasure}
         sequencer={sequencer}
-        handleStepClick={handleStepClick}
+        onSelectPedagogyTarget={onSelectPedagogyTarget}
         registerStepRef={registerStepRef}
       />
     </div>

@@ -2,6 +2,7 @@
  * O Girador - Audio Engine Vocal Synthesizer Facade Actions
  */
 
+import type { VoiceMelismaGlide } from '../../utils/musicTheory';
 import { VocalPresetId } from '../vocalPresets';
 import { EngineVoiceSynthManager } from './engineVoiceSynth';
 import { EngineVoiceTriggers } from './engineVoiceTriggers';
@@ -24,9 +25,10 @@ export class EngineVocalActions {
     dur: number | string,
     time?: number,
     vel = 0.7,
-    trackId?: string | number
+    trackId?: string | number,
+    melismaGlides?: VoiceMelismaGlide[]
   ): void {
-    EngineVoiceTriggers.triggerVoiceAttackRelease(audioCtx, mgr, pitch, dur, time, vel, trackId);
+    EngineVoiceTriggers.triggerVoiceAttackRelease(audioCtx, mgr, pitch, dur, time, vel, trackId, melismaGlides);
   }
 
   public static releasePitch(

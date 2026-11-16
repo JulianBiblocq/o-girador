@@ -9,7 +9,7 @@ export interface InstrumentMobileOffset {
   reachDeltaY: number;
 }
 
-const MOBILE_STORAGE_KEY = 'og_aovivo_mobile_offsets_v2';
+const MOBILE_STORAGE_KEY = 'og_aovivo_mobile_offsets_v3';
 
 export const ZERO_MOBILE_OFFSET: InstrumentMobileOffset = { offsetY: 0, offsetX: 0, scaleMult: 1, spreadDeltaPx: 0, reachDeltaY: 0 };
 
@@ -72,15 +72,20 @@ function saveAndNotify(): void {
   listeners.forEach((fn) => fn());
 }
 
-export function resolveMobileFamily(instIdOrFam: string | null | undefined): AoVivoMobileFamily {
-  const id = (instIdOrFam || '').toLowerCase();
+export function resolveNullableMobileFamily(instIdOrFam: string | null | undefined): AoVivoMobileFamily | null {
+  const id = String(instIdOrFam || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (['marcante', 'meiao', 'repique', 'alfaia', 'alfaia_grave', 'alfaia_medio', 'alfaia_agudo'].includes(id)) return 'alfaia';
   if (id === 'caixa') return 'caixa';
   if (id === 'tarol') return 'tarol';
   if (id === 'gongue') return 'gongue';
   if (id === 'timbal') return 'timbal';
   if (id === 'agbe') return 'agbe';
   if (id === 'mineiro') return 'mineiro';
-  return 'alfaia';
+  return null;
+}
+
+export function resolveMobileFamily(instIdOrFam: string | null | undefined): AoVivoMobileFamily {
+  return resolveNullableMobileFamily(instIdOrFam) ?? 'alfaia';
 }
 
 export function isMobileViewport(): boolean {
@@ -89,7 +94,8 @@ export function isMobileViewport(): boolean {
 
 export function getEffectiveMobileOffset(instIdOrFam: string | null | undefined): InstrumentMobileOffset {
   if (!isMobileViewport()) return ZERO_MOBILE_OFFSET;
-  return MOBILE_OFFSETS[resolveMobileFamily(instIdOrFam)];
+  const fam = resolveNullableMobileFamily(instIdOrFam);
+  return fam ? MOBILE_OFFSETS[fam] : ZERO_MOBILE_OFFSET;
 }
 
 export function updateMobileOffset(fam: AoVivoMobileFamily, patch: Partial<InstrumentMobileOffset>): void {

@@ -7,21 +7,17 @@ import { dispatchAlfaiaPredictiveStroke } from './alfaiaLookaheadHelper';
 import { dispatchCaixaPredictiveStroke } from './caixaLookaheadHelper';
 import { dispatchMineiro, dispatchAgbe, dispatchGongue } from './aoVivoOtherDispatchers';
 import { resetAoVivoRestPosition, resolveAoVivoPatternAndSteps } from './aoVivoReset';
+import { AoVivoResolvedFamily, resolveTrackAoVivoFamily } from './resolveAoVivoFamily';
 import { MineiroPole } from '../../audio/animationGenerators';
 import { getMeasureDurationSec } from '../../utils/meterTiming';
 
 export function useAoVivoAnimationEngine(
-  activeAoVivoTrackId: string | number,
-  isLeftHanded: boolean,
-  activeTrack: any,
-  inst: any,
+  activeAoVivoTrackId: string | number | null, isLeftHanded: boolean, activeTrack: any,
+  family: AoVivoResolvedFamily | null, isSyntheticPreview: boolean,
   geometryRef: React.MutableRefObject<{ targetX: number; targetY: number; width: number; height: number }>,
-  leftStickRef: React.RefObject<SVGSVGElement | null>,
-  rightStickRef: React.RefObject<SVGSVGElement | null>,
-  mineiroStickRef: React.RefObject<SVGSVGElement | null>,
-  agbeWholeRef: React.RefObject<SVGGElement | null>,
-  gongueStickRef: React.RefObject<SVGSVGElement | null>,
-  haloRef: React.RefObject<HTMLDivElement | null>,
+  leftStickRef: React.RefObject<SVGSVGElement | null>, rightStickRef: React.RefObject<SVGSVGElement | null>,
+  mineiroStickRef: React.RefObject<SVGSVGElement | null>, agbeWholeRef: React.RefObject<SVGGElement | null>,
+  gongueStickRef: React.RefObject<SVGSVGElement | null>, haloRef: React.RefObject<HTMLDivElement | null>,
   _voiceWrapperRef: React.RefObject<HTMLDivElement | null>
 ) {
   const isPreRolling = useSequencerStore((state) => state.isPreRolling);
@@ -41,14 +37,17 @@ export function useAoVivoAnimationEngine(
   };
 
   useEffect(() => {
-    if (isPreRolling) {
+    const resetAllToRest = () => {
       clearSubStepTimers();
       lastVuStepRef.current = -1;
       leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
       gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
-      resetAoVivoRestPosition(inst?.id, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
-    }
-  }, [isPreRolling, inst, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack]);
+      resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
+    };
+    resetAllToRest();
+    window.addEventListener('o-girador-playback-stopped', resetAllToRest);
+    return () => window.removeEventListener('o-girador-playback-stopped', resetAllToRest);
+  }, [isPreRolling, family, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack]);
 
   useEffect(() => {
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; isPreRoll?: boolean }) => {
@@ -58,22 +57,25 @@ export function useAoVivoAnimationEngine(
         lastVuStepRef.current = -1;
         leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
         gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
-        resetAoVivoRestPosition(inst?.id, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
+        resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
         return;
       }
 
       const state = useSequencerStore.getState();
+      if (!family || isSyntheticPreview || !activeTrack || resolveTrackAoVivoFamily(activeTrack, state.tracks).family !== family) {
+        lastVuStepRef.current = -1;
+        return;
+      }
+
       const soloPlayId = (state as any).soloPlayingPatternId ?? (state as any).soloPatternPlayId ?? null;
-      const isAlfaia = ['marcante', 'meiao', 'repique'].includes(inst?.id);
-      const isCaixaOrTarol = ['caixa', 'tarol'].includes(inst?.id);
+      const isCombineGroup = family === 'alfaia' || family === 'caixa' || family === 'tarol' || family === 'timbal';
       const { pattern, activePlayingSteps } = resolveAoVivoPatternAndSteps(
-        activeTrack, state.tracks, measure, soloPlayId, activeVariationsRef?.current, isAlfaia || isCaixaOrTarol || inst?.id === 'timbal'
+        activeTrack, state.tracks, measure, soloPlayId, activeVariationsRef?.current, isCombineGroup
       );
       if (!pattern) { lastVuStepRef.current = -1; return; }
 
       const currentSig = state.measureTimeSigs?.[measure] || state.timeSig || '4/4';
-      const beats = parseInt(String(currentSig).split('/')[0], 10) || 4;
-      const stepsPerMeasure = beats * 4;
+      const stepsPerMeasure = (parseInt(String(currentSig).split('/')[0], 10) || 4) * 4;
       const patSteps = pattern.steps || stepsPerMeasure;
       const patternSpan = Math.max(1, Math.round(patSteps / stepsPerMeasure));
       let stepOffset = 0;
@@ -96,29 +98,27 @@ export function useAoVivoAnimationEngine(
       const stepDurationMs = Math.max(40, (getMeasureDurationSec(currentSig, currentBpm) * 1000) / stepsPerMeasure);
 
       const triggerStroke = (stroke: string, isSubStep: boolean) => {
-        if (!inst || !stroke || stroke === '0' || stroke === '-' || stroke === '.' || stroke === '/') return;
+        if (!stroke || stroke === '0' || stroke === '-' || stroke === '.' || stroke === '/') return;
         const isVibrate = stroke === '~';
-        if (isAlfaia) {
+        if (family === 'alfaia') {
           dispatchAlfaiaPredictiveStroke(activeTrack, stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current);
-        } else if (isCaixaOrTarol) {
-          dispatchCaixaPredictiveStroke(inst.id, stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current);
-        } else if (inst.id === 'timbal') {
+        } else if (family === 'caixa' || family === 'tarol') {
+          dispatchCaixaPredictiveStroke(family, stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current);
+        } else if (family === 'timbal') {
           dispatchTimbalPredictiveStroke(stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current);
-        } else if (inst.id === 'mineiro') {
+        } else if (family === 'mineiro') {
           dispatchMineiro(stroke, isVibrate, mineiroStickRef.current, mineiroPoleRef, mineiroAnimRef, isLeftHanded);
-        } else if (inst.id === 'agbe') {
+        } else if (family === 'agbe') {
           const nextRaw = activePlayingSteps?.[(targetStep + 1) % Math.max(1, activePlayingSteps.length)];
-          const nextTok = Array.isArray(nextRaw) ? String(nextRaw[0] || '') : String(nextRaw || '');
-          dispatchAgbe(stroke, isVibrate, agbeWholeRef.current, agbeAnimRef, nextTok);
-        } else if (inst.id === 'gongue') {
+          dispatchAgbe(stroke, isVibrate, agbeWholeRef.current, agbeAnimRef, Array.isArray(nextRaw) ? String(nextRaw[0] || '') : String(nextRaw || ''));
+        } else if (family === 'gongue') {
           dispatchGongue(stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, gongueStickRef.current, gongueAnimRef);
         }
       };
 
       if (Array.isArray(rawVal)) {
         triggerStroke(String(rawVal[0]), false);
-        const subDelay = Math.max(20, Math.round(stepDurationMs / 2));
-        subStepTimersRef.current.push(setTimeout(() => triggerStroke(String(rawVal[1]), true), subDelay));
+        subStepTimersRef.current.push(setTimeout(() => triggerStroke(String(rawVal[1]), true), Math.max(20, Math.round(stepDurationMs / 2))));
       } else if (typeof rawVal === 'object' && Array.isArray(rawVal.sim)) {
         rawVal.sim.forEach((s: string) => triggerStroke(String(s), false));
       } else {
@@ -128,7 +128,7 @@ export function useAoVivoAnimationEngine(
 
     subscribeToTick(handleTick);
     return () => { unsubscribeFromTick(handleTick); clearSubStepTimers(); };
-  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst, isPreRolling, geometryRef, leftStickRef, rightStickRef, mineiroStickRef, agbeWholeRef, gongueStickRef, haloRef, activeVariationsRef]);
+  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, family, isSyntheticPreview, isPreRolling, geometryRef, leftStickRef, rightStickRef, mineiroStickRef, agbeWholeRef, gongueStickRef, haloRef, activeVariationsRef]);
 
   return { leftAnimRef, rightAnimRef };
 }

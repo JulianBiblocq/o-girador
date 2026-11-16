@@ -25,9 +25,11 @@ export function getCaixaImpactPoseTransform(stroke: string, isLeftSide: boolean,
   if (sUp === 'C') return `translate(${c.crossClickCenterX + inSign * c.crossClickConvergeX}px, ${c.crossClickY + mobY}px) rotateZ(${inSign * c.crossClickAngleDeg}deg) scale(${sc(c.crossClickScaleZ)}) skewX(0deg)`;
   if (sUp === 'X') return `translate(${inSign * c.rimshotOffsetX}px, ${c.rimshotImpactY + mobY}px) rotateZ(${inSign * c.rimshotAngleDeg}deg) scale(${sc(c.rimshotScaleZ)}) skewX(0deg)`;
   if (sUp === 'A') {
-    const rimSkinY = Math.round(c.impactReachY * 0.55 + c.rimshotImpactY * 0.45) + mobY;
-    const rimSkinX = Math.round(inSign * (c.impactConvergeX * 0.5 + c.rimshotOffsetX * 0.5));
-    return `translate(${rimSkinX}px, ${rimSkinY}px) rotateZ(${inSign * 5.5}deg) scale(${sc(c.rimshotScaleZ)}) skewX(${-inSign * +(prof.flexibility * 1.8).toFixed(1)}deg)`;
+    const isSubtle = stroke === 'a', ratio = isSubtle ? c.rimshotWeakRatio : 1;
+    const rimSkinY = Math.round(c.rimshotSkinImpactY * ratio) + mobY;
+    const rimSkinX = Math.round(inSign * c.rimshotSkinOffsetX * ratio);
+    const rimZ = sc(isSubtle ? Math.min(1.12, c.rimshotImpactScaleZ + (1 - ratio) * 0.25) : c.rimshotImpactScaleZ);
+    return `translate(${rimSkinX}px, ${rimSkinY}px) rotateZ(${+(inSign * c.rimshotSkinAngleDeg).toFixed(1)}deg) scale(${rimZ}) skewX(${-inSign * +(prof.flexibility * 1.9).toFixed(1)}deg)`;
   }
   if (sUp === 'B' || stroke === '~') return `translate(${inSign * c.impactConvergeX}px, ${c.barulhoImpactY + mobY}px) rotateZ(${inSign * 3.5}deg) scale(${sc(c.rufadaPressScaleZ)}) skewX(0deg)`;
   if (sUp === 'R') return `translate(${inSign * c.impactConvergeX}px, ${c.impactReachY + mobY}px) rotateZ(${inSign * 4}deg) scale(${sc(c.rufadaPressScaleZ)}) skewX(${-inSign * +(prof.flexibility * 1.6).toFixed(1)}deg)`;
@@ -68,10 +70,22 @@ export function generateCaixaPredictiveKeyframes(
     return frames;
   }
 
-  if (sUp === 'C' || sUp === 'X' || sUp === 'A') {
+  if (sUp === 'C' || sUp === 'X') {
     return [
       { transform: startTransform, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
       { transform: getCaixaImpactPoseTransform(stroke, isLeftSide, family), offset: atkOff, easing: rebEasing },
+      { transform: endTransform, offset: 1 },
+    ];
+  }
+  if (sUp === 'A') {
+    const isSubtle = stroke === 'a', ratio = isSubtle ? c.rimshotWeakRatio : 1;
+    const wZ = sc(c.rimshotWindUpScaleZ * (isSubtle ? 0.85 + 0.15 * ratio : 1));
+    const windUpTr = `translate(${Math.round(inSign * c.rimshotSkinOffsetX * 0.45)}px, ${Math.round(c.restOffsetY + 18 * ratio)}px) rotateZ(${-inSign * +(c.wristWhipDeg * 0.9).toFixed(1)}deg) scale(${wZ}) skewX(0deg)`;
+    const impTr = getCaixaImpactPoseTransform(stroke, isLeftSide, family);
+    return [
+      { transform: windUpTr, offset: 0, easing: 'cubic-bezier(0.78, 0, 1, 1)' },
+      { transform: impTr, offset: atkOff },
+      { transform: impTr, offset: Math.min(0.8, +(atkOff + 0.03).toFixed(2)), easing: rebEasing },
       { transform: endTransform, offset: 1 },
     ];
   }

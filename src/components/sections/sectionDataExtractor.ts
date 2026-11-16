@@ -1,5 +1,6 @@
 
 import { SongSection, SavedSectionData, Pattern } from '../../types';
+import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
 
 export function extractSectionData(section: SongSection, storeState: any): SavedSectionData {
   const numMeasures = section.endMeasure - section.startMeasure + 1;
@@ -32,5 +33,6 @@ export function extractSectionData(section: SongSection, storeState: any): Saved
     };
   }).filter((t: any) => t.patterns.length > 0);
 
-  return { numMeasures, timeSigs, vols, volTransitions, signals, tracks: sectionTracks };
+  const alfaiaEquipment = resolvePresetAlfaiaEquipment({ tracks: sectionTracks }) ?? null;
+  return { numMeasures, timeSigs, vols, volTransitions, signals, tracks: sectionTracks, alfaiaEquipment };
 }

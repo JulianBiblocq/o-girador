@@ -1,5 +1,5 @@
 /**
- * Extraction dynamique de la partition active du Séquenciad'Or pour l'Atelier Papier (< 100 lignes).
+ * Extraction dynamique de la partition active de Sequenciador pour l'Atelier Papier (< 100 lignes).
  */
 import { PaperPreset, PaperStepValue, PupitreCode } from '../../types/paperWorkshop.types';
 import { useSequencerStore } from '../../stores/useSequencerStore';

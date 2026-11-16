@@ -2,6 +2,16 @@ import { Language, PresetMetadata } from '../../types';
 import { EcoConfig } from '../helpers/ecoModeDetector';
 import { SelectedStepRange } from './clipboardSliceTypes';
 
+export interface EditorDeepLinkTarget {
+  trackId: number;
+  patternId?: number | string | null;
+  stepIdx?: number | null;
+  isPreRoll?: boolean;
+  subIndex?: 0 | 1 | null;
+  initialTool?: string | null;
+  expandTuning?: boolean;
+}
+
 export interface ProjectSettingsSlice {
   letras: string;
   metadata: PresetMetadata;
@@ -16,6 +26,7 @@ export interface ProjectSettingsSlice {
   selectedStepIsPreRoll: boolean;
   selectedSubIndex: 0 | 1 | null;
   selectedStepRange: SelectedStepRange | null;
+  editorDeepLink: EditorDeepLinkTarget | null;
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
@@ -38,6 +49,8 @@ export interface ProjectSettingsSlice {
   /** Palier 2 : bascule groupee `disableFx` + `disableEq` (active le Palier 1 si necessaire). */
   toggleStrictAudioEco: () => void;
   setEditingTrackId: (id: number | null) => void;
+  openInstrumentDetailAt: (payload: EditorDeepLinkTarget) => void;
+  consumeEditorDeepLink: () => void;
   closeDetailEditor: () => void;
   setSelectedStepIdx: (idx: number | null, isPreRoll?: boolean, subIndex?: 0 | 1 | null) => void;
   setSelectedStepIndex: (idx: number | null, isPreRoll?: boolean) => void;

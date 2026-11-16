@@ -27,7 +27,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
       if (Array.isArray(value) && subIndex === 0) { setSelectedSubIndex(1); focusCell(idx, 1); return; }
       if (idx < totalSteps - 1) {
         const nextIdx = idx + 1; const nextVal = pattern?.activeSteps?.[nextIdx];
-        setSelectedStepIdx(nextIdx); setSelectedStepIndices([nextIdx]);
+        setSelectedStepIdx(nextIdx); setSelectedStepIndices([]);
         if (Array.isArray(nextVal)) { setSelectedSubIndex(0); focusCell(nextIdx, 0); }
         else { setSelectedSubIndex(null); focusCell(nextIdx); }
       }
@@ -39,7 +39,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
       if (Array.isArray(value) && subIndex === 1) { setSelectedSubIndex(0); focusCell(idx, 0); return; }
       if (idx > 0) {
         const prevIdx = idx - 1; const prevVal = pattern?.activeSteps?.[prevIdx];
-        setSelectedStepIdx(prevIdx); setSelectedStepIndices([prevIdx]);
+        setSelectedStepIdx(prevIdx); setSelectedStepIndices([]);
         if (Array.isArray(prevVal)) { setSelectedSubIndex(1); focusCell(prevIdx, 1); }
         else { setSelectedSubIndex(null); focusCell(prevIdx); }
       }
@@ -82,7 +82,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
           else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
           if (idx > 0) {
             const prevIdx = idx - 1; const prevVal = pattern?.activeSteps?.[prevIdx];
-            setSelectedStepIdx(prevIdx); setSelectedStepIndices([prevIdx]);
+            setSelectedStepIdx(prevIdx); setSelectedStepIndices([]);
             if (Array.isArray(prevVal)) { setSelectedSubIndex(1); focusCell(prevIdx, 1); }
             else { setSelectedSubIndex(null); focusCell(prevIdx); }
           }
@@ -92,7 +92,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
         else handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
         if (idx > 0) {
           const prevIdx = idx - 1; const prevVal = pattern?.activeSteps?.[prevIdx];
-          setSelectedStepIdx(prevIdx); setSelectedStepIndices([prevIdx]);
+          setSelectedStepIdx(prevIdx); setSelectedStepIndices([]);
           if (Array.isArray(prevVal)) { setSelectedSubIndex(1); focusCell(prevIdx, 1); }
           else { setSelectedSubIndex(null); focusCell(prevIdx); }
         }

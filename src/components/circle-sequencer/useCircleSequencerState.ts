@@ -1,5 +1,4 @@
-
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
@@ -15,6 +14,7 @@ import { useOverlayRefs } from './useOverlayRefs';
 import { useCircleSequencerStoreData } from './useCircleSequencerStoreData';
 import { resolveVisibleRodaTracks } from './resolveVisibleRodaTracks';
 import { CircleSequencerProps, LivePlaybackState } from './circleSequencerTypes';
+import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
 const EMPTY_LIST: any[] = [];
 
@@ -23,6 +23,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const sequencer = useSequencer();
   const audio = useAudio();
   const storeData = useCircleSequencerStoreData(isActive);
+  const [pedagogyTarget, setPedagogyTarget] = useState<StrokeInfoPopoverTarget | null>(null);
 
   const lang = props.lang ?? sequencer.lang;
   const isLeftHanded = props.isLeftHanded ?? sequencer.isLeftHanded;
@@ -34,16 +35,11 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const songSections = props.songSections ?? (storeData.songSections ?? EMPTY_LIST);
   const songMarkers = props.songMarkers ?? (storeData.songMarkers ?? EMPTY_LIST);
   const rodaTrackOrder = props.rodaTrackOrder ?? storeData.rodaTrackOrder;
-  const isLoopRegionActive = storeData.isLoopRegionActive;
-  const loopStartMeasure = storeData.loopStartMeasure;
-  const loopEndMeasure = storeData.loopEndMeasure;
+  const { isLoopRegionActive, loopStartMeasure, loopEndMeasure, measureTimeSigs, toggleLetraActive, vocalMode, setVocalMode } = storeData;
   const currentMeasure = props.currentMeasure ?? storeData.currentMeasure;
-  const measureTimeSigs = storeData.measureTimeSigs;
   const isMetroOn = props.isMetroOn ?? storeData.isMetroOn;
   const soloPatternPlayId = props.soloPatternPlayId ?? storeData.soloPatternPlayId;
   const isLetraActive = props.isLetraActive ?? storeData.isLetraActive;
-  const toggleLetraActive = storeData.toggleLetraActive;
-  const { vocalMode, setVocalMode } = storeData;
 
   const bpm = props.bpm ?? sequencer.bpm;
   const measureBpms = props.measureBpms ?? sequencer.measureBpms;
@@ -60,7 +56,8 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
 
   const onTogglePlay = props.onTogglePlay ?? audio.handleTogglePlay;
   const onNavigateMeasure = props.onNavigateMeasure ?? ((mIdx: number) => audio.handleTimelineNavigate(mIdx, 0, 16));
-  const onStepChange = props.onStepChange ?? sequencer.handleStepValueSelectAndToggle;
+
+  useEffect(() => { if (!isActive) setPedagogyTarget(null); }, [isActive]);
 
   const {
     canvasRef, measureDisplayRef, centerOverlayRef, centerAfficheurRef, centerOverlayImgRef,
@@ -68,10 +65,9 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   } = useOverlayRefs();
 
   const isCenterShaking = useApitoShake();
-
   const {
     pendingTargetMeasure, setPendingTargetMeasure, pendingTargetMeasureRef,
-    pendingTargetExpandedIndex, setPendingTargetExpandedIndex, pendingTargetExpandedIndexRef
+    pendingTargetExpandedIndex, setPendingTargetExpandedIndex, pendingTargetExpandedIndexRef,
   } = useRodaMeasureNavigationState(currentMeasure);
 
   const expandedRef = useRef<any[]>([]);
@@ -100,10 +96,8 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   );
 
   const getLiveActivePatternId = (t: any) => resolveLiveActivePatternId(t, livePlaybackRef, stateRef);
-
-  const { handleCanvasPointerDown, handleCanvasPointerMove } = useCircleTouchInteraction(
-    canvasRef, stateRef, getLiveActivePatternId, onTogglePlay, onStepChange, props.onStepTouchStart,
-    props.langPromptVoiceText, audio.isLoading, sequencer.promptAsync
+  const { handleCanvasPointerDown } = useCircleTouchInteraction(
+    canvasRef, stateRef, livePlaybackRef, sequencer.activeVariationsRef, onTogglePlay, setPedagogyTarget, audio.isLoading
   );
 
   useCirclePlayheadRaf(
@@ -114,7 +108,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const activeBpm = measureBpms?.[currentMeasure] ?? bpm, activeVol = measureVols?.[currentMeasure] ?? 100;
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
   const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
-  const activeRepIndex = expanded.findIndex(item => item.baseMeasure === currentMeasure);
+  const activeRepIndex = expanded.findIndex((item) => item.baseMeasure === currentMeasure);
   const displayMeasure = pendingTargetExpandedIndex !== null ? pendingTargetExpandedIndex + 1 : (activeRepIndex !== -1 ? activeRepIndex + 1 : currentMeasure + 1);
 
   return {
@@ -124,6 +118,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     pendingTargetExpandedIndexRef, canvasRef, measureDisplayRef, centerOverlayRef,
     centerAfficheurRef, centerOverlayImgRef, centerOverlayTintRef, centerOverlayTextRef,
     isCenterShaking, isLetraActive, toggleLetraActive, vocalMode, setVocalMode,
-    onNavigateMeasure, handleCanvasPointerDown, handleCanvasPointerMove, isMobile: props.isMobile ?? false,
+    onNavigateMeasure, handleCanvasPointerDown, pedagogyTarget, setPedagogyTarget,
+    isMobile: props.isMobile ?? false,
   };
 }

@@ -1,58 +1,75 @@
 import React from 'react';
+import { Shield, Search, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield, Search } from 'lucide-react';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAdminUsers } from './admin/useAdminUsers';
 import { AdminAccessDenied } from './admin/AdminAccessDenied';
 import { AdminUserRow } from './admin/AdminUserRow';
+import { resolveAdminGroupLabel } from './admin/adminUserHelpers';
 
 export const AdminPanel: React.FC = () => {
   const { isAdmin } = useAuth();
+  const rawLang = useSequencerStore((s) => s.lang);
+  const lang: 'pt' | 'fr' = rawLang === 'pt' ? 'pt' : 'fr';
+  const isPt = lang === 'pt';
   const {
     loading, searchTerm, setSearchTerm, filteredUsers, mestres,
-    handleRoleChange, handleMestreChange, handleMaxElevesChange
+    groupNamesById, colorScheme, handleRoleChange, handleMestreChange, handleMaxElevesChange,
   } = useAdminUsers();
 
   if (!isAdmin) {
-    return <AdminAccessDenied />;
+    return <AdminAccessDenied lang={lang} />;
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden">
-      <div className="p-6 md:p-8 flex-shrink-0 border-b border-[var(--cordel-border)]/20">
-        <div className="flex items-center gap-3 mb-2">
-          <Shield className="text-[#8b2a1a]" size={32} />
-          <h1 className="text-3xl font-cactus font-bold">Administration</h1>
+    <div className="flex flex-col h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden" style={{ colorScheme }}>
+      <div className="p-6 md:p-8 flex-shrink-0 border-b border-[var(--cordel-border)]/30 bg-[var(--cordel-surface)]">
+        <div className="flex items-center gap-3 mb-1.5">
+          <Shield className="text-[var(--cordel-accent-readable)] shrink-0" size={30} />
+          <h1 className="text-2xl md:text-3xl font-cactus font-bold">
+            {isPt ? 'Administração' : 'Administration'}
+          </h1>
         </div>
-        <p className="opacity-80">Gérez les accès et les rôles des utilisateurs inscrits.</p>
+        <p className="text-sm text-[var(--cordel-text-muted)]">
+          {isPt
+            ? 'Gerencie os acessos, os grupos e as funções dos usuários cadastrados.'
+            : 'Gérez les accès, les groupes et les rôles des utilisateurs inscrits.'}
+        </p>
       </div>
 
       <div className="p-6 md:p-8 flex-1 overflow-auto custom-scrollbar">
-        <div className="mb-6 relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" size={18} />
+        <div className="mb-5 relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--cordel-text-muted)]" size={17} />
           <input
             type="text"
-            placeholder="Rechercher par nom ou email..."
+            placeholder={
+              isPt
+                ? 'Buscar por nome, e-mail, grupo ou função...'
+                : 'Rechercher par nom, email, groupe ou rôle...'
+            }
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-transparent cordel-border focus:outline-none focus:ring-1 ring-[#8b2a1a] transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border-strong)] focus:outline-none focus:border-[var(--cordel-accent-readable)] transition-colors text-sm"
           />
         </div>
 
         {loading ? (
-          <div className="flex justify-center p-12">
-            <span className="text-4xl animate-spin font-cactus"></span>
+          <div className="flex justify-center p-12 text-[var(--cordel-accent-readable)]">
+            <Loader2 className="w-8 h-8 animate-spin" />
           </div>
         ) : (
-          <div className="bg-white/50 rounded-lg cordel-border overflow-hidden">
+          <div className="bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0_var(--cordel-shadow-color)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[var(--cordel-border)]/10 border-b border-[var(--cordel-border)]">
-                    <th className="p-3 font-bold font-cactus tracking-wide">Utilisateur</th>
-                    <th className="p-3 font-bold font-cactus tracking-wide">Email</th>
-                    <th className="p-3 font-bold font-cactus tracking-wide">Inscription</th>
-                    <th className="p-3 font-bold font-cactus tracking-wide">Rôle</th>
-                    <th className="p-3 font-bold font-cactus tracking-wide">Mestre Attitré</th>
+                  <tr className="bg-[var(--cordel-surface-muted)] border-b-2 border-[var(--cordel-border)] text-xs uppercase tracking-wider">
+                    <th className="p-3 font-bold font-cactus">{isPt ? 'USUÁRIO' : 'UTILISATEUR'}</th>
+                    <th className="p-3 font-bold font-cactus">{isPt ? 'E-MAIL' : 'EMAIL'}</th>
+                    <th className="p-3 font-bold font-cactus">{isPt ? 'CADASTRO' : 'INSCRIPTION'}</th>
+                    <th className="p-3 font-bold font-cactus">{isPt ? 'FUNÇÃO' : 'RÔLE'}</th>
+                    <th className="p-3 font-bold font-cactus">
+                      {isPt ? 'GRUPO / MESTRE TITULAR' : 'GROUPE / MESTRE ATTITRÉ'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -61,6 +78,9 @@ export const AdminPanel: React.FC = () => {
                       key={user.uid}
                       user={user}
                       mestres={mestres}
+                      groupLabel={resolveAdminGroupLabel(user, groupNamesById)}
+                      colorScheme={colorScheme}
+                      lang={lang}
                       onRoleChange={handleRoleChange}
                       onMestreChange={handleMestreChange}
                       onMaxElevesChange={handleMaxElevesChange}
@@ -68,8 +88,8 @@ export const AdminPanel: React.FC = () => {
                   ))}
                   {filteredUsers.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center opacity-60 italic">
-                        Aucun utilisateur trouvé.
+                      <td colSpan={5} className="p-8 text-center text-[var(--cordel-text-muted)] italic">
+                        {isPt ? 'Nenhum usuário encontrado.' : 'Aucun utilisateur trouvé.'}
                       </td>
                     </tr>
                   )}

@@ -1,8 +1,6 @@
-
 import React from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { InstrumentPatternGridProps } from './instrument-editor/grid/gridTypes';
-import { GridSelectionToolbar } from './instrument-editor/grid/GridSelectionToolbar';
 import { PatternGridShiftToolbar } from './instrument-editor/grid/PatternGridShiftToolbar';
 import { VoiceGridLayout } from './instrument-editor/grid/VoiceGridLayout';
 import { PercussionGridLayout } from './instrument-editor/grid/PercussionGridLayout';
@@ -16,10 +14,12 @@ export { PercussionStepCell } from './instrument-editor/grid/PercussionStepCell'
 export { SCISSORS_CURSOR, GLUE_CURSOR } from './instrument-editor/grid/gridConstants';
 export type { InstrumentPatternGridProps };
 
+const EMPTY_STEP_INDICES: number[] = [];
+
 const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = (props) => {
   const o = useGridOrchestrator(props);
   useGridShiftShortcuts({ trackId: props.trackId, patternId: props.pattern.id });
-  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const isActiveMainGrid = props.selectedPatternId === props.pattern.id && props.selectedVariationId === null;
 
   return (
     <div
@@ -29,28 +29,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = (pr
         if ((e.target as HTMLElement).closest('.step-cell, .voice-step-cell, [data-step-type="voice"], [data-step-index], button, input, select')) {
           return;
         }
-        if (!e.shiftKey) useSequencerStore.getState().setSelectedStepRange(null);
+        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          useSequencerStore.getState().setSelectedStepRange(null);
+        }
       }}
     >
       <style>{getGridScopedStyles(props.activeTool)}</style>
 
       <PatternGridShiftToolbar trackId={props.trackId} patternId={props.pattern.id} lang={o.lang} />
-
-      {isTouchDevice && (
-        <GridSelectionToolbar
-          lang={o.lang}
-          selectedStepIndices={props.selectedStepIndices}
-          hasClipboard={o.hasClipboard}
-          isMultiSelectActive={props.isMultiSelectActive}
-          onCopyRelative={o.onCopyRelative}
-          onCancelSelection={() => props.setSelectedStepIndices([])}
-          onPasteRelative={o.onPasteRelative}
-          onToggleMultiSelect={() => {
-            props.setIsMultiSelectActive(!props.isMultiSelectActive);
-            props.setSelectedStepIndices([]);
-          }}
-        />
-      )}
 
       {props.instrument.type === 'voice' ? (
         <VoiceGridLayout
@@ -97,9 +83,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = (pr
           pattern={props.pattern}
           instrument={props.instrument}
           isTupletEditMode={props.isTupletEditMode}
-          selectedStepIndices={props.selectedStepIndices}
-          selectedStepIdx={props.selectedStepIdx}
-          selectedSubIndex={o.selectedSubIndex}
+          selectedStepIndices={isActiveMainGrid ? props.selectedStepIndices : EMPTY_STEP_INDICES}
+          selectedStepIdx={isActiveMainGrid ? props.selectedStepIdx : null}
+          selectedSubIndex={isActiveMainGrid ? o.selectedSubIndex : null}
           activeTool={props.activeTool}
           isMultiSelectActive={props.isMultiSelectActive}
           swingOffsets={o.swingOffsets}

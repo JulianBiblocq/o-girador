@@ -63,7 +63,7 @@ export function useEditorPatternCardProps(params: {
     onTogglePatternVariationFirstTimeOnly: (pId: number, vId: string, val: boolean) => sequencer.handleTogglePatternVariationFirstTimeOnly?.(effectiveEditTrackId, pId, vId, val),
     onUpdatePatternVariationProbability: (pId: number, vId: string, pr: number) => sequencer.handleUpdatePatternVariationProbability?.(effectiveEditTrackId, pId, vId, pr),
     onDeletePatternVariation: (pId: number, vId: string) => sequencer.handleDeletePatternVariation?.(effectiveEditTrackId, pId, vId),
-    onVariationStepValueChange: (pId: number, vId: string, sIdx: any, val: any) => sequencer.handleVariationStepValueChange?.(effectiveEditTrackId, pId, vId, sIdx, val),
+    onVariationStepValueChange: (pId: number, vId: string, sIdx: any, val: any, opts?: { skipUndo?: boolean }) => sequencer.handleVariationStepValueChange?.(effectiveEditTrackId, pId, vId, sIdx, val, opts),
     onAddPatternVariation: (pId: number) => sequencer.handleAddPatternVariation?.(effectiveEditTrackId, pId),
     getStepSwingPercent: (stepIdx, steps, beatResolutions) => computeStepBalancoPercent({
       stepIdx, steps, beatResolutions, track,

@@ -68,10 +68,16 @@ export const TimbalCordelIcon: React.FC = () => (
 );
 
 export const ClothespinSvg: React.FC = () => (
-  <svg className="w-6 h-9 text-[#1a1a1a] drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)] select-none" viewBox="0 0 20 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M6 2 L9 13 L9 30 L5 30 L5 2 Z" fill="#d4a373" stroke="#1a1a1a" strokeWidth="1.4" strokeLinejoin="round" />
-    <path d="M14 2 L11 13 L11 30 L15 30 L15 2 Z" fill="#c2905d" stroke="#1a1a1a" strokeWidth="1.4" strokeLinejoin="round" />
-    <circle cx="10" cy="13" r="2.8" fill="#71717a" stroke="#1a1a1a" strokeWidth="1.2" />
-    <line x1="6" y1="13" x2="14" y2="13" stroke="#1a1a1a" strokeWidth="1.4" />
+  <svg className="w-6 h-9 text-[var(--cordel-ink-dark)] drop-shadow-[0_2px_3px_var(--cordel-shadow-color)] select-none" viewBox="0 0 20 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 2 L9 13 L9 30 L5 30 L5 2 Z" fill="var(--cordel-gold)" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M14 2 L11 13 L11 30 L15 30 L15 2 Z" fill="var(--cordel-accent)" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    <circle cx="10" cy="13" r="2.8" fill="var(--cordel-surface-muted)" stroke="currentColor" strokeWidth="1.2" />
+    <line x1="6" y1="13" x2="14" y2="13" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+);
+
+export const CordelDiamondBullet: React.FC = () => (
+  <svg viewBox="0 0 8 8" className="w-2 h-2 shrink-0 mt-1.5 text-[var(--cordel-accent-readable)]" fill="currentColor" aria-hidden="true">
+    <polygon points="4,0 8,4 4,8 0,4" />
   </svg>
 );

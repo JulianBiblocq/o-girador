@@ -85,11 +85,12 @@ export const WorkspaceTrackColumn: React.FC<WorkspaceTrackColumnProps> = ({
 
   return (
     <div
-      className="w-[326px] min-w-[326px] max-w-[326px] shrink-0 h-full flex flex-col relative z-20 bg-[#181411] border-r-[3px] border-[var(--cordel-border)] select-none"
+      data-tour-id="workspace-track-column"
+      className="w-[326px] min-w-[326px] max-w-[326px] shrink-0 h-full flex flex-col relative z-20 bg-[var(--cordel-surface-muted)] border-r-[3px] border-[var(--cordel-border)] select-none"
     >
       {/* Fond texturé d'origine (papier peint sombre) sur 100% de la hauteur */}
       <div
-        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg !bg-[#f4ecd8] !opacity-[0.16]"
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg !bg-[var(--cordel-paper-surface)] !opacity-[0.16]"
         style={{ transform: 'translateZ(0)' }}
       />
 
