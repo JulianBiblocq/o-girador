@@ -59,7 +59,6 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = (props) =
           refreshMestreSignals={props.refreshMestreSignals}
           hideGlobalSignals={props.hideGlobalSignals}
           onToggleHideGlobalSignals={props.onToggleHideGlobalSignals}
-          onStepTouchStart={props.onStepTouchStart}
           activeRightPanel={props.activeRightPanel}
           onToggleRightPanel={props.onToggleRightPanel}
         />

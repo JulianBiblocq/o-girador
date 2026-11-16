@@ -21,13 +21,13 @@ const renderFallback = (fr: string, pt: string) => (
 interface MainWorkspaceRodaViewProps {
   viewMode: string; renderedView: string | null; isFadingIn: boolean; isMobile: boolean; mobileTab: string;
   filteredMestreSignals: any[]; refreshMestreSignals: () => void; hideGlobalSignals: boolean;
-  onToggleHideGlobalSignals: () => void; onStepTouchStart?: any; activeRightPanel: any; onToggleRightPanel: any;
+  onToggleHideGlobalSignals: () => void; activeRightPanel: any; onToggleRightPanel: any;
 }
 
 export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
   viewMode, renderedView, isFadingIn, isMobile, mobileTab,
   filteredMestreSignals, refreshMestreSignals, hideGlobalSignals,
-  onToggleHideGlobalSignals, onStepTouchStart: _onStepTouchStart, activeRightPanel, onToggleRightPanel,
+  onToggleHideGlobalSignals, activeRightPanel, onToggleRightPanel,
 }) => {
   const sequencer = useSequencer(), lang = useSequencerStore((s) => s.lang);
   const setEditingTrackId = useSequencerStore((s) => s.setEditingTrackId);
@@ -91,7 +91,13 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
               <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} isActive={viewMode === 'roda' && !isPistasOpen} />
             </ErrorBoundary>
             {!isMobile && isRodaWorkspaceActive && (
-              <WorkspacePistasOverlay tracks={pistasProps.visibleTracks} isPistasOpen={isPistasOpen} currentMeasure={pistasProps.currentMeasure} defaultBeats={pistasProps.defaultBeats} isLeftHanded={pistasProps.isLeftHanded} sequencer={sequencer} registerStepRef={pistasProps.registerStepRef} trackResolutionsRef={pistasProps.trackResolutionsRef} scrollRef={pistasProps.pistasScrollRef} onScroll={pistasProps.handlePistasScroll} />
+              <WorkspacePistasOverlay
+                tracks={pistasProps.visibleTracks} isPistasOpen={isPistasOpen} currentMeasure={pistasProps.currentMeasure}
+                defaultBeats={pistasProps.defaultBeats} isLeftHanded={pistasProps.isLeftHanded} sequencer={sequencer}
+                pedagogyTarget={pistasProps.pedagogyTarget} onPedagogicalStepClick={pistasProps.onPedagogicalStepClick}
+                registerStepRef={pistasProps.registerStepRef} trackResolutionsRef={pistasProps.trackResolutionsRef}
+                scrollRef={pistasProps.pistasScrollRef} onScroll={pistasProps.handlePistasScroll}
+              />
             )}
           </div>
         </div>

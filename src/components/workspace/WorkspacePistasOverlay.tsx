@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ASSETS_BASE_URL } from '../../data';
 import { TrackGroup } from '../../types';
 import { WorkspacePistasRow } from './WorkspacePistasRow';
@@ -12,6 +12,8 @@ interface WorkspacePistasOverlayProps {
   defaultBeats: number;
   isLeftHanded: boolean;
   sequencer: any;
+  pedagogyTarget: StrokeInfoPopoverTarget | null;
+  onPedagogicalStepClick: (target: StrokeInfoPopoverTarget | null) => void;
   registerStepRef: (trackId: number | string, stepIdx: number, el: HTMLButtonElement | null) => void;
   trackResolutionsRef: React.MutableRefObject<Record<string, { beats: number; resArray: number[]; totalSteps: number }>>;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
@@ -25,17 +27,13 @@ export const WorkspacePistasOverlay: React.FC<WorkspacePistasOverlayProps> = ({
   defaultBeats,
   isLeftHanded,
   sequencer,
+  pedagogyTarget,
+  onPedagogicalStepClick,
   registerStepRef,
   trackResolutionsRef,
   scrollRef,
   onScroll,
 }) => {
-  const [pedagogyTarget, setPedagogyTarget] = useState<StrokeInfoPopoverTarget | null>(null);
-
-  useEffect(() => {
-    if (!isPistasOpen) setPedagogyTarget(null);
-  }, [isPistasOpen]);
-
   const overlayStyle: React.CSSProperties = {
     clipPath: isPistasOpen ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
     transform: isPistasOpen ? 'translateX(0)' : 'translateX(-24px)',
@@ -72,13 +70,13 @@ export const WorkspacePistasOverlay: React.FC<WorkspacePistasOverlayProps> = ({
             defaultBeats={defaultBeats}
             isLeftHanded={isLeftHanded}
             sequencer={sequencer}
-            onSelectPedagogyTarget={setPedagogyTarget}
+            onSelectPedagogyTarget={onPedagogicalStepClick}
             registerStepRef={registerStepRef}
             trackResolutionsRef={trackResolutionsRef}
           />
         ))}
       </div>
-      <StrokeInfoPopover target={pedagogyTarget} onClose={() => setPedagogyTarget(null)} />
+      <StrokeInfoPopover target={pedagogyTarget} onClose={() => onPedagogicalStepClick(null)} />
     </div>
   );
 };
