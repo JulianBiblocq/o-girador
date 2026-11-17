@@ -60,16 +60,18 @@ export default defineConfig(({ command }) => {
         injectRegister: false,
         manifest: {
           name: 'O Girador - Sequenciador de Maracatu de Baque Virado',
-          short_name: 'O Girador',
+          short_name: 'Sequenciador',
           description: 'Sequenciador interativo de ritmos de Maracatu de Baque Virado. Crie, visualize e escute padrões rítmicos.',
-          theme_color: '#0a0807',
-          background_color: '#0a0807',
+          theme_color: '#8B2A1A',
+          background_color: '#F4ECD8',
           display: 'standalone',
           orientation: 'any',
           launch_handler: { client_mode: 'focus-existing' },
           icons: [
-            { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-            { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+            { src: '/icon-192-v2.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/icon-512-v2.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/icon-192-maskable-v2.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/icon-512-maskable-v2.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           ],
         },
         workbox: {
