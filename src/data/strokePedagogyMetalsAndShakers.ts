@@ -23,6 +23,9 @@ export function resolveMetalShakerVocalPedagogy(
       case 'a': return isFr
         ? { title: 'Aigu faible (Base de la cloche)', description: 'Frappe légère vers la base de la cloche pour articuler la phrase.' }
         : { title: 'Agudo fraco (Base da campana)', description: 'Toque leve perto da base da campana para articular a frase rítmica.' };
+      case 'X': return isFr
+        ? { title: 'Arrêt étouffé (Parada)', description: 'Baguette écrasée et maintenue plaquée contre la cloche en fer forgé sans rebondir pour couper net toute résonance.' }
+        : { title: 'Parada (Toque abafado)', description: 'Baqueta apoiada e mantida presa contra a campana de ferro forjado sem rebote para cortar imediatamente a ressonância.' };
       case 'B':
       case 'b': return isFr
         ? { title: 'Barulho (Roulement continu)', description: 'Battement rapide et continu de la baguette faisant résonner le fer de la cloche.' }
@@ -84,12 +87,23 @@ export function resolveMetalShakerVocalPedagogy(
 
   if (instId === 'apito') {
     switch (semanticStroke) {
+      case 'L':
       case 'W': return isFr
-        ? { title: 'Sifflet fort/long (W)', description: "Signal d'appel du Mestre pour commander les entrées, viradas et paradas." }
-        : { title: 'Apito forte/longo (W)', description: 'Sinal do Mestre para comandar entradas, viradas e paradas.' };
+        ? { title: 'Sifflet long bouclé (L)', description: "Signal d'appel continu du Mestre pour commander les entrées, viradas et paradas." }
+        : { title: 'Apito longo contínuo (L)', description: 'Sinal sustentado do Mestre para comandar entradas, viradas e paradas.' };
+      case 'l': return isFr
+        ? { title: 'Sifflet doux / maintien (l)', description: "Entrée progressive ou maintien lié du coup de sifflet long sans ré-attaque brusque." }
+        : { title: 'Apito suave / sustentação (l)', description: 'Entrada progressiva ou sustentação ligada do apito longo sem novo ataque brusco.' };
+      case '/': return isFr
+        ? { title: 'Extinction Sifflet (Fade-Out)', description: "Décroissance contrôlée du coup de sifflet long jusqu'au silence." }
+        : { title: 'Extinção do Apito (Fade-Out)', description: 'Decaimento controlado do apito longo até silenciar.' };
+      case '.': return isFr
+        ? { title: 'Fin du Sifflet (Silence)', description: 'Coupure nette et immédiate du coup de sifflet tenu.' }
+        : { title: 'Fim do Apito (Silêncio)', description: 'Corte imediato e preciso do apito sustentado.' };
+      case 'C':
       case 'w': return isFr
-        ? { title: 'Sifflet court/léger (w)', description: "Signal d'appel du Mestre pour commander les entrées, viradas et paradas." }
-        : { title: 'Apito curto/leve (w)', description: 'Sinal do Mestre para comandar entradas, viradas e paradas.' };
+        ? { title: 'Sifflet court (C)', description: "Coup de sifflet bref et rythmique du Mestre pour scander l'appel." }
+        : { title: 'Apito curto (C)', description: 'Toque curto e rítmico do apito do Mestre para marcar a chamada.' };
       default: return null;
     }
   }

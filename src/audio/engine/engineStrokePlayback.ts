@@ -46,18 +46,26 @@ export class EngineStrokePlayback {
     source.buffer = buffer;
     source.playbackRate.value = calculatedPitch;
 
+    const effectiveSymbol = opts.strokeSymbol || stroke.symbol;
     const gainNode = ctx.channels.getGainNode(ctx.audioContext, trackId, instrumentId);
     (gainNode as PooledGainNode)._activeSource = source;
-    source.connect(gainNode);
+    const needsTimbalLp = !stroke.isBarulho && instrumentId === 'timbal' && (effectiveSymbol === 'G' || effectiveSymbol === 'g');
+    let lpFilter: BiquadFilterNode | null = null;
+    if (needsTimbalLp && typeof ctx.audioContext.createBiquadFilter === 'function') {
+      lpFilter = ctx.audioContext.createBiquadFilter();
+      lpFilter.type = 'lowpass'; lpFilter.frequency.value = 20000; lpFilter.Q.value = Math.SQRT1_2;
+      source.connect(lpFilter); lpFilter.connect(gainNode);
+    } else {
+      source.connect(gainNode);
+    }
 
-    const effectiveSymbol = opts.strokeSymbol || stroke.symbol;
     if (stroke.isBarulho) {
       playBarulhoStroke(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, isLiveHold, effectiveSymbol);
     } else {
       this.playOneShot(
         ctx, trackId, source, gainNode, instrumentId, buffer,
         calculatedPitch, time, gainMultiplier, decayMultiplier,
-        Boolean(opts.forceShort80ms), effectiveSymbol
+        Boolean(opts.forceShort80ms), effectiveSymbol, lpFilter
       );
     }
   }
@@ -74,7 +82,8 @@ export class EngineStrokePlayback {
     gainMultiplier: number,
     decayMultiplier: number,
     forceShort80ms: boolean,
-    strokeSymbol: string
+    strokeSymbol: string,
+    lpFilter: BiquadFilterNode | null = null
   ): void {
     ctx.scheduledHits.add(source);
     const realWorldDuration = buffer.duration / calculatedPitch;
@@ -106,7 +115,7 @@ export class EngineStrokePlayback {
 
     source.onended = () => {
       ctx.scheduledHits.delete(source);
-      try { source.disconnect(); } catch (_) {}
+      try { source.disconnect(); lpFilter?.disconnect(); } catch (_) {}
       ctx.channels.releaseGainNode(ctx.audioContext, instrumentId, gainNode);
       const mapping = ctx.activeGainNodes.get(source);
       if (mapping) { mapping.gainNode = null; mapping.instrumentId = ''; }
@@ -116,7 +125,7 @@ export class EngineStrokePlayback {
 
     const voiceKey = trackId !== null ? trackId : instrumentId;
     const activeVoice = ctx.voiceGuard.getActiveVoice(
-      source, gainNode, time, holdEnd, releaseEnd, expectedEnd, gainMultiplier, env.isFullBuffer, instrumentId, strokeSymbol
+      source, gainNode, time, holdEnd, releaseEnd, expectedEnd, gainMultiplier, env.isFullBuffer, instrumentId, strokeSymbol, lpFilter
     );
     const tv = ctx.voiceGuard.trackVoices.get(String(voiceKey)) || [];
     tv.push(activeVoice);

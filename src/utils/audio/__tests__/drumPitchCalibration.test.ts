@@ -23,7 +23,7 @@ describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Prese
     expect(getDrumNaturalBaseHz('marcante')).toBe(71.21);
     expect(getDrumNaturalBaseHz('meiao')).toBe(81.11);
     expect(getDrumNaturalBaseHz('repique')).toBe(96.33);
-    expect(getDrumNaturalBaseHz('gongue')).toBe(414.5);
+    expect(getDrumNaturalBaseHz('gongue')).toBe(411.97);
     expect(isDrumStudioBankActive('marcante')).toBe(true);
     expect(isDrumStudioBankActive('gongue')).toBe(true);
     expect(isDrumStudioBankActive('caixa')).toBe(false);
@@ -34,21 +34,21 @@ describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Prese
     expect(TUNEABLE_INSTRUMENTS.has('gongue')).toBe(true);
     const gongueCfg: any = { id: 'gongue', name: 'Gonguê', strokes: [], macroPitch: 1.0 };
     expect(EngineTuning.calculateTotalSemitones('gongue', gongueCfg, { tuning: 0 } as any)).toBe(0);
-    expect(EngineTuning.calculateTotalSemitones('gongue', gongueCfg, { tuning: -1.0 } as any)).toBe(-1.0);
+    expect(EngineTuning.calculateTotalSemitones('gongue', gongueCfg, { tuning: -0.9 } as any)).toBe(-0.9);
     expect(EngineTuning.calculatePitch('gongue', gongueCfg, { tuning: 12 } as any)).toBeCloseTo(2.0, 6);
     expect(getDefaultSignatureTuning('marcante')).toBe(-1.5);
-    expect(getDefaultSignatureTuning('gongue')).toBe(-1.0);
+    expect(getDefaultSignatureTuning('gongue')).toBe(-0.9);
     expect(getDefaultSignatureTuning('agbe')).toBe(0);
   });
 
-  it('computes accurate FR/PT notes, Hz, and cents badges (|cents| >= 5) including G4 Gonguê at -1.0st', () => {
+  it('computes accurate FR/PT notes, Hz, and cents badges (|cents| >= 5) including G4 Gonguê at -0.9st', () => {
     const marcante0 = getDrumPitchNoteInfo('marcante', 0, 'fr');
     expect(marcante0.badgeText).toBe('Do#2 +47c (C#2) • 71.2 Hz | 0 st');
 
     const gongue0 = getDrumPitchNoteInfo('gongue', 0, 'fr');
-    expect(gongue0.badgeText).toBe('Sol#4 (G#4) • 414.5 Hz | 0 st');
+    expect(gongue0.badgeText).toBe('Sol#4 -14c (G#4) • 412 Hz | 0 st');
 
-    const gongueSol4 = getDrumPitchNoteInfo('gongue', -1.0, 'fr');
+    const gongueSol4 = getDrumPitchNoteInfo('gongue', -0.9, 'fr');
     expect(gongueSol4.noteLabel).toBe('Sol4');
     expect(gongueSol4.intlNote).toBe('G4');
     expect(Math.abs(gongueSol4.cents)).toBeLessThanOrEqual(4);
@@ -67,13 +67,13 @@ describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Prese
 
     expect(byId.major_triad.tunings).toEqual(DEFAULT_SIGNATURE_TUNINGS);
     expect(byId.minor_triad.tunings).toEqual({
-      marcante: 0.5, meiao: 1.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1,
+      marcante: 0.5, meiao: 1.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1.1,
     });
     expect(byId.fifth_octave.tunings).toEqual({
-      marcante: -4.5, meiao: 0.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1,
+      marcante: -4.5, meiao: 0.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1.1,
     });
     expect(byId.fast_tight.tunings).toEqual({
-      marcante: 0.5, meiao: 2.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1,
+      marcante: 0.5, meiao: 2.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1.1,
     });
     expect(byId.fast_tight.decays).toMatchObject({ marcante: 68, meiao: 74, repique: 82, gongue: 90 });
     expect(byId.studio_natural.tunings).toEqual({
@@ -119,6 +119,6 @@ describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Prese
     expect(byInstIdx.get(0)).toBe(-1.5);
     expect(byInstIdx.get(1)).toBe(0.3);
     expect(byInstIdx.get(2)).toBe(0.3);
-    expect(byInstIdx.get(5)).toBe(-1.0);
+    expect(byInstIdx.get(5)).toBe(-0.9);
   });
 });

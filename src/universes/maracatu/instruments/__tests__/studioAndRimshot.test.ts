@@ -22,11 +22,12 @@ import {
   buildStudioMineiroStrokes, buildStudioSnareStrokes, buildStudioTimbalStrokes, STUDIO_BANK_ENABLED,
 } from '../studioBankRegistry';
 
-// 1. Zéro 404 sur les 10 instruments tant que STUDIO_BANK_ENABLED === false + f/v résolus à 0.82
+// 1. Zéro 404 sur les 10 instruments (Lot 1 Studio actif sur gongue/agbe/mineiro/apito ; caixa/tarol/timbal à false) + nuances 0.82
 {
-  for (const [k, enabled] of Object.entries(STUDIO_BANK_ENABLED)) {
-    assert.equal(enabled, false, `STUDIO_BANK_ENABLED.${k} must default to false until studio samples are generated`);
-  }
+  const expectedStudioFlags: Record<string, boolean> = {
+    caixa: false, tarol: false, timbal: false, gongue: true, agbe: true, mineiro: true, apito: true,
+  };
+  assert.deepEqual(STUDIO_BANK_ENABLED, expectedStudioFlags);
   const publicDir = path.resolve(process.cwd(), 'public');
   for (const cfg of instrumentAudioConfigs) {
     for (const st of cfg.strokes) {
@@ -34,6 +35,9 @@ import {
       for (const rel of st.files) {
         const full = path.join(publicDir, rel);
         assert.equal(fs.existsSync(full), true, `Missing sample file on disk (would 404): ${rel} for ${cfg.id}:${st.symbol}`);
+        if (STUDIO_BANK_ENABLED[cfg.id as keyof typeof STUDIO_BANK_ENABLED]) {
+          assert.equal(fs.existsSync(full.replace(/\.ogg$/i, '.m4a')), true, `Missing .m4a fallback for ${rel}`);
+        }
       }
     }
   }
@@ -43,18 +47,19 @@ import {
     const sA = EngineVirtualStrokes.resolveStroke(strokesMaps, snareId, 'A')!;
     const sa = EngineVirtualStrokes.resolveStroke(strokesMaps, snareId, 'a')!;
     const sf = EngineVirtualStrokes.resolveStroke(strokesMaps, snareId, 'f')!;
-    assert.equal(sA.baseGain, 1.0, `${snareId} A must have baseGain 1.0`);
-    assert.equal(sa.baseGain, 1.0, `${snareId} a must have baseGain 1.0`);
-    assert.equal(sA.compositeRimSymbol, 'X');
-    assert.equal(sa.compositeRimSymbol, 'X');
-    assert.equal(sf.baseGain, 0.82, `${snareId} virtual f must resolve at 0.82`);
+    assert.equal(sA.baseGain, 1.0); assert.equal(sa.baseGain, 1.0);
+    assert.equal(sA.compositeRimSymbol, 'X'); assert.equal(sa.compositeRimSymbol, 'X');
+    assert.equal(sf.baseGain, 0.82);
   }
-  assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'timbal', 'f')?.baseGain, 0.82);
-  assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'timbal', 'v')?.baseGain, 0.82);
-  assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'agbe', 'v')?.baseGain, 0.82);
+  for (const [id, sym] of [['timbal', 'f'], ['timbal', 'v'], ['agbe', 's'], ['agbe', 'v'], ['mineiro', 'l']] as const) {
+    assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, id, sym)?.baseGain, 0.82);
+  }
+  assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'mineiro', 'l')?.isBarulho, undefined);
+  assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'apito', 'l')?.isBarulho, true);
+  assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'apito', 'l')?.baseGain, 1.0);
 }
 
-// 2. Nomenclature Studio *_min sans collision Windows/Linux & baseGain 1.0 (f/v uniquement à 0.82)
+// 2. Nomenclature Studio *_min sans collision Windows/Linux & baseGain 1.0 (f/v/s/l one-shot uniquement à 0.82)
 {
   const studioBanks = [
     buildStudioSnareStrokes('Caixa'), buildStudioSnareStrokes('Tarol'), buildStudioTimbalStrokes(),
@@ -63,7 +68,8 @@ import {
   for (const strokes of studioBanks) {
     const lowerSet = new Map<string, string>();
     for (const s of strokes) {
-      const expectedGain = (s.symbol === 'f' || s.symbol === 'v') ? 0.82 : 1.0;
+      const isVirtualWeak = !s.isBarulho && !s.files[0]?.includes('_min') && ['f', 'v', 's', 'l'].includes(s.symbol);
+      const expectedGain = isVirtualWeak ? 0.82 : 1.0;
       assert.equal(s.baseGain, expectedGain, `Studio stroke ${s.symbol} expected gain ${expectedGain}`);
       for (const f of s.files) {
         const key = f.toLowerCase();

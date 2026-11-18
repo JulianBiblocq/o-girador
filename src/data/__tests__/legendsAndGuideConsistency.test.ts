@@ -24,7 +24,7 @@ describe('legendsAndGuideConsistency — alignement SSOT intégral & Mode d’Em
       expect([...cfg.strong, ...cfg.weak]).not.toContain('i');
     }
 
-    expect(getStrokesForRole('gg').strong).toEqual(['G', 'A', 'B']);
+    expect(getStrokesForRole('gg').strong).toEqual(['G', 'A', 'X', 'B']);
     expect(getStrokesForRole('gg').weak).toEqual(['g', 'a']);
     expect(getStrokesForRole('ab').strong).toEqual(['E', 'D', 'S', 'V', 'B']);
     expect(getStrokesForRole('ab').weak).toEqual(['e', 'd']);
@@ -32,8 +32,8 @@ describe('legendsAndGuideConsistency — alignement SSOT intégral & Mode d’Em
     expect(getStrokesForRole('mi').weak).toEqual(['p', 't']);
     expect(getStrokesForRole('tb').strong).toEqual(['G', 'A', 'S', 'D', 'P', 'F', 'V', 'C', 'B']);
     expect(getStrokesForRole('tb').weak).toEqual(['g', 'a', 's', 'd', 'p', 'f', 'v']);
-    expect(getStrokesForRole('ap').strong).toEqual(['W']);
-    expect(getStrokesForRole('ap').weak).toEqual(['w']);
+    expect(getStrokesForRole('ap').strong).toEqual(['L', 'C']);
+    expect(getStrokesForRole('ap').weak).toEqual(['l']);
     expect(ALL_STROKE_LETTERS).not.toContain('i');
   });
 

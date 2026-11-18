@@ -1,6 +1,5 @@
 /**
- * 
- * O Girador - Apito and Vocal Stroke Definitions & Pairs
+ * O Girador - Apito (`L -> l -> / -> .` & `C`) and Vocal Stroke Definitions & Pairs (< 105 lignes)
  */
 
 import { StrokeDef, StrokePair } from './strokeTypes';
@@ -8,32 +7,62 @@ import { StrokeDef, StrokePair } from './strokeTypes';
 export function getApitoStrokeDefs(isFr: boolean): StrokeDef[] {
   return [
     {
-      symbol: 'W',
-      label: isFr ? 'Sifflet Long' : 'Apito Longo',
-      shortcut: 'W',
-      colorKey: 'W'
+      symbol: 'L',
+      label: isFr ? 'L — Sifflet long (Appel + Tenue)' : 'L — Apito longo (Chamada + Sustentação)',
+      shortcut: 'L',
+      colorKey: 'L',
     },
     {
-      symbol: 'w',
-      label: isFr ? 'Sifflet Court' : 'Apito Curto',
-      shortcut: 'w',
-      colorKey: 'w'
+      symbol: 'l',
+      label: isFr ? 'l — Sifflet doux (Fade-In / Maintien)' : 'l — Apito suave (Fade-In / Sustentação)',
+      shortcut: 'l',
+      colorKey: 'l',
+    },
+    {
+      symbol: '/',
+      label: isFr ? '/ — Extinction Sifflet (Fade-Out)' : '/ — Extinção Apito (Fade-Out)',
+      shortcut: '/',
+      colorKey: '/',
+    },
+    {
+      symbol: '.',
+      label: isFr ? '. — Fin du Sifflet (Silence)' : '. — Fim do Apito (Silêncio)',
+      shortcut: '.',
+      colorKey: '.',
+    },
+    {
+      symbol: 'C',
+      label: isFr ? 'C — Sifflet court' : 'C — Apito curto',
+      shortcut: 'C',
+      colorKey: 'C',
     },
   ];
 }
 
 export function getApitoStrokePairs(allStrokes: StrokeDef[], isFr: boolean): StrokePair[] {
-  const wStrong = allStrokes.find(s => s.symbol === 'W');
-  const wWeak = allStrokes.find(s => s.symbol === 'w');
+  const lStrong = allStrokes.find((s) => s.symbol === 'L');
+  const lSoft = allStrokes.find((s) => s.symbol === 'l');
+  const slashStroke = allStrokes.find((s) => s.symbol === '/');
+  const dotStroke = allStrokes.find((s) => s.symbol === '.');
+  const cShort = allStrokes.find((s) => s.symbol === 'C');
+
   const pairs: StrokePair[] = [];
-  if (wStrong) {
-    const strokes = [wStrong, wWeak].filter(Boolean) as StrokeDef[];
+  if (lStrong) {
     pairs.push({
-      id: 'W',
-      strong: wStrong,
-      weak: wWeak,
-      strokes,
-      mainLabel: isFr ? 'Sifflet' : 'Apito'
+      id: 'L',
+      strong: lStrong,
+      weak: lSoft,
+      third: slashStroke,
+      strokes: [lStrong, lSoft, slashStroke, dotStroke].filter(Boolean) as StrokeDef[],
+      mainLabel: isFr ? 'Sifflet Long (L)' : 'Apito Longo (L)',
+    });
+  }
+  if (cShort) {
+    pairs.push({
+      id: 'C',
+      strong: cShort,
+      strokes: [cShort],
+      mainLabel: isFr ? 'Sifflet Court (C)' : 'Apito Curto (C)',
     });
   }
   return pairs;
@@ -65,8 +94,8 @@ export function getVocalStrokePairs(instId: string, allStrokes: StrokeDef[], isF
     return c ? [{ id: 'C', strong: c, strokes: [c], mainLabel: isFr ? 'Chœur' : 'Coro' }] : [];
   }
   if (instId === 'toada') {
-    const p = allStrokes.find(s => s.symbol === 'P') || allStrokes[0];
-    const c = allStrokes.find(s => s.symbol === 'C') || allStrokes[1];
+    const p = allStrokes.find((s) => s.symbol === 'P') || allStrokes[0];
+    const c = allStrokes.find((s) => s.symbol === 'C') || allStrokes[1];
     const pairs: StrokePair[] = [];
     if (p) pairs.push({ id: 'P', strong: p, strokes: [p], mainLabel: 'Puxador' });
     if (c) pairs.push({ id: 'C', strong: c, strokes: [c], mainLabel: isFr ? 'Chœur' : 'Coro' });

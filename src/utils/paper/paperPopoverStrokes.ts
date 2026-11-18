@@ -29,7 +29,7 @@ const ROLE_STROKES_MAP: Record<string, RoleStrokesConfig> = {
   cx: CAIXA_STROKES,
   tr: CAIXA_STROKES,
   gg: {
-    strong: ['G', 'A', 'B'],
+    strong: ['G', 'A', 'X', 'B'],
     weak: ['g', 'a'],
     special: ['G/A', 'g/a'],
   },
@@ -49,9 +49,9 @@ const ROLE_STROKES_MAP: Record<string, RoleStrokesConfig> = {
     special: ['A/a', 'S/s'],
   },
   ap: {
-    strong: ['W'],
-    weak: ['w'],
-    special: ['W/w'],
+    strong: ['L', 'C'],
+    weak: ['l'],
+    special: ['L/C'],
   },
 };
 
@@ -69,5 +69,5 @@ export function getStrokesForRole(roleKey: string): RoleStrokesConfig {
 export const ALL_STROKE_LETTERS: string[] = [
   'D', 'd', 'E', 'e', 'A', 'a', 'I', 'C', 'X', 'B',
   'R', 'r', 'F', 'f', 'G', 'g', 'S', 's', 'V', 'v',
-  'P', 'p', 'T', 't', 'L', 'W', 'w',
+  'P', 'p', 'T', 't', 'L', 'l', 'W', 'w',
 ];

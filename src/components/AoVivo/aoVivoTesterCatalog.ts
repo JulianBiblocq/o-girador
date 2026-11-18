@@ -16,7 +16,7 @@ export const TESTER_STROKES: Record<TesterFamily, { id: string; lbl: string }[]>
     { id: 'R', lbl: 'R' }, { id: 'r', lbl: 'r' }, { id: 'F', lbl: 'F' }, { id: 'f', lbl: 'f' },
     { id: 'C', lbl: 'C' }, { id: 'X', lbl: 'X' }, { id: 'B', lbl: 'B' },
   ],
-  gongue: [{ id: 'G', lbl: 'G' }, { id: 'g', lbl: 'g' }, { id: 'A', lbl: 'A' }, { id: 'a', lbl: 'a' }, { id: 'B', lbl: 'B (Bar)' }],
+  gongue: [{ id: 'G', lbl: 'G' }, { id: 'g', lbl: 'g' }, { id: 'A', lbl: 'A' }, { id: 'a', lbl: 'a' }, { id: 'X', lbl: 'X (Stop)' }, { id: 'B', lbl: 'B (Bar)' }],
   timbal: [{ id: 'G', lbl: 'G' }, { id: 'g', lbl: 'g' }, { id: 'A', lbl: 'A' }, { id: 'a', lbl: 'a' }, { id: 'S', lbl: 'S' }, { id: 's', lbl: 's' }, { id: 'P', lbl: 'P' }, { id: 'D', lbl: 'D' }, { id: 'F', lbl: 'F' }, { id: 'V', lbl: 'V' }, { id: 'C', lbl: 'C' }, { id: 'B', lbl: 'B' }],
   agbe: [{ id: 'D', lbl: 'D' }, { id: 'd', lbl: 'd' }, { id: 'E', lbl: 'E' }, { id: 'e', lbl: 'e' }, { id: 'S', lbl: 'S (Salto)' }, { id: 'V', lbl: 'V (Volta)' }, { id: 'B', lbl: 'B' }],
   mineiro: [{ id: 'P', lbl: 'P ↑' }, { id: 'p', lbl: 'p ↑' }, { id: 'T', lbl: 'T ↓' }, { id: 't', lbl: 't ↓' }, { id: 'L', lbl: 'L (Lado)' }, { id: 'B', lbl: 'B' }],

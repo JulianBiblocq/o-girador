@@ -42,7 +42,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 10.5pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Gonguê (Gg)</td>
-            <td style="padding: 4px 6px;"><em>${isFr ? 'Cloche unique en fer forgé :' : 'Campana única de ferro forjado :'}</em> <strong>G/g</strong> (${isFr ? 'Grave — haut près de la bouche' : 'Grave — topo perto da boca'}), <strong>A/a</strong> (${isFr ? 'Aigu — bas vers la base rigide' : 'Agudo — base rígida'}), <strong>B</strong> (Barulho)</td>
+            <td style="padding: 4px 6px;"><em>${isFr ? 'Cloche unique en fer forgé :' : 'Campana única de ferro forjado :'}</em> <strong>G/g</strong> (${isFr ? 'Grave — haut près de la bouche' : 'Grave — topo perto da boca'}), <strong>A/a</strong> (${isFr ? 'Aigu — bas vers la base rigide' : 'Agudo — base rígida'}), <strong>X</strong> (${isFr ? 'Arrêt étouffé / Parada' : 'Parada / Toque abafado'}), <strong>B</strong> (Barulho)</td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc; background: #fffcf5;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 10.5pt; border-right: 1.5px solid #1a1a1a;">Agbê (Ab)</td>
@@ -65,7 +65,7 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">
             <td style="padding: 4px 6px; font-weight: bold; font-size: 10.5pt; border-right: 1.5px solid #1a1a1a; background: #fafafa;">Apito (Ap)</td>
-            <td style="padding: 4px 6px;"><strong>W</strong> (${isFr ? 'Sifflet fort / long' : 'Apito forte / longo'}), <strong>w</strong> (${isFr ? 'Sifflet court / léger' : 'Apito curto / leve'})</td>
+            <td style="padding: 4px 6px;"><strong>L / l</strong> (${isFr ? 'Sifflet long bouclé : L -> l -> / -> .' : 'Apito longo contínuo : L -> l -> / -> .'}), <strong>C</strong> (${isFr ? 'Sifflet court' : 'Apito curto'})</td>
           </tr>
           <tr>
             <td style="padding: 4px 6px; font-weight: bold; font-size: 10.5pt; border-right: 1.5px solid #1a1a1a; background: #fffcf5;">Toada — v2 (Td, Px, Co)</td>

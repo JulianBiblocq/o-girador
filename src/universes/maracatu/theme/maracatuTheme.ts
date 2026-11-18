@@ -24,6 +24,7 @@ export const STROKE_INTENSITY_MAP: Record<string, IntensityLevel> = {
   'P': 'strong', 'T': 'strong',
   'p': 'weak',   't': 'weak',
   'L': 'special',
+  'l': 'weak',
   'X': 'special',
   'I': 'accent',
   'C': 'muted',
@@ -75,8 +76,8 @@ export const MARACATU_THEME: ThemePalette = {
   },
   gongue: {
     mixerBg: '#1a1a1a', color: '#bdc3c7',
-    strong: '#000000', weak: '#7f8c8d', accent: '#bdc3c7', muted: '#6d4c41', special: '#7f8c8d',
-    overrides: { 'G': '#000000', 'g': '#1c1c1c', 'A': '#bdc3c7', 'a': '#7f8c8d' }
+    strong: '#000000', weak: '#7f8c8d', accent: '#bdc3c7', muted: '#6d4c41', special: '#4b5563',
+    overrides: { 'G': '#000000', 'g': '#1c1c1c', 'A': '#bdc3c7', 'a': '#7f8c8d', 'X': '#4b5563' }
   },
   agbe: {
     mixerBg: '#103a20', color: '#22c55e',
@@ -103,8 +104,8 @@ export const MARACATU_THEME: ThemePalette = {
   },
   apito: {
     mixerBg: '#3c2b1a', color: '#7c5832',
-    strong: '#7c5832', weak: '#9c7a54', accent: '#5a3e22',
-    overrides: { 'W': '#7c5832', 'w': '#9c7a54', 'R': '#5a3e22', 'r': '#5a3e22' }
+    strong: '#7c5832', weak: '#9c7a54', accent: '#5a3e22', muted: '#5a3e22', special: '#7c5832',
+    overrides: { 'L': '#7c5832', 'l': '#9c7a54', 'C': '#b08960', '/': '#5a3e22', '.': '#4a331c', 'W': '#7c5832', 'w': '#9c7a54', 'R': '#5a3e22', 'r': '#5a3e22' }
   },
   puxador: {
     mixerBg: '#5c3a1c', color: '#e9cca8',

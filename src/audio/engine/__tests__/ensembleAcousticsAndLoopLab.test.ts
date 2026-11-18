@@ -102,7 +102,7 @@ const memStore = new Map<string, string>();
 
   setBarulhoLoopOverride('apito', { loopStartMs: 200, loopEndMs: 740, crossfadeMs: 90, softEntryMs: 310 }, 960, 'legacy');
   assert.equal(getEffectiveBarulhoLoopPoints('apito', 960, 'legacy').loopEndMs, 740);
-  assert.ok(getEffectiveBarulhoLoopPoints('apito', 3500, 'studio').loopEndMs >= 2400, 'Legacy override must NEVER truncate future Studio Apito L');
+  assert.equal(getEffectiveBarulhoLoopPoints('apito', 2123, 'studio').loopEndMs, 1600, 'Legacy override must NEVER overwrite Studio Apito L factory points');
 
   const sr = 32000, len = Math.round(0.96 * sr), pcm = new Float32Array(len).fill(0.25);
   const mockAudioBuf: any = { sampleRate: sr, length: len, duration: len / sr, numberOfChannels: 1, getChannelData: () => pcm };
@@ -122,8 +122,8 @@ const memStore = new Map<string, string>();
   const { PercussionEngineProcessor } = await import('../../worklet/processor/percussionEngineProcessor');
   const proc = new PercussionEngineProcessor();
   for (const m of posted) proc.handleMessage(m);
-  assert.equal(resolveBarulhoOpForSymbol('L', true), BARULHO_OP_ATTACK_B);
-  assert.equal(resolveBarulhoOpForSymbol('l', true), BARULHO_OP_SOFT_B);
+  assert.equal(resolveBarulhoOpForSymbol('L', true, 'apito'), BARULHO_OP_ATTACK_B);
+  assert.equal(resolveBarulhoOpForSymbol('l', true, 'apito'), BARULHO_OP_SOFT_B);
   const flagsL = packWorkletEventFlags(1, CHOKE_NONE, VOICE_CLASS_GENERIC, false, false, BARULHO_OP_ATTACK_B);
   proc.handleMessage({ type: 'PUSH_EVENTS', eventsData: new Float64Array([0, 9, 0, idL, 0.8, 1.0, 1, 1.0, flagsL]), eventCount: 1 });
   proc.process([], [[new Float32Array(128), new Float32Array(128)]], {});

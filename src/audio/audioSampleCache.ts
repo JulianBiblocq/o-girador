@@ -15,7 +15,7 @@ export interface CachedPcmSample {
   timestamp: number;
 }
 
-export const SAMPLE_CACHE_VERSION = 4;
+export const SAMPLE_CACHE_VERSION = 5;
 const DB_NAME = 'OGirador_AudioCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio_sample_cache';

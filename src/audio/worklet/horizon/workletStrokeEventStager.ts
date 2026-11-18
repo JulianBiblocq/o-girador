@@ -1,12 +1,13 @@
 /**
  * workletStrokeEventStager.ts — Résolution de sample, Barulho et empaquetage de tuple SOA pour une frappe (< 115 lignes).
+ * - Préserve l'accordage tonal sur les Barulhos d'instruments accordables (`Gonguê B`, fûts) et verrouille `1.0` sur `agbe`/`mineiro`/`apito`.
  */
 
 import {
   BarulhoLookaheadPoint, DEFAULT_BARULHO_DOT_STOP_SEC, findBarulhoLookaheadIndex,
   packBarulhoOriginCoord, resolveSlashFadeOutRampSec, resolveSoftBarulhoRampSpec,
 } from '../../barulho/barulhoRampPlanner';
-import { ALFAIA_INSTRUMENTS } from '../../engine/engineTypes';
+import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../../engine/engineTypes';
 import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
 import {
   BARULHO_OP_ATTACK_B, BARULHO_OP_NONE, BARULHO_OP_SOFT_B,
@@ -44,7 +45,7 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
   const slot = engineDeps.getTrackSlot(trackId);
 
   if (strokeSymbol === '/' || strokeSymbol === '.') {
-    const barOp = resolveBarulhoOpForSymbol(strokeSymbol, false);
+    const barOp = resolveBarulhoOpForSymbol(strokeSymbol, false, instId);
     const ptIdx = strokeSymbol === '/' ? findBarulhoLookaheadIndex(lookaheadPoints, trackId, swungTimeSec, '/') : -1;
     const rampSec = strokeSymbol === '/'
       ? (ptIdx >= 0 && lookaheadPoints ? resolveSlashFadeOutRampSec(lookaheadPoints, ptIdx) : 0.450)
@@ -73,20 +74,22 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
   }
   if (sampleId < 0) return 'uncovered';
 
-  const barOp = resolveBarulhoOpForSymbol(strokeSymbol, Boolean(stroke.isBarulho));
+  const barOp = resolveBarulhoOpForSymbol(strokeSymbol, Boolean(stroke.isBarulho), instId);
   let finalVel = strokeSymbol === 'r' ? velocity * 0.88 : velocity;
   let metaOrDecay = decayPct / 100;
   if (barOp === BARULHO_OP_ATTACK_B) {
     metaOrDecay = packBarulhoOriginCoord(measureIdx, circleStepIdx, isSecondStroke);
   } else if (barOp === BARULHO_OP_SOFT_B) {
-    const ptIdx = findBarulhoLookaheadIndex(lookaheadPoints, trackId, swungTimeSec, 'b');
+    const ptIdx = findBarulhoLookaheadIndex(lookaheadPoints, trackId, swungTimeSec, strokeSymbol);
     const spec = ptIdx >= 0 && lookaheadPoints ? resolveSoftBarulhoRampSpec(lookaheadPoints, ptIdx) : { rampSec: 0.140, targetVelocity: finalVel };
     metaOrDecay = spec.rampSec;
     finalVel = spec.targetVelocity;
   }
 
   const headNuance = strokeSymbol === 'r' ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
-  const pitchNuance = stroke.isBarulho ? (1.0 / (engineDeps.getTrackPitchRatio(trackId) || 1.0)) : headNuance;
+  const pitchNuance = stroke.isBarulho
+    ? (TUNEABLE_INSTRUMENTS.has(instId) ? 1.0 : 1.0 / (engineDeps.getTrackPitchRatio(trackId) || 1.0))
+    : headNuance;
   const { chokeMode, voiceClass } = resolveTrackPhysicsSpec(instId, strokeSymbol, barOp !== BARULHO_OP_NONE);
 
   const prevLen = stagedEvents.length;

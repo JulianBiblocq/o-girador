@@ -73,7 +73,7 @@ function triggerPackedNote(
       isTrackCoveredInWorkletHorizon(currentMeasureIdx, liveTrack.id)
     );
     if (isCoveredByWorklet) {
-      if (inst.id === 'apito') {
+      if (inst.id === 'apito' && strokeSymbol !== '/' && strokeSymbol !== '.') {
         Tone.Draw?.schedule?.(() => {
           window.dispatchEvent(new CustomEvent('o-girador-apito-shake'));
         }, triggerTime);

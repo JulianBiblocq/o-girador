@@ -22,7 +22,7 @@ function getDefaultPrimaryStroke(instId?: string, instType?: string): string {
   const id = (instId || '').toLowerCase(), type = (instType || '').toLowerCase();
   if (id === 'gongue' || type === 'gongue' || id === 'timbal') return 'G';
   if (id === 'mineiro' || id === 'ganza') return 'P';
-  if (id === 'apito') return 'W';
+  if (id === 'apito') return 'L';
   return ['puxador', 'coro', 'toada'].includes(id) || type === 'voice' ? 'T' : 'D';
 }
 

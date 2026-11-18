@@ -103,7 +103,8 @@ export function resolveBarulhoLoopRegion(pcm: Float32Array, sampleRate: number, 
     const r = analyzeBarulhoLoopRegion(pcm, sr);
     return { loopStartMs: r.bodyStartSec * 1000, loopEndMs: r.bodyEndSec * 1000, crossfadeMs: (r.xfadeFrames / sr) * 1000, softEntryMs: r.bodyStartSec * 1000 + 150 };
   };
-  const pts = getEffectiveBarulhoLoopPoints(instId, durMs, undefined, autoFallback());
+  const inferredTier = pathOrInstId && /apito\s+w\s+long/i.test(pathOrInstId) ? 'legacy' : undefined;
+  const pts = getEffectiveBarulhoLoopPoints(instId, durMs, inferredTier, autoFallback());
   return buildBarulhoRegionFromPointsMs(pts, pcm.length, sr);
 }
 

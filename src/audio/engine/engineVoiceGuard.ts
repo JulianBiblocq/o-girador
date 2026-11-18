@@ -21,7 +21,8 @@ export class EngineVoiceGuard {
       this.gainNodeMappingPool.push({ instrumentId: '', gainNode: null, expectedEnd: 0 });
       this.activeVoicePool.push({
         source: null as any, gainNode: null as any, time: 0, holdEnd: 0, releaseEnd: 0,
-        expectedEnd: 0, velocity: 0, isFullBuffer: false, instrumentId: '', strokeSymbol: '', isDucked: false,
+        expectedEnd: 0, velocity: 0, isFullBuffer: false, instrumentId: '', strokeSymbol: '',
+        isDucked: false, isLowPassChoked: false, lpFilter: null,
       });
     }
   }
@@ -45,7 +46,8 @@ export class EngineVoiceGuard {
     velocity: number,
     isFullBuffer: boolean,
     instrumentId: string,
-    strokeSymbol = ''
+    strokeSymbol = '',
+    lpFilter: BiquadFilterNode | null = null
   ): ActiveVoice {
     const obj = this.activeVoicePool[this.activeVoicePoolIndex];
     this.activeVoicePoolIndex = (this.activeVoicePoolIndex + 1) % VOICE_GUARD_POOL_SIZE;
@@ -60,6 +62,8 @@ export class EngineVoiceGuard {
     obj.instrumentId = instrumentId;
     obj.strokeSymbol = strokeSymbol;
     obj.isDucked = false;
+    obj.isLowPassChoked = false;
+    obj.lpFilter = lpFilter;
     return obj;
   }
 
@@ -70,9 +74,11 @@ export class EngineVoiceGuard {
         const v = voices[idx];
         v.source = null as any;
         v.gainNode = null as any;
+        v.lpFilter = null;
         v.instrumentId = '';
         v.strokeSymbol = '';
         v.isDucked = false;
+        v.isLowPassChoked = false;
         voices.splice(idx, 1);
       }
     });

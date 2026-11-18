@@ -101,6 +101,7 @@ export const ShortcutsStrokesPercussion: React.FC<ShortcutsStrokesPercussionProp
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1.5 text-[10.5px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['gongue'], ['G', 'g']) && <div className={rowCls}>{renderBadge(['gongue'], ['G'], 'G / g')}<span>{t('gongueGrave')}</span></div>}
             {isStrokeActiveForInstruments(['gongue'], ['A', 'a']) && <div className={rowCls}>{renderBadge(['gongue'], ['A'], 'A / a')}<span>{t('gongueAigu')}</span></div>}
+            {isStrokeActiveForInstruments(['gongue'], ['X']) && <div className={rowCls}>{renderBadge(['gongue'], ['X'], 'X')}<span>{t('gongueAbafado')}</span></div>}
             {isStrokeActiveForInstruments(['gongue'], ['B']) && <div className={rowCls}>{renderBadge(['gongue'], ['B'], 'B')}<span>{t('gongueBarulho')}</span></div>}
           </div>
         </details>

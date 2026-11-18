@@ -81,8 +81,8 @@ export const ShortcutsStrokesOther: React.FC<ShortcutsStrokesOtherProps> = ({
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1.5 text-[10.5px] text-[var(--cordel-text)]">
-            {isStrokeActiveForInstruments(['apito'], ['W']) && <div className={rowCls}>{renderBadge(['apito'], ['W'], 'W')}<span>{t('apitoLong')}</span></div>}
-            {isStrokeActiveForInstruments(['apito'], ['w']) && <div className={rowCls}>{renderBadge(['apito'], ['w'], 'w')}<span>{t('apitoShort')}</span></div>}
+            {isStrokeActiveForInstruments(['apito'], ['L', 'l', 'W']) && <div className={rowCls}>{renderBadge(['apito'], ['L'], 'L / l')}<span>{t('apitoLong')}</span></div>}
+            {isStrokeActiveForInstruments(['apito'], ['C', 'w']) && <div className={rowCls}>{renderBadge(['apito'], ['C'], 'C')}<span>{t('apitoShort')}</span></div>}
           </div>
         </details>
       )}

@@ -21,6 +21,7 @@ function extractStrokeChars(val: any): string[] {
 export function normalizeGongueStep(s: string): string {
   if (s === 'C' || s === 'c' || s === '6') return 'G';
   if (s === '4') return 'A';
+  if (s === 'x') return 'X';
   return s;
 }
 

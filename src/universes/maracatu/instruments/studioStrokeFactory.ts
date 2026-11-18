@@ -27,7 +27,7 @@ export function buildDedicatedStroke(
   };
 }
 
-export function buildVirtualWeakStroke(symbol: 'f' | 'v', parentFiles: string[]): StrokeMapping {
+export function buildVirtualWeakStroke(symbol: 'f' | 'v' | 's' | 'l', parentFiles: string[]): StrokeMapping {
   return {
     symbol,
     keys: [symbol],

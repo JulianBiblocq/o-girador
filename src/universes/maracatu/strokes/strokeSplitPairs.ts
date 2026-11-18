@@ -16,7 +16,7 @@ export function getDefaultSplitPair(instId: string, instType = ''): [string, str
     return ['A', 'a'];
   }
   if (instId === 'apito') {
-    return ['W', 'w'];
+    return ['C', 'C'];
   }
   return ['D', 'E'];
 }
@@ -87,9 +87,9 @@ export function getComplementaryStroke(
   }
 
   if (instId === 'apito') {
-    if (norm === 'W') return 'w';
-    if (norm === 'w') return 'W';
-    return 'w';
+    if (norm === 'L' || norm === 'W') return 'C';
+    if (norm === 'C' || norm === 'w') return 'L';
+    return 'C';
   }
 
   if (norm === norm.toUpperCase()) return norm.toLowerCase();

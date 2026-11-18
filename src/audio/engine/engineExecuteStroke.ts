@@ -92,10 +92,8 @@ export class EngineExecuteStroke {
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
     const pitchNuance = isLeftHandRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
     const chorusAmount = getEffectiveSkinChorusAmount(storeState);
-    const baseRate = resolvedStroke.isBarulho
-      ? 1.0
-      : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning, allTracks, chorusAmount);
-    const calculatedPitch = baseRate * pitchNuance;
+    const baseRate = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning, allTracks, chorusAmount);
+    const calculatedPitch = resolvedStroke.isBarulho ? baseRate : baseRate * pitchNuance;
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
     const isStudioCalibrated = Boolean(config.calibratedStudioBank);
 
@@ -117,7 +115,7 @@ export class EngineExecuteStroke {
       }
     }
 
-    if (instrumentId === 'apito') {
+    if (instrumentId === 'apito' && effectiveSymbol !== '/' && effectiveSymbol !== '.') {
       const Tone = getTone();
       Tone?.Draw?.schedule?.(() => {
         window.dispatchEvent(new CustomEvent('o-girador-apito-shake'));

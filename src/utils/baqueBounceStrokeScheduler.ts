@@ -6,7 +6,8 @@ import { getCachedPcmSample, reconstructAudioBuffer } from '../audio/audioSample
 import { packBarulhoOriginCoord } from '../audio/barulho/barulhoRampPlanner';
 import { EngineRoundRobin } from '../audio/engine/engineRoundRobin';
 import { EngineTuning } from '../audio/engine/engineTuning';
-import { ALFAIA_INSTRUMENTS } from '../audio/engine/engineTypes';
+import { applyWebAudioTrackSkinPhysics } from '../audio/engine/alfaiaTrackVoicePhysics';
+import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { fetchSampleWithRetry, resolveSampleFetchPath } from '../audio/engine/sampleFetchUtils';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../audio/worklet/horizon/workletCompositeStrokeHelper';
@@ -84,19 +85,25 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
   }
   if (!buf) return;
 
+  const basePitch = EngineTuning.calculatePitch(instId, instCfg, track as any, undefined, allTracks as any, chorusAmount);
+
   if (stroke.isBarulho) {
+    if (instId === 'apito' && strokeSymbol !== 'l') {
+      applyWebAudioTrackSkinPhysics(graph.activeVoicesByTrack.get(track.id), instId, strokeSymbol, Math.max(0, triggerSec));
+    }
     const coord = packBarulhoOriginCoord(mIdx, circleStepIdx, (packed & 1) === 1);
-    const softSym = strokeSymbol === 'b' || strokeSymbol === 'l' ? 'b' : 'B';
+    const softSym = strokeSymbol === 'b' || (instId === 'apito' && strokeSymbol === 'l') ? 'b' : 'B';
     barulhoTracker.spawnOrUpdateBarulho(offlineCtx, graph, track.id, softSym, buf, triggerSec, stepVol, coord, totalDurationSec, {
       isStudioCalibrated: isCalibrated,
       strokeBaseGain: stroke.baseGain ?? 1.0,
       instId,
+      pitchRate: TUNEABLE_INSTRUMENTS.has(instId) ? basePitch : 1.0,
+      rawSymbol: strokeSymbol,
     });
     return;
   }
 
   barulhoTracker.chokeOnFrankStroke(track.id, instId, strokeSymbol, triggerSec, totalDurationSec);
-  const basePitch = EngineTuning.calculatePitch(instId, instCfg, track as any, undefined, allTracks as any, chorusAmount);
   const headNuance = strokeSymbol === 'r' ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
   const finalStepVol = strokeSymbol === 'r' ? stepVol * 0.88 : stepVol;
   const decayNorm = ((packed >>> 2) & 0x7F) / 100;

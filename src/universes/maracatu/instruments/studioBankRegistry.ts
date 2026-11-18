@@ -25,10 +25,10 @@ export const STUDIO_BANK_ENABLED: Record<PendingStudioInstrumentId, boolean> = {
   caixa: false,
   tarol: false,
   timbal: false,
-  gongue: false,
-  agbe: false,
-  mineiro: false,
-  apito: false,
+  gongue: true,
+  agbe: true,
+  mineiro: true,
+  apito: true,
 };
 
 export function resolveStudioBankFlags(id: PendingStudioInstrumentId): {
@@ -84,23 +84,25 @@ export function buildStudioTimbalStrokes(): StrokeMapping[] {
 
 export function buildStudioGongueStrokes(): StrokeMapping[] {
   return [
-    buildDedicatedStroke('G', buildStudioFiles('Gongue', 'G', 5)),
-    buildDedicatedStroke('A', buildStudioFiles('Gongue', 'A', 5)),
+    buildDedicatedStroke('G', buildStudioFiles('Gongue', 'G', 6)),
+    buildDedicatedStroke('A', buildStudioFiles('Gongue', 'A', 6)),
     buildDedicatedStroke('g', buildStudioFiles('Gongue', 'g_min', 5)),
     buildDedicatedStroke('a', buildStudioFiles('Gongue', 'a_min', 5)),
+    buildDedicatedStroke('X', buildStudioFiles('Gongue', 'X', 3), ['X'], true),
     ...buildBarulhoStrokePair('Mixdown/Gongue B.ogg'),
   ];
 }
 
 export function buildStudioAgbeStrokes(): StrokeMapping[] {
+  const sPool = buildStudioFiles('Agbe', 'S', 4);
   const vPool = buildStudioFiles('Agbe', 'V', 4);
   return [
-    buildDedicatedStroke('E', buildStudioFiles('Agbe', 'E', 6)),
-    buildDedicatedStroke('D', buildStudioFiles('Agbe', 'D', 6)),
-    buildDedicatedStroke('e', buildStudioFiles('Agbe', 'e_min', 6)),
-    buildDedicatedStroke('d', buildStudioFiles('Agbe', 'd_min', 6)),
-    buildDedicatedStroke('S', buildStudioFiles('Agbe', 'S', 4)),
-    buildDedicatedStroke('s', buildStudioFiles('Agbe', 's_min', 4)),
+    buildDedicatedStroke('E', buildStudioFiles('Agbe', 'F E', 6)),
+    buildDedicatedStroke('D', buildStudioFiles('Agbe', 'F D', 6)),
+    buildDedicatedStroke('e', buildStudioFiles('Agbe', 'f_min e', 6)),
+    buildDedicatedStroke('d', buildStudioFiles('Agbe', 'f_min d', 6)),
+    buildDedicatedStroke('S', sPool, ['S'], true),
+    buildVirtualWeakStroke('s', sPool),
     buildDedicatedStroke('V', vPool, ['V'], true),
     buildVirtualWeakStroke('v', vPool),
     ...buildBarulhoStrokePair('Mixdown/Agbe B.ogg'),
@@ -108,18 +110,20 @@ export function buildStudioAgbeStrokes(): StrokeMapping[] {
 }
 
 export function buildStudioMineiroStrokes(): StrokeMapping[] {
+  const lPool = buildStudioFiles('Mineiro', 'L', 4);
   return [
-    buildDedicatedStroke('P', buildStudioFiles('Mineiro', 'P', 6)),
-    buildDedicatedStroke('T', buildStudioFiles('Mineiro', 'T', 6)),
-    buildDedicatedStroke('p', buildStudioFiles('Mineiro', 'p_min', 6)),
-    buildDedicatedStroke('t', buildStudioFiles('Mineiro', 't_min', 6)),
-    buildDedicatedStroke('L', buildStudioFiles('Mineiro', 'L', 4), ['L', 'l'], false),
+    buildDedicatedStroke('P', buildStudioFiles('Mineiro', 'F P', 6)),
+    buildDedicatedStroke('T', buildStudioFiles('Mineiro', 'F T', 6)),
+    buildDedicatedStroke('p', buildStudioFiles('Mineiro', 'f_min p', 6)),
+    buildDedicatedStroke('t', buildStudioFiles('Mineiro', 'f_min t', 6)),
+    buildDedicatedStroke('L', lPool, ['L'], true),
+    buildVirtualWeakStroke('l', lPool),
     ...buildBarulhoStrokePair('Mixdown/Mineiro B.ogg'),
   ];
 }
 
 export function buildStudioApitoStrokes(): StrokeMapping[] {
-  const shortFiles = buildStudioFiles('Apito', 'C', 4);
+  const shortFiles = buildStudioFiles('Apito', 'C', 3);
   return [
     { symbol: 'L', keys: ['L'], files: ['Mixdown/Apito L.ogg'], caseSensitive: true, isBarulho: true, baseGain: 1.0 },
     { symbol: 'l', keys: ['l'], files: ['Mixdown/Apito L.ogg'], caseSensitive: true, isBarulho: true, baseGain: 1.0 },

@@ -62,7 +62,7 @@ export function buildHorizonBarulhoLookaheadPoints(
         engineDeps.getTrackUnisonDelaySec(track.id) +
         swingSec;
 
-      points.push({ trackId: track.id, timeSec, symbol, velocity });
+      points.push({ trackId: track.id, instId: inst.id, timeSec, symbol, velocity });
     };
 
     if (flatCompiledSchedule && flatCompiledSchedule.length > 0) {

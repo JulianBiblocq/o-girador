@@ -27,7 +27,7 @@ export function getInstrumentPrimaryStrongColor(inst?: any, track?: any): string
   if (colors) {
     if (instId === 'mineiro' && colors['P']) return applyCordelInkedPatina(colors['P']);
     if (instId === 'gongue' && colors['G']) return applyCordelInkedPatina(colors['G']);
-    if (instId === 'apito' && colors['W']) return applyCordelInkedPatina(colors['W']);
+    if (instId === 'apito' && (colors['L'] || colors['W'])) return applyCordelInkedPatina(colors['L'] || colors['W']);
     if (instId === 'timbal' && (colors['A'] || colors['G'])) return applyCordelInkedPatina(colors['A'] || colors['G']);
     const strong = colors['1'] || colors['D'] || colors['G'] || colors['P'] || colors['W'];
     if (strong) return applyCordelInkedPatina(strong);

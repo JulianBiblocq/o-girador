@@ -28,7 +28,7 @@ export function isDarkText(instId?: string, strokeVal?: string, bgColor?: string
   if (bgColor && isLightColor(bgColor)) return true;
   if (!strokeVal) return false;
 
-  if (instId === 'apito' && ['w', 'W'].includes(strokeVal)) return true;
+  if (instId === 'apito' && ['w', 'W', 'l', 'L', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
   if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
   if (instId === 'caixa' && (strokeVal === 'A' || strokeVal === 'a')) return false;

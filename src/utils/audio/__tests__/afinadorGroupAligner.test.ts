@@ -38,10 +38,10 @@ describe('Afinador Group Aligner & 12-Note Gonguê Harmonic Solver', () => {
     mockDoc.mockClear();
   });
 
-  it('exposes 12 chromatic Gonguê options centered on Sol#4 (414.5 Hz) from Ré4 to Do#5', () => {
+  it('exposes 12 chromatic Gonguê options centered on Sol#4 (415.3 Hz) from Ré4 to Do#5', () => {
     expect(GONGUE_CHROMATIC_OPTIONS).toHaveLength(12);
     expect(GONGUE_CHROMATIC_OPTIONS[0]).toMatchObject({ midi: 62, labelFr: 'Ré4', intl: 'D4', hz: 293.7 });
-    expect(GONGUE_CHROMATIC_OPTIONS[6]).toMatchObject({ midi: 68, labelFr: 'Sol#4', intl: 'G#4', hz: DEFAULT_GONGUE_STUDIO_HZ });
+    expect(GONGUE_CHROMATIC_OPTIONS[6]).toMatchObject({ midi: 68, labelFr: 'Sol#4', intl: 'G#4', hz: 415.3 });
     expect(GONGUE_CHROMATIC_OPTIONS[11]).toMatchObject({ midi: 73, labelFr: 'Do#5', intl: 'C#5', hz: 554.4 });
   });
 
@@ -73,30 +73,30 @@ describe('Afinador Group Aligner & 12-Note Gonguê Harmonic Solver', () => {
     expect(sol4Maj.bellRelation).toBe('fifth');
     expect(sol4Maj.tunings).toEqual(DEFAULT_SIGNATURE_TUNINGS);
 
-    const solSharpMin = computeGongueAlignedTunings(414.5, 'minor');
+    const solSharpMin = computeGongueAlignedTunings(411.97, 'minor');
     expect(solSharpMin.keyLabelFr).toBe('Do# Mineur');
     expect(solSharpMin.tunings).toMatchObject({ marcante: -0.5, meiao: 0.3, repique: 1.3, gongue: 0 });
 
     const la4Min = computeGongueAlignedTunings(440.0, 'minor');
     expect(la4Min.keyLabelFr).toBe('Ré Mineur');
-    expect(la4Min.tunings).toMatchObject({ marcante: 0.5, meiao: 1.3, repique: 2.3, gongue: 1.0 });
+    expect(la4Min.tunings).toMatchObject({ marcante: 0.5, meiao: 1.3, repique: 2.3, gongue: 1.1 });
 
     const do5Maj = computeGongueAlignedTunings(523.3, 'major');
     expect(do5Maj.keyLabelFr).toBe('Do Majeur');
     expect(do5Maj.bellRelation).toBe('tonic');
-    expect(do5Maj.tunings).toMatchObject({ marcante: -1.5, meiao: 0.3, repique: 0.3, gongue: 4.0 });
+    expect(do5Maj.tunings).toMatchObject({ marcante: -1.5, meiao: 0.3, repique: 0.3, gongue: 4.1 });
   });
 
   it('folds octaves cleanly and enforces per-family bounds in exact drumsHz mode', () => {
-    expect(computeDrumFoldedTuning('gongue', 196.0)).toBe(-1.0);
-    expect(computeDrumFoldedTuning('gongue', 784.0)).toBe(-1.0);
+    expect(computeDrumFoldedTuning('gongue', 196.0)).toBe(-0.9);
+    expect(computeDrumFoldedTuning('gongue', 784.0)).toBe(-0.9);
 
     const exact = computeGongueAlignedTunings(293.7, 'exact', {
       marcante: 105, meiao: 55, repique: 140, gongue: 293.7, timbal: 135, caixa: 500, tarol: 300,
     });
     expect(exact.bellRelation).toBe('exact');
     expect(exact.keyLabelFr).toBe('Parc Afinador');
-    expect(exact.tunings.gongue).toBe(-6.0);
+    expect(exact.tunings.gongue).toBe(-5.9);
     expect(Math.abs(exact.tunings.marcante)).toBeLessThanOrEqual(4.5);
     expect(Math.abs(exact.tunings.meiao)).toBeLessThanOrEqual(4.5);
     expect(Math.abs(exact.tunings.repique)).toBeLessThanOrEqual(4.5);
@@ -106,7 +106,7 @@ describe('Afinador Group Aligner & 12-Note Gonguê Harmonic Solver', () => {
   });
 
   it('persists local fallback profile and makes zero Firestore calls without groupId, reading /associations silently with groupId', async () => {
-    expect(loadLocalAfinadorProfile()).toEqual({ gongueHz: 414.5, mode: 'major' });
+    expect(loadLocalAfinadorProfile()).toEqual({ gongueHz: 411.97, mode: 'major' });
     saveLocalAfinadorProfile({ gongueHz: 392.0, mode: 'minor' });
     expect(loadLocalAfinadorProfile()).toMatchObject({ gongueHz: 392.0, mode: 'minor' });
 

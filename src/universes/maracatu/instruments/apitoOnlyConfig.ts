@@ -18,7 +18,7 @@ const legacyApitoStrokes: StrokeMapping[] = [
 export const apitoConfig: InstrumentAudioConfig = {
   id: 'apito',
   name: 'Apito',
-  uiOrder: ['W', 'w', 'L', 'C'],
+  uiOrder: ['L', 'C'],
   leftHandedSupport: false,
   ...resolveStudioBankFlags('apito'),
   strokes: STUDIO_BANK_ENABLED.apito ? buildStudioApitoStrokes() : legacyApitoStrokes,

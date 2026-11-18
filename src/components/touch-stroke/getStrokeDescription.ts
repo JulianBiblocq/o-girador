@@ -73,6 +73,7 @@ export const getStrokeDescription = (
       case 'g': return isPt ? 'Grave fraco (Topo da campana)' : 'Grave faible (Haut de la cloche)';
       case 'A': return isPt ? 'Agudo forte (Base da campana)' : 'Aigu fort (Base de la cloche)';
       case 'a': return isPt ? 'Agudo fraco (Base da campana)' : 'Aigu faible (Base de la cloche)';
+      case 'X': return isPt ? 'X — Parada / Toque abafado' : 'X — Arrêt étouffé (Parada)';
       case 'B': case 'b': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
       default: return stroke;
     }
@@ -105,8 +106,11 @@ export const getStrokeDescription = (
 
   if (instId === 'apito') {
     switch (stroke) {
-      case 'W': return isPt ? 'Apito forte/longo (W)' : 'Sifflet fort/long (W)';
-      case 'w': return isPt ? 'Apito curto/leve (w)' : 'Sifflet court/léger (w)';
+      case 'L': case 'W': return isPt ? 'Apito longo contínuo (L)' : 'Sifflet long bouclé (L)';
+      case 'l': return isPt ? 'Apito suave / sustentação (l)' : 'Sifflet doux / maintien (l)';
+      case '/': return isPt ? 'Extinção do apito (Fade-Out)' : 'Extinction du sifflet (Fade-Out)';
+      case '.': return isPt ? 'Fim do apito (Silêncio)' : 'Fin du sifflet (Silence)';
+      case 'C': case 'c': case 'w': return isPt ? 'Apito curto (C)' : 'Sifflet court (C)';
       default: return stroke;
     }
   }

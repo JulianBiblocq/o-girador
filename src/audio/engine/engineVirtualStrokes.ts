@@ -24,6 +24,10 @@ export class EngineVirtualStrokes {
       else if (normSymbol === 'v') normSymbol = 'V';
     } else if (instrumentId === 'agbe' || instrumentId === 'gongue') {
       if (normSymbol === 't') normSymbol = 'B';
+      else if (instrumentId === 'gongue' && normSymbol === 'x') normSymbol = 'X';
+    } else if (instrumentId === 'apito') {
+      if (normSymbol === 'W') normSymbol = 'L';
+      else if (normSymbol === 'w' || normSymbol === 'c') normSymbol = 'C';
     }
 
     return normSymbol;

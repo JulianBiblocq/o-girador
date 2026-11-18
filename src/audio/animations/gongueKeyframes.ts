@@ -7,9 +7,10 @@ import { calculateTempoFactor } from './animationTiming';
 
 export function generateGongueKeyframes(stroke: string, bpm: number = 100): Keyframe[] {
   const isVibrate = stroke === 'b' || stroke === 'B';
+  const isAbafado = stroke === 'X' || stroke === 'x';
   const isGrave = stroke === 'G' || stroke === 'g';
   const isAigu = stroke === 'A' || stroke === 'a';
-  const isStrong = ['G', 'A'].includes(stroke);
+  const isStrong = ['G', 'A', 'X'].includes(stroke);
   const cfg = isStrong ? CONFIG_GONGUE.strong : CONFIG_GONGUE.weak;
   const tempoFactor = calculateTempoFactor(bpm);
 
@@ -39,8 +40,8 @@ export function generateGongueKeyframes(stroke: string, bpm: number = 100): Keyf
   const windUpY = (cfg.windUp.translateY + verticalOffset * 0.4) * tempoFactor;
   const impactBoost = cfg.impact.scaleBoost;
   const impactY = cfg.impact.translateY + verticalOffset;
-  const reboundBoost = cfg.rebound.scaleBoost;
-  const reboundY = cfg.rebound.translateY + verticalOffset * 0.7;
+  const reboundBoost = isAbafado ? impactBoost : cfg.rebound.scaleBoost;
+  const reboundY = isAbafado ? impactY : cfg.rebound.translateY + verticalOffset * 0.7;
 
   return [
     { transform: `translate(0px, ${CONFIG_GONGUE.rest.translateY}px) rotateX(${CONFIG_GONGUE.rest.rotateX}deg) scale(${baseScaleX}, ${baseScaleY})`, easing: 'ease-out' },

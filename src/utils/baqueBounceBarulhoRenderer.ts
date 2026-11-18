@@ -1,6 +1,6 @@
 /**
- * baqueBounceBarulhoRenderer.ts — Rendu Offline Bounce sans couture des phrases Barulho (`B` / `b` / `/` / `.`) (< 138 lignes).
- * Parité bit-à-bit avec `WorkletBarulhoSoa` : crossfade cos/sin 110 ms pré-calculé, rampes `b->b` et `/->.`, choke 18–25 ms.
+ * baqueBounceBarulhoRenderer.ts — Rendu Offline Bounce sans couture des phrases Barulho & Apito L (< 138 lignes).
+ * Parité bit-à-bit avec `WorkletBarulhoSoa` : crossfade cos/sin 110 ms pré-calculé, accordage tonal (`Gonguê B`) & choke sélectif.
  */
 import { getOrBakeBarulhoAudioBuffer, type BakedBarulhoAudio } from '../audio/barulho/barulhoLoopRegionAnalyzer';
 import {
@@ -8,8 +8,8 @@ import {
   DEFAULT_BARULHO_FADEIN_SEC, DEFAULT_BARULHO_FADEOUT_SEC, findBarulhoLookaheadIndex,
   resolveSlashFadeOutRampSec, resolveSoftBarulhoRampSpec,
 } from '../audio/barulho/barulhoRampPlanner';
-import { ALFAIA_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { computeEnginePeakGain } from '../audio/engine/engineStrokePlayback';
+import { resolveFrankStrokeBarulhoChokeSec } from '../audio/engine/selectiveTrackChokePhysics';
 import { computeBarulhoSoftEntryFrame } from '../audio/worklet/processor/workletEventFlags';
 import type { OfflineTrackGraph } from './baqueBounceTrackGraph';
 
@@ -38,9 +38,9 @@ function pushLinearRamp(v: ActiveOfflineBarulho, t0: number, t1: number, targetG
   v.zeroStopTime = targetG <= 0.0001 ? safeT1 + 0.002 : null;
 }
 
-function createLoopingNodes(ctx: OfflineAudioContext, baked: BakedBarulhoAudio, trackInput: GainNode) {
+function createLoopingNodes(ctx: OfflineAudioContext, baked: BakedBarulhoAudio, trackInput: GainNode, pitchRate = 1.0) {
   const src = ctx.createBufferSource(), gainNode = ctx.createGain();
-  src.buffer = baked.buffer; src.loop = true;
+  src.buffer = baked.buffer; src.playbackRate.value = pitchRate > 0 ? pitchRate : 1.0; src.loop = true;
   src.loopStart = baked.region.loopResumeSec; src.loopEnd = baked.region.loopWrapSec;
   src.connect(gainNode); gainNode.connect(trackInput);
   return { src, gainNode };
@@ -55,7 +55,7 @@ export class OfflineBarulhoPhraseTracker {
     if (cycleDurationSec > 0.05) {
       for (let i = 0; i < basePoints.length; i++) {
         const p = basePoints[i];
-        pts.push({ trackId: p.trackId, timeSec: p.timeSec + cycleDurationSec, symbol: p.symbol, velocity: p.velocity });
+        pts.push({ trackId: p.trackId, instId: p.instId, timeSec: p.timeSec + cycleDurationSec, symbol: p.symbol, velocity: p.velocity });
       }
     }
     pts.sort((a, b) => a.timeSec - b.timeSec);
@@ -85,23 +85,20 @@ export class OfflineBarulhoPhraseTracker {
 
   public chokeOnFrankStroke(trackId: number, instId: string, symbol: string, triggerSec: number, maxEndSec: number): void {
     if (!this.activeByTrack.has(trackId)) return;
-    const ramp = ALFAIA_INSTRUMENTS.has(instId)
-      ? (symbol === 'A' || symbol === 'a' ? 0.025 : (symbol === 'D' || symbol === 'E' ? 0.022 : 0.018))
-      : (symbol === 'P' || symbol === 'p' ? 0.008 : 0.018);
-    this.chokeVoice(trackId, Math.max(0, triggerSec), ramp, maxEndSec);
+    this.chokeVoice(trackId, Math.max(0, triggerSec), resolveFrankStrokeBarulhoChokeSec(instId, symbol), maxEndSec);
   }
 
   public spawnOrUpdateBarulho(
     ctx: OfflineAudioContext, graph: OfflineTrackGraph, trackId: number, symbol: 'B' | 'b',
     rawBuffer: AudioBuffer, triggerSec: number, velocity: number, originCoord: number, maxEndSec: number,
-    opts: { isStudioCalibrated?: boolean; strokeBaseGain?: number; instId?: string }
+    opts: { isStudioCalibrated?: boolean; strokeBaseGain?: number; instId?: string; pitchRate?: number; rawSymbol?: string }
   ): void {
     const trackInput = graph.trackInputs.get(trackId), t = Math.max(0, triggerSec);
     if (!trackInput || t >= maxEndSec - 0.001) return;
-    const adjVel = velocity > 3.0 ? velocity / 100 : velocity;
+    const adjVel = velocity > 3.0 ? velocity / 100 : velocity, pitchRate = opts.pitchRate ?? 1.0;
 
     if (symbol === 'b') {
-      const ptIdx = findBarulhoLookaheadIndex(this.lookahead, trackId, t, 'b');
+      const ptIdx = findBarulhoLookaheadIndex(this.lookahead, trackId, t, opts.rawSymbol || 'b');
       const spec = ptIdx >= 0 ? resolveSoftBarulhoRampSpec(this.lookahead, ptIdx) : { rampSec: DEFAULT_BARULHO_FADEIN_SEC, targetVelocity: adjVel };
       const targetGain = computeEnginePeakGain(spec.targetVelocity, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
       const existing = this.activeByTrack.get(trackId);
@@ -111,7 +108,7 @@ export class OfflineBarulhoPhraseTracker {
       if (existing) this.chokeVoice(trackId, t, 0.002, maxEndSec);
       const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
       const entrySec = computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / baked.buffer.sampleRate;
-      const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput);
+      const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput, pitchRate);
       const endT = Math.min(maxEndSec, t + spec.rampSec);
       gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(targetGain, endT);
       src.start(t, entrySec);
@@ -122,7 +119,7 @@ export class OfflineBarulhoPhraseTracker {
     const peakGain = computeEnginePeakGain(adjVel, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
     if (this.activeByTrack.has(trackId)) this.chokeVoice(trackId, t, BARULHO_RETRIGGER_CHOKE_SEC, maxEndSec);
     const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
-    const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput);
+    const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput, pitchRate);
     gainNode.gain.setValueAtTime(peakGain, t); src.start(t, 0);
     this.activeByTrack.set(trackId, { src, gainNode, segs: [{ t, g: peakGain }], originCoord, zeroStopTime: null });
   }

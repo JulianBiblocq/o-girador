@@ -8,7 +8,7 @@
 import { getOrBakeBarulhoAudioBuffer } from '../barulho/barulhoLoopRegionAnalyzer';
 import { DEFAULT_BARULHO_FADEIN_SEC } from '../barulho/barulhoRampPlanner';
 import { computeBarulhoSoftEntryFrame } from '../worklet/processor/workletEventFlags';
-import { PlaybackContext } from './engineTypes';
+import { PlaybackContext, TUNEABLE_INSTRUMENTS } from './engineTypes';
 
 export function playBarulhoStroke(
   ctx: PlaybackContext,
@@ -17,7 +17,7 @@ export function playBarulhoStroke(
   gainNode: GainNode,
   instrumentId: string,
   buffer: AudioBuffer,
-  _calculatedPitch: number,
+  calculatedPitch: number,
   time: number,
   velocity: number,
   isLiveHold: boolean,
@@ -25,12 +25,12 @@ export function playBarulhoStroke(
 ): void {
   const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer, instrumentId);
   source.buffer = baked.buffer;
-  source.playbackRate.value = 1.0;
+  source.playbackRate.value = TUNEABLE_INSTRUMENTS.has(instrumentId) && calculatedPitch > 0 ? calculatedPitch : 1.0;
   source.loop = true;
   source.loopStart = baked.region.loopResumeSec;
   source.loopEnd = baked.region.loopWrapSec;
 
-  const isSoftB = strokeSymbol === 'b' || strokeSymbol === 'l';
+  const isSoftB = strokeSymbol === 'b' || (instrumentId === 'apito' && strokeSymbol === 'l');
   const entrySec = isSoftB
     ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / baked.buffer.sampleRate
     : 0;
@@ -70,8 +70,9 @@ export function playBarulhoStroke(
     source.stop(expectedEnd + 0.01);
 
     const voiceKey = trackId !== null ? trackId : instrumentId;
+    const loopSym = instrumentId === 'apito' ? (isSoftB ? 'l' : 'L') : (isSoftB ? 'b' : 'B');
     const activeVoice = ctx.voiceGuard.getActiveVoice(
-      source, gainNode, time, holdEnd, expectedEnd, expectedEnd, velocity, true, instrumentId, isSoftB ? 'b' : 'B'
+      source, gainNode, time, holdEnd, expectedEnd, expectedEnd, velocity, true, instrumentId, loopSym
     );
     const tv = ctx.voiceGuard.trackVoices.get(String(voiceKey)) || [];
     tv.push(activeVoice);

@@ -20,7 +20,7 @@ export interface GongueAlignmentResult {
 }
 
 export const AFINADOR_LOCAL_STORAGE_KEY = 'ogirador_afinador_profile_v1';
-export const DEFAULT_GONGUE_STUDIO_HZ = 414.5;
+export const DEFAULT_GONGUE_STUDIO_HZ = 411.97;
 
 const NOTES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
 const NOTES_PT = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
@@ -32,7 +32,7 @@ const EXACT_ROLE_MAX_ST: Record<LutherieDrumRole, number> = {
 
 export const GONGUE_CHROMATIC_OPTIONS: ChromaticGongueOption[] = Array.from({ length: 12 }, (_, idx) => {
   const midi = 62 + idx, pc = ((midi % 12) + 12) % 12, oct = Math.floor(midi / 12) - 1;
-  const hz = midi === 68 ? DEFAULT_GONGUE_STUDIO_HZ : Math.round(440 * Math.pow(2, (midi - 69) / 12) * 10) / 10;
+  const hz = Math.round(440 * Math.pow(2, (midi - 69) / 12) * 10) / 10;
   return { midi, hz, labelFr: `${NOTES_FR[pc]}${oct}`, labelPt: `${NOTES_PT[pc]}${oct}`, intl: `${NOTES_INTL[pc]}${oct}` };
 });
 

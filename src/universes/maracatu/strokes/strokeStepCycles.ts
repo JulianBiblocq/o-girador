@@ -33,7 +33,8 @@ export function getNextStepValue(
     if (norm === 'g') return 'G';
     if (norm === 'G') return 'a';
     if (norm === 'a') return 'A';
-    if (norm === 'A') return 'B';
+    if (norm === 'A') return 'X';
+    if (norm === 'X') return 'B';
     return 0;
   }
   if (instId === 'timbal') {
@@ -84,8 +85,11 @@ export function getNextStepValue(
     return 0;
   }
   if (instId === 'apito') {
-    if (norm === 0 || norm === '0' || !norm) return 'W';
-    if (norm === 'W') return 'w';
+    if (norm === 0 || norm === '0' || !norm) return 'C';
+    if (norm === 'C' || norm === 'w') return 'L';
+    if (norm === 'L' || norm === 'W') return 'l';
+    if (norm === 'l') return '/';
+    if (norm === '/') return '.';
     return 0;
   }
   if (norm === 0 || norm === '0' || !norm) return 'd';

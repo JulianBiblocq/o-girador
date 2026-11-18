@@ -40,7 +40,7 @@ export const DEFAULT_SIGNATURE_TUNINGS: Record<LutherieDrumRole, number> = {
   caixa: 0,
   tarol: 0,
   timbal: 0,
-  gongue: -1.0,
+  gongue: -0.9,
 };
 
 export function getDefaultSignatureTuning(instrumentId?: string | null): number {

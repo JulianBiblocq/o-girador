@@ -1,5 +1,5 @@
 /**
- * O Girador - Gonguê / Iron Bell Stroke Definitions & Pairs
+ * O Girador - Gonguê / Iron Bell Stroke Definitions & Pairs (< 95 lignes)
  */
 
 import { StrokeDef, StrokePair } from './strokeTypes';
@@ -31,6 +31,12 @@ export function getGongueStrokeDefs(isFr: boolean): StrokeDef[] {
       colorKey: 'a',
     },
     {
+      symbol: 'X',
+      label: isFr ? 'X — Arrêt étouffé (Parada)' : 'X — Parada (Toque abafado)',
+      shortcut: 'X',
+      colorKey: 'X',
+    },
+    {
       symbol: 'B',
       label: isFr ? 'Barulho (Grondement)' : 'Barulho (Vibração)',
       shortcut: 'B',
@@ -47,27 +53,34 @@ export function getGongueStrokePairs(
   const gWeak = allStrokes.find((s) => s.symbol === 'g');
   const aStrong = allStrokes.find((s) => s.symbol === 'A');
   const aWeak = allStrokes.find((s) => s.symbol === 'a');
+  const xStroke = allStrokes.find((s) => s.symbol === 'X');
   const bStroke = allStrokes.find((s) => s.symbol === 'B');
 
   const pairs: StrokePair[] = [];
   if (gStrong) {
-    const strokes = [gStrong, gWeak].filter(Boolean) as StrokeDef[];
     pairs.push({
       id: 'G',
       strong: gStrong,
       weak: gWeak,
-      strokes,
-      mainLabel: isFr ? 'Grave' : 'Grave',
+      strokes: [gStrong, gWeak].filter(Boolean) as StrokeDef[],
+      mainLabel: 'Grave',
     });
   }
   if (aStrong) {
-    const strokes = [aStrong, aWeak].filter(Boolean) as StrokeDef[];
     pairs.push({
       id: 'A',
       strong: aStrong,
       weak: aWeak,
-      strokes,
+      strokes: [aStrong, aWeak].filter(Boolean) as StrokeDef[],
       mainLabel: isFr ? 'Aigu' : 'Agudo',
+    });
+  }
+  if (xStroke) {
+    pairs.push({
+      id: 'X',
+      strong: xStroke,
+      strokes: [xStroke],
+      mainLabel: isFr ? 'Étouffé (X)' : 'Abafado (X)',
     });
   }
   if (bStroke) {
@@ -75,7 +88,7 @@ export function getGongueStrokePairs(
       id: 'B',
       strong: bStroke,
       strokes: [bStroke],
-      mainLabel: isFr ? 'Barulho' : 'Barulho',
+      mainLabel: 'Barulho',
     });
   }
   return pairs;

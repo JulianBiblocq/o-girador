@@ -25,7 +25,7 @@ export function isStrokeActiveByDefault(instId: string, stroke: string): boolean
     return ['D', 'E', 'd', 'e', 'A', 'a', 'R', 'r', 'F', 'f'].includes(stroke);
   }
   if (instId === 'gongue') {
-    return ['G', 'A', 'g', 'a'].includes(stroke);
+    return ['G', 'A', 'g', 'a', 'X'].includes(stroke);
   }
   if (instId === 'agbe') {
     return ['D', 'E', 'd', 'e'].includes(stroke);
@@ -37,7 +37,7 @@ export function isStrokeActiveByDefault(instId: string, stroke: string): boolean
     return ['G', 'g', 'A', 'a', 'S', 's', 'D', 'd', 'P', 'p'].includes(stroke);
   }
   if (instId === 'apito') {
-    return ['W', 'w'].includes(stroke);
+    return ['L', 'l', 'C', 'W', 'w'].includes(stroke);
   }
   return true;
 }

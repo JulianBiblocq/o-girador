@@ -54,9 +54,8 @@ export const DRUM_FUNDAMENTAL_SPECS: Record<string, DrumFundamentalSpec> = {
     presetRangeSt: [-5.0, 5.0],
   },
   gongue: {
-    studioHz: 414.5,
+    studioHz: 411.97,
     legacyHz: 414.5,
-    alwaysStudioCalibrated: true,
     presetRangeSt: [-5.0, 5.0],
   },
 };

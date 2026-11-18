@@ -54,7 +54,7 @@ export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.mem
     );
   }
 
-  const defaultSymbol = ['gongue', 'timbal'].includes(instrument?.id) ? 'G' : instrument?.id === 'mineiro' ? 'P' : instrument?.id === 'apito' ? 'W' : 'D';
+  const defaultSymbol = ['gongue', 'timbal'].includes(instrument?.id) ? 'G' : instrument?.id === 'mineiro' ? 'P' : instrument?.id === 'apito' ? 'L' : 'D';
   const cleanActive = (activeTool === 'O' || activeTool === '0' || !activeTool) ? defaultSymbol : activeTool;
   const activeStrongSym = currentPair ? currentPair.strong.symbol : cleanActive.toUpperCase();
 

@@ -40,11 +40,11 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
         <div style="width: 47%; margin-bottom: 10px;">
           <h3 style="font-size: 15px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px;">Gonguê, Agbê, Mineiro, Timbal, Apito &amp; Toada</h3>
           <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 12.5px; line-height: 1.4;">
-            <li><strong>Gonguê</strong> (${isPt ? 'campana única de ferro forjado' : 'cloche unique en fer forgé'}) : ${isPt ? 'G/g (Grave — topo perto da boca), A/a (Agudo — base rígida), B (Barulho)' : 'G/g (Grave — haut près de la bouche), A/a (Aigu — bas vers la base), B (Barulho)'}</li>
+            <li><strong>Gonguê</strong> (${isPt ? 'campana única de ferro forjado' : 'cloche unique en fer forgé'}) : ${isPt ? 'G/g (Grave — topo perto da boca), A/a (Agudo — base rígida), X (Parada / Toque abafado), B (Barulho)' : 'G/g (Grave — haut près de la bouche), A/a (Aigu — bas vers la base), X (Arrêt étouffé / Parada), B (Barulho)'}</li>
             <li><strong>Agbê</strong> : ${isPt ? 'E/e (cabaça na mão D indo à E, palma E), D/d (retorno para D), S (Salto), V (Volta), B (Barulho)' : 'E/e (calebasse main D vers G, paume G), D/d (retour vers D), S (Salto), V (Volta), B (Barulho)'}</li>
             <li><strong>Mineiro</strong> : ${isPt ? 'P/p (Projetar frente), T/t (Trazer trás), L (Lado), B (Barulho)' : 'P/p (Poussé avant), T/t (Tiré vers soi), L (Latéral), B (Barulho)'}</li>
             <li><strong>Timbal</strong> (${isPt ? 'MAI=Direita / min=Esquerda' : 'MAJ=Droite / min=Gauche'}) : ${isPt ? 'G/g (Grave), A/a (Aberto), S/s (Slap), D/d (Dedos), P/p (Preso), F/f, V/v, C (Palma), B (Barulho)' : 'G/g (Grave), A/a (Aberto), S/s (Slap), D/d (Doigts), P/p (Pressé), F/f, V/v, C (Clap), B (Barulho)'}</li>
-            <li><strong>Apito</strong> : ${isPt ? 'W (Forte / longo), w (Curto / leve)' : 'W (Fort / long), w (Court / léger)'}</li>
+            <li><strong>Apito</strong> : ${isPt ? 'L/l (Longo contínuo : L -> l -> / -> .), C (Curto)' : 'L/l (Long bouclé : L -> l -> / -> .), C (Court)'}</li>
             <li><strong>Toada (v2)</strong> : ${isPt ? 'P (Puxador), C (Coro), _ (melisma ligado), / (soldadura), 0 (silêncio vocal explícito)' : 'P (Puxador), C (Coro), _ (mélisme lié), / (soudure), 0 (silence vocal explicite)'}</li>
           </ul>
         </div>

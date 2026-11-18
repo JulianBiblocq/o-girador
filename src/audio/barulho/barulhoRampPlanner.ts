@@ -1,6 +1,7 @@
 /**
- * barulhoRampPlanner.ts — Planificateur de rampes musicales multi-pas (`b ... b`, `/ ... .`)
+ * barulhoRampPlanner.ts — Planificateur de rampes musicales multi-pas (`b ... b`, `l ... l` Apito, `/ ... .`)
  * et encodage des coordonnées d'origine `(measureIdx, stepIdx)` pour Barulho (< 120 lignes).
+ * - Isolé strictement : `l` n'est considéré comme rampe douce bouclée QUE si `instId === 'apito'` (jamais sur `mineiro`).
  */
 
 export const DEFAULT_BARULHO_FADEIN_SEC = 0.140;
@@ -11,6 +12,7 @@ export const BARULHO_LEGATO_VEL_RAMP_SEC = 0.060;
 
 export interface BarulhoLookaheadPoint {
   trackId: number;
+  instId?: string;
   timeSec: number;
   symbol: string;
   velocity: number;
@@ -21,10 +23,10 @@ export interface SoftBarulhoRampSpec {
   targetVelocity: number;
 }
 
-/**
- * Encode de manière injective (> 0, sans perte en Float32) la position `(measureIdx, stepIdx, isSecondStroke)`
- * afin de distinguer le rebouclage d'une mesure sur le même pas `B` d'un 2e `B` volontaire ailleurs.
- */
+export function isSoftLoopLookaheadPoint(pt: Pick<BarulhoLookaheadPoint, 'instId' | 'symbol'>): boolean {
+  return pt.symbol === 'b' || (pt.instId === 'apito' && pt.symbol === 'l');
+}
+
 export function packBarulhoOriginCoord(
   measureIdx: number,
   stepIdx: number,
@@ -36,12 +38,6 @@ export function packBarulhoOriginCoord(
   return ((m << 7) | (s << 1) | sub) + 1;
 }
 
-/**
- * Pour un `b` à l'index `currentIndex` :
- * - S'il est suivi d'un 2e `b` sur la même piste (même mesure ou mesure suivante),
- *   étire le Fade-In sur la durée exacte `nextTimeSec - currentTimeSec` vers la vélocité cible du 2e `b`.
- * - Sinon, utilise le Fade-In par défaut (`140 ms`).
- */
 export function resolveSoftBarulhoRampSpec(
   points: readonly BarulhoLookaheadPoint[],
   currentIndex: number
@@ -54,7 +50,7 @@ export function resolveSoftBarulhoRampSpec(
     if (next.trackId !== cur.trackId) continue;
     const dt = next.timeSec - cur.timeSec;
     if (dt <= 0.005) continue;
-    if (next.symbol === 'b') {
+    if (isSoftLoopLookaheadPoint(next)) {
       return {
         rampSec: Math.max(DEFAULT_BARULHO_DOT_STOP_SEC, dt),
         targetVelocity: next.velocity > 0 ? next.velocity : cur.velocity,
@@ -66,12 +62,6 @@ export function resolveSoftBarulhoRampSpec(
   return { rampSec: DEFAULT_BARULHO_FADEIN_SEC, targetVelocity: cur.velocity };
 }
 
-/**
- * Pour un `/` à l'index `currentIndex` :
- * - S'il est suivi d'un `.` ou d'une frappe franche (tout symbole hors `b`),
- *   étire le Fade-Out de `100 %` à `0 %` sur toute la durée exacte entre `/` et ce point de fermeture.
- * - S'il n'est suivi d'aucun `.` ni frappe avant la fin (ou d'un `b` de relance), applique `450 ms`.
- */
 export function resolveSlashFadeOutRampSec(
   points: readonly BarulhoLookaheadPoint[],
   currentIndex: number
@@ -85,7 +75,7 @@ export function resolveSlashFadeOutRampSec(
     const dt = next.timeSec - cur.timeSec;
     if (dt <= 0.005) continue;
     if (next.symbol === '/') continue;
-    if (next.symbol === 'b') return DEFAULT_BARULHO_FADEOUT_SEC;
+    if (isSoftLoopLookaheadPoint(next)) return DEFAULT_BARULHO_FADEOUT_SEC;
     return Math.max(DEFAULT_BARULHO_DOT_STOP_SEC, dt);
   }
 

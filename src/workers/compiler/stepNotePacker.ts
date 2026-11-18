@@ -11,6 +11,10 @@ export function normalizeStrokeKey(inst: any, state: any): string | null {
     else if (targetKey === 'C') targetKey = 'c';
   } else if (inst.id === 'agbe' || inst.id === 'gongue') {
     if (targetKey === 't') targetKey = 'B';
+    else if (inst.id === 'gongue' && targetKey === 'x') targetKey = 'X';
+  } else if (inst.id === 'apito') {
+    if (targetKey === 'W') targetKey = 'L';
+    else if (targetKey === 'w' || targetKey === 'c') targetKey = 'C';
   }
 
   return targetKey;

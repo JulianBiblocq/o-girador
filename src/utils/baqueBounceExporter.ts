@@ -71,7 +71,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     const packed = schedule[i * 4 + 1], track = resolveTrackFromPackedData(packed, slicedAllTracks, schedule), inst = track ? instrumentsConfig[track.instrumentIdx] : null;
     if (!track || !inst || !baqueTrackIdSet.has(track.id)) continue;
     const { triggerSec } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
-    lookaheadPts.push({ trackId: track.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
+    lookaheadPts.push({ trackId: track.id, instId: inst.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
   }
   const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timing.totalDurationSec);
 

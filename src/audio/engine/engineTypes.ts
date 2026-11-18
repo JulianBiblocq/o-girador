@@ -14,6 +14,8 @@ export interface ActiveVoice {
   instrumentId: string;
   strokeSymbol?: string;
   isDucked?: boolean;
+  isLowPassChoked?: boolean;
+  lpFilter?: BiquadFilterNode | null;
 }
 
 export interface PooledGainNode extends GainNode {

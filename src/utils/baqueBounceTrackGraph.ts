@@ -116,7 +116,15 @@ export function scheduleOfflineStrokeHit(
 
   const src = ctx.createBufferSource(), gainNode = ctx.createGain();
   src.buffer = buffer; src.playbackRate.value = effectiveRate;
-  src.connect(gainNode); gainNode.connect(trackInput);
+  let lpFilter: BiquadFilterNode | null = null;
+  if (instId === 'timbal' && (strokeSymbol === 'G' || strokeSymbol === 'g')) {
+    lpFilter = ctx.createBiquadFilter();
+    lpFilter.type = 'lowpass'; lpFilter.frequency.value = 20000; lpFilter.Q.value = Math.SQRT1_2;
+    src.connect(lpFilter); lpFilter.connect(gainNode);
+  } else {
+    src.connect(gainNode);
+  }
+  gainNode.connect(trackInput);
 
   gainNode.gain.setValueAtTime(peakGain, time);
   gainNode.gain.setValueAtTime(peakGain, Math.min(expectedEnd, holdEnd));
@@ -128,6 +136,6 @@ export function scheduleOfflineStrokeHit(
   src.start(time); src.stop(expectedEnd);
   voices.push({
     source: src, gainNode, time, holdEnd, releaseEnd, expectedEnd,
-    velocity: peakGain, isFullBuffer: env.isFullBuffer, instrumentId: instId, strokeSymbol, isDucked: false,
+    velocity: peakGain, isFullBuffer: env.isFullBuffer, instrumentId: instId, strokeSymbol, isDucked: false, lpFilter,
   });
 }

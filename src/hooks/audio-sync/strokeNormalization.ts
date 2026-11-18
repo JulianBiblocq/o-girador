@@ -14,6 +14,10 @@ export function getNormalizedStroke(instId: string, rawStroke: string): string {
     if (targetKey === 'v') return 'V';
   } else if (instId === 'agbe' || instId === 'gongue') {
     if (targetKey === 't') return 'B';
+    if (instId === 'gongue' && targetKey === 'x') return 'X';
+  } else if (instId === 'apito') {
+    if (targetKey === 'W') return 'L';
+    if (targetKey === 'w' || targetKey === 'c') return 'C';
   }
   return targetKey;
 }

@@ -41,6 +41,10 @@ export async function renderAndUploadPatternBounce(
         else if (normStroke === 'C') normStroke = 'c';
       } else if (patternData.instrumentId === 'agbe' || patternData.instrumentId === 'gongue') {
         if (normStroke === 't') normStroke = 'B';
+        else if (patternData.instrumentId === 'gongue' && normStroke === 'x') normStroke = 'X';
+      } else if (patternData.instrumentId === 'apito') {
+        if (normStroke === 'W') normStroke = 'L';
+        else if (normStroke === 'w' || normStroke === 'c') normStroke = 'C';
       }
 
       const strokeDef = audioConfig.strokes.find(s =>

@@ -1,18 +1,19 @@
 /**
- * alfaiaTrackVoicePhysics.ts — Physique acoustique Web Audio (Live & Bounce Offline) isolée par piste (< 130 lignes).
+ * alfaiaTrackVoicePhysics.ts — Physique acoustique Web Audio (Live & Bounce Offline) isolée par piste (< 115 lignes).
  * Parité stricte avec `workletSkinPhysics.ts` :
- * - Alfaia : `A/a` (25 ms), `D/E` (22 ms), `d/e` (ducking -3.5 dB / 35 ms sur `D/E`).
- * - Gonguê (`X`, `G/g/A/a`) & Timbal (`P/p/S/s/V/v/G/g/A/a/F/f`) : choke 20 ms sur voix résonantes ouvertes (+ Barulho).
- * - Mineiro `P/p`, Timbal `D/d`/`C/c` et autres instruments : immunité totale hors Barulho (18 ms).
+ * - Alfaia : `A/a` (25 ms), `D/E` (22 ms), `d/e` (ducking -3.5 dB / 35 ms sur `D/E`), immunité peau sur `X`/`C`.
+ * - Autres instruments délégués à `selectiveTrackChokePhysics.ts`.
  */
 import { ALFAIA_GHOST_DUCK_GAIN } from '../worklet/processor/workletSkinPhysics';
 import { ActiveVoice, ALFAIA_INSTRUMENTS } from './engineTypes';
+import {
+  applyNonAlfaiaSelectiveChoke,
+  ChokeVoiceOps,
+  isWebAudioLoopVoiceSymbol,
+  resolveFrankStrokeBarulhoChokeSec,
+} from './selectiveTrackChokePhysics';
 
-const ALFAIA_WOOD_STROKES = new Set(['C', 'c', 'I', 'i', 'X', 'x']);
-const GONGUE_OPEN_STROKES = new Set(['G', 'g', 'A', 'a']);
-const GONGUE_CHOKE_TRIGGERS = new Set(['X', 'x', 'G', 'g', 'A', 'a']);
-const TIMBAL_OPEN_STROKES = new Set(['G', 'g', 'A', 'a', 'F', 'f']);
-const TIMBAL_CHOKE_TRIGGERS = new Set(['P', 'p', 'S', 's', 'V', 'v', 'G', 'g', 'A', 'a', 'F', 'f']);
+const ALFAIA_WOOD_STROKES = new Set(['C', 'c', 'X', 'x']);
 
 export function computeAnalyticalVoiceGainAtTime(v: ActiveVoice, t: number): number {
   const peak = Math.max(0.0001, v.velocity);
@@ -48,11 +49,39 @@ function chokeVoiceIn(v: ActiveVoice, time: number, rampSec: number): void {
   try {
     const gp = holdGainAt(v, time);
     gp.linearRampToValueAtTime(0.0001, time + rampSec);
-    gp.setValueAtTime(0, time + rampSec + 0.001);
+    gp.setValueAtTime?.(0, time + rampSec + 0.001);
     v.expectedEnd = time + rampSec + 0.002;
     v.source?.stop(v.expectedEnd);
   } catch (_) {}
 }
+
+function duckVoiceIn(v: ActiveVoice, time: number, durSec: number, gainMul: number): void {
+  try {
+    const gp = holdGainAt(v, time);
+    const targetEnd = Math.min(v.expectedEnd, time + durSec);
+    gp.linearRampToValueAtTime(Math.max(0.0001, computeAnalyticalVoiceGainAtTime(v, targetEnd) * gainMul), targetEnd);
+    v.velocity = Math.max(0.0001, v.velocity * gainMul);
+    v.isDucked = true;
+    if (targetEnd < v.expectedEnd) {
+      if (!v.isFullBuffer && targetEnd < v.releaseEnd) gp.exponentialRampToValueAtTime?.(0.0001, v.releaseEnd);
+      gp.linearRampToValueAtTime(0, v.expectedEnd);
+    }
+  } catch (_) {}
+}
+
+function lowPassChokeVoice(v: ActiveVoice, time: number, cutoffHz: number, filterRampSec: number, ampDecaySec: number): void {
+  v.isLowPassChoked = true;
+  if (v.lpFilter) {
+    try {
+      v.lpFilter.frequency.cancelScheduledValues(time);
+      v.lpFilter.frequency.setValueAtTime(20000, time);
+      v.lpFilter.frequency.exponentialRampToValueAtTime(cutoffHz, time + filterRampSec);
+    } catch (_) {}
+  }
+  chokeVoiceIn(v, time, ampDecaySec);
+}
+
+const CHOKE_OPS: ChokeVoiceOps = { chokeVoiceIn, duckVoiceIn, lowPassChokeVoice };
 
 export function applyWebAudioTrackSkinPhysics(
   voices: ActiveVoice[] | undefined,
@@ -62,18 +91,12 @@ export function applyWebAudioTrackSkinPhysics(
 ): void {
   if (!voices || voices.length === 0) return;
   const isAlfaia = ALFAIA_INSTRUMENTS.has(instrumentId);
-  const isResonantChoke =
-    (instrumentId === 'gongue' && GONGUE_CHOKE_TRIGGERS.has(strokeSymbol)) ||
-    (instrumentId === 'timbal' && TIMBAL_CHOKE_TRIGGERS.has(strokeSymbol));
 
-  if (strokeSymbol !== 'B' && strokeSymbol !== 'b' && strokeSymbol !== 'L' && strokeSymbol !== 'l' && strokeSymbol !== '/' && strokeSymbol !== '.') {
-    const barChokeSec = isAlfaia
-      ? (strokeSymbol === 'A' || strokeSymbol === 'a' ? 0.025 : (strokeSymbol === 'D' || strokeSymbol === 'E' ? 0.022 : 0.018))
-      : (isResonantChoke ? 0.020 : 0.018);
+  if (!isWebAudioLoopVoiceSymbol(instrumentId, strokeSymbol) && strokeSymbol !== '/' && strokeSymbol !== '.') {
+    const barChokeSec = resolveFrankStrokeBarulhoChokeSec(instrumentId, strokeSymbol);
     for (let i = 0; i < voices.length; i++) {
       const v = voices[i];
-      const isLoopSym = v?.strokeSymbol === 'B' || v?.strokeSymbol === 'b' || v?.strokeSymbol === 'L' || v?.strokeSymbol === 'l';
-      if (v && v.gainNode && isLoopSym && v.time < time && time < v.expectedEnd) {
+      if (v && v.gainNode && isWebAudioLoopVoiceSymbol(instrumentId, v.strokeSymbol) && v.time < time && time < v.expectedEnd) {
         chokeVoiceIn(v, time, barChokeSec);
       }
     }
@@ -81,45 +104,22 @@ export function applyWebAudioTrackSkinPhysics(
 
   if (isAlfaia) {
     if (strokeSymbol === 'd' || strokeSymbol === 'e') {
-      const duckEnd = time + 0.035;
-      for (let i = 0; i < voices.length; i++) {
-        const v = voices[i];
-        const isStrong = v?.strokeSymbol === 'D' || v?.strokeSymbol === 'E';
-        if (v && v.gainNode && isStrong && !v.isDucked && v.time < time && time < v.expectedEnd) {
-          try {
-            const gp = holdGainAt(v, time);
-            const targetEnd = Math.min(v.expectedEnd, duckEnd);
-            gp.linearRampToValueAtTime(Math.max(0.0001, computeAnalyticalVoiceGainAtTime(v, targetEnd) * ALFAIA_GHOST_DUCK_GAIN), targetEnd);
-            v.velocity *= ALFAIA_GHOST_DUCK_GAIN;
-            v.isDucked = true;
-            if (targetEnd < v.expectedEnd) {
-              if (!v.isFullBuffer && targetEnd < v.releaseEnd) gp.exponentialRampToValueAtTime(0.0001, v.releaseEnd);
-              gp.linearRampToValueAtTime(0, v.expectedEnd);
-            }
-          } catch (_) {}
+      for (const v of voices) {
+        if (v?.gainNode && (v.strokeSymbol === 'D' || v.strokeSymbol === 'E') && !v.isDucked && v.time < time && time < v.expectedEnd) {
+          duckVoiceIn(v, time, 0.035, ALFAIA_GHOST_DUCK_GAIN);
         }
       }
       return;
     }
-
-    const isAbafado = strokeSymbol === 'A' || strokeSymbol === 'a';
-    const isStrong = strokeSymbol === 'D' || strokeSymbol === 'E';
-    if (!isAbafado && !isStrong) return;
-    const rampSec = isAbafado ? 0.025 : 0.022;
-    for (let i = 0; i < voices.length; i++) {
-      const v = voices[i];
-      const isSkinVoice = !v?.strokeSymbol || !ALFAIA_WOOD_STROKES.has(v.strokeSymbol);
-      if (v && v.gainNode && isSkinVoice && v.time < time && time < v.expectedEnd) chokeVoiceIn(v, time, rampSec);
+    if (strokeSymbol !== 'A' && strokeSymbol !== 'a' && strokeSymbol !== 'D' && strokeSymbol !== 'E') return;
+    const rampSec = strokeSymbol === 'A' || strokeSymbol === 'a' ? 0.025 : 0.022;
+    for (const v of voices) {
+      if (v?.gainNode && (!v.strokeSymbol || !ALFAIA_WOOD_STROKES.has(v.strokeSymbol)) && v.time < time && time < v.expectedEnd) {
+        chokeVoiceIn(v, time, rampSec);
+      }
     }
     return;
   }
 
-  if (!isResonantChoke) return;
-  const openSet = instrumentId === 'gongue' ? GONGUE_OPEN_STROKES : TIMBAL_OPEN_STROKES;
-  for (let i = 0; i < voices.length; i++) {
-    const v = voices[i];
-    if (v && v.gainNode && v.strokeSymbol && openSet.has(v.strokeSymbol) && v.time < time && time < v.expectedEnd) {
-      chokeVoiceIn(v, time, 0.020);
-    }
-  }
+  applyNonAlfaiaSelectiveChoke(voices, instrumentId, strokeSymbol, time, CHOKE_OPS);
 }

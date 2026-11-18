@@ -25,6 +25,7 @@ CAIXA & TAROL
 GONGUÊ (Campana única de ferro forjado)
    G / g : Grave — alto da campana, perto da boca (Forte / Fraco)
    A / a : Agudo — parte baixa perto da base rígida (Forte / Fraco)
+   X : Parada / Toque abafado (baqueta presa na campana sem rebote)
    B : Barulho (Rulo contínuo)
 
 AGBÊ
@@ -46,7 +47,7 @@ TIMBAL (Regra: MAIÚSCULA = Mão Direita | minúscula = Mão Esquerda)
    F / f : Fla aberto (D/E) • V / v : Fla slap (D/E) • C : Palma (Clap) • B : Barulho
 
 APITO & TOADA (Gramática Vocal v2)
-   Apito : W (Forte / longo) • w (Curto / leve)
+   Apito : L / l (Longo contínuo : L -> l -> / -> .) • C (Curto)
    Toada : P (Puxador) • C (Coro) • _ (Sustentação / melisma ligado sem novo ataque) • / (Soldadura) • 0 (Silêncio vocal explícito)
 
 --- ESTRUTURA MUSICAL, RODA & PRANCHAS A4 ---
@@ -82,6 +83,7 @@ CAIXA & TAROL
 GONGUÊ (Cloche unique en fer forgé)
    G / g : Grave — haut de la cloche, près de la bouche (Fort / Faible)
    A / a : Aigu — bas vers la base rigide de la cloche (Fort / Faible)
+   X : Arrêt étouffé / Parada (baguette écrasée et plaquée sans rebond)
    B : Barulho (Roulement continu)
 
 AGBÊ
@@ -103,7 +105,7 @@ TIMBAL (Règle : MAJUSCULE = Main Droite | minuscule = Main Gauche)
    F / f : Fla ouvert (D/G) • V / v : Fla claqué (D/G) • C : Clap (Mains) • B : Barulho
 
 APITO & TOADA (Grammaire Vocale v2)
-   Apito : W (Fort / long) • w (Court / léger)
+   Apito : L / l (Long bouclé : L -> l -> / -> .) • C (Court)
    Toada : P (Puxador) • C (Coro) • _ (Tenue / mélisme lié sans ré-attaque) • / (Soudure de durée) • 0 (Silence vocal explicite)
 
 --- STRUCTURE MUSICALE, RODA & PLANCHES A4 ---

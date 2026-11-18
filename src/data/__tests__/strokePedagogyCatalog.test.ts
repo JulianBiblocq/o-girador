@@ -27,24 +27,27 @@ describe('strokePedagogyCatalog — textes officiels Mestre FR / PT-BR & mode ga
     }
   }
 
-  it("décrit le Gonguê comme une cloche unique (Haut / Base) sans jamais mentionner deux cloches ni X/M", () => {
+  it("décrit le Gonguê comme une cloche unique (Haut / Base / Arrêt étouffé X) sans jamais mentionner deux cloches ni M", () => {
     const gongueDefs = getStrokesForInstrument('gongue', 'gongue', 'fr', false).map((s) => s.symbol);
     const gonguePairIds = getStrokePairs('gongue', 'gongue', 'fr', false).map((p) => p.id);
-    expect(gongueDefs).toEqual(['G', 'g', 'A', 'a', 'B']);
-    expect(gonguePairIds).toEqual(['G', 'A', 'B']);
+    expect(gongueDefs).toEqual(['G', 'g', 'A', 'a', 'X', 'B']);
+    expect(gonguePairIds).toEqual(['G', 'A', 'X', 'B']);
 
     const gFr = resolveStrokePedagogy('gongue', 'gongue', 'G', 'fr', false)!;
     const aFr = resolveStrokePedagogy('gongue', 'gongue', 'A', 'fr', false)!;
+    const xFr = resolveStrokePedagogy('gongue', 'gongue', 'X', 'fr', false)!;
     const gPt = resolveStrokePedagogy('gongue', 'gongue', 'G', 'pt', false)!;
     const aPt = resolveStrokePedagogy('gongue', 'gongue', 'A', 'pt', false)!;
+    const xPt = resolveStrokePedagogy('gongue', 'gongue', 'X', 'pt', false)!;
     expect(gFr.title).toContain('Haut de la cloche');
     expect(aFr.title).toContain('Base de la cloche');
+    expect(xFr.title).toContain('Arrêt étouffé');
     expect(gPt.title).toContain('Topo da campana');
     expect(aPt.title).toContain('Base da campana');
-    for (const e of [gFr, aFr, gPt, aPt]) {
+    expect(xPt.title).toContain('Parada');
+    for (const e of [gFr, aFr, xFr, gPt, aPt, xPt]) {
       expect(e.description).not.toMatch(/petite campane|grande campane|campana maior|campana menor/i);
     }
-    expect(resolveStrokePedagogy('gongue', 'gongue', 'X', 'fr', false)).toBeNull();
     expect(resolveStrokePedagogy('gongue', 'gongue', 'M', 'pt', false)).toBeNull();
   });
 
