@@ -56,6 +56,8 @@ export interface PresetMetadata {
   transpositionSemitones?: number;
   vocalGrammarVersion?: number;
   alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
+  skinChorusAmount?: number;
+  rodaBreathingAmount?: number;
 }
 
 export interface Circle {
@@ -117,6 +119,8 @@ export interface Preset {
   isMasterVolumeBypassed?: boolean;
   globalAutomationBypass?: GlobalAutomationBypass;
   bypassedAutomationTracks?: number[];
+  skinChorusAmount?: number;
+  rodaBreathingAmount?: number;
 }
 
 export interface CloudRhythmSignal extends RhythmSignal {

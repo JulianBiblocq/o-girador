@@ -54,11 +54,12 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
 
     LUTHERIE_DRUM_ROLES.forEach((role) => {
       if (isWizard) {
-        const isPresent = placedInstruments.some((p) => p.instrumentType === role);
+        const placedCount = placedInstruments.filter((p) => p.instrumentType === role).length;
+        const isPresent = placedCount > 0;
         const tuning = instrumentTunings[role] ?? DEFAULT_SIGNATURE_TUNINGS[role];
         const decayPct = instrumentDecays[role] ?? 100;
         if (isPresent) presentCount++;
-        byRole[role] = { tuning, decayPct, trackId: null, isPresent, tracks: EMPTY_TRACKS };
+        byRole[role] = { tuning, decayPct, trackId: null, isPresent, tracks: EMPTY_TRACKS, placedCount };
       } else {
         const matching = tracks.filter((t) => !t.isBusFolder && !t.isLinkFolder && instrumentsConfig[t.instrumentIdx]?.id === role);
         const primary = (focusTrackId !== undefined && focusTrackId !== null
@@ -108,6 +109,9 @@ export function useBaqueLutherieState(langProp: string | undefined, isWizard: bo
       handleTuningChange(role, preset.tunings[role] ?? 0);
       handleDecayChange(role, preset.decays[role] ?? 100);
     });
+    const seq = useSequencerStore.getState();
+    seq.setSkinChorusAmount(preset.skinChorusAmount ?? 0.75);
+    seq.setRodaBreathingAmount(preset.rodaBreathingAmount ?? 0.75);
     audioPreviews.previewAlfaiasChord(preset, true);
   }, [handleTuningChange, handleDecayChange, audioPreviews]);
 

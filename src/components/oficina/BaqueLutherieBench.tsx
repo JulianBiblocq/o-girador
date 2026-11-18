@@ -1,13 +1,16 @@
 /**
- * BaqueLutherieBench.tsx — Banc d'accordage par famille, notes musicales (Hz/Cents), résonance (Decay)
- * et passerelles multi-pistes pour A Oficina et L'Assistant du Mestre (< 130 lignes).
+ * BaqueLutherieBench.tsx — Banc d'accordage par famille, Acoustique d'Ensemble (Chœur & Respiration),
+ * notes musicales (Hz/Cents), résonance (Decay) et Labo Boucles pour A Oficina & Assistant du Mestre (< 122 lignes).
  */
 import React from 'react';
-import { Volume2, Layers, Filter } from 'lucide-react';
-import { LUTHERIE_DRUM_ROLES, LutherieDrumRole } from '../../utils/audio/lutheriePresetsStorage';
+import { Volume2, Layers } from 'lucide-react';
+import { LutherieDrumRole } from '../../utils/audio/lutheriePresetsStorage';
+import { LutherieBenchScopeHeader } from './LutherieBenchScopeHeader';
+import { LutherieEnsembleAcousticBar } from './LutherieEnsembleAcousticBar';
 import { LutheriePresetsBar } from './LutheriePresetsBar';
 import { LutherieGongueAlignBar } from './LutherieGongueAlignBar';
 import { LutherieDrumCard } from './LutherieDrumCard';
+import { OficinaLoopLabPanel } from './OficinaLoopLabPanel';
 import { useBaqueLutherieState } from './useBaqueLutherieState';
 
 export interface BaqueLutherieBenchProps { lang?: string; mode?: 'sequencer' | 'modal' | 'wizard'; }
@@ -50,23 +53,14 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
   return (
     <div className="flex flex-col gap-4 text-[var(--cordel-text)]">
       {!isWizard && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border-strong)] px-3 py-2 shadow-[2px_2px_0px_var(--cordel-shadow-color)]">
-          <span className="font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 text-[var(--cordel-text)]">
-            <Filter size={13} className="text-[var(--cordel-accent-readable)]" />
-            <span>{isFr ? 'Affichage du Banc :' : 'Exibição da Bancada :'}</span>
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button type="button" data-testid="lutherie-filter-active" disabled={presentRolesCount === 0} onClick={() => setFilterScope('active')} className={`px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] cursor-pointer transition-colors disabled:opacity-40 ${effectiveScope === 'active' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`}>
-              {isFr ? `Batuque actif (${presentRolesCount})` : `Batuque ativo (${presentRolesCount})`}
-            </button>
-            <button type="button" data-testid="lutherie-filter-all" onClick={() => setFilterScope('all')} className={`px-2.5 py-1 border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase text-[10px] cursor-pointer transition-colors ${effectiveScope === 'all' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)]'}`}>
-              {isFr ? `Tous les instruments (${LUTHERIE_DRUM_ROLES.length})` : `Todos os instrumentos (${LUTHERIE_DRUM_ROLES.length})`}
-            </button>
-          </div>
-        </div>
+        <LutherieBenchScopeHeader
+          isFr={isFr} presentRolesCount={presentRolesCount}
+          effectiveScope={effectiveScope} onSelectScope={setFilterScope}
+        />
       )}
 
       <LutheriePresetsBar lang={effectiveLang} currentTunings={currentTunings} currentDecays={currentDecays} onApplyPreset={handleApplyPreset} />
+      <LutherieEnsembleAcousticBar lang={effectiveLang} drumsByRole={drumsByRole} />
       <LutherieGongueAlignBar lang={effectiveLang} currentTunings={currentTunings} onApplyTunings={handleApplyTuningsMap} />
 
       {visibleAlfaias.length > 0 && (
@@ -121,6 +115,8 @@ export const BaqueLutherieBench: React.FC<BaqueLutherieBenchProps> = React.memo(
       <button type="button" onClick={previewFullBaqueChord} className="w-full py-3 px-4 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-xs md:text-sm tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors">
         <Layers size={16} /><span>{isFr ? "Écouter l'Accord Complet du Baque" : 'Ouvir o Acorde Completo do Baque'}</span>
       </button>
+
+      {!isWizard && <OficinaLoopLabPanel lang={effectiveLang} />}
     </div>
   );
 });

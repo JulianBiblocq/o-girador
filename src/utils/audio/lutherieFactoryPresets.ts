@@ -28,6 +28,8 @@ export interface LutheriePreset {
   isFactory?: boolean;
   tunings: Record<LutherieDrumRole, number>;
   decays: Record<LutherieDrumRole, number>;
+  skinChorusAmount?: number;
+  rodaBreathingAmount?: number;
 }
 
 /** Accordage universel à froid : Do Majeur (Do2 • Mi2 • Sol2) + Gonguê Sol4 (392 Hz, 2 octaves au-dessus du Repique). */
@@ -89,27 +91,27 @@ export function buildFactoryLutheriePresets(
     {
       id: 'major_triad', nameFr: 'Do Majeur — Base', namePt: 'Dó Maior — Base', subtitle: 'Do2 • Mi2 • Sol2 + Sol4', isFactory: true,
       tunings: buildHarmonicTunings({ marcanteMidi: 36, meiaoMidi: 40, repiqueMidi: 43, snareRootMidi: 52, snareFifthMidi: 55, timbalMidi: 55, gongueMidi: 67 }, studioFlagsOverride),
-      decays: { ...FULL_DECAYS },
+      decays: { ...FULL_DECAYS }, skinChorusAmount: 0.75, rodaBreathingAmount: 0.75,
     },
     {
       id: 'minor_triad', nameFr: 'Ré Mineur', namePt: 'Ré Menor', subtitle: 'Ré2 • Fa2 • La2 + La4', isFactory: true,
       tunings: buildHarmonicTunings({ marcanteMidi: 38, meiaoMidi: 41, repiqueMidi: 45, snareRootMidi: 50, snareFifthMidi: 57, timbalMidi: 57, gongueMidi: 69 }, studioFlagsOverride),
-      decays: { marcante: 92, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100, gongue: 100 },
+      decays: { marcante: 92, meiao: 95, repique: 100, caixa: 95, tarol: 95, timbal: 100, gongue: 100 }, skinChorusAmount: 0.75, rodaBreathingAmount: 0.75,
     },
     {
       id: 'fifth_octave', nameFr: 'Quinte & Octave', namePt: 'Quinta & Oitava', subtitle: 'La1 • Mi2 • La2 + La4', isFactory: true,
       tunings: buildHarmonicTunings({ marcanteMidi: 33, meiaoMidi: 40, repiqueMidi: 45, snareRootMidi: 52, snareFifthMidi: 57, timbalMidi: 57, gongueMidi: 69 }, studioFlagsOverride),
-      decays: { marcante: 88, meiao: 92, repique: 100, caixa: 92, tarol: 95, timbal: 95, gongue: 100 },
+      decays: { marcante: 88, meiao: 92, repique: 100, caixa: 92, tarol: 95, timbal: 95, gongue: 100 }, skinChorusAmount: 0.75, rodaBreathingAmount: 0.75,
     },
     {
       id: 'fast_tight', nameFr: 'Baque Sec & Tendu', namePt: 'Baque Seco & Tenso', subtitle: 'Ré2 • Fa#2 • La2 + La4', isFactory: true,
       tunings: buildHarmonicTunings({ marcanteMidi: 38, meiaoMidi: 42, repiqueMidi: 45, snareRootMidi: 50, snareFifthMidi: 57, timbalMidi: 57, gongueMidi: 69 }, studioFlagsOverride),
-      decays: { marcante: 68, meiao: 74, repique: 82, caixa: 75, tarol: 75, timbal: 80, gongue: 90 },
+      decays: { marcante: 68, meiao: 74, repique: 82, caixa: 75, tarol: 75, timbal: 80, gongue: 90 }, skinChorusAmount: 0.65, rodaBreathingAmount: 0.8,
     },
     {
       id: 'studio_natural', nameFr: 'Brut Studio (Origine)', namePt: 'Estúdio Bruto', subtitle: '0 st • Sol#4', isFactory: true,
       tunings: { marcante: 0, meiao: 0, repique: 0, caixa: 0, tarol: 0, timbal: 0, gongue: 0 },
-      decays: { ...FULL_DECAYS },
+      decays: { ...FULL_DECAYS }, skinChorusAmount: 0.75, rodaBreathingAmount: 0.75,
     },
   ];
 }

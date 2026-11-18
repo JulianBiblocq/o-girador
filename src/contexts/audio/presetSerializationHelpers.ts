@@ -1,23 +1,64 @@
 /**
- * Helpers de restauration d'automations, transposition vocale et vigilance (< 60 lignes).
+ * Helpers de sérialisation/restauration d'automations, transposition vocale, vigilance
+ * et réglages d'Acoustique d'Ensemble (`skinChorusAmount`, `rodaBreathingAmount`) (< 85 lignes).
  */
 
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { DEFAULT_STUDIO_MASTER_BUS_CONFIG } from '../../audio/effects/studioFxPresets';
+import {
+  DEFAULT_RODA_BREATHING_AMOUNT,
+  DEFAULT_SKIN_CHORUS_AMOUNT,
+  sanitizeEnsembleAmount,
+  useSequencerStore,
+} from '../../stores/useSequencerStore';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
+import type { MasterFX } from '../../types';
+
+export function buildSerializedMasterFX(masterFX?: Partial<MasterFX> | null): MasterFX {
+  return {
+    reverb: {
+      returnVolume: masterFX?.reverb?.returnVolume ?? 70,
+      time: masterFX?.reverb?.time ?? 30,
+      isMuted: Boolean(masterFX?.reverb?.isMuted),
+      spaceType: masterFX?.reverb?.spaceType ?? 'wood_studio',
+      preDelayMs: masterFX?.reverb?.preDelayMs ?? 12,
+      lowCutHz: masterFX?.reverb?.lowCutHz ?? 140,
+      dampHz: masterFX?.reverb?.dampHz ?? 7500,
+      stereoWidth: masterFX?.reverb?.stereoWidth ?? 100,
+      presetId: masterFX?.reverb?.presetId ?? 'studio_bois',
+    },
+    distortion: {
+      returnVolume: masterFX?.distortion?.returnVolume ?? 0,
+      drive: masterFX?.distortion?.drive ?? 20,
+      isMuted: Boolean(masterFX?.distortion?.isMuted),
+      character: masterFX?.distortion?.character ?? 'soft_tube',
+      preHpfHz: masterFX?.distortion?.preHpfHz ?? 180,
+      toneHz: masterFX?.distortion?.toneHz ?? 6500,
+      presetId: masterFX?.distortion?.presetId ?? 'warm_triode',
+    },
+    masterBus: {
+      ...DEFAULT_STUDIO_MASTER_BUS_CONFIG,
+      ...(masterFX?.masterBus || {}),
+    },
+  };
+}
 
 export function restorePresetAutomationsAndVocal(p: any): void {
   const store = useSequencerStore.getState();
 
-  // 1. Transposition vocale
   const targetTranspose = typeof p.vocalTransposeSteps === 'number' ? p.vocalTransposeSteps : 0;
   store.setVocalTransposeSteps(targetTranspose);
 
-  // 2. Bypass d'automation Master et Global
   const isMasterBypassed = Boolean(p.isMasterVolumeBypassed);
   const globalBypass = p.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false };
+  const chorus = sanitizeEnsembleAmount(p.skinChorusAmount ?? p.metadata?.skinChorusAmount, DEFAULT_SKIN_CHORUS_AMOUNT);
+  const breathing = sanitizeEnsembleAmount(p.rodaBreathingAmount ?? p.metadata?.rodaBreathingAmount, DEFAULT_RODA_BREATHING_AMOUNT);
+
+  store.setSkinChorusAmount(chorus);
+  store.setRodaBreathingAmount(breathing);
   useSequencerStore.setState({
     isMasterVolumeBypassed: isMasterBypassed,
     globalAutomationBypass: globalBypass,
+    isEnsembleAcousticsBypassed: false,
   });
 }
 

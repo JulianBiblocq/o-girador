@@ -34,6 +34,7 @@ export interface WorkletSampleEntry {
   bodyStartFrame: number;
   loopResumeFrame: number;
   loopWrapFrame: number;
+  softEntryFrame?: number;
 }
 
 export interface LoadSampleMessage {
@@ -45,6 +46,7 @@ export interface LoadSampleMessage {
   bodyStartFrame?: number;
   loopResumeFrame?: number;
   loopWrapFrame?: number;
+  softEntryFrame?: number;
 }
 
 export interface UnloadSamplesMessage {
@@ -90,3 +92,12 @@ export type PercussionWorkletInboundMessage =
   | PurgeAllMessage
   | PurgeFromFrameMessage
   | PurgeTrackMessage;
+
+export interface WorkletMessageEvent<T> {
+  readonly data: T;
+}
+
+export interface WorkletPort {
+  onmessage: ((event: WorkletMessageEvent<PercussionWorkletInboundMessage>) => void) | null;
+  postMessage(message: unknown, transfer?: Transferable[]): void;
+}

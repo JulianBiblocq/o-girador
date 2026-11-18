@@ -13,8 +13,14 @@ import { UISlice } from '../slices/uiSliceTypes';
 import { PracticeModeSlice } from '../slices/practiceModeSliceTypes';
 import { AutomationBypassSlice } from '../slices/automationBypassSliceTypes';
 import { BusDynamicsSlice } from '../slices/busDynamicsSliceTypes';
+import { EnsembleAcousticsSlice } from '../slices/ensembleAcousticsSlice';
 
-export type TrackSlice = TrackCoreSlice & TrackHierarchySlice & TrackAcousticsSlice & TrackPatternEditSlice & BusDynamicsSlice;
+export type TrackSlice = TrackCoreSlice &
+  TrackHierarchySlice &
+  TrackAcousticsSlice &
+  TrackPatternEditSlice &
+  BusDynamicsSlice &
+  EnsembleAcousticsSlice;
 
 export type SequencerStore = TrackSlice &
   StructureSlice &

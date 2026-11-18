@@ -9,6 +9,7 @@ import {
   loadCustomLutheriePresets, saveCustomLutheriePreset, deleteCustomLutheriePreset,
   syncCustomLutheriePresetsFromCloud, isLutheriePresetMatching,
 } from '../../utils/audio/lutheriePresetsStorage';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 
 export interface LutheriePresetsBarProps {
   lang: string;
@@ -33,7 +34,8 @@ export const LutheriePresetsBar: React.FC<LutheriePresetsBarProps> = React.memo(
 
   const handleSaveSubmit = () => {
     if (!newName.trim()) return setIsSaving(false);
-    setCustomPresets(saveCustomLutheriePreset(newName, currentTunings, currentDecays));
+    const st = useSequencerStore.getState();
+    setCustomPresets(saveCustomLutheriePreset(newName, currentTunings, currentDecays, st.skinChorusAmount ?? 0.75, st.rodaBreathingAmount ?? 0.75));
     setNewName('');
     setIsSaving(false);
   };

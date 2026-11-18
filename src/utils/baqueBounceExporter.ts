@@ -5,7 +5,7 @@
  */
 import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
-import { getEffectiveMuteState, useSequencerStore } from '../stores/useSequencerStore';
+import { getEffectiveMuteState, getEffectiveSkinChorusAmount, useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { BarulhoLookaheadPoint } from '../audio/barulho/barulhoRampPlanner';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
@@ -75,6 +75,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
   }
   const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timing.totalDurationSec);
 
+  const chorusAmount = getEffectiveSkinChorusAmount(state);
   for (let i = 0; i < schedule.length / 4; i++) {
     const absTick = schedule[i * 4], packed = schedule[i * 4 + 1], stepVol = schedule[i * 4 + 2], microPct = schedule[i * 4 + 3];
     const track = resolveTrackFromPackedData(packed, slicedAllTracks, schedule), inst = track ? instrumentsConfig[track.instrumentIdx] : null;
@@ -82,7 +83,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
     const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
     await scheduleOfflineBounceStroke({
-      offlineCtx, graph, track, instId: inst.id, instCfg: configMap.get(inst.id)!, strokesMaps, sampleCache,
+      offlineCtx, graph, track, allTracks: state.tracks, chorusAmount, instId: inst.id, instCfg: configMap.get(inst.id)!, strokesMaps, sampleCache,
       offlineRR, barulhoTracker, packed, strokeSymbol, mIdx, circleStepIdx, triggerSec, stepVol, totalDurationSec: timing.totalDurationSec,
     });
   }

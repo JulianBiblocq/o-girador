@@ -17,6 +17,7 @@ import {
 import { disposeBusCompressorInsert } from './busCompressorInsert';
 import { clearWiredTrackInsert } from './trackInsertChain';
 import { clearWiredBusInsert } from './busInsertChain';
+import { disposeAllRodaSpectralSubBuses } from './rodaSpectralSubBus';
 
 let onTrackDisposeCallback: ((trackId: number | string) => void) | null = null;
 
@@ -76,4 +77,5 @@ export function disposeAllTrackNodes() {
       disposeTrackNodes(Number.isFinite(numKey) && String(numKey) === rawKey ? numKey : rawKey);
     }
   }
+  disposeAllRodaSpectralSubBuses();
 }

@@ -110,7 +110,7 @@ export class WorkletBarulhoSoa {
       out.handledLegato = true; return out;
     }
     out.handledLegato = false;
-    out.initialReadPos = computeBarulhoSoftEntryFrame(trackId, sample.bodyStartFrame, sample.loopResumeFrame, sample.loopWrapFrame);
+    out.initialReadPos = computeBarulhoSoftEntryFrame(trackId, sample.bodyStartFrame, sample.loopResumeFrame, sample.loopWrapFrame, sample.softEntryFrame);
     out.initialGain = 0; out.rampFrames = rampFrames; out.targetGain = peakGain; out.originCoord = 0;
     return out;
   }
@@ -120,5 +120,15 @@ export class WorkletBarulhoSoa {
     this.mode[v] = BARULHO_MODE_ROLLING; this.originCoord[v] = prep.originCoord; this.originSeqId[v] = seqId;
     this.loopResumeFrame[v] = sample.loopResumeFrame; this.loopWrapFrame[v] = sample.loopWrapFrame;
     if (prep.rampFrames > 0) this.scheduleRamp(v, startInBlock, prep.rampFrames, prep.targetGain, 0);
+  }
+
+  public refreshSampleLoopBounds(
+    sampleId: number, loopResume: number, loopWrap: number, voiceState: Uint8Array, voiceSampleId: Uint16Array, voiceReadPos: Float64Array
+  ): void {
+    for (let v = 0; v < MAX_WORKLET_VOICES; v++) {
+      if (voiceState[v] !== VOICE_STATE_ACTIVE || voiceSampleId[v] !== sampleId || this.mode[v] === BARULHO_MODE_NONE) continue;
+      this.loopResumeFrame[v] = loopResume; this.loopWrapFrame[v] = loopWrap;
+      if (loopWrap > loopResume && voiceReadPos[v] >= loopWrap) voiceReadPos[v] = loopResume;
+    }
   }
 }

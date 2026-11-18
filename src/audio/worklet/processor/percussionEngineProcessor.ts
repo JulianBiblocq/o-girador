@@ -1,5 +1,5 @@
 /**
- * O Girador - Processeur AudioWorklet Multi-Sorties de Percussions (< 140 lignes)
+ * O Girador - Processeur AudioWorklet Multi-Sorties de Percussions (< 122 lignes)
  * Typage strict `AudioWorkletGlobalScope` sans `any`, piloté par `currentFrame` et `sampleRate`.
  */
 
@@ -7,20 +7,13 @@ import {
   MAX_WORKLET_OUTPUTS,
   MAX_WORKLET_SAMPLES,
   PercussionWorkletInboundMessage,
+  WorkletMessageEvent,
+  WorkletPort,
   WorkletSampleEntry,
 } from '../percussionWorkletTypes';
 import { WorkletEventQueue } from './workletEventQueue';
 import { WorkletVoicePoolSoa } from './workletVoicePoolSoa';
 import { processWorkletDspBlock } from './workletDspKernel';
-
-interface WorkletMessageEvent<T> {
-  readonly data: T;
-}
-
-interface WorkletPort {
-  onmessage: ((event: WorkletMessageEvent<PercussionWorkletInboundMessage>) => void) | null;
-  postMessage(message: unknown, transfer?: Transferable[]): void;
-}
 
 declare abstract class AudioWorkletProcessor {
   readonly port: WorkletPort;
@@ -52,7 +45,6 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
     super();
     this.slotPitchRatio.fill(1.0);
     this.slotDecayNorm.fill(1.0);
-
     this.port.onmessage = (event: WorkletMessageEvent<PercussionWorkletInboundMessage>) => {
       this.handleMessage(event.data);
     };
@@ -62,15 +54,17 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
     switch (msg.type) {
       case 'LOAD_SAMPLE': {
         if (msg.sampleId >= 0 && msg.sampleId < MAX_WORKLET_SAMPLES && msg.ch0) {
+          const bodyStart = msg.bodyStartFrame ?? 0;
+          const loopResume = msg.loopResumeFrame ?? 0;
+          const loopWrap = msg.loopWrapFrame ?? 0;
           this.samples[msg.sampleId] = {
-            ch0: msg.ch0,
-            ch1: msg.ch1,
-            sampleRate: msg.sampleRate > 0 ? msg.sampleRate : sampleRate,
-            length: msg.ch0.length,
-            bodyStartFrame: msg.bodyStartFrame ?? 0,
-            loopResumeFrame: msg.loopResumeFrame ?? 0,
-            loopWrapFrame: msg.loopWrapFrame ?? 0,
+            ch0: msg.ch0, ch1: msg.ch1, sampleRate: msg.sampleRate > 0 ? msg.sampleRate : sampleRate,
+            length: msg.ch0.length, bodyStartFrame: bodyStart, loopResumeFrame: loopResume,
+            loopWrapFrame: loopWrap, softEntryFrame: msg.softEntryFrame ?? bodyStart,
           };
+          this.pool.barulho.refreshSampleLoopBounds(
+            msg.sampleId, loopResume, loopWrap, this.pool.voiceState, this.pool.voiceSampleId, this.pool.voiceReadPos
+          );
         }
         break;
       }
@@ -78,17 +72,13 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
         if (Array.isArray(msg.sampleIds)) {
           for (let i = 0; i < msg.sampleIds.length; i++) {
             const id = msg.sampleIds[i];
-            if (id >= 0 && id < MAX_WORKLET_SAMPLES) {
-              this.samples[id] = undefined;
-            }
+            if (id >= 0 && id < MAX_WORKLET_SAMPLES) this.samples[id] = undefined;
           }
         }
         break;
       }
       case 'PUSH_EVENTS': {
-        if (msg.eventsData && msg.eventCount > 0) {
-          this.queue.pushPackedEvents(msg.eventsData, msg.eventCount);
-        }
+        if (msg.eventsData && msg.eventCount > 0) this.queue.pushPackedEvents(msg.eventsData, msg.eventCount);
         break;
       }
       case 'UPDATE_TRACK_SLOT': {

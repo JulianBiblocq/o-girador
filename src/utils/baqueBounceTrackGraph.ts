@@ -3,10 +3,11 @@
  * Graphe hors-ligne (OfflineAudioContext) par piste pour le Bounce Baque :
  * Coupe-bas Butterworth, EQ 3 bandes, Pan, Bus/Link, Polarité Ø, Stems Bus, Calibration Studio 1.0 & Physique de peau (< 130 lignes).
  */
-import { getEffectiveVolume, useSequencerStore } from '../stores/useSequencerStore';
+import { instrumentsConfig } from '../data';
+import { getEffectiveRodaBreathingAmount, getEffectiveVolume, useSequencerStore } from '../stores/useSequencerStore';
 import { CONSOLE_HEADROOM_GAIN, faderPositionToDb, faderPositionToGain } from './audioMath';
 import { applyMonoCompatiblePan } from './audio/monoCompatiblePan';
-import { BUTTERWORTH_Q, resolveLowCutTargetHz } from '../audio/effects/insertEqTargets';
+import { BUTTERWORTH_Q, createOfflineRodaSpectralRouter, resolveLowCutTargetHz } from '../audio/effectsChain';
 import { computeEffectiveDecayNorm } from '../audio/engine/engineExecuteStroke';
 import { computeEnginePeakGain, computeProgressiveDecayEnvelope } from '../audio/engine/engineStrokePlayback';
 import { applyWebAudioTrackSkinPhysics } from '../audio/engine/alfaiaTrackVoicePhysics';
@@ -39,6 +40,7 @@ export function buildOfflineTrackGraph(
   const disableEq = Boolean(state.ecoConfig?.disableEq), globalBypass = state.globalAutomationBypass;
   const trackInputs = new Map<number, GainNode>(), activeVoicesByTrack = new Map<number, ActiveVoice[]>();
   const stems = createOfflineStemInputs(ctx, stemPlan);
+  const routeSpectral = createOfflineRodaSpectralRouter(ctx, allTracks, stems, getEffectiveRodaBreathingAmount(state), disableEq);
 
   for (const track of baqueTracks) {
     const route = resolveOfflineTrackRouting(track, allTracks, stemPlan);
@@ -80,8 +82,9 @@ export function buildOfflineTrackGraph(
       }
     }
 
+    const instId = instrumentsConfig[track.instrumentIdx]?.id ?? '';
     input.connect(lowCut); lowCut.connect(eqLow); eqLow.connect(eqMid); eqMid.connect(eqHigh);
-    eqHigh.connect(panner); panner.connect(fader); fader.connect(stems[route.stemIndex] ?? ctx.destination);
+    eqHigh.connect(panner); panner.connect(fader); fader.connect(routeSpectral(instId, route.stemIndex));
     trackInputs.set(track.id, input); activeVoicesByTrack.set(track.id, []);
   }
   return { trackInputs, activeVoicesByTrack };

@@ -119,8 +119,12 @@ export function buildStudioMineiroStrokes(): StrokeMapping[] {
 }
 
 export function buildStudioApitoStrokes(): StrokeMapping[] {
+  const shortFiles = buildStudioFiles('Apito', 'C', 4);
   return [
-    buildDedicatedStroke('W', buildStudioFiles('Apito', 'W', 3)),
-    buildDedicatedStroke('w', buildStudioFiles('Apito', 'w_min', 3)),
+    { symbol: 'L', keys: ['L'], files: ['Mixdown/Apito L.ogg'], caseSensitive: true, isBarulho: true, baseGain: 1.0 },
+    { symbol: 'l', keys: ['l'], files: ['Mixdown/Apito L.ogg'], caseSensitive: true, isBarulho: true, baseGain: 1.0 },
+    buildDedicatedStroke('C', shortFiles, ['C', 'c'], false),
+    { symbol: 'W', keys: ['W'], files: ['Mixdown/Apito L.ogg'], caseSensitive: true, isBarulho: true, baseGain: 1.0 },
+    buildDedicatedStroke('w', shortFiles, ['w'], true),
   ];
 }

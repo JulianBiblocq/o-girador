@@ -11,7 +11,7 @@ export interface HorizonPackerEngineDeps {
   getTrackUnisonDelaySec(trackId: number | string): number;
   getTrackBalancoAdherence(trackId: number | string): number;
   getTrackPitchRatio(trackId: number | string): number;
-  getSampleId(filePath: string): number;
+  getSampleId(filePath: string, isLoop?: boolean): number;
   selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string;
   strokesMaps: Map<string, Map<string, StrokeMapping>>;
   configMap: Map<string, InstrumentAudioConfig>;

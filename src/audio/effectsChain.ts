@@ -30,6 +30,13 @@ export {
   disposeMasterMonoNodes,
 } from './effects/masterMonoHandler';
 
+export {
+  connectChannelThroughRodaSubBus,
+  syncLiveRodaSpectralSubBuses,
+  disposeAllRodaSpectralSubBuses,
+  createOfflineRodaSpectralRouter,
+} from './effects/rodaSpectralSubBus';
+
 export function initInstrumentNodes() {
   // Les nœuds sont instanciés dynamiquement par track.id dans useAudioSync.ts
 }

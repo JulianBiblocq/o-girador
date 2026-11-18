@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import * as Tone from 'tone';
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveRodaBreathingAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { syncBusChannels } from './syncBusChannels';
 import { syncTrackChannels } from './syncTrackChannels';
 import { pruneOrphanAudioNodes } from './orphanAudioNodePruner';
@@ -9,7 +9,7 @@ import { safeRampTo } from '../../utils/audio/safeAudioParamRamp';
 import { mapReverbTimeKnobToDecaySec, updateStudioReverbNode } from '../../audio/effects/studioReverbImpulse';
 import { updateStudioSaturationNode } from '../../audio/effects/studioSaturationChain';
 import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
-import { syncMasterBusWorkletParams } from '../../audio/effectsChain';
+import { syncLiveRodaSpectralSubBuses, syncMasterBusWorkletParams } from '../../audio/effectsChain';
 import { syncAllBusCompressorsEco } from '../../audio/effects/busDynamicsSync';
 import {
   masterReverbVolumeNode, reverbNode, masterDistortionVolumeNode,
@@ -95,6 +95,15 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         } else {
           syncToadaVocalSlapback('off', 0, disableFx);
         }
+      }
+
+      const ensembleChanged =
+        state.skinChorusAmount !== prevState.skinChorusAmount ||
+        state.rodaBreathingAmount !== prevState.rodaBreathingAmount ||
+        state.isEnsembleAcousticsBypassed !== prevState.isEnsembleAcousticsBypassed;
+      if ((ensembleChanged || state.ecoConfig !== prevState.ecoConfig) && isAudioInitializedRef.current) {
+        audioEngine?.syncTracksToWorklet(state.tracks);
+        syncLiveRodaSpectralSubBuses(state.tracks, getEffectiveRodaBreathingAmount(state), Boolean(state.ecoConfig?.disableEq));
       }
 
       const tracksChanged = state.tracks !== prevState.tracks;

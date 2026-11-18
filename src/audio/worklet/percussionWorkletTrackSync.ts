@@ -6,7 +6,7 @@
 
 import { instrumentsConfig } from '../../data';
 import { InstrumentAudioConfig } from '../../data/audioConfig';
-import { getEffectiveMuteState, getTrackFamilyIds, useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, getEffectiveSkinChorusAmount, getTrackFamilyIds, useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { TrackGroup } from '../../types';
 import { EngineTuning } from '../engine/engineTuning';
@@ -49,6 +49,7 @@ export class PercussionWorkletTrackSync {
   ): void {
     const soloPatternPlayId = useTransportStore.getState().soloPatternPlayId;
     const seqState = useSequencerStore.getState();
+    const chorusAmount = getEffectiveSkinChorusAmount(seqState);
     const tjActive = seqState.tocarJuntoActive && seqState.tocarJuntoIsMuted !== false && seqState.tocarJuntoTrackId !== null;
     const tjFamilySet = tjActive && seqState.tocarJuntoMuteScope === 'family' && seqState.tocarJuntoTrackId !== null
       ? new Set(getTrackFamilyIds(seqState.tocarJuntoTrackId, tracks))
@@ -70,7 +71,7 @@ export class PercussionWorkletTrackSync {
       this.trackBalancoAdherence.set(trackId, temp.balancoAdherence);
 
       const config = instrumentId ? configMap.get(instrumentId) : undefined;
-      const pitchRatio = config ? EngineTuning.calculatePitch(instrumentId, config, track) : 1.0;
+      const pitchRatio = config ? EngineTuning.calculatePitch(instrumentId, config, track, undefined, tracks, chorusAmount) : 1.0;
       this.trackPitchRatio.set(trackId, pitchRatio);
 
       const slot = slotRouter.getTrackSlot(trackId);

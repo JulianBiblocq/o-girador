@@ -94,7 +94,7 @@ export class OfflineBarulhoPhraseTracker {
   public spawnOrUpdateBarulho(
     ctx: OfflineAudioContext, graph: OfflineTrackGraph, trackId: number, symbol: 'B' | 'b',
     rawBuffer: AudioBuffer, triggerSec: number, velocity: number, originCoord: number, maxEndSec: number,
-    opts: { isStudioCalibrated?: boolean; strokeBaseGain?: number }
+    opts: { isStudioCalibrated?: boolean; strokeBaseGain?: number; instId?: string }
   ): void {
     const trackInput = graph.trackInputs.get(trackId), t = Math.max(0, triggerSec);
     if (!trackInput || t >= maxEndSec - 0.001) return;
@@ -109,8 +109,8 @@ export class OfflineBarulhoPhraseTracker {
         pushLinearRamp(existing, t, Math.min(maxEndSec, t + spec.rampSec), targetGain); return;
       }
       if (existing) this.chokeVoice(trackId, t, 0.002, maxEndSec);
-      const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer);
-      const entrySec = computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame) / baked.buffer.sampleRate;
+      const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
+      const entrySec = computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / baked.buffer.sampleRate;
       const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput);
       const endT = Math.min(maxEndSec, t + spec.rampSec);
       gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(targetGain, endT);
@@ -121,7 +121,7 @@ export class OfflineBarulhoPhraseTracker {
 
     const peakGain = computeEnginePeakGain(adjVel, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
     if (this.activeByTrack.has(trackId)) this.chokeVoice(trackId, t, BARULHO_RETRIGGER_CHOKE_SEC, maxEndSec);
-    const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer);
+    const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
     const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput);
     gainNode.gain.setValueAtTime(peakGain, t); src.start(t, 0);
     this.activeByTrack.set(trackId, { src, gainNode, segs: [{ t, g: peakGain }], originCoord, zeroStopTime: null });

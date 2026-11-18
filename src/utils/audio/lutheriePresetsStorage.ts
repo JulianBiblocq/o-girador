@@ -49,7 +49,9 @@ export function loadCustomLutheriePresets(): LutheriePreset[] {
 export function saveCustomLutheriePreset(
   name: string,
   tunings: Record<LutherieDrumRole, number>,
-  decays: Record<LutherieDrumRole, number>
+  decays: Record<LutherieDrumRole, number>,
+  skinChorusAmount = 0.75,
+  rodaBreathingAmount = 0.75
 ): LutheriePreset[] {
   const cleanName = name.trim();
   if (!cleanName) return loadCustomLutheriePresets();
@@ -59,6 +61,7 @@ export function saveCustomLutheriePreset(
   const entry: LutheriePreset = {
     id: existingIdx >= 0 ? current[existingIdx].id : `custom_luth_${Date.now()}`,
     nameFr: cleanName, namePt: cleanName, isFactory: false, tunings: { ...tunings }, decays: { ...decays },
+    skinChorusAmount, rodaBreathingAmount,
   };
   const updated = existingIdx >= 0 ? current.map((p, idx) => (idx === existingIdx ? entry : p)) : [...current, entry];
   writeLocalPresets(updated);

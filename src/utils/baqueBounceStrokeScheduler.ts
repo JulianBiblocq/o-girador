@@ -41,6 +41,8 @@ export interface ScheduleOfflineBounceStrokeArgs {
   offlineCtx: OfflineAudioContext;
   graph: OfflineTrackGraph;
   track: Track;
+  allTracks?: readonly Track[];
+  chorusAmount?: number;
   instId: string;
   instCfg: InstrumentAudioConfig;
   strokesMaps: Map<string, Map<string, StrokeMapping>>;
@@ -58,7 +60,7 @@ export interface ScheduleOfflineBounceStrokeArgs {
 
 export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStrokeArgs): Promise<void> {
   const {
-    offlineCtx, graph, track, instId, instCfg, strokesMaps, sampleCache,
+    offlineCtx, graph, track, allTracks, chorusAmount = 0.75, instId, instCfg, strokesMaps, sampleCache,
     offlineRR, barulhoTracker, packed, strokeSymbol, mIdx, circleStepIdx, triggerSec, stepVol, totalDurationSec,
   } = a;
 
@@ -84,15 +86,17 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
 
   if (stroke.isBarulho) {
     const coord = packBarulhoOriginCoord(mIdx, circleStepIdx, (packed & 1) === 1);
-    barulhoTracker.spawnOrUpdateBarulho(offlineCtx, graph, track.id, strokeSymbol === 'b' ? 'b' : 'B', buf, triggerSec, stepVol, coord, totalDurationSec, {
+    const softSym = strokeSymbol === 'b' || strokeSymbol === 'l' ? 'b' : 'B';
+    barulhoTracker.spawnOrUpdateBarulho(offlineCtx, graph, track.id, softSym, buf, triggerSec, stepVol, coord, totalDurationSec, {
       isStudioCalibrated: isCalibrated,
       strokeBaseGain: stroke.baseGain ?? 1.0,
+      instId,
     });
     return;
   }
 
   barulhoTracker.chokeOnFrankStroke(track.id, instId, strokeSymbol, triggerSec, totalDurationSec);
-  const basePitch = EngineTuning.calculatePitch(instId, instCfg, track as any);
+  const basePitch = EngineTuning.calculatePitch(instId, instCfg, track as any, undefined, allTracks as any, chorusAmount);
   const headNuance = strokeSymbol === 'r' ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
   const finalStepVol = strokeSymbol === 'r' ? stepVol * 0.88 : stepVol;
   const decayNorm = ((packed >>> 2) & 0x7F) / 100;

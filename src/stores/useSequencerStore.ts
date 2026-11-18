@@ -14,6 +14,7 @@ import { createProjectSettingsSlice } from './slices/projectSettingsSlice';
 import { createPracticeModeSlice } from './slices/practiceModeSlice';
 import { createAutomationBypassSlice } from './slices/automationBypassSlice';
 import { createBusDynamicsSlice } from './slices/busDynamicsSliceActions';
+import { createEnsembleAcousticsSlice } from './slices/ensembleAcousticsSlice';
 
 import { SequencerStore, TrackSlice, MasterEffectsActiveState } from './types/sequencerStoreTypes';
 
@@ -38,6 +39,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createPracticeModeSlice(...a),
   ...createAutomationBypassSlice(...a),
   ...createBusDynamicsSlice(...a),
+  ...createEnsembleAcousticsSlice(...a),
 }));
 
 // ---------------------------------------------------------
@@ -113,6 +115,7 @@ export * from './slices/clipboardSliceTypes';
 export * from './slices/projectSettingsSlice';
 export * from './slices/projectSettingsSliceTypes';
 export * from './slices/automationBypassSlice';
+export * from './slices/ensembleAcousticsSlice';
 export * from '../utils/automationBypassHelper';
 export * from './types/sequencerStoreTypes';
 

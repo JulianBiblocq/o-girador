@@ -59,7 +59,7 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
 
   const trigTimeSec = triggerFrame / sampleRate;
   let filePath = engineDeps.selectRoundRobinFile(instId, stroke, trigTimeSec, trackId);
-  let sampleId = engineDeps.getSampleId(filePath);
+  let sampleId = engineDeps.getSampleId(filePath, Boolean(stroke.isBarulho));
   let isFallback80ms = false;
 
   if (sampleId < 0 && isAlfaia && (strokeSymbol === 'A' || strokeSymbol === 'a')) {

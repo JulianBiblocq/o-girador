@@ -6,6 +6,7 @@
 
 import { getTone } from '../../ToneLoader';
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
+import { getEffectiveSkinChorusAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { TrackGroup } from '../../types';
 import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import { EngineTuning } from './engineTuning';
@@ -78,7 +79,8 @@ export class EngineExecuteStroke {
     }
     if (!bufferEntry || !bufferEntry.loaded) return;
 
-    const allTracks = deps.trackLookupMap.size > 0 ? Array.from(deps.trackLookupMap.values()) : undefined;
+    const storeState = useSequencerStore.getState();
+    const allTracks = deps.trackLookupMap.size > 0 ? Array.from(deps.trackLookupMap.values()) : storeState.tracks;
     const microDelaySec = overrideTuning !== undefined ? 0 : resolveTrackSectionTemperament(track, allTracks).attackSpreadSec;
     const effectiveTime = time + microDelaySec;
     const voiceGuardKey = trackId !== null ? trackId : instrumentId;
@@ -89,9 +91,10 @@ export class EngineExecuteStroke {
     const isLeftHandRufada = effectiveSymbol === 'r';
     const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
     const pitchNuance = isLeftHandRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
+    const chorusAmount = getEffectiveSkinChorusAmount(storeState);
     const baseRate = resolvedStroke.isBarulho
       ? 1.0
-      : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning);
+      : EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning, allTracks, chorusAmount);
     const calculatedPitch = baseRate * pitchNuance;
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
     const isStudioCalibrated = Boolean(config.calibratedStudioBank);

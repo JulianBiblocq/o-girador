@@ -5,7 +5,7 @@ import { channels, meters, reverbSends, distortionSends, busInputs, busChannels,
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { CONSOLE_HEADROOM_GAIN } from '../../utils/audioMath';
-import { getEffectiveVolume, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveVolume, getEffectiveMuteState, getEffectiveRodaBreathingAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import {
   trackInputs,
@@ -17,6 +17,8 @@ import {
   syncBusSendVcaGain,
   computeBusLinearVcaGain,
   resolveImmediateBusId,
+  connectChannelThroughRodaSubBus,
+  syncLiveRodaSpectralSubBuses,
 } from '../../audio/effectsChain';
 import { AudioEngine } from '../../AudioEngine';
 import { applyInputPolarity } from '../../utils/audio/polarityGain';
@@ -29,7 +31,9 @@ export function initTrackChannelsAudioNodes(
   lastAppliedTracksParamsRef: React.MutableRefObject<Record<string, string>>,
   engine: AudioEngine | null
 ) {
-  const disableFx = Boolean(useSequencerStore.getState().ecoConfig?.disableFx);
+  const seqSt = useSequencerStore.getState();
+  const disableFx = Boolean(seqSt.ecoConfig?.disableFx), disableEq = Boolean(seqSt.ecoConfig?.disableEq);
+  const effBreathing = getEffectiveRodaBreathingAmount(seqSt);
   tracks.forEach((t) => {
     if (t.isBusFolder || t.isLinkFolder) return;
     const inst = instrumentsConfig[t.instrumentIdx];
@@ -63,10 +67,10 @@ export function initTrackChannelsAudioNodes(
     channels[t.id].disconnect();
     const isVocalTrack = inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro' || inst.id === 'toada';
     const masterTarget = (isVocalTrack && masterVocalInputNode) ? masterVocalInputNode : masterVolumeNode;
-    if (targetBusNode) {
-      channels[t.id].connect(targetBusNode);
-    } else if (masterTarget) {
-      channels[t.id].connect(masterTarget);
+    const finalTarget = targetBusNode || masterTarget;
+    if (finalTarget) {
+      const destKey = targetBusNode && targetBusId !== null ? `bus_${targetBusId}` : 'master';
+      connectChannelThroughRodaSubBus(channels[t.id], inst.id, destKey, finalTarget, tracks, effBreathing, disableEq);
     }
 
     if (reverbSends[t.id]) channels[t.id].connect(reverbSends[t.id]);
@@ -105,4 +109,5 @@ export function initTrackChannelsAudioNodes(
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
     lastAppliedTracksParamsRef.current[t.id] = `${effectiveLin.toFixed(6)}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
   });
+  syncLiveRodaSpectralSubBuses(tracks, effBreathing, disableEq, true);
 }

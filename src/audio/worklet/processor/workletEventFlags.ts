@@ -44,19 +44,23 @@ export function computeBarulhoSoftEntryFrame(
   trackId: number,
   bodyStartFrame: number,
   loopResumeFrame: number,
-  loopWrapFrame: number
+  loopWrapFrame: number,
+  softEntryFrame?: number
 ): number {
-  if (loopWrapFrame <= bodyStartFrame || bodyStartFrame <= 0) return Math.max(0, bodyStartFrame);
+  const baseEntry = softEntryFrame !== undefined && softEntryFrame >= bodyStartFrame ? softEntryFrame : bodyStartFrame;
+  if (loopWrapFrame <= bodyStartFrame || bodyStartFrame <= 0) return Math.max(0, baseEntry);
   const xfade = Math.max(0, loopResumeFrame - bodyStartFrame);
   const safeSpan = Math.max(1, loopWrapFrame - xfade - bodyStartFrame);
+  if (trackId <= 0) return Math.min(loopWrapFrame - xfade, baseEntry);
   const hash = ((((Math.max(0, trackId | 0) + 1) * 2654435761) >>> 0) % 997) / 997;
-  return bodyStartFrame + Math.floor(hash * safeSpan * 0.65);
+  const offset = Math.floor(hash * safeSpan * 0.65);
+  return bodyStartFrame + ((baseEntry - bodyStartFrame + offset) % safeSpan);
 }
 
 export function resolveBarulhoOpForSymbol(symbol: string, isBarulhoStroke: boolean): number {
   if (symbol === '/') return BARULHO_OP_FADEOUT_SLASH;
   if (symbol === '.') return BARULHO_OP_STOP_DOT;
-  if (isBarulhoStroke) return symbol === 'b' ? BARULHO_OP_SOFT_B : BARULHO_OP_ATTACK_B;
+  if (isBarulhoStroke) return symbol === 'b' || symbol === 'l' ? BARULHO_OP_SOFT_B : BARULHO_OP_ATTACK_B;
   return BARULHO_OP_NONE;
 }
 

@@ -66,13 +66,14 @@ export function applyWebAudioTrackSkinPhysics(
     (instrumentId === 'gongue' && GONGUE_CHOKE_TRIGGERS.has(strokeSymbol)) ||
     (instrumentId === 'timbal' && TIMBAL_CHOKE_TRIGGERS.has(strokeSymbol));
 
-  if (strokeSymbol !== 'B' && strokeSymbol !== 'b' && strokeSymbol !== '/' && strokeSymbol !== '.') {
+  if (strokeSymbol !== 'B' && strokeSymbol !== 'b' && strokeSymbol !== 'L' && strokeSymbol !== 'l' && strokeSymbol !== '/' && strokeSymbol !== '.') {
     const barChokeSec = isAlfaia
       ? (strokeSymbol === 'A' || strokeSymbol === 'a' ? 0.025 : (strokeSymbol === 'D' || strokeSymbol === 'E' ? 0.022 : 0.018))
       : (isResonantChoke ? 0.020 : 0.018);
     for (let i = 0; i < voices.length; i++) {
       const v = voices[i];
-      if (v && v.gainNode && (v.strokeSymbol === 'B' || v.strokeSymbol === 'b') && v.time < time && time < v.expectedEnd) {
+      const isLoopSym = v?.strokeSymbol === 'B' || v?.strokeSymbol === 'b' || v?.strokeSymbol === 'L' || v?.strokeSymbol === 'l';
+      if (v && v.gainNode && isLoopSym && v.time < time && time < v.expectedEnd) {
         chokeVoiceIn(v, time, barChokeSec);
       }
     }

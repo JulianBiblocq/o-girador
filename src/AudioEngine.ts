@@ -101,7 +101,7 @@ export class AudioEngine implements HorizonEngineLike {
   public getTrackBalancoAdherence(trackId: number | string): number { return this.workletManager.trackSync.getTrackBalancoAdherence(trackId); }
   public getTrackPitchRatio(trackId: number | string): number { return this.workletManager.trackSync.getTrackPitchRatio(trackId); }
   public selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string { return this.roundRobin.selectFile(instId, stroke, timeSec, trackId); }
-  public getSampleId(filePath: string): number { return this.workletManager.sampleBridge.getSampleId(filePath); }
+  public getSampleId(filePath: string, isLoop = false): number { return this.workletManager.sampleBridge.getSampleId(filePath, isLoop); }
   public pushWorkletEvents(eventsData: Float64Array, eventCount: number): void { this.workletManager.pushPackedEvents(eventsData, eventCount); }
   public purgeWorkletFromFrame(fromFrame: number, measureSeqId?: number): void { this.workletManager.purgeFromFrame(fromFrame, measureSeqId); }
   public purgeRoundRobinFromTime(fromTimeSec: number): void { this.roundRobin.purgeFromTime(fromTimeSec); }
@@ -138,5 +138,5 @@ export class AudioEngine implements HorizonEngineLike {
 }
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => { try { audioEngine?.stop(); safeSuspendAudioContext(); (Tone.getContext().rawContext as any)?.suspend?.(); } catch {} });
+  import.meta.hot.dispose(() => { try { audioEngine?.stop(); safeSuspendAudioContext(); (Tone.getContext().rawContext as any)?.suspend?.(); } catch { } });
 }

@@ -23,16 +23,16 @@ export function playBarulhoStroke(
   isLiveHold: boolean,
   strokeSymbol = 'B'
 ): void {
-  const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer);
+  const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer, instrumentId);
   source.buffer = baked.buffer;
   source.playbackRate.value = 1.0;
   source.loop = true;
   source.loopStart = baked.region.loopResumeSec;
   source.loopEnd = baked.region.loopWrapSec;
 
-  const isSoftB = strokeSymbol === 'b';
+  const isSoftB = strokeSymbol === 'b' || strokeSymbol === 'l';
   const entrySec = isSoftB
-    ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame) / baked.buffer.sampleRate
+    ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / baked.buffer.sampleRate
     : 0;
 
   if (isLiveHold) {
