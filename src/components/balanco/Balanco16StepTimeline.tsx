@@ -49,7 +49,7 @@ export const Balanco16StepTimeline: React.FC<Balanco16StepTimelineProps> = ({
       const rawPct = computeStepBalancoPercent({ stepIdx, steps: 16, beatResolutions, track, pattern, globalSwing });
       const percent = isLocked ? 0 : rawPct;
       const offsetMs = getBalancoOffsetSec({
-        stepIdx, steps: 16, beatResolutions, track, pattern, globalSwing, bpm: safeBpm, isPreRoll: false,
+        stepIdx, steps: 16, beatResolutions, track, pattern, globalSwing, bpm: safeBpm, isPreRoll: false, ignoreLiveMorph: true,
       }) * 1000;
       const translatePx = Math.max(-16, Math.min(16, (percent / 100) * 16));
       return { stepIdx, beatIdx, subIdx, label: `${beatIdx + 1}.${subIdx + 1}`, isLocked, percent, offsetMs, translatePx };

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { EditableNumber } from './EditableNumber';
 
@@ -77,7 +76,7 @@ export const DecaySliderControl: React.FC<DecaySliderControlProps> = ({
         {isVoice ? (
           <>
             <span>{lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
-            <span ref={labelRef} className="font-mono text-amber-800">
+            <span ref={labelRef} className="font-mono text-[var(--cordel-param-decay)]">
               {getVoiceDurationLabel(localVal, lang)}
             </span>
           </>
@@ -110,7 +109,7 @@ export const DecaySliderControl: React.FC<DecaySliderControlProps> = ({
         onInput={handleInput}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10 touch-none"
+        className="w-full cordel-range-decay cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10 touch-none"
       />
     </>
   );

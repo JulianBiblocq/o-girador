@@ -31,7 +31,7 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
     activeTool, isVoice, isFr, stats, playThrottledPreview, applyMacroVolumeDelta, applyMacroDecayDelta,
   } = props;
 
-  const bgCol = applyCordelInkedPatina(instrument.colors?.[symbol] || '#666');
+  const bgCol = applyCordelInkedPatina(instrument?.colors?.[symbol] || instrument?.color || '');
   const txtCol = isDarkText(instrument?.id, symbol, bgCol) ? 'var(--cordel-ink-dark)' : 'var(--cordel-on-accent)';
   const volLabelRef = useRef<HTMLSpanElement>(null);
   const decayLabelRef = useRef<HTMLSpanElement>(null);
@@ -65,11 +65,14 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
 
       <div className="flex flex-col gap-1 w-full min-w-0">
         <div className="flex justify-between items-center text-[10px] font-bold text-[var(--cordel-ink-dark)] w-full min-w-0">
-          <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate"><Volume2 size={12} className="text-[var(--cordel-accent-readable)] shrink-0" />Volume :</span>
+          <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate">
+            <Volume2 size={12} className="text-[var(--cordel-param-volume)] shrink-0" />Volume :
+          </span>
           <span ref={volLabelRef} className="font-mono text-[var(--cordel-ink-dark)] shrink-0 ml-1">{stats.avgVolume}%</span>
         </div>
         <input
           type="range" min="0" max="100" defaultValue={stats.avgVolume}
+          key={`stroke-vol-${symbol}-${stats.avgVolume}`}
           onInput={(e) => {
             const val = parseInt(e.currentTarget.value, 10);
             currentVolRef.current = val;
@@ -81,19 +84,20 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
             applyMacroVolumeDelta(symbol, val - stats.avgVolume, val);
             playThrottledPreview(symbol, val, currentDecayRef.current);
           }}
-          className="w-full accent-[var(--cordel-wood)] cursor-pointer h-1.5 bg-[var(--cordel-ink-dark)]/10"
+          className="w-full cordel-range-volume cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10"
         />
       </div>
 
       <div className="flex flex-col gap-1 w-full min-w-0">
         <div className="flex justify-between items-center text-[10px] font-bold text-[var(--cordel-ink-dark)] w-full min-w-0">
           <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate">
-            <Clock size={12} className="text-[var(--cordel-accent-readable)] shrink-0" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
+            <Clock size={12} className="text-[var(--cordel-param-decay)] shrink-0" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
           </span>
           <span ref={decayLabelRef} className="font-mono text-[var(--cordel-ink-dark)] shrink-0 ml-1">{stats.avgDecay}%</span>
         </div>
         <input
           type="range" min="10" max="100" defaultValue={stats.avgDecay}
+          key={`stroke-decay-${symbol}-${stats.avgDecay}`}
           onInput={(e) => {
             const val = parseInt(e.currentTarget.value, 10);
             currentDecayRef.current = val;
@@ -105,7 +109,7 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
             applyMacroDecayDelta(symbol, val - stats.avgDecay, val);
             playThrottledPreview(symbol, currentVolRef.current, val);
           }}
-          className="w-full accent-[var(--cordel-wood)] cursor-pointer h-1.5 bg-[var(--cordel-ink-dark)]/10"
+          className="w-full cordel-range-decay cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10"
         />
       </div>
 

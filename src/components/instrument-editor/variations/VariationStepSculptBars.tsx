@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export interface VariationStepSculptBarsProps {
@@ -37,20 +36,20 @@ export const VariationStepSculptBars: React.FC<VariationStepSculptBarsProps> = R
             <div
               key={sub}
               className={`flex flex-col gap-[1px] p-[1px] rounded-xs ${
-                isSelected && selectedSubIndex === sub ? 'bg-[#8b2a1a]/20 ring-1 ring-[#8b2a1a]' : ''
+                isSelected && selectedSubIndex === sub ? 'bg-[var(--cordel-wood)]/20 ring-1 ring-[var(--cordel-wood)]' : ''
               }`}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectSubIndex?.(sub as 0 | 1);
               }}
             >
-              <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative"><div className="h-full bg-green-600 transition-all" style={{ width: `${v}%` }} /></div>
-              <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative"><div className="h-full bg-amber-500 transition-all" style={{ width: `${d}%` }} /></div>
-              <div className="h-[2px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-                <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+              <div className="h-[2px] bg-[var(--cordel-ink-dark)]/10 w-full relative"><div className="h-full bg-[var(--cordel-param-volume)] transition-all" style={{ width: `${v}%` }} /></div>
+              <div className="h-[2px] bg-[var(--cordel-ink-dark)]/10 w-full relative"><div className="h-full bg-[var(--cordel-param-decay)] transition-all" style={{ width: `${d}%` }} /></div>
+              <div className="h-[2px] bg-[var(--cordel-ink-dark)]/15 w-full relative overflow-hidden">
+                <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[var(--cordel-ink-dark)]/30" />
                 {s !== 0 && (
                   <div
-                    className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                    className="absolute top-0 bottom-0 bg-[var(--cordel-param-timing)] transition-all"
                     style={{ left: s > 0 ? '50%' : 'auto', right: s < 0 ? '50%' : 'auto', width: `${Math.min(50, Math.abs(s) / 2)}%` }}
                   />
                 )}
@@ -64,13 +63,13 @@ export const VariationStepSculptBars: React.FC<VariationStepSculptBarsProps> = R
 
   return (
     <div className="flex flex-col gap-[2px] w-full">
-      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative"><div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} /></div>
-      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative"><div className="h-full bg-amber-500 transition-all" style={{ width: `${dec0}%` }} /></div>
-      <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-        <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+      <div className="h-[2px] bg-[var(--cordel-ink-dark)]/10 w-full relative"><div className="h-full bg-[var(--cordel-param-volume)] transition-all" style={{ width: `${vol0}%` }} /></div>
+      <div className="h-[2px] bg-[var(--cordel-ink-dark)]/10 w-full relative"><div className="h-full bg-[var(--cordel-param-decay)] transition-all" style={{ width: `${dec0}%` }} /></div>
+      <div className="h-[3px] bg-[var(--cordel-ink-dark)]/15 w-full relative overflow-hidden">
+        <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[var(--cordel-ink-dark)]/30" />
         {totalShift0 !== 0 && (
           <div
-            className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+            className="absolute top-0 bottom-0 bg-[var(--cordel-param-timing)] transition-all"
             style={{ left: totalShift0 > 0 ? '50%' : 'auto', right: totalShift0 < 0 ? '50%' : 'auto', width: `${Math.min(50, Math.abs(totalShift0) / 2)}%` }}
           />
         )}

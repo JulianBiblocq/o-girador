@@ -26,6 +26,7 @@ import {
   updateGongueStickGeometry,
 } from './GongueStickSvg';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { triggerAoVivoShockwave } from './AoVivoShockwave';
 
 export function dispatchMineiro(
   stroke: string,
@@ -76,13 +77,19 @@ export function dispatchGongue(
   currentStep: number,
   stepDurationMs: number,
   gongueStickEl: SVGSVGElement | null,
-  _animRef: React.MutableRefObject<Animation | null>
+  _animRef: React.MutableRefObject<Animation | null>,
+  haloEl?: HTMLDivElement | null,
+  geometry?: { targetX: number; targetY: number }
 ) {
   if (!gongueStickEl) return;
   const look = findGongueLookahead(activePlayingSteps, currentStep, stepDurationMs, isSubStep);
   const rate = CONFIG_GONGUE_STICK.speedMultiplier;
   const effectiveDuration = isVibrate ? Math.round(120 / rate) : Math.max(85, Math.round(look.msUntilNext / rate));
   startGongueTwoNodeAnimation(gongueStickEl, stroke, isLeftHanded, look.nextKind, effectiveDuration);
+  const norm = (stroke || '').trim();
+  if (haloEl && geometry && (['G', 'A', 'B'].includes(norm) || isVibrate)) {
+    triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: norm === 'B' || isVibrate });
+  }
 }
 
 export function resetGongueStickAndShadow(isLeftHanded: boolean, gongueStickEl: SVGSVGElement | null) {

@@ -105,9 +105,9 @@ export const TimbalHandSvg = React.forwardRef<SVGSVGElement, TimbalHandSvgProps>
 const WRAPPER_STYLE: React.CSSProperties = { bottom: '0px', width: '440px', transformOrigin: 'bottom center', perspective: '2000px', overflow: 'visible' };
 
 export const TimbalHandsOverlay: React.FC<{
-  haloRef: React.RefObject<HTMLDivElement | null>; leftWrapperRef: React.RefObject<HTMLDivElement | null>;
+  leftWrapperRef: React.RefObject<HTMLDivElement | null>;
   rightWrapperRef: React.RefObject<HTMLDivElement | null>; leftStickRef: React.RefObject<SVGSVGElement | null>; rightStickRef: React.RefObject<SVGSVGElement | null>;
-}> = ({ haloRef, leftWrapperRef, rightWrapperRef, leftStickRef, rightStickRef }) => {
+}> = ({ leftWrapperRef, rightWrapperRef, leftStickRef, rightStickRef }) => {
   const [, setTick] = useState(0);
   useEffect(() => subscribeTimbalHandsConfig(() => {
     setTick((n) => n + 1);
@@ -121,9 +121,6 @@ export const TimbalHandsOverlay: React.FC<{
 
   return (
     <>
-      <div ref={haloRef} data-skin-wave className="absolute pointer-events-none opacity-0" style={{ transform: 'translate(-50%, -50%) scale(0.98)', zIndex: 5 }}>
-        <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[6px]" style={{ borderColor: 'var(--cordel-bg)' }} />
-      </div>
       <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10 overflow-visible" style={WRAPPER_STYLE}>
         <TimbalHandSvg ref={leftStickRef} side="left" style={{ height: '100%', width: '100%', overflow: 'visible', transformOrigin: '50% 88%', transform: getTimbalHandRestTransform(true) }} />
       </div>

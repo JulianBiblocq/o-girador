@@ -46,18 +46,6 @@ export function getAlfaiaImpactPoseTransform(stroke: string, isLeftSide: boolean
   return `translate(${inSign * c.impactConvergeX}px, ${c.impactReachY + mobY}px) rotateZ(${inSign * 4.5}deg) scale(${sx}, ${sy}) skewX(${skew}deg)`;
 }
 
-export const KEYFRAMES_SKIN_WAVE: Keyframe[] = [
-  { transform: 'translate(-50%, -50%) scale(0.98)', opacity: 0, offset: 0 },
-  { transform: 'translate(-50%, -50%) scale(0.98)', opacity: 0.72, offset: 0.18 },
-  { transform: 'translate(-50%, -50%) scale(1.01)', opacity: 0, offset: 1 },
-];
-
-export const KEYFRAMES_SKIN_BARULHO: Keyframe[] = [
-  { transform: 'translate(-50%, -50%) scale(0.99)', opacity: 0.45, offset: 0 },
-  { transform: 'translate(-50%, -50%) scale(1.005)', opacity: 0.65, offset: 0.5 },
-  { transform: 'translate(-50%, -50%) scale(0.985)', opacity: 0.2, offset: 1 },
-];
-
 export function generateAlfaiaPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, familyOrIsMac: AlfaiaSecondaryStickFamily | boolean,
   nextKind: AlfaiaNextStrokeKind, durationMs: number = 220, autoLiftBeforeOtherHand = false

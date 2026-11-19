@@ -29,7 +29,6 @@ export function resolveAlfaiaSecondaryFamily(activeTrack: any): AlfaiaSecondaryS
 interface AlfaiaSticksOverlayProps {
   activeTrack?: any;
   isLeftHanded: boolean;
-  haloRef: React.RefObject<HTMLDivElement | null>;
   leftWrapperRef: React.RefObject<HTMLDivElement | null>;
   rightWrapperRef: React.RefObject<HTMLDivElement | null>;
   leftStickRef: React.RefObject<SVGSVGElement | null>;
@@ -54,7 +53,6 @@ const STICK_BASE_STYLE: React.CSSProperties = {
 export const AlfaiaSticksOverlay: React.FC<AlfaiaSticksOverlayProps> = ({
   activeTrack,
   isLeftHanded,
-  haloRef,
   leftWrapperRef,
   rightWrapperRef,
   leftStickRef,
@@ -109,14 +107,6 @@ export const AlfaiaSticksOverlay: React.FC<AlfaiaSticksOverlayProps> = ({
 
   return (
     <>
-      <div
-        ref={haloRef}
-        data-skin-wave
-        className="absolute pointer-events-none opacity-0"
-        style={{ transform: 'translate(-50%, -50%) scale(0.98)', zIndex: 5 }}
-      >
-        <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[6px]" style={{ borderColor: 'var(--cordel-bg)' }} />
-      </div>
       <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10 overflow-visible" style={WRAPPER_STYLE}>
         {isLeftHanded ? renderMainMacaneta(leftStickRef, true) : renderSecondaryStick(leftStickRef, true)}
       </div>

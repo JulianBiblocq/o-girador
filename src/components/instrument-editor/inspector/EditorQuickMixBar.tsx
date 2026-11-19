@@ -59,12 +59,12 @@ export const EditorQuickMixBar: React.FC<EditorQuickMixBarProps> = React.memo(({
       <div className="flex-1 min-w-0 flex flex-col gap-1" onDoubleClick={handleResetUnity}>
         <div className="flex items-center justify-between gap-1 text-[10px] font-bold text-[var(--cordel-ink-dark)]">
           <span className="flex items-center gap-1 truncate font-cactus uppercase tracking-wider">
-            <Volume2 size={12} className="text-[var(--cordel-accent-readable)] shrink-0" />
+            <Volume2 size={12} className="text-[var(--cordel-accent)] shrink-0" />
             <span className="truncate">{isFr ? 'Volume piste' : 'Volume da faixa'}</span>
           </span>
           <span
             ref={dbLabelRef}
-            className="font-mono text-[10px] text-[var(--cordel-accent-readable)] tabular-nums shrink-0 cursor-pointer"
+            className="font-mono text-[10px] text-[var(--cordel-accent)] tabular-nums shrink-0 cursor-pointer"
             title={isFr ? 'Double-clic : réinitialiser à 0.0 dB' : 'Duplo clique: redefinir para 0.0 dB'}
           >
             {faderPositionToDbString(volumeVal)}
@@ -73,7 +73,7 @@ export const EditorQuickMixBar: React.FC<EditorQuickMixBarProps> = React.memo(({
         <div className="relative h-2 w-full bg-[var(--cordel-ink-dark)]/15 rounded-xs overflow-hidden flex items-center">
           <div
             ref={fillRef}
-            className="absolute inset-0 bg-[var(--cordel-wood)] origin-left pointer-events-none"
+            className="absolute inset-0 bg-[var(--cordel-accent)] origin-left pointer-events-none"
             style={{ transform: `scaleX(${Math.max(0, Math.min(1, volumeVal / 100))})` }}
           />
           <input

@@ -23,6 +23,7 @@
   --cordel-surface-elevated: #28231f; --cordel-surface-muted: #181512;
   --cordel-paper-surface: #f4ecd8; --cordel-paper-ink: #1a1a1a;
   --cordel-status-success: #2f9e66; --cordel-status-danger: #c94a38;
+  --cordel-param-volume: #16a34a; --cordel-param-decay: #ea8500; --cordel-param-timing: #2980b9;
   --cordel-parchment-bg: #f4ecd8;
   --cordel-parchment-panel: #ece4d0;
   --cordel-parchment-surface: #efe7d3;
@@ -66,6 +67,9 @@
   border-radius: 2px; margin-top: -10px; box-shadow: 1px 1px 0px rgba(0,0,0,0.5); cursor: ew-resize;
 }
 .master-fader:focus { outline: none; }
+.cordel-range-volume { accent-color: var(--cordel-param-volume); color-scheme: light; }
+.cordel-range-decay { accent-color: var(--cordel-param-decay); color-scheme: light; }
+.cordel-range-accent { accent-color: var(--cordel-accent); color-scheme: light; }
 
 .roda-skin-scope {
   --cordel-bg: var(--roda-skin-bg);
@@ -90,6 +94,7 @@
   --cordel-surface-elevated: #f8f2e4; --cordel-surface-muted: #e4d8be;
   --cordel-paper-surface: #f4ecd8; --cordel-paper-ink: #1a1a1a;
   --cordel-status-success: #1f7a4c; --cordel-status-danger: #a82819;
+  --cordel-param-volume: #16a34a; --cordel-param-decay: #ea8500; --cordel-param-timing: #2980b9;
   --cordel-parchment-bg: #f4ecd8;
   --cordel-parchment-panel: #ece4d0;
   --cordel-parchment-surface: #efe7d3;

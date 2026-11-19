@@ -45,6 +45,7 @@ function triggerPackedNote(
   const noteSwingOffset = computePercussionNoteSwing({
     activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode, globalSwing, stepDurationSec,
     balancoAdherence: audioEngine ? audioEngine.getTrackBalancoAdherence(liveTrack.id) : 1.0,
+    baseStepAudioSec: time,
   });
 
   const stepCount = activePattern ? activePattern.steps : 16;

@@ -1,6 +1,6 @@
-
 import type { Pattern, Track, GlobalSwing } from '../types';
 import { useBalancoStore } from '../stores/useBalancoStore';
+import { getLiveBalancoMorphScaleAtTime } from '../audio/groove/liveBalancoMorph';
 
 export interface StepBalancoParams {
   stepIdx: number;
@@ -21,17 +21,16 @@ export function computeStepBalancoPercent({
   beatResolutions,
   track,
   pattern,
-  globalSwing
+  globalSwing,
 }: StepBalancoParams): number {
   if (globalSwing?.mode === 'off') return 0;
 
-  // 1. Détermination de la position dans le groupe de 4 doubles-croches
   let posInGroup = 0;
   if (beatResolutions && beatResolutions.length > 0) {
     let accumulated = 0;
     for (const res of beatResolutions) {
       if (stepIdx >= accumulated && stepIdx < accumulated + res) {
-        if (res === 3 || res === 6) return 0; // Pas de balanço sur les triolets / sextuplets
+        if (res === 3 || res === 6) return 0;
         posInGroup = stepIdx - accumulated;
         break;
       }
@@ -42,7 +41,6 @@ export function computeStepBalancoPercent({
     posInGroup = Math.round(posInBeat) % 4;
   }
 
-  // 2. Multiplicateurs de dosage d'intensité (Track * Pattern * Global)
   const trackAmount = track?.balancoAmount !== undefined
     ? track.balancoAmount
     : (track?.swingIntensity !== undefined ? track.swingIntensity : 100);
@@ -54,11 +52,9 @@ export function computeStepBalancoPercent({
   const globalIntensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100;
   const effectiveIntensity = globalIntensity * totalMultiplier;
 
-  // 3. Résolution du preset : Pattern > Track > Global
   const patternPresetId = pattern?.balancoPresetId;
   const trackPresetId = track?.balancoPresetId;
 
-  // Si aucune surcharge locale n'est définie sur la piste ou le motif, utiliser les offsets globaux actifs
   if (
     !patternPresetId &&
     !trackPresetId &&
@@ -70,7 +66,6 @@ export function computeStepBalancoPercent({
     return offsetPct * effectiveIntensity;
   }
 
-  // Résolution via useBalancoStore (surcharge Piste / Motif ou repli Maracatu usine)
   const effectivePresetId = patternPresetId || trackPresetId || (globalSwing?.mode === 'maracatu' ? 'maracatu-trad' : undefined);
   const resolvedPreset = useBalancoStore.getState().resolvePreset(effectivePresetId);
   const offsets = resolvedPreset?.offsets ?? [0, 8, -29, -58];
@@ -82,16 +77,10 @@ export function computeStepBalancoPercent({
 export interface BalancoOffsetParams extends StepBalancoParams {
   bpm: number;
   isPreRoll?: boolean;
+  baseStepAudioSec?: number;
+  ignoreLiveMorph?: boolean;
 }
 
-/**
- * Calcule le décalage temporel en secondes (deltaT) induit par le Balanço
- * pour un pas donné, directement convertible pour Tone.js / Web Audio.
- * 
- * Sécurités :
- * - Ancrage strict à 0 sur le premier temps de mesure (stepIdx === 0 hors anacrouse).
- * - Calibrage identique au moteur des percussions (100% = demi-durée de pas).
- */
 export function getBalancoOffsetSec({
   stepIdx,
   steps,
@@ -101,9 +90,14 @@ export function getBalancoOffsetSec({
   globalSwing,
   bpm,
   isPreRoll = false,
+  baseStepAudioSec,
+  ignoreLiveMorph = false,
 }: BalancoOffsetParams): number {
   if (!isPreRoll && stepIdx === 0) return 0;
   if (!bpm || bpm <= 0) return 0;
+
+  const morphScale = ignoreLiveMorph ? 1.0 : getLiveBalancoMorphScaleAtTime(baseStepAudioSec);
+  if (morphScale <= 0) return 0;
 
   const percent = computeStepBalancoPercent({
     stepIdx,
@@ -116,7 +110,7 @@ export function getBalancoOffsetSec({
 
   if (percent === 0) return 0;
 
-  const numBeats = 4; // Référence quaternaire par défaut
+  const numBeats = 4;
   const stepDurationSec = (60 / bpm) / (steps / numBeats);
-  return (percent / 100) * stepDurationSec * 0.5;
+  return (percent / 100) * stepDurationSec * 0.5 * morphScale;
 }

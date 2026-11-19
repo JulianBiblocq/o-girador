@@ -10,11 +10,11 @@ import {
   getNextMineiroPole,
   getAgbeDuration,
   getGongueDuration,
-  KEYFRAMES_HALO,
   CONFIG_TIMBAL,
   MineiroPole,
 } from '../../audio/animationGenerators';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { triggerAoVivoShockwave } from './AoVivoShockwave';
 
 export function dispatchAlfaiaOrDrum(
   instId: string,
@@ -56,7 +56,7 @@ export function dispatchAlfaiaOrDrum(
     } else if (stroke === 'x' || stroke === 'X' || stroke === 'c' || stroke === 'C') {
       keyframesLeft = gen(stroke, true, bpm, isLeftHanded);
       keyframesRight = gen(stroke, false, bpm, isLeftHanded);
-      triggerLeft = true; triggerRight = true; animHalo = true; haloOffsetY = stroke.toLowerCase() === 'c' ? -150 : -100;
+      triggerLeft = true; triggerRight = true;
     } else if (!isAlfaia && (stroke === 'f' || stroke === 'F')) {
       const isRightStrong = stroke === 'F';
       keyframesLeft = generateDrumKeyframes(isRightStrong ? 'fla-weak' : 'fla-strong', true, bpm, isLeftHanded);
@@ -78,9 +78,7 @@ export function dispatchAlfaiaOrDrum(
     rightAnimRef.current = rightStickEl.animate(keyframesRight, { duration, iterations: isVibrate ? Infinity : 1, fill: 'forwards' });
   }
   if (animHalo && haloEl) {
-    haloEl.style.left = `${geometry.targetX}px`;
-    haloEl.style.top = `${geometry.targetY + haloOffsetY}px`;
-    haloEl.animate(KEYFRAMES_HALO, { duration: 400, easing: 'ease-out' });
+    triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY + haloOffsetY });
   }
 }
 

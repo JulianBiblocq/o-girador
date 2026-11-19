@@ -4,8 +4,8 @@ import {
   generateAlfaiaPredictiveKeyframes, generateAlfaiaShadowKeyframes,
   generateBacalhauAbafadoTipKeyframes, generateBacalhauTipKeyframes,
   getAlfaiaShadowRestTransform, getAlfaiaStickRestTransform, getHandMemory,
-  KEYFRAMES_SKIN_BARULHO, KEYFRAMES_SKIN_WAVE,
 } from '../../audio/animations/alfaiaKinematics';
+import { triggerAoVivoShockwave } from './AoVivoShockwave';
 import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 import {
   findAlfaiaCrossHandLookahead, isMufflingStickRef,
@@ -113,10 +113,8 @@ export function dispatchAlfaiaPredictiveStroke(
     isMufflingStickRef.current = false;
     animateStickWithShadow(secStickEl, secAnimRef, isBarulho ? 'B' : norm, secSide, secFamily, secLook.nextKind, secLook.msUntilNext, isBarulho);
   }
-  if (haloEl && (['D', 'E', 'I', 'B', 'S', 'V'].includes(sUp) || isBarulho)) {
-    haloEl.style.left = `${geometry.targetX}px`; haloEl.style.top = `${geometry.targetY}px`;
-    haloEl.getAnimations().forEach((a) => a.cancel());
-    haloEl.animate(isBarulho ? KEYFRAMES_SKIN_BARULHO : KEYFRAMES_SKIN_WAVE, { duration: isBarulho ? 90 : 150, iterations: isBarulho ? 3 : 1, easing: 'ease-out' });
+  if (haloEl && (['D', 'E', 'I', 'S', 'V', 'R', 'F', 'B'].includes(norm) || isBarulho)) {
+    triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: isBarulho });
   }
 }
 

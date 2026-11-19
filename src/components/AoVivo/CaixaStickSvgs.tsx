@@ -83,7 +83,6 @@ export const CaixaStickSvg = React.forwardRef<SVGSVGElement, CaixaStickSvgProps>
 
 interface CaixaSticksOverlayProps {
   instId: string;
-  haloRef: React.RefObject<HTMLDivElement | null>;
   leftWrapperRef: React.RefObject<HTMLDivElement | null>;
   rightWrapperRef: React.RefObject<HTMLDivElement | null>;
   leftStickRef: React.RefObject<SVGSVGElement | null>;
@@ -92,7 +91,7 @@ interface CaixaSticksOverlayProps {
 
 const WRAPPER_STYLE: React.CSSProperties = { bottom: '0px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px', overflow: 'visible' };
 
-export const CaixaSticksOverlay: React.FC<CaixaSticksOverlayProps> = ({ instId, haloRef, leftWrapperRef, rightWrapperRef, leftStickRef, rightStickRef }) => {
+export const CaixaSticksOverlay: React.FC<CaixaSticksOverlayProps> = ({ instId, leftWrapperRef, rightWrapperRef, leftStickRef, rightStickRef }) => {
   const [, setTick] = useState(0);
   const family = resolveCaixaActiveFamily(instId);
 
@@ -117,9 +116,6 @@ export const CaixaSticksOverlay: React.FC<CaixaSticksOverlayProps> = ({ instId, 
 
   return (
     <>
-      <div ref={haloRef} data-skin-wave className="absolute pointer-events-none opacity-0" style={{ transform: 'translate(-50%, -50%) scale(0.98)', zIndex: 5 }}>
-        <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[6px]" style={{ borderColor: 'var(--cordel-bg)' }} />
-      </div>
       <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10 overflow-visible" style={WRAPPER_STYLE}>
         <CaixaStickSvg ref={leftStickRef} isLeftSide={true} family={family} style={{ height: '100%', width: '100%', overflow: 'visible', transformOrigin: '50% 92%', transform: getCaixaStickRestTransform(true, family) }} />
       </div>

@@ -5,6 +5,7 @@ import { resolveDefaultFocusTrackId } from '../../utils/focusTrackSelector';
 import { getStoredWorkingInstrument } from '../../utils/userPreferencesStorage';
 import { applyFocusTracksVisibility, restoreUnfocusedTracksVisibility } from '../helpers/focusVisibilityHelpers';
 import { syncAoVivoOnTrackSwitch } from '../../components/AoVivo/resolveAoVivoFamily';
+import { setFocusBalancoDrawerOpen, resetLiveBalancoMorphToUnity } from '../../audio/groove/liveBalancoMorph';
 
 let lastSyncedSongKey = '';
 let lastSyncedProfileKey = '';
@@ -89,6 +90,7 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
     const targetId = explicitTrackId ?? s.focusTrackId ?? resolveDefaultFocusTrackId(s.tracks, null, s.preferredInstrumentName);
     if (targetId === null) return;
     if (s.isFocusActive) {
+      setFocusBalancoDrawerOpen(false);
       set((p) => ({
         isFocusActive: false, referenceTrackId: null, activeAoVivoTrackId: null,
         tracks: restoreUnfocusedTracksVisibility(p.tracks, p.rodaTrackOrder), tracksVersion: p.tracksVersion + 1,
@@ -109,6 +111,7 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
     const profileKey = `${userProfile?.uid || ''}|${userProfile?.instrument || ''}|${userProfile?.preferredInstrument || ''}|${s.preferredInstrumentName || ''}`;
     const songChanged = songKey !== lastSyncedSongKey, profileChanged = profileKey !== lastSyncedProfileKey;
     lastSyncedSongKey = songKey; lastSyncedProfileKey = profileKey;
+    if (songChanged) resetLiveBalancoMorphToUnity();
 
     const currentId = s.focusTrackId;
     const exists = currentId !== null && tracks.some((t) => t.id === currentId);

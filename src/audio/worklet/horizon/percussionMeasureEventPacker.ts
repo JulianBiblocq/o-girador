@@ -1,6 +1,7 @@
 /**
  * O Girador - Empaquetage des Événements de Mesure vers AudioWorklet (< 115 lignes)
  * - Convertit la grille compilée + variations en tuples `Float64Array` (stride 9) avec tempérament de section.
+ * - Filtre anti-doublon invariant par `(trackIdx, circleStepIdx, isSecondStroke)` lors du morphing de Balanço.
  */
 import { instrumentsConfig } from '../../../data';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
@@ -30,9 +31,11 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
   const { seqId, timing, measureStartTick, tracks, soloPatternPlayId, globalSwing, flatCompiledSchedule, variedTrackIds, variationNotes, engineDeps, sampleRate, currentFrame, minRebuildFrame, previousEmittedNoteFrames, lookaheadPoints } = p;
   const coveredTrackIds = new Set<number>(), uncoveredTrackIds = new Set<number>();
   const emittedNoteFrames = new Map<number, number>(), stagedEvents: number[] = [];
+  const trackOrderById = new Map<number, number>();
 
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i], inst = t ? instrumentsConfig[t.instrumentIdx] : undefined;
+    if (t) trackOrderById.set(t.id, i);
     if (t && inst && !t.isBusFolder && !t.isLinkFolder && engineDeps.isTrackRoutedToWorklet(t.id, inst.id)) coveredTrackIds.add(t.id);
   }
 
@@ -47,23 +50,27 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     const circleStepIdx = (packedData >> 16) & 0x3F, strokeSymbol = String.fromCharCode((packedData >> 9) & 0x7F);
     const decayPct = (packedData >> 2) & 0x7F, isTuplet = ((packedData >> 1) & 1) === 1, isSecondStroke = (packedData & 1) === 1;
     const tickDurSec = timing.instantTickDurSec[tickInMeasure], stepDurationSec = tickDurSec * 6;
+    const baseStepAudioSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure];
     const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, timing.measureIdx, soloPatternPlayId);
     const swingJitter = (((((seqId * 31 + tickInMeasure) * 17 + liveTrack.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
     const swingSec = computePercussionNoteSwing({
       activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter,
       globalMode: globalSwing.mode, globalSwing, stepDurationSec,
       balancoAdherence: engineDeps.getTrackBalancoAdherence(liveTrack.id),
+      baseStepAudioSec,
     });
     const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
-    const swungTimeSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure] + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id) + swingSec;
+    const swungTimeSec = baseStepAudioSec + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id) + swingSec;
     const rawFrame = Math.round(swungTimeSec * sampleRate);
 
-    const noteUid = ((tickInMeasure & 0xFF) << 22) | (packedData >>> 9);
+    const trackOrderIdx = trackOrderById.get(liveTrack.id) ?? 0;
+    const noteUid = ((trackOrderIdx & 0xFF) << 8) | ((circleStepIdx & 0x3F) << 1) | (isSecondStroke ? 1 : 0);
     const oldFrame = previousEmittedNoteFrames?.get(noteUid);
     if (minRebuildFrame > 0 && oldFrame !== undefined && oldFrame < minRebuildFrame) { emittedNoteFrames.set(noteUid, oldFrame); return; }
     let triggerFrame = rawFrame;
     if (minRebuildFrame > 0) {
-      if (rawFrame >= currentFrame && rawFrame < minRebuildFrame) triggerFrame = minRebuildFrame;
+      if (oldFrame !== undefined && oldFrame >= minRebuildFrame) triggerFrame = Math.max(rawFrame, minRebuildFrame);
+      else if (rawFrame >= currentFrame && rawFrame < minRebuildFrame) triggerFrame = minRebuildFrame;
       else if (rawFrame < minRebuildFrame) return;
     } else if (rawFrame < currentFrame - Math.round(0.015 * sampleRate)) return;
     else if (rawFrame < currentFrame) triggerFrame = currentFrame;

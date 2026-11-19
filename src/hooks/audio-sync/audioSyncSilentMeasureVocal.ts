@@ -58,6 +58,7 @@ export function evaluateSilentMeasurePreRollSyllables(p: SilentMeasureVocalParam
     globalSwing,
     bpm: currentMeasureBpm,
     isPreRoll: true,
+    baseStepAudioSec: time,
   });
   const preRollMicroVal = nextPattern.preRollMicrotimings?.[cellIdx] ?? nextPattern.microtimings?.[cellIdx] ?? 0;
   const preRollMicroPct = Array.isArray(preRollMicroVal) ? (preRollMicroVal[0] ?? 0) : (typeof preRollMicroVal === 'number' ? preRollMicroVal : 0);

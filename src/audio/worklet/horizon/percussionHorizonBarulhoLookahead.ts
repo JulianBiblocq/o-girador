@@ -1,6 +1,6 @@
 /**
  * percussionHorizonBarulhoLookahead.ts — Extraction chronologique multi-mesures `[M, M+1, M+2]`
- * des points d'intérêt Barulho/frappes par piste (avec `swingSec` exact du pas cible) (< 95 lignes).
+ * des points d'intérêt Barulho/frappes par piste (avec `swingSec` exact du pas cible) (< 100 lignes).
  */
 
 import { instrumentsConfig } from '../../../data';
@@ -47,17 +47,18 @@ export function buildHorizonBarulhoLookaheadPoints(
       const isTuplet = ((packedData >> 1) & 1) === 1;
       const tickDurSec = timing.instantTickDurSec[tickInMeasure];
       const stepDurationSec = tickDurSec * 6;
+      const baseStepAudioSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure];
       const activePattern = resolveActivePatternForMeasure(track, mutTracks, timing.measureIdx, soloPatternPlayId);
       const swingJitter = (((((pm.seqId * 31 + tickInMeasure) * 17 + track.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
       const swingSec = computePercussionNoteSwing({
         activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter,
         globalMode: globalSwing.mode, globalSwing, stepDurationSec,
         balancoAdherence: engineDeps.getTrackBalancoAdherence(track.id),
+        baseStepAudioSec,
       });
       const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
       const timeSec =
-        timing.startTimeSec +
-        timing.tickOffsetsSec[tickInMeasure] +
+        baseStepAudioSec +
         microSec +
         engineDeps.getTrackUnisonDelaySec(track.id) +
         swingSec;

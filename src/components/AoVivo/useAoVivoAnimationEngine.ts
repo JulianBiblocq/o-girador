@@ -7,6 +7,7 @@ import { dispatchAlfaiaPredictiveStroke } from './alfaiaLookaheadHelper';
 import { dispatchCaixaPredictiveStroke } from './caixaLookaheadHelper';
 import { dispatchMineiro, dispatchAgbe, dispatchGongue } from './aoVivoOtherDispatchers';
 import { resetAoVivoRestPosition, resolveAoVivoPatternAndSteps } from './aoVivoReset';
+import { cancelAoVivoShockwave } from './AoVivoShockwave';
 import { AoVivoResolvedFamily, resolveTrackAoVivoFamily } from './resolveAoVivoFamily';
 import { MineiroPole } from '../../audio/animationGenerators';
 import { getMeasureDurationSec } from '../../utils/meterTiming';
@@ -42,6 +43,7 @@ export function useAoVivoAnimationEngine(
       lastVuStepRef.current = -1;
       leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
       gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
+      cancelAoVivoShockwave(haloRef.current);
       resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
     };
     resetAllToRest();
@@ -57,6 +59,7 @@ export function useAoVivoAnimationEngine(
         lastVuStepRef.current = -1;
         leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
         gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
+        cancelAoVivoShockwave(haloRef.current);
         resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
         return;
       }
@@ -112,7 +115,7 @@ export function useAoVivoAnimationEngine(
           const nextRaw = activePlayingSteps?.[(targetStep + 1) % Math.max(1, activePlayingSteps.length)];
           dispatchAgbe(stroke, isVibrate, agbeWholeRef.current, agbeAnimRef, Array.isArray(nextRaw) ? String(nextRaw[0] || '') : String(nextRaw || ''));
         } else if (family === 'gongue') {
-          dispatchGongue(stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, gongueStickRef.current, gongueAnimRef);
+          dispatchGongue(stroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, stepDurationMs, gongueStickRef.current, gongueAnimRef, haloRef.current, geometryRef.current);
         }
       };
 

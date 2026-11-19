@@ -1,13 +1,13 @@
 /**
- * percussionSwingHelper.ts — Calcul du Balanço de note & résolution de motif esclave lié (< 85 lignes).
+ * percussionSwingHelper.ts — Calcul du Balanço de note & résolution de motif esclave lié (< 95 lignes).
  * - Hérite `measureAssignments` du maître/dossier lié via `resolveActivePattern` (Meião, Repique, Tarol...).
- * - Calcule la sous-position réelle dans le temps depuis `activePattern.beatResolutions` (sans biais post-triolet).
- * - Verrouille `swingJitter = 0` sur `circleStepIdx === 0` et applique `balancoAdherence` (`0.95..1.05`).
+ * - Applique `getLiveBalancoMorphScaleAtTime(baseStepAudioSec)` sans altérer les données du morceau.
  */
 
 import { Track, Pattern, GlobalSwing } from '../../types';
 import { useBalancoStore } from '../../stores/useBalancoStore';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
+import { getLiveBalancoMorphScaleAtTime } from '../../audio/groove/liveBalancoMorph';
 
 export interface NoteSwingParams {
   activePattern: Pattern | null;
@@ -19,6 +19,7 @@ export interface NoteSwingParams {
   globalSwing: GlobalSwing;
   stepDurationSec: number;
   balancoAdherence?: number;
+  baseStepAudioSec?: number;
 }
 
 export function resolveStepPosInBeat(circleStepIdx: number, activePattern: Pattern | null): number {
@@ -42,7 +43,10 @@ export function resolveStepPosInBeat(circleStepIdx: number, activePattern: Patte
 export function computePercussionNoteSwing(p: NoteSwingParams): number {
   const { activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode, globalSwing, stepDurationSec } = p;
   if (globalMode === 'off') return 0;
-  const effectiveJitter = circleStepIdx === 0 ? 0 : swingJitter;
+  const morphScale = getLiveBalancoMorphScaleAtTime(p.baseStepAudioSec);
+  if (morphScale <= 0) return 0;
+
+  const effectiveJitter = circleStepIdx === 0 ? 0 : swingJitter * morphScale;
   if (isTuplet) return effectiveJitter;
 
   const patternPresetId = activePattern?.balancoPresetId;
@@ -66,7 +70,7 @@ export function computePercussionNoteSwing(p: NoteSwingParams): number {
     const offsetPct = offsets[stepPosInGroup % offsets.length] || 0;
     baseSwingOffset = (offsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
   }
-  return (baseSwingOffset * totalBalancoMultiplier * adherence) + effectiveJitter;
+  return (baseSwingOffset * totalBalancoMultiplier * adherence * morphScale) + effectiveJitter;
 }
 
 export function resolveActivePatternForMeasure(

@@ -11,6 +11,7 @@ import { RodaCentralTopBar } from '../roda/RodaCentralTopBar';
 import { WorkspaceTrackColumn } from './WorkspaceTrackColumn';
 import { WorkspacePistasOverlay } from './WorkspacePistasOverlay';
 import { useWorkspacePistasProps } from './useWorkspacePistasProps';
+import { FocusBalancoDrawer } from '../focus-balanco/FocusBalancoDrawer';
 
 const renderFallback = (fr: string, pt: string) => (
   <div className="p-3 border-2 border-[var(--cordel-status-danger)] bg-[var(--cordel-surface)] text-[var(--cordel-status-danger)] m-2 rounded font-mono text-xs z-50">
@@ -100,6 +101,7 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
               />
             )}
           </div>
+          <FocusBalancoDrawer compact={isMobile} isActiveView={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')} />
         </div>
       )}
       {(!isMobile || mobileTab === 'toada') && (

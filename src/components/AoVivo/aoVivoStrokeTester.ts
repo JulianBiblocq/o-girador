@@ -19,6 +19,7 @@ import { findTrackForAoVivoFamily, resolveTrackAoVivoFamily } from './resolveAoV
 import { dispatchTimbalPredictiveStroke, resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 import { applyTimbalSlapBiomechanics } from './TimbalHandSvgs';
 import { TESTER_SEQUENCES, TESTER_STROKES, type TesterFamily } from './aoVivoTesterCatalog';
+import { cancelAoVivoShockwave } from './AoVivoShockwave';
 
 export { TESTER_SEQUENCES, TESTER_STROKES, type TesterFamily };
 
@@ -50,7 +51,7 @@ export function triggerSequenceStep(fam: TesterFamily, steps: string[], stepIdx:
   const lEl = leftStickRef.current, rEl = rightStickRef.current, gEl = gongueStickRef.current, agEl = agbeWholeRef.current, mEl = mineiroStickRef.current, hEl = haloRef.current;
   if (fam === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
   else if (fam === 'caixa') dispatchCaixaPredictiveStroke(instId === 'tarol' ? 'tarol' : 'caixa', stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
-  else if (fam === 'gongue') dispatchGongue(stroke, false, false, isLeftHanded, steps, idx, stepMs, gEl, dummyGongueAnim);
+  else if (fam === 'gongue') dispatchGongue(stroke, false, false, isLeftHanded, steps, idx, stepMs, gEl, dummyGongueAnim, hEl, geometryRef.current);
   else if (fam === 'agbe') dispatchAgbe(stroke, false, agEl, dummyAgbeAnim, nextTok);
   else if (fam === 'mineiro') dispatchMineiro(stroke, false, mEl, dummyMineiroPole, dummyMineiroAnim, isLeftHanded);
   else dispatchTimbalPredictiveStroke(stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
@@ -103,8 +104,9 @@ export function applyFrozenImpactPose(fam: TesterFamily, stroke: string): void {
 export function clearFrozenPose(fam: TesterFamily): void {
   if (!currentRefs) return;
   resetHandPostureMemory(); resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory(); resetAlfaiaMuffleState();
-  const { instId, activeTrack, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, agbeWholeRef, mineiroStickRef } = currentRefs;
+  const { instId, activeTrack, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, agbeWholeRef, mineiroStickRef, haloRef } = currentRefs;
   [leftStickRef.current, rightStickRef.current, gongueStickRef.current, agbeWholeRef.current, mineiroStickRef.current].forEach(cancelStickAnims);
+  cancelAoVivoShockwave(haloRef.current);
   if (fam === 'alfaia') resetAlfaiaSticksAndShadows(activeTrack, isLeftHanded, leftStickRef.current, rightStickRef.current);
   else if (fam === 'caixa') resetCaixaSticksAndShadows(instId === 'tarol' ? 'tarol' : 'caixa', leftStickRef.current, rightStickRef.current);
   else if (fam === 'gongue') resetGongueStickAndShadow(isLeftHanded, gongueStickRef.current);

@@ -4,6 +4,7 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { purgeVisualTickBuffer, resetVisualTickBuffer, flushVisualBuffers } from '../../audio/visualTickBuffer';
 import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
+import { isBalancoMorphCycleActive, resetLiveBalancoMorphToUnity } from '../../audio/groove/liveBalancoMorph';
 import { getAudioEngine } from './audioEngineNodes';
 
 export interface UseAudioSyncSubscriptionsProps {
@@ -34,6 +35,9 @@ export function useAudioSyncSubscriptions({
     if (isPlayingRef) isPlayingRef.current = isPlaying;
     if (useSequencerStore.getState().isPlaying !== isPlaying) {
       useSequencerStore.getState().setIsPlaying(isPlaying);
+    }
+    if (!isPlaying && isBalancoMorphCycleActive()) {
+      resetLiveBalancoMorphToUnity();
     }
     if (typeof window !== 'undefined') {
       (window as any).__IS_PLAYING__ = isPlaying;

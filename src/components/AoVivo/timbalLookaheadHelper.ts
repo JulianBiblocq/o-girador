@@ -1,6 +1,6 @@
 import React from 'react';
 import { CONFIG_TIMBAL_HANDS, generateTimbalPredictiveKeyframes, getTimbalHandRestTransform, getTimbalShadowRestTransform, TimbalNextStrokeKind } from '../../audio/animations/timbalKinematics';
-import { KEYFRAMES_SKIN_BARULHO, KEYFRAMES_SKIN_WAVE } from '../../audio/animations/alfaiaKinematics';
+import { triggerAoVivoShockwave } from './AoVivoShockwave';
 import { applyTimbalSlapBiomechanics } from './TimbalHandSvgs';
 
 function isTimbalStrokeForHand(token: string, isDominantHand: boolean): boolean {
@@ -117,10 +117,8 @@ export function dispatchTimbalPredictiveStroke(
   } else if (['G', 'A', 'S', 'D', 'P'].includes(norm)) animateTimbalHand(domEl, domRef, norm, isLeftHanded, domLook);
   else if (['g', 'a', 's', 'd', 'p'].includes(norm)) animateTimbalHand(secEl, secRef, norm, !isLeftHanded, secLook);
 
-  if (haloEl && (['G', 'A', 'S', 'F', 'V', 'B'].includes(sUp) || isBarulho)) {
-    haloEl.style.left = `${geometry.targetX}px`; haloEl.style.top = `${geometry.targetY}px`;
-    haloEl.getAnimations().forEach((a) => a.cancel());
-    haloEl.animate(isBarulho ? KEYFRAMES_SKIN_BARULHO : KEYFRAMES_SKIN_WAVE, { duration: isBarulho ? 90 : 140, iterations: isBarulho ? 3 : 1, easing: 'ease-out' });
+  if (haloEl && (['G', 'A', 'S', 'P', 'F', 'V', 'B'].includes(norm) || isBarulho)) {
+    triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: isBarulho });
   }
 }
 

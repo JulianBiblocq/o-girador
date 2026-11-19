@@ -79,15 +79,18 @@ export class VocalTimingCalculator {
       const activeSteps = p.ptnRef.activeSteps || [];
       const firstStepIdx = activeSteps.findIndex((s: any) => s !== undefined && s !== null && s !== 0 && s !== '0');
       if (firstStepIdx > 0) {
+        const patSteps = p.ptnRef.steps || 16;
+        const firstStepBaseSec = p.measureStartTime + firstStepIdx * ((60 / currentBpm) / (patSteps / 4));
         balancoOffset = getBalancoOffsetSec({
           stepIdx: firstStepIdx,
-          steps: p.ptnRef.steps || 16,
+          steps: patSteps,
           beatResolutions: p.ptnRef.beatResolutions,
           track: p.voiceTrack,
           pattern: p.ptnRef,
           globalSwing: p.sequencerStore.globalSwing,
           bpm: currentBpm,
           isPreRoll: false,
+          baseStepAudioSec: firstStepBaseSec,
         });
       }
     }

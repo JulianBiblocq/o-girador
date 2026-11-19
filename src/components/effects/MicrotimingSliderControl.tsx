@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { EditableNumber } from './EditableNumber';
 
@@ -37,14 +36,12 @@ export const MicrotimingSliderControl: React.FC<MicrotimingSliderControlProps> =
       <div className="flex items-center gap-2 relative h-6">
         <span className="text-[8px] font-bold opacity-60 shrink-0">-100%</span>
         <div className="flex-grow h-2 relative flex items-center">
-          {/* Background track with a center notch */}
-          <div className="absolute inset-x-0 h-1 bg-[#1a1a1a]/15 rounded" />
-          <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[#1a1a1a]/40 z-10" />
+          <div className="absolute inset-x-0 h-1 bg-[var(--cordel-ink-dark)]/15 rounded" />
+          <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[var(--cordel-ink-dark)]/40 z-10" />
 
-          {/* Bi-directional Blue track representing offset from center */}
           {totalVal !== 0 && (
             <div
-              className="absolute h-1 bg-[#2980b9]"
+              className="absolute h-1 bg-[var(--cordel-param-timing)]"
               style={{
                 left: totalVal > 0 ? '50%' : 'auto',
                 right: totalVal < 0 ? '50%' : 'auto',

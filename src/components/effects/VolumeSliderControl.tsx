@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { EditableNumber } from './EditableNumber';
 
@@ -30,7 +29,7 @@ export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
         value={currVol}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
         onDoubleClick={() => onChange(70)}
-        className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
+        className="w-full cordel-range-volume cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10"
       />
     </div>
   );

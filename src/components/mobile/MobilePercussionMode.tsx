@@ -20,6 +20,7 @@ import { MobileMenuSheet } from './MobileMenuSheet';
 import { MobileLetraDrawer } from './MobileLetraDrawer';
 import { MobileFocusPopover } from './MobileFocusPopover';
 import { SpeedTrainerModal } from '../SpeedTrainerModal';
+import { FocusBalancoDrawer } from '../focus-balanco/FocusBalancoDrawer';
 
 interface Props {
   isPlaying: boolean; isLoading: boolean; onTogglePlay: (opts?: any) => void; onStop: () => void;
@@ -110,6 +111,7 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       <div className="relative flex-1 min-h-0 overflow-hidden z-10 flex items-center justify-center">
         <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} isMobile={true} />
       </div>
+      <FocusBalancoDrawer compact isActiveView />
       <MobilePercTransport isPlaying={props.isPlaying} isLoading={props.isLoading} onTogglePlay={props.onTogglePlay} onStop={props.onStop} bpm={effectiveBpm} onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)} onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()} loopMode={loopMode} onChangeLoopMode={setLoopMode} isLoopExitRequested={isLoopExitRequested} onRequestLoopExit={requestLoopExit} onOpenSpeedTrainer={openSpeedTrainerModal} />
       {isLetraDrawerOpen && <MobileLetraDrawer onClose={() => setIsLetraDrawerOpen(false)} lang={lang} />}
       <MobileSongPickerModal isOpen={isSongPickerOpen} onClose={() => setIsSongPickerOpen(false)} localPresets={props.localPresets} cloudPresets={props.cloudPresets} activePreset={props.activePreset} onPresetChange={props.onPresetChange} lang={lang} />

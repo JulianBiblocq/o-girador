@@ -13,7 +13,7 @@ import {
   getCaixaStickRestTransform,
   resolveCaixaActiveFamily,
 } from '../../audio/animations/caixaKinematics';
-import { KEYFRAMES_SKIN_BARULHO, KEYFRAMES_SKIN_WAVE } from '../../audio/animations/alfaiaKinematics';
+import { triggerAoVivoShockwave } from './AoVivoShockwave';
 import { findCaixaSameHandLookahead } from './caixaSameHandLookahead';
 
 export { findCaixaSameHandLookahead };
@@ -83,12 +83,13 @@ export function dispatchCaixaPredictiveStroke(
     if (isBarulho || ['C', 'X', 'E', 'V'].includes(sUp)) animateCaixaStick(secEl, secRef, isBarulho ? 'B' : norm, !isLeftHanded, family, secLook.nextKind, secLook.msUntilNext);
   }
 
-  if (haloEl && (['D', 'E', 'A', 'F', 'R', 'B', 'X'].includes(sUp) || isBarulho)) {
-    haloEl.style.left = `${geometry.targetX}px`;
-    haloEl.style.top = `${geometry.targetY}px`;
-    haloEl.getAnimations().forEach((a) => a.cancel());
-    const isRoll = sUp === 'R' || isBarulho;
-    haloEl.animate(isRoll ? KEYFRAMES_SKIN_BARULHO : KEYFRAMES_SKIN_WAVE, { duration: isRoll ? 90 : 140, iterations: isRoll ? 3 : 1, easing: 'ease-out' });
+  if (haloEl && (['D', 'E', 'A', 'a', 'F', 'f', 'R', 'B'].includes(norm) || isBarulho)) {
+    triggerAoVivoShockwave(haloEl, {
+      x: geometry.targetX,
+      y: geometry.targetY,
+      isRoll: norm === 'R' || isBarulho,
+      isRimshot: norm === 'A' || norm === 'a',
+    });
   }
 }
 

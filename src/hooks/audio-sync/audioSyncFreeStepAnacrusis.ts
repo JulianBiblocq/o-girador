@@ -48,6 +48,7 @@ export function evaluateFreeStepAnacrusis(p: FreeStepAnacrusisParams): void {
     globalSwing,
     bpm: currentMeasureBpm,
     isPreRoll: true,
+    baseStepAudioSec: time,
   });
   const preRollMicroVal = targetAnacrusisPat.preRollMicrotimings?.[cellIdx] ?? targetAnacrusisPat.microtimings?.[cellIdx] ?? 0;
   const preRollMicroPct = Array.isArray(preRollMicroVal) ? (preRollMicroVal[0] ?? 0) : (typeof preRollMicroVal === 'number' ? preRollMicroVal : 0);

@@ -53,6 +53,7 @@ export function playActiveVoiceStep(p: ActiveVoiceStepParams): void {
     globalSwing,
     bpm: currentMeasureBpm,
     isPreRoll: false,
+    baseStepAudioSec: time,
   });
 
   const microVal = effectivePattern.microtimings?.[cellIdx] ?? 0;

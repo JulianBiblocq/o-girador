@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from 'react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
@@ -6,6 +5,7 @@ import { getPlayableFocusTracks } from '../../utils/focusTrackSelector';
 import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 import { TrackGroup } from '../../types';
 import { TrackFocusTocarJuntoSection } from './TrackFocusTocarJuntoSection';
+import { FocusBalancoMenuButton } from '../focus-balanco/FocusBalancoMenuButton';
 
 interface TrackFocusDropdownPanelProps {
   tracks: TrackGroup[];
@@ -56,13 +56,13 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
     <div
       ref={panelRef}
       style={position ? { position: 'fixed', top: position.top, left: position.left, width: 360 } : undefined}
-      className={`z-[99999] w-[360px] bg-[#f4ecd8] dark:bg-[#e2d7c0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-2.5 flex flex-col gap-2.5 text-xs font-cactus select-none max-h-[calc(100vh-120px)] overflow-y-auto ${position ? '' : 'absolute left-0 top-full mt-1'}`}
+      className={`z-[99999] w-[360px] bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-2 border-[var(--cordel-ink-dark)] shadow-[4px_4px_0px_var(--cordel-ink-dark)] p-2.5 flex flex-col gap-2.5 text-xs font-cactus select-none max-h-[calc(100vh-120px)] overflow-y-auto ${position ? '' : 'absolute left-0 top-full mt-1'}`}
     >
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]/70 pb-1 border-b border-[#1a1a1a]/30 mb-1.5">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-ink-dark)]/70 pb-1 border-b border-[var(--cordel-ink-dark)]/30 mb-1.5">
           {lang === 'pt' ? '1. Escolher naipe' : '1. Choisir son pupitre'}
         </div>
-        <div className="grid grid-cols-2 gap-1.5 max-h-[320px] overflow-y-auto pr-0.5">
+        <div className="grid grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto pr-0.5">
           {playable.map((t, idx) => {
             const inst = instrumentsConfig[t.instrumentIdx];
             const isSelected = t.id === focusTrackId;
@@ -76,7 +76,7 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
                 type="button"
                 onClick={() => setFocusTrackId(t.id, undefined, true)}
                 className={`xilo-wood-stamp flex items-center gap-1.5 px-1.5 py-1 cordel-border-sm text-left transition-all cursor-pointer ${
-                  isSelected ? 'ring-2 ring-[#1a1a1a] font-black' : 'opacity-85 hover:opacity-100'
+                  isSelected ? 'ring-2 ring-[var(--cordel-ink-dark)] font-black' : 'opacity-85 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: bg, color: fg }}
               >
@@ -87,24 +87,23 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
                   onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
                 />
                 <span className="truncate flex-1 text-[10.5px] leading-tight font-medium">{idx + 1}. {name}</span>
-                {isSelected && <span className="text-[10px] font-black shrink-0"></span>}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="pt-1.5 border-t border-[#1a1a1a]/30">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-[#1a1a1a]/70 mb-1.5">
+      <div className="pt-1.5 border-t border-[var(--cordel-ink-dark)]/30">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-ink-dark)]/70 mb-1.5">
           {lang === 'pt' ? '2. Modo de variações' : '2. Mode des variations'}
         </div>
         <div className="flex flex-col gap-1 text-[11px]">
           <label className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-            <input type="radio" name="focusVariationMode" checked={isolateBaseOnly} onChange={() => setIsolateBaseOnly(true)} className="accent-[#1a1a1a]" />
+            <input type="radio" name="focusVariationMode" checked={isolateBaseOnly} onChange={() => setIsolateBaseOnly(true)} className="accent-[var(--cordel-ink-dark)]" style={{ colorScheme: 'light' }} />
             <span>{lang === 'pt' ? 'Base pura (frase mestra + chamada)' : 'Base pure (phrase maîtresse + amorce)'}</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer hover:opacity-80">
-            <input type="radio" name="focusVariationMode" checked={!isolateBaseOnly} onChange={() => setIsolateBaseOnly(false)} className="accent-[#1a1a1a]" />
+            <input type="radio" name="focusVariationMode" checked={!isolateBaseOnly} onChange={() => setIsolateBaseOnly(false)} className="accent-[var(--cordel-ink-dark)]" style={{ colorScheme: 'light' }} />
             <span>{lang === 'pt' ? 'Jogo livre com variações' : 'Jeu libre avec variations'}</span>
           </label>
         </div>
@@ -118,6 +117,8 @@ export const TrackFocusDropdownPanel: React.FC<TrackFocusDropdownPanelProps> = (
         setTocarJuntoIsMuted={setTocarJuntoIsMuted}
         setTocarJuntoMuteScope={setTocarJuntoMuteScope}
       />
+
+      <FocusBalancoMenuButton lang={lang} onCloseMenu={onClose} />
     </div>
   );
 };
