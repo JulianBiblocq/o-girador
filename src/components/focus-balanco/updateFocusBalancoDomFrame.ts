@@ -3,6 +3,7 @@ import {
   computeFocusPlayheadTransform,
   computeRelativeMorphPercent,
   computeStepCellWidthPx,
+  shouldUseTwoRowBrickStrip,
 } from './focusBalancoLayoutMath';
 
 export interface FocusDomRefsBundle {
@@ -39,12 +40,13 @@ export function applyFocusBalancoDomFrame(
 ): void {
   const B = Math.max(1, mdl.beatsCount);
   const totalWidth = refs.stripWidthRef.current;
-  const isTwoRow = refs.isTwoRowRef.current;
+  const isTwoRow = shouldUseTwoRowBrickStrip(B, refs.isTwoRowRef.current, totalWidth);
 
   if (refs.playheadRef.current && totalWidth > 0) {
     const ph = computeFocusPlayheadTransform(playheadRatio, totalWidth, B, isTwoRow);
+    const rowY = isTwoRow && B > 2 && ph.rowIdx === 1 ? '100%' : '0%';
     refs.playheadRef.current.style.opacity = isPlaying && !isPreRoll ? '1' : '0.4';
-    refs.playheadRef.current.style.transform = `translate3d(${ph.xPx.toFixed(1)}px, ${ph.rowIdx === 1 ? '100%' : '0%'}, 0)`;
+    refs.playheadRef.current.style.transform = `translate3d(${ph.xPx.toFixed(1)}px, ${rowY}, 0)`;
   }
 
   const effHeaderPct = computeRelativeMorphPercent(scale);

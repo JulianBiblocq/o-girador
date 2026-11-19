@@ -32,18 +32,17 @@ export function resolveFocusCycleButtonLabel(
 }
 
 export function shouldUseTwoRowBrickStrip(
-  beatsCount: number,
+  _beatsCount: number,
   compact: boolean,
   containerWidthPx: number
 ): boolean {
-  if (beatsCount < 3) return false;
   if (compact) return true;
   return containerWidthPx > 0 && containerWidthPx < TWO_ROW_STRIP_MAX_WIDTH_PX;
 }
 
 export function resolveBeatsPerStripRow(beatsCount: number, isTwoRow: boolean): number {
   const safeBeats = Math.max(1, beatsCount);
-  if (!isTwoRow || safeBeats < 3) return safeBeats;
+  if (!isTwoRow) return safeBeats;
   return Math.max(2, Math.ceil(safeBeats / 2));
 }
 
@@ -64,12 +63,13 @@ export function computeFocusPlayheadTransform(
   beatsCount: number,
   isTwoRow: boolean
 ): { xPx: number; rowIdx: 0 | 1 } {
+  const safeBeats = Math.max(1, beatsCount);
   const r = Number.isFinite(playheadRatio) ? (((playheadRatio % 1) + 1) % 1) : 0;
-  if (!isTwoRow || beatsCount < 3) {
+  if (!isTwoRow) {
     return { xPx: r * totalWidth, rowIdx: 0 };
   }
-  const beatsPerRow = resolveBeatsPerStripRow(beatsCount, true);
-  const beatFloat = r * beatsCount;
+  const beatsPerRow = resolveBeatsPerStripRow(safeBeats, true);
+  const beatFloat = r * safeBeats;
   if (beatFloat < beatsPerRow) {
     return { xPx: (beatFloat / beatsPerRow) * totalWidth, rowIdx: 0 };
   }

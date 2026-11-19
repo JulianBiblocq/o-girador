@@ -70,6 +70,23 @@ function resolveTimbalZonePrepTransform(
   return tr;
 }
 
+export function generateTimbalBarulhoLoopFrames(isLeftSide: boolean, amplitude = 1): Keyframe[] {
+  const { anatomy, strokes } = CONFIG_TIMBAL_HANDS, sign = isLeftSide ? 1 : -1;
+  const rSc = anatomy.handScale * strokes.abertoImpactScaleZ, ph = isLeftSide ? strokes.barulhoPhaseOffset : 0;
+  const baseY = strokes.abertoImpactY + getEffectiveMobileOffset('timbal').reachDeltaY - 4, jit = 14 * amplitude;
+  return [0, 0.25, 0.5, 0.75, 1].map((t) => {
+    const w = Math.cos((t + ph) * Math.PI * 2);
+    return { transform: buildTransform(sign * strokes.abertoConvergeX, Math.round(baseY + w * jit), rSc * (w < 0 ? 1 + 0.04 * amplitude : 1), rSc, sign * (w > 0 ? 4 * amplitude : -3 * amplitude)), offset: t };
+  });
+}
+
+export function resolveTimbalBarulhoBounds(isLeftSide: boolean, nextSymbol = 'idle', isNextWeak = false): { startTr: string; endTr: string } {
+  const { anatomy, transitions } = CONFIG_TIMBAL_HANDS, sign = isLeftSide ? 1 : -1, hs = anatomy.handScale;
+  const mem = getHandMemory(isLeftSide), { tx, ty } = resolveZoneTarget('A', sign);
+  const startTr = mem.posture !== 'rest' && mem.transform ? mem.transform : buildTransform(tx, ty + transitions.liftHighAfterWeakY, hs * transitions.liftHighScaleZ, hs * transitions.liftHighScaleZ, -sign * 3);
+  return { startTr, endTr: resolveTimbalZonePrepTransform(tx, ty, nextSymbol, isNextWeak, isLeftSide) };
+}
+
 export function generateTimbalPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, nextKind: TimbalNextStrokeKind,
   stepDurationMs: number = 150, flaRole: 'none' | 'main' | 'grace' = 'none',
@@ -77,12 +94,12 @@ export function generateTimbalPredictiveKeyframes(
 ): Keyframe[] {
   const { anatomy, strokes, transitions, attackSpeed, wristWhipDeg } = CONFIG_TIMBAL_HANDS;
   const sign = isLeftSide ? 1 : -1, hs = anatomy.handScale, sUp = stroke.toUpperCase();
+  if (sUp === 'B' || stroke === '~') return generateTimbalBarulhoLoopFrames(isLeftSide, stroke === 'b' ? 0.6 : 1);
   const isWeakStroke = ['g', 'a', 's', 'd', 'p', 'D'].includes(stroke) || flaRole === 'grace';
   const amp = isWeakStroke ? strokes.weakStrokeRatio : 1;
   const graceDelay = flaRole === 'main' ? Math.min(0.28, strokes.flaGraceDelayMs / Math.max(60, stepDurationMs)) : 0;
   const atkOff = Math.min(0.52, Math.max(0.06, (flaRole === 'grace' ? attackSpeed * 0.72 : attackSpeed) + graceDelay));
-  const mem = getHandMemory(isLeftSide);
-  const { tx: curX, ty: curY } = resolveZoneTarget(stroke, sign);
+  const mem = getHandMemory(isLeftSide), { tx: curX, ty: curY } = resolveZoneTarget(stroke, sign);
   const effNextSym = nextSymbol !== 'idle' ? nextSymbol : nextKind === 'idle' ? 'idle' : nextKind === 'grave' ? 'G' : nextKind === 'slap' ? 'S' : nextKind === 'ghost' ? 'd' : 'A';
   const endTr = resolveTimbalZonePrepTransform(curX, curY, effNextSym, isNextWeak || nextKind === 'ghost', isLeftSide);
   const riseEase = getTransitionRiseEasing(transitions.transitionRiseCurve);
@@ -97,13 +114,6 @@ export function generateTimbalPredictiveKeyframes(
       { transform: buildTransform(sign * (strokes.clapConvergeX - strokes.clapRecoilPx), strokes.clapImpactY + 6, sx * 1.05, sy, sign * (strokes.clapVerticalTiltDeg * 0.55)), offset: Math.min(0.68, +(atkOff + 0.24).toFixed(2)), easing: riseEase },
       { transform: endTr, offset: 1 },
     ];
-  }
-  if (sUp === 'B' || stroke === '~') {
-    const rSc = hs * strokes.abertoImpactScaleZ, ph = isLeftSide ? strokes.barulhoPhaseOffset : 0;
-    return [0, 0.25, 0.5, 0.75, 1].map((t) => {
-      const w = Math.cos((t + ph) * Math.PI * 2), dy = Math.round(strokes.abertoImpactY - 6 + w * 16);
-      return { transform: buildTransform(sign * strokes.abertoConvergeX, dy, rSc * (w < 0 ? 1.04 : 1), rSc, sign * (w > 0 ? 4 : -3)), offset: t };
-    });
   }
   if (sUp === 'D') {
     return [{ transform: startTr, offset: 0 }, { transform: getTimbalImpactPoseTransform('D', isLeftSide), offset: atkOff, easing: riseEase }, { transform: endTr, offset: 1 }];

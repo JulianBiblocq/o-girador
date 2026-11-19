@@ -70,6 +70,24 @@ export function getMineiroImpactPoseTransform(stroke: string, isLeftHanded = fal
   return formatMineiroPose(resolveMineiroPeakPose(stroke, isLeftHanded));
 }
 
+export function buildMineiroBarulhoFrames(currentPole: MineiroPole = 'backWeak', amplitude = 1, commitRest = false): {
+  startTr: string; loopFrames: Keyframe[]; endTr: string;
+} {
+  const c = CONFIG_MINEIRO_LAB, startPose = lastMineiroPose || getMineiroPolePose(currentPole);
+  const jx = +(c.barulhoJitterPx * amplitude).toFixed(1), by = +(startPose.y * 0.35).toFixed(1);
+  const midPose: MineiroPose = { x: 0, y: by, scale: 1, rot: 0, skewX: 0, skewY: 0 };
+  const restPose: MineiroPose = { x: 0, y: 0, scale: 1, rot: 0, skewX: 0, skewY: 0 };
+  lastMineiroPose = commitRest ? restPose : midPose;
+  const loopFrames: Keyframe[] = [
+    { transform: formatMineiroPose(midPose), offset: 0 },
+    { transform: formatMineiroPose({ ...midPose, x: -jx, rot: -1.2 * amplitude }), offset: 0.25 },
+    { transform: formatMineiroPose(midPose), offset: 0.5 },
+    { transform: formatMineiroPose({ ...midPose, x: jx, rot: 1.2 * amplitude }), offset: 0.75 },
+    { transform: formatMineiroPose(midPose), offset: 1 },
+  ];
+  return { startTr: formatMineiroPose(startPose), loopFrames, endTr: formatMineiroPose(restPose) };
+}
+
 export function generateMineiroKeyframes(stroke: string, currentPole: MineiroPole = 'backWeak', isLeftHanded = false): Keyframe[] {
   const c = CONFIG_MINEIRO_LAB;
   const s = (stroke || 'P').trim();
@@ -77,19 +95,7 @@ export function generateMineiroKeyframes(stroke: string, currentPole: MineiroPol
   const startPose: MineiroPose = lastMineiroPose || getMineiroPolePose(currentPole);
 
   if (s.toUpperCase() === 'B' || s === '~') {
-    const jx = c.barulhoJitterPx;
-    const pts = Math.max(2, Math.min(10, Math.round(c.barulhoFreq)));
-    const kf: Keyframe[] = [];
-    for (let i = 0; i <= pts; i++) {
-      const sign = i % 2 === 0 ? -1 : 1;
-      const damp = i === pts ? 0 : 1 - i / (pts * 1.8);
-      kf.push({
-        transform: formatMineiroPose({ x: startPose.x * (1 - i / pts) + sign * jx * damp, y: startPose.y * 0.5, scale: 1, rot: 0, skewX: 0, skewY: 0 }),
-        offset: +(i / pts).toFixed(3),
-      });
-    }
-    lastMineiroPose = { x: 0, y: startPose.y * 0.5, scale: 1, rot: 0, skewX: 0, skewY: 0 };
-    return kf;
+    return buildMineiroBarulhoFrames(currentPole, s === 'b' ? 0.6 : 1, true).loopFrames;
   }
 
   const f = Math.max(0, Math.min(1, c.fluidity));

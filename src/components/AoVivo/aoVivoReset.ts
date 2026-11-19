@@ -1,5 +1,6 @@
 import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
 import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematics';
+import { resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
 import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
 import { resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
 import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
@@ -100,6 +101,7 @@ export function resetAoVivoRestPosition(
 ) {
   const fam = normalizeAoVivoFamily(instIdOrFam);
   if (!fam) return;
+  resetBarulhoRollState();
   resetHandPostureMemory();
   resetGonguePostureMemory();
   resetAlfaiaMuffleState();

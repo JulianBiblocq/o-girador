@@ -7,7 +7,7 @@ import { CaixaNextStrokeKind } from '../../audio/animations/caixaKinematics';
 
 export function isCaixaStrokeForHand(token: string, isDominantHand: boolean): boolean {
   const s = (token || '').trim();
-  if (!s || s === '-' || s === '.' || s === '0') return false;
+  if (!s || s === '-' || s === '.' || s === '/' || s === '0') return false;
   const up = s.toUpperCase();
   if (['C', 'X', 'B', 'F', '~'].includes(up)) return true;
   if (s === 'R' || s === 'A') return isDominantHand;

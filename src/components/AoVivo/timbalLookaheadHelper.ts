@@ -1,11 +1,15 @@
 import React from 'react';
-import { CONFIG_TIMBAL_HANDS, generateTimbalPredictiveKeyframes, getTimbalHandRestTransform, getTimbalShadowRestTransform, TimbalNextStrokeKind } from '../../audio/animations/timbalKinematics';
+import {
+  CONFIG_TIMBAL_HANDS, generateTimbalBarulhoLoopFrames, generateTimbalPredictiveKeyframes,
+  getTimbalHandRestTransform, getTimbalShadowRestTransform, resolveTimbalBarulhoBounds, TimbalNextStrokeKind,
+} from '../../audio/animations/timbalKinematics';
+import { BarulhoStepPlan, consumeBarulhoStepPlan, releaseWaapiBarulhoRoll, runWaapiBarulhoRoll } from '../../audio/animations/barulhoWaapiRunner';
 import { triggerAoVivoShockwave } from './AoVivoShockwave';
 import { applyTimbalSlapBiomechanics } from './TimbalHandSvgs';
 
 function isTimbalStrokeForHand(token: string, isDominantHand: boolean): boolean {
   const s = (token || '').trim();
-  if (!s || s === '-' || s === '.' || s === '0') return false;
+  if (!s || s === '-' || s === '.' || s === '/' || s === '0') return false;
   if (['C', 'c', 'X', 'x', 'B', 'b', 'F', 'f', 'V', 'v', '~'].includes(s)) return true;
   return isDominantHand ? ['G', 'A', 'S', 'D', 'P'].includes(s) : ['g', 'a', 's', 'd', 'p'].includes(s);
 }
@@ -43,9 +47,7 @@ export function findTimbalSameHandLookahead(
     const raw = activePlayingSteps[(currentStep + offset) % len], list = extractTokens(raw);
     for (let i = 0; i < list.length; i++) {
       const tok = list[i];
-      if (isTimbalStrokeForHand(tok, isDominantHand)) {
-        return { nextKind: classifyTimbalNextKind(tok), nextSymbol: tok, isNextWeak: isWeakTimbalToken(tok), msUntilNext: Math.max(85, Math.round((offset + (i > 0 && Array.isArray(raw) ? 0.5 : 0)) * stepDurationMs)) };
-      }
+      if (isTimbalStrokeForHand(tok, isDominantHand)) return { nextKind: classifyTimbalNextKind(tok), nextSymbol: tok, isNextWeak: isWeakTimbalToken(tok), msUntilNext: Math.max(85, Math.round((offset + (i > 0 && Array.isArray(raw) ? 0.5 : 0)) * stepDurationMs)) };
     }
   }
   return idleRes;
@@ -53,31 +55,21 @@ export function findTimbalSameHandLookahead(
 
 function animateTimbalHand(
   handEl: SVGSVGElement | null, animRef: React.MutableRefObject<Animation | null>,
-  stroke: string, isLeftSide: boolean, look: TimbalLookaheadResult,
-  isBarulho = false, flaRole: 'none' | 'main' | 'grace' = 'none'
+  stroke: string, isLeftSide: boolean, look: TimbalLookaheadResult, flaRole: 'none' | 'main' | 'grace' = 'none'
 ) {
   if (!handEl) return;
   const { speedMultiplier, strokes, attackSpeed, shadowDepthPx, shadowOpacity } = CONFIG_TIMBAL_HANDS;
-  const dur = isBarulho ? Math.round(90 / speedMultiplier) : Math.max(80, Math.round(look.msUntilNext / speedMultiplier));
-  const iter = isBarulho ? 3 : 1;
-  animRef.current?.cancel();
-  animRef.current = handEl.animate(
-    generateTimbalPredictiveKeyframes(stroke, isLeftSide, look.nextKind, dur, flaRole, look.nextSymbol, look.isNextWeak),
-    { duration: dur, iterations: iter, fill: 'forwards' }
-  );
-
-  const sUp = stroke.toUpperCase();
-  applyTimbalSlapBiomechanics(handEl, (sUp === 'S' || sUp === 'C' || sUp === 'X') && !isBarulho);
-  if (sUp === 'S' && !isBarulho) {
-    const splay = strokes.slapFingerSplayDeg, lift = strokes.slapThumbLift;
+  const dur = Math.max(80, Math.round(look.msUntilNext / speedMultiplier)), sUp = stroke.toUpperCase();
+  animRef.current?.cancel(); handEl.getAnimations?.().forEach((a) => a.cancel());
+  animRef.current = handEl.animate(generateTimbalPredictiveKeyframes(stroke, isLeftSide, look.nextKind, dur, flaRole, look.nextSymbol, look.isNextWeak), { duration: dur, iterations: 1, fill: 'forwards' });
+  applyTimbalSlapBiomechanics(handEl, sUp === 'S' || sUp === 'C' || sUp === 'X');
+  if (sUp === 'S') {
     handEl.querySelectorAll<SVGGElement>('[data-finger-mult]').forEach((fEl) => {
-      const m = Number(fEl.getAttribute('data-finger-mult') || 0);
-      const tr = `translateY(${+(-m * lift * 11).toFixed(1)}px) rotate(${+(m * splay).toFixed(2)}deg)`;
+      const m = Number(fEl.getAttribute('data-finger-mult') || 0), tr = `translateY(${+(-m * strokes.slapThumbLift * 11).toFixed(1)}px) rotate(${+(m * strokes.slapFingerSplayDeg).toFixed(2)}deg)`;
       fEl.getAnimations().forEach((a) => a.cancel());
       fEl.animate([{ transform: tr }, { transform: tr, offset: 0.4 }, { transform: 'translateY(0px) rotate(0deg)' }], { duration: dur, fill: 'forwards' });
     });
   }
-
   const shEl = handEl.querySelector('[data-hand-shadow]') as SVGGElement | null;
   if (shEl) {
     shEl.getAnimations().forEach((a) => a.cancel());
@@ -85,8 +77,21 @@ function animateTimbalHand(
     const mid = isClap
       ? { transform: `translate3d(${sign * 26}px, ${Math.round(shadowDepthPx * 1.9)}px, 0) scale(1.22)`, opacity: +(shadowOpacity * 0.22).toFixed(2), offset: 0.26 }
       : { transform: `translate3d(${sign * 2}px, 3px, 0) scale(0.98)`, opacity: +shadowOpacity.toFixed(2), offset: Math.min(0.5, Math.max(0.08, attackSpeed)) };
-    shEl.animate([{ transform: `translate3d(${sign * 18}px, ${Math.round(shadowDepthPx * 1.45)}px, 0) scale(1.13)`, opacity: +(shadowOpacity * 0.32).toFixed(2) }, mid, { transform: getTimbalShadowRestTransform(isLeftSide, true), opacity: +(shadowOpacity * 0.45).toFixed(2) }], { duration: dur, iterations: iter, fill: 'forwards' });
+    shEl.animate([{ transform: `translate3d(${sign * 18}px, ${Math.round(shadowDepthPx * 1.45)}px, 0) scale(1.13)`, opacity: +(shadowOpacity * 0.32).toFixed(2) }, mid, { transform: getTimbalShadowRestTransform(isLeftSide, true), opacity: +(shadowOpacity * 0.45).toFixed(2) }], { duration: dur, iterations: 1, fill: 'forwards' });
   }
+}
+
+function animateTimbalHandBarulho(
+  handEl: SVGSVGElement | null, animRef: React.MutableRefObject<Animation | null>,
+  isLeftSide: boolean, look: TimbalLookaheadResult, stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan
+) {
+  if (!handEl) return;
+  applyTimbalSlapBiomechanics(handEl, false);
+  const cycleMs = Math.max(55, Math.round(90 / CONFIG_TIMBAL_HANDS.speedMultiplier));
+  const loopFrames = generateTimbalBarulhoLoopFrames(isLeftSide, plan.amplitude || 0.7);
+  const { startTr, endTr } = resolveTimbalBarulhoBounds(isLeftSide, look.nextSymbol, look.isNextWeak);
+  if (plan.action === 'stop') releaseWaapiBarulhoRoll({ el: handEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform: endTr, loopFrames, cycleMs, leadMs });
+  else runWaapiBarulhoRoll({ el: handEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan });
 }
 
 export function dispatchTimbalPredictiveStroke(
@@ -94,40 +99,36 @@ export function dispatchTimbalPredictiveStroke(
   activePlayingSteps: any[] | undefined, currentStep: number, stepDurationMs: number,
   leftStickEl: SVGSVGElement | null, rightStickEl: SVGSVGElement | null, haloEl: HTMLDivElement | null,
   leftAnimRef: React.MutableRefObject<Animation | null>, rightAnimRef: React.MutableRefObject<Animation | null>,
-  geometry: { targetX: number; targetY: number }
+  geometry: { targetX: number; targetY: number }, leadMs = 0
 ) {
-  const norm = (stroke || '').trim(), sUp = norm.toUpperCase(), isBarulho = isVibrate || sUp === 'B';
+  const norm = (stroke || '').trim(), sUp = norm.toUpperCase();
   const domLook = findTimbalSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, true, isSubStep);
   const secLook = findTimbalSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, false, isSubStep);
   const domEl = isLeftHanded ? leftStickEl : rightStickEl, domRef = isLeftHanded ? leftAnimRef : rightAnimRef;
   const secEl = isLeftHanded ? rightStickEl : leftStickEl, secRef = isLeftHanded ? rightAnimRef : leftAnimRef;
 
-  if (norm === 'F' || norm === 'V') {
-    const k = norm === 'F' ? 'A' : 'S';
-    animateTimbalHand(secEl, secRef, k.toLowerCase(), !isLeftHanded, secLook, false, 'grace');
-    animateTimbalHand(domEl, domRef, k, isLeftHanded, domLook, false, 'main');
-  } else if (norm === 'f' || norm === 'v') {
-    const k = norm === 'f' ? 'A' : 'S';
-    animateTimbalHand(domEl, domRef, k, isLeftHanded, domLook, false, 'grace');
-    animateTimbalHand(secEl, secRef, k.toLowerCase(), !isLeftHanded, secLook, false, 'main');
-  } else if (isBarulho || sUp === 'C' || sUp === 'X') {
-    const dualTok = isBarulho ? 'B' : 'C';
-    animateTimbalHand(domEl, domRef, dualTok, isLeftHanded, domLook, isBarulho);
-    animateTimbalHand(secEl, secRef, dualTok, !isLeftHanded, secLook, isBarulho);
-  } else if (['G', 'A', 'S', 'D', 'P'].includes(norm)) animateTimbalHand(domEl, domRef, norm, isLeftHanded, domLook);
-  else if (['g', 'a', 's', 'd', 'p'].includes(norm)) animateTimbalHand(secEl, secRef, norm, !isLeftHanded, secLook);
-
-  if (haloEl && (['G', 'A', 'S', 'P', 'F', 'V', 'B'].includes(norm) || isBarulho)) {
-    triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: isBarulho });
+  const plan = consumeBarulhoStepPlan('timbal', isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
+  if (plan.action !== 'none') {
+    animateTimbalHandBarulho(domEl, domRef, isLeftHanded, domLook, stepDurationMs, leadMs, plan);
+    animateTimbalHandBarulho(secEl, secRef, !isLeftHanded, secLook, stepDurationMs, leadMs, plan);
+    if (haloEl && (plan.action === 'start' || norm === 'B')) triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: true, delayMs: leadMs });
+    return;
   }
+  if (!norm || norm === '0' || norm === '-' || norm === '.' || norm === '/') return;
+
+  if (norm === 'F' || norm === 'V') { const k = norm === 'F' ? 'A' : 'S'; animateTimbalHand(secEl, secRef, k.toLowerCase(), !isLeftHanded, secLook, 'grace'); animateTimbalHand(domEl, domRef, k, isLeftHanded, domLook, 'main'); }
+  else if (norm === 'f' || norm === 'v') { const k = norm === 'f' ? 'A' : 'S'; animateTimbalHand(domEl, domRef, k, isLeftHanded, domLook, 'grace'); animateTimbalHand(secEl, secRef, k.toLowerCase(), !isLeftHanded, secLook, 'main'); }
+  else if (sUp === 'C' || sUp === 'X') { animateTimbalHand(domEl, domRef, 'C', isLeftHanded, domLook); animateTimbalHand(secEl, secRef, 'C', !isLeftHanded, secLook); }
+  else if (['G', 'A', 'S', 'D', 'P'].includes(norm)) animateTimbalHand(domEl, domRef, norm, isLeftHanded, domLook);
+  else if (['g', 'a', 's', 'd', 'p'].includes(norm)) animateTimbalHand(secEl, secRef, norm, !isLeftHanded, secLook);
+  if (haloEl && ['G', 'A', 'S', 'P', 'F', 'V'].includes(norm)) triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY });
 }
 
 export function resetTimbalHandsAndShadows(leftStickEl: SVGSVGElement | null, rightStickEl: SVGSVGElement | null) {
   [leftStickEl, rightStickEl].forEach((el, idx) => {
     if (!el) return;
     const isLeft = idx === 0;
-    el.getAnimations().forEach((a) => a.cancel());
-    el.style.transition = 'none'; el.style.transform = getTimbalHandRestTransform(isLeft);
+    el.getAnimations().forEach((a) => a.cancel()); el.style.transition = 'none'; el.style.transform = getTimbalHandRestTransform(isLeft);
     applyTimbalSlapBiomechanics(el, CONFIG_TIMBAL_HANDS.posePreview === 'slap');
     const sh = el.querySelector('[data-hand-shadow]') as SVGGElement | null;
     if (sh) { sh.getAnimations().forEach((a) => a.cancel()); sh.style.transform = getTimbalShadowRestTransform(isLeft); }

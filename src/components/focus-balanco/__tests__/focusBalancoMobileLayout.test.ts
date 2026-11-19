@@ -80,18 +80,31 @@ describe('FocusBalancoDrawer — Mobile 2-Row Layout & 0-100% Relative Scale', (
     expect(resolveFocusCycleButtonLabel('ramp-up', 'pt', true)).toBe('0% -> 100%');
   });
 
-  it('splits into 2 rows only when B >= 3 and narrow/compact, preserving 1 row on 2/4 and 6/8', () => {
+  it('locks constant 2-row layout on mobile/narrow (< 560px) across all meters including 2/4 and 6/8', () => {
     expect(shouldUseTwoRowBrickStrip(4, true, 360)).toBe(true);
     expect(shouldUseTwoRowBrickStrip(3, false, 480)).toBe(true);
+    expect(shouldUseTwoRowBrickStrip(2, true, 360)).toBe(true);
+    expect(shouldUseTwoRowBrickStrip(2, false, 420)).toBe(true);
     expect(shouldUseTwoRowBrickStrip(4, false, 720)).toBe(false);
-    expect(shouldUseTwoRowBrickStrip(2, true, 360)).toBe(false);
+    expect(shouldUseTwoRowBrickStrip(2, false, 720)).toBe(false);
 
     expect(resolveBeatsPerStripRow(4, true)).toBe(2);
     expect(resolveBeatsPerStripRow(3, true)).toBe(2);
+    expect(resolveBeatsPerStripRow(2, true)).toBe(2);
     expect(computeStepCellWidthPx(360, 4, 4, true)).toBe(45);
     expect(computeStepCellWidthPx(360, 3, 4, true)).toBe(45);
+    expect(computeStepCellWidthPx(360, 2, 4, true)).toBe(45);
     expect(computeStepCellWidthPx(360, 4, 3, true)).toBe(60);
+    expect(computeStepCellWidthPx(360, 2, 3, true)).toBe(60);
 
+    // En 2/4 et 6/8 (B = 2), l'aiguille parcourt uniquement la Ligne 1 (rowIdx = 0) et n'entre jamais sur la Ligne 2 repos
+    expect(computeFocusPlayheadTransform(0.0, 360, 2, true)).toEqual({ xPx: 0, rowIdx: 0 });
+    expect(computeFocusPlayheadTransform(0.5, 360, 2, true)).toEqual({ xPx: 180, rowIdx: 0 });
+    const endOfTwoBeat = computeFocusPlayheadTransform(0.875, 360, 2, true);
+    expect(endOfTwoBeat.rowIdx).toBe(0);
+    expect(endOfTwoBeat.xPx).toBeCloseTo(315, 2);
+
+    // En 3/4 et 9/8 (B = 3), l'aiguille bascule sur la moitié gauche de la Ligne 2 au Temps 3
     expect(computeFocusPlayheadTransform(0.0, 360, 3, true)).toEqual({ xPx: 0, rowIdx: 0 });
     expect(computeFocusPlayheadTransform(1 / 3, 360, 3, true).xPx).toBeCloseTo(180, 3);
     const beat3Start = computeFocusPlayheadTransform(2 / 3 + 1e-6, 360, 3, true);

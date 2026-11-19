@@ -44,42 +44,46 @@ export function getAgbeImpactPoseTransform(stroke: string): string {
   return `translate(${tx}px, 0px) rotateZ(${rz}deg) scale(1, 1)`;
 }
 
+function resolveAgbeNextTransform(nextStroke?: string): string {
+  const c = CONFIG_AGBE_LAB;
+  if (nextStroke === 'V' || nextStroke === 'v') {
+    return `translate(0px, ${Math.round(Math.min(-18, c.saltoJumpY * 0.55))}px) rotateZ(0deg) scale(0.96, 1.04)`;
+  }
+  if (nextStroke && ['D', 'd', 'E', 'e'].includes(nextStroke)) {
+    const nextDir = nextStroke === 'D' || nextStroke === 'd' ? -1 : 1, ant = c.nextAnticipationRatio;
+    return `translate(${Math.round(-nextDir * c.weakTranslateX * 0.45 * ant)}px, 0px) rotateZ(${+(-nextDir * c.weakRotateZ * 0.45 * ant).toFixed(1)}deg) scale(1, 1)`;
+  }
+  return getAgbeRestTransform();
+}
+
+export function buildAgbeBarulhoFrames(amplitude = 1, nextStroke?: string, commitEnd = false): {
+  startTr: string; loopFrames: Keyframe[]; endTr: string;
+} {
+  const c = CONFIG_AGBE_LAB, jx = +(c.barulhoJitterPx * amplitude).toFixed(1), jz = +(jx * 0.4).toFixed(1);
+  const startTr = lastAgbeEndTransform || getAgbeRestTransform();
+  const endTr = resolveAgbeNextTransform(nextStroke);
+  lastAgbeEndTransform = commitEnd ? endTr : 'translate(0px, 0px) rotateZ(0deg) scale(1, 1)';
+  const loopFrames: Keyframe[] = [
+    { transform: 'translate(0px, 0px) rotateZ(0deg) scale(1, 1)', offset: 0 },
+    { transform: `translate(${-jx}px, 0px) rotateZ(${-jz}deg) scale(0.99, 1.01)`, offset: 0.25 },
+    { transform: 'translate(0px, 0px) rotateZ(0deg) scale(1, 1)', offset: 0.5 },
+    { transform: `translate(${jx}px, 0px) rotateZ(${jz}deg) scale(0.99, 1.01)`, offset: 0.75 },
+    { transform: 'translate(0px, 0px) rotateZ(0deg) scale(1, 1)', offset: 1 },
+  ];
+  return { startTr, loopFrames, endTr };
+}
+
 export function generateAgbeKeyframes(stroke: string, _bpm: number = 100, nextStroke?: string): Keyframe[] {
   const c = CONFIG_AGBE_LAB;
   const s = (stroke || 'D').trim();
   const sUp = s.toUpperCase();
   const atk = Math.min(0.42, Math.max(0.08, c.attackOffset));
 
-  if (sUp === 'B' || s === '~') {
-    const jx = c.barulhoJitterPx;
-    const jz = +(jx * 0.4).toFixed(1);
-    const pts = Math.max(2, Math.min(10, Math.round(c.barulhoFreq)));
-    const kf: Keyframe[] = [];
-    for (let i = 0; i <= pts; i++) {
-      const sign = i % 2 === 0 ? -1 : 1;
-      const damp = i === pts ? 0 : 1 - i / (pts * 1.6);
-      kf.push({
-        transform: `translate(${+(sign * jx * damp).toFixed(1)}px, 0px) rotateZ(${+(sign * jz * damp).toFixed(1)}deg) scale(1, 1)`,
-        offset: +(i / pts).toFixed(3),
-      });
-    }
-    return kf;
-  }
+  if (sUp === 'B' || s === '~') return buildAgbeBarulhoFrames(s === 'b' ? 0.6 : 1, nextStroke, true).loopFrames;
 
   const highEntryY = Math.round(Math.min(-18, c.saltoJumpY * 0.55));
   const voltaHighTr = `translate(0px, ${highEntryY}px) rotateZ(0deg) scale(0.96, 1.04)`;
-
-  let endTr = getAgbeRestTransform();
-  if (nextStroke && (nextStroke === 'V' || nextStroke === 'v')) {
-    endTr = voltaHighTr;
-  } else if (nextStroke && ['D', 'd', 'E', 'e'].includes(nextStroke)) {
-    const nextIsRight = nextStroke === 'D' || nextStroke === 'd';
-    const nextDir = nextIsRight ? -1 : 1;
-    const ant = c.nextAnticipationRatio;
-    const prepX = Math.round(-nextDir * c.weakTranslateX * 0.45 * ant);
-    const prepZ = +(-nextDir * c.weakRotateZ * 0.45 * ant).toFixed(1);
-    endTr = `translate(${prepX}px, 0px) rotateZ(${prepZ}deg) scale(1, 1)`;
-  }
+  const endTr = resolveAgbeNextTransform(nextStroke);
 
   const startTr = sUp === 'V' ? voltaHighTr : (lastAgbeEndTransform || getAgbeRestTransform());
   lastAgbeEndTransform = endTr;

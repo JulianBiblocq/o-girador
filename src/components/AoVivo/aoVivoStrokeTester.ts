@@ -7,6 +7,7 @@ import { AoVivoLabPreviewFamily, setAoVivoLabPreviewFamily, setIsAoVivoLabOpen }
 import { getMineiroImpactPoseTransform, resetMineiroPostureMemory } from '../../audio/animations/mineiroKeyframes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { MineiroPole } from '../../audio/animations/configMineiro';
+import { resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
 import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
 import { getTimbalHandRestTransform, getTimbalImpactPoseTransform } from '../../audio/animations/timbalKinematics';
 import { dispatchAlfaiaPredictiveStroke, resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
@@ -52,12 +53,13 @@ export function triggerSequenceStep(fam: TesterFamily, steps: string[], stepIdx:
   if (fam === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
   else if (fam === 'caixa') dispatchCaixaPredictiveStroke(instId === 'tarol' ? 'tarol' : 'caixa', stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
   else if (fam === 'gongue') dispatchGongue(stroke, false, false, isLeftHanded, steps, idx, stepMs, gEl, dummyGongueAnim, hEl, geometryRef.current);
-  else if (fam === 'agbe') dispatchAgbe(stroke, false, agEl, dummyAgbeAnim, nextTok);
-  else if (fam === 'mineiro') dispatchMineiro(stroke, false, mEl, dummyMineiroPole, dummyMineiroAnim, isLeftHanded);
+  else if (fam === 'agbe') dispatchAgbe(stroke, false, agEl, dummyAgbeAnim, nextTok, steps, idx, stepMs, false, 0);
+  else if (fam === 'mineiro') dispatchMineiro(stroke, false, mEl, dummyMineiroPole, dummyMineiroAnim, isLeftHanded, steps, idx, stepMs, false, 0);
   else dispatchTimbalPredictiveStroke(stroke, false, false, isLeftHanded, steps, idx, stepMs, lEl, rEl, hEl, dummyLeftAnim, dummyRightAnim, geometryRef.current);
 }
 
 export function triggerSingleTestStroke(fam: TesterFamily, stroke: string): void {
+  resetBarulhoRollState();
   if (!(fam === 'alfaia' && isMufflingStickRef.current)) resetHandPostureMemory();
   resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory();
   triggerSequenceStep(fam, [stroke, '0'], 0, 260);
@@ -103,7 +105,7 @@ export function applyFrozenImpactPose(fam: TesterFamily, stroke: string): void {
 
 export function clearFrozenPose(fam: TesterFamily): void {
   if (!currentRefs) return;
-  resetHandPostureMemory(); resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory(); resetAlfaiaMuffleState();
+  resetBarulhoRollState(); resetHandPostureMemory(); resetGonguePostureMemory(); resetAgbePostureMemory(); resetMineiroPostureMemory(); resetAlfaiaMuffleState();
   const { instId, activeTrack, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, agbeWholeRef, mineiroStickRef, haloRef } = currentRefs;
   [leftStickRef.current, rightStickRef.current, gongueStickRef.current, agbeWholeRef.current, mineiroStickRef.current].forEach(cancelStickAnims);
   cancelAoVivoShockwave(haloRef.current);

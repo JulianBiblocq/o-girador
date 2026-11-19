@@ -56,9 +56,9 @@ export const FocusBalancoBrickStrip: React.FC<FocusBalancoBrickStripProps> = ({
   const beatsPerRow = resolveBeatsPerStripRow(B, isTwoRow);
   const rows: (FocusBrickStepModel[] | null)[][] = isTwoRow
     ? [
-        Array.from({ length: beatsPerRow }, (_, c) => beats[c] ?? null),
-        Array.from({ length: beatsPerRow }, (_, c) => beats[beatsPerRow + c] ?? null),
-      ]
+      Array.from({ length: beatsPerRow }, (_, c) => beats[c] ?? null),
+      Array.from({ length: beatsPerRow }, (_, c) => beats[beatsPerRow + c] ?? null),
+    ]
     : [beats];
 
   return (
@@ -76,49 +76,50 @@ export const FocusBalancoBrickStrip: React.FC<FocusBalancoBrickStripProps> = ({
         <span className="absolute -left-[2.5px] top-[1px] w-[7px] h-[7px] rotate-45 bg-[var(--cordel-wood)] border border-[var(--cordel-ink-dark)]" />
       </div>
 
-      <div className={isTwoRow ? 'grid grid-rows-2 w-full relative z-10' : 'w-full relative z-10'}>
-        {rows.map((rowBeats, rowIdx) => (
-          <div
-            key={rowIdx}
-            data-testid={`focus-balanco-strip-row-${rowIdx}`}
-            className={`grid w-full overflow-visible ${rowIdx > 0 ? 'border-t border-[var(--cordel-ink-dark)]/45' : ''}`}
-            style={{ gridTemplateColumns: `repeat(${beatsPerRow}, minmax(0, 1fr))` }}
-          >
-            {rowBeats.map((beatSteps, colIdx) => {
-              if (!beatSteps) {
-                return (
-                  <div
-                    key={`empty-${colIdx}`}
-                    aria-hidden="true"
-                    className="border-l-2 border-[var(--cordel-ink-dark)]/35 bg-[var(--cordel-parchment-panel)]/65"
-                  />
-                );
-              }
-              const subCount = Math.max(1, beatSteps.length);
-              return (
+      <div className={isTwoRow ? 'grid grid-rows-[50px_50px] w-full relative z-10' : 'w-full relative z-10'}>
+        {isTwoRow && (
+          <div aria-hidden="true" className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-[var(--cordel-ink-dark)]/45 pointer-events-none z-20" />
+        )}
+        {rows.map((rowBeats, rowIdx) => {
+          const isRestRow = rowBeats.every((b) => b === null);
+          return (
+            <div
+              key={rowIdx}
+              data-testid={`focus-balanco-strip-row-${rowIdx}`}
+              data-inactive-row={isRestRow ? 'true' : 'false'}
+              className={`grid w-full h-full overflow-visible ${isRestRow ? 'bg-[var(--cordel-parchment-panel)]/65' : ''}`}
+              style={{ gridTemplateColumns: `repeat(${beatsPerRow}, minmax(0, 1fr))` }}
+            >
+              {isRestRow ? (
+                <div aria-hidden="true" className="col-span-full h-full flex items-center px-3 pointer-events-none opacity-60">
+                  <div className="w-full h-[1px] bg-[var(--cordel-ink-dark)]/15" />
+                </div>
+              ) : rowBeats.map((beatSteps, colIdx) => !beatSteps ? (
+                <div
+                  key={`empty-${colIdx}`}
+                  aria-hidden="true"
+                  className={`h-full flex items-center px-2 bg-[var(--cordel-parchment-panel)]/65 ${colIdx > 0 ? 'border-l-2 border-[var(--cordel-ink-dark)]/35' : ''}`}
+                >
+                  <div className="w-full h-[1px] bg-[var(--cordel-ink-dark)]/12" />
+                </div>
+              ) : (
                 <div
                   key={`beat-${rowIdx}-${colIdx}`}
-                  className="grid w-full overflow-visible"
-                  style={{ gridTemplateColumns: `repeat(${subCount}, minmax(0, 1fr))` }}
+                  className="grid w-full h-full overflow-visible"
+                  style={{ gridTemplateColumns: `repeat(${Math.max(1, beatSteps.length)}, minmax(0, 1fr))` }}
                 >
                   {beatSteps.map((st) => (
                     <FocusBalancoStepCell
-                      key={st.stepIdx}
-                      step={st}
-                      compact={compact || isTwoRow}
-                      isRowStart={colIdx === 0 && st.subIdx === 0}
-                      socketStrokeColor={model.socketStrokeColor}
-                      brickRefs={brickRefs}
-                      tensionRefs={tensionRefs}
-                      flashRefs={flashRefs}
-                      offsetLabelRefs={offsetLabelRefs}
+                      key={st.stepIdx} step={st} compact={compact || isTwoRow}
+                      isRowStart={colIdx === 0 && st.subIdx === 0} socketStrokeColor={model.socketStrokeColor}
+                      brickRefs={brickRefs} tensionRefs={tensionRefs} flashRefs={flashRefs} offsetLabelRefs={offsetLabelRefs}
                     />
                   ))}
                 </div>
-              );
-            })}
-          </div>
-        ))}
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

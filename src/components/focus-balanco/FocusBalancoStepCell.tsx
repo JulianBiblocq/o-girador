@@ -28,7 +28,7 @@ export const FocusBalancoStepCell: React.FC<FocusBalancoStepCellProps> = ({
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center overflow-visible ${compact ? 'pt-3 pb-1 min-h-[46px]' : 'pt-5 pb-1.5 min-h-[62px]'} ${laneTone} ${leftBorder}`}
+      className={`relative flex flex-col items-center justify-center overflow-visible ${compact ? 'pt-3 pb-1 h-[50px]' : 'pt-5 pb-1.5 min-h-[62px]'} ${laneTone} ${leftBorder}`}
     >
       {step.isBeatStart && (
         <span className={`absolute ${compact ? 'top-0.5 left-1 text-[8px]' : 'top-1 left-1.5 text-[8.5px]'} px-1 py-[1px] rounded-xs bg-[var(--cordel-ink-dark)]/12 font-cactus font-black text-[var(--cordel-ink-dark)] leading-none pointer-events-none`}>

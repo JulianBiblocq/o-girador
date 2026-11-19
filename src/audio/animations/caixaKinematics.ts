@@ -40,6 +40,17 @@ export function getCaixaImpactPoseTransform(stroke: string, isLeftSide: boolean,
   return `translate(${inSign * c.impactConvergeX}px, ${targetY}px) rotateZ(${inSign * 4}deg) scale(${impScaleX}, ${impScaleY}) skewX(${-inSign * +(prof.flexibility * 2.2).toFixed(1)}deg)`;
 }
 
+export function generateCaixaBarulhoLoopFrames(isLeftSide: boolean, family: CaixaStickFamily, amplitude = 1): Keyframe[] {
+  const inSign = isLeftSide ? 1 : -1, prof = CONFIG_CAIXA_STICKS[family], c = CONFIG_CAIXA_STICKS;
+  const baseY = c.barulhoImpactY + getEffectiveMobileOffset(family).reachDeltaY;
+  const jitY = Math.max(1.2, c.barulhoJitterPx * amplitude), ph = isLeftSide ? c.barulhoPhaseOffset : 0;
+  const sc = (v: number) => +(v * prof.scale).toFixed(3), skew = -inSign * +(prof.flexibility * 1.6).toFixed(1);
+  return [0, 0.25, 0.5, 0.75, 1].map((t) => {
+    const w = Math.cos((t + ph) * Math.PI * 2), dy = +(baseY + (1 - w) * 0.5 * jitY).toFixed(1);
+    return { transform: `translate(${inSign * c.impactConvergeX}px, ${dy}px) rotateZ(${+(inSign * (2.6 + (w + 1) * 0.7 * amplitude)).toFixed(2)}deg) scale(${sc(c.rufadaPressScaleZ + (1 - w) * 0.02 * amplitude)}) skewX(${skew}deg)`, offset: t };
+  });
+}
+
 export function generateCaixaPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, family: CaixaStickFamily,
   nextKind: CaixaNextStrokeKind, durationMs: number = 200, flaRole: 'none' | 'main' | 'grace' = 'none'
@@ -53,18 +64,12 @@ export function generateCaixaPredictiveKeyframes(
   const { startTransform, endTransform, rebEasing } = resolveStickStartAndEndTransforms(isLeftSide, prof.scale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind);
 
   if (stroke === '~' || sUp === 'B' || sUp === 'R') {
-    const isB = sUp === 'B' || stroke === '~';
-    const bounces = Math.max(2, Math.min(8, Math.round(isB ? c.barulhoBounces : c.rufadaBounces)));
-    const baseY = (isB ? c.barulhoImpactY : c.impactReachY) + mobY;
-    const jitY = isB ? c.barulhoJitterPx : c.rufadaBouncePx, phaseShift = isB && isLeftSide ? c.barulhoPhaseOffset : 0;
+    if (sUp === 'B' || stroke === '~') return generateCaixaBarulhoLoopFrames(isLeftSide, family, stroke === 'b' ? 0.6 : 1);
+    const bounces = Math.max(2, Math.min(8, Math.round(c.rufadaBounces))), baseY = c.impactReachY + mobY;
     const frames: Keyframe[] = [], totalPts = bounces * 2;
     for (let i = 0; i <= totalPts; i++) {
-      const wave = Math.cos(((i / 2) + phaseShift) * Math.PI * 2), dy = Math.round(baseY + (1 - wave) * 0.5 * jitY);
-      const z = sc(c.rufadaPressScaleZ + (1 - wave) * 0.02);
-      frames.push({
-        transform: `translate(${convX}px, ${dy}px) rotateZ(${inSign * (wave > 0 ? 4 : 2.5)}deg) scale(${z}) skewX(${-inSign * +(flex * 1.6).toFixed(1)}deg)`,
-        offset: +(i / (totalPts + 1)).toFixed(3),
-      });
+      const wave = Math.cos((i / 2) * Math.PI * 2), dy = Math.round(baseY + (1 - wave) * 0.5 * c.rufadaBouncePx);
+      frames.push({ transform: `translate(${convX}px, ${dy}px) rotateZ(${inSign * (wave > 0 ? 4 : 2.5)}deg) scale(${sc(c.rufadaPressScaleZ + (1 - wave) * 0.02)}) skewX(${-inSign * +(flex * 1.6).toFixed(1)}deg)`, offset: +(i / (totalPts + 1)).toFixed(3) });
     }
     frames.push({ transform: endTransform, offset: 1 });
     return frames;
@@ -117,24 +122,14 @@ export function generateCaixaPredictiveKeyframes(
 }
 
 export function generateCaixaShadowKeyframes(stroke: string, isLeftSide: boolean, nextKind: CaixaNextStrokeKind): Keyframe[] {
-  const inSign = isLeftSide ? 1 : -1;
-  const { shadowDepthPx, shadowOpacity, attackSpeed } = CONFIG_CAIXA_STICKS;
-  const atkOff = Math.min(0.42, Math.max(0.05, attackSpeed));
-  const airY = -Math.round(shadowDepthPx * 1.5);
-  const airOp = +(shadowOpacity * 0.42).toFixed(2);
+  const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity, attackSpeed } = CONFIG_CAIXA_STICKS;
+  const atkOff = Math.min(0.42, Math.max(0.05, attackSpeed)), airY = -Math.round(shadowDepthPx * 1.5), airOp = +(shadowOpacity * 0.42).toFixed(2);
   const sUp = stroke.toUpperCase();
   if (sUp === 'R' || sUp === 'B' || stroke === '~') {
-    return [
-      { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: 0 },
-      { transform: 'translate(0px, -2px) scale(0.93)', opacity: +(shadowOpacity * 0.88).toFixed(2), offset: 0.5 },
-      { transform: getCaixaShadowRestTransform(isLeftSide), opacity: airOp, offset: 1 },
-    ];
+    return [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: 0 }, { transform: 'translate(0px, -2px) scale(0.93)', opacity: +(shadowOpacity * 0.88).toFixed(2), offset: 0.5 }, { transform: getCaixaShadowRestTransform(isLeftSide), opacity: airOp, offset: 1 }];
   }
-  return [
-    { transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
-    { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: atkOff },
-    nextKind === 'weak' || nextKind === 'rufada'
-      ? { transform: `translate(${inSign * 3}px, ${Math.round(airY * 0.3)}px) scale(0.92)`, opacity: +(shadowOpacity * 0.72).toFixed(2), offset: 1 }
-      : { transform: getCaixaShadowRestTransform(isLeftSide), opacity: airOp, offset: 1 },
-  ];
+  const endSh = nextKind === 'weak' || nextKind === 'rufada'
+    ? { transform: `translate(${inSign * 3}px, ${Math.round(airY * 0.3)}px) scale(0.92)`, opacity: +(shadowOpacity * 0.72).toFixed(2), offset: 1 }
+    : { transform: getCaixaShadowRestTransform(isLeftSide), opacity: airOp, offset: 1 };
+  return [{ transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: atkOff }, endSh];
 }

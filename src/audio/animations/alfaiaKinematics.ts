@@ -46,6 +46,23 @@ export function getAlfaiaImpactPoseTransform(stroke: string, isLeftSide: boolean
   return `translate(${inSign * c.impactConvergeX}px, ${c.impactReachY + mobY}px) rotateZ(${inSign * 4.5}deg) scale(${sx}, ${sy}) skewX(${skew}deg)`;
 }
 
+export function generateAlfaiaBarulhoLoopFrames(
+  isLeftSide: boolean, familyOrIsMac: AlfaiaSecondaryStickFamily | boolean, amplitude = 1
+): Keyframe[] {
+  const fam = normFam(familyOrIsMac), inSign = isLeftSide ? 1 : -1;
+  const c = CONFIG_ALFAIA_STICKS, mobY = getEffectiveMobileOffset('alfaia').reachDeltaY;
+  const sc = (v: number) => +(v * getProfileScale(fam)).toFixed(3);
+  const by = c.barulhoImpactY + mobY, jit = Math.max(1.2, c.barulhoJitterPx * amplitude);
+  const ph = isLeftSide ? c.barulhoPhaseOffset : 0;
+  return [0, 0.25, 0.5, 0.75, 1].map((t) => {
+    const w = Math.cos((t + ph) * Math.PI * 2), dy = +(by + (1 - w) * 0.5 * jit).toFixed(1);
+    return {
+      transform: `translate(${inSign * c.impactConvergeX}px, ${dy}px) rotateZ(${+(inSign * (2.8 + (w + 1) * 0.85 * amplitude)).toFixed(2)}deg) scale(${sc(c.impactScaleZ + (1 - w) * 0.02 * amplitude)}) skewX(0deg)`,
+      offset: t,
+    };
+  });
+}
+
 export function generateAlfaiaPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, familyOrIsMac: AlfaiaSecondaryStickFamily | boolean,
   nextKind: AlfaiaNextStrokeKind, durationMs: number = 220, autoLiftBeforeOtherHand = false
@@ -58,13 +75,7 @@ export function generateAlfaiaPredictiveKeyframes(
   const atkOff = Math.min(0.45, Math.max(0.06, c.attackSpeed));
   const restTr = getAlfaiaStickRestTransform(isLeftSide, fam);
 
-  if (stroke === '~' || sUp === 'B') {
-    const by = c.barulhoImpactY + mobY, jit = c.barulhoJitterPx, ph = isLeftSide ? c.barulhoPhaseOffset : 0;
-    return [0, 0.25, 0.5, 0.75, 1].map((t) => {
-      const w = Math.cos((t + ph) * Math.PI * 2), dy = Math.round(by + (1 - w) * 0.5 * jit);
-      return { transform: `translate(${inSign * c.impactConvergeX}px, ${dy}px) rotateZ(${inSign * (w > 0 ? 4.5 : 2.2)}deg) scale(${sc(c.impactScaleZ + (1 - w) * 0.02)}) skewX(0deg)`, offset: t };
-    });
-  }
+  if (stroke === '~' || sUp === 'B') return generateAlfaiaBarulhoLoopFrames(isLeftSide, fam, stroke === 'b' ? 0.6 : 1);
 
   const isStrong = stroke === 'D' || stroke === 'E' || stroke === 'I' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X';
   const { startTransform, endTransform, rebEasing, wasPressedOnSkin, pressedTransform } =

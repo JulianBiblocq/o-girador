@@ -6,6 +6,7 @@ export interface AoVivoShockwaveOptions {
   isRoll?: boolean;
   isRimshot?: boolean;
   rimOffsetY?: number;
+  delayMs?: number;
 }
 
 interface ActiveShockAnims {
@@ -64,14 +65,17 @@ export function triggerAoVivoShockwave(haloEl: HTMLDivElement | null, opts: AoVi
   haloEl.style.top = `${yPos}px`;
 
   const isRoll = Boolean(opts.isRoll);
+  const delay = Math.max(0, Math.round(opts.delayMs ?? 0));
   const easing = 'cubic-bezier(0.16, 1, 0.3, 1)';
   const primary = pEl.animate(isRoll ? PRIMARY_ROLL_FRAMES : PRIMARY_HIT_FRAMES, {
+    delay,
     duration: isRoll ? 130 : 255,
     iterations: isRoll ? 2 : 1,
     easing,
     fill: 'none',
   });
   const secondary = sEl.animate(isRoll ? SECONDARY_ROLL_FRAMES : SECONDARY_HIT_FRAMES, {
+    delay,
     duration: isRoll ? 150 : 285,
     iterations: isRoll ? 2 : 1,
     easing,
