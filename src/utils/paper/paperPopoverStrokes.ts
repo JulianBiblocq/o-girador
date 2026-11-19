@@ -11,7 +11,7 @@ export interface RoleStrokesConfig {
 
 const ALFAIA_STROKES: RoleStrokesConfig = {
   strong: ['D', 'E', 'A', 'I', 'C', 'X', 'B'],
-  weak: ['d', 'e', 'a'],
+  weak: ['d', 'e'],
   special: ['D/E', 'd/I', 'e/D', 'A/D'],
 };
 

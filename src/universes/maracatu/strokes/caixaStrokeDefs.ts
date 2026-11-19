@@ -1,106 +1,26 @@
 /**
- * O Girador - Caixa and Tarol Stroke Definitions (< 95 lignes)
+ * O Girador - Caixa and Tarol Stroke Definitions (< 60 lignes)
  */
 
 import { StrokeDef } from './strokeTypes';
 
 export function getCaixaStrokeDefs(isFr: boolean): StrokeDef[] {
   return [
-    {
-      symbol: 'D',
-      label: isFr ? 'Main Droite Fort' : 'Mão Direita Forte',
-      shortcut: 'D',
-      colorKey: 'D',
-    },
-    {
-      symbol: 'd',
-      label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca',
-      shortcut: 'd',
-      colorKey: 'd',
-    },
-    {
-      symbol: 'E',
-      label: isFr ? 'Main Gauche Fort' : 'Mão Esquerda Forte',
-      shortcut: 'E',
-      colorKey: 'E',
-    },
-    {
-      symbol: 'e',
-      label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca',
-      shortcut: 'e',
-      colorKey: 'e',
-    },
-    {
-      symbol: 'A',
-      label: isFr ? 'A — Attaque Cerclage+Peau Droite (Rimshot)' : 'A — Ataque Pele e Aro Direita',
-      shortcut: 'A',
-      colorKey: 'A',
-    },
-    {
-      symbol: 'a',
-      label: isFr ? 'a — Attaque Cerclage+Peau Gauche (Rimshot)' : 'a — Ataque Pele e Aro Esquerda',
-      shortcut: 'a',
-      colorKey: 'a',
-    },
-    {
-      symbol: 'C',
-      label: isFr ? 'Clic' : 'Click',
-      shortcut: 'C',
-      colorKey: 'C',
-    },
-    {
-      symbol: 'X',
-      label: isFr ? 'Cerclage (Aro)' : 'Toque no aro',
-      shortcut: 'X',
-      colorKey: 'X',
-    },
-    {
-      symbol: 'F',
-      label: isFr ? 'Fla Droite' : 'Fla Direita',
-      shortcut: 'F',
-      colorKey: 'F',
-    },
-    {
-      symbol: 'f',
-      label: isFr ? 'Fla Gauche' : 'Fla Esquerda',
-      shortcut: 'f',
-      colorKey: 'f',
-    },
-    {
-      symbol: 'R',
-      label: isFr ? 'Trêmulo Droite' : 'Rufada Direita',
-      shortcut: 'R',
-      colorKey: 'R',
-    },
-    {
-      symbol: 'r',
-      label: isFr ? 'Trêmulo Gauche' : 'Rufada Esquerda',
-      shortcut: 'r',
-      colorKey: 'r',
-    },
-    {
-      symbol: 'B',
-      label: isFr ? 'B — Barulho (Appel + Tenue)' : 'B — Barulho (Chamada + Sustentação)',
-      shortcut: 'B',
-      colorKey: 'B',
-    },
-    {
-      symbol: 'b',
-      label: isFr ? 'b — Barulho doux (Fade-In sans appel)' : 'b — Barulho suave (Fade-In sem chamada)',
-      shortcut: 'b',
-      colorKey: 'b',
-    },
-    {
-      symbol: '/',
-      label: isFr ? '/ — Extinction Barulho (Fade-Out)' : '/ — Extinção Barulho (Fade-Out)',
-      shortcut: '/',
-      colorKey: '/',
-    },
-    {
-      symbol: '.',
-      label: isFr ? '. — Fin du Barulho (Silence)' : '. — Fim do Barulho (Silêncio)',
-      shortcut: '.',
-      colorKey: '.',
-    },
+    { symbol: 'D', label: isFr ? 'Main Droite Fort' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
+    { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
+    { symbol: 'E', label: isFr ? 'Main Gauche Fort' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
+    { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
+    { symbol: 'F', label: isFr ? 'Fla Droite' : 'Fla Direita', shortcut: 'F', colorKey: 'F' },
+    { symbol: 'f', label: isFr ? 'Fla Gauche' : 'Fla Esquerda', shortcut: 'f', colorKey: 'f' },
+    { symbol: 'A', label: isFr ? 'A — Rimshot Droite' : 'A — Rimshot Direita', shortcut: 'A', colorKey: 'A' },
+    { symbol: 'a', label: isFr ? 'a — Rimshot Gauche' : 'a — Rimshot Esquerda', shortcut: 'a', colorKey: 'a' },
+    { symbol: 'R', label: isFr ? 'Rufada Droite' : 'Rufada Direita', shortcut: 'R', colorKey: 'R' },
+    { symbol: 'r', label: isFr ? 'Rufada Gauche' : 'Rufada Esquerda', shortcut: 'r', colorKey: 'r' },
+    { symbol: 'C', label: isFr ? 'Clic' : 'Click', shortcut: 'C', colorKey: 'C' },
+    { symbol: 'X', label: isFr ? 'Cerclage (Aro)' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
+    { symbol: 'B', label: isFr ? 'B — Barulho (Appel + Tenue)' : 'B — Barulho (Chamada + Sustentação)', shortcut: 'B', colorKey: 'B' },
+    { symbol: 'b', label: isFr ? 'b — Barulho doux (Fade-In sans appel)' : 'b — Barulho suave (Fade-In sem chamada)', shortcut: 'b', colorKey: 'b' },
+    { symbol: '/', label: isFr ? '/ — Extinction Barulho (Fade-Out)' : '/ — Extinção Barulho (Fade-Out)', shortcut: '/', colorKey: '/' },
+    { symbol: '.', label: isFr ? '. — Fin du Barulho (Silence)' : '. — Fim do Barulho (Silêncio)', shortcut: '.', colorKey: '.' },
   ];
 }

@@ -7,7 +7,7 @@ export const TESTER_STROKES: Record<TesterFamily, { id: string; lbl: string }[]>
   alfaia: [
     { id: 'D', lbl: 'D' }, { id: 'd', lbl: 'd' },
     { id: 'E', lbl: 'E' }, { id: 'e', lbl: 'e' },
-    { id: 'A', lbl: 'A (Abaf)' }, { id: 'a', lbl: 'a (Abaf)' }, { id: 'I', lbl: 'I (Bac)' },
+    { id: 'A', lbl: 'A (Abaf)' }, { id: 'I', lbl: 'I (Bac)' },
     { id: 'C', lbl: 'C' }, { id: 'X', lbl: 'X' }, { id: 'B', lbl: 'B' },
   ],
   caixa: [

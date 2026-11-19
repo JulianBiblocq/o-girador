@@ -74,7 +74,10 @@ export function resolveDrumStrokePedagogy(
       case 'F': case 'f': return pair(isFr, [`Fla ouvert (${sideFr} ${semanticStroke})`, 'Appoggiature rapide des deux mains débouchant sur un ton ouvert Aberto.'], [`Fla aberto (${sidePt} ${semanticStroke})`, 'Apogiatura rápida das duas mãos desembocando num toque Aberto.']);
       case 'V': case 'v': return pair(isFr, [`Fla claqué (${sideFr} ${semanticStroke})`, 'Appoggiature rapide des deux mains débouchant sur un Slap tranchant.'], [`Fla slap (${sidePt} ${semanticStroke})`, 'Apogiatura rápida das duas mãos desembocando num Slap cortante.']);
       case 'C': return pair(isFr, ['Clap', 'Claquement sec des mains.'], ['Palma (Clap)', 'Palma seca das mãos.']);
-      case 'B': case 'b': return pair(isFr, ['Barulho (Roulement continu)', 'Roulement rapide alterné des deux mains faisant gronder la peau en continu.'], ['Barulho (Rulo contínuo)', 'Rulo rápido alternado das duas mãos fazendo vibrar a pele continuamente.']);
+      case 'B': return pair(isFr, ['Barulho (Roulement continu)', 'Roulement rapide alterné des deux mains faisant gronder la peau en continu.'], ['Barulho (Rulo contínuo)', 'Rulo rápido alternado das duas mãos fazendo vibrar a pele continuamente.']);
+      case 'b': return pair(isFr, ['Barulho doux (Fade-In)', 'Entrée progressive du roulement continu des deux mains sans attaque initiale marquée.'], ['Barulho suave (Fade-In)', 'Entrada progressiva do rulo contínuo das duas mãos sem ataque inicial acentuado.']);
+      case '/': return pair(isFr, ['Extinction Barulho (Fade-Out)', "Décroissance contrôlée du roulement continu jusqu'à l'extinction."], ['Extinção do Barulho (Fade-Out)', 'Decaimento controlado do rulo contínuo até silenciar.']);
+      case '.': return pair(isFr, ['Fin du Barulho', 'Arrêt franc et immédiat du roulement continu pour libérer le silence.'], ['Fim do Barulho', 'Corte imediato do rulo contínuo abrindo espaço para o silêncio.']);
       default: return null;
     }
   }

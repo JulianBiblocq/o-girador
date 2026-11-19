@@ -1,135 +1,32 @@
 /**
- * 
- * O Girador - Timbal Stroke Definitions
+ * O Girador - Timbal Stroke Definitions (< 60 lignes)
  */
 
 import { StrokeDef } from './strokeTypes';
 
 export function getTimbalStrokeDefs(isFr: boolean, isLeftHanded: boolean): StrokeDef[] {
+  const dom = isFr ? (isLeftHanded ? 'Gauche' : 'Droite') : (isLeftHanded ? 'Esquerda' : 'Direita');
+  const sec = isFr ? (isLeftHanded ? 'Droite' : 'Gauche') : (isLeftHanded ? 'Direita' : 'Esquerda');
+
   return [
-    {
-      symbol: 'G',
-      label: isFr
-        ? (isLeftHanded ? 'Basse Gauche' : 'Basse Droite')
-        : (isLeftHanded ? 'Baixo Esquerda' : 'Baixo Direita'),
-      shortcut: 'G',
-      colorKey: 'G'
-    },
-    {
-      symbol: 'g',
-      label: isFr
-        ? (isLeftHanded ? 'Basse Droite' : 'Basse Gauche')
-        : (isLeftHanded ? 'Baixo Direita' : 'Baixo Esquerda'),
-      shortcut: 'g',
-      colorKey: 'g'
-    },
-    {
-      symbol: 'A',
-      label: isFr
-        ? (isLeftHanded ? 'Aberto Gauche' : 'Aberto Droite')
-        : (isLeftHanded ? 'Aberto Esquerda' : 'Aberto Direita'),
-      shortcut: 'A',
-      colorKey: 'A'
-    },
-    {
-      symbol: 'a',
-      label: isFr
-        ? (isLeftHanded ? 'Aberto Droite' : 'Aberto Gauche')
-        : (isLeftHanded ? 'Aberto Direita' : 'Aberto Esquerda'),
-      shortcut: 'a',
-      colorKey: 'a'
-    },
-    {
-      symbol: 'S',
-      label: isFr
-        ? (isLeftHanded ? 'Slap Gauche' : 'Slap Droite')
-        : (isLeftHanded ? 'Slap Esquerda' : 'Slap Direita'),
-      shortcut: 'S',
-      colorKey: 'S'
-    },
-    {
-      symbol: 's',
-      label: isFr
-        ? (isLeftHanded ? 'Slap Droite' : 'Slap Gauche')
-        : (isLeftHanded ? 'Slap Direita' : 'Slap Esquerda'),
-      shortcut: 's',
-      colorKey: 's'
-    },
-    {
-      symbol: 'D',
-      label: isFr
-        ? (isLeftHanded ? 'Fantôme Gauche' : 'Fantôme Droite')
-        : (isLeftHanded ? 'Dedilhado Esquerda' : 'Dedilhado Direita'),
-      shortcut: 'D',
-      colorKey: 'D'
-    },
-    {
-      symbol: 'd',
-      label: isFr
-        ? (isLeftHanded ? 'Fantôme Droite' : 'Fantôme Gauche')
-        : (isLeftHanded ? 'Dedilhado Direita' : 'Dedilhado Esquerda'),
-      shortcut: 'd',
-      colorKey: 'd'
-    },
-    {
-      symbol: 'P',
-      label: isFr
-        ? (isLeftHanded ? 'Pressé Gauche' : 'Pressé Droite')
-        : (isLeftHanded ? 'Preso Esquerda' : 'Preso Direita'),
-      shortcut: 'P',
-      colorKey: 'P'
-    },
-    {
-      symbol: 'p',
-      label: isFr
-        ? (isLeftHanded ? 'Pressé Droite' : 'Pressé Gauche')
-        : (isLeftHanded ? 'Preso Direita' : 'Preso Esquerda'),
-      shortcut: 'p',
-      colorKey: 'p'
-    },
-    {
-      symbol: 'F',
-      label: isFr
-        ? (isLeftHanded ? 'Fla ouvert Gauche' : 'Fla ouvert Droite')
-        : (isLeftHanded ? 'Fla aberto Esquerda' : 'Fla aberto Direita'),
-      shortcut: 'F',
-      colorKey: 'F'
-    },
-    {
-      symbol: 'f',
-      label: isFr
-        ? (isLeftHanded ? 'Fla ouvert Droite' : 'Fla ouvert Gauche')
-        : (isLeftHanded ? 'Fla aberto Direita' : 'Fla aberto Esquerda'),
-      shortcut: 'f',
-      colorKey: 'f'
-    },
-    {
-      symbol: 'V',
-      label: isFr
-        ? (isLeftHanded ? 'Fla claqué Gauche' : 'Fla claqué Droite')
-        : (isLeftHanded ? 'Fla slap Esquerda' : 'Fla slap Direita'),
-      shortcut: 'V',
-      colorKey: 'V'
-    },
-    {
-      symbol: 'v',
-      label: isFr
-        ? (isLeftHanded ? 'Fla claqué Droite' : 'Fla claqué Gauche')
-        : (isLeftHanded ? 'Fla slap Direita' : 'Fla slap Esquerda'),
-      shortcut: 'v',
-      colorKey: 'v'
-    },
-    {
-      symbol: 'C',
-      label: isFr ? 'Clic (mains)' : 'Clap (mãos)',
-      shortcut: 'C',
-      colorKey: 'C'
-    },
-    {
-      symbol: 'B',
-      label: isFr ? 'Barulho (Grondement)' : 'Barulho (Vibração)',
-      shortcut: 'B',
-      colorKey: 'B'
-    },
+    { symbol: 'G', label: `${isFr ? 'Basse' : 'Grave'} ${dom}`, shortcut: 'G', colorKey: 'G' },
+    { symbol: 'g', label: `${isFr ? 'Basse' : 'Grave'} ${sec}`, shortcut: 'g', colorKey: 'g' },
+    { symbol: 'A', label: `Aberto ${dom}`, shortcut: 'A', colorKey: 'A' },
+    { symbol: 'a', label: `Aberto ${sec}`, shortcut: 'a', colorKey: 'a' },
+    { symbol: 'S', label: `Slap ${dom}`, shortcut: 'S', colorKey: 'S' },
+    { symbol: 's', label: `Slap ${sec}`, shortcut: 's', colorKey: 's' },
+    { symbol: 'D', label: `${isFr ? 'Doigts' : 'Dedos'} ${dom}`, shortcut: 'D', colorKey: 'D' },
+    { symbol: 'd', label: `${isFr ? 'Doigts' : 'Dedos'} ${sec}`, shortcut: 'd', colorKey: 'd' },
+    { symbol: 'P', label: `${isFr ? 'Pressé' : 'Preso'} ${dom}`, shortcut: 'P', colorKey: 'P' },
+    { symbol: 'p', label: `${isFr ? 'Pressé' : 'Preso'} ${sec}`, shortcut: 'p', colorKey: 'p' },
+    { symbol: 'F', label: `Fla ${dom}`, shortcut: 'F', colorKey: 'F' },
+    { symbol: 'f', label: `Fla ${sec}`, shortcut: 'f', colorKey: 'f' },
+    { symbol: 'V', label: `Fla Slap ${dom}`, shortcut: 'V', colorKey: 'V' },
+    { symbol: 'v', label: `Fla Slap ${sec}`, shortcut: 'v', colorKey: 'v' },
+    { symbol: 'C', label: isFr ? 'Clap (mains)' : 'Palma (mãos)', shortcut: 'C', colorKey: 'C' },
+    { symbol: 'B', label: isFr ? 'B — Barulho (Appel + Tenue)' : 'B — Barulho (Chamada + Sustentação)', shortcut: 'B', colorKey: 'B' },
+    { symbol: 'b', label: isFr ? 'b — Barulho doux (Fade-In sans appel)' : 'b — Barulho suave (Fade-In sem chamada)', shortcut: 'b', colorKey: 'b' },
+    { symbol: '/', label: isFr ? '/ — Extinction Barulho (Fade-Out)' : '/ — Extinção Barulho (Fade-Out)', shortcut: '/', colorKey: '/' },
+    { symbol: '.', label: isFr ? '. — Fin du Barulho (Silence)' : '. — Fim do Barulho (Silêncio)', shortcut: '.', colorKey: '.' },
   ];
 }

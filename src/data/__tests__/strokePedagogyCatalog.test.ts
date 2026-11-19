@@ -30,7 +30,7 @@ describe('strokePedagogyCatalog — textes officiels Mestre FR / PT-BR & mode ga
   it("décrit le Gonguê comme une cloche unique (Haut / Base / Arrêt étouffé X) sans jamais mentionner deux cloches ni M", () => {
     const gongueDefs = getStrokesForInstrument('gongue', 'gongue', 'fr', false).map((s) => s.symbol);
     const gonguePairIds = getStrokePairs('gongue', 'gongue', 'fr', false).map((p) => p.id);
-    expect(gongueDefs).toEqual(['G', 'g', 'A', 'a', 'X', 'B']);
+    expect(gongueDefs).toEqual(['G', 'g', 'A', 'a', 'X', 'B', 'b', '/', '.']);
     expect(gonguePairIds).toEqual(['G', 'A', 'X', 'B']);
 
     const gFr = resolveStrokePedagogy('gongue', 'gongue', 'G', 'fr', false)!;

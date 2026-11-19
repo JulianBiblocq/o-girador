@@ -58,9 +58,10 @@ export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.mem
   const cleanActive = (activeTool === 'O' || activeTool === '0' || !activeTool) ? defaultSymbol : activeTool;
   const activeStrongSym = currentPair ? currentPair.strong.symbol : cleanActive.toUpperCase();
 
-  const renderCol = (strokeObj: any, isWeak: boolean) => (
+  const isWeakStrokeSym = (sym: string) => sym === '/' || sym === '.' || (sym !== sym.toUpperCase() && sym === sym.toLowerCase());
+  const renderCol = (strokeObj: any) => (
     <StrokeColumnSliders
-      key={strokeObj.symbol} symbol={strokeObj.symbol} shortcut={strokeObj.shortcut} label={strokeObj.label} isWeak={isWeak}
+      key={strokeObj.symbol} symbol={strokeObj.symbol} shortcut={strokeObj.shortcut} label={strokeObj.label} isWeak={isWeakStrokeSym(String(strokeObj.symbol || ''))}
       instrument={instrument} trackId={trackId} trackLabel={trackLabel} patternId={patternId} patternLabel={patternLabel}
       activeTool={activeTool} isVoice={isVoice} isFr={isFr}
       stats={getStrokeStats(strokeObj.symbol)} playThrottledPreview={playThrottledPreview}
@@ -81,18 +82,18 @@ export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.mem
           <span className={`text-[10px] font-mono font-bold shrink-0 ${highlightActive ? 'text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-accent-readable)]'}`}>{chain}</span>
         </div>
         {strokes.length === 1 ? (
-          <div className="flex flex-col gap-2 w-full min-w-0 box-border">{renderCol(strokes[0], false)}</div>
+          <div className="flex flex-col gap-2 w-full min-w-0 box-border">{renderCol(strokes[0])}</div>
         ) : strokes.length === 2 ? (
-          <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[0], false)}{renderCol(strokes[1], true)}</div>
+          <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[0])}{renderCol(strokes[1])}</div>
         ) : strokes.length === 3 ? (
           <div className="flex flex-col gap-2 w-full min-w-0 box-border">
-            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[0], false)}{renderCol(strokes[1], true)}</div>
-            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[2], true)}</div>
+            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[0])}{renderCol(strokes[1])}</div>
+            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[2])}</div>
           </div>
         ) : (
           <div className="flex flex-col gap-2 w-full min-w-0 box-border">
-            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[0], false)}{renderCol(strokes[1], true)}</div>
-            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[2], false)}{renderCol(strokes[3], true)}</div>
+            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[0])}{renderCol(strokes[1])}</div>
+            <div className="flex flex-row gap-2 w-full min-w-0 box-border">{renderCol(strokes[2])}{renderCol(strokes[3])}</div>
           </div>
         )}
       </div>

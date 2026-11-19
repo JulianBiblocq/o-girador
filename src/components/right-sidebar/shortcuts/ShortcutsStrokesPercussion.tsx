@@ -48,7 +48,7 @@ export const ShortcutsStrokesPercussion: React.FC<ShortcutsStrokesPercussionProp
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1.5 text-[10.5px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(alIds, ['D', 'd']) && <div className={rowCls}>{renderBadge(alIds, ['D'], 'D / d')}<span>{sw(t('legendAlfaiaD'))}</span></div>}
             {isStrokeActiveForInstruments(alIds, ['E', 'e']) && <div className={rowCls}>{renderBadge(alIds, ['E'], 'E / e')}<span>{sw(t('legendAlfaiaE'))}</span></div>}
-            {isStrokeActiveForInstruments(alIds, ['A', 'a']) && <div className={rowCls}>{renderBadge(alIds, ['A'], 'A / a')}<span>{sw(t('legendAlfaiaAbafado'))}</span></div>}
+            {isStrokeActiveForInstruments(alIds, ['A', 'a']) && <div className={rowCls}>{renderBadge(alIds, ['A'], 'A')}<span>{sw(t('legendAlfaiaAbafado'))}</span></div>}
             {isStrokeActiveForInstruments(alIds, ['I']) && <div className={rowCls}>{renderBadge(alIds, ['I'], 'I')}<span>{sw(t('legendAlfaiaIguarassu'))}</span></div>}
             {isStrokeActiveForInstruments(alIds, ['C']) && <div className={rowCls}>{renderBadge(alIds, ['C'], 'C')}<span>{t('legendTarolClick')}</span></div>}
             {isStrokeActiveForInstruments(alIds, ['X']) && <div className={rowCls}>{renderBadge(alIds, ['X'], 'X')}<span>{t('legendAlfaiaCerclage')}</span></div>}

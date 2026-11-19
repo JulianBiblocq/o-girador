@@ -10,7 +10,7 @@ export function getAlfaiaStrokeDefs(isFr: boolean): StrokeDef[] {
     { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
     { symbol: 'E', label: isFr ? 'Main Gauche Fort' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
     { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-    { symbol: 'A', label: isFr ? 'A — Étouffé Gauche (Abafado)' : 'A — Abafado Esquerda (Seco)', shortcut: 'A', colorKey: 'A' },
+    { symbol: 'A', label: isFr ? 'A — Étouffé (Abafado)' : 'A — Abafado (Seco)', shortcut: 'A', colorKey: 'A' },
     { symbol: 'C', label: isFr ? 'Clic baguettes' : 'Click', shortcut: 'C', colorKey: 'C' },
     { symbol: 'X', label: isFr ? 'Cerclage (Aro)' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
     { symbol: 'I', label: isFr ? 'Bacalhau (Igarassu)' : 'Bacalhau (Igarassu)', shortcut: 'I', colorKey: 'I' },

@@ -38,8 +38,8 @@ export const getStrokeDescription = (
       case 'd': return isPt ? 'Mão direita (Golpe fraco)' : 'Main droite (Coup faible)';
       case 'E': return isPt ? 'Mão esquerda (Golpe forte)' : 'Main gauche (Coup fort)';
       case 'e': return isPt ? 'Mão esquerda (Golpe fraco)' : 'Main gauche (Coup faible)';
-      case 'A': return isPt ? 'A — Ataque Pele e Aro / Rimshot (Direita)' : 'A — Rimshot / Pele e Aro (Droite)';
-      case 'a': return isPt ? 'a — Ataque Pele e Aro / Rimshot (Esquerda)' : 'a — Rimshot / Pele e Aro (Gauche)';
+      case 'A': return isPt ? 'A — Rimshot (Direita)' : 'A — Rimshot (Droite)';
+      case 'a': return isPt ? 'a — Rimshot (Esquerda)' : 'a — Rimshot (Gauche)';
       case 'R': return isPt ? 'Rufada (Rulo curto — Direita)' : 'Rufada (Roulement court — Droite)';
       case 'r': return isPt ? 'Rufada (Rulo curto — Esquerda)' : 'Rufada (Roulement court — Gauche)';
       case 'F': return isPt ? 'Fla (Direita)' : 'Fla (Droite)';

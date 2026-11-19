@@ -32,8 +32,8 @@ export const POLE_2_WRITE_RHYTHMS: GuidePoleDef = {
         'Arraste com o botão direito para apagar vários passos num único gesto (registrado como 1 só Undo Ctrl+Z), ou gire a roda do mouse / [↑][↓] sobre um passo para alternar a nuance.',
         'Use a ferramenta Tesoura no Dock (ou Alt + Clique numa célula) para dividir um passo em toque duplo sucessivo [a, b] (Rá, ex. D/E ou d/I).',
       ],
-      tipFr: 'Sur grand écran en mode Plein Écran, l’inspecteur déploie côte à côte toutes les paires de frappes de l’instrument (ex. Abafado A/a et Bacalhau I sur Alfaia, ou Rimshot A/a sur Caixa).',
-      tipPt: 'Em monitores amplos no modo Tela Cheia, o inspetor exibe lado a lado todos os pares do instrumento (como Abafado A/a e Bacalhau I na Alfaia, ou Pele e Aro A/a na Caixa).',
+      tipFr: 'Sur grand écran en mode Plein Écran, l’inspecteur déploie côte à côte toutes les paires de frappes de l’instrument (ex. Abafado A et Bacalhau I sur Alfaia, ou Rimshot A/a sur Caixa).',
+      tipPt: 'Em monitores amplos no modo Tela Cheia, o inspetor exibe lado a lado todos os pares do instrumento (como Abafado A e Bacalhau I na Alfaia, ou Rimshot A/a na Caixa).',
     },
     {
       id: 'p2-2',

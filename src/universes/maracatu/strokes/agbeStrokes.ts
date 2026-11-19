@@ -1,104 +1,43 @@
 /**
- * 
- * O Girador - Agbê Stroke Definitions & Pairs
+ * O Girador - Agbê Stroke Definitions & Pairs (E/e Haut puis D/d Bas) (< 85 lignes)
  */
 
 import { StrokeDef, StrokePair } from './strokeTypes';
 
 export function getAgbeStrokeDefs(isFr: boolean): StrokeDef[] {
   return [
-    {
-      symbol: 'D',
-      label: isFr ? 'Projection Droite Fort' : 'Projeção Direita Forte',
-      shortcut: 'D',
-      colorKey: 'D'
-    },
-    {
-      symbol: 'd',
-      label: isFr ? 'Projection Droite Faible' : 'Projeção Direita Fraca',
-      shortcut: 'd',
-      colorKey: 'd'
-    },
-    {
-      symbol: 'E',
-      label: isFr ? 'Projection Gauche Fort' : 'Projeção Esquerda Forte',
-      shortcut: 'E',
-      colorKey: 'E'
-    },
-    {
-      symbol: 'e',
-      label: isFr ? 'Projection Gauche Faible' : 'Projeção Esquerda Fraca',
-      shortcut: 'e',
-      colorKey: 'e'
-    },
-    {
-      symbol: 'S',
-      label: isFr ? 'Salto' : 'Salto',
-      shortcut: 'S',
-      colorKey: 'S'
-    },
-    {
-      symbol: 'V',
-      label: isFr ? 'Volta' : 'Volta',
-      shortcut: 'V',
-      colorKey: 'V'
-    },
-    {
-      symbol: 'B',
-      label: isFr ? 'Barulho (Grondement)' : 'Barulho (Vibração)',
-      shortcut: 'B',
-      colorKey: 'B'
-    },
+    { symbol: 'E', label: isFr ? 'Projection Gauche Fort' : 'Projeção Esquerda Forte', shortcut: 'E', colorKey: 'E' },
+    { symbol: 'e', label: isFr ? 'Projection Gauche Faible' : 'Projeção Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
+    { symbol: 'D', label: isFr ? 'Projection Droite Fort' : 'Projeção Direita Forte', shortcut: 'D', colorKey: 'D' },
+    { symbol: 'd', label: isFr ? 'Projection Droite Faible' : 'Projeção Direita Fraca', shortcut: 'd', colorKey: 'd' },
+    { symbol: 'S', label: 'Salto', shortcut: 'S', colorKey: 'S' },
+    { symbol: 'V', label: 'Volta', shortcut: 'V', colorKey: 'V' },
+    { symbol: 'B', label: isFr ? 'B — Barulho (Appel + Tenue)' : 'B — Barulho (Chamada + Sustentação)', shortcut: 'B', colorKey: 'B' },
+    { symbol: 'b', label: isFr ? 'b — Barulho doux (Fade-In sans appel)' : 'b — Barulho suave (Fade-In sem chamada)', shortcut: 'b', colorKey: 'b' },
+    { symbol: '/', label: isFr ? '/ — Extinction Barulho (Fade-Out)' : '/ — Extinção Barulho (Fade-Out)', shortcut: '/', colorKey: '/' },
+    { symbol: '.', label: isFr ? '. — Fin du Barulho (Silence)' : '. — Fim do Barulho (Silêncio)', shortcut: '.', colorKey: '.' },
   ];
 }
 
 export function getAgbeStrokePairs(allStrokes: StrokeDef[], isFr: boolean): StrokePair[] {
-  const dStrong = allStrokes.find(s => s.symbol === 'D');
-  const dWeak = allStrokes.find(s => s.symbol === 'd');
-  const eStrong = allStrokes.find(s => s.symbol === 'E');
-  const eWeak = allStrokes.find(s => s.symbol === 'e');
-  const sStroke = allStrokes.find(s => s.symbol === 'S');
-  const vStroke = allStrokes.find(s => s.symbol === 'V');
-  const bStroke = allStrokes.find(s => s.symbol === 'B');
+  const find = (sym: string) => allStrokes.find((s) => s.symbol === sym);
+  const eStrong = find('E'), eWeak = find('e');
+  const dStrong = find('D'), dWeak = find('d');
+  const sStroke = find('S'), vStroke = find('V');
+  const bStroke = find('B'), bSoft = find('b'), slash = find('/'), dot = find('.');
 
   const pairs: StrokePair[] = [];
-  if (dStrong) {
-    const strokes = [dStrong, dWeak].filter(Boolean) as StrokeDef[];
-    pairs.push({
-      id: 'D',
-      strong: dStrong,
-      weak: dWeak,
-      strokes,
-      mainLabel: isFr ? 'Main Droite' : 'Mão Direita'
-    });
-  }
   if (eStrong) {
-    const strokes = [eStrong, eWeak].filter(Boolean) as StrokeDef[];
-    pairs.push({
-      id: 'E',
-      strong: eStrong,
-      weak: eWeak,
-      strokes,
-      mainLabel: isFr ? 'Main Gauche' : 'Mão Esquerda'
-    });
+    pairs.push({ id: 'E', strong: eStrong, weak: eWeak, strokes: [eStrong, eWeak].filter(Boolean) as StrokeDef[], mainLabel: isFr ? 'Vers G. (Paume)' : 'Para Esq. (Palma)' });
+  }
+  if (dStrong) {
+    pairs.push({ id: 'D', strong: dStrong, weak: dWeak, strokes: [dStrong, dWeak].filter(Boolean) as StrokeDef[], mainLabel: isFr ? 'Vers D. (Retour)' : 'Para Dir. (Retorno)' });
   }
   if (sStroke) {
-    const strokes = [sStroke, vStroke].filter(Boolean) as StrokeDef[];
-    pairs.push({
-      id: 'S',
-      strong: sStroke,
-      weak: vStroke,
-      strokes,
-      mainLabel: isFr ? 'Salto / Volta' : 'Salto / Volta'
-    });
+    pairs.push({ id: 'S', strong: sStroke, weak: vStroke, strokes: [sStroke, vStroke].filter(Boolean) as StrokeDef[], mainLabel: 'Salto / Volta' });
   }
   if (bStroke) {
-    pairs.push({
-      id: 'B',
-      strong: bStroke,
-      strokes: [bStroke],
-      mainLabel: isFr ? 'Barulho' : 'Barulho'
-    });
+    pairs.push({ id: 'B', strong: bStroke, weak: bSoft, third: slash, strokes: [bStroke, bSoft, slash, dot].filter(Boolean) as StrokeDef[], mainLabel: 'Barulho' });
   }
   return pairs;
 }

@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
-import { getStrokePairs } from '../../utils/instrumentStrokes';
 import { Sliders } from 'lucide-react';
+import { getVisualStrokeSymbol } from '../../data';
 import { useWindow } from '../../contexts/WindowContext';
-import { StrokeWritingDockPairButton } from './dock/StrokeWritingDockPairButton';
+import { buildStrokeDockMatrix } from './dock/strokeDockMatrixConfig';
+import { StrokeDockMatrixView } from './dock/StrokeDockMatrixView';
 import { StrokeWritingDockSpecialTools } from './dock/StrokeWritingDockSpecialTools';
 import { StrokeDockSelectionBar } from './dock/StrokeDockSelectionBar';
 
@@ -14,6 +15,7 @@ export interface StrokeWritingDockProps {
     id: string;
     type: string;
     colors: Record<string, string>;
+    color?: string;
     name?: string;
     [key: string]: any;
   };
@@ -61,7 +63,10 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
   }, [hostWin]);
 
   const isFr = lang === 'fr';
-  const pairs = useMemo(() => getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded), [instrument.id, instrument.type, lang, isLeftHanded]);
+  const matrixSpec = useMemo(
+    () => buildStrokeDockMatrix(instrument.id, instrument.type, isFr, isLeftHanded),
+    [instrument.id, instrument.type, isFr, isLeftHanded]
+  );
   const isEraserActive = activeTool === '0' || activeTool === '';
   const isScissorsActive = activeTool === 'scissors';
   const isSelectionModeActive = isMultiSelectActive || selectionCount > 1;
@@ -72,37 +77,37 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
     onSelectTool(tool);
   }, [isMultiSelectActive, selectionCount, onExitMultiSelect, onSelectTool]);
 
+  const colCount = matrixSpec.directionalCols.length + matrixSpec.centralCols.length;
   const inspectorReserve = showInspectorButton && onOpenBottomSheet && dockWidth < 1024 ? (dockWidth >= 640 ? 120 : 62) : 0;
-  const toolsNaturalWidth = pairs.length * 112 + (supportsAlternation ? 108 : 0) + 224 + inspectorReserve;
+  const toolsNaturalWidth = (matrixSpec.rows ? 64 : 0) + colCount * 48 + (supportsAlternation ? 104 : 0) + 210 + inspectorReserve;
   const freeWidth = dockWidth - toolsNaturalWidth;
-  const isCompact = freeWidth < 650 || dockWidth < 1060;
-  const showDirectPaste = Boolean(canPasteRange && (freeWidth >= 400 || dockWidth >= 880));
+  const isCompact = freeWidth < 520 || dockWidth < 1020;
+  const showDirectPaste = Boolean(canPasteRange && (freeWidth >= 320 || dockWidth >= 860));
 
   const hasSelectionSupport = Boolean(
     onToggleMultiSelect && onExitMultiSelect && onDuplicateRange && onCopyRange && onCutRange && onPasteRange && onClearRange
   );
+  const activeVisualBadge = String(getVisualStrokeSymbol(activeTool, isLeftHanded, instrument.id));
 
   return (
     <div
       ref={dockRef}
       data-stroke-dock="true"
       data-tour-id="editor-stroke-dock"
-      className="@container w-full bg-[var(--cordel-parchment-surface)] border-t-[3px] border-[var(--cordel-ink-dark)] px-2.5 sm:px-3 py-2 shrink-0 flex items-center justify-between gap-2 shadow-[0_-2px_6px_var(--cordel-shadow-color)] z-30 select-none"
+      className="@container w-full bg-[var(--cordel-parchment-surface)] border-t-[3px] border-[var(--cordel-ink-dark)] px-2 sm:px-3 py-1 shrink-0 flex items-center justify-between gap-2 shadow-[0_-2px_6px_var(--cordel-shadow-color)] z-30 select-none"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pl-1 pr-1.5 py-1 min-w-0 scrollbar-none">
-          {pairs.map((pair) => (
-            <StrokeWritingDockPairButton
-              key={pair.id} trackId={trackId} pair={pair} instrument={instrument} activeTool={activeTool}
-              isScissorsActive={isScissorsActive} isEraserActive={isEraserActive || isSelectionModeActive}
-              isFr={isFr} onSelectTool={handlePickBrushTool}
-            />
-          ))}
-
+        <div className="flex items-end gap-1.5 sm:gap-2 overflow-x-auto pl-0.5 pr-1 py-0.5 min-w-0 flex-1 scrollbar-none">
+          <StrokeDockMatrixView
+            trackId={trackId} instrument={instrument} spec={matrixSpec} activeTool={activeTool}
+            isBrushSuppressed={isScissorsActive || isEraserActive || isSelectionModeActive}
+            isLeftHanded={isLeftHanded} isFr={isFr} onSelectTool={handlePickBrushTool}
+          />
           <StrokeWritingDockSpecialTools
             supportsAlternation={supportsAlternation} isAlternating={isAlternating} onToggleAlternating={onToggleAlternating}
             isEraserActive={isEraserActive} isScissorsActive={isScissorsActive}
-            isMultiSelectActive={isSelectionModeActive} isFr={isFr} onSelectTool={handlePickBrushTool}
+            isMultiSelectActive={isSelectionModeActive} defaultBrushSymbol={matrixSpec.defaultBrush}
+            isFr={isFr} onSelectTool={handlePickBrushTool}
           />
         </div>
 
@@ -126,7 +131,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
           <Sliders size={14} />
           <span className="hidden sm:inline">{isFr ? 'Inspecteur' : 'Inspetor'}</span>
           {!isEraserActive && !isScissorsActive && !isSelectionModeActive && (
-            <span className="px-1 py-0.2 bg-[var(--cordel-paper-surface)] text-[var(--cordel-wood)] rounded-xs font-mono font-bold text-[10px]">{activeTool}</span>
+            <span className="px-1 py-0.2 bg-[var(--cordel-paper-surface)] text-[var(--cordel-wood)] rounded-xs font-mono font-bold text-[10px]">{activeVisualBadge}</span>
           )}
         </button>
       )}
