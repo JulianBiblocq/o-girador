@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Square, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Play, Square, X } from 'lucide-react';
 import { FocusMeasureStepsModel } from './focusBalancoTypes';
 import { setManualBalancoMorphScale } from '../../audio/groove/liveBalancoMorph';
 import { positionSliderThumb } from './updateFocusBalancoDomFrame';
@@ -9,6 +9,8 @@ interface FocusBalancoControlsBarProps {
   lang: string;
   compact?: boolean;
   isCycleActive: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   onToggleCycle: () => void;
   onClose: () => void;
   sliderRef: React.RefObject<HTMLInputElement | null>;
@@ -20,8 +22,8 @@ interface FocusBalancoControlsBarProps {
 }
 
 export const FocusBalancoControlsBar: React.FC<FocusBalancoControlsBarProps> = ({
-  model, lang, compact = false, isCycleActive, onToggleCycle, onClose,
-  sliderRef, sliderFillRef, sliderThumbRef, scaleBadgeRef, phaseBadgeRef, isDraggingSliderRef,
+  model, lang, compact = false, isCycleActive, isCollapsed = false, onToggleCollapse,
+  onToggleCycle, onClose, sliderRef, sliderFillRef, sliderThumbRef, scaleBadgeRef, phaseBadgeRef, isDraggingSliderRef,
 }) => {
   const isPt = lang === 'pt';
   const nomPct = model.nominalIntensityPct;
@@ -82,25 +84,13 @@ export const FocusBalancoControlsBar: React.FC<FocusBalancoControlsBarProps> = (
           <span className="text-[9px] font-mono font-bold text-[var(--cordel-text-muted)]">0%</span>
           <div className="relative w-20 sm:w-28 h-5 flex items-center">
             <div className="relative w-full h-2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)] rounded-xs overflow-hidden pointer-events-none">
-              <div
-                ref={sliderFillRef}
-                className="absolute inset-0 origin-left pointer-events-none"
-                style={{ backgroundColor: model.primaryColor, transform: 'scaleX(1)' }}
-              />
+              <div ref={sliderFillRef} className="absolute inset-0 origin-left pointer-events-none" style={{ backgroundColor: model.primaryColor, transform: 'scaleX(1)' }} />
             </div>
-            <div
-              ref={sliderThumbRef}
-              className="absolute top-1/2 -translate-y-1/2 w-[12px] h-[16px] rounded-[2px] bg-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10"
-              style={{ left: 'calc(100% - 12px)' }}
-            >
+            <div ref={sliderThumbRef} className="absolute top-1/2 -translate-y-1/2 w-[12px] h-[16px] rounded-[2px] bg-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10" style={{ left: 'calc(100% - 12px)' }}>
               <span className="w-[1.5px] h-2 bg-[var(--cordel-ink-dark)]/75" />
             </div>
             <input
-              ref={sliderRef}
-              type="range"
-              min={0}
-              max={100}
-              defaultValue={100}
+              ref={sliderRef} type="range" min={0} max={100} defaultValue={100}
               aria-label={isPt ? 'Dosagem ao vivo do Balanço' : 'Dosage temps réel du Balanço'}
               onPointerDown={() => { isDraggingSliderRef.current = true; }}
               onInput={(e) => handleSliderInput(Number(e.currentTarget.value), false)}
@@ -110,21 +100,29 @@ export const FocusBalancoControlsBar: React.FC<FocusBalancoControlsBarProps> = (
               className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-ew-resize m-0"
             />
           </div>
-          <span ref={scaleBadgeRef} className="text-[10px] font-mono font-bold tabular-nums min-w-[32px] text-right">
-            {nomPct}%
-          </span>
+          <span ref={scaleBadgeRef} className="text-[10px] font-mono font-bold tabular-nums min-w-[32px] text-right">{nomPct}%</span>
         </div>
 
-        <button
-          type="button"
-          data-testid="focus-balanco-close-btn"
-          onClick={onClose}
-          aria-label={isPt ? 'Fechar visualizador de Balanço' : 'Fermer le visualiseur de Balanço'}
-          title={isPt ? 'Fechar (restaura 100% do Balanço)' : 'Fermer (restaure 100% du Balanço)'}
-          className="w-7 h-7 border border-[var(--cordel-border-strong)] bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] flex items-center justify-center cursor-pointer transition-colors shrink-0"
-        >
-          <X size={13} />
-        </button>
+        {compact ? (
+          <button
+            type="button" data-testid="focus-balanco-close-btn" onClick={onClose}
+            aria-label={isPt ? 'Fechar visualizador de Balanço' : 'Fermer le visualiseur de Balanço'}
+            title={isPt ? 'Fechar (restaura 100% do Balanço)' : 'Fermer (restaure 100% du Balanço)'}
+            className="w-7 h-7 border border-[var(--cordel-border-strong)] bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] flex items-center justify-center cursor-pointer transition-colors shrink-0"
+          >
+            <X size={13} />
+          </button>
+        ) : (
+          <button
+            type="button" data-testid="focus-balanco-collapse-btn" onClick={onToggleCollapse}
+            aria-expanded={!isCollapsed}
+            title={isCollapsed ? (isPt ? 'Expandir friso do Balanço' : 'Déplier la frise du Balanço') : (isPt ? 'Recolher friso do Balanço' : 'Réduire la frise du Balanço')}
+            className="h-7 px-2 border border-[var(--cordel-border-strong)] bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] flex items-center gap-1 text-[10px] font-cactus font-bold uppercase cursor-pointer transition-colors shrink-0"
+          >
+            <span>{isCollapsed ? (isPt ? 'Expandir' : 'Déplier') : (isPt ? 'Recolher' : 'Réduire')}</span>
+            {isCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+        )}
       </div>
     </div>
   );

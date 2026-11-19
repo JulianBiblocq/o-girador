@@ -3,6 +3,7 @@ import { Info } from 'lucide-react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useIsScreenUnder1280 } from '../../hooks/useIsScreenUnder1280';
+import { setFocusBalancoDrawerOpen } from '../../audio/groove/liveBalancoMorph';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { RightSidebar } from '../RightSidebar';
 import { RightSidebarCollapsedTab } from '../right-sidebar/RightSidebarCollapsedTab';
@@ -33,12 +34,21 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
   const sequencer = useSequencer(), lang = useSequencerStore((s) => s.lang);
   const setEditingTrackId = useSequencerStore((s) => s.setEditingTrackId);
   const isTracksCollapsed = useSequencerStore((s) => s.isTracksCollapsed);
+  const isFocusActive = useSequencerStore((s) => s.isFocusActive);
+  const focusTrackId = useSequencerStore((s) => s.focusTrackId);
 
   const isUnder1280 = useIsScreenUnder1280();
   const [isDrawerOpenUnder1280, setIsDrawerOpenUnder1280] = useState(false);
   const prevIsUnder1280Ref = useRef(isUnder1280);
 
   useEffect(() => { useSequencerStore.setState({ isTracksCollapsed: true }); }, []);
+
+  useEffect(() => {
+    if (isMobile) return;
+    const st = useSequencerStore.getState();
+    if (st.tocarJuntoIsMuted) st.setTocarJuntoIsMuted(false);
+    setFocusBalancoDrawerOpen(isFocusActive);
+  }, [isFocusActive, focusTrackId, isMobile]);
 
   useEffect(() => {
     if (isUnder1280 && !prevIsUnder1280Ref.current) {

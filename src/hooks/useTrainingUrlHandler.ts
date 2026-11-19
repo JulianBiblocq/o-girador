@@ -8,6 +8,7 @@ import { resolveTrackForRole } from './training/resolveTrackForRole';
 import { executeArmTrainingSession } from './training/armTrainingSession';
 import { cleanTrainingUrlParams } from './training/trainingUrlParams';
 import { fetchExternalTrainingPreset } from './training/fetchExternalTrainingPreset';
+import { setPendingUrlRoleOverride } from '../stores/slices/trainingSlice';
 
 export { resolveTrackForRole };
 
@@ -29,7 +30,7 @@ export function useTrainingUrlHandler({ audio, changeViewMode, alertAsync }: Use
   const pendingStageRef = useRef<string | null>(null);
   const pendingRoleRef = useRef<string | null>(null);
   const pendingTocarJuntoRef = useRef<boolean>(false);
-  const pendingBaseOnlyRef = useRef<boolean>(true);
+  const pendingBaseOnlyRef = useRef<boolean>(false);
   const pendingTrainingProgramRef = useRef<TrainingProgram | null>(null);
 
   const audioRef = useRef(audio);
@@ -41,7 +42,6 @@ export function useTrainingUrlHandler({ audio, changeViewMode, alertAsync }: Use
     const stageParam = searchParams.get('stage') || searchParams.get('stageIndex');
     const tocarJuntoParam = searchParams.get('tocarJunto') || searchParams.get('train');
     const roleParam = searchParams.get('role') || searchParams.get('targetTrack');
-    const baseOnlyParam = searchParams.get('baseOnly');
 
     const isTocarJuntoRequested = tocarJuntoParam === '1' || tocarJuntoParam === 'true' || Boolean(roleParam);
     if (!trainingId && !isTocarJuntoRequested && (searchParams.has('loadPreset') || searchParams.has('loadSection') || searchParams.has('editPatternId'))) {
@@ -54,8 +54,9 @@ export function useTrainingUrlHandler({ audio, changeViewMode, alertAsync }: Use
     pendingPresetIdRef.current = presetId;
     pendingStageRef.current = stageParam;
     pendingRoleRef.current = roleParam;
+    if (roleParam) setPendingUrlRoleOverride(roleParam);
     pendingTocarJuntoRef.current = isTocarJuntoRequested;
-    pendingBaseOnlyRef.current = baseOnlyParam === null ? true : (baseOnlyParam === '1' || baseOnlyParam === 'true');
+    pendingBaseOnlyRef.current = false;
 
     if (trainingId || presetId) {
       if (isHandlingPresetRef.current) return;

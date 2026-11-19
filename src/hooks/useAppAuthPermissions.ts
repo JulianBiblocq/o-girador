@@ -6,13 +6,7 @@ import { vocalEngineService } from '../audio/vocalEngineService';
 import { useTransportStore } from '../stores/useTransportStore';
 import { syncMobileViewModeWithProfile, hasDirectModeUrlParam } from '../utils/viewModeResolver';
 import { resolvePracticeModeForProfile } from '../stores/helpers/practiceModeHelpers';
-import {
-  getStoredDesktopStartupMode,
-  getEffectiveWorkingInstrument,
-  hasExplicitLocalWorkingInstrument,
-  setStoredWorkingInstrument,
-  WorkingInstrumentChoice,
-} from '../utils/userPreferencesStorage';
+import { getStoredDesktopStartupMode } from '../utils/userPreferencesStorage';
 
 export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: boolean) {
   const initializedStudioUidRef = useRef<string | null>(null);
@@ -37,12 +31,7 @@ export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: 
 
   useEffect(() => {
     if (!userProfile) return;
-    if (!hasExplicitLocalWorkingInstrument() && userProfile.preferredInstrument) {
-      setStoredWorkingInstrument(userProfile.preferredInstrument as WorkingInstrumentChoice);
-    }
-    const effectiveInst = getEffectiveWorkingInstrument(userProfile);
     const store = useSequencerStore.getState();
-    store.setPreferredInstrumentName(effectiveInst, userProfile);
     store.syncFocusWithTracks(store.tracks, userProfile);
   }, [userProfile?.uid, userProfile?.instrument, userProfile?.preferredInstrument]);
 

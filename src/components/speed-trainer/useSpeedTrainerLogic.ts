@@ -39,9 +39,9 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
 
   const [activeTab, setActiveTab] = useState<SpeedTrainerTab>('speedTrainer');
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
-  const [isMutedOption, setIsMutedOption] = useState<boolean>(true);
+  const [isMutedOption, setIsMutedOption] = useState<boolean>(false);
   const [selectedMuteScope, setSelectedMuteScope] = useState<'track' | 'family'>('track');
-  const [selectedBaseOnly, setSelectedBaseOnly] = useState<boolean>(true);
+  const [selectedBaseOnly, setSelectedBaseOnly] = useState<boolean>(false);
   const [showAoVivoSticks, setShowAoVivoSticks] = useState<boolean>(true);
 
   const familyTrackIds = useMemo(() => {
@@ -95,9 +95,10 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
 
   const handleStartTrainingDirect = useCallback(() => {
     if (selectedTrackId === null) return;
-    setTocarJuntoTrack(selectedTrackId, selectedBaseOnly);
+    useSequencerStore.getState().activateFocusOnTrack(selectedTrackId);
+    setTocarJuntoTrack(selectedTrackId, false);
     setTocarJuntoMuteScope(selectedMuteScope);
-    setTocarJuntoIsMuted(isMutedOption);
+    setTocarJuntoIsMuted(isMobile ? isMutedOption : false);
     if (showAoVivoSticks) {
       setActiveAoVivoTrackId(selectedTrackId);
     } else {

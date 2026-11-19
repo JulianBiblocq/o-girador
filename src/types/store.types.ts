@@ -98,6 +98,7 @@ export interface TrainingSlice extends TrainingState {
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;
   setFocusTrackId: (trackId: number | null, preferredName?: string, isManual?: boolean) => void;
+  activateFocusOnTrack: (trackId: number) => void;
   setPreferredInstrumentName: (name: string | null, userProfile?: any) => void;
   setReferenceTrackId: (trackId: number | null) => void;
   toggleFocusMode: (explicitTrackId?: number) => void;

@@ -81,8 +81,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
       label: lang === 'fr' ? "S'entraîner sur ce pupitre (Jouer avec)" : "Treinar neste naipe (Tocar Junto)",
       icon: <XiloTarget size={16} className="shrink-0" />,
       onClick: () => {
-        useSequencerStore.getState().setTocarJuntoTrack(trackId, true);
-        useSequencerStore.getState().setActiveAoVivoTrackId(trackId);
+        useSequencerStore.getState().activateFocusOnTrack(trackId);
       },
     });
     items.push({ isSeparator: true });

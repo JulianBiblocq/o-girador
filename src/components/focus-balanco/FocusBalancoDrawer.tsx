@@ -37,7 +37,9 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
 
   const [liveMeasure, setLiveMeasure] = useState<number>(storeMeasure);
   const [isCycleActive, setIsCycleActive] = useState<boolean>(() => isBalancoMorphCycleActive());
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
+  useEffect(() => { if (isOpen) setIsCollapsed(false); }, [isOpen, focusTrackId]);
   useEffect(() => { if (!isPlaying) setLiveMeasure(storeMeasure); }, [isPlaying, storeMeasure]);
   useEffect(() => { if (!isActiveView) resetLiveBalancoMorphToUnity(); }, [isActiveView]);
   useEffect(() => () => { resetLiveBalancoMorphToUnity(); }, []);
@@ -99,25 +101,29 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   }, [audio, effectiveMeasure, measureTimeSigs, timeSig, measureBpms, bpm]);
 
   if (!isOpen || !isActiveView) return null;
+  const effectiveCollapsed = !compact && isCollapsed;
 
   return (
     <section
       data-testid="focus-balanco-drawer"
       aria-label={lang === 'pt' ? 'Visualizador ao vivo do Balanço' : 'Visualiseur dynamique du Balanço'}
-      className={`w-full shrink-0 z-30 border-t-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] shadow-[0_-3px_10px_var(--cordel-shadow-color)] flex flex-col gap-1.5 ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}
+      className={`w-full shrink-0 z-30 border-t-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] shadow-[0_-3px_10px_var(--cordel-shadow-color)] flex flex-col ${effectiveCollapsed ? 'px-3 py-1' : (compact ? 'px-2 py-1.5 gap-1.5' : 'px-3 py-2 gap-1.5')}`}
     >
       <FocusBalancoControlsBar
         model={model} lang={lang} compact={compact} isCycleActive={isCycleActive}
+        isCollapsed={effectiveCollapsed} onToggleCollapse={() => setIsCollapsed((p) => !p)}
         onToggleCycle={handleToggleCycle} onClose={() => setFocusBalancoDrawerOpen(false)}
         sliderRef={sliderRef} sliderFillRef={sliderFillRef} sliderThumbRef={sliderThumbRef}
         scaleBadgeRef={scaleBadgeRef} phaseBadgeRef={phaseBadgeRef}
         isDraggingSliderRef={isDraggingSliderRef}
       />
-      <FocusBalancoBrickStrip
-        model={model} compact={compact} stripWidthRef={stripWidthRef}
-        brickRefs={brickRefs} tensionRefs={tensionRefs} flashRefs={flashRefs}
-        offsetLabelRefs={offsetLabelRefs} playheadRef={playheadRef}
-      />
+      {!effectiveCollapsed && (
+        <FocusBalancoBrickStrip
+          model={model} compact={compact} stripWidthRef={stripWidthRef}
+          brickRefs={brickRefs} tensionRefs={tensionRefs} flashRefs={flashRefs}
+          offsetLabelRefs={offsetLabelRefs} playheadRef={playheadRef}
+        />
+      )}
     </section>
   );
 };

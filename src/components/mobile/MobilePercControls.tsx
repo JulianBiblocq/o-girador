@@ -1,13 +1,15 @@
-/**
- * Barre supérieure de contrôle Mode Percussion Mobile avec sélecteur direct Focus (< 120 lignes).
- */
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { useSequencerStore, getTrackFamilyIds } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
 import { getPlayableFocusTracks } from '../../utils/focusTrackSelector';
 import { getEnsembleVocabulary } from '../../universes/styleVocabularyConfig';
+import {
+  getIsFocusBalancoDrawerOpen,
+  setFocusBalancoDrawerOpen,
+  subscribeFocusBalancoDrawer,
+} from '../../audio/groove/liveBalancoMorph';
 import { CordelTarget } from '../ui/CordelTarget';
-import { ChevronDown, ShieldCheck, Shuffle, Volume2, VolumeX, Users } from 'lucide-react';
+import { ChevronDown, Volume2, VolumeX, Users } from 'lucide-react';
 
 interface Props {
   referenceTrackId: number | null;
@@ -17,6 +19,14 @@ interface Props {
   lang?: 'fr' | 'pt';
 }
 
+const BalancoWaveIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 shrink-0" aria-hidden="true">
+    <path d="M2 15c2.5-4 5-4 7.5 0s5 4 7.5 0 3.5-3 5-1" />
+    <line x1="12" y1="3" x2="16" y2="12" />
+    <circle cx="16.5" cy="13" r="2" />
+  </svg>
+);
+
 export const MobilePercControls: React.FC<Props> = ({
   referenceTrackId, isRestMuted, onToggleRestMuted, onOpenFocusPopover, lang: propLang,
 }) => {
@@ -24,12 +34,11 @@ export const MobilePercControls: React.FC<Props> = ({
   const lang = storeLang || propLang || 'pt';
   const tracks = useSequencerStore((s) => s.tracks);
   const focusTrackId = useSequencerStore((s) => s.focusTrackId);
-  const isolateBaseOnly = useSequencerStore((s) => s.isolateBaseOnly);
-  const setIsolateBaseOnly = useSequencerStore((s) => s.setIsolateBaseOnly);
   const tocarJuntoIsMuted = useSequencerStore((s) => s.tocarJuntoIsMuted);
   const setTocarJuntoIsMuted = useSequencerStore((s) => s.setTocarJuntoIsMuted);
   const tocarJuntoMuteScope = useSequencerStore((s) => s.tocarJuntoMuteScope);
   const setTocarJuntoMuteScope = useSequencerStore((s) => s.setTocarJuntoMuteScope);
+  const isBalancoOpen = useSyncExternalStore(subscribeFocusBalancoDrawer, getIsFocusBalancoDrawerOpen, getIsFocusBalancoDrawerOpen);
 
   const playable = getPlayableFocusTracks(tracks);
   const targetTrack = tracks.find((t) => t.id === focusTrackId);
@@ -60,47 +69,44 @@ export const MobilePercControls: React.FC<Props> = ({
     }
   };
 
+  const activeBtnClass = 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)]';
+  const idleBtnClass = 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]';
+
   return (
     <div className="w-full bg-[var(--cordel-surface)] px-2 py-1 flex flex-col gap-1 border-b-2 border-[var(--cordel-border)] shrink-0 select-none relative z-30">
-      {/* 1. Bouton sélecteur direct Focus plein format */}
       <button
         type="button"
         onClick={onOpenFocusPopover}
-        className="w-full h-8 border-2 border-[#1a1a1a] shadow-[1px_1px_0_#000] px-2 flex items-center justify-between gap-1.5 bg-[#c25e38] text-[#f4ecd8] font-cactus cursor-pointer transition-colors active:translate-y-0.5"
-        title={lang === 'pt' ? 'Escolher instrumentos e opções do Focus' : 'Choisir les instruments et options du Focus'}
+        className="w-full h-8 border-2 border-[var(--cordel-ink-dark)] shadow-[1px_1px_0_var(--cordel-shadow-color)] px-2 flex items-center justify-between gap-1.5 bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] font-cactus cursor-pointer transition-colors active:translate-y-0.5"
+        title={lang === 'pt' ? 'Escolher instrumento em Focus' : 'Choisir un instrument en Focus'}
       >
         <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
-          <CordelTarget size={14} className="shrink-0 text-[#f4ecd8]" />
+          <CordelTarget size={14} className="shrink-0 text-[var(--cordel-on-accent)]" />
           <span className="text-xs font-black uppercase tracking-wider truncate">
             {displayNumber}. {shortName}
-            {refTrack && (
-              <span className="font-normal opacity-90 ml-1 text-[11px]">
-                + {refDisplayNumber}. {refShortName}
-              </span>
-            )}
+            {refTrack && <span className="font-normal opacity-90 ml-1 text-[11px]">+ {refDisplayNumber}. {refShortName}</span>}
           </span>
         </div>
         <ChevronDown size={14} className="shrink-0 opacity-80" />
       </button>
 
-      {/* 2. Ligne de bascules rapides compactes */}
       <div className="grid grid-cols-3 gap-1">
         <button
-          onClick={() => setIsolateBaseOnly(!isolateBaseOnly)}
-          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer truncate ${
-            isolateBaseOnly ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
-          }`}
-          title={lang === 'pt' ? 'Alternar Base Pura / Variações' : 'Basculer Base Pure / Variations'}
+          type="button"
+          data-testid="mobile-perc-balanco-toggle"
+          onClick={() => setFocusBalancoDrawerOpen(!isBalancoOpen)}
+          aria-pressed={isBalancoOpen}
+          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_var(--cordel-shadow-color)] cursor-pointer truncate ${isBalancoOpen ? activeBtnClass : idleBtnClass}`}
+          title={lang === 'pt' ? 'Exibir / Ocultar o Balanço' : 'Afficher / Masquer le Balanço'}
         >
-          {isolateBaseOnly ? <ShieldCheck size={11} className="shrink-0" /> : <Shuffle size={11} className="shrink-0" />}
-          <span className="truncate">{isolateBaseOnly ? (lang === 'pt' ? 'Base Pura' : 'Base Pure') : (lang === 'pt' ? 'Variações' : 'Variations')}</span>
+          <BalancoWaveIcon />
+          <span className="truncate">Balanço</span>
         </button>
 
         <button
+          type="button"
           onClick={handleCycleMute}
-          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer truncate ${
-            tocarJuntoIsMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
-          }`}
+          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_var(--cordel-shadow-color)] cursor-pointer truncate ${tocarJuntoIsMuted ? activeBtnClass : idleBtnClass}`}
           title={lang === 'pt' ? 'Ciclo de mudo para tocar junto' : 'Cycle de sourdine pour jouer par-dessus'}
         >
           {tocarJuntoIsMuted ? <VolumeX size={11} className="shrink-0" /> : <Volume2 size={11} className="shrink-0" />}
@@ -110,10 +116,9 @@ export const MobilePercControls: React.FC<Props> = ({
         </button>
 
         <button
+          type="button"
           onClick={onToggleRestMuted}
-          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer truncate ${
-            isRestMuted ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black' : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)]'
-          }`}
+          className={`h-7 px-1 border-2 font-cactus font-bold text-[10px] sm:text-xs uppercase flex items-center justify-center gap-1 shadow-[1px_1px_0_var(--cordel-shadow-color)] cursor-pointer truncate ${isRestMuted ? activeBtnClass : idleBtnClass}`}
           title={lang === 'pt' ? `Mutar / Desmutar o ${vocab.restOfEnsemble}` : `Muter / Démuter le ${vocab.restOfEnsemble}`}
         >
           <Users size={11} className="shrink-0" />

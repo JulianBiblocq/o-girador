@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { XiloTarget } from '../../XiloIcons';
@@ -19,8 +18,7 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
   const pasteAllTrackPatterns = useSequencerStore((state) => state.pasteAllTrackPatterns);
 
   const handleTrain = () => {
-    useSequencerStore.getState().setTocarJuntoTrack(trackId, true);
-    useSequencerStore.getState().setActiveAoVivoTrackId(trackId);
+    useSequencerStore.getState().activateFocusOnTrack(trackId);
     onClose();
   };
 
@@ -34,40 +32,33 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
     onClose();
   };
 
+  const itemBtnClass = 'w-full text-left px-3 py-1.5 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] transition-colors flex items-center gap-2 cursor-pointer';
+
   return (
     <>
       <button
         type="button"
         onClick={handleTrain}
-        className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer border-b border-[#1a1a1a]/15"
+        className={`${itemBtnClass} border-b border-[var(--cordel-ink-dark)]/15`}
       >
         <XiloTarget size={16} className="shrink-0" />
-        <span>{lang === 'fr' ? "S'entraîner sur ce pupitre (Jouer avec)" : 'Treinar neste naipe (Tocar Junto)'}</span>
+        <span>{lang === 'fr' ? "S'entraîner sur ce pupitre (Focus)" : 'Treinar neste naipe (Focus)'}</span>
       </button>
 
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer"
-      >
-        <span className="text-sm"></span>
+      <button type="button" onClick={handleCopy} className={itemBtnClass}>
         <span>{lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos os padrões'}</span>
       </button>
 
-      <div className="my-1 border-t border-[#1a1a1a]/15" />
+      <div className="my-1 border-t border-[var(--cordel-ink-dark)]/15" />
 
       {!clipboard ? (
-        <div className="px-3 py-1.5 text-[11px] text-[#1a1a1a]/40 italic flex items-center gap-2 cursor-default">
-          <span className="text-sm opacity-50"></span>
+        <div className="px-3 py-1.5 text-[11px] text-[var(--cordel-ink-dark)]/40 italic flex items-center gap-2 cursor-default">
           <span>{lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia'}</span>
         </div>
       ) : !isCompatible ? (
-        <div className="px-3 py-1.5 text-[11px] text-[#8b2a1a]/70 flex flex-col gap-0.5 cursor-default bg-[#8b2a1a]/5">
-          <div className="flex items-center gap-1.5">
-            <span></span>
-            <span>{lang === 'fr' ? 'Famille incompatible' : 'Família incompatível'}</span>
-          </div>
-          <span className="text-[10px] text-[#1a1a1a]/50 font-normal">
+        <div className="px-3 py-1.5 text-[11px] text-[var(--cordel-wood)]/70 flex flex-col gap-0.5 cursor-default bg-[var(--cordel-wood)]/5">
+          <span>{lang === 'fr' ? 'Famille incompatible' : 'Família incompatível'}</span>
+          <span className="text-[10px] text-[var(--cordel-ink-dark)]/50 font-normal">
             ({clipboard.sourceFamily || 'source'} {targetFamily || 'cible'})
           </span>
         </div>
@@ -76,19 +67,17 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
           <button
             type="button"
             onClick={() => handlePaste('libraryOnly')}
-            className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer"
+            className={itemBtnClass}
             title={lang === 'fr' ? 'Importe les motifs dans la bibliothèque sans toucher à la timeline' : 'Importa os padrões sem alterar a timeline'}
           >
-            <span className="text-sm"></span>
             <span>{lang === 'fr' ? 'Coller (banque seule)' : 'Colar (somente banco)'}</span>
           </button>
           <button
             type="button"
             onClick={() => handlePaste('libraryAndTimeline')}
-            className="w-full text-left px-3 py-1.5 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors flex items-center gap-2 cursor-pointer"
+            className={itemBtnClass}
             title={lang === 'fr' ? 'Importe les motifs et applique leur disposition sur la timeline' : 'Importa os padrões e aplica a disposição na timeline'}
           >
-            <span className="text-sm"></span>
             <span>{lang === 'fr' ? 'Coller (banque + timeline)' : 'Colar (banco + timeline)'}</span>
           </button>
         </>

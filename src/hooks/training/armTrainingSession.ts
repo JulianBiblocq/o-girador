@@ -88,14 +88,12 @@ export function executeArmTrainingSession({
         currentTracks[0];
     }
     if (targetTrack) {
+      const isMobilePerc = store.mobileViewMode === 'percussion' && typeof window !== 'undefined' && window.innerWidth < 768;
       store.setIsPracticeMode(true);
-      store.setFocusTrackId(targetTrack.id, undefined, Boolean(pendingRole));
-      if (!store.isFocusActive) {
-        store.toggleFocusMode(targetTrack.id);
-      }
-      store.setTocarJuntoTrack(targetTrack.id, pendingBaseOnly);
-      store.setTocarJuntoIsMuted(true);
-      store.setIsolateBaseOnly(pendingBaseOnly);
+      store.activateFocusOnTrack(targetTrack.id);
+      store.setTocarJuntoTrack(targetTrack.id, false);
+      store.setTocarJuntoIsMuted(isMobilePerc && !pendingRole);
+      store.setIsolateBaseOnly(false);
       store.setActiveAoVivoTrackId(targetTrack.id);
 
       const trackDisplayName =
