@@ -2,11 +2,9 @@ import { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveMuteState, isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import {
-  computeMeasurePatternStepOffset,
-  computeRodaStepAngles,
-  getRodaMeasureGeometry,
-  resolveActiveBeatResolutions,
+  computeMeasurePatternStepOffset, computeRodaStepAngles, getRodaMeasureGeometry, resolveActiveBeatResolutions,
 } from '../../utils/rodaTimeSigGeometry';
+import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { drawTrackRing } from './drawTrackRings';
 import { getPhysicalStepFromRatio } from './measurePatternHelpers';
 import { isRodaDrawableTrack } from './sortTracksByRodaOrder';
@@ -34,32 +32,33 @@ export function renderTrackStepLayer(
   centerY: number
 ): void {
   const live = livePlaybackRef.current;
-  const localStep = live.step;
-  const measureIdx =
-    live && live.step >= 0
-      ? live.measure
-      : pendingTargetMeasureRef.current !== null
-        ? pendingTargetMeasureRef.current
-        : stateVal.currentMeasure;
+  const localStep = live ? live.step : -1;
+  const isPlaying = Boolean(stateVal.isPlaying && (live as any)?.isPlaying !== false && !live?.isPreRoll && localStep >= 0);
+  const measureIdx = isPlaying
+    ? live.measure
+    : pendingTargetMeasureRef.current !== null
+      ? pendingTargetMeasureRef.current
+      : stateVal.currentMeasure;
 
   const activeTimeSig = stateVal.measureTimeSigs
     ? stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4'
     : stateVal.timeSig || '4/4';
   const measureGeom = getRodaMeasureGeometry(String(activeTimeSig));
-  const localTicks = (localStep >= 0 && live.maxTicks > 0) ? live.maxTicks : measureGeom.maxTicks;
-  const isPlaying = Boolean(localStep >= 0 && stateVal.isPlaying);
-  const playheadRatio = live.ratio !== undefined && localStep >= 0 ? live.ratio : (localStep >= 0 && localTicks > 0 ? localStep / localTicks : 0);
+  const localTicks = isPlaying && live.maxTicks > 0 ? live.maxTicks : measureGeom.maxTicks;
+  const playheadRatio = isPlaying ? (live.ratio !== undefined ? live.ratio : (localTicks > 0 ? localStep / localTicks : 0)) : -1;
 
-  syncLiveVariationRodaVisualFrame(isPlaying, measureIdx, playheadRatio, activeVariationsRef);
+  syncLiveVariationRodaVisualFrame(isPlaying, measureIdx, Math.max(0, playheadRatio), activeVariationsRef);
 
-  const rodaSweepMode = useSequencerStore.getState().rodaSweepMode || 'sweep6h';
+  const seqState = useSequencerStore.getState();
+  const rodaSweepMode = seqState.rodaSweepMode || 'sweep6h';
   if (rodaSweepMode === 'sweep6h' && isPlaying) {
-    const sweepRatio = computeContinuousSweepRatio(isPlaying, playheadRatio, rodaSweepMode);
+    const sweepRatio = computeContinuousSweepRatio(isPlaying, playheadRatio, rodaSweepMode, measureIdx, undefined, stateVal.measureTimeSigs, stateVal.timeSig);
     drawRodaSweepWave(ctx, centerX, centerY, 130, 512, sweepRatio, isEco);
   }
 
   const rodaTracks = activeVisibleTracks.filter(isRodaDrawableTrack);
   const totalRings = rodaTracks.length;
+  const soloId = stateVal.soloPatternPlayId ?? null;
 
   rodaTracks.forEach((track, ringIndex) => {
     const inst = instrumentsConfig[track.instrumentIdx];
@@ -70,35 +69,28 @@ export function renderTrackStepLayer(
     let ownerTrack = track;
     const isToada = isToadaBus(track);
 
-    if (activePatternId !== null) {
-      if (isToada) {
+    if (isToada) {
+      if (activePatternId !== null) {
         const pux = localRawTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
         const coro = localRawTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-        if (pux) {
-          activePattern = pux.patterns.find((p) => p.id === activePatternId);
-          if (activePattern) ownerTrack = pux;
-        }
-        if (!activePattern && coro) {
-          activePattern = coro.patterns.find((p) => p.id === activePatternId);
-          if (activePattern) ownerTrack = coro;
-        }
-      } else {
-        activePattern = track.patterns.find((p) => p.id === activePatternId);
-        if (!activePattern && track.linkedToTrackId) {
-          const parent = localRawTracks.find((t) => String(t.id) === String(track.linkedToTrackId));
-          if (parent) {
-            activePattern = parent.patterns.find((p) => p.id === activePatternId);
-            if (activePattern) ownerTrack = parent;
-          }
-        }
+        if (pux) { activePattern = pux.patterns.find((p) => p.id === activePatternId); if (activePattern) ownerTrack = pux; }
+        if (!activePattern && coro) { activePattern = coro.patterns.find((p) => p.id === activePatternId); if (activePattern) ownerTrack = coro; }
+      }
+    } else {
+      activePattern = resolveActivePattern(track, localRawTracks, measureIdx, soloId !== null, soloId) as Pattern | null;
+      if (!activePattern && activePatternId !== null) activePattern = track.patterns.find((p) => p.id === activePatternId);
+      if (activePattern && !track.patterns.some((p) => p.id === activePattern!.id)) {
+        ownerTrack = localRawTracks.find((t) => t.patterns.some((p) => p.id === activePattern!.id)) || track;
       }
     }
 
     const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
-    const rawPlayingSteps =
-      activePattern && activeVariationsRef?.current
-        ? activeVariationsRef.current[track.id] || activePattern.activeSteps
-        : activePattern?.activeSteps;
+    const canHaveLiveVar = Boolean(
+      isPlaying && activePattern?.variations?.length && (soloId !== null || activePattern.measureAllowVariations?.[measureIdx] !== false)
+    );
+    const rawPlayingSteps = canHaveLiveVar && activeVariationsRef?.current
+      ? activeVariationsRef.current[track.id] || activePattern!.activeSteps
+      : activePattern?.activeSteps;
 
     const beatRes = resolveActiveBeatResolutions(String(activeTimeSig), activePattern);
     const stepAngles = computeRodaStepAngles(String(activeTimeSig), beatRes);
@@ -114,10 +106,10 @@ export function renderTrackStepLayer(
     const isVoiceOrToada = isToada || currentInst.type === 'voice';
     if (!activePattern && !isVoiceOrToada && !isPlaying) return;
 
-    const currentStep = localStep >= 0
-      ? getPhysicalStepFromRatio(playheadRatio, activePattern, effectiveStepCount, measureGeom.beatsCount, beatRes)
-      : -1;
-    const isMutedByConsole = stateVal.soloPatternPlayId == null && getEffectiveMuteState(localRawTracks, track.id);
+    const currentStep = !isPlaying || localStep < 0
+      ? -1
+      : getPhysicalStepFromRatio(playheadRatio, activePattern, effectiveStepCount, measureGeom.beatsCount, beatRes);
+    const isMutedByConsole = soloId == null && getEffectiveMuteState(localRawTracks, track.id);
 
     ctx.save();
     if (isMutedByConsole) ctx.globalAlpha = 0.26;
@@ -125,15 +117,15 @@ export function renderTrackStepLayer(
       drawToadaTrack(
         ctx, track, currentInst, isToada, localRawTracks, activePattern as any, activePlayingSteps,
         stepAngles, effectiveStepCount, currentStep, tRad, centerX, centerY, dynamicScale, isEco,
-        measureIdx, stateVal.soloPatternPlayId, stateVal.totalMeasures, stateVal.isLoopRegionActive,
-        stateVal.loopStartMeasure, stateVal.loopEndMeasure, activeVariationsRef, themeWood, themeBorder, themeText, beatRes
+        measureIdx, soloId, stateVal.totalMeasures, stateVal.isLoopRegionActive,
+        stateVal.loopStartMeasure, stateVal.loopEndMeasure, isPlaying ? activeVariationsRef : undefined, themeWood, themeBorder, themeText, beatRes
       );
     } else {
       drawPercussionTrack(
         ctx, track, currentInst, activePattern, activePlayingSteps, stepAngles, effectiveStepCount,
         currentStep, tRad, centerX, centerY, dynamicScale, isEco, measureIdx, localRawTracks,
-        activeVariationsRef, stateVal.isLeftHanded || false, themeWood, themeBorder, themeText,
-        isPlaying, playheadRatio, stateVal.soloPatternPlayId ?? null, totalRings, stepOffset
+        isPlaying ? activeVariationsRef : undefined, stateVal.isLeftHanded || false, themeWood, themeBorder, themeText,
+        isPlaying, Math.max(0, playheadRatio), soloId, totalRings, stepOffset
       );
     }
     ctx.restore();

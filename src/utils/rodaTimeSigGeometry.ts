@@ -1,14 +1,8 @@
 import type { Pattern, TimeSignature } from '../types';
 
 export interface RodaMeasureGeometry {
-  timeSig: TimeSignature;
-  beatsCount: number;
-  defaultSubdivisions: number;
-  defaultSteps: number;
-  maxTicks: number;
-  ticksPerBeat: number;
-  isCompound: boolean;
-  beatAngles: number[];
+  timeSig: TimeSignature; beatsCount: number; defaultSubdivisions: number; defaultSteps: number;
+  maxTicks: number; ticksPerBeat: number; isCompound: boolean; beatAngles: number[];
 }
 
 const START_ANGLE_12H = -Math.PI / 2;
@@ -104,18 +98,28 @@ export function findStepIndexAtNormalizedP(stepAngles: readonly number[], p: num
 }
 
 export function computeMeasurePatternStepOffset(
-  pattern: (Pick<Pattern, 'steps' | 'measureAssignments'> & { beatResolutions?: number[] }) | null | undefined,
+  pattern: (Pick<Pattern, 'steps' | 'measureAssignments'> & { beatResolutions?: number[]; timeSignature?: string }) | null | undefined,
   activeMeasureStepCount: number,
   measureIdx: number
 ): number {
   if (!pattern || activeMeasureStepCount <= 0) return 0;
   const patSteps = pattern.steps || activeMeasureStepCount;
-  if (patSteps <= 16 || patSteps < activeMeasureStepCount * 2) return 0;
-  const spanMeasures = Math.max(1, Math.round(patSteps / activeMeasureStepCount));
+  const patGeom = getRodaMeasureGeometry(pattern.timeSignature || '4/4');
+  const rawRes = pattern.beatResolutions;
+  let nominalBarSteps = patGeom.defaultSteps;
+  if (Array.isArray(rawRes) && rawRes.length > 0) {
+    let sum = 0;
+    for (let b = 0; b < patGeom.beatsCount; b++) sum += typeof rawRes[b] === 'number' && rawRes[b] > 0 ? rawRes[b] : patGeom.defaultSubdivisions;
+    nominalBarSteps = Math.max(1, sum);
+  } else if (patSteps === patGeom.beatsCount * 6) {
+    nominalBarSteps = patSteps;
+  }
+  if (patSteps < nominalBarSteps * 2) return 0;
+  const spanMeasures = Math.max(1, Math.round(patSteps / nominalBarSteps));
   if (spanMeasures <= 1) return 0;
   let startM = measureIdx;
   while (startM > 0 && pattern.measureAssignments?.[startM - 1] === true) startM--;
-  return ((measureIdx - startM) % spanMeasures) * activeMeasureStepCount;
+  return ((measureIdx - startM) % spanMeasures) * nominalBarSteps;
 }
 
 export function getRodaStepDurationTicks(

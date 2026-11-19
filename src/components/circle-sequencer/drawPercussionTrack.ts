@@ -3,7 +3,7 @@ import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
 import { areStepValuesEqual, resolveSlaveStepOpacity, SlaveFocusContext } from '../../utils/slaveStepOpacityResolver';
-import { getStepAngularSpan } from '../../utils/rodaTimeSigGeometry';
+import { getStepAngularSpan, normalizeTimeSig } from '../../utils/rodaTimeSigGeometry';
 import { resolveStepPastilleData } from './resolveStepPastilleData';
 import { drawSplitStepPastille } from './drawSplitStepPastille';
 import { drawRasSubStep } from './drawRasSubStep';
@@ -47,11 +47,12 @@ export const drawPercussionTrack = (
   const fallbackNextM = isAtLoopEnd ? (st.loopStartMeasure ?? 0) : (measureIdx + 1) % totalM;
   const nextMeasureIdx = st.queuedMeasure !== null && st.queuedMeasure !== undefined ? st.queuedMeasure : fallbackNextM;
   const snapshots = getLiveVariationRodaSnapshots(nextMeasureIdx);
+  const currTimeSig = normalizeTimeSig(st.measureTimeSigs?.[measureIdx] || st.timeSig || '4/4');
 
-  const nextResolved = resolveTrackStepsForMeasure(track, rawTracks, nextMeasureIdx, soloPatternPlayId, snapshots.nextStepsByTrackId, st.measureTimeSigs, st.timeSig);
-  const prevResolved = snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null
+  const nextResolved = resolveTrackStepsForMeasure(track, rawTracks, nextMeasureIdx, soloPatternPlayId, isPlaying ? snapshots.nextStepsByTrackId : null, st.measureTimeSigs, st.timeSig);
+  const prevResolved = isPlaying && snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null
     ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId, st.measureTimeSigs, st.timeSig)
-    : { activeSteps: [], baseSteps: [], pattern: null, stepAngles: [], stepCount: effectiveStepCount };
+    : { activeSteps: [], baseSteps: [], pattern: null, stepAngles: [], stepCount: effectiveStepCount, timeSig: currTimeSig };
 
   const rawBaseCurr = activePattern?.activeSteps || [];
   const currentBaseSteps = stepOffset > 0 ? rawBaseCurr.slice(stepOffset, stepOffset + effectiveStepCount) : rawBaseCurr;
@@ -68,8 +69,10 @@ export const drawPercussionTrack = (
     );
     if (!pastille.hasEvent) return;
 
-    const isVariationStep = !areStepValuesEqual(rawState, baseState);
-    const varMapForM = mIdx === measureIdx ? (snapshots.currentStepsByTrackId || activeVariationsRef?.current) : (mIdx === nextMeasureIdx ? snapshots.nextStepsByTrackId : snapshots.prevStepsByTrackId);
+    const patForM = mIdx === measureIdx ? activePattern : (mIdx === nextMeasureIdx ? nextResolved.pattern : prevResolved.pattern);
+    const canVaryM = Boolean(isPlaying && patForM?.variations?.length && (soloPatternPlayId !== null || patForM.measureAllowVariations?.[mIdx] !== false));
+    const isVariationStep = canVaryM && !areStepValuesEqual(rawState, baseState);
+    const varMapForM = !isPlaying ? undefined : (mIdx === measureIdx ? (snapshots.currentStepsByTrackId || activeVariationsRef?.current) : (mIdx === nextMeasureIdx ? snapshots.nextStepsByTrackId : snapshots.prevStepsByTrackId));
     const slaveOpacity = isVariationStep
       ? 1.0
       : resolveSlaveStepOpacity({ track, allTracks: rawTracks, measureIdx: mIdx, stepIdx, ownStepVal: rawState, focusCtx, activeVariationsMap: varMapForM });
@@ -78,6 +81,9 @@ export const drawPercussionTrack = (
 
     ctx.save();
     ctx.globalAlpha = finalAlpha;
+    ctx.strokeStyle = themeBorder || '#1a1a1a';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
 
     let hitIntensity = 0;
     if (isPlaying && !isEco) {
@@ -87,10 +93,11 @@ export const drawPercussionTrack = (
       if (deltaRad <= decayArcRad) hitIntensity = Math.pow(1 - deltaRad / decayArcRad, 1.55);
     }
 
+    const isCurrentImpact = Boolean(isPlaying && currentStep >= 0 && mIdx === measureIdx && stepIdx === currentStep);
     drawSplitStepPastille(
       ctx, x, y, pastille.radiusSize, false, false,
       pastille.leftFillColor, pastille.rightFillColor, pastille.leftText, pastille.rightText,
-      pastille.leftTxtColor, pastille.rightTxtColor, mIdx === measureIdx && stepIdx === currentStep, isEco,
+      pastille.leftTxtColor, pastille.rightTxtColor, isCurrentImpact, isEco,
       themeWood, themeBorder, dynamicScale, hitIntensity, isVariationStep
     );
 
@@ -104,18 +111,18 @@ export const drawPercussionTrack = (
   const resolveAnglesForM = (mIdx: number) =>
     mIdx === measureIdx ? stepAngles : (mIdx === nextMeasureIdx ? nextResolved.stepAngles : prevResolved.stepAngles);
 
-  const candidates = buildCandidateAnglesForSweep(stepAngles, nextResolved.stepAngles, prevResolved.stepAngles, isPlaying, st.rodaSweepMode);
+  const canSweepNext = currTimeSig === nextResolved.timeSig;
+  const canSweepPrev = Boolean(isPlaying && snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null && currTimeSig === prevResolved.timeSig);
+  const candidates = buildCandidateAnglesForSweep(stepAngles, nextResolved.stepAngles, prevResolved.stepAngles, isPlaying, st.rodaSweepMode, canSweepNext, canSweepPrev);
   for (let i = 0; i < candidates.length; i++) {
     const { p, angle: stepAngle } = candidates[i];
-    const x = centerX + Math.cos(stepAngle) * tRad;
-    const y = centerY + Math.sin(stepAngle) * tRad;
-
+    const x = centerX + Math.cos(stepAngle) * tRad, y = centerY + Math.sin(stepAngle) * tRad;
     const blend = resolveStepSweepBlend({
       p, isPlaying, playheadRatio, rodaSweepMode: st.rodaSweepMode,
       currentMeasureIdx: measureIdx, nextMeasureIdx, prevMeasureIdx: snapshots.prevMeasureIdx, hasPrevMeasure: snapshots.hasPrevMeasure,
-      currStepCount: effectiveStepCount, currentActiveSteps: activePlayingSteps || [], currentBaseSteps, currStepAngles: stepAngles,
-      nextStepCount: nextResolved.stepCount, nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps, nextStepAngles: nextResolved.stepAngles,
-      prevStepCount: prevResolved.stepCount, prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps, prevStepAngles: prevResolved.stepAngles,
+      currStepCount: effectiveStepCount, currentActiveSteps: activePlayingSteps || [], currentBaseSteps, currStepAngles: stepAngles, currTimeSig,
+      nextStepCount: nextResolved.stepCount, nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps, nextStepAngles: nextResolved.stepAngles, nextTimeSig: nextResolved.timeSig,
+      prevStepCount: prevResolved.stepCount, prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps, prevStepAngles: prevResolved.stepAngles, prevTimeSig: prevResolved.timeSig,
     });
 
     drawSingleStateAtStep(blend.primaryState, blend.primaryBaseState, blend.primaryMeasureIdx, blend.primaryStepIdx, blend.primaryStepCount, resolveAnglesForM(blend.primaryMeasureIdx), stepAngle, x, y, blend.primaryAlpha);
@@ -125,13 +132,9 @@ export const drawPercussionTrack = (
   }
 
   if (!isEco && stepAngles.length > 0) {
-    const x0 = centerX + Math.cos(stepAngles[0]) * tRad;
-    const y0 = centerY + Math.sin(stepAngles[0]) * tRad;
+    const x0 = centerX + Math.cos(stepAngles[0]) * tRad, y0 = centerY + Math.sin(stepAngles[0]) * tRad;
     ctx.save();
-    ctx.globalAlpha = 1.0;
-    ctx.fillStyle = themeText;
-    ctx.font = 'bold 10px serif';
-    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1.0; ctx.fillStyle = themeText; ctx.font = 'bold 10px serif'; ctx.textAlign = 'left';
     ctx.fillText(track.customName || currentInst.name, x0 + 20, y0 + 3);
     ctx.restore();
   }

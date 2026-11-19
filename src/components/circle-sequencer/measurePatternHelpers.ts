@@ -25,7 +25,7 @@ export const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]): 
     for (let j = 0; j < p.patterns.length; j++) {
       const pp = p.patterns[j];
       const np = n.patterns[j];
-      if (pp.id !== np.id || pp.steps !== np.steps) return false;
+      if (pp.id !== np.id || pp.steps !== np.steps || pp.timeSignature !== np.timeSignature) return false;
       if (pp.measureAssignments.length !== np.measureAssignments.length) return false;
       for (let m = 0; m < pp.measureAssignments.length; m++) {
         if (pp.measureAssignments[m] !== np.measureAssignments[m]) return false;
@@ -103,14 +103,17 @@ export function getPhysicalStepFromRatio(
   beatsCount: number,
   explicitResolutions?: readonly number[]
 ): number {
-  const clampedRatio = Math.min(0.999999, Math.max(0, ratio));
+  if (!Number.isFinite(ratio) || ratio < 0 || totalSteps <= 0) return -1;
+  const clampedRatio = Math.min(0.999999, ratio);
   const safeBeats = Math.max(1, beatsCount || 4);
   const fallbackSub = Math.max(1, Math.floor(totalSteps / safeBeats));
+  const patSlice = pattern?.beatResolutions && pattern.beatResolutions.length >= safeBeats
+    ? pattern.beatResolutions.slice(0, safeBeats)
+    : null;
+  const patSumMatches = patSlice ? patSlice.reduce((acc, v) => acc + Math.max(1, v || fallbackSub), 0) === totalSteps : false;
   const resolutions = explicitResolutions && explicitResolutions.length >= safeBeats
     ? explicitResolutions.slice(0, safeBeats)
-    : (pattern?.beatResolutions && pattern.beatResolutions.length >= safeBeats
-        ? pattern.beatResolutions.slice(0, safeBeats)
-        : Array(safeBeats).fill(fallbackSub));
+    : (patSlice && patSumMatches ? patSlice : Array(safeBeats).fill(fallbackSub));
 
   const b = Math.min(resolutions.length - 1, Math.floor(clampedRatio * resolutions.length));
   const subProgression = clampedRatio * resolutions.length - b;
@@ -119,5 +122,5 @@ export function getPhysicalStepFromRatio(
 
   let stepOffset = 0;
   for (let i = 0; i < b; i++) stepOffset += Math.max(1, resolutions[i] || fallbackSub);
-  return Math.min(Math.max(1, totalSteps) - 1, Math.max(0, stepOffset + k));
+  return Math.min(totalSteps - 1, Math.max(0, stepOffset + k));
 }

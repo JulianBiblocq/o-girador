@@ -8,19 +8,24 @@ export const drawAlfaiaMarkers = (
   centerY: number,
   localTimeSig: string,
   _localTicks: number,
-  _theme: ThemeColors
+  theme: ThemeColors
 ): void => {
   const geom = getRodaMeasureGeometry(localTimeSig);
   const { beatsCount, defaultSubdivisions, beatAngles } = geom;
+  const inkColor = theme?.skinInk || '#1a1a1a';
 
-  beatAngles.forEach((angle, idx) => {
+  bgCtx.save();
+  bgCtx.setLineDash([]);
+  for (let idx = 0; idx < beatsCount; idx++) {
+    const angle = beatAngles[idx];
+    const beatNumber = idx + 1;
     const inRad = INNER_SKIN_RADIUS - 35;
     const outRad = INNER_SKIN_RADIUS - 20;
 
     bgCtx.beginPath();
     bgCtx.moveTo(centerX + Math.cos(angle) * inRad, centerY + Math.sin(angle) * inRad);
     bgCtx.lineTo(centerX + Math.cos(angle) * outRad, centerY + Math.sin(angle) * outRad);
-    bgCtx.strokeStyle = '#1a1a1a';
+    bgCtx.strokeStyle = inkColor;
     bgCtx.save();
     if (idx !== 0) bgCtx.globalAlpha = 0.3;
     bgCtx.lineWidth = idx === 0 ? 4 : 2;
@@ -35,16 +40,17 @@ export const drawAlfaiaMarkers = (
     bgCtx.arc(badgeX, badgeY, 18, 0, Math.PI * 2);
     bgCtx.fillStyle = '#ffffff';
     bgCtx.fill();
-    bgCtx.strokeStyle = '#1a1a1a';
+    bgCtx.strokeStyle = inkColor;
     bgCtx.lineWidth = 1.5;
     bgCtx.stroke();
 
-    bgCtx.fillStyle = '#1a1a1a';
+    bgCtx.fillStyle = inkColor;
     bgCtx.font = 'bold 20px "Outfit", "Inter", sans-serif';
     bgCtx.textAlign = 'center';
     bgCtx.textBaseline = 'middle';
-    bgCtx.fillText((idx + 1).toString(), badgeX, badgeY + 1.5);
-  });
+    bgCtx.fillText(String(beatNumber), badgeX, badgeY + 1.5);
+  }
+  bgCtx.restore();
 
   bgCtx.save();
   const totalGridRays = beatsCount * defaultSubdivisions;
