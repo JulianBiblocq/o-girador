@@ -1,65 +1,71 @@
-
 import { useEffect, useRef } from 'react';
 import { isEditableTarget } from '../utils/crossRealmDom';
+import { tryHandleRodaStepExploreKeyDown } from './keyboard-shortcuts/rodaStepExploreGuard';
 
 /**
  * useGlobalTransportShortcuts
- * 
- * Verrouillage global, prioritaire et robuste du raccourci universel DAW : Barre d'espace -> Play / Stop.
- * 
- * Garanties architecturales :
- * 1. Phase de capture stricte ({ capture: true }) : Intercepte l'événement au plus haut niveau (window),
- *    avant que les composants React enfants (boutons de zoom, solo/mute, faders, etc.) ne reçoivent l'événement
- *    et ne déclenchent un re-clic mécanique indésirable.
- * 2. Filtrage strict des modificateurs : Ignore l'événement si ctrlKey, metaKey, altKey ou shiftKey est actif.
- * 3. Double barrière de saisie de texte : Vérifie exhaustivement target ET document.activeElement (inputs, textareas,
- *    champs de paroles, éléments contenteditable) pour sanctuariser la saisie des titres, paroles et notes.
- * 4. Dé-focalisation défensive : blur() automatique sur l'élément actif pour purger tout focus parasite.
- * 5. Zéro Render Thrashing : Utilise une ref mutable stable pour appeler togglePlay() sans ré-enregistrer l'écouteur.
+ *
+ * Verrouillage global et prioritaire ({ capture: true }) des raccourcis transport DAW :
+ * - Espace -> Play / Pause
+ * - Shift + Espace -> Stop (repos 12h sur mesure courante)
+ * - Home -> Retour au début (1er appui : début de boucle de section, 2e appui : Mesure 1)
+ * - ← / → (sur la Roda en Pause ou Stop) -> Exploration pas-à-pas avec son, balai +180° et Ao Vivo
+ * - Barrière 1 stricte : sanctuarise INPUT texte, TEXTAREA, isContentEditable, .v-syl
+ * - Dé-focalisation défensive (.blur()) sur <button> et <input type="range">
  */
-export function useGlobalTransportShortcuts(togglePlay: () => void) {
+export function useGlobalTransportShortcuts(
+  togglePlay: () => void,
+  stop?: () => void,
+  rewind?: () => void,
+  stepExploreRoda?: (direction: 'next' | 'prev') => void
+) {
   const togglePlayRef = useRef(togglePlay);
   togglePlayRef.current = togglePlay;
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  const rewindRef = useRef(rewind);
+  rewindRef.current = rewind;
+  const stepExploreRef = useRef(stepExploreRoda);
+  stepExploreRef.current = stepExploreRoda;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Filtrer exclusivement la barre d'espace
-      if (e.code !== 'Space' && e.key !== ' ') return;
-
-      // 2. Touches modificatrices : ne pas interférer avec d'éventuels raccourcis système ou DAW
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
-
-      // 3. Double barrière de saisie de texte sans `instanceof` (target ET document.activeElement)
-      const target = e.target as HTMLElement | null;
-      const activeEl = document.activeElement as HTMLElement | null;
-
-      const isTargetInput = isEditableTarget(target);
-      const isFocusedInput = isEditableTarget(activeEl) || activeEl?.id === 'letras-textarea';
-
-      // Si l'utilisateur est en train de taper du texte, laisser passer l'espace normalement
-      if (isTargetInput || isFocusedInput) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        tryHandleRodaStepExploreKeyDown(e, stepExploreRef.current, { hostDoc: document, isSatelliteWindow: false });
         return;
       }
 
-      // 4. Neutralisation complète du comportement natif HTML :
-      // - Interdit le défilement (scroll) de la page
-      // - Empêche le navigateur de simuler un clic sur le bouton actuellement focalisé
+      const isSpace = e.code === 'Space' || e.key === ' ';
+      const isHome = e.key === 'Home';
+      if (!isSpace && !isHome) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isHome && e.shiftKey) return;
+
+      const target = e.target as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isTargetInput = isEditableTarget(target);
+      const isFocusedInput = isEditableTarget(activeEl) || activeEl?.id === 'letras-textarea';
+      if (isTargetInput || isFocusedInput) return;
+
       e.preventDefault();
       e.stopPropagation();
 
-      // 5. Dé-focalisation défensive pour supprimer tout état focus persistant sur un contrôle
-      if (activeEl && typeof activeEl.blur === 'function') {
-        activeEl.blur();
-      }
-      if (target && typeof target.blur === 'function') {
-        target.blur();
+      if (activeEl && typeof activeEl.blur === 'function') activeEl.blur();
+      if (target && typeof target.blur === 'function') target.blur();
+
+      if (isHome) {
+        rewindRef.current?.();
+        return;
       }
 
-      // 6. Bascule immédiate de la lecture audio
-      togglePlayRef.current?.();
+      if (e.shiftKey) {
+        if (stopRef.current) stopRef.current();
+        else togglePlayRef.current?.();
+      } else {
+        togglePlayRef.current?.();
+      }
     };
 
-    // Verrouillage en phase de capture (capture: true) pour court-circuiter tout bouton focalisé
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => {
       window.removeEventListener('keydown', handleKeyDown, { capture: true });

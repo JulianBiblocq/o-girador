@@ -43,8 +43,10 @@ export const ShortcutsKeyboardTab: React.FC<ShortcutsKeyboardTabProps> = ({ lang
           {t('shortcutsTransportTitle')}
         </h4>
         <div className="flex flex-col text-[10px] text-[var(--cordel-text)]">
-          {renderRow(t('shortcutSpaceDesc'), ['Espace'])}
+          {renderRow(t('shortcutSpaceDesc'), [isFr ? 'Espace' : 'Espaço'])}
+          {renderRow(t('shortcutStop12hDesc'), [isFr ? 'Shift + Espace' : 'Shift + Espaço'])}
           {renderRow(t('shortcutEnterDesc'), ['Enter', 'Home'])}
+          {renderRow(t('shortcutRodaStepExploreDesc'), ['←', '→'])}
           {renderRow(t('shortcutTabDesc'), ['Tab'])}
           {renderRow(t('shortcutOficinaDesc'), ['O'])}
           {renderRow(t('shortcutLoopDesc'), ['L'])}

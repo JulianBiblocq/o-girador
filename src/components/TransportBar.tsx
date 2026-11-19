@@ -87,7 +87,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = () => {
         <TransportSpeedTrainerButton isSpeedTrainerActive={isSpeedTrainerActive} speedTrainerTourCount={speedTrainerTourCount} speedTrainerCurrentBpm={speedTrainerCurrentBpm} speedTrainerCountdown={speedTrainerCountdown} tocarJuntoActive={tocarJuntoActive} tocarJuntoTrackId={tocarJuntoTrackId} openSpeedTrainerModal={openSpeedTrainerModal} lang={lang} />
       </div>
 
-      <TransportPlaybackButtons handleStop={audio.handleStop} handleTogglePlay={audio.handleTogglePlay} isLoading={audio.isLoading} isPlaying={audio.isPlaying} isLooping={sequencer.isLooping} setIsLooping={sequencer.setIsLooping} loopMode={loopMode} currentLoopIteration={currentLoopIteration} isLoopBypassed={isLoopBypassed} isLoopExitRequested={isLoopExitRequested} handleAudioRecordingToggle={audio.handleAudioRecordingToggle} isRecording={audio.isRecording} recordingSeconds={audio.recordingSeconds} lang={lang} />
+      <TransportPlaybackButtons handleStop={audio.handleStop} handleRewind={audio.handleRewind} handleTogglePlay={audio.handleTogglePlay} isLoading={audio.isLoading} isPlaying={audio.isPlaying} isLooping={sequencer.isLooping} setIsLooping={sequencer.setIsLooping} loopMode={loopMode} currentLoopIteration={currentLoopIteration} isLoopBypassed={isLoopBypassed} isLoopExitRequested={isLoopExitRequested} handleAudioRecordingToggle={audio.handleAudioRecordingToggle} isRecording={audio.isRecording} recordingSeconds={audio.recordingSeconds} lang={lang} />
     </div>
   );
 };

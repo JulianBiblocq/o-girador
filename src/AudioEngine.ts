@@ -110,7 +110,7 @@ export class AudioEngine implements HorizonEngineLike {
     return EngineNotePlayer.buildDeps(this.audioContext, this.channels, this.voiceGuard, this.barulho, this.scheduledHits, this.activeGainNodes, this.sampleLoader, this.roundRobin, this.configMap, this.strokesMaps, this.trackLookupMap, () => this.clock.schedulingMeasure);
   }
 
-  public playNote(trackId: number | string, stroke: string, time: number, vel: number, decay: number, isLiveHold = false): void { EngineNotePlayer.playNote(this.getNotePlayerDeps(), trackId, stroke, time, vel, decay, isLiveHold); }
+  public playNote(trackId: number | string, stroke: string, time: number, vel: number, decay: number, isLiveHold = false, maxBarulhoDurSec?: number): void { EngineNotePlayer.playNote(this.getNotePlayerDeps(), trackId, stroke, time, vel, decay, isLiveHold, maxBarulhoDurSec); }
   public playPreview(instId: string, stroke: string, pitch = 0, vel = 1.0, time?: number, decay = 1.0, trackId: number | string | null = null): void { EngineNotePlayer.playPreview(this.getNotePlayerDeps(), instId, stroke, pitch, vel, time, decay, trackId); }
   public triggerVoicePitch(pitch: string | number, vel = 0.7, trackId?: string | number): void { EngineVocalActions.triggerPitch(this.audioContext, this.voiceSynthManager, pitch, vel, trackId); }
   public triggerVoiceAttackRelease(pitch: string | number, dur: number | string, time?: number, vel = 0.7, trackId?: string | number, glides?: VoiceMelismaGlide[]): void { EngineVocalActions.triggerAttackRelease(this.audioContext, this.voiceSynthManager, pitch, dur, time, vel, trackId, glides); }

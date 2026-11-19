@@ -18,6 +18,7 @@ export interface StrokePlaybackOptions {
   isStudioCalibrated?: boolean;
   forceShort80ms?: boolean;
   strokeSymbol?: string;
+  maxBarulhoDurSec?: number;
 }
 
 export class EngineStrokePlayback {
@@ -60,7 +61,7 @@ export class EngineStrokePlayback {
     }
 
     if (stroke.isBarulho) {
-      playBarulhoStroke(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, isLiveHold, effectiveSymbol);
+      playBarulhoStroke(ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch, time, gainMultiplier, isLiveHold, effectiveSymbol, opts.maxBarulhoDurSec);
     } else {
       this.playOneShot(
         ctx, trackId, source, gainNode, instrumentId, buffer,

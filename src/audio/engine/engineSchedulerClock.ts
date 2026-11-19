@@ -92,7 +92,7 @@ export class EngineSchedulerClock {
   public forceReanchor(): void {
     if (!this.isPlaying) return;
     this.nextTickTime = this.audioContext.currentTime + 0.025;
-    this.mustReanchor = true;
+    this.mustReanchor = true; this.scheduler();
   }
 
   public scheduler(): void {

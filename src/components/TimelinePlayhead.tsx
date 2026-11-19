@@ -53,7 +53,7 @@ const TimelinePlayheadComponent: React.FC<TimelinePlayheadProps> = ({
       <div
         ref={playheadRef}
         id="timeline-playhead-line"
-        className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-20 ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'
+        className={`absolute top-0 bottom-0 border-l-2 border-[var(--cordel-status-danger)] pointer-events-none z-20 ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_var(--cordel-status-danger)]'
           }`}
         style={{ left: 0, display: 'none', willChange: 'transform' }}
       />

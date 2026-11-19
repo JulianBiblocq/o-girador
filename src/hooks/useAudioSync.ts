@@ -78,7 +78,7 @@ export function useAudioSync(props: UseAudioSyncProps) {
     metroVolumeRef: refs.metroVolumeRef, isMetroOnRef: refs.isMetroOnRef,
   });
 
-  const { onStop, onTogglePlay, onStartSolo, onStopSolo, onSeek, onNavigate, onLaunchSpeedTrainer, onStopSpeedTrainer } =
+  const { onStop, onRewind, onTogglePlay, onStartSolo, onStopSolo, onSeek, onNavigate, onStepExploreRoda, onLaunchSpeedTrainer, onStopSpeedTrainer } =
     useAudioSyncTransportHandlers({ refs, setIsPlaying, setIsLoading, setSoloPatternPlayId, setSoloPatternVariationId, setCurrentMeasure });
 
   onTickRef.current = (time: number) => executeTickStep(time, {
@@ -104,13 +104,13 @@ export function useAudioSync(props: UseAudioSyncProps) {
     setSoloPatternPlayId: (id: number | null) => useTransportStore.getState().setSoloPatternPlayId(id),
     get soloPatternVariationId() { return useTransportStore.getState().soloPatternVariationId; },
     setSoloPatternVariationId: (id: string | null) => useTransportStore.getState().setSoloPatternVariationId(id),
-    handleTogglePlay: onTogglePlay, handleStop: onStop, handleRewind: onStop,
+    handleTogglePlay: onTogglePlay, handleStop: onStop, handleRewind: onRewind,
     handleStartSoloPattern: onStartSolo, handleStopSoloPattern: onStopSolo,
-    seekToMeasure: onSeek, handleTimelineNavigate: onNavigate,
+    seekToMeasure: onSeek, handleTimelineNavigate: onNavigate, handleStepExploreRoda: onStepExploreRoda,
     launchSpeedTrainer: onLaunchSpeedTrainer, stopSpeedTrainerAudio: onStopSpeedTrainer,
     invalidateAudioParamsCache: triggerCompile,
     ...refs,
-  }), [isPlaying, isLoading, isCompiling, onTogglePlay, onStop, onStartSolo, onStopSolo, onSeek, onNavigate, onLaunchSpeedTrainer, onStopSpeedTrainer, triggerCompile, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
+  }), [isPlaying, isLoading, isCompiling, onTogglePlay, onStop, onRewind, onStartSolo, onStopSolo, onSeek, onNavigate, onStepExploreRoda, onLaunchSpeedTrainer, onStopSpeedTrainer, triggerCompile, setCurrentMeasure, setSoloPatternPlayId, setSoloPatternVariationId, refs]);
 }
 export default useAudioSync;
 

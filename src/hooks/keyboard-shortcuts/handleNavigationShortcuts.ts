@@ -3,9 +3,11 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
 import { isActualTextEntry } from './isActualTextEntry';
+import { hasOpenBlockingModalOrEditor, isRodaViewCurrentlyActive } from './rodaStepExploreGuard';
 
 interface NavigationShortcutsParams {
   e: KeyboardEvent;
+  handleRewind?: () => void;
   seekToMeasure?: (measure: number, step?: number) => void;
   handleTimelineNavigate?: (m: number, s: number, stepsPerMeasure?: number) => void;
   setIsLooping?: (l: boolean) => void;
@@ -13,6 +15,7 @@ interface NavigationShortcutsParams {
 
 export function handleNavigationShortcuts({
   e,
+  handleRewind,
   seekToMeasure,
   handleTimelineNavigate,
   setIsLooping,
@@ -24,11 +27,12 @@ export function handleNavigationShortcuts({
     return true;
   }
 
-  // Entrée ou Home : début absolu
+  // Entrée ou Home : retour au début (boucle ou Mesure 1)
   if (e.key === 'Enter' || e.key === 'Home') {
     if (isActualTextEntry(document.activeElement as HTMLElement | null)) return false;
     e.preventDefault();
-    if (seekToMeasure) seekToMeasure(0, 0);
+    if (handleRewind) handleRewind();
+    else if (seekToMeasure) seekToMeasure(0, 0);
     else if (handleTimelineNavigate) handleTimelineNavigate(0, 0, 16);
     return true;
   }
@@ -56,9 +60,10 @@ export function handleNavigationShortcuts({
     return true;
   }
 
-  // Navigation par Mesures (ArrowLeft / ArrowRight)
+  // Navigation par Mesures (ArrowLeft / ArrowRight : réservé hors Roda et hors modale/éditeur)
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     if (isActualTextEntry(document.activeElement as HTMLElement | null)) return false;
+    if (isRodaViewCurrentlyActive(false) || hasOpenBlockingModalOrEditor(document)) return false;
     e.preventDefault();
     const curM = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure);
     const totalM = useSequencerStore.getState().totalMeasures;

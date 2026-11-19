@@ -13,6 +13,7 @@ import { drawPercussionTrack } from './drawPercussionTrack';
 import { computeContinuousSweepRatio } from './rodaSweepMath';
 import { drawRodaSweepWave } from './drawRodaSweepWave';
 import { syncLiveVariationRodaVisualFrame } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
+import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
 
 export function renderTrackStepLayer(
   ctx: CanvasRenderingContext2D,
@@ -34,25 +35,30 @@ export function renderTrackStepLayer(
   const live = livePlaybackRef.current;
   const localStep = live ? live.step : -1;
   const isPlaying = Boolean(stateVal.isPlaying && (live as any)?.isPlaying !== false && !live?.isPreRoll && localStep >= 0);
-  const measureIdx = isPlaying
-    ? live.measure
-    : pendingTargetMeasureRef.current !== null
-      ? pendingTargetMeasureRef.current
-      : stateVal.currentMeasure;
+  const isFrozen = !isPlaying && frozenPlaybackState.active;
+  const isPlayheadActive = isPlaying || isFrozen;
+
+  const measureIdx = isFrozen
+    ? frozenPlaybackState.measure
+    : isPlaying
+      ? live.measure
+      : pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure;
 
   const activeTimeSig = stateVal.measureTimeSigs
     ? stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4'
     : stateVal.timeSig || '4/4';
   const measureGeom = getRodaMeasureGeometry(String(activeTimeSig));
   const localTicks = isPlaying && live.maxTicks > 0 ? live.maxTicks : measureGeom.maxTicks;
-  const playheadRatio = isPlaying ? (live.ratio !== undefined ? live.ratio : (localTicks > 0 ? localStep / localTicks : 0)) : -1;
+  const playheadRatio = isFrozen
+    ? frozenPlaybackState.progress
+    : isPlaying ? (live.ratio !== undefined ? live.ratio : (localTicks > 0 ? localStep / localTicks : 0)) : -1;
 
-  syncLiveVariationRodaVisualFrame(isPlaying, measureIdx, Math.max(0, playheadRatio), activeVariationsRef);
+  syncLiveVariationRodaVisualFrame(isPlayheadActive, measureIdx, Math.max(0, playheadRatio), activeVariationsRef);
 
   const seqState = useSequencerStore.getState();
   const rodaSweepMode = seqState.rodaSweepMode || 'sweep6h';
-  if (rodaSweepMode === 'sweep6h' && isPlaying) {
-    const sweepRatio = computeContinuousSweepRatio(isPlaying, playheadRatio, rodaSweepMode, measureIdx, undefined, stateVal.measureTimeSigs, stateVal.timeSig);
+  if (rodaSweepMode === 'sweep6h' && isPlayheadActive) {
+    const sweepRatio = computeContinuousSweepRatio(isPlayheadActive, playheadRatio, rodaSweepMode, measureIdx, undefined, stateVal.measureTimeSigs, stateVal.timeSig);
     drawRodaSweepWave(ctx, centerX, centerY, 130, 512, sweepRatio, isEco);
   }
 
@@ -86,7 +92,7 @@ export function renderTrackStepLayer(
 
     const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
     const canHaveLiveVar = Boolean(
-      isPlaying && activePattern?.variations?.length && (soloId !== null || activePattern.measureAllowVariations?.[measureIdx] !== false)
+      isPlayheadActive && activePattern?.variations?.length && (soloId !== null || activePattern.measureAllowVariations?.[measureIdx] !== false)
     );
     const rawPlayingSteps = canHaveLiveVar && activeVariationsRef?.current
       ? activeVariationsRef.current[track.id] || activePattern!.activeSteps
@@ -104,9 +110,9 @@ export function renderTrackStepLayer(
     const tRad = drawTrackRing(ctx, track, ringIndex, totalRings, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
 
     const isVoiceOrToada = isToada || currentInst.type === 'voice';
-    if (!activePattern && !isVoiceOrToada && !isPlaying) return;
+    if (!activePattern && !isVoiceOrToada && !isPlayheadActive) return;
 
-    const currentStep = !isPlaying || localStep < 0
+    const currentStep = !isPlayheadActive || (isPlaying && localStep < 0)
       ? -1
       : getPhysicalStepFromRatio(playheadRatio, activePattern, effectiveStepCount, measureGeom.beatsCount, beatRes);
     const isMutedByConsole = soloId == null && getEffectiveMuteState(localRawTracks, track.id);
@@ -118,14 +124,14 @@ export function renderTrackStepLayer(
         ctx, track, currentInst, isToada, localRawTracks, activePattern as any, activePlayingSteps,
         stepAngles, effectiveStepCount, currentStep, tRad, centerX, centerY, dynamicScale, isEco,
         measureIdx, soloId, stateVal.totalMeasures, stateVal.isLoopRegionActive,
-        stateVal.loopStartMeasure, stateVal.loopEndMeasure, isPlaying ? activeVariationsRef : undefined, themeWood, themeBorder, themeText, beatRes
+        stateVal.loopStartMeasure, stateVal.loopEndMeasure, isPlayheadActive ? activeVariationsRef : undefined, themeWood, themeBorder, themeText, beatRes
       );
     } else {
       drawPercussionTrack(
         ctx, track, currentInst, activePattern, activePlayingSteps, stepAngles, effectiveStepCount,
         currentStep, tRad, centerX, centerY, dynamicScale, isEco, measureIdx, localRawTracks,
-        isPlaying ? activeVariationsRef : undefined, stateVal.isLeftHanded || false, themeWood, themeBorder, themeText,
-        isPlaying, Math.max(0, playheadRatio), soloId, totalRings, stepOffset
+        isPlayheadActive ? activeVariationsRef : undefined, stateVal.isLeftHanded || false, themeWood, themeBorder, themeText,
+        isPlayheadActive, Math.max(0, playheadRatio), soloId, totalRings, stepOffset
       );
     }
     ctx.restore();

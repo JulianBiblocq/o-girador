@@ -1,5 +1,5 @@
 /**
- * useSatelliteKeyboardBridge.ts — Pont clavier DAW (Transport, Undo/Redo, Escape) pour la Fenêtre Satellite (< 105 lignes).
+ * useSatelliteKeyboardBridge.ts — Pont clavier DAW (Transport, Undo/Redo, Escape) pour la Fenêtre Satellite (< 115 lignes).
  * N'utilise jamais `instanceof` (duck-typing inter-royaumes entre `window` et `satelliteWindow`).
  */
 import { useEffect, useRef } from 'react';
@@ -9,23 +9,31 @@ import { useWindow } from '../contexts/WindowContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { isEditableTarget } from '../utils/crossRealmDom';
 import { isActualTextEntry } from './keyboard-shortcuts/isActualTextEntry';
+import { tryHandleRodaStepExploreKeyDown } from './keyboard-shortcuts/rodaStepExploreGuard';
 
 export function useSatelliteKeyboardBridge() {
   const hostWin = useWindow();
-  const { handleTogglePlay, seekToMeasure } = useAudio();
+  const { handleTogglePlay, handleStop, handleRewind, seekToMeasure, handleStepExploreRoda } = useAudio();
   const { handleUndo, handleRedo, setIsLooping } = useSequencer();
 
-  const actionsRef = useRef({ handleTogglePlay, seekToMeasure, handleUndo, handleRedo, setIsLooping });
-  actionsRef.current = { handleTogglePlay, seekToMeasure, handleUndo, handleRedo, setIsLooping };
+  const actionsRef = useRef({ handleTogglePlay, handleStop, handleRewind, seekToMeasure, handleStepExploreRoda, handleUndo, handleRedo, setIsLooping });
+  actionsRef.current = { handleTogglePlay, handleStop, handleRewind, seekToMeasure, handleStepExploreRoda, handleUndo, handleRedo, setIsLooping };
 
   useEffect(() => {
     if (!hostWin || hostWin === window || !hostWin.addEventListener) return;
     const hostDoc = hostWin.document;
 
-    // 1. Capture : Espace -> Play / Stop (sauf saisie texte ou photomaton actif)
+    // 1. Capture : Espace -> Play/Pause, Shift+Espace -> Stop, Home -> Retour au début, ←/→ -> Pas-à-pas Roda
     const onCaptureKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' && e.key !== ' ') return;
-      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        tryHandleRodaStepExploreKeyDown(e, actionsRef.current.handleStepExploreRoda, { hostDoc, isSatelliteWindow: true });
+        return;
+      }
+      const isSpace = e.code === 'Space' || e.key === ' ';
+      const isHome = e.key === 'Home';
+      if (!isSpace && !isHome) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isHome && e.shiftKey) return;
       if (hostDoc.querySelector('[data-photobooth-capture="true"]')) return;
 
       const target = e.target as HTMLElement | null;
@@ -38,10 +46,17 @@ export function useSatelliteKeyboardBridge() {
       e.stopPropagation();
       activeEl?.blur?.();
       target?.blur?.();
-      actionsRef.current.handleTogglePlay();
+      if (isHome) {
+        if (actionsRef.current.handleRewind) actionsRef.current.handleRewind();
+        else actionsRef.current.seekToMeasure?.(0, 0);
+      } else if (e.shiftKey) {
+        actionsRef.current.handleStop?.();
+      } else {
+        actionsRef.current.handleTogglePlay();
+      }
     };
 
-    // 2. Bubble : Undo / Redo, Boucle [L], Retour début [Home], Escape défensif (sans fermer la fenêtre)
+    // 2. Bubble : Undo / Redo, Boucle [L], Retour début [Home/Enter], Escape défensif (sans fermer la fenêtre)
     const onBubbleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       const target = e.target as HTMLElement | null;
@@ -80,9 +95,10 @@ export function useSatelliteKeyboardBridge() {
 
       if (isText || isEditableTarget(target) || isEditableTarget(activeEl)) return;
 
-      if (e.key === 'Home') {
+      if (e.key === 'Home' || e.key === 'Enter') {
         e.preventDefault();
-        actionsRef.current.seekToMeasure?.(0, 0);
+        if (actionsRef.current.handleRewind) actionsRef.current.handleRewind();
+        else actionsRef.current.seekToMeasure?.(0, 0);
       } else if (e.key.toLowerCase() === 'l' && !e.altKey) {
         e.preventDefault();
         const nextLoop = !useSequencerStore.getState().isLooping;

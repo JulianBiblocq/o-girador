@@ -1,16 +1,7 @@
-import { Track, Pattern, PatternVariation } from '../../types';
-import { useSequencerStore } from '../../stores/useSequencerStore';
-import { resolveCurrentPattern } from '../../utils/variationResolver';
-import { resolveActivePattern } from '../../workers/compiler/patternResolver';
-import { buildMeasureVariationNotes } from './variationMeasureNotePacker';
+import { Track } from '../../types';
+import { MeasureVariationSnapshot, rollMeasureVariations, StepArray } from './rollMeasureVariations';
 
-type StepArray = (string | number | [string, string])[];
-
-export interface MeasureVariationSnapshot {
-  seqId: number; measureIdx: number; stepsByTrackId: Record<number, StepArray>;
-  variedPatternsByTrackId: Map<number, { pattern: Pattern; variation: PatternVariation }>;
-  patternIdByTrackId: Record<number, number | null>; variedTrackIds: Set<number>; variationNotes: number[];
-}
+export type { MeasureVariationSnapshot };
 
 let prevSnapshot: MeasureVariationSnapshot | null = null, currentSnapshot: MeasureVariationSnapshot | null = null, nextSnapshot: MeasureVariationSnapshot | null = null;
 const snapshotsByMeasure = new Map<number, MeasureVariationSnapshot>();
@@ -21,38 +12,9 @@ let visualCurrMeasureIdx: number | null = null, visualCurrStepsByTrackId: Record
 let visualPrevMeasureIdx: number | null = null, visualPrevStepsByTrackId: Record<number, StepArray> | null = null;
 let lastVisualRatio = 0;
 
-function rollMeasureVariations(
-  seqId: number, measureIdx: number, measureStartTick: number, timeSig: string,
-  tracks: Track[], soloPatternPlayId: number | null, soloPatternVariationId: string | null,
-  precedingPatternIdByTrack: Record<number, number | null>
-): MeasureVariationSnapshot {
-  const store = useSequencerStore.getState();
-  const isSoloPlayActive = soloPatternPlayId !== null, isolateBaseOnly = Boolean(store.isolateBaseOnly);
-  const stepsByTrackId: Record<number, StepArray> = {};
-  const variedPatternsByTrackId = new Map<number, { pattern: Pattern; variation: PatternVariation }>();
-  const patternIdByTrackId: Record<number, number | null> = {};
-
-  tracks.forEach((track) => {
-    if (track.isBusFolder) return;
-    const activePattern = resolveActivePattern(track, tracks, measureIdx, isSoloPlayActive, soloPatternPlayId);
-    if (!activePattern) { patternIdByTrackId[track.id] = null; return; }
-    patternIdByTrackId[track.id] = activePattern.id;
-    const isEnteringPatternBlock = precedingPatternIdByTrack[track.id] !== activePattern.id;
-    const resolved = resolveCurrentPattern({
-      pattern: activePattern, trackId: track.id, measureIdx,
-      currentPlayCount: isEnteringPatternBlock ? 0 : 1, isFirstPassConsumed: !isEnteringPatternBlock,
-      isolateBaseOnly, isSoloPlayActive, soloPatternPlayId, soloPatternVariationId,
-    });
-    stepsByTrackId[track.id] = resolved.steps;
-    if (resolved.matchedVariation) variedPatternsByTrackId.set(track.id, { pattern: activePattern, variation: resolved.matchedVariation });
-  });
-
-  const variedTrackIds = new Set(variedPatternsByTrackId.keys());
-  const variationNotes = buildMeasureVariationNotes({ tracks, measureIdx, measureStartTick, timeSig: timeSig || '4/4', variedPatternsByTrackId });
-  return { seqId, measureIdx, stepsByTrackId, variedPatternsByTrackId, patternIdByTrackId, variedTrackIds, variationNotes };
+function pruneOldSeqSnapshots(minKeepSeqId: number): void {
+  for (const k of snapshotsBySeqId.keys()) { if (k < minKeepSeqId) snapshotsBySeqId.delete(k); }
 }
-
-function pruneOldSeqSnapshots(minKeepSeqId: number): void { for (const k of snapshotsBySeqId.keys()) { if (k < minKeepSeqId) snapshotsBySeqId.delete(k); } }
 
 export function getOrRollMeasureVariationForHorizon(params: {
   seqId: number; measureIdx: number; measureStartTick: number; timeSig: string;
@@ -120,6 +82,34 @@ export function recalculateLookaheadForQueuedMeasure(queuedMeasureIdx: number, t
   snapshotsByMeasure.set(queuedMeasureIdx, nextSnapshot);
 }
 
+export function syncStepExploreVariationSnapshots(params: {
+  prevMeasureIdx: number | null; currentMeasureIdx: number; nextMeasureIdx: number; playheadRatio: number;
+  tracks: Track[]; measureTimeSigs: Record<number, string> | string[];
+  soloPatternPlayId: number | null; soloPatternVariationId: string | null;
+  activeVariationsRef?: { current: Record<number, any> };
+}): MeasureVariationSnapshot {
+  const { prevMeasureIdx, currentMeasureIdx, nextMeasureIdx, playheadRatio, tracks, measureTimeSigs, soloPatternPlayId, soloPatternVariationId, activeVariationsRef } = params;
+  const getOrRoll = (mIdx: number, preceding: Record<number, number | null>): MeasureVariationSnapshot => {
+    const cached = snapshotsByMeasure.get(mIdx);
+    if (cached) return cached;
+    const sig = measureTimeSigs?.[mIdx] || '4/4';
+    const rolled = rollMeasureVariations(-1, mIdx, 0, sig, tracks, soloPatternPlayId, soloPatternVariationId, preceding);
+    snapshotsByMeasure.set(mIdx, rolled);
+    return rolled;
+  };
+  const prevSnap = prevMeasureIdx !== null ? getOrRoll(prevMeasureIdx, lastPlayedPatternIdByTrack) : null;
+  const currSnap = getOrRoll(currentMeasureIdx, prevSnap ? prevSnap.patternIdByTrackId : lastPlayedPatternIdByTrack);
+  const nextSnap = getOrRoll(nextMeasureIdx, currSnap.patternIdByTrackId);
+  prevSnapshot = prevSnap; currentSnapshot = currSnap; nextSnapshot = nextSnap;
+  lastPlayedPatternIdByTrack = { ...currSnap.patternIdByTrackId };
+  visualPrevMeasureIdx = prevMeasureIdx; visualPrevStepsByTrackId = prevSnap ? prevSnap.stepsByTrackId : null;
+  visualCurrMeasureIdx = currentMeasureIdx; visualCurrStepsByTrackId = currSnap.stepsByTrackId;
+  lastVisualRatio = ((playheadRatio % 1) + 1) % 1;
+  currentVariedTrackIds = currSnap.variedTrackIds; currentVariationNotes = currSnap.variationNotes;
+  if (activeVariationsRef) activeVariationsRef.current = currSnap.stepsByTrackId;
+  return currSnap;
+}
+
 export function syncLiveVariationRodaVisualFrame(isPlaying: boolean, visualMeasureIdx: number, playheadRatio: number, activeVariationsRef?: { current: Record<number, any> }): void {
   if (!isPlaying) { visualCurrMeasureIdx = null; visualCurrStepsByTrackId = null; visualPrevMeasureIdx = null; visualPrevStepsByTrackId = null; lastVisualRatio = 0; return; }
   const snapSteps = snapshotsByMeasure.get(visualMeasureIdx)?.stepsByTrackId ?? currentSnapshot?.stepsByTrackId ?? null;
@@ -131,6 +121,9 @@ export function syncLiveVariationRodaVisualFrame(isPlaying: boolean, visualMeasu
   if (activeVariationsRef && visualCurrStepsByTrackId) activeVariationsRef.current = visualCurrStepsByTrackId;
 }
 
+export function getMeasureVariationSnapshot(measureIdx: number): MeasureVariationSnapshot | undefined {
+  return snapshotsByMeasure.get(measureIdx) ?? (currentSnapshot?.measureIdx === measureIdx ? currentSnapshot : undefined);
+}
 export function getLiveVariationAudioOverride() { return { variedTrackIds: currentVariedTrackIds, variationNotes: currentVariationNotes }; }
 export function getLiveVariationRodaSnapshots(targetNextMeasureIdx?: number) {
   const nextSteps = (targetNextMeasureIdx !== undefined && snapshotsByMeasure.has(targetNextMeasureIdx)) ? snapshotsByMeasure.get(targetNextMeasureIdx)!.stepsByTrackId : (nextSnapshot?.stepsByTrackId ?? null);

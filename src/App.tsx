@@ -45,7 +45,7 @@ export default function App() {
 
   const sequencer = useSequencer(), audio = useAudio();
   useScreenWakeLock(audio.isPlaying);
-  useGlobalTransportShortcuts(audio.handleTogglePlay);
+  useGlobalTransportShortcuts(audio.handleTogglePlay, audio.handleStop, audio.handleRewind, audio.handleStepExploreRoda);
   const { hasAccess, userProfile, isAdmin, loading: authLoading } = useAuth();
   useDeepLinkLoader({ audio, sequencer, authLoading });
   useAppAuthPermissions(userProfile, isAdmin); useAppSessionTracking(userProfile);

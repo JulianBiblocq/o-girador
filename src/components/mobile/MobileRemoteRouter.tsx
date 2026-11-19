@@ -6,9 +6,9 @@ import React from 'react';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
-const MobileRehearsalRemote = lazyWithRetry(() => import('./MobileRehearsalRemote').then(m => ({ default: m.MobileRehearsalRemote })), 'MobileRehearsalRemote');
-const MobilePercussionMode = lazyWithRetry(() => import('./MobilePercussionMode').then(m => ({ default: m.MobilePercussionMode })), 'MobilePercussionMode');
-const MobileEditorMode = lazyWithRetry(() => import('./MobileEditorMode').then(m => ({ default: m.MobileEditorMode })), 'MobileEditorMode');
+const MobileRehearsalRemote = lazyWithRetry(() => import('./MobileRehearsalRemote').then((m) => ({ default: m.MobileRehearsalRemote })), 'MobileRehearsalRemote');
+const MobilePercussionMode = lazyWithRetry(() => import('./MobilePercussionMode').then((m) => ({ default: m.MobilePercussionMode })), 'MobilePercussionMode');
+const MobileEditorMode = lazyWithRetry(() => import('./MobileEditorMode').then((m) => ({ default: m.MobileEditorMode })), 'MobileEditorMode');
 
 interface Props {
   mobileViewMode: 'danse' | 'percussion' | 'editeur' | 'complet';
@@ -40,7 +40,7 @@ export const MobileRemoteRouter: React.FC<Props> = ({
   if (mobileViewMode === 'editeur') {
     return (
       <MobileEditorMode
-        isPlaying={audio.isPlaying} onTogglePlay={audio.handleTogglePlay}
+        isPlaying={audio.isPlaying} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop} onRewind={audio.handleRewind}
         masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
         onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName} onToggleStudio={onToggleStudio}
         onOpenPaperWorkshop={onOpenPaperWorkshop} isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}

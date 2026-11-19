@@ -72,15 +72,15 @@ function animateStickWithShadow(
 function animateAlfaiaStickBarulho(
   stickEl: SVGSVGElement | null, animRef: React.MutableRefObject<Animation | null>,
   isLeftSide: boolean, fam: AlfaiaSecondaryStickFamily, nextKind: AlfaiaNextStrokeKind,
-  stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan
+  stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan, oneShotStepMode = false
 ) {
   if (!stickEl) return;
   const c = CONFIG_ALFAIA_STICKS, cycleMs = Math.max(55, Math.round(90 / c.speedMultiplier));
   const loopFrames = generateAlfaiaBarulhoLoopFrames(isLeftSide, fam, plan.amplitude || 0.7);
   const { startTransform, endTransform } = resolveStickStartAndEndTransforms(isLeftSide, getProfileScale(fam), c.restOffsetY, getAlfaiaStickRestTransform(isLeftSide, fam), c.transitions, plan.amplitude >= 0.85, nextKind);
   if (plan.action === 'stop') releaseWaapiBarulhoRoll({ el: stickEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform, loopFrames, cycleMs, leadMs });
-  else runWaapiBarulhoRoll({ el: stickEl, animRef, startTransform, loopFrames, endTransform, cycleMs, stepDurationMs, leadMs, plan });
-  syncBarulhoStickShadow(stickEl, 4, c.shadowOpacity, getAlfaiaShadowRestTransform(isLeftSide), +(c.shadowOpacity * 0.45).toFixed(2), stepDurationMs, leadMs, plan);
+  else runWaapiBarulhoRoll({ el: stickEl, animRef, startTransform, loopFrames, endTransform, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode });
+  syncBarulhoStickShadow(stickEl, 4, c.shadowOpacity, getAlfaiaShadowRestTransform(isLeftSide), +(c.shadowOpacity * 0.45).toFixed(2), stepDurationMs, leadMs, plan, oneShotStepMode);
 }
 
 export function dispatchAlfaiaPredictiveStroke(
@@ -88,7 +88,7 @@ export function dispatchAlfaiaPredictiveStroke(
   activePlayingSteps: any[] | undefined, currentStep: number, stepDurationMs: number,
   leftStickEl: SVGSVGElement | null, rightStickEl: SVGSVGElement | null, haloEl: HTMLDivElement | null,
   leftAnimRef: React.MutableRefObject<Animation | null>, rightAnimRef: React.MutableRefObject<Animation | null>,
-  geometry: { targetX: number; targetY: number }, leadMs = 0
+  geometry: { targetX: number; targetY: number }, leadMs = 0, oneShotStepMode = false
 ) {
   const secFamily = resolveAlfaiaSecondaryFamily(activeTrack), norm = (stroke || '').trim(), sUp = norm.toUpperCase();
   const domLook = findSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, true, isSubStep);
@@ -99,8 +99,8 @@ export function dispatchAlfaiaPredictiveStroke(
   const plan = consumeBarulhoStepPlan('alfaia', isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
   if (plan.action !== 'none') {
     isMufflingStickRef.current = false;
-    animateAlfaiaStickBarulho(domStickEl, domAnimRef, isLeftHanded, 'macaneta', domLook.nextKind, stepDurationMs, leadMs, plan);
-    animateAlfaiaStickBarulho(secStickEl, secAnimRef, secSide, secFamily, secLook.nextKind, stepDurationMs, leadMs, plan);
+    animateAlfaiaStickBarulho(domStickEl, domAnimRef, isLeftHanded, 'macaneta', domLook.nextKind, stepDurationMs, leadMs, plan, oneShotStepMode);
+    animateAlfaiaStickBarulho(secStickEl, secAnimRef, secSide, secFamily, secLook.nextKind, stepDurationMs, leadMs, plan, oneShotStepMode);
     if (haloEl && (plan.action === 'start' || norm === 'B')) triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: true, delayMs: leadMs });
     return;
   }

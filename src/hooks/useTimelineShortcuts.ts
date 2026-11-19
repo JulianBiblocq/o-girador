@@ -13,7 +13,7 @@ interface UseTimelineShortcutsOptions {
 export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
   const audio = useAudio();
   const sequencer = useSequencer();
-  const { handleTimelineNavigate, seekToMeasure } = audio;
+  const { handleRewind, handleTimelineNavigate, seekToMeasure } = audio;
   const { handleUndo, handleRedo, setIsLooping } = sequencer;
 
   const optionsRef = useRef(options);
@@ -34,6 +34,7 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
       }
 
       const handledNav = handleTimelineNavigationKeyDown(e, isTextEntry, {
+        handleRewind,
         seekToMeasure,
         handleTimelineNavigate,
         setIsLooping,
@@ -49,5 +50,5 @@ export function useTimelineShortcuts(options?: UseTimelineShortcutsOptions) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTimelineNavigate, seekToMeasure, handleUndo, handleRedo, setIsLooping]);
+  }, [handleRewind, handleTimelineNavigate, seekToMeasure, handleUndo, handleRedo, setIsLooping]);
 }

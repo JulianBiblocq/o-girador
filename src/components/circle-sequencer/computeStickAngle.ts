@@ -1,9 +1,10 @@
-
 import { LivePlaybackState } from './circleSequencerTypes';
+import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
 
 /**
  * Angle de l'aiguille Roda. L'interpolation temporelle sur l'horloge audio est TOUJOURS active
  * (60 FPS sanctuarises quel que soit le palier Eco) : l'aiguille ne saute jamais par crans.
+ * En Pause (frozenPlaybackState.active), fige l'angle sur progress exact ; au Stop, repos a 12h (-PI/2).
  */
 export function computeStickAngle(
   live: LivePlaybackState,
@@ -31,10 +32,15 @@ export function computeStickAngle(
       stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
     }
     frozenStickAngleRef.current = stickAngle;
+  } else if (!isCurrentlyPlaying && frozenPlaybackState.active) {
+    stickAngle = -Math.PI / 2 + (frozenPlaybackState.progress * Math.PI * 2);
+    frozenStickAngleRef.current = stickAngle;
   } else if (!isCurrentlyPlaying && live.step >= 0 && frozenStickAngleRef.current !== undefined) {
     stickAngle = frozenStickAngleRef.current;
   } else if (live.step >= 0 && live.ratio !== undefined && live.ratio >= 0) {
     stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
+  } else {
+    frozenStickAngleRef.current = -Math.PI / 2;
   }
 
   return stickAngle;

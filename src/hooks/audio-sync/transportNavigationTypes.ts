@@ -13,6 +13,15 @@ export interface NavigationContext {
   isPlayingRef: { current: boolean };
   pendingMeasureRef: { current: number | null };
   pendingIterationRef: { current: number | null };
+  isLoopRegionActiveRef?: { current: boolean };
+  loopStartRef?: { current: number | null };
+  isPreRollActiveRef?: { current: boolean };
+  preRollRemainingMeasuresRef?: { current: number };
+  engineTimeoutsRef?: { current: Set<number> };
+  hitTriggersRef?: { current: any };
+  anchoredMeasureStartSecRef?: { current: number };
+  anchoredMeasureIdxRef?: { current: number };
+  lastScheduledMeasureRef?: { current: number };
   tracksRef?: { current: any[] };
   soloPatternPlayIdRef?: { current: number | null };
   soloPatternVariationIdRef?: { current: string | null };

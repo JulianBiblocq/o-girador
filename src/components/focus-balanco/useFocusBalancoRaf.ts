@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Tone from 'tone';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../../hooks/useAudioSync';
+import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
 import { getLastAudibleTick } from '../../audio/visualTickBuffer';
 import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -40,7 +41,19 @@ export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
   useEffect(() => {
     if (!params.isOpen) return;
     const handleTick = (evt: any) => {
-      if (evt.isPaused || evt.step < 0) return;
+      if (evt.step < 0) {
+        liveRef.current.ratio = 0; liveRef.current.time = 0;
+        if (evt.measure !== undefined) { liveRef.current.measure = evt.measure; onMeasureRef.current(evt.measure); }
+        return;
+      }
+      if (evt.isPaused) {
+        const fM = frozenPlaybackState.active ? frozenPlaybackState.measure : (evt.measure ?? 0);
+        liveRef.current.measure = fM;
+        liveRef.current.ratio = frozenPlaybackState.active ? frozenPlaybackState.progress : (evt.ratio ?? 0);
+        liveRef.current.time = 0;
+        onMeasureRef.current(fM);
+        return;
+      }
       const prevM = liveRef.current.measure;
       liveRef.current.measure = evt.measure ?? 0;
       liveRef.current.ratio = evt.ratio ?? 0;
@@ -97,13 +110,13 @@ export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
       }
 
       const scale = getLiveBalancoMorphScaleAtTime(audibleAudioSec);
-      let playheadRatio = live.ratio || 0;
+      let playheadRatio = (!isPlaying && frozenPlaybackState.active) ? frozenPlaybackState.progress : (live.ratio || 0);
       if (isPlaying && !live.isPreRoll && live.time > 0 && live.measureDuration > 0) {
         const elapsed = Math.max(0, ctxTime - live.time);
         if (elapsed <= 0.14) playheadRatio = (live.ratio + elapsed / live.measureDuration) % 1;
       }
 
-      applyFocusBalancoDomFrame(params, modelRef.current, scale, playheadRatio, isPlaying, live.isPreRoll, live.measureDuration, lastShownPctRef);
+      applyFocusBalancoDomFrame(params, modelRef.current, scale, playheadRatio, isPlaying || frozenPlaybackState.active, live.isPreRoll, live.measureDuration, lastShownPctRef);
       rafId = requestAnimationFrame(frame);
     };
 

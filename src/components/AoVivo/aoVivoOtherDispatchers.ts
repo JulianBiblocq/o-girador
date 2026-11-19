@@ -18,16 +18,16 @@ import { triggerAoVivoShockwave } from './AoVivoShockwave';
 export function dispatchMineiro(
   stroke: string, isVibrate: boolean, mineiroStickEl: SVGSVGElement | null,
   poleRef: React.MutableRefObject<MineiroPole>, animRef: React.MutableRefObject<Animation | null>,
-  isLeftHanded = false, activePlayingSteps?: any[], currentStep = 0, stepDurationMs = 200, isSubStep = false, leadMs = 0
+  isLeftHanded = false, activePlayingSteps?: any[], currentStep = 0, stepDurationMs = 200, isSubStep = false, leadMs = 0, oneShotStepMode = false
 ) {
   if (!mineiroStickEl) return;
   const spd = CONFIG_MINEIRO_LAB.speedMultiplier, norm = (stroke || '').trim();
   const plan = consumeBarulhoStepPlan('mineiro', isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
   if (plan.action !== 'none') {
     const cycleMs = Math.max(65, Math.round(105 / spd));
-    const { startTr, loopFrames, endTr } = buildMineiroBarulhoFrames(poleRef.current, plan.amplitude || 0.7, !plan.sustain || plan.action === 'stop');
+    const { startTr, loopFrames, endTr } = buildMineiroBarulhoFrames(poleRef.current, plan.amplitude || 0.7, !plan.sustain || plan.action === 'stop' || oneShotStepMode);
     if (plan.action === 'stop') releaseWaapiBarulhoRoll({ el: mineiroStickEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform: endTr, loopFrames, cycleMs, leadMs });
-    else runWaapiBarulhoRoll({ el: mineiroStickEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan });
+    else runWaapiBarulhoRoll({ el: mineiroStickEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode });
     return;
   }
   if (!norm || norm === '0' || norm === '-' || norm === '.' || norm === '/') return;
@@ -41,7 +41,7 @@ export function dispatchMineiro(
 export function dispatchAgbe(
   stroke: string, isVibrate: boolean, agbeWholeEl: SVGGElement | null,
   animRef: React.MutableRefObject<Animation | null>, nextStroke?: string,
-  activePlayingSteps?: any[], currentStep = 0, stepDurationMs = 200, isSubStep = false, leadMs = 0
+  activePlayingSteps?: any[], currentStep = 0, stepDurationMs = 200, isSubStep = false, leadMs = 0, oneShotStepMode = false
 ) {
   if (!agbeWholeEl) return;
   const spd = CONFIG_AGBE_LAB.speedMultiplier, norm = (stroke || '').trim();
@@ -49,9 +49,9 @@ export function dispatchAgbe(
   const plan = consumeBarulhoStepPlan('agbe', isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
   if (plan.action !== 'none') {
     const cycleMs = Math.max(70, Math.round(115 / spd));
-    const { startTr, loopFrames, endTr } = buildAgbeBarulhoFrames(plan.amplitude || 0.7, nextStroke, !plan.sustain || plan.action === 'stop');
+    const { startTr, loopFrames, endTr } = buildAgbeBarulhoFrames(plan.amplitude || 0.7, nextStroke, !plan.sustain || plan.action === 'stop' || oneShotStepMode);
     if (plan.action === 'stop') releaseWaapiBarulhoRoll({ el: agbeWholeEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform: endTr, loopFrames, cycleMs, leadMs });
-    else runWaapiBarulhoRoll({ el: agbeWholeEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan });
+    else runWaapiBarulhoRoll({ el: agbeWholeEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode });
     return;
   }
   if (!norm || norm === '0' || norm === '-' || norm === '.' || norm === '/') return;

@@ -1,5 +1,5 @@
 /**
- * crossRealmDom.ts — Utilitaires DOM inter-fenêtres sans `instanceof` (< 60 lignes).
+ * crossRealmDom.ts — Utilitaires DOM inter-fenêtres sans `instanceof` (< 65 lignes).
  * Indispensable entre `window` (Écran 1) et `satelliteWindow` (Écran 2) dont les constructeurs DOM diffèrent.
  */
 
@@ -16,6 +16,10 @@ export interface CrossRealmNodeLike {
   closest?: (selector: string) => Element | null;
   blur?: () => void;
 }
+
+const NON_TEXT_INPUT_TYPES = new Set([
+  'range', 'button', 'checkbox', 'radio', 'submit', 'reset', 'file', 'image', 'color',
+]);
 
 export function isElementLike(target: unknown): target is HTMLElement {
   return Boolean(target && typeof target === 'object' && (target as CrossRealmNodeLike).nodeType === 1);
@@ -37,10 +41,14 @@ export function isTextAreaElementLike(target: unknown): target is HTMLTextAreaEl
 export function isEditableTarget(target: unknown): boolean {
   if (!isElementLike(target)) return false;
   const node = target as CrossRealmNodeLike;
-  const tag = getUpperTagName(target);
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (node.isContentEditable || node.getAttribute?.('contenteditable') === 'true') return true;
-  if (node.classList?.contains('v-syl')) return true;
+  if (node.classList?.contains('v-syl') || node.classList?.contains('v-note') || node.classList?.contains('step-input-cell')) return true;
+  const tag = getUpperTagName(target);
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (tag === 'INPUT') {
+    const inputType = (node.type || node.getAttribute?.('type') || 'text').toLowerCase();
+    return !NON_TEXT_INPUT_TYPES.has(inputType);
+  }
   return Boolean(node.closest?.('[contenteditable="true"], .v-syl'));
 }
 

@@ -1,8 +1,10 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { getLiveOrStoreMeasure } from '../../audio/visualTickBuffer';
+import { hasOpenBlockingModalOrEditor } from '../keyboard-shortcuts/rodaStepExploreGuard';
 
 interface NavigationShortcutDeps {
+  handleRewind?: () => void;
   seekToMeasure?: (mIdx: number, sIdx?: number) => void;
   handleTimelineNavigate?: (mIdx: number, sIdx: number, steps: number) => void;
   setIsLooping?: (val: boolean) => void;
@@ -39,7 +41,8 @@ export function handleTimelineNavigationKeyDown(
 
   if (e.key === 'Enter' || e.key === 'Home') {
     e.preventDefault();
-    if (deps.seekToMeasure) deps.seekToMeasure(0, 0);
+    if (deps.handleRewind) deps.handleRewind();
+    else if (deps.seekToMeasure) deps.seekToMeasure(0, 0);
     else deps.handleTimelineNavigate?.(0, 0, 16);
     return true;
   }
@@ -57,6 +60,7 @@ export function handleTimelineNavigationKeyDown(
   }
 
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (hasOpenBlockingModalOrEditor(document)) return false;
     e.preventDefault();
     const curM = getLiveOrStoreMeasure(useSequencerStore.getState().currentMeasure), totalM = useSequencerStore.getState().totalMeasures;
     const delta = e.shiftKey ? 4 : 1;

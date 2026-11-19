@@ -9,6 +9,7 @@ import { dispatchAlfaiaPredictiveStroke } from './alfaiaLookaheadHelper';
 import { dispatchCaixaPredictiveStroke } from './caixaLookaheadHelper';
 import { dispatchMineiro, dispatchAgbe, dispatchGongue } from './aoVivoOtherDispatchers';
 import { resetAoVivoRestPosition, resolveAoVivoPatternAndSteps } from './aoVivoReset';
+import { pauseAoVivoAnimations, prepareAoVivoForStepPreview, resolveAoVivoMeasureStepInfo, resumeAoVivoAnimations } from './aoVivoFreezeHelper';
 import { cancelAoVivoShockwave } from './AoVivoShockwave';
 import { AoVivoResolvedFamily, resolveTrackAoVivoFamily } from './resolveAoVivoFamily';
 import { MineiroPole } from '../../audio/animationGenerators';
@@ -27,41 +28,38 @@ export function useAoVivoAnimationEngine(
 ) {
   const isPreRolling = useSequencerStore((state) => state.isPreRolling);
   const { activeVariationsRef } = useSequencer();
-  const leftAnimRef = useRef<Animation | null>(null);
-  const rightAnimRef = useRef<Animation | null>(null);
-  const gongueAnimRef = useRef<Animation | null>(null);
-  const agbeAnimRef = useRef<Animation | null>(null);
-  const mineiroAnimRef = useRef<Animation | null>(null);
-  const mineiroPoleRef = useRef<MineiroPole>('backWeak');
-  const lastVuStepRef = useRef<number>(-1);
-  const subStepTimersRef = useRef<any[]>([]);
+  const leftAnimRef = useRef<Animation | null>(null), rightAnimRef = useRef<Animation | null>(null);
+  const gongueAnimRef = useRef<Animation | null>(null), agbeAnimRef = useRef<Animation | null>(null), mineiroAnimRef = useRef<Animation | null>(null);
+  const allAnimRefs = [leftAnimRef, rightAnimRef, gongueAnimRef, agbeAnimRef, mineiroAnimRef];
+  const mineiroPoleRef = useRef<MineiroPole>('backWeak'), lastVuStepRef = useRef<number>(-1), subStepTimersRef = useRef<any[]>([]);
 
-  const clearSubStepTimers = () => {
-    subStepTimersRef.current.forEach((t) => clearTimeout(t));
-    subStepTimersRef.current = [];
-  };
+  const clearSubStepTimers = () => { subStepTimersRef.current.forEach((t) => clearTimeout(t)); subStepTimersRef.current = []; };
 
   useEffect(() => {
     const resetAllToRest = () => {
       clearSubStepTimers(); resetBarulhoRollState(); lastVuStepRef.current = -1;
-      leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
-      gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
-      cancelAoVivoShockwave(haloRef.current);
+      allAnimRefs.forEach((r) => r.current?.cancel()); cancelAoVivoShockwave(haloRef.current);
       resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
     };
+    const onResume = () => resumeAoVivoAnimations(allAnimRefs, haloRef.current);
     resetAllToRest();
     window.addEventListener('o-girador-playback-stopped', resetAllToRest);
-    return () => window.removeEventListener('o-girador-playback-stopped', resetAllToRest);
+    window.addEventListener('o-girador-playback-resumed', onResume);
+    return () => {
+      window.removeEventListener('o-girador-playback-stopped', resetAllToRest);
+      window.removeEventListener('o-girador-playback-resumed', onResume);
+    };
   }, [isPreRolling, family, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack]);
 
   useEffect(() => {
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; isPreRoll?: boolean }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
-      if (isPreRolling || Boolean((detail as any).isPreRoll) || step < 0) {
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; isPreRoll?: boolean; isPaused?: boolean; isStepPreview?: boolean }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks, isStepPreview } = detail;
+      if (detail.isPaused && !isStepPreview && step >= 0) {
+        clearSubStepTimers(); pauseAoVivoAnimations(allAnimRefs, haloRef.current); return;
+      }
+      if (isPreRolling || Boolean(detail.isPreRoll) || step < 0) {
         clearSubStepTimers(); resetBarulhoRollState(); lastVuStepRef.current = -1;
-        leftAnimRef.current?.cancel(); rightAnimRef.current?.cancel();
-        gongueAnimRef.current?.cancel(); agbeAnimRef.current?.cancel(); mineiroAnimRef.current?.cancel();
-        cancelAoVivoShockwave(haloRef.current);
+        allAnimRefs.forEach((r) => r.current?.cancel()); cancelAoVivoShockwave(haloRef.current);
         resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
         return;
       }
@@ -80,23 +78,14 @@ export function useAoVivoAnimationEngine(
       }
 
       const currentSig = state.measureTimeSigs?.[measure] || state.timeSig || '4/4';
-      const stepsPerMeasure = (parseInt(String(currentSig).split('/')[0], 10) || 4) * 4;
-      const patSteps = pattern.steps || stepsPerMeasure;
-      const patternSpan = Math.max(1, Math.round(patSteps / stepsPerMeasure));
-      let stepOffset = 0;
-      if (patternSpan > 1) {
-        let startM = measure;
-        while (startM > 0 && pattern.measureAssignments?.[startM - 1] === true) startM--;
-        stepOffset = ((measure - startM) % patternSpan) * stepsPerMeasure;
-      }
-
-      const stepInMeasure = Math.min(stepsPerMeasure - 1, Math.max(0, Math.floor(ratio * stepsPerMeasure)));
-      const targetStep = Math.min(patSteps - 1, stepOffset + stepInMeasure);
-      if (targetStep === lastVuStepRef.current) return;
-      lastVuStepRef.current = targetStep;
-      clearSubStepTimers();
+      const { stepsPerMeasure, targetStep } = resolveAoVivoMeasureStepInfo(currentSig, pattern, measure, ratio);
+      if (!isStepPreview && targetStep === lastVuStepRef.current) return;
+      lastVuStepRef.current = targetStep; clearSubStepTimers();
 
       const rawVal = activePlayingSteps?.[targetStep];
+      if (isStepPreview) {
+        prepareAoVivoForStepPreview(allAnimRefs, haloRef.current, family, isLeftHanded, activeTrack, rawVal, leftStickRef.current, rightStickRef.current, leftAnimRef, rightAnimRef);
+      }
       if ((!rawVal || rawVal === '-' || rawVal === '0' || rawVal === 0) && !isBarulhoRollActive(family)) return;
 
       const currentBpm = state.measureBpms?.[measure] || state.bpm || 100;
@@ -109,13 +98,14 @@ export function useAoVivoAnimationEngine(
         const effStroke = isSilent ? '.' : tok, isVibrate = effStroke === '~';
         const leadMs = computeAoVivoHitLeadMs(detail, extraSec);
         const subDurMs = isSubStep ? Math.max(35, Math.round(stepDurationMs * 0.5)) : stepDurationMs;
-        if (family === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs);
-        else if (family === 'caixa' || family === 'tarol') dispatchCaixaPredictiveStroke(family, effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs);
-        else if (family === 'timbal') dispatchTimbalPredictiveStroke(effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs);
-        else if (family === 'mineiro') dispatchMineiro(effStroke, isVibrate, mineiroStickRef.current, mineiroPoleRef, mineiroAnimRef, isLeftHanded, activePlayingSteps, targetStep, subDurMs, isSubStep, leadMs);
+        const oneShot = Boolean(isStepPreview);
+        if (family === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs, oneShot);
+        else if (family === 'caixa' || family === 'tarol') dispatchCaixaPredictiveStroke(family, effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs, oneShot);
+        else if (family === 'timbal') dispatchTimbalPredictiveStroke(effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs, oneShot);
+        else if (family === 'mineiro') dispatchMineiro(effStroke, isVibrate, mineiroStickRef.current, mineiroPoleRef, mineiroAnimRef, isLeftHanded, activePlayingSteps, targetStep, subDurMs, isSubStep, leadMs, oneShot);
         else if (family === 'agbe') {
           const nextRaw = activePlayingSteps?.[(targetStep + 1) % Math.max(1, activePlayingSteps.length)];
-          dispatchAgbe(effStroke, isVibrate, agbeWholeRef.current, agbeAnimRef, Array.isArray(nextRaw) ? String(nextRaw[0] || '') : String(nextRaw || ''), activePlayingSteps, targetStep, subDurMs, isSubStep, leadMs);
+          dispatchAgbe(effStroke, isVibrate, agbeWholeRef.current, agbeAnimRef, Array.isArray(nextRaw) ? String(nextRaw[0] || '') : String(nextRaw || ''), activePlayingSteps, targetStep, subDurMs, isSubStep, leadMs, oneShot);
         } else if (family === 'gongue') dispatchGongue(effStroke, isVibrate, isSubStep, isLeftHanded, activePlayingSteps, targetStep, subDurMs, gongueStickRef.current, gongueAnimRef, haloRef.current, geometryRef.current, leadMs);
       };
 

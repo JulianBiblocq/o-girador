@@ -80,9 +80,12 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
       ? ctx.pendingMeasureRef.current
       : (isAtLoopEnd ? (ctx.loopStartRef.current ?? 0) : (currentMeasureIdx + 1) % totalM);
 
-    const currentMeasureSeqId = pushWorkletHorizonAtMeasureBoundary(time, currentMeasureIdx, {
+    const measureDurationSec = (currentTicks / 24) * (60 / currentBpm);
+    const virtualMeasureStartSec = stepIdx > 0 ? time - (stepIdx / currentTicks) * measureDurationSec : time;
+    const minStartFrame = stepIdx > 0 && activeEngine ? Math.round(time * activeEngine.getSampleRate()) : 0;
+    const currentMeasureSeqId = pushWorkletHorizonAtMeasureBoundary(virtualMeasureStartSec, currentMeasureIdx, {
       ...ctx, engine: activeEngine,
-    });
+    }, minStartFrame);
 
     advanceLiveVariationLookahead({
       currentMeasureIdx, nextMeasureIdx: predictedNextMeasure,
@@ -92,10 +95,9 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
       currentMeasureSeqId,
     });
 
-    const measureDurationSec = (currentTicks / 24) * (60 / currentBpm);
     scheduleMeasureAutomationRamps({
       tracks: ctx.tracksRef.current, currentMeasureIdx,
-      prevMeasureIdx: currentMeasureIdx === 0 ? totalM - 1 : currentMeasureIdx - 1, measureDurationSec, time,
+      prevMeasureIdx: currentMeasureIdx === 0 ? totalM - 1 : currentMeasureIdx - 1, measureDurationSec, time: virtualMeasureStartSec,
     });
   }
 

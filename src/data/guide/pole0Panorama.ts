@@ -7,13 +7,13 @@ export const PANORAMA_TRACKS: GuidePanoramaTrack[] = [
     titleFr: 'Écouter, comprendre le geste et répéter sans jamais dérégler la partition',
     titlePt: 'Ouvir, compreender o gesto e ensaiar sem risco de alterar a partitura',
     pointsFr: [
-      'Roda 360° (balayage Progressif au balai de paille à 6h ou Par mesure à 12h) et vue Pistes 100 % protégées en lecture pure.',
+      'Roda 360° (balayage Progressif au balai de paille à 6h ou Par mesure à 12h), exploration pas-à-pas aux flèches ← / → en Pause et vue Pistes 100 % protégées en lecture pure.',
       'Popover pédagogique au clic sur chaque pas : écoute du coup isolé, description technique du geste et inversion intégrale Droitier / Gaucher.',
       'Isolation Focus (Mon Pupitre + Référence), baguettes animées Ao Vivo sur le tambour et paroles de Toada synchronisées au centre.',
       'Entraînement autonome : Tocar Junto (coupe votre instrument pour jouer par-dessus le Batuque), Speed Trainer par paliers BPM et PWA 100 % hors-ligne.',
     ],
     pointsPt: [
-      'Roda 360° (varredura Progressiva com vassoura em 6h ou Por compasso às 12h) e visão Pistas 100 % protegidas em leitura pura.',
+      'Roda 360° (varredura Progressiva com vassoura em 6h ou Por compasso às 12h), exploração passo a passo com ← / → em Pausa e visão Pistas 100 % protegidas em leitura pura.',
       'Popover pedagógico ao clicar em cada passo: escuta isolada do toque, postura técnica e inversão integral Destro / Canhoto.',
       'Isolamento Focus (Meu Naipe + Referência), baquetas animadas Ao Vivo sobre o tambor e letra da Toada sincronizada no centro.',
       'Treino autônomo: Tocar Junto (silencia seu instrumento para tocar junto com o Batuque), Speed Trainer por patamares de BPM e PWA 100 % offline.',

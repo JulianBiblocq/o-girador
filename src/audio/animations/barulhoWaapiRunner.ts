@@ -32,11 +32,12 @@ export function runWaapiBarulhoRoll(opts: {
   stepDurationMs: number;
   leadMs: number;
   plan: BarulhoStepPlan;
+  oneShotStepMode?: boolean;
 }): void {
-  const { el, animRef, startTransform, loopFrames, endTransform, cycleMs, stepDurationMs, leadMs, plan } = opts;
+  const { el, animRef, startTransform, loopFrames, endTransform, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode = false } = opts;
   if (!el || loopFrames.length === 0) return;
   const isCont = plan.action === 'continue';
-  if (isCont && plan.sustain && !plan.ampChanged) return;
+  if (isCont && plan.sustain && !plan.ampChanged && !oneShotStepMode) return;
   const safeLead = Math.max(0, Math.round(leadMs));
   animRef?.current?.cancel();
   el.getAnimations?.().forEach((a) => a.cancel());
@@ -58,7 +59,8 @@ export function runWaapiBarulhoRoll(opts: {
   }
 
   const postDur = Math.max(100, Math.round(stepDurationMs));
-  const anim = plan.sustain
+  const shouldSustainLoop = Boolean(plan.sustain && !oneShotStepMode);
+  const anim = shouldSustainLoop
     ? el.animate(loopFrames, { delay: safeLead, duration: cycleMs, iterations: Infinity })
     : el.animate(buildBoundedStepRollFrames(loopFrames, endTransform, postDur, cycleMs), {
       delay: safeLead,
@@ -103,15 +105,16 @@ export function releaseWaapiBarulhoRoll(opts: {
 
 export function syncBarulhoStickShadow(
   stickEl: Element | null, contactY: number, contactOpacity: number,
-  restTransform: string, restOpacity: number, stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan
+  restTransform: string, restOpacity: number, stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan, oneShotStepMode = false
 ): void {
   const shadowEl = stickEl?.querySelector('[data-stick-shadow]') as SVGGElement | null;
-  if (!shadowEl || (plan.action === 'continue' && plan.sustain)) return;
+  if (!shadowEl || (plan.action === 'continue' && plan.sustain && !oneShotStepMode)) return;
   shadowEl.getAnimations?.().forEach((a) => a.cancel());
   const contact = { transform: `translate(0px, ${contactY}px) scale(0.95)`, opacity: contactOpacity };
+  const shouldSustainShadow = Boolean(plan.sustain && !oneShotStepMode);
   const frames = plan.action === 'stop'
     ? [{ ...contact, offset: 0 }, { transform: restTransform, opacity: restOpacity, offset: 1 }]
-    : plan.sustain
+    : shouldSustainShadow
       ? [{ ...contact, offset: 0 }, { ...contact, offset: 1 }]
       : [{ ...contact, offset: 0 }, { ...contact, offset: 0.78 }, { transform: restTransform, opacity: restOpacity, offset: 1 }];
   shadowEl.animate(frames, {

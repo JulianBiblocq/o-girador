@@ -9,6 +9,7 @@ export const defaultPreRollSettings: PreRollSettings = {
 };
 
 export interface TransportState {
+  isPaused: boolean;
   isMetroOn: boolean;
   isVisualMetronomeActive: boolean;
   metroVolume: number;
@@ -18,6 +19,7 @@ export interface TransportState {
   soloPatternVariationId: string | null;
   preRollSettings: PreRollSettings;
 
+  setIsPaused: (isPaused: boolean) => void;
   setIsMetroOn: (isMetroOn: boolean) => void;
   setIsVisualMetronomeActive: (isVisualMetronomeActive: boolean) => void;
   toggleVisualMetronome: () => void;
@@ -30,6 +32,7 @@ export interface TransportState {
 }
 
 export const useTransportStore = create<TransportState>((set) => ({
+  isPaused: false,
   isMetroOn: false,
   isVisualMetronomeActive: false,
   metroVolume: 80,
@@ -39,6 +42,7 @@ export const useTransportStore = create<TransportState>((set) => ({
   soloPatternVariationId: null,
   preRollSettings: defaultPreRollSettings,
 
+  setIsPaused: (isPaused) => set({ isPaused }),
   setIsMetroOn: (isMetroOn) => set({ isMetroOn }),
   setIsVisualMetronomeActive: (isVisualMetronomeActive) => set({ isVisualMetronomeActive }),
   toggleVisualMetronome: () => set((state) => ({ isVisualMetronomeActive: !state.isVisualMetronomeActive })),

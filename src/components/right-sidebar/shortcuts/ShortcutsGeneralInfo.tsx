@@ -49,8 +49,8 @@ export const ShortcutsGeneralInfo: React.FC<ShortcutsGeneralInfoProps> = ({ t, l
           <p>
             <strong>{isFr ? '2 Modes de Roda & Navigation quantifiée :' : '2 Modos da Roda & Navegação quantizada :'}</strong>{' '}
             {isFr
-              ? 'En mode Progressif, le balai de paille (décalé de 6h) prépare les pas de la mesure suivante dans le sillage de la baguette. En mode Par mesure, la roue bascule au 1er temps (12h). Cliquer sur une autre mesure en lecture arme la transition pour le prochain 12h sans coupure.'
-              : 'No modo Progressivo, a vassoura de palha (defasada em 6h) prepara os passos do próximo compasso atrás da baqueta. No modo Por compasso, a roda muda às 12h. Clicar em outro compasso durante a reprodução agenda a transição para as próximas 12h sem corte.'}
+              ? 'En mode Progressif, le balai de paille (décalé de 6h) prépare les pas de la mesure suivante dans le sillage de la baguette. En mode Par mesure, la roue bascule au 1er temps (12h). Cliquer sur une autre mesure en lecture arme la transition pour le prochain 12h sans coupure. En Pause ou à l’Arrêt, les flèches ← et → explorent la Roda cran par cran avec le son du pas, le balai +180° et les baguettes Ao Vivo.'
+              : 'No modo Progressivo, a vassoura de palha (defasada em 6h) prepara os passos do próximo compasso atrás da baqueta. No modo Por compasso, a roda muda às 12h. Clicar em outro compasso durante a reprodução agenda a transição para as próximas 12h sem corte. Em Pausa ou Stop, as setas ← e → exploram a Roda passo a passo com o som do golpe, a vassoura +180° e as baquetas Ao Vivo.'}
           </p>
           <p>
             <strong>{isFr ? 'Planche de Mini-Rodas A4 :' : 'Prancha de Mini-Rodas A4 :'}</strong>{' '}

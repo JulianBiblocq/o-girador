@@ -97,6 +97,7 @@ export const MobileRehearsalRemote: React.FC<Props> = ({
         isLoading={isLoading}
         onTogglePlay={onTogglePlay}
         onStop={onStop}
+        onRewind={audio.handleRewind}
         bpm={effectiveBpm}
         onChangeBpm={(delta) => useSequencerStore.getState().applyGlobalBpmDelta(delta)}
         onResetBpm={() => useSequencerStore.getState().resetTempoToNominal()}

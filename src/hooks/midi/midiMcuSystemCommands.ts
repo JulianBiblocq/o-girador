@@ -60,7 +60,11 @@ export function handleMcuCommand(
         audio.handleTogglePlay();
         return true;
       case 93:
-        audio.handleStop();
+        if (!useSequencerStore.getState().isPlaying && !useTransportStore.getState().isPaused && typeof audio.handleRewind === 'function') {
+          audio.handleRewind();
+        } else {
+          audio.handleStop();
+        }
         return true;
       case 95: {
         const seq = useSequencerStore.getState();

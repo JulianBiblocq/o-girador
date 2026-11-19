@@ -21,7 +21,8 @@ export function playBarulhoStroke(
   time: number,
   velocity: number,
   isLiveHold: boolean,
-  strokeSymbol = 'B'
+  strokeSymbol = 'B',
+  maxPreviewDurSec?: number
 ): void {
   const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer, instrumentId);
   source.buffer = baked.buffer;
@@ -49,9 +50,11 @@ export function playBarulhoStroke(
     ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, Infinity));
   } else {
     ctx.scheduledHits.add(source);
-    const previewDurSec = 0.95;
-    const holdEnd = time + previewDurSec - 0.18;
-    const expectedEnd = time + previewDurSec;
+    const hasCustomStepDur = typeof maxPreviewDurSec === 'number' && maxPreviewDurSec > 0;
+    const holdDurSec = hasCustomStepDur ? Math.max(0.045, maxPreviewDurSec) : 0.77;
+    const fadeOutSec = hasCustomStepDur ? 0.028 : 0.18;
+    const holdEnd = time + holdDurSec;
+    const expectedEnd = holdEnd + fadeOutSec;
 
     ctx.barulho.activeBarulhoNodes.set(instrumentId, source);
     ctx.barulho.activeBarulhoGains.set(instrumentId, gainNode);
@@ -59,8 +62,9 @@ export function playBarulhoStroke(
 
     gainNode.gain.cancelScheduledValues(time);
     if (isSoftB) {
+      const fadeInSec = hasCustomStepDur ? Math.min(DEFAULT_BARULHO_FADEIN_SEC, holdDurSec * 0.45) : DEFAULT_BARULHO_FADEIN_SEC;
       gainNode.gain.setValueAtTime(0, time);
-      gainNode.gain.linearRampToValueAtTime(velocity, time + DEFAULT_BARULHO_FADEIN_SEC);
+      gainNode.gain.linearRampToValueAtTime(velocity, time + fadeInSec);
     } else {
       gainNode.gain.setValueAtTime(velocity, time);
     }

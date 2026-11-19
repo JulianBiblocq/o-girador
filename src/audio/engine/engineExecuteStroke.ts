@@ -44,7 +44,8 @@ export class EngineExecuteStroke {
     overrideTuning: number | undefined,
     isLiveHold: boolean,
     track: TrackGroup | null,
-    requestedSymbol?: string
+    requestedSymbol?: string,
+    maxBarulhoDurSec?: number
   ): void {
     const effectiveSymbol = requestedSymbol || stroke.symbol;
 
@@ -60,7 +61,7 @@ export class EngineExecuteStroke {
       return;
     }
 
-    if (!stroke.isBarulho || !isLiveHold) {
+    if (!stroke.isBarulho || (!isLiveHold && !maxBarulhoDurSec)) {
       deps.playbackCtx.barulho.stopBarulho(instrumentId, time);
     }
 
@@ -101,7 +102,7 @@ export class EngineExecuteStroke {
     EngineStrokePlayback.play(
       deps.playbackCtx, trackId, instrumentId, resolvedStroke,
       rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold,
-      { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol }
+      { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec }
     );
 
     if (resolvedStroke.compositeRimSymbol) {

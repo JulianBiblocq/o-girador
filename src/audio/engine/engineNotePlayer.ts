@@ -34,7 +34,8 @@ export class EngineNotePlayer {
     time: number,
     velocity: number,
     decayMultiplier: number,
-    isLiveHold = false
+    isLiveHold = false,
+    maxBarulhoDurSec?: number
   ): void {
     const ctx = deps.playbackCtx.audioContext;
     const wasSuspended = wakeAudioContextForNotePreview(ctx);
@@ -66,7 +67,7 @@ export class EngineNotePlayer {
     if (trackId !== null) ensureAudiblePreview(trackId);
 
     EngineExecuteStroke.execute(
-      deps, trackId, instrumentId, config, stroke, safeTime, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol
+      deps, trackId, instrumentId, config, stroke, safeTime, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol, maxBarulhoDurSec
     );
   }
 

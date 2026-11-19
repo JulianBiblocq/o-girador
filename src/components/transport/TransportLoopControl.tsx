@@ -46,18 +46,18 @@ export const TransportLoopControl: React.FC<TransportLoopControlProps> = ({
       prev = isRequested;
       if (loopBtnRef.current) {
         if (isRequested) {
-          loopBtnRef.current.classList.add('animate-pulse', 'bg-orange-500/60', 'text-white');
-          loopBtnRef.current.classList.remove('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]', 'bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
+          loopBtnRef.current.classList.add('animate-pulse', 'bg-[var(--cordel-accent)]/70', 'text-[var(--cordel-on-accent)]');
+          loopBtnRef.current.classList.remove('bg-[var(--cordel-wood)]', 'text-[var(--cordel-on-accent)]', 'bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
           loopBtnRef.current.querySelector('.icon-repeat')?.classList.add('hidden');
           loopBtnRef.current.querySelector('.icon-arrow')?.classList.remove('hidden');
           loopBtnRef.current.querySelector('.loop-count')?.classList.add('hidden');
         } else {
-          loopBtnRef.current.classList.remove('animate-pulse', 'bg-orange-500/60', 'text-white');
+          loopBtnRef.current.classList.remove('animate-pulse', 'bg-[var(--cordel-accent)]/70', 'text-[var(--cordel-on-accent)]');
           loopBtnRef.current.querySelector('.icon-repeat')?.classList.remove('hidden');
           loopBtnRef.current.querySelector('.icon-arrow')?.classList.add('hidden');
           loopBtnRef.current.querySelector('.loop-count')?.classList.remove('hidden');
           const isLp = useSequencerStore.getState().isLooping;
-          loopBtnRef.current.classList.add(isLp ? 'bg-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)]', isLp ? 'text-[#f4ecd8]' : 'text-[var(--cordel-text)]');
+          loopBtnRef.current.classList.add(isLp ? 'bg-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)]', isLp ? 'text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-text)]');
         }
       }
     });
@@ -87,37 +87,37 @@ export const TransportLoopControl: React.FC<TransportLoopControlProps> = ({
           if (isPlaying && isLooping && !s.isLoopExitRequested) s.requestLoopExit();
           else { setIsLooping(!isLooping); if (s.isLoopExitRequested) s.clearLoopExitRequest(); }
         }}
-        className={`w-10 h-10 sm:w-14 sm:h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative shrink-0 ${
-          isLoopBypassed ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' : isLooping ? (isLoopExitRequested ? 'bg-orange-500/60 text-white animate-pulse' : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]') : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
+        className={`w-7 h-8 sm:w-14 sm:h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative shrink-0 ${
+          isLoopBypassed ? 'bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] shadow-[inset_0_2px_4px_var(--cordel-shadow-color)]' : isLooping ? (isLoopExitRequested ? 'bg-[var(--cordel-accent)]/70 text-[var(--cordel-on-accent)] animate-pulse' : 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border)]') : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
         }`}
         title={lang === 'fr' ? 'Activer / désactiver la boucle' : 'Ativar / desativar loop'}
       >
-        <Repeat className={`w-4 h-4 sm:w-6 sm:h-6 icon-repeat ${(!isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`} />
-        <ArrowRightToLine className={`w-4 h-4 sm:w-6 sm:h-6 icon-arrow ${(isLooping && !isLoopBypassed && !isLoopExitRequested) ? 'hidden' : ''}`} />
+        <Repeat className={`w-3.5 h-3.5 sm:w-6 sm:h-6 icon-repeat ${(!isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`} />
+        <ArrowRightToLine className={`w-3.5 h-3.5 sm:w-6 sm:h-6 icon-arrow ${(isLooping && !isLoopBypassed && !isLoopExitRequested) ? 'hidden' : ''}`} />
         <span ref={loopCountRef} className={`text-[8px] sm:text-[9px] font-bold mt-[-2px] loop-count ${(!isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`}>
           {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
         </span>
       </button>
       <button
         onClick={() => setShowLoopMenu(!showLoopMenu)}
-        className="w-3.5 sm:w-4 h-10 sm:h-14 cordel-border-sm cordel-button flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ml-0.5 shrink-0"
+        className="w-3 sm:w-4 h-8 sm:h-14 cordel-border-sm cordel-button flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ml-0.5 shrink-0"
         title={lang === 'fr' ? 'Paramètres de boucle' : 'Configurar loop'}
       >
         <span className="text-[9px] sm:text-[10px]">▼</span>
       </button>
       {showLoopMenu && (
-        <div className="absolute bottom-[calc(100%+8px)] right-0 sm:left-1/2 sm:-translate-x-1/2 w-48 bg-[var(--cordel-bg)] cordel-border z-50 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col text-[var(--cordel-text)]">
-          <button onClick={() => { useSequencerStore.getState().setLoopMode(1); setShowLoopMenu(false); }} className={`px-3 py-2 text-left text-xs font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === 1 ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}>
+        <div className="absolute bottom-[calc(100%+8px)] right-0 sm:left-1/2 sm:-translate-x-1/2 w-48 bg-[var(--cordel-bg)] cordel-border z-50 shadow-[4px_4px_0_var(--cordel-shadow-color)] flex flex-col text-[var(--cordel-text)]">
+          <button onClick={() => { useSequencerStore.getState().setLoopMode(1); setShowLoopMenu(false); }} className={`px-3 py-2 text-left text-xs font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === 1 ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-text)]'}`}>
             {lang === 'fr' ? '1x (Lecture simple)' : '1x (Leitura simples)'}
           </button>
           <div className="grid grid-cols-3 border-b border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
             {([2, 4, 8] as const).map((count) => (
-              <button key={count} onClick={() => { useSequencerStore.getState().setLoopMode(count); setShowLoopMenu(false); }} className={`py-1.5 text-center text-xs font-bold border-r border-[var(--cordel-border)] last:border-r-0 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === count ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}>
+              <button key={count} onClick={() => { useSequencerStore.getState().setLoopMode(count); setShowLoopMenu(false); }} className={`py-1.5 text-center text-xs font-bold border-r border-[var(--cordel-border)] last:border-r-0 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === count ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-text)]'}`}>
                 {`${count}x`}
               </button>
             ))}
           </div>
-          <button onClick={() => { useSequencerStore.getState().setLoopMode('infinite'); setShowLoopMenu(false); }} className={`px-3 py-2 text-left text-xs font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}>
+          <button onClick={() => { useSequencerStore.getState().setLoopMode('infinite'); setShowLoopMenu(false); }} className={`px-3 py-2 text-left text-xs font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-text)]'}`}>
             {lang === 'fr' ? '∞ Infini (Boucle)' : '∞ Infinito (Loop)'}
           </button>
           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)]">

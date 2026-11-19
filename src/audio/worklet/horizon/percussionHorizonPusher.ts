@@ -96,16 +96,16 @@ function projectAndPushHorizon(ctx: HorizonPusherContext, minRebuildFrame: numbe
 }
 
 export function pushWorkletHorizonAtMeasureBoundary(
-  measureStartTimeSec: number, currentMeasureIdx: number, ctx: HorizonPusherContext
+  measureStartTimeSec: number, currentMeasureIdx: number, ctx: HorizonPusherContext, minStartFrame = 0
 ): number {
   lastHorizonCtx = ctx;
   const sampleRate = ctx.engine?.getSampleRate() ?? 48000, nextSeqId = currentMeasureSeqId + 1;
-  const prePushed = pushedBySeqId.get(nextSeqId);
+  const prePushed = minStartFrame <= 0 ? pushedBySeqId.get(nextSeqId) : undefined;
   currentMeasureSeqId = nextSeqId; activeMeasureIdx = currentMeasureIdx;
   if (prePushed && prePushed.measureIdx === currentMeasureIdx) activeMeasureStartFrame = prePushed.startFrame;
   else { activeMeasureStartFrame = Math.round(measureStartTimeSec * sampleRate); pushedBySeqId.clear(); }
   for (const seq of pushedBySeqId.keys()) if (seq < currentMeasureSeqId - 1) pushedBySeqId.delete(seq);
-  projectAndPushHorizon(ctx, 0);
+  projectAndPushHorizon(ctx, minStartFrame);
   return currentMeasureSeqId;
 }
 

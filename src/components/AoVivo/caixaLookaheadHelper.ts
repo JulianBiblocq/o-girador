@@ -43,7 +43,7 @@ function animateCaixaStick(
 function animateCaixaStickBarulho(
   stickEl: SVGSVGElement | null, animRef: React.MutableRefObject<Animation | null>,
   isLeftSide: boolean, family: CaixaStickFamily, nextKind: CaixaNextStrokeKind,
-  stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan
+  stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan, oneShotStepMode = false
 ) {
   if (!stickEl) return;
   const c = CONFIG_CAIXA_STICKS, prof = c[family], cycleMs = Math.max(52, Math.round(82 / c.speedMultiplier));
@@ -52,15 +52,15 @@ function animateCaixaStickBarulho(
   if (plan.action === 'stop') {
     releaseWaapiBarulhoRoll({ el: stickEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform, loopFrames, cycleMs, leadMs });
   } else {
-    runWaapiBarulhoRoll({ el: stickEl, animRef, startTransform, loopFrames, endTransform, cycleMs, stepDurationMs, leadMs, plan });
+    runWaapiBarulhoRoll({ el: stickEl, animRef, startTransform, loopFrames, endTransform, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode });
   }
   const shadowEl = stickEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
-  if (shadowEl && (plan.action !== 'continue' || !plan.sustain)) {
+  if (shadowEl && (plan.action !== 'continue' || !plan.sustain || oneShotStepMode)) {
     shadowEl.getAnimations().forEach((a) => a.cancel());
     const restSh = getCaixaShadowRestTransform(isLeftSide), restOp = +(c.shadowOpacity * 0.42).toFixed(2);
     const shFrames = plan.action === 'stop'
       ? [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: c.shadowOpacity, offset: 0 }, { transform: restSh, opacity: restOp, offset: 1 }]
-      : plan.sustain
+      : plan.sustain && !oneShotStepMode
         ? [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: c.shadowOpacity, offset: 0 }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: c.shadowOpacity, offset: 1 }]
         : [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: c.shadowOpacity, offset: 0 }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: c.shadowOpacity, offset: 0.78 }, { transform: restSh, opacity: restOp, offset: 1 }];
     shadowEl.animate(shFrames, { delay: Math.max(0, Math.round(leadMs)), duration: plan.action === 'stop' ? 120 : Math.max(100, Math.round(stepDurationMs)), fill: 'forwards' });
@@ -72,7 +72,7 @@ export function dispatchCaixaPredictiveStroke(
   activePlayingSteps: any[] | undefined, currentStep: number, stepDurationMs: number,
   leftStickEl: SVGSVGElement | null, rightStickEl: SVGSVGElement | null, haloEl: HTMLDivElement | null,
   leftAnimRef: React.MutableRefObject<Animation | null>, rightAnimRef: React.MutableRefObject<Animation | null>,
-  geometry: { targetX: number; targetY: number }, leadMs = 0
+  geometry: { targetX: number; targetY: number }, leadMs = 0, oneShotStepMode = false
 ) {
   const family = resolveCaixaActiveFamily(instId), norm = (stroke || '').trim(), sUp = norm.toUpperCase();
   const domLook = findCaixaSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, true, isSubStep);
@@ -82,8 +82,8 @@ export function dispatchCaixaPredictiveStroke(
 
   const plan = consumeBarulhoStepPlan(family, isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
   if (plan.action !== 'none') {
-    animateCaixaStickBarulho(domEl, domRef, isLeftHanded, family, domLook.nextKind, stepDurationMs, leadMs, plan);
-    animateCaixaStickBarulho(secEl, secRef, !isLeftHanded, family, secLook.nextKind, stepDurationMs, leadMs, plan);
+    animateCaixaStickBarulho(domEl, domRef, isLeftHanded, family, domLook.nextKind, stepDurationMs, leadMs, plan, oneShotStepMode);
+    animateCaixaStickBarulho(secEl, secRef, !isLeftHanded, family, secLook.nextKind, stepDurationMs, leadMs, plan, oneShotStepMode);
     if (haloEl && (plan.action === 'start' || norm === 'B')) triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: true, delayMs: leadMs });
     return;
   }

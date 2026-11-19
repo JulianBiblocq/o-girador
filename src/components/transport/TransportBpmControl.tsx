@@ -49,8 +49,8 @@ export const TransportBpmControl: React.FC<TransportBpmControlProps> = ({ bpm, s
   useEffect(() => stopBpmChange, [stopBpmChange]);
 
   return (
-    <div data-tour-id="transport-bpm" className="flex items-center gap-1 sm:gap-2 bg-[var(--cordel-bg)] px-1.5 sm:px-2 h-8 rounded-none border-2 border-[var(--cordel-border-strong)] shadow-[1px_1px_0px_var(--cordel-shadow-color)] shrink-0">
-      <Gauge className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--cordel-text)] shrink-0" />
+    <div data-tour-id="transport-bpm" className="flex items-center gap-0.5 sm:gap-2 bg-[var(--cordel-bg)] px-1 sm:px-2 h-8 rounded-none border-2 border-[var(--cordel-border-strong)] shadow-[1px_1px_0px_var(--cordel-shadow-color)] shrink-0">
+      <Gauge className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[var(--cordel-text)] shrink-0 max-[420px]:hidden" />
       <span ref={bpmSpanRef} className="font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-text)] tabular-nums select-none">{bpm}</span>
       <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[var(--cordel-text)]/70 uppercase select-none max-[380px]:hidden">BPM</span>
       <div className="flex items-center gap-0.5 sm:gap-1 ml-0.5">

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { audioEngine } from '../../hooks/useAudioSync';
+import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
 import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
 import { drawAlfaiaBackground } from './drawAlfaiaBackground';
@@ -116,7 +117,10 @@ export function useCirclePlayheadRaf(
       drawMetronomeHalo(ctx, 600, 600, live, isCurrentlyPlaying, localTimeSig, getAudioTime(), Boolean(theme.isDark), isEco, haloState);
 
       if (stateRef.current.isLetraActive) {
-        drawCenterKaraoke(ctx, 600, 600, live, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs);
+        const karaokeLive = !isCurrentlyPlaying && frozenPlaybackState.active
+          ? { ...live, step: frozenPlaybackState.tick, measure: frozenPlaybackState.measure, maxTicks: localTicks, ratio: frozenPlaybackState.progress, isPreRoll: false }
+          : live;
+        drawCenterKaraoke(ctx, 600, 600, karaokeLive, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs);
       }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);

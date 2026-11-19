@@ -83,7 +83,7 @@ function animateTimbalHand(
 
 function animateTimbalHandBarulho(
   handEl: SVGSVGElement | null, animRef: React.MutableRefObject<Animation | null>,
-  isLeftSide: boolean, look: TimbalLookaheadResult, stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan
+  isLeftSide: boolean, look: TimbalLookaheadResult, stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan, oneShotStepMode = false
 ) {
   if (!handEl) return;
   applyTimbalSlapBiomechanics(handEl, false);
@@ -91,7 +91,7 @@ function animateTimbalHandBarulho(
   const loopFrames = generateTimbalBarulhoLoopFrames(isLeftSide, plan.amplitude || 0.7);
   const { startTr, endTr } = resolveTimbalBarulhoBounds(isLeftSide, look.nextSymbol, look.isNextWeak);
   if (plan.action === 'stop') releaseWaapiBarulhoRoll({ el: handEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform: endTr, loopFrames, cycleMs, leadMs });
-  else runWaapiBarulhoRoll({ el: handEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan });
+  else runWaapiBarulhoRoll({ el: handEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode });
 }
 
 export function dispatchTimbalPredictiveStroke(
@@ -99,7 +99,7 @@ export function dispatchTimbalPredictiveStroke(
   activePlayingSteps: any[] | undefined, currentStep: number, stepDurationMs: number,
   leftStickEl: SVGSVGElement | null, rightStickEl: SVGSVGElement | null, haloEl: HTMLDivElement | null,
   leftAnimRef: React.MutableRefObject<Animation | null>, rightAnimRef: React.MutableRefObject<Animation | null>,
-  geometry: { targetX: number; targetY: number }, leadMs = 0
+  geometry: { targetX: number; targetY: number }, leadMs = 0, oneShotStepMode = false
 ) {
   const norm = (stroke || '').trim(), sUp = norm.toUpperCase();
   const domLook = findTimbalSameHandLookahead(activePlayingSteps, currentStep, stepDurationMs, true, isSubStep);
@@ -109,8 +109,8 @@ export function dispatchTimbalPredictiveStroke(
 
   const plan = consumeBarulhoStepPlan('timbal', isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
   if (plan.action !== 'none') {
-    animateTimbalHandBarulho(domEl, domRef, isLeftHanded, domLook, stepDurationMs, leadMs, plan);
-    animateTimbalHandBarulho(secEl, secRef, !isLeftHanded, secLook, stepDurationMs, leadMs, plan);
+    animateTimbalHandBarulho(domEl, domRef, isLeftHanded, domLook, stepDurationMs, leadMs, plan, oneShotStepMode);
+    animateTimbalHandBarulho(secEl, secRef, !isLeftHanded, secLook, stepDurationMs, leadMs, plan, oneShotStepMode);
     if (haloEl && (plan.action === 'start' || norm === 'B')) triggerAoVivoShockwave(haloEl, { x: geometry.targetX, y: geometry.targetY, isRoll: true, delayMs: leadMs });
     return;
   }

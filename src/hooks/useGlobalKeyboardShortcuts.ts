@@ -14,7 +14,7 @@ export function useGlobalKeyboardShortcuts() {
   const audio = useAudio();
   const sequencer = useSequencer();
 
-  const { handleTogglePlay, handleTimelineNavigate, seekToMeasure } = audio;
+  const { handleTogglePlay, handleRewind, handleTimelineNavigate, seekToMeasure } = audio;
   const { handleUndo, handleRedo, setIsLooping } = sequencer;
 
   // InputManager Keyboard Listeners (Live Erase, etc.)
@@ -80,7 +80,7 @@ export function useGlobalKeyboardShortcuts() {
       }
 
       // BARRIÈRE 3 : Navigation & Transport
-      if (handleNavigationShortcuts({ e, seekToMeasure, handleTimelineNavigate, setIsLooping })) return;
+      if (handleNavigationShortcuts({ e, handleRewind, seekToMeasure, handleTimelineNavigate, setIsLooping })) return;
 
       const isTimelineView = (typeof window !== 'undefined' ? (window as any).__OGIRADOR_VIEW_MODE__ : '') === 'timeline';
 
@@ -130,5 +130,5 @@ export function useGlobalKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleTimelineNavigate, seekToMeasure, handleUndo, handleRedo, setIsLooping]);
+  }, [handleTogglePlay, handleRewind, handleTimelineNavigate, seekToMeasure, handleUndo, handleRedo, setIsLooping]);
 }

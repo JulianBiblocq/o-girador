@@ -1,5 +1,5 @@
 /**
- * Mode Éditeur Mobile unifié : Scan & Fiches vierges + Signes du Mestre (< 120 lignes).
+ * Mode Éditeur Mobile unifié : Scan & Fiches vierges + Signes du Mestre (< 130 lignes).
  */
 
 import React, { useState } from 'react';
@@ -17,6 +17,8 @@ import { BlankAndScanWorkshopModal } from '../paper/BlankAndScanWorkshopModal';
 interface Props {
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onStop?: () => void;
+  onRewind?: () => void;
   activePreset: string;
   cloudPresets: any[];
   localPresets: any[];
@@ -58,8 +60,8 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
           onClick={() => setActiveTab('scan')}
           className={`flex-1 py-1.5 text-xs font-cactus font-bold uppercase border-2 transition-colors cursor-pointer ${
             activeTab === 'scan'
-              ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[2px_2px_0px_#000]'
-              : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-black/5'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)]'
+              : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-[var(--cordel-text)]/5'
           }`}
         >
           {tMobile(lang, 'scanTab')}
@@ -68,8 +70,8 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
           onClick={() => setActiveTab('signal')}
           className={`flex-1 py-1.5 text-xs font-cactus font-bold uppercase border-2 transition-colors cursor-pointer ${
             activeTab === 'signal'
-              ? 'bg-[#8b2a1a] text-[#f4ecd8] border-black shadow-[2px_2px_0px_#000]'
-              : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-black/5'
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)]'
+              : 'bg-[var(--cordel-card-btn-bg)] text-[var(--cordel-card-btn-text)] border-[var(--cordel-border)] hover:bg-[var(--cordel-text)]/5'
           }`}
         >
           {tMobile(lang, 'signalTab')}
@@ -89,7 +91,7 @@ export const MobileEditorMode: React.FC<Props> = (props) => {
       </main>
 
       <div className="relative z-10 shrink-0">
-        <MobileEditorFooter isPlaying={props.isPlaying} onTogglePlay={props.onTogglePlay} />
+        <MobileEditorFooter isPlaying={props.isPlaying} onTogglePlay={props.onTogglePlay} onStop={props.onStop} onRewind={props.onRewind} />
       </div>
 
       <MobileSongPickerModal
