@@ -39,7 +39,7 @@ export const StrokeDockMatrixView: React.FC<StrokeDockMatrixViewProps> = React.m
       return (
         <div
           aria-hidden="true"
-          className="w-full min-w-[34px] sm:min-w-[38px] h-[23px] border border-dashed border-[var(--cordel-ink-dark)]/18 bg-[var(--cordel-parchment-panel)]/45 rounded-none pointer-events-none"
+          className="w-12 h-[26px] border border-dashed border-[var(--cordel-ink-dark)]/18 bg-[var(--cordel-parchment-panel)]/45 rounded-none pointer-events-none shrink-0"
         />
       );
     }
@@ -77,7 +77,7 @@ export const StrokeDockMatrixView: React.FC<StrokeDockMatrixViewProps> = React.m
             <div
               key={idx}
               title={row.title || row.text}
-              className="h-[23px] flex items-center justify-end gap-1 text-[9.5px] font-cactus font-bold uppercase tracking-tight text-[var(--cordel-ink-dark)]/85 whitespace-nowrap"
+              className="h-[26px] flex items-center justify-end gap-1 text-[9.5px] font-cactus font-bold uppercase tracking-tight text-[var(--cordel-ink-dark)]/85 whitespace-nowrap"
             >
               {row.arrow && <DockDirectionArrow dir={row.arrow} />}
               <span>{row.text}</span>

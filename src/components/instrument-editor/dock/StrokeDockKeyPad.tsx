@@ -23,9 +23,9 @@ interface StrokeDockKeyPadProps {
 }
 
 const VARIANT_SIZE: Record<DockKeyVariant, string> = {
-  strong: 'min-w-[29px] h-[23px] px-1 text-xs font-extrabold border-[1.5px]',
-  weak: 'min-w-[23px] h-[23px] px-0.5 text-[11px] font-bold border opacity-95',
-  single: 'min-w-[34px] sm:min-w-[38px] w-full h-[23px] px-1 text-xs font-extrabold border-[1.5px]',
+  strong: 'w-12 h-[26px] px-1 text-xs font-extrabold border-[1.5px]',
+  weak: 'w-12 h-[26px] px-1 text-xs font-extrabold border-[1.5px]',
+  single: 'w-12 h-[26px] px-1 text-xs font-extrabold border-[1.5px]',
   tall: 'min-w-[34px] sm:min-w-[38px] h-[49px] px-1.5 text-xs font-extrabold border-[1.5px]',
   barulhoMain: 'w-full h-[23px] px-1 text-xs font-extrabold border-[1.5px]',
   barulhoMini: 'min-w-[21px] flex-1 h-[23px] px-0.5 text-[10px] font-bold border',
