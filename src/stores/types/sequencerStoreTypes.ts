@@ -13,7 +13,7 @@ import { UISlice } from '../slices/uiSliceTypes';
 import { PracticeModeSlice } from '../slices/practiceModeSliceTypes';
 import { AutomationBypassSlice } from '../slices/automationBypassSliceTypes';
 import { BusDynamicsSlice } from '../slices/busDynamicsSliceTypes';
-import { EnsembleAcousticsSlice } from '../slices/ensembleAcousticsSlice';
+import { EnsembleAcousticsSlice } from '../slices/ensembleAcousticsSliceTypes';
 
 export type TrackSlice = TrackCoreSlice &
   TrackHierarchySlice &

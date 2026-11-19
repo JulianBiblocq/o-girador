@@ -6,6 +6,9 @@
 
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
+import type { EnsembleAcousticsSlice } from './ensembleAcousticsSliceTypes';
+
+export type { EnsembleAcousticsSlice };
 
 export const DEFAULT_SKIN_CHORUS_AMOUNT = 0.75;
 export const DEFAULT_RODA_BREATHING_AMOUNT = 0.75;
@@ -33,16 +36,6 @@ function writeStoredAmount(key: string, val: number): void {
   try {
     localStorage.setItem(key, String(val));
   } catch { /* ignore */ }
-}
-
-export interface EnsembleAcousticsSlice {
-  skinChorusAmount: number;
-  rodaBreathingAmount: number;
-  isEnsembleAcousticsBypassed: boolean;
-  setSkinChorusAmount: (amount: number) => void;
-  setRodaBreathingAmount: (amount: number) => void;
-  setEnsembleAcousticsBypassed: (bypassed: boolean) => void;
-  toggleEnsembleAcousticsBypassed: () => void;
 }
 
 export function getEffectiveSkinChorusAmount(

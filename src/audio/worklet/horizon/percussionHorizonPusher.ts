@@ -5,6 +5,7 @@
 
 import { getOrRollMeasureVariationForHorizon, invalidateFutureVariationSnapshots } from '../../../hooks/audio-sync/liveVariationLookaheadEngine';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { registerLiveBalancoHorizonRebuilder } from '../../groove/liveBalancoMorph';
 import { buildHorizonBarulhoLookaheadPoints } from './percussionHorizonBarulhoLookahead';
 import { packMeasureHorizonEvents } from './percussionMeasureEventPacker';
 import { projectHorizonMeasures } from './percussionHorizonProjection';
@@ -120,3 +121,5 @@ export function rebuildWorkletHorizonFromNow(reason: 'edit' | 'bpm' | 'queued' |
   engine.purgeRoundRobinFromTime(safeRebuildFrame / sampleRate);
   projectAndPushHorizon(lastHorizonCtx, safeRebuildFrame);
 }
+
+registerLiveBalancoHorizonRebuilder(() => rebuildWorkletHorizonFromNow('bpm'));

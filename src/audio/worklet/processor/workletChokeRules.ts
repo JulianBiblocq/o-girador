@@ -51,6 +51,21 @@ export const TIMBAL_LP_STAGE_HZ = 248.6;
 export const TIMBAL_LP_MIX_RAMP_SEC = 0.015;
 export const TIMBAL_LP_AIR_DECAY_SEC = 0.150;
 
+export interface WorkletSkinPhysicsTarget {
+  readonly duckTarget: Float32Array;
+  readonly lpActive: Uint8Array;
+  readonly lpStartInBlock: Uint8Array;
+  readonly lpMixFramesLeft: Int32Array;
+  readonly lpMix: Float32Array;
+  readonly lpMixDelta: Float32Array;
+  chokeSlot(
+    v: number, frames: number, startInBlock: number, voiceState: Uint8Array,
+    chokeStart: Uint8Array, chokeLeft: Int32Array, chokeDelta: Float32Array, barulhoMode: Uint8Array
+  ): void;
+  duckSlot(v: number, targetMul: number, frames: number, startInBlock: number, minFloor?: number): void;
+  duckNonCumulativeSlot(v: number, absTarget: number, frames: number, startInBlock: number): void;
+}
+
 const CAIXA_STRONG_RING_SET = new Set(['D', 'E', 'A', 'a', 'F', 'f', 'R', 'r']);
 
 export function resolveTrackPhysicsSpec(

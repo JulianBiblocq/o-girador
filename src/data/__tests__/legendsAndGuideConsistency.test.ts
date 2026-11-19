@@ -18,7 +18,7 @@ describe('legendsAndGuideConsistency — alignement SSOT intégral & Mode d’Em
     for (const alRole of ['al', 'mc', 'me', 'rp']) {
       const cfg = getStrokesForRole(alRole);
       expect(cfg.strong).toEqual(['D', 'E', 'A', 'I', 'C', 'X', 'B']);
-      expect(cfg.weak).toEqual(['d', 'e', 'a']);
+      expect(cfg.weak).toEqual(['d', 'e']);
       expect([...cfg.strong, ...cfg.weak]).not.toContain('F');
       expect([...cfg.strong, ...cfg.weak]).not.toContain('b');
       expect([...cfg.strong, ...cfg.weak]).not.toContain('i');

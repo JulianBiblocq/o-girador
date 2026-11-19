@@ -38,11 +38,11 @@ import {
   VOICE_CLASS_TIMBAL_BASS,
   VOICE_CLASS_TIMBAL_OPEN,
   VOICE_CLASS_TIMBAL_SLAP,
+  WorkletSkinPhysicsTarget,
 } from './workletEventFlags';
-import type { WorkletSkinPhysicsSoa } from './workletSkinPhysics';
 
 export function executeWorkletVoiceChokeMode(
-  phys: WorkletSkinPhysicsSoa,
+  phys: WorkletSkinPhysicsTarget,
   v: number,
   mode: number,
   cls: number,

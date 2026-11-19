@@ -1,6 +1,7 @@
-import { rebuildWorkletHorizonFromNow } from '../worklet/horizon/percussionHorizonPusher';
-
 export type BalancoMorphPhase = 'idle' | 'waiting-play' | 'anchor' | 'ramp-down' | 'hold-zero' | 'ramp-up';
+
+let horizonRebuilder: (() => void) | null = null;
+export function registerLiveBalancoHorizonRebuilder(fn: () => void): void { horizonRebuilder = fn; }
 
 let drawerOpen = false;
 const drawerListeners = new Set<() => void>();
@@ -16,14 +17,14 @@ function scheduleHorizonRebuild(immediate: boolean): void {
   const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
   if (immediate || nowMs - lastHorizonRebuildMs >= HORIZON_THROTTLE_MS) {
     lastHorizonRebuildMs = nowMs;
-    rebuildWorkletHorizonFromNow('bpm');
+    horizonRebuilder?.();
     return;
   }
   const waitMs = Math.max(10, HORIZON_THROTTLE_MS - (nowMs - lastHorizonRebuildMs));
   throttleTimer = setTimeout(() => {
     throttleTimer = null;
     lastHorizonRebuildMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    rebuildWorkletHorizonFromNow('bpm');
+    horizonRebuilder?.();
   }, waitMs);
 }
 
@@ -105,7 +106,7 @@ export function resetLiveBalancoMorphToUnity(): void {
   if (throttleTimer !== null) { clearTimeout(throttleTimer); throttleTimer = null; }
   cycleActive = false; waitingForPlay = false; t0Sec = 0;
   manualScale = 1.0; startScale = 1.0;
-  if (wasNonUnity) rebuildWorkletHorizonFromNow('bpm');
+  if (wasNonUnity) horizonRebuilder?.();
 }
 
 if (typeof window !== 'undefined') {
