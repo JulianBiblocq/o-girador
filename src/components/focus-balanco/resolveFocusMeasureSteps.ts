@@ -122,7 +122,7 @@ export function resolveFocusMeasureSteps(params: {
       const rightVis = isSplit ? resolveSymVisual(rawVal[1]) : { sym: '', bg: primaryColor, txt: contrastColor };
 
       steps.push({
-        stepIdx: idx, beatIdx: b, subIdx: s, isBeatStart: s === 0, isActive, isSplit,
+        stepIdx: idx, beatIdx: b, subIdx: s, beatSubCount: res, isBeatStart: s === 0, isActive, isSplit,
         isVariationStep: isActive && !areStepValuesEqual(rawVal, baseVal),
         displaySymbol: leftVis.sym, fillColor: leftVis.bg, textColor: leftVis.txt,
         rightSymbol: rightVis.sym, rightFillColor: rightVis.bg, rightTextColor: rightVis.txt,

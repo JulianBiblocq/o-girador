@@ -11,6 +11,7 @@ import {
 } from '../../audio/groove/liveBalancoMorph';
 import { resolveFocusMeasureSteps } from './resolveFocusMeasureSteps';
 import { useFocusBalancoRaf } from './useFocusBalancoRaf';
+import { useIsFocusCompactViewport } from './useIsFocusCompactViewport';
 import { FocusBalancoControlsBar } from './FocusBalancoControlsBar';
 import { FocusBalancoBrickStrip } from './FocusBalancoBrickStrip';
 
@@ -20,6 +21,7 @@ interface FocusBalancoDrawerProps {
 }
 
 export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact = false, isActiveView = true }) => {
+  const isCompact = useIsFocusCompactViewport(compact);
   const isOpen = useSyncExternalStore(subscribeFocusBalancoDrawer, getIsFocusBalancoDrawerOpen, getIsFocusBalancoDrawerOpen);
   const audio = useAudio();
   const lang = useSequencerStore((s) => s.lang);
@@ -45,6 +47,7 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   useEffect(() => () => { resetLiveBalancoMorphToUnity(); }, []);
 
   const stripWidthRef = useRef<number>(0);
+  const isTwoRowRef = useRef<boolean>(false);
   const brickRefs = useRef<(HTMLDivElement | null)[]>([]);
   const tensionRefs = useRef<(HTMLDivElement | null)[]>([]);
   const flashRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -54,7 +57,7 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   const sliderFillRef = useRef<HTMLDivElement | null>(null);
   const sliderThumbRef = useRef<HTMLDivElement | null>(null);
   const scaleBadgeRef = useRef<HTMLSpanElement | null>(null);
-  const phaseBadgeRef = useRef<HTMLSpanElement | null>(null);
+  const cycleLabelRef = useRef<HTMLSpanElement | null>(null);
   const isDraggingSliderRef = useRef<boolean>(false);
   const liveMeasureDurationRef = useRef<number>(2.4);
 
@@ -73,9 +76,9 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   }), [focusTrack, tracks, effectiveMeasure, timeSig, measureTimeSigs, soloPatternPlayId, globalSwing, isLeftHanded, isPlaying, lang]);
 
   useFocusBalancoRaf({
-    isOpen: isOpen && isActiveView,
-    model, lang, stripWidthRef, brickRefs, tensionRefs, flashRefs, offsetLabelRefs,
-    playheadRef, sliderRef, sliderFillRef, sliderThumbRef, scaleBadgeRef, phaseBadgeRef,
+    isOpen: isOpen && isActiveView, compact: isCompact,
+    model, lang, stripWidthRef, isTwoRowRef, brickRefs, tensionRefs, flashRefs, offsetLabelRefs,
+    playheadRef, sliderRef, sliderFillRef, sliderThumbRef, scaleBadgeRef, cycleLabelRef,
     isDraggingSliderRef, liveMeasureDurationRef,
     onLiveMeasureChange: setLiveMeasure,
     onCycleActiveChange: setIsCycleActive,
@@ -101,25 +104,25 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   }, [audio, effectiveMeasure, measureTimeSigs, timeSig, measureBpms, bpm]);
 
   if (!isOpen || !isActiveView) return null;
-  const effectiveCollapsed = !compact && isCollapsed;
+  const effectiveCollapsed = !isCompact && isCollapsed;
 
   return (
     <section
       data-testid="focus-balanco-drawer"
       aria-label={lang === 'pt' ? 'Visualizador ao vivo do Balanço' : 'Visualiseur dynamique du Balanço'}
-      className={`w-full shrink-0 z-30 border-t-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] shadow-[0_-3px_10px_var(--cordel-shadow-color)] flex flex-col ${effectiveCollapsed ? 'px-3 py-1' : (compact ? 'px-2 py-1.5 gap-1.5' : 'px-3 py-2 gap-1.5')}`}
+      className={`w-full shrink-0 z-30 border-t-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] shadow-[0_-3px_10px_var(--cordel-shadow-color)] flex flex-col ${effectiveCollapsed ? 'px-3 py-1' : (isCompact ? 'px-2 py-1 gap-1' : 'px-3 py-2 gap-1.5')}`}
     >
       <FocusBalancoControlsBar
-        model={model} lang={lang} compact={compact} isCycleActive={isCycleActive}
+        model={model} lang={lang} compact={isCompact} isCycleActive={isCycleActive}
         isCollapsed={effectiveCollapsed} onToggleCollapse={() => setIsCollapsed((p) => !p)}
         onToggleCycle={handleToggleCycle} onClose={() => setFocusBalancoDrawerOpen(false)}
         sliderRef={sliderRef} sliderFillRef={sliderFillRef} sliderThumbRef={sliderThumbRef}
-        scaleBadgeRef={scaleBadgeRef} phaseBadgeRef={phaseBadgeRef}
+        scaleBadgeRef={scaleBadgeRef} cycleLabelRef={cycleLabelRef}
         isDraggingSliderRef={isDraggingSliderRef}
       />
       {!effectiveCollapsed && (
         <FocusBalancoBrickStrip
-          model={model} compact={compact} stripWidthRef={stripWidthRef}
+          model={model} compact={isCompact} stripWidthRef={stripWidthRef} isTwoRowRef={isTwoRowRef}
           brickRefs={brickRefs} tensionRefs={tensionRefs} flashRefs={flashRefs}
           offsetLabelRefs={offsetLabelRefs} playheadRef={playheadRef}
         />

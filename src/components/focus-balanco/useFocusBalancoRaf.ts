@@ -12,15 +12,12 @@ import {
   resolveBalancoMorphPhaseAtTime,
 } from '../../audio/groove/liveBalancoMorph';
 import { FocusMeasureStepsModel } from './focusBalancoTypes';
-import {
-  applyFocusBalancoDomFrame,
-  FocusDomRefsBundle,
-  PHASE_LABELS_FR,
-  PHASE_LABELS_PT,
-} from './updateFocusBalancoDomFrame';
+import { resolveFocusCycleButtonLabel } from './focusBalancoLayoutMath';
+import { applyFocusBalancoDomFrame, FocusDomRefsBundle } from './updateFocusBalancoDomFrame';
 
 export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
   isOpen: boolean;
+  compact: boolean;
   model: FocusMeasureStepsModel;
   lang: string;
   liveMeasureDurationRef: React.MutableRefObject<number>;
@@ -31,6 +28,8 @@ export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
   modelRef.current = params.model;
   const langRef = useRef(params.lang);
   langRef.current = params.lang;
+  const compactRef = useRef(params.compact);
+  compactRef.current = params.compact;
   const onMeasureRef = useRef(params.onLiveMeasureChange);
   onMeasureRef.current = params.onLiveMeasureChange;
   const onCycleRef = useRef(params.onCycleActiveChange);
@@ -64,6 +63,7 @@ export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
     let rafId: number | null = null;
     let lastDrawMs = 0;
     let lastPhase: BalancoMorphPhase = 'idle';
+    let lastCycleLabel = '';
     const lastShownPctRef = { current: -1 };
 
     const frame = (nowMs: number) => {
@@ -89,11 +89,11 @@ export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
         const wasActive = lastPhase !== 'idle', nowActive = nextPhase !== 'idle';
         lastPhase = nextPhase;
         if (wasActive !== nowActive) onCycleRef.current(nowActive);
-        if (params.phaseBadgeRef.current) {
-          const dict = langRef.current === 'pt' ? PHASE_LABELS_PT : PHASE_LABELS_FR;
-          params.phaseBadgeRef.current.textContent = dict[nextPhase];
-          params.phaseBadgeRef.current.style.opacity = nowActive ? '1' : '0';
-        }
+      }
+      const nextLabel = resolveFocusCycleButtonLabel(nextPhase, langRef.current, compactRef.current);
+      if (nextLabel !== lastCycleLabel && params.cycleLabelRef.current) {
+        lastCycleLabel = nextLabel;
+        params.cycleLabelRef.current.textContent = nextLabel;
       }
 
       const scale = getLiveBalancoMorphScaleAtTime(audibleAudioSec);

@@ -2,6 +2,7 @@ export interface FocusBrickStepModel {
   stepIdx: number;
   beatIdx: number;
   subIdx: number;
+  beatSubCount: number;
   isBeatStart: boolean;
   isActive: boolean;
   isSplit: boolean;

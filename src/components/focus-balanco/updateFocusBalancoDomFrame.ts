@@ -1,26 +1,13 @@
-import { BalancoMorphPhase } from '../../audio/groove/liveBalancoMorph';
 import { FocusMeasureStepsModel } from './focusBalancoTypes';
-
-export const PHASE_LABELS_FR: Record<BalancoMorphPhase, string> = {
-  idle: '',
-  'waiting-play': 'Démarrage...',
-  anchor: '100% Balanço',
-  'ramp-down': 'Descente -> 0%',
-  'hold-zero': '0% Droit',
-  'ramp-up': 'Retour -> 100%',
-};
-
-export const PHASE_LABELS_PT: Record<BalancoMorphPhase, string> = {
-  idle: '',
-  'waiting-play': 'Iniciando...',
-  anchor: '100% Balanço',
-  'ramp-down': 'Descendo -> 0%',
-  'hold-zero': '0% Reto',
-  'ramp-up': 'Retorno -> 100%',
-};
+import {
+  computeFocusPlayheadTransform,
+  computeRelativeMorphPercent,
+  computeStepCellWidthPx,
+} from './focusBalancoLayoutMath';
 
 export interface FocusDomRefsBundle {
   stripWidthRef: { current: number };
+  isTwoRowRef: { current: boolean };
   brickRefs: { current: (HTMLDivElement | null)[] };
   tensionRefs: { current: (HTMLDivElement | null)[] };
   flashRefs: { current: (HTMLDivElement | null)[] };
@@ -30,7 +17,7 @@ export interface FocusDomRefsBundle {
   sliderFillRef: { current: HTMLDivElement | null };
   sliderThumbRef: { current: HTMLDivElement | null };
   scaleBadgeRef: { current: HTMLSpanElement | null };
-  phaseBadgeRef: { current: HTMLSpanElement | null };
+  cycleLabelRef: { current: HTMLSpanElement | null };
   isDraggingSliderRef: { current: boolean };
 }
 
@@ -50,24 +37,24 @@ export function applyFocusBalancoDomFrame(
   measureDurSec: number,
   lastShownPctRef: { current: number }
 ): void {
-  const N = Math.max(1, mdl.stepCount);
+  const B = Math.max(1, mdl.beatsCount);
   const totalWidth = refs.stripWidthRef.current;
-  const slotWidth = totalWidth > 0 ? totalWidth / N : 0;
+  const isTwoRow = refs.isTwoRowRef.current;
 
   if (refs.playheadRef.current && totalWidth > 0) {
+    const ph = computeFocusPlayheadTransform(playheadRatio, totalWidth, B, isTwoRow);
     refs.playheadRef.current.style.opacity = isPlaying && !isPreRoll ? '1' : '0.4';
-    refs.playheadRef.current.style.transform = `translate3d(${(playheadRatio * totalWidth).toFixed(1)}px, 0, 0)`;
+    refs.playheadRef.current.style.transform = `translate3d(${ph.xPx.toFixed(1)}px, ${ph.rowIdx === 1 ? '100%' : '0%'}, 0)`;
   }
 
-  const effHeaderPct = Math.round(mdl.nominalIntensityPct * scale);
+  const effHeaderPct = computeRelativeMorphPercent(scale);
   if (effHeaderPct !== lastShownPctRef.current) {
     lastShownPctRef.current = effHeaderPct;
     if (refs.scaleBadgeRef.current) refs.scaleBadgeRef.current.textContent = `${effHeaderPct}%`;
   }
   if (!refs.isDraggingSliderRef.current) {
-    const sliderVal = Math.round(scale * 100);
-    if (refs.sliderRef.current && refs.sliderRef.current.value !== String(sliderVal)) {
-      refs.sliderRef.current.value = String(sliderVal);
+    if (refs.sliderRef.current && refs.sliderRef.current.value !== String(effHeaderPct)) {
+      refs.sliderRef.current.value = String(effHeaderPct);
     }
     if (refs.sliderFillRef.current) {
       refs.sliderFillRef.current.style.transform = `scaleX(${scale.toFixed(3)})`;
@@ -82,6 +69,7 @@ export function applyFocusBalancoDomFrame(
     if (!brickEl || !step.isActive) continue;
 
     const effPct = step.nominalBalancoPct * scale + step.manualMicroPct;
+    const slotWidth = computeStepCellWidthPx(totalWidth, B, step.beatSubCount, isTwoRow);
     const shiftRatio = Math.max(-0.42, Math.min(0.42, (effPct / 100) * 0.5 * 1.75));
     const shiftPx = shiftRatio * slotWidth;
 
@@ -99,8 +87,9 @@ export function applyFocusBalancoDomFrame(
 
     let bounceY = 0, scaleBoost = 1, flashOpacity = 0;
     if (isPlaying && !isPreRoll) {
+      const stepNormSpan = 1 / (B * Math.max(1, step.beatSubCount));
       const checkSubHit = (subOff: number) => {
-        const pHit = (((i + subOff + (effPct / 100) * 0.5) / N) % 1 + 1) % 1;
+        const pHit = (((step.baseNormPos + (subOff + (effPct / 100) * 0.5) * stepNormSpan) % 1) + 1) % 1;
         const dRatio = ((playheadRatio - pHit) % 1 + 1) % 1;
         const elapsedMs = dRatio * measMs;
         return elapsedMs >= 0 && elapsedMs <= 165 ? Math.pow(1 - elapsedMs / 165, 1.85) : 0;
