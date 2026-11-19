@@ -1,20 +1,11 @@
 /**
- * HeaderDualScreenControl.tsx — Bouton unique évolutif à 3 états « 2 Écrans / 2 Telas » (< 120 lignes).
- * 1) Repos : contour sobre [ ◫ 2 ÉCRANS ▾ ] -> menu des modes.
- * 2) Amorce `dual` : accentué [ ◫ 2 ÉCRANS ↗ ] -> clic gauche ouvre en 1 clic, clic droit ouvre le menu.
- * 3) Connecté : bois + pastille active [ ● ◫ 2 ÉCRANS ▾ ] -> bascule de mode, premier plan ou ré-ancrage.
+ * HeaderDualScreenControl.tsx — Bouton unique évolutif à 3 états « 2 Écrans / 2 Telas » (< 130 lignes).
+ * 1) Repos : contour sobre [ 2 ÉCRANS ] -> menu des modes.
+ * 2) Amorce `dual` : accentué [ 2 ÉCRANS ] -> clic gauche ouvre en 1 clic, clic droit ouvre le menu.
+ * 3) Connecté : bois + pastille active [ 2 ÉCRANS ] -> bascule de mode, premier plan ou ré-ancrage.
  */
 import React, { useState } from 'react';
-import {
-  Columns2,
-  Sliders,
-  Edit3,
-  Wrench,
-  ArrowDownLeft,
-  ArrowUpRight,
-  ChevronDown,
-  ExternalLink,
-} from 'lucide-react';
+import { Columns2, Sliders, Edit3, Wrench, ArrowDownLeft, ArrowUpRight, ChevronDown, ExternalLink } from 'lucide-react';
 import { CordelContextMenu, CordelMenuItem } from '../ui/CordelContextMenu';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
 import { detachedWindowManager } from '../../utils/detachedWindowManager';
@@ -39,8 +30,8 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
   };
 
   const activateMode = (mode: 'mixer' | 'editor' | 'oficina') => {
-    if (isSatelliteOpen) switchSatelliteMode(mode);
-    else openSatellite(mode);
+    if (isSatelliteOpen) switchSatelliteMode(mode, window);
+    else openSatellite(mode, undefined, window);
   };
 
   const menuItems: CordelMenuItem[] = [
@@ -98,7 +89,7 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
         data-testid="header-dual-screen-btn"
         data-tour-id="header-dual-screen"
         onClick={(e) => {
-          if (isDualPrimed) openSatellite(satelliteMode);
+          if (isDualPrimed) openSatellite(satelliteMode, undefined, e.currentTarget.ownerDocument?.defaultView ?? window);
           else openMenuAtButton(e.currentTarget);
         }}
         onContextMenu={(e) => {
@@ -110,18 +101,11 @@ export const HeaderDualScreenControl: React.FC<HeaderDualScreenControlProps> = (
         title={tooltip}
       >
         {isSatelliteOpen && (
-          <span
-            aria-hidden="true"
-            className="w-2 h-2 rounded-full bg-[var(--cordel-status-success)] border border-[var(--cordel-on-accent)]/75 shrink-0"
-          />
+          <span aria-hidden="true" className="w-2 h-2 rounded-full bg-[var(--cordel-status-success)] border border-[var(--cordel-on-accent)]/75 shrink-0" />
         )}
         <Columns2 size={14} className="shrink-0" />
         <span>{isPt ? '2 TELAS' : '2 ÉCRANS'}</span>
-        {isDualPrimed ? (
-          <ArrowUpRight size={13} className="shrink-0" />
-        ) : (
-          <ChevronDown size={12} className="shrink-0 opacity-85" />
-        )}
+        {isDualPrimed ? <ArrowUpRight size={13} className="shrink-0" /> : <ChevronDown size={12} className="shrink-0 opacity-85" />}
       </button>
 
       {menuAnchor && (

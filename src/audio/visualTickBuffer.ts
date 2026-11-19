@@ -22,3 +22,4 @@ export {
   startVisualLoop,
   stopVisualLoop,
 } from './visual-buffer/visualLoopProcessor';
+export { areAllStudioWindowsHidden } from '../utils/detachedWindowManager';

@@ -1,12 +1,21 @@
 /**
- * satelliteWindowWatcher.ts — Surveillance debouncée des coordonnées Écran 2 (< 95 lignes).
+ * satelliteWindowWatcher.ts — Surveillance debouncée des coordonnées & visibilité Écran 2 (< 115 lignes).
  * Auto-mémorise les déplacements/redimensionnements (Y < 0 inclus) sans jamais écraser à la fermeture.
  */
 import { DesktopWindowBounds } from '../types/desktopWorkspace.types';
 import { detachedWindowManager } from './detachedWindowManager';
 
+export const SATELLITE_VISIBILITY_EVENT = 'studio-satellite-visibilitychange';
+
 function sameBounds(a: DesktopWindowBounds, b: DesktopWindowBounds): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
+function notifySatelliteVisibilityChanged(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new Event(SATELLITE_VISIBILITY_EVENT));
+  } catch {}
 }
 
 export interface SatelliteWatcherCallbacks {
@@ -56,13 +65,14 @@ export function attachSatelliteWindowWatcher(
     if (closedHandled || popup.closed) return;
     baselineBounds = detachedWindowManager.getBounds('satellite') ?? null;
     readyToTrack = true;
-  }, 850);
+  }, 900);
 
   const handlePopupClosed = () => {
     if (closedHandled) return;
     closedHandled = true;
     clearPendingSave();
     detachedWindowManager.unregister('satellite');
+    notifySatelliteVisibilityChanged();
     if (!detachedWindowManager.isMainWindowUnloading()) getCallbacks().onClosedByOS();
   };
 
@@ -72,9 +82,11 @@ export function attachSatelliteWindowWatcher(
     detachedWindowManager.closeWindow('satellite');
   };
 
+  const popupDoc = popup.document;
   popup.addEventListener('resize', scheduleDebouncedBoundsCheck);
   popup.addEventListener('pagehide', handlePopupClosed);
   popup.addEventListener('unload', handlePopupClosed);
+  popupDoc?.addEventListener?.('visibilitychange', notifySatelliteVisibilityChanged);
   window.addEventListener('pagehide', handleMainUnloading);
   window.addEventListener('beforeunload', handleMainUnloading);
 
@@ -91,6 +103,7 @@ export function attachSatelliteWindowWatcher(
     popup.removeEventListener('resize', scheduleDebouncedBoundsCheck);
     popup.removeEventListener('pagehide', handlePopupClosed);
     popup.removeEventListener('unload', handlePopupClosed);
+    popupDoc?.removeEventListener?.('visibilitychange', notifySatelliteVisibilityChanged);
     window.removeEventListener('pagehide', handleMainUnloading);
     window.removeEventListener('beforeunload', handleMainUnloading);
   };

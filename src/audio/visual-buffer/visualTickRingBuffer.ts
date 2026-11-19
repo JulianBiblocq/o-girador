@@ -1,6 +1,7 @@
 import { VisualTickEvent, VisualHitTriggerEvent } from './visualTickTypes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
+import { areAllStudioWindowsHidden } from '../../utils/detachedWindowManager';
 
 export const TICK_QUEUE_SIZE = 512;
 export const HIT_QUEUE_SIZE = 512;
@@ -59,7 +60,7 @@ export function getLiveOrStoreLoopIteration(storeIteration: number): number {
 }
 
 export function pushVisualTick(event: VisualTickEvent): void {
-  if (typeof document !== 'undefined' && document.hidden) return;
+  if (areAllStudioWindowsHidden()) return;
   const nextWriteIdx = (tickWriteIdx + 1) % TICK_QUEUE_SIZE;
   if (nextWriteIdx === tickReadIdx) tickReadIdx = (tickReadIdx + 1) % TICK_QUEUE_SIZE;
   copyTickEvent(tickQueue[tickWriteIdx], event);
@@ -75,7 +76,7 @@ export function resetVisualTickBuffer(): void {
 }
 
 export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCode: number, triggerTime: number): void {
-  if (typeof document !== 'undefined' && document.hidden) return;
+  if (areAllStudioWindowsHidden()) return;
   if (useSequencerStore.getState().isPreRolling) return;
   const nextWriteIdx = (hitWriteIdx + 1) % HIT_QUEUE_SIZE;
   if (nextWriteIdx === hitReadIdx) hitReadIdx = (hitReadIdx + 1) % HIT_QUEUE_SIZE;

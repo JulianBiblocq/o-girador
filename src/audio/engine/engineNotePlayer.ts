@@ -1,12 +1,11 @@
 /**
  * O Girador - Audio Engine High-Level Note & Preview Player (< 130 lignes)
- * - Garantie pré-écoute hors-morceau (`playPreview`) : si un instrument absent de `state.tracks` n'est pas encore
- *   en RAM (Wizard ou filtre « Tous les instruments »), charge le coup à la demande puis déclenche la frappe immédiatement.
+ * - Garantie pré-écoute hors-morceau (`playPreview`) et réveil immédiat (`playNote`) depuis Écran 1 ou Écran 2.
  */
 import { getTone } from '../../ToneLoader';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useAudioStore } from '../../stores/useAudioStore';
+import { wakeAudioContextForNotePreview } from '../audioContextSuspendManager';
 import { EngineVirtualStrokes } from './engineVirtualStrokes';
 import { NotePlayerDeps } from './enginePlayerTypes';
 import { EngineExecuteStroke } from './engineExecuteStroke';
@@ -37,9 +36,11 @@ export class EngineNotePlayer {
     decayMultiplier: number,
     isLiveHold = false
   ): void {
-    const currentTime = deps.playbackCtx.audioContext.currentTime;
-    if (time < currentTime - 0.120) return;
-    const safeTime = Math.max(currentTime, time);
+    const ctx = deps.playbackCtx.audioContext;
+    const wasSuspended = wakeAudioContextForNotePreview(ctx);
+    const currentTime = ctx.currentTime;
+    if (!wasSuspended && time < currentTime - 0.120) return;
+    const safeTime = Math.max(currentTime + (wasSuspended ? 0.008 : 0), time);
 
     let trackId: number | null = null;
     let instrumentId = '';
@@ -81,12 +82,7 @@ export class EngineNotePlayer {
   ): void {
     const Tone = getTone();
     const ctx = deps.playbackCtx.audioContext;
-    if (ctx?.state !== 'running') ctx?.resume?.().catch(() => {});
-    if (Tone?.context?.state !== 'running') {
-      if (typeof (Tone?.context as any)?.resume === 'function') (Tone.context as any).resume().catch(() => {});
-      Tone?.start?.().catch(() => {});
-    }
-    if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
+    const wasSuspended = wakeAudioContextForNotePreview(ctx);
 
     const config = deps.configMap.get(instrumentId);
     if (strokeSymbol === '/' || strokeSymbol === '.') {
@@ -103,11 +99,11 @@ export class EngineNotePlayer {
     const resolvedTrackId = track ? track.id : (trackId !== null ? Number(trackId) : null);
     if (resolvedTrackId !== null) ensureAudiblePreview(resolvedTrackId);
 
-    const nowRef = Tone?.now() || ctx.currentTime;
+    const nowRef = (Tone?.now() || ctx.currentTime) + (wasSuspended ? 0.008 : 0);
     const isStrokeReady = deps.sampleLoader.isStrokeLoaded(deps.configMap, instrumentId, strokeSymbol);
 
     if (isStrokeReady) {
-      const triggerTime = time !== undefined ? time : nowRef;
+      const triggerTime = time !== undefined ? Math.max(nowRef, time) : nowRef;
       EngineExecuteStroke.execute(
         deps, resolvedTrackId, instrumentId, config, stroke, triggerTime, velocity, decayMultiplier, pitchSemitones, false, track, strokeSymbol
       );

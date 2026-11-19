@@ -1,11 +1,13 @@
 /**
- * satelliteCoordinator.ts — Orchestrateur Studio Multi-Écrans (Écran 1 Fixe + Satellite Écran 2) (< 120 lignes).
+ * satelliteCoordinator.ts — Orchestrateur Studio Multi-Écrans (Écran 1 Fixe + Satellite Écran 2) (< 135 lignes).
  */
 import { DesktopWindowBounds, SatelliteMode } from '../types/desktopWorkspace.types';
 import { useDesktopWorkspaceStore } from '../stores/useDesktopWorkspaceStore';
 import { useSequencerStore, isToadaChild } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { detachedWindowManager } from './detachedWindowManager';
+import { ScreenRectLike, normalizeCapturedLiveBounds } from './satelliteBoundsNormalizer';
+import { requestScreenDetailsOnUserGesture } from './satelliteScreenPermission';
 import { notifyToast } from './toastHelper';
 
 export function requestMainBridgeView(viewMode: 'roda' | 'timeline' | 'console'): void {
@@ -39,14 +41,22 @@ function applySatelliteModeEffects(mode: SatelliteMode): void {
   }
 }
 
-export function openSatellite(mode?: SatelliteMode, overrideBounds?: DesktopWindowBounds | null): boolean {
+export function openSatellite(
+  mode?: SatelliteMode,
+  overrideBounds?: DesktopWindowBounds | null,
+  gestureWin?: Window | null
+): boolean {
   const ws = useDesktopWorkspaceStore.getState();
   const targetMode = mode ?? ws.satelliteMode ?? 'mixer';
   const boundsToUse = overrideBounds !== undefined ? overrideBounds : ws.satelliteBounds;
 
-  const popup = detachedWindowManager.openSatellitePopup(boundsToUse, (autoBounds) => {
-    useDesktopWorkspaceStore.getState().setSatelliteBounds(autoBounds);
-  });
+  const popup = detachedWindowManager.openSatellitePopup(
+    boundsToUse,
+    (autoBounds) => {
+      useDesktopWorkspaceStore.getState().setSatelliteBounds(autoBounds);
+    },
+    gestureWin
+  );
 
   if (!popup) {
     ws.setSatelliteState({ isSatelliteOpen: false });
@@ -66,10 +76,10 @@ export function openSatellite(mode?: SatelliteMode, overrideBounds?: DesktopWind
   return true;
 }
 
-export function switchSatelliteMode(mode: SatelliteMode): void {
+export function switchSatelliteMode(mode: SatelliteMode, gestureWin?: Window | null): void {
   const ws = useDesktopWorkspaceStore.getState();
   if (!ws.isSatelliteOpen || !detachedWindowManager.isPanelOpen('satellite')) {
-    openSatellite(mode);
+    openSatellite(mode, undefined, gestureWin);
     return;
   }
   ws.setSatelliteState({ satelliteMode: mode });
@@ -105,15 +115,28 @@ export function handleSatelliteClosedByOS(): void {
   else if (prevMode === 'oficina') useSequencerSettingsStore.getState().setIsSettingsOpen(false);
 }
 
-export function captureCurrentSatelliteBounds(): DesktopWindowBounds | null {
+export function captureCurrentSatelliteBounds(gestureWin?: Window | null): DesktopWindowBounds | null {
+  const satWin = detachedWindowManager.getWindow('satellite');
+  const screensPromise = requestScreenDetailsOnUserGesture(gestureWin ?? satWin);
   const live = detachedWindowManager.getBounds('satellite');
   if (!live) return null;
+
   useDesktopWorkspaceStore.getState().setSatelliteBounds(live);
-  try {
-    const getScreenDetails = (window as unknown as { getScreenDetails?: () => Promise<unknown> }).getScreenDetails;
-    if ((live.x < 0 || live.y < 0) && typeof getScreenDetails === 'function') {
-      void getScreenDetails.call(window).catch(() => {});
-    }
-  } catch {}
+
+  void screensPromise
+    .then((screens) => {
+      if (!screens || screens.length === 0) return;
+      const latestRaw = detachedWindowManager.getBounds('satellite') ?? live;
+      const clamped = normalizeCapturedLiveBounds(
+        latestRaw,
+        (satWin?.screen as unknown as ScreenRectLike) ?? null,
+        screens
+      );
+      if (clamped) {
+        useDesktopWorkspaceStore.getState().setSatelliteBounds(clamped);
+      }
+    })
+    .catch(() => {});
+
   return live;
 }

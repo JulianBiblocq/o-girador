@@ -6,7 +6,7 @@ import { DesktopWindowBounds, SatelliteMode } from '../../types/desktopWorkspace
 
 const BOUNDS_STORAGE_KEY = 'girador_satellite_window_bounds';
 const MODE_STORAGE_KEY = 'girador_satellite_last_mode';
-const MINIMIZED_SENTINEL = -16000;
+const MINIMIZED_SENTINEL = -10000;
 
 function isValidMode(val: unknown): val is SatelliteMode {
   return val === 'mixer' || val === 'editor' || val === 'oficina';

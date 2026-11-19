@@ -1,5 +1,6 @@
 import { getMaxTicks } from '../../data';
 import { pushWorkletHorizonAtMeasureBoundary } from '../../audio/worklet/horizon/percussionHorizonPusher';
+import { areAllStudioWindowsHidden } from '../../audio/visualTickBuffer';
 import { nextRandom, getMeasureStartTick } from './audioParamsCache';
 import { advanceMeasureOnTickBoundary } from './measureAdvanceHelper';
 import { scheduleMetronomeClick } from './audioSyncMetronomeScheduler';
@@ -16,7 +17,7 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
   let currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
   let currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
   let currentTicks = getMaxTicks(currentTimeSig as any);
-  const isDocHidden = typeof document !== 'undefined' && document.hidden;
+  const isDocHidden = areAllStudioWindowsHidden();
 
   if (ctx.currentStepIndexRef.current === -1) {
     ctx.isPlaybackEndingRef.current = false;

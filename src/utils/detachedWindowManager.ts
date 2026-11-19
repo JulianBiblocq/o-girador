@@ -1,8 +1,10 @@
 /**
- * detachedWindowManager.ts — Gestionnaire de l'unique Fenêtre Satellite Studio (< 135 lignes).
+ * detachedWindowManager.ts — Gestionnaire de l'unique Fenêtre Satellite Studio (< 130 lignes).
  * Préserve strictement les coordonnées signées (Y = -1080 en haut, X < 0 à gauche) sous Chromium/Windows.
  */
 import { DetachedPanelKey, DesktopWindowBounds } from '../types/desktopWorkspace.types';
+import { ScreenRectLike, normalizeCapturedLiveBounds } from './satelliteBoundsNormalizer';
+import { getCachedScreens, requestScreenDetailsOnUserGesture } from './satelliteScreenPermission';
 import {
   buildSatellitePopupFeatures,
   enforceSignedPopupBounds,
@@ -11,32 +13,21 @@ import {
 } from './satelliteScreenPlacement';
 
 const SATELLITE_WINDOW_NAME = 'OGiradorStudioSatellite';
-const MINIMIZED_SENTINEL = -16000;
 
 class DetachedWindowManager {
   private windows = new Map<DetachedPanelKey, Window>();
   private pendingBounds = new Map<DetachedPanelKey, DesktopWindowBounds>();
   private mainWindowUnloading = false;
 
-  setMainWindowUnloading(unloading: boolean): void {
-    this.mainWindowUnloading = unloading;
-  }
-
-  isMainWindowUnloading(): boolean {
-    return this.mainWindowUnloading;
-  }
+  setMainWindowUnloading(unloading: boolean): void { this.mainWindowUnloading = unloading; }
+  isMainWindowUnloading(): boolean { return this.mainWindowUnloading; }
 
   register(panel: DetachedPanelKey, win: Window | null | undefined): void {
-    if (win && !win.closed) {
-      this.windows.set(panel, win);
-    } else {
-      this.windows.delete(panel);
-    }
+    if (win && !win.closed) this.windows.set(panel, win);
+    else this.windows.delete(panel);
   }
 
-  unregister(panel: DetachedPanelKey): void {
-    this.windows.delete(panel);
-  }
+  unregister(panel: DetachedPanelKey): void { this.windows.delete(panel); }
 
   getWindow(panel: DetachedPanelKey = 'satellite'): Window | null {
     const win = this.windows.get(panel);
@@ -51,13 +42,18 @@ class DetachedWindowManager {
 
   openSatellitePopup(
     savedBounds?: DesktopWindowBounds | null,
-    onAutoPlaced?: (bounds: DesktopWindowBounds) => void
+    onAutoPlaced?: (bounds: DesktopWindowBounds) => void,
+    gestureWin?: Window | null
   ): Window | null {
     if (typeof window === 'undefined') return null;
     this.mainWindowUnloading = false;
+
+    // 1. Déclenchement synchrone AVANT window.open() tant que l'activation transitoire est active
+    const pendingScreensPromise = requestScreenDetailsOnUserGesture(gestureWin);
+
     const existing = this.getWindow('satellite');
     if (existing) {
-      if (savedBounds) enforceSignedPopupBounds(existing, savedBounds);
+      if (savedBounds) enforceSignedPopupBounds(existing, savedBounds, pendingScreensPromise, onAutoPlaced);
       try { existing.focus(); } catch {}
       return existing;
     }
@@ -65,20 +61,16 @@ class DetachedWindowManager {
     const effectiveBounds = savedBounds ?? this.pendingBounds.get('satellite') ?? null;
     const features = buildSatellitePopupFeatures(effectiveBounds);
     let popup: Window | null = null;
-    try {
-      popup = window.open('', SATELLITE_WINDOW_NAME, features);
-    } catch {
-      popup = null;
-    }
+    try { popup = window.open('', SATELLITE_WINDOW_NAME, features); } catch { popup = null; }
     if (!popup || popup.closed) return null;
 
     this.register('satellite', popup);
     this.pendingBounds.delete('satellite');
 
     if (effectiveBounds) {
-      enforceSignedPopupBounds(popup, effectiveBounds);
+      enforceSignedPopupBounds(popup, effectiveBounds, pendingScreensPromise, onAutoPlaced);
     } else {
-      void tryAutoPlaceOnSecondaryScreen(popup, onAutoPlaced);
+      void tryAutoPlaceOnSecondaryScreen(popup, pendingScreensPromise, onAutoPlaced);
     }
     try { popup.focus(); } catch {}
     return popup;
@@ -92,20 +84,11 @@ class DetachedWindowManager {
       const rawY = typeof win.screenY === 'number' ? win.screenY : win.screenTop;
       const rawW = win.outerWidth || win.innerWidth;
       const rawH = win.outerHeight || win.innerHeight;
-      if (
-        !Number.isFinite(rawX) || !Number.isFinite(rawY) ||
-        !Number.isFinite(rawW) || !Number.isFinite(rawH) ||
-        rawX <= MINIMIZED_SENTINEL || rawY <= MINIMIZED_SENTINEL ||
-        rawW < 200 || rawH < 200
-      ) {
-        return undefined;
-      }
-      return {
-        x: Math.round(rawX),
-        y: Math.round(rawY),
-        width: Math.round(rawW),
-        height: Math.round(rawH),
-      };
+      return normalizeCapturedLiveBounds(
+        { x: rawX, y: rawY, width: rawW, height: rawH },
+        (win.screen as unknown as ScreenRectLike) ?? null,
+        getCachedScreens()
+      ) ?? undefined;
     } catch {
       return undefined;
     }
@@ -121,17 +104,23 @@ class DetachedWindowManager {
 
   focusWindow(panel: DetachedPanelKey = 'satellite'): void {
     const win = this.getWindow(panel);
-    if (!win) return;
-    try { win.focus(); } catch {}
+    if (win) { try { win.focus(); } catch {} }
   }
 
   closeWindow(panel: DetachedPanelKey = 'satellite'): void {
     const win = this.windows.get(panel);
     this.windows.delete(panel);
-    if (win && !win.closed) {
-      try { win.close(); } catch {}
-    }
+    if (win && !win.closed) { try { win.close(); } catch {} }
   }
 }
 
 export const detachedWindowManager = new DetachedWindowManager();
+
+export function areAllStudioWindowsHidden(): boolean {
+  if (typeof document === 'undefined' || !document.hidden) return false;
+  const satWin = detachedWindowManager.getWindow('satellite');
+  if (satWin && !satWin.closed) {
+    try { if (!satWin.document.hidden) return false; } catch {}
+  }
+  return true;
+}

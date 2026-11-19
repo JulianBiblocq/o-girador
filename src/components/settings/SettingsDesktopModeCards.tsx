@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { Sliders, Edit3, Wrench } from 'lucide-react';
+import { useWindow } from '../../contexts/WindowContext';
 import { useDesktopWorkspaceStore } from '../../stores/useDesktopWorkspaceStore';
 import { SatelliteMode } from '../../types/desktopWorkspace.types';
 import { openSatellite, switchSatelliteMode } from '../../utils/satelliteCoordinator';
@@ -14,6 +15,7 @@ interface SettingsDesktopModeCardsProps {
 }
 
 export const SettingsDesktopModeCards: React.FC<SettingsDesktopModeCardsProps> = ({ lang, onNotify }) => {
+  const hostWin = useWindow();
   const isSatelliteOpen = useDesktopWorkspaceStore((s) => s.isSatelliteOpen);
   const satelliteMode = useDesktopWorkspaceStore((s) => s.satelliteMode);
   const isPt = lang === 'pt';
@@ -40,8 +42,8 @@ export const SettingsDesktopModeCards: React.FC<SettingsDesktopModeCardsProps> =
   ];
 
   const handleLaunchMode = (mode: SatelliteMode) => {
-    if (isSatelliteOpen) switchSatelliteMode(mode);
-    else openSatellite(mode);
+    if (isSatelliteOpen) switchSatelliteMode(mode, hostWin);
+    else openSatellite(mode, undefined, hostWin);
   };
 
   return (

@@ -6,6 +6,7 @@ import { getTone } from '../../ToneLoader';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import type { VoiceMelismaGlide } from '../../utils/musicTheory';
 import { sanitizeVoiceDuration, sanitizeVoiceTime, VOICE_FALLBACK_DURATION_SEC } from '../voiceNoteGuard';
+import { wakeAudioContextForNotePreview } from '../audioContextSuspendManager';
 import { EngineVoiceSynthManager } from './engineVoiceSynth';
 import { EngineLegatoVoice } from './engineLegatoVoice';
 
@@ -30,12 +31,7 @@ export class EngineVoiceAttack {
 
       const Tone = getTone();
       if (!Tone) return;
-
-      if (audioContext.state !== 'running') audioContext.resume().catch(() => {});
-      if (Tone.context && Tone.context.state !== 'running') {
-        if (typeof (Tone.context as any).resume === 'function') (Tone.context as any).resume().catch(() => {});
-        Tone.start().catch(() => {});
-      }
+      wakeAudioContextForNotePreview(audioContext);
 
       const effectiveTrackId = targetTrackId !== undefined && targetTrackId !== null
         ? targetTrackId

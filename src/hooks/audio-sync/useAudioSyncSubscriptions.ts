@@ -2,9 +2,15 @@
 import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { purgeVisualTickBuffer, resetVisualTickBuffer, flushVisualBuffers } from '../../audio/visualTickBuffer';
+import {
+  areAllStudioWindowsHidden,
+  purgeVisualTickBuffer,
+  resetVisualTickBuffer,
+  flushVisualBuffers,
+} from '../../audio/visualTickBuffer';
 import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { isBalancoMorphCycleActive, resetLiveBalancoMorphToUnity } from '../../audio/groove/liveBalancoMorph';
+import { SATELLITE_VISIBILITY_EVENT } from '../../utils/satelliteWindowWatcher';
 import { getAudioEngine } from './audioEngineNodes';
 
 export interface UseAudioSyncSubscriptionsProps {
@@ -79,18 +85,24 @@ export function useAudioSyncSubscriptions({
 
   useEffect(() => {
     const handleVis = () => {
-      if (document.hidden) {
+      if (areAllStudioWindowsHidden()) {
         if (refs.isPlayingRef.current) onStop();
-      } else {
+      } else if (!document.hidden) {
         purgeVisualTickBuffer();
         resetVisualTickBuffer();
         flushVisualBuffers();
         refs.hitTriggersRef.current.clear();
-        getAudioEngine()?.purgeScheduledHits();
+        if (!refs.isPlayingRef.current) {
+          getAudioEngine()?.purgeScheduledHits();
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVis);
-    return () => document.removeEventListener('visibilitychange', handleVis);
+    window.addEventListener(SATELLITE_VISIBILITY_EVENT, handleVis);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVis);
+      window.removeEventListener(SATELLITE_VISIBILITY_EVENT, handleVis);
+    };
   }, [onStop, refs]);
 
   useEffect(() => {

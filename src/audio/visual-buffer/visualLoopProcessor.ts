@@ -1,4 +1,5 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { detachedWindowManager } from '../../utils/detachedWindowManager';
 import { tickSubscribers, syncAudioEngine } from './visualTickSubscribers';
 import {
   tickQueue,
@@ -16,8 +17,16 @@ import {
 } from './visualTickRingBuffer';
 
 let rafId: number | null = null;
+let rafHostWin: Window | null = null;
 let audioContextRef: AudioContext | null = null;
 let hitTriggersPoolRef: { current: { push: (trackId: number, stepIdx: number, strokeCode: number) => void } } | null = null;
+
+function scheduleNextVisualFrame(): void {
+  const satWin = typeof document !== 'undefined' && document.hidden ? detachedWindowManager.getWindow('satellite') : null;
+  const hostWin = (satWin && !satWin.closed && !satWin.document?.hidden ? satWin : null) || window;
+  rafHostWin = hostWin;
+  rafId = hostWin.requestAnimationFrame(processVisualLoop);
+}
 
 /**
  * Boucle visuelle unique : distribue 100 % des ticks echus (zero decimation, quel que soit
@@ -70,7 +79,7 @@ function processVisualLoop(): void {
     setHitReadIdx(currentHitRead);
   }
 
-  rafId = requestAnimationFrame(processVisualLoop);
+  scheduleNextVisualFrame();
 }
 
 export function startVisualLoop(
@@ -82,14 +91,15 @@ export function startVisualLoop(
     hitTriggersPoolRef = hitTriggersRef;
   }
   if (rafId === null) {
-    rafId = requestAnimationFrame(processVisualLoop);
+    scheduleNextVisualFrame();
   }
 }
 
 export function stopVisualLoop(): void {
   if (rafId !== null) {
-    cancelAnimationFrame(rafId);
+    try { (rafHostWin || window).cancelAnimationFrame(rafId); } catch {}
     rafId = null;
+    rafHostWin = null;
   }
   flushVisualBuffers();
 }
