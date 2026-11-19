@@ -38,8 +38,9 @@ export const DRUM_FUNDAMENTAL_SPECS: Record<string, DrumFundamentalSpec> = {
     presetRangeSt: [-5.0, 5.0],
   },
   caixa: {
-    studioHz: 166.87,
+    studioHz: 165.41,
     legacyHz: 166.87,
+    secondaryHz: 267.55,
     presetRangeSt: [-2.0, 2.0],
   },
   tarol: {
@@ -105,6 +106,9 @@ export function computeTuningForTargetMidi(
   let deltaSt = targetMidi - baseMidi;
   if (deltaSt < lo || deltaSt > hi) {
     deltaSt -= 12 * Math.round(deltaSt / 12);
+  }
+  if ((instrumentId === 'caixa' || instrumentId === 'tarol') && Math.abs(deltaSt) < 0.08) {
+    return 0;
   }
   const clamped = Math.max(lo, Math.min(hi, deltaSt));
   return roundSemitonesTenth(clamped);

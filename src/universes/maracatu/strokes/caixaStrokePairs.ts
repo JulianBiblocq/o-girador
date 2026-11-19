@@ -22,6 +22,9 @@ export function getCaixaStrokePairs(
   const fStrong = allStrokes.find((s) => s.symbol === 'F');
   const fWeak = allStrokes.find((s) => s.symbol === 'f');
   const bStroke = allStrokes.find((s) => s.symbol === 'B');
+  const bSoftStroke = allStrokes.find((s) => s.symbol === 'b');
+  const slashStroke = allStrokes.find((s) => s.symbol === '/');
+  const dotStroke = allStrokes.find((s) => s.symbol === '.');
 
   const pairs: StrokePair[] = [];
   if (dStrong) {
@@ -80,7 +83,9 @@ export function getCaixaStrokePairs(
     pairs.push({
       id: 'B',
       strong: bStroke,
-      strokes: [bStroke],
+      weak: bSoftStroke,
+      third: slashStroke,
+      strokes: [bStroke, bSoftStroke, slashStroke, dotStroke].filter(Boolean) as StrokeDef[],
       mainLabel: 'Barulho',
     });
   }

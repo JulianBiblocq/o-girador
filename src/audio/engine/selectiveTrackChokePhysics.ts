@@ -1,27 +1,29 @@
 /**
- * selectiveTrackChokePhysics.ts — Règles Web Audio / Bounce d'étouffement sélectif par instrument (< 115 lignes).
+ * selectiveTrackChokePhysics.ts — Règles Web Audio / Bounce d'étouffement sélectif par instrument (< 136 lignes).
  * Parité stricte avec `workletSkinPhysics.ts` :
- * - Gonguê (`X` 20 ms tout, `G/A` -6 dB / 25 ms sur `G/A`), Agbê (`D/E/S` 25 ms), Mineiro (`P/T` 25 ms),
- *   Apito (`C` <-> `L/C` 20 ms) et Timbal (`P/p`, `S/s` Low-Pass Choke `< 160 Hz` en 15 ms + 150 ms air-column hum sur `G/g`).
+ * - Caixa (`20 ms` sur `B/b` pour toute frappe, `-5.5 dB / 28 ms` ring damp sur coups forts/Rufada, immunité totale de `X` et `C`),
+ *   Gonguê (`X` 20 ms tout, `G/A` -6 dB / 25 ms), Agbê/Mineiro (`25 ms`), Apito (`20 ms`) et Timbal Low-Pass Choke `< 160 Hz`.
  */
 import {
-  GONGUE_OPEN_DUCK_GAIN, TIMBAL_LP_AIR_DECAY_SEC, TIMBAL_LP_CUTOFF_HZ, TIMBAL_LP_MIX_RAMP_SEC,
+  GONGUE_OPEN_DUCK_GAIN, SNARE_GHOST_TOUCH_DUCK_GAIN, SNARE_STRONG_RING_DUCK_GAIN,
+  TIMBAL_LP_AIR_DECAY_SEC, TIMBAL_LP_CUTOFF_HZ, TIMBAL_LP_MIX_RAMP_SEC,
 } from '../worklet/processor/workletSkinPhysics';
 import { ActiveVoice, ALFAIA_INSTRUMENTS } from './engineTypes';
 
+const CAIXA_OPEN_RING = new Set(['D', 'E', 'A', 'a', 'F', 'f', 'R', 'r']);
 const GONGUE_ALL_OPEN = new Set(['G', 'g', 'A', 'a']);
 const TIMBAL_HIGH_VOICES = new Set(['A', 'a', 'F', 'f', 'S', 's', 'V', 'v']);
 const TIMBAL_LP_TRIGGERS = new Set(['P', 'p', 'S', 's', 'V', 'v']);
 
 export function isWebAudioLoopVoiceSymbol(instId: string, sym?: string): boolean {
-  if (!sym) return false;
-  return sym === 'B' || sym === 'b' || (instId === 'apito' && (sym === 'L' || sym === 'l' || sym === 'W'));
+  return Boolean(sym && (sym === 'B' || sym === 'b' || (instId === 'apito' && (sym === 'L' || sym === 'l' || sym === 'W'))));
 }
 
 export function resolveFrankStrokeBarulhoChokeSec(instId: string, sym: string): number {
   if (ALFAIA_INSTRUMENTS.has(instId)) {
     return sym === 'A' || sym === 'a' ? 0.025 : (sym === 'D' || sym === 'E' ? 0.022 : 0.018);
   }
+  if (instId === 'caixa') return 0.020;
   if (instId === 'agbe' && (sym === 'D' || sym === 'E' || sym === 'S' || sym === 's')) return 0.025;
   if (instId === 'mineiro' && (sym === 'P' || sym === 'T')) return 0.025;
   if (instId === 'gongue' && (sym === 'X' || sym === 'x' || sym === 'G' || sym === 'A')) return 0.020;
@@ -39,6 +41,18 @@ export interface ChokeVoiceOps {
 export function applyNonAlfaiaSelectiveChoke(
   voices: ActiveVoice[], instId: string, strokeSymbol: string, time: number, ops: ChokeVoiceOps
 ): void {
+  if (instId === 'caixa') {
+    if (strokeSymbol === 'X' || strokeSymbol === 'x' || strokeSymbol === 'C' || strokeSymbol === 'c') return;
+    const isGhost = strokeSymbol === 'd' || strokeSymbol === 'e';
+    if (!isGhost && !CAIXA_OPEN_RING.has(strokeSymbol)) return;
+    for (const v of voices) {
+      if (!v?.gainNode || !v.strokeSymbol || !CAIXA_OPEN_RING.has(v.strokeSymbol) || !(v.time < time && time < v.expectedEnd)) continue;
+      if (isGhost && !v.isDucked) ops.duckVoiceIn(v, time, 0.035, SNARE_GHOST_TOUCH_DUCK_GAIN);
+      else if (!isGhost) ops.duckVoiceIn(v, time, 0.028, SNARE_STRONG_RING_DUCK_GAIN);
+    }
+    return;
+  }
+
   if (instId === 'gongue') {
     if (strokeSymbol === 'X' || strokeSymbol === 'x') {
       for (const v of voices) {

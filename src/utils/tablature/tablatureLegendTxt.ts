@@ -20,7 +20,7 @@ CAIXA & TAROL
    A / a : Ataque Pele e Aro / Rimshot perto da borda (Direita / Esquerda)
    C : Clique de baquetas no ar
    X : Aro
-   B : Barulho (Rulo contínuo da esteira)
+   B / b : Barulho (Rulo contínuo da esteira : B -> b -> / -> .)
 
 GONGUÊ (Campana única de ferro forjado)
    G / g : Grave — alto da campana, perto da boca (Forte / Fraco)
@@ -78,7 +78,7 @@ CAIXA & TAROL
    A / a : Rimshot / Pele e Aro frappé près du bord (Droite / Gauche)
    C : Clic de baguettes en l'air
    X : Cerclage (Aro)
-   B : Barulho (Roulement continu du timbre)
+   B / b : Barulho (Roulement continu du timbre : B -> b -> / -> .)
 
 GONGUÊ (Cloche unique en fer forgé)
    G / g : Grave — haut de la cloche, près de la bouche (Fort / Faible)

@@ -9,6 +9,7 @@ import {
 } from '../../barulho/barulhoRampPlanner';
 import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../../engine/engineTypes';
 import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
+import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../../../universes/maracatu/instruments/studioBankRegistry';
 import {
   BARULHO_OP_ATTACK_B, BARULHO_OP_NONE, BARULHO_OP_SOFT_B,
   packWorkletEventFlags, resolveBarulhoOpForSymbol, resolveTrackPhysicsSpec,
@@ -75,7 +76,8 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
   if (sampleId < 0) return 'uncovered';
 
   const barOp = resolveBarulhoOpForSymbol(strokeSymbol, Boolean(stroke.isBarulho), instId);
-  let finalVel = strokeSymbol === 'r' ? velocity * 0.88 : velocity;
+  const isLegacyRufada = strokeSymbol === 'r' && !STUDIO_BANK_ENABLED[instId as PendingStudioInstrumentId];
+  let finalVel = isLegacyRufada ? velocity * 0.88 : velocity;
   let metaOrDecay = decayPct / 100;
   if (barOp === BARULHO_OP_ATTACK_B) {
     metaOrDecay = packBarulhoOriginCoord(measureIdx, circleStepIdx, isSecondStroke);
@@ -86,7 +88,7 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
     finalVel = spec.targetVelocity;
   }
 
-  const headNuance = strokeSymbol === 'r' ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
+  const headNuance = isLegacyRufada ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
   const pitchNuance = stroke.isBarulho
     ? (TUNEABLE_INSTRUMENTS.has(instId) ? 1.0 : 1.0 / (engineDeps.getTrackPitchRatio(trackId) || 1.0))
     : headNuance;

@@ -9,6 +9,7 @@ import { EngineTuning } from '../audio/engine/engineTuning';
 import { applyWebAudioTrackSkinPhysics } from '../audio/engine/alfaiaTrackVoicePhysics';
 import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
+import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../universes/maracatu/instruments/studioBankRegistry';
 import { fetchSampleWithRetry, resolveSampleFetchPath } from '../audio/engine/sampleFetchUtils';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../audio/worklet/horizon/workletCompositeStrokeHelper';
 import { InstrumentAudioConfig, StrokeMapping } from '../data/audioConfig';
@@ -104,8 +105,9 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
   }
 
   barulhoTracker.chokeOnFrankStroke(track.id, instId, strokeSymbol, triggerSec, totalDurationSec);
-  const headNuance = strokeSymbol === 'r' ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
-  const finalStepVol = strokeSymbol === 'r' ? stepVol * 0.88 : stepVol;
+  const isLegacyRufada = strokeSymbol === 'r' && !STUDIO_BANK_ENABLED[instId as PendingStudioInstrumentId];
+  const headNuance = isLegacyRufada ? 0.985 : (stroke.compositeRimSymbol && strokeSymbol === 'a' ? 0.992 : 1.0);
+  const finalStepVol = isLegacyRufada ? stepVol * 0.88 : stepVol;
   const decayNorm = ((packed >>> 2) & 0x7F) / 100;
 
   scheduleOfflineStrokeHit(offlineCtx, graph, track, instId, strokeSymbol, buf, basePitch * headNuance, triggerSec, finalStepVol, decayNorm, totalDurationSec, {

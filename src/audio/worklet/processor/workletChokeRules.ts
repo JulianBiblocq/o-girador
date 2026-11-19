@@ -1,5 +1,5 @@
 /**
- * workletChokeRules.ts — Constantes de classes vocales/percussives & matrice acoustique SSOT de Choke DSP (< 115 lignes).
+ * workletChokeRules.ts — Constantes de classes percussives & matrice acoustique SSOT de Choke DSP (< 120 lignes).
  * Partagé entre l'AudioWorklet SOA, le moteur Web Audio temps réel et l'export Bounce WAV hors-ligne.
  */
 
@@ -18,7 +18,10 @@ export const CHOKE_APITO_20MS = 11;
 export const CHOKE_TIMBAL_BASS_22MS = 12;
 export const CHOKE_TIMBAL_OPEN_20MS = 13;
 export const CHOKE_TIMBAL_PRESO_SLAP_LP = 14;
-export const CHOKE_MODE_MASK = 0xF;
+export const CHOKE_BARULHO_RELEASE_20MS = 15;
+export const CHOKE_SNARE_STRONG_DAMP_28MS = 16;
+export const CHOKE_SNARE_GHOST_TOUCH_35MS = 17;
+export const CHOKE_MODE_MASK = 0x1F;
 
 export const VOICE_CLASS_GENERIC = 0;
 export const VOICE_CLASS_ALFAIA_STRONG = 1;
@@ -32,18 +35,23 @@ export const VOICE_CLASS_APITO_SHORT = 8;
 export const VOICE_CLASS_TIMBAL_BASS = 9;
 export const VOICE_CLASS_TIMBAL_OPEN = 10;
 export const VOICE_CLASS_TIMBAL_SLAP = 11;
-export const VOICE_CLASS_SHIFT = 4;
+export const VOICE_CLASS_SNARE_OPEN = 12;
+export const VOICE_CLASS_SHIFT = 5;
 export const VOICE_CLASS_MASK = 0xF;
 
-/** Facteur linéaire exact -3.5 dB (Alfaia ghost duck) & -6.0 dB (Gonguê open bell duck) */
+/** Facteurs linéaires : -3.5 dB (Alfaia ghost), -6.0 dB (Gonguê G/A), -5.5 dB & -1.5 dB (Caixa ring/malha) */
 export const ALFAIA_GHOST_DUCK_GAIN = 0.6683439;
 export const GONGUE_OPEN_DUCK_GAIN = 0.5011872;
+export const SNARE_STRONG_RING_DUCK_GAIN = 0.5308844;
+export const SNARE_GHOST_TOUCH_DUCK_GAIN = 0.8413951;
 
 /** Constantes du Low-Pass Choke Timbal (< 160 Hz en 15 ms, résonance colonne d'air 150 ms) */
 export const TIMBAL_LP_CUTOFF_HZ = 160;
-export const TIMBAL_LP_STAGE_HZ = 248.6; // 2 pôles réels en cascade -> -3.0 dB exact à 160 Hz (12 dB/oct)
+export const TIMBAL_LP_STAGE_HZ = 248.6;
 export const TIMBAL_LP_MIX_RAMP_SEC = 0.015;
 export const TIMBAL_LP_AIR_DECAY_SEC = 0.150;
+
+const CAIXA_STRONG_RING_SET = new Set(['D', 'E', 'A', 'a', 'F', 'f', 'R', 'r']);
 
 export function resolveTrackPhysicsSpec(
   instrumentId: string,
@@ -62,6 +70,18 @@ export function resolveTrackPhysicsSpec(
     if (symbol === 'D' || symbol === 'E') return { chokeMode: CHOKE_ALFAIA_STRONG_22MS, voiceClass: VOICE_CLASS_ALFAIA_STRONG };
     if (symbol === 'd' || symbol === 'e') return { chokeMode: CHOKE_ALFAIA_GHOST_DUCK_35MS, voiceClass: VOICE_CLASS_ALFAIA_SKIN };
     return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
+  }
+  if (instrumentId === 'caixa') {
+    if (symbol === 'X' || symbol === 'x' || symbol === 'C' || symbol === 'c') {
+      return { chokeMode: CHOKE_BARULHO_RELEASE_20MS, voiceClass: VOICE_CLASS_GENERIC };
+    }
+    if (symbol === 'd' || symbol === 'e') {
+      return { chokeMode: CHOKE_SNARE_GHOST_TOUCH_35MS, voiceClass: VOICE_CLASS_GENERIC };
+    }
+    if (CAIXA_STRONG_RING_SET.has(symbol)) {
+      return { chokeMode: CHOKE_SNARE_STRONG_DAMP_28MS, voiceClass: VOICE_CLASS_SNARE_OPEN };
+    }
+    return { chokeMode: CHOKE_BARULHO_RELEASE_20MS, voiceClass: VOICE_CLASS_GENERIC };
   }
   if (instrumentId === 'gongue') {
     if (symbol === 'X' || symbol === 'x') return { chokeMode: CHOKE_RESONANT_20MS, voiceClass: VOICE_CLASS_GENERIC };
@@ -82,18 +102,12 @@ export function resolveTrackPhysicsSpec(
     if (symbol === 'L' || symbol === 'l') return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_SHAKER_LONG };
     return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
-  if (instrumentId === 'apito') {
-    return { chokeMode: CHOKE_APITO_20MS, voiceClass: VOICE_CLASS_APITO_SHORT };
-  }
+  if (instrumentId === 'apito') return { chokeMode: CHOKE_APITO_20MS, voiceClass: VOICE_CLASS_APITO_SHORT };
   if (instrumentId === 'timbal') {
     if (symbol === 'G' || symbol === 'g') return { chokeMode: CHOKE_TIMBAL_BASS_22MS, voiceClass: VOICE_CLASS_TIMBAL_BASS };
     if (symbol === 'P' || symbol === 'p') return { chokeMode: CHOKE_TIMBAL_PRESO_SLAP_LP, voiceClass: VOICE_CLASS_GENERIC };
-    if (symbol === 'S' || symbol === 's' || symbol === 'V' || symbol === 'v') {
-      return { chokeMode: CHOKE_TIMBAL_PRESO_SLAP_LP, voiceClass: VOICE_CLASS_TIMBAL_SLAP };
-    }
-    if (symbol === 'A' || symbol === 'a' || symbol === 'F' || symbol === 'f') {
-      return { chokeMode: CHOKE_TIMBAL_OPEN_20MS, voiceClass: VOICE_CLASS_TIMBAL_OPEN };
-    }
+    if (symbol === 'S' || symbol === 's' || symbol === 'V' || symbol === 'v') return { chokeMode: CHOKE_TIMBAL_PRESO_SLAP_LP, voiceClass: VOICE_CLASS_TIMBAL_SLAP };
+    if (symbol === 'A' || symbol === 'a' || symbol === 'F' || symbol === 'f') return { chokeMode: CHOKE_TIMBAL_OPEN_20MS, voiceClass: VOICE_CLASS_TIMBAL_OPEN };
     return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
   return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };

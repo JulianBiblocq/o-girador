@@ -12,6 +12,8 @@ import {
   buildVirtualWeakStroke,
 } from './studioStrokeFactory';
 
+export { buildStudioCaixaStrokes } from './studioCaixaBankBuilder';
+
 export type PendingStudioInstrumentId =
   | 'caixa'
   | 'tarol'
@@ -22,7 +24,7 @@ export type PendingStudioInstrumentId =
   | 'apito';
 
 export const STUDIO_BANK_ENABLED: Record<PendingStudioInstrumentId, boolean> = {
-  caixa: false,
+  caixa: true,
   tarol: false,
   timbal: false,
   gongue: true,

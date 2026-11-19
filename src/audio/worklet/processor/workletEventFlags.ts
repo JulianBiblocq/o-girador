@@ -10,19 +10,19 @@ import {
 
 export * from './workletChokeRules';
 
-export const FLAG_STUDIO_CALIBRATED = 1 << 8;
-export const FLAG_ABAFADO_FALLBACK_80MS = 1 << 9;
+export const FLAG_STUDIO_CALIBRATED = 1 << 9;
+export const FLAG_ABAFADO_FALLBACK_80MS = 1 << 10;
 
 export const BARULHO_OP_NONE = 0;
 export const BARULHO_OP_ATTACK_B = 1;
 export const BARULHO_OP_SOFT_B = 2;
 export const BARULHO_OP_FADEOUT_SLASH = 3;
 export const BARULHO_OP_STOP_DOT = 4;
-export const BARULHO_OP_SHIFT = 10;
+export const BARULHO_OP_SHIFT = 11;
 export const BARULHO_OP_MASK = 0x7;
 
-export const WORKLET_SEQ_SHIFT = 13;
-export const WORKLET_SEQ_MASK = 0x7FFFF;
+export const WORKLET_SEQ_SHIFT = 14;
+export const WORKLET_SEQ_MASK = 0x3FFFF;
 
 export function computeBarulhoSoftEntryFrame(
   trackId: number,

@@ -80,9 +80,27 @@ export function getCaixaStrokeDefs(isFr: boolean): StrokeDef[] {
     },
     {
       symbol: 'B',
-      label: isFr ? 'Barulho (Grondement)' : 'Barulho (Vibração)',
+      label: isFr ? 'B — Barulho (Appel + Tenue)' : 'B — Barulho (Chamada + Sustentação)',
       shortcut: 'B',
       colorKey: 'B',
+    },
+    {
+      symbol: 'b',
+      label: isFr ? 'b — Barulho doux (Fade-In sans appel)' : 'b — Barulho suave (Fade-In sem chamada)',
+      shortcut: 'b',
+      colorKey: 'b',
+    },
+    {
+      symbol: '/',
+      label: isFr ? '/ — Extinction Barulho (Fade-Out)' : '/ — Extinção Barulho (Fade-Out)',
+      shortcut: '/',
+      colorKey: '/',
+    },
+    {
+      symbol: '.',
+      label: isFr ? '. — Fin du Barulho (Silence)' : '. — Fim do Barulho (Silêncio)',
+      shortcut: '.',
+      colorKey: '.',
     },
   ];
 }

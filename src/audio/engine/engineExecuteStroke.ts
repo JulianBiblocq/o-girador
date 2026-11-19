@@ -10,6 +10,7 @@ import { getEffectiveSkinChorusAmount, useSequencerStore } from '../../stores/us
 import { TrackGroup } from '../../types';
 import { ALFAIA_INSTRUMENTS } from './engineTypes';
 import { EngineTuning } from './engineTuning';
+import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../../universes/maracatu/instruments/studioBankRegistry';
 import { EngineStrokePlayback } from './engineStrokePlayback';
 import { resolveTrackSectionTemperament } from '../groove/sectionTemperament';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../worklet/horizon/workletCompositeStrokeHelper';
@@ -88,9 +89,9 @@ export class EngineExecuteStroke {
     deps.voiceGuard.chokeTrackVoice(voiceGuardKey, effectiveSymbol, effectiveTime, instrumentId);
 
     const rawBuffer = bufferEntry.get() as AudioBuffer;
-    const isLeftHandRufada = effectiveSymbol === 'r';
-    const finalVelocity = isLeftHandRufada ? velocity * 0.88 : velocity;
-    const pitchNuance = isLeftHandRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
+    const isLegacyRufada = effectiveSymbol === 'r' && !STUDIO_BANK_ENABLED[instrumentId as PendingStudioInstrumentId];
+    const finalVelocity = isLegacyRufada ? velocity * 0.88 : velocity;
+    const pitchNuance = isLegacyRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
     const chorusAmount = getEffectiveSkinChorusAmount(storeState);
     const baseRate = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning, allTracks, chorusAmount);
     const calculatedPitch = resolvedStroke.isBarulho ? baseRate : baseRate * pitchNuance;

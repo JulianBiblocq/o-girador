@@ -24,7 +24,10 @@ export const getStrokeDescription = (
       case 'F': case 'f': return isPt ? `Fla aberto (${side})` : `Fla ouvert (${side})`;
       case 'V': case 'v': return isPt ? `Fla slap (${side})` : `Fla claqué (${side})`;
       case 'C': return isPt ? 'Palma (Clap)' : 'Clap';
-      case 'B': case 'b': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
+      case 'B': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
+      case 'b': return isPt ? 'Barulho suave (Fade-In)' : 'Barulho doux (Fade-In)';
+      case '/': return isPt ? 'Extinção do Barulho (Fade-Out)' : 'Extinction Barulho (Fade-Out)';
+      case '.': return isPt ? 'Fim do Barulho (Silêncio)' : 'Fin du Barulho (Silence)';
       default: return stroke;
     }
   }
@@ -43,7 +46,10 @@ export const getStrokeDescription = (
       case 'f': return isPt ? 'Fla (Esquerda)' : 'Fla (Gauche)';
       case 'X': return isPt ? 'Aro' : 'Cerclage (Aro)';
       case 'C': return isPt ? 'Clique de baquetas' : 'Clic de baguettes';
-      case 'B': case 'b': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
+      case 'B': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
+      case 'b': return isPt ? 'Barulho suave (Fade-In)' : 'Barulho doux (Fade-In)';
+      case '/': return isPt ? 'Extinção do Barulho (Fade-Out)' : 'Extinction Barulho (Fade-Out)';
+      case '.': return isPt ? 'Fim do Barulho (Silêncio)' : 'Fin du Barulho (Silence)';
       default: return stroke;
     }
   }
@@ -74,7 +80,10 @@ export const getStrokeDescription = (
       case 'A': return isPt ? 'Agudo forte (Base da campana)' : 'Aigu fort (Base de la cloche)';
       case 'a': return isPt ? 'Agudo fraco (Base da campana)' : 'Aigu faible (Base de la cloche)';
       case 'X': return isPt ? 'X — Parada / Toque abafado' : 'X — Arrêt étouffé (Parada)';
-      case 'B': case 'b': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
+      case 'B': return isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)';
+      case 'b': return isPt ? 'Barulho suave (Fade-In)' : 'Barulho doux (Fade-In)';
+      case '/': return isPt ? 'Extinção do Barulho (Fade-Out)' : 'Extinction Barulho (Fade-Out)';
+      case '.': return isPt ? 'Fim do Barulho (Silêncio)' : 'Fin du Barulho (Silence)';
       default: return stroke;
     }
   }

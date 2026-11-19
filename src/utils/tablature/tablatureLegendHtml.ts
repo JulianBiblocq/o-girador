@@ -34,7 +34,7 @@ export const generateLegendHTML = (forcePageBreak: boolean = true, lang: string 
             <li><strong>F / f</strong> : ${isPt ? 'Fla D/E (Caixa/Tarol)' : 'Fla D/G (Caixa/Tarol)'}</li>
             <li><strong>C</strong> : ${isPt ? 'Clique de baquetas no ar' : "Clic de baguettes entrechoquées en l'air"}</li>
             <li><strong>X</strong> : ${isPt ? 'Aro' : 'Cerclage (Aro)'}</li>
-            <li><strong>B</strong> : ${isPt ? 'Barulho (Rulo contínuo)' : 'Barulho (Roulement continu)'}</li>
+            <li><strong>B / b</strong> : ${isPt ? 'Barulho contínuo (B -> b -> / -> .)' : 'Barulho continu (B -> b -> / -> .)'}</li>
           </ul>
         </div>
         <div style="width: 47%; margin-bottom: 10px;">

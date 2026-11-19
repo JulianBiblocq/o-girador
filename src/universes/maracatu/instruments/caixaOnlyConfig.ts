@@ -3,7 +3,7 @@
  */
 
 import { InstrumentAudioConfig, StrokeMapping } from './types';
-import { buildStudioSnareStrokes, resolveStudioBankFlags, STUDIO_BANK_ENABLED } from './studioBankRegistry';
+import { buildStudioCaixaStrokes, resolveStudioBankFlags, STUDIO_BANK_ENABLED } from './studioBankRegistry';
 import { buildBarulhoStrokePair, buildCompositeRimFallbackPair, buildVirtualWeakStroke } from './studioStrokeFactory';
 
 const CAIXA_STRONG_LEGACY = [
@@ -42,5 +42,5 @@ export const caixaConfig: InstrumentAudioConfig = {
   uiOrder: ['D', 'E', 'd', 'e', 'A', 'a', 'X', 'C', 'B', 'F', 'R', 'r'],
   leftHandedSupport: true,
   ...resolveStudioBankFlags('caixa'),
-  strokes: STUDIO_BANK_ENABLED.caixa ? buildStudioSnareStrokes('Caixa') : legacyCaixaStrokes,
+  strokes: STUDIO_BANK_ENABLED.caixa ? buildStudioCaixaStrokes() : legacyCaixaStrokes,
 };

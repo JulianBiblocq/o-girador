@@ -6,7 +6,7 @@ export { renderHandwritingGuideHTML } from './paperHandwritingGuide';
 
 export const PUPITRES_REGISTRY: PupitreInfo[] = [
   { code: 'al', nameFr: 'Alfaias', namePt: 'Alfaias', instId: 'marcante', symbolMemo: 'D/d (Droite/Dir), E/e (Gauche/Esq), A/a (Abafado), I (Bacalhau), C (Clic), X (Aro), B (Barulho)' },
-  { code: 'cx', nameFr: 'Caixas & Tarol', namePt: 'Caixas e Tarol', instId: 'caixa', symbolMemo: 'D/d (Droite/Dir), E/e (Gauche/Esq), R/r (Rufada), F/f (Fla), A/a (Rimshot / Pele e Aro), C (Clic), X (Aro), B (Barulho)' },
+  { code: 'cx', nameFr: 'Caixas & Tarol', namePt: 'Caixas e Tarol', instId: 'caixa', symbolMemo: 'D/d (Droite/Dir), E/e (Gauche/Esq), R/r (Rufada), F/f (Fla), A/a (Rimshot / Pele e Aro), C (Clic), X (Aro), B/b (Barulho : B -> b -> / -> .)' },
   { code: 'gg', nameFr: 'Gonguê', namePt: 'Gonguê', instId: 'gongue', symbolMemo: 'Cloche unique : G/g (Grave — Haut / Topo), A/a (Aigu — Base), X (Arrêt étouffé / Parada), B (Barulho)' },
   { code: 'ab', nameFr: 'Agbê', namePt: 'Agbê', instId: 'agbe', symbolMemo: 'E/e (Gauche — Paume / Palma), D/d (Droite — Retour / Retorno), S (Salto), V (Volta), B (Barulho)' },
   { code: 'mi', nameFr: 'Mineiro', namePt: 'Mineiro', instId: 'mineiro', symbolMemo: 'P/p (Poussé / Projetar), T/t (Tiré / Trazer), L (Latéral / Lado), B (Barulho)' },

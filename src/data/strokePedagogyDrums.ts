@@ -53,7 +53,10 @@ export function resolveDrumStrokePedagogy(
       case 'A': case 'a': return pair(isFr, [`Rimshot / Pele e Aro (${sideFr})`, "Coup surpuissant frappé près du bord en percutant simultanément la peau avec l'olive et le cerclage avec le col de la baguette."], [`Ataque Pele e Aro / Rimshot (${sidePt})`, 'Golpe potente perto da borda atingindo simultaneamente a pele com a ponta e o aro com o pescoço da baqueta.']);
       case 'C': return pair(isFr, ['Clic de baguettes', "Choc sec des deux baguettes entrechoquées en l'air."], ['Clique de baquetas', 'Estalo seco das duas baquetas batidas no ar.']);
       case 'X': return pair(isFr, ['Cerclage (Aro)', 'Coup sec frappé uniquement sur le cerclage, sans toucher la peau.'], ['Aro', 'Toque seco batido apenas no aro, sem tocar a pele.']);
-      case 'B': case 'b': return pair(isFr, ['Barulho (Roulement continu)', "Roulement tenu faisant vibrer le timbre sur toute la durée de l'appel."], ['Barulho (Rulo contínuo)', 'Rulo sustentado fazendo vibrar a esteira durante toda a chamada.']);
+      case 'B': return pair(isFr, ['Barulho (Roulement continu)', "Roulement tenu faisant vibrer le timbre sur toute la durée de l'appel."], ['Barulho (Rulo contínuo)', 'Rulo sustentado fazendo vibrar a esteira durante toda a chamada.']);
+      case 'b': return pair(isFr, ['Barulho doux (Fade-In)', 'Entrée progressive du roulement continu du timbre sans attaque initiale marquée.'], ['Barulho suave (Fade-In)', 'Entrada progressiva do rulo contínuo da esteira sem ataque inicial acentuado.']);
+      case '/': return pair(isFr, ['Extinction Barulho (Fade-Out)', "Décroissance contrôlée du roulement continu jusqu'à l'extinction."], ['Extinção do Barulho (Fade-Out)', 'Decaimento controlado do rulo contínuo até silenciar.']);
+      case '.': return pair(isFr, ['Fin du Barulho', 'Arrêt franc et immédiat du roulement continu pour libérer le silence.'], ['Fim do Barulho', 'Corte imediato do rulo contínuo abrindo espaço para o silêncio.']);
       default: return null;
     }
   }
