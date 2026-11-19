@@ -1,6 +1,7 @@
 import { TimeSignature } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { i18n } from '../../data';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 
 export async function handleTimeSigChange(
   selectValue: TimeSignature,
@@ -16,14 +17,13 @@ export async function handleTimeSigChange(
   audioSync.currentStepIndexRef.current = -1;
   audioSync.setCurrentMeasure(0);
 
-  let targetSteps = 16;
-  if (selectValue === '3/4' || selectValue === '6/8') targetSteps = 12;
-  if (selectValue === '2/4') targetSteps = 8;
-  if (selectValue === '12/8') targetSteps = 24;
+  const geom = getRodaMeasureGeometry(selectValue);
+  const targetSteps = geom.defaultSteps;
+  const targetBeatRes = Array(geom.beatsCount).fill(geom.defaultSubdivisions);
 
   const tracks = useSequencerStore.getState().tracks;
-  const resizedList = tracks.map((t) => {
-    const nextPatterns = t.patterns.map(p => {
+  const resizedList = tracks.map((tr) => {
+    const nextPatterns = tr.patterns.map((p) => {
       const nextStepsArr = Array(targetSteps).fill(0);
       const nextLyrics = Array(targetSteps).fill('');
       const nextNotes = Array(targetSteps).fill('');
@@ -41,15 +41,17 @@ export async function handleTimeSigChange(
       return {
         ...p,
         steps: targetSteps,
+        timeSignature: geom.timeSig,
+        beatResolutions: [...targetBeatRes],
         activeSteps: nextStepsArr,
         lyrics: nextLyrics,
         notes: nextNotes,
         volumes: nextVols,
         decays: nextDecays,
-        microtimings: Array(targetSteps).fill(0)
+        microtimings: Array(targetSteps).fill(0),
       };
     });
-    return { ...t, patterns: nextPatterns };
+    return { ...tr, patterns: nextPatterns };
   });
 
   useSequencerStore.getState().setTracks(resizedList);

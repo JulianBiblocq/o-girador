@@ -1,14 +1,15 @@
 /**
- * O Girador - Synchronisation Différentielle des Pistes vers AudioWorklet (< 130 lignes)
+ * O Girador - Synchronisation Différentielle des Pistes vers AudioWorklet (< 135 lignes)
  * - SSOT Accordage (`EngineTuning`), Tempérament de Section (`sectionTemperament`) et Mute (`getEffectiveMuteState`).
  * - Filtrage différentiel strict par slot (`Math.abs(delta) > 1e-5`) : 0 spam IPC à 60 Hz.
  */
 
 import { instrumentsConfig } from '../../data';
 import { InstrumentAudioConfig } from '../../data/audioConfig';
-import { getEffectiveMuteState, getEffectiveSkinChorusAmount, getTrackFamilyIds, useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, getEffectiveSkinChorusAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { TrackGroup } from '../../types';
+import { isTrackMutedByPracticeMode } from '../../utils/practiceAudioMuteGuard';
 import { EngineTuning } from '../engine/engineTuning';
 import { computeSectionTemperamentMap, NEUTRAL_SECTION_TEMPERAMENT } from '../groove/sectionTemperament';
 import { MAX_WORKLET_OUTPUTS, UpdateTrackSlotMessage } from './percussionWorkletTypes';
@@ -50,10 +51,7 @@ export class PercussionWorkletTrackSync {
     const soloPatternPlayId = useTransportStore.getState().soloPatternPlayId;
     const seqState = useSequencerStore.getState();
     const chorusAmount = getEffectiveSkinChorusAmount(seqState);
-    const tjActive = seqState.tocarJuntoActive && seqState.tocarJuntoIsMuted !== false && seqState.tocarJuntoTrackId !== null;
-    const tjFamilySet = tjActive && seqState.tocarJuntoMuteScope === 'family' && seqState.tocarJuntoTrackId !== null
-      ? new Set(getTrackFamilyIds(seqState.tocarJuntoTrackId, tracks))
-      : null;
+    const familyCache = new Set<string>();
     const temperamentMap = computeSectionTemperamentMap(tracks);
 
     for (let i = 0; i < tracks.length; i++) {
@@ -79,10 +77,8 @@ export class PercussionWorkletTrackSync {
 
       const rawDecay = track.trackDecay !== undefined ? track.trackDecay : 1.0;
       const decayNorm = rawDecay <= 0 ? 1.0 : (rawDecay > 1 ? rawDecay / 100 : rawDecay);
-      const isTjMuted = tjActive
-        ? (tjFamilySet ? tjFamilySet.has(String(trackId)) : seqState.tocarJuntoTrackId === trackId)
-        : false;
-      const isMuted = (soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, trackId)) || isTjMuted;
+      const isPracticeMuted = isTrackMutedByPracticeMode(trackId, tracks, seqState, familyCache);
+      const isMuted = (soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, trackId)) || isPracticeMuted;
       const mutedFlag = isMuted ? 1 : 0;
 
       const hasChanged =
@@ -103,21 +99,10 @@ export class PercussionWorkletTrackSync {
     }
   }
 
-  public getTrackUnisonDelaySec(trackId: number | string): number {
-    return this.trackUnisonDelaySec.get(Number(trackId)) ?? 0;
-  }
-
-  public getTrackBalancoAdherence(trackId: number | string): number {
-    return this.trackBalancoAdherence.get(Number(trackId)) ?? 1.0;
-  }
-
-  public getTrackPitchRatio(trackId: number | string): number {
-    return this.trackPitchRatio.get(Number(trackId)) ?? 1.0;
-  }
-
-  public getTrackInstrumentId(trackId: number | string): string {
-    return this.trackInstrumentId.get(Number(trackId)) ?? '';
-  }
+  public getTrackUnisonDelaySec(trackId: number | string): number { return this.trackUnisonDelaySec.get(Number(trackId)) ?? 0; }
+  public getTrackBalancoAdherence(trackId: number | string): number { return this.trackBalancoAdherence.get(Number(trackId)) ?? 1.0; }
+  public getTrackPitchRatio(trackId: number | string): number { return this.trackPitchRatio.get(Number(trackId)) ?? 1.0; }
+  public getTrackInstrumentId(trackId: number | string): string { return this.trackInstrumentId.get(Number(trackId)) ?? ''; }
 
   public releaseTrack(trackId: number | string): void {
     const numId = Number(trackId);

@@ -2,11 +2,15 @@ import { GlobalSwing, Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig, getVisualStrokeSymbol, isDarkText } from '../../data';
 import { applyCordelInkedPatina, getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 import { computeStepBalancoPercent } from '../../utils/balancoUtils';
+import {
+  computeMeasurePatternStepOffset,
+  getRodaMeasureGeometry,
+  resolveActiveBeatResolutions,
+} from '../../utils/rodaTimeSigGeometry';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { areStepValuesEqual, isStepValueActive } from '../../utils/slaveStepOpacityResolver';
 import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
-import { resolveBeatsFromTimeSig } from '../circle-sequencer/circleGeometry';
 import { useBalancoStore } from '../../stores/useBalancoStore';
 import { FocusBrickStepModel, FocusMeasureStepsModel } from './focusBalancoTypes';
 
@@ -27,12 +31,14 @@ export function resolveFocusMeasureSteps(params: {
 }): FocusMeasureStepsModel {
   const { focusTrack, tracks, measureIdx, timeSig, measureTimeSigs, soloPatternPlayId, globalSwing, isLeftHanded, isPlaying, lang } = params;
   const sigStr = String(measureTimeSigs?.[measureIdx] || timeSig || '4/4');
+  const geom = getRodaMeasureGeometry(sigStr);
   if (!focusTrack) {
     return {
       trackId: null, trackName: lang === 'pt' ? 'Instrumento' : 'Instrument',
       primaryColor: 'var(--cordel-accent)', contrastColor: 'var(--cordel-on-accent)',
       socketStrokeColor: 'var(--cordel-accent)',
-      timeSig: sigStr, beatsCount: 4, stepCount: 16, presetName: 'Maracatu', nominalIntensityPct: 100, steps: [],
+      timeSig: sigStr, beatsCount: geom.beatsCount, stepCount: geom.defaultSteps,
+      presetName: 'Maracatu', nominalIntensityPct: 100, steps: [],
     };
   }
 
@@ -54,9 +60,8 @@ export function resolveFocusMeasureSteps(params: {
   const explicitMuteOverride = isSlave && focusTrack.patternOverrides?.[measureIdx] === null;
   const activePattern = explicitMuteOverride ? null : ((ownPattern && hasAnyStroke(ownPattern.activeSteps)) ? ownPattern : (masterPattern ?? ownPattern));
 
-  const defaultSub = sigStr.endsWith('/8') ? 3 : 4;
-  const beatsCount = resolveBeatsFromTimeSig(sigStr, activePattern?.steps || (4 * defaultSub));
-  const beatRes = Array.from({ length: beatsCount }, (_, b) => activePattern?.beatResolutions?.[b] || defaultSub);
+  const beatsCount = geom.beatsCount;
+  const beatRes = resolveActiveBeatResolutions(sigStr, activePattern);
   const stepCount = beatRes.reduce((acc, r) => acc + r, 0);
 
   const liveSnap = getLiveVariationRodaSnapshots();
@@ -83,15 +88,7 @@ export function resolveFocusMeasureSteps(params: {
     }
   }
 
-  const patStepsLen = activePattern?.steps || stepCount;
-  const patternSpan = Math.max(1, Math.round(patStepsLen / Math.max(1, stepCount)));
-  let stepOffset = 0;
-  if (patternSpan > 1 && activePattern) {
-    let startM = measureIdx;
-    while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) startM--;
-    stepOffset = ((measureIdx - startM) % patternSpan) * stepCount;
-  }
-
+  const stepOffset = computeMeasurePatternStepOffset(activePattern, stepCount, measureIdx);
   const balancoTrack = (isSlave && focusTrack.balancoPresetId === undefined && focusTrack.balancoAmount === undefined && masterTrack) ? masterTrack : focusTrack;
   const tAmt = balancoTrack.balancoAmount ?? balancoTrack.swingIntensity ?? 100;
   const pAmt = activePattern?.balancoAmount ?? activePattern?.swingIntensity ?? 100;
@@ -111,7 +108,7 @@ export function resolveFocusMeasureSteps(params: {
       const rawMicro = effectiveMicros?.[actualIdx] ?? 0;
       const manualMicroPct = Array.isArray(rawMicro) ? (rawMicro[0] ?? 0) : (typeof rawMicro === 'number' ? rawMicro : 0);
       const nominalBalancoPct = idx === 0 ? 0 : computeStepBalancoPercent({
-        stepIdx: idx, steps: stepCount, beatResolutions: beatRes, track: balancoTrack, pattern: activePattern, globalSwing,
+        stepIdx: idx, steps: stepCount, beatResolutions: beatRes, timeSig: sigStr, track: balancoTrack, pattern: activePattern, globalSwing,
       });
 
       const resolveSymVisual = (subRaw: any) => {
@@ -129,7 +126,7 @@ export function resolveFocusMeasureSteps(params: {
         isVariationStep: isActive && !areStepValuesEqual(rawVal, baseVal),
         displaySymbol: leftVis.sym, fillColor: leftVis.bg, textColor: leftVis.txt,
         rightSymbol: rightVis.sym, rightFillColor: rightVis.bg, rightTextColor: rightVis.txt,
-        nominalBalancoPct, manualMicroPct, baseNormPos: idx / Math.max(1, stepCount),
+        nominalBalancoPct, manualMicroPct, baseNormPos: (b + s / Math.max(1, res)) / Math.max(1, beatsCount),
       });
     }
     cursor += res;

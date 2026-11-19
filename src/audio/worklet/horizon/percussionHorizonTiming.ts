@@ -9,6 +9,7 @@ import { getMaxTicks } from '../../../data';
 
 export interface MeasureTimingTable {
   measureIdx: number;
+  timeSig?: string;
   maxTicks: number;
   startFrame: number;
   endFrame: number;
@@ -83,5 +84,5 @@ export function buildMeasureTimingTable(params: {
 
   const startTimeSec = startFrame / sr;
   const endFrame = startFrame + Math.round(accumSec * sr);
-  return { measureIdx, maxTicks, startFrame, endFrame, startTimeSec, durationSec: accumSec, tickOffsetsSec, instantTickDurSec };
+  return { measureIdx, timeSig, maxTicks, startFrame, endFrame, startTimeSec, durationSec: accumSec, tickOffsetsSec, instantTickDurSec };
 }

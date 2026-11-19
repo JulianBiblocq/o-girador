@@ -1,4 +1,3 @@
-
 import { Pattern, InstrumentConfig } from '../../types';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
 import { extractSeparateVoiceStep } from './extractSeparateVoiceStep';
@@ -27,7 +26,9 @@ export function extractVoiceSteps(
   soloPlayId: number | null | undefined,
   prevPuxPattern: Pattern | null = null,
   prevCoroPattern: Pattern | null = null,
-  currentStep: number = -1
+  currentStep: number = -1,
+  stepsInFirstBeat: number = 4,
+  stepsInLastBeat: number = 4
 ): { puxSteps: VoiceStepData[]; coroSteps: VoiceStepData[] } {
   const puxSteps: VoiceStepData[] = [];
   const coroSteps: VoiceStepData[] = [];
@@ -35,30 +36,13 @@ export function extractVoiceSteps(
   for (let i = 0; i < effectiveStepCount; i++) {
     const { pActive, pNote, pSyl, pAnacrusis, cActive, cNote, cSyl, cAnacrusis } = hasSeparateVoiceTracks
       ? extractSeparateVoiceStep(
-          i,
-          effectiveStepCount,
-          puxPattern,
-          coroPattern,
-          nextPuxPattern,
-          nextCoroPattern,
-          puxPlayingSteps,
-          coroPlayingSteps,
-          soloPlayId,
-          prevPuxPattern,
-          prevCoroPattern,
-          currentStep
+          i, effectiveStepCount, puxPattern, coroPattern, nextPuxPattern, nextCoroPattern,
+          puxPlayingSteps, coroPlayingSteps, soloPlayId, prevPuxPattern, prevCoroPattern,
+          currentStep, stepsInFirstBeat, stepsInLastBeat
         )
       : extractLegacyVoiceStep(
-          i,
-          effectiveStepCount,
-          puxPattern,
-          coroPattern,
-          activePattern,
-          nextPuxPattern,
-          nextCoroPattern,
-          currentInst,
-          activePlayingSteps,
-          soloPlayId
+          i, effectiveStepCount, puxPattern, coroPattern, activePattern,
+          nextPuxPattern, nextCoroPattern, currentInst, activePlayingSteps, soloPlayId, stepsInLastBeat
         );
 
     const prevPActive = i > 0 && puxSteps[i - 1].active;

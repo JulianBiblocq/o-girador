@@ -2,6 +2,7 @@ import { nextRandom } from './compilerRandom';
 import { buildMeasureStepGrid } from './measureStepGridHelper';
 import { resolveActivePattern, resolvePatternVariation } from './patternResolver';
 import { attachCompiledTrackIds, extractCompiledTrackIds } from './compiledTrackIdResolver';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import {
   normalizeStrokeKey,
   computeStepVolume,
@@ -27,10 +28,7 @@ export function buildFlatSongSchedule(
 
   for (let measureIdx = 0; measureIdx < effectiveTotalMeasures; measureIdx++) {
     const timeSig = measureTimeSigs[measureIdx] || measureTimeSigs[0] || '4/4';
-    const [beatsStr, beatUnitStr] = timeSig.split('/');
-    const beats = parseInt(beatsStr, 10);
-    const beatUnit = parseInt(beatUnitStr, 10);
-    const maxTicks = beats * (96 / beatUnit);
+    const maxTicks = getRodaMeasureGeometry(timeSig).maxTicks;
 
     tracks.forEach((track: any, trackIdx: number) => {
       if ((track.isBusFolder || track.isLinkFolder) && !track.isLinkMaster) return;
@@ -68,7 +66,7 @@ export function buildFlatSongSchedule(
       }
 
       const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset } = buildMeasureStepGrid(
-        beats, maxTicks, activePattern, measureIdx
+        timeSig, activePattern, measureIdx
       );
 
       for (let step = 0; step < effectiveStepCount; step++) {

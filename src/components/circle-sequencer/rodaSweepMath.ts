@@ -1,8 +1,14 @@
 import { TrackGroup, Pattern } from '../../types';
 import { areStepValuesEqual } from '../../utils/slaveStepOpacityResolver';
+import {
+  angleToNormalizedRodaRatio,
+  computeMeasurePatternStepOffset,
+  computeRodaStepAngles,
+  findStepIndexAtNormalizedP,
+  resolveActiveBeatResolutions,
+} from '../../utils/rodaTimeSigGeometry';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
-import { resolveBeatsFromTimeSig, computeStepAngles } from './circleGeometry';
 
 export interface StepSweepBlend {
   isBlending: boolean; primaryState: any; primaryMeasureIdx: number; primaryBaseState: any;
@@ -19,17 +25,19 @@ export function resolveTrackStepsForMeasure(
 ): { activeSteps: any[]; baseSteps: any[]; pattern: Pattern | null; stepAngles: number[]; stepCount: number } {
   const isSolo = soloPatternPlayId !== null;
   const pattern = resolveActivePattern(track, rawTracks, measureIdx, isSolo, soloPatternPlayId) as Pattern | null;
-  const baseSteps = pattern?.activeSteps || [];
-  const activeSteps = (stepsSnapshot && stepsSnapshot[track.id]) ? stepsSnapshot[track.id] : baseSteps;
+  const rawBase = pattern?.activeSteps || [];
+  const rawActive = (stepsSnapshot && stepsSnapshot[track.id]) ? stepsSnapshot[track.id] : rawBase;
   const sig = measureTimeSigs?.[measureIdx] || defaultTimeSig || '4/4';
-  const beats = resolveBeatsFromTimeSig(String(sig), pattern?.steps || 16);
-  const stepAngles = computeStepAngles(beats, pattern?.beatResolutions);
-  return { activeSteps, baseSteps, pattern, stepAngles, stepCount: stepAngles.length };
+  const beatRes = resolveActiveBeatResolutions(String(sig), pattern);
+  const stepAngles = computeRodaStepAngles(String(sig), beatRes);
+  const stepCount = stepAngles.length;
+  const offset = computeMeasurePatternStepOffset(pattern, stepCount, measureIdx);
+  const activeSteps = offset > 0 ? rawActive.slice(offset, offset + stepCount) : rawActive;
+  const baseSteps = offset > 0 ? rawBase.slice(offset, offset + stepCount) : rawBase;
+  return { activeSteps, baseSteps, pattern, stepAngles, stepCount };
 }
 
-export function angleToNormalizedP(angle: number): number {
-  return ((((angle + Math.PI / 2) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2);
-}
+export const angleToNormalizedP = angleToNormalizedRodaRatio;
 
 export function buildCandidateAnglesForSweep(
   currAngles: number[], nextAngles: number[], prevAngles: number[],
@@ -47,10 +55,12 @@ export function buildCandidateAnglesForSweep(
   return list.sort((a, b) => a.p - b.p);
 }
 
-function resolveAtNormalizedP(p: number, stepCount: number, activeSteps: any[], baseSteps: any[]) {
+function resolveAtNormalizedP(p: number, stepAngles: readonly number[], stepCount: number, activeSteps: any[], baseSteps: any[]) {
   if (stepCount <= 0) return { state: 0, baseState: 0, stepIdx: 0, stepCount: 16 };
-  const rawIdx = p * stepCount, idx = Math.round(rawIdx);
-  if (Math.abs(rawIdx - idx) < 1e-4 && idx >= 0 && idx < stepCount) {
+  const idx = stepAngles.length > 0
+    ? findStepIndexAtNormalizedP(stepAngles, p)
+    : (Math.abs(p * stepCount - Math.round(p * stepCount)) < 1e-4 ? Math.round(p * stepCount) : -1);
+  if (idx >= 0 && idx < stepCount) {
     return { state: activeSteps?.[idx] ?? 0, baseState: baseSteps?.[idx] ?? 0, stepIdx: idx, stepCount };
   }
   return { state: 0, baseState: 0, stepIdx: -1, stepCount };
@@ -68,17 +78,18 @@ export function computeContinuousSweepRatio(
 export function resolveStepSweepBlend(params: {
   p: number; isPlaying: boolean; playheadRatio: number; rodaSweepMode?: 'sweep6h' | 'fullMeasure';
   currentMeasureIdx: number; nextMeasureIdx: number; prevMeasureIdx: number | null; hasPrevMeasure: boolean;
-  currStepCount: number; currentActiveSteps: any[]; currentBaseSteps: any[];
-  nextStepCount: number; nextActiveSteps: any[]; nextBaseSteps: any[];
-  prevStepCount: number; prevActiveSteps: any[]; prevBaseSteps: any[];
+  currStepCount: number; currentActiveSteps: any[]; currentBaseSteps: any[]; currStepAngles?: readonly number[];
+  nextStepCount: number; nextActiveSteps: any[]; nextBaseSteps: any[]; nextStepAngles?: readonly number[];
+  prevStepCount: number; prevActiveSteps: any[]; prevBaseSteps: any[]; prevStepAngles?: readonly number[];
 }): StepSweepBlend {
   const {
     p, isPlaying, playheadRatio, rodaSweepMode, currentMeasureIdx, nextMeasureIdx, prevMeasureIdx, hasPrevMeasure,
-    currStepCount, currentActiveSteps, currentBaseSteps, nextStepCount, nextActiveSteps, nextBaseSteps,
-    prevStepCount, prevActiveSteps, prevBaseSteps,
+    currStepCount, currentActiveSteps, currentBaseSteps, currStepAngles = [],
+    nextStepCount, nextActiveSteps, nextBaseSteps, nextStepAngles = [],
+    prevStepCount, prevActiveSteps, prevBaseSteps, prevStepAngles = [],
   } = params;
 
-  const cur = resolveAtNormalizedP(p, currStepCount, currentActiveSteps, currentBaseSteps);
+  const cur = resolveAtNormalizedP(p, currStepAngles, currStepCount, currentActiveSteps, currentBaseSteps);
   const makeSingle = (slot: typeof cur, mIdx: number): StepSweepBlend => ({
     isBlending: false, primaryState: slot.state, primaryMeasureIdx: mIdx, primaryBaseState: slot.baseState,
     primaryStepIdx: Math.max(0, slot.stepIdx), primaryStepCount: slot.stepCount, primaryAlpha: 1.0,
@@ -89,7 +100,7 @@ export function resolveStepSweepBlend(params: {
 
   if (p < 0.5) {
     if (r < 0.5) return makeSingle(cur, currentMeasureIdx);
-    const rSweep = r - 0.5, nxt = resolveAtNormalizedP(p, nextStepCount, nextActiveSteps, nextBaseSteps);
+    const rSweep = r - 0.5, nxt = resolveAtNormalizedP(p, nextStepAngles, nextStepCount, nextActiveSteps, nextBaseSteps);
     const alpha = Math.max(0, Math.min(1, (rSweep - p) / SWEEP_TRANSITION_WIDTH));
     if (areStepValuesEqual(cur.state, nxt.state) && cur.stepCount === nxt.stepCount) return makeSingle(alpha >= 0.5 ? nxt : cur, alpha >= 0.5 ? nextMeasureIdx : currentMeasureIdx);
     if (alpha <= 0.01) return makeSingle(cur, currentMeasureIdx);
@@ -103,7 +114,7 @@ export function resolveStepSweepBlend(params: {
   }
 
   if (r >= 0.5 || !hasPrevMeasure || prevMeasureIdx === null) return makeSingle(cur, currentMeasureIdx);
-  const rSweep = r + 0.5, prv = resolveAtNormalizedP(p, prevStepCount, prevActiveSteps, prevBaseSteps);
+  const rSweep = r + 0.5, prv = resolveAtNormalizedP(p, prevStepAngles, prevStepCount, prevActiveSteps, prevBaseSteps);
   const alpha = Math.max(0, Math.min(1, (rSweep - p) / SWEEP_TRANSITION_WIDTH));
   if (areStepValuesEqual(prv.state, cur.state) && prv.stepCount === cur.stepCount) return makeSingle(cur, currentMeasureIdx);
   if (alpha <= 0.01) return makeSingle(prv, prevMeasureIdx);
@@ -115,4 +126,3 @@ export function resolveStepSweepBlend(params: {
     secondaryStepIdx: Math.max(0, cur.stepIdx), secondaryStepCount: cur.stepCount, secondaryAlpha: alpha,
   };
 }
-

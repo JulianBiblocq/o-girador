@@ -1,4 +1,3 @@
-
 import { Pattern, InstrumentConfig } from '../../types';
 
 const isStepValActive = (val: any) =>
@@ -21,21 +20,15 @@ export function extractLegacyVoiceStep(
   nextCoroPattern: Pattern | null,
   currentInst: InstrumentConfig,
   activePlayingSteps: any,
-  soloPlayId: number | null | undefined
+  soloPlayId: number | null | undefined,
+  stepsInLastBeat: number = 4
 ): { pActive: boolean; pNote: string; pSyl: string; pAnacrusis: boolean; cActive: boolean; cNote: string; cSyl: string; cAnacrusis: boolean } {
-  let pActive = false;
-  let pNote = '';
-  let pSyl = '';
-  let pAnacrusis = false;
-
-  let cActive = false;
-  let cNote = '';
-  let cSyl = '';
-  let cAnacrusis = false;
+  let pActive = false, pNote = '', pSyl = '', pAnacrusis = false;
+  let cActive = false, cNote = '', cSyl = '', cAnacrusis = false;
 
   const basePat = puxPattern || coroPattern || activePattern;
   const nextBasePat = nextPuxPattern || nextCoroPattern;
-  const sVal = activePlayingSteps[i];
+  const sVal = activePlayingSteps?.[i];
   const sStr = String(Array.isArray(sVal) ? sVal[0] : sVal).toUpperCase();
   const isRawActive = isStepValActive(sVal);
 
@@ -43,20 +36,15 @@ export function extractLegacyVoiceStep(
     const sylVal = (basePat?.lyrics?.[i] || '').trim();
     const noteVal = sanitizeStepNote(basePat?.notes?.[i] || '', sylVal, basePat?.ignoreMelodyPitch);
     if (sStr === 'C' || (currentInst.id === 'coro' && sStr !== 'P')) {
-      cActive = true;
-      cNote = noteVal;
-      cSyl = sylVal;
+      cActive = true; cNote = noteVal; cSyl = sylVal;
     } else {
-      pActive = true;
-      pNote = noteVal;
-      cSyl = cSyl;
-      pSyl = sylVal;
+      pActive = true; pNote = noteVal; pSyl = sylVal;
     }
   } else {
-    const isPickupWindow = i >= effectiveStepCount - 4;
+    const isPickupWindow = i >= effectiveStepCount - Math.max(1, stepsInLastBeat);
     const preVal = basePat?.preRollActiveSteps?.[i];
     const isPreActive = isStepValActive(preVal);
-    const nextPreVal = (soloPlayId === undefined || soloPlayId === null && isPickupWindow) ? nextBasePat?.preRollActiveSteps?.[i] : 0;
+    const nextPreVal = (soloPlayId === undefined || (soloPlayId === null && isPickupWindow)) ? nextBasePat?.preRollActiveSteps?.[i] : 0;
     const isNextPreActive = isStepValActive(nextPreVal);
 
     const targetPat = isPreActive ? basePat : (isNextPreActive ? nextBasePat : null);
@@ -67,15 +55,9 @@ export function extractLegacyVoiceStep(
       const noteVal = sanitizeStepNote(targetPat.preRollNotes?.[i] || '', sylVal, targetPat.ignoreMelodyPitch);
       const preStr = String(activeVal).toUpperCase();
       if (preStr === 'C' || (currentInst.id === 'coro' && preStr !== 'P')) {
-        cActive = true;
-        cNote = noteVal;
-        cSyl = sylVal;
-        cAnacrusis = true;
+        cActive = true; cNote = noteVal; cSyl = sylVal; cAnacrusis = true;
       } else {
-        pActive = true;
-        pNote = noteVal;
-        pSyl = sylVal;
-        pAnacrusis = true;
+        pActive = true; pNote = noteVal; pSyl = sylVal; pAnacrusis = true;
       }
     }
   }

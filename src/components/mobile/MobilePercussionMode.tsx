@@ -6,8 +6,8 @@ import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { instrumentsConfig } from '../../data';
 import { getEffectiveBpm } from '../../utils/bpmUtils';
+import { getDefaultStepsForMeasure } from '../circle-sequencer/measurePatternHelpers';
 import { resolveTrackAoVivoFamily } from '../AoVivo/resolveAoVivoFamily';
 import { MobileTopHeader } from './MobileTopHeader';
 import { MobilePercControls } from './MobilePercControls';
@@ -35,11 +35,13 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
   const { userProfile } = useAuth();
   const lang = useSequencerStore((s) => s.lang);
   const audio = useAudio();
-  const tracks = useSequencerStore((s) => s.tracks), setTracks = useSequencerStore((s) => s.setTracks);
+  const tracks = useSequencerStore((s) => s.tracks);
   const currentMeasure = useSequencerStore((s) => s.currentMeasure), measureBpms = useSequencerStore((s) => s.measureBpms);
+  const timeSig = useSequencerStore((s) => s.timeSig), measureTimeSigs = useSequencerStore((s) => s.measureTimeSigs);
   const activeAoVivoTrackId = useSequencerStore((s) => s.activeAoVivoTrackId), setActiveAoVivoTrackId = useSequencerStore((s) => s.setActiveAoVivoTrackId);
   const focusTrackId = useSequencerStore((s) => s.focusTrackId);
   const referenceTrackId = useSequencerStore((s) => s.referenceTrackId), setReferenceTrackId = useSequencerStore((s) => s.setReferenceTrackId);
+  const isRestMuted = useSequencerStore((s) => s.isRestOfEnsembleMuted), setIsRestMuted = useSequencerStore((s) => s.setIsRestOfEnsembleMuted);
   const syncFocusWithTracks = useSequencerStore((s) => s.syncFocusWithTracks);
   const loopMode = useSequencerStore((s) => s.loopMode ?? 'infinite'), setLoopMode = useSequencerStore((s) => s.setLoopMode);
   const isLoopExitRequested = useSequencerStore((s) => s.isLoopExitRequested), requestLoopExit = useSequencerStore((s) => s.requestLoopExit);
@@ -47,7 +49,6 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
   const isLetraActive = useSequencerStore((s) => s.isLetraActive), toggleLetraActive = useSequencerStore((s) => s.toggleLetraActive);
 
   const [isFocusPopoverOpen, setIsFocusPopoverOpen] = useState(false);
-  const [isRestMuted, setIsRestMuted] = useState(false);
   const [isLetraDrawerOpen, setIsLetraDrawerOpen] = useState(false);
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -63,7 +64,7 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
     if (referenceTrackId !== null && referenceTrackId === focusTrackId) {
       setReferenceTrackId(null);
     }
-  }, [referenceTrackId, focusTrackId]);
+  }, [referenceTrackId, focusTrackId, setReferenceTrackId]);
 
   const effectiveBpm = getEffectiveBpm(bpm, measureBpms, currentMeasure);
   const firstPerc = tracks.find((t) => !t.isBusFolder && !t.isLinkFolder && resolveTrackAoVivoFamily(t, tracks).family !== null);
@@ -74,19 +75,7 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
     else if (effectiveFocusTrackId !== null) setActiveAoVivoTrackId(effectiveFocusTrackId);
   };
 
-  const handleToggleRestMuted = () => {
-    const nextState = !isRestMuted;
-    setIsRestMuted(nextState);
-    setTracks((prev) =>
-      prev.map((t) => {
-        if (t.id === focusTrackId || t.id === referenceTrackId) return t;
-        const inst = instrumentsConfig[t.instrumentIdx];
-        const isVocal = inst && (inst.type === 'voice' || inst.id === 'puxador' || inst.id === 'coro');
-        if (isVocal && isLetraActive) return { ...t, isMute: false };
-        return { ...t, isMute: nextState };
-      })
-    );
-  };
+  const handleToggleRestMuted = () => setIsRestMuted(!isRestMuted);
   const visibleTrackIds = [
     effectiveFocusTrackId,
     ...(referenceTrackId && referenceTrackId !== effectiveFocusTrackId ? [referenceTrackId] : []),
@@ -97,17 +86,13 @@ export const MobilePercussionMode: React.FC<Props> = (props) => {
       <MobileTopHeader songTitle={metadata?.toada || props.activePreset} onOpenSongPicker={() => setIsSongPickerOpen(true)} onOpenMenu={() => setIsMenuOpen(true)} lang={lang} />
       <MobilePercControls referenceTrackId={referenceTrackId} isRestMuted={isRestMuted} onToggleRestMuted={handleToggleRestMuted} onOpenFocusPopover={() => setIsFocusPopoverOpen(true)} lang={lang} />
       <MobilePercCenterBar
-        isAoVivoActive={activeAoVivoTrackId !== null}
-        onToggleAoVivo={handleToggleAoVivo}
-        isLetraActive={isLetraActive}
-        onToggleLetra={toggleLetraActive}
+        isAoVivoActive={activeAoVivoTrackId !== null} onToggleAoVivo={handleToggleAoVivo}
+        isLetraActive={isLetraActive} onToggleLetra={toggleLetraActive}
         onOpenLetraDrawer={() => setIsLetraDrawerOpen(false)}
-        referenceTrackId={referenceTrackId}
-        onSelectReferenceTrackId={setReferenceTrackId}
-        primaryTrackId={effectiveFocusTrackId}
-        lang={lang}
+        referenceTrackId={referenceTrackId} onSelectReferenceTrackId={setReferenceTrackId}
+        primaryTrackId={effectiveFocusTrackId} lang={lang}
       />
-      <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, 16)} />
+      <MobileSectionLooper isPlaying={props.isPlaying} onNavigateMeasure={(m) => audio.handleTimelineNavigate(m, 0, getDefaultStepsForMeasure(m, timeSig, measureTimeSigs))} />
       <div className="relative flex-1 min-h-0 overflow-hidden z-10 flex items-center justify-center">
         <CircleSequencer visibleTrackIds={visibleTrackIds} isPlaying={props.isPlaying} isLetraActive={isLetraActive} isMobile={true} />
       </div>

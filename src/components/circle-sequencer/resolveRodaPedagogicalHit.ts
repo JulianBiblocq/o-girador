@@ -3,8 +3,9 @@ import { Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
 import { getTrackDisplayName } from '../../utils/colorHelpers';
+import { computeMeasurePatternStepOffset, computeRodaStepAngles, getStepAngularSpan, resolveActiveBeatResolutions } from '../../utils/rodaTimeSigGeometry';
 import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
-import { computeBaseStampRadius, computeStepAngles, getTrackRadius, resolveBeatsFromTimeSig } from './circleGeometry';
+import { computeBaseStampRadius, getTrackRadius } from './circleGeometry';
 import { resolvePatternForMeasure } from './measurePatternHelpers';
 import { buildCandidateAnglesForSweep, resolveStepSweepBlend, resolveTrackStepsForMeasure } from './rodaSweepMath';
 import { buildPercussionPedagogyTarget, buildVocalRoleCard } from '../pedagogy/resolvePedagogyPopoverModel';
@@ -28,29 +29,20 @@ export function resolveRodaPedagogicalHit(params: {
   if (totalTracks === 0) return null;
 
   const ringTol = Math.max(24, computeBaseStampRadius(totalTracks) + 8);
-  let bestTrack: TrackGroup | null = null;
-  let bestRingRadius = 0;
-  let minRingDelta = Infinity;
+  let bestTrack: TrackGroup | null = null, bestRingRadius = 0, minRingDelta = Infinity;
   for (let i = 0; i < totalTracks; i++) {
-    const tRad = getTrackRadius(i, totalTracks);
-    const delta = Math.abs(distance - tRad);
+    const tRad = getTrackRadius(i, totalTracks), delta = Math.abs(distance - tRad);
     if (delta <= ringTol && delta < minRingDelta) {
-      minRingDelta = delta;
-      bestTrack = visibleTracks[i];
-      bestRingRadius = tRad;
+      minRingDelta = delta; bestTrack = visibleTracks[i]; bestRingRadius = tRad;
     }
   }
   if (!bestTrack) return null;
 
   const st = useSequencerStore.getState();
   const isPlaying = Boolean(stateRef.current.isPlaying);
-  const measureIdx = isPlaying && livePlaybackRef.current.measure >= 0
-    ? livePlaybackRef.current.measure
-    : (stateRef.current.currentMeasure ?? st.currentMeasure ?? 0);
-  const playheadRatio = livePlaybackRef.current.ratio || 0;
-  const soloPlayId = stateRef.current.soloPatternPlayId ?? null;
-  const lang = stateRef.current.lang || st.lang || 'fr';
-  const isLeftHanded = Boolean(stateRef.current.isLeftHanded ?? st.isLeftHanded);
+  const measureIdx = isPlaying && livePlaybackRef.current.measure >= 0 ? livePlaybackRef.current.measure : (stateRef.current.currentMeasure ?? st.currentMeasure ?? 0);
+  const playheadRatio = livePlaybackRef.current.ratio || 0, soloPlayId = stateRef.current.soloPatternPlayId ?? null;
+  const lang = stateRef.current.lang || st.lang || 'fr', isLeftHanded = Boolean(stateRef.current.isLeftHanded ?? st.isLeftHanded);
   const inst = instrumentsConfig[bestTrack.instrumentIdx];
   if (!inst) return null;
 
@@ -59,30 +51,26 @@ export function resolveRodaPedagogicalHit(params: {
   if (isVocal) {
     const puxTrack = isToada ? allTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') : (inst.id === 'puxador' ? bestTrack : undefined);
     const coroTrack = isToada ? allTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro') : (inst.id === 'coro' ? bestTrack : undefined);
-    const puxPat = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId);
-    const coroPat = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId);
+    const puxPat = resolvePatternForMeasure(puxTrack, measureIdx, soloPlayId), coroPat = resolvePatternForMeasure(coroTrack, measureIdx, soloPlayId);
     const refPat = puxPat || coroPat;
     if (!refPat) return null;
-    const sig = st.measureTimeSigs?.[measureIdx] || st.timeSig || '4/4';
-    const beats = resolveBeatsFromTimeSig(String(sig), refPat.steps || 16);
-    const stepAngles = computeStepAngles(beats, refPat.beatResolutions);
-    let hitStep = -1;
-    let bestDist = 28;
+    const sig = String(st.measureTimeSigs?.[measureIdx] || st.timeSig || '4/4');
+    const stepAngles = computeRodaStepAngles(sig, resolveActiveBeatResolutions(sig, refPat));
+    let hitStep = -1, bestDist = 28;
     for (let s = 0; s < stepAngles.length; s++) {
-      const px = 600 + Math.cos(stepAngles[s]) * bestRingRadius;
-      const py = 600 + Math.sin(stepAngles[s]) * bestRingRadius;
-      const d = Math.hypot(mouseX - px, mouseY - py);
+      const d = Math.hypot(mouseX - (600 + Math.cos(stepAngles[s]) * bestRingRadius), mouseY - (600 + Math.sin(stepAngles[s]) * bestRingRadius));
       if (d < bestDist) { bestDist = d; hitStep = s; }
     }
     if (hitStep < 0) return null;
+    const actualHitStep = computeMeasurePatternStepOffset(refPat, stepAngles.length, measureIdx) + hitStep;
     const cards = [
-      puxTrack && puxPat ? buildVocalRoleCard({ role: 'puxador', roleTrack: puxTrack, pattern: puxPat, stepIdx: hitStep, lang }) : null,
-      coroTrack && coroPat ? buildVocalRoleCard({ role: 'coro', roleTrack: coroTrack, pattern: coroPat, stepIdx: hitStep, lang }) : null,
+      puxTrack && puxPat ? buildVocalRoleCard({ role: 'puxador', roleTrack: puxTrack, pattern: puxPat, stepIdx: actualHitStep, lang }) : null,
+      coroTrack && coroPat ? buildVocalRoleCard({ role: 'coro', roleTrack: coroTrack, pattern: coroPat, stepIdx: actualHitStep, lang }) : null,
     ].filter(Boolean) as NonNullable<ReturnType<typeof buildVocalRoleCard>>[];
     if (cards.length === 0) return null;
     return {
       anchorX: clientX, anchorY: clientY, trackId: cards[0].targetTrackId, patternId: cards[0].targetPatternId,
-      measureIdx, stepIdx: hitStep, instrumentName: getTrackDisplayName(bestTrack, allTracks) || inst.name, instId: inst.id, cards,
+      measureIdx, stepIdx: actualHitStep, instrumentName: getTrackDisplayName(bestTrack, allTracks) || inst.name, instId: inst.id, cards,
     };
   }
 
@@ -106,27 +94,27 @@ export function resolveRodaPedagogicalHit(params: {
     const blend = resolveStepSweepBlend({
       p, isPlaying, playheadRatio, rodaSweepMode: st.rodaSweepMode,
       currentMeasureIdx: measureIdx, nextMeasureIdx, prevMeasureIdx: snapshots.prevMeasureIdx, hasPrevMeasure: snapshots.hasPrevMeasure,
-      currStepCount: curRes.stepCount, currentActiveSteps: curRes.activeSteps, currentBaseSteps: curRes.baseSteps,
-      nextStepCount: nextRes.stepCount, nextActiveSteps: nextRes.activeSteps, nextBaseSteps: nextRes.baseSteps,
-      prevStepCount: prevRes.stepCount, prevActiveSteps: prevRes.activeSteps, prevBaseSteps: prevRes.baseSteps,
+      currStepCount: curRes.stepCount, currentActiveSteps: curRes.activeSteps, currentBaseSteps: curRes.baseSteps, currStepAngles: curRes.stepAngles,
+      nextStepCount: nextRes.stepCount, nextActiveSteps: nextRes.activeSteps, nextBaseSteps: nextRes.baseSteps, nextStepAngles: nextRes.stepAngles,
+      prevStepCount: prevRes.stepCount, prevActiveSteps: prevRes.activeSteps, prevBaseSteps: prevRes.baseSteps, prevStepAngles: prevRes.stepAngles,
     });
     const useSec = blend.isBlending && (blend.secondaryAlpha ?? 0) >= 0.5 && blend.secondaryMeasureIdx !== undefined;
     const rawState = useSec ? blend.secondaryState : blend.primaryState;
     if (!isNonEmpty(rawState)) continue;
     const baseState = useSec ? blend.secondaryBaseState : blend.primaryBaseState;
     const mIdx = useSec ? blend.secondaryMeasureIdx! : blend.primaryMeasureIdx;
-    const stepIdx = useSec ? (blend.secondaryStepIdx ?? 0) : blend.primaryStepIdx;
-    const stepCountM = useSec ? (blend.secondaryStepCount ?? curRes.stepCount) : blend.primaryStepCount;
-    const pat = mIdx === measureIdx ? curRes.pattern : (mIdx === nextMeasureIdx ? nextRes.pattern : prevRes.pattern);
+    const localStepIdx = useSec ? (blend.secondaryStepIdx ?? 0) : blend.primaryStepIdx;
+    const resForM = mIdx === measureIdx ? curRes : (mIdx === nextMeasureIdx ? nextRes : prevRes);
+    const actualStepIdx = computeMeasurePatternStepOffset(resForM.pattern, resForM.stepCount, mIdx) + localStepIdx;
     const dMain = Math.hypot(mouseX - (600 + Math.cos(angle) * bestRingRadius), mouseY - (600 + Math.sin(angle) * bestRingRadius));
     if (dMain <= 26 && (!bestHit || dMain < bestHit.dist)) {
-      bestHit = { rawState, baseState, mIdx, stepIdx, pat, subIdx: Array.isArray(rawState) ? 0 : undefined, dist: dMain };
+      bestHit = { rawState, baseState, mIdx, stepIdx: actualStepIdx, pat: resForM.pattern, subIdx: Array.isArray(rawState) ? 0 : undefined, dist: dMain };
     }
     if (Array.isArray(rawState) && rawState.length === 2 && isNonEmpty(rawState[1])) {
-      const subAngle = angle + 0.5 * ((Math.PI * 2) / Math.max(1, stepCountM));
+      const subAngle = angle + 0.5 * getStepAngularSpan(resForM.stepAngles, localStepIdx);
       const dSub = Math.hypot(mouseX - (600 + Math.cos(subAngle) * bestRingRadius), mouseY - (600 + Math.sin(subAngle) * bestRingRadius));
       if (dSub <= 20 && (!bestHit || dSub < bestHit.dist)) {
-        bestHit = { rawState, baseState, mIdx, stepIdx, pat, subIdx: 1, dist: dSub };
+        bestHit = { rawState, baseState, mIdx, stepIdx: actualStepIdx, pat: resForM.pattern, subIdx: 1, dist: dSub };
       }
     }
   }

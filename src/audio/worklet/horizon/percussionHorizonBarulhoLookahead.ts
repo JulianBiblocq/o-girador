@@ -6,6 +6,7 @@
 import { instrumentsConfig } from '../../../data';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
 import { GlobalSwing, Track } from '../../../types';
+import { getRodaStepDurationTicks } from '../../../utils/rodaTimeSigGeometry';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { ProjectedHorizonMeasure } from './percussionHorizonProjection';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
@@ -46,22 +47,18 @@ export function buildHorizonBarulhoLookaheadPoints(
       const symbol = String.fromCharCode((packedData >> 9) & 0x7F);
       const isTuplet = ((packedData >> 1) & 1) === 1;
       const tickDurSec = timing.instantTickDurSec[tickInMeasure];
-      const stepDurationSec = tickDurSec * 6;
       const baseStepAudioSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure];
       const activePattern = resolveActivePatternForMeasure(track, mutTracks, timing.measureIdx, soloPatternPlayId);
+      const stepDurationSec = tickDurSec * getRodaStepDurationTicks(timing.timeSig, activePattern, circleStepIdx);
       const swingJitter = (((((pm.seqId * 31 + tickInMeasure) * 17 + track.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
       const swingSec = computePercussionNoteSwing({
         activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter,
         globalMode: globalSwing.mode, globalSwing, stepDurationSec,
         balancoAdherence: engineDeps.getTrackBalancoAdherence(track.id),
-        baseStepAudioSec,
+        baseStepAudioSec, timeSig: timing.timeSig,
       });
-      const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
-      const timeSec =
-        baseStepAudioSec +
-        microSec +
-        engineDeps.getTrackUnisonDelaySec(track.id) +
-        swingSec;
+      const microSec = (microPct / 100) * stepDurationSec * 0.5;
+      const timeSec = baseStepAudioSec + microSec + engineDeps.getTrackUnisonDelaySec(track.id) + swingSec;
 
       points.push({ trackId: track.id, instId: inst.id, timeSec, symbol, velocity });
     };

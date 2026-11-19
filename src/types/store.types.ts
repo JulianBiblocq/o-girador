@@ -81,6 +81,7 @@ export interface TrainingState {
   tocarJuntoTrackId: number | null;
   tocarJuntoMuteScope: 'track' | 'family';
   tocarJuntoIsMuted: boolean;
+  isRestOfEnsembleMuted: boolean;
   isolateBaseOnly: boolean;
   firstPassRegistry: Record<string, boolean>;
   isFocusActive: boolean;
@@ -94,6 +95,7 @@ export interface TrainingSlice extends TrainingState {
   setTocarJuntoTrack: (trackId: number | null, baseOnly?: boolean) => void;
   setTocarJuntoMuteScope: (scope: 'track' | 'family') => void;
   setTocarJuntoIsMuted: (isMuted: boolean) => void;
+  setIsRestOfEnsembleMuted: (isMuted: boolean) => void;
   setIsolateBaseOnly: (baseOnly: boolean) => void;
   resetFirstPassRegistry: () => void;
   markFirstPassConsumed: (key: string) => void;

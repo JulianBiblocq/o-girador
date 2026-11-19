@@ -2,7 +2,8 @@ import { useRef, useEffect, useMemo, useState } from 'react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
-import { useTracksWithCustomEquality } from './measurePatternHelpers';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
+import { getDefaultStepsForMeasure, useTracksWithCustomEquality } from './measurePatternHelpers';
 import { createOverlayUpdater } from './useCircleOverlay';
 import { useCircleTickSync } from './useCircleTickSync';
 import { useCircleTouchInteraction } from './useCircleTouchInteraction';
@@ -51,11 +52,14 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const metadata = sequencer.metadata;
   const rhythmSignals = props.rhythmSignals ?? (metadata?.rhythmSignals || []);
   const mestreSignals = props.mestreSignals ?? [];
-  const maxTicks = props.maxTicks ?? audio.maxTicksRef.current;
   const timeSig = props.timeSig ?? (measureTimeSigs?.[currentMeasure] || sequencer.timeSig || '4/4');
+  const measureMaxTicks = getRodaMeasureGeometry(timeSig).maxTicks;
+  const maxTicks = props.maxTicks ?? measureMaxTicks;
 
   const onTogglePlay = props.onTogglePlay ?? audio.handleTogglePlay;
-  const onNavigateMeasure = props.onNavigateMeasure ?? ((mIdx: number) => audio.handleTimelineNavigate(mIdx, 0, 16));
+  const onNavigateMeasure = props.onNavigateMeasure ?? ((mIdx: number) =>
+    audio.handleTimelineNavigate(mIdx, 0, getDefaultStepsForMeasure(mIdx, sequencer.timeSig, measureTimeSigs))
+  );
 
   useEffect(() => { if (!isActive) setPedagogyTarget(null); }, [isActive]);
 
@@ -74,7 +78,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   useEffect(() => { expandedRef.current = getExpandedMeasures(totalMeasures, songSections); }, [totalMeasures, songSections]);
 
   const livePlaybackRef = useRef<LivePlaybackState>({
-    step: -1, measure: 0, maxTicks: 96, ratio: 0, iteration: 1, time: 0, isPreRoll: false,
+    step: -1, measure: 0, maxTicks: measureMaxTicks, ratio: 0, iteration: 1, time: 0, isPreRoll: false,
   });
 
   const stateRef = useRef<any>({});

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { audioEngine } from '../../hooks/useAudioSync';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
 import { drawAlfaiaBackground } from './drawAlfaiaBackground';
 import { computeStickAngle } from './computeStickAngle';
@@ -56,8 +57,6 @@ export function useCirclePlayheadRaf(
       if (isDetailEditorOpen()) { animIdRef.current = requestAnimationFrame(drawLoop); return; }
 
       const seqState = useSequencerStore.getState();
-      // Palier 1 Eco : coupe uniquement les effets secondaires (ripples, ombres, halos, vagues),
-      // jamais la cadence 60 FPS ni l'interpolation de l'aiguille.
       const isEco = Boolean(seqState.isEcoMode);
       const isMobileDevice = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
       const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
@@ -71,8 +70,12 @@ export function useCirclePlayheadRaf(
       }
 
       const scaleFactor = canvas.width / 1200;
-      const { tracks, rawTracks: localRawTracks, rodaTrackOrder: localRodaOrder, isPlaying: localPlaying, timeSig: localTimeSig, hitTriggersRef } = stateRef.current;
-      const live = livePlaybackRef.current, localTicks = live.maxTicks || 96, theme = themeRef.current;
+      const { tracks, rawTracks: localRawTracks, rodaTrackOrder: localRodaOrder, isPlaying: localPlaying, timeSig: fallbackTimeSig, measureTimeSigs, currentMeasure, hitTriggersRef } = stateRef.current;
+      const live = livePlaybackRef.current, theme = themeRef.current;
+      const liveMeasureIdx = live && live.step >= 0 ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : currentMeasure);
+      const localTimeSig = measureTimeSigs?.[liveMeasureIdx] || fallbackTimeSig || '4/4';
+      const localTicks = getRodaMeasureGeometry(localTimeSig).maxTicks;
+
       const sortedTracks = sortTracksByRodaOrder(tracks, localRodaOrder);
       const activeVisibleTracks = orderActiveVisibleRodaTracks(
         sortedTracks.filter(isRodaDrawableTrack),

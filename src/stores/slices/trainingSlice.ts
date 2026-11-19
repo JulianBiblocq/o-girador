@@ -1,48 +1,46 @@
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrainingSlice, TrackGroup } from '../../types';
-import { instrumentsConfig } from '../../data';
 import { resolveDefaultFocusTrackId } from '../../utils/focusTrackSelector';
 import { getStoredLastFocusInstrument, getStoredWorkingInstrument, setStoredLastFocusInstrument } from '../../utils/userPreferencesStorage';
 import { applyFocusTracksVisibility, restoreUnfocusedTracksVisibility } from '../helpers/focusVisibilityHelpers';
+import {
+  executeSyncFocusWithTracks,
+  getPendingUrlRoleOverride,
+  recordManualFocusChoice,
+  setPendingUrlRoleOverride,
+} from '../helpers/trainingFocusSyncHelper';
 import { syncAoVivoOnTrackSwitch } from '../../components/AoVivo/resolveAoVivoFamily';
-import { setFocusBalancoDrawerOpen, resetLiveBalancoMorphToUnity } from '../../audio/groove/liveBalancoMorph';
+import { setFocusBalancoDrawerOpen } from '../../audio/groove/liveBalancoMorph';
 
-let lastSyncedSongKey = '', lastSyncedToada = '', lastSyncedProfileKey = '';
-let pendingUrlRole: string | null = typeof window !== 'undefined'
-  ? (new URLSearchParams(window.location.search).get('role') || new URLSearchParams(window.location.search).get('targetTrack'))
-  : null;
-
-export function setPendingUrlRoleOverride(role: string | null): void { pendingUrlRole = role; }
+export { setPendingUrlRoleOverride };
 
 const readInitialPreferred = (): string | null => {
   const s = getStoredWorkingInstrument();
   return s !== 'auto' ? s : getStoredLastFocusInstrument();
 };
-const computeSongKey = (toada: string, tracks: TrackGroup[]): string =>
-  `${toada}|${tracks.map((t) => `${t.id}:${t.instrumentIdx}`).join(',')}`;
-
-function recordManualChoice(trackId: number | null, s: { tracks: TrackGroup[]; metadata?: { toada?: string } }): string | undefined {
-  pendingUrlRole = null;
-  const trackObj = trackId !== null ? s.tracks.find((t) => t.id === trackId) : undefined;
-  const instId = trackObj ? instrumentsConfig[trackObj.instrumentIdx]?.id : undefined;
-  if (instId) setStoredLastFocusInstrument(instId);
-  lastSyncedToada = s.metadata?.toada || '';
-  lastSyncedSongKey = computeSongKey(lastSyncedToada, s.tracks);
-  return instId;
-}
 
 export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingSlice> = (set, get) => ({
-  tocarJuntoActive: false, tocarJuntoTrackId: null, tocarJuntoMuteScope: 'track',
-  tocarJuntoIsMuted: false, isolateBaseOnly: false, firstPassRegistry: {},
-  isFocusActive: false, focusTrackId: null, referenceTrackId: null,
-  preferredInstrumentName: readInitialPreferred(), hasManualFocusSelection: false,
+  tocarJuntoActive: false,
+  tocarJuntoTrackId: null,
+  tocarJuntoMuteScope: 'track',
+  tocarJuntoIsMuted: false,
+  isRestOfEnsembleMuted: false,
+  isolateBaseOnly: false,
+  firstPassRegistry: {},
+  isFocusActive: false,
+  focusTrackId: null,
+  referenceTrackId: null,
+  preferredInstrumentName: readInitialPreferred(),
+  hasManualFocusSelection: false,
 
   setTocarJuntoMuteScope: (scope) => set({ tocarJuntoMuteScope: scope }),
   setTocarJuntoIsMuted: (isMuted) => set((s) => ({
-    tocarJuntoIsMuted: isMuted, tocarJuntoActive: isMuted,
+    tocarJuntoIsMuted: isMuted,
+    tocarJuntoActive: isMuted,
     tocarJuntoTrackId: isMuted ? (s.tocarJuntoTrackId ?? s.focusTrackId) : s.tocarJuntoTrackId,
   })),
+  setIsRestOfEnsembleMuted: (isMuted) => set({ isRestOfEnsembleMuted: isMuted }),
   setTocarJuntoTrack: (trackId) => {
     if (trackId === null) { set({ tocarJuntoActive: false, tocarJuntoTrackId: null }); return; }
     set((s) => ({
@@ -56,7 +54,7 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
 
   setFocusTrackId: (trackId, preferredName, isManual = false) => set((s) => {
     const nextRefId = s.referenceTrackId === trackId ? null : s.referenceTrackId;
-    const instId = isManual ? recordManualChoice(trackId, s) : undefined;
+    const instId = isManual ? recordManualFocusChoice(trackId, s) : undefined;
     const updates: Record<string, any> = {
       focusTrackId: trackId, referenceTrackId: nextRefId, tocarJuntoTrackId: trackId, hasManualFocusSelection: isManual,
       preferredInstrumentName: preferredName !== undefined ? preferredName : (instId || s.preferredInstrumentName),
@@ -73,7 +71,7 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
 
   activateFocusOnTrack: (trackId) => set((s) => {
     const nextRefId = s.referenceTrackId === trackId ? null : s.referenceTrackId;
-    const instId = recordManualChoice(trackId, s);
+    const instId = recordManualFocusChoice(trackId, s);
     return {
       isFocusActive: true, focusTrackId: trackId, referenceTrackId: nextRefId,
       tocarJuntoTrackId: trackId, activeAoVivoTrackId: trackId, hasManualFocusSelection: true,
@@ -87,7 +85,7 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
     const clean = name && name !== 'auto' ? name : null;
     if (clean) setStoredLastFocusInstrument(clean);
     set({ preferredInstrumentName: clean, hasManualFocusSelection: false });
-    const s = get(), resolved = resolveDefaultFocusTrackId(s.tracks, userProfile, clean, pendingUrlRole);
+    const s = get(), resolved = resolveDefaultFocusTrackId(s.tracks, userProfile, clean, getPendingUrlRoleOverride());
     if (resolved !== null) s.setFocusTrackId(resolved, clean ?? undefined, false);
   },
 
@@ -99,7 +97,7 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
 
   toggleFocusMode: (explicitTrackId) => {
     const s = get();
-    const targetId = explicitTrackId ?? s.focusTrackId ?? resolveDefaultFocusTrackId(s.tracks, null, s.preferredInstrumentName, pendingUrlRole);
+    const targetId = explicitTrackId ?? s.focusTrackId ?? resolveDefaultFocusTrackId(s.tracks, null, s.preferredInstrumentName, getPendingUrlRoleOverride());
     if (targetId === null) return;
     if (s.isFocusActive) {
       setFocusBalancoDrawerOpen(false);
@@ -110,26 +108,6 @@ export const createTrainingSlice: StateCreator<SequencerStore, [], [], TrainingS
   },
 
   syncFocusWithTracks: (tracks: TrackGroup[], userProfile?: any) => {
-    if (!tracks || tracks.length === 0) return;
-    const s = get(), curToada = s.metadata?.toada || '', songKey = computeSongKey(curToada, tracks);
-    const profileKey = `${userProfile?.uid || ''}|${userProfile?.instrument || ''}|${userProfile?.preferredInstrument || ''}`;
-    const currentId = s.focusTrackId, exists = currentId !== null && tracks.some((t) => t.id === currentId);
-    const isSameManualSong = s.hasManualFocusSelection && exists && Boolean(lastSyncedSongKey) && (curToada ? curToada === lastSyncedToada : songKey === lastSyncedSongKey);
-    const songChanged = !isSameManualSong && songKey !== lastSyncedSongKey, profileChanged = profileKey !== lastSyncedProfileKey;
-    lastSyncedSongKey = songKey; lastSyncedToada = curToada; lastSyncedProfileKey = profileKey;
-    if (songChanged) resetLiveBalancoMorphToUnity();
-    if (!exists || songChanged || (profileChanged && !s.hasManualFocusSelection)) {
-      const resolved = resolveDefaultFocusTrackId(tracks, userProfile, s.preferredInstrumentName, pendingUrlRole);
-      if (resolved !== null) s.setFocusTrackId(resolved, undefined, false);
-      return;
-    }
-    const validRefId = s.referenceTrackId !== null && s.referenceTrackId !== currentId && tracks.some((t) => t.id === s.referenceTrackId) ? s.referenceTrackId : null;
-    if (s.isFocusActive && currentId !== null) {
-      const nextTracks = applyFocusTracksVisibility(tracks, currentId, validRefId, s.rodaTrackOrder);
-      const aoVivoPatch = s.activeAoVivoTrackId !== null && s.activeAoVivoTrackId !== currentId ? syncAoVivoOnTrackSwitch(currentId, { activeAoVivoTrackId: s.activeAoVivoTrackId, tracks }) : {};
-      if (validRefId !== s.referenceTrackId || Object.keys(aoVivoPatch).length > 0 || nextTracks.some((t, i) => t.isHidden !== tracks[i]?.isHidden)) {
-        set((p) => ({ ...aoVivoPatch, referenceTrackId: validRefId, tracks: nextTracks, tracksVersion: p.tracksVersion + 1 }));
-      }
-    }
+    executeSyncFocusWithTracks(tracks, userProfile, get, set);
   },
 });

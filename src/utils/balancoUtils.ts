@@ -1,56 +1,62 @@
 import type { Pattern, Track, GlobalSwing } from '../types';
 import { useBalancoStore } from '../stores/useBalancoStore';
 import { getLiveBalancoMorphScaleAtTime } from '../audio/groove/liveBalancoMorph';
+import { getRodaMeasureGeometry, resolveActiveBeatResolutions } from './rodaTimeSigGeometry';
 
 export interface StepBalancoParams {
   stepIdx: number;
   steps: number;
   beatResolutions?: number[];
+  timeSig?: string;
   track?: Pick<Track, 'balancoPresetId' | 'balancoAmount' | 'swingIntensity'> | null;
   pattern?: Pick<Pattern, 'balancoPresetId' | 'balancoAmount' | 'swingIntensity'> | null;
   globalSwing?: GlobalSwing | null;
 }
 
-/**
- * Calcule le pourcentage de décalage de balanço pour un pas précis,
- * en respectant la hiérarchie : Pattern > Track > Global Swing.
- */
+function inferTimeSigFromSteps(steps: number, explicitSig?: string): string {
+  if (explicitSig) return explicitSig;
+  if (steps === 6) return '6/8';
+  if (steps === 8) return '2/4';
+  if (steps === 9) return '9/8';
+  if (steps === 12) return '3/4';
+  return '4/4';
+}
+
+function resolveBeatPosition(stepIdx: number, steps: number, beatResolutions?: number[], timeSig?: string): { posInGroup: number; beatRes: number; isTernary: boolean } {
+  const sig = inferTimeSigFromSteps(steps, timeSig);
+  const resList = beatResolutions && beatResolutions.length > 0
+    ? beatResolutions
+    : resolveActiveBeatResolutions(sig, { steps, beatResolutions });
+
+  let accumulated = 0;
+  for (let b = 0; b < resList.length; b++) {
+    const res = Math.max(1, resList[b] || 4);
+    if (stepIdx >= accumulated && stepIdx < accumulated + res) {
+      const posInBeat = stepIdx - accumulated;
+      const isTernary = res === 3 || res === 6;
+      if (isTernary || posInBeat === 0 && res === 1) return { posInGroup: posInBeat, beatRes: res, isTernary };
+      if (res === 4) return { posInGroup: posInBeat, beatRes: res, isTernary: false };
+      if (res === 2) return { posInGroup: posInBeat * 2, beatRes: res, isTernary: false };
+      return { posInGroup: Math.min(3, Math.floor((posInBeat * 4) / res)), beatRes: res, isTernary: false };
+    }
+    accumulated += res;
+  }
+  const fallbackRes = Math.max(1, resList[0] || 4);
+  const pos = Math.max(0, stepIdx - accumulated) % fallbackRes;
+  return { posInGroup: pos, beatRes: fallbackRes, isTernary: fallbackRes === 3 || fallbackRes === 6 };
+}
+
 export function computeStepBalancoPercent({
-  stepIdx,
-  steps,
-  beatResolutions,
-  track,
-  pattern,
-  globalSwing,
+  stepIdx, steps, beatResolutions, timeSig, track, pattern, globalSwing,
 }: StepBalancoParams): number {
   if (globalSwing?.mode === 'off') return 0;
 
-  let posInGroup = 0;
-  if (beatResolutions && beatResolutions.length > 0) {
-    let accumulated = 0;
-    for (const res of beatResolutions) {
-      if (stepIdx >= accumulated && stepIdx < accumulated + res) {
-        if (res === 3 || res === 6) return 0;
-        posInGroup = stepIdx - accumulated;
-        break;
-      }
-      accumulated += res;
-    }
-  } else {
-    const posInBeat = ((stepIdx / (steps / 4)) % 1) * 4;
-    posInGroup = Math.round(posInBeat) % 4;
-  }
+  const { posInGroup, isTernary } = resolveBeatPosition(stepIdx, steps, beatResolutions, timeSig);
+  if (isTernary) return 0;
 
-  const trackAmount = track?.balancoAmount !== undefined
-    ? track.balancoAmount
-    : (track?.swingIntensity !== undefined ? track.swingIntensity : 100);
-  const patternAmount = pattern?.balancoAmount !== undefined
-    ? pattern.balancoAmount
-    : (pattern?.swingIntensity !== undefined ? pattern.swingIntensity : 100);
-  const totalMultiplier = (trackAmount / 100) * (patternAmount / 100);
-
-  const globalIntensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100;
-  const effectiveIntensity = globalIntensity * totalMultiplier;
+  const trackAmount = track?.balancoAmount ?? track?.swingIntensity ?? 100;
+  const patternAmount = pattern?.balancoAmount ?? pattern?.swingIntensity ?? 100;
+  const effectiveIntensity = ((globalSwing?.swingIntensity ?? 100) / 100) * (trackAmount / 100) * (patternAmount / 100);
 
   const patternPresetId = pattern?.balancoPresetId;
   const trackPresetId = track?.balancoPresetId;
@@ -62,16 +68,13 @@ export function computeStepBalancoPercent({
       (globalSwing?.mode === 'maracatu' && Array.isArray(globalSwing.customOffsets) && globalSwing.customOffsets.length >= 4))
   ) {
     const customOffsets = globalSwing.customOffsets ?? [0, 8, -29, -58];
-    const offsetPct = customOffsets[posInGroup % customOffsets.length] ?? 0;
-    return offsetPct * effectiveIntensity;
+    return (customOffsets[posInGroup % customOffsets.length] ?? 0) * effectiveIntensity;
   }
 
   const effectivePresetId = patternPresetId || trackPresetId || (globalSwing?.mode === 'maracatu' ? 'maracatu-trad' : undefined);
   const resolvedPreset = useBalancoStore.getState().resolvePreset(effectivePresetId);
   const offsets = resolvedPreset?.offsets ?? [0, 8, -29, -58];
-  const offsetPct = offsets[posInGroup % offsets.length] ?? 0;
-
-  return offsetPct * effectiveIntensity;
+  return (offsets[posInGroup % offsets.length] ?? 0) * effectiveIntensity;
 }
 
 export interface BalancoOffsetParams extends StepBalancoParams {
@@ -82,16 +85,8 @@ export interface BalancoOffsetParams extends StepBalancoParams {
 }
 
 export function getBalancoOffsetSec({
-  stepIdx,
-  steps,
-  beatResolutions,
-  track,
-  pattern,
-  globalSwing,
-  bpm,
-  isPreRoll = false,
-  baseStepAudioSec,
-  ignoreLiveMorph = false,
+  stepIdx, steps, beatResolutions, timeSig, track, pattern, globalSwing,
+  bpm, isPreRoll = false, baseStepAudioSec, ignoreLiveMorph = false,
 }: BalancoOffsetParams): number {
   if (!isPreRoll && stepIdx === 0) return 0;
   if (!bpm || bpm <= 0) return 0;
@@ -99,18 +94,13 @@ export function getBalancoOffsetSec({
   const morphScale = ignoreLiveMorph ? 1.0 : getLiveBalancoMorphScaleAtTime(baseStepAudioSec);
   if (morphScale <= 0) return 0;
 
-  const percent = computeStepBalancoPercent({
-    stepIdx,
-    steps,
-    beatResolutions,
-    track,
-    pattern,
-    globalSwing,
-  });
-
+  const percent = computeStepBalancoPercent({ stepIdx, steps, beatResolutions, timeSig, track, pattern, globalSwing });
   if (percent === 0) return 0;
 
-  const numBeats = 4;
-  const stepDurationSec = (60 / bpm) / (steps / numBeats);
+  const sig = inferTimeSigFromSteps(steps, timeSig);
+  const geom = getRodaMeasureGeometry(sig);
+  const { beatRes } = resolveBeatPosition(stepIdx, steps, beatResolutions, sig);
+  const beatDurationSec = geom.isCompound ? 90 / bpm : 60 / bpm;
+  const stepDurationSec = beatDurationSec / Math.max(1, beatRes);
   return (percent / 100) * stepDurationSec * 0.5 * morphScale;
 }

@@ -1,7 +1,7 @@
-
 import { useState, useRef, useEffect } from 'react';
 import type { TrackGroup, Pattern } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { EMPTY_ARRAY } from './circleSequencerConstants';
 
 export const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]): boolean => {
@@ -75,13 +75,13 @@ export const resolvePatternForMeasure = (
 ): Pattern | null => {
   if (!tObj) return null;
   if (sPlayId !== undefined && sPlayId !== null) {
-    return tObj.patterns.find(p => p.id === sPlayId) || null;
+    return tObj.patterns.find((p) => p.id === sPlayId) || null;
   }
   const overrideId = tObj.patternOverrides?.[mIdx];
   if (overrideId !== undefined) {
-    return overrideId !== null ? (tObj.patterns.find(p => p.id === overrideId) || null) : null;
+    return overrideId !== null ? (tObj.patterns.find((p) => p.id === overrideId) || null) : null;
   }
-  return tObj.patterns.find(p => p.measureAssignments?.[mIdx]) || null;
+  return tObj.patterns.find((p) => p.measureAssignments?.[mIdx]) || null;
 };
 
 export function getDefaultStepsForMeasure(
@@ -89,42 +89,35 @@ export function getDefaultStepsForMeasure(
   timeSig: string = '4/4',
   measureTimeSigs?: Record<number, string> | string[]
 ): number {
-  const effectiveTimeSig = (measureTimeSigs && (Array.isArray(measureTimeSigs) ? measureTimeSigs[measureIdx] : measureTimeSigs[measureIdx])) || timeSig || '4/4';
-  if (effectiveTimeSig === '12/8') return 12;
-  if (effectiveTimeSig === '6/8') return 6;
-  if (effectiveTimeSig === '9/8') return 9;
-  if (effectiveTimeSig === '2/4') return 8;
-  if (effectiveTimeSig === '3/4') return 12;
-  if (effectiveTimeSig === '4/4') return 16;
-  const parts = effectiveTimeSig.split('/');
-  const num = parseInt(parts[0], 10) || 4;
-  const den = parseInt(parts[1], 10) || 4;
-  if (den === 8) return num;
-  return num * 4;
+  const effectiveTimeSig =
+    (measureTimeSigs && (Array.isArray(measureTimeSigs) ? measureTimeSigs[measureIdx] : measureTimeSigs[measureIdx])) ||
+    timeSig ||
+    '4/4';
+  return getRodaMeasureGeometry(effectiveTimeSig).defaultSteps;
 }
 
 export function getPhysicalStepFromRatio(
   ratio: number,
   pattern: Pattern | null | undefined,
   totalSteps: number,
-  beatsCount: number
+  beatsCount: number,
+  explicitResolutions?: readonly number[]
 ): number {
   const clampedRatio = Math.min(0.999999, Math.max(0, ratio));
-  const resolutions = pattern?.beatResolutions && pattern.beatResolutions.length === beatsCount
-    ? pattern.beatResolutions
-    : (pattern?.beatResolutions && pattern.beatResolutions.length > 0 
-        ? pattern.beatResolutions 
-        : Array(beatsCount).fill(Math.max(1, Math.floor(totalSteps / beatsCount))));
+  const safeBeats = Math.max(1, beatsCount || 4);
+  const fallbackSub = Math.max(1, Math.floor(totalSteps / safeBeats));
+  const resolutions = explicitResolutions && explicitResolutions.length >= safeBeats
+    ? explicitResolutions.slice(0, safeBeats)
+    : (pattern?.beatResolutions && pattern.beatResolutions.length >= safeBeats
+        ? pattern.beatResolutions.slice(0, safeBeats)
+        : Array(safeBeats).fill(fallbackSub));
 
   const b = Math.min(resolutions.length - 1, Math.floor(clampedRatio * resolutions.length));
-  const subProgression = (clampedRatio * resolutions.length) - b;
-  const res = resolutions[b] || 4;
+  const subProgression = clampedRatio * resolutions.length - b;
+  const res = Math.max(1, resolutions[b] || fallbackSub);
   const k = Math.min(res - 1, Math.floor(subProgression * res));
 
   let stepOffset = 0;
-  for (let i = 0; i < b; i++) {
-    stepOffset += resolutions[i] || 4;
-  }
-
-  return Math.min(totalSteps - 1, Math.max(0, stepOffset + k));
+  for (let i = 0; i < b; i++) stepOffset += Math.max(1, resolutions[i] || fallbackSub);
+  return Math.min(Math.max(1, totalSteps) - 1, Math.max(0, stepOffset + k));
 }

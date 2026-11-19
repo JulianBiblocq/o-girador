@@ -1,9 +1,8 @@
-
 import { useEffect, useRef } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { getLastAudibleTick } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { getBeatsPerMeasure } from '../../utils/measureHelpers';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { LivePlaybackState } from './circleSequencerTypes';
 import { computeDisplayMeasure } from './computeDisplayMeasure';
 
@@ -30,12 +29,20 @@ export function useCircleTickSync(
   useEffect(() => {
     if (!isActive) return;
 
+    const resolveMeasureGeom = (mIdx: number) => {
+      const sig = (measureTimeSigsRef.current && measureTimeSigsRef.current[mIdx]) || timeSig || '4/4';
+      return getRodaMeasureGeometry(sig);
+    };
+
     const handleTick = (detail: any) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration, isPaused, isNavigation } = detail;
+      const { step, measure, time = 0, iteration = 1, measureStartTime, measureDuration, isPaused, isNavigation } = detail;
+      const geom = resolveMeasureGeom(measure ?? 0);
+      const effectiveMaxTicks = detail.maxTicks && detail.maxTicks > 0 ? detail.maxTicks : geom.maxTicks;
+      const ratio = detail.ratio !== undefined ? detail.ratio : step / effectiveMaxTicks;
 
       if (isPaused) {
         if (isNavigation) {
-          livePlaybackRef.current = { step: 0, measure, maxTicks, ratio: 0, iteration, time: 0, measureStartTime: 0, measureDuration: 0, isPreRoll: false };
+          livePlaybackRef.current = { step: 0, measure, maxTicks: geom.maxTicks, ratio: 0, iteration, time: 0, measureStartTime: 0, measureDuration: 0, isPreRoll: false };
           frozenStickAngleRef.current = -Math.PI / 2;
           const { displayMeasure, displayTotal } = computeDisplayMeasure(expandedRef.current, totalMeasures, measure, iteration);
           if (measureDisplayRef.current) measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
@@ -45,7 +52,8 @@ export function useCircleTickSync(
       }
 
       if (step < 0) {
-        livePlaybackRef.current = { step: -1, measure: 0, maxTicks, ratio: 0, iteration: 1, time: 0, measureStartTime: 0, measureDuration: 0, isPreRoll: false };
+        const g0 = resolveMeasureGeom(0);
+        livePlaybackRef.current = { step: -1, measure: 0, maxTicks: g0.maxTicks, ratio: 0, iteration: 1, time: 0, measureStartTime: 0, measureDuration: 0, isPreRoll: false };
         frozenStickAngleRef.current = -Math.PI / 2;
         const displayTotal = expandedRef.current.length > 0 ? expandedRef.current.length : totalMeasures;
         if (measureDisplayRef.current) measureDisplayRef.current.innerText = `1 / ${displayTotal}`;
@@ -58,7 +66,7 @@ export function useCircleTickSync(
       const updatedStartTime = isNewMeasure ? (measureStartTime || currentLive.measureStartTime) : (currentLive.measureStartTime || measureStartTime);
 
       livePlaybackRef.current = {
-        step, measure, maxTicks, ratio, iteration, time,
+        step, measure, maxTicks: effectiveMaxTicks, ratio, iteration, time,
         measureStartTime: updatedStartTime,
         measureDuration: measureDuration ?? currentLive.measureDuration,
         isPreRoll: Boolean(detail.isPreRoll),
@@ -69,8 +77,7 @@ export function useCircleTickSync(
         expandedRef.current, totalMeasures, measure, iteration, pendingTargetExpandedIndexRef.current
       );
 
-      const localTimeSig = (measureTimeSigsRef.current && measureTimeSigsRef.current[measure]) || timeSig || '4/4';
-      const beatsPerMeasure = getBeatsPerMeasure(localTimeSig);
+      const beatsPerMeasure = geom.beatsCount;
       const currentBeat = Math.min(beatsPerMeasure - 1, Math.max(0, Math.floor(ratio * beatsPerMeasure)));
 
       if (detail.isPreRoll) {
@@ -104,11 +111,12 @@ export function useCircleTickSync(
       handleTick(lastTick);
     } else {
       const curMeasure = useSequencerStore.getState().currentMeasure;
+      const curGeom = resolveMeasureGeom(curMeasure);
       const { displayMeasure, displayTotal } = computeDisplayMeasure(expandedRef.current, totalMeasures, curMeasure, 1);
       if (measureDisplayRef.current) measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
       livePlaybackRef.current = {
-        step: 0, measure: curMeasure, maxTicks: 96, ratio: 0, iteration: 1, time: 0,
-        measureStartTime: 0, measureDuration: 0, isPreRoll: false
+        step: 0, measure: curMeasure, maxTicks: curGeom.maxTicks, ratio: 0, iteration: 1, time: 0,
+        measureStartTime: 0, measureDuration: 0, isPreRoll: false,
       };
       frozenStickAngleRef.current = -Math.PI / 2;
       updateOverlayRef.current(displayMeasure - 1, curMeasure, 0, false);

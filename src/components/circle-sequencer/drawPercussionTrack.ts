@@ -3,6 +3,7 @@ import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
 import { areStepValuesEqual, resolveSlaveStepOpacity, SlaveFocusContext } from '../../utils/slaveStepOpacityResolver';
+import { getStepAngularSpan } from '../../utils/rodaTimeSigGeometry';
 import { resolveStepPastilleData } from './resolveStepPastilleData';
 import { drawSplitStepPastille } from './drawSplitStepPastille';
 import { drawRasSubStep } from './drawRasSubStep';
@@ -32,7 +33,8 @@ export const drawPercussionTrack = (
   isPlaying: boolean = false,
   playheadRatio: number = 0,
   soloPatternPlayId: number | null = null,
-  totalTracks: number = 7
+  totalTracks: number = 7,
+  stepOffset: number = 0
 ): void => {
   const st = useSequencerStore.getState();
   const focusCtx: SlaveFocusContext = {
@@ -51,9 +53,12 @@ export const drawPercussionTrack = (
     ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId, st.measureTimeSigs, st.timeSig)
     : { activeSteps: [], baseSteps: [], pattern: null, stepAngles: [], stepCount: effectiveStepCount };
 
+  const rawBaseCurr = activePattern?.activeSteps || [];
+  const currentBaseSteps = stepOffset > 0 ? rawBaseCurr.slice(stepOffset, stepOffset + effectiveStepCount) : rawBaseCurr;
+
   const drawSingleStateAtStep = (
     rawState: any, baseState: any, mIdx: number, stepIdx: number, stepCountForM: number,
-    stepAngle: number, x: number, y: number, blendWeight: number
+    anglesForM: readonly number[], stepAngle: number, x: number, y: number, blendWeight: number
   ) => {
     const isRas = Array.isArray(rawState) && rawState.length === 2;
     const masterState = isRas ? rawState[0] : rawState;
@@ -90,11 +95,14 @@ export const drawPercussionTrack = (
     );
 
     if (isRas) {
-      const anglePerStepM = (Math.PI * 2) / Math.max(1, stepCountForM);
+      const anglePerStepM = anglesForM.length > 0 ? getStepAngularSpan(anglesForM, stepIdx) : (Math.PI * 2) / Math.max(1, stepCountForM);
       drawRasSubStep(ctx, rawState[1], stepAngle, anglePerStepM, centerX, centerY, tRad, currentInst, track, rawTracks, instrumentsConfig, localLeftHanded, dynamicScale, themeBorder, isPlaying, playheadRatio, isEco);
     }
     ctx.restore();
   };
+
+  const resolveAnglesForM = (mIdx: number) =>
+    mIdx === measureIdx ? stepAngles : (mIdx === nextMeasureIdx ? nextResolved.stepAngles : prevResolved.stepAngles);
 
   const candidates = buildCandidateAnglesForSweep(stepAngles, nextResolved.stepAngles, prevResolved.stepAngles, isPlaying, st.rodaSweepMode);
   for (let i = 0; i < candidates.length; i++) {
@@ -105,18 +113,18 @@ export const drawPercussionTrack = (
     const blend = resolveStepSweepBlend({
       p, isPlaying, playheadRatio, rodaSweepMode: st.rodaSweepMode,
       currentMeasureIdx: measureIdx, nextMeasureIdx, prevMeasureIdx: snapshots.prevMeasureIdx, hasPrevMeasure: snapshots.hasPrevMeasure,
-      currStepCount: effectiveStepCount, currentActiveSteps: activePlayingSteps || [], currentBaseSteps: activePattern?.activeSteps || [],
-      nextStepCount: nextResolved.stepCount, nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps,
-      prevStepCount: prevResolved.stepCount, prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps,
+      currStepCount: effectiveStepCount, currentActiveSteps: activePlayingSteps || [], currentBaseSteps, currStepAngles: stepAngles,
+      nextStepCount: nextResolved.stepCount, nextActiveSteps: nextResolved.activeSteps, nextBaseSteps: nextResolved.baseSteps, nextStepAngles: nextResolved.stepAngles,
+      prevStepCount: prevResolved.stepCount, prevActiveSteps: prevResolved.activeSteps, prevBaseSteps: prevResolved.baseSteps, prevStepAngles: prevResolved.stepAngles,
     });
 
-    drawSingleStateAtStep(blend.primaryState, blend.primaryBaseState, blend.primaryMeasureIdx, blend.primaryStepIdx, blend.primaryStepCount, stepAngle, x, y, blend.primaryAlpha);
+    drawSingleStateAtStep(blend.primaryState, blend.primaryBaseState, blend.primaryMeasureIdx, blend.primaryStepIdx, blend.primaryStepCount, resolveAnglesForM(blend.primaryMeasureIdx), stepAngle, x, y, blend.primaryAlpha);
     if (blend.isBlending && blend.secondaryMeasureIdx !== undefined && blend.secondaryAlpha) {
-      drawSingleStateAtStep(blend.secondaryState, blend.secondaryBaseState, blend.secondaryMeasureIdx, blend.secondaryStepIdx ?? 0, blend.secondaryStepCount ?? effectiveStepCount, stepAngle, x, y, blend.secondaryAlpha);
+      drawSingleStateAtStep(blend.secondaryState, blend.secondaryBaseState, blend.secondaryMeasureIdx, blend.secondaryStepIdx ?? 0, blend.secondaryStepCount ?? effectiveStepCount, resolveAnglesForM(blend.secondaryMeasureIdx), stepAngle, x, y, blend.secondaryAlpha);
     }
   }
 
-  if (!isEco) {
+  if (!isEco && stepAngles.length > 0) {
     const x0 = centerX + Math.cos(stepAngles[0]) * tRad;
     const y0 = centerY + Math.sin(stepAngles[0]) * tRad;
     ctx.save();

@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
@@ -10,8 +9,12 @@ import {
 } from '../../audio/visualTickBuffer';
 import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { isBalancoMorphCycleActive, resetLiveBalancoMorphToUnity } from '../../audio/groove/liveBalancoMorph';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { SATELLITE_VISIBILITY_EVENT } from '../../utils/satelliteWindowWatcher';
-import { getAudioEngine } from './audioEngineNodes';
+import {
+  busChannels, channels, distortionSends, getAudioEngine, masterVolumeNode, meters, reverbSends, trackInputs,
+} from './audioEngineNodes';
+import { syncTrackChannels } from './syncTrackChannels';
 
 export interface UseAudioSyncSubscriptionsProps {
   isPlaying: boolean;
@@ -26,15 +29,7 @@ export interface UseAudioSyncSubscriptionsProps {
 }
 
 export function useAudioSyncSubscriptions({
-  isPlaying,
-  setIsPlaying,
-  isPlayingRef,
-  setIsPlayingRef,
-  bpm,
-  refs,
-  onStop,
-  onSeek,
-  onNavigate,
+  isPlaying, setIsPlaying, isPlayingRef, setIsPlayingRef, bpm, refs, onStop, onSeek, onNavigate,
 }: UseAudioSyncSubscriptionsProps): void {
   useEffect(() => {
     refs.isPlayingRef.current = isPlaying;
@@ -42,36 +37,42 @@ export function useAudioSyncSubscriptions({
     if (useSequencerStore.getState().isPlaying !== isPlaying) {
       useSequencerStore.getState().setIsPlaying(isPlaying);
     }
-    if (!isPlaying && isBalancoMorphCycleActive()) {
-      resetLiveBalancoMorphToUnity();
-    }
-    if (typeof window !== 'undefined') {
-      (window as any).__IS_PLAYING__ = isPlaying;
-    }
+    if (!isPlaying && isBalancoMorphCycleActive()) resetLiveBalancoMorphToUnity();
+    if (typeof window !== 'undefined') (window as any).__IS_PLAYING__ = isPlaying;
   }, [isPlaying, isPlayingRef, refs.isPlayingRef]);
 
   useEffect(() => {
-    if (setIsPlayingRef) {
-      setIsPlayingRef.current = setIsPlaying;
-    }
+    if (setIsPlayingRef) setIsPlayingRef.current = setIsPlaying;
   }, [setIsPlayingRef, setIsPlaying]);
 
   useEffect(() => {
-    if (bpm) {
-      Tone.Transport.bpm.value = bpm;
-    }
+    if (bpm) Tone.Transport.bpm.value = bpm;
   }, [bpm]);
 
   useEffect(() => {
     return useSequencerStore.subscribe((state, prev) => {
-      if (
+      const practiceMuteChanged =
+        state.mobileViewMode !== prev.mobileViewMode ||
+        state.isRestOfEnsembleMuted !== prev.isRestOfEnsembleMuted ||
         state.tocarJuntoActive !== prev.tocarJuntoActive ||
         state.tocarJuntoTrackId !== prev.tocarJuntoTrackId ||
         state.tocarJuntoIsMuted !== prev.tocarJuntoIsMuted ||
-        state.tocarJuntoMuteScope !== prev.tocarJuntoMuteScope
-      ) {
+        state.tocarJuntoMuteScope !== prev.tocarJuntoMuteScope ||
+        state.focusTrackId !== prev.focusTrackId ||
+        state.referenceTrackId !== prev.referenceTrackId ||
+        state.isLetraActive !== prev.isLetraActive;
+
+      if (practiceMuteChanged) {
         refs.familyMuteSetRef.current.clear();
-        getAudioEngine()?.syncTracksToWorklet(state.tracks);
+        const eng = getAudioEngine();
+        eng?.syncTracksToWorklet(state.tracks);
+        if (refs.isAudioInitializedRef?.current) {
+          syncTrackChannels({
+            tracks: state.tracks, isEcoMode: state.isEcoMode, channels, meters, trackInputs, busChannels,
+            reverbSends, distortionSends, lastAppliedTracksParamsRef: refs.lastAppliedTracksParamsRef,
+            lastAppliedBussesRef: refs.lastAppliedBussesRef, masterVolumeNode, audioEngine: eng,
+          });
+        }
       }
       if (
         state.bpm !== prev.bpm ||
@@ -81,7 +82,7 @@ export function useAudioSyncSubscriptions({
         rebuildWorkletHorizonFromNow('bpm');
       }
     });
-  }, [refs.familyMuteSetRef]);
+  }, [refs]);
 
   useEffect(() => {
     const handleVis = () => {
@@ -92,9 +93,7 @@ export function useAudioSyncSubscriptions({
         resetVisualTickBuffer();
         flushVisualBuffers();
         refs.hitTriggersRef.current.clear();
-        if (!refs.isPlayingRef.current) {
-          getAudioEngine()?.purgeScheduledHits();
-        }
+        if (!refs.isPlayingRef.current) getAudioEngine()?.purgeScheduledHits();
       }
     };
     document.addEventListener('visibilitychange', handleVis);
@@ -109,10 +108,11 @@ export function useAudioSyncSubscriptions({
     const handleTimelineNav = (e: Event) => {
       const customEvent = e as CustomEvent<{ mIdx: number; sIdx: number; iteration?: number }>;
       const { mIdx, sIdx, iteration } = customEvent.detail;
-      if (sIdx === 0) {
-        onSeek(mIdx, 0);
-      } else {
-        onNavigate(mIdx, sIdx, 16, iteration ?? 1);
+      if (sIdx === 0) onSeek(mIdx, 0);
+      else {
+        const st = useSequencerStore.getState();
+        const mSig = st.measureTimeSigs?.[mIdx] || st.timeSig || '4/4';
+        onNavigate(mIdx, sIdx, getRodaMeasureGeometry(mSig).defaultSteps, iteration ?? 1);
       }
     };
     window.addEventListener('o-girador-timeline-nav', handleTimelineNav);

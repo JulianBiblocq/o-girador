@@ -17,6 +17,7 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
   let currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
   let currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
   let currentTicks = getMaxTicks(currentTimeSig as any);
+  ctx.maxTicksRef.current = currentTicks;
   const isDocHidden = areAllStudioWindowsHidden();
 
   if (ctx.currentStepIndexRef.current === -1) {
@@ -38,7 +39,8 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     if (ctx.isPlayingRef && !ctx.isPlayingRef.current) return true;
     currentMeasureIdx = ctx.measureCountRef.current % (ctx.totalMeasuresRef.current || 1);
     currentTimeSig = ctx.measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-    currentTicks = ctx.maxTicksRef.current;
+    currentTicks = getMaxTicks(currentTimeSig as any);
+    ctx.maxTicksRef.current = currentTicks;
   }
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
@@ -79,8 +81,7 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
       : (isAtLoopEnd ? (ctx.loopStartRef.current ?? 0) : (currentMeasureIdx + 1) % totalM);
 
     const currentMeasureSeqId = pushWorkletHorizonAtMeasureBoundary(time, currentMeasureIdx, {
-      ...ctx,
-      engine: activeEngine,
+      ...ctx, engine: activeEngine,
     });
 
     advanceLiveVariationLookahead({
@@ -103,7 +104,7 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
   const swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
 
   schedulePercussionNotes({
-    time, stepIdx, currentTicks, currentMeasureIdx, tick96nSec, swingJitter, globalMode, stepDurationSec, isDocHidden,
+    time, stepIdx, currentTicks, currentMeasureIdx, currentTimeSig, tick96nSec, swingJitter, globalMode, stepDurationSec, isDocHidden,
     tracks: ctx.tracksRef.current, soloPatternPlayId: ctx.soloPatternPlayIdRef.current,
     globalSwing: ctx.globalSwingRef.current, familyMuteSet: ctx.familyMuteSetRef.current,
     flatCompiledSchedule: ctx.flatCompiledScheduleRef.current, flatArrayPointerRef: ctx.flatArrayPointerRef,

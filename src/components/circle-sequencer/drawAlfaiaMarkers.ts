@@ -1,25 +1,19 @@
-
-import { getMarkers } from '../../data';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { INNER_SKIN_RADIUS } from './circleSequencerConstants';
 import { ThemeColors } from './circleSequencerTypes';
-
-import { TimeSignature } from '../../types';
 
 export const drawAlfaiaMarkers = (
   bgCtx: CanvasRenderingContext2D,
   centerX: number,
   centerY: number,
   localTimeSig: string,
-  localTicks: number,
-  theme: ThemeColors
+  _localTicks: number,
+  _theme: ThemeColors
 ): void => {
-  const markers = getMarkers(localTimeSig as TimeSignature, localTicks);
+  const geom = getRodaMeasureGeometry(localTimeSig);
+  const { beatsCount, defaultSubdivisions, beatAngles } = geom;
 
-  const ticksPerBeat = localTicks / markers.length;
-
-  // 4. Beat markers & Badges around rim
-  markers.forEach((tick, idx) => {
-    const angle = -Math.PI / 2 + ((tick / localTicks) * Math.PI * 2);
+  beatAngles.forEach((angle, idx) => {
     const inRad = INNER_SKIN_RADIUS - 35;
     const outRad = INNER_SKIN_RADIUS - 20;
 
@@ -28,8 +22,8 @@ export const drawAlfaiaMarkers = (
     bgCtx.lineTo(centerX + Math.cos(angle) * outRad, centerY + Math.sin(angle) * outRad);
     bgCtx.strokeStyle = '#1a1a1a';
     bgCtx.save();
-    if (tick !== 0) bgCtx.globalAlpha = 0.3;
-    bgCtx.lineWidth = (tick === 0) ? 4 : 2;
+    if (idx !== 0) bgCtx.globalAlpha = 0.3;
+    bgCtx.lineWidth = idx === 0 ? 4 : 2;
     bgCtx.stroke();
     bgCtx.restore();
 
@@ -52,14 +46,11 @@ export const drawAlfaiaMarkers = (
     bgCtx.fillText((idx + 1).toString(), badgeX, badgeY + 1.5);
   });
 
-  // 5. Grid lines
   bgCtx.save();
-  const isCompound = localTimeSig === '6/8' || localTimeSig === '12/8';
-  const subdivisionTickInterval = isCompound ? 4 : 6;
-
-  for (let t = 0; t < localTicks; t += subdivisionTickInterval) {
-    const angle = -Math.PI / 2 + (t / localTicks) * Math.PI * 2;
-    const isMainBeat = t % ticksPerBeat === 0;
+  const totalGridRays = beatsCount * defaultSubdivisions;
+  for (let i = 0; i < totalGridRays; i++) {
+    const angle = -Math.PI / 2 + (i / totalGridRays) * Math.PI * 2;
+    const isMainBeat = i % defaultSubdivisions === 0;
 
     bgCtx.beginPath();
     bgCtx.moveTo(centerX + Math.cos(angle) * 60, centerY + Math.sin(angle) * 60);

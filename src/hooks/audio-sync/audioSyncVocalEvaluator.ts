@@ -1,8 +1,9 @@
 import * as Tone from 'tone';
 import { Track, Pattern, GlobalSwing } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { getEffectiveMuteState } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
+import { isTrackMutedByPracticeMode } from '../../utils/practiceAudioMuteGuard';
 import { resolveVocalPhraseInfo } from '../../utils/vocalPhraseBlock';
 import { evaluateIncomingAnacrusis } from './audioSyncVocalAnacrusis';
 import { evaluateSilentMeasurePreRollSyllables } from './audioSyncSilentMeasureVocal';
@@ -44,6 +45,7 @@ export function evaluateVocalTracks(p: VocalEvaluatorParams): void {
     trackInputs, channels, busChannels, masterVolumeNode
   } = p;
 
+  const seqState = useSequencerStore.getState();
   const numTracks = tracks.length;
   for (let trackIdx = 0; trackIdx < numTracks; trackIdx++) {
     const track = tracks[trackIdx];
@@ -53,8 +55,8 @@ export function evaluateVocalTracks(p: VocalEvaluatorParams): void {
     const patterns = track.patterns;
     const isSolo = soloPatternPlayId !== null;
     const canPlay = isSolo
-      ? patterns.some(pat => String(pat.id) === String(soloPatternPlayId))
-      : !getEffectiveMuteState(tracks, track.id);
+      ? patterns.some((pat) => String(pat.id) === String(soloPatternPlayId))
+      : !getEffectiveMuteState(tracks, track.id) && !isTrackMutedByPracticeMode(track.id, tracks, seqState);
 
     if (!canPlay) {
       if (!mutedVoiceTracks.has(track.id)) {
@@ -66,23 +68,17 @@ export function evaluateVocalTracks(p: VocalEvaluatorParams): void {
     }
 
     let nextMeasureLocal: number;
-    if (isSolo) {
-      nextMeasureLocal = 0;
-    } else if (isLoopRegionActive && loopEnd !== null && currentMeasureLocal === loopEnd) {
-      nextMeasureLocal = loopStart !== null ? loopStart : 0;
-    } else {
-      nextMeasureLocal = (currentMeasureLocal + 1) % (totalMeasures || 1);
-    }
+    if (isSolo) nextMeasureLocal = 0;
+    else if (isLoopRegionActive && loopEnd !== null && currentMeasureLocal === loopEnd) nextMeasureLocal = loopStart !== null ? loopStart : 0;
+    else nextMeasureLocal = (currentMeasureLocal + 1) % (totalMeasures || 1);
 
     const rawNextPattern = isSolo
-      ? (track.patterns.find(pt => String(pt.id) === String(soloPatternPlayId)) || null)
-      : track.patterns.find(pt => pt.measureAssignments[nextMeasureLocal]);
+      ? (track.patterns.find((pt) => String(pt.id) === String(soloPatternPlayId)) || null)
+      : track.patterns.find((pt) => pt.measureAssignments[nextMeasureLocal]);
     const nextPhrase = rawNextPattern ? resolveVocalPhraseInfo({
-      pattern: rawNextPattern,
-      measureIdx: nextMeasureLocal,
+      pattern: rawNextPattern, measureIdx: nextMeasureLocal,
       beatsPerMeasure: getBeatsPerMeasure(measureTimeSigs[nextMeasureLocal] || '4/4'),
-      isSolo,
-      soloMeasureCounter: soloPhraseMeasure + 1,
+      isSolo, soloMeasureCounter: soloPhraseMeasure + 1,
     }) : null;
     const nextPattern = (rawNextPattern && nextPhrase && nextPhrase.isBlockStart) ? rawNextPattern : null;
 
@@ -94,18 +90,13 @@ export function evaluateVocalTracks(p: VocalEvaluatorParams): void {
       });
     }
 
-    let activePattern: Pattern | null = null;
-    if (isSolo) {
-      activePattern = patterns.find(pt => String(pt.id) === String(soloPatternPlayId)) || null;
-    } else {
-      activePattern = patterns.find(pt => pt.measureAssignments[currentMeasureLocal]) || null;
-    }
+    const activePattern: Pattern | null = isSolo
+      ? (patterns.find((pt) => String(pt.id) === String(soloPatternPlayId)) || null)
+      : (patterns.find((pt) => pt.measureAssignments[currentMeasureLocal]) || null);
 
     if (!activePattern) {
       const currentKey = `${track.id}_m${currentMeasureLocal}`;
-      if (stepIdx >= 4 && anticipatedMeasures.has(currentKey)) {
-        anticipatedMeasures.delete(currentKey);
-      }
+      if (stepIdx >= 4 && anticipatedMeasures.has(currentKey)) anticipatedMeasures.delete(currentKey);
       if (canPlay && nextPattern && nextPattern.preRollActiveSteps) {
         evaluateSilentMeasurePreRollSyllables({
           track, nextPattern, nextPhrase, currentMeasureLocal, stepIdx,

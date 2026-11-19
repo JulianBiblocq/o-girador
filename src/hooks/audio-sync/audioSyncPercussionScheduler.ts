@@ -1,16 +1,18 @@
 import * as Tone from 'tone';
 import { Track, GlobalSwing } from '../../types';
 import { instrumentsConfig } from '../../data';
-import { getTrackFamilyIds, getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
+import { getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { AudioEngine } from '../../AudioEngine';
 import { isTrackCoveredInWorkletHorizon } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from './percussionSwingHelper';
 import { getLiveVariationAudioOverride } from './liveVariationLookaheadEngine';
 import { resolveTrackFromPackedData } from '../../workers/compiler/compiledTrackIdResolver';
+import { getRodaStepDurationTicks } from '../../utils/rodaTimeSigGeometry';
+import { isTrackMutedByPracticeMode } from '../../utils/practiceAudioMuteGuard';
 
 export interface PercussionSchedulerParams {
-  time: number; stepIdx: number; currentTicks: number; currentMeasureIdx: number;
+  time: number; stepIdx: number; currentTicks: number; currentMeasureIdx: number; currentTimeSig?: string;
   tick96nSec: number; swingJitter: number; globalMode: string; stepDurationSec: number;
   isDocHidden: boolean; tracks: Track[]; soloPatternPlayId: number | null;
   globalSwing: GlobalSwing; familyMuteSet: Set<string>; flatCompiledSchedule: Float64Array | null;
@@ -23,7 +25,7 @@ function triggerPackedNote(
   packedData: number, velocity: number, microtimingPct: number,
   p: PercussionSchedulerParams, sourceSchedule: object | null, skipTrackIds?: Set<number>
 ): void {
-  const { time, currentTicks, currentMeasureIdx, tick96nSec, swingJitter, globalMode, stepDurationSec, isDocHidden, tracks, soloPatternPlayId, globalSwing, familyMuteSet, audioEngine } = p;
+  const { time, currentMeasureIdx, currentTimeSig = '4/4', tick96nSec, swingJitter, globalMode, isDocHidden, tracks, soloPatternPlayId, globalSwing, familyMuteSet, audioEngine } = p;
   const liveTrack = resolveTrackFromPackedData(packedData, tracks, sourceSchedule);
   if (!liveTrack || (skipTrackIds && skipTrackIds.has(liveTrack.id))) return;
 
@@ -41,34 +43,25 @@ function triggerPackedNote(
   const strokeSymbol = String.fromCharCode(strokeCharCode);
   const decayMultiplier = decayPct / 100;
   const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, currentMeasureIdx, soloPatternPlayId);
+  const stepDurSec = tick96nSec * getRodaStepDurationTicks(currentTimeSig, activePattern, circleStepIdx);
 
   const noteSwingOffset = computePercussionNoteSwing({
-    activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode, globalSwing, stepDurationSec,
+    activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter, globalMode, globalSwing,
+    stepDurationSec: stepDurSec,
     balancoAdherence: audioEngine ? audioEngine.getTrackBalancoAdherence(liveTrack.id) : 1.0,
     baseStepAudioSec: time,
+    timeSig: currentTimeSig,
   });
 
-  const stepCount = activePattern ? activePattern.steps : 16;
-  const stepDurSec = tick96nSec * (currentTicks / stepCount);
   const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
   const triggerTime = time + noteSwingOffset + microOffset;
   const nowSec = audioEngine ? audioEngine.getCurrentTime() : 0;
   const isPastCatchupHit = Boolean(audioEngine && triggerTime < nowSec - 0.015);
 
   const storeState = useSequencerStore.getState();
-  let isTocarJuntoMuted = false;
-  if (storeState.tocarJuntoActive && storeState.tocarJuntoIsMuted !== false && storeState.tocarJuntoTrackId !== null) {
-    if (storeState.tocarJuntoMuteScope === 'family') {
-      if (familyMuteSet.size === 0) {
-        getTrackFamilyIds(storeState.tocarJuntoTrackId, tracks || storeState.tracks).forEach((id) => familyMuteSet.add(id));
-      }
-      isTocarJuntoMuted = familyMuteSet.has(String(liveTrack.id));
-    } else {
-      isTocarJuntoMuted = storeState.tocarJuntoTrackId === liveTrack.id;
-    }
-  }
+  const isPracticeMuted = isTrackMutedByPracticeMode(liveTrack.id, tracks || storeState.tracks, storeState, familyMuteSet);
 
-  if (!isTocarJuntoMuted && !isPastCatchupHit) {
+  if (!isPracticeMuted && !isPastCatchupHit) {
     const isCoveredByWorklet = Boolean(
       audioEngine?.isTrackRoutedToWorklet(liveTrack.id, inst.id) &&
       isTrackCoveredInWorkletHorizon(currentMeasureIdx, liveTrack.id)

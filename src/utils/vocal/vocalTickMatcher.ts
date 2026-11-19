@@ -10,29 +10,30 @@ export function matchVocalStepAtTick(
   bpm: number
 ): { localCell: number; singleStepSec: number; stepsInBeat: number } | null {
   const beats = Math.max(1, Math.round(beatsPerMeasure) || 4);
+  const ticksPerBeat = totalTicks / beats;
+  const isCompoundBeat = Math.abs(ticksPerBeat - 36) < 1e-3;
+  const defaultSub = isCompoundBeat ? 3 : 4;
+  const safeBpm = isNaN(bpm) || bpm <= 0 ? 100 : bpm;
+  const beatDurationSec = isCompoundBeat ? 90 / safeBpm : 60 / safeBpm;
+
   const resArray = Array.isArray(beatResolutions) && beatResolutions.length >= beats
     ? beatResolutions
     : null;
 
   if (!resArray) {
-    const defaultSteps = beats * 4;
+    const defaultSteps = beats * defaultSub;
     const ticksPerStep = totalTicks / defaultSteps;
     if (tick % ticksPerStep === 0) {
       const localCell = Math.floor(tick / ticksPerStep);
-      const safeBpm = isNaN(bpm) || bpm <= 0 ? 100 : bpm;
-      const singleStepSec = (60 / safeBpm) / 4;
-      return { localCell, singleStepSec, stepsInBeat: 4 };
+      const singleStepSec = beatDurationSec / defaultSub;
+      return { localCell, singleStepSec, stepsInBeat: defaultSub };
     }
     return null;
   }
 
-  const ticksPerBeat = totalTicks / beats;
-  const safeBpm = isNaN(bpm) || bpm <= 0 ? 100 : bpm;
-  const beatDurationSec = 60 / safeBpm;
-
   let accumulatedStep = 0;
   for (let b = 0; b < beats; b++) {
-    const res = resArray[b] > 0 ? resArray[b] : 4;
+    const res = resArray[b] > 0 ? resArray[b] : defaultSub;
     const ticksPerStep = ticksPerBeat / res;
     const beatStartTick = Math.round(b * ticksPerBeat);
     const beatEndTick = Math.round((b + 1) * ticksPerBeat);

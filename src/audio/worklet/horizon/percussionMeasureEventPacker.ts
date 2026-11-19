@@ -6,6 +6,7 @@
 import { instrumentsConfig } from '../../../data';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
 import { GlobalSwing, Track } from '../../../types';
+import { getRodaStepDurationTicks } from '../../../utils/rodaTimeSigGeometry';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
 import { MeasureTimingTable } from './percussionHorizonTiming';
@@ -49,17 +50,18 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
 
     const circleStepIdx = (packedData >> 16) & 0x3F, strokeSymbol = String.fromCharCode((packedData >> 9) & 0x7F);
     const decayPct = (packedData >> 2) & 0x7F, isTuplet = ((packedData >> 1) & 1) === 1, isSecondStroke = (packedData & 1) === 1;
-    const tickDurSec = timing.instantTickDurSec[tickInMeasure], stepDurationSec = tickDurSec * 6;
+    const tickDurSec = timing.instantTickDurSec[tickInMeasure];
     const baseStepAudioSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure];
     const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, timing.measureIdx, soloPatternPlayId);
+    const stepDurationSec = tickDurSec * getRodaStepDurationTicks(timing.timeSig, activePattern, circleStepIdx);
     const swingJitter = (((((seqId * 31 + tickInMeasure) * 17 + liveTrack.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
     const swingSec = computePercussionNoteSwing({
       activePattern, liveTrack, circleStepIdx, isTuplet, swingJitter,
       globalMode: globalSwing.mode, globalSwing, stepDurationSec,
       balancoAdherence: engineDeps.getTrackBalancoAdherence(liveTrack.id),
-      baseStepAudioSec,
+      baseStepAudioSec, timeSig: timing.timeSig,
     });
-    const microSec = (microPct / 100) * (tickDurSec * (timing.maxTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
+    const microSec = (microPct / 100) * stepDurationSec * 0.5;
     const swungTimeSec = baseStepAudioSec + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id) + swingSec;
     const rawFrame = Math.round(swungTimeSec * sampleRate);
 

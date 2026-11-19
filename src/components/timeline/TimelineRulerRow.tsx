@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { TimeSignature, Language } from '../../types';
+import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { TimelineRulerControls } from './TimelineRulerControls';
 import { TimelineMeasureRhythmSignal } from './TimelineMeasureRhythmSignal';
 import { TimelineSidebarHeader } from './TimelineSidebarHeader';
@@ -53,24 +54,17 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
     >
       <TimelineSidebarHeader
-        headerWidth={headerWidth}
-        isMobile={isMobile}
-        lang={lang}
-        totalMeasures={totalMeasures}
-        measureWidth={measureWidth}
-        isPlaying={isPlaying}
-        isMultiSelectMode={isMultiSelectMode}
-        selectedTimelineCellsCount={selectedTimelineCellsCount}
-        onZoom={onZoom}
-        toggleMultiSelectMode={toggleMultiSelectMode}
-        alertAsync={alertAsync}
+        headerWidth={headerWidth} isMobile={isMobile} lang={lang} totalMeasures={totalMeasures}
+        measureWidth={measureWidth} isPlaying={isPlaying} isMultiSelectMode={isMultiSelectMode}
+        selectedTimelineCellsCount={selectedTimelineCellsCount} onZoom={onZoom}
+        toggleMultiSelectMode={toggleMultiSelectMode} alertAsync={alertAsync}
       />
 
       {visibleRange.start > 0 && <div style={{ width: `calc(var(--measure-width, 120px) * ${leftSpacerRatio})`, minWidth: `calc(var(--measure-width, 120px) * ${leftSpacerRatio})` }} className="shrink-0" />}
 
       {Array.from({ length: totalMeasures }).map((_, mIdx) => ({ mIdx })).filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end).map(({ mIdx }) => {
         const mTimeSig = measureTimeSigs?.[mIdx] || '4/4';
-        const beats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
+        const beats = getRodaMeasureGeometry(mTimeSig).beatsCount;
         const inLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
         const isSelected = selectedHeaderMeasures.includes(mIdx);
         const mRatio = (measureWidths[mIdx] ?? safeBaseW) / safeBaseW;
@@ -81,12 +75,12 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
             key={mIdx}
             data-measure-header={mIdx}
             onClick={(e) => handleHeaderMeasureClick?.(mIdx, e)}
-            className={`group timeline-ruler-header-measure flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-colors border-r shrink-0 relative ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]' : 'border-r-[var(--cordel-border)]/30'} ${isSelected ? 'bg-[#d97706]/25 border-b-2 border-[#d97706] ring-1 ring-inset ring-[#d97706]/60' : ''} ${loopStartMeasure !== null && loopEndMeasure !== null ? (inLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : '')) : ''}`}
+            className={`group timeline-ruler-header-measure flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-colors border-r shrink-0 relative ${(mIdx + 1) % 4 === 0 ? 'border-r-2 border-r-[var(--cordel-param-timing)]/55' : 'border-r-[var(--cordel-border)]/30'} ${isSelected ? 'bg-[var(--cordel-gold)]/25 border-b-2 border-[var(--cordel-gold)] ring-1 ring-inset ring-[var(--cordel-gold)]/60' : ''} ${loopStartMeasure !== null && loopEndMeasure !== null ? (inLoop ? (isLoopRegionActive ? 'bg-[var(--cordel-param-timing)]/5 border-t-4 border-t-[var(--cordel-param-timing)]/80' : 'bg-[var(--cordel-text-muted)]/10 border-t-4 border-t-[var(--cordel-text-muted)]/80') : (isLoopRegionActive ? 'bg-[var(--cordel-surface-muted)]/40 opacity-70' : '')) : ''}`}
             style={{ width: mCssW, minWidth: mCssW, height: '100%' }}
           >
             {inLoop && (
               <div
-                className="absolute top-[-4px] left-0 right-0 h-3 cursor-pointer z-50 hover:bg-white/20 transition-colors"
+                className="absolute top-[-4px] left-0 right-0 h-3 cursor-pointer z-50 hover:bg-[var(--cordel-text)]/15 transition-colors"
                 onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setIsLoopRegionActive(!isLoopRegionActive); }}
               />
             )}
@@ -96,8 +90,7 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
               loopEndMeasure={loopEndMeasure} totalMeasures={totalMeasures} lang={lang}
               onSetLoopStart={onSetLoopStart} onSetLoopEnd={onSetLoopEnd} onMeasureTimeSigChange={onMeasureTimeSigChange}
               onInsertMeasure={onInsertMeasure} onDeleteMeasure={onDeleteMeasure} confirmAsync={confirmAsync}
-              isMeasureSelected={isSelected}
-              selectedHeaderMeasuresCount={selectedHeaderMeasures.length}
+              isMeasureSelected={isSelected} selectedHeaderMeasuresCount={selectedHeaderMeasures.length}
               onDeleteMeasuresPrompt={onDeleteMeasuresPrompt}
             />
 
@@ -120,7 +113,7 @@ export const TimelineRulerRow = React.memo<TimelineRulerRowProps>(({
 
       {visibleRange.end < totalMeasures - 1 && <div style={{ width: `calc(var(--measure-width, 120px) * ${rightSpacerRatio})`, minWidth: `calc(var(--measure-width, 120px) * ${rightSpacerRatio})` }} className="shrink-0" />}
 
-      <div className="px-4 z-40 bg-[var(--cordel-bg)] border-r border-[var(--cordel-border)]/30 flex items-center justify-start h-full shrink-0" style={{ width: 150, minWidth: 150 }} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+      <div className="px-4 z-40 bg-[var(--cordel-bg)] border-r border-[var(--cordel-border)]/30 flex items-center justify-start h-full shrink-0" style={{ width: 150, minWidth: 150 }} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
         <button onClick={onOpenAddMeasuresModal} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-full" style={{ height: '28px' }}>
           <Plus size={12} strokeWidth={2.5} /><span>{lang === 'fr' ? 'Mesure' : 'Compasso'}</span>
         </button>

@@ -1,5 +1,6 @@
 import { Track, Pattern, PatternVariation } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { buildMeasureStepGrid } from '../../workers/compiler/measureStepGridHelper';
 import {
   normalizeStrokeKey,
   computeStepVolume,
@@ -19,12 +20,6 @@ export function buildMeasureVariationNotes(params: {
   const { tracks, measureIdx, measureStartTick, timeSig, variedPatternsByTrackId } = params;
   if (variedPatternsByTrackId.size === 0) return [];
 
-  const [beatsStr, beatUnitStr] = (timeSig || '4/4').split('/');
-  const beats = parseInt(beatsStr, 10) || 4;
-  const beatUnit = parseInt(beatUnitStr, 10) || 4;
-  const maxTicks = beats * (96 / beatUnit);
-  const ticksPerBeat = maxTicks / beats;
-
   const notesList: number[] = [];
 
   tracks.forEach((track, trackIdx) => {
@@ -38,31 +33,13 @@ export function buildMeasureVariationNotes(params: {
     const effectiveVolumes = variation.volumes || activePattern.volumes;
     const effectiveDecays = variation.decays || activePattern.decays;
     const effectiveMicrotimings = variation.microtimings || activePattern.microtimings;
+    const effectiveBeatRes = variation.beatResolutions || activePattern.beatResolutions;
 
-    const resArray = activePattern.beatResolutions || Array(beats).fill(4);
-    let stepTickAccum = 0;
-    const stepTickMap: number[] = [];
-    const stepIsTupletMap: boolean[] = [];
-
-    for (let b = 0; b < beats; b++) {
-      const res = resArray[b] || 4;
-      const ticksPerStep = ticksPerBeat / res;
-      for (let r = 0; r < res; r++) {
-        stepTickMap.push(Math.round(stepTickAccum + r * ticksPerStep));
-        stepIsTupletMap.push(res === 3 || res === 6);
-      }
-      stepTickAccum += ticksPerBeat;
-    }
-
-    const effectiveStepCount = stepTickMap.length;
-    const stepsPerMeasure = beats * 4;
-    const patternSpan = Math.max(1, Math.round((activePattern.steps || stepsPerMeasure) / stepsPerMeasure));
-    let stepOffset = 0;
-    if (patternSpan > 1) {
-      let startM = measureIdx;
-      while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) startM--;
-      stepOffset = ((measureIdx - startM) % patternSpan) * stepsPerMeasure;
-    }
+    const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset, maxTicks } = buildMeasureStepGrid(
+      timeSig || '4/4',
+      { ...activePattern, beatResolutions: effectiveBeatRes },
+      measureIdx
+    );
 
     for (let step = 0; step < effectiveStepCount; step++) {
       const actualStep = stepOffset + step;
@@ -103,4 +80,3 @@ export function buildMeasureVariationNotes(params: {
   attachCompiledTrackIds(notesList, extractCompiledTrackIds(tracks));
   return notesList;
 }
-

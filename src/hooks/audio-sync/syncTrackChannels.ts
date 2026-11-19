@@ -3,20 +3,14 @@ import { Track } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveVolume, getEffectiveMuteState, getEffectiveRodaBreathingAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { CONSOLE_HEADROOM_GAIN } from '../../utils/audioMath';
+import { isTrackMutedByPracticeMode } from '../../utils/practiceAudioMuteGuard';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import {
-  syncTrackInsertChain,
-  ensureAuxSendNodes,
-  ensureBusSendVcaNodes,
-  wireBusSendVcaOutput,
-  wireAuxSendsToParentOrReceive,
-  syncBusSendVcaGain,
-  computeBusLinearVcaGain,
-  resolveImmediateBusId,
-  connectChannelThroughRodaSubBus,
-  syncLiveRodaSpectralSubBuses,
+  syncTrackInsertChain, ensureAuxSendNodes, ensureBusSendVcaNodes, wireBusSendVcaOutput,
+  wireAuxSendsToParentOrReceive, syncBusSendVcaGain, computeBusLinearVcaGain,
+  resolveImmediateBusId, connectChannelThroughRodaSubBus, syncLiveRodaSpectralSubBuses,
 } from '../../audio/effectsChain';
 import { safeRampPan } from '../../utils/audio/safeAudioParamRamp';
 import { applyAuxSendLinear, applyChannelVolumeLinear, computeChannelEffectiveLinearGain } from '../../utils/audio/channelFaderLinearRamp';
@@ -43,11 +37,12 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
   const {
     tracks, channels, meters, trackInputs, busChannels,
     reverbSends, distortionSends, lastAppliedTracksParamsRef,
-    lastAppliedBussesRef, masterVolumeNode, audioEngine
+    lastAppliedBussesRef, masterVolumeNode, audioEngine,
   } = p;
   const seqSt = useSequencerStore.getState();
   const disableFx = Boolean(seqSt.ecoConfig?.disableFx), disableEq = Boolean(seqSt.ecoConfig?.disableEq);
   const effBreathing = getEffectiveRodaBreathingAmount(seqSt);
+  const familyCache = new Set<string>();
 
   tracks.forEach((t) => {
     if (t.isBusFolder || t.isLinkFolder) return;
@@ -59,7 +54,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
 
     if (!channels[t.id]) {
       channels[t.id] = new Tone.Channel({ volume: 0 });
-      try { channels[t.id].channelCount = 2; channels[t.id].channelCountMode = "explicit"; } catch (_) {}
+      try { channels[t.id].channelCount = 2; channels[t.id].channelCountMode = 'explicit'; } catch (_) {}
       meters[t.id] = createLightweightSacAnalyser();
       Tone.connect(channels[t.id], meters[t.id]);
     }
@@ -78,17 +73,13 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const isConnectedToBus = Boolean(targetBusId !== null && (busInputs[targetBusId] || busChannels[targetBusId]));
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
     const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(t.panVal ?? t.pan);
-    const muteState = getEffectiveMuteState(tracks, t.id);
+    const muteState = getEffectiveMuteState(tracks, t.id) || isTrackMutedByPracticeMode(t.id, tracks, seqSt, familyCache);
     const effectiveLin = computeChannelEffectiveLinearGain(effectiveVol, panCompensationDb, muteState);
 
     const lowCut = t.lowCut ?? false;
-    const eqLowG = t.eqBands?.low?.g ?? 0;
-    const eqLowF = t.eqBands?.low?.f ?? 100;
-    const eqMidG = t.eqBands?.mid?.g ?? 0;
-    const eqMidF = t.eqBands?.mid?.f ?? 1000;
-    const eqMidQ = t.eqBands?.mid?.q ?? 'wide';
-    const eqHighG = t.eqBands?.high?.g ?? 0;
-    const eqHighF = t.eqBands?.high?.f ?? 8000;
+    const eqLowG = t.eqBands?.low?.g ?? 0, eqLowF = t.eqBands?.low?.f ?? 100;
+    const eqMidG = t.eqBands?.mid?.g ?? 0, eqMidF = t.eqBands?.mid?.f ?? 1000, eqMidQ = t.eqBands?.mid?.q ?? 'wide';
+    const eqHighG = t.eqBands?.high?.g ?? 0, eqHighF = t.eqBands?.high?.f ?? 8000;
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
 
     const channelHash = `${effectiveLin.toFixed(6)}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
@@ -97,9 +88,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     if (lastAppliedTracksParamsRef.current[t.id] !== channelHash) {
       applyChannelVolumeLinear(channels[t.id], effectiveVol, panCompensationDb, muteState, 0.018);
       safeRampPan(channels[t.id].pan, acousticPan, 0.02);
-      if (t.isLinkMaster) {
-        syncBusSendVcaGain(t.id, muteState ? 0 : computeBusLinearVcaGain(t, tracks), 0.018);
-      }
+      if (t.isLinkMaster) syncBusSendVcaGain(t.id, muteState ? 0 : computeBusLinearVcaGain(t, tracks), 0.018);
       applyAuxSendLinear(reverbSends[t.id], reverb, disableFx || muteState, 0.018);
       applyAuxSendLinear(distortionSends[t.id], distortion, disableFx || muteState, 0.018);
       lastAppliedTracksParamsRef.current[t.id] = channelHash;

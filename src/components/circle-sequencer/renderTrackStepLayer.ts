@@ -1,8 +1,14 @@
 import { TrackGroup, Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { getEffectiveMuteState, isToadaBus, useSequencerStore } from '../../stores/useSequencerStore';
+import {
+  computeMeasurePatternStepOffset,
+  computeRodaStepAngles,
+  getRodaMeasureGeometry,
+  resolveActiveBeatResolutions,
+} from '../../utils/rodaTimeSigGeometry';
 import { drawTrackRing } from './drawTrackRings';
-import { resolveBeatsFromTimeSig, computeStepAngles } from './circleGeometry';
+import { getPhysicalStepFromRatio } from './measurePatternHelpers';
 import { isRodaDrawableTrack } from './sortTracksByRodaOrder';
 import { drawToadaTrack } from './drawToadaTrack';
 import { drawPercussionTrack } from './drawPercussionTrack';
@@ -29,15 +35,20 @@ export function renderTrackStepLayer(
 ): void {
   const live = livePlaybackRef.current;
   const localStep = live.step;
-  const localTicks = live.maxTicks || 96;
-  const isPlaying = Boolean(localStep >= 0 && stateVal.isPlaying);
-  const playheadRatio = localStep >= 0 && localTicks > 0 ? localStep / localTicks : (live.ratio ?? 0);
   const measureIdx =
     live && live.step >= 0
       ? live.measure
       : pendingTargetMeasureRef.current !== null
         ? pendingTargetMeasureRef.current
         : stateVal.currentMeasure;
+
+  const activeTimeSig = stateVal.measureTimeSigs
+    ? stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4'
+    : stateVal.timeSig || '4/4';
+  const measureGeom = getRodaMeasureGeometry(String(activeTimeSig));
+  const localTicks = (localStep >= 0 && live.maxTicks > 0) ? live.maxTicks : measureGeom.maxTicks;
+  const isPlaying = Boolean(localStep >= 0 && stateVal.isPlaying);
+  const playheadRatio = live.ratio !== undefined && localStep >= 0 ? live.ratio : (localStep >= 0 && localTicks > 0 ? localStep / localTicks : 0);
 
   syncLiveVariationRodaVisualFrame(isPlaying, measureIdx, playheadRatio, activeVariationsRef);
 
@@ -84,26 +95,28 @@ export function renderTrackStepLayer(
     }
 
     const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
-    const activePlayingSteps =
+    const rawPlayingSteps =
       activePattern && activeVariationsRef?.current
         ? activeVariationsRef.current[track.id] || activePattern.activeSteps
         : activePattern?.activeSteps;
 
-    const hasAnyNotes = Boolean(activePlayingSteps && activePlayingSteps.some((s: any) => s !== 0));
+    const beatRes = resolveActiveBeatResolutions(String(activeTimeSig), activePattern);
+    const stepAngles = computeRodaStepAngles(String(activeTimeSig), beatRes);
+    const effectiveStepCount = stepAngles.length;
+    const stepOffset = computeMeasurePatternStepOffset(activePattern, effectiveStepCount, measureIdx);
+    const activePlayingSteps = rawPlayingSteps && stepOffset > 0
+      ? rawPlayingSteps.slice(stepOffset, stepOffset + effectiveStepCount)
+      : rawPlayingSteps;
+
+    const hasAnyNotes = Boolean(activePlayingSteps && activePlayingSteps.slice(0, effectiveStepCount).some((s: any) => s !== 0));
     const tRad = drawTrackRing(ctx, track, ringIndex, totalRings, centerX, centerY, localRawTracks, themeBorder, hasAnyNotes);
 
     const isVoiceOrToada = isToada || currentInst.type === 'voice';
     if (!activePattern && !isVoiceOrToada && !isPlaying) return;
 
-    const activeTimeSig = stateVal.measureTimeSigs
-      ? stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4'
-      : stateVal.timeSig || '4/4';
-    const patSteps = activePattern?.steps || 16;
-    const resolvedBeats = resolveBeatsFromTimeSig(String(activeTimeSig), patSteps);
-    const stepAngles = computeStepAngles(resolvedBeats, activePattern?.beatResolutions);
-
-    const effectiveStepCount = stepAngles.length;
-    const currentStep = localStep >= 0 ? Math.floor((localStep / localTicks) * effectiveStepCount) : -1;
+    const currentStep = localStep >= 0
+      ? getPhysicalStepFromRatio(playheadRatio, activePattern, effectiveStepCount, measureGeom.beatsCount, beatRes)
+      : -1;
     const isMutedByConsole = stateVal.soloPatternPlayId == null && getEffectiveMuteState(localRawTracks, track.id);
 
     ctx.save();
@@ -113,14 +126,14 @@ export function renderTrackStepLayer(
         ctx, track, currentInst, isToada, localRawTracks, activePattern as any, activePlayingSteps,
         stepAngles, effectiveStepCount, currentStep, tRad, centerX, centerY, dynamicScale, isEco,
         measureIdx, stateVal.soloPatternPlayId, stateVal.totalMeasures, stateVal.isLoopRegionActive,
-        stateVal.loopStartMeasure, stateVal.loopEndMeasure, activeVariationsRef, themeWood, themeBorder, themeText
+        stateVal.loopStartMeasure, stateVal.loopEndMeasure, activeVariationsRef, themeWood, themeBorder, themeText, beatRes
       );
     } else {
       drawPercussionTrack(
         ctx, track, currentInst, activePattern, activePlayingSteps, stepAngles, effectiveStepCount,
         currentStep, tRad, centerX, centerY, dynamicScale, isEco, measureIdx, localRawTracks,
         activeVariationsRef, stateVal.isLeftHanded || false, themeWood, themeBorder, themeText,
-        isPlaying, playheadRatio, stateVal.soloPatternPlayId ?? null, totalRings
+        isPlaying, playheadRatio, stateVal.soloPatternPlayId ?? null, totalRings, stepOffset
       );
     }
     ctx.restore();

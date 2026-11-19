@@ -1,4 +1,3 @@
-
 import { TrackGroup, Pattern, InstrumentConfig } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { resolvePatternForMeasure } from './measurePatternHelpers';
@@ -32,13 +31,14 @@ export const drawToadaTrack = (
   activeVariationsRef: React.MutableRefObject<{ [trackId: number]: any }> | undefined,
   themeWood: string,
   themeBorder: string,
-  themeText: string
+  themeText: string,
+  beatResolutions?: readonly number[]
 ): void => {
   ctx.save();
   ctx.globalAlpha = 1.0;
   ctx.globalCompositeOperation = 'source-over';
-  let puxTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-  let coroTrackObj = currentRawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+  let puxTrackObj = currentRawTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+  let coroTrackObj = currentRawTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
 
   let puxPattern = resolvePatternForMeasure(puxTrackObj, measureIdx, soloPlayId);
   let coroPattern = resolvePatternForMeasure(coroTrackObj, measureIdx, soloPlayId);
@@ -48,29 +48,23 @@ export const drawToadaTrack = (
     else puxPattern = activePattern;
   } else if (!isToada) {
     if (currentInst.id === 'coro') {
-      coroPattern = activePattern;
-      coroTrackObj = track;
-      puxTrackObj = undefined;
-      puxPattern = null;
+      coroPattern = activePattern; coroTrackObj = track; puxTrackObj = undefined; puxPattern = null;
     } else {
-      puxPattern = activePattern;
-      puxTrackObj = track;
-      coroTrackObj = undefined;
-      coroPattern = null;
+      puxPattern = activePattern; puxTrackObj = track; coroTrackObj = undefined; coroPattern = null;
     }
   }
 
   const totalM = totalMeasures || 1;
   let nextMeasureIdx: number;
   if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {
-    nextMeasureIdx = (loopStartMeasure !== null && loopStartMeasure !== undefined) ? loopStartMeasure : 0;
+    nextMeasureIdx = loopStartMeasure !== null && loopStartMeasure !== undefined ? loopStartMeasure : 0;
   } else {
     nextMeasureIdx = (measureIdx + 1) % totalM;
   }
 
   let prevMeasureIdx = -1;
   if (isLoopRegionActive && loopStartMeasure !== null && loopStartMeasure !== undefined && measureIdx === loopStartMeasure) {
-    prevMeasureIdx = (loopEndMeasure !== null && loopEndMeasure !== undefined) ? loopEndMeasure : -1;
+    prevMeasureIdx = loopEndMeasure !== null && loopEndMeasure !== undefined ? loopEndMeasure : -1;
   } else if (measureIdx > 0) {
     prevMeasureIdx = measureIdx - 1;
   } else if (currentStep >= 0 && totalM > 1) {
@@ -83,54 +77,31 @@ export const drawToadaTrack = (
   const prevCoroPattern = prevMeasureIdx >= 0 ? resolvePatternForMeasure(coroTrackObj, prevMeasureIdx, soloPlayId) : null;
 
   const hasSeparateVoiceTracks = Boolean(puxTrackObj || coroTrackObj);
-  const puxPlayingSteps = (activeVariationsRef?.current && puxTrackObj)
+  const puxPlayingSteps = activeVariationsRef?.current && puxTrackObj
     ? (activeVariationsRef.current[puxTrackObj.id] || puxPattern?.activeSteps)
     : puxPattern?.activeSteps;
-  const coroPlayingSteps = (activeVariationsRef?.current && coroTrackObj)
+  const coroPlayingSteps = activeVariationsRef?.current && coroTrackObj
     ? (activeVariationsRef.current[coroTrackObj.id] || coroPattern?.activeSteps)
     : coroPattern?.activeSteps;
 
+  const stepsInFirstBeat = beatResolutions?.[0] || 4;
+  const stepsInLastBeat = beatResolutions?.[beatResolutions.length - 1] || stepsInFirstBeat;
+
   const { puxSteps, coroSteps } = extractVoiceSteps(
-    effectiveStepCount,
-    hasSeparateVoiceTracks,
-    puxPattern,
-    coroPattern,
-    nextPuxPattern,
-    nextCoroPattern,
-    activePattern,
-    currentInst,
-    puxPlayingSteps,
-    coroPlayingSteps,
-    activePlayingSteps,
-    soloPlayId,
-    prevPuxPattern,
-    prevCoroPattern,
-    currentStep
+    effectiveStepCount, hasSeparateVoiceTracks, puxPattern, coroPattern, nextPuxPattern, nextCoroPattern,
+    activePattern, currentInst, puxPlayingSteps, coroPlayingSteps, activePlayingSteps, soloPlayId,
+    prevPuxPattern, prevCoroPattern, currentStep, stepsInFirstBeat, stepsInLastBeat
   );
 
   const puxBlocks = buildVoiceBlocks(puxSteps, effectiveStepCount);
   const coroBlocks = buildVoiceBlocks(coroSteps, effectiveStepCount);
-
   drawVoiceRibbons(ctx, centerX, centerY, tRad, stepAngles, effectiveStepCount, puxBlocks, coroBlocks, dynamicScale);
 
   const isPauseMeasure = !puxPattern && !coroPattern;
   const trackLabel = isPauseMeasure ? 'Baque' : (track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix'));
   drawVoicePastilles(
-    ctx,
-    centerX,
-    centerY,
-    tRad,
-    stepAngles,
-    effectiveStepCount,
-    currentStep,
-    puxSteps,
-    coroSteps,
-    dynamicScale,
-    isEco,
-    themeWood,
-    themeBorder,
-    themeText,
-    trackLabel
+    ctx, centerX, centerY, tRad, stepAngles, effectiveStepCount, currentStep,
+    puxSteps, coroSteps, dynamicScale, isEco, themeWood, themeBorder, themeText, trackLabel
   );
 
   ctx.setLineDash([]);

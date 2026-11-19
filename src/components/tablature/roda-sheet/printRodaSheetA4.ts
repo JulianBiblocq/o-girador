@@ -30,7 +30,9 @@ export function printRodaSheetA4(songTitle: string, density: 8 | 12): void {
   frameDoc.open();
   frameDoc.write(`<!DOCTYPE html><html><head><title>${songTitle} - Planche de Rodas A4</title><style>
     @page { size: A4 portrait; margin: 6mm; }
+    :root { --cordel-paper-ink: #1a1a1a; --cordel-paper-surface: #f4ecd8; --cordel-wood: #8b2a1a; --cordel-on-accent: #f4ecd8; }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .print\\:hidden { display: none !important; }
     body { background: #ffffff !important; color: #1a1a1a !important; margin: 0; padding: 0; font-family: sans-serif; }
     .roda-a4-page {
       width: 100%;

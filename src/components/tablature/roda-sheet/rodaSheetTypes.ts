@@ -13,14 +13,15 @@ export interface RodaSheetTrackInfo {
 
 export interface RodaSheetMeasureItem {
   key: string;
-  startMeasure: number; // 0-based
-  endMeasure: number;   // 0-based
-  measureIndices: number[]; // 0-based measures grouped in this card
+  startMeasure: number;
+  endMeasure: number;
+  measureIndices: number[];
   repeatCount: number;
-  label: string;        // ex: "M.1, 8–10, 22"
-  multiplierLabel: string | null; // ex: "×5" ou null
-  sectionName: string | null;     // ex: "LUANDA", "CONVENÇÃO 2"
-  timeSig: string;      // ex: "4/4", "2/4", "3/4"
-  stepCount: number;    // ex: 16, 8, 12
+  label: string;
+  multiplierLabel: string | null;
+  sectionName: string | null;
+  timeSig: string;
+  stepCount: number;
   stepsByTrackId: Record<number, any[]>;
+  stepAnglesByTrackId?: Record<number, number[]>;
 }

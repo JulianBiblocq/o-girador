@@ -1,4 +1,4 @@
-export type TimeSignature = '4/4' | '3/4' | '2/4' | '6/8' | '12/8';
+export type TimeSignature = '4/4' | '3/4' | '2/4' | '6/8' | '9/8' | '12/8';
 
 export type AlfaiaSecondaryStickType = 'bacalhau' | 'fina' | 'macaneta';
 

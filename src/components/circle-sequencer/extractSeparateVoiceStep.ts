@@ -1,4 +1,3 @@
-
 import type { Pattern } from '../../types';
 
 const isStepValActive = (val: any) =>
@@ -23,17 +22,12 @@ export function extractSeparateVoiceStep(
   soloPlayId: number | null | undefined,
   prevPuxPattern: Pattern | null = null,
   prevCoroPattern: Pattern | null = null,
-  currentStep: number = -1
+  currentStep: number = -1,
+  stepsInFirstBeat: number = 4,
+  stepsInLastBeat: number = 4
 ): { pActive: boolean; pNote: string; pSyl: string; pAnacrusis: boolean; cActive: boolean; cNote: string; cSyl: string; cAnacrusis: boolean } {
-  let pActive = false;
-  let pNote = '';
-  let pSyl = '';
-  let pAnacrusis = false;
-
-  let cActive = false;
-  let cNote = '';
-  let cSyl = '';
-  let cAnacrusis = false;
+  let pActive = false, pNote = '', pSyl = '', pAnacrusis = false;
+  let cActive = false, cNote = '', cSyl = '', cAnacrusis = false;
 
   if (puxPattern && puxPlayingSteps && isStepValActive(puxPlayingSteps[i])) {
     pActive = true;
@@ -46,9 +40,9 @@ export function extractSeparateVoiceStep(
     cNote = sanitizeStepNote(coroPattern.notes?.[i] || '', cSyl, coroPattern.ignoreMelodyPitch);
   }
 
-  // Projection de la queue +1T (pas 16..19 -> pas 0..3 sur le Temps 1) lorsque les pas 0..3 sont silencieux
-  if (i < 4) {
-    const preferPrev = currentStep >= 0 && currentStep < 4 && (soloPlayId === undefined || soloPlayId === null);
+  const tailWindow = Math.max(1, stepsInFirstBeat);
+  if (i < tailWindow) {
+    const preferPrev = currentStep >= 0 && currentStep < tailWindow && (soloPlayId === undefined || soloPlayId === null);
     if (!pActive) {
       const pTailPat = preferPrev
         ? (isStepValActive(prevPuxPattern?.tailActiveSteps?.[i]) ? prevPuxPattern : puxPattern)
@@ -85,7 +79,8 @@ export function extractSeparateVoiceStep(
       cAnacrusis = true;
     }
   } else {
-    const isPickupWindow = i >= effectiveStepCount - 4;
+    const pickupSpan = Math.max(1, stepsInLastBeat);
+    const isPickupWindow = i >= effectiveStepCount - pickupSpan;
     if (isPickupWindow && !pActive && !cActive) {
       if (isStepValActive(nextPuxPattern?.preRollActiveSteps?.[i])) {
         pActive = true;

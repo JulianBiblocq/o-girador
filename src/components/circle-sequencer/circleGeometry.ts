@@ -1,8 +1,20 @@
-
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus } from '../../stores/helpers/trackVisibilityHelpers';
+import {
+  computeRodaStepAngles,
+  getRodaMeasureGeometry,
+  getStepAngularSpan,
+  resolveActiveBeatResolutions,
+} from '../../utils/rodaTimeSigGeometry';
 import { INNER_SKIN_RADIUS, CENTER_MEDALLION_RADIUS } from './circleSequencerConstants';
+
+export {
+  computeRodaStepAngles,
+  getRodaMeasureGeometry,
+  getStepAngularSpan,
+  resolveActiveBeatResolutions,
+};
 
 const OUTER_SKIN_MARGIN = 14;
 const INNER_MEDALLION_MARGIN = 10;
@@ -51,12 +63,8 @@ export const getTrackRadius = (visibleIdx: number, totalTracks: number): number 
   const rInnerBound = CENTER_MEDALLION_RADIUS + rStamp + INNER_MEDALLION_MARGIN;
   const rOuterBound = INNER_SKIN_RADIUS - rStamp - OUTER_SKIN_MARGIN;
 
-  if (totalTracks === 1) {
-    return (rInnerBound + rOuterBound) * 0.5;
-  }
+  if (totalTracks === 1) return (rInnerBound + rOuterBound) * 0.5;
   if (totalTracks === 2) {
-    // visibleIdx === 0 : anneau extérieur (~66 % depuis rInnerBound) -> focusTrackId
-    // visibleIdx === 1 : anneau intérieur (~36 % depuis rInnerBound) -> referenceTrackId
     const radialRatio = visibleIdx === 0 ? 0.66 : 0.36;
     return rInnerBound + radialRatio * (rOuterBound - rInnerBound);
   }
@@ -64,34 +72,25 @@ export const getTrackRadius = (visibleIdx: number, totalTracks: number): number 
   return rOuterBound - visibleIdx * deltaRing;
 };
 
-export const resolveBeatsFromTimeSig = (sigStr: string, patSteps: number): number => {
-  let resolvedBeats = parseInt(sigStr.split('/')[0], 10) || 4;
-  if (sigStr === '2/4' || sigStr === '6/8' || patSteps <= 8) {
-    resolvedBeats = 2;
-  } else if (sigStr === '3/4' || sigStr === '9/8' || patSteps === 12) {
-    resolvedBeats = 3;
-  } else if (sigStr === '12/8') {
-    resolvedBeats = 4;
-  }
-  return resolvedBeats;
+export const resolveBeatsFromTimeSig = (sigStr: string, _patSteps?: number): number => {
+  return getRodaMeasureGeometry(sigStr).beatsCount;
 };
 
 export const computeStepAngles = (
-  resolvedBeats: number,
+  resolvedBeatsOrTimeSig: number | string,
   beatResolutions?: number[]
 ): number[] => {
-  const beatRes = beatResolutions?.slice(0, resolvedBeats) || Array(resolvedBeats).fill(4);
-  const anglePerBeat = (Math.PI * 2) / resolvedBeats;
-  const stepAngles: number[] = [];
-
-  for (let b = 0; b < resolvedBeats; b++) {
-    const res = beatRes[b] || 4;
-    const anglePerStep = anglePerBeat / res;
-    const beatStartAngle = -Math.PI / 2 + (b * anglePerBeat);
-    for (let s = 0; s < res; s++) {
-      stepAngles.push(beatStartAngle + s * anglePerStep);
-    }
+  if (typeof resolvedBeatsOrTimeSig === 'string') {
+    return computeRodaStepAngles(resolvedBeatsOrTimeSig, beatResolutions);
   }
-
+  const beats = Math.max(1, resolvedBeatsOrTimeSig || 4);
+  const anglePerBeat = (Math.PI * 2) / beats;
+  const stepAngles: number[] = [];
+  for (let b = 0; b < beats; b++) {
+    const res = Math.max(1, beatResolutions?.[b] || 4);
+    const anglePerStep = anglePerBeat / res;
+    const beatStartAngle = -Math.PI / 2 + b * anglePerBeat;
+    for (let s = 0; s < res; s++) stepAngles.push(beatStartAngle + s * anglePerStep);
+  }
   return stepAngles;
 };

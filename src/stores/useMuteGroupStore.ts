@@ -1,11 +1,10 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { MuteGroupId, MOBILE_FAMILIES, MobileFamilyId } from '../components/mobile/mobileFamilyConfig';
+import { MuteGroupId, MOBILE_FAMILIES } from '../components/mobile/mobileFamilyConfig';
 import { useSequencerStore } from './useSequencerStore';
-import { getFamilyTracks } from '../utils/mobileFamilyResolver';
+import { applyFamilyMute } from '../utils/mobileFamilyResolver';
 
 interface MuteGroupState {
   muteGroupAssignments: Record<MuteGroupId, string[]>;
@@ -25,34 +24,21 @@ function syncFamilyMuteStates(
   affectedFamilyIds: string[]
 ) {
   const store = useSequencerStore.getState();
-  const tracks = store.tracks;
-  if (!tracks || tracks.length === 0) return;
+  if (!store.tracks || store.tracks.length === 0 || affectedFamilyIds.length === 0) return;
 
-  const trackMuteMap = new Map<number, boolean>();
-
-  for (const rawFamId of affectedFamilyIds) {
-    const famId = normalizeFamilyId(rawFamId);
-    const isMutedByAnyActiveGroup = ([1, 2, 3, 4] as MuteGroupId[]).some(
-      (g) => {
+  store.setTracks((prev) => {
+    let updated = prev;
+    for (const rawFamId of affectedFamilyIds) {
+      const famId = normalizeFamilyId(rawFamId);
+      const isMutedByAnyActiveGroup = ([1, 2, 3, 4] as MuteGroupId[]).some((g) => {
         if (!activeGroups[g]) return false;
         const assigned = (assignments[g] || []).map(normalizeFamilyId);
         return assigned.includes(famId);
-      }
-    );
-    const familyTracks = getFamilyTracks(tracks, famId);
-    for (const t of familyTracks) {
-      trackMuteMap.set(t.id, isMutedByAnyActiveGroup);
+      });
+      updated = applyFamilyMute(updated, famId, isMutedByAnyActiveGroup);
     }
-  }
-
-  if (trackMuteMap.size === 0) return;
-
-  store.setTracks((prev) =>
-    prev.map((t) => {
-      const shouldMute = trackMuteMap.get(t.id);
-      return shouldMute !== undefined ? { ...t, isMute: shouldMute } : t;
-    })
-  );
+    return updated;
+  });
 }
 
 export const useMuteGroupStore = create<MuteGroupState>()(
@@ -71,8 +57,7 @@ export const useMuteGroupStore = create<MuteGroupState>()(
           4: norm(assignments[4]),
         };
         set({ muteGroupAssignments: normalized });
-        const allFamIds = MOBILE_FAMILIES.map((f) => f.id);
-        syncFamilyMuteStates(normalized, get().activeMuteGroups, allFamIds);
+        syncFamilyMuteStates(normalized, get().activeMuteGroups, MOBILE_FAMILIES.map((f) => f.id));
       },
 
       toggleFamilyInMuteGroup: (groupId, familyId) => {
@@ -83,7 +68,6 @@ export const useMuteGroupStore = create<MuteGroupState>()(
         const nextAssignments = { ...get().muteGroupAssignments, [groupId]: updatedList };
 
         set({ muteGroupAssignments: nextAssignments });
-
         if (get().activeMuteGroups[groupId]) {
           syncFamilyMuteStates(nextAssignments, get().activeMuteGroups, [normFamId]);
         }
